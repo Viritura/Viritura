@@ -51,7 +51,8 @@ fn test_grace_color_deserializes() {
         "color": "#ff8800"
     }"##;
     let raw: crate::raw::Grace = serde_json::from_str(json).unwrap();
-    let grace = crate::promote::event::promote_grace(raw).unwrap();
+    let grace =
+        crate::promote::event::promote_grace_with_json(raw, &serde_json::Value::Null).unwrap();
     assert_eq!(grace.color.as_deref(), Some("#ff8800"));
 }
 

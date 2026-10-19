@@ -18,6 +18,7 @@ pub(super) struct SpacingSnapshot<'a> {
     pub caesura_widths: HashMap<BeatKey, f64>,
     pub cross_staff_onsets: HashSet<BeatKey>,
     pub arpeggio_onsets: HashSet<BeatKey>,
+    pub note_marking_onsets: HashSet<BeatKey>,
     pub right_ink_extents: HashMap<BeatKey, f64>,
     pub accidental_ink_floors: HashMap<BeatKey, f64>,
     pub clustered_tie_gaps: HashSet<(BeatKey, BeatKey)>,
@@ -47,6 +48,7 @@ pub(super) fn build_spacing_snapshot<'a>(
         caesura_widths: HashMap::new(),
         cross_staff_onsets: HashSet::new(),
         arpeggio_onsets: HashSet::new(),
+        note_marking_onsets: HashSet::new(),
         right_ink_extents: HashMap::new(),
         accidental_ink_floors: HashMap::new(),
         clustered_tie_gaps: HashSet::new(),
@@ -105,7 +107,7 @@ pub(super) fn build_spacing_snapshot<'a>(
                     &mut measure_accidentals,
                     &mut snapshot,
                 );
-                collect_event_facts(source, accidental_extent, &mut snapshot);
+                collect_event_facts(source, accidental_extent, config, &mut snapshot);
                 staff_events.push(source);
             }
         }
@@ -180,10 +182,30 @@ fn collect_grace_facts(
 fn collect_event_facts(
     source: SpacingEvent<'_>,
     accidental_extent: f64,
+    config: &LayoutConfig,
     snapshot: &mut SpacingSnapshot<'_>,
 ) {
     let event = source.event;
     if let Some(notes) = &event.notes {
+        let has_note_marking = notes.iter().any(|note| {
+            note.markings
+                .as_ref()
+                .is_some_and(|markings| markings.slide_in.is_some() || markings.slide_out.is_some())
+        });
+        if has_note_marking {
+            snapshot.note_marking_onsets.insert(source.key);
+        }
+        if notes.iter().any(|note| {
+            note.markings
+                .as_ref()
+                .is_some_and(|markings| markings.slide_out.is_some())
+        }) {
+            max_entry(
+                &mut snapshot.right_ink_extents,
+                source.key,
+                1.15 + config.notehead_rx,
+            );
+        }
         if notes_contain_second(notes) {
             snapshot.second_onsets.insert(source.key);
         }

@@ -806,6 +806,39 @@ describe("convertMusicXmlToMnx — articulations", () => {
   });
 });
 
+describe("convertMusicXmlToMnx — note slide markings", () => {
+  it("converts scoop, plop, falloff and doit to their originating chord notes without vendor extensions", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration><type>quarter</type>
+        <notations><articulations><scoop/><staccato/></articulations></notations>
+      </note>
+      <note>
+        <chord/><pitch><step>E</step><octave>4</octave></pitch>
+        <duration>1</duration><type>quarter</type>
+        <notations><articulations><plop/><falloff/></articulations></notations>
+      </note>
+      <note>
+        <chord/><pitch><step>G</step><octave>4</octave></pitch>
+        <duration>1</duration><type>quarter</type>
+        <notations><articulations><doit/></articulations></notations>
+      </note>
+    `);
+    const event = convertMusicXmlToMnx(xml, { includeVendorExtensions: false }).parts[0]!.measures[0]!.sequences![0]!
+      .content[0]! as {
+      notes: Array<{ markings?: { slideIn?: { type: string }; slideOut?: { type: string } } }>;
+      markings?: { staccato?: unknown };
+    };
+    expect(event.notes.map((note) => note.markings)).toEqual([
+      { slideIn: { type: "scoop" } },
+      { slideIn: { type: "plop" }, slideOut: { type: "falloff" } },
+      { slideOut: { type: "doit" } },
+    ]);
+    expect(event.markings?.staccato).toBeDefined();
+  });
+});
+
 // ═══════════════════════════════════════════════════════════════════════
 // Fermata & Ornaments
 // ═══════════════════════════════════════════════════════════════════════

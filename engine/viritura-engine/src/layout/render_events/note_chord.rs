@@ -216,6 +216,12 @@ pub(crate) fn render_note_chord(
             style,
         );
     }
+
+    for (i, note) in notes.iter().enumerate() {
+        let note_y = staff_y + note_positions.get(i).copied().unwrap_or(0.0) * staff_sp * 0.5;
+        let note_x = x + note_x_offsets.get(i).copied().unwrap_or(0.0) * notehead_w;
+        super::note_markings::render_note_markings(dl, element_id, note, i, note_x, note_y, sp);
+    }
 }
 
 #[allow(clippy::too_many_arguments)] // stem metrics distinguish full staff coordinates from grace-sized ink

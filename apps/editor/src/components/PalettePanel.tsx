@@ -60,6 +60,7 @@ import {
   applyTremoloToSelection,
   removeTremolosFromSelection,
 } from "../radialMenu/applyToSelection";
+import { applyNoteMarkingToSelection, type NoteMarkingChange } from "../radialMenu/noteMarkingSelection";
 import {
   addDynamic,
   addDynamicExpression,
@@ -222,6 +223,14 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     const ev = getEventAtLocation(docScore, loc);
     if (!ev || !("markings" in ev)) return null;
     return (ev as unknown as Record<string, unknown>).markings as Record<string, unknown> | undefined;
+  }, [active, selection, docScore]);
+
+  const selectedNoteMarkings = useMemo(() => {
+    if (active || selection.kind !== "single" || selection.elementType !== "note" || !docScore) return null;
+    const loc = resolveEventFromSubElement(selection.elementId, docScore);
+    if (!loc || loc.noteIndex === undefined) return null;
+    const event = getEventAtLocation(docScore, loc);
+    return event?.type === "event" ? (event.notes?.[loc.noteIndex]?.markings ?? null) : null;
   }, [active, selection, docScore]);
 
   // Derive tie/slur/lv active state from model when not in input mode
@@ -676,6 +685,12 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     // second press clears it — instead of inverting each note independently.
     (articulation: ArticulationType) => () =>
       applySelectionScore((score, sel) => applyArticulationToSelection(score, sel, articulation, selectedScoreIndex)),
+    [applySelectionScore, selectedScoreIndex],
+  );
+
+  const handleNoteMarking = useCallback(
+    (change: NoteMarkingChange) => () =>
+      applySelectionScore((score, sel) => applyNoteMarkingToSelection(score, sel, change, selectedScoreIndex)),
     [applySelectionScore, selectedScoreIndex],
   );
 
@@ -1514,6 +1529,39 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
               onClick={handleArticulation(item.articulation)}
             />
           ))}
+        </div>
+      ),
+    },
+    {
+      id: "note-markings",
+      title: "Note markings",
+      show: !searchQuery || "scoop plop falloff doit note markings".includes(searchLower),
+      render: () => (
+        <div style={gridStyle}>
+          <PaletteButton
+            label="Scoop"
+            title="Slide into the note from below"
+            active={selectedNoteMarkings?.slideIn?.type === "scoop"}
+            onClick={handleNoteMarking({ key: "slideIn", type: "scoop" })}
+          />
+          <PaletteButton
+            label="Plop"
+            title="Slide into the note from above"
+            active={selectedNoteMarkings?.slideIn?.type === "plop"}
+            onClick={handleNoteMarking({ key: "slideIn", type: "plop" })}
+          />
+          <PaletteButton
+            label="Falloff"
+            title="Slide down from the note"
+            active={selectedNoteMarkings?.slideOut?.type === "falloff"}
+            onClick={handleNoteMarking({ key: "slideOut", type: "falloff" })}
+          />
+          <PaletteButton
+            label="Doit"
+            title="Slide up from the note"
+            active={selectedNoteMarkings?.slideOut?.type === "doit"}
+            onClick={handleNoteMarking({ key: "slideOut", type: "doit" })}
+          />
         </div>
       ),
     },

@@ -2,6 +2,7 @@ use super::direction::Caesura;
 use super::duration::Duration;
 use super::kit::NoteheadShape;
 use super::kit::PerformOptions;
+use super::note_markings::NoteMarkings;
 use super::pitch::Pitch;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -56,6 +57,8 @@ pub struct Note {
     pub perform: Option<PerformOptions>,
     /// Viritura `_x.viritura.notehead` override for a pitched note.
     pub notehead: Option<NoteheadShape>,
+    /// Native MNX markings attached to this individual note.
+    pub markings: Option<NoteMarkings>,
     /// Source part index for condensing (internal, not serialized).
     /// Set when this note was merged from a specific source part in a condensed chord.
     pub source_part_index: Option<usize>,
@@ -86,6 +89,7 @@ impl Default for Note {
             kit_component: None,
             perform: None,
             notehead: None,
+            markings: None,
             source_part_index: None,
             source_event_id: None,
             source_note_index: None,
@@ -121,6 +125,8 @@ struct NoteRaw {
     perform: Option<PerformOptions>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "_x")]
     x: Option<NoteVendorExtensions>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    markings: Option<NoteMarkings>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -160,6 +166,7 @@ impl Serialize for Note {
             x: self.notehead.map(|notehead| NoteVendorExtensions {
                 viritura: NoteVirituraExtensions { notehead },
             }),
+            markings: self.markings.clone(),
         };
         raw.serialize(serializer)
     }

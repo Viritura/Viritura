@@ -14,6 +14,8 @@ import { ClefSection } from "./inspector/ClefSection";
 import { MeasureRepeatInspector } from "./inspector/MeasureRepeatInspector";
 import { ColorSection } from "./inspector/ColorSection";
 import { NoteheadSection } from "./inspector/NoteheadSection";
+import { NoteMarkingsSection } from "./inspector/NoteMarkingsSection";
+import { useNoteMarkingHandler } from "./inspector/useNoteMarkingHandler";
 import { FermataSection } from "./inspector/FermataSection";
 import { CaesuraSection } from "./inspector/CaesuraSection";
 import { RestPositionSection } from "./inspector/RestPositionSection";
@@ -140,6 +142,13 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   } = useAccidentalAndTrillHandlers({ score, target, updateScore, commitPatches });
 
   const { notehead: selectedNotehead, handleNoteheadChange } = useNoteheadHandler({ score, target, updateScore });
+  const noteMarkingHandlers = useNoteMarkingHandler({
+    note: selectedNote,
+    event: selectedEvent,
+    target,
+    partId: score?.parts[target?.partIndex ?? -1]?.id,
+    commitPatches,
+  });
   const {
     selectionTarget: colorTarget,
     colorInput,
@@ -397,6 +406,14 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             note={selectedNote}
             onModeChange={handleAccidentalDisplayModeChange}
             onEnclosureChange={handleAccidentalEnclosureChange}
+          />
+        )}
+
+        {!isLyricSelected && selectedElementType === "note" && selectedNote && (
+          <NoteMarkingsSection
+            markings={selectedNote.markings}
+            onSlideInChange={noteMarkingHandlers.setSlideIn}
+            onSlideOutChange={noteMarkingHandlers.setSlideOut}
           />
         )}
 

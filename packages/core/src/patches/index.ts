@@ -41,6 +41,7 @@ export type {
   SetMeasureArpeggioPatch,
   SetMeasureDynamicGroupPatch,
   SetNoteFieldPatch,
+  SetNoteMarkingPatch,
   SetNotePitchPatch,
   SetPartFieldPatch,
   SetPartMeasureFieldPatch,

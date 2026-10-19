@@ -28,6 +28,7 @@ pub(super) fn collect_shape_obstacles(
     let (shape_band_lo, shape_band_hi) = staff_obstacle_band(staff_y, sp);
     for shape in dl.element_shapes.iter().skip(staff_shape_start) {
         let is_articulation = matches!(shape.kind, ElementKind::Articulation);
+        let is_note_marking = matches!(shape.kind, ElementKind::NoteMarking);
         let is_fermata = matches!(shape.kind, ElementKind::Fermata);
         let is_beam = matches!(shape.kind, ElementKind::Beam);
         let is_tuplet = matches!(shape.kind, ElementKind::Tuplet);
@@ -36,6 +37,7 @@ pub(super) fn collect_shape_obstacles(
         let is_ledger = matches!(shape.kind, ElementKind::LedgerLine);
         let is_tie = matches!(shape.kind, ElementKind::Tie);
         if !(is_articulation
+            || is_note_marking
             || is_fermata
             || is_beam
             || is_tuplet
@@ -51,6 +53,12 @@ pub(super) fn collect_shape_obstacles(
         };
         let center_y = bbox.y + bbox.height * 0.5;
         let inside_shape_band = center_y >= shape_band_lo && center_y <= shape_band_hi;
+        if is_note_marking {
+            if inside_shape_band {
+                obstacles.push(shape_obstacle(None, 0, bbox, true, false));
+            }
+            continue;
+        }
         if is_articulation || is_fermata {
             merge_articulation_shape(
                 event_map,

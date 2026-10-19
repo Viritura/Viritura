@@ -8,10 +8,97 @@ use crate::layout::measure::*;
 use crate::layout::resolve::*;
 use crate::layout::types::GraceNoteLayout;
 use crate::layout::{layout_full_score, layout_score};
-use crate::model::{Duration, Event, KeySignature, Note, NoteValueBase, Pitch};
+use crate::model::{
+    Duration, Event, KeySignature, Note, NoteMarkings, NoteValueBase, Pitch, SlideInMarking,
+    SlideInType,
+};
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
+
+#[test]
+fn grace_note_marking_scales_with_its_notehead() {
+    let config = LayoutConfig::default();
+    let staff_sp = 10.0;
+    let event = Event {
+        duration: Duration {
+            base: NoteValueBase::Eighth,
+            dots: None,
+        },
+        notes: Some(vec![Note {
+            pitch: Pitch {
+                step: "C".into(),
+                octave: 4,
+                alter: None,
+            },
+            markings: Some(NoteMarkings {
+                slide_in: Some(SlideInMarking {
+                    type_: SlideInType::Scoop,
+                    id: None,
+                    comment: None,
+                    vendor_extensions: None,
+                }),
+                ..NoteMarkings::default()
+            }),
+            ..Note::default()
+        }]),
+        id: Some("grace-event".into()),
+        rest: None,
+        staff: None,
+        slurs: None,
+        glissandos: None,
+        markings: None,
+        fermata: None,
+        lyrics: None,
+        stem_direction: None,
+    };
+    let grace = GraceNoteLayout {
+        display_pitches: event
+            .notes()
+            .iter()
+            .map(|note| note.pitch.clone())
+            .collect(),
+        event,
+        x: 80.0,
+        note_positions: vec![0.0],
+        stem_up: true,
+        after_main: false,
+        is_slash: false,
+        id: Some("grace-event".into()),
+        color: None,
+    };
+    let mut display = DisplayList::new(0.0, 0.0);
+    render_grace_event(
+        &mut display,
+        &grace,
+        100.0,
+        staff_sp,
+        &config,
+        &std::collections::HashSet::new(),
+        &mut GraceRenderContext {
+            active_key: &KeySignature::default(),
+            measure_acc: &mut std::collections::HashMap::new(),
+            use_accidental_display: false,
+            kit: None,
+            tie_accidentals: None,
+        },
+        "grace-event",
+    );
+
+    let marking = display
+        .element_shapes
+        .iter()
+        .find(|shape| shape.kind == ElementKind::NoteMarking)
+        .expect("grace slide marking is registered");
+    let bbox = marking
+        .bbox(&display.commands)
+        .expect("curve bounds are available");
+    assert!(
+        bbox.width < staff_sp * 0.8,
+        "grace marking must use grace-scaled notehead geometry, got {}",
+        bbox.width
+    );
+}
 
 #[test]
 fn test_grace_score_renderer_preserves_plain_ink() {

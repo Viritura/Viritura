@@ -147,6 +147,14 @@ impl GraceSpacingContext<'_> {
             };
             left = left.max(origin - bbox_x);
             right = right.max(smufl::notehead_right_extent(cp));
+            if let Some(markings) = &note.markings {
+                if markings.slide_in.is_some() {
+                    left = left.max(1.15 + 2.0 * self.config.notehead_rx);
+                }
+                if markings.slide_out.is_some() {
+                    right = right.max(1.15 + 2.0 * self.config.notehead_rx);
+                }
+            }
             if self.clef.is_some_and(|clef| {
                 let pitch = spacing_display_pitch(note, self.transposition);
                 let position = (4 - clef.line_from_bottom()) * 2

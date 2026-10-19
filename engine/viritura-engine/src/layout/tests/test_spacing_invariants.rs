@@ -152,6 +152,21 @@ fn dense_sixteenths_balance_plain_and_accidental_gaps() {
 }
 
 #[test]
+fn note_slide_markings_reserve_horizontal_ink_clearance() {
+    let spacing = spacing(
+        r#"
+        {"duration":{"base":"16th"},"notes":[{"pitch":{"step":"C","octave":4},"markings":{"slideOut":{"type":"doit"}}}]},
+        {"duration":{"base":"16th"},"notes":[{"pitch":{"step":"D","octave":4}}]}
+        "#,
+    );
+    let gap = spacing.mapping[1].1 - spacing.mapping[0].1;
+    assert!(
+        gap >= 2.7 - 0.01,
+        "neighboring onsets must clear the note-marking envelopes, got {gap}sp"
+    );
+}
+
+#[test]
 fn dotted_rest_clears_adjacent_sixteenth_ink_in_both_directions() {
     let json = r#"{
         "mnx": {"version": 1},

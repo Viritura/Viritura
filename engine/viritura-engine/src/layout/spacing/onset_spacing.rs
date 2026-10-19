@@ -28,6 +28,9 @@ fn displaced_notehead_gap_floor(config: &LayoutConfig) -> f64 {
 }
 
 const CLUSTER_TIE_MIN_GAP_SP: f64 = 3.8;
+// The curve can extend 1.15 staff spaces from each neighboring notehead,
+// with 0.4 spaces of ink clearance between the two marking envelopes.
+const NOTE_MARKING_MIN_GAP_SP: f64 = 2.7;
 
 fn after_grace_gap_floor(
     snapshot: &SpacingSnapshot<'_>,
@@ -474,6 +477,13 @@ fn build_spacing_from_sequences(
         } else {
             0.0
         };
+        let note_marking_min = if snapshot.note_marking_onsets.contains(&beat_key)
+            || next_key.is_some_and(|key| snapshot.note_marking_onsets.contains(&key))
+        {
+            NOTE_MARKING_MIN_GAP_SP
+        } else {
+            0.0
+        };
         let previous_notehead_extent = if snapshot.second_onsets.contains(&beat_key) {
             4.0 * config.notehead_rx
         } else {
@@ -505,6 +515,7 @@ fn build_spacing_from_sequences(
             .min_note_spacing
             .max(notehead_floor)
             .max(cross_staff_min)
+            .max(note_marking_min)
             .max(displaced_floor)
             .max(accidental_floor)
             .max(accidental_ink_floor)

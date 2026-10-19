@@ -54,6 +54,11 @@ pub fn notehead(event_id: &str, note_index: usize) -> String {
     format!("{}/n{}", event_id, note_index)
 }
 
+/// Note-scoped slide marking: `{notehead_id}/{slideIn|slideOut}`.
+pub fn note_marking(notehead_id: &str, marking: &str) -> String {
+    format!("{notehead_id}/{marking}")
+}
+
 /// Individual notehead routed to its source event after condensing.
 pub fn source_notehead(
     fallback_event_id: &str,

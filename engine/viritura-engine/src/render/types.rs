@@ -89,6 +89,7 @@ pub enum ElementKind {
     Accidental,
     AugmentationDot,
     Articulation,
+    NoteMarking,
     Fermata,
     Tremolo,
     Slur,
@@ -192,7 +193,7 @@ impl ElementKind {
             Slur | Tie | Hairpin | Pedal | Volta | Ottava | Glissando => Some(FieldRole::Connector),
             Articulation | Fermata | Lyric | Dynamic | Tempo | RehearsalMark | MeasureNumber
             | Expression | ChordSymbol | Segno | Coda | Fine | Jump | Ornament | Trill
-            | BreathMark | Caesura => Some(FieldRole::Dependent),
+            | BreathMark | Caesura | NoteMarking => Some(FieldRole::Dependent),
             // Genuine fallback: bare event ids and not-yet-classified glyphs.
             Other => None,
         }

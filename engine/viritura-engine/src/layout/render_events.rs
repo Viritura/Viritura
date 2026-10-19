@@ -20,6 +20,8 @@ use accidental_shapes::{register_accidental_shape, tag_accidental, AccidentalPla
 mod tie_accidentals;
 pub(crate) use tie_accidentals::{compute_tie_accidental_map, compute_tie_accidental_map_refs};
 mod note_chord;
+#[path = "render_events/note_markings.rs"]
+mod note_markings;
 pub(crate) use note_chord::{notehead_for_note, render_note_chord, NoteChordInput, NoteChordStyle};
 
 /// Compute the stem tip Y, ensuring stems on ledger-line notes extend at least

@@ -64,6 +64,81 @@ fn test_articulations_render_glyphs() {
 }
 
 #[test]
+fn note_slide_markings_render_and_tag_their_chord_noteheads() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "sequences": [{"content": [{
+                "id": "chord",
+                "duration": {"base": "half"},
+                "notes": [
+                    {"id": "low", "pitch": {"step": "C", "octave": 4},
+                     "markings": {"slideIn": {"type": "scoop"}}},
+                    {"id": "high", "pitch": {"step": "G", "octave": 4},
+                     "markings": {"slideOut": {"type": "doit"}}}
+                ]
+            }]}]
+        }]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let notes = score.parts[0].measures[0].sequences[0].content[0]
+        .as_event()
+        .unwrap()
+        .notes
+        .as_ref()
+        .unwrap();
+    assert_eq!(
+        notes[0]
+            .markings
+            .as_ref()
+            .and_then(|markings| markings.slide_in.as_ref())
+            .map(|marking| marking.type_),
+        Some(crate::model::note_markings::SlideInType::Scoop)
+    );
+    assert_eq!(
+        notes[1]
+            .markings
+            .as_ref()
+            .and_then(|markings| markings.slide_out.as_ref())
+            .map(|marking| marking.type_),
+        Some(crate::model::note_markings::SlideOutType::Doit)
+    );
+
+    let display_list = layout_score(&score, 0, &LayoutConfig::default());
+    let marking_shapes: Vec<_> = display_list
+        .element_shapes
+        .iter()
+        .filter(|shape| shape.kind == ElementKind::NoteMarking)
+        .collect();
+    assert_eq!(marking_shapes.len(), 2);
+    assert!(marking_shapes
+        .iter()
+        .any(|shape| shape.element_id.ends_with("/n0/slideIn")));
+    assert!(marking_shapes
+        .iter()
+        .any(|shape| shape.element_id.ends_with("/n1/slideOut")));
+    for shape in marking_shapes {
+        let bbox = shape
+            .bbox(&display_list.commands)
+            .expect("marking shape resolves its bezier command bounds");
+        assert!(bbox.width > 0.0 && bbox.height > 0.0);
+        let command_index = match shape.geom {
+            ShapeGeom::Cmd { cmd_idx } => cmd_idx as usize,
+            _ => panic!("note marking should point to its draw command"),
+        };
+        assert!(matches!(
+            display_list.commands[command_index],
+            RenderCommand::DrawBezier { .. }
+        ));
+        assert_eq!(
+            display_list.element_ids[command_index].as_deref(),
+            Some(shape.element_id.as_str())
+        );
+    }
+}
+
+#[test]
 fn test_articulation_explicit_orient_below() {
     let json = r#"{
         "mnx": {"version": 1},

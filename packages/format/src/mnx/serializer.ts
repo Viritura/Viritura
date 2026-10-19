@@ -753,11 +753,25 @@ function serializeNote(n: Note): Obj {
     if (n.written.diatonicDelta !== undefined) w["diatonicDelta"] = n.written.diatonicDelta;
     nObj["written"] = w;
   }
+  if (n.markings) {
+    const markings: Obj = {};
+    if (n.markings.slideIn) markings["slideIn"] = serializeNoteSlide(n.markings.slideIn);
+    if (n.markings.slideOut) markings["slideOut"] = serializeNoteSlide(n.markings.slideOut);
+    if (Object.keys(markings).length > 0) nObj["markings"] = markings;
+  }
   // _x.viritura.notehead: per-note notehead-shape override (MNX issue #249).
   if (n.notehead !== undefined) {
     nObj["_x"] = { viritura: { notehead: n.notehead } };
   }
   return nObj;
+}
+
+function serializeNoteSlide(marking: { type: string; id?: string; _c?: string; _x?: Record<string, unknown> }): Obj {
+  const result: Obj = { type: marking.type };
+  if (marking.id !== undefined) result["id"] = marking.id;
+  if (marking._c !== undefined) result["_c"] = marking._c;
+  if (marking._x !== undefined) result["_x"] = marking._x;
+  return result;
 }
 
 function serializeKitNote(kn: KitNote): Obj {

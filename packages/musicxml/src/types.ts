@@ -299,6 +299,7 @@ export interface MnxNote {
     enclosure?: { symbol: "parentheses" | "brackets" };
   };
   id?: string;
+  markings?: MnxNoteMarkings;
   ties?: MnxTie[];
   staff?: number;
   /** Vendor-extension per-note notehead override (mapped from a MusicXML
@@ -307,6 +308,17 @@ export interface MnxNote {
    *  kit-components, then discards the note entirely (replaced by
    *  `kitNotes`), so it never survives onto a drum hit. */
   _x?: { viritura: { notehead?: string } };
+}
+
+export interface MnxNoteMarkingMetadata {
+  id?: string;
+  _c?: string;
+  _x?: Record<string, unknown>;
+}
+
+export interface MnxNoteMarkings {
+  slideIn?: MnxNoteMarkingMetadata & { type: "scoop" | "plop" };
+  slideOut?: MnxNoteMarkingMetadata & { type: "falloff" | "doit" };
 }
 
 export interface MnxTie {

@@ -71,7 +71,37 @@ export type Written = RawWritten;
  * notehead for a single pitched note (e.g. a diamond harmonic inside an
  * otherwise normal chord). Stored per-note because chords mix noteheads.
  */
-export type Note = HoistVendor<Narrow<RawNote, { pitch: Pitch }>, { notehead?: NoteheadShape }>;
+export type Note = HoistVendor<Narrow<RawNote, { pitch: Pitch }>, { notehead?: NoteheadShape }> & {
+  /** MNX note-attached slides, independent of event/chord markings. */
+  markings?: NoteMarkings;
+};
+
+/** MNX slide-in type. These are notation marks, not timed playback curves. */
+export type SlideInType = "scoop" | "plop";
+
+/** MNX slide-out type. These are notation marks, not timed playback curves. */
+export type SlideOutType = "falloff" | "doit";
+
+/** Metadata shared by the two note-level slide markings. */
+export interface NoteSlideMetadata {
+  id?: string;
+  _c?: string;
+  _x?: Record<string, unknown>;
+}
+
+export interface SlideInMarking extends NoteSlideMetadata {
+  type: SlideInType;
+}
+
+export interface SlideOutMarking extends NoteSlideMetadata {
+  type: SlideOutType;
+}
+
+/** Native MNX markings attached to one note, never to its containing chord. */
+export interface NoteMarkings {
+  slideIn?: SlideInMarking;
+  slideOut?: SlideOutMarking;
+}
 
 /** Staccato marking. Derived from MNX raw `staccato`. */
 export type Staccato = RawStaccato;

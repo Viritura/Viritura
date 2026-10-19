@@ -39,6 +39,7 @@ function patchMeasureIndex(p: ScorePatch): number | null {
   switch (p.kind) {
     case "setNotePitch":
     case "setNoteField":
+    case "setNoteMarking":
     case "addNoteToEvent":
     case "removeNoteFromEvent":
       return p.locator.sequencePath.measureIndex;
