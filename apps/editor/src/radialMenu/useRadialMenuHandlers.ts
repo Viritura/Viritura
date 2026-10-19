@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import { produce } from "immer";
 import { toast } from "sonner";
 import { setRepeatStart, setRepeatEnd } from "@viritura/core";
 import type { Score, ScorePatch } from "@viritura/core";
@@ -35,6 +34,7 @@ import { resolveInsertMeasureIndex, timeSignatureMeasureIndexFromSelection } fro
 import { createPickupBar, parsePickupDuration } from "../commands/pickupBar";
 import { openPickupDurationPrompt } from "../store/modalFlowStore";
 import { toggleMeasureRepeatForSelection } from "../commands/measureRepeatCommands";
+import { toggleNavigationMarker } from "../commands/navigationMarkers";
 import {
   applyArticulationToSelection,
   applyTremoloToSelection,
@@ -413,8 +413,8 @@ function dispatchRepeat(id: string, deps: DispatchDeps): void {
     case "segno":
     case "coda":
     case "fine":
-      if (idx !== null) applyUpdate(deps, toggleGlobalMeasureMarker(deps.score, idx, resolved.kind));
-      else warnSelectionRequired();
+    case "jump":
+      applyUpdateOrWarn(deps, toggleNavigationMarker(deps.score, deps.selection, resolved));
       break;
     case "tremolo": {
       const patches = planTremoloForSelection(deps.score, deps.selection, resolved.marks, deps.selectedScoreIndex);
@@ -429,14 +429,4 @@ function dispatchRepeat(id: string, deps: DispatchDeps): void {
       break;
     }
   }
-}
-
-function toggleGlobalMeasureMarker(score: Score, idx: number, prop: "segno" | "coda" | "fine"): Score {
-  return produce(score, (draft) => {
-    const gm = draft.global.measures[idx];
-    if (!gm) return;
-    const rec = gm as Record<string, unknown>;
-    if (rec[prop]) delete rec[prop];
-    else rec[prop] = { location: { fraction: [0, 1] } };
-  });
 }

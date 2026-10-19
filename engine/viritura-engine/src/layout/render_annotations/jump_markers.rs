@@ -13,16 +13,17 @@ use crate::render::*;
 
 #[path = "jump_markers/marker_text.rs"]
 mod marker_text;
+#[path = "jump_markers/positions.rs"]
+mod positions;
 
-use marker_text::{GlyphMarker, RowAnchor};
+use marker_text::GlyphMarker;
 
 /// Render jump markers (segno signs, coda signs, fine, D.S., D.S. al Coda text) above the staff.
 ///
 /// - **Segno**: SMuFL glyph centered above the staff at the marker's position
 /// - **Coda**: SMuFL glyph centered above the staff at the marker's position
-/// - **Fine**: Italic "fine" text, right-aligned at the measure end
-/// - **Jump**: "D.S.", "D.S. al Fine", "D.S. al Coda", or "D.C. al Coda" text, right-aligned
-///   unless a coda shares its barline, in which case it sits to the coda's left
+/// - **Fine / Jump**: Right-aligned instructions at their rhythmic location.
+///   A coincident coda destination owns the right edge of the shared row.
 pub(crate) fn render_jump_markers(
     dl: &mut DisplayList,
     ml: &MeasureLayout,
@@ -38,13 +39,11 @@ pub(crate) fn render_jump_markers(
     let glyph_size = 3.0 * sp;
     // Direction text (Fine, D.S.) — sized to match staff labels
     let text_size = 2.0 * sp; // ~10pt = 2.0sp (standard engraving default)
-    let measure_right =
-        ml.x + ml.prefix_width + super::super::render_barlines::rhythmic_content_width(ml, sp);
-    // Anchor gaps + lift clearance from the placement table so they're visible
-    // in the debug overlay and tunable via `placementDefaults.json` rather than
-    // baked-in literals. Segno/coda (glyphs) and fine/D.S. (text) share this
-    // function: the glyph anchors by `segno.attachGap`, the text by
-    // `fine.attachGap` (jump matches), both lifting by `segno.padding.vertical`.
+                              // Anchor gaps + lift clearance from the placement table so they're visible
+                              // in the debug overlay and tunable via `placementDefaults.json` rather than
+                              // baked-in literals. Segno/coda (glyphs) and fine/D.S. (text) share this
+                              // function: the glyph anchors by `segno.attachGap`, the text by
+                              // `fine.attachGap` (jump matches), both lifting by `segno.padding.vertical`.
     let glyph_attach_gap = config.placement.resolve(ElementKind::Segno).attach_gap;
     let clearance = config
         .placement
@@ -74,80 +73,78 @@ pub(crate) fn render_jump_markers(
 
     let marker_text = global.marker_text();
 
-    // Render segno glyph (centered at measure start, after prefix)
-    if global.segno.is_some() {
-        let segno_x = ml.x + ml.prefix_width + 0.5 * sp;
-        let (slot_offset, _, _, _) = smufl::glyph_bbox(smufl::SEGNO);
+    // Render the segno destination at its authored beat.
+    if let Some(segno) = &global.segno {
+        let segno_x = positions::marker_x(ml, &segno.location, sp);
+        let codepoint = segno
+            .glyph
+            .as_deref()
+            .and_then(smufl::smufl_name_to_codepoint)
+            .unwrap_or(smufl::SEGNO);
         marker_text::emit_glyph_marker(
             dl,
             GlyphMarker {
-                codepoint: smufl::SEGNO,
+                codepoint,
+                color: segno.color.as_deref().unwrap_or("#000000"),
                 glyph_y,
                 glyph_size,
                 text_size,
                 sp,
-                anchor: RowAnchor::Start(segno_x + slot_offset * sp),
+                anchor: segno_x,
                 text: marker_text.and_then(|text| text.segno.as_ref()),
                 element_id: element_id::segno(mi),
             },
         );
     }
 
-    // Render coda glyph. Unlike segno (a forward-referenced landing point that
-    // opens new content), a "to Coda" mark closes out the material it's
-    // attached to — it belongs with the previous bar's content, so it hugs the
-    // trailing barline (right-aligned at measure end) rather than sitting
-    // indented into this measure's own start.
-    let coda_left = global.coda().map(|_| {
+    // A coda destination opens the passage at its authored instant.
+    let coda_left = global.coda.as_ref().map(|coda| {
+        let codepoint = coda
+            .glyph
+            .as_deref()
+            .and_then(smufl::smufl_name_to_codepoint)
+            .unwrap_or(smufl::CODA);
+        let coda_x = positions::marker_x(ml, &coda.location, sp);
         marker_text::emit_glyph_marker(
             dl,
             GlyphMarker {
-                codepoint: smufl::CODA,
+                codepoint,
+                color: coda.color.as_deref().unwrap_or("#000000"),
                 glyph_y,
                 glyph_size,
                 text_size,
                 sp,
-                anchor: RowAnchor::End(measure_right),
+                anchor: coda_x,
                 text: marker_text.and_then(|text| text.coda.as_ref()),
                 element_id: element_id::coda(mi),
             },
         )
     });
 
-    // Render "fine" text (right-aligned at measure end)
-    if global.fine.is_some() {
+    // Concluding instructions end at their authored beat.
+    if let Some(fine) = &global.fine {
+        let measure_right = positions::marker_x(ml, &fine.location, sp);
         let content =
             marker_text::compose_label("fine", marker_text.and_then(|text| text.fine.as_ref()));
         let baseline_y = text_y + baseline_offset;
         let eid = element_id::fine(mi);
-        marker_text::emit_owned_text(
+        marker_text::emit_text_marker(
             dl,
             &content,
             measure_right,
             baseline_y,
             text_size,
             TextAlign::Right,
-            &eid,
+            eid,
+            fine.color.as_deref().unwrap_or("#000000"),
+            sp,
         );
-        // Right-aligned, Alphabetic baseline: the box grows leftward from
-        // `measure_right` and spans the cap band above the baseline down to it,
-        // so the near-staff edge sits exactly `text_attach_gap` above the staff.
-        let text_w = marker_text::text_width(&content, text_size);
-        let text_height = marker_text::text_height(&content, text_size);
-        dl.push_element_bbox_with_shape(ElementBBox {
-            element_id: eid,
-            bbox: BoundingBox::new(
-                measure_right - text_w,
-                baseline_y - text_height,
-                text_w,
-                text_height,
-            ),
-        });
     }
 
-    // Render jump text. A paired coda owns the trailing edge of the barline,
+    // Render jump text. A paired coda owns the right edge of the shared row,
     // so the jump instruction occupies the space immediately to its left.
     if let Some(ref jump) = global.jump {
+        let measure_right = positions::marker_x(ml, &jump.location, sp);
         let generated = match jump.jump_type {
             JumpType::Dc => "D.C.",
             JumpType::DcAlFine => "D.C. al Fine",
@@ -157,11 +154,20 @@ pub(crate) fn render_jump_markers(
             JumpType::DcAlCoda => "D.C. al Coda",
             JumpType::ToCoda => "To Coda",
         };
-        let content =
-            marker_text::compose_label(generated, marker_text.and_then(|text| text.jump.as_ref()));
+        let text = marker_text.and_then(|text| text.jump.as_ref());
+        let content = if jump.jump_type == JumpType::ToCoda {
+            marker_text::compose_to_coda(text)
+        } else {
+            marker_text::compose_label(generated, text)
+        };
         let text_w = marker_text::text_width(&content, text_size);
         let text_height = marker_text::text_height(&content, text_size);
-        let (text_x, align, bbox_x) = match coda_left {
+        let paired_coda = global
+            .coda
+            .as_ref()
+            .filter(|coda| (coda.location.beats() - jump.location.beats()).abs() < 1e-8)
+            .and(coda_left);
+        let (text_x, align, bbox_x) = match paired_coda {
             Some(coda_left) => {
                 let text_right = coda_left - 0.5 * sp;
                 (text_right - text_w, TextAlign::Left, text_right - text_w)
@@ -174,10 +180,8 @@ pub(crate) fn render_jump_markers(
                 resting_baseline.min(ink_top - clearance)
             });
         let eid = element_id::jump(mi);
-        marker_text::emit_owned_text(dl, &content, text_x, baseline_y, text_size, align, &eid);
-        dl.push_element_bbox_with_shape(ElementBBox {
-            element_id: eid,
-            bbox: BoundingBox::new(bbox_x, baseline_y - text_height, text_w, text_height),
-        });
+        marker_text::emit_text_marker(
+            dl, &content, text_x, baseline_y, text_size, align, eid, "#000000", sp,
+        );
     }
 }

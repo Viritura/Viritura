@@ -39,6 +39,7 @@ import {
 } from "../score/condensedWriteback";
 import { useViewStateStore } from "../store/viewStateStore";
 import { toggleMeasureRepeatForSelection } from "../commands/measureRepeatCommands";
+import { JUMP_LABELS, toggleNavigationMarker, type NavigationMarkerCommand } from "../commands/navigationMarkers";
 import { dynamicStaffAtLocation } from "../commands/dynamicStaff";
 import {
   toggleDynamic,
@@ -775,32 +776,10 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     [applySelectionScore, selectedScoreIndex],
   );
 
-  const handleToggleGlobalMeasureProp = useCallback(
-    (prop: "segno" | "coda" | "fine") => () => {
-      const score = store.getState().score;
-      const sel = useSelectionStore.getState().selection;
-      if (!score || sel.kind !== "single") return;
-      // Segno is a landing point that opens new content, so a barline
-      // selection targets the measure AFTER it (like repeat-start). Coda/fine
-      // conclude the bar they're written in, so `measureIndexFromElementId`'s
-      // barline N-1 handling (like repeat-end) is what we want there.
-      const measureIndex =
-        prop === "segno"
-          ? (barlineMeasureIndex() ?? measureIndexFromElementId(sel.elementId, score))
-          : measureIndexFromElementId(sel.elementId, score);
-      if (measureIndex === null) return;
-      const newScore = produce(score, (draft) => {
-        const gm = draft.global.measures[measureIndex];
-        if (!gm) return;
-        if ((gm as Record<string, unknown>)[prop]) {
-          delete (gm as Record<string, unknown>)[prop];
-        } else {
-          (gm as Record<string, unknown>)[prop] = { location: { fraction: [0, 1] } };
-        }
-      });
-      if (newScore !== score) updateScore(newScore);
-    },
-    [store, updateScore, barlineMeasureIndex],
+  const handleNavigationMarker = useCallback(
+    (command: NavigationMarkerCommand) => () =>
+      applySelectionScore((score, selection) => toggleNavigationMarker(score, selection, command)),
+    [applySelectionScore],
   );
 
   const handleAddPedal = useCallback(
@@ -812,33 +791,6 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       });
     },
     [computeSpannerPositions],
-  );
-
-  const handleSetJump = useCallback(
-    (type: string) => () => {
-      const score = store.getState().score;
-      const sel = useSelectionStore.getState().selection;
-      if (!score || sel.kind !== "single") return;
-      // A jump instruction (D.S./D.C. al Coda, ...) concludes the bar it's
-      // written in, so a barline selection targets the measure BEFORE it
-      // (measureIndexFromElementId already does N-1 for barlines).
-      const measureIndex = measureIndexFromElementId(sel.elementId, score);
-      if (measureIndex === null) return;
-      const newScore = produce(score, (draft) => {
-        const gm = draft.global.measures[measureIndex];
-        if (!gm) return;
-        if (
-          (gm as Record<string, unknown>).jump &&
-          ((gm as Record<string, unknown>).jump as { type: string }).type === type
-        ) {
-          delete (gm as Record<string, unknown>).jump;
-        } else {
-          (gm as Record<string, unknown>).jump = { type, location: { fraction: [0, 1] } };
-        }
-      });
-      if (newScore !== score) updateScore(newScore);
-    },
-    [store, updateScore],
   );
 
   const handleSetCaesura = useCallback(() => {
@@ -1391,7 +1343,8 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
   const repeatsNavigationMatch =
     MEASURE_REPEAT_PALETTE_ITEMS.some(matchesSearch) ||
     !searchQuery ||
-    "repeat navigation segno coda fine ending volta".includes(searchLower);
+    "repeat navigation segno coda fine ending volta da capo dal segno".includes(searchLower) ||
+    Object.values(JUMP_LABELS).some((label) => label.toLowerCase().includes(searchLower));
 
   // ── Category catalog ─────────────────────────────────────────
   // One entry per Collapsible section. `show` gates against the current
@@ -1873,13 +1826,24 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
             label={SMUFL.segno}
             title="Segno"
             useBravura
-            onClick={handleToggleGlobalMeasureProp("segno")}
+            onClick={handleNavigationMarker({ kind: "segno" })}
           />
-          <PaletteButton label={SMUFL.coda} title="Coda" useBravura onClick={handleToggleGlobalMeasureProp("coda")} />
-          <PaletteButton label="Fine" title="Fine" onClick={handleToggleGlobalMeasureProp("fine")} />
-          <PaletteButton shape="wide" label="D.S. al Fine" title="D.S. al Fine" onClick={handleSetJump("dsAlFine")} />
-          <PaletteButton shape="wide" label="D.S. al Coda" title="D.S. al Coda" onClick={handleSetJump("dsAlCoda")} />
-          <PaletteButton shape="wide" label="D.C. al Coda" title="D.C. al Coda" onClick={handleSetJump("dcAlCoda")} />
+          <PaletteButton
+            label={SMUFL.coda}
+            title="Coda"
+            useBravura
+            onClick={handleNavigationMarker({ kind: "coda" })}
+          />
+          <PaletteButton label="Fine" title="Fine" onClick={handleNavigationMarker({ kind: "fine" })} />
+          {(Object.keys(JUMP_LABELS) as Array<keyof typeof JUMP_LABELS>).map((type) => (
+            <PaletteButton
+              key={type}
+              shape="wide"
+              label={JUMP_LABELS[type]}
+              title={JUMP_LABELS[type]}
+              onClick={handleNavigationMarker({ kind: "jump", type })}
+            />
+          ))}
           {ENDING_PRESETS.map((p) => (
             <PaletteButton
               shape="wide"

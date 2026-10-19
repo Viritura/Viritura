@@ -10,6 +10,7 @@ import { ChordSymbolSection } from "./ChordSymbolSection";
 import { useChordSymbolInspector } from "./useChordSymbolInspector";
 import { ChordSymbolEntryAction } from "./ChordSymbolEntryAction";
 import { StaffTextFrameFields, StaffTextPositioningField } from "../textFrames";
+import { NavigationMarkerSection } from "./NavigationMarkerSection";
 
 export interface DirectionTextSectionsProps {
   score: Score | null;
@@ -141,6 +142,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
           }}
         />
       )}
+      <NavigationMarkerSection score={score} target={target} updateScore={updateScore} />
       <SelectedMarkerTextSection marker={selectedMarker} onChange={handleMarkerTextChange} />
       {chordSymbol.chord && (
         <ChordSymbolSection
