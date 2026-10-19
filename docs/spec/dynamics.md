@@ -92,7 +92,9 @@ those musical fields.
 - UI-created markings prefer a precomposed glyph or supported glyph sequence
   alongside the semantic fields.
 - Imported semantic-only marks use automatic glyph selection. Explicit
-  sequences render as supplied, without consolidation. An equivalent
+  sequences spelling a recognized dynamic consolidate to its precomposed
+  glyph during engraving, without changing the stored sequence. Other custom
+  sequences retain their explicit symbols. An equivalent
   explicit precomposed glyph uses the same placement as automatic rendering.
 - MusicXML and MuseScore clipboard readers retain automatic standard
   markings rather than imposing the UI authoring preference. Clipboard export

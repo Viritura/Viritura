@@ -520,10 +520,11 @@ fn test_custom_dynamic_glyph_override() {
 
 #[test]
 fn equivalent_explicit_dynamic_glyph_preserves_automatic_placement() {
-    for (value, glyph) in [
-        ("p", "dynamicPiano"),
-        ("mf", "dynamicMF"),
-        ("fff", "dynamicFFF"),
+    for (value, glyph, letters) in [
+        ("p", "dynamicPiano", vec!["dynamicPiano"]),
+        ("mf", "dynamicMF", vec!["dynamicMezzo", "dynamicForte"]),
+        ("fff", "dynamicFFF", vec!["dynamicForte"; 3]),
+        ("pp", "dynamicPP", vec!["dynamicPiano"; 2]),
     ] {
         let document = serde_json::json!({
             "mnx": {"version": 1},
@@ -557,6 +558,19 @@ fn equivalent_explicit_dynamic_glyph_preserves_automatic_placement() {
         explicit["parts"][0]["measures"][0]["dynamics"][0]["glyphs"] = serde_json::json!([glyph]);
         assert_eq!(automatic.len(), 1);
         assert_eq!(render(&explicit), automatic, "{value} placement changed");
+        explicit["parts"][0]["measures"][0]["dynamics"][0]["glyphs"] = serde_json::json!(letters);
+        assert_eq!(
+            render(&explicit),
+            automatic,
+            "{value} letters must consolidate"
+        );
+        explicit["parts"][0]["measures"][0]["dynamics"][0]["glyphs"] =
+            serde_json::json!(["dynamicForte", "dynamicPiano", "dynamicForte"]);
+        assert_eq!(
+            render(&explicit).len(),
+            3,
+            "unknown spelling must retain its symbols"
+        );
     }
 }
 
@@ -584,7 +598,7 @@ fn gradual_dynamic_renders_its_explicit_start_marking_before_the_wedge() {
         .commands
         .iter()
         .filter_map(|command| match command {
-            RenderCommand::DrawGlyph { x, codepoint, .. } if *codepoint == smufl::DYNAMIC_FORTE => {
+            RenderCommand::DrawGlyph { x, codepoint, .. } if *codepoint == smufl::DYNAMIC_FF => {
                 Some(*x)
             }
             _ => None,
@@ -592,10 +606,9 @@ fn gradual_dynamic_renders_its_explicit_start_marking_before_the_wedge() {
         .collect();
     assert_eq!(
         glyphs.len(),
-        2,
-        "explicit sequence must not be consolidated"
+        1,
+        "explicit letters must consolidate independently of semantic value"
     );
-    assert!(glyphs[1] > glyphs[0]);
     let marking = display
         .element_bboxes
         .iter()
