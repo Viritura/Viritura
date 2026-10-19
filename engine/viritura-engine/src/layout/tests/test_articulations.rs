@@ -127,6 +127,25 @@ fn note_slide_markings_render_and_tag_their_chord_noteheads() {
             ShapeGeom::Cmd { cmd_idx } => cmd_idx as usize,
             _ => panic!("note marking should point to its draw command"),
         };
+        let note_id = shape.element_id.rsplit_once('/').unwrap().0;
+        let note_box = display_list
+            .element_shapes
+            .iter()
+            .find(|candidate| {
+                candidate.kind == ElementKind::Notehead && candidate.element_id == note_id
+            })
+            .and_then(|candidate| candidate.bbox(&display_list.commands))
+            .expect("slide marking retains its corresponding notehead");
+        if let RenderCommand::DrawBezier { x1, x2, .. } = display_list.commands[command_index] {
+            if shape.element_id.ends_with("/slideOut") {
+                assert!(
+                    x1 > note_box.x + note_box.width,
+                    "slide-out must start beyond the notehead"
+                );
+            } else {
+                assert!(x2 < note_box.x, "slide-in must end before the notehead");
+            }
+        }
         assert!(matches!(
             display_list.commands[command_index],
             RenderCommand::DrawBezier { .. }

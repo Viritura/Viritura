@@ -220,7 +220,18 @@ pub(crate) fn render_note_chord(
     for (i, note) in notes.iter().enumerate() {
         let note_y = staff_y + note_positions.get(i).copied().unwrap_or(0.0) * staff_sp * 0.5;
         let note_x = x + note_x_offsets.get(i).copied().unwrap_or(0.0) * notehead_w;
-        super::note_markings::render_note_markings(dl, element_id, note, i, note_x, note_y, sp);
+        let cp = per_note_cp(i);
+        let origin = if cp == smufl::NOTEHEAD_DOUBLE_WHOLE {
+            smufl::NOTEHEAD_DOUBLE_WHOLE_ORIGIN.0
+        } else {
+            0.0
+        };
+        let (left, _, width, _) = smufl::glyph_bbox(cp);
+        let note_edges = (
+            note_x + (left - origin) * sp,
+            note_x + (left + width - origin) * sp,
+        );
+        super::note_markings::render_note_markings(dl, element_id, note, i, note_edges, note_y, sp);
     }
 }
 

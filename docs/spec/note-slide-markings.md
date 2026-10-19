@@ -15,6 +15,9 @@ The separate **Note markings** palette follows **Articulations**. The palette
 and inspector update the selected noteheads only, so editing one chord member
 does not change its neighbors. Slide-in and slide-out values can coexist and
 can be removed independently.
+Selections retain each tuplet's identity when applying markings across multiple
+containers. Slide-in curves approach the notehead's left ink edge, and slide-out
+curves start beyond its right ink edge rather than crossing the notehead.
 
 MusicXML articulation elements `scoop`, `plop`, `falloff`, and `doit` are
 converted on their originating XML note. MusicXML `<slide>` remains a

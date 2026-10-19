@@ -41,6 +41,35 @@ function chord(score: Score): NoteEvent {
 }
 
 describe("note-scoped slide markings", () => {
+  it("does not collapse matching note indices in separate tuplets", () => {
+    const score = chordScore();
+    const sequence = score.parts[0]!.measures[0]!.sequences[0]!;
+    sequence.content = [0, 1].map((index) => ({
+      type: "tuplet",
+      outer: { multiple: 2, duration: { base: "eighth" } },
+      inner: { multiple: 3, duration: { base: "eighth" } },
+      content: [
+        {
+          type: "event",
+          id: `tuplet-event-${index}`,
+          duration: { base: "eighth" },
+          notes: [{ id: `tuplet-note-${index}`, pitch: { step: "C", octave: 4 } }],
+        },
+      ],
+    }));
+    const result = applyNoteMarkingToSelection(
+      score,
+      { kind: "multi", elementIds: ["p0/m0/s0/tuplet-event-0/n0", "p0/m0/s0/tuplet-event-1/n0"] },
+      { key: "slideOut", type: "doit" },
+    )!;
+    for (const container of result.parts[0]!.measures[0]!.sequences[0]!.content) {
+      expect(container.type).toBe("tuplet");
+      if (container.type !== "tuplet") continue;
+      const event = container.content[0]!;
+      expect(event.type === "event" && event.notes?.[0]?.markings?.slideOut).toEqual({ type: "doit" });
+    }
+  });
+
   it("changes only the selected chord member and leaves event articulations alone", () => {
     const score = chordScore();
     const selected = { kind: "single", elementId: "p0/m0/s0/ev0/n1", elementType: "note" } as const;

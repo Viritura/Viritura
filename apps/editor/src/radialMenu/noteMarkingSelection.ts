@@ -24,7 +24,14 @@ function resolveTargets(score: Score, selection: SelectionState, selectedScoreIn
     for (const noteIndex of indices) {
       const note = event.notes[noteIndex];
       if (!note) continue;
-      const key = `${location.partIndex}/${location.measureIndex}/${location.sequenceIndex}/${location.eventIndex}/${noteIndex}`;
+      const key = [
+        location.partIndex,
+        location.measureIndex,
+        location.sequenceIndex,
+        location.tupletIndex ?? "",
+        location.eventIndex,
+        noteIndex,
+      ].join("/");
       if (seen.has(key)) continue;
       seen.add(key);
       notes.push({ location, noteIndex });
