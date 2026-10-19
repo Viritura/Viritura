@@ -300,6 +300,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             segno: None,
             fine: None,
             jump: None,
+            coda: None,
             extensions: None,
         });
         let mut part_measure = part.measures.get(i).cloned().unwrap_or(PartMeasure {
@@ -650,7 +651,6 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
         || pg.repeat_end.is_some()
         || pg.fine.is_some()
         || pg.jump.is_some()
-        || jump_in_ext(pg)
         || has_staff_configs(&prev.part)
         || part_interrupts_mmr(&prev.part);
 
@@ -662,14 +662,6 @@ fn has_staff_configs(measure: &PartMeasure) -> bool {
         .staff_configs
         .as_ref()
         .is_some_and(|configs| !configs.is_empty())
-}
-
-/// Vendor-extension jump (`_x.viritura.jump`) on a global measure.
-fn jump_in_ext(m: &GlobalMeasure) -> bool {
-    m.extensions
-        .as_ref()
-        .and_then(|e| e.viritura.as_ref())
-        .is_some_and(|v| v.jump.is_some())
 }
 
 /// Whether any event in the part measure carries a marking that interrupts a

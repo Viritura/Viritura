@@ -4,7 +4,6 @@ import type {
   MeasureRhythmicPosition as RawMeasureRhythmicPosition,
   Beam as RawBeam,
   BeamHookDirection as RawBeamHookDirection,
-  DynamicGroupType as RawDynamicGroupType,
   DynamicValue as RawDynamicValue,
   DynamicPrefix as RawDynamicPrefix,
   DynamicSuffix as RawDynamicSuffix,
@@ -100,8 +99,8 @@ export interface Tempo {
   avoidCollisions?: boolean;
 }
 
-/** Standard MNX dynamic-group discriminator. */
-export type DynamicGroupType = RawDynamicGroupType;
+/** Standard MNX v46 dynamic-group discriminator. */
+export type DynamicGroupType = "immediate" | "gradual" | "relative" | "accent";
 
 /** Standard absolute dynamic values. */
 export type DynamicValue = RawDynamicValue;
@@ -274,7 +273,7 @@ export interface Fine {
   text?: MarkerText;
 }
 
-/** A coda marker on a global measure (Viritura extension). */
+/** A coda marker on a global measure (MNX coda). */
 export interface Coda {
   location: RhythmicPosition;
   glyph?: string;
@@ -282,13 +281,8 @@ export interface Coda {
   text?: MarkerText;
 }
 
-/**
- * Jump type — domain union of MNX (`segno`, `dsalfine`) and the
- * Viritura vendor extension (`dsalcoda`, `dcalcoda`). Cannot alias the
- * raw enum directly because the model collapses both wire enums into
- * one rendering surface.
- */
-export type JumpType = "segno" | "dsalfine" | "dsalcoda" | "dcalcoda";
+/** MNX v46 global-measure jump type. */
+export type JumpType = "dc" | "dcAlCoda" | "dcAlFine" | "dsAlCoda" | "dsAlFine" | "segno" | "toCoda";
 
 /** A jump direction on a global measure (MNX jump). */
 export interface Jump {
@@ -398,7 +392,7 @@ export interface GlobalMeasure {
   jump?: Jump;
   /** Rehearsal mark (Viritura extension) */
   rehearsalMark?: RehearsalMark;
-  /** Coda marker (Viritura extension) */
+  /** Coda marker */
   coda?: Coda;
   /** Caesura (break) marker (Viritura extension) */
   caesura?: Caesura;

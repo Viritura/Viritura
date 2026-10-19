@@ -73,30 +73,74 @@ export interface components {
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
         "clef-sign": "C" | "F" | "G" | "P";
+        coda: {
+            color?: components["schemas"]["color"];
+            glyph?: components["schemas"]["smufl-glyph"];
+            location: components["schemas"]["rhythmic-position"];
+        } & components["schemas"]["global-attrs"];
         color: string;
         /** @enum {string} */
         "direction-hint": "upper" | "lower" | "auto";
-        "dynamic-group": {
+        "dynamic-group-accent": {
             accentPrefix?: components["schemas"]["dynamic-prefix"];
             accentSuffix?: components["schemas"]["dynamic-suffix"];
-            end?: components["schemas"]["measure-rhythmic-position"];
             glyphs?: components["schemas"]["smufl-glyph"][];
             placement?: components["schemas"]["multi-staff-placement"];
             position: components["schemas"]["rhythmic-position"];
             prefix?: components["schemas"]["string"];
-            relativeValue?: components["schemas"]["relative-dynamic-value"];
             residualValue?: components["schemas"]["dynamic-value"];
+            staff?: components["schemas"]["staff-number"];
+            suffix?: components["schemas"]["string"];
+            /** @constant */
+            type: "accent";
+            value: components["schemas"]["dynamic-value"];
+            visuallyContinues?: components["schemas"]["id"];
+            voice?: components["schemas"]["voice-name"];
+        } & components["schemas"]["global-attrs"];
+        "dynamic-group-gradual": {
+            end: components["schemas"]["measure-rhythmic-position"];
+            glyphs?: components["schemas"]["smufl-glyph"][];
+            placement?: components["schemas"]["multi-staff-placement"];
+            position: components["schemas"]["rhythmic-position"];
+            prefix?: components["schemas"]["string"];
             staff?: components["schemas"]["staff-number"];
             staffEnd?: components["schemas"]["staff-number"];
             suffix?: components["schemas"]["string"];
-            type: components["schemas"]["dynamic-group-type"];
+            /** @constant */
+            type: "gradual";
             value?: components["schemas"]["dynamic-value"];
             visuallyContinues?: components["schemas"]["id"];
             voice?: components["schemas"]["voice-name"];
-            wedgeType?: components["schemas"]["wedge-type"];
+            wedgeType: components["schemas"]["wedge-type"];
         } & components["schemas"]["global-attrs"];
-        /** @enum {string} */
-        "dynamic-group-type": "immediate" | "gradual" | "relative" | "accent";
+        "dynamic-group-immediate": {
+            glyphs?: components["schemas"]["smufl-glyph"][];
+            placement?: components["schemas"]["multi-staff-placement"];
+            position: components["schemas"]["rhythmic-position"];
+            prefix?: components["schemas"]["string"];
+            staff?: components["schemas"]["staff-number"];
+            suffix?: components["schemas"]["string"];
+            /** @constant */
+            type: "immediate";
+            value: components["schemas"]["dynamic-value"];
+            visuallyContinues?: components["schemas"]["id"];
+            voice?: components["schemas"]["voice-name"];
+        } & components["schemas"]["global-attrs"];
+        "dynamic-group-relative": {
+            glyphs?: components["schemas"]["smufl-glyph"][];
+            placement?: components["schemas"]["multi-staff-placement"];
+            position: components["schemas"]["rhythmic-position"];
+            prefix?: components["schemas"]["string"];
+            relativeValue: components["schemas"]["relative-dynamic-value"];
+            staff?: components["schemas"]["staff-number"];
+            suffix?: components["schemas"]["string"];
+            /** @constant */
+            type: "relative";
+            value?: components["schemas"]["dynamic-value"];
+            visuallyContinues?: components["schemas"]["id"];
+            voice?: components["schemas"]["voice-name"];
+        } & components["schemas"]["global-attrs"];
+        "dynamic-groups": (components["schemas"]["dynamic-group-immediate"] | components["schemas"]["dynamic-group-gradual"] | components["schemas"]["dynamic-group-relative"] | components["schemas"]["dynamic-group-accent"])[];
         /** @enum {string} */
         "dynamic-prefix": "s" | "r" | "";
         /** @enum {string} */
@@ -127,8 +171,13 @@ export interface components {
             type?: "event";
         } & components["schemas"]["global-attrs"];
         "event-lyric-line": {
+            extender?: components["schemas"]["event-lyric-line-extender"];
             text: components["schemas"]["string"];
             type?: components["schemas"]["event-lyric-line-type"];
+        } & components["schemas"]["global-attrs"];
+        "event-lyric-line-extender": {
+            show?: boolean;
+            target?: components["schemas"]["id"];
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
         "event-lyric-line-type": "start" | "middle" | "end" | "whole";
@@ -207,7 +256,7 @@ export interface components {
             type: components["schemas"]["jump-type"];
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
-        "jump-type": "dsalfine" | "segno";
+        "jump-type": "dc" | "dcAlCoda" | "dcAlFine" | "dsAlCoda" | "dsAlFine" | "segno" | "toCoda";
         key: {
             color?: components["schemas"]["color"];
             fifths: components["schemas"]["fifths"];
@@ -252,6 +301,8 @@ export interface components {
         "measure-count": number;
         "measure-global": {
             barline?: components["schemas"]["barline"];
+            caesura?: components["schemas"]["caesura"];
+            coda?: components["schemas"]["coda"];
             ending?: components["schemas"]["ending"];
             fermata?: components["schemas"]["fermata"];
             fine?: components["schemas"]["fine"];
@@ -306,11 +357,16 @@ export interface components {
         } & components["schemas"]["global-attrs"];
         note: {
             accidentalDisplay?: components["schemas"]["accidental-display"];
+            markings?: components["schemas"]["note-markings"];
             perform?: components["schemas"]["perform-options"];
             pitch: components["schemas"]["pitch"];
             staff?: components["schemas"]["staff-number"];
             ties?: components["schemas"]["tie-list"];
             written?: components["schemas"]["written"];
+        } & components["schemas"]["global-attrs"];
+        "note-markings": {
+            slideIn?: components["schemas"]["slide-into-note"];
+            slideOut?: components["schemas"]["slide-out-of-note"];
         } & components["schemas"]["global-attrs"];
         "note-value": {
             base: components["schemas"]["note-value-base"];
@@ -352,7 +408,7 @@ export interface components {
             arpeggios?: components["schemas"]["arpeggio"][];
             beams?: components["schemas"]["beam-list"];
             clefs?: components["schemas"]["positioned-clef"][];
-            dynamics?: components["schemas"]["dynamic-group"][];
+            dynamics?: components["schemas"]["dynamic-groups"];
             measureRepeat?: components["schemas"]["measure-repeat"];
             nonArpeggios?: components["schemas"]["non-arpeggio"][];
             ottavas?: components["schemas"]["ottava"][];
@@ -428,6 +484,16 @@ export interface components {
         } & components["schemas"]["global-attrs"];
         "sequence-content": (components["schemas"]["event"] | components["schemas"]["grace"] | components["schemas"]["tuplet"] | components["schemas"]["space"] | components["schemas"]["multi-note-tremolo"])[];
         "simple-color": string;
+        "slide-into-note": {
+            type: components["schemas"]["slide-into-note-type"];
+        } & components["schemas"]["global-attrs"];
+        /** @enum {string} */
+        "slide-into-note-type": "scoop" | "plop";
+        "slide-out-of-note": {
+            type: components["schemas"]["slide-out-of-note-type"];
+        } & components["schemas"]["global-attrs"];
+        /** @enum {string} */
+        "slide-out-of-note-type": "falloff" | "doit";
         slur: {
             endNote?: components["schemas"]["id"];
             lineType?: components["schemas"]["line-type"];
@@ -516,6 +582,7 @@ export interface components {
         support: {
             useAccidentalDisplay?: boolean;
             useBeams?: boolean;
+            useLyricExtenders?: boolean;
         } & components["schemas"]["global-attrs"];
         system: {
             layout?: components["schemas"]["id"];
@@ -622,10 +689,14 @@ export type Caesura = components["schemas"]["caesura"];
 export type CaesuraShape = components["schemas"]["caesura-shape"];
 export type Clef = components["schemas"]["clef"];
 export type ClefSign = components["schemas"]["clef-sign"];
+export type Coda = components["schemas"]["coda"];
 export type Color = components["schemas"]["color"];
 export type DirectionHint = components["schemas"]["direction-hint"];
-export type DynamicGroup = components["schemas"]["dynamic-group"];
-export type DynamicGroupType = components["schemas"]["dynamic-group-type"];
+export type DynamicGroupAccent = components["schemas"]["dynamic-group-accent"];
+export type DynamicGroupGradual = components["schemas"]["dynamic-group-gradual"];
+export type DynamicGroupImmediate = components["schemas"]["dynamic-group-immediate"];
+export type DynamicGroupRelative = components["schemas"]["dynamic-group-relative"];
+export type DynamicGroups = components["schemas"]["dynamic-groups"];
 export type DynamicPrefix = components["schemas"]["dynamic-prefix"];
 export type DynamicSuffix = components["schemas"]["dynamic-suffix"];
 export type DynamicValue = components["schemas"]["dynamic-value"];
@@ -635,6 +706,7 @@ export type EndingNumber = components["schemas"]["ending-number"];
 export type EndingOpen = components["schemas"]["ending-open"];
 export type Event = components["schemas"]["event"];
 export type EventLyricLine = components["schemas"]["event-lyric-line"];
+export type EventLyricLineExtender = components["schemas"]["event-lyric-line-extender"];
 export type EventLyricLineType = components["schemas"]["event-lyric-line-type"];
 export type EventLyricLines = components["schemas"]["event-lyric-lines"];
 export type EventMarkings = components["schemas"]["event-markings"];
@@ -683,6 +755,7 @@ export type MultiStaffPlacement = components["schemas"]["multi-staff-placement"]
 export type MultimeasureRest = components["schemas"]["multimeasure-rest"];
 export type NonArpeggio = components["schemas"]["non-arpeggio"];
 export type Note = components["schemas"]["note"];
+export type NoteMarkings = components["schemas"]["note-markings"];
 export type NoteValue = components["schemas"]["note-value"];
 export type NoteValueBase = components["schemas"]["note-value-base"];
 export type NoteValueQuantity = components["schemas"]["note-value-quantity"];
@@ -715,6 +788,10 @@ export type Segno = components["schemas"]["segno"];
 export type Sequence = components["schemas"]["sequence"];
 export type SequenceContent = components["schemas"]["sequence-content"];
 export type SimpleColor = components["schemas"]["simple-color"];
+export type SlideIntoNote = components["schemas"]["slide-into-note"];
+export type SlideIntoNoteType = components["schemas"]["slide-into-note-type"];
+export type SlideOutOfNote = components["schemas"]["slide-out-of-note"];
+export type SlideOutOfNoteType = components["schemas"]["slide-out-of-note-type"];
 export type Slur = components["schemas"]["slur"];
 export type SlurSide = components["schemas"]["slur-side"];
 export type SmuflFont = components["schemas"]["smufl-font"];

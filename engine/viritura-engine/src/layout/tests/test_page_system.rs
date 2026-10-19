@@ -383,6 +383,7 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
         segno: None,
         fine: None,
         jump: None,
+        coda: None,
         extensions: with_mark.then(|| VendorExtensions {
             viritura: Some(GlobalMeasureExtensions {
                 rehearsal_mark: Some(RehearsalMark {
@@ -391,8 +392,6 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
                     manual_offset: None,
                     avoid_collisions: None,
                 }),
-                coda: None,
-                jump: None,
                 marker_text: None,
                 senza_misura: None,
                 chord_symbols: None,

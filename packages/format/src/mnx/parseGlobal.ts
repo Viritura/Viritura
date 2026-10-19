@@ -1,8 +1,9 @@
 // MNX Parser — parseGlobal (split from parser.ts)
 //
 // Schema-defined inputs (sounds, lyrics, measure-global, time, key,
-// barline, ending, tempo, segno, fine, jump, dynamic-group, ottava,
-// rhythmic-position, measure-rhythmic-position, repeat-start, repeat-end)
+// barline, ending, tempo, segno, fine, jump, coda, dynamic-groups,
+// ottava, rhythmic-position, measure-rhythmic-position, repeat-start,
+// repeat-end)
 // now consume the generated Raw* types — schema drift surfaces as a
 // compile error here.
 //
@@ -54,11 +55,12 @@ import type {
   MeasureRhythmicPosition as RawMeasureRhythmicPosition,
   Tempo as RawTempo,
   NoteValue as RawNoteValue,
-  DynamicGroup as RawDynamicGroup,
+  DynamicGroups as RawDynamicGroups,
   Ottava as RawOttava,
   Segno as RawSegno,
   Fine as RawFine,
   Jump as RawJump,
+  Coda as RawCoda,
   Ending as RawEnding,
   RepeatStart as RawRepeatStart,
   RepeatEnd as RawRepeatEnd,
@@ -74,8 +76,6 @@ import type {
   ChordSymbol as RawChordSymbol,
   ChordRoot as RawChordRoot,
   TextExpression as RawTextExpression,
-  Coda as RawCoda,
-  Jump as RawVendorJump,
   MarkerText as RawMarkerText,
   MarkerTexts as RawMarkerTexts,
   GradualTempo as RawGradualTempo,
@@ -140,6 +140,7 @@ export function parseGlobalMeasures(arr: RawMeasureGlobal[] | undefined): Global
 }
 
 function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
+  rejectRetiredNavigationExtensions(raw);
   const measure: GlobalMeasure = {};
 
   if (raw.id) measure.id = raw.id;
@@ -163,6 +164,7 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
   }
   if (raw.segno) measure.segno = parseSegno(raw.segno);
   if (raw.fine) measure.fine = parseFine(raw.fine);
+  if (raw.coda) measure.coda = parseCoda(raw.coda);
   if (raw.jump) measure.jump = parseJump(raw.jump);
 
   // _x.viritura vendor extensions on the global measure
@@ -174,12 +176,6 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
       measure.rehearsalMark = { text: parseTextContent(rm.text) ?? [] };
       if (rm.style) measure.rehearsalMark.style = rm.style;
       applyManualPlacement(measure.rehearsalMark, rm as VendorObj);
-    }
-    if (viritura.coda) {
-      measure.coda = parseCoda(viritura.coda);
-    }
-    if (viritura.jump) {
-      measure.jump = parseJump(viritura.jump);
     }
     applyMarkerTextExtension(measure, viritura.markerText);
     if (viritura.systemText !== undefined) measure.systemText = parseSystemText(viritura.systemText);
@@ -279,22 +275,15 @@ function parseTempoNoteValue(raw: RawNoteValue): TempoNoteValue {
  * keeps the parser's branch count flat as the spec grows.
  */
 const DYNAMIC_GROUP_SCALAR_FIELDS = [
-  "value",
-  "residualValue",
-  "accentPrefix",
-  "accentSuffix",
   "placement",
   "prefix",
-  "relativeValue",
   "staff",
-  "staffEnd",
   "suffix",
   "visuallyContinues",
   "voice",
-  "wedgeType",
-] as const satisfies readonly (keyof DynamicGroupBase & keyof RawDynamicGroup)[];
+] as const satisfies readonly (keyof DynamicGroupBase & keyof RawDynamicGroups[number])[];
 
-export function parseDynamicGroup(raw: RawDynamicGroup): DynamicGroup {
+export function parseDynamicGroup(raw: RawDynamicGroups[number]): DynamicGroup {
   const common: Omit<DynamicGroupBase, "type"> = {
     id: raw.id ?? generateId(),
     position: parseRhythmicPosition(raw.position),
@@ -303,27 +292,39 @@ export function parseDynamicGroup(raw: RawDynamicGroup): DynamicGroup {
     const value = raw[field];
     if (value !== undefined) Object.assign(common, { [field]: value });
   }
-  if (raw.end !== undefined) common.end = parseMeasureRhythmicPosition(raw.end);
   if (raw.glyphs !== undefined) common.glyphs = [...raw.glyphs];
   applyManualPlacement(common, raw._x?.["viritura"] as RawDynamicGroupExt | undefined);
 
   switch (raw.type) {
     case "immediate":
-      if (raw.value === undefined) throw new Error(`Dynamic group ${common.id} of type immediate requires value`);
       return { ...common, type: "immediate", value: raw.value };
     case "gradual":
-      if (common.end === undefined || raw.wedgeType === undefined) {
-        throw new Error(`Dynamic group ${common.id} of type gradual requires end and wedgeType`);
-      }
-      return { ...common, type: "gradual", end: common.end, wedgeType: raw.wedgeType };
+      return {
+        ...common,
+        type: "gradual",
+        end: parseMeasureRhythmicPosition(raw.end),
+        wedgeType: raw.wedgeType,
+        ...(raw.value === undefined ? {} : { value: raw.value }),
+        ...(raw.staffEnd === undefined ? {} : { staffEnd: raw.staffEnd }),
+      };
     case "relative":
-      if (raw.relativeValue === undefined) {
-        throw new Error(`Dynamic group ${common.id} of type relative requires relativeValue`);
-      }
-      return { ...common, type: "relative", relativeValue: raw.relativeValue };
+      return {
+        ...common,
+        type: "relative",
+        relativeValue: raw.relativeValue,
+        ...(raw.value === undefined ? {} : { value: raw.value }),
+      };
     case "accent":
-      if (raw.value === undefined) throw new Error(`Dynamic group ${common.id} of type accent requires value`);
-      return { ...common, type: "accent", value: raw.value };
+      return {
+        ...common,
+        type: "accent",
+        value: raw.value,
+        ...(raw.residualValue === undefined ? {} : { residualValue: raw.residualValue }),
+        ...(raw.accentPrefix === undefined ? {} : { accentPrefix: raw.accentPrefix }),
+        ...(raw.accentSuffix === undefined ? {} : { accentSuffix: raw.accentSuffix }),
+      };
+    default:
+      throw new Error(`Unsupported MNX dynamic group type: ${(raw as { type: string }).type}`);
   }
 }
 
@@ -424,9 +425,12 @@ function parseFine(raw: RawFine): Fine {
   return fine;
 }
 
-function parseJump(raw: RawJump | RawVendorJump): Jump {
+function parseJump(raw: RawJump): Jump {
+  if (!["dc", "dcAlCoda", "dcAlFine", "dsAlCoda", "dsAlFine", "segno", "toCoda"].includes(raw.type)) {
+    throw new Error(`Unsupported MNX v46 jump type: ${String(raw.type)}`);
+  }
   return {
-    type: raw.type as "segno" | "dsalfine" | "dsalcoda" | "dcalcoda",
+    type: raw.type,
     location: parseRhythmicPosition(raw.location),
   };
 }
@@ -450,7 +454,6 @@ function applyMarkerTextExtension(measure: GlobalMeasure, raw: RawMarkerTexts | 
   }
 }
 
-/** Coda is a Viritura vendor extension (no MNX schema). */
 function parseCoda(raw: RawCoda): Coda {
   const coda: Coda = {
     location: parseRhythmicPosition(raw.location),
@@ -458,6 +461,18 @@ function parseCoda(raw: RawCoda): Coda {
   if (raw.glyph) coda.glyph = raw.glyph;
   if (raw.color) coda.color = raw.color;
   return coda;
+}
+
+function rejectRetiredNavigationExtensions(raw: RawMeasureGlobal): void {
+  const viritura = raw._x?.["viritura"] as Record<string, unknown> | undefined;
+  const retired = ["coda", "jump"].filter((key) => key in (viritura ?? {}));
+  if (retired.length > 0) {
+    throw new Error(
+      `Retired Viritura navigation extension${retired.length > 1 ? "s" : ""} ${retired
+        .map((key) => `_x.viritura.${key}`)
+        .join(", ")} are not supported; use native MNX v46 coda and jump fields.`,
+    );
+  }
 }
 
 /** Gradual tempo (rit./accel.) is a Viritura vendor extension (no MNX schema). */

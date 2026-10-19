@@ -27,7 +27,7 @@ describe("repeat expansion with al coda jumps", () => {
   it("cuts D.C. al Coda at the detected To Coda measure", () => {
     const score = makeScoreWithToCoda(8, 2);
     const globalMeasures = score.global.measures;
-    globalMeasures[4]!.jump = { type: "dcalcoda", location: { fraction: [1, 1] } } as never;
+    globalMeasures[4]!.jump = { type: "dcAlCoda", location: { fraction: [1, 1] } };
     globalMeasures[6]!.coda = { location: { fraction: [0, 1] } } as never;
 
     const toCodaMeasureIndex = detectToCodaMeasureIndex(score);
@@ -40,7 +40,7 @@ describe("repeat expansion with al coda jumps", () => {
     const score = makeScoreWithToCoda(8, 3);
     const globalMeasures = score.global.measures;
     globalMeasures[1]!.segno = { location: { fraction: [0, 1] } };
-    globalMeasures[5]!.jump = { type: "dsalcoda", location: { fraction: [1, 1] } } as never;
+    globalMeasures[5]!.jump = { type: "dsAlCoda", location: { fraction: [1, 1] } };
     globalMeasures[6]!.coda = { location: { fraction: [0, 1] } } as never;
 
     const toCodaMeasureIndex = detectToCodaMeasureIndex(score);

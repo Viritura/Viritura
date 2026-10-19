@@ -190,14 +190,14 @@ function expandJumps(
   const result = initialOrder.slice(0, jumpOrderPos + 1);
 
   switch (jump.type) {
-    case "dsalfine":
+    case "dsAlFine":
       if (segnoIdx >= 0 && fineIdx >= 0) appendRange(result, segnoIdx, fineIdx);
       break;
-    case "dsalcoda":
+    case "dsAlCoda":
       if (segnoIdx >= 0 && codaIdx >= 0)
         appendAlCodaReplay(result, segnoIdx, codaIdx, globalMeasures.length, toCodaMeasureIdx);
       break;
-    case "dcalcoda":
+    case "dcAlCoda":
       if (codaIdx >= 0) appendAlCodaReplay(result, 0, codaIdx, globalMeasures.length, toCodaMeasureIdx);
       break;
     case "segno":

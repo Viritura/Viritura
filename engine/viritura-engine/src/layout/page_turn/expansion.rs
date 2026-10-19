@@ -32,21 +32,12 @@ pub fn structural_boundary_flags(measures: &[GlobalMeasure]) -> Vec<bool> {
             || left.ending.is_some()
             || right.ending.is_some()
             || left.jump.is_some()
+            || right.jump.is_some()
             || right.segno.is_some()
-            || left.fine.is_some()
-            || jump_in_ext(left)
-            || jump_in_ext(right);
+            || left.fine.is_some();
         flags[b] = complex;
     }
     flags
-}
-
-fn jump_in_ext(m: &GlobalMeasure) -> bool {
-    m.extensions
-        .as_ref()
-        .and_then(|e| e.viritura.as_ref())
-        .map(|v| v.jump.is_some())
-        .unwrap_or(false)
 }
 
 /// Returns, for each measure index `i`, whether that measure cannot be merged
@@ -95,7 +86,6 @@ pub fn multimeasure_rest_break_flags(measures: &[GlobalMeasure]) -> Vec<bool> {
                     || prev.repeat_end.is_some()
                     || prev.fine.is_some()
                     || prev.jump.is_some()
-                    || jump_in_ext(prev)
             };
             starts_here || ends_prev
         })
@@ -182,6 +172,7 @@ mod tests {
             segno: None,
             fine: None,
             jump: None,
+            coda: None,
             extensions: None,
         }
     }

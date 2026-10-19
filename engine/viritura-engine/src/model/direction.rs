@@ -62,7 +62,7 @@ pub struct MarkerTexts {
     pub jump: Option<MarkerText>,
 }
 
-/// A coda marker on a global measure (Viritura extension).
+/// A coda marker on a global measure (MNX coda).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Coda {
     pub location: RhythmicPosition,
@@ -72,30 +72,30 @@ pub struct Coda {
     pub color: Option<String>,
 }
 
-/// Jump type enum.
-///
-/// This is a domain-level union of two wire enums:
-/// - MNX spec `jump-type`: `Segno` (D.S.), `DsAlFine` (D.S. al Fine)
-/// - Viritura vendor `jump-type` extension: `DsAlCoda` (D.S. al Coda),
-///   `DcAlCoda` (D.C. al Coda)
-///
-/// Because the model collapses both wire enums into one rendering surface,
-/// it cannot alias either raw enum directly. See `promote::direction` and
-/// `promote::vendor_directions::promote_extended_jump`.
+/// MNX v46 global-measure jump type.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum JumpType {
-    /// D.S. (dal segno) — go back to segno
+    /// D.C. (da capo) — return to the beginning.
+    #[serde(rename = "dc")]
+    Dc,
+    /// D.C. al Coda.
+    #[serde(rename = "dcAlCoda")]
+    DcAlCoda,
+    /// D.C. al Fine.
+    #[serde(rename = "dcAlFine")]
+    DcAlFine,
+    /// D.S. al Coda.
+    #[serde(rename = "dsAlCoda")]
+    DsAlCoda,
+    /// D.S. al Fine.
+    #[serde(rename = "dsAlFine")]
+    DsAlFine,
+    /// D.S. (dal segno) — go back to segno.
     #[serde(rename = "segno")]
     Segno,
-    /// D.S. al Fine — go back to segno, play until fine
-    #[serde(rename = "dsalfine")]
-    DsAlFine,
-    /// D.S. al Coda — go back to segno, play until coda (Viritura extension)
-    #[serde(rename = "dsalcoda")]
-    DsAlCoda,
-    /// D.C. al Coda — go back to beginning, play until coda (Viritura extension)
-    #[serde(rename = "dcalcoda")]
-    DcAlCoda,
+    /// To Coda.
+    #[serde(rename = "toCoda")]
+    ToCoda,
 }
 
 /// A tempo marking at a rhythmic position (MNX `tempos[]` in global measures).
@@ -142,8 +142,15 @@ pub struct TempoNoteValue {
     pub dots: Option<u32>,
 }
 
-/// Standard MNX dynamic-group discriminator.
-pub use crate::raw::DynamicGroupType;
+/// Standard MNX v46 dynamic-group discriminator.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DynamicGroupType {
+    Immediate,
+    Gradual,
+    Relative,
+    Accent,
+}
 /// Structural prefix letter of an accent dynamic (`s`, `r`, or none).
 pub use crate::raw::DynamicPrefix;
 /// Structural suffix letter of an accent dynamic (`z` or none).

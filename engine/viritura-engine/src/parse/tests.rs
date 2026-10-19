@@ -1057,21 +1057,47 @@ fn test_parse_global_measure_vendor_extensions_rehearsal_mark() {
 }
 
 #[test]
-fn test_parse_global_measure_vendor_extensions_coda() {
+fn test_parse_native_global_measure_coda_and_preserve_marker_text() {
+    let json = r##"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "coda": {"location": {"fraction": [0, 1]}, "glyph": "coda", "color": "#123456"},
+            "_x": {"viritura": {"markerText": {"coda": {
+                "content": [{"text": "To Coda"}], "placement": "before"
+            }}}}
+        }]},
+        "parts": [{"measures": [{"sequences": [{"content": [
+            {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+        ]}]}]}]
+    }"##;
+    let score = parse_mnx(json).unwrap();
+    let coda = score.global.measures[0]
+        .coda()
+        .expect("Should have native coda");
+    assert_eq!(coda.location.fraction, (0, 1));
+    assert_eq!(coda.glyph.as_deref(), Some("coda"));
+    assert_eq!(coda.color.as_deref(), Some("#123456"));
+    assert_eq!(
+        score.global.measures[0]
+            .marker_text()
+            .and_then(|texts| texts.coda.as_ref())
+            .unwrap()
+            .content
+            .plain_text(),
+        "To Coda"
+    );
+}
+
+#[test]
+fn test_parse_rejects_retired_vendor_navigation_fields() {
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [{
             "_x": {"viritura": {"coda": {"location": {"fraction": [0, 1]}}}}
         }]},
-        "parts": [{"measures": [{"sequences": [{"content": [
-            {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
-        ]}]}]}]
+        "parts": [{"measures": [{"sequences": []}]}]
     }"#;
-    let score = parse_mnx(json).unwrap();
-    let coda = score.global.measures[0]
-        .coda()
-        .expect("Should have coda via _x.viritura");
-    assert_eq!(coda.location.fraction, (0, 1));
+    assert!(parse_mnx(json).is_err());
 }
 
 #[test]

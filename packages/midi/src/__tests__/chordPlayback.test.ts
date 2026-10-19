@@ -228,7 +228,7 @@ describe("derived global chord playback", () => {
   it("finds symbols even in a measure skipped by playback", () => {
     const score = makeScore([
       { fine: { location: { fraction: [1, 1] } }, segno: { location: { fraction: [0, 1] } } },
-      { jump: { type: "dsalfine", location: { fraction: [1, 1] } } },
+      { jump: { type: "dsAlFine", location: { fraction: [1, 1] } } },
       { chordSymbols: [major("C")] },
     ]);
     expect(generateTimeline(score).expandedMeasureToOriginal).toEqual([0, 1, 0]);

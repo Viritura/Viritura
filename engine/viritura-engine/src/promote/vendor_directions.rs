@@ -11,14 +11,10 @@
 //! 3. Per-type `promote_*` functions translate the schema-typed shape into
 //!    the engine [`crate::model`] shape.
 //!
-//! Extended jump types `DsAlCoda` / `DcAlCoda` only appear here — MNX-core
-//! `raw::JumpType` doesn't carry them.
-
 use crate::model::chord_symbol::{ChordRoot as ModelChordRoot, ChordSymbol as ModelChordSymbol};
 use crate::model::direction::{
-    Coda as ModelCoda, Jump as ModelJump, JumpType as ModelJumpType, MarkerText as ModelMarkerText,
-    MarkerTextPlacement as ModelMarkerTextPlacement, MarkerTexts as ModelMarkerTexts,
-    Pedal as ModelPedal, RehearsalMark as ModelRehearsalMark,
+    MarkerText as ModelMarkerText, MarkerTextPlacement as ModelMarkerTextPlacement,
+    MarkerTexts as ModelMarkerTexts, Pedal as ModelPedal, RehearsalMark as ModelRehearsalMark,
     TextExpression as ModelTextExpression,
 };
 use crate::model::event::{Glissando as ModelGlissando, GlissandoStyle as ModelGlissandoStyle};
@@ -95,13 +91,9 @@ pub(crate) fn extract_part_measure_vendor_with_fallback(
 
 /// Vendor extensions hoisted off a raw `MeasureGlobal._x.viritura`.
 ///
-/// `_x.viritura.jump` takes priority over the top-level MNX-core `jump`
-/// when both are present.
 #[derive(Default)]
 pub(crate) struct GlobalMeasureVendor {
     pub rehearsal_mark: Option<ModelRehearsalMark>,
-    pub coda: Option<ModelCoda>,
-    pub jump: Option<ModelJump>,
     pub marker_text: Option<ModelMarkerTexts>,
     pub senza_misura: Option<bool>,
     pub chord_symbols: Option<Vec<ModelChordSymbol>>,
@@ -120,8 +112,6 @@ pub(crate) fn extract_global_measure_vendor(
         };
     GlobalMeasureVendor {
         rehearsal_mark: raw_ext.rehearsal_mark.map(promote_rehearsal_mark),
-        coda: raw_ext.coda.map(promote_coda),
-        jump: raw_ext.jump.map(promote_extended_jump),
         marker_text: raw_ext.marker_text.map(promote_marker_texts),
         senza_misura: raw_ext.senza_misura,
         chord_symbols: vec_or_none(
@@ -266,26 +256,6 @@ fn promote_rehearsal_mark(r: raw_viritura::RehearsalMark) -> ModelRehearsalMark 
     }
 }
 
-fn promote_coda(r: raw_viritura::Coda) -> ModelCoda {
-    ModelCoda {
-        location: promote_rhythmic_position_local(r.location),
-        glyph: r.glyph,
-        color: r.color,
-    }
-}
-
-/// Promote a `raw_viritura::Jump` (extended types only — `dsalcoda`,
-/// `dcalcoda`). MNX-core jumps come through `direction::promote_jump`.
-fn promote_extended_jump(r: raw_viritura::Jump) -> ModelJump {
-    ModelJump {
-        jump_type: match r.type_ {
-            raw_viritura::JumpType::Dsalcoda => ModelJumpType::DsAlCoda,
-            raw_viritura::JumpType::Dcalcoda => ModelJumpType::DcAlCoda,
-        },
-        location: promote_rhythmic_position_local(r.location),
-    }
-}
-
 fn promote_marker_texts(r: raw_viritura::MarkerTexts) -> ModelMarkerTexts {
     ModelMarkerTexts {
         segno: r.segno.map(promote_marker_text),
@@ -361,32 +331,6 @@ mod tests {
 
     fn vendor_ext_from_json(s: &str) -> raw::VendorExtensions {
         serde_json::from_str(s).unwrap()
-    }
-
-    #[test]
-    fn extracts_rehearsal_mark_and_coda_from_global_measure() {
-        let x = vendor_ext_from_json(
-            r#"{"viritura":{
-                "rehearsalMark":{"text": [{"text": "A"}]},
-                "coda":{"location":{"fraction":[0,4]}}
-            }}"#,
-        );
-        let v = extract_global_measure_vendor(Some(&x));
-        assert_eq!(v.rehearsal_mark.as_ref().unwrap().text.plain_text(), "A");
-        assert!(v.coda.is_some());
-    }
-
-    #[test]
-    fn extracts_extended_jump_dsalcoda() {
-        let x = vendor_ext_from_json(
-            r#"{"viritura":{"jump":{
-                "type":"dsalcoda",
-                "location":{"fraction":[3,4]}
-            }}}"#,
-        );
-        let v = extract_global_measure_vendor(Some(&x));
-        let jump = v.jump.expect("jump decoded");
-        assert!(matches!(jump.jump_type, ModelJumpType::DsAlCoda));
     }
 
     #[test]

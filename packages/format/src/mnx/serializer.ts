@@ -230,6 +230,12 @@ function serializeRepeatEnd(repeat: NonNullable<GlobalMeasure["repeatEnd"]>): Ob
 function serializeGlobalMeasure(gm: GlobalMeasure): Obj {
   const obj: Obj = {};
   if (gm.barline) obj["barline"] = { type: gm.barline.type };
+  if (gm.coda) {
+    const coda: Obj = { location: gm.coda.location };
+    if (gm.coda.glyph) coda["glyph"] = gm.coda.glyph;
+    if (gm.coda.color) coda["color"] = gm.coda.color;
+    obj["coda"] = coda;
+  }
   if (gm.ending) {
     const e: Obj = {
       duration: gm.ending.duration,
@@ -246,7 +252,7 @@ function serializeGlobalMeasure(gm: GlobalMeasure): Obj {
   }
   if (gm.id) obj["id"] = gm.id;
   if (gm.number !== undefined) obj["number"] = gm.number;
-  if (gm.jump && (gm.jump.type === "segno" || gm.jump.type === "dsalfine")) {
+  if (gm.jump) {
     obj["jump"] = { type: gm.jump.type, location: gm.jump.location };
   }
   if (gm.key) {
@@ -306,15 +312,6 @@ function collectGlobalMeasureVendorExt(gm: GlobalMeasure): Obj {
     if (gm.rehearsalMark.manualOffset) rm["manualOffset"] = gm.rehearsalMark.manualOffset;
     if (gm.rehearsalMark.avoidCollisions === false) rm["avoidCollisions"] = false;
     ext["rehearsalMark"] = rm;
-  }
-  if (gm.coda) {
-    const c: Obj = { location: gm.coda.location };
-    if (gm.coda.glyph) c["glyph"] = gm.coda.glyph;
-    if (gm.coda.color) c["color"] = gm.coda.color;
-    ext["coda"] = c;
-  }
-  if (gm.jump?.type === "dsalcoda" || gm.jump?.type === "dcalcoda") {
-    ext["jump"] = { type: gm.jump.type, location: gm.jump.location };
   }
   const markerText = collectMarkerText(gm);
   if (markerText) ext["markerText"] = markerText;

@@ -464,10 +464,10 @@ describe("MNX round-trip preserves editor wiring fields", () => {
           },
           {
             repeatEnd: { times: 2 },
+            jump: { type: "dcAlCoda", location: { fraction: [1, 1] } },
+            coda: { location: { fraction: [1, 1] } },
             _x: {
               viritura: {
-                jump: { type: "dcalcoda", location: { fraction: [1, 1] } },
-                coda: { location: { fraction: [1, 1] } },
                 markerText: {
                   jump: { content: [{ text: "Return to the segno" }], placement: "after" },
                   coda: { content: [{ text: "To Coda" }], placement: "before" },
@@ -541,10 +541,13 @@ describe("MNX round-trip preserves editor wiring fields", () => {
       glyph: "segno",
     });
     expect(serialized.global.measures[1]!.repeatEnd).toEqual({ times: 2 });
-    expect(serialized.global.measures[1]!._x?.viritura?.jump).toEqual({
-      type: "dcalcoda",
+    expect(serialized.global.measures[1]!.jump).toEqual({
+      type: "dcAlCoda",
       location: { fraction: [1, 1] },
     });
+    expect(serialized.global.measures[1]!.coda).toEqual({ location: { fraction: [1, 1] } });
+    expect(serialized.global.measures[1]!._x?.viritura?.jump).toBeUndefined();
+    expect(serialized.global.measures[1]!._x?.viritura?.coda).toBeUndefined();
     expect(serialized.global.measures[0]!._x?.viritura?.markerText).toEqual({
       segno: { content: [{ text: "from here" }], placement: "after" },
     });

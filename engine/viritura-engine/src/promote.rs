@@ -79,6 +79,10 @@ pub enum PromoteError {
     UnsupportedNoteValueBase(String),
     /// Text content is schema-valid but could not be represented by the engine.
     UnsupportedTextContent(String),
+    /// A v46 dynamic-group wire object is not one recognized variant.
+    UnsupportedDynamicGroup(String),
+    /// Retired Viritura navigation data must be written with native MNX v46 fields.
+    UnsupportedNavigationExtension(String),
     /// Provisional instrument change cannot be engraved or decoded safely.
     UnsupportedInstrumentChange(String),
     /// Authored marker text has no owning marker on the same measure.
@@ -99,6 +103,12 @@ impl std::fmt::Display for PromoteError {
                 )
             }
             Self::UnsupportedTextContent(s) => write!(f, "MNX text content is not supported: {s}"),
+            Self::UnsupportedDynamicGroup(s) => {
+                write!(f, "MNX dynamic group is not supported: {s}")
+            }
+            Self::UnsupportedNavigationExtension(s) => {
+                write!(f, "Retired Viritura navigation extension: {s}")
+            }
             Self::UnsupportedInstrumentChange(s) => {
                 write!(f, "MNX instrument change is not supported: {s}")
             }

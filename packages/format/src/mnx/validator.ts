@@ -614,7 +614,7 @@ function validateDynamicGroups(score: RawScore): RawScoreValidationError[] {
           groupIds.add(group.id);
         }
 
-        if (group.end && !measureIds.has(group.end.measure)) {
+        if (group.type === "gradual" && group.end && !measureIds.has(group.end.measure)) {
           errors.push({
             pointer: `${pointer}/end/measure`,
             message: "must reference an existing global measure id",

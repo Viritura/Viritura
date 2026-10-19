@@ -6,8 +6,8 @@
 
 use crate::model::clef::RhythmicPosition;
 use crate::model::direction::{
-    DynamicGroup, Fine, Jump, JumpType, MeasureRhythmicPosition, Ottava, Segno, Tempo,
-    TempoNoteValue,
+    Coda, DynamicGroup, DynamicGroupType, Fine, Jump, JumpType, MeasureRhythmicPosition, Ottava,
+    Segno, Tempo, TempoNoteValue,
 };
 use crate::model::event::Placement;
 use crate::promote::clef::promote_rhythmic_position;
@@ -31,6 +31,14 @@ pub(crate) fn promote_fine(raw: raw::Fine) -> Fine {
     }
 }
 
+pub(crate) fn promote_coda(raw: raw::Coda) -> Coda {
+    Coda {
+        location: promote_rhythmic_position(raw.location),
+        glyph: raw.glyph.map(|glyph| glyph.0),
+        color: raw.color.map(|color| color.0),
+    }
+}
+
 pub(crate) fn promote_jump(raw: raw::Jump) -> Jump {
     Jump {
         jump_type: promote_jump_type(raw.type_),
@@ -40,11 +48,13 @@ pub(crate) fn promote_jump(raw: raw::Jump) -> Jump {
 
 pub(crate) fn promote_jump_type(raw: raw::JumpType) -> JumpType {
     match raw {
+        raw::JumpType::Dc => JumpType::Dc,
+        raw::JumpType::DcAlCoda => JumpType::DcAlCoda,
+        raw::JumpType::DcAlFine => JumpType::DcAlFine,
+        raw::JumpType::DsAlCoda => JumpType::DsAlCoda,
+        raw::JumpType::DsAlFine => JumpType::DsAlFine,
         raw::JumpType::Segno => JumpType::Segno,
-        raw::JumpType::Dsalfine => JumpType::DsAlFine,
-        // DsAlCoda / DcAlCoda exist on the model but aren't in MNX core's
-        // jump-type enum (yet). They surface only via vendor-extension
-        // jumps, not via this promote.
+        raw::JumpType::ToCoda => JumpType::ToCoda,
     }
 }
 
@@ -98,44 +108,188 @@ pub(crate) fn promote_tempo(raw: raw::Tempo) -> Result<Tempo, PromoteError> {
     })
 }
 
-pub(crate) fn promote_dynamic_group(raw: raw::DynamicGroup) -> DynamicGroup {
-    let ext = read_viritura_ext(raw.x.as_ref());
+struct DynamicGroupCommon {
+    id: String,
+    position: RhythmicPosition,
+    glyphs: Vec<String>,
+    placement: Option<raw::MultiStaffPlacement>,
+    prefix: Option<String>,
+    staff: Option<u32>,
+    suffix: Option<String>,
+    visually_continues: Option<String>,
+    voice: Option<String>,
+    manual_offset: Option<[f64; 2]>,
+    avoid_collisions: Option<bool>,
+}
+
+#[derive(Default)]
+struct DynamicGroupDetails {
+    value: Option<raw::DynamicValue>,
+    residual_value: Option<raw::DynamicValue>,
+    accent_prefix: Option<raw::DynamicPrefix>,
+    accent_suffix: Option<raw::DynamicSuffix>,
+    end: Option<MeasureRhythmicPosition>,
+    relative_value: Option<raw::RelativeDynamicValue>,
+    staff_end: Option<u32>,
+    wedge_type: Option<raw::WedgeType>,
+}
+
+fn promote_dynamic_group_common(
+    id: Option<raw::Id>,
+    position: raw::RhythmicPosition,
+    glyphs: Vec<raw::SmuflGlyph>,
+    placement: Option<raw::MultiStaffPlacement>,
+    prefix: Option<raw::String>,
+    staff: Option<raw::StaffNumber>,
+    suffix: Option<raw::String>,
+    visually_continues: Option<raw::Id>,
+    voice: Option<raw::VoiceName>,
+    x: Option<raw::VendorExtensions>,
+) -> DynamicGroupCommon {
+    let ext = read_viritura_ext(x.as_ref());
     let dynamic_ext: Option<crate::raw_viritura::DynamicGroupExtensions> =
         ext.and_then(|value| serde_json::from_value(serde_json::Value::Object(value.clone())).ok());
-    let glyphs = raw
-        .glyphs
-        .into_iter()
-        .map(|glyph| glyph.0)
-        .collect::<Vec<_>>();
-    DynamicGroup {
-        id: raw
-            .id
-            .map(|id| id.to_string())
+    DynamicGroupCommon {
+        id: id
+            .map(|value| value.to_string())
             .unwrap_or_else(|| uuid::Uuid::now_v7().to_string()),
-        group_type: raw.type_,
-        position: promote_rhythmic_position(raw.position),
-        value: raw.value,
-        residual_value: raw.residual_value,
-        accent_prefix: raw.accent_prefix,
-        accent_suffix: raw.accent_suffix,
-        end: raw.end.map(promote_measure_rhythmic_position),
-        glyphs: (!glyphs.is_empty()).then_some(glyphs),
-        placement: raw.placement,
-        prefix: raw.prefix.map(|value| value.0),
-        relative_value: raw.relative_value,
-        staff: raw.staff.map(|s| u32::try_from(s.0).unwrap_or(1)),
-        staff_end: raw.staff_end.map(|s| u32::try_from(s.0).unwrap_or(1)),
-        suffix: raw.suffix.map(|value| value.0),
-        visually_continues: raw.visually_continues.map(|id| id.to_string()),
-        voice: raw.voice.map(|v| v.0),
-        wedge_type: raw.wedge_type,
-        placement_above: None,
-        source_part_index: None,
+        position: promote_rhythmic_position(position),
+        glyphs: glyphs.into_iter().map(|glyph| glyph.0).collect(),
+        placement,
+        prefix: prefix.map(|value| value.0),
+        staff: staff.map(|value| u32::try_from(value.0).unwrap_or(1)),
+        suffix: suffix.map(|value| value.0),
+        visually_continues: visually_continues.map(String::from),
+        voice: voice.map(|value| value.0),
         manual_offset: dynamic_ext
             .as_ref()
             .and_then(|value| value.manual_offset.as_ref().map(|d| d.0)),
         avoid_collisions: dynamic_ext.and_then(|value| value.avoid_collisions),
     }
+}
+
+fn build_dynamic_group(
+    common: DynamicGroupCommon,
+    group_type: DynamicGroupType,
+    details: DynamicGroupDetails,
+) -> DynamicGroup {
+    DynamicGroup {
+        id: common.id,
+        group_type,
+        position: common.position,
+        value: details.value,
+        residual_value: details.residual_value,
+        accent_prefix: details.accent_prefix,
+        accent_suffix: details.accent_suffix,
+        end: details.end,
+        glyphs: (!common.glyphs.is_empty()).then_some(common.glyphs),
+        placement: common.placement,
+        prefix: common.prefix,
+        relative_value: details.relative_value,
+        staff: common.staff,
+        staff_end: details.staff_end,
+        suffix: common.suffix,
+        visually_continues: common.visually_continues,
+        voice: common.voice,
+        wedge_type: details.wedge_type,
+        placement_above: None,
+        source_part_index: None,
+        manual_offset: common.manual_offset,
+        avoid_collisions: common.avoid_collisions,
+    }
+}
+
+pub(crate) fn promote_dynamic_group(
+    raw: raw::DynamicGroupsItem,
+) -> Result<DynamicGroup, PromoteError> {
+    let (common, group_type, details) = match raw {
+        raw::DynamicGroupsItem::Immediate(value) => (
+            promote_dynamic_group_common(
+                value.id,
+                value.position,
+                value.glyphs,
+                value.placement,
+                value.prefix,
+                value.staff,
+                value.suffix,
+                value.visually_continues,
+                value.voice,
+                value.x,
+            ),
+            DynamicGroupType::Immediate,
+            DynamicGroupDetails {
+                value: Some(value.value),
+                ..Default::default()
+            },
+        ),
+        raw::DynamicGroupsItem::Gradual(value) => (
+            promote_dynamic_group_common(
+                value.id,
+                value.position,
+                value.glyphs,
+                value.placement,
+                value.prefix,
+                value.staff,
+                value.suffix,
+                value.visually_continues,
+                value.voice,
+                value.x,
+            ),
+            DynamicGroupType::Gradual,
+            DynamicGroupDetails {
+                value: value.value,
+                end: Some(promote_measure_rhythmic_position(value.end)),
+                staff_end: value
+                    .staff_end
+                    .map(|staff| u32::try_from(staff.0).unwrap_or(1)),
+                wedge_type: Some(value.wedge_type),
+                ..Default::default()
+            },
+        ),
+        raw::DynamicGroupsItem::Relative(value) => (
+            promote_dynamic_group_common(
+                value.id,
+                value.position,
+                value.glyphs,
+                value.placement,
+                value.prefix,
+                value.staff,
+                value.suffix,
+                value.visually_continues,
+                value.voice,
+                value.x,
+            ),
+            DynamicGroupType::Relative,
+            DynamicGroupDetails {
+                value: value.value,
+                relative_value: Some(value.relative_value),
+                ..Default::default()
+            },
+        ),
+        raw::DynamicGroupsItem::Accent(value) => (
+            promote_dynamic_group_common(
+                value.id,
+                value.position,
+                value.glyphs,
+                value.placement,
+                value.prefix,
+                value.staff,
+                value.suffix,
+                value.visually_continues,
+                value.voice,
+                value.x,
+            ),
+            DynamicGroupType::Accent,
+            DynamicGroupDetails {
+                value: Some(value.value),
+                residual_value: value.residual_value,
+                accent_prefix: value.accent_prefix,
+                accent_suffix: value.accent_suffix,
+                ..Default::default()
+            },
+        ),
+    };
+    Ok(build_dynamic_group(common, group_type, details))
 }
 
 pub(crate) fn promote_measure_rhythmic_position(
@@ -182,8 +336,8 @@ mod tests {
     }
 
     #[test]
-    fn promotes_jump_dsalfine() {
-        let json = r#"{"type":"dsalfine","location":{"fraction":[3,4]}}"#;
+    fn promotes_jump_ds_al_fine() {
+        let json = r#"{"type":"dsAlFine","location":{"fraction":[3,4]}}"#;
         let raw: raw::Jump = serde_json::from_str(json).unwrap();
         let direct: Jump = serde_json::from_str(json).unwrap();
         assert_eq!(direct, promote_jump(raw));
@@ -208,11 +362,29 @@ mod tests {
     #[test]
     fn promotes_dynamic_group() {
         let json = r#"{"id":"dyn1","type":"immediate","position":{"fraction":[0,4]},"value":"mf"}"#;
-        let raw: raw::DynamicGroup = serde_json::from_str(json).unwrap();
-        let promoted = promote_dynamic_group(raw);
+        let raw: raw::DynamicGroupsItem = serde_json::from_str(json).unwrap();
+        let promoted = promote_dynamic_group(raw).unwrap();
         assert_eq!(promoted.id, "dyn1");
-        assert_eq!(promoted.group_type, raw::DynamicGroupType::Immediate);
+        assert_eq!(promoted.group_type, DynamicGroupType::Immediate);
         assert_eq!(promoted.value, Some(raw::DynamicValue::Mf));
+    }
+
+    #[test]
+    fn promotes_relative_dynamic_with_optional_printed_value() {
+        let json = r#"{
+            "type":"relative",
+            "position":{"fraction":[0,4]},
+            "relativeValue":"louder",
+            "value":"f"
+        }"#;
+        let raw: raw::DynamicGroupsItem = serde_json::from_str(json).unwrap();
+        let promoted = promote_dynamic_group(raw).unwrap();
+        assert_eq!(promoted.group_type, DynamicGroupType::Relative);
+        assert_eq!(
+            promoted.relative_value,
+            Some(raw::RelativeDynamicValue::Louder)
+        );
+        assert_eq!(promoted.value, Some(raw::DynamicValue::F));
     }
 
     #[test]

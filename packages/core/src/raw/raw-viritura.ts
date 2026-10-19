@@ -94,15 +94,6 @@ export interface components {
             /** @description Whether automatic collision avoidance may re-flow this mark. Default/unset: true. */
             avoidCollisions?: boolean;
         };
-        /** @description A coda navigation marker on a global measure. */
-        coda: {
-            /** @description Position within the measure. */
-            location: components["schemas"]["rhythmic-position"];
-            /** @description Optional SMuFL glyph name override. */
-            glyph?: string;
-            /** @description Optional rendering color (CSS hex, e.g. '#FF0000'). */
-            color?: string;
-        };
         /** @description Viritura engraving placement extensions on a standard MNX dynamic-group object. */
         "dynamic-group-extensions": {
             /** @description Manual [dx, dy] offset in spatia (sp), applied after automatic placement. */
@@ -332,16 +323,6 @@ export interface components {
         "slur-extensions": {
             shape?: components["schemas"]["slur-shape"];
         };
-        /** @description A jump direction with a type not supported by the MNX spec (e.g. D.S. al Coda, D.C. al Coda). */
-        jump: {
-            /**
-             * @description Non-standard jump type.
-             * @enum {string}
-             */
-            type: "dsalcoda" | "dcalcoda";
-            /** @description Position within the measure. */
-            location: components["schemas"]["rhythmic-position"];
-        };
         /** @description Authored display text owned by one navigation marker. The owning marker remains authoritative for playback and navigation. */
         "marker-text": {
             /** @description Ordered authored text and SMuFL glyph runs. */
@@ -378,8 +359,6 @@ export interface components {
         /** @description Viritura vendor extensions on a global measure object. */
         "measure-global-extensions": {
             rehearsalMark?: components["schemas"]["rehearsal-mark"];
-            coda?: components["schemas"]["coda"];
-            jump?: components["schemas"]["jump"];
             markerText?: components["schemas"]["marker-texts"];
             /** @description Shared music-relative text displayed once per score/part view, independent of hidden or condensed source staves. */
             systemText?: components["schemas"]["system-text"][];
@@ -1021,7 +1000,6 @@ export type StaffMeterSet = components["schemas"]["staff-meter-set"];
 export type StaffMeterReset = components["schemas"]["staff-meter-reset"];
 export type StaffMeterChange = components["schemas"]["staff-meter-change"];
 export type RehearsalMark = components["schemas"]["rehearsal-mark"];
-export type Coda = components["schemas"]["coda"];
 export type DynamicGroupExtensions = components["schemas"]["dynamic-group-extensions"];
 export type TempoExtensions = components["schemas"]["tempo-extensions"];
 export type KeyExtensions = components["schemas"]["key-extensions"];
@@ -1049,7 +1027,6 @@ export type TextContent = components["schemas"]["text-content"];
 export type SpDelta = components["schemas"]["sp-delta"];
 export type SlurShape = components["schemas"]["slur-shape"];
 export type SlurExtensions = components["schemas"]["slur-extensions"];
-export type Jump = components["schemas"]["jump"];
 export type MarkerText = components["schemas"]["marker-text"];
 export type MarkerTexts = components["schemas"]["marker-texts"];
 export type GradualTempo = components["schemas"]["gradual-tempo"];

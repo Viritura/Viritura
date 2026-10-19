@@ -203,7 +203,7 @@ export function serializeDynamicGroup(d: DynamicGroup): Obj {
   if (d.accentPrefix !== undefined) out["accentPrefix"] = d.accentPrefix;
   if (d.accentSuffix !== undefined) out["accentSuffix"] = d.accentSuffix;
   if (d.end !== undefined) out["end"] = d.end;
-  if (d.glyphs !== undefined && d.glyphs.length > 0) out["glyphs"] = d.glyphs;
+  if (d.glyphs !== undefined) out["glyphs"] = d.glyphs;
   if (d.placement !== undefined) out["placement"] = d.placement;
   if (d.prefix !== undefined) out["prefix"] = d.prefix;
   if (d.relativeValue !== undefined) out["relativeValue"] = d.relativeValue;

@@ -596,17 +596,10 @@ fn test_jump_text_sits_left_of_coda_on_shared_barline() {
     .expect("Failed to read jumps-coda.mnx");
     let mut score = crate::parse::parse_mnx(&json).expect("Failed to parse jumps-coda.mnx");
     let coda = score.global.measures[3]
-        .extensions
-        .as_mut()
-        .and_then(|extensions| extensions.viritura.as_mut())
-        .and_then(|directions| directions.coda.take())
+        .coda
+        .take()
         .expect("Measure 3 should have coda");
-    score.global.measures[4].extensions = Some(VendorExtensions {
-        viritura: Some(GlobalMeasureExtensions {
-            coda: Some(coda),
-            ..Default::default()
-        }),
-    });
+    score.global.measures[4].coda = Some(coda);
 
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
@@ -660,10 +653,8 @@ fn test_dc_al_coda_lifts_clear_of_overlapping_ink() {
         "mnx": {"version": 1},
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
-            "_x": {"viritura": {
-                "jump": {"type": "dcalcoda", "location": {"fraction": [1, 1]}},
-                "coda": {"location": {"fraction": [1, 1]}}
-            }}
+            "jump": {"type": "dcAlCoda", "location": {"fraction": [1, 1]}},
+            "coda": {"location": {"fraction": [1, 1]}}
         }]},
         "parts": [{"id": "P1", "name": "Flute", "measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],

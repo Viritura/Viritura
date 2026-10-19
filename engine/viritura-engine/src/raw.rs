@@ -1364,6 +1364,63 @@ impl ::std::convert::TryFrom<::std::string::String> for ClefSign {
         value.parse()
     }
 }
+///`Coda`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "required": [
+///    "location"
+///  ],
+///  "properties": {
+///    "color": {
+///      "$ref": "#/$defs/color"
+///    },
+///    "glyph": {
+///      "$ref": "#/$defs/smufl-glyph"
+///    },
+///    "location": {
+///      "$ref": "#/$defs/rhythmic-position"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct Coda {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub color: ::std::option::Option<Color>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub glyph: ::std::option::Option<SmuflGlyph>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    pub location: RhythmicPosition,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&Coda> for Coda {
+    fn from(value: &Coda) -> Self {
+        value.clone()
+    }
+}
 ///`Color`
 ///
 /// <details><summary>JSON schema</summary>
@@ -1505,7 +1562,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DirectionHint {
         value.parse()
     }
 }
-///`DynamicGroup`
+///`DynamicGroupAccent`
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -1519,7 +1576,8 @@ impl ::std::convert::TryFrom<::std::string::String> for DirectionHint {
 ///  ],
 ///  "required": [
 ///    "position",
-///    "type"
+///    "type",
+///    "value"
 ///  ],
 ///  "properties": {
 ///    "accentPrefix": {
@@ -1528,6 +1586,129 @@ impl ::std::convert::TryFrom<::std::string::String> for DirectionHint {
 ///    "accentSuffix": {
 ///      "$ref": "#/$defs/dynamic-suffix"
 ///    },
+///    "glyphs": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/smufl-glyph"
+///      }
+///    },
+///    "placement": {
+///      "$ref": "#/$defs/multi-staff-placement"
+///    },
+///    "position": {
+///      "$ref": "#/$defs/rhythmic-position"
+///    },
+///    "prefix": {
+///      "$ref": "#/$defs/string"
+///    },
+///    "residualValue": {
+///      "$ref": "#/$defs/dynamic-value"
+///    },
+///    "staff": {
+///      "$ref": "#/$defs/staff-number"
+///    },
+///    "suffix": {
+///      "$ref": "#/$defs/string"
+///    },
+///    "type": {
+///      "type": "string",
+///      "const": "accent"
+///    },
+///    "value": {
+///      "$ref": "#/$defs/dynamic-value"
+///    },
+///    "visuallyContinues": {
+///      "$ref": "#/$defs/id"
+///    },
+///    "voice": {
+///      "$ref": "#/$defs/voice-name"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct DynamicGroupAccent {
+    #[serde(
+        rename = "accentPrefix",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub accent_prefix: ::std::option::Option<DynamicPrefix>,
+    #[serde(
+        rename = "accentSuffix",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub accent_suffix: ::std::option::Option<DynamicSuffix>,
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub glyphs: ::std::vec::Vec<SmuflGlyph>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub placement: ::std::option::Option<MultiStaffPlacement>,
+    pub position: RhythmicPosition,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub prefix: ::std::option::Option<String>,
+    #[serde(
+        rename = "residualValue",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub residual_value: ::std::option::Option<DynamicValue>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub staff: ::std::option::Option<StaffNumber>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub suffix: ::std::option::Option<String>,
+    #[serde(rename = "type")]
+    pub type_: ::std::string::String,
+    pub value: DynamicValue,
+    #[serde(
+        rename = "visuallyContinues",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub visually_continues: ::std::option::Option<Id>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub voice: ::std::option::Option<VoiceName>,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&DynamicGroupAccent> for DynamicGroupAccent {
+    fn from(value: &DynamicGroupAccent) -> Self {
+        value.clone()
+    }
+}
+///`DynamicGroupGradual`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "required": [
+///    "end",
+///    "position",
+///    "type",
+///    "wedgeType"
+///  ],
+///  "properties": {
 ///    "end": {
 ///      "$ref": "#/$defs/measure-rhythmic-position"
 ///    },
@@ -1546,12 +1727,6 @@ impl ::std::convert::TryFrom<::std::string::String> for DirectionHint {
 ///    "prefix": {
 ///      "$ref": "#/$defs/string"
 ///    },
-///    "relativeValue": {
-///      "$ref": "#/$defs/relative-dynamic-value"
-///    },
-///    "residualValue": {
-///      "$ref": "#/$defs/dynamic-value"
-///    },
 ///    "staff": {
 ///      "$ref": "#/$defs/staff-number"
 ///    },
@@ -1562,7 +1737,8 @@ impl ::std::convert::TryFrom<::std::string::String> for DirectionHint {
 ///      "$ref": "#/$defs/string"
 ///    },
 ///    "type": {
-///      "$ref": "#/$defs/dynamic-group-type"
+///      "type": "string",
+///      "const": "gradual"
 ///    },
 ///    "value": {
 ///      "$ref": "#/$defs/dynamic-value"
@@ -1582,27 +1758,14 @@ impl ::std::convert::TryFrom<::std::string::String> for DirectionHint {
 /// ```
 /// </details>
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-pub struct DynamicGroup {
-    #[serde(
-        rename = "accentPrefix",
-        default,
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub accent_prefix: ::std::option::Option<DynamicPrefix>,
-    #[serde(
-        rename = "accentSuffix",
-        default,
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub accent_suffix: ::std::option::Option<DynamicSuffix>,
+pub struct DynamicGroupGradual {
     #[serde(
         rename = "_c",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub c: ::std::option::Option<String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub end: ::std::option::Option<MeasureRhythmicPosition>,
+    pub end: MeasureRhythmicPosition,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub glyphs: ::std::vec::Vec<SmuflGlyph>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -1612,18 +1775,6 @@ pub struct DynamicGroup {
     pub position: RhythmicPosition,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub prefix: ::std::option::Option<String>,
-    #[serde(
-        rename = "relativeValue",
-        default,
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub relative_value: ::std::option::Option<RelativeDynamicValue>,
-    #[serde(
-        rename = "residualValue",
-        default,
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub residual_value: ::std::option::Option<DynamicValue>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub staff: ::std::option::Option<StaffNumber>,
     #[serde(
@@ -1635,7 +1786,217 @@ pub struct DynamicGroup {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub suffix: ::std::option::Option<String>,
     #[serde(rename = "type")]
-    pub type_: DynamicGroupType,
+    pub type_: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub value: ::std::option::Option<DynamicValue>,
+    #[serde(
+        rename = "visuallyContinues",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub visually_continues: ::std::option::Option<Id>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub voice: ::std::option::Option<VoiceName>,
+    #[serde(rename = "wedgeType")]
+    pub wedge_type: WedgeType,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&DynamicGroupGradual> for DynamicGroupGradual {
+    fn from(value: &DynamicGroupGradual) -> Self {
+        value.clone()
+    }
+}
+///`DynamicGroupImmediate`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "required": [
+///    "position",
+///    "type",
+///    "value"
+///  ],
+///  "properties": {
+///    "glyphs": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/smufl-glyph"
+///      }
+///    },
+///    "placement": {
+///      "$ref": "#/$defs/multi-staff-placement"
+///    },
+///    "position": {
+///      "$ref": "#/$defs/rhythmic-position"
+///    },
+///    "prefix": {
+///      "$ref": "#/$defs/string"
+///    },
+///    "staff": {
+///      "$ref": "#/$defs/staff-number"
+///    },
+///    "suffix": {
+///      "$ref": "#/$defs/string"
+///    },
+///    "type": {
+///      "type": "string",
+///      "const": "immediate"
+///    },
+///    "value": {
+///      "$ref": "#/$defs/dynamic-value"
+///    },
+///    "visuallyContinues": {
+///      "$ref": "#/$defs/id"
+///    },
+///    "voice": {
+///      "$ref": "#/$defs/voice-name"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct DynamicGroupImmediate {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub glyphs: ::std::vec::Vec<SmuflGlyph>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub placement: ::std::option::Option<MultiStaffPlacement>,
+    pub position: RhythmicPosition,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub prefix: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub staff: ::std::option::Option<StaffNumber>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub suffix: ::std::option::Option<String>,
+    #[serde(rename = "type")]
+    pub type_: ::std::string::String,
+    pub value: DynamicValue,
+    #[serde(
+        rename = "visuallyContinues",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub visually_continues: ::std::option::Option<Id>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub voice: ::std::option::Option<VoiceName>,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&DynamicGroupImmediate> for DynamicGroupImmediate {
+    fn from(value: &DynamicGroupImmediate) -> Self {
+        value.clone()
+    }
+}
+///`DynamicGroupRelative`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "required": [
+///    "position",
+///    "relativeValue",
+///    "type"
+///  ],
+///  "properties": {
+///    "glyphs": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/smufl-glyph"
+///      }
+///    },
+///    "placement": {
+///      "$ref": "#/$defs/multi-staff-placement"
+///    },
+///    "position": {
+///      "$ref": "#/$defs/rhythmic-position"
+///    },
+///    "prefix": {
+///      "$ref": "#/$defs/string"
+///    },
+///    "relativeValue": {
+///      "$ref": "#/$defs/relative-dynamic-value"
+///    },
+///    "staff": {
+///      "$ref": "#/$defs/staff-number"
+///    },
+///    "suffix": {
+///      "$ref": "#/$defs/string"
+///    },
+///    "type": {
+///      "type": "string",
+///      "const": "relative"
+///    },
+///    "value": {
+///      "$ref": "#/$defs/dynamic-value"
+///    },
+///    "visuallyContinues": {
+///      "$ref": "#/$defs/id"
+///    },
+///    "voice": {
+///      "$ref": "#/$defs/voice-name"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct DynamicGroupRelative {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub glyphs: ::std::vec::Vec<SmuflGlyph>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub placement: ::std::option::Option<MultiStaffPlacement>,
+    pub position: RhythmicPosition,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub prefix: ::std::option::Option<String>,
+    #[serde(rename = "relativeValue")]
+    pub relative_value: RelativeDynamicValue,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub staff: ::std::option::Option<StaffNumber>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub suffix: ::std::option::Option<String>,
+    #[serde(rename = "type")]
+    pub type_: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub value: ::std::option::Option<DynamicValue>,
     #[serde(
@@ -1647,112 +2008,137 @@ pub struct DynamicGroup {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub voice: ::std::option::Option<VoiceName>,
     #[serde(
-        rename = "wedgeType",
-        default,
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub wedge_type: ::std::option::Option<WedgeType>,
-    #[serde(
         rename = "_x",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub x: ::std::option::Option<VendorExtensions>,
 }
-impl ::std::convert::From<&DynamicGroup> for DynamicGroup {
-    fn from(value: &DynamicGroup) -> Self {
+impl ::std::convert::From<&DynamicGroupRelative> for DynamicGroupRelative {
+    fn from(value: &DynamicGroupRelative) -> Self {
         value.clone()
     }
 }
-///`DynamicGroupType`
+///`DynamicGroups`
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "type": "string",
-///  "enum": [
-///    "immediate",
-///    "gradual",
-///    "relative",
-///    "accent"
+///  "type": "array",
+///  "items": {
+///    "anyOf": [
+///      {
+///        "$ref": "#/$defs/dynamic-group-immediate"
+///      },
+///      {
+///        "$ref": "#/$defs/dynamic-group-gradual"
+///      },
+///      {
+///        "$ref": "#/$defs/dynamic-group-relative"
+///      },
+///      {
+///        "$ref": "#/$defs/dynamic-group-accent"
+///      }
+///    ]
+///  }
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct DynamicGroups(pub ::std::vec::Vec<DynamicGroupsItem>);
+impl ::std::ops::Deref for DynamicGroups {
+    type Target = ::std::vec::Vec<DynamicGroupsItem>;
+    fn deref(&self) -> &::std::vec::Vec<DynamicGroupsItem> {
+        &self.0
+    }
+}
+impl ::std::convert::From<DynamicGroups> for ::std::vec::Vec<DynamicGroupsItem> {
+    fn from(value: DynamicGroups) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&DynamicGroups> for DynamicGroups {
+    fn from(value: &DynamicGroups) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<::std::vec::Vec<DynamicGroupsItem>> for DynamicGroups {
+    fn from(value: ::std::vec::Vec<DynamicGroupsItem>) -> Self {
+        Self(value)
+    }
+}
+///`DynamicGroupsItem`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "$ref": "#/$defs/dynamic-group-immediate"
+///    },
+///    {
+///      "$ref": "#/$defs/dynamic-group-gradual"
+///    },
+///    {
+///      "$ref": "#/$defs/dynamic-group-relative"
+///    },
+///    {
+///      "$ref": "#/$defs/dynamic-group-accent"
+///    }
 ///  ]
 ///}
 /// ```
 /// </details>
-#[derive(
-    ::serde::Deserialize,
-    ::serde::Serialize,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd
-)]
-pub enum DynamicGroupType {
-    #[serde(rename = "immediate")]
-    Immediate,
-    #[serde(rename = "gradual")]
-    Gradual,
-    #[serde(rename = "relative")]
-    Relative,
-    #[serde(rename = "accent")]
-    Accent,
+#[derive(Clone, Debug)]
+pub enum DynamicGroupsItem {
+    Immediate(DynamicGroupImmediate),
+    Gradual(DynamicGroupGradual),
+    Relative(DynamicGroupRelative),
+    Accent(DynamicGroupAccent),
 }
-impl ::std::convert::From<&Self> for DynamicGroupType {
-    fn from(value: &DynamicGroupType) -> Self {
-        value.clone()
-    }
-}
-impl ::std::fmt::Display for DynamicGroupType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Self::Immediate => f.write_str("immediate"),
-            Self::Gradual => f.write_str("gradual"),
-            Self::Relative => f.write_str("relative"),
-            Self::Accent => f.write_str("accent"),
+impl ::serde::Serialize for DynamicGroupsItem {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ::serde::Serializer,
+    {
+        match self {
+            Self::Immediate(value) => ::serde::Serialize::serialize(value, serializer),
+            Self::Gradual(value) => ::serde::Serialize::serialize(value, serializer),
+            Self::Relative(value) => ::serde::Serialize::serialize(value, serializer),
+            Self::Accent(value) => ::serde::Serialize::serialize(value, serializer),
         }
     }
 }
-impl ::std::str::FromStr for DynamicGroupType {
-    type Err = self::error::ConversionError;
-    fn from_str(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        match value {
-            "immediate" => Ok(Self::Immediate),
-            "gradual" => Ok(Self::Gradual),
-            "relative" => Ok(Self::Relative),
-            "accent" => Ok(Self::Accent),
-            _ => Err("invalid value".into()),
+impl<'de> ::serde::Deserialize<'de> for DynamicGroupsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        let value = <::serde_json::Value as ::serde::Deserialize>::deserialize(deserializer)?;
+        let type_ = value
+            .get("type")
+            .and_then(::serde_json::Value::as_str)
+            .ok_or_else(|| <D::Error as ::serde::de::Error>::custom("dynamic group requires a type"))?;
+        match type_ {
+            "immediate" => ::serde_json::from_value(value)
+                .map(Self::Immediate)
+                .map_err(<D::Error as ::serde::de::Error>::custom),
+            "gradual" => ::serde_json::from_value(value)
+                .map(Self::Gradual)
+                .map_err(<D::Error as ::serde::de::Error>::custom),
+            "relative" => ::serde_json::from_value(value)
+                .map(Self::Relative)
+                .map_err(<D::Error as ::serde::de::Error>::custom),
+            "accent" => ::serde_json::from_value(value)
+                .map(Self::Accent)
+                .map_err(<D::Error as ::serde::de::Error>::custom),
+            other => Err(<D::Error as ::serde::de::Error>::custom(format!(
+                "unsupported dynamic group type: {other}"
+            ))),
         }
-    }
-}
-impl ::std::convert::TryFrom<&str> for DynamicGroupType {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<&::std::string::String> for DynamicGroupType {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<::std::string::String> for DynamicGroupType {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: ::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
     }
 }
 ///`DynamicPrefix`
@@ -2457,6 +2843,9 @@ impl ::std::convert::From<&Event> for Event {
 ///    "text"
 ///  ],
 ///  "properties": {
+///    "extender": {
+///      "$ref": "#/$defs/event-lyric-line-extender"
+///    },
 ///    "text": {
 ///      "$ref": "#/$defs/string"
 ///    },
@@ -2477,6 +2866,8 @@ pub struct EventLyricLine {
     )]
     pub c: ::std::option::Option<String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extender: ::std::option::Option<EventLyricLineExtender>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     pub text: String,
     #[serde(
@@ -2495,6 +2886,67 @@ pub struct EventLyricLine {
 impl ::std::convert::From<&EventLyricLine> for EventLyricLine {
     fn from(value: &EventLyricLine) -> Self {
         value.clone()
+    }
+}
+///`EventLyricLineExtender`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "properties": {
+///    "show": {
+///      "type": "boolean"
+///    },
+///    "target": {
+///      "$ref": "#/$defs/id"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct EventLyricLineExtender {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub show: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub target: ::std::option::Option<Id>,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&EventLyricLineExtender> for EventLyricLineExtender {
+    fn from(value: &EventLyricLineExtender) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for EventLyricLineExtender {
+    fn default() -> Self {
+        Self {
+            c: Default::default(),
+            id: Default::default(),
+            show: Default::default(),
+            target: Default::default(),
+            x: Default::default(),
+        }
     }
 }
 ///`EventLyricLineType`
@@ -3998,8 +4450,13 @@ impl ::std::convert::From<&Jump> for Jump {
 ///{
 ///  "type": "string",
 ///  "enum": [
-///    "dsalfine",
-///    "segno"
+///    "dc",
+///    "dcAlCoda",
+///    "dcAlFine",
+///    "dsAlCoda",
+///    "dsAlFine",
+///    "segno",
+///    "toCoda"
 ///  ]
 ///}
 /// ```
@@ -4017,10 +4474,20 @@ impl ::std::convert::From<&Jump> for Jump {
     PartialOrd
 )]
 pub enum JumpType {
-    #[serde(rename = "dsalfine")]
-    Dsalfine,
+    #[serde(rename = "dc")]
+    Dc,
+    #[serde(rename = "dcAlCoda")]
+    DcAlCoda,
+    #[serde(rename = "dcAlFine")]
+    DcAlFine,
+    #[serde(rename = "dsAlCoda")]
+    DsAlCoda,
+    #[serde(rename = "dsAlFine")]
+    DsAlFine,
     #[serde(rename = "segno")]
     Segno,
+    #[serde(rename = "toCoda")]
+    ToCoda,
 }
 impl ::std::convert::From<&Self> for JumpType {
     fn from(value: &JumpType) -> Self {
@@ -4030,8 +4497,13 @@ impl ::std::convert::From<&Self> for JumpType {
 impl ::std::fmt::Display for JumpType {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
-            Self::Dsalfine => f.write_str("dsalfine"),
+            Self::Dc => f.write_str("dc"),
+            Self::DcAlCoda => f.write_str("dcAlCoda"),
+            Self::DcAlFine => f.write_str("dcAlFine"),
+            Self::DsAlCoda => f.write_str("dsAlCoda"),
+            Self::DsAlFine => f.write_str("dsAlFine"),
             Self::Segno => f.write_str("segno"),
+            Self::ToCoda => f.write_str("toCoda"),
         }
     }
 }
@@ -4041,8 +4513,13 @@ impl ::std::str::FromStr for JumpType {
         value: &str,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
-            "dsalfine" => Ok(Self::Dsalfine),
+            "dc" => Ok(Self::Dc),
+            "dcAlCoda" => Ok(Self::DcAlCoda),
+            "dcAlFine" => Ok(Self::DcAlFine),
+            "dsAlCoda" => Ok(Self::DsAlCoda),
+            "dsAlFine" => Ok(Self::DsAlFine),
             "segno" => Ok(Self::Segno),
+            "toCoda" => Ok(Self::ToCoda),
             _ => Err("invalid value".into()),
         }
     }
@@ -5066,6 +5543,12 @@ impl ::std::fmt::Display for MeasureCount {
 ///    "barline": {
 ///      "$ref": "#/$defs/barline"
 ///    },
+///    "caesura": {
+///      "$ref": "#/$defs/caesura"
+///    },
+///    "coda": {
+///      "$ref": "#/$defs/coda"
+///    },
 ///    "ending": {
 ///      "$ref": "#/$defs/ending"
 ///    },
@@ -5118,6 +5601,10 @@ pub struct MeasureGlobal {
     )]
     pub c: ::std::option::Option<String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub caesura: ::std::option::Option<Caesura>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub coda: ::std::option::Option<Coda>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub ending: ::std::option::Option<Ending>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub fermata: ::std::option::Option<Fermata>,
@@ -5166,6 +5653,8 @@ impl ::std::default::Default for MeasureGlobal {
         Self {
             barline: Default::default(),
             c: Default::default(),
+            caesura: Default::default(),
+            coda: Default::default(),
             ending: Default::default(),
             fermata: Default::default(),
             fine: Default::default(),
@@ -5603,7 +6092,7 @@ impl ::std::convert::From<&Mnx> for Mnx {
 ///
 /// ```json
 ///{
-///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/40",
+///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/46",
 ///  "title": "MNX document",
 ///  "description": "An encoding of Common Western Music Notation.",
 ///  "$ref": "#/$defs/root"
@@ -5929,6 +6418,9 @@ impl ::std::convert::From<&NonArpeggio> for NonArpeggio {
 ///    "accidentalDisplay": {
 ///      "$ref": "#/$defs/accidental-display"
 ///    },
+///    "markings": {
+///      "$ref": "#/$defs/note-markings"
+///    },
 ///    "perform": {
 ///      "$ref": "#/$defs/perform-options"
 ///    },
@@ -5966,6 +6458,8 @@ pub struct Note {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub markings: ::std::option::Option<NoteMarkings>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub perform: ::std::option::Option<PerformOptions>,
     pub pitch: Pitch,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -5984,6 +6478,75 @@ pub struct Note {
 impl ::std::convert::From<&Note> for Note {
     fn from(value: &Note) -> Self {
         value.clone()
+    }
+}
+///`NoteMarkings`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "properties": {
+///    "slideIn": {
+///      "$ref": "#/$defs/slide-into-note"
+///    },
+///    "slideOut": {
+///      "$ref": "#/$defs/slide-out-of-note"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct NoteMarkings {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(
+        rename = "slideIn",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub slide_in: ::std::option::Option<SlideIntoNote>,
+    #[serde(
+        rename = "slideOut",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub slide_out: ::std::option::Option<SlideOutOfNote>,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&NoteMarkings> for NoteMarkings {
+    fn from(value: &NoteMarkings) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for NoteMarkings {
+    fn default() -> Self {
+        Self {
+            c: Default::default(),
+            id: Default::default(),
+            slide_in: Default::default(),
+            slide_out: Default::default(),
+            x: Default::default(),
+        }
     }
 }
 ///`NoteValue`
@@ -6673,10 +7236,7 @@ impl ::std::convert::From<&Part> for Part {
 ///      }
 ///    },
 ///    "dynamics": {
-///      "type": "array",
-///      "items": {
-///        "$ref": "#/$defs/dynamic-group"
-///      }
+///      "$ref": "#/$defs/dynamic-groups"
 ///    },
 ///    "measureRepeat": {
 ///      "$ref": "#/$defs/measure-repeat"
@@ -6724,8 +7284,8 @@ pub struct PartMeasure {
     pub c: ::std::option::Option<String>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub clefs: ::std::vec::Vec<PositionedClef>,
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub dynamics: ::std::vec::Vec<DynamicGroup>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub dynamics: ::std::option::Option<DynamicGroups>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(
@@ -8179,6 +8739,264 @@ impl<'de> ::serde::Deserialize<'de> for SimpleColor {
             .map_err(|e: self::error::ConversionError| {
                 <D::Error as ::serde::de::Error>::custom(e.to_string())
             })
+    }
+}
+///`SlideIntoNote`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "required": [
+///    "type"
+///  ],
+///  "properties": {
+///    "type": {
+///      "$ref": "#/$defs/slide-into-note-type"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct SlideIntoNote {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(rename = "type")]
+    pub type_: SlideIntoNoteType,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&SlideIntoNote> for SlideIntoNote {
+    fn from(value: &SlideIntoNote) -> Self {
+        value.clone()
+    }
+}
+///`SlideIntoNoteType`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "scoop",
+///    "plop"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum SlideIntoNoteType {
+    #[serde(rename = "scoop")]
+    Scoop,
+    #[serde(rename = "plop")]
+    Plop,
+}
+impl ::std::convert::From<&Self> for SlideIntoNoteType {
+    fn from(value: &SlideIntoNoteType) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for SlideIntoNoteType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Scoop => f.write_str("scoop"),
+            Self::Plop => f.write_str("plop"),
+        }
+    }
+}
+impl ::std::str::FromStr for SlideIntoNoteType {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "scoop" => Ok(Self::Scoop),
+            "plop" => Ok(Self::Plop),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for SlideIntoNoteType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for SlideIntoNoteType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for SlideIntoNoteType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`SlideOutOfNote`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "required": [
+///    "type"
+///  ],
+///  "properties": {
+///    "type": {
+///      "$ref": "#/$defs/slide-out-of-note-type"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct SlideOutOfNote {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(rename = "type")]
+    pub type_: SlideOutOfNoteType,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&SlideOutOfNote> for SlideOutOfNote {
+    fn from(value: &SlideOutOfNote) -> Self {
+        value.clone()
+    }
+}
+///`SlideOutOfNoteType`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "falloff",
+///    "doit"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum SlideOutOfNoteType {
+    #[serde(rename = "falloff")]
+    Falloff,
+    #[serde(rename = "doit")]
+    Doit,
+}
+impl ::std::convert::From<&Self> for SlideOutOfNoteType {
+    fn from(value: &SlideOutOfNoteType) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for SlideOutOfNoteType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Falloff => f.write_str("falloff"),
+            Self::Doit => f.write_str("doit"),
+        }
+    }
+}
+impl ::std::str::FromStr for SlideOutOfNoteType {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "falloff" => Ok(Self::Falloff),
+            "doit" => Ok(Self::Doit),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for SlideOutOfNoteType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for SlideOutOfNoteType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for SlideOutOfNoteType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///`Slur`
@@ -10068,6 +10886,9 @@ impl ::std::default::Default for StrongAccent {
 ///    },
 ///    "useBeams": {
 ///      "type": "boolean"
+///    },
+///    "useLyricExtenders": {
+///      "type": "boolean"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -10097,6 +10918,12 @@ pub struct Support {
     )]
     pub use_beams: ::std::option::Option<bool>,
     #[serde(
+        rename = "useLyricExtenders",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub use_lyric_extenders: ::std::option::Option<bool>,
+    #[serde(
         rename = "_x",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -10115,6 +10942,7 @@ impl ::std::default::Default for Support {
             id: Default::default(),
             use_accidental_display: Default::default(),
             use_beams: Default::default(),
+            use_lyric_extenders: Default::default(),
             x: Default::default(),
         }
     }

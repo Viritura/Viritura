@@ -156,6 +156,29 @@ describe("MNX percussion semantic validation", () => {
       }
     });
 
+    it("rejects retired vendor navigation fields", () => {
+      const score = percussionScore() as ReturnType<typeof percussionScore> & {
+        global: { measures: Array<Record<string, unknown>> };
+      };
+      score.global.measures[0]!["_x"] = {
+        viritura: {
+          coda: { location: { fraction: [0, 1] } },
+          jump: { type: "dsAlCoda", location: { fraction: [1, 1] } },
+        },
+      };
+
+      const result = validateRawScore(score);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toContainEqual(
+          expect.objectContaining({
+            pointer: "/global/measures/0/_x/viritura",
+            keyword: "additionalProperties",
+          }),
+        );
+      }
+    });
+
     it("rejects Viritura payloads at unsupported MNX object locations", () => {
       const score = percussionScore();
       const sequence = score.parts[0]!.measures[0]!.sequences[0]! as Record<string, unknown>;
@@ -207,6 +230,15 @@ describe("MNX percussion semantic validation", () => {
     const result = validateRawScore(nonstandardEnum);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors).toContainEqual(expect.objectContaining({ keyword: "enum" }));
+
+    const retiredJumpType = percussionScore() as ReturnType<typeof percussionScore> & {
+      global: { measures: Array<Record<string, unknown>> };
+    };
+    retiredJumpType.global.measures[0]!["jump"] = {
+      type: "dsalfine",
+      location: { fraction: [1, 1] },
+    };
+    expect(validateRawScore(retiredJumpType).ok).toBe(false);
   });
 
   it("rejects a kit component whose sound does not exist", () => {
