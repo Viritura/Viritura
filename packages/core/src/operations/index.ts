@@ -20,6 +20,8 @@ export {
   createRelativeDynamicGroup,
   dynamicSpelling,
   isSupportedDynamicGlyph,
+  glyphsForDynamicSpelling,
+  refreshDynamicGlyphs,
   type AuthoredDynamicValue,
 } from "./dynamicGroups";
 export {

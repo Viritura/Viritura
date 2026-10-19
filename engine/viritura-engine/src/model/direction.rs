@@ -255,15 +255,19 @@ impl DynamicGroup {
         if let Some(value) = self.value {
             return value.to_string();
         }
-        match self.relative_value {
-            Some(RelativeDynamicValue::Louder) => "f".to_owned(),
-            Some(RelativeDynamicValue::Softer) => "p".to_owned(),
-            None => String::new(),
-        }
+        String::new()
     }
 
     pub fn is_gradual(&self) -> bool {
         self.group_type == DynamicGroupType::Gradual
+    }
+
+    pub fn has_printed_marking(&self) -> bool {
+        self.glyphs
+            .as_ref()
+            .map_or(self.value.is_some(), |glyphs| !glyphs.is_empty())
+            || self.prefix.as_ref().is_some_and(|text| !text.is_empty())
+            || self.suffix.as_ref().is_some_and(|text| !text.is_empty())
     }
 
     /// Resolve an authored placement to the side of its associated staff.
