@@ -262,6 +262,23 @@ forward expanded occurrence. At equal times:
 5. overlapping gradual groups in one effective scope emit an
    `overlapping-gradual` diagnostic instead of silently picking an entry.
 
+### Navigation spans
+
+MNX navigation uses native `dc`, `dcAlCoda`, `dcAlFine`, `dsAlCoda`,
+`dsAlFine`, `segno` (D.S.) and `toCoda` jumps. Coda, segno and Fine destinations
+have explicit rhythmic locations. To Coda is ignored until an al-Coda replay;
+Fine is ignored until an al-Fine replay. Missing, ambiguous or unreachable
+required destinations produce navigation errors, not a guessed route.
+
+The shared itinerary records played source-measure beat spans rather than only
+measure indices. Playback realizes the compiled events and continuous tempo
+model on those spans, omitting unplayed onsets and ending sounding notes at
+discontinuous navigation boundaries. Tempo ramps and holds follow the same
+performed beat axis. The playhead, seek resolver, click track and picture bars
+retain source measure identities; a destination inside a measure does not
+become a new written downbeat. Text reading "To Coda" is presentation only and
+does not create a jump.
+
 ### 8.3 Lanes
 
 One MIDI channel carries one CC11 stream, so simultaneous `voice: "1"` at `p`

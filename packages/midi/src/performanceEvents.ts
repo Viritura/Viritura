@@ -15,13 +15,14 @@ import { buildDynamicsEnvelope, cc11Events, sampleDynamics } from "./dynamicsEnv
 import { buildHoldSchedule } from "./holds";
 import { classifyTechniqueText, type TechniqueAction } from "./technique";
 import { buildTempoModel, type TempoBuild } from "./tempoMap";
-import { durationBeats, expandMeasureOrder, fractionToBeats, type TimelineOptions } from "./timeline";
-import { detectToCodaMeasureIndex } from "./repeatExpansion";
+import { durationBeats, fractionToBeats, type TimelineOptions } from "./timeline";
 import type { TempoModel } from "./tempoModel";
 import { resolvePartStaffMeterTable, staffMeterRatioAt } from "./staffMeterTiming";
 import { compileChordPlayback, realizeChordPlayback } from "./chordPlayback";
 import { expandScoreMeasureRepeats } from "./measureRepeats";
 import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "./cadenzaTiming";
+import { scorePlaybackItinerary } from "./repeatExpansion";
+import { realizePerformanceNavigation } from "./navigation";
 
 export interface Articulations {
   staccato: boolean;
@@ -446,9 +447,10 @@ function generateChordPerformanceEvents(score: Score, options?: TimelineOptions)
   const program = compileChordPlayback(score, options?.includeGlobalChords);
   const events: PerformanceEvent[] = [{ kind: "reset", time: 0 }];
   if (!program) return events;
-  const measureOrder = expandMeasureOrder(score.global.measures, {
-    toCodaMeasureIndex: detectToCodaMeasureIndex(score),
-  });
+  const measureOrder =
+    options?.expandRepeats === false
+      ? score.global.measures.map((_, index) => index)
+      : scorePlaybackItinerary(score).map((span) => span.measureIndex);
   const timing = buildPerformanceTiming(score, measureOrder);
   for (const chordNote of realizeChordPlayback(program, measureOrder, timing)) {
     const note: PerformanceNote = {
@@ -472,6 +474,27 @@ export function generatePerformanceEvents(
   partIndex: number,
   options?: TimelineOptions,
 ): PerformanceEvent[] {
+  const events = generateFullPerformanceEvents(inputScore, partIndex, options);
+  if (options?.expandRepeats === false) return events;
+  const score = expandScoreMeasureRepeats(inputScore);
+  const spans = scorePlaybackItinerary(score);
+  if (
+    !score.global.measures.some((measure) => measure.jump !== undefined) &&
+    !spans.some((span) => span.startBeat > 0 || span.endBeat < span.measureBeats)
+  )
+    return events;
+  const timing = buildPerformanceTiming(
+    score,
+    spans.map((span) => span.measureIndex),
+  );
+  return realizePerformanceNavigation(events, timing, spans);
+}
+
+function generateFullPerformanceEvents(
+  inputScore: Score,
+  partIndex: number,
+  options?: TimelineOptions,
+): PerformanceEvent[] {
   const score = expandScoreMeasureRepeats(inputScore);
   if (partIndex === score.parts.length) return generateChordPerformanceEvents(score, options);
   const globalMeasures = score.global.measures;
@@ -482,8 +505,10 @@ export function generatePerformanceEvents(
     return [{ kind: "reset", time: 0 }];
   }
 
-  const toCodaMeasureIndex = detectToCodaMeasureIndex(score);
-  const measureOrder = expandMeasureOrder(globalMeasures, { toCodaMeasureIndex });
+  const measureOrder =
+    options?.expandRepeats === false
+      ? globalMeasures.map((_, index) => index)
+      : scorePlaybackItinerary(score).map((span) => span.measureIndex);
   if (measureOrder.length === 0) return [{ kind: "reset", time: 0 }];
 
   const { model, measureStartBeats } = buildPerformanceTiming(score, measureOrder);

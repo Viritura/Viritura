@@ -37,7 +37,8 @@ import type {
   Octave,
 } from "@viritura/core";
 import { pitchToMidi, isRest, DURATION_BEATS, SHARP_ORDER, FLAT_ORDER } from "@viritura/core";
-import { detectToCodaMeasureIndex, expandMeasureOrder } from "./repeatExpansion";
+import { expandMeasureOrder, scorePlaybackItinerary } from "./repeatExpansion";
+import { realizeNavigation } from "./navigation";
 import { expandScoreMeasureRepeats } from "./measureRepeats";
 import { compileChordPlayback, chordMidiEvents } from "./chordPlayback";
 import { analyzeImpliedSectionDynamics, type ImpliedSectionDynamicAnchor } from "./sectionDynamics";
@@ -240,11 +241,11 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
 
   const chords = compileChordPlayback(score, options?.includeGlobalChords);
   // Step 1: Expand repeats/jumps into linear measure order
-  const toCodaMeasureIndex = detectToCodaMeasureIndex(score);
+  const spans = options?.expandRepeats === false ? undefined : scorePlaybackItinerary(score);
   const measureOrder =
     options?.expandRepeats === false
       ? globalMeasures.map((_, index) => index)
-      : expandMeasureOrder(globalMeasures, { toCodaMeasureIndex });
+      : spans!.map((span) => span.measureIndex);
   if (measureOrder.length === 0) {
     return emptyTimeline();
   }
@@ -318,7 +319,7 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
     return { count: ts.count, unit: ts.unit };
   });
 
-  return {
+  const result: MidiTimeline = {
     events: allEvents,
     duration,
     tempoMap,
@@ -330,6 +331,11 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
     measureTimeSignatures,
     diagnostics,
   };
+  return spans &&
+    (globalMeasures.some((measure) => measure.jump !== undefined) ||
+      spans.some((span) => span.startBeat > 0 || span.endBeat < span.measureBeats))
+    ? realizeNavigation(result, spans)
+    : { ...result, playedSpans: spans };
 }
 
 /** Assign one MIDI 1 channel per independent dynamic lane where possible.

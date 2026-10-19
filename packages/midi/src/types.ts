@@ -7,6 +7,7 @@
  */
 
 import type { TempoModel } from "./tempoModel";
+import type { PlayedMeasureSpan } from "./navigation";
 
 /** A single MIDI event (noteOn, noteOff, programChange, or controlChange). */
 export interface MidiEvent {
@@ -61,6 +62,7 @@ export interface TempoMapEntry {
 
 /** The complete MIDI timeline generated from a Score. */
 export interface MidiTimeline {
+  playedSpans?: PlayedMeasureSpan[];
   /** Time-ordered MIDI events (noteOn and noteOff interleaved) */
   events: MidiEvent[];
   /** Total duration of the score in seconds */
