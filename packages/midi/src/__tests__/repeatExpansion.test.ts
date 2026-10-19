@@ -7,8 +7,12 @@ function measures(count: number): GlobalMeasure[] {
   return Array.from({ length: count }, () => ({ time: { count: 4, unit: 4 } }));
 }
 
-function jump(measure: GlobalMeasure, type: string, fraction: [number, number] = [1, 1]): void {
-  Reflect.set(measure, "jump", { type, location: { fraction } });
+function jump(
+  measure: GlobalMeasure,
+  type: NonNullable<GlobalMeasure["jump"]>["type"],
+  fraction: [number, number] = [1, 1],
+): void {
+  measure.jump = { type, location: { fraction } };
 }
 
 describe("native navigation itinerary", () => {
@@ -35,7 +39,7 @@ describe("native navigation itinerary", () => {
     ]);
   });
 
-  it.each(["dc", "segno"])("does not arm Fine for plain %s", (type) => {
+  it.each(["dc", "segno"] as const)("does not arm Fine for plain %s", (type) => {
     const score = measures(3);
     score[0]!.segno = { location: { fraction: [0, 1] } };
     score[1]!.fine = { location: { fraction: [1, 1] } };
@@ -59,7 +63,7 @@ describe("native navigation itinerary", () => {
     score[0]!.segno = { location: { fraction: [0, 1] } };
     score[1]!.segno = { location: { fraction: [0, 1] } };
     expect(() => expandPlaybackItinerary(score)).toThrow("exactly one segno");
-    jump(score[2]!, "dsalfine");
+    Reflect.set(score[2]!, "jump", { type: "dsalfine", location: { fraction: [1, 1] } });
     expect(() => expandPlaybackItinerary(score)).toThrow("Unsupported jump type");
   });
 

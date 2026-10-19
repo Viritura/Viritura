@@ -29,10 +29,10 @@ function navigationScore(): Score {
       },
     ],
   };
-  Reflect.set(score.global.measures[3]!, "jump", {
+  score.global.measures[3]!.jump = {
     type: "dsAlFine",
     location: { fraction: [3, 4] },
-  });
+  };
   return score;
 }
 
@@ -40,7 +40,8 @@ describe("location-aware navigation timing", () => {
   it("reattacks a tied destination when its source is outside the performed span", () => {
     const score = navigationScore();
     const content = score.parts[0]!.measures[1]!.sequences[0]!.content;
-    const source = content[0] as NoteEvent;
+    const source = content[0];
+    if (source?.type !== "event") throw new Error("Expected the first event in the navigation fixture");
     source.notes![0]!.ties = [{ target: "n1-1" }];
     const timeline = generateTimeline(score);
     const reattack = timeline.events.filter((event) => event.type === "noteOn" && event.scoreEventId === "e1-1");
