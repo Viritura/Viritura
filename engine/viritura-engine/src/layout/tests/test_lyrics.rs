@@ -2,7 +2,7 @@
 // 4 test(s)
 
 use crate::layout::config::LayoutConfig;
-use crate::layout::layout_score;
+use crate::layout::{layout_full_score, layout_score};
 use crate::render::*;
 use std::collections::HashSet;
 
@@ -477,4 +477,124 @@ fn test_lyrics_spacing_prevents_overlap() {
             half_w1
         );
     }
+}
+
+#[test]
+fn test_explicit_lyric_extender_continues_across_system_and_part_boundaries() {
+    let global_measures: Vec<_> = (0..8)
+        .map(|_| serde_json::json!({"time":{"count":4,"unit":4}}))
+        .collect();
+    let vocal_measures: Vec<_> = (0..8)
+        .map(|index| {
+            let mut event = serde_json::json!({
+                "duration":{"base":"whole"},
+                "notes":[{"pitch":{"step":"C","octave":4}}]
+            });
+            if index == 0 {
+                event["id"] = serde_json::json!("lyric-start");
+                event["lyrics"] = serde_json::json!({
+                    "lines":{"1":{"text":"Ah","extender":{"show":true,"target":"lyric-target"}}}
+                });
+            }
+            serde_json::json!({"sequences":[{"content":[event]}]})
+        })
+        .collect();
+    let accompaniment_measures: Vec<_> = (0..8)
+        .map(|index| {
+            let mut event = serde_json::json!({
+                "duration":{"base":"whole"},
+                "notes":[{"pitch":{"step":"G","octave":3}}]
+            });
+            if index == 7 {
+                event["id"] = serde_json::json!("lyric-target");
+            }
+            serde_json::json!({"sequences":[{"content":[event]}]})
+        })
+        .collect();
+    let json = serde_json::json!({
+        "mnx":{"version":7,"support":{"useLyricExtenders":true}},
+        "global":{"measures":global_measures},
+        "parts":[
+            {"measures":vocal_measures},
+            {"measures":accompaniment_measures}
+        ]
+    });
+    let score = crate::parse::parse_mnx(&json.to_string()).expect("Failed to parse extender score");
+    let mut config = LayoutConfig::default();
+    config.page_width = Some(30.0 * config.sp);
+    config.page_height = 40.0;
+    config.page_margin_left = 0.0;
+    config.page_margin_right = 0.0;
+    config.page_margin_top = 0.0;
+    config.page_margin_bottom = 0.0;
+    let dl = layout_full_score(&score, &config);
+
+    let systems: HashSet<usize> = dl
+        .measure_bounds
+        .iter()
+        .map(|bounds| bounds.system_index)
+        .collect();
+    assert!(
+        systems.len() > 1,
+        "expected the narrow page to split the measures into systems"
+    );
+    assert!(
+        dl.pages.len() > 1,
+        "expected the short page to paginate the systems"
+    );
+    let extender_segments = dl
+        .commands
+        .iter()
+        .filter(|command| {
+            matches!(
+                command,
+                RenderCommand::DrawLine { width, .. } if (*width - 0.12 * config.sp).abs() < 1e-6
+            )
+        })
+        .count();
+    assert_eq!(extender_segments, systems.len());
+}
+
+#[test]
+fn test_lyric_extender_cache_dependency_tracks_remote_endpoint_duration() {
+    let json = serde_json::json!({
+        "mnx":{"version":46,"support":{"useLyricExtenders":true}},
+        "global":{"measures":[
+            {"time":{"count":4,"unit":4}},
+            {"time":{"count":4,"unit":4}}
+        ]},
+        "parts":[
+            {"measures":[
+                {"sequences":[{"content":[{
+                    "id":"lyric-start",
+                    "duration":{"base":"quarter"},
+                    "notes":[{"pitch":{"step":"C","octave":4}}],
+                    "lyrics":{"lines":{"1":{"text":"Ah","extender":{"show":true,"target":"remote-end"}}}}
+                }]}]},
+                {"sequences":[]}
+            ]},
+            {"measures":[
+                {"sequences":[]},
+                {"sequences":[{"content":[{
+                    "id":"remote-end",
+                    "duration":{"base":"quarter"},
+                    "notes":[{"pitch":{"step":"G","octave":3}}]
+                }]}]}
+            ]}
+        ]
+    });
+    let mut score =
+        crate::parse::parse_mnx(&json.to_string()).expect("Failed to parse remote-target score");
+    let before = super::super::lyric_extenders::cache_dependency_hash(&score);
+    let crate::model::SequenceContent::Event(target) =
+        &mut score.parts[1].measures[1].sequences[0].content[0]
+    else {
+        panic!("remote endpoint should be an event");
+    };
+    target.duration.base = crate::model::duration::NoteValueBase::Half;
+    let after = super::super::lyric_extenders::cache_dependency_hash(&score);
+    assert_ne!(
+        before, after,
+        "remote endpoint changes must invalidate retained systems"
+    );
 }

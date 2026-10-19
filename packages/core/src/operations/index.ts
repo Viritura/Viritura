@@ -43,3 +43,11 @@ export {
   type ChordSymbolConflict,
   type ChordSymbolMergeResult,
 } from "./chordSymbols";
+export {
+  resolveLyricExtenders,
+  lyricExtenderTargetCandidates,
+  type LyricExtenderDiagnostic,
+  type LyricExtenderResolution,
+  type LyricExtenderTargetCandidate,
+  type ResolvedLyricExtender,
+} from "./lyricExtenders";

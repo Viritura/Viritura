@@ -131,7 +131,7 @@ function isSpaceDuration(value: unknown): boolean {
 
 /**
  * Assign fresh IDs to all events and notes in a fragment's content,
- * and remap slur/tie target references to the new IDs.
+ * and remap internal slur/tie/lyric-extender references to the new IDs.
  * Returns a new array (does not mutate the input).
  *
  * Handles nested containers: Grace, Tuplet, and MultiNoteTremolo all carry
@@ -202,6 +202,13 @@ function freshenEvents(events: NoteEvent[]): void {
   }
 
   function remapEvent(ev: NoteEvent): void {
+    for (const line of Object.values(ev.lyrics?.lines ?? {})) {
+      const target = line.extender?.target;
+      if (!target) continue;
+      const mapped = eventIdMap.get(target);
+      if (mapped) line.extender!.target = mapped;
+      else delete line.extender!.target;
+    }
     if (ev.slurs) {
       ev.slurs = ev.slurs.filter((slur: { target: string; startNote?: string; endNote?: string }) => {
         const mapped = eventIdMap.get(slur.target);

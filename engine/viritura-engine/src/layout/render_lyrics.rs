@@ -12,11 +12,12 @@ use std::collections::HashSet;
 ///
 /// Global order controls relative placement, while filtering to the staff's
 /// used lines avoids reserving empty rows for unrelated vocal parts.
-pub(super) fn line_order_for_staff(
+pub(super) fn line_order_for_staff_with_extenders(
     measure_layouts: &[MeasureLayout],
     global_order: Option<&[String]>,
+    extender_lines: &HashSet<String>,
 ) -> Option<Vec<String>> {
-    let mut used = HashSet::new();
+    let mut used = extender_lines.clone();
     for measure in measure_layouts {
         for voice in &measure.voice_layouts {
             for event_index in 0..voice.events.len() {

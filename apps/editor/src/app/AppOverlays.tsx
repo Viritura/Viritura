@@ -15,7 +15,7 @@ import { OrchestralStaffSplitDialog } from "../orchestralStaffSplit";
 import { BarInstrumentChangeDialogs } from "../instrumentChanges";
 import { DrumKitDialogHost } from "../components/DrumKitDialog";
 import { ImportErrorLogDialogHost } from "../importErrorLog";
-import { CondensingPopover, type CondensingMode } from "../components/CondensingPopover";
+import type { CondensingMode } from "../components/CondensingPopover";
 import { LyricInput } from "../components/LyricInput";
 import { RadialMenu, TextPopover } from "@viritura/ui";
 
@@ -42,8 +42,9 @@ import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { NoteInputState } from "../store/noteInputStore";
 
-import { applyTempoEdit, applyStaffTextEdit, applyCondensingOverride } from "./popoverHandlers";
+import { applyTempoEdit, applyStaffTextEdit } from "./popoverHandlers";
 import { ChordSymbolEntryPopover } from "./chordSymbolEntry";
+import { CondensingPopoverOverlay } from "./CondensingPopoverOverlay";
 import {
   getMenuItems,
   getMenuTitle,
@@ -70,6 +71,19 @@ type StartCenterProps = ComponentProps<typeof StartCenter>;
 type LyricInputProps = ComponentProps<typeof LyricInput>;
 type RadialMenuProps = ComponentProps<typeof RadialMenu>;
 type GitHubAccountState = ReturnType<typeof useGitHubAccount>;
+
+function LyricInputOverlay(props: {
+  active: boolean;
+  state: LyricStateRef | null;
+  navIndex: LyricInputProps["navIndex"];
+  position: LyricInputProps["position"];
+  onCommitSyllable: LyricInputProps["onCommitSyllable"];
+  onSetExtender: NonNullable<LyricInputProps["onSetExtender"]>;
+  onNavigate: LyricInputProps["onNavigate"];
+  onExit: LyricInputProps["onExit"];
+}) {
+  return <LyricInput {...props} />;
+}
 
 function openSignInFromStartCenter(): void {
   setStartCenterOpen(false);
@@ -232,6 +246,7 @@ export interface AppOverlaysProps {
   lyricNavIndex: LyricInputProps["navIndex"];
   lyricPosition: LyricInputProps["position"];
   handleLyricCommit: LyricInputProps["onCommitSyllable"];
+  handleLyricExtender: NonNullable<LyricInputProps["onSetExtender"]>;
   handleLyricNavigate: LyricInputProps["onNavigate"];
   handleLyricExit: LyricInputProps["onExit"];
 
@@ -285,6 +300,7 @@ export function AppOverlays(props: AppOverlaysProps) {
     lyricNavIndex,
     lyricPosition,
     handleLyricCommit,
+    handleLyricExtender,
     handleLyricNavigate,
     handleLyricExit,
     radialMenu,
@@ -397,28 +413,17 @@ export function AppOverlays(props: AppOverlaysProps) {
 
       <ImportErrorLogDialogHost />
 
-      <CondensingPopover
+      <CondensingPopoverOverlay
         open={dialogs.condensingPopover}
         // eslint-disable-next-line react-hooks/refs
         position={mousePositionRef.current}
-        sourceCount={2}
-        currentMode={noteInputState.condensingRouting ?? undefined}
-        onSelectMode={(mode: CondensingMode) => {
-          setCondensingRouting(mode);
-          closeDialog("condensingPopover");
-          const { score } = store.getState();
-          if (!score) return;
-          const newScore = applyCondensingOverride({
-            score,
-            selection,
-            noteInputState,
-            selectedScoreIndex,
-            measureIndex: selectedMeasureIndex() ?? 0,
-            mode,
-          });
-          if (newScore !== score) updateScore(newScore);
-        }}
-        onClose={() => closeDialog("condensingPopover")}
+        store={store}
+        selection={selection}
+        noteInputState={noteInputState}
+        selectedScoreIndex={selectedScoreIndex}
+        selectedMeasureIndex={selectedMeasureIndex}
+        setCondensingRouting={setCondensingRouting}
+        updateScore={updateScore}
       />
 
       <ScoreTextEntryPopovers
@@ -430,12 +435,13 @@ export function AppOverlays(props: AppOverlaysProps) {
         selectedScoreIndex={selectedScoreIndex}
       />
 
-      <LyricInput
+      <LyricInputOverlay
         active={lyricMode}
         state={lyricState}
         navIndex={lyricNavIndex}
         position={lyricPosition}
         onCommitSyllable={handleLyricCommit}
+        onSetExtender={handleLyricExtender}
         onNavigate={handleLyricNavigate}
         onExit={handleLyricExit}
       />

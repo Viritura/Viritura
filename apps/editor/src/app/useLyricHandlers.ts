@@ -1,6 +1,7 @@
 import { useCallback, useMemo, type RefObject } from "react";
 import { produce } from "../score/scoreClone";
-import { resolveEventLocation } from "../score/ElementPath";
+import { lyricElementId, resolveEventLocation } from "../score/ElementPath";
+import { setLyricExtenderMode } from "../commands/lyricCommands";
 import { buildNavigationIndex, type NavigationIndex } from "../navigation/NavigationIndex";
 import type { LyricInputState } from "../components/LyricInput";
 import type { DocumentStore } from "../store/documentStore";
@@ -77,12 +78,27 @@ export function useLyricHandlers({
         if (!ev || ev.type !== "event") return;
         if (!ev.lyrics) ev.lyrics = {};
         if (!ev.lyrics.lines) ev.lyrics.lines = {};
-        ev.lyrics.lines[lineId] = { text, ...(type !== "whole" ? { type } : {}) };
+        const extender = ev.lyrics.lines[lineId]?.extender;
+        ev.lyrics.lines[lineId] = {
+          text,
+          ...(type !== "whole" ? { type } : {}),
+          ...(extender ? { extender } : {}),
+        };
         draft.global.lyrics ??= {};
         const lineOrder = draft.global.lyrics.lineOrder ?? [];
         if (!lineOrder.includes(lineId)) draft.global.lyrics.lineOrder = [...lineOrder, lineId];
       });
       if (newScore !== score) updateScore(newScore);
+    },
+    [store, updateScore],
+  );
+
+  const handleLyricExtender = useCallback(
+    (elementId: string, lineId: string, mode: "show") => {
+      const { score } = store.getState();
+      if (!score) return;
+      const next = setLyricExtenderMode(score, lyricElementId(elementId, lineId), mode);
+      if (next) updateScore(next);
     },
     [store, updateScore],
   );
@@ -105,6 +121,7 @@ export function useLyricHandlers({
     lyricNavIndex,
     lyricPosition,
     handleLyricCommit,
+    handleLyricExtender,
     handleLyricNavigate,
     handleLyricExit,
   };

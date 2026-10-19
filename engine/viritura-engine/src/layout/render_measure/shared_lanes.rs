@@ -28,6 +28,17 @@ pub(crate) fn shared_staff_lane(
     }
 }
 
+pub(crate) fn should_render_ordinary_measure_number(
+    lane: &SharedStaffLane,
+    staff_idx: Option<usize>,
+) -> bool {
+    if lane.center_y.is_some() {
+        lane.is_bottom
+    } else {
+        staff_idx.is_none_or(|index| index == 0)
+    }
+}
+
 pub(crate) fn above_measure_obstacles(
     measure_layouts: &[MeasureLayout],
     staff_y: f64,

@@ -48,6 +48,9 @@ export function serializeMnx(score: Score): unknown {
     if (score.mnx.support.useBeams !== undefined) {
       supportObj["useBeams"] = score.mnx.support.useBeams;
     }
+    if (score.mnx.support.useLyricExtenders !== undefined) {
+      supportObj["useLyricExtenders"] = score.mnx.support.useLyricExtenders;
+    }
     if (Object.keys(supportObj).length > 0) {
       mnxObj["support"] = supportObj;
     }
@@ -693,6 +696,9 @@ function serializeLyrics(l: Lyrics): Obj {
       const lineObj: Obj = {};
       if (line.type) lineObj["type"] = line.type;
       lineObj["text"] = line.text;
+      if (line.extender !== undefined) {
+        lineObj["extender"] = line.extender;
+      }
       lines[key] = lineObj;
     }
     obj["lines"] = lines;

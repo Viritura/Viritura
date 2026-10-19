@@ -160,10 +160,30 @@ function applyOnePatch(patch: ScorePatch, newScore: Score, root: Y.Map<unknown>)
     case "setScoreExtension": {
       throw new PatchTargetNotInYDoc(`Structural ScorePatch kind requires full resync: ${patch.kind}`);
     }
+    case "setMnxSupport": {
+      syncMnxSupport(root, newScore);
+      return;
+    }
     default: {
       const _exhaustive: never = patch;
       throw new Error(`Unhandled ScorePatch kind: ${JSON.stringify(_exhaustive)}`);
     }
+  }
+}
+
+function syncMnxSupport(root: Y.Map<unknown>, score: Score): void {
+  const mnx = root.get("mnx");
+  if (!(mnx instanceof Y.Map)) {
+    throw new PatchTargetNotInYDoc('MNX support patch requires an existing "mnx" Y.Map');
+  }
+  const support = score.mnx.support;
+  const current = mnx.get("support");
+  if (support === undefined) {
+    mnx.delete("support");
+  } else if (current instanceof Y.Map) {
+    syncYMap(current, { ...support });
+  } else {
+    mnx.set("support", toYValue(support));
   }
 }
 

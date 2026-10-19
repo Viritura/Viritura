@@ -49,6 +49,9 @@ export interface EventArgs {
   ties?: Array<{ target: string; side?: string; lv?: boolean }>;
   /** Optional color for this event */
   color?: string;
+  lyrics?: {
+    lines: Record<string, { text: string; type?: string; extender?: { show?: boolean; target?: string } }>;
+  };
 }
 
 export interface MeasureArgs {
@@ -156,8 +159,8 @@ export interface ScoreArgs {
   partName?: string;
   /** Number of staves (default 1) */
   staves?: number;
-  /** MNX support flags (useBeams, useAccidentalDisplay) */
-  support?: { useBeams?: boolean; useAccidentalDisplay?: boolean };
+  /** MNX support flags */
+  support?: { useBeams?: boolean; useAccidentalDisplay?: boolean; useLyricExtenders?: boolean };
   /** Document-level Viritura extensions (placed in root `_x.viritura`) */
   virituraRoot?: Record<string, unknown>;
 }
@@ -192,6 +195,7 @@ function buildEvent(args: EventArgs): Record<string, unknown> {
 
   if (args.id) event.id = args.id;
   if (args.staff !== undefined) event.staff = args.staff;
+  if (args.lyrics) event.lyrics = args.lyrics;
 
   if (args.rest) {
     event.rest = args.restStaffPosition !== undefined ? { staffPosition: args.restStaffPosition } : {};
@@ -373,7 +377,7 @@ export function buildSingleMeasure(
     dynamics?: MeasureArgs["dynamics"];
     arpeggios?: MeasureArgs["arpeggios"];
     nonArpeggios?: MeasureArgs["nonArpeggios"];
-    support?: { useBeams?: boolean; useAccidentalDisplay?: boolean };
+    support?: { useBeams?: boolean; useAccidentalDisplay?: boolean; useLyricExtenders?: boolean };
   },
 ): string {
   return buildMnx({
