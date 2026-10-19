@@ -35,6 +35,20 @@ function makeScore(): Score {
 }
 
 describe("buildClickTrack", () => {
+  it("keeps the original beat accents when navigation returns inside a measure", () => {
+    const score = makeScore();
+    score.global.measures[0]!.segno = { location: { fraction: [1, 4] } };
+    score.global.measures[1]!.jump = { type: "segno", location: { fraction: [1, 2] } };
+    const timeline = generateTimeline(score);
+    const clicks = buildClickTrack(timeline);
+    expect(clicks).toHaveLength(13);
+    expect(clicks.map((click) => click.time)).toEqual(
+      Array.from({ length: 13 }, (_, beat) => timeline.model.timeAtBeat(beat)),
+    );
+    expect(clicks.filter((click) => click.accented).map((click) => click.time)).toEqual([0, 2, 4.5]);
+    expect(clicks[6]!.accented).toBe(false);
+  });
+
   it("emits one click per quarter beat in 4/4, accenting each downbeat", () => {
     const timeline = generateTimeline(makeScore());
     const clicks = buildClickTrack(timeline);

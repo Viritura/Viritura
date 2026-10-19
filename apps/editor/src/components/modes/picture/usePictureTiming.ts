@@ -12,7 +12,7 @@
 
 import { useMemo } from "react";
 import type { Score } from "@viritura/core";
-import { generateTimeline } from "@viritura/midi";
+import { generateTimeline, NavigationError } from "@viritura/midi";
 import { usePlaybackState } from "@viritura/playback";
 import {
   fps,
@@ -25,6 +25,7 @@ import {
 } from "@viritura/video-sync";
 
 export interface PictureTiming {
+  readonly error: string | null;
   readonly bars: readonly TimelineBar[];
   readonly hits: readonly TimelineHit[];
   /** Length of the picture, falling back to the score's own length. */
@@ -41,14 +42,22 @@ export function usePictureTiming(score: Score | null): PictureTiming {
   const playback = usePlaybackState();
   const frameRate = fps(frameRateById(state.frameRateId));
 
-  const tempo = useMemo(() => {
-    if (!score || score.global.measures.length === 0) return null;
-    const timeline = generateTimeline(score);
-    return {
-      measureStartTimes: timeline.measureStartTimes,
-      durationSeconds: timeline.duration,
-      expandedMeasureToOriginal: timeline.expandedMeasureToOriginal,
-    };
+  const { tempo, error } = useMemo(() => {
+    if (!score || score.global.measures.length === 0) return { tempo: null, error: null };
+    try {
+      const timeline = generateTimeline(score);
+      return {
+        tempo: {
+          measureStartTimes: timeline.measureStartTimes,
+          durationSeconds: timeline.duration,
+          expandedMeasureToOriginal: timeline.expandedMeasureToOriginal,
+        },
+        error: null,
+      };
+    } catch (cause) {
+      if (!(cause instanceof NavigationError)) throw cause;
+      return { tempo: null, error: cause.message };
+    }
   }, [score]);
 
   const bars = useMemo(
@@ -66,6 +75,7 @@ export function usePictureTiming(score: Score | null): PictureTiming {
     : null;
 
   return {
+    error,
     bars,
     hits,
     durationSeconds,

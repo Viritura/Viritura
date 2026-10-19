@@ -85,7 +85,7 @@ export function PictureView({ score }: PictureViewProps) {
       <VideoPanel onConfigure={() => setSetupOpen(true)} />
       <MarkerPanel onAddMarkerAtPlayhead={addMarkerAtPlayhead} editMarkerRequest={editMarkerRequest} />
       <SolvePanel
-        score={score ?? null}
+        score={timing.error ? null : (score ?? null)}
         bars={timing.bars}
         interval={selectedInterval}
         intervals={intervals}
@@ -110,10 +110,11 @@ export function PictureView({ score }: PictureViewProps) {
       <ViewLayout
         layoutId="picture-layout"
         leftPanel={{ content: panels, defaultSize: 320, minSize: 260, maxSize: 460 }}
-        statusBar={score ? undefined : "no score loaded"}
+        statusBar={timing.error ?? (score ? undefined : "no score loaded")}
       >
         {(insets) => (
           <div className={styles.canvasArea}>
+            {timing.error && <p role="alert">Picture timing unavailable: {timing.error}</p>}
             <PictureTimeline
               timing={timing}
               selectedMarkerId={selectedMarkerId}
