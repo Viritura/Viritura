@@ -198,7 +198,7 @@ export function buildNote(
 }
 
 /** Convert MusicXML note articulations to native note-scoped MNX markings. */
-export function extractNoteMarkings(noteEl: Element): MnxNote["markings"] | undefined {
+function extractNoteMarkings(noteEl: Element): MnxNote["markings"] | undefined {
   let slideIn: { type: "scoop" | "plop" } | undefined;
   let slideOut: { type: "falloff" | "doit" } | undefined;
   for (const articulations of notationChildren(noteEl, "articulations")) {
