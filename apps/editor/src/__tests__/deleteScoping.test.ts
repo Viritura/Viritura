@@ -176,6 +176,126 @@ describe("delete never blanks a note from an unhandled sub-element", () => {
 });
 
 describe("multi-selection delete keeps markings separate from events", () => {
+  it.each(["slideIn", "slideOut"] as const)(
+    "deletes selected %s in both delete paths without touching notes",
+    (key) => {
+      for (const multi of [false, true]) {
+        const score = makeScore();
+        const event = eventAt(score, 0);
+        event.notes![0]!.markings = { slideIn: { type: "scoop" }, slideOut: { type: "doit" } };
+        event.notes!.push({
+          pitch: { step: "G", octave: 4 },
+          markings: { slideIn: { type: "plop" }, slideOut: { type: "falloff" } },
+        });
+        const original = structuredClone(score);
+        const id = `${EVENT}/n0/${key}`;
+        const selection: Selection = multi
+          ? { kind: "multi", elementIds: [id, id] }
+          : { kind: "single", elementId: id, elementType: "note-marking" };
+        const result = computeDeleteSelection(score, selection);
+        expect(result.kind).toBe(multi ? "multi" : "single");
+        if (result.kind === "noop" || result.kind === "measure") throw new Error("Expected leaf deletion");
+        expect(result.nextSelection).toEqual({ kind: "clear" });
+        const { ctx, latest } = makeCtx(score, selection);
+        handleDelete(noopEvent, false, ctx);
+        for (const updated of [result.score, latest()]) {
+          const expected = structuredClone(original);
+          delete eventAt(expected, 0).notes![0]!.markings![key];
+          expect(updated).toEqual(expected);
+        }
+        expect(score).toEqual(original);
+      }
+    },
+  );
+
+  it("removes an empty note markings bag and ignores stale selections", () => {
+    const score = makeScore();
+    eventAt(score, 0).notes![0]!.markings = { slideIn: { type: "scoop" } };
+    const selection: Selection = { kind: "single", elementId: `${EVENT}/n0/slideIn` };
+    const { ctx, latest } = makeCtx(score, selection);
+    handleDelete(noopEvent, false, ctx);
+    expect(eventAt(latest(), 0).notes![0]!.markings).toBeUndefined();
+    expect(computeDeleteSelection(latest(), selection)).toEqual({ kind: "noop" });
+    expect(eventAt(latest(), 0).markings?.accent).toEqual({});
+  });
+
+  it("removes markings before selected chord notes shift their indices", () => {
+    const score = makeScore();
+    eventAt(score, 0).notes!.push({
+      pitch: { step: "G", octave: 4 },
+      markings: { slideOut: { type: "falloff" } },
+    });
+    const selection: Selection = {
+      kind: "multi",
+      elementIds: [`${EVENT}/n0`, `${EVENT}/n1/slideOut`, "p0/m0/s0/e2"],
+    };
+    const result = computeDeleteSelection(score, selection);
+    if (result.kind !== "multi") throw new Error("Expected multi deletion");
+    const { ctx, latest } = makeCtx(score, selection);
+    handleDelete(noopEvent, false, ctx);
+    for (const updated of [result.score, latest()]) {
+      expect(eventAt(updated, 0).notes).toEqual([{ pitch: { step: "G", octave: 4 } }]);
+      expect(eventAt(updated, 1).rest).toBeDefined();
+    }
+  });
+
+  it("resolves note markings inside tuplets", () => {
+    const score = makeScore();
+    const sequence = score.parts[0]!.measures[0]!.sequences[0]!;
+    const event = eventAt(score, 0);
+    event.notes![0]!.markings = { slideOut: { type: "doit" } };
+    sequence.content = [
+      {
+        type: "tuplet",
+        inner: { duration: { base: "eighth" }, multiple: 3 },
+        outer: { duration: { base: "eighth" }, multiple: 2 },
+        content: [event],
+      },
+    ];
+    const selection: Selection = { kind: "single", elementId: `${EVENT}/n0/slideOut` };
+    const result = computeDeleteSelection(score, selection);
+    if (result.kind !== "single") throw new Error("Expected single deletion");
+    const { ctx, latest } = makeCtx(score, selection);
+    handleDelete(noopEvent, false, ctx);
+    expect(latest()).toEqual(result.score);
+    const tuplet = latest().parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (tuplet.type !== "tuplet") throw new Error("Expected tuplet");
+    expect(tuplet.content[0]!.notes![0]!.markings).toBeUndefined();
+    expect(tuplet.content[0]!.notes).toHaveLength(1);
+  });
+
+  it("deletes a grace note marking without deleting the grace or principal notes", () => {
+    const score = makeScore();
+    const sequence = score.parts[0]!.measures[0]!.sequences[0]!;
+    sequence.content.unshift({
+      type: "grace",
+      content: [
+        {
+          type: "event",
+          id: "grace-note",
+          duration: { base: "eighth" },
+          notes: [{ pitch: { step: "B", octave: 4 }, markings: { slideIn: { type: "scoop" } } }],
+        },
+      ],
+    });
+    const original = structuredClone(score);
+    for (const multi of [false, true]) {
+      const elementId = `${EVENT}/grace/grace-note/n0/slideIn`;
+      const selection: Selection = multi ? { kind: "multi", elementIds: [elementId] } : { kind: "single", elementId };
+      const result = computeDeleteSelection(score, selection);
+      if (result.kind === "noop" || result.kind === "measure") throw new Error("Expected leaf deletion");
+      const { ctx, latest } = makeCtx(score, selection);
+      handleDelete(noopEvent, false, ctx);
+      const expected = structuredClone(score);
+      const grace = expected.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+      if (grace.type !== "grace") throw new Error("Expected grace group");
+      delete grace.content[0]!.notes![0]!.markings;
+      expect(result.score).toEqual(expected);
+      expect(latest()).toEqual(expected);
+      expect(score).toEqual(original);
+    }
+  });
+
   it("strips an accidental without blanking its note", () => {
     const result = computeDeleteSelection(makeScore(), {
       kind: "multi",

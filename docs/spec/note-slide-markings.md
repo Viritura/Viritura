@@ -15,6 +15,8 @@ The separate **Note markings** palette follows **Articulations**. The palette
 and inspector update the selected noteheads only, so editing one chord member
 does not change its neighbors. Slide-in and slide-out values can coexist and
 can be removed independently.
+Selecting a rendered marking and pressing Delete or Backspace removes only
+that slide-in or slide-out marking, leaving its note and other markings intact.
 Selections retain each tuplet's identity when applying markings across multiple
 containers. Bravura SMuFL glyphs approach the notehead's left ink edge or start
 beyond its right ink edge, with a 0.15 staff-space gap:

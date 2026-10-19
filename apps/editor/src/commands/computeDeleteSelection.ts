@@ -15,7 +15,14 @@ import {
 import { deleteNote, sequenceContentBeats } from "./noteCommands";
 import { isAccidentalId, removeAccidental } from "./accidentalCommands";
 import { isArticulationId, removeArticulation } from "./articulationDeletion";
-import { isCaesuraId, partitionMarkingIds, removeCaesura, removeMarkings } from "./markingSelection";
+import {
+  isCaesuraId,
+  isNoteMarkingId,
+  partitionMarkingIds,
+  removeCaesura,
+  removeMarkings,
+  removeNoteMarking,
+} from "./markingSelection";
 import { isNoteheadId, removeChordNoteById, thinSelectedChords } from "./chordNoteDeletion";
 import { resolveSelectionEvents } from "../store/selectionUtils";
 import {
@@ -225,6 +232,10 @@ function deleteStandaloneElement(score: Score, elementId: string): DeleteSelecti
     const stripped = removeCaesura(score, elementId);
     return stripped ? { kind: "single", score: stripped, nextSelection: { kind: "clear" } } : { kind: "noop" };
   }
+  if (isNoteMarkingId(elementId)) {
+    const stripped = removeNoteMarking(cloneScore(score), elementId);
+    return stripped ? { kind: "single", score: stripped, nextSelection: { kind: "clear" } } : { kind: "noop" };
+  }
 
   // MNX key signatures are global-measure properties even though the renderer
   // emits one selectable copy per staff. Removing the explicit property makes
@@ -301,6 +312,7 @@ function findAdjacentElementId(
 }
 
 function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSelectionResult {
+  score = cloneScore(score);
   const repeatResult = deleteRepeatOnlySelection(score, selection);
   if (repeatResult) return repeatResult;
   // Markings selected explicitly (ctrl-click) delete on their own; only the
@@ -311,6 +323,7 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
   // navigation index, whose entries are events, so shift-selecting across an
   // accidental selects the music — which is what a range should mean.
   const markingIds = selection.kind === "multi" ? partitionMarkingIds(selection.elementIds).markingIds : [];
+  const markingsRemoved = markingIds.length > 0 && removeMarkings(score, markingIds);
   const lyricIds = selection.kind === "multi" ? selection.elementIds.filter(isLyricId) : [];
   const graceIds =
     selection.kind === "multi" ? selection.elementIds.filter((id) => resolveGraceLocation(id, score) !== null) : [];
@@ -348,7 +361,6 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
   const chordSymbolsResult = deleteSelectedChordSymbols(score, selection);
   const lyricResult = removeLyrics(chordSymbolsResult.score, lyricIds);
   let newScore = lyricResult.score;
-  const markingsRemoved = markingIds.length > 0 && removeMarkings(newScore, markingIds);
   const annotationResult = deleteTimedAnnotationsAnchoredToCollapsedSequences(newScore, events);
   newScore = annotationResult.score;
   const leavesRemoved = [markingsRemoved, lyricResult.removed, chordSymbolsResult.removed].includes(true);
