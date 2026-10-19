@@ -1,9 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { createDynamicGroup, createRelativeDynamicGroup, refreshDynamicGlyphs, type DynamicGroup } from "../index";
+import {
+  consolidateDynamicGlyphs,
+  createDynamicGroup,
+  createRelativeDynamicGroup,
+  refreshDynamicGlyphs,
+  type DynamicGroup,
+} from "../index";
 
 const position = { fraction: [0, 1] as [number, number] };
 
 describe("dynamic authoring appearance", () => {
+  it.each([
+    [["dynamicForte", "dynamicForte", "dynamicForte"], ["dynamicFFF"]],
+    [["dynamicMezzo", "dynamicForte"], ["dynamicMF"]],
+    [["dynamicPiano", "dynamicPiano"], ["dynamicPP"]],
+    [["dynamicSforzando", "dynamicForte", "dynamicZ"], ["dynamicSforzato"]],
+    [
+      ["dynamicForte", "dynamicPiano", "dynamicForte"],
+      ["dynamicForte", "dynamicPiano", "dynamicForte"],
+    ],
+    [
+      ["dynamicMF", "dynamicForte"],
+      ["dynamicMF", "dynamicForte"],
+    ],
+    [[], []],
+  ])("consolidates only recognized letter sequences %j", (source, expected) => {
+    const original = [...source];
+    expect(consolidateDynamicGlyphs(source)).toEqual(expected);
+    expect(source).toEqual(original);
+  });
+
   it("allows interchange readers to keep standard markings automatic", () => {
     expect(createDynamicGroup("mf", position, "d", "automatic")).toEqual({
       id: "d",

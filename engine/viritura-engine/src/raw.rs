@@ -1648,8 +1648,8 @@ pub struct DynamicGroupAccent {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub c: ::std::option::Option<String>,
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub glyphs: ::std::vec::Vec<SmuflGlyph>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub glyphs: ::std::option::Option<::std::vec::Vec<SmuflGlyph>>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -1766,8 +1766,8 @@ pub struct DynamicGroupGradual {
     )]
     pub c: ::std::option::Option<String>,
     pub end: MeasureRhythmicPosition,
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub glyphs: ::std::vec::Vec<SmuflGlyph>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub glyphs: ::std::option::Option<::std::vec::Vec<SmuflGlyph>>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -1876,8 +1876,8 @@ pub struct DynamicGroupImmediate {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub c: ::std::option::Option<String>,
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub glyphs: ::std::vec::Vec<SmuflGlyph>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub glyphs: ::std::option::Option<::std::vec::Vec<SmuflGlyph>>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -1980,8 +1980,8 @@ pub struct DynamicGroupRelative {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub c: ::std::option::Option<String>,
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub glyphs: ::std::vec::Vec<SmuflGlyph>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub glyphs: ::std::option::Option<::std::vec::Vec<SmuflGlyph>>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]

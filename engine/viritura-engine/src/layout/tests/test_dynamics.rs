@@ -626,6 +626,62 @@ fn gradual_dynamic_renders_its_explicit_start_marking_before_the_wedge() {
 }
 
 #[test]
+fn empty_explicit_glyphs_hide_markings_without_hiding_gradual_wedges() {
+    for group_type in ["immediate", "relative", "accent", "gradual"] {
+        let mut dynamic = serde_json::json!({
+            "id": "d", "type": group_type, "position": {"fraction": [0, 1]},
+            "value": "p", "glyphs": []
+        });
+        match group_type {
+            "relative" => dynamic["relativeValue"] = serde_json::json!("louder"),
+            "gradual" => {
+                dynamic["end"] =
+                    serde_json::json!({"measure": "m", "position": {"fraction": [3, 4]}});
+                dynamic["wedgeType"] = serde_json::json!("increasing");
+            }
+            _ => {}
+        }
+        let mut document = serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [{"id": "m", "time": {"count": 4, "unit": 4}}]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{
+                    "type": "event", "duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "C", "octave": 4}}]
+                }]}],
+                "dynamics": [dynamic]
+            }]}]
+        });
+        for explicit_empty in [true, false] {
+            if !explicit_empty {
+                document["parts"][0]["measures"][0]["dynamics"][0]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("glyphs");
+            }
+            let score = parse_mnx(&document.to_string()).expect("valid dynamic");
+            let group = &score.parts[0].measures[0].dynamics.as_ref().unwrap()[0];
+            assert_eq!(
+                group.glyphs,
+                explicit_empty.then(Vec::new),
+                "{group_type}: preserve absent versus explicit empty"
+            );
+            let display = layout_score(&score, 0, &LayoutConfig::default());
+            let has_marking = display.commands.iter().any(|command| matches!(
+                command,
+                RenderCommand::DrawGlyph { codepoint, .. } if (0xE520..=0xE54F).contains(codepoint)
+            ));
+            assert_eq!(has_marking, !explicit_empty, "{group_type}");
+            let has_wedge = display
+                .element_bboxes
+                .iter()
+                .any(|element| element.element_id == "p0/m0/hairpind");
+            assert_eq!(has_wedge, group_type == "gradual");
+        }
+    }
+}
+
+#[test]
 fn test_dynamic_affixes_niente_and_stable_group_id() {
     let json = r#"{
         "mnx": { "version": 1 },

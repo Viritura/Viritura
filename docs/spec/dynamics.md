@@ -102,6 +102,9 @@ those musical fields.
   reports unsupported custom appearances instead of silently discarding them.
 - Unedited open/save retains glyph presence/absence and sequence. Unrelated
   edits do not impose Viritura's authoring preference on imported data.
+- An explicitly empty glyph list suppresses the printed musical symbols,
+  while an absent list selects automatic appearance. Affixes and gradual
+  wedges remain visible independently.
 - Deliberately changing a printed marking refreshes its glyphs together with
   its semantic fields; changing placement or text does not.
 - The inspector offers musical marking choices and an advanced Appearance
