@@ -35,9 +35,7 @@ export function realizePerformanceNavigation(
     const end = timing.model.timeAtBeat(interval.endBeat);
     const duration = interval.endBeat - interval.startBeat;
     const translate = (time: number): number =>
-      model.timeAtBeat(
-        outputBeat + Math.min(duration, Math.max(0, timing.model.beatAtTime(time) - interval.startBeat)),
-      );
+      model.timeAtBeat(outputBeat) + Math.min(end - start, Math.max(0, time - start));
     const states = new Map<"dynamics" | "technique", PerformanceEvent>();
     const segmentStart = output.length;
     for (const event of events) {

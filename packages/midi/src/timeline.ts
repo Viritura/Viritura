@@ -38,7 +38,7 @@ import type {
 } from "@viritura/core";
 import { pitchToMidi, isRest, DURATION_BEATS, SHARP_ORDER, FLAT_ORDER } from "@viritura/core";
 import { expandMeasureOrder, scorePlaybackItinerary } from "./repeatExpansion";
-import { realizeNavigation } from "./navigation";
+import { beatInPlayedSpan, playedSpansContinue, realizeNavigation, type PlayedMeasureSpan } from "./navigation";
 import { expandScoreMeasureRepeats } from "./measureRepeats";
 import { compileChordPlayback, chordMidiEvents } from "./chordPlayback";
 import { analyzeImpliedSectionDynamics, type ImpliedSectionDynamicAnchor } from "./sectionDynamics";
@@ -137,6 +137,7 @@ export interface TimelineOptions {
  * mutates per recursion step.
  */
 export interface PartCtx {
+  readonly playedSpan?: PlayedMeasureSpan;
   readonly tempoMap: readonly TempoMapEntry[];
   /** Continuous tempo map (single source of timing). Event times are
    *  `model.timeAtBeat(measureStartBeat + beatOffset)`, resolved at sub-bar
@@ -265,7 +266,7 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   const { tempoMap } = buildTempoMap(expandedGlobal, holdSchedule);
   const tempoBuild = buildTempoModel(expandedGlobal, holdSchedule);
   const { model, measureStartTimes, measureStartBeats } = tempoBuild;
-  const timing: TimelineTiming = { tempoMap, measureStartTimes, model, measureStartBeats };
+  const timing: TimelineTiming = { tempoMap, measureStartTimes, model, measureStartBeats, playedSpans: spans };
 
   // Step 3: For each part, generate MIDI events
   const allEvents: MidiEvent[] = [];
@@ -502,6 +503,7 @@ interface TimelineTiming {
   readonly measureStartTimes: readonly number[];
   readonly model: TempoModel;
   readonly measureStartBeats: readonly number[];
+  readonly playedSpans?: readonly PlayedMeasureSpan[];
 }
 
 /**
@@ -549,6 +551,7 @@ function processPart(
     gmProgram,
     impliedDynamics,
     staffMeterTable,
+    timing.playedSpans,
   );
   for (const lane of dynamicProgram.lanes.values()) {
     emitDynamicsCc11(lane.envelope, partIdx, channel, allEvents, lane.id);
@@ -563,6 +566,15 @@ function processPart(
       : (options?.instrumentPrograms?.get(partIdx)?.get(key) ?? instruments.get(key)?._x?.viritura?.midiProgram ?? -1);
 
   for (let expandedIdx = 0; expandedIdx < measureOrder.length; expandedIdx++) {
+    if (
+      expandedIdx > 0 &&
+      timing.playedSpans &&
+      !playedSpansContinue(timing.playedSpans[expandedIdx - 1]!, timing.playedSpans[expandedIdx])
+    ) {
+      allEvents.push(...pendingTieOffs.values(), ...Array.from(pendingLegato.values()).flat());
+      pendingTieOffs.clear();
+      pendingLegato.clear();
+    }
     const origMeasureIdx = measureOrder[expandedIdx]!;
     const partMeasure = part.measures[origMeasureIdx];
     if (!partMeasure) continue;
@@ -596,6 +608,7 @@ function processPart(
       }));
 
     const ctx: PartCtx = {
+      playedSpan: timing.playedSpans?.[expandedIdx],
       tempoMap,
       model,
       measureStartBeat,
@@ -631,7 +644,13 @@ function processPart(
 
     if (techniqueEnabled || instruments.size > 1) {
       techniqueState = applyMeasureTechniques(
-        partMeasure.expressions,
+        partMeasure.expressions?.filter((expression) =>
+          beatInPlayedSpan(
+            fractionToBeats(expression.position.fraction) *
+              staffMeterRatioAt(staffMeterTable, origMeasureIdx, expression.staff),
+            timing.playedSpans?.[expandedIdx],
+          ),
+        ),
         ctx,
         techniqueState,
         {
@@ -888,6 +907,7 @@ function processNoteEvent(
   ctx.gmProgram = ctx.instrumentAtBeatOffset?.(beatOffset * ctx.staffMeterRatio).program ?? ctx.gmProgram;
   const { partIndex, channel, tieTargets, out, timeSig, kitMidiMap, kitAltProgramMap } = ctx;
   const beats = durationBeats(event.duration) * tupletRatio;
+  if (!beatInPlayedSpan(beatOffset * ctx.staffMeterRatio, ctx.playedSpan)) return beats;
 
   if (isRest(event)) {
     // A slur never bridges a rest: release this voice's deferred legato note at
@@ -950,7 +970,7 @@ function processNoteEvent(
     if (midiNote < 0 || midiNote > 127) continue;
 
     const noteId = note.id ?? "";
-    const isTiedTo = tieTargets.has(noteId);
+    const isTiedTo = tieTargets.has(noteId) && ctx.pendingTieOffs.has(`${midiNote}:${partIndex}:${ctx.voiceKey}`);
     const hasTieOut = note.ties?.some((t) => t.target) ?? false;
 
     if (isTiedTo) {

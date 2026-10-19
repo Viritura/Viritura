@@ -37,6 +37,52 @@ function navigationScore(): Score {
 }
 
 describe("location-aware navigation timing", () => {
+  it("reattacks a tied destination when its source is outside the performed span", () => {
+    const score = navigationScore();
+    const content = score.parts[0]!.measures[1]!.sequences[0]!.content;
+    const source = content[0] as NoteEvent;
+    source.notes![0]!.ties = [{ target: "n1-1" }];
+    const timeline = generateTimeline(score);
+    const reattack = timeline.events.filter((event) => event.type === "noteOn" && event.scoreEventId === "e1-1");
+    expect(reattack).toHaveLength(1);
+    expect(reattack[0]!.time).toBeCloseTo(7.5, 1);
+    const native = generatePerformanceEvents(score, 0).filter(
+      (event) => event.kind === "noteOn" && event.note.id === "n1-1",
+    );
+    expect(native).toHaveLength(1);
+    expect(native[0]!.time).toBeCloseTo(7.5);
+  });
+
+  it("does not apply relative dynamics in skipped measure prefixes or suffixes", () => {
+    const score = navigationScore();
+    score.parts[0]!.measures[1]!.dynamics = [
+      { id: "played-once", type: "relative", relativeValue: "louder", position: { fraction: [1, 8] } },
+    ];
+    score.parts[0]!.measures[3]!.dynamics = [
+      { id: "never-played", type: "relative", relativeValue: "louder", position: { fraction: [7, 8] } },
+    ];
+    const onsets = generateTimeline(score).events.filter((event) => event.type === "noteOn");
+    const beforeJump = onsets.find((event) => event.scoreEventId === "e1-1")!;
+    const replay = onsets.filter((event) => event.scoreEventId === "e1-1")[1]!;
+    expect(replay.velocity).toBe(beforeJump.velocity);
+    const native = generatePerformanceEvents(score, 0).filter((event) => event.kind === "noteOn");
+    const previous = native.find((event) => event.note.id === "n3-2")!;
+    const repeated = native.filter((event) => event.note.id === "n1-1")[1]!;
+    expect(repeated.note.dynamics).toBe(previous.note.dynamics);
+  });
+
+  it("does not carry techniques from unperformed material into the replay", () => {
+    const score = navigationScore();
+    score.parts[0]!.measures[1]!.expressions = [{ position: { fraction: [1, 8] }, text: [{ text: "pizz." }] }];
+    score.parts[0]!.measures[2]!.expressions = [{ position: { fraction: [0, 1] }, text: [{ text: "arco" }] }];
+    score.parts[0]!.measures[3]!.expressions = [{ position: { fraction: [7, 8] }, text: [{ text: "pizz." }] }];
+    const notes = generatePerformanceEvents(score, 0).filter((event) => event.kind === "noteOn");
+    const initial = notes.filter((event) => event.note.id === "n1-1")[0]!;
+    const repeated = notes.filter((event) => event.note.id === "n1-1")[1]!;
+    expect(initial.note.state.pizzicato).toBe(true);
+    expect(repeated.note.state.pizzicato).toBe(false);
+  });
+
   it("clips a sounding note at a mid-measure jump instead of leaking into replay", () => {
     const score = navigationScore();
     score.parts[0]!.measures[3]!.sequences[0]!.content = [

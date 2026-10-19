@@ -7,6 +7,23 @@ export interface PlayedMeasureSpan {
   measureBeats: number;
 }
 
+export function beatInPlayedSpan(beat: number, span: PlayedMeasureSpan | undefined): boolean {
+  return (
+    span === undefined ||
+    (beat >= span.startBeat - 1e-9 &&
+      (beat < span.endBeat - 1e-9 || (span.endBeat === span.measureBeats && Math.abs(beat - span.endBeat) < 1e-9)))
+  );
+}
+
+export function playedSpansContinue(span: PlayedMeasureSpan, next: PlayedMeasureSpan | undefined): boolean {
+  return (
+    next !== undefined &&
+    span.endBeat === span.measureBeats &&
+    next.startBeat === 0 &&
+    next.measureIndex === span.measureIndex + 1
+  );
+}
+
 export class NavigationError extends Error {
   constructor(
     message: string,

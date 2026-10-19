@@ -279,6 +279,13 @@ retain source measure identities; a destination inside a measure does not
 become a new written downbeat. Text reading "To Coda" is presentation only and
 does not create a jump.
 
+Dynamic declarations and playing-technique changes outside a performed span
+do not update persistent state. A relative dynamic in a skipped prefix is not
+applied again on replay. Ties continue through contiguous source spans, but a
+destination whose tie source was skipped receives a fresh attack. The initial
+pass honors repeat/volta expansion; a navigation replay follows score order
+without taking those repeats again.
+
 ### 8.3 Lanes
 
 One MIDI channel carries one CC11 stream, so simultaneous `voice: "1"` at `p`
