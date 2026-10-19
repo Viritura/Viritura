@@ -148,11 +148,17 @@ impl GraceSpacingContext<'_> {
             left = left.max(origin - bbox_x);
             right = right.max(smufl::notehead_right_extent(cp));
             if let Some(markings) = &note.markings {
-                if markings.slide_in.is_some() {
-                    left = left.max(1.15 + 2.0 * self.config.notehead_rx);
+                if let Some(marking) = &markings.slide_in {
+                    left = left.max(
+                        origin - bbox_x
+                            + smufl::note_slide_extent(smufl::slide_in_glyph(marking.type_)),
+                    );
                 }
-                if markings.slide_out.is_some() {
-                    right = right.max(1.15 + 2.0 * self.config.notehead_rx);
+                if let Some(marking) = &markings.slide_out {
+                    right = right.max(
+                        smufl::notehead_right_extent(cp)
+                            + smufl::note_slide_extent(smufl::slide_out_glyph(marking.type_)),
+                    );
                 }
             }
             if self.clef.is_some_and(|clef| {

@@ -92,12 +92,18 @@ fn grace_note_marking_scales_with_its_notehead() {
         .expect("grace slide marking is registered");
     let bbox = marking
         .bbox(&display.commands)
-        .expect("curve bounds are available");
+        .expect("glyph bounds are available");
     assert!(
-        bbox.width < staff_sp * 0.8,
-        "grace marking must use grace-scaled notehead geometry, got {}",
-        bbox.width
+        (bbox.width - smufl::glyph_bbox(smufl::BRASS_SCOOP).2 * staff_sp * GRACE_SCALE).abs()
+            < 1e-6
     );
+    assert!(display.commands.iter().any(|command| matches!(
+        command,
+        RenderCommand::DrawGlyph { codepoint, size, font, .. }
+            if *codepoint == smufl::BRASS_SCOOP
+                && (*size - 4.0 * staff_sp * GRACE_SCALE).abs() < 1e-6
+                && font == "Bravura"
+    )));
 }
 
 #[test]

@@ -16,8 +16,21 @@ and inspector update the selected noteheads only, so editing one chord member
 does not change its neighbors. Slide-in and slide-out values can coexist and
 can be removed independently.
 Selections retain each tuplet's identity when applying markings across multiple
-containers. Slide-in curves approach the notehead's left ink edge, and slide-out
-curves start beyond its right ink edge rather than crossing the notehead.
+containers. Bravura SMuFL glyphs approach the notehead's left ink edge or start
+beyond its right ink edge, with a 0.15 staff-space gap:
+
+| Marking | SMuFL glyph         | Codepoint |
+| ------- | ------------------- | --------- |
+| Scoop   | `brassScoop`        | U+E5D0    |
+| Plop    | `brassPlop`         | U+E5E0    |
+| Falloff | `brassFallLipShort` | U+E5D7    |
+| Doit    | `brassDoitShort`    | U+E5D4    |
+
+Falloff and doit use the short lip-slide forms; MNX does not specify a length
+or distinguish lip, smooth, and rough falls. Rendering uses `DrawGlyph` with
+Bravura, not custom curves. Bundled font ink metrics determine selection
+bounds, spacing envelopes, and grace-note scaling. The palette uses the same
+four SMuFL glyphs.
 
 MusicXML articulation elements `scoop`, `plop`, `falloff`, and `doit` are
 converted on their originating XML note. MusicXML `<slide>` remains a
