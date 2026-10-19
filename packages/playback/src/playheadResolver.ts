@@ -1,7 +1,7 @@
 import type { PlayheadResolver } from "@viritura/audio";
 import type { MidiTimeline } from "@viritura/midi";
 
-type PlayheadTimeline = Pick<MidiTimeline, "model" | "measureStartBeats" | "expandedMeasureToOriginal">;
+type PlayheadTimeline = Pick<MidiTimeline, "model" | "measureStartBeats" | "expandedMeasureToOriginal" | "playedSpans">;
 
 /**
  * Resolve a position in the authored score to its first performed occurrence.
@@ -13,11 +13,17 @@ export function sourceMeasureBeatToSeconds(
   beat: number,
 ): number | null {
   const expandedIndex = timeline.expandedMeasureToOriginal.findIndex(
-    (originalIndex) => originalIndex === sourceMeasureIndex,
+    (originalIndex, index) =>
+      originalIndex === sourceMeasureIndex &&
+      (timeline.playedSpans?.[index] === undefined ||
+        (beat >= timeline.playedSpans[index]!.startBeat && beat < timeline.playedSpans[index]!.endBeat)),
   );
+  if (expandedIndex < 0 && timeline.playedSpans) return null;
   const resolvedIndex = expandedIndex >= 0 ? expandedIndex : sourceMeasureIndex;
   const startBeat = timeline.measureStartBeats[resolvedIndex];
-  return startBeat === undefined ? null : timeline.model.timeAtBeat(startBeat + beat);
+  return startBeat === undefined
+    ? null
+    : timeline.model.timeAtBeat(startBeat + beat - (timeline.playedSpans?.[resolvedIndex]?.startBeat ?? 0));
 }
 
 export function createPlayheadResolver(timeline: PlayheadTimeline): PlayheadResolver {
@@ -33,7 +39,10 @@ export function createPlayheadResolver(timeline: PlayheadTimeline): PlayheadReso
 
     return {
       measureIndex: expandedMeasureToOriginal[expandedMeasureIndex] ?? expandedMeasureIndex,
-      beat: globalBeat - (measureStartBeats[expandedMeasureIndex] ?? 0),
+      beat:
+        globalBeat -
+        (measureStartBeats[expandedMeasureIndex] ?? 0) +
+        (timeline.playedSpans?.[expandedMeasureIndex]?.startBeat ?? 0),
     };
   };
 }
