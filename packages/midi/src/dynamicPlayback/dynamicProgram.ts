@@ -5,6 +5,7 @@ import { realizeDynamicsEnvelope, selectDynamicResponseProfile } from "./dynamic
 import type { DynamicPlaybackDiagnostic, DynamicProgram, PlaybackLane, PlaybackLaneId } from "./types";
 import type { ImpliedSectionDynamicAnchor } from "../sectionDynamics";
 import type { StaffMeterTable } from "../staffMeterTiming";
+import type { PlayedMeasureSpan } from "../navigation";
 
 interface LaneScope {
   staff: number;
@@ -144,6 +145,7 @@ export function compileDynamicProgram(
   gmProgram = -1,
   impliedAnchors: readonly ImpliedSectionDynamicAnchor[] = [],
   staffMeterTable?: StaffMeterTable,
+  playedSpans?: readonly PlayedMeasureSpan[],
 ): DynamicProgram {
   const scoped = part.measures.some((measure) =>
     measure.dynamics?.some((group) => group.staff !== undefined || group.voice !== undefined),
@@ -165,6 +167,7 @@ export function compileDynamicProgram(
         globalMeasures,
         impliedAnchors,
         staffMeterTable,
+        playedSpans,
       ),
       profile,
     );

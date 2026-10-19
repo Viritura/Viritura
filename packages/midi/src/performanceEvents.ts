@@ -22,7 +22,12 @@ import { compileChordPlayback, realizeChordPlayback } from "./chordPlayback";
 import { expandScoreMeasureRepeats } from "./measureRepeats";
 import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "./cadenzaTiming";
 import { scorePlaybackItinerary } from "./repeatExpansion";
-import { realizePerformanceNavigation } from "./navigation";
+import {
+  beatInPlayedSpan,
+  playedSpansContinue,
+  realizePerformanceNavigation,
+  type PlayedMeasureSpan,
+} from "./navigation";
 
 export interface Articulations {
   staccato: boolean;
@@ -73,6 +78,7 @@ interface TimingContext {
 }
 
 interface TraversalContext extends TimingContext {
+  readonly playedSpan?: PlayedMeasureSpan;
   readonly partIndex: number;
   readonly expandedMeasureIndex: number;
   readonly originalMeasureIndex: number;
@@ -316,6 +322,7 @@ function emitNoteOff(ctx: TraversalContext, note: PerformanceNote): void {
 
 function processNoteEvent(ctx: TraversalContext, event: NoteEvent, beatOffset: number, tupletRatio: number): number {
   const beats = durationBeats(event.duration) * tupletRatio;
+  if (!beatInPlayedSpan(beatOffset * ctx.staffMeterRatio, ctx.playedSpan)) return beats;
   if (isRest(event)) return beats;
 
   const startTime = timeAt(ctx, beatOffset);
@@ -328,7 +335,7 @@ function processNoteEvent(ctx: TraversalContext, event: NoteEvent, beatOffset: n
     if (pitch < 0 || pitch > 127) continue;
 
     const key = tieKey(ctx, pitch);
-    const tiedToPrevious = isTieTarget(ctx, note);
+    const tiedToPrevious = isTieTarget(ctx, note) && ctx.pendingTies.has(key);
     const tiedOut = hasTieOut(note);
     if (tiedToPrevious) {
       const pending = ctx.pendingTies.get(key);
@@ -474,10 +481,10 @@ export function generatePerformanceEvents(
   partIndex: number,
   options?: TimelineOptions,
 ): PerformanceEvent[] {
-  const events = generateFullPerformanceEvents(inputScore, partIndex, options);
-  if (options?.expandRepeats === false) return events;
   const score = expandScoreMeasureRepeats(inputScore);
-  const spans = scorePlaybackItinerary(score);
+  const spans = options?.expandRepeats === false ? undefined : scorePlaybackItinerary(score);
+  const events = generateFullPerformanceEvents(score, partIndex, options, spans);
+  if (spans === undefined) return events;
   if (
     !score.global.measures.some((measure) => measure.jump !== undefined) &&
     !spans.some((span) => span.startBeat > 0 || span.endBeat < span.measureBeats)
@@ -494,6 +501,7 @@ function generateFullPerformanceEvents(
   inputScore: Score,
   partIndex: number,
   options?: TimelineOptions,
+  playedSpans?: readonly PlayedMeasureSpan[],
 ): PerformanceEvent[] {
   const score = expandScoreMeasureRepeats(inputScore);
   if (partIndex === score.parts.length) return generateChordPerformanceEvents(score, options);
@@ -521,6 +529,7 @@ function generateFullPerformanceEvents(
     globalMeasures,
     [],
     staffMeterTable,
+    playedSpans,
   );
   const tieTargets = collectPartTieTargets(part, measureOrder);
   const pendingTies = new Map<string, PerformanceNote>();
@@ -529,6 +538,16 @@ function generateFullPerformanceEvents(
   let persistentState = cloneState(DEFAULT_PLAYING_STATE);
 
   for (let expandedMeasureIndex = 0; expandedMeasureIndex < measureOrder.length; expandedMeasureIndex++) {
+    if (
+      expandedMeasureIndex > 0 &&
+      playedSpans &&
+      !playedSpansContinue(playedSpans[expandedMeasureIndex - 1]!, playedSpans[expandedMeasureIndex])
+    ) {
+      for (const note of pendingTies.values()) {
+        events.push({ event: { kind: "noteOff", time: note.startTime + note.duration, note }, order: order++ });
+      }
+      pendingTies.clear();
+    }
     const originalMeasureIndex = measureOrder[expandedMeasureIndex]!;
     const measure = part.measures[originalMeasureIndex];
     if (!measure) continue;
@@ -536,7 +555,9 @@ function generateFullPerformanceEvents(
     const measureStartBeat = measureStartBeats[expandedMeasureIndex]!;
     const ratioForStaff = (staff: number | undefined): number =>
       staffMeterRatioAt(staffMeterTable, originalMeasureIndex, staff);
-    const marks = measureTechniqueMarks(measure.expressions, ratioForStaff);
+    const marks = measureTechniqueMarks(measure.expressions, ratioForStaff).filter((mark) =>
+      beatInPlayedSpan(mark.beat, playedSpans?.[expandedMeasureIndex]),
+    );
     const timing: TimingContext = { model, measureStartBeat, staffMeterRatio: 1 };
     const techniqueResult = emitMeasureTechniques({ events, order }, timing, persistentState, marks);
     order = techniqueResult.order;
@@ -544,6 +565,7 @@ function generateFullPerformanceEvents(
     measure.sequences.forEach((sequence, sequenceIndex) => {
       const voiceKey = sequence.voice ?? `v${sequenceIndex}`;
       const ctx: TraversalContext = {
+        playedSpan: playedSpans?.[expandedMeasureIndex],
         model,
         measureStartBeat,
         staffMeterRatio: ratioForStaff(sequence.staff ?? 1),
