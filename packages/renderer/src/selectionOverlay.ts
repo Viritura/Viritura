@@ -149,7 +149,7 @@ function paintSelectionFor(
   const bboxes = spatialIndex.getAllBBoxes(id);
   // A key signature is one global property shown on every staff. Unlike a
   // duplicated event in a condensed score, all of its staff copies are active.
-  const isGlobalKey = id.endsWith("/key");
+  const isGlobalKey = id.endsWith("/key") || /^m\d+\/caesura$/.test(id);
   const activeBboxes =
     bboxes.length === 0 ? [] : isGlobalKey ? bboxes : resolveActiveBboxes(id, bboxes, spatialIndex.lastHitY);
 

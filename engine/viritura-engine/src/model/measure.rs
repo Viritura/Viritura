@@ -45,6 +45,9 @@ pub struct GlobalMeasureExtensions {
 /// A global measure — score-wide properties (MNX global.measures[n]).
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct GlobalMeasure {
+    /// Native MNX global marking, including its global attributes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub caesura: Option<GlobalCaesura>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
     /// Custom measure number override (MNX `number`).
@@ -81,6 +84,19 @@ pub struct GlobalMeasure {
     /// Vendor extensions (`_x.viritura`)
     #[serde(skip_serializing_if = "Option::is_none", rename = "_x")]
     pub extensions: Option<VendorExtensions<GlobalMeasureExtensions>>,
+}
+
+/// One global owner with the same native geometry as an event caesura.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct GlobalCaesura {
+    #[serde(flatten)]
+    pub marking: super::direction::Caesura,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_c")]
+    pub class: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_x")]
+    pub extensions: Option<serde_json::Value>,
 }
 
 // -- GlobalMeasure: model-internal type (no Deserialize).

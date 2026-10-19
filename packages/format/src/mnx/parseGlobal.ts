@@ -15,6 +15,7 @@
 import type { GlobalLyrics, LyricLineMetadataEntry } from "@viritura/core";
 import type { Sound } from "@viritura/core";
 import { generateId } from "@viritura/core";
+import { parseGlobalCaesura } from "./globalCaesura";
 import type {
   GlobalMeasure,
   RhythmicPosition,
@@ -141,7 +142,7 @@ export function parseGlobalMeasures(arr: RawMeasureGlobal[] | undefined): Global
 
 function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
   rejectRetiredNavigationExtensions(raw);
-  const measure: GlobalMeasure = {};
+  const measure: GlobalMeasure = parseGlobalCaesura(raw.caesura);
 
   if (raw.id) measure.id = raw.id;
   if (raw.number !== undefined) measure.number = raw.number;

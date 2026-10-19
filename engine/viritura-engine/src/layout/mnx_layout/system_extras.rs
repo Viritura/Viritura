@@ -192,6 +192,9 @@ pub(super) fn compute_system_extras(
                     if hp < 0.0 && (-hp) > above_protrusion {
                         above_protrusion = -hp;
                     }
+                    above_protrusion = above_protrusion.max(
+                        -super::super::render_annotations::global_caesura_top(ml, sp, config),
+                    );
                 }
                 let min_clearance = config.default_intra_staff_clearance * sp;
                 let content_inter = lowest_above + above_protrusion + min_clearance;

@@ -182,6 +182,16 @@ pub(crate) fn promote_global_measure_with_json(
         }),
     });
     Ok(ModelGlobalMeasure {
+        caesura: r
+            .caesura
+            .map(|caesura| crate::model::measure::GlobalCaesura {
+                marking: super::articulation::promote_caesura(caesura.shape, caesura.marks),
+                id: caesura.id.map(String::from),
+                class: caesura.c.map(String::from),
+                extensions: caesura
+                    .x
+                    .map(|value| serde_json::to_value(value).expect("vendor JSON")),
+            }),
         id: r.id.map(String::from),
         number: r.number.map(|n| n.0 as i32),
         time,

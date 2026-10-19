@@ -371,6 +371,7 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
     };
 
     let make_measure = |with_tempo: bool, with_mark: bool| GlobalMeasure {
+        caesura: None,
         id: None,
         number: None,
         time: None,

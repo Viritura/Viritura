@@ -5,6 +5,7 @@
  * that conforms to the W3C MNX specification.
  */
 
+import { serializeGlobalCaesura } from "./globalCaesura";
 import type {
   Score,
   GlobalMeasure,
@@ -228,7 +229,7 @@ function serializeRepeatEnd(repeat: NonNullable<GlobalMeasure["repeatEnd"]>): Ob
 }
 
 function serializeGlobalMeasure(gm: GlobalMeasure): Obj {
-  const obj: Obj = {};
+  const obj: Obj = serializeGlobalCaesura(gm.caesura);
   if (gm.barline) obj["barline"] = { type: gm.barline.type };
   if (gm.coda) {
     const coda: Obj = { location: gm.coda.location };

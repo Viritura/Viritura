@@ -288,6 +288,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         let (transposition, key_fifths_flip_at) =
             ActiveInstrument::at(part, i, (0, 1)).display_transposition(use_written);
         let global = globals.get(i).cloned().unwrap_or(GlobalMeasure {
+            caesura: None,
             id: None,
             number: None,
             time: None,
@@ -607,7 +608,8 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
     }
     let cur = &resolved[i];
     let g = &cur.global;
-    let starts_here = g.time.is_some()
+    let starts_here = g.caesura.is_some()
+        || g.time.is_some()
         || cur
             .chord_symbols
             .as_ref()
@@ -641,7 +643,8 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
                 | BarlineType::HeavyHeavy
         )
     );
-    let ends_prev = prev_barline_breaks
+    let ends_prev = pg.caesura.is_some()
+        || prev_barline_breaks
         || pg.system_text().is_some_and(|texts| !texts.is_empty())
         || prev
             .chord_symbols

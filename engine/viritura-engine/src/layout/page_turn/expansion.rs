@@ -68,6 +68,7 @@ pub fn multimeasure_rest_break_flags(measures: &[GlobalMeasure]) -> Vec<bool> {
         .map(|(i, m)| {
             // Start-of-measure structure on this bar opens a new group here.
             let starts_here = i == 0
+                || m.caesura.is_some()
                 || m.time.is_some()
                 || m.key.is_some()
                 || m.tempos.as_ref().is_some_and(|t| !t.is_empty())
@@ -82,6 +83,7 @@ pub fn multimeasure_rest_break_flags(measures: &[GlobalMeasure]) -> Vec<bool> {
             let ends_prev = i > 0 && {
                 let prev = &measures[i - 1];
                 prev.barline.is_some()
+                    || prev.caesura.is_some()
                     || prev.system_text().is_some_and(|texts| !texts.is_empty())
                     || prev.repeat_end.is_some()
                     || prev.fine.is_some()
@@ -160,6 +162,7 @@ mod tests {
 
     fn empty_measure() -> GlobalMeasure {
         GlobalMeasure {
+            caesura: None,
             id: None,
             number: None,
             time: None,

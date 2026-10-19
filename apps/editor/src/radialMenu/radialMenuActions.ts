@@ -33,6 +33,7 @@ import type { BreathFermataSelection } from "./breathFermataMenu";
 import type { ExpressionToken, MixedExpressionToken } from "./dynamicExpressionParser";
 import { firstTupletEventLocation, resolveTupletSelectionLocation } from "./tupletSelection";
 import { beatPositionToFraction, eventBeatPosition, eventEndBeatPosition } from "../app/timedAnnotationPosition";
+import { caesuraBarlineMeasure, selectedLocalCaesuraTargets } from "../commands/caesura";
 
 // ═══════════════════════════════════════════
 // Position helpers
@@ -691,6 +692,7 @@ export function applyOrnament(
 /**
  * Apply a breath mark, fermata, or caesura from the radial menu to every
  * event in the selection (single / multi / range / measure, tuplet-aware).
+ * Caesuras instead terminate the selection once per staff, or globally at a selected barline.
  */
 export function applyBreathFermata(
   score: Score,
@@ -699,13 +701,24 @@ export function applyBreathFermata(
   selectedScoreIndex?: number,
 ): Score | null {
   const result = structuredClone(score);
+  if (resolved.kind === "caesura" && selection.kind === "single") {
+    const measureIndex = caesuraBarlineMeasure(selection.elementId);
+    if (measureIndex !== null) {
+      const measure = result.global.measures[measureIndex];
+      if (!measure) return null;
+      measure.caesura ??= {};
+      return result;
+    }
+  }
   const updatedFullMeasureRest =
     resolved.kind === "fermata" &&
     applyFermataToSelectedFullMeasureRests(result, selection, resolved.shape, selectedScoreIndex);
   const events =
-    selectedScoreIndex === undefined
-      ? resolveSelectionEvents(selection, result)
-      : resolveCondensedSelectionEvents(result, selection, selectedScoreIndex);
+    resolved.kind === "caesura"
+      ? selectedLocalCaesuraTargets(result, selection, selectedScoreIndex)
+      : selectedScoreIndex === undefined
+        ? resolveSelectionEvents(selection, result)
+        : resolveCondensedSelectionEvents(result, selection, selectedScoreIndex);
   if (events.length === 0) return updatedFullMeasureRest ? result : null;
 
   let updated: Score | null = result;
@@ -735,7 +748,7 @@ export function applyBreathFermata(
         );
         break;
       case "caesura":
-        updated = setCaesura(updated, partIndex, measureIndex, sequenceIndex, eventIndex, "normal");
+        updated = setCaesura(updated, partIndex, measureIndex, sequenceIndex, eventIndex, "normal", tupletIndex);
         break;
     }
   }

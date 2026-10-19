@@ -653,6 +653,7 @@ pub(super) fn resolve_one_measure_phase1(
         .get(mi)
         .cloned()
         .unwrap_or(GlobalMeasure {
+            caesura: None,
             id: None,
             number: None,
             time: None,

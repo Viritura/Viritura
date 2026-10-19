@@ -826,28 +826,13 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     [store, updateScore],
   );
 
-  const handleSetCaesura = useCallback(
-    (style: string) => () => {
-      const score = store.getState().score;
-      const sel = useSelectionStore.getState().selection;
-      if (!score || sel.kind !== "single") return;
-      // A caesura sits at/near the end of the bar it's written in, so a
-      // barline selection targets the measure BEFORE it (N-1, like coda/jump).
-      const measureIndex = measureIndexFromElementId(sel.elementId, score);
-      if (measureIndex === null) return;
-      const newScore = produce(score, (draft) => {
-        const gm = draft.global.measures[measureIndex];
-        if (!gm) return;
-        if ((gm as Record<string, unknown>).caesura) {
-          delete (gm as Record<string, unknown>).caesura;
-        } else {
-          (gm as Record<string, unknown>).caesura = { style };
-        }
-      });
-      if (newScore !== score) updateScore(newScore);
-    },
-    [store, updateScore],
-  );
+  const handleSetCaesura = useCallback(() => {
+    const score = store.getState().score;
+    const sel = useSelectionStore.getState().selection;
+    if (!score) return;
+    const newScore = applyBreathFermata(score, sel, { kind: "caesura" }, selectedScoreIndex);
+    if (newScore) updateScore(newScore);
+  }, [store, updateScore, selectedScoreIndex]);
 
   const handleSetTempo = useCallback(() => {
     const score = store.getState().score;
@@ -1799,7 +1784,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
             useBravura
             onClick={handleFermata("doubleDot")}
           />
-          <PaletteButton label={SMUFL.caesura} title="Caesura" useBravura onClick={handleSetCaesura("normal")} />
+          <PaletteButton label={SMUFL.caesura} title="Caesura" useBravura onClick={handleSetCaesura} />
         </div>
       ),
     },

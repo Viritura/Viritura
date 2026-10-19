@@ -50,6 +50,7 @@ export function applySetGlobalMeasureField(draft: Draft<Score>, p: SetGlobalMeas
 function writeGlobalMeasureField(measure: GlobalMeasure, update: GlobalMeasureField): void {
   const target = measure as unknown as Record<string, unknown>;
   switch (update.field) {
+    case "caesura":
     case "time":
     case "key":
     case "tempos":

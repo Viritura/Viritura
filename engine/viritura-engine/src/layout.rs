@@ -606,6 +606,7 @@ pub(crate) fn compute_above_staff_extra(
             let (artic_top, _artic_bottom) =
                 render_geometry::measure_articulation_extent(ml, 0.0, sp, config);
             let highest = highest.min(artic_top);
+            let highest = highest.min(render_annotations::global_caesura_top(ml, sp, config));
             // An above-staff meter is engraved over the top line, so it is
             // part of the protrusion the system above has to clear.
             let highest = match time_signatures::above_staff_extent(

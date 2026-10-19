@@ -9,6 +9,69 @@ const meta: Meta = {
 
 export default meta;
 
+function globalBarlineMnx(extract: boolean): string {
+  const measure = {
+    sequences: [1, 2].map((staff) => ({
+      staff,
+      content: [{ duration: { base: "whole" }, notes: [{ pitch: { step: "C", octave: staff === 1 ? 6 : 3 } }] }],
+    })),
+  };
+  const mnx = JSON.stringify({
+    mnx: { version: 1 },
+    global: {
+      measures: [
+        { id: "first", time: { count: 4, unit: 4 }, caesura: {} },
+        { id: "second", caesura: { shape: "thick", marks: 2 } },
+        { id: "third", caesura: { shape: "short", marks: 1 } },
+        { id: "fourth", caesura: { shape: "curved", marks: 2 }, repeatEnd: {} },
+      ],
+    },
+    layouts: [
+      {
+        id: "full",
+        content: [
+          { type: "staff", sources: [{ part: "piano", staff: 1 }] },
+          { type: "staff", sources: [{ part: "piano", staff: 2 }] },
+          { type: "staff", sources: [{ part: "flute" }] },
+        ],
+      },
+      {
+        id: "extract",
+        content: [
+          { type: "staff", sources: [{ part: "piano", staff: 1 }] },
+          { type: "staff", sources: [{ part: "piano", staff: 2 }] },
+        ],
+      },
+    ],
+    scores: [
+      {
+        name: extract ? "Piano" : "Full",
+        layout: extract ? "extract" : "full",
+        pages: [{ systems: [{ measure: "first" }, { measure: "third" }] }],
+      },
+    ],
+    parts: [
+      { id: "piano", name: "Piano", staves: 2, measures: Array.from({ length: 4 }, () => measure) },
+      {
+        id: "flute",
+        name: "Flute",
+        measures: Array.from({ length: 4 }, () => ({ sequences: [measure.sequences[0]] })),
+      },
+    ],
+  });
+  return mnx;
+}
+
+export const GlobalBarlineCaesuras: StoryObj = {
+  name: "Global barline caesuras — full score and system breaks",
+  render: () => <ScorePreview mnxJson={globalBarlineMnx(false)} viewMode="page" height={650} />,
+};
+
+export const GlobalPartExtract: StoryObj = {
+  name: "Global barline caesuras — piano part extract",
+  render: () => <ScorePreview mnxJson={globalBarlineMnx(true)} viewMode="page" height={650} />,
+};
+
 export const DefaultCaesura: StoryObj = {
   render: () => {
     const mnx = buildMnx({

@@ -12,6 +12,7 @@
  */
 
 import type { Score } from "@viritura/core";
+import { globalCaesuraMeasure } from "./caesura";
 import { isAccidentalId, removeAccidental } from "./accidentalCommands";
 import { isArticulationId, removeArticulation } from "./articulationDeletion";
 import { getEventAtLocation, getEventAncestorId, resolveEventLocation } from "../score/ElementPath";
@@ -24,6 +25,13 @@ export function isCaesuraId(elementId: string): boolean {
 
 export function removeCaesura(score: Score, elementId: string): Score | null {
   if (!isCaesuraId(elementId)) return null;
+  const globalIndex = globalCaesuraMeasure(elementId);
+  if (globalIndex !== null) {
+    const measure = score.global.measures[globalIndex];
+    if (!measure?.caesura) return null;
+    delete measure.caesura;
+    return score;
+  }
   const location = resolveEventLocation(getEventAncestorId(elementId), score);
   const event = location ? getEventAtLocation(score, location) : null;
   if (!event || event.type !== "event" || !event.markings?.caesura) return null;

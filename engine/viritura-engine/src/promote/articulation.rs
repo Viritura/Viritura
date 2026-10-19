@@ -293,10 +293,7 @@ pub(crate) fn promote_markings(r: raw::EventMarkings) -> ModelMarkings {
     // version, so the legacy `_x.viritura.caesura` vendor form is
     // intentionally not read. `CaesuraStyle` is aliased directly to the
     // native `raw::CaesuraShape` enum, so no per-variant mapping is needed.
-    let caesura = r.caesura.map(|c| ModelCaesura {
-        style: c.shape,
-        marks: c.marks.map(|m| u8::try_from(i64::from(m)).unwrap_or(2)),
-    });
+    let caesura = r.caesura.map(|c| promote_caesura(c.shape, c.marks));
 
     // Arpeggio is a Viritura-only marking not yet expressed in the
     // viritura-extensions schema. Pull it straight off the raw JSON map
@@ -325,6 +322,16 @@ pub(crate) fn promote_markings(r: raw::EventMarkings) -> ModelMarkings {
         arpeggio,
         caesura,
         fingerings,
+    }
+}
+
+pub(crate) fn promote_caesura(
+    shape: Option<raw::CaesuraShape>,
+    marks: Option<raw::PositiveInteger>,
+) -> ModelCaesura {
+    ModelCaesura {
+        style: shape,
+        marks: marks.map(|m| u8::try_from(i64::from(m)).unwrap_or(2)),
     }
 }
 
