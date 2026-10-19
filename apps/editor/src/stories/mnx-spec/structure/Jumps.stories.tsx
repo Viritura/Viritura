@@ -11,13 +11,9 @@ export default meta;
 
 /**
  * All jump types supported by the engine in one multi-measure view:
- * Measures 1–3: D.S. al Fine (segno + fine + dsalfine)
- * Measures 4–6: D.S. al Coda (segno + dsalcoda + coda)
- * Measures 7–9: D.C. al Coda (dcalcoda + coda)
- *
- * MNX only standardizes `segno` and `dsalfine` jump types. The non-standard
- * `dsalcoda` / `dcalcoda` are emitted under the `_x.viritura.jump` vendor
- * extension so the document validates against the official MNX schema.
+ * Measures 1–3: D.S. al Fine (segno + fine + dsAlFine)
+ * Measures 4–6: D.S. al Coda (segno + dsAlCoda + coda)
+ * Measures 7–9: D.C. al Coda (dcAlCoda + coda)
  */
 export const AllJumps: StoryObj = {
   render: () => {
@@ -45,7 +41,7 @@ export const AllJumps: StoryObj = {
           ],
         },
         {
-          jump: { type: "dsalfine", location: { fraction: [1, 1] } },
+          jump: { type: "dsAlFine", location: { fraction: [1, 1] } },
           voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
         },
         {
@@ -53,26 +49,22 @@ export const AllJumps: StoryObj = {
           voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
         },
         {
-          virituraGlobal: {
-            jump: { type: "dsalcoda", location: { fraction: [1, 1] } },
-          },
+          jump: { type: "dsAlCoda", location: { fraction: [1, 1] } },
           voices: [[{ duration: "whole", notes: [{ step: "E", octave: 5 }] }]],
         },
         {
-          virituraGlobal: { coda: { location: { fraction: [0, 1] } } },
+          coda: { location: { fraction: [0, 1] } },
           voices: [[{ duration: "whole", notes: [{ step: "F", octave: 5 }] }]],
         },
         {
           voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
         },
         {
-          virituraGlobal: { coda: { location: { fraction: [0, 1] } } },
+          coda: { location: { fraction: [0, 1] } },
           voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
         },
         {
-          virituraGlobal: {
-            jump: { type: "dcalcoda", location: { fraction: [1, 1] } },
-          },
+          jump: { type: "dcAlCoda", location: { fraction: [1, 1] } },
           voices: [[{ duration: "whole", notes: [{ step: "E", octave: 5 }] }]],
         },
       ],
@@ -103,19 +95,17 @@ export const AuthoredMarkerText: StoryObj = {
           voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
         },
         {
-          virituraGlobal: {
-            coda: { location: { fraction: [1, 1] } },
-            markerText: { coda: text("To Coda", "before") },
-          },
+          coda: { location: { fraction: [1, 1] } },
+          virituraGlobal: { markerText: { coda: text("To Coda", "before") } },
           voices: [[{ duration: "whole", notes: [{ step: "E", octave: 5 }] }]],
         },
         {
-          jump: { type: "dsalfine", location: { fraction: [1, 1] } },
+          jump: { type: "dsAlFine", location: { fraction: [1, 1] } },
           virituraGlobal: { markerText: { jump: text("with repeats", "after") } },
           voices: [[{ duration: "whole", notes: [{ step: "F", octave: 5 }] }]],
         },
         {
-          jump: { type: "dsalfine", location: { fraction: [1, 1] } },
+          jump: { type: "dsAlFine", location: { fraction: [1, 1] } },
           virituraGlobal: { markerText: { jump: text("Return to the segno", "replace") } },
           voices: [[{ duration: "whole", notes: [{ step: "G", octave: 5 }] }]],
         },
@@ -125,29 +115,23 @@ export const AuthoredMarkerText: StoryObj = {
   },
 };
 
-type InteractiveArgs = { jumpType: "dsalfine" | "dsalcoda" | "dcalcoda" };
+type InteractiveArgs = { jumpType: "dsAlFine" | "dsAlCoda" | "dcAlCoda" };
 
 /** Pick jump type with Storybook controls. */
 export const Interactive: StoryObj<InteractiveArgs> = {
   name: "Try navigation jumps",
-  args: { jumpType: "dsalfine" },
+  args: { jumpType: "dsAlFine" },
   argTypes: {
     jumpType: {
       control: { type: "select" },
-      options: ["dsalfine", "dsalcoda", "dcalcoda"],
+      options: ["dsAlFine", "dsAlCoda", "dcAlCoda"],
     },
   },
   render: ({ jumpType }) => {
-    // dsalfine is the only natively-supported MNX jump type.
-    // dsalcoda/dcalcoda are emitted via the _x.viritura vendor extension.
-    const useExtension = jumpType !== "dsalfine";
-    const needsSegno = jumpType !== "dcalcoda";
-    const needsCoda = jumpType !== "dsalfine";
-    const needsFine = jumpType === "dsalfine";
-
-    const jumpField = useExtension
-      ? { virituraGlobal: { jump: { type: jumpType, location: { fraction: [1, 1] as number[] } } } }
-      : { jump: { type: jumpType, location: { fraction: [1, 1] as number[] } } };
+    const needsSegno = jumpType !== "dcAlCoda";
+    const needsCoda = jumpType !== "dsAlFine";
+    const needsFine = jumpType === "dsAlFine";
+    const jumpField = { jump: { type: jumpType, location: { fraction: [1, 1] as number[] } } };
 
     const mnx = buildMnx({
       measures: [
@@ -159,7 +143,7 @@ export const Interactive: StoryObj<InteractiveArgs> = {
         {
           voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
           ...(needsFine ? { fine: { location: { fraction: [1, 1] } } } : {}),
-          ...(needsCoda ? { virituraGlobal: { coda: { location: { fraction: [0, 1] } } } } : {}),
+          ...(needsCoda ? { coda: { location: { fraction: [0, 1] } } } : {}),
         },
         {
           ...jumpField,

@@ -108,7 +108,7 @@ export function buildGlobalMeasures(
         gm.fine = { location: makePosition(pos) };
       }
       if (sound.getAttribute("dacapo") === "yes") {
-        gm.jump = { type: "dsalfine", location: makePosition(pos) };
+        gm.jump = { type: "dcAlFine", location: makePosition(pos) };
       }
       if (sound.getAttribute("dalsegno")) {
         gm.jump = { type: "segno", location: makePosition(pos) };
@@ -165,9 +165,8 @@ export function buildGlobalMeasures(
               gm.segno = seg;
             }
           }
-          // Coda is a Viritura extension because MNX has no native coda marker.
           const codaEl = findChild(dt, "coda");
-          if (codaEl && vendorExt) {
+          if (codaEl) {
             const coda: { location: MnxRhythmicPosition; glyph?: string; color?: string } = {
               location: makePosition(currentPos),
             };
@@ -175,8 +174,7 @@ export function buildGlobalMeasures(
             if (smuflName) coda.glyph = smuflName;
             const color = normalizeMusicXmlColor(codaEl.getAttribute("color"));
             if (color) coda.color = color;
-            if (!gm._x) gm._x = { viritura: {} };
-            gm._x.viritura.coda = coda;
+            gm.coda = coda;
           }
         }
 

@@ -64,7 +64,6 @@ export function collectLossyDiagnostics(root: Element, dx: DiagnosticCollector, 
     note("harmony", "info", "Chord symbols dropped — enable Viritura extensions to preserve", "musicxml-harmony");
     note("glissando", "info", "Glissando dropped — enable Viritura extensions to preserve", "musicxml-glissando");
     note("slide", "info", "Slide dropped — enable Viritura extensions to preserve", "musicxml-slide");
-    note("coda", "info", "Coda dropped — enable Viritura extensions to preserve", "musicxml-coda");
     note("trill-mark", "info", "Trill marks dropped — enable vendor extensions to preserve", "musicxml-trill");
     note("mordent", "info", "Mordents dropped — enable vendor extensions to preserve", "musicxml-mordent");
     note(
