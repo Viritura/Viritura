@@ -82,6 +82,23 @@ function deleteSelection(score: Score, selection: Selection): Score {
 }
 
 describe("condensed projection write-back", () => {
+  it("keeps conflicting same-pitch slides on separate source voices", () => {
+    const score = condensedScore(3);
+    for (const [index, part] of score.parts.entries()) {
+      const event = part.measures[0]!.sequences[0]!.content[0]!;
+      if (event.type !== "event") throw new Error("Expected event");
+      if (index > 0) {
+        event.notes![0]!.pitch.step = "E";
+        event.notes![0]!.markings = { slideIn: { type: index === 1 ? "scoop" : "plop" } };
+      }
+    }
+    const elementId = "p1/m0/s0/event-1/n0/slideIn";
+    expect(expandCondensedSubElementIds(score, [elementId], 0)).toEqual([elementId]);
+    const updated = deleteSelection(score, { kind: "single", elementId });
+    expect(updated.parts[0]).toEqual(score.parts[0]);
+    expect(updated.parts[2]).toEqual(score.parts[2]);
+  });
+
   it.each([false, true])("deletes unison note markings across source parts (multi=%s)", (multi) => {
     const score = condensedScore(2);
     for (const part of score.parts) {

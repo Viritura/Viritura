@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { applyPatchesToScore, patch, type NoteEvent, type Score } from "@viritura/core";
+import { describe, expect, it, vi } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { applyPatchesToScore, patch, type NoteEvent, type Score, type ScorePatch } from "@viritura/core";
 import { applyNoteMarkingToSelection } from "../radialMenu/noteMarkingSelection";
+import { useNoteMarkingHandler } from "../components/inspector/useNoteMarkingHandler";
+import { useViewStateStore } from "../store/viewStateStore";
 
 function chordScore(): Score {
   return {
@@ -41,6 +44,44 @@ function chord(score: Score): NoteEvent {
 }
 
 describe("note-scoped slide markings", () => {
+  it.each([false, true])(
+    "inspector writes merged sources but respects expansion selections (expanded=%s)",
+    (expanded) => {
+      const score = chordScore();
+      const second = structuredClone(score.parts[0]!);
+      second.id = "p1";
+      const event = second.measures[0]!.sequences[0]!.content[0]!;
+      if (event.type !== "event") throw new Error("Expected event");
+      event.id = "ev1";
+      for (const [index, note] of event.notes!.entries()) note.id = `second-${index}`;
+      score.parts.push(second);
+      score.layouts = [{ id: "condensed", content: [{ type: "staff", sources: [{ part: "p0" }, { part: "p1" }] }] }];
+      score.scores = [{ name: "Condensed", layout: "condensed" }];
+      useViewStateStore.setState({ selectedScoreIndex: 0 });
+      const commitPatches = vi.fn<(patches: readonly ScorePatch[]) => void>();
+      const { result } = renderHook(() =>
+        useNoteMarkingHandler({
+          score,
+          selection: {
+            kind: "single",
+            elementId: "p0/m0/s0/ev0/n1",
+            elementType: "note",
+            ...(expanded ? { measureAnchor: { partIndex: 0, staffIndex: 1, measureIndex: 0, isExpansion: true } } : {}),
+          },
+          commitPatches,
+        }),
+      );
+      act(() => result.current.setSlideIn("scoop"));
+      const patches = commitPatches.mock.calls[0]![0];
+      expect(patches).toHaveLength(expanded ? 1 : 2);
+      const updated = applyPatchesToScore(score, patches);
+      expect(chord(updated).notes![1]!.markings).toEqual({ slideIn: { type: "scoop" }, slideOut: { type: "falloff" } });
+      const other = updated.parts[1]!.measures[0]!.sequences[0]!.content[0]!;
+      if (other.type !== "event") throw new Error("Expected event");
+      expect(other.notes![1]!.markings?.slideIn).toEqual(expanded ? undefined : { type: "scoop" });
+    },
+  );
+
   it("does not collapse matching note indices in separate tuplets", () => {
     const score = chordScore();
     const sequence = score.parts[0]!.measures[0]!.sequences[0]!;

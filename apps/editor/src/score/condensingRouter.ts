@@ -166,6 +166,27 @@ function timelinesSharePitches(timelines: NoteEvent[][]): boolean {
   return true;
 }
 
+function timelinesHaveConflictingSlides(timelines: NoteEvent[][]): boolean {
+  return timelines.some((timeline, source) =>
+    timelines
+      .slice(source + 1)
+      .some((other) =>
+        timeline.some((event, index) =>
+          event.notes?.some((note) =>
+            other[index]?.notes?.some(
+              (candidate) =>
+                note.pitch.step === candidate.pitch.step &&
+                note.pitch.octave === candidate.pitch.octave &&
+                (note.pitch.alter ?? 0) === (candidate.pitch.alter ?? 0) &&
+                (note.markings?.slideIn?.type !== candidate.markings?.slideIn?.type ||
+                  note.markings?.slideOut?.type !== candidate.markings?.slideOut?.type),
+            ),
+          ),
+        ),
+      ),
+  );
+}
+
 export function detectCondensingMode(
   score: Score,
   staffInfo: CondensingStaffInfo,
@@ -203,6 +224,7 @@ export function detectCondensingMode(
   // If all rhythms match and all pitches identical → unison; otherwise amalgamate.
   const activeTimelines = activeIndices.map((i) => timelines[i]!.filter((e) => !isRest(e)));
   if (!timelinesShareRhythm(activeTimelines)) return "divisi";
+  if (timelinesHaveConflictingSlides(activeTimelines)) return "divisi";
   return timelinesSharePitches(activeTimelines) ? "unison" : "amalgamate";
 }
 
