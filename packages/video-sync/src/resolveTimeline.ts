@@ -18,6 +18,7 @@ export interface TempoLookup {
   readonly measureStartTimes: readonly number[];
   /** Total score duration in seconds. */
   readonly durationSeconds: number;
+  readonly expandedMeasureToOriginal?: readonly number[];
 }
 
 /**
@@ -35,8 +36,10 @@ export function resolveBars(score: Score, tempo: TempoLookup, pictureOffsetSecon
   let previousMeter: { count: number; unit: number } | undefined;
   let previousBpm: number | undefined;
 
-  for (let index = 0; index < measures.length; index++) {
-    const measure = measures[index]!;
+  for (let index = 0; index < tempo.measureStartTimes.length; index++) {
+    const sourceIndex = tempo.expandedMeasureToOriginal?.[index] ?? index;
+    const measure = measures[sourceIndex];
+    if (!measure) break;
     const start = tempo.measureStartTimes[index];
     if (start === undefined) break;
     const end = tempo.measureStartTimes[index + 1] ?? tempo.durationSeconds;
@@ -45,7 +48,7 @@ export function resolveBars(score: Score, tempo: TempoLookup, pictureOffsetSecon
     const bpm = firstTempoBpm(measure);
 
     const bar: TimelineBar = {
-      number: index + 1,
+      number: sourceIndex + 1,
       startSeconds: start + pictureOffsetSeconds,
       endSeconds: end + pictureOffsetSeconds,
       // Only surface a change, so the renderer can weight structural bar lines.

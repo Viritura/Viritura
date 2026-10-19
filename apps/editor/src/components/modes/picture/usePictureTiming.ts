@@ -44,7 +44,11 @@ export function usePictureTiming(score: Score | null): PictureTiming {
   const tempo = useMemo(() => {
     if (!score || score.global.measures.length === 0) return null;
     const timeline = generateTimeline(score);
-    return { measureStartTimes: timeline.measureStartTimes, durationSeconds: timeline.duration };
+    return {
+      measureStartTimes: timeline.measureStartTimes,
+      durationSeconds: timeline.duration,
+      expandedMeasureToOriginal: timeline.expandedMeasureToOriginal,
+    };
   }, [score]);
 
   const bars = useMemo(

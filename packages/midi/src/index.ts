@@ -10,6 +10,9 @@ export type { MidiTimeline, MidiEvent, TempoMapEntry, TimelineDiagnostic } from 
 
 // Timeline generator
 export { generateTimeline, durationBeats, expandMeasureOrder } from "./timeline";
+export { expandPlaybackItinerary } from "./repeatExpansion";
+export { NavigationError } from "./navigation";
+export type { PlayedMeasureSpan } from "./navigation";
 export { expandMeasureRepeats, expandScoreMeasureRepeats } from "./measureRepeats";
 export type { TimelineOptions } from "./timeline";
 export { playbackInstruments, instrumentSamplerKey } from "./instrumentPlayback";

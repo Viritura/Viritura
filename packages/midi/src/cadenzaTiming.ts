@@ -55,8 +55,27 @@ function writtenMeasureBeats(score: Score, measureIndex: number, minimumBeats: n
  */
 export function playbackGlobalMeasures(score: Score, measureOrder: readonly number[]): GlobalMeasure[] {
   let activeBeats = 4;
-  return measureOrder.map((measureIndex) => {
-    const measure = score.global.measures[measureIndex]!;
+  let activeTime: TimeSignature = { count: 4, unit: 4 };
+  let activeTempo: NonNullable<GlobalMeasure["tempos"]>[number] | undefined;
+  const resolved = score.global.measures.map((original, measureIndex) => {
+    if (original.time) activeTime = original.time;
+    const measure: GlobalMeasure = {
+      ...original,
+      time: { ...activeTime },
+      tempos: original.tempos?.some((tempo) => !tempo.location || tempo.location.fraction[0] === 0)
+        ? original.tempos
+        : activeTempo
+          ? [{ ...activeTempo, location: { fraction: [0, 1] } }, ...(original.tempos ?? [])]
+          : original.tempos,
+    };
+    if (original.tempos?.length)
+      activeTempo = [...original.tempos]
+        .sort(
+          (a, b) =>
+            (a.location?.fraction[0] ?? 0) / (a.location?.fraction[1] ?? 1) -
+            (b.location?.fraction[0] ?? 0) / (b.location?.fraction[1] ?? 1),
+        )
+        .at(-1);
     if (measure.time) activeBeats = (measure.time.count * 4) / measure.time.unit;
     if (measureIndex === 0 && measure.number === 0) {
       const pickupBeats = writtenMeasureBeats(score, measureIndex, 0);
@@ -84,6 +103,7 @@ export function playbackGlobalMeasures(score: Score, measureOrder: readonly numb
       },
     };
   });
+  return measureOrder.map((index) => resolved[index]!);
 }
 
 /** Visual fermatas in an open-meter cadenza do not introduce a second delay. */

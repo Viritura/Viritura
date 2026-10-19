@@ -107,6 +107,43 @@ export class TempoModel {
     this.knots = knots;
   }
 
+  /** Realize selected source-beat intervals on one continuous performance axis. */
+  static concatenate(source: TempoModel, spans: readonly { startBeat: number; endBeat: number }[]): TempoModel {
+    const regions: TempoRegion[] = [];
+    const insertions: TempoInsertion[] = [];
+    let outputBeat = 0;
+    for (const span of spans) {
+      const boundaries = [
+        span.startBeat,
+        ...source.knots
+          .filter((knot) => knot.beat > span.startBeat && knot.beat < span.endBeat)
+          .map((knot) => knot.beat),
+        span.endBeat,
+      ];
+      for (let index = 0; index < boundaries.length - 1; index++) {
+        const start = boundaries[index]!;
+        const end = boundaries[index + 1]!;
+        const knot = source.knots[source.knotIndexForBeat(start)]!;
+        const bpm = knot.bpm + knot.slope * (start - knot.beat);
+        regions.push({
+          startBeat: outputBeat + start - span.startBeat,
+          endBeat: outputBeat + end - span.startBeat,
+          startBpm: bpm,
+          endBpm: bpm + knot.slope * (end - start),
+        });
+      }
+      for (const knot of source.knots) {
+        if (knot.beat > span.startBeat && knot.beat <= span.endBeat && knot.insertBefore > 0) {
+          insertions.push({ beat: outputBeat + knot.beat - span.startBeat, seconds: knot.insertBefore });
+        }
+      }
+      outputBeat += span.endBeat - span.startBeat;
+    }
+    const last = regions.at(-1);
+    if (last) regions.push({ startBeat: outputBeat, endBeat: Infinity, startBpm: last.endBpm, endBpm: last.endBpm });
+    return TempoModel.build(regions, insertions);
+  }
+
   /**
    * Build a model from tempo regions and point insertions.
    *
