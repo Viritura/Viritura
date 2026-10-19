@@ -4,6 +4,16 @@ import { createDynamicGroup, createRelativeDynamicGroup, refreshDynamicGlyphs, t
 const position = { fraction: [0, 1] as [number, number] };
 
 describe("dynamic authoring appearance", () => {
+  it("allows interchange readers to keep standard markings automatic", () => {
+    expect(createDynamicGroup("mf", position, "d", "automatic")).toEqual({
+      id: "d",
+      type: "immediate",
+      position,
+      value: "mf",
+    });
+    expect(createDynamicGroup("sfz", position, "d", "automatic").glyphs).toEqual(["dynamicSforzato"]);
+  });
+
   it.each([
     ["p", "dynamicPiano"],
     ["fff", "dynamicFFF"],

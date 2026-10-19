@@ -186,7 +186,13 @@ export function dynamicSpelling(group: DynamicGroup): string {
  *
  * Store musical semantics alongside the preferred explicit appearance.
  */
-export function createDynamicGroup(spelling: string, position: RhythmicPosition, id = generateId()): DynamicGroup {
+export function createDynamicGroup(
+  spelling: string,
+  position: RhythmicPosition,
+  id = generateId(),
+  appearance: "explicit" | "automatic" = "explicit",
+): DynamicGroup {
+  const glyphs = appearance === "explicit" ? glyphsForDynamicSpelling(spelling) : displayGlyphs(spelling);
   const parts = isAccentSpelling(spelling) ? accentParts(spelling) : undefined;
   if (parts) {
     const { accentPrefix, value, residualValue, accentSuffix } = parts;
@@ -199,12 +205,11 @@ export function createDynamicGroup(spelling: string, position: RhythmicPosition,
       // Only record affixes that differ from the "sfz" defaults.
       ...(accentPrefix === "s" ? {} : { accentPrefix }),
       ...(accentSuffix === "z" ? {} : { accentSuffix }),
-      glyphs: glyphsForDynamicSpelling(spelling),
+      ...(glyphs ? { glyphs } : {}),
     };
   }
 
   const value = semanticValue(spelling);
-  const glyphs = glyphsForDynamicSpelling(spelling);
   return { id, type: "immediate", position, value, ...(glyphs ? { glyphs } : {}) };
 }
 

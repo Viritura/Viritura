@@ -28,7 +28,12 @@ import {
   type Fraction,
 } from "./fractions";
 import { serializeHarmony } from "./harmony";
-import { hairpinAnnotations, immediateDynamicXml, reconcileHairpinDynamics } from "./hairpinWriting";
+import {
+  assertDynamicAppearance,
+  hairpinAnnotations,
+  immediateDynamicXml,
+  reconcileHairpinDynamics,
+} from "./hairpinWriting";
 import { notePitchXml } from "./noteReading";
 import { buildTieConnectors, orderedMuseScoreNotes } from "./tieWriting";
 import { staffTranspositionXml } from "./transposition";
@@ -192,6 +197,7 @@ function dynamicXml(captured: MuseScoreClipboardDynamic, path: string): string {
   if (dynamic.type !== "immediate" || !dynamic.value) {
     unsupported(`dynamic type "${dynamic.type}" is not supported by MuseScore clipboard export`, path);
   }
+  assertDynamicAppearance(dynamic, path);
   return immediateDynamicXml(dynamic.value);
 }
 

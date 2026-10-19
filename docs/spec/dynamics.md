@@ -94,6 +94,10 @@ those musical fields.
 - Imported semantic-only marks use automatic glyph selection. Explicit
   sequences render as supplied, without consolidation. An equivalent
   explicit precomposed glyph uses the same placement as automatic rendering.
+- MusicXML and MuseScore clipboard readers retain automatic standard
+  markings rather than imposing the UI authoring preference. Clipboard export
+  accepts equivalent explicit standard glyphs, including gradual starts, and
+  reports unsupported custom appearances instead of silently discarding them.
 - Unedited open/save retains glyph presence/absence and sequence. Unrelated
   edits do not impose Viritura's authoring preference on imported data.
 - Deliberately changing a printed marking refreshes its glyphs together with
