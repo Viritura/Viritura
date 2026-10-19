@@ -8,7 +8,6 @@ import type {
 } from "@viritura/core";
 import { FormInput, Select } from "@viritura/ui";
 import { ManualOffsetFields, type ManualOffsetControl } from "./DirectionTextSection";
-import { DynamicAppearanceSection } from "./DynamicAppearanceSection";
 import { labelStyle, legendStyle, sectionStyle } from "./types";
 
 const DYNAMIC_VALUES = [
@@ -71,7 +70,6 @@ interface DynamicGroupSectionProps {
   onStaffEndChange: (value: number | undefined) => void;
   onVisuallyContinuesChange: (value: string) => void;
   onVoiceChange: (value: string) => void;
-  onGlyphsChange: (glyphs: string[] | undefined) => void;
   offset: ManualOffsetControl;
 }
 
@@ -93,7 +91,6 @@ export function DynamicGroupSection({
   onStaffEndChange,
   onVisuallyContinuesChange,
   onVoiceChange,
-  onGlyphsChange,
   offset,
 }: DynamicGroupSectionProps) {
   const staffOptions = Array.from({ length: staffCount }, (_, index) => ({
@@ -113,24 +110,14 @@ export function DynamicGroupSection({
       <legend style={legendStyle}>Dynamic — {dynamic.type}</legend>
 
       {dynamic.type === "relative" ? (
-        <>
-          <label style={labelStyle}>
-            Relative change
-            <Select
-              value={dynamic.relativeValue}
-              options={[...RELATIVE_OPTIONS]}
-              onValueChange={(value) => onRelativeValueChange(value as "louder" | "softer")}
-            />
-          </label>
-          <label style={labelStyle}>
-            Printed marking
-            <Select
-              value={dynamic.value ?? ""}
-              options={OPTIONAL_VALUE_OPTIONS}
-              onValueChange={(value) => onValueChange((value || undefined) as DynamicValue | undefined)}
-            />
-          </label>
-        </>
+        <label style={labelStyle}>
+          Relative change
+          <Select
+            value={dynamic.relativeValue}
+            options={[...RELATIVE_OPTIONS]}
+            onValueChange={(value) => onRelativeValueChange(value as "louder" | "softer")}
+          />
+        </label>
       ) : dynamic.type === "gradual" ? (
         <>
           <label style={labelStyle}>
@@ -196,7 +183,6 @@ export function DynamicGroupSection({
         </>
       )}
 
-      <DynamicAppearanceSection glyphs={dynamic.glyphs} onChange={onGlyphsChange} />
       <label style={labelStyle}>
         Prefix
         <FormInput value={dynamic.prefix ?? ""} onChange={(event) => onPrefixChange(event.target.value)} />

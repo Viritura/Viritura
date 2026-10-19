@@ -107,9 +107,9 @@ those musical fields.
   wedges remain visible independently.
 - Deliberately changing a printed marking refreshes its glyphs together with
   its semantic fields; changing placement or text does not.
-- The inspector offers musical marking choices and an advanced Appearance
-  editor with symbol selection, ordering, removal and reset. Users do not
-  edit raw MNX property names or glyph arrays.
+- Existing musical marking choices keep values and preferred glyphs in sync.
+  The inspector does not expose glyph arrays or independent appearance editing;
+  imported overrides remain transparent to users.
 - A gradual group's glyphs display its optional starting marking; they do
   not replace the wedge. Relative groups without a printed value or explicit
   glyphs do not acquire an invented p/f marking.
@@ -161,10 +161,9 @@ Storage unifies; the UX keeps the visual distinction:
   concepts, with element IDs `p{part}/m{measure}/dyn{groupId}` and
   `p{part}/m{measure}/hairpin{groupId}`.
 
-The inspector exposes variant-appropriate fields — value/residual value/glyph
-override/affixes for immediate and accent, direction/endpoint/optional start
-value/orientation for gradual, louder-softer plus optional printed marking
-and affixes for relative, and
+The inspector exposes variant-appropriate fields — value/residual value/
+affixes for immediate and accent, direction/endpoint/optional start
+value/orientation for gradual, louder-softer and affixes for relative, and
 staff, voice, orientation, manual placement, and collision pinning for all.
 
 ### 6.3 Clipboard
