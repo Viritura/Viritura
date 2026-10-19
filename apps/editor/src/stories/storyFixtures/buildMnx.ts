@@ -66,6 +66,7 @@ export interface MeasureArgs {
   /** Volta ending */
   ending?: { duration: number; numbers: number[]; open?: boolean };
   /** Standard MNX global properties */
+  coda?: { location: { fraction: number[] }; glyph?: string; color?: string };
   segno?: { location: { fraction: number[] } };
   fine?: { location: { fraction: number[] } };
   jump?: { type: string; location: { fraction: number[] } };
@@ -256,6 +257,7 @@ export function buildMnx(args: ScoreArgs): string {
     if (m.repeatStart) gm.repeatStart = m.repeatStart === true ? {} : m.repeatStart;
     if (m.repeatEnd) gm.repeatEnd = m.repeatEnd === true ? {} : m.repeatEnd;
     if (m.ending) gm.ending = m.ending;
+    if (m.coda) gm.coda = m.coda;
     if (m.segno) gm.segno = m.segno;
     if (m.fine) gm.fine = m.fine;
     if (m.jump) gm.jump = m.jump;

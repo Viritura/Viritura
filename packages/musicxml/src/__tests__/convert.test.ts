@@ -1414,15 +1414,15 @@ describe("convertMusicXmlToMnx — navigation", () => {
     expect(convertMusicXmlToMnx(xml).global.measures[0]!.segno).toBeDefined();
   });
 
-  it("converts coda to a Viritura extension without creating a segno", () => {
+  it("converts coda to native MNX without creating a segno", () => {
     const xml = wrapScore(`
       <direction><direction-type><coda smufl="codaSquare" color="#CC0000"/></direction-type></direction>
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
     `);
 
-    const measure = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).global.measures[0]!;
+    const measure = convertMusicXmlToMnx(xml).global.measures[0]!;
 
-    expect(measure._x?.viritura.coda).toEqual({
+    expect(measure.coda).toEqual({
       location: { fraction: [0, 1] },
       glyph: "codaSquare",
       color: "#cc0000",
@@ -1430,7 +1430,7 @@ describe("convertMusicXmlToMnx — navigation", () => {
     expect(measure.segno).toBeUndefined();
   });
 
-  it("reports coda loss when Viritura extensions are disabled", () => {
+  it("preserves native coda when Viritura extensions are disabled", () => {
     const xml = wrapScore(`
       <direction><direction-type><coda/></direction-type></direction>
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
@@ -1439,8 +1439,8 @@ describe("convertMusicXmlToMnx — navigation", () => {
 
     const result = convertMusicXmlToMnx(xml, { diagnostics });
 
-    expect(result.global.measures[0]!._x?.viritura.coda).toBeUndefined();
-    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toContain("musicxml-coda");
+    expect(result.global.measures[0]!.coda).toBeDefined();
+    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).not.toContain("musicxml-coda");
   });
 
   it("converts fine", () => {
@@ -1457,7 +1457,7 @@ describe("convertMusicXmlToMnx — navigation", () => {
       <direction><direction-type><words>D.C. al Fine</words></direction-type><sound dacapo="yes"/></direction>
     `);
     const result = convertMusicXmlToMnx(xml);
-    expect(result.global.measures[0]!.jump!.type).toBe("dsalfine");
+    expect(result.global.measures[0]!.jump!.type).toBe("dcAlFine");
   });
 });
 

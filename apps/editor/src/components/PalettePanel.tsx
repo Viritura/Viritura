@@ -1840,9 +1840,9 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
           />
           <PaletteButton label={SMUFL.coda} title="Coda" useBravura onClick={handleToggleGlobalMeasureProp("coda")} />
           <PaletteButton label="Fine" title="Fine" onClick={handleToggleGlobalMeasureProp("fine")} />
-          <PaletteButton shape="wide" label="D.S. al Fine" title="D.S. al Fine" onClick={handleSetJump("dsalfine")} />
-          <PaletteButton shape="wide" label="D.S. al Coda" title="D.S. al Coda" onClick={handleSetJump("dsalcoda")} />
-          <PaletteButton shape="wide" label="D.C. al Coda" title="D.C. al Coda" onClick={handleSetJump("dcalcoda")} />
+          <PaletteButton shape="wide" label="D.S. al Fine" title="D.S. al Fine" onClick={handleSetJump("dsAlFine")} />
+          <PaletteButton shape="wide" label="D.S. al Coda" title="D.S. al Coda" onClick={handleSetJump("dsAlCoda")} />
+          <PaletteButton shape="wide" label="D.C. al Coda" title="D.C. al Coda" onClick={handleSetJump("dcAlCoda")} />
           {ENDING_PRESETS.map((p) => (
             <PaletteButton
               shape="wide"

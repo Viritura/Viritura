@@ -30,7 +30,7 @@ function globalBreaksBefore(gm: MnxGlobalMeasure | undefined): boolean {
   if (gm.time || gm.key || gm.ending || gm.repeatStart || gm.segno || gm.fine || gm.jump) return true;
   if (gm.tempos && gm.tempos.length > 0) return true;
   const ext = (gm as unknown as { _x?: { viritura?: Record<string, unknown> } })._x?.viritura;
-  if (ext && (ext["rehearsalMark"] !== undefined || ext["coda"] !== undefined)) return true;
+  if (gm.coda || ext?.["rehearsalMark"] !== undefined) return true;
   return false;
 }
 

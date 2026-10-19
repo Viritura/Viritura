@@ -41,10 +41,13 @@ export interface MnxGlobalMeasure {
   tempos?: MnxTempo[];
   segno?: { location: MnxRhythmicPosition; glyph?: string; color?: string };
   fine?: { location: MnxRhythmicPosition };
-  jump?: { type: string; location: MnxRhythmicPosition };
+  coda?: { location: MnxRhythmicPosition; glyph?: string; color?: string };
+  jump?: {
+    type: "dc" | "dcAlCoda" | "dcAlFine" | "dsAlCoda" | "dsAlFine" | "segno" | "toCoda";
+    location: MnxRhythmicPosition;
+  };
   _x?: {
     viritura: {
-      coda?: { location: MnxRhythmicPosition; glyph?: string; color?: string };
       chordSymbols?: ChordSymbol[];
       systemText?: MnxSystemText[];
       [key: string]: unknown;

@@ -95,7 +95,7 @@ function makeAnnotatedScore(): Score {
         {
           barline: { type: "final" } as NonNullable<Score["global"]["measures"][0]["barline"]>,
           ending: { numbers: [1], duration: 1 },
-          jump: { type: "dsalfine" } as NonNullable<Score["global"]["measures"][0]["jump"]>,
+          jump: { type: "dsAlFine" } as NonNullable<Score["global"]["measures"][0]["jump"]>,
           chordSymbols: [{ position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" }],
         },
       ],
