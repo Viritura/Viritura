@@ -177,8 +177,12 @@ pub(crate) fn analyze_merge_mode(part_measures: &[&PartMeasure]) -> MergeMode {
         if !pitches_identical(a, other) {
             all_pitches_identical = false;
         }
-        if !event_markings_match(a, other) {
-            all_markings_match = false;
+    }
+    for (index, &source) in active_sources.iter().enumerate() {
+        for &other in &active_sources[index + 1..] {
+            if !event_markings_match(&timelines[source], &timelines[other]) {
+                all_markings_match = false;
+            }
         }
     }
 

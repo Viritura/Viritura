@@ -451,6 +451,11 @@ pub mod smufl {
     /// shape-specific single-stroke variants for thick/curved.
     pub const CAESURA_SINGLE_STROKE: u32 = 0xE4D7;
 
+    pub const BRASS_SCOOP: u32 = 0xE5D0;
+    pub const BRASS_DOIT_SHORT: u32 = 0xE5D4;
+    pub const BRASS_FALL_LIP_SHORT: u32 = 0xE5D7;
+    pub const BRASS_PLOP: u32 = 0xE5E0;
+
     // ═══════════════════════════════════════
     // Ornaments (U+E560 - U+E56F)
     // ═══════════════════════════════════════
@@ -1505,6 +1510,28 @@ pub mod smufl {
         }
     }
 
+    pub fn slide_in_glyph(kind: crate::model::note_markings::SlideInType) -> u32 {
+        use crate::model::note_markings::SlideInType;
+        match kind {
+            SlideInType::Scoop => BRASS_SCOOP,
+            SlideInType::Plop => BRASS_PLOP,
+        }
+    }
+
+    pub fn slide_out_glyph(kind: crate::model::note_markings::SlideOutType) -> u32 {
+        use crate::model::note_markings::SlideOutType;
+        match kind {
+            SlideOutType::Falloff => BRASS_FALL_LIP_SHORT,
+            SlideOutType::Doit => BRASS_DOIT_SHORT,
+        }
+    }
+
+    pub const NOTE_SLIDE_GAP_SP: f64 = 0.15;
+
+    pub fn note_slide_extent(codepoint: u32) -> f64 {
+        NOTE_SLIDE_GAP_SP + glyph_bbox(codepoint).2
+    }
+
     /// Get the SMuFL caesura glyph for a given style and mark count.
     ///
     /// SMuFL defines exactly one single-stroke caesura glyph
@@ -1794,6 +1821,10 @@ pub mod smufl {
             BREATH_MARK_SALZEDO => (0.0, -1.76, 0.6, 1.76),
 
             // Caesuras
+            BRASS_SCOOP => (0.004, -0.052, 1.276, 1.544),
+            BRASS_PLOP => (0.004, -1.488, 1.168, 1.548),
+            BRASS_DOIT_SHORT => (0.004, -1.412, 1.276, 1.544),
+            BRASS_FALL_LIP_SHORT => (0.004, -0.168, 1.168, 1.548),
             CAESURA => (0.0, -2.128, 1.536, 2.132),
             CAESURA_THICK => (0.0, -2.128, 2.652, 2.128),
             CAESURA_SHORT => (0.0, -2.132, 0.744, 2.132),

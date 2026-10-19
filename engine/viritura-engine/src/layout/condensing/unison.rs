@@ -68,7 +68,7 @@ pub(crate) fn find_unison_onset_beat(part_measures: &[&PartMeasure]) -> Option<f
             if pa != pb {
                 break 'outer;
             }
-            if ref0.markings != ev.markings {
+            if ref0.markings != ev.markings || !note_slides_match(ref0, ev) {
                 break 'outer;
             }
         }
@@ -165,7 +165,7 @@ pub(crate) fn find_partial_unison_onset_beat(part_measures: &[&PartMeasure]) -> 
             if pa != pb {
                 return None;
             }
-            if ref0.markings != ev.markings {
+            if ref0.markings != ev.markings || !note_slides_match(ref0, ev) {
                 return None;
             }
         }

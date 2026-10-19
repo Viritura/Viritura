@@ -193,7 +193,28 @@ export function buildNote(
     if (shape) note._x = { viritura: { notehead: shape } };
   }
 
+  note.markings = extractNoteMarkings(noteEl);
   return note;
+}
+
+/** Convert MusicXML note articulations to native note-scoped MNX markings. */
+function extractNoteMarkings(noteEl: Element): MnxNote["markings"] | undefined {
+  let slideIn: { type: "scoop" | "plop" } | undefined;
+  let slideOut: { type: "falloff" | "doit" } | undefined;
+  for (const articulations of notationChildren(noteEl, "articulations")) {
+    for (const articulation of childElements(articulations)) {
+      if (articulation.tagName === "scoop" || articulation.tagName === "plop") {
+        slideIn = { type: articulation.tagName };
+      } else if (articulation.tagName === "falloff" || articulation.tagName === "doit") {
+        slideOut = { type: articulation.tagName };
+      }
+    }
+  }
+  if (!slideIn && !slideOut) return undefined;
+  return {
+    ...(slideIn ? { slideIn } : {}),
+    ...(slideOut ? { slideOut } : {}),
+  };
 }
 
 // eslint-disable-next-line max-statements, complexity -- branchy traversal of MusicXML notations grammar (articulations/ornaments/technical/arpeggiate); splitting per child kind would obscure the iteration

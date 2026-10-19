@@ -1,6 +1,6 @@
 // ─── MNX document output types (schema version 36) ──────────────────
 
-import type { ChordSymbol, DynamicGroup, Part, TextContent } from "@viritura/core";
+import type { ChordSymbol, DynamicGroup, NoteMarkings, Part, TextContent } from "@viritura/core";
 
 export interface MnxDocument {
   mnx: { version: number };
@@ -299,6 +299,7 @@ export interface MnxNote {
     enclosure?: { symbol: "parentheses" | "brackets" };
   };
   id?: string;
+  markings?: NoteMarkings;
   ties?: MnxTie[];
   staff?: number;
   /** Vendor-extension per-note notehead override (mapped from a MusicXML

@@ -29,6 +29,7 @@ import type {
   Slur,
   Tie,
   Written,
+  NoteMarkings,
 } from "../model/event";
 import type {
   DynamicGroup,
@@ -118,6 +119,14 @@ export interface SetNoteFieldPatch {
   noteId: string;
   /** Tagged-union field update so each field's value type is enforced. */
   update: NoteScalarField;
+}
+
+export interface SetNoteMarkingPatch {
+  kind: "setNoteMarking";
+  locator: EventLocator;
+  noteId: string;
+  markingKey: keyof NoteMarkings;
+  value: NoteMarkings[keyof NoteMarkings] | undefined;
 }
 
 export interface AddNoteToEventPatch {
@@ -411,6 +420,7 @@ export interface SetScoreExtensionPatch {
 export type ScorePatch =
   | SetNotePitchPatch
   | SetNoteFieldPatch
+  | SetNoteMarkingPatch
   | AddNoteToEventPatch
   | RemoveNoteFromEventPatch
   | SetEventFieldPatch

@@ -23,6 +23,7 @@ pub(super) struct BeatEvent {
     pub(super) duration_beats: f64,
     pub(super) has_notes: bool,
     pub(super) pitches: Vec<Pitch>,
+    pub(super) notes: Vec<Note>,
     pub(super) markings: Option<Markings>,
     /// Number of slurs starting on this event
     pub(super) slur_count: usize,
@@ -50,6 +51,7 @@ pub(super) fn extract_beat_events(pm: &PartMeasure) -> Vec<BeatEvent> {
                         duration_beats: dur,
                         has_notes: !pitches.is_empty(),
                         pitches,
+                        notes: ev.notes.clone().unwrap_or_default(),
                         markings: ev.markings.clone(),
                         slur_count,
                     });
@@ -85,6 +87,7 @@ pub(super) fn extract_beat_events(pm: &PartMeasure) -> Vec<BeatEvent> {
                                 duration_beats: dur,
                                 has_notes: !pitches.is_empty(),
                                 pitches,
+                                notes: ev.notes.clone().unwrap_or_default(),
                                 markings: ev.markings.clone(),
                                 slur_count,
                             });
@@ -165,11 +168,31 @@ pub(super) fn event_markings_match(a: &[BeatEvent], b: &[BeatEvent]) -> bool {
             return false;
         }
         // Compare markings — both None is OK, both identical is OK
-        if ea.markings != eb.markings {
+        if ea.markings != eb.markings || !note_slides_match(ea, eb) {
             return false;
         }
     }
     true
+}
+
+pub(super) fn note_slides_match(a: &BeatEvent, b: &BeatEvent) -> bool {
+    let slides = |note: &Note| {
+        (
+            note.markings
+                .as_ref()
+                .and_then(|m| m.slide_in.as_ref())
+                .map(|m| m.type_),
+            note.markings
+                .as_ref()
+                .and_then(|m| m.slide_out.as_ref())
+                .map(|m| m.type_),
+        )
+    };
+    a.notes.iter().all(|na| {
+        b.notes
+            .iter()
+            .all(|nb| na.pitch != nb.pitch || slides(na) == slides(nb))
+    })
 }
 
 /// Check if two part-measures have conflicting dynamics.
@@ -270,6 +293,7 @@ mod tests {
                 kit_component: None,
                 perform: None,
                 notehead: None,
+                markings: None,
                 source_part_index: None,
                 source_note_index: None,
                 source_event_id: None,
@@ -1216,6 +1240,7 @@ mod tests {
                     kit_component: None,
                     perform: None,
                     notehead: None,
+                    markings: None,
                     source_note_index: None,
                     source_event_id: None,
                 },
@@ -1234,6 +1259,7 @@ mod tests {
                     kit_component: None,
                     perform: None,
                     notehead: None,
+                    markings: None,
                     source_note_index: None,
                     source_event_id: None,
                 },
@@ -1269,6 +1295,7 @@ mod tests {
                     kit_component: None,
                     perform: None,
                     notehead: None,
+                    markings: None,
                     source_note_index: None,
                     source_event_id: None,
                 },
@@ -1287,6 +1314,7 @@ mod tests {
                     kit_component: None,
                     perform: None,
                     notehead: None,
+                    markings: None,
                     source_note_index: None,
                     source_event_id: None,
                 },
@@ -1331,6 +1359,7 @@ mod tests {
                     kit_component: None,
                     perform: None,
                     notehead: None,
+                    markings: None,
                     source_note_index: None,
                     source_event_id: None,
                 },
@@ -1349,6 +1378,7 @@ mod tests {
                     kit_component: None,
                     perform: None,
                     notehead: None,
+                    markings: None,
                     source_note_index: None,
                     source_event_id: None,
                 },
@@ -1384,6 +1414,7 @@ mod tests {
                     kit_component: None,
                     perform: None,
                     notehead: None,
+                    markings: None,
                     source_note_index: None,
                     source_event_id: None,
                 },
@@ -1402,6 +1433,7 @@ mod tests {
                     kit_component: None,
                     perform: None,
                     notehead: None,
+                    markings: None,
                     source_note_index: None,
                     source_event_id: None,
                 },

@@ -64,6 +64,163 @@ fn test_articulations_render_glyphs() {
 }
 
 #[test]
+fn note_slide_markings_use_bravura_glyphs_and_metadata_bounds() {
+    let metadata: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../assets/fonts/bravura_metadata.json"
+    ))
+    .unwrap();
+    for (key, kind, codepoint, name) in [
+        ("slideIn", "scoop", smufl::BRASS_SCOOP, "brassScoop"),
+        ("slideIn", "plop", smufl::BRASS_PLOP, "brassPlop"),
+        (
+            "slideOut",
+            "falloff",
+            smufl::BRASS_FALL_LIP_SHORT,
+            "brassFallLipShort",
+        ),
+        (
+            "slideOut",
+            "doit",
+            smufl::BRASS_DOIT_SHORT,
+            "brassDoitShort",
+        ),
+    ] {
+        let bbox = &metadata["glyphBBoxes"][name];
+        let sw_x = bbox["bBoxSW"][0].as_f64().unwrap();
+        let sw_y = bbox["bBoxSW"][1].as_f64().unwrap();
+        let ne_x = bbox["bBoxNE"][0].as_f64().unwrap();
+        let ne_y = bbox["bBoxNE"][1].as_f64().unwrap();
+        let actual = smufl::glyph_bbox(codepoint);
+        for (actual, expected) in [
+            (actual.0, sw_x),
+            (actual.1, -ne_y),
+            (actual.2, ne_x - sw_x),
+            (actual.3, ne_y - sw_y),
+        ] {
+            assert!(
+                (actual - expected).abs() < 1e-6,
+                "{name} must match bundled Bravura metadata"
+            );
+        }
+        let input = serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"measures": [{"sequences": [{"content": [{
+                "id": "note",
+                "duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "C", "octave": 4}, "markings": {key: {"type": kind}}}]
+            }]}]}]}]
+        });
+        let config = LayoutConfig::default();
+        let dl = layout_score(&parse_mnx(&input.to_string()).unwrap(), 0, &config);
+        let shape = dl
+            .element_shapes
+            .iter()
+            .find(|s| s.kind == ElementKind::NoteMarking)
+            .unwrap();
+        let bounds = shape.bbox(&dl.commands).unwrap();
+        assert!((bounds.width - actual.2 * config.sp).abs() < 1e-6);
+        assert!((bounds.height - actual.3 * config.sp).abs() < 1e-6);
+        assert!(dl.commands.iter().any(|command| matches!(
+            command, RenderCommand::DrawGlyph { codepoint: cp, font, size, rotation, .. }
+                if *cp == codepoint && font == "Bravura"
+                    && (*size - 4.0 * config.sp).abs() < 1e-6 && *rotation == 0.0
+        )));
+    }
+}
+
+#[test]
+fn note_slide_markings_render_and_tag_their_chord_noteheads() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "sequences": [{"content": [{
+                "id": "chord",
+                "duration": {"base": "half"},
+                "notes": [
+                    {"id": "low", "pitch": {"step": "C", "octave": 4},
+                     "markings": {"slideIn": {"type": "scoop"}}},
+                    {"id": "high", "pitch": {"step": "G", "octave": 4},
+                     "markings": {"slideOut": {"type": "doit"}}}
+                ]
+            }]}]
+        }]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let notes = score.parts[0].measures[0].sequences[0].content[0]
+        .as_event()
+        .unwrap()
+        .notes
+        .as_ref()
+        .unwrap();
+    assert_eq!(
+        notes[0]
+            .markings
+            .as_ref()
+            .and_then(|markings| markings.slide_in.as_ref())
+            .map(|marking| marking.type_),
+        Some(crate::model::note_markings::SlideInType::Scoop)
+    );
+    assert_eq!(
+        notes[1]
+            .markings
+            .as_ref()
+            .and_then(|markings| markings.slide_out.as_ref())
+            .map(|marking| marking.type_),
+        Some(crate::model::note_markings::SlideOutType::Doit)
+    );
+
+    let display_list = layout_score(&score, 0, &LayoutConfig::default());
+    let marking_shapes: Vec<_> = display_list
+        .element_shapes
+        .iter()
+        .filter(|shape| shape.kind == ElementKind::NoteMarking)
+        .collect();
+    assert_eq!(marking_shapes.len(), 2);
+    assert!(marking_shapes
+        .iter()
+        .any(|shape| shape.element_id.ends_with("/n0/slideIn")));
+    assert!(marking_shapes
+        .iter()
+        .any(|shape| shape.element_id.ends_with("/n1/slideOut")));
+    for shape in marking_shapes {
+        let bbox = shape
+            .bbox(&display_list.commands)
+            .expect("marking shape resolves its bezier command bounds");
+        assert!(bbox.width > 0.0 && bbox.height > 0.0);
+        let command_index = match shape.geom {
+            ShapeGeom::Cmd { cmd_idx } => cmd_idx as usize,
+            _ => panic!("note marking should point to its draw command"),
+        };
+        let note_id = shape.element_id.rsplit_once('/').unwrap().0;
+        let note_box = display_list
+            .element_shapes
+            .iter()
+            .find(|candidate| {
+                candidate.kind == ElementKind::Notehead && candidate.element_id == note_id
+            })
+            .and_then(|candidate| candidate.bbox(&display_list.commands))
+            .expect("slide marking retains its corresponding notehead");
+        let gap = smufl::NOTE_SLIDE_GAP_SP * LayoutConfig::default().sp;
+        if shape.element_id.ends_with("/slideOut") {
+            assert!((bbox.x - note_box.x - note_box.width - gap).abs() < 1e-6);
+        } else {
+            assert!((note_box.x - bbox.x - bbox.width - gap).abs() < 1e-6);
+        }
+        assert!(matches!(
+            &display_list.commands[command_index],
+            RenderCommand::DrawGlyph { codepoint, font, .. }
+                if matches!(*codepoint, smufl::BRASS_SCOOP | smufl::BRASS_DOIT_SHORT) && font == "Bravura"
+        ));
+        assert_eq!(
+            display_list.element_ids[command_index].as_deref(),
+            Some(shape.element_id.as_str())
+        );
+    }
+}
+
+#[test]
 fn test_articulation_explicit_orient_below() {
     let json = r#"{
         "mnx": {"version": 1},

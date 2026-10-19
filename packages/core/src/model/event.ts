@@ -17,6 +17,9 @@ import type {
   BowDirection as RawBowDirection,
   Fermata as RawFermata,
   Arpeggio as RawArpeggio,
+  NoteMarkings as RawNoteMarkings,
+  SlideIntoNote as RawSlideIntoNote,
+  SlideOutOfNote as RawSlideOutOfNote,
 } from "../raw";
 import type { Pitch } from "./pitch";
 import type { KitNote, NoteheadShape } from "./kit";
@@ -72,6 +75,21 @@ export type Written = RawWritten;
  * otherwise normal chord). Stored per-note because chords mix noteheads.
  */
 export type Note = HoistVendor<Narrow<RawNote, { pitch: Pitch }>, { notehead?: NoteheadShape }>;
+
+/** MNX-generated slide-in type; these are notation marks, not timed playback curves. */
+export type SlideInType = RawSlideIntoNote["type"];
+
+/** MNX-generated slide-out type; these are notation marks, not timed playback curves. */
+export type SlideOutType = RawSlideOutOfNote["type"];
+
+/** MNX-generated note slide-in object, including schema global attributes. */
+export type SlideInMarking = RawSlideIntoNote;
+
+/** MNX-generated note slide-out object, including schema global attributes. */
+export type SlideOutMarking = RawSlideOutOfNote;
+
+/** MNX-generated note-attached markings, distinct from event articulations. */
+export type NoteMarkings = RawNoteMarkings;
 
 /** Staccato marking. Derived from MNX raw `staccato`. */
 export type Staccato = RawStaccato;

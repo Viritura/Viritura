@@ -90,6 +90,19 @@ function applyOnePatch(draft: Draft<Score>, p: ScorePatch): void {
         }
       }
     }
+    case "setNoteMarking": {
+      const { event, index } = findNoteIndex(draft as Score, p.locator, p.noteId);
+      const note = (event as NoteEvent).notes![index]!;
+      if (p.value === undefined) {
+        if (!note.markings) return;
+        delete note.markings[p.markingKey];
+        if (Object.keys(note.markings).length === 0) delete note.markings;
+      } else {
+        const markings = note.markings ?? (note.markings = {});
+        (markings as Record<string, unknown>)[p.markingKey] = p.value;
+      }
+      return;
+    }
     case "addNoteToEvent": {
       const event = findEvent(draft as Score, p.locator) as NoteEvent;
       const notes = event.notes ?? (event.notes = []);

@@ -479,6 +479,8 @@ function parseNote(raw: RawNote): Note {
   const viritura = raw._x?.["viritura"] as RawNoteExt | undefined;
   if (viritura?.notehead) note.notehead = viritura.notehead;
 
+  if (raw.markings) note.markings = raw.markings;
+
   return note;
 }
 

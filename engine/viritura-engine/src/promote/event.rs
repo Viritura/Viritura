@@ -132,13 +132,10 @@ pub(crate) fn promote_event(r: raw::Event) -> Result<ModelEvent, PromoteError> {
     // Top-level glissandos win; fall back to _x.viritura.glissandos.
     let vendor_glissandos: Option<Vec<ModelGlissando>> = extract_event_glissandos(r.x.as_ref());
 
-    let notes: Vec<ModelNote> = {
-        let mut all = r.notes.into_iter().map(promote_note).collect::<Vec<_>>();
-        for kit_note in r.kit_notes {
-            all.push(promote_kit_note_to_note(kit_note));
-        }
-        all
-    };
+    let mut notes: Vec<ModelNote> = r.notes.into_iter().map(promote_note).collect();
+    for kit_note in r.kit_notes {
+        notes.push(promote_kit_note_to_note(kit_note));
+    }
     let notes = if notes.is_empty() { None } else { Some(notes) };
     let slurs = r.slurs.into_iter().map(promote_slur).collect::<Vec<_>>();
 

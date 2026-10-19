@@ -152,6 +152,59 @@ fn dense_sixteenths_balance_plain_and_accidental_gaps() {
 }
 
 #[test]
+fn note_slide_markings_clear_adjacent_glyph_ink() {
+    let input = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 1, "unit": 4}}]},
+        "parts": [{"measures": [{"sequences": [{"content": [
+            {"id": "first", "duration": {"base": "16th"}, "notes": [{
+                "pitch": {"step": "B", "octave": 4},
+                "markings": {"slideIn": {"type": "scoop"}, "slideOut": {"type": "doit"}}
+            }]},
+            {"id": "second", "duration": {"base": "16th"}, "notes": [{
+                "pitch": {"step": "B", "octave": 4},
+                "markings": {"slideIn": {"type": "plop"}, "slideOut": {"type": "falloff"}}
+            }]}
+        ]}]}]}]
+    });
+    let config = LayoutConfig::default();
+    let dl = layout_score(&parse_mnx(&input.to_string()).unwrap(), 0, &config);
+    let bounds = |suffix: &str| {
+        dl.element_shapes
+            .iter()
+            .find(|shape| shape.element_id.ends_with(suffix))
+            .and_then(|shape| shape.bbox(&dl.commands))
+            .unwrap()
+    };
+    let outgoing = bounds("first/n0/slideOut");
+    let incoming = bounds("second/n0/slideIn");
+    assert!(incoming.x - outgoing.x - outgoing.width >= 0.4 * config.sp - 0.01);
+    let first = bounds("first/n0/slideIn");
+    let last = bounds("second/n0/slideOut");
+    let measure = &dl.measure_bounds[0];
+    assert!(first.x >= measure.x + measure.prefix_width - 0.01);
+    assert!(last.x + last.width <= measure.x + measure.width);
+}
+
+#[test]
+fn note_slide_markings_reserve_horizontal_ink_clearance() {
+    let spacing = spacing(
+        r#"
+        {"duration":{"base":"16th"},"notes":[{"pitch":{"step":"C","octave":4},"markings":{"slideOut":{"type":"doit"}}}]},
+        {"duration":{"base":"16th"},"notes":[{"pitch":{"step":"D","octave":4}}]}
+        "#,
+    );
+    let gap = spacing.mapping[1].1 - spacing.mapping[0].1;
+    let required = 2.0 * LayoutConfig::default().notehead_rx
+        + smufl::note_slide_extent(smufl::BRASS_DOIT_SHORT)
+        + 0.4;
+    assert!(
+        gap >= required - 0.01,
+        "neighboring onsets must clear the SMuFL ink envelope ({required}sp), got {gap}sp"
+    );
+}
+
+#[test]
 fn dotted_rest_clears_adjacent_sixteenth_ink_in_both_directions() {
     let json = r#"{
         "mnx": {"version": 1},

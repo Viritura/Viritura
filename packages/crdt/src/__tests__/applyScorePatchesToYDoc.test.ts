@@ -107,6 +107,10 @@ describe("applyScorePatchesToYDoc — parity with syncJsonToYDoc", () => {
     assertParity(base, score, [patch.setNoteField(locator, noteId, { field: "staff", value: 2 })]);
   });
 
+  it("setNoteMarking (note-local slide)", () => {
+    assertParity(base, score, [patch.setNoteMarking(locator, noteId, "slideIn", { type: "scoop" })]);
+  });
+
   it("addNoteToEvent", () => {
     assertParity(base, score, [
       patch.addNoteToEvent(locator, {

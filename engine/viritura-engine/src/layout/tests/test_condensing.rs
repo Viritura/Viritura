@@ -39,6 +39,58 @@ fn default_config() -> LayoutConfig {
     }
 }
 
+#[test]
+fn condensed_note_slides_preserve_conflicting_sources() {
+    use crate::layout::condensing::{analyze_merge_mode, MergeMode};
+
+    for (steps, slides, expected) in [
+        (
+            ["C", "C", "C"],
+            [None, Some("scoop"), None],
+            MergeMode::Divisi,
+        ),
+        (["C", "C", "C"], [Some("scoop"); 3], MergeMode::Unison),
+        (
+            ["C", "E", "E"],
+            [None, Some("scoop"), Some("plop")],
+            MergeMode::Divisi,
+        ),
+        (
+            ["C", "E", "G"],
+            [None, Some("scoop"), Some("plop")],
+            MergeMode::Amalgamate,
+        ),
+    ] {
+        let parts: Vec<_> = steps
+            .iter()
+            .zip(slides)
+            .enumerate()
+            .map(|(index, (step, slide))| {
+                let mut note = serde_json::json!({"pitch": {"step": step, "octave": 4}});
+                if let Some(slide) = slide {
+                    note["markings"] = serde_json::json!({
+                        "slideIn": {"type": slide, "id": format!("slide-{index}")}
+                    });
+                }
+                serde_json::json!({"measures": [{"sequences": [{"content": [{
+                    "duration": {"base": "whole"}, "notes": [note]
+                }]}]}]})
+            })
+            .collect();
+        let score = parse_mnx(
+            &serde_json::json!({
+                "mnx": {"version": 1},
+                "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+                "parts": parts
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let measures: Vec<_> = score.parts.iter().map(|part| &part.measures[0]).collect();
+        assert_eq!(analyze_merge_mode(&measures), expected);
+    }
+}
+
 fn load_condensing_test() -> crate::model::Score {
     let json = include_str!("../../../../../packages/format/fixtures/mnx/condensing-test.mnx");
     parse_mnx(json).unwrap()

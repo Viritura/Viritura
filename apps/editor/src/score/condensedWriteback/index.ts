@@ -266,7 +266,7 @@ export function expandCondensedSubElementIds(
     const sourcePrefix = eventElementId(score, location);
     if (!sourcePrefix || !elementId.startsWith(sourcePrefix)) return [elementId];
     const suffix = elementId.slice(sourcePrefix.length);
-    const granularity = /\/(?:n|acc)\d+$/.test(elementId) ? "note" : "event";
+    const granularity = /\/(?:n|acc)\d+(?:\/(?:slideIn|slideOut))?$/.test(elementId) ? "note" : "event";
     return planCondensedEventWriteback(score, selectedScoreIndex, location, {
       forceDirect,
       granularity,

@@ -95,6 +95,7 @@ function applyOnePatch(patch: ScorePatch, newScore: Score, root: Y.Map<unknown>)
     // inside that sub-tree (typically one or two `.set` calls).
     case "setNotePitch":
     case "setNoteField":
+    case "setNoteMarking":
     case "addNoteToEvent":
     case "removeNoteFromEvent":
     case "setEventField":

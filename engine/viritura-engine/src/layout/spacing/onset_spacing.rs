@@ -28,7 +28,6 @@ fn displaced_notehead_gap_floor(config: &LayoutConfig) -> f64 {
 }
 
 const CLUSTER_TIE_MIN_GAP_SP: f64 = 3.8;
-
 fn after_grace_gap_floor(
     snapshot: &SpacingSnapshot<'_>,
     beat_key: BeatKey,
@@ -412,6 +411,10 @@ fn build_spacing_from_sequences(
         // onset. There is no preceding rhythmic gap to consume, so reserve its
         // column directly before that onset.
         if index == 0 {
+            if let Some(&slide_left) = snapshot.note_slide_left.get(&beat_key) {
+                cum_width += slide_left;
+                cum_rigid += slide_left;
+            }
             if let Some(&clef_column) = clef_columns.get(&beat_key) {
                 cum_width += clef_column;
                 cum_rigid += clef_column;
@@ -479,6 +482,8 @@ fn build_spacing_from_sequences(
         } else {
             2.0 * config.notehead_rx
         };
+        let note_marking_min =
+            snapshot.note_slide_gap(beat_key, next_key, previous_notehead_extent);
         let displaced_floor = if next_onset.is_some() && snapshot.second_onsets.contains(&beat_key)
         {
             displaced_notehead_gap_floor(config)
@@ -505,6 +510,7 @@ fn build_spacing_from_sequences(
             .min_note_spacing
             .max(notehead_floor)
             .max(cross_staff_min)
+            .max(note_marking_min)
             .max(displaced_floor)
             .max(accidental_floor)
             .max(accidental_ink_floor)

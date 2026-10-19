@@ -38,6 +38,7 @@ fn test_count_leaf_events() {
                 kit_component: None,
                 perform: None,
                 notehead: None,
+                markings: None,
                 source_part_index: None,
                 source_note_index: None,
                 source_event_id: None,

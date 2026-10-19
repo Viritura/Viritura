@@ -8,7 +8,7 @@
  */
 
 import type { Pitch } from "../model/pitch";
-import type { Markings, Note, SequenceContent } from "../model/event";
+import type { Markings, Note, NoteMarkings, SequenceContent } from "../model/event";
 import type { DynamicGroup, GlobalMeasure, IdPair, RhythmicPosition } from "../model/measure";
 import type { Part } from "../model/part";
 import type { ScoreMetadata } from "../model/score";
@@ -36,6 +36,7 @@ import type {
   SetMeasureArpeggioPatch,
   SetMeasureDynamicGroupPatch,
   SetNoteFieldPatch,
+  SetNoteMarkingPatch,
   SetNotePitchPatch,
   SetPartFieldPatch,
   SetPartMeasureFieldPatch,
@@ -52,6 +53,15 @@ export const patch = {
 
   setNoteField(locator: EventLocator, noteId: string, update: NoteScalarField): SetNoteFieldPatch {
     return { kind: "setNoteField", locator, noteId, update };
+  },
+
+  setNoteMarking<K extends keyof NoteMarkings>(
+    locator: EventLocator,
+    noteId: string,
+    markingKey: K,
+    value: NoteMarkings[K] | undefined,
+  ): SetNoteMarkingPatch {
+    return { kind: "setNoteMarking", locator, noteId, markingKey, value };
   },
 
   addNoteToEvent(locator: EventLocator, note: Note, index?: number): AddNoteToEventPatch {
