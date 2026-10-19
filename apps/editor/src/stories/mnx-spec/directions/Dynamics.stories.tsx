@@ -10,7 +10,7 @@ const meta: Meta = {
 export default meta;
 
 export const ExplicitAndAutomaticAppearance: StoryObj = {
-  name: "Automatic, precomposed, and individual symbols",
+  name: "Equivalent automatic, precomposed, and consolidated symbols",
   render: () => (
     <ScorePreview
       mnxJson={buildMnx({

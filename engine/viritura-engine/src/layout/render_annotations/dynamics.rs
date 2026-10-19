@@ -7,6 +7,26 @@ use crate::model::*;
 use crate::render::smufl::smufl;
 use crate::render::*;
 
+fn consolidate_dynamic_letters(codepoints: Vec<u32>) -> Vec<u32> {
+    let spelling: Option<String> = codepoints
+        .iter()
+        .map(|codepoint| match *codepoint {
+            smufl::DYNAMIC_PIANO => Some('p'),
+            smufl::DYNAMIC_MEZZO => Some('m'),
+            smufl::DYNAMIC_FORTE => Some('f'),
+            smufl::DYNAMIC_RINFORZANDO => Some('r'),
+            smufl::DYNAMIC_SFORZANDO => Some('s'),
+            smufl::DYNAMIC_Z => Some('z'),
+            smufl::DYNAMIC_NIENTE => Some('n'),
+            _ => None,
+        })
+        .collect();
+    spelling
+        .as_deref()
+        .and_then(smufl::dynamics_glyph)
+        .map_or(codepoints, |codepoint| vec![codepoint])
+}
+
 pub(crate) fn dynamic_voice_index(ml: &MeasureLayout, dynamic: &DynamicGroup) -> Option<usize> {
     let voice = dynamic.voice.as_deref()?;
     ml.resolved
@@ -355,7 +375,7 @@ pub(crate) fn render_dynamics(
         };
 
         let codepoints = match resolved {
-            Some(cps) => cps,
+            Some(cps) => consolidate_dynamic_letters(cps),
             None => continue,
         };
         let standard_codepoints = smufl::dynamics_glyph(&value)

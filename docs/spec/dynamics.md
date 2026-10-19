@@ -92,7 +92,9 @@ those musical fields.
 - UI-created markings prefer a precomposed glyph or supported glyph sequence
   alongside the semantic fields.
 - Imported semantic-only marks use automatic glyph selection. Explicit
-  sequences render as supplied, without consolidation. An equivalent
+  sequences spelling a recognized dynamic consolidate to its precomposed
+  glyph during engraving, without changing the stored sequence. Other custom
+  sequences retain their explicit symbols. An equivalent
   explicit precomposed glyph uses the same placement as automatic rendering.
 - MusicXML and MuseScore clipboard readers retain automatic standard
   markings rather than imposing the UI authoring preference. Clipboard export
@@ -100,11 +102,14 @@ those musical fields.
   reports unsupported custom appearances instead of silently discarding them.
 - Unedited open/save retains glyph presence/absence and sequence. Unrelated
   edits do not impose Viritura's authoring preference on imported data.
+- An explicitly empty glyph list suppresses the printed musical symbols,
+  while an absent list selects automatic appearance. Affixes and gradual
+  wedges remain visible independently.
 - Deliberately changing a printed marking refreshes its glyphs together with
   its semantic fields; changing placement or text does not.
-- The inspector offers musical marking choices and an advanced Appearance
-  editor with symbol selection, ordering, removal and reset. Users do not
-  edit raw MNX property names or glyph arrays.
+- Existing musical marking choices keep values and preferred glyphs in sync.
+  The inspector does not expose glyph arrays or independent appearance editing;
+  imported overrides remain transparent to users.
 - A gradual group's glyphs display its optional starting marking; they do
   not replace the wedge. Relative groups without a printed value or explicit
   glyphs do not acquire an invented p/f marking.
@@ -156,10 +161,9 @@ Storage unifies; the UX keeps the visual distinction:
   concepts, with element IDs `p{part}/m{measure}/dyn{groupId}` and
   `p{part}/m{measure}/hairpin{groupId}`.
 
-The inspector exposes variant-appropriate fields — value/residual value/glyph
-override/affixes for immediate and accent, direction/endpoint/optional start
-value/orientation for gradual, louder-softer plus optional printed marking
-and affixes for relative, and
+The inspector exposes variant-appropriate fields — value/residual value/
+affixes for immediate and accent, direction/endpoint/optional start
+value/orientation for gradual, louder-softer and affixes for relative, and
 staff, voice, orientation, manual placement, and collision pinning for all.
 
 ### 6.3 Clipboard

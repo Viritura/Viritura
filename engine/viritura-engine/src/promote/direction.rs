@@ -111,7 +111,7 @@ pub(crate) fn promote_tempo(raw: raw::Tempo) -> Result<Tempo, PromoteError> {
 struct DynamicGroupCommon {
     id: String,
     position: RhythmicPosition,
-    glyphs: Vec<String>,
+    glyphs: Option<Vec<String>>,
     placement: Option<raw::MultiStaffPlacement>,
     prefix: Option<String>,
     staff: Option<u32>,
@@ -137,7 +137,7 @@ struct DynamicGroupDetails {
 fn promote_dynamic_group_common(
     id: Option<raw::Id>,
     position: raw::RhythmicPosition,
-    glyphs: Vec<raw::SmuflGlyph>,
+    glyphs: Option<Vec<raw::SmuflGlyph>>,
     placement: Option<raw::MultiStaffPlacement>,
     prefix: Option<raw::String>,
     staff: Option<raw::StaffNumber>,
@@ -154,7 +154,7 @@ fn promote_dynamic_group_common(
             .map(|value| value.to_string())
             .unwrap_or_else(|| uuid::Uuid::now_v7().to_string()),
         position: promote_rhythmic_position(position),
-        glyphs: glyphs.into_iter().map(|glyph| glyph.0).collect(),
+        glyphs: glyphs.map(|glyphs| glyphs.into_iter().map(|glyph| glyph.0).collect()),
         placement,
         prefix: prefix.map(|value| value.0),
         staff: staff.map(|value| u32::try_from(value.0).unwrap_or(1)),
@@ -182,7 +182,7 @@ fn build_dynamic_group(
         accent_prefix: details.accent_prefix,
         accent_suffix: details.accent_suffix,
         end: details.end,
-        glyphs: (!common.glyphs.is_empty()).then_some(common.glyphs),
+        glyphs: common.glyphs,
         placement: common.placement,
         prefix: common.prefix,
         relative_value: details.relative_value,
