@@ -321,9 +321,11 @@ pub fn layout_full_score_cached(
             render_one_staff_for_system(
                 &mut dl,
                 config,
+                score,
                 sys_idx,
                 vi,
                 measure_layouts,
+                &all_sys_layouts,
                 &staff_y_offsets,
                 &visual_staves,
                 margin_left,
@@ -528,12 +530,15 @@ fn build_system_measure_layouts(
 /// Extracted from `layout_full_score_cached` to keep that function under the
 /// `too_many_lines` threshold.
 #[allow(clippy::too_many_arguments)] // staff-content dispatch
+#[allow(clippy::too_many_lines)] // full-score staff pass sequences measure ink, lyric rows, and extender segments
 fn render_one_staff_for_system(
     dl: &mut DisplayList,
     config: &LayoutConfig,
+    score: &Score,
     sys_idx: usize,
     vi: usize,
     measure_layouts: &[MeasureLayout],
+    all_system_layouts: &[Vec<MeasureLayout>],
     staff_y_offsets: &[f64],
     visual_staves: &[(usize, u32)],
     margin_left: f64,
@@ -578,8 +583,18 @@ fn render_one_staff_for_system(
     let explicit_beamed_ids = collect_explicit_beamed_event_ids(measure_layouts);
     let slur_map = collect_slur_participation(measure_layouts);
     let tie_accidentals = compute_tie_accidental_map(measure_layouts);
-    let staff_lyric_line_order =
-        super::render_lyrics::line_order_for_staff(measure_layouts, lyric_line_order);
+    let staff_number = visual_staves[vi].1;
+    let extender_lines = super::lyric_extenders::active_line_ids_for_system(
+        score,
+        current_part_index,
+        measure_layouts,
+        staff_number,
+    );
+    let staff_lyric_line_order = super::render_lyrics::line_order_for_staff_with_extenders(
+        measure_layouts,
+        lyric_line_order,
+        &extender_lines,
+    );
 
     // Multimeasure-rest count numbers protrude above the staff; collect their
     // horizontal bands so a tempo marking in any measure of this system can
@@ -672,6 +687,19 @@ fn render_one_staff_for_system(
             }
         });
     }
+
+    super::lyric_extenders::render_system_extenders(
+        dl,
+        measure_layouts,
+        score,
+        current_part_index,
+        staff_y,
+        sp,
+        config,
+        lyric_line_order,
+        staff_number,
+        Some(all_system_layouts),
+    );
 
     render_cross_barline_beams(dl, measure_layouts, staff_y, sp, config);
     render_ties(

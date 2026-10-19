@@ -126,6 +126,10 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
         staff_content_reuses,
         staff_content_reuse_runs,
     } = context;
+    // Extender segments can depend on remote events outside this system. Fold
+    // the score-wide lyric dependency into retained identities conservatively
+    // so endpoint edits and inference-boundary changes cannot reuse stale ink.
+    let render_salt = render_salt ^ super::super::lyric_extenders::cache_dependency_hash(score);
     for (sys_idx, _sys_vis_indices) in systems.iter().enumerate() {
         let margin_left = precomp_margins[sys_idx];
         let sys_y_base = system_y_positions[sys_idx];

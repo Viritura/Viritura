@@ -23,6 +23,7 @@ import type {
   AccidentalDisplay,
   Duration,
   Fermata,
+  Lyrics,
   Markings,
   Note,
   SequenceContent,
@@ -50,6 +51,7 @@ import type { Part, Transposition } from "../model/part";
 import type {
   LyricWorkflow,
   ScoreMetadata,
+  Support,
   SoundProfileAssignment,
   TextStyles,
   VideoSyncSettings,
@@ -151,6 +153,7 @@ export type EventScalarField =
   | { field: "duration"; value: Duration }
   | { field: "stemDirection"; value: StemDirection | undefined }
   | { field: "staff"; value: number | undefined }
+  | { field: "lyrics"; value: Lyrics | undefined }
   | { field: "slurs"; value: Slur[] | undefined }
   | { field: "fermata"; value: Fermata | undefined };
 
@@ -387,6 +390,12 @@ export interface SetScoreMetadataPatch {
   value: ScoreMetadata | undefined;
 }
 
+/** Replace or clear the MNX support-policy object. */
+export interface SetMnxSupportPatch {
+  kind: "setMnxSupport";
+  value: Support | undefined;
+}
+
 /**
  * Set or clear a root-level Viritura vendor extension. `undefined` removes it.
  * The value's shape is validated downstream when the edited score round-trips
@@ -437,6 +446,7 @@ export type ScorePatch =
   | RemovePartPatch
   | SetPartFieldPatch
   | SetScoreMetadataPatch
+  | SetMnxSupportPatch
   | SetScoreExtensionPatch;
 
 /** Discriminant strings, exported for runtime introspection (tests, devtools). */

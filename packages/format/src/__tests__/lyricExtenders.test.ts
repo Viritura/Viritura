@@ -1,0 +1,90 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import { parseMnxUnvalidated } from "../mnx/parser";
+import { serializeMnx } from "../mnx/serializer";
+
+function documentWithExtenders() {
+  return {
+    mnx: { version: 1, support: { useLyricExtenders: false } },
+    global: { measures: [{ time: { count: 4, unit: 4 } }] },
+    parts: [
+      {
+        id: "part-1",
+        measures: [
+          {
+            sequences: [
+              {
+                content: [
+                  {
+                    id: "event-1",
+                    duration: { base: "quarter" },
+                    notes: [{ pitch: { step: "C", octave: 4 } }],
+                    lyrics: {
+                      lines: {
+                        verse: {
+                          text: "Ah",
+                          extender: { id: "word-line", target: "event-2", _c: "comment", _x: { viritura: {} } },
+                        },
+                        second: { text: "No", extender: { show: false, target: "ignored" } },
+                        third: { text: "Mm", extender: {} },
+                      },
+                    },
+                  },
+                  {
+                    id: "event-2",
+                    duration: { base: "quarter" },
+                    notes: [{ pitch: { step: "D", octave: 4 } }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe("MNX lyric extenders", () => {
+  it("preserves support policy, explicit suppression, inferred show, and target omission", () => {
+    const score = parseMnxUnvalidated(documentWithExtenders());
+    expect(score.mnx.support?.useLyricExtenders).toBe(false);
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+      lyrics: {
+        lines: {
+          verse: { extender: { id: "word-line", target: "event-2", _c: "comment", _x: { viritura: {} } } },
+          second: { extender: { show: false, target: "ignored" } },
+          third: { extender: {} },
+        },
+      },
+    });
+  });
+
+  it("round-trips extenders through full serialization", () => {
+    const score = parseMnxUnvalidated(documentWithExtenders());
+    const serialized = serializeMnx(score);
+    expect(parseMnxUnvalidated(serialized)).toEqual(score);
+  });
+
+  it("loads the pinned v46 extender fixture through generated raw types", () => {
+    const fixture = readFileSync(resolve(__dirname, "../../fixtures/mnx-v46/lyric-extenders.mnx"), "utf8");
+    const score = parseMnxUnvalidated(JSON.parse(fixture));
+    expect(score.mnx.support?.useLyricExtenders).toBe(true);
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+      lyrics: {
+        lines: {
+          "1": {
+            extender: {
+              id: "word-line",
+              show: true,
+              target: "last-covered-event",
+              _c: "retained extender note",
+              _x: { viritura: {} },
+            },
+          },
+        },
+      },
+    });
+  });
+});

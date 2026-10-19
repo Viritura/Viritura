@@ -27,6 +27,7 @@ fn promote_support(r: raw::Support) -> ModelSupport {
     ModelSupport {
         use_accidental_display: r.use_accidental_display,
         use_beams: r.use_beams,
+        use_lyric_extenders: r.use_lyric_extenders,
     }
 }
 

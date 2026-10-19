@@ -284,6 +284,8 @@ export interface Support {
   useAccidentalDisplay?: boolean;
   /** When true, all beaming is explicitly encoded in beams[]. */
   useBeams?: boolean;
+  /** When true, lyric extender presence or absence is explicitly encoded. */
+  useLyricExtenders?: boolean;
 }
 
 /**

@@ -792,6 +792,80 @@ fn test_parse_lyric_line_metadata_mnx_file() {
 }
 
 #[test]
+fn test_parse_lyric_extender_and_support_fields() {
+    let json = r#"{
+        "mnx": {"version": 1, "support": {"useLyricExtenders": false}},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{
+            "id": "voice",
+            "measures": [{
+                "sequences": [{
+                    "content": [
+                        {
+                            "id": "start",
+                            "duration": {"base": "quarter"},
+                            "notes": [{"pitch": {"step": "C", "octave": 4}}],
+                            "lyrics": {"lines": {
+                                "verse": {
+                                    "text": "Ah",
+                                    "extender": {
+                                        "id": "word-line",
+                                        "target": "end",
+                                        "_c": "retained extender note",
+                                        "_x": {"viritura": {}}
+                                    }
+                                },
+                                "second": {"text": "No", "extender": {"show": false}}
+                            }}
+                        },
+                        {
+                            "id": "end",
+                            "duration": {"base": "quarter"},
+                            "notes": [{"pitch": {"step": "D", "octave": 4}}]
+                        }
+                    ]
+                }]
+            }]
+        }]
+    }"#;
+
+    let score = parse_mnx(json).expect("generated v46 fields should promote to lyric extenders");
+    assert_eq!(
+        score
+            .mnx
+            .support
+            .as_ref()
+            .and_then(|support| support.use_lyric_extenders),
+        Some(false)
+    );
+    let lines = score.parts[0].measures[0].sequences[0]
+        .content
+        .iter()
+        .find_map(|item| match item {
+            crate::model::SequenceContent::Event(event) => event.lyrics.as_ref()?.lines.as_ref(),
+            _ => None,
+        })
+        .expect("lyric lines should be present");
+    assert_eq!(
+        lines["verse"].extender.as_ref().unwrap().target.as_deref(),
+        Some("end")
+    );
+    assert_eq!(
+        lines["verse"].extender.as_ref().unwrap().id.as_deref(),
+        Some("word-line")
+    );
+    assert_eq!(
+        lines["verse"].extender.as_ref().unwrap().comment.as_deref(),
+        Some("retained extender note")
+    );
+    assert_eq!(
+        lines["verse"].extender.as_ref().unwrap().x,
+        Some(serde_json::json!({"viritura": {}}))
+    );
+    assert_eq!(lines["second"].extender.as_ref().unwrap().show, Some(false));
+}
+
+#[test]
 fn test_parse_tempo_markings_mnx_file() {
     use crate::model::duration::NoteValueBase;
 

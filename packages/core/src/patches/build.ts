@@ -11,7 +11,7 @@ import type { Pitch } from "../model/pitch";
 import type { Markings, Note, NoteMarkings, SequenceContent } from "../model/event";
 import type { DynamicGroup, GlobalMeasure, IdPair, RhythmicPosition } from "../model/measure";
 import type { Part } from "../model/part";
-import type { ScoreMetadata } from "../model/score";
+import type { ScoreMetadata, Support } from "../model/score";
 import type {
   AddNoteToEventPatch,
   AddPartPatch,
@@ -35,6 +35,7 @@ import type {
   SetGlobalMeasureFieldPatch,
   SetMeasureArpeggioPatch,
   SetMeasureDynamicGroupPatch,
+  SetMnxSupportPatch,
   SetNoteFieldPatch,
   SetNoteMarkingPatch,
   SetNotePitchPatch,
@@ -82,6 +83,10 @@ export const patch = {
     value: Markings[K] | undefined,
   ): SetEventMarkingPatch {
     return { kind: "setEventMarking", locator, markingKey, value };
+  },
+
+  setMnxSupport(value: Support | undefined): SetMnxSupportPatch {
+    return { kind: "setMnxSupport", value };
   },
 
   setMeasureDynamicGroup(

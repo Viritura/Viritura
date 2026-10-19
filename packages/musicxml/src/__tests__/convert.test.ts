@@ -51,7 +51,7 @@ function wrapScore(
 // ═══════════════════════════════════════════════════════════════════════
 
 describe("convertMusicXmlToMnx — basics", () => {
-  it("converts a minimal single-note score with version 7", () => {
+  it("converts a minimal single-note score with document version 1", () => {
     const xml = wrapScore(`
       <note>
         <pitch><step>C</step><octave>4</octave></pitch>
@@ -61,7 +61,7 @@ describe("convertMusicXmlToMnx — basics", () => {
     `);
     const result = convertMusicXmlToMnx(xml);
 
-    expect(result.mnx.version).toBe(7);
+    expect(result.mnx.version).toBe(1);
     expect(result.parts).toHaveLength(1);
     expect(result.parts[0]!.name).toBe("Test");
 
@@ -1316,6 +1316,39 @@ describe("convertMusicXmlToMnx — rehearsal marks", () => {
 });
 
 describe("convertMusicXmlToMnx — lyrics", () => {
+  it("pairs MusicXML extender start/continue/stop across measure boundaries", () => {
+    const first = `
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration><type>whole</type>
+        <lyric number="1"><text>Ah</text><extend type="start"/></lyric>
+      </note>`;
+    const second = `
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>2</duration><type>half</type>
+        <lyric number="1"><extend type="continue"/></lyric>
+      </note>
+      <note>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>2</duration><type>half</type>
+        <lyric number="1"><extend type="stop"/></lyric>
+      </note>`;
+    const xml = wrapScore(first).replace(
+      "</measure>\n  </part>",
+      `</measure><measure number="2">${second}</measure>
+  </part>`,
+    );
+    const result = convertMusicXmlToMnx(xml);
+    const source = result.parts[0]!.measures[0]!.sequences![0]!.content[0]! as {
+      id: string;
+      lyrics: { lines: Record<string, { extender?: { show?: boolean; target?: string } }> };
+    };
+    const target = result.parts[0]!.measures[1]!.sequences![0]!.content[1]! as { id: string };
+    expect(source.lyrics.lines["line-1"]!.extender).toEqual({ show: true, target: target.id });
+    expect(result.mnx.support?.useLyricExtenders).toBe(true);
+  });
+
   it("converts single-verse lyrics", () => {
     const xml = wrapScore(`
       <note>
@@ -1339,6 +1372,7 @@ describe("convertMusicXmlToMnx — lyrics", () => {
     expect(ev0.lyrics.lines["line-1"]!.text).toBe("Hel");
     expect(result.global.lyrics).toBeDefined();
     expect(result.global.lyrics!.lineOrder).toContain("line-1");
+    expect(result.mnx.support?.useLyricExtenders).toBeUndefined();
   });
 
   it("preserves consistent lyric names and inherited language metadata", () => {

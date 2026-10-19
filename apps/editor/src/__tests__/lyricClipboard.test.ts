@@ -4,7 +4,13 @@ import { buildClipboardSelection } from "../clipboard/buildClipboardSelection";
 import { deserializeFragment } from "../clipboard/deserialize";
 import { serializeFragment } from "../clipboard/serialize";
 import { applyPaste, pasteResultFromFragment } from "../commands/clipboardCommands";
-import { pasteTextIntoSelectedLyric, selectedLyricText } from "../commands/lyricCommands";
+import {
+  pasteTextIntoSelectedLyric,
+  selectedLyricText,
+  setLyricExtenderMode,
+  setLyricExtenderPolicy,
+  setLyricExtenderTarget,
+} from "../commands/lyricCommands";
 import { lyricElementId } from "../score/ElementPath";
 
 function scoreWithLyrics(): Score {
@@ -63,6 +69,23 @@ describe("lyric clipboard behavior", () => {
     const event = pasted?.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent;
     expect(event.lyrics?.lines?.original?.text).toBe("Song");
     expect(event.notes).toHaveLength(1);
+  });
+
+  it("edits extender visibility and endpoint without changing the document policy", () => {
+    const score = scoreWithLyrics();
+    const selected = lyricElementId("p0/m0/s0/source", "original");
+    const shown = setLyricExtenderMode(score, selected, "show")!;
+    const targeted = setLyricExtenderTarget(shown, selected, "target")!;
+    const hidden = setLyricExtenderMode(targeted, selected, "hide")!;
+    const automatic = setLyricExtenderMode(hidden, selected, "auto")!;
+    const source = (next: Score) => next.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent;
+
+    expect(source(shown).lyrics?.lines?.original?.extender).toEqual({ show: true });
+    expect(source(targeted).lyrics?.lines?.original?.extender).toEqual({ show: true, target: "target" });
+    expect(source(hidden).lyrics?.lines?.original?.extender).toEqual({ show: false, target: "target" });
+    expect(source(automatic).lyrics?.lines?.original?.extender).toBeUndefined();
+    expect(automatic.mnx.support).toBeUndefined();
+    expect(setLyricExtenderPolicy(automatic, "explicit").mnx.support).toEqual({ useLyricExtenders: true });
   });
 
   it("preserves lyric line metadata when copying and pasting notation", () => {

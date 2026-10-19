@@ -120,6 +120,7 @@ export interface InteractionHandlers extends RadialMenuHandlers, DragAndDropHand
   lyricNavIndex: LyricHandlers["lyricNavIndex"];
   lyricPosition: LyricHandlers["lyricPosition"];
   handleLyricCommit: LyricHandlers["handleLyricCommit"];
+  handleLyricExtender: LyricHandlers["handleLyricExtender"];
   handleLyricNavigate: LyricHandlers["handleLyricNavigate"];
   handleLyricExit: LyricHandlers["handleLyricExit"];
 }

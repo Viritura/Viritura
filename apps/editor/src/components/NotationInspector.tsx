@@ -240,9 +240,16 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             syllabicType={lyric.selected.line.type ?? "whole"}
             lineId={lyric.selected.lineId}
             lineOptions={lyric.lineOptions}
+            extenderMode={
+              lyric.selected.line.extender?.show === false ? "hide" : lyric.selected.line.extender ? "show" : "auto"
+            }
+            extenderTarget={lyric.selected.line.extender?.target}
+            extenderTargetOptions={lyric.extenderTargetOptions}
             onTextChange={lyric.handleTextChange}
             onSyllabicTypeChange={lyric.handleSyllabicTypeChange}
             onLineChange={lyric.handleLineChange}
+            onExtenderModeChange={lyric.handleExtenderModeChange}
+            onExtenderTargetChange={lyric.handleExtenderTargetChange}
           />
         )}
 

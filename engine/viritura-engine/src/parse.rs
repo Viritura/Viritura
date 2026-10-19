@@ -165,8 +165,7 @@ pub fn parse_mnx_strict(json: &str) -> Result<Score, ParseMnxStrictError> {
 /// Same as [`parse_mnx_strict`].
 pub fn parse_mnx_strict_value(value: &Value) -> Result<Score, ParseMnxStrictError> {
     let _raw = assert_raw_score(value)?;
-    let score = promote_root(value.clone())?;
-    Ok(score)
+    Ok(promote_root(value.clone())?)
 }
 
 #[cfg(test)]

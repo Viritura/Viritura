@@ -1,6 +1,6 @@
 import { DOMParser } from "@xmldom/xmldom";
 import { DiagnosticCollector } from "@viritura/core";
-import type { MnxDocument } from "../types";
+import type { MnxDocument, MnxSequenceContent } from "../types";
 import { collectLossyDiagnostics } from "./diagnostics";
 import { buildGlobalMeasures } from "./globalMeasures";
 import { consolidateImportedHarmony } from "./harmonyConsolidation";
@@ -56,8 +56,22 @@ export interface PercussionImportReview {
   reason: string;
 }
 
+function hasLyricExtender(content: readonly MnxSequenceContent[]): boolean {
+  return content.some((item) => {
+    if (item.type === "tuplet") return hasLyricExtender(item.content);
+    if (item.type === "grace" || item.type === "tremolo") {
+      return item.content.some((event) =>
+        Object.values(event.lyrics?.lines ?? {}).some((line) => line.extender !== undefined),
+      );
+    }
+    return (
+      item.type === undefined && Object.values(item.lyrics?.lines ?? {}).some((line) => line.extender !== undefined)
+    );
+  });
+}
+
 /**
- * Convert a MusicXML string to an MNX document object (MNX version 7).
+ * Convert a MusicXML string to an MNX document object.
  * Works in both browser and Node.js — uses @xmldom/xmldom for parsing.
  *
  * By default produces strict MNX-compliant output. Enable
@@ -91,10 +105,14 @@ export function convertMusicXmlToMnx(xmlString: string, options?: ConvertOptions
   consolidateImportedHarmony(harmonySources, globalMeasures, opts.diagnostics);
 
   const result: MnxDocument = {
-    mnx: { version: 7 },
+    mnx: { version: 1 },
     global: { measures: globalMeasures },
     parts: mnxParts,
   };
+  const hasExplicitLyricExtenders = mnxParts.some((part) =>
+    part.measures.some((measure) => measure.sequences?.some((sequence) => hasLyricExtender(sequence.content))),
+  );
+  if (hasExplicitLyricExtenders) result.mnx.support = { useLyricExtenders: true };
 
   // Route unpitched-percussion parts to drum-kit notes so playback uses the
   // GM drum channel instead of voicing them as piano.
