@@ -15,13 +15,23 @@ shape/strokes mean normal/two. Its `id`, `_c`, and `_x` survive native saves,
 delta serialization, collaboration, and property edits. Navigation marker
 metadata is independent and is not rewritten by caesura edits.
 
-Selecting an ending barline authors the preceding measure's global caesura;
-selecting a note/rest authors its existing event-local marking. Properties
+Selecting an ending barline authors the preceding measure's global caesura.
+Selecting notes or a staff/measure range instead authors one event-local caesura
+at the latest selected rhythmic endpoint on each selected source staff, not on
+every selected note or voice. Staff ranges respect the selected local staff of
+multi-staff instruments; condensed selections write back to their source parts.
+Existing caesuras outside those endpoints are unchanged. Breath and fermata
+authoring keep their existing behavior. Properties
 provides attachment-aware shape, stroke count, and removal. Every displayed
 staff, including both grand staves and part extracts, draws one selectable
 instance with the same `m{index}/caesura` identity. Delete/edit/undo therefore
 updates the one shared model object. The Rust global model reuses event-caesura
 geometry and retains native attributes; no vendor or legacy input form is accepted.
+Global caesura strokes are centered on the top staff line, with their ink ending
+a quarter staff-space before the visible ending barline, matching event-local
+placement. Shared collision flow can lift the marking to clear other ink, but
+does not treat the movable caesura itself as a fixed obstacle.
+The top staff line is an attachment reference, not protruding collision ink.
 
 Playback inserts one hold at the measure end, max-merged with coincident
 event/other-part caesuras. Stroke count is visual, not a duration multiplier;

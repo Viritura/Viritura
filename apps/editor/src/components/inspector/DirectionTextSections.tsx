@@ -44,7 +44,6 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
     handleDynamicStaffEndChange,
     handleDynamicVisuallyContinuesChange,
     handleDynamicVoiceChange,
-    handleDynamicGlyphsChange,
     isExpressionSelected,
     isSystemTextSelected,
     selectedExpression,
@@ -82,7 +81,6 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
           onStaffEndChange={handleDynamicStaffEndChange}
           onVisuallyContinuesChange={handleDynamicVisuallyContinuesChange}
           onVoiceChange={handleDynamicVoiceChange}
-          onGlyphsChange={handleDynamicGlyphsChange}
           offset={{
             value: selectedDynamic.manualOffset ?? [0, 0],
             onChange: handleAnnotationOffsetChange,

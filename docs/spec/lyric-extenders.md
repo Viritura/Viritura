@@ -3,6 +3,8 @@
 MNX lyric extenders are word-extension lines attached to an event lyric line.
 They are independent of syllabic hyphens: `type: "start"` and `type: "middle"`
 continue a hyphenated word and do not, by themselves, create an extender.
+The examples use document version `1`; the MNX schema revision does not change
+the document's `mnx.version` value.
 
 ```json
 {
@@ -25,6 +27,9 @@ continue a hyphenated word and do not, by themselves, create an extender.
   }
 }
 ```
+
+In a complete document the event lyric object is nested inside the score's
+part/measure/sequence content, and the root uses `"mnx":{"version":1}`.
 
 `extender.show` is optional and defaults to `true` when the `extender` object
 is present. `show: false` suppresses the line and ignores its target.

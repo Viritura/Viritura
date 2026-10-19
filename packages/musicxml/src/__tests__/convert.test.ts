@@ -51,7 +51,7 @@ function wrapScore(
 // ═══════════════════════════════════════════════════════════════════════
 
 describe("convertMusicXmlToMnx — basics", () => {
-  it("converts a minimal single-note score with version 7", () => {
+  it("converts a minimal single-note score with document version 1", () => {
     const xml = wrapScore(`
       <note>
         <pitch><step>C</step><octave>4</octave></pitch>
@@ -61,7 +61,7 @@ describe("convertMusicXmlToMnx — basics", () => {
     `);
     const result = convertMusicXmlToMnx(xml);
 
-    expect(result.mnx.version).toBe(7);
+    expect(result.mnx.version).toBe(1);
     expect(result.parts).toHaveLength(1);
     expect(result.parts[0]!.name).toBe("Test");
 

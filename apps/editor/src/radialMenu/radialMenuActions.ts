@@ -33,7 +33,7 @@ import type { BreathFermataSelection } from "./breathFermataMenu";
 import type { ExpressionToken, MixedExpressionToken } from "./dynamicExpressionParser";
 import { firstTupletEventLocation, resolveTupletSelectionLocation } from "./tupletSelection";
 import { beatPositionToFraction, eventBeatPosition, eventEndBeatPosition } from "../app/timedAnnotationPosition";
-import { caesuraBarlineMeasure } from "../commands/caesura";
+import { caesuraBarlineMeasure, selectedLocalCaesuraTargets } from "../commands/caesura";
 
 // ═══════════════════════════════════════════
 // Position helpers
@@ -692,6 +692,7 @@ export function applyOrnament(
 /**
  * Apply a breath mark, fermata, or caesura from the radial menu to every
  * event in the selection (single / multi / range / measure, tuplet-aware).
+ * Caesuras instead terminate the selection once per staff, or globally at a selected barline.
  */
 export function applyBreathFermata(
   score: Score,
@@ -713,9 +714,11 @@ export function applyBreathFermata(
     resolved.kind === "fermata" &&
     applyFermataToSelectedFullMeasureRests(result, selection, resolved.shape, selectedScoreIndex);
   const events =
-    selectedScoreIndex === undefined
-      ? resolveSelectionEvents(selection, result)
-      : resolveCondensedSelectionEvents(result, selection, selectedScoreIndex);
+    resolved.kind === "caesura"
+      ? selectedLocalCaesuraTargets(result, selection, selectedScoreIndex)
+      : selectedScoreIndex === undefined
+        ? resolveSelectionEvents(selection, result)
+        : resolveCondensedSelectionEvents(result, selection, selectedScoreIndex);
   if (events.length === 0) return updatedFullMeasureRest ? result : null;
 
   let updated: Score | null = result;

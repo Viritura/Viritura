@@ -11,13 +11,48 @@
  * came to blank notes while the single-selection path did the right thing.
  */
 
-import type { Score } from "@viritura/core";
+import type { Score, SequenceContent } from "@viritura/core";
 import { globalCaesuraMeasure } from "./caesura";
 import { isAccidentalId, removeAccidental } from "./accidentalCommands";
 import { isArticulationId, removeArticulation } from "./articulationDeletion";
-import { getEventAtLocation, getEventAncestorId, resolveEventLocation } from "../score/ElementPath";
+import {
+  getEventAtLocation,
+  getEventAncestorId,
+  resolveEventLocation,
+  resolveGraceLocation,
+} from "../score/ElementPath";
 
 const CAESURA_SUFFIX = "/caesura";
+const NOTE_MARKING_SUFFIX = /\/n(\d+)\/(slideIn|slideOut)$/;
+
+export function isNoteMarkingId(elementId: string): boolean {
+  return NOTE_MARKING_SUFFIX.test(elementId);
+}
+
+function noteMarkingEvent(score: Score, eventId: string): SequenceContent | null | undefined {
+  const grace = resolveGraceLocation(eventId, score);
+  if (!grace) {
+    const location = resolveEventLocation(eventId, score);
+    return location ? getEventAtLocation(score, location) : null;
+  }
+  const sequence = score.parts[grace.partIndex]?.measures[grace.measureIndex]?.sequences[grace.sequenceIndex];
+  const container = grace.tupletIndex === undefined ? undefined : sequence?.content[grace.tupletIndex];
+  const content = container?.type === "tuplet" || container?.type === "tremolo" ? container.content : sequence?.content;
+  const graceContainer = content?.[grace.graceContainerIndex];
+  return graceContainer?.type === "grace" ? graceContainer.content[grace.graceNoteIndex] : null;
+}
+
+export function removeNoteMarking(score: Score, elementId: string): Score | null {
+  const match = NOTE_MARKING_SUFFIX.exec(elementId);
+  if (!match) return null;
+  const event = noteMarkingEvent(score, elementId.slice(0, match.index));
+  const note = event?.type === "event" ? event.notes?.[Number(match[1])] : undefined;
+  const key = match[2] === "slideIn" ? "slideIn" : "slideOut";
+  if (!note?.markings?.[key]) return null;
+  delete note.markings[key];
+  if (Object.keys(note.markings).length === 0) delete note.markings;
+  return score;
+}
 
 export function isCaesuraId(elementId: string): boolean {
   return elementId.endsWith(CAESURA_SUFFIX);
@@ -42,7 +77,9 @@ export function removeCaesura(score: Score, elementId: string): Score | null {
 
 /** True when `elementId` names a marking that deletes on its own. */
 function isMarkingId(elementId: string): boolean {
-  return isAccidentalId(elementId) || isArticulationId(elementId) || isCaesuraId(elementId);
+  return (
+    isAccidentalId(elementId) || isArticulationId(elementId) || isCaesuraId(elementId) || isNoteMarkingId(elementId)
+  );
 }
 
 /**
@@ -53,6 +90,7 @@ function removeMarking(score: Score, elementId: string): Score | null {
   if (isAccidentalId(elementId)) return removeAccidental(score, elementId);
   if (isArticulationId(elementId)) return removeArticulation(score, elementId);
   if (isCaesuraId(elementId)) return removeCaesura(score, elementId);
+  if (isNoteMarkingId(elementId)) return removeNoteMarking(score, elementId);
   return null;
 }
 

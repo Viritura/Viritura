@@ -1,5 +1,6 @@
 import { patch, type Caesura, type Score, type ScorePatch } from "@viritura/core";
 import { getEventAncestorId, getEventAtLocation, resolveEventLocation } from "../../score/ElementPath";
+export { selectedLocalCaesuraTargets } from "./selection";
 
 /** All staff copies deliberately use the same global identity. */
 export function globalCaesuraMeasure(elementId: string): number | null {

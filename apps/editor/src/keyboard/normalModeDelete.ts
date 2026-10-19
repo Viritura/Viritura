@@ -19,8 +19,14 @@ import {
   resolveDeletableAnnotationLocation,
 } from "../commands/deleteCommands";
 import { isAccidentalId, removeAccidental } from "../commands/accidentalCommands";
-import { isArticulationId, removeArticulation } from "../commands/articulationDeletion";
-import { isCaesuraId, partitionMarkingIds, removeCaesura, removeMarkings } from "../commands/markingSelection";
+import { isArticulationId } from "../commands/articulationDeletion";
+import {
+  isCaesuraId,
+  isNoteMarkingId,
+  partitionMarkingIds,
+  removeCaesura,
+  removeMarkings,
+} from "../commands/markingSelection";
 import { isNoteheadId, removeChordNoteById, thinSelectedChords } from "../commands/chordNoteDeletion";
 import {
   resolveEventLocation,
@@ -103,12 +109,15 @@ function deleteCondensedOrnament(
   return removed ? next : null;
 }
 
-function deleteCondensedArticulation(score: Score, elementId: string, selectedScoreIndex: number): Score | null {
+function deleteCondensedMarking(
+  score: Score,
+  elementId: string,
+  selectedScoreIndex: number,
+  forceDirect: boolean,
+): Score | null {
   const next = cloneScore(score);
-  const ids = expandCondensedSubElementIds(score, [elementId], selectedScoreIndex);
-  let removed = false;
-  for (const id of ids) removed = removeArticulation(next, id) !== null || removed;
-  return removed ? next : null;
+  const ids = expandCondensedSubElementIds(score, [elementId], selectedScoreIndex, forceDirect);
+  return removeMarkings(next, ids) ? next : null;
 }
 
 function deleteCondensedAccidental(score: Score, elementId: string, selectedScoreIndex: number): Score | null {
@@ -183,7 +192,12 @@ function deleteCondensedWholeEvent(
   return newScore;
 }
 
-function deleteStandaloneLeaf(score: Score, elementId: string, selectedScoreIndex: number): Score | null | undefined {
+function deleteStandaloneLeaf(
+  score: Score,
+  elementId: string,
+  selectedScoreIndex: number,
+  forceDirect: boolean,
+): Score | null | undefined {
   const tupletMatch = /^p(\d+)\/m(\d+)\/s(\d+)\/tuplet(\d+)$/.exec(elementId);
   if (tupletMatch) {
     const next = cloneScore(score);
@@ -200,7 +214,8 @@ function deleteStandaloneLeaf(score: Score, elementId: string, selectedScoreInde
   if (elementId.endsWith("/key")) return deleteKeySignatureByElementId(score, elementId);
   if (elementId.endsWith("/arp")) return deleteArpeggioByElementId(score, elementId);
   if (isAccidentalId(elementId)) return deleteCondensedAccidental(score, elementId, selectedScoreIndex);
-  if (isArticulationId(elementId)) return deleteCondensedArticulation(score, elementId, selectedScoreIndex);
+  if (isArticulationId(elementId) || isNoteMarkingId(elementId))
+    return deleteCondensedMarking(score, elementId, selectedScoreIndex, forceDirect);
   if (isCaesuraId(elementId)) return deleteCondensedCaesura(score, elementId, selectedScoreIndex);
   return undefined;
 }
@@ -271,7 +286,9 @@ function deleteSingleSelection(
 
   // Key signatures and event-level leaf markings must never fall through to
   // whole-event deletion. Merged markings route across every source first.
-  const leafResult = deleteStandaloneLeaf(currentScore, sel.elementId, ctx.getConfig?.().selectedScoreIndex ?? 0);
+  const selectedScoreIndex = ctx.getConfig?.().selectedScoreIndex ?? 0;
+  const forceDirect = sel.measureAnchor?.isExpansion === true;
+  const leafResult = deleteStandaloneLeaf(currentScore, sel.elementId, selectedScoreIndex, forceDirect);
   if (leafResult !== undefined) {
     applyDeletion(e, ctx, leafResult);
     return;
@@ -290,8 +307,6 @@ function deleteSingleSelection(
   // One notehead of a chord: that note goes, the chord stays. Falls through to
   // the event path only when it was the event's last note, since an event with
   // no notes is a rest — which only the event-level primitive can produce.
-  const selectedScoreIndex = ctx.getConfig?.().selectedScoreIndex ?? 0;
-  const forceDirect = sel.measureAnchor?.isExpansion === true;
   if (deleteChordNote(e, ctx, currentScore, sel.elementId, selectedScoreIndex, forceDirect)) return;
 
   // Event/note deletion. Gated on the id actually addressing an event: an
@@ -456,10 +471,8 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
   const currentScore = ctx.getScore();
   if (!currentScore) return;
   const selection = ctx.getSelection();
-  if (
-    selection.kind === "multi" &&
-    measureRepeatElementIdsForSelection(currentScore, selection).length === selection.elementIds.length
-  ) {
+  if (selection.kind !== "multi") return;
+  if (measureRepeatElementIdsForSelection(currentScore, selection).length === selection.elementIds.length) {
     applyDeletion(e, ctx, deleteMeasureRepeatsForSelection(currentScore, selection));
     return;
   }
@@ -467,10 +480,12 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
   // Markings selected explicitly (ctrl-click) delete on their own; only the
   // rest of the selection is event-level. Without this split they resolve to
   // their events and blank the notes they belong to.
-  const selectedIds =
-    selection.kind === "multi"
-      ? expandCondensedSubElementIds(currentScore, selection.elementIds, ctx.getConfig?.().selectedScoreIndex ?? 0)
-      : [];
+  const selectedIds = expandCondensedSubElementIds(
+    currentScore,
+    selection.elementIds,
+    ctx.getConfig?.().selectedScoreIndex ?? 0,
+    selection.measureAnchor?.isExpansion === true,
+  );
   const connectorIds = selectedIds.filter((id) => id.startsWith("slur/") || id.startsWith("tie/"));
   const lyricIds = selectedIds.filter(isLyricId);
   const graceIds = selectedIds.filter((id) => resolveGraceLocation(id, currentScore) !== null);
@@ -506,11 +521,11 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
   // is left to the event pass — selecting everything means the rest, not a
   // chord with nothing in it.
   const wholeEventIds = deletableEventIds.filter((id) => !isNoteheadId(id));
+  const markingsRemoved = markingIds.length > 0 && removeMarkings(newScore, markingIds);
   const chordsRemoved = thinSelectedChords(newScore, deletableEventIds, wholeEventIds);
 
   const eventSelection = { ...selection, elementIds: wholeEventIds };
   const events = wholeEventIds.length > 0 ? resolveSelectionEvents(eventSelection, currentScore) : [];
-  const markingsRemoved = markingIds.length > 0 && removeMarkings(newScore, markingIds);
   const leavesRemoved = [markingsRemoved, lyricsRemoved].includes(true);
   if (
     events.length === 0 &&

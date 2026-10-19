@@ -112,6 +112,16 @@ fn generate_mnx_core() -> Result<()> {
 fn rewrite_dynamic_groups_item(path: &Path) -> Result<()> {
     let mut source = fs::read_to_string(path)
         .with_context(|| format!("failed to read generated types at {}", path.display()))?;
+    // An absent glyph override uses automatic appearance; an empty override hides it.
+    let glyphs_field = "#[serde(default, skip_serializing_if = \"::std::vec::Vec::is_empty\")]\n    pub glyphs: ::std::vec::Vec<SmuflGlyph>,";
+    anyhow::ensure!(
+        source.matches(glyphs_field).count() == 4,
+        "expected one glyphs field in each of the four dynamic group variants"
+    );
+    source = source.replace(
+        glyphs_field,
+        "#[serde(default, skip_serializing_if = \"::std::option::Option::is_none\")]\n    pub glyphs: ::std::option::Option<::std::vec::Vec<SmuflGlyph>>,",
+    );
     let start_marker =
         "#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]\npub struct DynamicGroupsItem";
     let end_marker = "///`DynamicPrefix`";

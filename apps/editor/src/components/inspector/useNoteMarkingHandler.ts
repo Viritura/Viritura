@@ -1,47 +1,40 @@
-import {
-  patch,
-  type Note,
-  type NoteEvent,
-  type ScorePatch,
-  type SequenceContent,
-  type SlideInType,
-  type SlideOutType,
-} from "@viritura/core";
+import { patch, type Score, type ScorePatch, type SlideInType, type SlideOutType } from "@viritura/core";
 import { useCallback } from "react";
-import type { NotationSelectionTarget } from "../../commands/notationInspectorCommands";
+import type { SelectionState } from "../../store/selectionStore";
+import { useViewStateStore } from "../../store/viewStateStore";
+import { planSelectionWriteback } from "../../score/condensedWriteback";
+import { getEventAtLocation } from "../../score/ElementPath";
 
 interface NoteMarkingHandlerArgs {
-  note: Note | null;
-  event: SequenceContent | null;
-  target: NotationSelectionTarget | null;
-  partId: string | undefined;
+  score: Score | null;
+  selection: SelectionState;
   commitPatches: (patches: readonly ScorePatch[]) => void;
 }
 
-export function useNoteMarkingHandler({ note, event, target, partId, commitPatches }: NoteMarkingHandlerArgs) {
+export function useNoteMarkingHandler({ score, selection, commitPatches }: NoteMarkingHandlerArgs) {
+  const selectedScoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
   const update = useCallback(
     (key: "slideIn" | "slideOut", type: SlideInType | SlideOutType | undefined) => {
-      if (
-        !note?.id ||
-        event?.type !== "event" ||
-        !(event as NoteEvent).id ||
-        !target ||
-        target.sequenceIndex === undefined ||
-        target.noteIndex === undefined ||
-        !partId
-      ) {
-        return;
+      if (!score) return;
+      const patches: ScorePatch[] = [];
+      for (const target of planSelectionWriteback(score, selection, selectedScoreIndex).sourceNotes) {
+        const event = getEventAtLocation(score, target);
+        const note =
+          event?.type === "event" && target.noteIndex !== undefined ? event.notes?.[target.noteIndex] : undefined;
+        const partId = score.parts[target.partIndex]?.id;
+        if (event?.type !== "event" || !event.id || !note?.id || !partId) continue;
+        const current = note.markings?.[key];
+        if (current?.type === type) continue;
+        const value = type === undefined ? undefined : { ...current, type };
+        const locator = {
+          sequencePath: { partId, measureIndex: target.measureIndex, voice: target.sequenceIndex },
+          eventId: event.id,
+        };
+        patches.push(patch.setNoteMarking(locator, note.id, key, value));
       }
-      const current = note.markings?.[key];
-      const value = type === undefined ? undefined : { ...current, type };
-      if (current?.type === value?.type) return;
-      const locator = {
-        sequencePath: { partId, measureIndex: target.measureIndex, voice: target.sequenceIndex },
-        eventId: (event as NoteEvent).id!,
-      };
-      commitPatches([patch.setNoteMarking(locator, note.id, key, value)]);
+      if (patches.length > 0) commitPatches(patches);
     },
-    [note, event, target, partId, commitPatches],
+    [score, selection, selectedScoreIndex, commitPatches],
   );
 
   const setSlideIn = useCallback((type: SlideInType | undefined) => update("slideIn", type), [update]);

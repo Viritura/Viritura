@@ -123,6 +123,18 @@ export function glyphsForDynamicSpelling(spelling: string): string[] | undefined
   return displayGlyphs(spelling);
 }
 
+/** Match engraving's precomposed appearance without changing the stored glyphs. */
+export function consolidateDynamicGlyphs(glyphs: readonly string[]): string[] {
+  let spelling = "";
+  for (const glyph of glyphs) {
+    const letter = Object.entries(LETTER_GLYPHS).find(([, name]) => name === glyph)?.[0];
+    if (letter === undefined) return [...glyphs];
+    spelling += letter;
+  }
+  const consolidated = glyphsForDynamicSpelling(spelling);
+  return consolidated?.length === 1 ? consolidated : [...glyphs];
+}
+
 /** Structural decomposition of an accent spelling such as `sfz`, `rf`, or `fp`. */
 interface AccentParts {
   accentPrefix: DynamicPrefix;

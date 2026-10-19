@@ -512,7 +512,7 @@ fn test_explicit_lyric_extender_continues_across_system_and_part_boundaries() {
         })
         .collect();
     let json = serde_json::json!({
-        "mnx":{"version":7,"support":{"useLyricExtenders":true}},
+        "mnx":{"version":1,"support":{"useLyricExtenders":true}},
         "global":{"measures":global_measures},
         "parts":[
             {"measures":vocal_measures},
@@ -558,7 +558,7 @@ fn test_explicit_lyric_extender_continues_across_system_and_part_boundaries() {
 #[test]
 fn test_lyric_extender_cache_dependency_tracks_remote_endpoint_duration() {
     let json = serde_json::json!({
-        "mnx":{"version":46,"support":{"useLyricExtenders":true}},
+        "mnx":{"version":1,"support":{"useLyricExtenders":true}},
         "global":{"measures":[
             {"time":{"count":4,"unit":4}},
             {"time":{"count":4,"unit":4}}

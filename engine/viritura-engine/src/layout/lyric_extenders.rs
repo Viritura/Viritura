@@ -326,6 +326,28 @@ fn target_for<'score, 'events>(
     inferred_target(source, line_id, events)
 }
 
+fn crosses_later_syllable(
+    source: &LocatedEvent<'_>,
+    target: &LocatedEvent<'_>,
+    line_id: &str,
+    events: &[LocatedEvent<'_>],
+) -> bool {
+    events.iter().any(|candidate| {
+        candidate.part_index == source.part_index
+            && candidate.sequence_index == source.sequence_index
+            && candidate.staff_number == source.staff_number
+            && candidate.order > source.order
+            && candidate.start_beat <= target.start_beat
+            && candidate.event.id != target.event.id
+            && candidate
+                .event
+                .lyrics
+                .as_ref()
+                .and_then(|lyrics| lyrics.lines.as_ref())
+                .is_some_and(|lines| lines.contains_key(line_id))
+    })
+}
+
 fn source_element_id(source: &LocatedEvent<'_>) -> Option<String> {
     let event_id = source.event.id.as_deref()?;
     let suffix = element_id::event_suffix(Some(event_id), source.order);
@@ -387,6 +409,7 @@ pub(super) fn active_line_ids_for_system(
                     .and_then(|lyrics| lyrics.lines.as_ref())
                     .is_some_and(|target_lines| target_lines.contains_key(line_id));
             if !conflicts
+                && !crosses_later_syllable(source, target, line_id, &events)
                 && source.measure_index <= last_measure
                 && target.measure_index >= first_measure
             {
@@ -542,6 +565,7 @@ pub(super) fn render_system_extenders(
                         .as_ref()
                         .and_then(|lyrics| lyrics.lines.as_ref())
                         .is_some_and(|target_lines| target_lines.contains_key(line_id)))
+                || crosses_later_syllable(source, target, line_id, &events)
             {
                 continue;
             }
@@ -565,9 +589,8 @@ pub(super) fn render_system_extenders(
             let starts_here = source.measure_index >= first_measure
                 && source.measure_index <= last_measure
                 && source_visible.is_some();
-            let ends_here = target.measure_index >= first_measure
-                && target.measure_index <= last_measure
-                && target_visible.is_some();
+            let ends_here =
+                target.measure_index >= first_measure && target.measure_index <= last_measure;
             let segment_start = if starts_here {
                 let source_width = text_styles::text_width(
                     &line.text,

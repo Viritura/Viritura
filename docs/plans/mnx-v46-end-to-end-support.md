@@ -225,19 +225,20 @@ parse/serialize/parse, which can pass even when the first parse dropped data.
   fortississimo glyph. Do not require a glyph override for a hairpin or other
   notation that is not naturally represented by a glyph sequence.
 - Accept both semantic-only and explicit-glyph encodings from other
-  applications. Honor explicit glyph sequences without consolidating them;
-  otherwise derive the normal appearance from semantic fields. Equivalent
+  applications. Consolidate recognized explicit letter sequences during
+  engraving without changing their stored encoding; otherwise honor custom
+  symbols or derive automatic appearance from semantic fields. Equivalent
   encodings must have consistent user-facing selection and editing behavior.
   Preserve incoming glyph presence/absence and sequence on unedited
   round-trips; opening or saving must not introduce a visible change or
   silently impose Viritura's authoring preference on imported markings.
-- Extend [the inspector](../../apps/editor/src/components/inspector/DynamicGroupSection.tsx)
-  with musical marking/appearance controls and the relative printed marking.
+- Keep [the inspector](../../apps/editor/src/components/inspector/DynamicGroupSection.tsx)
+  on its existing musical controls, without dedicated glyph-list or independent
+  printed-appearance controls.
   Users must not need to understand `value`, `relativeValue`, glyph arrays or
   which encoding the source application chose. A deliberate marking change
   updates semantics and appearance together using the UI authoring policy;
-  unrelated edits preserve the imported representation. Keep any advanced
-  appearance customization separate from performance intent. Update
+  unrelated edits preserve the imported representation. Update
   relative-group construction to retain the printed value where appropriate
   rather than only its glyph spelling.
 - Preserve existing relative playback policy: glyph changes are presentation,

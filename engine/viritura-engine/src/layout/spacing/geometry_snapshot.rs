@@ -18,12 +18,38 @@ pub(super) struct SpacingSnapshot<'a> {
     pub caesura_widths: HashMap<BeatKey, f64>,
     pub cross_staff_onsets: HashSet<BeatKey>,
     pub arpeggio_onsets: HashSet<BeatKey>,
-    pub note_marking_onsets: HashSet<BeatKey>,
+    pub note_slide_left: HashMap<BeatKey, f64>,
+    pub note_slide_right: HashMap<BeatKey, f64>,
     pub right_ink_extents: HashMap<BeatKey, f64>,
     pub accidental_ink_floors: HashMap<BeatKey, f64>,
     pub clustered_tie_gaps: HashSet<(BeatKey, BeatKey)>,
     pub staff_onsets: Vec<Vec<BeatKey>>,
     pub staff_events: Vec<Vec<SpacingEvent<'a>>>,
+}
+
+impl SpacingSnapshot<'_> {
+    pub(super) fn note_slide_gap(
+        &self,
+        key: BeatKey,
+        next: Option<BeatKey>,
+        notehead_extent: f64,
+    ) -> f64 {
+        let right = self.note_slide_right.get(&key).copied().unwrap_or(0.0);
+        let left = next
+            .and_then(|key| self.note_slide_left.get(&key))
+            .copied()
+            .unwrap_or(0.0);
+        if right == 0.0 && left == 0.0 {
+            return 0.0;
+        }
+        self.right_ink_extents
+            .get(&key)
+            .copied()
+            .unwrap_or(notehead_extent)
+            .max(notehead_extent + right)
+            + left
+            + 0.4
+    }
 }
 
 #[allow(clippy::too_many_arguments)] // snapshot construction receives the complete spacing context once
@@ -48,7 +74,8 @@ pub(super) fn build_spacing_snapshot<'a>(
         caesura_widths: HashMap::new(),
         cross_staff_onsets: HashSet::new(),
         arpeggio_onsets: HashSet::new(),
-        note_marking_onsets: HashSet::new(),
+        note_slide_left: HashMap::new(),
+        note_slide_right: HashMap::new(),
         right_ink_extents: HashMap::new(),
         accidental_ink_floors: HashMap::new(),
         clustered_tie_gaps: HashSet::new(),
@@ -187,24 +214,37 @@ fn collect_event_facts(
 ) {
     let event = source.event;
     if let Some(notes) = &event.notes {
-        let has_note_marking = notes.iter().any(|note| {
-            note.markings
-                .as_ref()
-                .is_some_and(|markings| markings.slide_in.is_some() || markings.slide_out.is_some())
-        });
-        if has_note_marking {
-            snapshot.note_marking_onsets.insert(source.key);
-        }
-        if notes.iter().any(|note| {
-            note.markings
-                .as_ref()
-                .is_some_and(|markings| markings.slide_out.is_some())
-        }) {
-            max_entry(
-                &mut snapshot.right_ink_extents,
-                source.key,
-                1.15 + config.notehead_rx,
-            );
+        for note in notes {
+            let Some(markings) = &note.markings else {
+                continue;
+            };
+            if let Some(marking) = &markings.slide_in {
+                max_entry(
+                    &mut snapshot.note_slide_left,
+                    source.key,
+                    smufl::note_slide_extent(smufl::slide_in_glyph(marking.type_)),
+                );
+            }
+            if let Some(marking) = &markings.slide_out {
+                let extent = smufl::note_slide_extent(smufl::slide_out_glyph(marking.type_));
+                max_entry(&mut snapshot.note_slide_right, source.key, extent);
+                let cp = super::super::render_events::notehead_for_note(
+                    Some(note),
+                    &event.duration.base,
+                    None,
+                );
+                max_entry(
+                    &mut snapshot.right_ink_extents,
+                    source.key,
+                    smufl::notehead_right_extent(cp)
+                        + extent
+                        + if notes_contain_second(notes) {
+                            2.0 * config.notehead_rx
+                        } else {
+                            0.0
+                        },
+                );
+            }
         }
         if notes_contain_second(notes) {
             snapshot.second_onsets.insert(source.key);

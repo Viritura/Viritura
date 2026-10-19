@@ -1539,26 +1539,30 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       render: () => (
         <div style={gridStyle}>
           <PaletteButton
-            label="Scoop"
-            title="Slide into the note from below"
+            label={SMUFL.brassScoop}
+            title="Scoop — slide into the note from below"
+            useBravura
             active={selectedNoteMarkings?.slideIn?.type === "scoop"}
             onClick={handleNoteMarking({ key: "slideIn", type: "scoop" })}
           />
           <PaletteButton
-            label="Plop"
-            title="Slide into the note from above"
+            label={SMUFL.brassPlop}
+            title="Plop — slide into the note from above"
+            useBravura
             active={selectedNoteMarkings?.slideIn?.type === "plop"}
             onClick={handleNoteMarking({ key: "slideIn", type: "plop" })}
           />
           <PaletteButton
-            label="Falloff"
-            title="Slide down from the note"
+            label={SMUFL.brassFallLipShort}
+            title="Falloff — slide down from the note"
+            useBravura
             active={selectedNoteMarkings?.slideOut?.type === "falloff"}
             onClick={handleNoteMarking({ key: "slideOut", type: "falloff" })}
           />
           <PaletteButton
-            label="Doit"
-            title="Slide up from the note"
+            label={SMUFL.brassDoitShort}
+            title="Doit — slide up from the note"
+            useBravura
             active={selectedNoteMarkings?.slideOut?.type === "doit"}
             onClick={handleNoteMarking({ key: "slideOut", type: "doit" })}
           />

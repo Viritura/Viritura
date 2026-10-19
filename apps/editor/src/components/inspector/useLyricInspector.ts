@@ -11,7 +11,12 @@ import {
   type LyricExtenderMode,
 } from "../../commands/lyricCommands";
 import { getLyricLineDisplay, getLyricLineIds } from "../../lyrics";
-import { getEventAncestorId, lyricElementId } from "../../score/ElementPath";
+import {
+  getEventAncestorId,
+  getEventAtLocation,
+  resolveEventFromSubElement,
+  lyricElementId,
+} from "../../score/ElementPath";
 import type { SelectionState } from "../../store/selectionStore";
 import { useSelectionActions } from "../../store/selectionStore";
 
@@ -39,8 +44,10 @@ export function useLyricInspector({ score, selection, updateScore }: UseLyricIns
   const extenderTargetOptions = useMemo(() => {
     const options = [{ value: "", label: "Infer endpoint" }];
     if (!score || !elementId) return options;
-    const sourceEventId = getEventAncestorId(elementId);
-    for (const candidate of lyricExtenderTargetCandidates(score, sourceEventId)) {
+    const location = resolveEventFromSubElement(elementId, score);
+    const event = location ? getEventAtLocation(score, location) : null;
+    if (event?.type !== "event" || !event.id) return options;
+    for (const candidate of lyricExtenderTargetCandidates(score, event.id)) {
       const part = score.parts[candidate.partIndex];
       options.push({
         value: candidate.eventId,

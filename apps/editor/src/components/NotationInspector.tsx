@@ -143,10 +143,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
 
   const { notehead: selectedNotehead, handleNoteheadChange } = useNoteheadHandler({ score, target, updateScore });
   const noteMarkingHandlers = useNoteMarkingHandler({
-    note: selectedNote,
-    event: selectedEvent,
-    target,
-    partId: score?.parts[target?.partIndex ?? -1]?.id,
+    score,
+    selection,
     commitPatches,
   });
   const {

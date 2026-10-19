@@ -279,14 +279,14 @@ pub(crate) fn promote_sequence_content_item(
             )?))
         }
         Some("tremolo") => {
-            let t: raw::MultiNoteTremolo = serde_json::from_value(v.clone())
+            let t: raw::MultiNoteTremolo = serde_json::from_value(v)
                 .map_err(|e| PromoteError::UnsupportedNoteValueBase(format!("tremolo: {e}")))?;
             Ok(ModelSequenceContent::MultiNoteTremolo(
                 promote_multi_note_tremolo(t)?,
             ))
         }
         Some("grace") => {
-            let g: raw::Grace = serde_json::from_value(v.clone())
+            let g: raw::Grace = serde_json::from_value(v)
                 .map_err(|e| PromoteError::UnsupportedNoteValueBase(format!("grace: {e}")))?;
             Ok(ModelSequenceContent::Grace(promote_grace(g)?))
         }
@@ -298,7 +298,7 @@ pub(crate) fn promote_sequence_content_item(
         _ => {
             // Event has no `type` discriminator (or has a literal "event"
             // value that typify treats as optional).
-            let e: raw::Event = serde_json::from_value(v.clone())
+            let e: raw::Event = serde_json::from_value(v)
                 .map_err(|e| PromoteError::UnsupportedNoteValueBase(format!("event: {e}")))?;
             Ok(ModelSequenceContent::Event(promote_event(e)?))
         }

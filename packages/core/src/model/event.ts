@@ -254,7 +254,6 @@ export interface Space {
 /** Syllable type for a lyric (MNX event-lyric-line-type). */
 export type LyricLineType = "start" | "middle" | "end" | "whole";
 
-/** Explicit lyric extender intent, including its MNX global attributes. */
 export type LyricExtender = RawLyricExtender;
 
 /** A single lyric line entry on an event (MNX event-lyric-line). */
@@ -263,7 +262,6 @@ export interface LyricLine {
   text: string;
   /** Syllable type indicating word continuation */
   type?: LyricLineType;
-  /** Word-extension line intent. */
   extender?: LyricExtender;
 }
 

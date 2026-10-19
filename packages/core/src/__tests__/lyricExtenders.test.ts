@@ -90,6 +90,34 @@ function scoreWithLyrics(): Score {
 }
 
 describe("resolveLyricExtenders", () => {
+  it("diagnoses targets crossing an intervening syllable and backward targets", () => {
+    const score = scoreWithLyrics();
+    const source = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    const later = score.parts[0]!.measures[1]!.sequences[0]!.content[0]!;
+    if (source.type !== "event" || later.type !== "event") throw new Error("Expected events");
+    source.lyrics!.lines!.verse!.extender = { target: "explicit-source" };
+    later.lyrics!.lines!.verse!.extender = { target: "start" };
+    expect(resolveLyricExtenders(score).diagnostics.map((issue) => issue.code)).toEqual([
+      "conflicting-target",
+      "backward-target",
+    ]);
+  });
+
+  it("accepts self targets and ignores invalid references under explicit suppression", () => {
+    const score = scoreWithLyrics();
+    score.mnx.support = { useLyricExtenders: true };
+    const source = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    const later = score.parts[0]!.measures[1]!.sequences[0]!.content[0]!;
+    if (source.type !== "event" || later.type !== "event") throw new Error("Expected events");
+    source.lyrics!.lines!.verse!.extender = { target: "start" };
+    later.lyrics!.lines!.verse!.extender = { show: false, target: "missing" };
+    const result = resolveLyricExtenders(score);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.extenders).toEqual([
+      expect.objectContaining({ sourceEventId: "start", targetEventId: "start", endBeat: 1 }),
+    ]);
+  });
+
   it("infers melismas through textless notes and resolves explicit cross-part targets through their full duration", () => {
     const result = resolveLyricExtenders(scoreWithLyrics());
     expect(result.extenders).toEqual([

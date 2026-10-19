@@ -21,6 +21,7 @@ export {
   dynamicSpelling,
   isSupportedDynamicGlyph,
   glyphsForDynamicSpelling,
+  consolidateDynamicGlyphs,
   refreshDynamicGlyphs,
   type AuthoredDynamicValue,
 } from "./dynamicGroups";

@@ -236,6 +236,23 @@ function inferredTarget(
   return target;
 }
 
+function crossesLaterSyllable(
+  source: LocatedEvent,
+  target: LocatedEvent,
+  lineId: string,
+  events: readonly LocatedEvent[],
+): boolean {
+  return events.some(
+    (candidate) =>
+      candidate.partIndex === source.partIndex &&
+      candidate.sequenceIndex === source.sequenceIndex &&
+      candidate.ordinal > source.ordinal &&
+      candidate.startBeat <= target.startBeat &&
+      candidate.event.id !== target.event.id &&
+      hasLyrics(candidate, lineId),
+  );
+}
+
 export function resolveLyricExtenders(score: Score): LyricExtenderResolution {
   const events = collectEvents(score);
   const byId = new Map<string, LocatedEvent>();
@@ -274,7 +291,10 @@ export function resolveLyricExtenders(score: Score): LyricExtenderResolution {
           });
           continue;
         }
-        if (target.ordinal !== source.ordinal && hasLyrics(target, lineId)) {
+        if (
+          (target.ordinal !== source.ordinal && hasLyrics(target, lineId)) ||
+          crossesLaterSyllable(source, target, lineId, events)
+        ) {
           diagnostics.push({
             code: "conflicting-target",
             sourceEventId: source.event.id,
