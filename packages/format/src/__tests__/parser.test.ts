@@ -36,6 +36,21 @@ const helloWorldMnx = {
 };
 
 describe("parseMnx", () => {
+  it("preserves explicit dynamic letter sequences for save independently of engraving consolidation", () => {
+    const dynamic = {
+      type: "immediate",
+      value: "fff",
+      position: { fraction: [0, 1] },
+      glyphs: ["dynamicForte", "dynamicForte", "dynamicForte"],
+    };
+    const document = structuredClone(helloWorldMnx);
+    Object.assign(document.parts[0]!.measures[0]!, { dynamics: [dynamic] });
+    const score = parseMnx(document);
+    expect(score.parts[0]!.measures[0]!.dynamics![0]!.glyphs).toEqual(dynamic.glyphs);
+    const serialized = serializeMnx(score);
+    expect(serialized.parts[0]!.measures[0]!.dynamics![0]!.glyphs).toEqual(dynamic.glyphs);
+  });
+
   it("should parse hello-world MNX into a typed Score", () => {
     const score = parseMnx(helloWorldMnx);
 

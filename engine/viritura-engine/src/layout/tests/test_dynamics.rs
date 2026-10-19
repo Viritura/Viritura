@@ -520,10 +520,11 @@ fn test_custom_dynamic_glyph_override() {
 
 #[test]
 fn equivalent_explicit_dynamic_glyph_preserves_automatic_placement() {
-    for (value, glyph) in [
-        ("p", "dynamicPiano"),
-        ("mf", "dynamicMF"),
-        ("fff", "dynamicFFF"),
+    for (value, glyph, letters) in [
+        ("p", "dynamicPiano", vec!["dynamicPiano"]),
+        ("mf", "dynamicMF", vec!["dynamicMezzo", "dynamicForte"]),
+        ("fff", "dynamicFFF", vec!["dynamicForte"; 3]),
+        ("pp", "dynamicPP", vec!["dynamicPiano"; 2]),
     ] {
         let document = serde_json::json!({
             "mnx": {"version": 1},
@@ -557,6 +558,19 @@ fn equivalent_explicit_dynamic_glyph_preserves_automatic_placement() {
         explicit["parts"][0]["measures"][0]["dynamics"][0]["glyphs"] = serde_json::json!([glyph]);
         assert_eq!(automatic.len(), 1);
         assert_eq!(render(&explicit), automatic, "{value} placement changed");
+        explicit["parts"][0]["measures"][0]["dynamics"][0]["glyphs"] = serde_json::json!(letters);
+        assert_eq!(
+            render(&explicit),
+            automatic,
+            "{value} letters must consolidate"
+        );
+        explicit["parts"][0]["measures"][0]["dynamics"][0]["glyphs"] =
+            serde_json::json!(["dynamicForte", "dynamicPiano", "dynamicForte"]);
+        assert_eq!(
+            render(&explicit).len(),
+            3,
+            "unknown spelling must retain its symbols"
+        );
     }
 }
 
@@ -584,7 +598,7 @@ fn gradual_dynamic_renders_its_explicit_start_marking_before_the_wedge() {
         .commands
         .iter()
         .filter_map(|command| match command {
-            RenderCommand::DrawGlyph { x, codepoint, .. } if *codepoint == smufl::DYNAMIC_FORTE => {
+            RenderCommand::DrawGlyph { x, codepoint, .. } if *codepoint == smufl::DYNAMIC_FF => {
                 Some(*x)
             }
             _ => None,
@@ -592,10 +606,9 @@ fn gradual_dynamic_renders_its_explicit_start_marking_before_the_wedge() {
         .collect();
     assert_eq!(
         glyphs.len(),
-        2,
-        "explicit sequence must not be consolidated"
+        1,
+        "explicit letters must consolidate independently of semantic value"
     );
-    assert!(glyphs[1] > glyphs[0]);
     let marking = display
         .element_bboxes
         .iter()
@@ -610,6 +623,62 @@ fn gradual_dynamic_renders_its_explicit_start_marking_before_the_wedge() {
         wedge.bbox.x >= marking.bbox.x + marking.bbox.width,
         "wedge must clear the explicit start marking"
     );
+}
+
+#[test]
+fn empty_explicit_glyphs_hide_markings_without_hiding_gradual_wedges() {
+    for group_type in ["immediate", "relative", "accent", "gradual"] {
+        let mut dynamic = serde_json::json!({
+            "id": "d", "type": group_type, "position": {"fraction": [0, 1]},
+            "value": "p", "glyphs": []
+        });
+        match group_type {
+            "relative" => dynamic["relativeValue"] = serde_json::json!("louder"),
+            "gradual" => {
+                dynamic["end"] =
+                    serde_json::json!({"measure": "m", "position": {"fraction": [3, 4]}});
+                dynamic["wedgeType"] = serde_json::json!("increasing");
+            }
+            _ => {}
+        }
+        let mut document = serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [{"id": "m", "time": {"count": 4, "unit": 4}}]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{
+                    "type": "event", "duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "C", "octave": 4}}]
+                }]}],
+                "dynamics": [dynamic]
+            }]}]
+        });
+        for explicit_empty in [true, false] {
+            if !explicit_empty {
+                document["parts"][0]["measures"][0]["dynamics"][0]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("glyphs");
+            }
+            let score = parse_mnx(&document.to_string()).expect("valid dynamic");
+            let group = &score.parts[0].measures[0].dynamics.as_ref().unwrap()[0];
+            assert_eq!(
+                group.glyphs,
+                explicit_empty.then(Vec::new),
+                "{group_type}: preserve absent versus explicit empty"
+            );
+            let display = layout_score(&score, 0, &LayoutConfig::default());
+            let has_marking = display.commands.iter().any(|command| matches!(
+                command,
+                RenderCommand::DrawGlyph { codepoint, .. } if (0xE520..=0xE54F).contains(codepoint)
+            ));
+            assert_eq!(has_marking, !explicit_empty, "{group_type}");
+            let has_wedge = display
+                .element_bboxes
+                .iter()
+                .any(|element| element.element_id == "p0/m0/hairpind");
+            assert_eq!(has_wedge, group_type == "gradual");
+        }
+    }
 }
 
 #[test]

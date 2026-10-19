@@ -53,23 +53,4 @@ describe("dynamic inspector edits", () => {
     expect(dynamic.glyphs).toBeUndefined();
     expect(dynamic.relativeValue).toBe("louder");
   });
-
-  it("changes only presentation when replacing or clearing appearance", () => {
-    const dynamic: DynamicGroup = {
-      id: "d",
-      type: "immediate",
-      position: { fraction: [0, 1] },
-      value: "fff",
-    };
-    const handlers = inspector(dynamic);
-    const glyphs = ["dynamicForte", "dynamicForte", "dynamicForte"];
-    act(() => handlers.current.handleDynamicGlyphsChange(glyphs));
-    expect(dynamic.glyphs).toEqual(glyphs);
-    expect(dynamic.glyphs).not.toBe(glyphs);
-    act(() => handlers.current.handleDynamicGlyphsChange([]));
-    expect(dynamic.glyphs).toEqual([]);
-    act(() => handlers.current.handleDynamicGlyphsChange(undefined));
-    expect(dynamic.glyphs).toBeUndefined();
-    expect(dynamic.value).toBe("fff");
-  });
 });

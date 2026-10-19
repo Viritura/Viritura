@@ -1,5 +1,5 @@
 import type { MuseScoreClipboardDynamic } from "./types";
-import { glyphsForDynamicSpelling } from "@viritura/core";
+import { consolidateDynamicGlyphs, glyphsForDynamicSpelling } from "@viritura/core";
 import { MuseScoreConversionError, unsupported } from "./errors";
 import { ZERO, add, compare, fromTuple, subtract, type Fraction } from "./fractions";
 import { connectorPairXml } from "./relativeConnectors";
@@ -18,11 +18,8 @@ export function immediateDynamicXml(value: string): string {
 export function assertDynamicAppearance(dynamic: MuseScoreClipboardDynamic["dynamic"], path: string): void {
   if (dynamic.glyphs === undefined) return;
   const expected = glyphsForDynamicSpelling(dynamic.value ?? "");
-  if (
-    !expected ||
-    dynamic.glyphs.length !== expected.length ||
-    dynamic.glyphs.some((glyph, index) => glyph !== expected[index])
-  ) {
+  const actual = consolidateDynamicGlyphs(dynamic.glyphs);
+  if (!expected || actual.length !== expected.length || actual.some((glyph, index) => glyph !== expected[index])) {
     unsupported("custom dynamic glyph appearance is not supported by MuseScore clipboard export", path);
   }
 }

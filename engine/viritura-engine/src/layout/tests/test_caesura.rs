@@ -26,12 +26,61 @@ fn global_caesura_system_final_barline_anchor() {
             .collect();
         assert_eq!(copies.len(), 3);
         for copy in copies {
-            let center = copy.bbox.x + copy.bbox.width * 0.5;
+            let right = copy.bbox.x + copy.bbox.width;
             assert!(
                 dl.measure_bounds.iter().any(|bound| {
-                    bound.index == measure && (bound.x + bound.width - center).abs() < 1e-6
+                    bound.index == measure
+                        && (bound.x + bound.width - right - 0.25 * LayoutConfig::default().sp).abs()
+                            < 1e-6
                 }),
-                "global caesura must stay centered over the ending barline"
+                "global caesura ink must end a quarter-space before the ending barline"
+            );
+        }
+    }
+}
+
+#[test]
+fn global_caesura_matches_local_top_line_and_barline_clearance() {
+    let mut value = serde_json::to_value(global_caesura_score()).unwrap();
+    for part in value["parts"].as_array_mut().unwrap() {
+        for measure in part["measures"].as_array_mut().unwrap() {
+            for sequence in measure["sequences"].as_array_mut().unwrap() {
+                sequence["content"] = serde_json::json!([
+                    {"duration": {"base": "whole"}, "rest": {}}
+                ]);
+            }
+        }
+    }
+    let config = LayoutConfig::default();
+    let explicit = parse_mnx(&value.to_string()).unwrap();
+    value.as_object_mut().unwrap().remove("layouts");
+    value.as_object_mut().unwrap().remove("scores");
+    let default = parse_mnx(&value.to_string()).unwrap();
+    for dl in [
+        layout_with_mnx_scores(&explicit, &config, 0),
+        layout_with_mnx_scores(&explicit, &config, 1),
+        layout_score(&default, 0, &config),
+    ] {
+        for copy in dl
+            .element_bboxes
+            .iter()
+            .filter(|b| b.element_id == "m0/caesura")
+        {
+            let center_y = copy.bbox.y + copy.bbox.height * 0.5;
+            let bound = dl
+                .measure_bounds
+                .iter()
+                .find(|b| b.index == 1 && (b.y - center_y).abs() < 1e-6)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "caesura midpoint {center_y} must lie on its own staff's top line: {:?}",
+                        dl.measure_bounds
+                    )
+                });
+            let right = copy.bbox.x + copy.bbox.width;
+            assert!(
+                (bound.x - right - 0.25 * config.sp).abs() < 1e-6,
+                "caesura must sit just before the visible incoming barline"
             );
         }
     }

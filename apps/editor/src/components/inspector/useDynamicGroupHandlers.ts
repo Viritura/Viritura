@@ -27,7 +27,6 @@ export interface DynamicGroupHandlers {
   handleDynamicStaffEndChange: (value: number | undefined) => void;
   handleDynamicVisuallyContinuesChange: (value: string) => void;
   handleDynamicVoiceChange: (value: string) => void;
-  handleDynamicGlyphsChange: (glyphs: string[] | undefined) => void;
 }
 
 /**
@@ -139,14 +138,6 @@ export function useDynamicGroupHandlers(updateSelectedDynamic: UpdateSelectedDyn
       }),
     [updateSelectedDynamic],
   );
-  const handleDynamicGlyphsChange = useCallback(
-    (glyphs: string[] | undefined) =>
-      updateSelectedDynamic((dynamic) => {
-        if (glyphs === undefined) delete dynamic.glyphs;
-        else dynamic.glyphs = [...glyphs];
-      }),
-    [updateSelectedDynamic],
-  );
 
   return {
     handleDynamicValueChange,
@@ -162,6 +153,5 @@ export function useDynamicGroupHandlers(updateSelectedDynamic: UpdateSelectedDyn
     handleDynamicStaffEndChange,
     handleDynamicVisuallyContinuesChange,
     handleDynamicVoiceChange,
-    handleDynamicGlyphsChange,
   };
 }
