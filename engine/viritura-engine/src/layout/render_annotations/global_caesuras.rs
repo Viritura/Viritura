@@ -10,18 +10,12 @@ pub(crate) fn global_caesura_top(ml: &MeasureLayout, sp: f64, config: &LayoutCon
     let glyph = smufl::caesura_glyph(&caesura.marking.style, caesura.marking.marks);
     let (_, _, width, height) = smufl::glyph_bbox(glyph);
     let metrics = config.placement.resolve(ElementKind::Caesura);
-    let anchor = ml.x + ml.width;
-    let top = -(metrics.attach_gap.max(0.5) + height) * sp;
-    let substrate = super::highest_point_in_range(
-        ml,
-        0.0,
-        sp,
-        config.stem_length,
-        anchor - width * sp * 0.5,
-        anchor + width * sp * 0.5,
-    );
+    let right = ml.x + ml.width - 0.25 * sp;
+    let top = -height * 0.5 * sp;
+    let substrate =
+        super::highest_point_in_range(ml, 0.0, sp, config.stem_length, right - width * sp, right);
     if substrate < 0.0 {
-        top.min(substrate - (0.5 + metrics.padding.vertical + height) * sp)
+        top.min(substrate - (metrics.padding.vertical + height) * sp)
     } else {
         top
     }

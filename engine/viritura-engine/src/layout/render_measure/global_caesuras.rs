@@ -7,18 +7,17 @@ pub(super) fn render_global_caesura(
     ml: &MeasureLayout,
     staff_y: f64,
     sp: f64,
-    config: &LayoutConfig,
+    _config: &LayoutConfig,
 ) {
     let Some(caesura) = &ml.resolved.global.caesura else {
         return;
     };
     let codepoint = smufl::caesura_glyph(&caesura.marking.style, caesura.marking.marks);
     let (left, top, width, height) = smufl::glyph_bbox(codepoint);
-    let metrics = config.placement.resolve(ElementKind::Caesura);
-    // Standard engraving practice: centre the ink over the ending barline and
-    // keep it above the staff. The common dependent-flow pass clears other ink.
-    let x = ml.x + ml.width - (left + width * 0.5) * sp;
-    let y = staff_y - (metrics.attach_gap.max(0.5) + top + height) * sp;
+    // Standard engraving practice: centre the strokes on the top staff line,
+    // just before the barline, matching event-local caesuras.
+    let x = ml.x + ml.width - (left + width + 0.25) * sp;
+    let y = staff_y - (top + height * 0.5) * sp;
     dl.push_selectable_command(
         RenderCommand::DrawGlyph {
             x,

@@ -176,7 +176,7 @@ pub(crate) fn text_command_bbox(command: &RenderCommand) -> Option<BoundingBox> 
     Some(BoundingBox::new(left, top, width, bottom - top))
 }
 
-/// Collect fixed ink after a whole staff has rendered. Tempo and expression
+/// Collect fixed ink after a whole staff has rendered. Movable annotation
 /// dependents are excluded because the outward flow pass moves them; curves,
 /// rehearsal frames, and tuplets have dedicated geometry stages.
 pub(crate) fn collect_fixed_above_ink_boxes(
@@ -188,12 +188,19 @@ pub(crate) fn collect_fixed_above_ink_boxes(
         .iter()
         .enumerate()
         .filter_map(|(index, command)| {
+            // The top staff line is the caesura's attachment, not protruding ink.
+            if matches!(command, RenderCommand::DrawLine { y1, y2, .. }
+                if (*y1 - staff_y).abs() < 1e-6 && (*y2 - staff_y).abs() < 1e-6)
+            {
+                return None;
+            }
             let id = element_ids.get(index).and_then(|id| id.as_deref());
             if id.is_some_and(|id| {
                 id.contains("/tempo")
                     || id.contains("/expr")
                     || id.contains("/rehearsal")
                     || id.contains("/tuplet")
+                    || (id.starts_with('m') && id.ends_with("/caesura"))
                     || id.starts_with("tie/")
                     || id.starts_with("slur/")
             }) {
