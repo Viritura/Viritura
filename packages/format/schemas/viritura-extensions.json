@@ -187,27 +187,6 @@
       "additionalProperties": false
     },
 
-    "coda": {
-      "type": "object",
-      "description": "A coda navigation marker on a global measure.",
-      "required": ["location"],
-      "properties": {
-        "location": {
-          "$ref": "#/$defs/rhythmic-position",
-          "description": "Position within the measure."
-        },
-        "glyph": {
-          "type": "string",
-          "description": "Optional SMuFL glyph name override."
-        },
-        "color": {
-          "type": "string",
-          "description": "Optional rendering color (CSS hex, e.g. '#FF0000')."
-        }
-      },
-      "additionalProperties": false
-    },
-
     "dynamic-group-extensions": {
       "type": "object",
       "description": "Viritura engraving placement extensions on a standard MNX dynamic-group object.",
@@ -676,24 +655,6 @@
       "additionalProperties": false
     },
 
-    "jump": {
-      "type": "object",
-      "description": "A jump direction with a type not supported by the MNX spec (e.g. D.S. al Coda, D.C. al Coda).",
-      "required": ["type", "location"],
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["dsalcoda", "dcalcoda"],
-          "description": "Non-standard jump type."
-        },
-        "location": {
-          "$ref": "#/$defs/rhythmic-position",
-          "description": "Position within the measure."
-        }
-      },
-      "additionalProperties": false
-    },
-
     "marker-text": {
       "type": "object",
       "description": "Authored display text owned by one navigation marker. The owning marker remains authoritative for playback and navigation.",
@@ -762,8 +723,6 @@
       "description": "Viritura vendor extensions on a global measure object.",
       "properties": {
         "rehearsalMark": { "$ref": "#/$defs/rehearsal-mark" },
-        "coda": { "$ref": "#/$defs/coda" },
-        "jump": { "$ref": "#/$defs/jump" },
         "markerText": { "$ref": "#/$defs/marker-texts" },
         "systemText": {
           "type": "array",

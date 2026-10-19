@@ -106,7 +106,7 @@ describe("applyDenigmaGapReport", () => {
     const source = document();
     const global = source["global"] as JsonRecord;
     const measures = global["measures"] as JsonRecord[];
-    measures[0]!["jump"] = { type: "dsalfine", location: { fraction: [1, 1] } };
+    measures[0]!["jump"] = { type: "dsAlFine", location: { fraction: [1, 1] } };
     const result = applyDenigmaGapReport(
       JSON.stringify(source),
       report([

@@ -29,12 +29,6 @@ pub struct GlobalMeasureExtensions {
     /// Rehearsal mark (e.g. "A", "B")
     #[serde(skip_serializing_if = "Option::is_none", rename = "rehearsalMark")]
     pub rehearsal_mark: Option<RehearsalMark>,
-    /// Coda marker
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub coda: Option<Coda>,
-    /// Jump direction (non-standard types like dsalcoda/dcalcoda)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub jump: Option<Jump>,
     /// Authored text owned by this measure's segno, coda, fine, or jump.
     #[serde(skip_serializing_if = "Option::is_none", rename = "markerText")]
     pub marker_text: Option<MarkerTexts>,
@@ -78,9 +72,12 @@ pub struct GlobalMeasure {
     /// Fine marker (MNX `fine`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fine: Option<Fine>,
-    /// Jump direction (MNX `jump` or `_x.viritura.jump`)
+    /// Jump direction (MNX `jump`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jump: Option<Jump>,
+    /// Coda marker (MNX `coda`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coda: Option<Coda>,
     /// Vendor extensions (`_x.viritura`)
     #[serde(skip_serializing_if = "Option::is_none", rename = "_x")]
     pub extensions: Option<VendorExtensions<GlobalMeasureExtensions>>,
@@ -110,9 +107,9 @@ impl GlobalMeasure {
             .rehearsal_mark
             .as_ref()
     }
-    /// Convenience accessor for `_x.viritura.coda`.
+    /// Convenience accessor for the native MNX `coda` marker.
     pub fn coda(&self) -> Option<&Coda> {
-        self.extensions.as_ref()?.viritura.as_ref()?.coda.as_ref()
+        self.coda.as_ref()
     }
     /// Authored text owned by this measure's navigation markers.
     pub fn marker_text(&self) -> Option<&MarkerTexts> {

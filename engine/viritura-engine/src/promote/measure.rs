@@ -7,8 +7,8 @@
 //! and route each sequence's content through
 //! [`super::event::promote_sequence`].
 //!
-//! `_x.viritura.jump` wins over the top-level MNX-core `jump` on a global
-//! measure (matches the old custom `Deserialize` semantics).
+//! Navigation markers are read and promoted only from their native MNX v46
+//! global-measure fields.
 
 use crate::model::clef::RhythmicPosition as ModelRhythmicPosition;
 use crate::model::event::ArpeggioDirection as ModelArpeggioDirection;
@@ -23,7 +23,8 @@ use crate::promote::barline::promote_barline;
 use crate::promote::beam::promote_beam;
 use crate::promote::clef::{promote_positioned_clef, promote_rhythmic_position};
 use crate::promote::direction::{
-    promote_dynamic_group, promote_fine, promote_jump, promote_ottava, promote_segno, promote_tempo,
+    promote_coda, promote_dynamic_group, promote_fine, promote_jump, promote_ottava, promote_segno,
+    promote_tempo,
 };
 use crate::promote::event::promote_sequence;
 use crate::promote::key::promote_key;
@@ -101,6 +102,29 @@ fn vec_or_none<T>(values: Vec<T>) -> Option<Vec<T>> {
     (!values.is_empty()).then_some(values)
 }
 
+fn reject_retired_navigation_extensions(
+    original_json: Option<&serde_json::Value>,
+) -> Result<(), PromoteError> {
+    let Some(viritura) = original_json
+        .and_then(|value| value.pointer("/_x/viritura"))
+        .and_then(serde_json::Value::as_object)
+    else {
+        return Ok(());
+    };
+    let retired = ["coda", "jump"]
+        .into_iter()
+        .filter(|key| viritura.contains_key(*key))
+        .map(|key| format!("_x.viritura.{key}"))
+        .collect::<Vec<_>>();
+    if retired.is_empty() {
+        return Ok(());
+    }
+    Err(PromoteError::UnsupportedNavigationExtension(format!(
+        "{} must use native MNX v46 coda and jump fields",
+        retired.join(", ")
+    )))
+}
+
 #[cfg(test)]
 pub(crate) fn promote_global_measure(
     r: raw::MeasureGlobal,
@@ -112,15 +136,15 @@ pub(crate) fn promote_global_measure_with_json(
     r: raw::MeasureGlobal,
     original_json: Option<&serde_json::Value>,
 ) -> Result<ModelGlobalMeasure, PromoteError> {
+    reject_retired_navigation_extensions(original_json)?;
     let repeat_start_json = original_json.and_then(|v| v.get("repeatStart"));
     let vendor = extract_global_measure_vendor(r.x.as_ref());
     let system_text = super::system_text::extract_system_text(r.x.as_ref())?;
-    // _x.viritura.jump wins over top-level
-    let jump = vendor.jump.clone().or_else(|| r.jump.map(promote_jump));
+    let jump = r.jump.map(promote_jump);
     if let Some(text) = vendor.marker_text.as_ref() {
         let orphan = [
             (text.segno.is_some() && r.segno.is_none(), "segno"),
-            (text.coda.is_some() && vendor.coda.is_none(), "coda"),
+            (text.coda.is_some() && r.coda.is_none(), "coda"),
             (text.fine.is_some() && r.fine.is_none(), "fine"),
             (text.jump.is_some() && jump.is_none(), "jump"),
         ]
@@ -144,8 +168,6 @@ pub(crate) fn promote_global_measure_with_json(
     }
     // Preserve _x roundtrip if any viritura content present.
     let extensions = (vendor.rehearsal_mark.is_some()
-        || vendor.coda.is_some()
-        || vendor.jump.is_some()
         || vendor.marker_text.is_some()
         || vendor.senza_misura.is_some()
         || vendor.chord_symbols.is_some()
@@ -153,8 +175,6 @@ pub(crate) fn promote_global_measure_with_json(
     .then_some(ModelVendorExtensions {
         viritura: Some(GlobalMeasureExtensions {
             rehearsal_mark: vendor.rehearsal_mark,
-            coda: vendor.coda,
-            jump: vendor.jump,
             marker_text: vendor.marker_text,
             senza_misura: vendor.senza_misura,
             chord_symbols: vendor.chord_symbols,
@@ -176,6 +196,7 @@ pub(crate) fn promote_global_measure_with_json(
         segno: r.segno.map(promote_segno),
         fine: r.fine.map(promote_fine),
         jump,
+        coda: r.coda.map(promote_coda),
         extensions,
     })
 }
@@ -213,7 +234,17 @@ pub(crate) fn promote_part_measure(
     let beams = r
         .beams
         .map(|b| b.0.into_iter().map(promote_beam).collect::<Vec<_>>());
-    let dynamics = vec_or_none(r.dynamics.into_iter().map(promote_dynamic_group).collect());
+    let dynamics = r
+        .dynamics
+        .map(|groups| {
+            groups
+                .0
+                .into_iter()
+                .map(promote_dynamic_group)
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .transpose()?
+        .and_then(vec_or_none);
     let ottavas = vec_or_none(r.ottavas.into_iter().map(promote_ottava).collect());
     let arpeggios = vec_or_none(r.arpeggios.into_iter().map(promote_mnx_arpeggio).collect());
     let non_arpeggios = vec_or_none(
@@ -303,18 +334,24 @@ mod tests {
     }
 
     #[test]
-    fn vendor_jump_wins_over_core_jump() {
-        let g = parse_global(
-            r#"{
-                "jump": {"type": "dsalfine",
-                          "location": {"fraction":[0,1]}},
-                "_x": {"viritura": {"jump": {"type": "dsalcoda",
-                          "location": {"fraction":[0,1]}}}}
-            }"#,
-        );
+    fn promotes_native_v46_jump() {
+        let g = parse_global(r#"{"jump":{"type":"dsAlCoda","location":{"fraction":[0,1]}}}"#);
         let jt = g.jump.expect("jump promoted");
         let s = serde_json::to_string(&jt.jump_type).unwrap();
-        assert!(s.contains("dsalcoda"), "got {s}");
+        assert_eq!(s, r#""dsAlCoda""#);
+    }
+
+    #[test]
+    fn rejects_retired_vendor_navigation_fields() {
+        let json: serde_json::Value =
+            serde_json::from_str(r#"{"_x":{"viritura":{"coda":{"location":{"fraction":[0,1]}}}}}"#)
+                .unwrap();
+        let raw: raw::MeasureGlobal = serde_json::from_value(json.clone()).unwrap();
+        let error = promote_global_measure_with_json(raw, Some(&json)).unwrap_err();
+        assert!(matches!(
+            error,
+            PromoteError::UnsupportedNavigationExtension(_)
+        ));
     }
 
     #[test]

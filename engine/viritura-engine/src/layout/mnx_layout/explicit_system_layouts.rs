@@ -251,6 +251,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                         segno: None,
                         fine: None,
                         jump: None,
+                        coda: None,
                         extensions: None,
                     });
             if let Some(time) = &global.time {

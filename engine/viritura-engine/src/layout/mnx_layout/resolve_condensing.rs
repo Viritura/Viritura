@@ -665,6 +665,7 @@ pub(super) fn resolve_one_measure_phase1(
             segno: None,
             fine: None,
             jump: None,
+            coda: None,
             extensions: None,
         });
     if let Some(ref t) = global.time {

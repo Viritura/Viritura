@@ -91,6 +91,7 @@ fn generate_mnx_core() -> Result<()> {
          // `packages/format/src/mnx/generated/raw.ts`.\n\n\
          #![allow(\n    clippy::all,\n    clippy::pedantic,\n    clippy::nursery,\n    clippy::cargo,\n    dead_code,\n    non_camel_case_types,\n    non_snake_case,\n    unused_imports,\n    missing_docs,\n)]\n\n",
     )?;
+    rewrite_dynamic_groups_item(&out_path)?;
 
     // Copy the schema next to raw.rs so viritura-engine's validator module
     // can embed it via include_str! without reaching outside the crate.
@@ -101,6 +102,79 @@ fn generate_mnx_core() -> Result<()> {
         "[mnx-core] Done. {} bytes written.",
         fs::metadata(&out_path)?.len()
     );
+    Ok(())
+}
+
+/// Typify models the MNX `dynamic-groups` oneOf as flattened optional fields.
+/// Those fields overlap, so serde may decode one object into the wrong variant.
+/// Keep the generated variant structs, but give their union a discriminator-aware
+/// deserializer so Rust promotion sees the same strict variants as TypeScript.
+fn rewrite_dynamic_groups_item(path: &Path) -> Result<()> {
+    let mut source = fs::read_to_string(path)
+        .with_context(|| format!("failed to read generated types at {}", path.display()))?;
+    let start_marker =
+        "#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]\npub struct DynamicGroupsItem";
+    let end_marker = "///`DynamicPrefix`";
+    let start = source
+        .find(start_marker)
+        .context("generated DynamicGroupsItem declaration not found")?;
+    let end = source[start..]
+        .find(end_marker)
+        .map(|offset| start + offset)
+        .context("generated DynamicPrefix declaration not found")?;
+    let replacement = r#"#[derive(Clone, Debug)]
+pub enum DynamicGroupsItem {
+    Immediate(DynamicGroupImmediate),
+    Gradual(DynamicGroupGradual),
+    Relative(DynamicGroupRelative),
+    Accent(DynamicGroupAccent),
+}
+impl ::serde::Serialize for DynamicGroupsItem {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: ::serde::Serializer,
+    {
+        match self {
+            Self::Immediate(value) => ::serde::Serialize::serialize(value, serializer),
+            Self::Gradual(value) => ::serde::Serialize::serialize(value, serializer),
+            Self::Relative(value) => ::serde::Serialize::serialize(value, serializer),
+            Self::Accent(value) => ::serde::Serialize::serialize(value, serializer),
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for DynamicGroupsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        let value = <::serde_json::Value as ::serde::Deserialize>::deserialize(deserializer)?;
+        let type_ = value
+            .get("type")
+            .and_then(::serde_json::Value::as_str)
+            .ok_or_else(|| <D::Error as ::serde::de::Error>::custom("dynamic group requires a type"))?;
+        match type_ {
+            "immediate" => ::serde_json::from_value(value)
+                .map(Self::Immediate)
+                .map_err(<D::Error as ::serde::de::Error>::custom),
+            "gradual" => ::serde_json::from_value(value)
+                .map(Self::Gradual)
+                .map_err(<D::Error as ::serde::de::Error>::custom),
+            "relative" => ::serde_json::from_value(value)
+                .map(Self::Relative)
+                .map_err(<D::Error as ::serde::de::Error>::custom),
+            "accent" => ::serde_json::from_value(value)
+                .map(Self::Accent)
+                .map_err(<D::Error as ::serde::de::Error>::custom),
+            other => Err(<D::Error as ::serde::de::Error>::custom(format!(
+                "unsupported dynamic group type: {other}"
+            ))),
+        }
+    }
+}
+"#;
+    source.replace_range(start..end, replacement);
+    fs::write(path, source)
+        .with_context(|| format!("failed to write generated types at {}", path.display()))?;
     Ok(())
 }
 

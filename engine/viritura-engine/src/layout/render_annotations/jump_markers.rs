@@ -149,10 +149,13 @@ pub(crate) fn render_jump_markers(
     // so the jump instruction occupies the space immediately to its left.
     if let Some(ref jump) = global.jump {
         let generated = match jump.jump_type {
+            JumpType::Dc => "D.C.",
+            JumpType::DcAlFine => "D.C. al Fine",
             JumpType::Segno => "D.S.",
             JumpType::DsAlFine => "D.S. al Fine",
             JumpType::DsAlCoda => "D.S. al Coda",
             JumpType::DcAlCoda => "D.C. al Coda",
+            JumpType::ToCoda => "To Coda",
         };
         let content =
             marker_text::compose_label(generated, marker_text.and_then(|text| text.jump.as_ref()));

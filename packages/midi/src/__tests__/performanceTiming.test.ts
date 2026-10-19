@@ -171,7 +171,7 @@ describe("native chord and instrument timing integration", () => {
       } else if (navigation === "simile with D.S. al Fine") {
         score.global.measures[0]!.segno = { location: { fraction: [0, 1] } };
         score.global.measures[2]!.fine = { location: { fraction: [1, 1] } };
-        score.global.measures[2]!.jump = { type: "dsalfine", location: { fraction: [1, 1] } };
+        score.global.measures[2]!.jump = { type: "dsAlFine", location: { fraction: [1, 1] } };
       }
 
       const before = structuredClone(score);

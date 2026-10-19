@@ -862,7 +862,7 @@ fn test_bbox_measure_number() {
 fn test_bbox_coda_marker() {
     let json = r#"{
         "mnx": {"version": 1},
-        "global": {"measures": [{"time": {"count": 4, "unit": 4}, "_x": {"viritura": {"coda": {"location": {"fraction": [0, 1]}}}}}]},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}, "coda": {"location": {"fraction": [0, 1]}}}]},
         "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}]}]
     }"#;
 

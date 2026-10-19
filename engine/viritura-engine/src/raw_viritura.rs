@@ -1307,52 +1307,6 @@ impl ::std::convert::TryFrom<::std::string::String> for ChordSymbolStyleRootCase
         value.parse()
     }
 }
-///A coda navigation marker on a global measure.
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "description": "A coda navigation marker on a global measure.",
-///  "type": "object",
-///  "required": [
-///    "location"
-///  ],
-///  "properties": {
-///    "color": {
-///      "description": "Optional rendering color (CSS hex, e.g. '#FF0000').",
-///      "type": "string"
-///    },
-///    "glyph": {
-///      "description": "Optional SMuFL glyph name override.",
-///      "type": "string"
-///    },
-///    "location": {
-///      "description": "Position within the measure.",
-///      "$ref": "#/$defs/rhythmic-position"
-///    }
-///  },
-///  "additionalProperties": false
-///}
-/// ```
-/// </details>
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct Coda {
-    ///Optional rendering color (CSS hex, e.g. '#FF0000').
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub color: ::std::option::Option<::std::string::String>,
-    ///Optional SMuFL glyph name override.
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub glyph: ::std::option::Option<::std::string::String>,
-    ///Position within the measure.
-    pub location: RhythmicPosition,
-}
-impl ::std::convert::From<&Coda> for Coda {
-    fn from(value: &Coda) -> Self {
-        value.clone()
-    }
-}
 ///Viritura engraving placement extensions on a standard MNX dynamic-group object.
 ///
 /// <details><summary>JSON schema</summary>
@@ -3157,132 +3111,6 @@ for InstrumentTranspositionInterval {
         value.clone()
     }
 }
-///A jump direction with a type not supported by the MNX spec (e.g. D.S. al Coda, D.C. al Coda).
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "description": "A jump direction with a type not supported by the MNX spec (e.g. D.S. al Coda, D.C. al Coda).",
-///  "type": "object",
-///  "required": [
-///    "location",
-///    "type"
-///  ],
-///  "properties": {
-///    "location": {
-///      "description": "Position within the measure.",
-///      "$ref": "#/$defs/rhythmic-position"
-///    },
-///    "type": {
-///      "description": "Non-standard jump type.",
-///      "type": "string",
-///      "enum": [
-///        "dsalcoda",
-///        "dcalcoda"
-///      ]
-///    }
-///  },
-///  "additionalProperties": false
-///}
-/// ```
-/// </details>
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct Jump {
-    ///Position within the measure.
-    pub location: RhythmicPosition,
-    ///Non-standard jump type.
-    #[serde(rename = "type")]
-    pub type_: JumpType,
-}
-impl ::std::convert::From<&Jump> for Jump {
-    fn from(value: &Jump) -> Self {
-        value.clone()
-    }
-}
-///Non-standard jump type.
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "description": "Non-standard jump type.",
-///  "type": "string",
-///  "enum": [
-///    "dsalcoda",
-///    "dcalcoda"
-///  ]
-///}
-/// ```
-/// </details>
-#[derive(
-    ::serde::Deserialize,
-    ::serde::Serialize,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd
-)]
-pub enum JumpType {
-    #[serde(rename = "dsalcoda")]
-    Dsalcoda,
-    #[serde(rename = "dcalcoda")]
-    Dcalcoda,
-}
-impl ::std::convert::From<&Self> for JumpType {
-    fn from(value: &JumpType) -> Self {
-        value.clone()
-    }
-}
-impl ::std::fmt::Display for JumpType {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Self::Dsalcoda => f.write_str("dsalcoda"),
-            Self::Dcalcoda => f.write_str("dcalcoda"),
-        }
-    }
-}
-impl ::std::str::FromStr for JumpType {
-    type Err = self::error::ConversionError;
-    fn from_str(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        match value {
-            "dsalcoda" => Ok(Self::Dsalcoda),
-            "dcalcoda" => Ok(Self::Dcalcoda),
-            _ => Err("invalid value".into()),
-        }
-    }
-}
-impl ::std::convert::TryFrom<&str> for JumpType {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<&::std::string::String> for JumpType {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<::std::string::String> for JumpType {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: ::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
 ///Viritura extensions on a standard MNX key-signature object.
 ///
 /// <details><summary>JSON schema</summary>
@@ -4542,14 +4370,8 @@ impl ::std::default::Default for MarkerTexts {
 ///        "$ref": "#/$defs/chord-symbol"
 ///      }
 ///    },
-///    "coda": {
-///      "$ref": "#/$defs/coda"
-///    },
 ///    "gradualTempo": {
 ///      "$ref": "#/$defs/gradual-tempo"
-///    },
-///    "jump": {
-///      "$ref": "#/$defs/jump"
 ///    },
 ///    "markerText": {
 ///      "$ref": "#/$defs/marker-texts"
@@ -4584,16 +4406,12 @@ pub struct MeasureGlobalExtensions {
         skip_serializing_if = "::std::vec::Vec::is_empty"
     )]
     pub chord_symbols: ::std::vec::Vec<ChordSymbol>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub coda: ::std::option::Option<Coda>,
     #[serde(
         rename = "gradualTempo",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub gradual_tempo: ::std::option::Option<GradualTempo>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub jump: ::std::option::Option<Jump>,
     #[serde(
         rename = "markerText",
         default,
@@ -4630,9 +4448,7 @@ impl ::std::default::Default for MeasureGlobalExtensions {
     fn default() -> Self {
         Self {
             chord_symbols: Default::default(),
-            coda: Default::default(),
             gradual_tempo: Default::default(),
-            jump: Default::default(),
             marker_text: Default::default(),
             rehearsal_mark: Default::default(),
             senza_misura: Default::default(),
@@ -13458,9 +13274,6 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "chord-symbol-style": {
 ///      "$ref": "#/$defs/chord-symbol-style"
 ///    },
-///    "coda": {
-///      "$ref": "#/$defs/coda"
-///    },
 ///    "dynamic-group-extensions": {
 ///      "$ref": "#/$defs/dynamic-group-extensions"
 ///    },
@@ -13517,9 +13330,6 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    },
 ///    "instrument-transposition": {
 ///      "$ref": "#/$defs/instrument-transposition"
-///    },
-///    "jump": {
-///      "$ref": "#/$defs/jump"
 ///    },
 ///    "key-extensions": {
 ///      "$ref": "#/$defs/key-extensions"
@@ -13786,8 +13596,6 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub chord_symbol_style: ::std::option::Option<ChordSymbolStyle>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub coda: ::std::option::Option<Coda>,
     #[serde(
         rename = "dynamic-group-extensions",
         default,
@@ -13898,8 +13706,6 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub instrument_transposition: ::std::option::Option<InstrumentTransposition>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub jump: ::std::option::Option<Jump>,
     #[serde(
         rename = "key-extensions",
         default,
@@ -14370,7 +14176,6 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             chord_root: Default::default(),
             chord_symbol: Default::default(),
             chord_symbol_style: Default::default(),
-            coda: Default::default(),
             dynamic_group_extensions: Default::default(),
             event_extensions: Default::default(),
             event_markings_extensions: Default::default(),
@@ -14390,7 +14195,6 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             instrument_name_display: Default::default(),
             instrument_name_display_policy: Default::default(),
             instrument_transposition: Default::default(),
-            jump: Default::default(),
             key_extensions: Default::default(),
             kit_component_extensions: Default::default(),
             layout_break: Default::default(),

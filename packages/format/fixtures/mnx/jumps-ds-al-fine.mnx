@@ -33,7 +33,7 @@
       {},
       {
         "jump": {
-          "type": "dsalfine",
+          "type": "dsAlFine",
           "location": {
             "fraction": [
               1,

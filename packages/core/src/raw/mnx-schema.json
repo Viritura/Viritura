@@ -249,6 +249,27 @@
       "enum": ["C", "F", "G", "P"],
       "type": "string"
     },
+    "coda": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "glyph": {
+          "$ref": "#/$defs/smufl-glyph"
+        },
+        "location": {
+          "$ref": "#/$defs/rhythmic-position"
+        }
+      },
+      "required": ["location"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
     "color": {
       "type": "string"
     },
@@ -256,7 +277,7 @@
       "enum": ["upper", "lower", "auto"],
       "type": "string"
     },
-    "dynamic-group": {
+    "dynamic-group-accent": {
       "allOf": [
         {
           "$ref": "#/$defs/global-attrs"
@@ -269,6 +290,55 @@
         "accentSuffix": {
           "$ref": "#/$defs/dynamic-suffix"
         },
+        "glyphs": {
+          "items": {
+            "$ref": "#/$defs/smufl-glyph"
+          },
+          "type": "array"
+        },
+        "placement": {
+          "$ref": "#/$defs/multi-staff-placement"
+        },
+        "position": {
+          "$ref": "#/$defs/rhythmic-position"
+        },
+        "prefix": {
+          "$ref": "#/$defs/string"
+        },
+        "residualValue": {
+          "$ref": "#/$defs/dynamic-value"
+        },
+        "staff": {
+          "$ref": "#/$defs/staff-number"
+        },
+        "suffix": {
+          "$ref": "#/$defs/string"
+        },
+        "type": {
+          "const": "accent",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/dynamic-value"
+        },
+        "visuallyContinues": {
+          "$ref": "#/$defs/id"
+        },
+        "voice": {
+          "$ref": "#/$defs/voice-name"
+        }
+      },
+      "required": ["position", "type", "value"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "dynamic-group-gradual": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
         "end": {
           "$ref": "#/$defs/measure-rhythmic-position"
         },
@@ -287,12 +357,6 @@
         "prefix": {
           "$ref": "#/$defs/string"
         },
-        "relativeValue": {
-          "$ref": "#/$defs/relative-dynamic-value"
-        },
-        "residualValue": {
-          "$ref": "#/$defs/dynamic-value"
-        },
         "staff": {
           "$ref": "#/$defs/staff-number"
         },
@@ -303,7 +367,8 @@
           "$ref": "#/$defs/string"
         },
         "type": {
-          "$ref": "#/$defs/dynamic-group-type"
+          "const": "gradual",
+          "type": "string"
         },
         "value": {
           "$ref": "#/$defs/dynamic-value"
@@ -318,13 +383,123 @@
           "$ref": "#/$defs/wedge-type"
         }
       },
-      "required": ["position", "type"],
+      "required": ["end", "position", "type", "wedgeType"],
       "type": "object",
       "unevaluatedProperties": false
     },
-    "dynamic-group-type": {
-      "enum": ["immediate", "gradual", "relative", "accent"],
-      "type": "string"
+    "dynamic-group-immediate": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "glyphs": {
+          "items": {
+            "$ref": "#/$defs/smufl-glyph"
+          },
+          "type": "array"
+        },
+        "placement": {
+          "$ref": "#/$defs/multi-staff-placement"
+        },
+        "position": {
+          "$ref": "#/$defs/rhythmic-position"
+        },
+        "prefix": {
+          "$ref": "#/$defs/string"
+        },
+        "staff": {
+          "$ref": "#/$defs/staff-number"
+        },
+        "suffix": {
+          "$ref": "#/$defs/string"
+        },
+        "type": {
+          "const": "immediate",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/dynamic-value"
+        },
+        "visuallyContinues": {
+          "$ref": "#/$defs/id"
+        },
+        "voice": {
+          "$ref": "#/$defs/voice-name"
+        }
+      },
+      "required": ["position", "type", "value"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "dynamic-group-relative": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "glyphs": {
+          "items": {
+            "$ref": "#/$defs/smufl-glyph"
+          },
+          "type": "array"
+        },
+        "placement": {
+          "$ref": "#/$defs/multi-staff-placement"
+        },
+        "position": {
+          "$ref": "#/$defs/rhythmic-position"
+        },
+        "prefix": {
+          "$ref": "#/$defs/string"
+        },
+        "relativeValue": {
+          "$ref": "#/$defs/relative-dynamic-value"
+        },
+        "staff": {
+          "$ref": "#/$defs/staff-number"
+        },
+        "suffix": {
+          "$ref": "#/$defs/string"
+        },
+        "type": {
+          "const": "relative",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/dynamic-value"
+        },
+        "visuallyContinues": {
+          "$ref": "#/$defs/id"
+        },
+        "voice": {
+          "$ref": "#/$defs/voice-name"
+        }
+      },
+      "required": ["position", "relativeValue", "type"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "dynamic-groups": {
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/dynamic-group-immediate"
+          },
+          {
+            "$ref": "#/$defs/dynamic-group-gradual"
+          },
+          {
+            "$ref": "#/$defs/dynamic-group-relative"
+          },
+          {
+            "$ref": "#/$defs/dynamic-group-accent"
+          }
+        ]
+      },
+      "type": "array"
     },
     "dynamic-prefix": {
       "enum": ["s", "r", ""],
@@ -454,6 +629,9 @@
         }
       ],
       "properties": {
+        "extender": {
+          "$ref": "#/$defs/event-lyric-line-extender"
+        },
         "text": {
           "$ref": "#/$defs/string"
         },
@@ -462,6 +640,23 @@
         }
       },
       "required": ["text"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "event-lyric-line-extender": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "show": {
+          "type": "boolean"
+        },
+        "target": {
+          "$ref": "#/$defs/id"
+        }
+      },
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -741,7 +936,7 @@
       "unevaluatedProperties": false
     },
     "jump-type": {
-      "enum": ["dsalfine", "segno"],
+      "enum": ["dc", "dcAlCoda", "dcAlFine", "dsAlCoda", "dsAlFine", "segno", "toCoda"],
       "type": "string"
     },
     "key": {
@@ -920,6 +1115,12 @@
       "properties": {
         "barline": {
           "$ref": "#/$defs/barline"
+        },
+        "caesura": {
+          "$ref": "#/$defs/caesura"
+        },
+        "coda": {
+          "$ref": "#/$defs/coda"
         },
         "ending": {
           "$ref": "#/$defs/ending"
@@ -1139,6 +1340,9 @@
         "accidentalDisplay": {
           "$ref": "#/$defs/accidental-display"
         },
+        "markings": {
+          "$ref": "#/$defs/note-markings"
+        },
         "perform": {
           "$ref": "#/$defs/perform-options"
         },
@@ -1156,6 +1360,23 @@
         }
       },
       "required": ["pitch"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "note-markings": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "slideIn": {
+          "$ref": "#/$defs/slide-into-note"
+        },
+        "slideOut": {
+          "$ref": "#/$defs/slide-out-of-note"
+        }
+      },
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1338,10 +1559,7 @@
           "type": "array"
         },
         "dynamics": {
-          "items": {
-            "$ref": "#/$defs/dynamic-group"
-          },
-          "type": "array"
+          "$ref": "#/$defs/dynamic-groups"
         },
         "measureRepeat": {
           "$ref": "#/$defs/measure-repeat"
@@ -1693,6 +1911,44 @@
       "pattern": "^#[0-9a-f]{6}$",
       "type": "string"
     },
+    "slide-into-note": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/slide-into-note-type"
+        }
+      },
+      "required": ["type"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "slide-into-note-type": {
+      "enum": ["scoop", "plop"],
+      "type": "string"
+    },
+    "slide-out-of-note": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/slide-out-of-note-type"
+        }
+      },
+      "required": ["type"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "slide-out-of-note-type": {
+      "enum": ["falloff", "doit"],
+      "type": "string"
+    },
     "slur": {
       "allOf": [
         {
@@ -2017,6 +2273,9 @@
         },
         "useBeams": {
           "type": "boolean"
+        },
+        "useLyricExtenders": {
+          "type": "boolean"
         }
       },
       "type": "object",
@@ -2299,7 +2558,7 @@
       "type": "string"
     }
   },
-  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/40",
+  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/46",
   "$ref": "#/$defs/root",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "An encoding of Common Western Music Notation.",

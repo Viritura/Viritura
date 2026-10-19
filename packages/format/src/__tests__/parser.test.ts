@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseMnx, parseMnxWithDiagnostics } from "../mnx/parser";
+import { parseMnx, parseMnxUnvalidated, parseMnxWithDiagnostics } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
 import { loadMnxFromString } from "../mnx/loader";
 
@@ -880,13 +880,7 @@ describe("parseMnx coda marker", () => {
         measures: [
           { time: { count: 4, unit: 4 } },
           {
-            _x: {
-              viritura: {
-                coda: {
-                  location: { fraction: [0, 1] },
-                },
-              },
-            },
+            coda: { location: { fraction: [0, 1] } },
           },
         ],
       },
@@ -918,14 +912,10 @@ describe("parseMnx coda marker", () => {
         measures: [
           {
             time: { count: 4, unit: 4 },
-            _x: {
-              viritura: {
-                coda: {
-                  location: { fraction: [0, 1] },
-                  glyph: "codaSquare",
-                  color: "#FF0000",
-                },
-              },
+            coda: {
+              location: { fraction: [0, 1] },
+              glyph: "codaSquare",
+              color: "#FF0000",
             },
           },
         ],
@@ -949,13 +939,13 @@ describe("parseMnx coda marker", () => {
     expect(coda?.color).toBe("#FF0000");
   });
 
-  it("should parse dsalcoda and dcalcoda jump types", () => {
+  it("should parse native v46 jump types", () => {
     const mnx = {
       mnx: { version: 1 },
       global: {
         measures: [
-          { time: { count: 4, unit: 4 }, jump: { type: "dsalcoda", location: { fraction: [1, 1] } } },
-          { jump: { type: "dcalcoda", location: { fraction: [1, 1] } } },
+          { time: { count: 4, unit: 4 }, jump: { type: "dsAlCoda", location: { fraction: [1, 1] } } },
+          { jump: { type: "dcAlCoda", location: { fraction: [1, 1] } } },
         ],
       },
       parts: [
@@ -973,16 +963,28 @@ describe("parseMnx coda marker", () => {
       ],
     };
 
-    // `dsalcoda` and `dcalcoda` extend the MNX jump-type enum, so this
-    // fixture goes through the lenient diagnostics path.
-    const { score } = parseMnxWithDiagnostics(mnx);
-    expect(score.global.measures[0].jump?.type).toBe("dsalcoda");
-    expect(score.global.measures[1].jump?.type).toBe("dcalcoda");
+    const score = parseMnx(mnx);
+    expect(score.global.measures[0].jump?.type).toBe("dsAlCoda");
+    expect(score.global.measures[1].jump?.type).toBe("dcAlCoda");
   });
 });
 
 describe("parseMnx _x.viritura extensions", () => {
-  it("round-trips extended jump types with a coda through the vendor extension", () => {
+  it("rejects retired vendor coda and jump fields instead of dropping them", () => {
+    const score = structuredClone(helloWorldMnx) as typeof helloWorldMnx & {
+      global: { measures: Array<Record<string, unknown>> };
+    };
+    score.global.measures[0]!["_x"] = {
+      viritura: {
+        coda: { location: { fraction: [0, 1] } },
+        jump: { type: "dsAlCoda", location: { fraction: [1, 1] } },
+      },
+    };
+
+    expect(() => parseMnxUnvalidated(score)).toThrow(/_x\.viritura\.coda.*_x\.viritura\.jump/);
+  });
+
+  it("round-trips native v46 jumps and coda while preserving marker text", () => {
     const mnx = {
       mnx: { version: 1 },
       global: {
@@ -991,16 +993,17 @@ describe("parseMnx _x.viritura extensions", () => {
             time: { count: 4, unit: 4 },
             _x: {
               viritura: {
-                jump: { type: "dcalcoda", location: { fraction: [0, 1] } },
                 markerText: {
                   jump: {
                     content: [{ text: "Return to the segno", style: { fontStyle: "italic" } }],
                     placement: "replace",
                   },
+                  coda: { content: [{ text: "To Coda" }], placement: "before" },
                 },
-                coda: { location: { fraction: [0, 1] } },
               },
             },
+            jump: { type: "dcAlCoda", location: { fraction: [0, 1] } },
+            coda: { location: { fraction: [0, 1] }, glyph: "codaSquare", color: "#FF0000" },
           },
         ],
       },
@@ -1017,24 +1020,42 @@ describe("parseMnx _x.viritura extensions", () => {
     };
 
     const score = parseMnx(mnx);
-    expect(score.global.measures[0]?.jump?.type).toBe("dcalcoda");
+    expect(score.global.measures[0]?.jump?.type).toBe("dcAlCoda");
     expect(score.global.measures[0]?.jump?.text).toEqual({
       content: [{ text: "Return to the segno", style: { fontStyle: "italic" } }],
       placement: "replace",
     });
-    expect(score.global.measures[0]?.coda).toBeDefined();
+    expect(score.global.measures[0]?.coda).toEqual({
+      location: { fraction: [0, 1] },
+      glyph: "codaSquare",
+      color: "#FF0000",
+      text: { content: [{ text: "To Coda" }], placement: "before" },
+    });
 
     const serialized = serializeMnx(score);
     const measure = serialized.global.measures[0]!;
-    expect(measure.jump).toBeUndefined();
-    expect(measure._x?.viritura?.jump?.type).toBe("dcalcoda");
+    expect(measure.jump).toEqual({ type: "dcAlCoda", location: { fraction: [0, 1] } });
     expect(measure._x?.viritura?.markerText).toEqual({
+      coda: {
+        content: [{ text: "To Coda" }],
+        placement: "before",
+      },
       jump: {
         content: [{ text: "Return to the segno", style: { fontStyle: "italic" } }],
         placement: "replace",
       },
     });
-    expect(measure._x?.viritura?.coda).toBeDefined();
+    expect(measure.coda).toEqual({
+      location: { fraction: [0, 1] },
+      glyph: "codaSquare",
+      color: "#FF0000",
+    });
+    expect(measure._x?.viritura?.coda).toBeUndefined();
+    expect(measure._x?.viritura?.jump).toBeUndefined();
+    expect(measure._x?.viritura?.markerText?.coda).toEqual({
+      content: [{ text: "To Coda" }],
+      placement: "before",
+    });
     expect(() => parseMnx(serialized)).not.toThrow();
   });
 
@@ -2184,6 +2205,49 @@ describe("dynamic-group semantic validation", () => {
 
   it("rejects unsupported SMuFL dynamic glyph names", () => {
     expect(() => parseMnx(scoreWithGlyph("gClef"))).toThrow(/unsupported SMuFL dynamic glyph/);
+  });
+
+  it("preserves relative printed values and explicit empty glyph overrides", () => {
+    const mnx = {
+      mnx: { version: 1 },
+      global: { measures: [{ id: "m1" }] },
+      parts: [
+        {
+          measures: [
+            {
+              dynamics: [
+                {
+                  id: "relative-1",
+                  type: "relative",
+                  position: { fraction: [0, 1] },
+                  relativeValue: "louder",
+                  value: "f",
+                  glyphs: [],
+                },
+              ],
+              sequences: [],
+            },
+          ],
+        },
+      ],
+    };
+
+    const score = parseMnx(mnx);
+    expect(score.parts[0]?.measures[0]?.dynamics?.[0]).toMatchObject({
+      type: "relative",
+      relativeValue: "louder",
+      value: "f",
+      glyphs: [],
+    });
+    const serialized = serializeMnx(score) as {
+      parts: Array<{ measures: Array<{ dynamics?: Array<Record<string, unknown>> }> }>;
+    };
+    expect(serialized.parts[0]?.measures[0]?.dynamics?.[0]).toMatchObject({
+      type: "relative",
+      relativeValue: "louder",
+      value: "f",
+      glyphs: [],
+    });
   });
 });
 
