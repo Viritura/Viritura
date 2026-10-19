@@ -1,5 +1,6 @@
 import type { LyricLine, NoteEvent, SequenceContent, Score } from "../model";
 import { measureBeats } from "../model/time";
+import { DURATION_BEATS } from "../constants";
 
 export interface ResolvedLyricExtender {
   sourceEventId?: string;
@@ -44,28 +45,8 @@ interface LocatedEvent {
   ordinal: number;
 }
 
-const NOTE_QUARTERS: Readonly<Record<string, number>> = {
-  duplexMaxima: 64,
-  maxima: 32,
-  longa: 16,
-  breve: 8,
-  whole: 4,
-  half: 2,
-  quarter: 1,
-  eighth: 0.5,
-  "16th": 0.25,
-  "32nd": 0.125,
-  "64th": 0.0625,
-  "128th": 0.03125,
-  "256th": 0.015625,
-  "512th": 0.0078125,
-  "1024th": 0.00390625,
-  "2048th": 0.001953125,
-  "4096th": 0.0009765625,
-};
-
 function durationBeats(duration: NoteEvent["duration"]): number {
-  const base = NOTE_QUARTERS[duration.base] ?? 1;
+  const base = DURATION_BEATS[duration.base];
   let dots = 1;
   for (let index = 0; index < (duration.dots ?? 0); index++) dots += 0.5 ** (index + 1);
   return base * dots;

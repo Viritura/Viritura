@@ -7,6 +7,24 @@
 
 ## TL;DR
 
+### MNX v46 contracts
+
+The schema revision is independent of `mnx.version`. Generated wire types,
+validators and decoded models share the vendored v46 schema; no runtime
+old-draft adapter sits between import and the editor.
+
+Lyric lines retain `extender` intent, endpoint IDs and global attributes.
+`mnx.support.useLyricExtenders` distinguishes explicit documents from inferred
+melismas. Event-lyrics patches and support-policy patches project through Yjs
+and delta serialization. Lyric edits invalidate dependent layout across the
+score, including targets in other parts; see [lyric-extenders.md](./lyric-extenders.md).
+
+Native navigation remains global musical data, separate from vendor-authored
+marker text. Playback resolves it into played measure spans with source
+start/end beats. MIDI, native performance events, seeking, playhead, click
+track and picture timing consume the same performed route. Invalid or
+ambiguous routing is reported, not silently replaced by score-order playback.
+
 ### Global caesura contract
 
 Native `global.measures[n].caesura` is a shared ending-barline marking.

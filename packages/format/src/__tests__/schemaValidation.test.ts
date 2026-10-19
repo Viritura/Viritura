@@ -28,14 +28,16 @@ import * as path from "node:path";
 import { parseMnx } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
 
-const scoresDir = path.resolve(__dirname, "../../fixtures/mnx");
 const schemaPath = path.resolve(__dirname, "../../schemas/mnx-schema.json");
 
-const mnxFiles = fs
-  .readdirSync(scoresDir)
-  .filter((f) => f.endsWith(".mnx"))
-  .sort()
-  .map((name) => ({ name, path: path.join(scoresDir, name) }));
+const mnxFiles = ["mnx", "mnx-v46"].flatMap((directory) => {
+  const scoresDir = path.resolve(__dirname, "../../fixtures", directory);
+  return fs
+    .readdirSync(scoresDir)
+    .filter((name) => name.endsWith(".mnx"))
+    .sort()
+    .map((name) => ({ name: `${directory}/${name}`, path: path.join(scoresDir, name) }));
+});
 mnxFiles.push({
   name: "score-viewer-react-minimal/sample.mnx",
   path: path.resolve(__dirname, "../../../../examples/score-viewer-react-minimal/public/sample.mnx"),

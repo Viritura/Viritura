@@ -57,8 +57,8 @@ const loadedModule = (await import(pathToFileURL(resolve(modulePath)).href)) as 
 };
 const module = await loadedModule.default();
 const DENIGMA_FORMAT_MNX = 1;
-const outputMnxSchemaVersions = new Set<number>();
-let outputWithoutMnxSchemaVersion = false;
+const outputMnxDocumentVersions = new Set<number>();
+let outputWithoutMnxDocumentVersion = false;
 const actualCommit = module.UTF8ToString(module._denigma_commit()).replace(/-dirty$/, "");
 if (!expectedCommit.startsWith(actualCommit)) {
   throw new Error(`Denigma module reports commit ${actualCommit}, expected ${expectedCommit}.`);
@@ -107,15 +107,15 @@ function assertAdaptedOutput(
   testCase: AcceptanceCase,
   output: string,
   gapReport: DenigmaGapReport,
-  outputMnxSchemaVersion: number | undefined,
+  outputMnxDocumentVersion: number | undefined,
 ): void {
   const adaptation = applyDenigmaGapReport(output, gapReport);
   const parsed = JSON.parse(adaptation.mnxJson) as unknown;
   const validation = validateRawScore(parsed);
-  if (!validation.ok && (outputMnxSchemaVersion === undefined || outputMnxSchemaVersion === MNX_SCHEMA_VERSION)) {
+  if (!validation.ok) {
     const first = validation.errors[0];
     throw new Error(
-      `${testCase.file} produced invalid adapted MNX: ${first?.pointer || "/"} ${first?.message || "unknown error"}`,
+      `${testCase.file} produced output unsupported by MNX schema v${MNX_SCHEMA_VERSION} (document version ${outputMnxDocumentVersion ?? "unknown"}): ${first?.pointer || "/"} ${first?.message || "unknown error"}. Update the Denigma producer; no old-draft adapter is applied.`,
     );
   }
   if (adaptation.outcomes.length !== gapReport.gaps.length) {
@@ -185,9 +185,9 @@ async function convertFixture(testCase: AcceptanceCase): Promise<void> {
           ? outputDocument.mnx.version
           : undefined;
       if (outputVersion === undefined) {
-        outputWithoutMnxSchemaVersion = true;
+        outputWithoutMnxDocumentVersion = true;
       } else {
-        outputMnxSchemaVersions.add(outputVersion);
+        outputMnxDocumentVersions.add(outputVersion);
       }
       if (output.includes("-dirty")) {
         throw new Error(`Denigma output for ${testCase.file} reports a dirty source checkout.`);
@@ -224,8 +224,8 @@ for (const testCase of CASES) {
   await convertFixture(testCase);
 }
 
-const denigmaMnxSchemaVersion =
-  !outputWithoutMnxSchemaVersion && outputMnxSchemaVersions.size === 1
-    ? outputMnxSchemaVersions.values().next().value
+const denigmaMnxDocumentVersion =
+  !outputWithoutMnxDocumentVersion && outputMnxDocumentVersions.size === 1
+    ? outputMnxDocumentVersions.values().next().value
     : undefined;
-console.log(`DENIGMA_MNX_SCHEMA_VERSION=${denigmaMnxSchemaVersion ?? "unknown"}`);
+console.log(`DENIGMA_MNX_DOCUMENT_VERSION=${denigmaMnxDocumentVersion ?? "unknown"}`);

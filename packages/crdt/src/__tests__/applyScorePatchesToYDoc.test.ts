@@ -219,4 +219,51 @@ describe("applyScorePatchesToYDoc — parity with syncJsonToYDoc", () => {
       patch.setEventMarking(locator, "tenuto", {}),
     ]);
   });
+
+  it("merges offline v46 edits with a concurrent pitch edit and reopens without loss", () => {
+    const local = cloneDoc(base);
+    const remote = cloneDoc(base);
+    const localPatches = [
+      patch.setNoteMarking(locator, noteId, "slideOut", { type: "falloff" }),
+      patch.setEventField(locator, {
+        field: "lyrics",
+        value: { lines: { verse: { text: "Ah", extender: { target: event.id!, show: true } } } },
+      }),
+      patch.setMnxSupport({ useLyricExtenders: true }),
+      patch.setGlobalMeasureField(measureIndex, { field: "caesura", value: { id: "shared-caesura", marks: 2 } }),
+      patch.setGlobalMeasureField(measureIndex, { field: "segno", value: { location: { fraction: [0, 1] } } }),
+      patch.setGlobalMeasureField(measureIndex, { field: "fine", value: { location: { fraction: [1, 1] } } }),
+      patch.setGlobalMeasureField(measureIndex, {
+        field: "coda",
+        value: { location: { fraction: [1, 2] }, glyph: "codaSquare" },
+      }),
+      patch.setGlobalMeasureField(measureIndex, {
+        field: "jump",
+        value: { type: "toCoda", location: { fraction: [1, 4] } },
+      }),
+    ];
+    const remotePatches = [patch.setNotePitch(locator, noteId, { step: "G", octave: 4 })];
+    const localScore = applyPatchesToScore(score, localPatches);
+    const remoteScore = applyPatchesToScore(score, remotePatches);
+    syncJsonToYDoc(JSON.parse(JSON.stringify(serializeMnx(localScore))) as Record<string, unknown>, local);
+    applyScorePatchesToYDoc(remotePatches, remoteScore, remote, "score");
+
+    const localUpdate = Y.encodeStateAsUpdate(local);
+    const remoteUpdate = Y.encodeStateAsUpdate(remote);
+    Y.applyUpdate(local, remoteUpdate);
+    Y.applyUpdate(remote, localUpdate);
+    Y.applyUpdate(remote, localUpdate);
+    expect(readJsonFromYDoc(local)).toEqual(readJsonFromYDoc(remote));
+
+    const reopened = parseMnx(readJsonFromYDoc(remote));
+    const expected = applyPatchesToScore(localScore, remotePatches);
+    expect(serializeMnx(reopened)).toEqual(serializeMnx(expected));
+    expect(reopened.global.measures[measureIndex]).toMatchObject({
+      caesura: { id: "shared-caesura", marks: 2 },
+      coda: { glyph: "codaSquare" },
+      jump: { type: "toCoda" },
+    });
+    local.destroy();
+    remote.destroy();
+  });
 });

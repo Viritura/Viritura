@@ -171,19 +171,12 @@ const acceptanceOutput = runForOutput(process.execPath, [
   resolve(denigmaRoot, "tests/data/inputs"),
   DENIGMA_COMMIT,
 ]);
-const schemaVersionMatch = acceptanceOutput.match(/^DENIGMA_MNX_SCHEMA_VERSION=(\d+|unknown)$/m);
-const reportedSchemaVersion = schemaVersionMatch?.[1];
-const denigmaMnxSchemaVersion =
-  reportedSchemaVersion && reportedSchemaVersion !== "unknown" ? Number(reportedSchemaVersion) : null;
-if (denigmaMnxSchemaVersion !== null && !Number.isSafeInteger(denigmaMnxSchemaVersion)) {
-  throw new Error("Denigma acceptance checks did not report a valid MNX schema version.");
-}
-if (!schemaVersionMatch || denigmaMnxSchemaVersion === null) {
-  console.warn("Could not determine Denigma's declared MNX schema version; the build will continue.");
-} else if (denigmaMnxSchemaVersion !== MNX_SCHEMA_VERSION) {
-  console.warn(
-    `Denigma emits MNX schema version ${denigmaMnxSchemaVersion}, while Viritura validates against version ${MNX_SCHEMA_VERSION}. The build will continue; failed imports will report both versions.`,
-  );
+const documentVersionMatch = acceptanceOutput.match(/^DENIGMA_MNX_DOCUMENT_VERSION=(\d+|unknown)$/m);
+const reportedDocumentVersion = documentVersionMatch?.[1];
+const mnxDocumentVersion =
+  reportedDocumentVersion && reportedDocumentVersion !== "unknown" ? Number(reportedDocumentVersion) : null;
+if (!documentVersionMatch || mnxDocumentVersion === null || !Number.isSafeInteger(mnxDocumentVersion)) {
+  throw new Error("Denigma acceptance checks did not report one valid MNX document version.");
 }
 
 mkdirSync(outputRoot, { recursive: true });
@@ -214,7 +207,9 @@ if (wasmBuild.origin === "source-build") {
 const manifest = {
   denigmaCommit: DENIGMA_COMMIT,
   denigmaVersion: DENIGMA_VERSION,
-  mnxSchemaVersion: denigmaMnxSchemaVersion,
+  mnxSchemaVersion: null,
+  validatedMnxSchemaVersion: MNX_SCHEMA_VERSION,
+  mnxDocumentVersion,
   origin: wasmBuild.origin,
   emscriptenImage: EMSCRIPTEN_IMAGE,
   moduleSha256: sha256(moduleSource),

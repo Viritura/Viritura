@@ -19,7 +19,7 @@ the document's `mnx.version` value.
           "target": "last-covered-event",
           "_c": "optional MNX comment",
           "_x": {
-            "viritura": {}
+            "example": { "annotation": "retained" }
           }
         }
       }
@@ -55,3 +55,16 @@ lyric dependency hash, so remote endpoint edits and inference-boundary changes
 cannot reuse stale line segments. MusicXML `<extend type="start|continue|stop">`
 boundaries map to one explicit MNX extender from the starting syllable through
 the stopping event.
+
+MusicXML may mix explicit `<extend>` elements with ordinary lyric syllables.
+The importer enables `useLyricExtenders` only when every imported lyric line
+declares an extender; otherwise it preserves the inferred policy for omitted
+extenders. Untyped `<extend/>` starts a line, and continuation/stop nodes do
+not create empty lyric syllables.
+
+Clipboard copies remap endpoints inside the copied tracks together. References
+outside the fragment remain authored references rather than silently becoming
+inferred endpoints. A paste into a different score may therefore have a missing
+or backward target, reported by the normal extender-reference diagnostics.
+No Viritura-specific extender payload is defined; `_x` can retain other vendors'
+metadata without treating it as an implemented Viritura extension.

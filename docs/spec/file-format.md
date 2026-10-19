@@ -13,6 +13,16 @@ Hairpins and all other dynamic semantics use standard MNX dynamic groups.
 Viritura adds only optional engraving placement under each group's
 `_x.viritura` dictionary — see [dynamics.md](./dynamics.md).
 
+The vendored schema is revision **46**. This is not the document's
+`mnx.version`: Viritura-created documents use `1`, while external producers may
+declare another document version. Compatibility is established by validating
+the actual document, not by comparing that number to the schema revision.
+Native v46 fields include global caesuras, note-local scoop/plop/falloff/doit,
+lyric extenders, coda destinations and the complete jump instruction union.
+See [lyric extenders](./lyric-extenders.md) and the
+[implementation plan](../plans/mnx-v46-end-to-end-support.md) for policy and
+remaining release gates. Old-draft field aliases are not accepted or repaired.
+
 | What's saved      | Where it lives                                                                                                                         |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Musical content   | MNX-standard JSON (notes, rhythm, beams, ties, slurs, repeats, jumps, layouts, pages…)                                                 |

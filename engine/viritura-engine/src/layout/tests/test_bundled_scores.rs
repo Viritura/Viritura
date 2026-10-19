@@ -13,10 +13,14 @@ fn bundled_scores() -> Vec<PathBuf> {
         .unwrap()
         .parent()
         .unwrap();
-    let mut paths: Vec<_> = fs::read_dir(root.join("packages/format/fixtures/mnx"))
-        .expect("read bundled fixture directory")
-        .map(|entry| entry.expect("read bundled fixture entry").path())
-        .filter(|path| path.extension().is_some_and(|extension| extension == "mnx"))
+    let mut paths: Vec<_> = ["mnx", "mnx-v46"]
+        .into_iter()
+        .flat_map(|directory| {
+            fs::read_dir(root.join("packages/format/fixtures").join(directory))
+                .expect("read bundled fixture directory")
+                .map(|entry| entry.expect("read bundled fixture entry").path())
+                .filter(|path| path.extension().is_some_and(|extension| extension == "mnx"))
+        })
         .collect();
     paths.push(root.join("examples/score-viewer-react-minimal/public/sample.mnx"));
     paths.sort();
