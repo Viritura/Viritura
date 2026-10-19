@@ -722,6 +722,8 @@ function scanGlobalMeasure(gm: Obj, p: string, dx: DiagnosticCollector): void {
   }
   const segno = gm["segno"] as Obj | undefined;
   if (segno) emitUnknown(segno, KEYS.segno, p + ptr("segno"), dx);
+  const coda = gm["coda"] as Obj | undefined;
+  if (coda) emitUnknown(coda, KEYS.segno, p + ptr("coda"), dx);
   const fine = gm["fine"] as Obj | undefined;
   if (fine) emitUnknown(fine, KEYS.fine, p + ptr("fine"), dx);
   const jump = gm["jump"] as Obj | undefined;

@@ -1481,7 +1481,7 @@ describe("convertMusicXmlToMnx — navigation", () => {
     expect(convertMusicXmlToMnx(xml).global.measures[0]!.segno).toBeDefined();
   });
 
-  it("converts coda to native MNX without creating a segno", () => {
+  it("converts native coda without creating a segno", () => {
     const xml = wrapScore(`
       <direction><direction-type><coda smufl="codaSquare" color="#CC0000"/></direction-type></direction>
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
@@ -1497,7 +1497,7 @@ describe("convertMusicXmlToMnx — navigation", () => {
     expect(measure.segno).toBeUndefined();
   });
 
-  it("preserves native coda when Viritura extensions are disabled", () => {
+  it("preserves coda when Viritura extensions are disabled", () => {
     const xml = wrapScore(`
       <direction><direction-type><coda/></direction-type></direction>
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
@@ -1506,7 +1506,7 @@ describe("convertMusicXmlToMnx — navigation", () => {
 
     const result = convertMusicXmlToMnx(xml, { diagnostics });
 
-    expect(result.global.measures[0]!.coda).toBeDefined();
+    expect(result.global.measures[0]!.coda).toEqual({ location: { fraction: [0, 1] } });
     expect(diagnostics.all().map((diagnostic) => diagnostic.code)).not.toContain("musicxml-coda");
   });
 

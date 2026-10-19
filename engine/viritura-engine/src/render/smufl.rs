@@ -611,6 +611,9 @@ pub mod smufl {
     pub const REPEAT_DOT: u32 = 0xE044;
     pub const SEGNO: u32 = 0xE047;
     pub const CODA: u32 = 0xE048;
+    pub const CODA_SQUARE: u32 = 0xE049;
+    pub const SEGNO_SERPENT_1: u32 = 0xE04A;
+    pub const SEGNO_SERPENT_2: u32 = 0xE04B;
 
     // ═══════════════════════════════════════
     // Tuplet numbers (U+E880 - U+E889)
@@ -1678,6 +1681,11 @@ pub mod smufl {
     #[allow(clippy::too_many_lines)] // Flat codepoint-to-bbox data table; category extraction would add indirection, not cohesion.
     pub fn glyph_bbox(codepoint: u32) -> (f64, f64, f64, f64) {
         match codepoint {
+            SEGNO => (0.016, -3.036, 2.184, 3.144),
+            CODA => (-0.016, -3.592, 3.836, 4.224),
+            CODA_SQUARE => (0.0, -3.612, 3.288, 4.228),
+            SEGNO_SERPENT_1 => (0.008, -4.124, 1.604, 4.256),
+            SEGNO_SERPENT_2 => (0.004, -4.124, 1.604, 4.256),
             // Noteheads
             NOTEHEAD_BLACK => (0.0, -0.5, 1.18, 1.0),
             NOTEHEAD_HALF => (0.0, -0.5, 1.18, 1.0),
@@ -1991,11 +1999,16 @@ pub mod smufl {
     }
 
     /// Resolve a SMuFL glyph name to its Unicode codepoint.
-    /// Covers clef and dynamics glyph names from the SMuFL specification.
+    /// Covers navigation, clef and dynamics glyph names from the SMuFL specification.
     /// Reference: https://w3c.github.io/smufl/latest/tables/clefs.html
     /// Reference: https://w3c.github.io/smufl/latest/tables/dynamics.html
     pub fn smufl_name_to_codepoint(name: &str) -> Option<u32> {
         match name {
+            "segno" => Some(SEGNO),
+            "coda" => Some(CODA),
+            "codaSquare" => Some(CODA_SQUARE),
+            "segnoSerpent1" => Some(SEGNO_SERPENT_1),
+            "segnoSerpent2" => Some(SEGNO_SERPENT_2),
             // Clefs
             "gClef" => Some(G_CLEF),
             "gClef15mb" => Some(G_CLEF_15MB),

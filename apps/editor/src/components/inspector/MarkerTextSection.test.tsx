@@ -38,13 +38,13 @@ describe("MarkerTextSection", () => {
     expect(onChange).toHaveBeenCalledWith({ content: [{ text: "" }], placement: "after" });
   });
 
-  it("adds coda text before the symbol by default", async () => {
+  it("adds destination annotation after the coda symbol by default", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn<(value: MarkerText | null) => void>();
     render(<MarkerTextSection kind="coda" value={null} onChange={onChange} />);
 
     expect(screen.getByText("Coda Text")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Add text" }));
-    expect(onChange).toHaveBeenCalledWith({ content: [{ text: "" }], placement: "before" });
+    expect(onChange).toHaveBeenCalledWith({ content: [{ text: "" }], placement: "after" });
   });
 });

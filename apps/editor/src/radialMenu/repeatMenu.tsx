@@ -7,6 +7,8 @@ import type { RadialMenuItem } from "@viritura/ui";
 import { SMUFL } from "../components/palette/smuflGlyphs";
 import { BarlineGlyph } from "../components/palette/GlyphRenderers";
 import { MEASURE_REPEAT_PALETTE_ITEMS } from "../components/palette/paletteItems";
+import { JUMP_LABELS } from "../commands/navigationMarkers";
+import type { Jump } from "@viritura/core";
 
 const MEASURE_REPEAT_ITEMS: RadialMenuItem[] = MEASURE_REPEAT_PALETTE_ITEMS.map((item) => ({
   id: item.id,
@@ -38,6 +40,11 @@ export const REPEAT_ITEMS: RadialMenuItem[] = [
   { id: "segno", icon: SMUFL.segno, label: "Segno", searchKeys: ["sign", "dal"] },
   { id: "coda", icon: SMUFL.coda, label: "Coda", searchKeys: ["tail"] },
   { id: "fine", label: "Fine", searchKeys: ["end"] },
+  ...Object.entries(JUMP_LABELS).map(([type, label]) => ({
+    id: `jump-${type}`,
+    label,
+    searchKeys: ["navigation", "jump"],
+  })),
   { id: "tremolo-1", icon: SMUFL.tremoloSingle1, label: "Tremolo 1", searchKeys: ["single", "one slash"] },
   { id: "tremolo-2", icon: SMUFL.tremoloSingle2, label: "Tremolo 2", searchKeys: ["two slash"] },
   { id: "tremolo-3", icon: SMUFL.tremoloSingle3, label: "Tremolo 3", searchKeys: ["three slash"] },
@@ -51,9 +58,12 @@ export type RepeatSelection =
   | { kind: "segno" }
   | { kind: "coda" }
   | { kind: "fine" }
+  | { kind: "jump"; type: Jump["type"] }
   | { kind: "tremolo"; marks: 1 | 2 | 3 };
 
 export function resolveRepeat(id: string): RepeatSelection | null {
+  const jumpType = Object.keys(JUMP_LABELS).find((type) => id === `jump-${type}`) as Jump["type"] | undefined;
+  if (jumpType) return { kind: "jump", type: jumpType };
   switch (id) {
     case "repeat-start":
       return { kind: "repeat-start" };

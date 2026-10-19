@@ -8,6 +8,7 @@ import { IdGenerator } from "./idGenerator";
 import { makePosition } from "./pitchDuration";
 import { plainOf, textContentFromDirectionType } from "./textRuns";
 import type { TextContent } from "@viritura/core";
+import { applyNavigationSound, navigationDirectionWords } from "./navigation";
 
 // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- branchy traversal of MusicXML measure grammar (time/key/direction/barline/repeat/volta); decomposing further would fragment a single linear pipeline
 export function buildGlobalMeasures(
@@ -23,6 +24,7 @@ export function buildGlobalMeasures(
   const globalMeasures: MnxGlobalMeasure[] = [];
   let currentTime: string | null = null;
   let currentKey: number | null = null;
+  let divisions = 4;
 
   for (let mi = 0; mi < firstPartMeasures.length; mi++) {
     const mxmlMeasure = firstPartMeasures[mi]!;
@@ -78,7 +80,6 @@ export function buildGlobalMeasures(
     }
 
     // Directions for tempo, segno, coda, fine, jumps
-    let divisions = 4;
     if (attrs) {
       const divEl = findChild(attrs, "divisions");
       if (divEl) divisions = Number(divEl.textContent ?? "4");
@@ -88,7 +89,9 @@ export function buildGlobalMeasures(
     // `<sound>` either nested inside a `<direction>` or as a direct child of
     // `<measure>` (many exporters emit bare `<sound tempo="…"/>` for tempo
     // changes). Handle both via this closure so neither placement is dropped.
-    const applySound = (sound: Element, pos: Fraction): void => {
+    const navigationWords = new Map<string, string>();
+    const positionKey = (pos: Fraction) => JSON.stringify(makePosition(pos).fraction);
+    const applySound = (sound: Element, pos: Fraction, direction?: Element): void => {
       const tempoAttr = sound.getAttribute("tempo");
       // Only the first tempo per measure wins (a metronome direction, when
       // present, is processed earlier and takes precedence over `<sound>`).
@@ -103,16 +106,7 @@ export function buildGlobalMeasures(
         }
       }
 
-      // Navigation
-      if (sound.getAttribute("fine") === "yes") {
-        gm.fine = { location: makePosition(pos) };
-      }
-      if (sound.getAttribute("dacapo") === "yes") {
-        gm.jump = { type: "dcAlFine", location: makePosition(pos) };
-      }
-      if (sound.getAttribute("dalsegno")) {
-        gm.jump = { type: "segno", location: makePosition(pos) };
-      }
+      applyNavigationSound(gm, sound, makePosition(pos), direction, navigationWords.get(positionKey(pos)));
     };
 
     let currentPos = Fraction.ZERO;
@@ -124,6 +118,11 @@ export function buildGlobalMeasures(
     let tempoText: TextContent | undefined;
     for (const child of childElements(mxmlMeasure)) {
       if (child.tagName === "direction") {
+        const navigationSound = findChild(child, "sound");
+        const offset = Number(childText(child, "offset") ?? "0");
+        const directionPos = currentPos.add(durationFraction(offset, divisions));
+        const words = navigationDirectionWords(gm, child, makePosition(directionPos));
+        if (words) navigationWords.set(positionKey(directionPos), words);
         // Tempo
         for (const dt of findChildren(child, "direction-type")) {
           const metronome = findChild(dt, "metronome");
@@ -153,9 +152,9 @@ export function buildGlobalMeasures(
           // Segno
           {
             const segnoEl = findChild(dt, "segno");
-            if (segnoEl) {
+            if (segnoEl && (!navigationSound?.getAttribute("dalsegno") || navigationSound.getAttribute("segno"))) {
               const seg: { location: MnxRhythmicPosition; glyph?: string } = {
-                location: makePosition(currentPos),
+                location: makePosition(directionPos),
               };
               // MusicXML <segno smufl="segnoSerpent1"/> → MNX `segno.glyph`.
               const smuflName = segnoEl.getAttribute("smufl");
@@ -166,9 +165,9 @@ export function buildGlobalMeasures(
             }
           }
           const codaEl = findChild(dt, "coda");
-          if (codaEl) {
+          if (codaEl && (!navigationSound?.getAttribute("tocoda") || navigationSound.getAttribute("coda"))) {
             const coda: { location: MnxRhythmicPosition; glyph?: string; color?: string } = {
-              location: makePosition(currentPos),
+              location: makePosition(directionPos),
             };
             const smuflName = codaEl.getAttribute("smufl");
             if (smuflName) coda.glyph = smuflName;
@@ -181,7 +180,7 @@ export function buildGlobalMeasures(
         // Sound element for tempo / navigation
         const sound = findChild(child, "sound");
         if (sound) {
-          applySound(sound, currentPos);
+          applySound(sound, directionPos, child);
         }
 
         // Tempo text directive (e.g. "Molto moderato"). Only directions flagged

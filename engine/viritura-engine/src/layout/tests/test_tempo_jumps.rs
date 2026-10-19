@@ -277,7 +277,7 @@ fn test_authored_marker_text_can_opt_out_of_italic() {
 }
 
 #[test]
-fn test_authored_coda_text_before_glyph_keeps_row_on_barline() {
+fn test_authored_coda_text_before_glyph_keeps_destination_row_at_location() {
     let (dl, sp) = layout_with_marker_text(
         "jumps-coda.mnx",
         3,
@@ -328,8 +328,151 @@ fn test_authored_coda_text_before_glyph_keeps_row_on_barline() {
         })
         .expect("Plain coda glyph must render");
     assert!(
-        (glyph_x - plain_glyph_x).abs() < 1e-6,
-        "before-text grows leftward, so the coda keeps its barline position"
+        glyph_x > plain_glyph_x,
+        "before-text grows rightward from the destination's rhythmic anchor"
+    );
+}
+
+fn native_navigation_score(global: serde_json::Value) -> Score {
+    let source = serde_json::json!({
+        "mnx": { "version": 1 },
+        "global": { "measures": [global] },
+        "parts": [{ "measures": [{ "sequences": [{ "content": (0..4).map(|index| {
+            serde_json::json!({
+                "type": "event", "id": format!("event-{index}"),
+                "duration": { "base": "quarter" },
+                "notes": [{ "pitch": { "step": "C", "octave": 5 } }]
+            })
+        }).collect::<Vec<_>>() }] }] }]
+    });
+    crate::parse::parse_mnx(&source.to_string()).expect("Native navigation score should parse")
+}
+
+#[test]
+fn test_all_native_navigation_instructions_render_with_owned_bounds() {
+    for (kind, label) in [
+        ("dc", "D.C."),
+        ("dcAlCoda", "D.C. al Coda"),
+        ("dcAlFine", "D.C. al Fine"),
+        ("dsAlCoda", "D.S. al Coda"),
+        ("dsAlFine", "D.S. al Fine"),
+        ("segno", "D.S."),
+        ("toCoda", "To"),
+    ] {
+        let score = native_navigation_score(serde_json::json!({
+            "time": { "count": 4, "unit": 4 },
+            "jump": { "type": kind, "location": { "fraction": [3, 4] } }
+        }));
+        let dl = layout_score(&score, 0, &LayoutConfig::default());
+        assert!(tagged_texts(&dl, "m0/jump").contains(&label), "{kind}");
+        assert!(
+            dl.element_bboxes
+                .iter()
+                .any(|bbox| bbox.element_id == "m0/jump"
+                    && bbox.bbox.width > 0.0
+                    && bbox.bbox.height > 0.0),
+            "{kind}"
+        );
+        if kind == "toCoda" {
+            assert!(dl
+                .commands
+                .iter()
+                .enumerate()
+                .any(|(index, command)| matches!(command,
+                RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::CODA)
+                    && dl.element_ids[index].as_deref() == Some("m0/jump")));
+            let bounds = &dl
+                .element_bboxes
+                .iter()
+                .find(|bbox| bbox.element_id == "m0/jump")
+                .unwrap()
+                .bbox;
+            for (index, command) in dl.commands.iter().enumerate() {
+                if dl.element_ids[index].as_deref() != Some("m0/jump") {
+                    continue;
+                }
+                if let RenderCommand::DrawGlyph {
+                    x,
+                    y,
+                    codepoint,
+                    size,
+                    ..
+                } = command
+                {
+                    let (bx, by, bw, bh) = smufl::glyph_bbox(*codepoint);
+                    let scale = size / 4.0;
+                    assert!(bounds.x <= x + bx * scale + 1e-8);
+                    assert!(bounds.y <= y + by * scale + 1e-8);
+                    assert!(bounds.x + bounds.width + 1e-8 >= x + (bx + bw) * scale);
+                    assert!(bounds.y + bounds.height + 1e-8 >= y + (by + bh) * scale);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn test_native_navigation_positions_glyphs_colors_and_collision_bounds() {
+    let score = native_navigation_score(serde_json::json!({
+        "time": { "count": 4, "unit": 4 },
+        "segno": { "location": { "fraction": [1, 2] }, "glyph": "segnoSerpent1", "color": "#008800" },
+        "coda": { "location": { "fraction": [1, 2] }, "glyph": "codaSquare", "color": "#cc0000" },
+        "fine": { "location": { "fraction": [1, 2] }, "color": "#0044bb" },
+        "jump": { "type": "dcAlFine", "location": { "fraction": [1, 2] } }
+    }));
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    for (code, expected) in [
+        (smufl::SEGNO_SERPENT_1, "#008800"),
+        (smufl::CODA_SQUARE, "#cc0000"),
+    ] {
+        assert!(dl.commands.iter().any(|command| matches!(command,
+            RenderCommand::DrawGlyph { codepoint, color, .. } if *codepoint == code && color == expected)));
+    }
+    assert!(dl.commands.iter().any(|command| matches!(command,
+        RenderCommand::DrawText { text, color, .. } if text == "fine" && color == "#0044bb")));
+    let boxes: Vec<_> = dl
+        .element_bboxes
+        .iter()
+        .filter(|bbox| {
+            matches!(
+                bbox.element_id.as_str(),
+                "m0/segno" | "m0/coda" | "m0/fine" | "m0/jump"
+            )
+        })
+        .collect();
+    assert_eq!(boxes.len(), 4);
+    for (index, a) in boxes.iter().enumerate() {
+        for b in boxes.iter().skip(index + 1) {
+            let a = &a.bbox;
+            let b = &b.bbox;
+            assert!(
+                a.x + a.width <= b.x
+                    || b.x + b.width <= a.x
+                    || a.y + a.height <= b.y
+                    || b.y + b.height <= a.y,
+                "coincident navigation instructions must not overlap"
+            );
+        }
+    }
+    let mut earlier = score.clone();
+    earlier.global.measures[0]
+        .coda
+        .as_mut()
+        .unwrap()
+        .location
+        .fraction = (1, 4);
+    let earlier = layout_score(&earlier, 0, &LayoutConfig::default());
+    let coda_x = |list: &DisplayList| {
+        list.element_bboxes
+            .iter()
+            .find(|bbox| bbox.element_id == "m0/coda")
+            .unwrap()
+            .bbox
+            .x
+    };
+    assert!(
+        coda_x(&earlier) < coda_x(&dl),
+        "native coda must use its nonzero beat, not a fixed barline"
     );
 }
 
@@ -515,7 +658,7 @@ fn test_jumps_coda_render() {
         "Measure 1 should have segno"
     );
     assert!(
-        score.global.measures[3].coda().is_some(),
+        score.global.measures[3].coda.is_some(),
         "Measure 3 should have coda"
     );
     let jump = score.global.measures[4]
@@ -563,9 +706,7 @@ fn test_jumps_coda_render() {
         );
     }
 
-    // Coda hugs the trailing barline of its own measure (measure 3) — it
-    // closes out that measure's content rather than opening it — not the
-    // measure's start.
+    // A native coda destination opens content at its authored rhythmic instant.
     let coda_bounds = dl
         .measure_bounds
         .iter()
@@ -573,16 +714,12 @@ fn test_jumps_coda_render() {
         .expect("Measure 3 bounds should exist");
     let measure_start = coda_bounds.x;
     let measure_end = coda_bounds.x + coda_bounds.width;
-    if let RenderCommand::DrawGlyph { x, .. } = coda_glyphs[0] {
-        let (bx, _, bw, _) = smufl::glyph_bbox(smufl::CODA);
-        let coda_ink_right = x + (bx + bw) * sp;
+    if let RenderCommand::DrawGlyph { x, size, .. } = coda_glyphs[0] {
+        let (bx, _, _, _) = smufl::glyph_bbox(smufl::CODA);
+        let coda_ink_left = x + bx * size / 4.0;
         assert!(
-            (coda_ink_right - measure_end).abs() < (coda_ink_right - measure_start).abs(),
-            "Coda glyph's right ink edge ({:.1}) should be closer to the measure's \
-             trailing barline ({:.1}) than to its start ({:.1})",
-            coda_ink_right,
-            measure_end,
-            measure_start
+            (coda_ink_left - measure_start).abs() < (coda_ink_left - measure_end).abs(),
+            "Coda destination at beat zero should open its measure, not conclude it"
         );
     }
 }
@@ -595,10 +732,11 @@ fn test_jump_text_sits_left_of_coda_on_shared_barline() {
     ))
     .expect("Failed to read jumps-coda.mnx");
     let mut score = crate::parse::parse_mnx(&json).expect("Failed to parse jumps-coda.mnx");
-    let coda = score.global.measures[3]
+    let mut coda = score.global.measures[3]
         .coda
         .take()
         .expect("Measure 3 should have coda");
+    coda.location.fraction = (1, 1);
     score.global.measures[4].coda = Some(coda);
 
     let config = LayoutConfig::default();
