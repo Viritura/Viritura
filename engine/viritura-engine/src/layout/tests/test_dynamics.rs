@@ -519,6 +519,100 @@ fn test_custom_dynamic_glyph_override() {
 }
 
 #[test]
+fn equivalent_explicit_dynamic_glyph_preserves_automatic_placement() {
+    for (value, glyph) in [
+        ("p", "dynamicPiano"),
+        ("mf", "dynamicMF"),
+        ("fff", "dynamicFFF"),
+    ] {
+        let document = serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{
+                    "type": "event", "duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "C", "octave": 4}}]
+                }]}],
+                "dynamics": [{
+                    "id": "d", "type": "immediate",
+                    "position": {"fraction": [0, 1]}, "value": value
+                }]
+            }]}]
+        });
+        let render = |document: &serde_json::Value| {
+            let score = parse_mnx(&document.to_string()).expect("valid dynamic");
+            layout_score(&score, 0, &LayoutConfig::default())
+                .commands
+                .into_iter()
+                .filter_map(|command| match command {
+                    RenderCommand::DrawGlyph {
+                        x, y, codepoint, ..
+                    } if (0xE520..=0xE54F).contains(&codepoint) => Some((x, y, codepoint)),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        let automatic = render(&document);
+        let mut explicit = document;
+        explicit["parts"][0]["measures"][0]["dynamics"][0]["glyphs"] = serde_json::json!([glyph]);
+        assert_eq!(automatic.len(), 1);
+        assert_eq!(render(&explicit), automatic, "{value} placement changed");
+    }
+}
+
+#[test]
+fn gradual_dynamic_renders_its_explicit_start_marking_before_the_wedge() {
+    let document = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{"id": "m", "time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "sequences": [{"content": [{
+                "type": "event", "duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "C", "octave": 4}}]
+            }]}],
+            "dynamics": [{
+                "id": "d", "type": "gradual", "position": {"fraction": [0, 1]},
+                "value": "p", "glyphs": ["dynamicForte", "dynamicForte"],
+                "end": {"measure": "m", "position": {"fraction": [3, 4]}},
+                "wedgeType": "increasing"
+            }]
+        }]}]
+    });
+    let score = parse_mnx(&document.to_string()).expect("valid gradual dynamic");
+    let display = layout_score(&score, 0, &LayoutConfig::default());
+    let glyphs: Vec<_> = display
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawGlyph { x, codepoint, .. } if *codepoint == smufl::DYNAMIC_FORTE => {
+                Some(*x)
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        glyphs.len(),
+        2,
+        "explicit sequence must not be consolidated"
+    );
+    assert!(glyphs[1] > glyphs[0]);
+    let marking = display
+        .element_bboxes
+        .iter()
+        .find(|element| element.element_id == "p0/m0/dynd")
+        .expect("printed start marking");
+    let wedge = display
+        .element_bboxes
+        .iter()
+        .find(|element| element.element_id == "p0/m0/hairpind")
+        .expect("wedge");
+    assert!(
+        wedge.bbox.x >= marking.bbox.x + marking.bbox.width,
+        "wedge must clear the explicit start marking"
+    );
+}
+
+#[test]
 fn test_dynamic_affixes_niente_and_stable_group_id() {
     let json = r#"{
         "mnx": { "version": 1 },

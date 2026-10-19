@@ -488,7 +488,7 @@ pub(crate) fn push_below_dynamics_under_slurs(
                 continue; // only below-staff dynamics clear below-arching slurs
             }
             let beat = dyn_mark.position.beats();
-            if dyn_mark.is_gradual() {
+            if !dyn_mark.has_printed_marking() {
                 continue;
             }
             let value = dyn_mark.display_value();

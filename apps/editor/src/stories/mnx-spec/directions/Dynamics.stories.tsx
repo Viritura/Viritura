@@ -9,6 +9,58 @@ const meta: Meta = {
 
 export default meta;
 
+export const ExplicitAndAutomaticAppearance: StoryObj = {
+  name: "Automatic, precomposed, and individual symbols",
+  render: () => (
+    <ScorePreview
+      mnxJson={buildMnx({
+        measures: [
+          {
+            time: { count: 4, unit: 4 },
+            voices: [[{ duration: "whole", notes: [{ step: "E", octave: 4 }] }]],
+            dynamics: [{ type: "immediate", value: "fff", position: { fraction: [0, 1] } }],
+          },
+          {
+            voices: [[{ duration: "whole", notes: [{ step: "E", octave: 4 }] }]],
+            dynamics: [
+              {
+                type: "immediate",
+                value: "fff",
+                glyphs: ["dynamicFFF"],
+                position: { fraction: [0, 1] },
+              },
+            ],
+          },
+          {
+            voices: [[{ duration: "whole", notes: [{ step: "E", octave: 4 }] }]],
+            dynamics: [
+              {
+                type: "immediate",
+                value: "fff",
+                glyphs: ["dynamicForte", "dynamicForte", "dynamicForte"],
+                position: { fraction: [0, 1] },
+              },
+            ],
+          },
+          {
+            voices: [[{ duration: "whole", notes: [{ step: "E", octave: 4 }] }]],
+            dynamics: [
+              {
+                type: "relative",
+                relativeValue: "softer",
+                value: "p",
+                glyphs: ["dynamicPiano"],
+                prefix: "più",
+                position: { fraction: [0, 1] },
+              },
+            ],
+          },
+        ],
+      })}
+    />
+  ),
+};
+
 const ALL_DYNAMICS = ["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff"] as const;
 
 export const AllDynamicLevels: StoryObj = {

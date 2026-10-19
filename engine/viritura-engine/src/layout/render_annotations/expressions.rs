@@ -212,7 +212,7 @@ pub(crate) fn render_text_expressions(
         let inline_dynamic_is_explicit = inline_dynamic.is_some()
             && ml.resolved.part.dynamics.as_ref().is_some_and(|dynamics| {
                 dynamics.iter().any(|dynamic| {
-                    !dynamic.is_gradual()
+                    dynamic.has_printed_marking()
                         && (dynamic.position.beats() - beat).abs() < 0.01
                         && (matches!(
                             dynamic.placement,

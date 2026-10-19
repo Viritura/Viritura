@@ -28,6 +28,7 @@ const handlers = {
   onStaffEndChange: vi.fn(),
   onVisuallyContinuesChange: vi.fn(),
   onVoiceChange: vi.fn(),
+  onGlyphsChange: vi.fn(),
   offset: {
     value: [0, 0] as [number, number],
     onChange: vi.fn(),
@@ -42,6 +43,39 @@ afterEach(() => {
 });
 
 describe("DynamicGroupSection staff controls", () => {
+  it("offers the same printed marking controls for relative dynamics with or without overrides", async () => {
+    const user = userEvent.setup();
+    render(
+      <DynamicGroupSection
+        dynamic={{
+          id: "relative",
+          type: "relative",
+          position: { fraction: [0, 1] },
+          relativeValue: "louder",
+        }}
+        staffCount={1}
+        {...handlers}
+      />,
+    );
+    await user.click(screen.getByRole("combobox", { name: "Printed marking" }));
+    await user.click(screen.getByRole("option", { name: "fff" }));
+    expect(handlers.onValueChange).toHaveBeenLastCalledWith("fff");
+    expect(handlers.onRelativeValueChange).not.toHaveBeenCalled();
+  });
+
+  it("preserves imported symbol order until the user changes appearance", async () => {
+    const user = userEvent.setup();
+    const glyphs = ["dynamicForte", "dynamicPiano"];
+    render(<DynamicGroupSection dynamic={{ ...hairpin, glyphs }} staffCount={1} {...handlers} />);
+    expect(handlers.onGlyphsChange).not.toHaveBeenCalled();
+    await user.click(screen.getByText("Appearance"));
+    await user.click(screen.getByRole("button", { name: "Move symbol 2 left" }));
+    expect(handlers.onGlyphsChange).toHaveBeenLastCalledWith(["dynamicPiano", "dynamicForte"]);
+    expect(glyphs).toEqual(["dynamicForte", "dynamicPiano"]);
+    await user.click(screen.getByRole("button", { name: "Reset appearance" }));
+    expect(handlers.onGlyphsChange).toHaveBeenLastCalledWith(undefined);
+  });
+
   it("uses bounded start/end staff dropdowns for a multi-staff hairpin", () => {
     render(<DynamicGroupSection dynamic={hairpin} staffCount={2} {...handlers} />);
 
