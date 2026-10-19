@@ -40,6 +40,10 @@ function document(caesura: object) {
 }
 
 describe("native global caesuras", () => {
+  it("validates global stroke counts against the native v46 schema", () => {
+    expect(() => parseMnx(document({ marks: 3 }))).toThrow("/global/measures/0/caesura/marks: must be <= 2");
+  });
+
   it.each(["normal", "thick", "short", "curved"] as const)(
     "retains %s shapes, strokes and native attributes",
     (shape) => {
