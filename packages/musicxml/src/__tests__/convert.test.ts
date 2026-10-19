@@ -1316,6 +1316,28 @@ describe("convertMusicXmlToMnx — rehearsal marks", () => {
 });
 
 describe("convertMusicXmlToMnx — lyrics", () => {
+  it("keeps inference enabled when explicit extenders are mixed with ordinary lyrics", () => {
+    const result = convertMusicXmlToMnx(
+      wrapScore(`
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type>
+        <lyric number="1"><text>Ah</text><extend/></lyric>
+        <lyric number="2"><text>La</text></lyric></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type>
+        <lyric number="1"><extend type="continue"/></lyric></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><extend type="stop"/></lyric></note>
+    `),
+    );
+    const content = result.parts[0]!.measures[0]!.sequences![0]!.content;
+    const source = content[0]!;
+    const target = content[2]!;
+    if (source.type !== undefined || target.type !== undefined) throw new Error("Expected events");
+    expect(source.lyrics?.lines?.["line-1"]?.extender).toEqual({ show: true, target: target.id });
+    expect(result.mnx.support?.useLyricExtenders).toBeUndefined();
+    expect(content[1]).not.toHaveProperty("lyrics");
+    expect(target).not.toHaveProperty("lyrics");
+  });
+
   it("pairs MusicXML extender start/continue/stop across measure boundaries", () => {
     const first = `
       <note>

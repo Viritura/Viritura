@@ -51,6 +51,10 @@ function writeGlobalMeasureField(measure: GlobalMeasure, update: GlobalMeasureFi
   const target = measure as unknown as Record<string, unknown>;
   switch (update.field) {
     case "caesura":
+    case "segno":
+    case "coda":
+    case "fine":
+    case "jump":
     case "time":
     case "key":
     case "tempos":
