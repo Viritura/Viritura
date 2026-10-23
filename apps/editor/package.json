@@ -46,7 +46,7 @@
     "@viritura/video-sync": "workspace:*",
     "buffer": "^6.0.3",
     "immer": "^11.1.21",
-    "isomorphic-git": "^1.42.2",
+    "isomorphic-git": "^1.44.3",
     "jszip": "^3.10.2",
     "lucide-react": "^1.48.0",
     "pdf-lib": "^1.17.1",
