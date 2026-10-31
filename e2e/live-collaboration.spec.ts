@@ -26,21 +26,8 @@
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 
 const ROOM_ID_CHARSET = "abcdefghijkmnpqrstuvwxyz23456789";
-
-interface LiveTestDiagnostics {
-  readonly clientID: number;
-  readonly hostClientId: number | null;
-  seed(mnxJson: string): void;
-}
-
-declare global {
-  interface Window {
-    __virituraLive?: LiveTestDiagnostics;
-  }
-}
 
 function expectV46Features(json: string): void {
   const score: unknown = JSON.parse(json);
@@ -94,11 +81,18 @@ function expectV46Features(json: string): void {
 async function downloadScore(page: Page): Promise<string> {
   await page.getByRole("menuitem", { name: "File", exact: true }).click();
   const download = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "Save As", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Save As(?:\s|$)/ }).click();
   const file = await download;
   const path = await file.path();
   if (!path) throw new Error("The score download has no readable path");
   return readFileSync(path, "utf8");
+}
+
+async function openScoreFile(page: Page, json: string, name: string): Promise<void> {
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: /^Open MNX Score(?:\s|$)/ }).click();
+  await (await chooser).setFiles({ name, mimeType: "application/json", buffer: Buffer.from(json) });
 }
 
 /** Generate a room id matching <c>@viritura/crdt</c>'s <c>isValidRoomId</c>. */
@@ -151,22 +145,20 @@ test.describe("live collaboration: two peers awareness", () => {
     const roomId = freshRoomId();
     const context = await browser.newContext({ acceptDownloads: true });
     await context.addInitScript(() => {
-      Object.defineProperty(window, "showOpenFilePicker", { value: undefined, configurable: true });
-      Object.defineProperty(window, "showSaveFilePicker", { value: undefined, configurable: true });
+      Reflect.deleteProperty(window, "showOpenFilePicker");
+      Reflect.deleteProperty(window, "showSaveFilePicker");
     });
     try {
       const source = readFileSync(
-        resolve(__dirname, "../packages/format/fixtures/mnx-v46/feature-integration.mnx"),
+        new URL("../packages/format/fixtures/mnx-v46/feature-integration.mnx", import.meta.url),
         "utf8",
       );
       const host = await openPeer(context, roomId, "V46 Host");
-      await expect.poll(() => host.evaluate(() => Boolean(window.__virituraLive))).toBe(true);
-      await host.evaluate((json) => {
-        if (!window.__virituraLive) throw new Error("Live diagnostics are unavailable");
-        window.__virituraLive.seed(json);
-      }, source);
+      await host.keyboard.press("Escape");
+      await openScoreFile(host, source, "v46-integration.mnx");
       await expect(host.locator('canvas[tabindex="0"]')).toBeVisible({ timeout: 45_000 });
       const peer = await openPeer(context, roomId, "V46 Peer");
+      await peer.keyboard.press("Escape");
       await expect(peer.locator('canvas[tabindex="0"]')).toBeVisible({ timeout: 45_000 });
       await host.getByRole("button", { name: "Setup", exact: true }).click();
       await host.getByRole("tab", { name: "Project", exact: true }).click();
@@ -182,16 +174,7 @@ test.describe("live collaboration: two peers awareness", () => {
       expectV46Features(await downloadScore(peer));
       await host.goto("/");
       await expect(host.locator('canvas[tabindex="0"]')).toBeVisible({ timeout: 45_000 });
-      await host.getByRole("menuitem", { name: "File", exact: true }).click();
-      const chooser = host.waitForEvent("filechooser");
-      await host.getByRole("menuitem", { name: "Open MNX Score", exact: true }).click();
-      await (
-        await chooser
-      ).setFiles({
-        name: "v46-roundtrip.mnx",
-        mimeType: "application/json",
-        buffer: Buffer.from(saved),
-      });
+      await openScoreFile(host, saved, "v46-roundtrip.mnx");
       await expect(host.getByText("Laying out score")).toHaveCount(0, { timeout: 45_000 });
       await host.getByRole("button", { name: "Setup", exact: true }).click();
       await host.getByRole("tab", { name: "Project", exact: true }).click();
