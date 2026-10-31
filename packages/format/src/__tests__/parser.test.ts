@@ -1525,7 +1525,7 @@ describe("parseMnx _x.viritura extensions", () => {
     };
     // The legacy vendor extension property was removed entirely, so the
     // schema's `additionalProperties: false` now rejects it outright.
-    expect(() => parseMnx(mnx)).toThrow(/additional properties/i);
+    expect(() => parseMnx(mnx)).toThrow(/unrecognized property 'caesura'/i);
   });
 
   it("should parse native MNX caesura shape", () => {
