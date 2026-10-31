@@ -7,6 +7,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Breaking
 
+- Native input tracks MNX schema revision 46. Document `mnx.version` remains
+  independent of the schema revision; no old-draft repair adapter is added.
+
 - `Engine` is now a type-only interface; `DisplayList` is an opaque handle.
   Renderer types (`RenderCommand`, `PageLayout`, `MeasureBounds`, …) and the
   `./errors`, `./timeline`, `./types` subpath exports are removed.
@@ -19,6 +22,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `info()` returns `{ parts, measureCount, scores }`.
 
 ### Added
+
+- MNX v46 dynamic glyph appearances, global caesuras, note-scoped
+  scoop/plop/falloff/doit, lyric extenders, and location-aware native navigation.
+- Lyric extenders support named voices, staff-local/open-meter timing,
+  system/page continuation, full-measure-rest inference barriers, and
+  duration-preserving split/join endpoint mappings.
+- Packed-runtime acceptance checks cover every v46 feature, all viewer layers,
+  navigation tempo automation, and SVG export.
 
 - `version`, `systems()`, `measures()`, `horizonPaper()`, `toSvg()`,
   `createLayoutWorker()`, `createTileRenderer()`, `ink` colour.
@@ -34,6 +45,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Prebuilt release archive (`pnpm build:score-engine-dist`) and CI workflow.
 
 ### Fixed
+
+- Measure-start grace notes are retained without leaking across navigation cuts.
+- Navigation restores implicit/authored initial tempo and exports played
+  intra-measure tempo changes on every pass.
+- Native lyric rendering accepts optional source IDs and keeps sparse verse
+  text and extenders on the same system rows.
 
 - Load failures reject with the underlying cause and can be retried.
 - Timeline uses real meters and honours `repeatExpansion`; no longer runs
