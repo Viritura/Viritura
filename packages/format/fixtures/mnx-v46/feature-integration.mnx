@@ -1,0 +1,109 @@
+{
+  "mnx": { "version": 1, "support": { "useLyricExtenders": true } },
+  "global": {
+    "measures": [
+      {
+        "time": { "count": 4, "unit": 4 },
+        "caesura": {},
+        "segno": { "location": { "fraction": [0, 1] }, "glyph": "segnoSerpent1" },
+        "fine": { "location": { "fraction": [1, 1] } }
+      },
+      {
+        "id": "end-measure",
+        "coda": { "location": { "fraction": [1, 4] }, "glyph": "codaSquare" },
+        "jump": { "type": "dcAlFine", "location": { "fraction": [1, 1] } }
+      }
+    ]
+  },
+  "parts": [
+    {
+      "id": "voice",
+      "name": "Integrated v46 features",
+      "measures": [
+        {
+          "dynamics": [
+            {
+              "id": "integration-immediate",
+              "type": "immediate",
+              "position": { "fraction": [0, 1] },
+              "value": "f",
+              "glyphs": ["dynamicPiano"]
+            },
+            {
+              "id": "integration-gradual",
+              "type": "gradual",
+              "position": { "fraction": [1, 4] },
+              "end": { "measure": "end-measure", "position": { "fraction": [1, 2] } },
+              "wedgeType": "increasing",
+              "glyphs": ["dynamicPiano"]
+            },
+            {
+              "id": "integration-relative",
+              "type": "relative",
+              "position": { "fraction": [1, 2] },
+              "relativeValue": "louder",
+              "value": "ff",
+              "glyphs": ["dynamicPiano"]
+            },
+            {
+              "id": "integration-accent",
+              "type": "accent",
+              "position": { "fraction": [3, 4] },
+              "value": "f",
+              "glyphs": ["dynamicPiano"]
+            }
+          ],
+          "sequences": [
+            {
+              "voice": "singer",
+              "content": [
+                {
+                  "duration": { "base": "whole" },
+                  "notes": [
+                    {
+                      "pitch": { "step": "C", "octave": 4 },
+                      "markings": { "slideIn": { "type": "scoop" }, "slideOut": { "type": "doit" } }
+                    },
+                    {
+                      "pitch": { "step": "E", "octave": 4 },
+                      "markings": { "slideIn": { "type": "plop" }, "slideOut": { "type": "falloff" } }
+                    }
+                  ],
+                  "lyrics": {
+                    "lines": {
+                      "1": {
+                        "text": "Ah",
+                        "extender": {
+                          "id": "integration-extender",
+                          "target": "last",
+                          "_c": "Preserve this line through persistence and collaboration",
+                          "_x": { "example": { "retained": true } }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "voice": "singer",
+              "content": [
+                {
+                  "id": "last",
+                  "duration": { "base": "whole" },
+                  "notes": [{ "pitch": { "step": "G", "octave": 3 } }]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "layouts": [{ "id": "default", "content": [{ "type": "staff", "sources": [{ "part": "voice" }] }] }],
+  "scores": [{ "name": "Integrated v46 features", "layout": "default" }]
+}

@@ -54,6 +54,29 @@ function defaultState(): PlaybackState {
 }
 
 describe("playhead resolver", () => {
+  it("preserves source beats when a performed span starts inside a measure", () => {
+    const timeline = generateTimeline({
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          { time: { count: 4, unit: 4 }, segno: { location: { fraction: [1, 4] } } },
+          { jump: { type: "segno", location: { fraction: [1, 2] } } },
+        ],
+      },
+      parts: [],
+    } as Score);
+    expect(timeline.playedSpans?.map((span) => [span.measureIndex, span.startBeat, span.endBeat])).toEqual([
+      [0, 0, 4],
+      [1, 0, 2],
+      [0, 1, 4],
+      [1, 0, 4],
+    ]);
+    const resolve = createPlayheadResolver(timeline);
+    expect(resolve(timeline.model.timeAtBeat(6))).toEqual({ measureIndex: 0, beat: 1 });
+    expect(resolve(timeline.model.timeAtBeat(7.5))).toEqual({ measureIndex: 0, beat: 2.5 });
+    expect(sourceMeasureBeatToSeconds(timeline, 1, 3)).toBeCloseTo(timeline.model.timeAtBeat(12));
+  });
+
   it("returns original score measure indices on repeated passes", () => {
     const timeline = generateTimeline({
       mnx: { version: 1 },

@@ -47,6 +47,7 @@ import type { ImpliedSectionDynamicAnchor } from "./sectionDynamics";
 import type { MidiEvent } from "./types";
 import type { TempoModel } from "./tempoModel";
 import { resolvePartStaffMeterTable, staffMeterRatioAt, type StaffMeterTable } from "./staffMeterTiming";
+import { beatInPlayedSpan, type PlayedMeasureSpan } from "./navigation";
 
 /** CC 11 (expression). The coupled dynamics system is its sole owner. */
 const CC_EXPRESSION = 11;
@@ -249,12 +250,15 @@ function collectMeasureDynamicGroups(
   expandedIdx: number,
   groups: TimedDynamicGroup[],
   staffMeterTable: StaffMeterTable,
+  span?: PlayedMeasureSpan,
 ): void {
   for (const group of pm.dynamics ?? []) {
     const ratio = staffMeterRatioAt(staffMeterTable, originalMeasureIndex, group.staff);
+    const beat = fractionToBeats(group.position.fraction) * ratio;
+    if (!beatInPlayedSpan(beat, span)) continue;
     groups.push({
       group,
-      time: model.timeAtBeat(measureStartBeat + fractionToBeats(group.position.fraction) * ratio),
+      time: model.timeAtBeat(measureStartBeat + beat),
       expandedIdx,
     });
   }
@@ -268,18 +272,19 @@ function collectMeasureGradualTexts(
   expandedIdx: number,
   gradualTexts: TimedGradualText[],
   staffMeterTable: StaffMeterTable,
+  span?: PlayedMeasureSpan,
 ): void {
   for (let index = 0; index < (pm.expressions?.length ?? 0); index++) {
     const expression = pm.expressions![index]!;
     const dir = gradualTextDirection(plainTextContent(expression.text));
     if (!dir) continue;
+    const beat =
+      fractionToBeats(expression.position.fraction) *
+      staffMeterRatioAt(staffMeterTable, originalMeasureIndex, expression.staff);
+    if (!beatInPlayedSpan(beat, span)) continue;
     gradualTexts.push({
       id: `text-gradual-${expandedIdx}-${index}`,
-      startTime: model.timeAtBeat(
-        measureStartBeat +
-          fractionToBeats(expression.position.fraction) *
-            staffMeterRatioAt(staffMeterTable, originalMeasureIndex, expression.staff),
-      ),
+      startTime: model.timeAtBeat(measureStartBeat + beat),
       dir,
       expandedIdx,
     });
@@ -403,6 +408,7 @@ function collectExpandedDynamics(
   staffMeterTable: StaffMeterTable,
   timedGroups: TimedDynamicGroup[],
   gradualTexts: TimedGradualText[],
+  playedSpans?: readonly PlayedMeasureSpan[],
 ): void {
   for (let expandedIdx = 0; expandedIdx < measureOrder.length; expandedIdx++) {
     const originalMeasureIndex = measureOrder[expandedIdx]!;
@@ -417,6 +423,7 @@ function collectExpandedDynamics(
       expandedIdx,
       timedGroups,
       staffMeterTable,
+      playedSpans?.[expandedIdx],
     );
     collectMeasureGradualTexts(
       measure,
@@ -426,6 +433,7 @@ function collectExpandedDynamics(
       expandedIdx,
       gradualTexts,
       staffMeterTable,
+      playedSpans?.[expandedIdx],
     );
   }
 }
@@ -442,6 +450,7 @@ export function buildDynamicsEnvelope(
   globalMeasures: readonly GlobalMeasure[],
   impliedAnchors: readonly ImpliedSectionDynamicAnchor[] = [],
   resolvedStaffMeters?: StaffMeterTable,
+  playedSpans?: readonly PlayedMeasureSpan[],
 ): DynamicsEnvelope {
   const anchors: DynamicAnchor[] = [];
   const attacks: DynamicAttack[] = [];
@@ -451,7 +460,16 @@ export function buildDynamicsEnvelope(
   const staffMeterTable = resolvedStaffMeters ?? resolvePartStaffMeterTable(part, globalMeasures);
 
   // Pass 1: collect and order every dynamic group on the expanded timeline.
-  collectExpandedDynamics(part, measureOrder, measureStartBeats, model, staffMeterTable, timedGroups, gradualTexts);
+  collectExpandedDynamics(
+    part,
+    measureOrder,
+    measureStartBeats,
+    model,
+    staffMeterTable,
+    timedGroups,
+    gradualTexts,
+    playedSpans,
+  );
   const typeRank: Record<DynamicGroup["type"], number> = { immediate: 0, relative: 1, accent: 2, gradual: 3 };
   timedGroups.sort(
     (a, b) =>
@@ -481,6 +499,7 @@ export function buildDynamicsEnvelope(
     const measureIndex = measureOrder[expandedIdx]!;
     for (const implied of impliedAnchors) {
       if (implied.measureIndex !== measureIndex) continue;
+      if (!beatInPlayedSpan(fractionToBeats(implied.position), playedSpans?.[expandedIdx])) continue;
       const time = model.timeAtBeat(measureStartBeats[expandedIdx]! + fractionToBeats(implied.position));
       if (anchors.some((anchor) => Math.abs(anchor.time - time) <= EPS)) continue;
       const axes = axesOf(implied.value);

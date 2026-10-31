@@ -5,6 +5,10 @@ here. Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Coordinated MNX v46 release uses score-viewer 0.1.1 and score-engine 0.2.0.
+  The React presentation API is unchanged; native notation and navigation
+  timelines come from the matching updated engine bundle.
+
 - Delegate page arrangement, virtualized painting, zoom, horizon tiles and
   lifecycle cleanup to `@viritura/score-viewer`.
 - Re-export the new opaque score-engine API; remove obsolete renderer types.

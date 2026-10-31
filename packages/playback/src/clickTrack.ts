@@ -2,7 +2,7 @@ import { Metronome, type ClickEvent } from "@viritura/audio";
 import type { MidiTimeline } from "@viritura/midi";
 
 /** The tempo/meter structure needed to lay out a metronome click track. */
-type ClickTrackSource = Pick<MidiTimeline, "model" | "measureStartBeats" | "measureTimeSignatures">;
+type ClickTrackSource = Pick<MidiTimeline, "model" | "measureStartBeats" | "measureTimeSignatures" | "playedSpans">;
 
 /** Options for {@link buildClickTrack}. */
 export interface ClickTrackOptions {
@@ -63,7 +63,10 @@ export function buildClickTrack(timeline: ClickTrackSource, options?: ClickTrack
     for (const beat of Metronome.getBeatsForMeasure(ts.count, ts.unit)) {
       // beat.position is in time-signature denominator units; the model's beat
       // axis is quarter notes, so scale by (4 / unit).
-      const globalBeat = startBeat + beat.position * (4 / ts.unit);
+      const sourceBeat = beat.position * (4 / ts.unit);
+      const span = timeline.playedSpans?.[i];
+      if (span && (sourceBeat < span.startBeat || sourceBeat >= span.endBeat)) continue;
+      const globalBeat = startBeat + sourceBeat - (span?.startBeat ?? 0);
       clicks.push({ time: model.timeAtBeat(globalBeat), accented: beat.accented });
     }
   }

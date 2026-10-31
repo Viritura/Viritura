@@ -241,7 +241,7 @@ export function PlaybackProvider({
   const timelineRef = useRef<EngineMidiTimeline | null>(null);
   const scoreTimelinePositionRef = useRef<Pick<
     ScoreMidiTimeline,
-    "model" | "measureStartBeats" | "expandedMeasureToOriginal"
+    "model" | "measureStartBeats" | "expandedMeasureToOriginal" | "playedSpans"
   > | null>(null);
   /** Tempo-model time→position inverse for the playhead, rebuilt with each
    *  timeline. Applied to the engine after every loadTimeline. */
@@ -255,6 +255,7 @@ export function PlaybackProvider({
     model: import("@viritura/midi").MidiTimeline["model"];
     measureStartBeats: number[];
     measureTimeSignatures: { count: number; unit: number }[];
+    playedSpans?: import("@viritura/midi").PlayedMeasureSpan[];
   } | null>(null);
   /** Live mirror of `countInEnabled` so play()/click rebuilds read it without a
    *  store round-trip (matches how the metronome toggle drives the engine). */
@@ -1434,6 +1435,7 @@ export function PlaybackProvider({
           model: midiTimeline.model,
           measureStartBeats: midiTimeline.measureStartBeats,
           measureTimeSignatures: midiTimeline.measureTimeSignatures,
+          playedSpans: midiTimeline.playedSpans,
         };
         applyClickTrack();
 
