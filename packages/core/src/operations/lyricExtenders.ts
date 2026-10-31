@@ -37,6 +37,8 @@ interface LocatedEvent {
   event: NoteEvent;
   partIndex: number;
   sequenceIndex: number;
+  voice?: string;
+  staff: number;
   measureIndex: number;
   startBeat: number;
   durationBeats: number;
@@ -89,6 +91,8 @@ function walkTimedContent(
   scale: number,
   partIndex: number,
   sequenceIndex: number,
+  voice: string | undefined,
+  staff: number,
   measureIndex: number,
   output: LocatedEvent[],
   ordinal: { value: number },
@@ -101,6 +105,8 @@ function walkTimedContent(
         event: item,
         partIndex,
         sequenceIndex,
+        voice,
+        staff,
         measureIndex,
         startBeat: cursor,
         durationBeats: duration,
@@ -120,6 +126,8 @@ function walkTimedContent(
           event,
           partIndex,
           sequenceIndex,
+          voice,
+          staff,
           measureIndex,
           startBeat: cursor,
           durationBeats: 0,
@@ -138,6 +146,8 @@ function walkTimedContent(
         scale * ratio,
         partIndex,
         sequenceIndex,
+        voice,
+        staff,
         measureIndex,
         output,
         ordinal,
@@ -153,6 +163,8 @@ function walkTimedContent(
       scale * ratio,
       partIndex,
       sequenceIndex,
+      voice,
+      staff,
       measureIndex,
       output,
       ordinal,
@@ -181,7 +193,18 @@ function collectEvents(score: Score): LocatedEvent[] {
       const measure = part.measures[measureIndex]!;
       const start = offsets[measureIndex] ?? measureIndex * 4;
       measure.sequences.forEach((sequence, sequenceIndex) => {
-        walkTimedContent(sequence.content, start, 1, partIndex, sequenceIndex, measureIndex, events, ordinal);
+        walkTimedContent(
+          sequence.content,
+          start,
+          1,
+          partIndex,
+          sequenceIndex,
+          sequence.voice,
+          sequence.staff ?? 1,
+          measureIndex,
+          events,
+          ordinal,
+        );
       });
     }
   }
@@ -214,18 +237,23 @@ export function lyricExtenderTargetCandidates(score: Score, sourceEventId: strin
   );
 }
 
+function sameLyricVoice(source: LocatedEvent, candidate: LocatedEvent): boolean {
+  return (
+    source.partIndex === candidate.partIndex &&
+    source.staff === candidate.staff &&
+    (source.voice !== undefined
+      ? source.voice === candidate.voice
+      : candidate.voice === undefined && source.sequenceIndex === candidate.sequenceIndex)
+  );
+}
+
 function inferredTarget(
   source: LocatedEvent,
   lineId: string,
   events: readonly LocatedEvent[],
 ): LocatedEvent | undefined {
   const continuation = events
-    .filter(
-      (event) =>
-        event.partIndex === source.partIndex &&
-        event.sequenceIndex === source.sequenceIndex &&
-        event.ordinal > source.ordinal,
-    )
+    .filter((event) => sameLyricVoice(source, event) && event.ordinal > source.ordinal)
     .sort((left, right) => left.ordinal - right.ordinal);
   let target: LocatedEvent | undefined;
   for (const event of continuation) {
@@ -244,11 +272,10 @@ function crossesLaterSyllable(
 ): boolean {
   return events.some(
     (candidate) =>
-      candidate.partIndex === source.partIndex &&
-      candidate.sequenceIndex === source.sequenceIndex &&
+      sameLyricVoice(source, candidate) &&
       candidate.ordinal > source.ordinal &&
       candidate.startBeat <= target.startBeat &&
-      candidate.event.id !== target.event.id &&
+      candidate.ordinal !== target.ordinal &&
       hasLyrics(candidate, lineId),
   );
 }

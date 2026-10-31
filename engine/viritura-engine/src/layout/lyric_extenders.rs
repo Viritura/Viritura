@@ -12,6 +12,8 @@ struct LocatedEvent<'a> {
     event: &'a Event,
     part_index: usize,
     sequence_index: usize,
+    voice: Option<&'a str>,
+    event_index: usize,
     staff_number: u32,
     measure_index: usize,
     measure_start_beat: f64,
@@ -24,6 +26,8 @@ struct VisibleEvent<'a> {
     event: &'a Event,
     part_index: usize,
     sequence_index: usize,
+    measure_index: usize,
+    event_index: usize,
     staff_number: u32,
     x: f64,
     end_x: f64,
@@ -33,6 +37,8 @@ fn collect_content<'a>(
     content: &'a [SequenceContent],
     part_index: usize,
     sequence_index: usize,
+    voice: Option<&'a str>,
+    event_index: &mut usize,
     staff_number: u32,
     measure_index: usize,
     measure_start_beat: f64,
@@ -49,6 +55,8 @@ fn collect_content<'a>(
                     event,
                     part_index,
                     sequence_index,
+                    voice,
+                    event_index: *event_index,
                     staff_number,
                     measure_index,
                     measure_start_beat,
@@ -56,6 +64,7 @@ fn collect_content<'a>(
                     duration_beats,
                     order: output.len(),
                 });
+                *event_index += 1;
                 cursor += duration_beats;
             }
             SequenceContent::Tuplet(tuplet) => {
@@ -66,6 +75,8 @@ fn collect_content<'a>(
                     &tuplet.content,
                     part_index,
                     sequence_index,
+                    voice,
+                    event_index,
                     staff_number,
                     measure_index,
                     measure_start_beat,
@@ -90,6 +101,8 @@ fn collect_content<'a>(
                         event,
                         part_index,
                         sequence_index,
+                        voice,
+                        event_index: *event_index,
                         staff_number,
                         measure_index,
                         measure_start_beat,
@@ -97,6 +110,7 @@ fn collect_content<'a>(
                         duration_beats,
                         order: output.len(),
                     });
+                    *event_index += 1;
                     cursor += duration_beats;
                 }
                 cursor = cursor.max(start_beat + outer * scale);
@@ -107,6 +121,8 @@ fn collect_content<'a>(
                         event,
                         part_index,
                         sequence_index,
+                        voice,
+                        event_index: *event_index,
                         staff_number,
                         measure_index,
                         measure_start_beat,
@@ -162,6 +178,8 @@ fn collect_score_events(score: &Score) -> Vec<LocatedEvent<'_>> {
                     &sequence.content,
                     part_index,
                     sequence_index,
+                    sequence.voice.as_deref(),
+                    &mut 0,
                     sequence.staff.unwrap_or(1),
                     measure_index,
                     measure_start_beat,
@@ -198,6 +216,7 @@ pub(super) fn cache_dependency_hash(score: &Score) -> u64 {
     for located in events {
         located.part_index.hash(&mut hasher);
         located.sequence_index.hash(&mut hasher);
+        located.voice.hash(&mut hasher);
         located.staff_number.hash(&mut hasher);
         located.measure_index.hash(&mut hasher);
         located.order.hash(&mut hasher);
@@ -224,6 +243,8 @@ fn visible_events(measure_layouts: &[MeasureLayout]) -> Vec<VisibleEvent<'_>> {
                     event,
                     part_index: voice.part_index_override.unwrap_or(measure.part_index),
                     sequence_index,
+                    measure_index: measure.resolved.index,
+                    event_index,
                     staff_number: voice.events.sequence_staff(event_index),
                     x: voice.events.x(event_index),
                     end_x,
@@ -263,6 +284,15 @@ fn target_end_x(target: &LocatedEvent<'_>, measure_layouts: &[MeasureLayout]) ->
     ))
 }
 
+fn same_lyric_voice(source: &LocatedEvent<'_>, candidate: &LocatedEvent<'_>) -> bool {
+    source.part_index == candidate.part_index
+        && source.staff_number == candidate.staff_number
+        && match source.voice {
+            Some(voice) => candidate.voice == Some(voice),
+            None => candidate.voice.is_none() && source.sequence_index == candidate.sequence_index,
+        }
+}
+
 fn inferred_target<'score, 'events>(
     source: &LocatedEvent<'score>,
     line_id: &str,
@@ -270,9 +300,7 @@ fn inferred_target<'score, 'events>(
 ) -> Option<&'events LocatedEvent<'score>> {
     let mut target = None;
     for candidate in events.iter().filter(|candidate| {
-        candidate.part_index == source.part_index
-            && candidate.sequence_index == source.sequence_index
-            && candidate.staff_number == source.staff_number
+        same_lyric_voice(source, candidate)
             && (candidate.start_beat > source.start_beat
                 || (candidate.start_beat == source.start_beat && candidate.order > source.order))
     }) {
@@ -333,12 +361,10 @@ fn crosses_later_syllable(
     events: &[LocatedEvent<'_>],
 ) -> bool {
     events.iter().any(|candidate| {
-        candidate.part_index == source.part_index
-            && candidate.sequence_index == source.sequence_index
-            && candidate.staff_number == source.staff_number
+        same_lyric_voice(source, candidate)
             && candidate.order > source.order
             && candidate.start_beat <= target.start_beat
-            && candidate.event.id != target.event.id
+            && candidate.order != target.order
             && candidate
                 .event
                 .lyrics
@@ -348,16 +374,25 @@ fn crosses_later_syllable(
     })
 }
 
-fn source_element_id(source: &LocatedEvent<'_>) -> Option<String> {
-    let event_id = source.event.id.as_deref()?;
-    let suffix = element_id::event_suffix(Some(event_id), source.order);
-    let id = element_id::event(
+fn source_element_id(source: &LocatedEvent<'_>) -> String {
+    let suffix = element_id::event_suffix(source.event.id.as_deref(), source.event_index);
+    element_id::event(
         source.part_index,
         source.measure_index,
         source.sequence_index,
         &suffix,
-    );
-    Some(id)
+    )
+}
+
+fn matches_visible(source: &LocatedEvent<'_>, candidate: &VisibleEvent<'_>) -> bool {
+    candidate.part_index == source.part_index
+        && candidate.sequence_index == source.sequence_index
+        && candidate.staff_number == source.staff_number
+        && candidate.measure_index == source.measure_index
+        && source.event.id.as_ref().map_or_else(
+            || candidate.event.id.is_none() && candidate.event_index == source.event_index,
+            |id| candidate.event.id.as_ref() == Some(id),
+        )
 }
 
 pub(super) fn active_line_ids_for_system(
@@ -384,11 +419,10 @@ pub(super) fn active_line_ids_for_system(
         .and_then(|support| support.use_lyric_extenders)
         .unwrap_or(false);
     let mut active = HashSet::new();
-    for source in events.iter().filter(|source| {
-        source.part_index == part_index
-            && source.staff_number == staff_number
-            && source.event.id.is_some()
-    }) {
+    for source in events
+        .iter()
+        .filter(|source| source.part_index == part_index && source.staff_number == staff_number)
+    {
         let Some(lines) = source
             .event
             .lyrics
@@ -401,7 +435,7 @@ pub(super) fn active_line_ids_for_system(
             let Some(target) = target_for(source, line_id, line, &events, explicit_policy) else {
                 continue;
             };
-            let conflicts = target.event.id != source.event.id
+            let conflicts = target.order != source.order
                 && target
                     .event
                     .lyrics
@@ -539,7 +573,6 @@ pub(super) fn render_system_extenders(
         if source.part_index != part_index
             || source.staff_number != staff_number
             || source.measure_index > last_measure
-            || source.event.id.is_none()
         {
             continue;
         }
@@ -558,7 +591,7 @@ pub(super) fn render_system_extenders(
             if target.start_beat < source.start_beat
                 || target.measure_index < first_measure
                 || source.measure_index > last_measure
-                || (target.event.id != source.event.id
+                || (target.order != source.order
                     && target
                         .event
                         .lyrics
@@ -574,18 +607,12 @@ pub(super) fn render_system_extenders(
                 .position(|id| id == line_id)
                 .unwrap_or(0);
             let lyric_y = base_lyric_y + line_index as f64 * line_spacing;
-            let source_visible = visible.iter().find(|candidate| {
-                candidate.event.id == source.event.id
-                    && candidate.part_index == source.part_index
-                    && candidate.sequence_index == source.sequence_index
-                    && candidate.staff_number == source.staff_number
-            });
-            let target_visible = visible.iter().find(|candidate| {
-                candidate.event.id == target.event.id
-                    && candidate.part_index == target.part_index
-                    && candidate.sequence_index == target.sequence_index
-                    && candidate.staff_number == target.staff_number
-            });
+            let source_visible = visible
+                .iter()
+                .find(|candidate| matches_visible(source, candidate));
+            let target_visible = visible
+                .iter()
+                .find(|candidate| matches_visible(target, candidate));
             let starts_here = source.measure_index >= first_measure
                 && source.measure_index <= last_measure
                 && source_visible.is_some();
@@ -613,9 +640,7 @@ pub(super) fn render_system_extenders(
             if segment_end <= segment_start {
                 continue;
             }
-            let Some(event_id) = source_element_id(source) else {
-                continue;
-            };
+            let event_id = source_element_id(source);
             let lyric_id = element_id::lyric(&event_id, line_id);
             let y = lyric_y + font_size * 0.72;
             dl.push_tagged(
