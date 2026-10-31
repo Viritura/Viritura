@@ -54,3 +54,103 @@ export const ExplicitAndInferred: StoryObj = {
     return <ScorePreview mnxJson={mnx} />;
   },
 };
+
+export const OpenMeterContinuation: StoryObj = {
+  name: "Explicit endpoint after an open-meter passage",
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1, support: { useLyricExtenders: true } },
+        global: {
+          measures: [
+            { time: { count: 4, unit: 4 }, _x: { viritura: { senzaMisura: true } } },
+            { time: { count: 4, unit: 4 } },
+          ],
+        },
+        parts: [
+          {
+            measures: [
+              {
+                sequences: [
+                  {
+                    content: [
+                      { duration: { base: "breve" }, notes: [{ pitch: { step: "C", octave: 4 } }] },
+                      {
+                        id: "open-source",
+                        duration: { base: "quarter" },
+                        notes: [{ pitch: { step: "D", octave: 4 } }],
+                        lyrics: { lines: { "1": { text: "Ah", extender: { target: "next-measure" } } } },
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                sequences: [
+                  {
+                    content: [
+                      { id: "next-measure", duration: { base: "whole" }, notes: [{ pitch: { step: "E", octave: 4 } }] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      })}
+    />
+  ),
+};
+
+export const SparseVerses: StoryObj = {
+  name: "Sparse verse rows across systems",
+  render: () => (
+    <ScorePreview
+      viewMode="page"
+      mnxJson={JSON.stringify({
+        mnx: { version: 1, support: { useLyricExtenders: true } },
+        global: { measures: [{ id: "m0", time: { count: 4, unit: 4 } }, { id: "m1" }, { id: "m2" }] },
+        parts: [
+          {
+            id: "singer",
+            measures: [["1", "2"], ["2"], ["1"]].map((verses, index) => ({
+              sequences: [
+                {
+                  content: [
+                    {
+                      id: `verse-event-${index}`,
+                      duration: { base: "whole" },
+                      notes: [{ pitch: { step: "C", octave: 4 } }],
+                      lyrics: {
+                        lines: Object.fromEntries(
+                          verses.map((verse) => [
+                            verse,
+                            { text: `Verse ${verse}`, extender: { target: `verse-event-${index}` } },
+                          ]),
+                        ),
+                      },
+                    },
+                  ],
+                },
+              ],
+            })),
+          },
+        ],
+        layouts: [{ id: "voice", content: [{ type: "staff", sources: [{ part: "singer" }] }] }],
+        scores: [
+          {
+            name: "Singer",
+            pages: [
+              {
+                systems: [0, 1, 2].map((index) => ({
+                  measure: `m${index}`,
+                  layout: "voice",
+                })),
+              },
+            ],
+          },
+        ],
+      })}
+    />
+  ),
+};

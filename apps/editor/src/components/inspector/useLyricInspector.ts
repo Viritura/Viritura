@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { lyricExtenderTargetCandidates } from "@viritura/core";
+import { lyricExtenderTargetCandidates, resolveLyricExtenders } from "@viritura/core";
 import type { LyricLineType, Score } from "@viritura/core";
 import {
   moveLyricToLine,
@@ -54,8 +54,33 @@ export function useLyricInspector({ score, selection, updateScore }: UseLyricIns
         label: `${part?.name || `Part ${candidate.partIndex + 1}`} · measure ${candidate.measureIndex + 1} · ${candidate.eventId}`,
       });
     }
+    const target = selected?.line.extender?.target;
+    if (target && !options.some((option) => option.value === target)) {
+      options.push({ value: target, label: `Unavailable endpoint · ${target}` });
+    }
     return options;
-  }, [elementId, score]);
+  }, [elementId, score, selected]);
+  const extenderDiagnostic = useMemo(() => {
+    if (!score || !elementId || !selected || selected.line.extender?.show === false) return undefined;
+    const location = resolveEventFromSubElement(elementId, score);
+    const event = location ? getEventAtLocation(score, location) : null;
+    if (event?.type !== "event") return undefined;
+    const diagnostic = resolveLyricExtenders(score).diagnostics.find(
+      (issue) =>
+        issue.sourceEventId === event.id &&
+        issue.lineId === selected.lineId &&
+        issue.partIndex === location?.partIndex &&
+        issue.measureIndex === location?.measureIndex &&
+        issue.sequenceIndex === location?.sequenceIndex,
+    );
+    if (!diagnostic) return undefined;
+    const reasons = {
+      "missing-target": "The endpoint no longer exists in this score.",
+      "backward-target": "The endpoint is before this syllable.",
+      "conflicting-target": "The endpoint crosses another syllable in this lyric line.",
+    };
+    return `${reasons[diagnostic.code]} Choose another endpoint or clear it to infer the endpoint. The stored target is preserved.`;
+  }, [elementId, score, selected]);
 
   const update = useCallback(
     (next: Score | null) => {
@@ -102,6 +127,7 @@ export function useLyricInspector({ score, selection, updateScore }: UseLyricIns
     selected,
     lineOptions,
     extenderTargetOptions,
+    extenderDiagnostic,
     handleTextChange,
     handleSyllabicTypeChange,
     handleLineChange,

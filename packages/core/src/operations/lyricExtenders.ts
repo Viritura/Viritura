@@ -1,5 +1,8 @@
 import type { LyricLine, NoteEvent, SequenceContent, Score } from "../model";
-import { measureBeats } from "../model/time";
+import { isRest } from "../model";
+import { measureBeats, type TimeSignature } from "../model/time";
+import { DURATION_BEATS } from "../constants";
+import { ratioToNumber, resolveStaffMeterTimeline } from "../model/staffMeter";
 
 export interface ResolvedLyricExtender {
   sourceEventId?: string;
@@ -19,6 +22,9 @@ export interface LyricExtenderDiagnostic {
   sourceEventId?: string;
   lineId: string;
   targetEventId: string;
+  partIndex: number;
+  measureIndex: number;
+  sequenceIndex: number;
 }
 
 export interface LyricExtenderResolution {
@@ -46,28 +52,8 @@ interface LocatedEvent {
   ordinal: number;
 }
 
-const NOTE_QUARTERS: Readonly<Record<string, number>> = {
-  duplexMaxima: 64,
-  maxima: 32,
-  longa: 16,
-  breve: 8,
-  whole: 4,
-  half: 2,
-  quarter: 1,
-  eighth: 0.5,
-  "16th": 0.25,
-  "32nd": 0.125,
-  "64th": 0.0625,
-  "128th": 0.03125,
-  "256th": 0.015625,
-  "512th": 0.0078125,
-  "1024th": 0.00390625,
-  "2048th": 0.001953125,
-  "4096th": 0.0009765625,
-};
-
 function durationBeats(duration: NoteEvent["duration"]): number {
-  const base = NOTE_QUARTERS[duration.base] ?? 1;
+  const base = DURATION_BEATS[duration.base];
   let dots = 1;
   for (let index = 0; index < (duration.dots ?? 0); index++) dots += 0.5 ** (index + 1);
   return base * dots;
@@ -75,14 +61,6 @@ function durationBeats(duration: NoteEvent["duration"]): number {
 
 function quantityBeats(quantity: { duration: NoteEvent["duration"]; multiple: number }): number {
   return durationBeats(quantity.duration) * quantity.multiple;
-}
-
-function itemSpan(item: SequenceContent): number {
-  if (item.type === "event") return durationBeats(item.duration);
-  if (item.type === "space") return (4 * item.duration[0]) / item.duration[1];
-  if (item.type === "grace") return 0;
-  if (item.type === "tuplet") return quantityBeats(item.outer);
-  return quantityBeats(item.outer);
 }
 
 function walkTimedContent(
@@ -110,7 +88,7 @@ function walkTimedContent(
         measureIndex,
         startBeat: cursor,
         durationBeats: duration,
-        rest: item.rest !== undefined || ((item.notes?.length ?? 0) === 0 && (item.kitNotes?.length ?? 0) === 0),
+        rest: isRest(item),
         ordinal: ordinal.value++,
       });
       cursor += duration;
@@ -131,7 +109,7 @@ function walkTimedContent(
           measureIndex,
           startBeat: cursor,
           durationBeats: 0,
-          rest: event.rest !== undefined || ((event.notes?.length ?? 0) === 0 && (event.kitNotes?.length ?? 0) === 0),
+          rest: isRest(event),
           ordinal: ordinal.value++,
         });
       }
@@ -152,24 +130,25 @@ function walkTimedContent(
         output,
         ordinal,
       );
-      cursor = Math.max(cursor + itemSpan(item) * scale, span);
+      cursor = span;
       continue;
     }
-    const natural = item.content.reduce((sum, event) => sum + durationBeats(event.duration), 0);
-    const ratio = natural > 0 ? quantityBeats(item.outer) / natural : 1;
-    const span = walkTimedContent(
-      item.content,
-      cursor,
-      scale * ratio,
-      partIndex,
-      sequenceIndex,
-      voice,
-      staff,
-      measureIndex,
-      output,
-      ordinal,
-    );
-    cursor = Math.max(cursor + itemSpan(item) * scale, span);
+    const subdivision = item.content.length ? (quantityBeats(item.outer) * scale) / item.content.length : 0;
+    for (const event of item.content) {
+      output.push({
+        event,
+        partIndex,
+        sequenceIndex,
+        voice,
+        staff,
+        measureIndex,
+        startBeat: cursor,
+        durationBeats: subdivision,
+        rest: isRest(event),
+        ordinal: ordinal.value++,
+      });
+      cursor += subdivision;
+    }
   }
   return cursor;
 }
@@ -179,24 +158,48 @@ function collectEvents(score: Score): LocatedEvent[] {
   let measureOffset = 0;
   const measureCount = Math.max(score.global.measures.length, ...score.parts.map((part) => part.measures.length));
   let activeMeter = { count: 4, unit: 4 };
+  const meters: TimeSignature[] = [];
   for (let index = 0; index < measureCount; index++) {
     const measure = score.global.measures[index];
     if (measure?.time) activeMeter = measure.time;
+    meters.push(activeMeter);
     offsets.push(measureOffset);
     measureOffset += measureBeats(activeMeter);
   }
   const events: LocatedEvent[] = [];
+  const writtenSpans = Array<number>(measureCount).fill(0);
   const ordinal = { value: 0 };
   for (let partIndex = 0; partIndex < score.parts.length; partIndex++) {
     const part = score.parts[partIndex]!;
+    const { table } = resolveStaffMeterTimeline(
+      part.measures.map((measure) => measure.staffMeters),
+      meters,
+    );
     for (let measureIndex = 0; measureIndex < part.measures.length; measureIndex++) {
       const measure = part.measures[measureIndex]!;
       const start = offsets[measureIndex] ?? measureIndex * 4;
       measure.sequences.forEach((sequence, sequenceIndex) => {
-        walkTimedContent(
+        if (sequence.fullMeasure) {
+          events.push({
+            event: { type: "event", duration: sequence.fullMeasure.visualDuration, rest: {} },
+            partIndex,
+            sequenceIndex,
+            voice: sequence.voice,
+            staff: sequence.staff ?? 1,
+            measureIndex,
+            startBeat: start,
+            durationBeats: measureBeats(meters[measureIndex]!),
+            rest: true,
+            ordinal: ordinal.value++,
+          });
+          return;
+        }
+        const end = walkTimedContent(
           sequence.content,
           start,
-          1,
+          table[measureIndex]?.get(sequence.staff ?? 1)
+            ? ratioToNumber(table[measureIndex]!.get(sequence.staff ?? 1)!.ratioToGlobal)
+            : 1,
           partIndex,
           sequenceIndex,
           sequence.voice,
@@ -205,9 +208,21 @@ function collectEvents(score: Score): LocatedEvent[] {
           events,
           ordinal,
         );
+        if (!sequence.fullMeasure) writtenSpans[measureIndex] = Math.max(writtenSpans[measureIndex]!, end - start);
       });
     }
   }
+  let correction = 0;
+  const corrections: number[] = [];
+  for (let index = 0; index < measureCount; index++) {
+    const nominal = measureBeats(meters[index]!);
+    const measure = score.global.measures[index];
+    const written = writtenSpans[index]!;
+    corrections.push(correction);
+    if (index === 0 && measure?.number === 0 && written > 0) correction += written - nominal;
+    else if (measure?.time?.display === "senzaMisura") correction += Math.max(nominal, written) - nominal;
+  }
+  for (const event of events) event.startBeat += corrections[event.measureIndex]!;
   return events;
 }
 
@@ -224,7 +239,7 @@ export function lyricExtenderTargetCandidates(score: Score, sourceEventId: strin
   const source = events.find((located) => located.event.id === sourceEventId);
   if (!source) return [];
   return events.flatMap((located) =>
-    located.event.id && located.startBeat >= source.startBeat
+    located.event.id && located.startBeat >= source.startBeat - 1e-9
       ? [
           {
             eventId: located.event.id,
@@ -274,7 +289,7 @@ function crossesLaterSyllable(
     (candidate) =>
       sameLyricVoice(source, candidate) &&
       candidate.ordinal > source.ordinal &&
-      candidate.startBeat <= target.startBeat &&
+      candidate.startBeat <= target.startBeat + 1e-9 &&
       candidate.ordinal !== target.ordinal &&
       hasLyrics(candidate, lineId),
   );
@@ -306,15 +321,21 @@ export function resolveLyricExtenders(score: Score): LyricExtenderResolution {
             sourceEventId: source.event.id,
             lineId,
             targetEventId: line.extender.target,
+            partIndex: source.partIndex,
+            measureIndex: source.measureIndex,
+            sequenceIndex: source.sequenceIndex,
           });
           continue;
         }
-        if (target.startBeat < source.startBeat) {
+        if (target.startBeat < source.startBeat - 1e-9) {
           diagnostics.push({
             code: "backward-target",
             sourceEventId: source.event.id,
             lineId,
             targetEventId: line.extender.target,
+            partIndex: source.partIndex,
+            measureIndex: source.measureIndex,
+            sequenceIndex: source.sequenceIndex,
           });
           continue;
         }
@@ -327,6 +348,9 @@ export function resolveLyricExtenders(score: Score): LyricExtenderResolution {
             sourceEventId: source.event.id,
             lineId,
             targetEventId: line.extender.target,
+            partIndex: source.partIndex,
+            measureIndex: source.measureIndex,
+            sequenceIndex: source.sequenceIndex,
           });
           continue;
         }

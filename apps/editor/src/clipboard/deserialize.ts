@@ -207,7 +207,6 @@ function freshenEvents(events: NoteEvent[]): void {
       if (!target) continue;
       const mapped = eventIdMap.get(target);
       if (mapped) line.extender!.target = mapped;
-      else delete line.extender!.target;
     }
     if (ev.slurs) {
       ev.slurs = ev.slurs.filter((slur: { target: string; startNote?: string; endNote?: string }) => {
