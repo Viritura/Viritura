@@ -23,6 +23,21 @@ See [lyric extenders](./lyric-extenders.md) and the
 [implementation plan](../plans/mnx-v46-end-to-end-support.md) for policy and
 remaining release gates. Old-draft field aliases are not accepted or repaired.
 
+The website and VS Code viewer consume published score-engine assets, not the
+editor's workspace WASM build. They must use JavaScript, workers and WASM from
+the same package release. Rebuilding the editor alone does not upgrade those
+hosts. The [packed-package verifier](../../scripts/verify-npm-packages.ts)
+checks the installed native WASM against the
+[v46 integration fixture](../../packages/format/fixtures/mnx-v46/feature-integration.mnx),
+including all dynamic appearances, global caesuras, note markings, lyric
+extenders and native navigation glyphs. Its browser gate also checks engine,
+worker and viewer rendering, navigation tempo restoration, intra-measure
+tempo automation and SVG export.
+The public engine layout, info and worker entry points validate against the
+same schema before calling the native model builder, which remains available
+as a lenient internal parsing API. Unsupported input produces a typed
+`ParseError`; obsolete jump spellings are not silently discarded.
+
 | What's saved      | Where it lives                                                                                                                         |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Musical content   | MNX-standard JSON (notes, rhythm, beams, ties, slurs, repeats, jumps, layouts, pages…)                                                 |

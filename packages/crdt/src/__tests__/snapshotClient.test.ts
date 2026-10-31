@@ -10,6 +10,9 @@
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { parseMnx, serializeMnx } from "@viritura/format";
 import * as Y from "yjs";
 import { createLiveSession } from "../LiveSession";
 import { MnxYjsBridge } from "../MnxYjsBridge";
@@ -101,6 +104,40 @@ describe("createLiveSession snapshot wiring", () => {
     };
     return client as SnapshotClient & { uploads: Uint8Array[]; fetchCalls: number };
   }
+
+  it("retains v46 notation and edits through snapshot fetch, debounced upload and reopen", async () => {
+    const initial = parseMnx(
+      JSON.parse(readFileSync(resolve(__dirname, "../../../format/fixtures/mnx-v46/feature-integration.mnx"), "utf8")),
+    );
+    const producer = new MnxYjsBridge();
+    producer.setMnxJson(JSON.stringify(serializeMnx(initial)));
+    const stub = makeStubClient(Y.encodeStateAsUpdate(producer.doc));
+    const session = createLiveSession({
+      initialAwareness: { identity: { userId: "v46-test", displayName: "v46-test" }, mode: "normal" },
+      snapshot: stub,
+    });
+    const reopened = new MnxYjsBridge();
+    try {
+      await session.snapshotReady;
+      expect(parseMnx(JSON.parse(session.bridge.getMnxJson()))).toEqual(initial);
+      const edited = parseMnx(JSON.parse(session.bridge.getMnxJson()));
+      const event = edited.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+      if (event.type !== "event" || !event.lyrics?.lines?.["1"]?.extender) {
+        throw new Error("Expected the integrated lyric source");
+      }
+      event.lyrics.lines["1"].extender.show = false;
+      edited.mnx.support = { ...edited.mnx.support, useLyricExtenders: false };
+      session.bridge.setMnxJson(JSON.stringify(serializeMnx(edited)));
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(stub.uploads).toHaveLength(1);
+      Y.applyUpdate(reopened.doc, stub.uploads[0]!);
+      expect(parseMnx(JSON.parse(reopened.getMnxJson()))).toEqual(edited);
+    } finally {
+      session.destroy();
+      producer.doc.destroy();
+      reopened.doc.destroy();
+    }
+  });
 
   it("applies a fetched snapshot to the Y.Doc before snapshotReady resolves", async () => {
     // Build a producer doc through the bridge so the snapshot bytes use

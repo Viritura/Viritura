@@ -5,9 +5,10 @@
  *  1. `pnpm pack` each package (applies `publishConfig`, rewrites `workspace:`).
  *  2. Check each tarball: complete manifest, `dist/` entry points present,
  *     nothing from `src/`.
- *  3. Install the tarballs into a fresh npm project (`consumer-fixture/`) with
- *     registry React and Vite, then type-check it and `vite build` it.
- *  4. With `--render`, serve the build and load it in headless Chromium: the
+ *  3. Install the tarballs into a fresh npm project (`consumer-fixture/`) and
+ *     verify the installed WASM renders native v46 features.
+ *  4. Type-check the consumer with registry React and Vite, then build it.
+ *  5. With `--render`, serve the build and load it in headless Chromium: the
  *     engine, its layout worker, the viewer and the React viewer must all
  *     render from the self-hosted assets.
  *
@@ -24,7 +25,7 @@ import { once } from "node:events";
 import { tmpdir } from "node:os";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { packageVersions, SCORE_PACKAGES, type ScorePackage } from "./score-packages/packageVersions";
 import type { ReleasePlan } from "./score-packages/releasePlan";
 
@@ -161,6 +162,88 @@ function stageEngineAssets(app: string): void {
     cpSync(resolve(engineDist, name), resolve(publicDir, "score-engine", name), { recursive: true });
   }
   cpSync(resolve(root, "packages/format/fixtures/mnx/grand-staff.mnx"), resolve(publicDir, "score.mnx"));
+  cpSync(resolve(root, "packages/format/fixtures/mnx-v46/feature-integration.mnx"), resolve(publicDir, "mnx46.mnx"));
+}
+
+interface NativeWasmModule {
+  initSync(input: { module: Uint8Array }): unknown;
+  compute_full_score_layout(json: string, spatium: number, pageWidth: number): string;
+}
+
+function isNativeWasmModule(value: unknown): value is NativeWasmModule {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "initSync" in value &&
+    typeof value.initSync === "function" &&
+    "compute_full_score_layout" in value &&
+    typeof value.compute_full_score_layout === "function"
+  );
+}
+
+interface NativeDisplayList {
+  commands: Record<string, unknown>[];
+  element_ids: (string | null)[];
+}
+
+function isNativeDisplayList(value: unknown): value is NativeDisplayList {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "commands" in value &&
+    Array.isArray(value.commands) &&
+    value.commands.every((command: unknown) => typeof command === "object" && command !== null) &&
+    "element_ids" in value &&
+    Array.isArray(value.element_ids) &&
+    value.element_ids.every((id: unknown) => id === null || typeof id === "string") &&
+    value.commands.length === value.element_ids.length
+  );
+}
+
+async function verifyNativeMnx46Assets(app: string): Promise<void> {
+  const wasmDir = resolve(app, "node_modules/@viritura/score-engine/dist/wasm");
+  const module: unknown = await import(pathToFileURL(resolve(wasmDir, "viritura_wasm.js")).href);
+  if (!isNativeWasmModule(module)) throw new Error("Packed engine does not expose the native layout API");
+  module.initSync({ module: readFileSync(resolve(wasmDir, "viritura_wasm_bg.wasm")) });
+  const json = readFileSync(resolve(app, "public/mnx46.mnx"), "utf8");
+  const display: unknown = JSON.parse(module.compute_full_score_layout(json, 10, 1200));
+  if (!isNativeDisplayList(display)) throw new Error("Packed engine returned an invalid native display list");
+  const tagged = (type: string, tag: string) =>
+    display.commands.some(
+      (command, index) =>
+        command.type === type &&
+        display.element_ids[index]?.includes(tag) &&
+        (type !== "DrawLine" ||
+          (typeof command.x1 === "number" &&
+            typeof command.x2 === "number" &&
+            Number.isFinite(command.x1) &&
+            Number.isFinite(command.x2) &&
+            command.x2 > command.x1)),
+    );
+  const glyph = (codepoint: number, tag?: string) =>
+    display.commands.some(
+      (command, index) =>
+        command.type === "DrawGlyph" &&
+        (command.codepoint === codepoint || command.codepoint === String.fromCodePoint(codepoint)) &&
+        typeof command.x === "number" &&
+        typeof command.y === "number" &&
+        Number.isFinite(command.x) &&
+        Number.isFinite(command.y) &&
+        (tag === undefined || display.element_ids[index]?.includes(tag)),
+    );
+  if (!tagged("DrawLine", "/lyric-")) throw new Error("Packed engine loses native lyric extenders");
+  if (!display.element_ids.some((id) => id?.startsWith("m0/caesura"))) {
+    throw new Error("Packed engine loses global caesuras");
+  }
+  for (const codepoint of [0xe5d0, 0xe5e0, 0xe5d7, 0xe5d4, 0xe04a, 0xe049]) {
+    if (!glyph(codepoint)) throw new Error(`Packed engine loses v46 glyph U+${codepoint.toString(16)}`);
+  }
+  for (const variant of ["immediate", "gradual", "relative", "accent"]) {
+    if (!glyph(0xe520, `integration-${variant}`)) {
+      throw new Error(`Packed engine loses explicit ${variant} dynamic appearance`);
+    }
+  }
+  console.log("✓ packed native WASM renders every v46 feature in the integration fixture");
 }
 
 function viteBin(app: string): string {
@@ -202,10 +285,10 @@ async function renderCheck(app: string): Promise<void> {
       await page.goto(url);
       await page.waitForFunction(() => window.__scorePackages?.done === true, undefined, { timeout: 60_000 });
       const results = await page.evaluate(() => window.__scorePackages);
-      const failures = (["engine", "worker", "viewer", "react"] as const).filter(
+      const failures = (["engine", "worker", "viewer", "react", "mnx46"] as const).filter(
         (check) => !results[check]?.startsWith("ok"),
       );
-      for (const check of ["engine", "worker", "viewer", "react"] as const) {
+      for (const check of ["engine", "worker", "viewer", "react", "mnx46"] as const) {
         console.log(`${failures.includes(check) ? "✗" : "✓"} ${check}: ${results[check] ?? "no result"}`);
       }
       if (failures.length || pageErrors.length) {
@@ -257,6 +340,7 @@ async function main(): Promise<void> {
     run(process.execPath, [resolve(app, "node_modules/typescript/bin/tsc"), "-p", "."], app);
     console.log("✓ consumer type-checks against the published declarations");
     stageEngineAssets(app);
+    await verifyNativeMnx46Assets(app);
     run(process.execPath, [viteBin(app), "build", "--logLevel", "warn"], app);
     console.log("✓ consumer builds with Vite");
     if (args.has("--render")) await renderCheck(app);
