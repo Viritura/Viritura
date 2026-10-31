@@ -245,6 +245,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             }
             extenderTarget={lyric.selected.line.extender?.target}
             extenderTargetOptions={lyric.extenderTargetOptions}
+            extenderDiagnostic={lyric.extenderDiagnostic}
             onTextChange={lyric.handleTextChange}
             onSyllabicTypeChange={lyric.handleSyllabicTypeChange}
             onLineChange={lyric.handleLineChange}

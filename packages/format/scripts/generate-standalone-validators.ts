@@ -55,6 +55,15 @@ ajv.addSchema(mnxSchema);
 ajv.addSchema(extensionsSchema);
 
 const schemaRefs: Record<string, string> = { mnxDocument: mnxSchema.$id };
+for (const [name, definition] of Object.entries({
+  mnxEvent: "event",
+  mnxGrace: "grace",
+  mnxTuplet: "tuplet",
+  mnxSpace: "space",
+  mnxTremolo: "multi-note-tremolo",
+})) {
+  schemaRefs[name] = `${mnxSchema.$id}#/$defs/${definition}`;
+}
 for (const definition of extensionDefinitions) {
   const exportName = definition.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
   schemaRefs[exportName] = `${extensionsSchema.$id}#/$defs/${definition}`;

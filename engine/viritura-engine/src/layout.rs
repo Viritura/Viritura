@@ -1000,7 +1000,7 @@ pub(crate) fn render_system_contents(
         staff_y,
         sp,
         config,
-        lyric_line_order,
+        staff_lyric_line_order.as_deref(),
         lyric_staff_number,
     );
     render_volta_brackets(dl, measure_layouts, staff_y, sp, part_idx);
