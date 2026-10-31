@@ -384,6 +384,7 @@ function parseLyrics(raw: RawLyrics): Lyrics {
       const lineRaw = linesObj[key]!;
       const line: LyricLine = { text: lineRaw.text };
       if (lineRaw.type !== undefined) line.type = lineRaw.type as LyricLineType;
+      if (lineRaw.extender !== undefined) line.extender = lineRaw.extender;
       lines[key] = line;
     }
     lyrics.lines = lines;

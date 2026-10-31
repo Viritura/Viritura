@@ -80,6 +80,8 @@ export interface LyricInputProps {
   position: { x: number; y: number } | null;
   /** Called when a syllable is committed to the score */
   onCommitSyllable: (elementId: string, lineId: string, text: string, type: LyricLineType) => void;
+  /** Explicitly mark the preceding syllable as the start of a word extender. */
+  onSetExtender?: (elementId: string, lineId: string, mode: "show") => void;
   /** Called to navigate to a different element/verse */
   onNavigate: (nextState: LyricInputState) => void;
   /** Called to exit lyric mode */
@@ -152,15 +154,21 @@ export function LyricInput({
   navIndex,
   position,
   onCommitSyllable,
+  onSetExtender,
   onNavigate,
   onExit,
 }: LyricInputProps) {
   const store = useDocumentStoreApi();
   const score = useDocumentStore((document) => document.score);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastCommittedLyricRef = useRef<LyricInputState | null>(null);
   const [value, setValue] = useState("");
   // Track whether the current syllable continues a word (arrived via hyphen)
   const continuingWordRef = useRef(false);
+
+  useEffect(() => {
+    if (!active) lastCommittedLyricRef.current = null;
+  }, [active]);
 
   // Load existing lyric text when navigating to a new event/verse
   useEffect(() => {
@@ -210,6 +218,7 @@ export function LyricInput({
       if (text) {
         const type = getSyllableType(action);
         onCommitSyllable(state.elementId, state.lineId, text, type);
+        lastCommittedLyricRef.current = state;
       }
       // Set continuing state for next syllable
       continuingWordRef.current = action === "hyphen";
@@ -236,8 +245,12 @@ export function LyricInput({
     if (text) {
       const type = continuingWordRef.current ? "end" : "whole";
       onCommitSyllable(state.elementId, state.lineId, text, type);
+      lastCommittedLyricRef.current = state;
       continuingWordRef.current = false;
     }
+    const extenderSource =
+      text || lastCommittedLyricRef.current?.lineId === state.lineId ? (lastCommittedLyricRef.current ?? state) : null;
+    if (extenderSource) onSetExtender?.(extenderSource.elementId, extenderSource.lineId, "show");
     // Advance without adding lyric
     const nextId = findNextNoteInVoice(navIndex, state.elementId);
     if (nextId) {
@@ -248,7 +261,7 @@ export function LyricInput({
       onExit();
       toast.info("End of voice.");
     }
-  }, [state, navIndex, value, onCommitSyllable, onNavigate, onExit]);
+  }, [state, navIndex, value, onCommitSyllable, onSetExtender, onNavigate, onExit]);
 
   // Commit current input text as a terminal syllable (end/whole), then
   // reset the continuing-word flag. Used by Escape, arrows, and verse switching.

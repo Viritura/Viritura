@@ -1,0 +1,91 @@
+{
+  "mnx": {
+    "version": 1,
+    "support": {
+      "useLyricExtenders": true
+    }
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        }
+      },
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        }
+      }
+    ]
+  },
+  "parts": [
+    {
+      "id": "voice",
+      "measures": [
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "id": "syllable",
+                  "duration": {
+                    "base": "whole"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 4
+                      }
+                    }
+                  ],
+                  "lyrics": {
+                    "lines": {
+                      "1": {
+                        "text": "A-men",
+                        "extender": {
+                          "id": "word-line",
+                          "show": true,
+                          "target": "last-covered-event",
+                          "_c": "retained extender note",
+                          "_x": {
+                            "viritura": {}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "id": "last-covered-event",
+                  "duration": {
+                    "base": "whole"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "G",
+                        "octave": 3
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

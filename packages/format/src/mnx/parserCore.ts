@@ -25,6 +25,7 @@ import type {
   LyricWorkflowToken,
 } from "@viritura/core";
 import { generateId } from "@viritura/core";
+import { resolveLyricExtenders } from "@viritura/core";
 
 import type { SequenceContent } from "@viritura/core";
 
@@ -43,6 +44,7 @@ import type {
   Part as RawPart,
 } from "@viritura/core/raw";
 import { DiagnosticCollector, ptr, type MnxDiagnostic } from "./diagnostics";
+import { KEYS } from "./knownFields";
 
 // ═══════════════════════════════════════════
 // Main parser entry point
@@ -106,6 +108,9 @@ function parseSupport(supportObj: Obj | undefined): Support | undefined {
   }
   if (typeof supportObj["useBeams"] === "boolean") {
     support.useBeams = supportObj["useBeams"];
+  }
+  if (typeof supportObj["useLyricExtenders"] === "boolean") {
+    support.useLyricExtenders = supportObj["useLyricExtenders"];
   }
   return support;
 }
@@ -499,6 +504,20 @@ function parseMnxInternal(json: unknown, diagnostics: DiagnosticCollector): Scor
   assignMissingIds(score);
 
   validateSupportConsistency(score, support, diagnostics);
+  for (const issue of resolveLyricExtenders(score).diagnostics) {
+    const source = issue.sourceEventId ? ` on event "${issue.sourceEventId}"` : "";
+    const message =
+      issue.code === "missing-target"
+        ? `Lyric extender${source} targets missing event "${issue.targetEventId}"`
+        : issue.code === "backward-target"
+          ? `Lyric extender${source} targets earlier event "${issue.targetEventId}"`
+          : `Lyric extender${source} ends on an event with another syllable in lyric line "${issue.lineId}"`;
+    diagnostics.warn(
+      ptr("parts", "?", "measures", "?", "sequences", "?", "content", "?", "lyrics", "lines", issue.lineId, "extender"),
+      message,
+      "lyric-extender-reference",
+    );
+  }
 
   // Unknown-field scan (research §1.1 / §1.7). Walks the raw JSON and emits
   // an info diagnostic for any field at a known node type that this parser
@@ -630,128 +649,6 @@ function processEventIds(
 }
 
 // Re-export sub-parsers for direct access
-
-// ---------------------------------------------------------------------------
-// Unknown-field scan
-// ---------------------------------------------------------------------------
-// Per-node-type whitelists. Any other key at that location yields an info
-// diagnostic so importers can surface "we silently dropped X" to users.
-// _x (vendor extensions) is allowed everywhere by convention.
-const KEYS = {
-  root: new Set(["mnx", "global", "parts", "layouts", "scores", "_x"]),
-  mnxMeta: new Set(["version", "support"]),
-  support: new Set(["useAccidentalDisplay", "useBeams"]),
-  global: new Set(["measures", "lyrics"]),
-  globalLyrics: new Set(["lineMetadata", "lineOrder"]),
-  globalMeasure: new Set([
-    "id",
-    "number",
-    "time",
-    "key",
-    "barline",
-    "repeatStart",
-    "repeatEnd",
-    "ending",
-    "tempos",
-    "segno",
-    "fine",
-    "jump",
-    "_x",
-  ]),
-  time: new Set(["count", "unit", "display", "_x"]),
-  key: new Set(["fifths", "color", "_x"]),
-  barline: new Set(["type"]),
-  ending: new Set(["duration", "numbers", "open", "color"]),
-  tempo: new Set(["bpm", "value", "location", "_x"]),
-  tempoNoteValue: new Set(["base", "dots"]),
-  rhythmicPosition: new Set(["fraction"]),
-  segno: new Set(["location", "glyph", "color"]),
-  fine: new Set(["location", "color"]),
-  jump: new Set(["type", "location"]),
-  part: new Set(["id", "name", "shortName", "staves", "transposition", "measures", "_x"]),
-  transposition: new Set(["interval", "keyFifthsFlipAt", "prefersWrittenPitches"]),
-  partMeasure: new Set([
-    "sequences",
-    "clefs",
-    "staffConfigs",
-    "arpeggios",
-    "nonArpeggios",
-    "beams",
-    "dynamics",
-    "ottavas",
-    "measureRepeat",
-    "_x",
-  ]),
-  positionedStaffConfig: new Set(["config", "position", "staff", "id", "_c", "_x"]),
-  staffConfig: new Set(["lines", "id", "_c", "_x"]),
-  measureRepeat: new Set(["number", "counter", "displayNumber", "staffPosition", "_c", "_x"]),
-  measureRepeatCounter: new Set(["count", "placement", "_c", "_x"]),
-  arpeggio: new Set(["id", "position", "span", "direction", "arrow", "_c", "_x"]),
-  nonArpeggio: new Set(["id", "position", "span", "_c", "_x"]),
-  idPair: new Set(["start", "end"]),
-  positionedClef: new Set(["clef", "position", "staff"]),
-  clef: new Set(["sign", "staffPosition", "color", "glyph", "octave", "showOctave", "hide"]),
-  beam: new Set(["events", "beams", "direction"]),
-  dynamic: new Set(["position", "value", "glyph", "staff", "voice"]),
-  ottava: new Set(["position", "end", "value", "staff", "voice"]),
-  measureRhythmicPosition: new Set(["measure", "position"]),
-  sequence: new Set(["content", "fullMeasure", "staff", "voice", "directionHint"]),
-  fullMeasure: new Set(["visualDuration", "staffPosition"]),
-  duration: new Set(["base", "dots"]),
-  event: new Set([
-    "type",
-    "id",
-    "duration",
-    "staff",
-    "rest",
-    "notes",
-    "slurs",
-    "markings",
-    "fermata",
-    "lyrics",
-    "stemDirection",
-    "smufl",
-    "_x",
-  ]),
-  rest: new Set(["staffPosition"]),
-  note: new Set(["pitch", "id", "ties", "accidentalDisplay", "written"]),
-  pitch: new Set(["step", "octave", "alter"]),
-  tie: new Set(["target", "targetType", "side", "lv"]),
-  accidentalDisplay: new Set(["show", "force", "enclosure"]),
-  accidentalEnclosure: new Set(["symbol"]),
-  written: new Set(["diatonicDelta"]),
-  slur: new Set(["target", "side", "sideEnd", "lineType", "startNote", "endNote"]),
-  markings: new Set([
-    "staccato",
-    "staccatissimo",
-    "spiccato",
-    "staccatissimoWedge",
-    "tenuto",
-    "accent",
-    "strongAccent",
-    "tremolo",
-    "softAccent",
-    "stress",
-    "unstress",
-    "breath",
-    "bowDirection",
-    "_x",
-  ]),
-  tuplet: new Set(["type", "inner", "outer", "content", "bracket", "showNumber", "showValue", "placement"]),
-  tupletDuration: new Set(["duration", "multiple"]),
-  grace: new Set(["type", "content", "graceType", "slash", "color"]),
-  multiTremolo: new Set(["type", "content", "marks", "outer"]),
-  space: new Set(["type", "duration"]),
-  layoutDefinition: new Set(["id", "content"]),
-  layoutGroup: new Set(["type", "content", "symbol", "label", "barlineStyle"]),
-  layoutStaff: new Set(["type", "sources", "label", "labelref"]),
-  layoutSource: new Set(["part", "staff", "stem", "voice", "labelref"]),
-  scoreDefinition: new Set(["name", "layout", "multimeasureRests", "pages", "useWritten", "_x"]),
-  multimeasureRest: new Set(["start", "duration"]),
-  page: new Set(["systems"]),
-  system: new Set(["measure", "layout", "layoutChanges"]),
-  layoutChange: new Set(["layout", "location"]),
-};
 
 function scanUnknownFields(json: unknown, dx: DiagnosticCollector): void {
   if (!json || typeof json !== "object") return;
@@ -920,6 +817,20 @@ function scanContentItem(c: Obj, p: string, dx: DiagnosticCollector): void {
   const type = c["type"] ?? "event";
   if (type === "event") {
     emitUnknown(c, KEYS.event, p, dx);
+    const lyrics = c["lyrics"] as Obj | undefined;
+    if (lyrics) {
+      emitUnknown(lyrics, KEYS.eventLyrics, p + ptr("lyrics"), dx);
+      const lines = lyrics["lines"] as Obj | undefined;
+      if (lines && typeof lines === "object") {
+        for (const [lineId, line] of Object.entries(lines)) {
+          if (!line || typeof line !== "object") continue;
+          const linePath = p + ptr("lyrics", "lines", lineId);
+          emitUnknown(line as Obj, KEYS.eventLyricLine, linePath, dx);
+          const extender = (line as Obj)["extender"] as Obj | undefined;
+          if (extender) emitUnknown(extender, KEYS.eventLyricLineExtender, linePath + ptr("extender"), dx);
+        }
+      }
+    }
     const notes = c["notes"];
     if (Array.isArray(notes)) {
       notes.forEach((n, i) => {

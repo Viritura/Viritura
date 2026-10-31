@@ -22,6 +22,7 @@ mod glissando;
 mod grace;
 mod hairpins;
 mod instrument_changes;
+mod lyric_extenders;
 mod measure;
 mod note_preview;
 mod orchestration;
@@ -46,6 +47,7 @@ mod space_requests;
 mod spacing;
 mod staff_brace;
 mod staff_lines;
+mod support_flags;
 mod system;
 mod system_spacing;
 mod system_text;
@@ -849,21 +851,14 @@ fn render_system_contents(
     // suppressed — a per-chunk map can't see the target note in the next chunk.
     tie_accidentals_override: Option<&HashMap<String, bool>>,
 ) {
-    let staff_lyric_line_order =
-        render_lyrics::line_order_for_staff(measure_layouts, lyric_line_order);
-    let staff_height = 4.0 * sp;
-    let use_beams = score
-        .mnx
-        .support
-        .as_ref()
-        .and_then(|s| s.use_beams)
-        .unwrap_or(false);
-    let use_accidental_display = score
-        .mnx
-        .support
-        .as_ref()
-        .and_then(|s| s.use_accidental_display)
-        .unwrap_or(false);
+    let (staff_lyric_line_order, lyric_staff_number) = lyric_extenders::system_lyric_context(
+        score,
+        part_idx,
+        measure_layouts,
+        lyric_line_order,
+        staff_idx,
+    );
+    let (use_beams, use_accidental_display) = support_flags::engraving_flags(score);
     let staff_shape_start = dl.element_shapes.len();
     let staff_cmd_start = dl.commands.len();
 
@@ -881,11 +876,8 @@ fn render_system_contents(
     let mmr_number_extents =
         render_measure::above_measure_obstacles(measure_layouts, staff_y, sp, config);
     let shared_lane = render_measure::shared_staff_lane(staff_y, sp, shared_lane_staff_y_offsets);
-    let render_ordinary_measure_number = if shared_lane.center_y.is_some() {
-        shared_lane.is_bottom
-    } else {
-        staff_idx.is_none_or(|index| index == 0)
-    };
+    let render_ordinary_measure_number =
+        render_measure::should_render_ordinary_measure_number(&shared_lane, staff_idx);
 
     for (i, ml) in measure_layouts.iter().enumerate() {
         let prev_has_repeat_end =
@@ -1001,6 +993,17 @@ fn render_system_contents(
         sp,
         slur_geom_start,
     );
+    lyric_extenders::render_part_system_extenders(
+        dl,
+        measure_layouts,
+        score,
+        part_idx,
+        staff_y,
+        sp,
+        config,
+        staff_lyric_line_order.as_deref(),
+        lyric_staff_number,
+    );
     render_volta_brackets(dl, measure_layouts, staff_y, sp, part_idx);
     volta::render_ottavas_for_view(dl, measure_layouts, staff_y, config, score, staff_sources);
     render_hairpins(
@@ -1044,7 +1047,7 @@ fn render_system_contents(
 
         let barline_tag = element_id::barline(last.resolved.index + 1);
         let cmd_idx = dl.commands.len();
-        render_barline(dl, end_x, staff_y, staff_height, sp, config, &barline_kind);
+        render_barline(dl, end_x, staff_y, 4.0 * sp, sp, config, &barline_kind);
         for ci in cmd_idx..dl.commands.len() {
             dl.tag_command(ci, barline_tag.clone());
         }
@@ -1057,7 +1060,7 @@ fn render_system_contents(
                 end_x - barline_w * 0.5,
                 staff_y,
                 barline_w.max(1.0 * sp),
-                staff_height,
+                4.0 * sp,
             ),
         });
     }

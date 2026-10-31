@@ -25,7 +25,7 @@ impl BeatKey {
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct SpacingEvent<'a> {
+pub(crate) struct SpacingEvent<'a> {
     pub key: BeatKey,
     pub event: &'a Event,
     pub duration_beats: f64,
@@ -34,10 +34,11 @@ pub(super) struct SpacingEvent<'a> {
     pub sequence_staff: u32,
 }
 
-pub(super) struct SequenceTimeline<'a> {
+pub(crate) struct SequenceTimeline<'a> {
     pub events: Vec<SpacingEvent<'a>>,
     pub grace_before: HashMap<BeatKey, Vec<&'a Event>>,
     pub grace_after: HashMap<BeatKey, Vec<&'a Event>>,
+    pub duration_beats: f64,
 }
 
 /// Traverse every timed spacing event in a sequence exactly once.
@@ -53,7 +54,7 @@ pub(super) struct SequenceTimeline<'a> {
 /// staff's `EffectiveStaffMeter::ratio_to_global` for a `fitMeasure`
 /// staff-local meter, so a differently-noted but duration-mapped staff still
 /// lands its onsets in the shared spacing columns other staves use.
-pub(super) fn sequence_timeline(
+pub(crate) fn sequence_timeline(
     sequence: &Sequence,
     sequence_index: usize,
     contesting_voices: usize,
@@ -63,6 +64,7 @@ pub(super) fn sequence_timeline(
         events: Vec::new(),
         grace_before: HashMap::new(),
         grace_after: HashMap::new(),
+        duration_beats: 0.0,
     };
     let mut beat = 0.0;
     let mut pending_graces = Vec::new();
@@ -76,6 +78,7 @@ pub(super) fn sequence_timeline(
         &mut pending_graces,
         &mut timeline,
     );
+    timeline.duration_beats = beat;
     if !pending_graces.is_empty() {
         if let Some(last_event) = timeline.events.last() {
             timeline.grace_after.insert(last_event.key, pending_graces);

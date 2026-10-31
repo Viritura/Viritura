@@ -14,9 +14,15 @@ interface LyricSectionProps {
   syllabicType: LyricLineType;
   lineId: string;
   lineOptions: LyricLineOption[];
+  extenderMode: "auto" | "show" | "hide";
+  extenderTarget?: string;
+  extenderTargetOptions: LyricLineOption[];
+  extenderDiagnostic?: string;
   onTextChange: (text: string) => void;
   onSyllabicTypeChange: (type: LyricLineType) => void;
   onLineChange: (lineId: string) => void;
+  onExtenderModeChange: (mode: "auto" | "show" | "hide") => void;
+  onExtenderTargetChange: (targetId?: string) => void;
 }
 
 const SYLLABIC_OPTIONS = [
@@ -31,9 +37,15 @@ export function LyricSection({
   syllabicType,
   lineId,
   lineOptions,
+  extenderMode,
+  extenderTarget,
+  extenderTargetOptions,
+  extenderDiagnostic,
   onTextChange,
   onSyllabicTypeChange,
   onLineChange,
+  onExtenderModeChange,
+  onExtenderTargetChange,
 }: LyricSectionProps) {
   const [textDraft, setTextDraft] = useState(text);
   const commitText = () => {
@@ -71,6 +83,31 @@ export function LyricSection({
         Lyric line
         <Select aria-label="Lyric line" value={lineId} onValueChange={onLineChange} options={lineOptions} />
       </label>
+      <label style={labelStyle}>
+        Lyric extender
+        <Select
+          aria-label="Lyric extender"
+          value={extenderMode}
+          onValueChange={(value) => onExtenderModeChange(value as "auto" | "show" | "hide")}
+          options={[
+            { value: "auto", label: "Auto" },
+            { value: "show", label: "Show" },
+            { value: "hide", label: "Hide" },
+          ]}
+        />
+      </label>
+      {extenderMode !== "hide" && (
+        <label style={labelStyle}>
+          Extender endpoint
+          <Select
+            aria-label="Lyric extender endpoint"
+            value={extenderTarget ?? ""}
+            onValueChange={(value) => onExtenderTargetChange(value || undefined)}
+            options={extenderTargetOptions}
+          />
+        </label>
+      )}
+      {extenderDiagnostic && <p role="status">{extenderDiagnostic}</p>}
     </fieldset>
   );
 }

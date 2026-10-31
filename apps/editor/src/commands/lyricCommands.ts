@@ -9,6 +9,8 @@ export interface SelectedLyric {
   occupiedLineIds: string[];
 }
 
+export type LyricExtenderMode = "auto" | "show" | "hide";
+
 export function isLyricId(elementId: string): boolean {
   return extractLyricLineId(elementId) !== null;
 }
@@ -72,6 +74,40 @@ export function setLyricSyllabicType(score: Score, elementId: string, type: Lyri
   return editSelectedLyric(score, elementId, (_event, _lineId, line) => {
     if (type === "whole") delete line.type;
     else line.type = type;
+  });
+}
+
+export function setLyricExtenderMode(score: Score, elementId: string, mode: LyricExtenderMode): Score | null {
+  return editSelectedLyric(score, elementId, (_event, _lineId, line) => {
+    if (mode === "auto") {
+      delete line.extender;
+    } else if (mode === "show") {
+      line.extender = { ...line.extender, show: true };
+    } else {
+      line.extender = { ...line.extender, show: false };
+    }
+  });
+}
+
+export function setLyricExtenderTarget(score: Score, elementId: string, targetId?: string): Score | null {
+  return editSelectedLyric(score, elementId, (_event, _lineId, line) => {
+    if (!line.extender) line.extender = {};
+    if (targetId === undefined) delete line.extender.target;
+    else line.extender.target = targetId;
+  });
+}
+
+export function setLyricExtenderPolicy(score: Score, policy: "auto" | "explicit"): Score {
+  return produce(score, (draft) => {
+    if (policy === "auto") {
+      if (draft.mnx.support) {
+        delete draft.mnx.support.useLyricExtenders;
+        if (Object.keys(draft.mnx.support).length === 0) delete draft.mnx.support;
+      }
+      return;
+    }
+    draft.mnx.support ??= {};
+    draft.mnx.support.useLyricExtenders = true;
   });
 }
 

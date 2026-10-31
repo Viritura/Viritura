@@ -1,6 +1,6 @@
 import { DOMParser } from "@xmldom/xmldom";
 import { DiagnosticCollector } from "@viritura/core";
-import type { MnxDocument } from "../types";
+import type { MnxDocument, MnxSequenceContent } from "../types";
 import { collectLossyDiagnostics } from "./diagnostics";
 import { buildGlobalMeasures } from "./globalMeasures";
 import { consolidateImportedHarmony } from "./harmonyConsolidation";
@@ -56,8 +56,26 @@ export interface PercussionImportReview {
   reason: string;
 }
 
+function lyricExtenderCoverage(content: readonly MnxSequenceContent[]): { explicit: boolean; implicit: boolean } {
+  let explicit = false;
+  let implicit = false;
+  for (const item of content) {
+    if (item.type === "tuplet" || item.type === "grace" || item.type === "tremolo") {
+      const nested = lyricExtenderCoverage(item.content);
+      explicit ||= nested.explicit;
+      implicit ||= nested.implicit;
+    } else if (item.type === undefined) {
+      for (const line of Object.values(item.lyrics?.lines ?? {})) {
+        explicit ||= line.extender !== undefined;
+        implicit ||= line.extender === undefined;
+      }
+    }
+  }
+  return { explicit, implicit };
+}
+
 /**
- * Convert a MusicXML string to an MNX document object (MNX version 7).
+ * Convert a MusicXML string to an MNX document object.
  * Works in both browser and Node.js — uses @xmldom/xmldom for parsing.
  *
  * By default produces strict MNX-compliant output. Enable
@@ -91,10 +109,18 @@ export function convertMusicXmlToMnx(xmlString: string, options?: ConvertOptions
   consolidateImportedHarmony(harmonySources, globalMeasures, opts.diagnostics);
 
   const result: MnxDocument = {
-    mnx: { version: 7 },
+    mnx: { version: 1 },
     global: { measures: globalMeasures },
     parts: mnxParts,
   };
+  const lyricCoverage = mnxParts.flatMap((part) =>
+    part.measures.flatMap(
+      (measure) => measure.sequences?.map((sequence) => lyricExtenderCoverage(sequence.content)) ?? [],
+    ),
+  );
+  if (lyricCoverage.some((coverage) => coverage.explicit) && !lyricCoverage.some((coverage) => coverage.implicit)) {
+    result.mnx.support = { useLyricExtenders: true };
+  }
 
   // Route unpitched-percussion parts to drum-kit notes so playback uses the
   // GM drum channel instead of voicing them as piano.

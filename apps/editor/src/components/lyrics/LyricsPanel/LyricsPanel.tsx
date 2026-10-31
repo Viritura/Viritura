@@ -16,6 +16,7 @@ import { useSelection } from "../../../store/selectionStore";
 import { toggleNoteInputMode, useNoteInputStore } from "../../../store/noteInputStore";
 import styles from "./LyricsPanel.module.css";
 import { LyricWorkflowControls } from "./LyricWorkflowControls";
+import { setLyricExtenderPolicy } from "../../../commands/lyricCommands";
 
 type MetadataField = keyof LyricLineMetadataEntry;
 
@@ -242,6 +243,23 @@ export function LyricsPanel({ embedded = false }: LyricsPanelProps) {
         updateScore={updateScore}
         setStatus={setStatus}
       />
+
+      <Collapsible title="Advanced lyric settings">
+        <label className={styles.fieldLabel}>
+          Lyric extender policy
+          <Select
+            aria-label="Lyric extender policy"
+            value={score.mnx.support?.useLyricExtenders === true ? "explicit" : "auto"}
+            onValueChange={(value) =>
+              updateScore(setLyricExtenderPolicy(score, value === "explicit" ? "explicit" : "auto"))
+            }
+            options={[
+              { value: "auto", label: "Auto infer missing extenders" },
+              { value: "explicit", label: "Only use explicit extenders" },
+            ]}
+          />
+        </label>
+      </Collapsible>
 
       <Collapsible title="Manage lines">
         <ol className={styles.manageList}>

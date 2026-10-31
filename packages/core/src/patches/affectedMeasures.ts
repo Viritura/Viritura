@@ -44,14 +44,11 @@ function patchMeasureIndex(p: ScorePatch): number | null {
     case "removeNoteFromEvent":
       return p.locator.sequencePath.measureIndex;
     case "setEventField":
-      // A slur's `target` is an event id that may live in a LATER measure
-      // (or an earlier one, for a backward-authored slur). This function
-      // has no Score to resolve that id to a measure index, and slur
-      // rendering spans the whole staff-system between the two endpoints —
-      // so a narrow single-measure range would leave the target measure's
-      // cached segment stale. Bail to `null` (whole-score fallback) rather
-      // than risk an incomplete dirty range.
-      if (p.update.field === "slurs") return null;
+      // Slur and lyric-extender targets may live in remote measures. This
+      // function has no Score to resolve their ids, and their rendered spans
+      // cross system boundaries; a narrow range could leave dependent cached
+      // segments stale. Bail to `null` (whole-score fallback).
+      if (p.update.field === "slurs" || p.update.field === "lyrics") return null;
       return p.locator.sequencePath.measureIndex;
     case "setEventMarking":
       return p.locator.sequencePath.measureIndex;
@@ -70,6 +67,7 @@ function patchMeasureIndex(p: ScorePatch): number | null {
     case "removePart":
     case "setPartField":
     case "setScoreMetadata":
+    case "setMnxSupport":
     case "setScoreExtension":
       return null;
   }

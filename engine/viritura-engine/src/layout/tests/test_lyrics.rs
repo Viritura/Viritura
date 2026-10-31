@@ -2,9 +2,386 @@
 // 4 test(s)
 
 use crate::layout::config::LayoutConfig;
-use crate::layout::layout_score;
+use crate::layout::{layout_full_score, layout_score};
 use crate::render::*;
 use std::collections::HashSet;
+
+#[test]
+fn test_lyric_free_scores_never_build_extender_event_timelines_per_system() {
+    let measures: Vec<_> = (0..20).map(|_| serde_json::json!({})).collect();
+    let part_measures: Vec<_> = (0..20).map(|_| serde_json::json!({
+        "sequences": [{"content": [
+            {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}
+        ]}]
+    })).collect();
+    let json = serde_json::json!({
+        "mnx": {"version": 1, "support": {"useLyricExtenders": true}},
+        "global": {"measures": measures, "lyrics": {"lineOrder": ["1"]}},
+        "parts": [{"measures": part_measures}, {"measures": part_measures}]
+    });
+    let mut score = crate::parse::parse_mnx(&json.to_string()).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(200.0),
+        page_margin_left: 0.0,
+        page_margin_right: 0.0,
+        ..LayoutConfig::default()
+    };
+    super::super::lyric_extenders::take_event_collection_passes();
+    assert_eq!(
+        super::super::lyric_extenders::cache_dependency_hash(&score),
+        0
+    );
+    let dl = layout_full_score(&score, &config);
+    assert!(
+        dl.measure_bounds
+            .iter()
+            .map(|bound| bound.system_index)
+            .collect::<HashSet<_>>()
+            .len()
+            > 1
+    );
+    assert_eq!(super::super::lyric_extenders::take_event_collection_passes(), 0,
+        "lyric-free layouts must skip timing and dependency serialization across every staff/system");
+    let crate::model::SequenceContent::Event(event) =
+        &mut score.parts[0].measures[0].sequences[0].content[0]
+    else {
+        panic!()
+    };
+    event.lyrics =
+        Some(serde_json::from_value(serde_json::json!({"lines": {"1": {"text": "Ah"}}})).unwrap());
+    assert_ne!(
+        super::super::lyric_extenders::cache_dependency_hash(&score),
+        0
+    );
+    assert_eq!(
+        super::super::lyric_extenders::take_event_collection_passes(),
+        1
+    );
+}
+
+#[test]
+fn test_lyric_extender_sparse_verse_rows_share_system_text_context() {
+    let mut json = serde_json::json!({
+        "mnx": {"version": 1, "support": {"useLyricExtenders": true}},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}}, {"id": "m1"}, {"id": "m2"}
+        ]},
+        "parts": [{"id": "singer", "measures": [
+            {"sequences": [{"content": [{"id": "both", "duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "C", "octave": 4}}],
+                "lyrics": {"lines": {
+                    "1": {"text": "One", "extender": {"target": "both"}},
+                    "2": {"text": "Two", "extender": {"target": "both"}}
+                }}}]}]},
+            {"sequences": [{"content": [{"id": "second", "duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "D", "octave": 4}}],
+                "lyrics": {"lines": {"2": {"text": "Only two", "extender": {"target": "second"}}}}}]}]},
+            {"sequences": [{"content": [{"id": "first", "duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "E", "octave": 4}}],
+                "lyrics": {"lines": {"1": {"text": "Only one", "extender": {"target": "first"}}}}}]}]}
+        ]}],
+        "layouts": [{"id": "voice", "content": [
+            {"type": "staff", "sources": [{"part": "singer"}]}
+        ]}],
+        "scores": [{"name": "Singer", "pages": [{"systems": [
+            {"measure": "m0", "layout": "voice"},
+            {"measure": "m1", "layout": "voice"},
+            {"measure": "m2", "layout": "voice"}
+        ]}]}]
+    });
+    for ordered in [false, true] {
+        if ordered {
+            json["global"]["lyrics"] = serde_json::json!({"lineOrder": ["1", "2"]});
+        }
+        let score = crate::parse::parse_mnx(&json.to_string()).unwrap();
+        let config = LayoutConfig::default();
+        let dl = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+        let mut checked = 0;
+        for (command, id) in dl.commands.iter().zip(&dl.element_ids) {
+            let RenderCommand::DrawLine { y1, width, .. } = command else {
+                continue;
+            };
+            if (*width - 0.12 * config.sp).abs() > 1e-6 {
+                continue;
+            }
+            let text_y = dl
+                .commands
+                .iter()
+                .zip(&dl.element_ids)
+                .find_map(|(command, text_id)| {
+                    if text_id == id {
+                        if let RenderCommand::DrawText { y, font, .. } = command {
+                            if font == "serif" {
+                                return Some(*y);
+                            }
+                        }
+                    }
+                    None
+                })
+                .expect("each self-target extender shares a lyric text tag");
+            assert!(
+                (*y1 - text_y - 1.6 * config.sp * 0.72).abs() < 1e-6,
+                "extender and text must occupy the same system verse row (ordered={ordered})"
+            );
+            checked += 1;
+        }
+        assert_eq!(checked, 4);
+    }
+}
+
+#[test]
+fn test_lyric_extender_full_measure_rest_insert_and_remove_match_cold_layout() {
+    use crate::layout::cache::LayoutCache;
+    use crate::layout::layout_with_mnx_scores_cached;
+    let json = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}}, {}, {}
+        ]},
+        "parts": [{"id": "singer", "measures": [
+            {"sequences": [{"voice": "singer", "content": [
+                {"id": "source", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}],
+                 "lyrics": {"lines": {"1": {"text": "Ah"}}}}
+            ]}]},
+            {"sequences": [{"voice": "other", "content": []}, {"voice": "singer", "content": []}]},
+            {"sequences": [{"voice": "singer", "content": [
+                {"id": "target", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "E", "octave": 4}}]}
+            ]}]}
+        ]}],
+        "layouts": [{"id": "voice", "content": [
+            {"type": "staff", "sources": [{"part": "singer"}]}
+        ]}],
+        "scores": [{"name": "Singer", "layout": "voice"}]
+    });
+    let mut score = crate::parse::parse_mnx(&json.to_string()).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(300.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = LayoutCache::new();
+    for step in 0..3 {
+        score.parts[0].measures[1].sequences[1].full_measure = if step == 1 {
+            Some(
+                serde_json::from_value(serde_json::json!({"visualDuration": {"base": "whole"}}))
+                    .unwrap(),
+            )
+        } else {
+            None
+        };
+        cache.set_pending_dirty_range(Some((1, 1)));
+        let cached = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let cold = layout_with_mnx_scores_cached(&score, &config, 0, None);
+        assert!(cache.retained_segment_count() > 0);
+        let bits = |list: &DisplayList| {
+            list.to_binary()
+                .iter()
+                .map(|value| value.to_bits())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(bits(&cached), bits(&cold), "fullMeasure mutation {step}");
+        let lines = cached.commands.iter().filter(|command| matches!(
+            command, RenderCommand::DrawLine { width, .. } if (*width - 0.12 * config.sp).abs() < 1e-6
+        )).count();
+        if step == 1 {
+            assert_eq!(lines, 0, "fullMeasure rest terminates inference");
+        } else {
+            assert!(lines > 0, "removing fullMeasure rest restores inference");
+        }
+    }
+}
+
+#[test]
+fn test_lyric_extender_after_long_open_meter_bar_reaches_the_following_measure() {
+    let json = serde_json::json!({
+        "mnx": {"version": 1, "support": {"useLyricExtenders": true}},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}, "_x": {"viritura": {"senzaMisura": true}}},
+            {"time": {"count": 4, "unit": 4}}
+        ]},
+        "parts": [{"measures": [
+            {"sequences": [{"content": [
+                {"duration": {"base": "breve"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]},
+                {"id": "source", "duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "D", "octave": 4}}],
+                 "lyrics": {"lines": {"1": {"text": "Ah", "extender": {"target": "target"}}}}}
+            ]}]},
+            {"sequences": [{"content": [
+                {"id": "target", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "E", "octave": 4}}]}
+            ]}]}
+        ]}]
+    });
+    let score = crate::parse::parse_mnx(&json.to_string()).unwrap();
+    let config = LayoutConfig::default();
+    let dl = layout_score(&score, 0, &config);
+    assert!(dl.commands.iter().any(|command| matches!(
+        command, RenderCommand::DrawLine { width, .. } if (*width - 0.12 * config.sp).abs() < 1e-6
+    )), "following measure is not backward after a long free-meter passage");
+}
+
+#[test]
+fn test_lyric_extender_uses_staff_local_global_ratio_for_cross_staff_targets() {
+    let json = serde_json::json!({
+        "mnx": {"version": 1, "support": {"useLyricExtenders": true}},
+        "global": {"measures": [{"time": {"count": 2, "unit": 4}}]},
+        "parts": [{"staves": 2, "measures": [{
+            "_x": {"viritura": {"staffMeters": [
+                {"staff": 1, "meter": {"count": 6, "unit": 8}, "synchronization": "fitMeasure"}
+            ]}},
+            "sequences": [
+                {"staff": 1, "content": [
+                    {"duration": {"base": "half"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]},
+                    {"id": "source", "duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "D", "octave": 4}}],
+                     "lyrics": {"lines": {"1": {"text": "Ah", "extender": {"target": "target"}}}}}
+                ]},
+                {"staff": 2, "content": [
+                    {"type": "space", "duration": [3, 8]},
+                    {"id": "target", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "E", "octave": 3}}]}
+                ]}
+            ]
+        }]}]
+    });
+    let score = crate::parse::parse_mnx(&json.to_string()).unwrap();
+    let config = LayoutConfig::default();
+    let dl = layout_score(&score, 0, &config);
+    assert!(dl.commands.iter().any(|command| matches!(
+        command, RenderCommand::DrawLine { width, .. } if (*width - 0.12 * config.sp).abs() < 1e-6
+    )), "source beat 2 maps to 4/3, before target beat 3/2");
+}
+
+#[test]
+fn test_lyric_extender_remote_edits_match_cold_layout_with_retained_systems() {
+    use crate::layout::cache::LayoutCache;
+    use crate::layout::layout_with_mnx_scores_cached;
+    use crate::model::{LyricExtender, LyricLine, Lyrics, SequenceContent};
+
+    let measures: Vec<_> = (0..8)
+        .map(|index| {
+            serde_json::json!({
+                "id": format!("m{index}"),
+                "time": {"count": 4, "unit": 4}
+            })
+        })
+        .collect();
+    let part_measures = |part: &str| {
+        (0..8)
+            .map(|index| {
+                serde_json::json!({
+                    "sequences": [{"content": [{
+                        "id": format!("{part}{index}"),
+                        "duration": {"base": "whole"},
+                        "notes": [{"pitch": {"step": "C", "octave": 4}}]
+                    }]}]
+                })
+            })
+            .collect::<Vec<_>>()
+    };
+    let json = serde_json::json!({
+        "mnx": {"version": 1, "support": {"useLyricExtenders": true}},
+        "global": {"measures": measures},
+        "parts": [
+            {"id": "singer", "measures": part_measures("s")},
+            {"id": "other", "measures": part_measures("t")}
+        ],
+        "layouts": [{"id": "extract", "content": [
+            {"type": "staff", "sources": [{"part": "singer"}]}
+        ]}],
+        "scores": [{"name": "Singer", "layout": "extract"}]
+    });
+    let mut score = crate::parse::parse_mnx(&json.to_string()).unwrap();
+    crate::reconcile::reconcile_score(&mut score);
+    let config = LayoutConfig {
+        page_width: Some(300.0),
+        page_height: 40.0,
+        ..LayoutConfig::default()
+    };
+    let mut cache = LayoutCache::new();
+    layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    assert!(
+        cache.retained_segment_count() > 0,
+        "must exercise retained systems"
+    );
+    let SequenceContent::Event(source) = &mut score.parts[0].measures[0].sequences[0].content[0]
+    else {
+        panic!()
+    };
+    source.lyrics = Some(Lyrics {
+        lines: Some(std::collections::HashMap::from([(
+            "1".to_string(),
+            LyricLine {
+                text: "Ah".to_string(),
+                syllable_type: None,
+                extender: Some(LyricExtender {
+                    show: Some(true),
+                    target: Some("t7".to_string()),
+                    id: None,
+                    comment: None,
+                    x: None,
+                }),
+            },
+        )])),
+    });
+    for step in 0..5 {
+        match step {
+            1 => {
+                let SequenceContent::Event(target) =
+                    &mut score.parts[1].measures[7].sequences[0].content[0]
+                else {
+                    panic!()
+                };
+                target.duration.base = crate::model::duration::NoteValueBase::Half;
+            }
+            2 => {
+                score.parts[1].measures[7].sequences[0].content.clear();
+            }
+            3 => {
+                let SequenceContent::Event(source) =
+                    &mut score.parts[0].measures[0].sequences[0].content[0]
+                else {
+                    panic!()
+                };
+                source
+                    .lyrics
+                    .as_mut()
+                    .unwrap()
+                    .lines
+                    .as_mut()
+                    .unwrap()
+                    .get_mut("1")
+                    .unwrap()
+                    .extender = None;
+                score.mnx.support.as_mut().unwrap().use_lyric_extenders = Some(false);
+            }
+            4 => {
+                score.mnx.support.as_mut().unwrap().use_lyric_extenders = Some(true);
+            }
+            _ => {}
+        }
+        cache.set_pending_dirty_range(Some(if step == 1 || step == 2 {
+            (7, 7)
+        } else {
+            (0, 0)
+        }));
+        let cached = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let cold = layout_with_mnx_scores_cached(&score, &config, 0, None);
+        let bits = |list: &DisplayList| {
+            list.to_binary()
+                .iter()
+                .map(|value| value.to_bits())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(bits(&cached), bits(&cold), "lyric mutation step {step}");
+        let lines = cached.commands.iter().filter(|command| matches!(
+            command, RenderCommand::DrawLine { width, .. } if (*width - 0.12 * config.sp).abs() < 1e-6
+        )).count();
+        if step == 0 || step == 1 || step == 3 {
+            assert!(lines > 0, "step {step} should have extenders");
+        } else {
+            assert_eq!(
+                lines, 0,
+                "step {step} should suppress invalid/absent extenders"
+            );
+        }
+    }
+}
 
 #[test]
 fn test_line_order_preserves_preceding_rows_across_systems() {
@@ -381,7 +758,9 @@ fn test_sparse_lyric_lines_keep_stable_rows_within_system() {
     let lyric_boxes: Vec<&ElementBBox> = dl
         .element_bboxes
         .iter()
-        .filter(|bbox| bbox.element_id.contains("/lyric-"))
+        .filter(|bbox| {
+            bbox.element_id.contains("/lyric-") && (bbox.bbox.height - 1.6 * config.sp).abs() < 1e-6
+        })
         .collect();
     assert_eq!(lyric_boxes.len(), 2, "Each syllable needs its own hit box");
     assert!(
@@ -477,4 +856,279 @@ fn test_lyrics_spacing_prevents_overlap() {
             half_w1
         );
     }
+}
+
+#[test]
+fn test_explicit_lyric_extender_continues_across_system_and_part_boundaries() {
+    let global_measures: Vec<_> = (0..8)
+        .map(|_| serde_json::json!({"time":{"count":4,"unit":4}}))
+        .collect();
+    let vocal_measures: Vec<_> = (0..8)
+        .map(|index| {
+            let mut event = serde_json::json!({
+                "duration":{"base":"whole"},
+                "notes":[{"pitch":{"step":"C","octave":4}}]
+            });
+            if index == 0 {
+                event["id"] = serde_json::json!("lyric-start");
+                event["lyrics"] = serde_json::json!({
+                    "lines":{"1":{"text":"Ah","extender":{"show":true,"target":"lyric-target"}}}
+                });
+            }
+            serde_json::json!({"sequences":[{"content":[event]}]})
+        })
+        .collect();
+    let accompaniment_measures: Vec<_> = (0..8)
+        .map(|index| {
+            let mut event = serde_json::json!({
+                "duration":{"base":"whole"},
+                "notes":[{"pitch":{"step":"G","octave":3}}]
+            });
+            if index == 7 {
+                event["id"] = serde_json::json!("lyric-target");
+            }
+            serde_json::json!({"sequences":[{"content":[event]}]})
+        })
+        .collect();
+    let json = serde_json::json!({
+        "mnx":{"version":1,"support":{"useLyricExtenders":true}},
+        "global":{"measures":global_measures},
+        "parts":[
+            {"measures":vocal_measures},
+            {"measures":accompaniment_measures}
+        ]
+    });
+    let score = crate::parse::parse_mnx(&json.to_string()).expect("Failed to parse extender score");
+    let mut config = LayoutConfig::default();
+    config.page_width = Some(30.0 * config.sp);
+    config.page_height = 40.0;
+    config.page_margin_left = 0.0;
+    config.page_margin_right = 0.0;
+    config.page_margin_top = 0.0;
+    config.page_margin_bottom = 0.0;
+    let dl = layout_full_score(&score, &config);
+
+    let systems: HashSet<usize> = dl
+        .measure_bounds
+        .iter()
+        .map(|bounds| bounds.system_index)
+        .collect();
+    assert!(
+        systems.len() > 1,
+        "expected the narrow page to split the measures into systems"
+    );
+    assert!(
+        dl.pages.len() > 1,
+        "expected the short page to paginate the systems"
+    );
+    let extender_segments = dl
+        .commands
+        .iter()
+        .filter(|command| {
+            matches!(
+                command,
+                RenderCommand::DrawLine { width, .. } if (*width - 0.12 * config.sp).abs() < 1e-6
+            )
+        })
+        .count();
+    assert_eq!(extender_segments, systems.len());
+}
+
+#[test]
+fn test_lyric_extender_cache_dependency_tracks_remote_endpoint_duration() {
+    let json = serde_json::json!({
+        "mnx":{"version":1,"support":{"useLyricExtenders":true}},
+        "global":{"measures":[
+            {"time":{"count":4,"unit":4}},
+            {"time":{"count":4,"unit":4}}
+        ]},
+        "parts":[
+            {"measures":[
+                {"sequences":[{"content":[{
+                    "id":"lyric-start",
+                    "duration":{"base":"quarter"},
+                    "notes":[{"pitch":{"step":"C","octave":4}}],
+                    "lyrics":{"lines":{"1":{"text":"Ah","extender":{"show":true,"target":"remote-end"}}}}
+                }]}]},
+                {"sequences":[]}
+            ]},
+            {"measures":[
+                {"sequences":[]},
+                {"sequences":[{"content":[{
+                    "id":"remote-end",
+                    "duration":{"base":"quarter"},
+                    "notes":[{"pitch":{"step":"G","octave":3}}]
+                }]}]}
+            ]}
+        ]
+    });
+    let mut score =
+        crate::parse::parse_mnx(&json.to_string()).expect("Failed to parse remote-target score");
+    let before = super::super::lyric_extenders::cache_dependency_hash(&score);
+    let crate::model::SequenceContent::Event(target) =
+        &mut score.parts[1].measures[1].sequences[0].content[0]
+    else {
+        panic!("remote endpoint should be an event");
+    };
+    target.duration.base = crate::model::duration::NoteValueBase::Half;
+    let after = super::super::lyric_extenders::cache_dependency_hash(&score);
+    assert_ne!(
+        before, after,
+        "remote endpoint changes must invalidate retained systems"
+    );
+}
+
+#[test]
+fn test_lyric_extenders_without_ids_share_the_lyric_text_anchor() {
+    let mut json = serde_json::json!({
+        "mnx":{"version":1},
+        "global":{"measures":[{"time":{"count":4,"unit":4}}]},
+        "parts":[{"measures":[{"sequences":[{"content":[
+            {"duration":{"base":"quarter"},"notes":[{"pitch":{"step":"C","octave":4}}]},
+            {"type":"grace","content":[
+                {"duration":{"base":"eighth"},"notes":[{"pitch":{"step":"D","octave":4}}]}
+            ]},
+            {"duration":{"base":"quarter"},"notes":[{"pitch":{"step":"E","octave":4}}],
+             "lyrics":{"lines":{"1":{"text":"Ah","extender":{}}}}},
+            {"duration":{"base":"half"},"notes":[{"pitch":{"step":"F","octave":4}}]}
+        ]}]}]}]
+    });
+    let config = LayoutConfig::default();
+    let score = crate::parse::parse_mnx_strict(&json.to_string()).unwrap();
+    let dl = layout_full_score(&score, &config);
+    let segments: Vec<_> = dl
+        .commands
+        .iter()
+        .zip(&dl.element_ids)
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawLine { x1, x2, .. }
+                if id.as_deref() == Some("p0/m0/s0/e1/lyric-31") =>
+            {
+                Some((*x1, *x2))
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(segments.len(), 1);
+    assert!(segments[0].1 > segments[0].0);
+    assert!(dl
+        .commands
+        .iter()
+        .zip(&dl.element_ids)
+        .any(|(command, id)| {
+            matches!(command, RenderCommand::DrawText { text, .. } if text == "Ah")
+                && id.as_deref() == Some("p0/m0/s0/e1/lyric-31")
+        }));
+    json["parts"][0]["measures"][0]["sequences"][0]["content"][2]["id"] =
+        serde_json::json!("source");
+    let identified = crate::parse::parse_mnx_strict(&json.to_string()).unwrap();
+    let identified_dl = layout_full_score(&identified, &config);
+    let identified_segments: Vec<_> = identified_dl
+        .commands
+        .iter()
+        .zip(&identified_dl.element_ids)
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawLine { x1, x2, .. }
+                if id.as_deref() == Some("p0/m0/s0/source/lyric-31") =>
+            {
+                Some((*x1, *x2))
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(segments, identified_segments);
+}
+
+#[test]
+fn test_lyric_extender_inference_tracks_named_voices_across_sequence_reordering() {
+    let mut json = serde_json::json!({
+        "mnx":{"version":1},
+        "global":{"measures":[{"time":{"count":4,"unit":4}},{}]},
+        "parts":[{"measures":[
+            {"sequences":[{"voice":"singer","content":[
+                {"id":"source","duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":4}}],
+                 "lyrics":{"lines":{"1":{"text":"Ah","extender":{}}}}}
+            ]}]},
+            {"sequences":[
+                {"voice":"singer","content":[
+                    {"id":"last","duration":{"base":"whole"},"notes":[{"pitch":{"step":"D","octave":4}}]}
+                ]},
+                {"voice":"other","content":[{"duration":{"base":"whole"},"rest":{}}]}
+            ]}
+        ]}]
+    });
+    let config = LayoutConfig::default();
+    let count = |value: &serde_json::Value| {
+        let score = crate::parse::parse_mnx_strict(&value.to_string()).unwrap();
+        let dl = layout_full_score(&score, &config);
+        dl.commands
+            .iter()
+            .zip(&dl.element_ids)
+            .filter(|(command, id)| {
+                matches!(command, RenderCommand::DrawLine { .. })
+                    && id.as_deref() == Some("p0/m0/s0/source/lyric-31")
+            })
+            .count()
+    };
+    assert_eq!(count(&json), 1);
+    json["parts"][0]["measures"][1]["sequences"]
+        .as_array_mut()
+        .unwrap()
+        .swap(0, 1);
+    assert_eq!(count(&json), 1);
+    let mut score = crate::parse::parse_mnx_strict(&json.to_string()).unwrap();
+    let before = super::super::lyric_extenders::cache_dependency_hash(&score);
+    score.parts[0].measures[1].sequences[1].voice = Some("different".into());
+    assert_ne!(
+        before,
+        super::super::lyric_extenders::cache_dependency_hash(&score)
+    );
+}
+
+#[test]
+fn test_idless_lyric_extender_keeps_its_source_selection_tag_across_systems() {
+    let measures: Vec<_> = (0..4)
+        .map(|index| {
+            let mut event = serde_json::json!({
+                "duration":{"base":"whole"},
+                "notes":[{"pitch":{"step":"C","octave":4}}]
+            });
+            if index == 0 {
+                event["lyrics"] = serde_json::json!({
+                    "lines":{"1":{"text":"Ah","extender":{"target":"last"}}}
+                });
+            }
+            if index == 3 {
+                event["id"] = serde_json::json!("last");
+            }
+            serde_json::json!({"sequences":[{"content":[event]}]})
+        })
+        .collect();
+    let json = serde_json::json!({
+        "mnx":{"version":1,"support":{"useLyricExtenders":true}},
+        "global":{"measures":[{"time":{"count":4,"unit":4}},{},{},{}]},
+        "parts":[{"measures":measures}]
+    });
+    let score = crate::parse::parse_mnx_strict(&json.to_string()).unwrap();
+    let mut config = LayoutConfig::default();
+    config.page_width = Some(20.0 * config.sp);
+    config.page_margin_left = 0.0;
+    config.page_margin_right = 0.0;
+    let dl = layout_full_score(&score, &config);
+    let systems: HashSet<_> = dl
+        .measure_bounds
+        .iter()
+        .map(|bounds| bounds.system_index)
+        .collect();
+    assert!(systems.len() > 1);
+    let segments = dl
+        .commands
+        .iter()
+        .zip(&dl.element_ids)
+        .filter(|(command, id)| {
+            matches!(command, RenderCommand::DrawLine { .. })
+                && id.as_deref() == Some("p0/m0/s0/e0/lyric-31")
+        })
+        .count();
+    assert_eq!(segments, systems.len());
 }

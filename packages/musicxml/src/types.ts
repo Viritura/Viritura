@@ -3,7 +3,7 @@
 import type { ChordSymbol, DynamicGroup, NoteMarkings, Part, TextContent } from "@viritura/core";
 
 export interface MnxDocument {
-  mnx: { version: number };
+  mnx: { version: number; support?: { useLyricExtenders?: boolean } };
   global: MnxGlobal;
   parts: MnxPart[];
   layouts?: MnxSystemLayout[];
@@ -288,7 +288,7 @@ export interface MnxEventMarkings {
 }
 
 export interface MnxEventLyrics {
-  lines?: Record<string, { text: string; type?: string }>;
+  lines?: Record<string, { text: string; type?: string; extender?: { show?: boolean; target?: string } }>;
 }
 
 export interface MnxNote {

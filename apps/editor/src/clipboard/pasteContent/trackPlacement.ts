@@ -1,4 +1,12 @@
-import { isRest, type NoteEvent, type Score, type Sequence, type SequenceContent, type Space } from "@viritura/core";
+import {
+  isRest,
+  remapScoreLyricExtenderTargets,
+  type NoteEvent,
+  type Score,
+  type Sequence,
+  type SequenceContent,
+  type Space,
+} from "@viritura/core";
 import { decomposeDuration, generateEventId, sequenceContentBeats } from "../../commands/noteCommands";
 import {
   addWholeFractions,
@@ -17,6 +25,7 @@ export function pasteTrackIntoScore(
   sequenceIndex: number,
   eventIndex: number,
   content: SequenceContent[],
+  targetRemap: Map<string, string> = new Map(),
 ): SequenceContent[] {
   const part = score.parts[partIndex];
   const startMeasure = part?.measures[measureIndex];
@@ -28,7 +37,7 @@ export function pasteTrackIntoScore(
     .filter((sequence) => (sequence.staff ?? 1) === staff).length;
   const destinationPrefix = startSequence.content.slice(0, eventIndex);
   const startBeat = destinationPrefix.reduce((sum, item) => sum + sequenceContentBeats(item), 0);
-  const fragments = planPasteFragments(score, measureIndex, startBeat, content, destinationPrefix);
+  const fragments = planPasteFragments(score, measureIndex, startBeat, content, destinationPrefix, targetRemap);
   const placedContent = new Set<SequenceContent>();
 
   for (const fragment of fragments) {
@@ -45,8 +54,9 @@ export function pasteTrackIntoScore(
     }
     sequence.content.splice(index, 0, ...fragment.content);
     for (const item of fragment.content) placedContent.add(item);
-    mergeRests(sequence, placedContent);
+    mergeRests(sequence, placedContent, targetRemap);
   }
+  remapScoreLyricExtenderTargets(score, targetRemap);
   return [...placedContent];
 }
 
@@ -90,7 +100,7 @@ function clearEventsInMeasure(sequence: Sequence, index: number, clearBudget: Sp
   }
 }
 
-function mergeRests(sequence: Sequence, placedContent: Set<SequenceContent>): void {
+function mergeRests(sequence: Sequence, placedContent: Set<SequenceContent>, targetRemap: Map<string, string>): void {
   let index = 0;
   while (index < sequence.content.length - 1) {
     const current = sequence.content[index]!;
@@ -98,10 +108,23 @@ function mergeRests(sequence: Sequence, placedContent: Set<SequenceContent>): vo
     // Preserve the pasted interval: merging across its boundaries would either
     // discard a pasted ID or select untouched destination rests.
     const sameOrigin = placedContent.has(current) === placedContent.has(next);
-    if (sameOrigin && current.type === "event" && next.type === "event" && isRest(current) && isRest(next)) {
+    if (
+      sameOrigin &&
+      current.type === "event" &&
+      next.type === "event" &&
+      isRest(current) &&
+      isRest(next) &&
+      !next.lyrics
+    ) {
       const durations = decomposeDuration(sequenceContentBeats(current) + sequenceContentBeats(next));
       if (durations.length === 1) {
         current.duration = durations[0]!;
+        if (next.id && current.id) {
+          for (const [sourceId, targetId] of targetRemap) {
+            if (targetId === next.id) targetRemap.set(sourceId, current.id);
+          }
+          targetRemap.set(next.id, current.id);
+        }
         sequence.content.splice(index + 1, 1);
         placedContent.delete(next);
         continue;

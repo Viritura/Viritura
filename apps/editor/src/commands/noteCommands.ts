@@ -1,8 +1,18 @@
 import type { Score, TimeSignature } from "@viritura/core";
 import type { Pitch } from "@viritura/core";
 import type { Duration, Note, NoteEvent, Sequence, SequenceContent } from "@viritura/core";
-import { applyPatchesToScore, isRest, measureBeats, patch } from "@viritura/core";
+import {
+  applyPatchesToScore,
+  isRest,
+  measureBeats,
+  patch,
+  remapLyricExtenderTargets,
+  remapScoreLyricExtenderTargets,
+} from "@viritura/core";
 import type { ScorePatch } from "@viritura/core";
+import { splitEventDurations } from "../score/eventFragments";
+import { mergeAdjacentRests } from "./restMerging";
+export { mergeAdjacentRests } from "./restMerging";
 
 // ═══════════════════════════════════════════
 // Duration math + IDs + createRest (extracted to noteCommandsDurations.ts)
@@ -28,6 +38,17 @@ import {
   generateNoteId,
   createRest,
 } from "./noteCommandsDurations";
+
+function preservedEventFragments(score: Score, event: NoteEvent, durations: readonly Duration[]): NoteEvent[] {
+  const pieces = splitEventDurations(event, durations);
+  const finalId = pieces.at(-1)?.id;
+  if (event.id && finalId) {
+    const targets = new Map([[event.id, finalId]]);
+    remapLyricExtenderTargets(pieces, targets);
+    remapScoreLyricExtenderTargets(score, targets);
+  }
+  return pieces;
+}
 
 // ═══════════════════════════════════════════
 // Helper: compute beat position of events
@@ -525,14 +546,7 @@ export function addNote(score: Score, params: AddNoteParams): Score {
           } else {
             // Target is a note — truncate it to fit before the new note
             const truncDurations = decomposeDuration(offsetInTarget);
-            for (const d of truncDurations) {
-              newContent.push({
-                type: "event",
-                id: generateEventId(),
-                duration: d,
-                notes: targetEvent.notes ? targetEvent.notes.map((n) => ({ ...n })) : undefined,
-              });
-            }
+            newContent.push(...preservedEventFragments(score, targetEvent, truncDurations));
           }
         }
 
@@ -621,11 +635,7 @@ function trimMeasureContent(score: Score, sequence: import("@viritura/core").Seq
       // Truncate this event to fit
       const truncDurations = decomposeDuration(remainingBeats);
       if (truncDurations.length > 0) {
-        const truncEvents: NoteEvent[] = truncDurations.map((d) => ({
-          ...item,
-          id: generateEventId(),
-          duration: d,
-        }));
+        const truncEvents = preservedEventFragments(score, item, truncDurations);
         sequence.content.splice(i, sequence.content.length - i, ...truncEvents);
       } else {
         sequence.content.splice(i);
@@ -784,14 +794,7 @@ export function addRest(score: Score, params: AddRestParams): Score {
         } else {
           // Truncate the existing note
           const truncDurations = decomposeDuration(offsetInTarget);
-          for (const d of truncDurations) {
-            newContent.push({
-              type: "event",
-              id: generateEventId(),
-              duration: d,
-              notes: targetEvent.notes ? targetEvent.notes.map((n) => ({ ...n })) : undefined,
-            });
-          }
+          newContent.push(...preservedEventFragments(score, targetEvent, truncDurations));
         }
       }
 
@@ -813,7 +816,7 @@ export function addRest(score: Score, params: AddRestParams): Score {
       sequence.content.splice(startContentIdx, endContentIdx - startContentIdx + 1, ...newContent);
 
       // Merge adjacent rests (only at top level)
-      mergeAdjacentRests(sequence, undefined, measureTs);
+      mergeAdjacentRests(sequence, undefined, measureTs, score);
     }
   }
 
@@ -830,9 +833,9 @@ export function addRest(score: Score, params: AddRestParams): Score {
  */
 export function collapseRestOnlySequence(sequence: Sequence): void {
   const containsOnlyRests = sequence.content.every((item) => {
-    if (item.type === "event") return isRest(item);
+    if (item.type === "event") return isRest(item) && !item.lyrics;
     if (item.type === "tuplet" || item.type === "tremolo") {
-      return item.content.every((event) => event.type === "event" && isRest(event));
+      return item.content.every((event) => event.type === "event" && isRest(event) && !event.lyrics);
     }
     return false;
   });
@@ -843,12 +846,16 @@ export function collapseRestOnlySequence(sequence: Sequence): void {
 
 function collapseRestOnlyTuplet(score: Score, sequence: Sequence, measureIndex: number, tupletIndex: number): void {
   const tuplet = sequence.content[tupletIndex];
-  if (tuplet?.type !== "tuplet" || !tuplet.content.every((item) => item.type === "event" && isRest(item))) return;
+  if (
+    tuplet?.type !== "tuplet" ||
+    !tuplet.content.every((item) => item.type === "event" && isRest(item) && !item.lyrics)
+  )
+    return;
   const startBeat = sequence.content.slice(0, tupletIndex).reduce((sum, item) => sum + sequenceContentBeats(item), 0);
   const time = getEffectiveTimeSignature(score, measureIndex);
   const rests = decomposeRestsAtPosition(sequenceContentBeats(tuplet), startBeat, time).map(createRest);
   sequence.content.splice(tupletIndex, 1, ...rests);
-  mergeAdjacentRests(sequence, undefined, time);
+  mergeAdjacentRests(sequence, undefined, time, score);
 }
 
 export function deleteNote(score: Score, params: DeleteNoteParams): Score {
@@ -901,7 +908,7 @@ export function deleteNote(score: Score, params: DeleteNoteParams): Score {
       createRest(duration),
     );
     contentArray.splice(eventIndex, 1, ...rests);
-    mergeAdjacentRests(sequence, undefined, ts);
+    mergeAdjacentRests(sequence, undefined, ts, score);
   } else {
     // Tuplet members retain their written inner duration; meter boundaries
     // apply to the tuplet's outer span, not to each member.
@@ -989,42 +996,6 @@ export { addPitchToChord, findLastNoteEvent, addGraceNote, backspaceInNoteInput 
 // Helper: merge adjacent rests
 // ═══════════════════════════════════════════
 
-/** Merge adjacent rests into larger durations.
- *  Only merges if the combined rest is metrically clean (doesn't cross beat
- *  boundaries stronger than itself). Requires the time signature to do this
- *  correctly; if not provided, falls back to the legacy "single duration" rule.
- *  @param protectIndex - If set, the event at this index won't be merged with its neighbors. */
-export function mergeAdjacentRests(
-  sequence: Sequence,
-  protectIndex?: number,
-  ts?: import("@viritura/core").TimeSignature,
-): void {
-  let i = 0;
-  while (i < sequence.content.length - 1) {
-    if (protectIndex !== undefined && (i === protectIndex || i + 1 === protectIndex)) {
-      i++;
-      continue;
-    }
-    const curr = sequence.content[i]!;
-    const next = sequence.content[i + 1]!;
-    if (curr.type === "event" && next.type === "event" && isRest(curr) && isRest(next)) {
-      const totalBeats = durationToBeats(curr.duration) + durationToBeats(next.duration);
-      // Compute the start beat of `curr` to determine metric position.
-      let startBeat = 0;
-      for (let j = 0; j < i; j++) {
-        startBeat += sequenceContentBeats(sequence.content[j]!);
-      }
-      const merged = ts ? decomposeRestsAtPosition(totalBeats, startBeat, ts) : decomposeDuration(totalBeats);
-      if (merged.length === 1) {
-        sequence.content.splice(i, 2, createRest(merged[0]!));
-      } else {
-        i++;
-      }
-    } else {
-      i++;
-    }
-  }
-}
 // ═══════════════════════════════════════════
 // Slur and tie operations (extracted to slurTieCommands.ts)
 // ═══════════════════════════════════════════

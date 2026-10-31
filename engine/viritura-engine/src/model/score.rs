@@ -19,6 +19,9 @@ pub struct Support {
     /// When false/absent, software should auto-beam.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub use_beams: Option<bool>,
+    /// When true, lyric extender presence or absence is explicitly encoded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_lyric_extenders: Option<bool>,
 }
 
 /// MNX version info.

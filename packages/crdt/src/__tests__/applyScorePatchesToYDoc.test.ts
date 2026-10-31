@@ -137,6 +137,26 @@ describe("applyScorePatchesToYDoc — parity with syncJsonToYDoc", () => {
     assertParity(base, score, [patch.setEventField(locator, { field: "stemDirection", value: "up" })]);
   });
 
+  it("setEventField (lyric extender)", () => {
+    assertParity(base, score, [
+      patch.setEventField(locator, {
+        field: "lyrics",
+        value: {
+          lines: {
+            "1": {
+              text: "Ah",
+              extender: { id: "word-line", show: true, target: event.id!, _c: "comment", _x: { viritura: {} } },
+            },
+          },
+        },
+      }),
+    ]);
+  });
+
+  it("setMnxSupport (lyric extender policy)", () => {
+    assertParity(base, score, [patch.setMnxSupport({ useLyricExtenders: true })]);
+  });
+
   it("setEventMarking (add accent)", () => {
     assertParity(base, score, [patch.setEventMarking(locator, "accent", {})]);
   });

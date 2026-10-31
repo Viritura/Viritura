@@ -11,6 +11,11 @@
 import { isRest, pitchToMidi, type Note, type NoteEvent } from "@viritura/core";
 import { generateNoteId } from "../../commands/noteCommands";
 import { pitchKey } from "./allocation";
+import { applyCarriedNotation, carriedNotation } from "./eventNotation";
+
+export function mergeEventNotation(target: NoteEvent, source: NoteEvent): void {
+  applyCarriedNotation(target, carriedNotation([target, source]));
+}
 
 /** Clone a note for a new chord, dropping the identity-bound fields. */
 export function cloneNoteForChord(note: Note): Note {

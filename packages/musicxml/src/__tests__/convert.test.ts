@@ -51,7 +51,7 @@ function wrapScore(
 // ═══════════════════════════════════════════════════════════════════════
 
 describe("convertMusicXmlToMnx — basics", () => {
-  it("converts a minimal single-note score with version 7", () => {
+  it("converts a minimal single-note score with document version 1", () => {
     const xml = wrapScore(`
       <note>
         <pitch><step>C</step><octave>4</octave></pitch>
@@ -61,7 +61,7 @@ describe("convertMusicXmlToMnx — basics", () => {
     `);
     const result = convertMusicXmlToMnx(xml);
 
-    expect(result.mnx.version).toBe(7);
+    expect(result.mnx.version).toBe(1);
     expect(result.parts).toHaveLength(1);
     expect(result.parts[0]!.name).toBe("Test");
 
@@ -1316,6 +1316,83 @@ describe("convertMusicXmlToMnx — rehearsal marks", () => {
 });
 
 describe("convertMusicXmlToMnx — lyrics", () => {
+  it("does not suppress another part's inferred extenders when one part uses explicit extenders", () => {
+    const xml = wrapScore(`
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric><text>Ah</text><extend type="start"/></lyric></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric><extend type="stop"/></lyric></note>
+    `)
+      .replace("</part-list>", '<score-part id="P2"><part-name>Other</part-name></score-part></part-list>')
+      .replace(
+        "</score-partwise>",
+        `<part id="P2"><measure number="1">
+          <attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>E</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+            <lyric><text>Oh</text></lyric></note>
+          <note><pitch><step>F</step><octave>4</octave></pitch><duration>2</duration><type>half</type></note>
+        </measure></part></score-partwise>`,
+      );
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.parts).toHaveLength(2);
+    expect(result.mnx.support?.useLyricExtenders).toBeUndefined();
+  });
+
+  it("keeps inference enabled when explicit extenders are mixed with ordinary lyrics", () => {
+    const result = convertMusicXmlToMnx(
+      wrapScore(`
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type>
+        <lyric number="1"><text>Ah</text><extend/></lyric>
+        <lyric number="2"><text>La</text></lyric></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type>
+        <lyric number="1"><extend type="continue"/></lyric></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><extend type="stop"/></lyric></note>
+    `),
+    );
+    const content = result.parts[0]!.measures[0]!.sequences![0]!.content;
+    const source = content[0]!;
+    const target = content[2]!;
+    if (source.type !== undefined || target.type !== undefined) throw new Error("Expected events");
+    expect(source.lyrics?.lines?.["line-1"]?.extender).toEqual({ show: true, target: target.id });
+    expect(result.mnx.support?.useLyricExtenders).toBeUndefined();
+    expect(content[1]).not.toHaveProperty("lyrics");
+    expect(target).not.toHaveProperty("lyrics");
+  });
+
+  it("pairs MusicXML extender start/continue/stop across measure boundaries", () => {
+    const first = `
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration><type>whole</type>
+        <lyric number="1"><text>Ah</text><extend type="start"/></lyric>
+      </note>`;
+    const second = `
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>2</duration><type>half</type>
+        <lyric number="1"><extend type="continue"/></lyric>
+      </note>
+      <note>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>2</duration><type>half</type>
+        <lyric number="1"><extend type="stop"/></lyric>
+      </note>`;
+    const xml = wrapScore(first).replace(
+      "</measure>\n  </part>",
+      `</measure><measure number="2">${second}</measure>
+  </part>`,
+    );
+    const result = convertMusicXmlToMnx(xml);
+    const source = result.parts[0]!.measures[0]!.sequences![0]!.content[0]! as {
+      id: string;
+      lyrics: { lines: Record<string, { extender?: { show?: boolean; target?: string } }> };
+    };
+    const target = result.parts[0]!.measures[1]!.sequences![0]!.content[1]! as { id: string };
+    expect(source.lyrics.lines["line-1"]!.extender).toEqual({ show: true, target: target.id });
+    expect(result.mnx.support?.useLyricExtenders).toBe(true);
+  });
+
   it("converts single-verse lyrics", () => {
     const xml = wrapScore(`
       <note>
@@ -1339,6 +1416,7 @@ describe("convertMusicXmlToMnx — lyrics", () => {
     expect(ev0.lyrics.lines["line-1"]!.text).toBe("Hel");
     expect(result.global.lyrics).toBeDefined();
     expect(result.global.lyrics!.lineOrder).toContain("line-1");
+    expect(result.mnx.support?.useLyricExtenders).toBeUndefined();
   });
 
   it("preserves consistent lyric names and inherited language metadata", () => {

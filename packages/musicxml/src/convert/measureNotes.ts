@@ -42,6 +42,7 @@ import {
   type TransposeInterval,
 } from "./pitchDuration";
 import { processBeamMarks, type ActiveBeam, type CompletedBeam } from "./beamImport";
+import { applyLyricExtendMarkers, type OpenLyricExtender } from "./lyricExtenders";
 
 /** Per-note conversion flags resolved from `ConvertOptions`. Distinct from
  *  `vendorExt` (which gates `_x.viritura` output) — these toggle how authored
@@ -305,6 +306,7 @@ export function processMeasureNotes(
   activeClefs: Map<number, MnxClef> = new Map(),
   activeTuplets: Map<string, TupletAccumulator> = new Map(),
   activeBeams: Map<string, ActiveBeam[]> = new Map(),
+  openLyricExtenders: Map<string, OpenLyricExtender> = new Map(),
 ): MeasureResult {
   const voices = new Map<string, MnxSequenceContent[]>();
   const voiceStaves = new Map<string, number>();
@@ -650,6 +652,7 @@ export function processMeasureNotes(
       if (lyricLines) {
         event.lyrics = { lines: lyricLines };
       }
+      applyLyricExtendMarkers(el, event, voiceNum, openLyricExtenders);
 
       // Beam tracking. Skipped while a multi-note tremolo is open for this
       // voice — the tremolo slashes stand in for the connecting beam, so the

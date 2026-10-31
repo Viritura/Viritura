@@ -1,4 +1,5 @@
 import type { Duration, NoteEvent, Score, SequenceContent, Space } from "@viritura/core";
+import { remapLyricExtenderTargets } from "@viritura/core";
 import {
   addWholeFractions,
   compareWholeFractions,
@@ -7,13 +8,8 @@ import {
   sequenceBoundaryFraction,
   subtractWholeFractions,
 } from "../clipboardTrackPlacement";
-import {
-  decomposeDuration,
-  durationToBeats,
-  generateEventId,
-  generateNoteId,
-  getEffectiveTimeSignature,
-} from "../../commands/noteCommands";
+import { decomposeDuration, durationToBeats, getEffectiveTimeSignature } from "../../commands/noteCommands";
+import { eventDurationFragment } from "../../score/eventFragments";
 
 export interface MeasureFragment {
   measureIndex: number;
@@ -81,35 +77,13 @@ function exactDurations(beats: Space["duration"]): Duration[] {
   return durations;
 }
 
-function notePiece(event: NoteEvent, duration: Duration, previous?: NoteEvent): NoteEvent {
-  const piece = structuredClone(event);
-  piece.duration = duration;
-  piece.id = previous ? generateEventId() : (event.id ?? generateEventId());
-  for (const kind of ["notes", "kitNotes"] as const) {
-    for (const [index, note] of (piece[kind] ?? []).entries()) {
-      note.id = previous ? generateNoteId() : (note.id ?? generateNoteId());
-      const previousNote = previous?.[kind]?.[index];
-      if (previousNote) previousNote.ties = [{ target: note.id }];
-    }
-  }
-  if (previous) {
-    // Attack markings and slurs belong to the onset; outgoing ties and fermatas
-    // belong to the final piece of the sustained event.
-    delete piece.slurs;
-    delete piece.markings;
-    delete piece.lyrics;
-    delete previous.fermata;
-    delete previous.glissandos;
-  }
-  return piece;
-}
-
 function splitAcrossMeasures(
   score: Score,
   item: NoteEvent | Extract<SequenceContent, { type: "space" }>,
   position: PastePosition,
   fragments: ExactMeasureFragment[],
   totalBeats: Space["duration"],
+  targetRemap: Map<string, string>,
 ): void {
   let remaining = totalBeats;
   let previous: NoteEvent | undefined;
@@ -121,11 +95,12 @@ function splitAcrossMeasures(
       pieces = [{ ...structuredClone(item), duration: beats }];
     } else {
       pieces = exactDurations(beats).map((duration) => {
-        const piece = notePiece(item, duration, previous);
+        const piece = eventDurationFragment(item, duration, previous);
         previous = piece;
         return piece;
       });
     }
+    if (item.type === "event" && item.id && previous?.id) targetRemap.set(item.id, previous.id);
     appendFragment(fragments, position, pieces, beats);
     remaining = subtractWholeFractions(remaining, beats);
   }
@@ -155,6 +130,7 @@ export function planPasteFragments(
   beat: number,
   content: SequenceContent[],
   destinationPrefix?: readonly SequenceContent[],
+  targetRemap: Map<string, string> = new Map(),
 ): MeasureFragment[] {
   if (!Number.isFinite(beat) || beat < 0) throw new Error("Invalid clipboard paste position.");
   const fragments: ExactMeasureFragment[] = [];
@@ -173,10 +149,11 @@ export function planPasteFragments(
     if (compareWholeFractions(beats, available) <= 0) {
       appendFragment(fragments, position, [structuredClone(item)], beats);
     } else if (item.type === "event" || item.type === "space") {
-      splitAcrossMeasures(score, item, position, fragments, beats);
+      splitAcrossMeasures(score, item, position, fragments, beats, targetRemap);
     } else {
       throw new Error(`Cannot paste a ${item.type} across a destination barline.`);
     }
+    for (const fragment of fragments) remapLyricExtenderTargets(fragment.content, targetRemap);
   }
   return fragments.map((fragment) => ({
     ...fragment,

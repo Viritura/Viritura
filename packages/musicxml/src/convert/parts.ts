@@ -23,6 +23,7 @@ import { type GlissandoState, type SlurState } from "./notes";
 import { type TransposeInterval } from "./pitchDuration";
 import type { Interval, TextContent } from "@viritura/core";
 import type { ImportedHarmonySource } from "./harmonyConsolidation";
+import type { OpenLyricExtender } from "./lyricExtenders";
 
 // Parse `<transpose>` from a part's first measure.
 //
@@ -216,6 +217,7 @@ export function buildParts(
   );
   for (const [partIdx, partEl] of sourceParts.entries()) {
     const pid = partEl.getAttribute("id") ?? `P${partIdx + 1}`;
+    const openLyricExtenders = new Map<string, OpenLyricExtender>();
     const info: PartInfo = partsInfo[partIdx] ?? {
       id: pid,
       name: pid,
@@ -319,6 +321,7 @@ export function buildParts(
         activeClefs,
         activeTuplets,
         activeBeams,
+        openLyricExtenders,
       );
 
       if (result.clefs.length > 0) {

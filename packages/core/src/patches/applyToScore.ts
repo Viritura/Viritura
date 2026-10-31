@@ -134,6 +134,10 @@ function applyOnePatch(draft: Draft<Score>, p: ScorePatch): void {
           if (p.update.value === undefined) delete event.staff;
           else event.staff = p.update.value;
           return;
+        case "lyrics":
+          if (p.update.value === undefined) delete event.lyrics;
+          else event.lyrics = p.update.value;
+          return;
         case "slurs":
           if (p.update.value === undefined) delete event.slurs;
           else event.slurs = p.update.value;
@@ -238,6 +242,9 @@ function applyOnePatch(draft: Draft<Score>, p: ScorePatch): void {
       return;
     case "setScoreMetadata":
       applySetScoreMetadata(draft, p);
+      return;
+    case "setMnxSupport":
+      draft.mnx.support = p.value;
       return;
     case "setScoreExtension":
       applySetScoreExtension(draft, p);

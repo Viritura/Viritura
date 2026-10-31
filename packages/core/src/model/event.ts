@@ -17,6 +17,7 @@ import type {
   BowDirection as RawBowDirection,
   Fermata as RawFermata,
   Arpeggio as RawArpeggio,
+  EventLyricLineExtender as RawLyricExtender,
   NoteMarkings as RawNoteMarkings,
   SlideIntoNote as RawSlideIntoNote,
   SlideOutOfNote as RawSlideOutOfNote,
@@ -253,12 +254,15 @@ export interface Space {
 /** Syllable type for a lyric (MNX event-lyric-line-type). */
 export type LyricLineType = "start" | "middle" | "end" | "whole";
 
+export type LyricExtender = RawLyricExtender;
+
 /** A single lyric line entry on an event (MNX event-lyric-line). */
 export interface LyricLine {
   /** The syllable text */
   text: string;
   /** Syllable type indicating word continuation */
   type?: LyricLineType;
+  extender?: LyricExtender;
 }
 
 /**

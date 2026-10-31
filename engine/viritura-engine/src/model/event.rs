@@ -679,6 +679,27 @@ pub enum LyricLineType {
     Whole,
 }
 
+/// Explicit word-extension line intent on a lyric syllable (MNX `extender`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LyricExtender {
+    /// Stable identifier for the extender object, when supplied.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    /// Whether to show the line; omission defaults to showing it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show: Option<bool>,
+    /// Stable ID of the last event covered by the line.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+    /// Optional MNX comment attached to this node.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_c")]
+    pub comment: Option<String>,
+    /// Vendor extension payload attached to this node.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_x")]
+    pub x: Option<serde_json::Value>,
+}
+
 /// A single lyric line entry on an event (MNX `event-lyric-line`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LyricLine {
@@ -687,6 +708,9 @@ pub struct LyricLine {
     /// Syllable type indicating word continuation
     #[serde(skip_serializing_if = "Option::is_none", rename = "type")]
     pub syllable_type: Option<LyricLineType>,
+    /// Explicit word-extension line intent.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extender: Option<LyricExtender>,
 }
 
 /// Lyrics attached to an event (MNX `lyrics`).

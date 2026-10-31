@@ -13,6 +13,22 @@ Hairpins and all other dynamic semantics use standard MNX dynamic groups.
 Viritura adds only optional engraving placement under each group's
 `_x.viritura` dictionary — see [dynamics.md](./dynamics.md).
 
+Lyric extender targets are stable event IDs. Clipboard duplication remaps
+targets copied with their source, including cross-track targets; targets outside
+the copied fragment are preserved, never silently changed to inferred endpoints.
+If a target is missing, backward, or crosses another syllable, the line is not
+engraved and the selected syllable's inspector explains how to choose or clear
+the endpoint. Hiding an extender retains its target without diagnosing it.
+Endpoint timing uses staff-local meter synchronization and the written length of
+open-meter bars, including endpoints in parts omitted from an extract.
+Splitting an event keeps its syllable on the first fragment and moves incoming
+extender targets to the final fragment, preserving the covered duration. Joins
+remap endpoints to the surviving merged event. These mappings also update hidden
+extenders without changing their metadata or the document's policy. Redistribution
+remaps only uniquely identified destinations; one-to-many or otherwise ambiguous
+destinations retain the authored reference and use the same invalid-endpoint
+diagnostic instead of selecting an arbitrary target or silently inferring one.
+
 | What's saved      | Where it lives                                                                                                                         |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Musical content   | MNX-standard JSON (notes, rhythm, beams, ties, slurs, repeats, jumps, layouts, pages…)                                                 |

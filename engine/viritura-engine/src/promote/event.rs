@@ -11,8 +11,8 @@ use crate::model::duration::Duration as ModelDuration;
 use crate::model::event::Glissando as ModelGlissando;
 use crate::model::event::{
     DirectionHint as ModelDirectionHint, Event as ModelEvent, FullMeasure as ModelFullMeasure,
-    Grace as ModelGrace, GraceType as ModelGraceType, LyricLine as ModelLyricLine,
-    LyricLineType as ModelLyricLineType, Lyrics as ModelLyrics,
+    Grace as ModelGrace, GraceType as ModelGraceType, LyricExtender as ModelLyricExtender,
+    LyricLine as ModelLyricLine, LyricLineType as ModelLyricLineType, Lyrics as ModelLyrics,
     MultiNoteTremolo as ModelMultiNoteTremolo, Note as ModelNote, Rest as ModelRest,
     Sequence as ModelSequence, SequenceContent as ModelSequenceContent, Space as ModelSpace,
     StemDirection as ModelStemDirection, Tuplet as ModelTuplet,
@@ -68,6 +68,15 @@ pub(crate) fn promote_lyric_line(r: raw::EventLyricLine) -> ModelLyricLine {
     ModelLyricLine {
         text: String::from(r.text),
         syllable_type: r.type_.map(promote_lyric_line_type),
+        extender: r.extender.map(|extender| ModelLyricExtender {
+            id: extender.id.map(String::from),
+            show: extender.show,
+            target: extender.target.map(String::from),
+            comment: extender.c.map(|comment| comment.0),
+            x: extender.x.map(|extensions| {
+                serde_json::to_value(extensions).expect("raw vendor extensions are serializable")
+            }),
+        }),
     }
 }
 
