@@ -1,4 +1,10 @@
-import { generateId, walkSequenceEvents, type SequenceContent, type NoteEvent } from "@viritura/core";
+import {
+  generateId,
+  remapLyricExtenderTargets,
+  walkSequenceEvents,
+  type SequenceContent,
+  type NoteEvent,
+} from "@viritura/core";
 import {
   VIRITURA_FRAGMENT_TYPE,
   FRAGMENT_VERSION,
@@ -202,12 +208,7 @@ function freshenEvents(events: NoteEvent[]): void {
   }
 
   function remapEvent(ev: NoteEvent): void {
-    for (const line of Object.values(ev.lyrics?.lines ?? {})) {
-      const target = line.extender?.target;
-      if (!target) continue;
-      const mapped = eventIdMap.get(target);
-      if (mapped) line.extender!.target = mapped;
-    }
+    remapLyricExtenderTargets([ev], eventIdMap);
     if (ev.slurs) {
       ev.slurs = ev.slurs.filter((slur: { target: string; startNote?: string; endNote?: string }) => {
         const mapped = eventIdMap.get(slur.target);

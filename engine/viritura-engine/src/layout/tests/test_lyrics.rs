@@ -7,6 +7,59 @@ use crate::render::*;
 use std::collections::HashSet;
 
 #[test]
+fn test_lyric_free_scores_never_build_extender_event_timelines_per_system() {
+    let measures: Vec<_> = (0..20).map(|_| serde_json::json!({})).collect();
+    let part_measures: Vec<_> = (0..20).map(|_| serde_json::json!({
+        "sequences": [{"content": [
+            {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}
+        ]}]
+    })).collect();
+    let json = serde_json::json!({
+        "mnx": {"version": 1, "support": {"useLyricExtenders": true}},
+        "global": {"measures": measures, "lyrics": {"lineOrder": ["1"]}},
+        "parts": [{"measures": part_measures}, {"measures": part_measures}]
+    });
+    let mut score = crate::parse::parse_mnx(&json.to_string()).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(200.0),
+        page_margin_left: 0.0,
+        page_margin_right: 0.0,
+        ..LayoutConfig::default()
+    };
+    super::super::lyric_extenders::take_event_collection_passes();
+    assert_eq!(
+        super::super::lyric_extenders::cache_dependency_hash(&score),
+        0
+    );
+    let dl = layout_full_score(&score, &config);
+    assert!(
+        dl.measure_bounds
+            .iter()
+            .map(|bound| bound.system_index)
+            .collect::<HashSet<_>>()
+            .len()
+            > 1
+    );
+    assert_eq!(super::super::lyric_extenders::take_event_collection_passes(), 0,
+        "lyric-free layouts must skip timing and dependency serialization across every staff/system");
+    let crate::model::SequenceContent::Event(event) =
+        &mut score.parts[0].measures[0].sequences[0].content[0]
+    else {
+        panic!()
+    };
+    event.lyrics =
+        Some(serde_json::from_value(serde_json::json!({"lines": {"1": {"text": "Ah"}}})).unwrap());
+    assert_ne!(
+        super::super::lyric_extenders::cache_dependency_hash(&score),
+        0
+    );
+    assert_eq!(
+        super::super::lyric_extenders::take_event_collection_passes(),
+        1
+    );
+}
+
+#[test]
 fn test_lyric_extender_sparse_verse_rows_share_system_text_context() {
     let mut json = serde_json::json!({
         "mnx": {"version": 1, "support": {"useLyricExtenders": true}},

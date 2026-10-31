@@ -1,6 +1,7 @@
 import {
   DURATION_BEATS,
   isRest,
+  remapLyricExtenderTargets,
   type Duration,
   type SequenceContent,
   type Space,
@@ -163,6 +164,7 @@ export function splitSequenceAtBeat(
   content: SequenceContent[],
   targetBeat: number,
   targetFraction?: Space["duration"],
+  targetRemap: Map<string, string> = new Map(),
 ): void {
   const target = targetFraction ?? sequenceBoundaryFraction(content, targetBeat) ?? exactWholeFraction(targetBeat);
   let onset: Space["duration"] = [0, 1];
@@ -182,13 +184,14 @@ export function splitSequenceAtBeat(
     if (item.type !== "event" || !isRest(item)) {
       throw new Error("The destination voice must have a rhythmic boundary at the clipboard voice offset.");
     }
-    const rests = [...exactRestDurations(before), ...exactRestDurations(after)].map((durationValue) => ({
-      type: "event" as const,
-      id: generateEventId(),
+    const rests = [...exactRestDurations(before), ...exactRestDurations(after)].map((durationValue, pieceIndex) => ({
+      ...(pieceIndex === 0 ? structuredClone(item) : { type: "event" as const, rest: {} }),
+      id: pieceIndex === 0 ? (item.id ?? generateEventId()) : generateEventId(),
       duration: durationValue,
-      rest: {},
     }));
+    if (item.id) targetRemap.set(item.id, rests.at(-1)!.id);
     content.splice(index, 1, ...rests);
+    remapLyricExtenderTargets(content, targetRemap);
     return;
   }
 }
