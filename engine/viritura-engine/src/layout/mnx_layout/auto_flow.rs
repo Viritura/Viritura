@@ -512,16 +512,15 @@ pub(super) fn layout_auto_flow_mnx_score(
     // Score-global render inputs that don't vary between systems are folded
     // into a salt mixed into every system's render-identity hash, so a change
     // to any of them busts all retained segments.
-    let render_salt = score_render_salt(
-        sp,
-        staff_height,
-        barline_w,
+    let (render_salt, paged_ottavas_stable) = prepare_render_retention(
+        score,
+        config,
         lyric_line_order,
         flat_staves,
         group_ranges,
         instrument_name_display,
+        &mut cache,
     );
-    let render_salt = super::super::instrument_changes::state_salt(score, flat_staves, render_salt);
 
     // Stitched-horizon only: build a GLOBAL per-staff tie-accidental suppression
     // map across every chunk, so a tie crossing a chunk seam keeps its
@@ -695,7 +694,10 @@ pub(super) fn layout_auto_flow_mnx_score(
     // Sound only when retention is on, the patch named a dirty range, and a
     // prior placement order exists. Per-system membership mapping below finds
     // the exact prior ordinal after an earlier width change reconverges.
-    let skip_enabled = retention_enabled && dirty_range.is_some() && !prev_order.is_empty();
+    let skip_enabled = retention_enabled
+        && dirty_range.is_some()
+        && !prev_order.is_empty()
+        && paged_ottavas_stable;
     // A system is dirty if any of its visible measures maps to a raw measure
     // index inside the patch's dirty range.
     let dirty_systems = dirty_system_flags(systems, visible_indices, dirty_range);

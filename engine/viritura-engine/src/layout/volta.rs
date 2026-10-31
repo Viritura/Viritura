@@ -7,6 +7,11 @@ use crate::render::*;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
+mod paged_ottavas;
+pub(crate) use paged_ottavas::{
+    paged_ottava_render_salt, render_ottavas_for_view, render_source_ottavas,
+};
+
 // ═══════════════════════════════════════════
 // Volta brackets (alternate endings)
 // ═══════════════════════════════════════════
@@ -261,6 +266,79 @@ fn render_ottavas_filtered<M: Borrow<MeasureLayout>>(
     part_index: usize,
     should_render: impl Fn(usize, usize) -> bool,
 ) {
+    let measure_id_map: HashMap<_, _> = measure_layouts
+        .iter()
+        .enumerate()
+        .filter_map(|(index, measure)| {
+            measure
+                .borrow()
+                .resolved
+                .global
+                .id
+                .as_deref()
+                .map(|id| (id, index))
+        })
+        .collect();
+    for (start_mi, measure) in measure_layouts.iter().enumerate() {
+        let measure = measure.borrow();
+        for (index, ottava) in measure.resolved.part.ottavas.iter().flatten().enumerate() {
+            let Some(&end_mi) = measure_id_map.get(ottava.end.measure.as_str()) else {
+                continue;
+            };
+            if should_render(start_mi, end_mi) {
+                render_ottava_segment(
+                    dl,
+                    measure_layouts,
+                    staff_y,
+                    sp,
+                    &OttavaSegment {
+                        ottava,
+                        start_mi,
+                        end_mi,
+                        start_beat: ottava.position.beats(),
+                        end_beat: ottava.end.position.beats(),
+                        element_id: element_id::ottava(
+                            measure.part_index,
+                            measure.resolved.index,
+                            index,
+                        ),
+                        bbox_element_id: element_id::ottava(
+                            part_index,
+                            measure.resolved.index,
+                            index,
+                        ),
+                        show_label: true,
+                        show_hook: true,
+                    },
+                );
+            }
+        }
+    }
+}
+
+struct OttavaSegment<'a> {
+    ottava: &'a crate::model::Ottava,
+    start_mi: usize,
+    end_mi: usize,
+    start_beat: f64,
+    end_beat: f64,
+    element_id: String,
+    bbox_element_id: String,
+    show_label: bool,
+    show_hook: bool,
+}
+
+fn render_ottava_segment<M: Borrow<MeasureLayout>>(
+    dl: &mut DisplayList,
+    measure_layouts: &[M],
+    staff_y: f64,
+    sp: f64,
+    segment: &OttavaSegment<'_>,
+) {
+    let start_mi = segment.start_mi;
+    let end_mi = segment.end_mi;
+    let ml = measure_layouts[start_mi].borrow();
+    let ott = segment.ottava;
     let line_width = 0.16 * sp; // Bravura engravingDefaults.octaveLineThickness
     let hook_length = 1.0 * sp;
     let dash_length = 0.8 * sp;
@@ -278,176 +356,161 @@ fn render_ottavas_filtered<M: Borrow<MeasureLayout>>(
     // Stem length in half-spaces (3.5sp = 7 half-spaces)
     let stem_half_spaces: f64 = 7.0;
 
-    // Build measure ID → index map
-    let mut measure_id_map: HashMap<String, usize> = HashMap::new();
-    for (i, ml) in measure_layouts.iter().enumerate() {
-        let ml = ml.borrow();
-        if let Some(ref id) = ml.resolved.global.id {
-            measure_id_map.insert(id.clone(), i);
+    let total_beats = ml.resolved.active_time.measure_beats();
+    let content_width = super::render_barlines::rhythmic_content_width(ml, sp);
+    let x_origin = ml.x + ml.prefix_width;
+    let above = match ott.placement {
+        Some(crate::model::Placement::Above) => true,
+        Some(crate::model::Placement::Below) => false,
+        _ => ott.value > 0,
+    };
+
+    // Get SMuFL glyph and its width (scaled to actual render size)
+    let (codepoint, glyph_width_sp) = smufl::ottava_glyph(ott.value);
+    let glyph_width = glyph_width_sp * sp * glyph_scale;
+
+    // Compute start x: try to align with the actual note at this beat position
+    let start_beat = segment.start_beat;
+    // Look up the nearest event's X position for alignment
+    let start_x = if segment.show_label {
+        let proportional_x = x_origin + (start_beat / total_beats) * content_width;
+        // Only snap to an event if it's within a small beat tolerance
+        let snap_tolerance = 0.1;
+        let mut best_x = proportional_x;
+        let mut best_dist = snap_tolerance;
+        for vl in &ml.voice_layouts {
+            if vl.is_centered_bar_rest(total_beats) {
+                continue;
+            }
+            let mut beat_cursor = 0.0_f64;
+            for el in 0..vl.events.len() {
+                let dist = (beat_cursor - start_beat).abs();
+                if dist < best_dist {
+                    best_dist = dist;
+                    best_x = vl.events.x(el);
+                }
+                beat_cursor += vl.events.event(el).duration.total_beats();
+            }
         }
+        best_x
+    } else {
+        x_origin
+    };
+
+    // Compute end x from measure-rhythmic-position
+    let end_ml = measure_layouts[end_mi].borrow();
+    let end_total_beats = end_ml.resolved.active_time.measure_beats();
+    let end_content_width = super::render_barlines::rhythmic_content_width(end_ml, sp);
+    let end_x_origin = end_ml.x + end_ml.prefix_width;
+    let end_beat = segment.end_beat;
+    let end_x = if segment.show_hook {
+        end_x_origin + (end_beat / end_total_beats) * end_content_width
+    } else {
+        end_ml.x + end_ml.width
+    };
+
+    // Collision avoidance: scan note positions in spanned measures
+    let mut ottava_y = compute_ottava_y(
+        measure_layouts,
+        start_mi,
+        end_mi,
+        start_x,
+        end_x,
+        staff_y,
+        sp,
+        above,
+        stem_half_spaces,
+        min_clearance,
+        default_above_y,
+        default_below_y,
+        glyph_ascent,
+    );
+    if above {
+        ottava_y = ottava_y.max(glyph_ascent);
     }
 
-    for (start_mi, ml) in measure_layouts.iter().enumerate() {
-        let ml = ml.borrow();
-        let ottavas = match &ml.resolved.part.ottavas {
-            Some(o) if !o.is_empty() => o,
-            _ => continue,
-        };
+    // Element ID for hit-testing / selection
+    let eid = &segment.element_id;
 
-        let total_beats = ml.resolved.active_time.measure_beats();
-        let content_width = super::render_barlines::rhythmic_content_width(ml, sp);
-        let x_origin = ml.x + ml.prefix_width;
-        let measure_idx = ml.resolved.index;
+    // Draw SMuFL glyph — left-aligned with the note's X position
+    let cmd_idx = dl.commands.len();
+    if segment.show_label {
+        dl.push(RenderCommand::DrawGlyph {
+            x: start_x,
+            y: ottava_y, // baseline of glyph
+            codepoint,
+            font: "Bravura".into(),
+            size: glyph_size,
+            color: "#000000".into(),
+            rotation: 0.0,
+        });
+    }
 
-        for (oi, ott) in ottavas.iter().enumerate() {
-            // True system breaks use the continuation pass; Horizon chunk seams
-            // use this same collision-aware geometry over the whole logical staff.
-            let Some(&end_mi) = measure_id_map.get(&ott.end.measure) else {
-                continue;
-            };
-            if !should_render(start_mi, end_mi) {
-                continue;
-            }
-            let above = match ott.placement {
-                Some(crate::model::Placement::Above) => true,
-                Some(crate::model::Placement::Below) => false,
-                _ => ott.value > 0,
-            };
+    // Dashed line position:
+    // - Above staff: line at the TOP of the glyph (above baseline)
+    // - Below staff: line at the BOTTOM, below the baseline
+    let line_y = if above {
+        ottava_y - glyph_ascent
+    } else {
+        ottava_y + 0.3 * sp // small gap below baseline for below-staff line
+    };
+    let dash_start_x = if segment.show_label {
+        start_x + glyph_width + 0.3 * sp
+    } else {
+        start_x
+    };
 
-            // Get SMuFL glyph and its width (scaled to actual render size)
-            let (codepoint, glyph_width_sp) = smufl::ottava_glyph(ott.value);
-            let glyph_width = glyph_width_sp * sp * glyph_scale;
-
-            // Compute start x: try to align with the actual note at this beat position
-            let start_beat = ott.position.beats();
-            // Look up the nearest event's X position for alignment
-            let start_x = {
-                let proportional_x = x_origin + (start_beat / total_beats) * content_width;
-                // Only snap to an event if it's within a small beat tolerance
-                let snap_tolerance = 0.1;
-                let mut best_x = proportional_x;
-                let mut best_dist = snap_tolerance;
-                for vl in &ml.voice_layouts {
-                    if vl.is_centered_bar_rest(total_beats) {
-                        continue;
-                    }
-                    let mut beat_cursor = 0.0_f64;
-                    for el in 0..vl.events.len() {
-                        let dist = (beat_cursor - start_beat).abs();
-                        if dist < best_dist {
-                            best_dist = dist;
-                            best_x = vl.events.x(el);
-                        }
-                        beat_cursor += vl.events.event(el).duration.total_beats();
-                    }
-                }
-                best_x
-            };
-
-            // Compute end x from measure-rhythmic-position
-            let end_ml = measure_layouts[end_mi].borrow();
-            let end_total_beats = end_ml.resolved.active_time.measure_beats();
-            let end_content_width = super::render_barlines::rhythmic_content_width(end_ml, sp);
-            let end_x_origin = end_ml.x + end_ml.prefix_width;
-            let end_beat = ott.end.position.beats();
-            let end_x = end_x_origin + (end_beat / end_total_beats) * end_content_width;
-
-            // Collision avoidance: scan note positions in spanned measures
-            let mut ottava_y = compute_ottava_y(
-                measure_layouts,
-                start_mi,
-                end_mi,
-                start_x,
-                end_x,
-                staff_y,
-                sp,
-                above,
-                stem_half_spaces,
-                min_clearance,
-                default_above_y,
-                default_below_y,
-                glyph_ascent,
-            );
-            if above {
-                ottava_y = ottava_y.max(glyph_ascent);
-            }
-
-            // Element ID for hit-testing / selection
-            let eid = element_id::ottava(ml.part_index, ml.resolved.index, oi);
-
-            // Draw SMuFL glyph — left-aligned with the note's X position
-            let cmd_idx = dl.commands.len();
-            dl.push(RenderCommand::DrawGlyph {
-                x: start_x,
-                y: ottava_y, // baseline of glyph
-                codepoint,
-                font: "Bravura".into(),
-                size: glyph_size,
-                color: "#000000".into(),
-                rotation: 0.0,
-            });
-
-            // Dashed line position:
-            // - Above staff: line at the TOP of the glyph (above baseline)
-            // - Below staff: line at the BOTTOM, below the baseline
-            let line_y = if above {
-                ottava_y - glyph_ascent
-            } else {
-                ottava_y + 0.3 * sp // small gap below baseline for below-staff line
-            };
-            let dash_start_x = start_x + glyph_width + 0.3 * sp;
-
-            // Draw dashed horizontal line from after glyph to end
-            if end_x > dash_start_x {
-                let mut cx = dash_start_x;
-                while cx < end_x {
-                    let seg_end = (cx + dash_length).min(end_x);
-                    dl.push(RenderCommand::DrawLine {
-                        x1: cx,
-                        y1: line_y,
-                        x2: seg_end,
-                        y2: line_y,
-                        width: line_width,
-                        color: "#000000".into(),
-                    });
-                    cx += dash_length + gap_length;
-                }
-            }
-
-            // Draw vertical hook at the end
-            let hook_dir = if above { 1.0 } else { -1.0 };
+    // Draw dashed horizontal line from after glyph to end
+    if end_x > dash_start_x {
+        let mut cx = dash_start_x;
+        while cx < end_x {
+            let seg_end = (cx + dash_length).min(end_x);
             dl.push(RenderCommand::DrawLine {
-                x1: end_x,
+                x1: cx,
                 y1: line_y,
-                x2: end_x,
-                y2: line_y + hook_length * hook_dir,
+                x2: seg_end,
+                y2: line_y,
                 width: line_width,
                 color: "#000000".into(),
             });
-            for ci in cmd_idx..dl.commands.len() {
-                dl.tag_command(ci, eid.clone());
-            }
-
-            // Bounding box for the ottava spanner
-            let bbox_x = start_x.min(end_x);
-            let bbox_w = (end_x - start_x).abs();
-            let bbox_top = if above {
-                line_y
-            } else {
-                ottava_y - glyph_ascent
-            };
-            let bbox_bottom = if above {
-                ottava_y
-            } else {
-                line_y + hook_length
-            };
-            let bbox_h = (bbox_bottom - bbox_top).abs().max(glyph_ascent);
-            dl.push_element_bbox_with_shape(ElementBBox {
-                element_id: element_id::ottava(part_index, measure_idx, oi),
-                bbox: BoundingBox::new(bbox_x, bbox_top, bbox_w, bbox_h),
-            });
+            cx += dash_length + gap_length;
         }
     }
+
+    // Draw vertical hook at the end
+    let hook_dir = if above { 1.0 } else { -1.0 };
+    if segment.show_hook {
+        dl.push(RenderCommand::DrawLine {
+            x1: end_x,
+            y1: line_y,
+            x2: end_x,
+            y2: line_y + hook_length * hook_dir,
+            width: line_width,
+            color: "#000000".into(),
+        });
+    }
+    for ci in cmd_idx..dl.commands.len() {
+        dl.tag_command(ci, eid.clone());
+    }
+
+    // Bounding box for the ottava spanner
+    let bbox_x = start_x.min(end_x);
+    let bbox_w = (end_x - start_x).abs();
+    let bbox_top = if above {
+        line_y
+    } else {
+        ottava_y - glyph_ascent
+    };
+    let bbox_bottom = if above {
+        ottava_y
+    } else {
+        line_y + hook_length
+    };
+    let bbox_h = (bbox_bottom - bbox_top).abs().max(glyph_ascent);
+    dl.push_element_bbox_with_shape(ElementBBox {
+        element_id: segment.bbox_element_id.clone(),
+        bbox: BoundingBox::new(bbox_x, bbox_top, bbox_w, bbox_h),
+    });
 }
 
 /// Compute the Y position for an ottava line, avoiding collisions with notes.

@@ -44,6 +44,13 @@ crossing one keeps a single label, continuous dashed line, and final endpoint
 hook. Cross-chunk ottavas use the same collision-aware geometry as an unchunked
 staff and are included in the overlay on both full and retained patch frames.
 
+Paged ottavas use that same geometry separately on each system, clearing the
+notes and stems in each fragment. Only the first fragment has a label and only
+the final fragment has an endpoint hook. Each fragment retains its source
+element ID and selectable bounds, including when a layout changes staff order.
+Paged render identities include authored ottava ranges so a placement or
+endpoint edit cannot reuse stale continuation geometry from another system.
+
 ## 1. Horizontal spacing
 
 The horizontal pass lives under
