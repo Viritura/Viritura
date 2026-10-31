@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import type { StorybookConfig } from "@storybook/react-vite";
+import { cssBuildOptions } from "../../../scripts/cssBuild";
 
 const config: StorybookConfig = {
   typescript: {
@@ -30,6 +31,7 @@ const config: StorybookConfig = {
     options: {},
   },
   viteFinal: async (config) => {
+    config.build = { ...config.build, ...cssBuildOptions };
     config.cacheDir = process.env.VIRITURA_VITE_CACHE_DIR;
     return config;
   },

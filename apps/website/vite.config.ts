@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from "vite";
 import { containerWatchOptions } from "../../infra/dev/viteWatch.ts";
+import { cssBuildOptions } from "../../scripts/cssBuild";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import { rmSync } from "node:fs";
@@ -40,6 +41,7 @@ export default defineConfig({
   // destructuring lowering in some deps.
   oxc: { target: "es2022" },
   build: {
+    ...cssBuildOptions,
     outDir: "dist",
     target: "es2022",
     sourcemap: false,

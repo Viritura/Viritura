@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import type { StorybookConfig } from "@storybook/react-vite";
+import { cssBuildOptions } from "../../../scripts/cssBuild";
 import { syncMnxFixtures, syncMnxSchema, syncMusxImporter, syncSharedAssets, syncSounds } from "../buildAssets";
 
 syncSharedAssets();
@@ -48,6 +49,7 @@ const config: StorybookConfig = {
     : undefined,
   previewHead: isPublicSite ? (head) => `${head}\n<meta name="robots" content="noindex, nofollow">` : undefined,
   viteFinal: async (config) => {
+    config.build = { ...config.build, ...cssBuildOptions };
     // When building for the unified site, serve under /mnx/examples/.
     if (isPublicSite) {
       config.base = "/mnx/examples/";

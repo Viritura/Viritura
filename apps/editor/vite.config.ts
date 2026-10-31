@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { containerWatchOptions } from "../../infra/dev/viteWatch.ts";
+import { cssBuildOptions } from "../../scripts/cssBuild";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import { existsSync, readFileSync, statSync, rmSync } from "node:fs";
@@ -131,6 +132,7 @@ export default defineConfig(({ command }) => ({
   // costs no real reach. (`oxc` is Vite 8's successor to the `esbuild` option.)
   oxc: { target: "es2022" },
   build: {
+    ...cssBuildOptions,
     outDir: "dist",
     target: "es2022",
     sourcemap: false,

@@ -43,6 +43,7 @@
     },
     "@viritura/server-ui#build": {
       "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/postcss.config.mjs", "$TURBO_ROOT$/scripts/cssBuild/**"],
       "outputs": ["dist/**"]
     },
     "@viritura/ui#build-storybook": {
@@ -82,6 +83,7 @@
     },
     "mnx-viewer#build": {
       "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/postcss.config.mjs", "$TURBO_ROOT$/scripts/cssBuild/**"],
       "outputs": ["dist/**", "media/viewer.js", "media/viewer.css", "media/assets/**"]
     },
     "mnx-viewer#prepare:assets": {

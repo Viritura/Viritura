@@ -2,6 +2,7 @@ import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 import { containerWatchOptions } from "../../infra/dev/viteWatch.ts";
+import { cssBuildOptions } from "../../scripts/cssBuild/index.ts";
 import { execFileSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import { resolve } from "node:path";
@@ -92,6 +93,7 @@ export default defineConfig({
     plugins: [externalizeLargeSoundfont()],
     oxc: { target: "es2022" },
     build: {
+      ...cssBuildOptions,
       target: "es2022",
       sourcemap: false,
       cssCodeSplit: false,
