@@ -3,6 +3,7 @@ import { durationToBeats } from "../../commands/noteCommands";
 import { dynamicStaffAtLocation } from "../../commands/dynamicStaff";
 import { resolveCondensedEventTargets } from "../../score/condensedWriteback";
 import { resolveEventLocation, type EventLocation } from "../../score/ElementPath";
+import { ensureMeasureId } from "../../score/spanUtils";
 import type { SelectionState } from "../../store/selectionStore";
 
 export interface SpannerTarget extends EventLocation {
@@ -47,6 +48,7 @@ export function eventPositionFraction(score: Score, location: EventLocation, inc
   return beatToFraction(beat);
 }
 
+/** Persists a missing endpoint measure ID; call with the score edit's mutable draft. */
 export function resolveSpannerPositions(
   score: Score,
   selection: SelectionState,
@@ -67,11 +69,9 @@ export function resolveSpannerPositions(
     [start, finish] = [finish, start];
   }
 
-  const startMeasureId = score.global.measures[start.measureIndex]?.id ?? `m${start.measureIndex}`;
-  let endMeasureId = startMeasureId;
+  const endMeasureId = ensureMeasureId(score, finish?.measureIndex ?? start.measureIndex);
   let endFraction: [number, number];
   if (finish) {
-    endMeasureId = score.global.measures[finish.measureIndex]?.id ?? `m${finish.measureIndex}`;
     endFraction = eventPositionFraction(score, finish, true);
   } else {
     let measureBeats = 4;

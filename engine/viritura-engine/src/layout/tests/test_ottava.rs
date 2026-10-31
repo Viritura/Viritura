@@ -6,6 +6,392 @@ use crate::layout::{layout_score, layout_with_mnx_scores};
 use crate::render::*;
 use std::collections::HashSet;
 
+fn piano_ottava_score(value: i32, end_measure: usize) -> crate::model::Score {
+    let upper = serde_json::json!({
+        "staff": 1,
+        "content": (0..4).map(|_| serde_json::json!({
+            "duration": {"base": "quarter"},
+            "notes": (["C", "E", "G", "B"].map(|step| serde_json::json!({
+                "pitch": {"step": step, "octave": 5}
+            })))
+        })).collect::<Vec<_>>()
+    });
+    let lower = serde_json::json!({
+        "staff": 2,
+        "content": (0..4).map(|_| serde_json::json!({
+            "duration": {"base": "quarter"},
+            "notes": [{"pitch": {"step": "C", "octave": 3}}]
+        })).collect::<Vec<_>>()
+    });
+    let mut measures = vec![serde_json::json!({"sequences": [upper, lower]}); 24];
+    measures[0]["clefs"] = serde_json::json!([
+        {"staff": 1, "clef": {"sign": "G", "staffPosition": -2}},
+        {"staff": 2, "clef": {"sign": "F", "staffPosition": 2}}
+    ]);
+    measures[1]["ottavas"] = serde_json::json!([{
+        "value": value,
+        "staff": 2,
+        "position": {"fraction": [0, 1]},
+        "end": {"measure": format!("m{}", end_measure + 1), "position": {"fraction": [1, 1]}}
+    }]);
+    let mut global = (1..=24)
+        .map(|index| serde_json::json!({"id": format!("m{index}")}))
+        .collect::<Vec<_>>();
+    global[0]["time"] = serde_json::json!({"count": 4, "unit": 4});
+    let json = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": global},
+        "parts": [{"id": "piano", "name": "Piano", "staves": 2, "measures": measures}],
+        "layouts": [{"id": "piano-layout", "content": [
+            {"type": "staff", "sources": [{"part": "piano", "staff": 1}]},
+            {"type": "staff", "sources": [{"part": "piano", "staff": 2}]}
+        ]}],
+        "scores": [{"name": "Piano", "layout": "piano-layout"}]
+    });
+    let mut score = crate::parse::parse_mnx(&json.to_string()).unwrap();
+    crate::reconcile::reconcile_score(&mut score);
+    score
+}
+
+fn ottava_commands(display: &DisplayList) -> Vec<&RenderCommand> {
+    display
+        .commands
+        .iter()
+        .zip(&display.element_ids)
+        .filter_map(|(command, id)| (id.as_deref() == Some("p0/m1/ottava0")).then_some(command))
+        .collect()
+}
+
+#[test]
+fn test_ottava_paged_fragments_are_dashed_and_clear_notes() {
+    use crate::model::{Placement, SequenceContent};
+
+    for (value, placement) in [
+        (-2, None),
+        (-1, None),
+        (1, None),
+        (2, None),
+        (-1, Some(Placement::Above)),
+        (1, Some(Placement::Below)),
+        (1, Some(Placement::Auto)),
+    ] {
+        let above = match placement {
+            Some(Placement::Above) => true,
+            Some(Placement::Below) => false,
+            _ => value > 0,
+        };
+        let mut score = piano_ottava_score(value, 7);
+        score.parts[0].measures[1].ottavas.as_mut().unwrap()[0].placement = placement;
+        for measure in &mut score.parts[0].measures {
+            for item in &mut measure.sequences[1].content {
+                if let SequenceContent::Event(event) = item {
+                    for note in event.notes.as_mut().unwrap() {
+                        note.pitch.octave = (if above { 6 } else { 1.max(-value) }) + value;
+                    }
+                }
+            }
+        }
+        let config = LayoutConfig {
+            page_width: Some(500.0),
+            ..LayoutConfig::default()
+        };
+        let display = layout_with_mnx_scores(&score, &config, 0);
+        let mut systems = std::collections::BTreeMap::new();
+        for bound in display
+            .measure_bounds
+            .iter()
+            .filter(|bound| bound.staff_index == 1 && (1..=7).contains(&bound.index))
+        {
+            let entry = systems.entry(bound.system_index).or_insert((
+                bound.y,
+                f64::INFINITY,
+                f64::NEG_INFINITY,
+            ));
+            let prefix = format!("p0/m{}/s1/", bound.index);
+            for shape in &display.element_shapes {
+                if matches!(shape.kind, ElementKind::Notehead | ElementKind::Stem)
+                    && shape.element_id.starts_with(&prefix)
+                {
+                    let bbox = shape.bbox(&display.commands).unwrap();
+                    entry.1 = entry.1.min(bbox.y);
+                    entry.2 = entry.2.max(bbox.y + bbox.height);
+                }
+            }
+        }
+        assert!(systems.len() >= 3, "the range must span multiple systems");
+        assert!(systems
+            .values()
+            .all(|(_, top, bottom)| top.is_finite() && bottom.is_finite()));
+        let mut rendered_systems = HashSet::new();
+        let commands = ottava_commands(&display);
+        for command in &commands {
+            if let RenderCommand::DrawLine { x1, x2, y1, y2, .. } = command {
+                if y1 != y2 {
+                    continue;
+                }
+                assert!(
+                    x2 - x1 <= 0.8 * config.sp + 1e-8,
+                    "every paged ottava fragment must use the standard dash length"
+                );
+                let (&system, &(_, top, bottom)) = systems
+                    .iter()
+                    .min_by(|(_, left), (_, right)| {
+                        (left.0 - y1).abs().total_cmp(&(right.0 - y1).abs())
+                    })
+                    .unwrap();
+                if above {
+                    assert!(
+                        *y1 <= top - config.sp,
+                        "8va line must clear note and stem ink"
+                    );
+                } else {
+                    assert!(
+                        *y1 >= bottom + config.sp,
+                        "8vb line must clear note and stem ink"
+                    );
+                }
+                rendered_systems.insert(system);
+            }
+        }
+        assert_eq!(rendered_systems.len(), systems.len());
+        assert_eq!(
+            commands
+                .iter()
+                .filter(|command| matches!(command, RenderCommand::DrawGlyph { .. }))
+                .count(),
+            1
+        );
+        assert_eq!(
+            commands
+                .iter()
+                .filter(
+                    |command| matches!(command, RenderCommand::DrawLine { x1, x2, .. } if x1 == x2)
+                )
+                .count(),
+            1
+        );
+    }
+}
+
+#[test]
+fn test_ottava_paged_retention_updates_continuation_placement_and_endpoint() {
+    use super::test_patch_frame::reconstruct;
+    use crate::layout::cache::{DirtyRegion, LayoutCache};
+    use crate::layout::layout_with_mnx_scores_cached;
+    use crate::model::Placement;
+
+    let mut score = piano_ottava_score(-1, 7);
+    let config = LayoutConfig {
+        page_width: Some(500.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = LayoutCache::new();
+    cache.set_patch_frame_enabled(true);
+    let _ = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let seed = cache.take_pending_patch().expect("seed must emit a patch");
+    let (_, mut segments) = reconstruct(&seed, &[]);
+    assert!(segments.len() > 3);
+
+    for (placement, end_measure) in [
+        (Some(Placement::Above), "m8"),
+        (Some(Placement::Below), "m18"),
+        (None, "m6"),
+    ] {
+        let ottava = &mut score.parts[0].measures[1].ottavas.as_mut().unwrap()[0];
+        ottava.placement = placement;
+        ottava.end.measure = end_measure.into();
+        let expected = layout_with_mnx_scores(&score, &config, 0);
+        cache.set_pending_dirty_region(Some(DirtyRegion::local_part_measures(1, 1, vec![true])));
+        let _ = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let patch = cache.take_pending_patch().expect("edit must emit a patch");
+        let (actual, next_segments) = reconstruct(&patch, &segments);
+        assert_eq!(
+            serde_json::to_value(ottava_commands(&actual)).unwrap(),
+            serde_json::to_value(ottava_commands(&expected)).unwrap(),
+            "paged continuations must update when their source changes in another system"
+        );
+        assert_eq!(
+            serde_json::to_value(
+                actual
+                    .element_bboxes
+                    .iter()
+                    .filter(|bbox| bbox.element_id == "p0/m1/ottava0")
+                    .collect::<Vec<_>>()
+            )
+            .unwrap(),
+            serde_json::to_value(
+                expected
+                    .element_bboxes
+                    .iter()
+                    .filter(|bbox| bbox.element_id == "p0/m1/ottava0")
+                    .collect::<Vec<_>>()
+            )
+            .unwrap(),
+            "every continuation must retain its selectable bounds"
+        );
+        segments = next_segments;
+    }
+    let expected = layout_with_mnx_scores(&score, &config, 0);
+    for _ in 0..2 {
+        let _ = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let patch = cache
+            .take_pending_patch()
+            .expect("repeat must emit a patch");
+        assert!(cache.last_patch_reused_systems() > 0);
+        let (actual, next_segments) = reconstruct(&patch, &segments);
+        assert_eq!(
+            serde_json::to_value(ottava_commands(&actual)).unwrap(),
+            serde_json::to_value(ottava_commands(&expected)).unwrap()
+        );
+        segments = next_segments;
+    }
+}
+
+#[test]
+fn test_ottava_horizon_range_survives_extending_past_chunk_seam() {
+    use super::test_patch_frame::reconstruct;
+    use crate::layout::cache::{DirtyRegion, LayoutCache, SystemPlacement};
+    use crate::layout::layout_with_mnx_scores_cached;
+
+    for value in [-2, -1, 1, 2] {
+        let mut score = piano_ottava_score(value, 6);
+        let single_config = LayoutConfig {
+            page_width: None,
+            horizon_chunk_width: None,
+            emit_layout_debug: true,
+            ..LayoutConfig::default()
+        };
+        let short_oracle = layout_with_mnx_scores(&score, &single_config, 0);
+        // Horizon partitioning reserves 15% breathing room over natural widths.
+        let chunk_width = short_oracle.layout_debug.as_ref().unwrap().systems[0]
+            .measure_spacings
+            .iter()
+            .take(7)
+            .map(|measure| measure.natural_width * 1.15)
+            .sum::<f64>()
+            + 0.01;
+        let chunk_config = LayoutConfig {
+            horizon_chunk_width: Some(chunk_width),
+            emit_layout_debug: true,
+            ..single_config.clone()
+        };
+        let short = layout_with_mnx_scores(&score, &chunk_config, 0);
+        let systems = &short.layout_debug.as_ref().unwrap().systems;
+        assert!(
+            systems.len() >= 3,
+            "fixture must have reusable later chunks"
+        );
+        assert_eq!(
+            systems[0].measure_spacings.last().unwrap().measure_index,
+            6,
+            "the first chunk must end at bar 7"
+        );
+        assert_eq!(
+            serde_json::to_value(ottava_commands(&short)).unwrap(),
+            serde_json::to_value(ottava_commands(&short_oracle)).unwrap(),
+            "bar 2-7 ottava must match the unchunked layout"
+        );
+        let mut cache = LayoutCache::new();
+        cache.set_patch_frame_enabled(true);
+        let patch_config = LayoutConfig {
+            emit_layout_debug: false,
+            ..chunk_config.clone()
+        };
+        let _ = layout_with_mnx_scores_cached(&score, &patch_config, 0, Some(&mut cache));
+        let seed = cache.take_pending_patch().expect("seed must emit a patch");
+        let (_, seed_segments) = reconstruct(&seed, &[]);
+
+        score.parts[0].measures[1].ottavas.as_mut().unwrap()[0]
+            .end
+            .measure = "m8".into();
+        let oracle = layout_with_mnx_scores(&score, &single_config, 0);
+        let commands = ottava_commands(&oracle);
+        assert_eq!(
+            commands
+                .iter()
+                .filter(|command| matches!(command, RenderCommand::DrawGlyph { .. }))
+                .count(),
+            1
+        );
+        assert_eq!(
+            commands
+                .iter()
+                .filter(
+                    |command| matches!(command, RenderCommand::DrawLine { x1, x2, .. } if x1 == x2)
+                )
+                .count(),
+            1,
+            "only the final endpoint gets a hook"
+        );
+        assert!(commands.len() > 3, "the oracle must emit horizontal dashes");
+        let crossed = layout_with_mnx_scores(&score, &chunk_config, 0);
+        assert!(crossed
+            .measure_bounds
+            .iter()
+            .all(|bound| bound.system_index == 0));
+        assert_eq!(
+            serde_json::to_value(ottava_commands(&crossed)).unwrap(),
+            serde_json::to_value(ottava_commands(&oracle)).unwrap(),
+            "bar 2-8 ottava must not disappear or split at a Horizon chunk seam (value {value})"
+        );
+        assert_eq!(
+            crossed
+                .element_bboxes
+                .iter()
+                .filter(|bbox| bbox.element_id == "p0/m1/ottava0")
+                .count(),
+            1,
+            "the continuous ottava must retain one selectable bounding box"
+        );
+        cache.set_pending_dirty_region(Some(DirtyRegion::local_part_measures(1, 7, vec![true])));
+        let _ = layout_with_mnx_scores_cached(&score, &patch_config, 0, Some(&mut cache));
+        let patch = cache.take_pending_patch().expect("edit must emit a patch");
+        assert!(cache.last_patch_reused_systems() > 0);
+        let (reconstructed, segments) = reconstruct(&patch, &seed_segments);
+        assert_eq!(
+            serde_json::to_value(ottava_commands(&reconstructed)).unwrap(),
+            serde_json::to_value(ottava_commands(&oracle)).unwrap(),
+            "the cross-chunk ottava must survive retained-system patch rendering"
+        );
+
+        score.parts[0].measures[1].ottavas.as_mut().unwrap()[0]
+            .position
+            .fraction = (1, 4);
+        let shifted_oracle = layout_with_mnx_scores(&score, &single_config, 0);
+        cache.set_pending_dirty_region(Some(DirtyRegion::local_part_measures(1, 1, vec![true])));
+        let _ = layout_with_mnx_scores_cached(&score, &patch_config, 0, Some(&mut cache));
+        let shifted = cache
+            .take_pending_patch()
+            .expect("start edit must emit a patch");
+        assert!(
+            matches!(&shifted.placements[1], SystemPlacement::Reuse { .. }),
+            "the chunk containing bar 8 must actually be retained"
+        );
+        let (reconstructed, mut segments) = reconstruct(&shifted, &segments);
+        assert_eq!(
+            serde_json::to_value(ottava_commands(&reconstructed)).unwrap(),
+            serde_json::to_value(ottava_commands(&shifted_oracle)).unwrap(),
+            "ottava geometry must resolve an endpoint in a retained chunk"
+        );
+        for repeat in 0..2 {
+            let _ = layout_with_mnx_scores_cached(&score, &patch_config, 0, Some(&mut cache));
+            let repeated = cache
+                .take_pending_patch()
+                .expect("repeat must emit a patch");
+            if repeat == 1 {
+                assert_eq!(cache.last_patch_fresh_systems(), 0);
+            }
+            let (reconstructed, next_segments) = reconstruct(&repeated, &segments);
+            assert_eq!(
+                serde_json::to_value(ottava_commands(&reconstructed)).unwrap(),
+                serde_json::to_value(ottava_commands(&shifted_oracle)).unwrap(),
+                "retained frames must preserve the cached ottava overlay"
+            );
+            segments = next_segments;
+        }
+    }
+}
+
 #[test]
 fn test_ottava_chunked_horizon_bounds_are_not_clipped() {
     let json = include_str!("../../../../../packages/format/fixtures/mnx/ottavas-8va.mnx");

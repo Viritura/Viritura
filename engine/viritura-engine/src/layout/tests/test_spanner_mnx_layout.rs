@@ -157,13 +157,13 @@ fn test_mnx_grand_staff_lower_ottava_keeps_owner_and_y_across_system_break() {
         let owner = lower_bounds
             .iter()
             .min_by(|left, right| {
-                (left.y + 6.0 * config.sp - y1)
+                (left.y + 6.3 * config.sp - y1)
                     .abs()
-                    .total_cmp(&(right.y + 6.0 * config.sp - y1).abs())
+                    .total_cmp(&(right.y + 6.3 * config.sp - y1).abs())
             })
             .expect("lower-staff bounds");
         assert!(
-            (owner.y + 6.0 * config.sp - y1).abs() < 0.01,
+            *y1 >= owner.y + 6.3 * config.sp - 0.01,
             "8vb line at y={y1} must be measured from lower staff y={}",
             owner.y
         );
@@ -248,12 +248,12 @@ fn test_explicit_system_layout_changes_keep_lower_ottava_owner() {
         let owner = lower_bounds
             .iter()
             .min_by(|left, right| {
-                (left.y + 6.0 * config.sp - y1)
+                (left.y + 6.3 * config.sp - y1)
                     .abs()
-                    .total_cmp(&(right.y + 6.0 * config.sp - y1).abs())
+                    .total_cmp(&(right.y + 6.3 * config.sp - y1).abs())
             })
             .expect("lower-staff bounds");
-        assert!((owner.y + 6.0 * config.sp - y1).abs() < 0.01);
+        assert!(*y1 >= owner.y + 6.3 * config.sp - 0.01);
         routed_systems.insert(owner.system_index);
     }
     assert_eq!(routed_systems, HashSet::from([0, 1]));

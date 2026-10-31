@@ -67,13 +67,20 @@ afterEach(() => {
   setChordSymbolPopover(null);
 });
 
-function WithScore({ children }: { readonly children: ReactNode }) {
+function WithScore({
+  children,
+  initialScore = SCORE,
+}: {
+  readonly children: ReactNode;
+  readonly initialScore?: Score;
+}) {
   const loadScore = useDocumentStore((state) => state.loadScore);
   const score = useDocumentStore((state) => state.score);
-  useEffect(() => loadScore(SCORE, "palette-test.mnx"), [loadScore]);
+  useEffect(() => loadScore(initialScore, "palette-test.mnx"), [initialScore, loadScore]);
   return score ? (
     <>
       {children}
+      <output data-testid="score">{JSON.stringify(score)}</output>
       <output data-testid="rehearsal-mark-0">
         {(score.global.measures[0] as Record<string, unknown>).rehearsalMark
           ? JSON.stringify((score.global.measures[0] as Record<string, unknown>).rehearsalMark)
@@ -113,6 +120,48 @@ function WithScore({ children }: { readonly children: ReactNode }) {
 }
 
 describe("PalettePanel", () => {
+  it.each([
+    { range: false, button: "Ottava 8vb (down)", field: "ottavas" as const },
+    { range: true, button: "Ottava 8vb (down)", field: "ottavas" as const },
+    { range: true, button: "Sustain pedal", field: "pedals" as const },
+  ])("persists the endpoint measure ID for $button (range: $range)", async ({ range, button, field }) => {
+    const initialScore = structuredClone(SCORE);
+    initialScore.parts[0]!.staves = 2;
+    for (const measure of initialScore.parts[0]!.measures) {
+      measure.sequences[0]!.staff = 2;
+    }
+    initialScore.global.measures[0]!.id = "m1";
+    useSelectionStore.setState({
+      selection: range
+        ? { kind: "range", startElementId: "p0/m0/s0/cross-bar-start", endElementId: "p0/m1/s0/first-note" }
+        : { kind: "single", elementId: "p0/m1/s0/first-note" },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore initialScore={initialScore}>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: button }));
+
+    const updated = JSON.parse(screen.getByTestId("score").textContent ?? "{}") as Score;
+    const spanner = updated.parts[0]!.measures[range ? 0 : 1]![field]![0]!;
+    expect(spanner.staff).toBe(2);
+    expect(updated.global.measures[1]!.id).toBeTruthy();
+    expect(spanner.end.measure).toBe(updated.global.measures[1]!.id);
+    expect(spanner.end.measure).not.toBe("m1");
+    expect(updated.global.measures[0]!.id).toBe("m1");
+    expect(initialScore.global.measures[1]!.id).toBeUndefined();
+    if (field === "ottavas") {
+      expect(updated.parts[0]!.measures[range ? 0 : 1]!.ottavas![0]!.value).toBe(-1);
+    }
+  });
+
   it("creates one linked tuplet from a range crossing a barline", async () => {
     useSelectionStore.setState({
       selection: {
