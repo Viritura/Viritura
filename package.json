@@ -130,6 +130,7 @@
       "js-yaml": "4.3.2",
       "linkify-it@<5.0.2": "5.0.2",
       "smol-toml@<=1.7.0": ">=1.7.1",
+      "spessasynth_lib@4.3.1>spessasynth_core": "4.3.22",
       "stb-vorbis": "workspace:*"
     }
   }
