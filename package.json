@@ -81,7 +81,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@inquirer/checkbox": "^5.2.5",
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "^1.64.1",
     "@types/node": "26.6.4",
     "autoprefixer": "^10.6.1",
     "concurrently": "^10.0.5",
