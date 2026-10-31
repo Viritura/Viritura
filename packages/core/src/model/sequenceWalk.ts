@@ -9,6 +9,7 @@ import type { Grace, MultiNoteTremolo, NoteEvent, SequenceContent, Tuplet } from
  * tree-walker.
  */
 type EventContainer = Tuplet | Grace | MultiNoteTremolo;
+const ROOT_EVENT_PATH: readonly number[] = [];
 
 /** Single source of truth: does this content item nest child events? */
 function isEventContainer(item: SequenceContent): item is EventContainer {
@@ -40,20 +41,39 @@ export interface WalkedEvent {
  * its index path. This is the canonical event iterator: every place that needs
  * to "visit all events, descending into containers" should delegate here rather
  * than re-implementing the descent (and inevitably forgetting a container kind).
+ * An optional filter skips record/path allocation for unmatched leaf events.
  */
 export function* walkSequenceEvents(
   content: readonly SequenceContent[],
-  prefix: readonly number[] = [],
+  prefix: readonly number[] = ROOT_EVENT_PATH,
+  include?: (event: NoteEvent) => boolean,
 ): Generator<WalkedEvent> {
   for (let i = 0; i < content.length; i++) {
     const item = content[i]!;
     if (item.type === "event") {
-      yield { event: item, path: [...prefix, i] };
+      if (!include || include(item)) yield { event: item, path: [...prefix, i] };
       continue;
     }
     const inner = eventContainerContent(item);
     if (inner) {
-      yield* walkSequenceEvents(inner, [...prefix, i]);
+      yield* walkSequenceEvents(inner, [...prefix, i], include);
     }
   }
+}
+
+/** Resolve the canonical walker's index path without visiting unrelated events. */
+export function resolveSequenceEvent(
+  content: readonly SequenceContent[],
+  path: readonly number[],
+): NoteEvent | undefined {
+  let level = content;
+  for (let depth = 0; depth < path.length; depth++) {
+    const item = level[path[depth]!];
+    if (!item) return undefined;
+    if (depth === path.length - 1) return item.type === "event" ? item : undefined;
+    const inner = eventContainerContent(item);
+    if (!inner) return undefined;
+    level = inner;
+  }
+  return undefined;
 }

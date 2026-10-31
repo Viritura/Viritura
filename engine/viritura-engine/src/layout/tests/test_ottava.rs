@@ -63,6 +63,45 @@ fn ottava_commands(display: &DisplayList) -> Vec<&RenderCommand> {
 }
 
 #[test]
+fn test_authored_measure_cache_updates_ottava_pitch_geometry_after_endpoint_edits() {
+    use crate::layout::cache::LayoutCache;
+    use crate::layout::layout_with_mnx_scores_cached;
+    use crate::model::{PageDefinition, SystemDefinition};
+
+    let mut score = piano_ottava_score(-1, 7);
+    score.scores[0].pages = vec![PageDefinition {
+        systems: vec![SystemDefinition {
+            layout: Some("piano-layout".into()),
+            measure: "m1".into(),
+            layout_changes: Vec::new(),
+        }],
+    }];
+    for page_width in [None, Some(500.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let mut cache = LayoutCache::new();
+        layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        for (end, value) in [("m18", -1), ("m6", 1), ("m12", -2)] {
+            let ottava = &mut score.parts[0].measures[1].ottavas.as_mut().unwrap()[0];
+            ottava.end.measure = end.into();
+            ottava.value = value;
+            let expected = layout_with_mnx_scores(&score, &config, 0);
+            let actual = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+            assert!(
+                expected
+                    .to_binary()
+                    .iter()
+                    .map(|number| number.to_bits())
+                    .eq(actual.to_binary().iter().map(|number| number.to_bits())),
+                "authored cached geometry must follow ottava endpoint {end} and value {value}"
+            );
+        }
+    }
+}
+
+#[test]
 fn test_ottava_paged_fragments_are_dashed_and_clear_notes() {
     use crate::model::{Placement, SequenceContent};
 

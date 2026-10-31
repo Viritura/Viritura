@@ -74,3 +74,11 @@ inferred endpoints. A paste into a different score may therefore have a missing
 or backward target, reported by the normal extender-reference diagnostics.
 No Viritura-specific extender payload is defined; `_x` can retain other vendors'
 metadata without treating it as an implemented Viritura extension.
+
+Splitting an event keeps syllables on the onset fragment and moves incoming
+extender references to the final fragment; joining remaps them to the surviving
+event. Hidden extenders keep their targets and metadata through these operations.
+Fragments snapshot the current transactional edit, including in-flight lyric and
+duration changes, rather than cloning a draft proxy or the pre-edit event.
+Reference remapping inspects unchanged score branches without drafting unrelated
+events, and identity-only mappings do not traverse the score.

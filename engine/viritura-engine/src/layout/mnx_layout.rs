@@ -28,6 +28,7 @@ mod cache_hashing;
 mod chord_symbols;
 mod explicit;
 mod explicit_pagination;
+mod explicit_staff_retention;
 mod explicit_system_breaks;
 mod explicit_system_layouts;
 mod explicit_widths;

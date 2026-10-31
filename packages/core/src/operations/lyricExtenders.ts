@@ -1,5 +1,6 @@
 import type { LyricLine, NoteEvent, SequenceContent, Score } from "../model";
-import { isRest, walkSequenceEvents } from "../model";
+import { isRest, resolveSequenceEvent, walkSequenceEvents } from "../model";
+import { current, isDraft } from "immer";
 import { measureBeats, type TimeSignature } from "../model/time";
 import { DURATION_BEATS } from "../constants";
 import { ratioToNumber, resolveStaffMeterTimeline } from "../model/staffMeter";
@@ -44,32 +45,84 @@ export function remapLyricExtenderTargets(
   content: readonly SequenceContent[],
   replacements: ReadonlyMap<string, string>,
 ): void {
-  if (replacements.size === 0) return;
-  for (const { event } of walkSequenceEvents(content)) {
-    for (const line of Object.values(event.lyrics?.lines ?? {})) {
-      const target = line.extender?.target;
-      if (target === undefined) continue;
-      let replacement = target;
-      const visited = new Set<string>();
-      while (replacements.has(replacement) && !visited.has(replacement)) {
-        visited.add(replacement);
-        const next = replacements.get(replacement)!;
-        if (next === replacement) break;
-        replacement = next;
+  if (!hasChangedReplacement(replacements)) return;
+  applyLyricTargetUpdates(content, planLyricTargetUpdates(content, replacements));
+}
+
+export function remapScoreLyricExtenderTargets(score: Score, replacements: ReadonlyMap<string, string>): void {
+  if (!hasChangedReplacement(replacements)) return;
+  const snapshot = isDraft(score) ? current(score) : score;
+  for (const [partIndex, part] of snapshot.parts.entries()) {
+    for (const [measureIndex, measure] of part.measures.entries()) {
+      for (const [sequenceIndex, sequence] of measure.sequences.entries()) {
+        const updates = planLyricTargetUpdates(sequence.content, replacements);
+        if (!updates) continue;
+        const content = score.parts[partIndex]!.measures[measureIndex]!.sequences[sequenceIndex]!.content;
+        applyLyricTargetUpdates(content, updates);
       }
-      if (!visited.has(replacement) || replacements.get(replacement) === replacement)
-        line.extender!.target = replacement;
     }
   }
 }
 
-export function remapScoreLyricExtenderTargets(score: Score, replacements: ReadonlyMap<string, string>): void {
-  if (replacements.size === 0) return;
-  for (const part of score.parts) {
-    for (const measure of part.measures) {
-      for (const sequence of measure.sequences) remapLyricExtenderTargets(sequence.content, replacements);
+interface LyricTargetUpdate {
+  path: readonly number[];
+  lineId: string;
+  target: string;
+}
+
+function hasLyricTargets(event: NoteEvent): boolean {
+  const lines = event.lyrics?.lines;
+  return lines !== undefined && Object.values(lines).some((line) => line.extender?.target !== undefined);
+}
+
+function remappedTarget(target: string, replacements: ReadonlyMap<string, string>): string | undefined {
+  if (!replacements.has(target)) return undefined;
+  let replacement = target;
+  const visited = new Set<string>();
+  while (replacements.has(replacement) && !visited.has(replacement)) {
+    visited.add(replacement);
+    const next = replacements.get(replacement)!;
+    if (next === replacement) break;
+    replacement = next;
+  }
+  if (replacement === target || (visited.has(replacement) && replacements.get(replacement) !== replacement))
+    return undefined;
+  return replacement;
+}
+
+function planLyricTargetUpdates(
+  content: readonly SequenceContent[],
+  replacements: ReadonlyMap<string, string>,
+): LyricTargetUpdate[] | undefined {
+  let updates: LyricTargetUpdate[] | undefined;
+  for (const { event, path } of walkSequenceEvents(content, undefined, hasLyricTargets)) {
+    for (const [lineId, line] of Object.entries(event.lyrics?.lines ?? {})) {
+      const target = line.extender?.target;
+      if (target === undefined) continue;
+      const replacement = remappedTarget(target, replacements);
+      if (replacement === undefined) continue;
+      (updates ??= []).push({ path, lineId, target: replacement });
     }
   }
+  return updates;
+}
+
+function applyLyricTargetUpdates(
+  content: readonly SequenceContent[],
+  updates: readonly LyricTargetUpdate[] | undefined,
+): void {
+  if (!updates) return;
+  for (const update of updates) {
+    const extender = resolveSequenceEvent(content, update.path)?.lyrics?.lines?.[update.lineId]?.extender;
+    if (extender) extender.target = update.target;
+  }
+}
+
+function hasChangedReplacement(replacements: ReadonlyMap<string, string>): boolean {
+  for (const [source, target] of replacements) {
+    if (source !== target) return true;
+  }
+  return false;
 }
 
 interface LocatedEvent {
