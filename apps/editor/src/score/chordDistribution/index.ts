@@ -1,6 +1,6 @@
 /** Clipboard-driven chord distribution and paste-and-merge chord assembly. */
 
-export { mergeNotesIntoEvent } from "./chordMerge";
+export { mergeNotesIntoEvent, mergeEventNotation } from "./chordMerge";
 export {
   explodeFragment,
   explodePasteResult,

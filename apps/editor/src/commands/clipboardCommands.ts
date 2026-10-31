@@ -11,7 +11,7 @@ import type {
   Space,
   Sequence,
 } from "@viritura/core";
-import { generateId, measureBeats } from "@viritura/core";
+import { generateId, measureBeats, remapScoreLyricExtenderTargets } from "@viritura/core";
 import { deserializeFragment, assignFreshTrackIds } from "../clipboard/deserialize";
 import { looksLikeMuseScoreXml, readMuseScoreClipboard } from "@viritura/musescore-clipboard";
 import {
@@ -270,6 +270,7 @@ export function applyPaste(
 
   // Deep clone to avoid mutation
   const newScore = structuredClone(score);
+  const targetRemap = new Map<string, string>();
   mergeClipboardLyrics(newScore, paste.lyrics);
 
   // Share the exact source boundary: other voices cannot recover its floating-point summation error.
@@ -297,6 +298,7 @@ export function applyPaste(
       (sequence.staff ?? 1) - 1,
     );
     pasteChords();
+    remapScoreLyricExtenderTargets(newScore, targetRemap);
     return newScore;
   }
 
@@ -339,7 +341,7 @@ export function applyPaste(
         track.voiceIndex,
       );
       ensureSequencePosition(targetSequence.content, targetPosition.beat, targetPosition.fraction);
-      splitSequenceAtBeat(targetSequence.content, targetPosition.beat, targetPosition.fraction);
+      splitSequenceAtBeat(targetSequence.content, targetPosition.beat, targetPosition.fraction, targetRemap);
       const inserted = pasteTrackIntoScore(
         score,
         destination.partIndex,
@@ -347,6 +349,7 @@ export function applyPaste(
         targetMeasure.sequences.indexOf(targetSequence),
         eventIndexAtBeat(targetSequence.content, targetPosition.beat, targetPosition.fraction),
         track.content,
+        targetRemap,
       );
       placedContent?.push(...inserted);
     }
@@ -391,6 +394,7 @@ export function applyPaste(
         track.voiceIndex,
         targetEventIndex,
         track.content,
+        targetRemap,
       );
       placedContent?.push(...inserted);
     }
@@ -400,7 +404,15 @@ export function applyPaste(
   }
 
   // Single-track paste (backward compatible)
-  const inserted = pasteTrackIntoScore(newScore, partIndex, measureIndex, sequenceIndex, eventIndex, paste.content);
+  const inserted = pasteTrackIntoScore(
+    newScore,
+    partIndex,
+    measureIndex,
+    sequenceIndex,
+    eventIndex,
+    paste.content,
+    targetRemap,
+  );
   placedContent?.push(...inserted);
 
   if (paste.dynamics && paste.dynamics.length > 0) {
@@ -415,6 +427,7 @@ export function applyPaste(
     );
   }
   pasteChords();
+  remapScoreLyricExtenderTargets(newScore, targetRemap);
   return newScore;
 
   function pasteChords(): void {

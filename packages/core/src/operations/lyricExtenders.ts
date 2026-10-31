@@ -1,5 +1,5 @@
 import type { LyricLine, NoteEvent, SequenceContent, Score } from "../model";
-import { isRest } from "../model";
+import { isRest, walkSequenceEvents } from "../model";
 import { measureBeats, type TimeSignature } from "../model/time";
 import { DURATION_BEATS } from "../constants";
 import { ratioToNumber, resolveStaffMeterTimeline } from "../model/staffMeter";
@@ -37,6 +37,39 @@ export interface LyricExtenderTargetCandidate {
   partIndex: number;
   measureIndex: number;
   startBeat: number;
+}
+
+/** Remap authored endpoints without changing visibility, inference policy, or global attributes. */
+export function remapLyricExtenderTargets(
+  content: readonly SequenceContent[],
+  replacements: ReadonlyMap<string, string>,
+): void {
+  if (replacements.size === 0) return;
+  for (const { event } of walkSequenceEvents(content)) {
+    for (const line of Object.values(event.lyrics?.lines ?? {})) {
+      const target = line.extender?.target;
+      if (target === undefined) continue;
+      let replacement = target;
+      const visited = new Set<string>();
+      while (replacements.has(replacement) && !visited.has(replacement)) {
+        visited.add(replacement);
+        const next = replacements.get(replacement)!;
+        if (next === replacement) break;
+        replacement = next;
+      }
+      if (!visited.has(replacement) || replacements.get(replacement) === replacement)
+        line.extender!.target = replacement;
+    }
+  }
+}
+
+export function remapScoreLyricExtenderTargets(score: Score, replacements: ReadonlyMap<string, string>): void {
+  if (replacements.size === 0) return;
+  for (const part of score.parts) {
+    for (const measure of part.measures) {
+      for (const sequence of measure.sequences) remapLyricExtenderTargets(sequence.content, replacements);
+    }
+  }
 }
 
 interface LocatedEvent {

@@ -10,9 +10,15 @@
  * invent a rhythmic reconciliation the user did not ask for.
  */
 
-import { isRest, type Score, type Sequence, type SequenceContent } from "@viritura/core";
+import {
+  isRest,
+  remapScoreLyricExtenderTargets,
+  type Score,
+  type Sequence,
+  type SequenceContent,
+} from "@viritura/core";
 import { sequenceContentBeats } from "../commands/noteCommands";
-import { mergeNotesIntoEvent } from "../score/chordDistribution";
+import { mergeNotesIntoEvent, mergeEventNotation } from "../score/chordDistribution";
 import { voiceIndexWithinStaff } from "./clipboardTrackMapping";
 
 const EPSILON = 1e-9;
@@ -56,6 +62,7 @@ function mergeSequence(
   source: Sequence | undefined,
   placedSet: ReadonlySet<SequenceContent>,
   outcome: PasteMergeOutcome,
+  targetRemap: Map<string, string>,
 ): void {
   let beat = 0;
   for (const item of sequence.content) {
@@ -64,6 +71,8 @@ function mergeSequence(
       const destination = eventAtBeat(source, beat, beats);
       if (!destination) outcome.unaligned++;
       else if (destination.type === "event" && !isRest(destination)) {
+        mergeEventNotation(item, destination);
+        if (destination.id && item.id) targetRemap.set(destination.id, item.id);
         if (mergeNotesIntoEvent(item, destination.notes ?? [])) outcome.merged++;
       }
     }
@@ -82,6 +91,7 @@ export function mergeDestinationIntoPaste(
 ): PasteMergeOutcome {
   const placedSet = new Set(placed);
   const outcome: PasteMergeOutcome = { merged: 0, unaligned: 0 };
+  const targetRemap = new Map<string, string>();
   if (placedSet.size === 0) return outcome;
 
   for (const [partIndex, part] of next.parts.entries()) {
@@ -89,10 +99,17 @@ export function mergeDestinationIntoPaste(
       for (const [sequenceIndex, sequence] of measure.sequences.entries()) {
         const staff = sequence.staff ?? 1;
         const voice = voiceIndexWithinStaff(next, partIndex, measureIndex, sequenceIndex);
-        mergeSequence(sequence, sequenceForTrack(previous, partIndex, measureIndex, staff, voice), placedSet, outcome);
+        mergeSequence(
+          sequence,
+          sequenceForTrack(previous, partIndex, measureIndex, staff, voice),
+          placedSet,
+          outcome,
+          targetRemap,
+        );
       }
     }
   }
+  remapScoreLyricExtenderTargets(next, targetRemap);
   return outcome;
 }
 
