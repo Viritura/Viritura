@@ -9,7 +9,8 @@
 import { useEffect, useState } from "react";
 import { ScoreView } from "@viritura/score-viewer-react";
 
-const SAMPLE_MNX_URL = "/sample.mnx";
+const SAMPLE_MNX_URL = `${import.meta.env.BASE_URL}sample.mnx`;
+const SCORE_ASSET_BASE_URL = `${import.meta.env.BASE_URL}score-engine/`;
 
 export function App() {
   const [mnx, setMnx] = useState<string | null>(null);
@@ -36,7 +37,7 @@ export function App() {
       <p>
         The red line is a <code>&lt;ScoreView.Playhead&gt;</code> driven by a 250ms interval.
       </p>
-      <ScoreView mnx={mnx} pageWidth={800} zoom={1}>
+      <ScoreView mnx={mnx} assetBaseUrl={SCORE_ASSET_BASE_URL} pageWidth={800} zoom={1}>
         <ScoreView.Playhead beat={beat} partId="p1" style={{ color: "#e34935" }} />
       </ScoreView>
     </div>

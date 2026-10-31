@@ -10,11 +10,12 @@
   },
   "dependencies": {
     "@viritura/score-engine": "0.2.0",
-    "@viritura/score-viewer-react": "*",
+    "@viritura/score-viewer-react": "0.1.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@types/node": "^26.6.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react-swc": "^4.3.3",

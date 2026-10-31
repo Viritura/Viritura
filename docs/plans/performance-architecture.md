@@ -30,6 +30,9 @@ fallback. Three independent large-fixture reruns measured p95 **76.47,
 71.56, and 72.65 ms**. Thresholds, warmups, sample counts, and budget
 multipliers were not changed. These are regression-gate results, not a
 controlled hardware speedup claim or a headed-browser/60 FPS validation.
+After rebuilding through the worktree's canonical Docker WASM builder and
+stopping its UI helpers, three further independent runs measured p95 **67.31,
+67.67, and 65.77 ms** against the same 80 ms ceiling.
 
 ```powershell
 pnpm --filter @viritura/editor exec vitest run `
