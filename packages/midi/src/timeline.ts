@@ -138,6 +138,8 @@ export interface TimelineOptions {
  */
 export interface PartCtx {
   readonly playedSpan?: PlayedMeasureSpan;
+  /** Grace anticipation may cross continuous barlines, but not a route entry. */
+  readonly graceBoundaryBeat?: number;
   readonly tempoMap: readonly TempoMapEntry[];
   /** Continuous tempo map (single source of timing). Event times are
    *  `model.timeAtBeat(measureStartBeat + beatOffset)`, resolved at sub-bar
@@ -609,6 +611,12 @@ function processPart(
 
     const ctx: PartCtx = {
       playedSpan: timing.playedSpans?.[expandedIdx],
+      graceBoundaryBeat:
+        timing.playedSpans &&
+        (expandedIdx === 0 ||
+          !playedSpansContinue(timing.playedSpans[expandedIdx - 1]!, timing.playedSpans[expandedIdx]))
+          ? timing.playedSpans[expandedIdx]!.startBeat
+          : undefined,
       tempoMap,
       model,
       measureStartBeat,
@@ -1515,23 +1523,29 @@ function processGrace(
 
   const graceBeats = GRACE_NOTE_BEATS * tupletRatio;
   const totalGraceBeats = events.length * graceBeats;
+  const following = grace.graceType === "stealFollowing";
+  const principalBeat = beatOffset + (following ? totalGraceBeats : 0);
+  if (!beatInPlayedSpan(principalBeat * ctx.staffMeterRatio, ctx.playedSpan)) {
+    return following ? totalGraceBeats : 0;
+  }
+  const graceCtx: PartCtx = { ...ctx, playedSpan: undefined };
 
-  if (grace.graceType === "stealFollowing") {
+  if (following) {
     // Play at current position — main note is pushed later
     let cursor = beatOffset;
     for (const evt of events) {
       const ratio = graceBeats / durationBeats(evt.duration);
-      processScopedNoteEvent(ctx, evt, measureStartTime, cursor, ratio);
+      processScopedNoteEvent(graceCtx, evt, measureStartTime, cursor, ratio);
       cursor += graceBeats;
     }
     return totalGraceBeats;
   }
 
   // makeTime (default) / stealPrevious: play before the beat
-  let cursor = beatOffset - totalGraceBeats;
+  let cursor = Math.max(beatOffset - totalGraceBeats, (ctx.graceBoundaryBeat ?? -Infinity) / ctx.staffMeterRatio);
   for (const evt of events) {
     const ratio = graceBeats / durationBeats(evt.duration);
-    processScopedNoteEvent(ctx, evt, measureStartTime, cursor, ratio);
+    processScopedNoteEvent(graceCtx, evt, measureStartTime, cursor, ratio);
     cursor += graceBeats;
   }
   return 0;

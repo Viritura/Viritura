@@ -6,6 +6,7 @@ import {
   type TimeSignature,
 } from "@viritura/core";
 import type { HoldSchedule } from "./holds";
+import { DEFAULT_BPM } from "./tempoMap";
 
 type PlaybackGlobalMeasure = GlobalMeasure & { __playbackNominalTime?: TimeSignature };
 
@@ -56,7 +57,10 @@ function writtenMeasureBeats(score: Score, measureIndex: number, minimumBeats: n
 export function playbackGlobalMeasures(score: Score, measureOrder: readonly number[]): GlobalMeasure[] {
   let activeBeats = 4;
   let activeTime: TimeSignature = { count: 4, unit: 4 };
-  let activeTempo: NonNullable<GlobalMeasure["tempos"]>[number] | undefined;
+  let activeTempo: NonNullable<GlobalMeasure["tempos"]>[number] = {
+    bpm: DEFAULT_BPM,
+    value: { base: "quarter" },
+  };
   const resolved = score.global.measures.map((original, measureIndex) => {
     if (original.time) activeTime = original.time;
     const measure: GlobalMeasure = {
@@ -64,9 +68,7 @@ export function playbackGlobalMeasures(score: Score, measureOrder: readonly numb
       time: { ...activeTime },
       tempos: original.tempos?.some((tempo) => !tempo.location || tempo.location.fraction[0] === 0)
         ? original.tempos
-        : activeTempo
-          ? [{ ...activeTempo, location: { fraction: [0, 1] } }, ...(original.tempos ?? [])]
-          : original.tempos,
+        : [{ ...activeTempo, location: { fraction: [0, 1] } }, ...(original.tempos ?? [])],
     };
     if (original.tempos?.length)
       activeTempo = [...original.tempos]
@@ -75,7 +77,7 @@ export function playbackGlobalMeasures(score: Score, measureOrder: readonly numb
             (a.location?.fraction[0] ?? 0) / (a.location?.fraction[1] ?? 1) -
             (b.location?.fraction[0] ?? 0) / (b.location?.fraction[1] ?? 1),
         )
-        .at(-1);
+        .at(-1)!;
     if (measure.time) activeBeats = (measure.time.count * 4) / measure.time.unit;
     if (measureIndex === 0 && measure.number === 0) {
       const pickupBeats = writtenMeasureBeats(score, measureIndex, 0);

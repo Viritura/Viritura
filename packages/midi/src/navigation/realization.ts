@@ -19,6 +19,38 @@ function continuousEndBeat(spans: readonly PlayedMeasureSpan[], index: number, s
   return end;
 }
 
+function spanTempoMap(
+  timeline: MidiTimeline,
+  index: number,
+  span: PlayedMeasureSpan,
+  model: TempoModel,
+  outputBeat: number,
+): MidiTimeline["tempoMap"] {
+  const entries: MidiTimeline["tempoMap"] = [
+    {
+      measureIndex: index,
+      beatInMeasure: 0,
+      timeSeconds: model.timeAtBeat(outputBeat),
+      bpm: model.bpmAtBeat(outputBeat),
+    },
+  ];
+  for (const entry of timeline.tempoMap) {
+    if (
+      entry.measureIndex !== index ||
+      entry.beatInMeasure <= span.startBeat + 1e-9 ||
+      entry.beatInMeasure >= span.endBeat - 1e-9
+    )
+      continue;
+    const beatInMeasure = entry.beatInMeasure - span.startBeat;
+    entries.push({
+      ...entry,
+      beatInMeasure,
+      timeSeconds: model.timeAtBeat(outputBeat + beatInMeasure),
+    });
+  }
+  return entries;
+}
+
 export function realizeNavigation(timeline: MidiTimeline, spans: readonly PlayedMeasureSpan[]): MidiTimeline {
   const sourceSpans = spans.map((span, index) => ({
     startBeat: timeline.measureStartBeats[index]! + span.startBeat,
@@ -38,12 +70,7 @@ export function realizeNavigation(timeline: MidiTimeline, spans: readonly Played
     const controllers = new Map<string, MidiEvent>();
     const segmentStart = events.length;
     measureStartBeats.push(outputBeat);
-    tempoMap.push({
-      measureIndex: index,
-      beatInMeasure: span.startBeat,
-      timeSeconds: model.timeAtBeat(outputBeat),
-      bpm: model.bpmAtBeat(outputBeat),
-    });
+    tempoMap.push(...spanTempoMap(timeline, index, span, model, outputBeat));
     const translate = (time: number): number =>
       model.timeAtBeat(outputBeat) + Math.min(endTime - startTime, Math.max(0, time - startTime));
     const noteKey = (event: MidiEvent): string =>
