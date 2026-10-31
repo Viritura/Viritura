@@ -2,6 +2,7 @@ import {
   isRest,
   measureBeats,
   pitchToMidi,
+  remapLyricExtenderTargets,
   type Note,
   type NoteEvent,
   type SequenceContent,
@@ -21,6 +22,7 @@ import { buildSegments, segmentsMaxSimultaneity, type DistributionSegment } from
 export { FragmentDistributionError };
 
 type TieCarry = Map<string, Note>;
+type DistributedTargets = Map<string, Map<number, string>>;
 
 function leadInBeats(track: ClipboardTrack): number {
   const [numerator, denominator] = track.leadIn ?? [0, 1];
@@ -60,7 +62,13 @@ function emitRests(beat: number, beats: number, rhythm: RhythmContext): NoteEven
   return decomposeRestsAtPosition(beats, position, rhythm.timeSignature).map((duration) => createRest(duration));
 }
 
-function emitChord(beats: number, assigned: readonly SoundingNote[], carry: TieCarry): NoteEvent[] {
+function emitChord(
+  beats: number,
+  assigned: readonly SoundingNote[],
+  carry: TieCarry,
+  targetIndex: number,
+  targets: DistributedTargets,
+): NoteEvent[] {
   const durations = decomposeDuration(beats);
   const events: NoteEvent[] = [];
   const emittedKeys = new Set(assigned.map((entry) => pitchKey(entry.pitch)));
@@ -81,6 +89,12 @@ function emitChord(beats: number, assigned: readonly SoundingNote[], carry: TieC
     const event: NoteEvent = { type: "event", id: generateEventId(), duration, notes };
     if (pieceIndex === 0) applyCarriedNotation(event, carried);
     events.push(event);
+    for (const entry of assigned) {
+      if (!entry.event.id) continue;
+      const destinations = targets.get(entry.event.id) ?? new Map<number, string>();
+      destinations.set(targetIndex, event.id!);
+      targets.set(entry.event.id, destinations);
+    }
   }
 
   for (const key of [...carry.keys()]) {
@@ -94,6 +108,7 @@ function writePlainSegment(
   targetCount: number,
   content: readonly SequenceContent[][],
   carries: readonly TieCarry[],
+  targets: DistributedTargets,
 ): void {
   for (const slot of segment.grid.slots) {
     const allocations = allocateTopDown(sortByPitchDescending(slot.notes), targetCount);
@@ -103,7 +118,7 @@ function writePlainSegment(
         carries[targetIndex]!.clear();
         content[targetIndex]!.push(...emitRests(slot.beat, slot.beats, segment.rhythm));
       } else {
-        content[targetIndex]!.push(...emitChord(slot.beats, assigned, carries[targetIndex]!));
+        content[targetIndex]!.push(...emitChord(slot.beats, assigned, carries[targetIndex]!, targetIndex, targets));
       }
     }
   }
@@ -119,8 +134,9 @@ function writeTupletSegment(
   content: readonly SequenceContent[][],
   rhythm: RhythmContext,
   startBeat: number,
+  targets: DistributedTargets,
 ): void {
-  const shares = writeSegments(segment.inner, targetCount, segment.innerRhythm);
+  const shares = writeSegments(segment.inner, targetCount, segment.innerRhythm, targets);
   const { content: _interior, ...shape } = segment.template;
   for (let targetIndex = 0; targetIndex < targetCount; targetIndex++) {
     const share = shares[targetIndex]!;
@@ -138,6 +154,7 @@ function writeSegments(
   segments: readonly DistributionSegment[],
   targetCount: number,
   rhythm: RhythmContext,
+  targets: DistributedTargets,
 ): SequenceContent[][] {
   const content: SequenceContent[][] = Array.from({ length: targetCount }, () => []);
   const carries: TieCarry[] = Array.from({ length: targetCount }, () => new Map());
@@ -145,14 +162,14 @@ function writeSegments(
 
   for (const segment of segments) {
     if (segment.kind === "plain") {
-      writePlainSegment(segment, targetCount, content, carries);
+      writePlainSegment(segment, targetCount, content, carries, targets);
       beat += segment.grid.duration;
       continue;
     }
     // A tuplet bracket ends every grid-derived tie chain: its interior is a
     // separate timeline and nothing the grid tracked sustains across it.
     for (const carry of carries) carry.clear();
-    writeTupletSegment(segment, targetCount, content, rhythm, beat);
+    writeTupletSegment(segment, targetCount, content, rhythm, beat, targets);
     beat += segment.outerBeats;
   }
   return content;
@@ -165,7 +182,13 @@ function writeTracks(
   timeSignature: TimeSignature,
   fragmentDynamics: readonly CapturedDynamic[] | undefined,
 ): ClipboardTrack[] {
-  const content = writeSegments(segments, targetCount, meteredRhythm(timeSignature));
+  const targets: DistributedTargets = new Map();
+  const content = writeSegments(segments, targetCount, meteredRhythm(timeSignature), targets);
+  const targetRemap = new Map<string, string>();
+  for (const [sourceId, destinations] of targets) {
+    if (destinations.size === 1) targetRemap.set(sourceId, [...destinations.values()][0]!);
+  }
+  for (const trackContent of content) remapLyricExtenderTargets(trackContent, targetRemap);
   const merged = mergedDynamics(sources, fragmentDynamics);
   const template = sources[0]!;
 

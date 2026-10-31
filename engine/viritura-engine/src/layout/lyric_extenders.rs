@@ -8,6 +8,16 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
+#[cfg(test)]
+thread_local! {
+    static EVENT_COLLECTION_PASSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(super) fn take_event_collection_passes() -> usize {
+    EVENT_COLLECTION_PASSES.with(|passes| passes.replace(0))
+}
+
 struct LocatedEvent<'a> {
     event: &'a Event,
     part_index: usize,
@@ -33,7 +43,13 @@ struct VisibleEvent<'a> {
     end_x: f64,
 }
 
+fn part_has_lyric_lines(part: &Part) -> bool {
+    (1..=part.staves.max(1)).any(|staff| super::resolve::part_staff_has_lyrics(part, staff))
+}
+
 fn collect_score_events(score: &Score) -> Vec<LocatedEvent<'_>> {
+    #[cfg(test)]
+    EVENT_COLLECTION_PASSES.with(|passes| passes.set(passes.get() + 1));
     let mut output = Vec::new();
     let measure_count = score.global.measures.len().max(
         score
@@ -150,6 +166,9 @@ fn collect_score_events(score: &Score) -> Vec<LocatedEvent<'_>> {
 }
 
 pub(super) fn cache_dependency_hash(score: &Score) -> u64 {
+    if !score.parts.iter().any(part_has_lyric_lines) {
+        return 0;
+    }
     let events = collect_score_events(score);
     if !events.iter().any(|located| {
         located
@@ -395,6 +414,13 @@ pub(super) fn active_line_ids_for_system(
     measure_layouts: &[MeasureLayout],
     staff_number: u32,
 ) -> HashSet<String> {
+    if score
+        .parts
+        .get(part_index)
+        .is_none_or(|part| !part_has_lyric_lines(part))
+    {
+        return HashSet::new();
+    }
     let events = collect_score_events(score);
     let first_measure = measure_layouts
         .iter()
@@ -508,7 +534,7 @@ pub(super) fn render_system_extenders(
     staff_number: u32,
     all_system_layouts: Option<&[Vec<MeasureLayout>]>,
 ) {
-    if measure_layouts.is_empty() {
+    if measure_layouts.is_empty() || system_line_order.is_none() {
         return;
     }
     let events = collect_score_events(score);
