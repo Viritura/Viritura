@@ -10,6 +10,7 @@ use crate::model::measure::ResolvedMeasure;
 use crate::render::DisplayList;
 
 mod instrument_timeline;
+mod staff_spanners;
 
 /// Cached natural width entry for a single measure.
 struct CachedWidth {
@@ -250,6 +251,7 @@ pub struct LayoutCache {
     /// only to the patch-frame overlay, not this cache. Keyed by a complete
     /// hash of the global slur/tie snapshots, bounds, and seam mode.
     cached_overlay: Option<(u64, DisplayList)>,
+    last_paged_ottava_salt: Option<u64>,
     /// Exact config snapshot from the last layout pass. `LayoutConfig` has
     /// dozens of nested layout/render inputs; comparing the full value avoids
     /// stale retained output when a newly-added field is forgotten by a
@@ -409,6 +411,7 @@ impl LayoutCache {
             cached_system_extras: Vec::new(),
             cached_max_widths: Vec::new(),
             cached_overlay: None,
+            last_paged_ottava_salt: None,
             config_snapshot: None,
             time_signature_settings_prepared: false,
             hits: 0,
@@ -465,6 +468,7 @@ impl LayoutCache {
         self.cached_system_extras.clear();
         self.cached_max_widths.clear();
         self.cached_overlay = None;
+        self.last_paged_ottava_salt = None;
         self.cached_staff_y_rel.clear();
         self.cached_system_gaps.clear();
         self.cached_horizon_chunks = None;
@@ -648,21 +652,6 @@ impl LayoutCache {
     /// Phase P: store the rebuilt max_widths vector for the next pass to take.
     pub(crate) fn set_cached_max_widths(&mut self, max_widths: Vec<f64>) {
         self.cached_max_widths = max_widths;
-    }
-
-    /// Phase R: get the cached overlay if its signature matches. Returns
-    /// `Some(&DisplayList)` to splice; the caller is responsible for
-    /// re-storing via `set_cached_overlay` if it builds fresh (with the new
-    /// signature).
-    pub(crate) fn get_cached_overlay(&self, signature: u64) -> Option<&DisplayList> {
-        self.cached_overlay
-            .as_ref()
-            .and_then(|(sig, dl)| if *sig == signature { Some(dl) } else { None })
-    }
-
-    /// Phase R: store the fresh overlay with its inputs' signature.
-    pub(crate) fn set_cached_overlay(&mut self, signature: u64, overlay: DisplayList) {
-        self.cached_overlay = Some((signature, overlay));
     }
 
     /// Phase G/H: expose the per-(measure, staff) content hash captured by

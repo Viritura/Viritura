@@ -15,7 +15,7 @@
 
 use super::config::LayoutConfig;
 use super::element_id;
-use crate::model::{Placement, Score};
+use crate::model::Score;
 use crate::render::smufl::smufl;
 use crate::render::{DisplayList, RenderCommand};
 
@@ -47,8 +47,9 @@ pub(crate) fn prefer_target(
         .or_else(|| candidates.first().copied())
 }
 
-/// Emit ottava and pedal fragments after every system has registered its
-/// measure bounds. Unlike ties and slurs these spanners are authored as
+/// Emit pedal fragments after every system has registered its measure bounds.
+/// Ottavas use the collision-aware per-staff renderer on each system.
+/// Unlike ties and slurs these spanners are authored as
 /// measure-qualified ranges rather than endpoint ids, so their continuation
 /// geometry is resolved from those bounds directly.
 #[derive(Clone, Copy)]
@@ -104,31 +105,6 @@ fn render_staff_spanner_continuations_with_routing(
             .position(|measure| measure.id.as_deref() == Some(id))
     };
     for (start_measure, measure) in part.measures.iter().enumerate() {
-        for (index, ottava) in measure.ottavas.iter().flatten().enumerate() {
-            if ottava.staff.unwrap_or(1) != staff_number {
-                continue;
-            }
-            let Some(end_measure) = measure_index(&ottava.end.measure) else {
-                continue;
-            };
-            if end_measure <= start_measure {
-                continue;
-            }
-            render_ottava_fragments(
-                dl,
-                part_index,
-                staff_number,
-                routing,
-                start_measure,
-                end_measure,
-                ottava.position.beats(),
-                ottava.end.position.beats(),
-                ottava.value,
-                ottava.placement.as_ref(),
-                index,
-                sp,
-            );
-        }
         for (index, pedal) in measure.pedals.iter().flatten().enumerate() {
             if pedal.staff.unwrap_or(1) != staff_number {
                 continue;
@@ -292,108 +268,6 @@ fn system_staff_bounds(
         }
     }
     systems
-}
-
-#[allow(clippy::too_many_arguments)]
-fn render_ottava_fragments(
-    dl: &mut DisplayList,
-    part_index: usize,
-    staff_number: u32,
-    routing: &StaffRouting<'_>,
-    start_measure: usize,
-    end_measure: usize,
-    start_beat: f64,
-    end_beat: f64,
-    value: i32,
-    placement: Option<&Placement>,
-    source_index: usize,
-    sp: f64,
-) {
-    let starts = staff_bounds(dl, part_index, staff_number, routing, start_measure);
-    let ends = staff_bounds(dl, part_index, staff_number, routing, end_measure);
-    let (Some(start), Some(end)) = (starts.first(), ends.first()) else {
-        return;
-    };
-    if start.system_index == end.system_index {
-        return;
-    }
-    let above = !matches!(placement, Some(Placement::Below)) && value > 0
-        || matches!(placement, Some(Placement::Above));
-    let y = if above {
-        start.y - 3.0 * sp
-    } else {
-        start.y + 6.0 * sp
-    };
-    let (glyph, _) = smufl::ottava_glyph(value);
-    let id = element_id::ottava(part_index, start_measure, source_index);
-    let start_x = beat_x(start, start_beat);
-    let end_x = beat_x(end, end_beat);
-    let cmd_start = dl.commands.len();
-    dl.push(RenderCommand::DrawGlyph {
-        x: start_x,
-        y,
-        codepoint: glyph,
-        font: "Bravura".into(),
-        size: 3.0 * sp,
-        color: "#000000".into(),
-        rotation: 0.0,
-    });
-    let fragments: Vec<_> = system_staff_bounds(
-        dl,
-        part_index,
-        staff_number,
-        routing,
-        start.system_index,
-        end.system_index,
-    )
-    .into_iter()
-    .map(|(system, system_left, system_right, staff_y)| {
-        let left = if system == start.system_index {
-            start_x + 3.0 * sp
-        } else {
-            system_left
-        };
-        let right = if system == end.system_index {
-            end_x
-        } else {
-            system_right
-        };
-        let fragment_y = if above {
-            staff_y - 4.4 * sp
-        } else {
-            staff_y + 6.0 * sp
-        };
-        (left, right, fragment_y)
-    })
-    .collect();
-    for (left, right, fragment_y) in fragments {
-        if right > left {
-            dl.push(RenderCommand::DrawLine {
-                x1: left,
-                y1: fragment_y,
-                x2: right,
-                y2: fragment_y,
-                width: 0.16 * sp,
-                color: "#000000".into(),
-            });
-        }
-    }
-    let end_line_y = if above {
-        end.y - 4.4 * sp
-    } else {
-        end.y + 6.0 * sp
-    };
-    dl.push(RenderCommand::DrawLine {
-        x1: end_x,
-        y1: end_line_y,
-        x2: end_x,
-        y2: end_line_y + if above { sp } else { -sp },
-        width: 0.16 * sp,
-        color: "#000000".into(),
-    });
-    for command in cmd_start..dl.commands.len() {
-        dl.tag_command(command, id.clone());
-    }
 }
 
 #[allow(clippy::too_many_arguments)]

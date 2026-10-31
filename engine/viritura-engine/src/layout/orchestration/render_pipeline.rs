@@ -59,6 +59,7 @@ pub(in crate::layout) fn render_systems_pass2(
             sp,
             config,
             score,
+            &[full_score::FlatSource::whole_part(part_index)],
             lyric_line_order,
             sys_idx == system_count - 1,
             part_index,
