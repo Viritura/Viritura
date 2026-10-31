@@ -119,6 +119,12 @@ canonical UUID v7.
 
 Ids ride in the standard MNX `id` field. No separate registry, no sidecar.
 
+Measure-qualified spanners (including ottavas and pedals) reference the
+endpoint's global measure ID in `end.measure`. Palette edits must persist
+any missing endpoint ID in the same score mutation as the spanner, preserving
+existing IDs and avoiding collisions; an index-derived placeholder alone
+cannot be resolved for rendering.
+
 ```json
 {
   "global": {
