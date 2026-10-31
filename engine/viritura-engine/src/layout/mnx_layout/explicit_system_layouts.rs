@@ -1,5 +1,6 @@
 //! Per-system measure-layout construction for authored MNX systems.
 
+use super::super::cache::LayoutCache;
 use super::super::condensing::{label_for_mode_styled, LabelStyle, MergeMode};
 use super::super::config::LayoutConfig;
 use super::super::full_score::{compute_system_object_staves, FlatStaff, GroupRange};
@@ -8,13 +9,39 @@ use super::super::measure::{
 };
 use super::super::resolve::resolve_all_ottavas;
 use super::super::types::MeasureLayout;
+use super::cache_hashing::explicit_measure_layout_hash;
 use super::resolve_condensing::flat_staff_meter_states;
 use super::shared::{append_partial_unison_label, build_virtual_part_measure};
 use crate::model::*;
-use crate::render::DisplayList;
+use crate::render::{DisplayList, PageLayout};
 use std::collections::{HashMap, HashSet};
 
 type StaffKey = (usize, u32);
+
+/// Inputs shared by every authored system's layout and render pass.
+pub(super) struct ExplicitSystemCtx<'a> {
+    pub(super) score: &'a Score,
+    pub(super) score_def: &'a ScoreDefinition,
+    pub(super) config: &'a LayoutConfig,
+    pub(super) sp: f64,
+    pub(super) staff_height: f64,
+    pub(super) barline_w: f64,
+    pub(super) base_margin_l: f64,
+    pub(super) base_margin_r: f64,
+    pub(super) first_label_margin: f64,
+    pub(super) subsequent_label_margin: f64,
+    /// First-system indent (px) for a single-part layout; full scores use their label gutter.
+    pub(super) first_system_indent: f64,
+    pub(super) system_count: usize,
+    pub(super) common_shortest_beats: f64,
+    pub(super) lyric_line_order: Option<&'a [String]>,
+    pub(super) all_resolved: &'a [Vec<ResolvedMeasure>],
+    pub(super) max_widths: &'a [f64],
+    pub(super) mmr_start_map: &'a HashMap<usize, u32>,
+    pub(super) mmr_skip_measures: &'a HashSet<usize>,
+    pub(super) mmr_label_map: &'a HashMap<usize, String>,
+    pub(super) pages: &'a [PageLayout],
+}
 
 pub(super) struct ExplicitSystemLayouts<'a> {
     pub(super) layouts: Vec<Vec<MeasureLayout>>,
@@ -112,6 +139,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
     mmr_start_map: &HashMap<usize, u32>,
     mmr_label_map: &HashMap<usize, String>,
     state: &mut PersistentStaffState,
+    mut cache: Option<&mut LayoutCache>,
 ) -> ExplicitSystemLayouts<'a> {
     let mut all_staff_layouts = Vec::new();
     let mut all_measure_staves = Vec::new();
@@ -415,21 +443,90 @@ pub(super) fn build_explicit_system_layouts<'a>(
 
         for (local_index, measure) in virtual_resolved.iter().enumerate() {
             let measure_index = sys_measure_indices[local_index];
-            let forced_width = Some(max_widths.get(measure_index).copied().unwrap_or(10.0) * scale);
+            let forced_width = max_widths.get(measure_index).copied().unwrap_or(10.0) * scale;
             let forced_prefix = max_prefixes.get(local_index).copied();
-            let mut layout = layout_measure_with_shared_spacing(
-                measure,
-                sp,
-                system_x,
-                config,
-                forced_width,
-                &staff_ottavas,
-                common_shortest_beats,
-                &merged_spacings[local_index],
-                forced_prefix,
-                &[],
-                local_index == 0,
-            );
+            let retention_key = cache.as_ref().and_then(|_| {
+                (flat_staff.sources.len() == 1
+                    && lc_map.is_empty()
+                    && measure.effective_staff_meter.is_none())
+                .then(|| {
+                    (
+                        3_000_000 + measure_index * 1000 + staff_index,
+                        explicit_measure_layout_hash(
+                            measure,
+                            forced_width,
+                            &merged_spacings[local_index],
+                            forced_prefix.unwrap_or_default(),
+                            &staff_ottavas,
+                            config.time_signature_settings,
+                            common_shortest_beats,
+                            local_index == 0,
+                        ),
+                    )
+                })
+            });
+            let cached = retention_key.and_then(|(key, hash)| {
+                cache
+                    .as_ref()
+                    .and_then(|cache| cache.get_full_layout(key, hash))
+            });
+            let mut layout = if let Some(cached) = cached {
+                MeasureLayout {
+                    x: 0.0,
+                    width: cached.width,
+                    resolved: measure.clone(),
+                    voice_layouts: cached.voice_layouts,
+                    prefix_width: cached.prefix_width,
+                    first_onset_padding: cached.first_onset_padding,
+                    time_signature_x_offset: cached.time_signature_x_offset,
+                    trailing_barline_extra:
+                        super::super::render_barlines::trailing_barline_extra_width(
+                            measure, config, sp,
+                        ),
+                    mid_clef_changes: cached.mid_clef_changes,
+                    multimeasure_rest_count: None,
+                    multimeasure_rest_label: None,
+                    part_index: 0,
+                    is_first_on_system: false,
+                    show_system_objects: true,
+                    is_first_staff: true,
+                    is_last_staff: true,
+                }
+            } else {
+                let layout = layout_measure_with_shared_spacing(
+                    measure,
+                    sp,
+                    if retention_key.is_some() {
+                        0.0
+                    } else {
+                        system_x
+                    },
+                    config,
+                    Some(forced_width),
+                    &staff_ottavas,
+                    common_shortest_beats,
+                    &merged_spacings[local_index],
+                    forced_prefix,
+                    &[],
+                    local_index == 0,
+                );
+                if let (Some(cache), Some((key, hash))) = (cache.as_deref_mut(), retention_key) {
+                    cache.set_full_layout(
+                        key,
+                        hash,
+                        layout.width,
+                        &layout.voice_layouts,
+                        layout.prefix_width,
+                        layout.first_onset_padding,
+                        layout.time_signature_x_offset,
+                        &layout.mid_clef_changes,
+                    );
+                }
+                layout
+            };
+            if retention_key.is_some() {
+                layout.translate_x(system_x);
+            }
             system_x += layout.width;
             layout.part_index = measure_staves[&measure_index]
                 .sources

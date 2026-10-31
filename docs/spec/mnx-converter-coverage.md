@@ -4,8 +4,30 @@ For the source-validated, row-by-row comparison against the W3C Music Notation
 Reference, see [music-notationref-coverage.md](./music-notationref-coverage.md).
 
 Status snapshot of how Viritura's MNX parser/serializer and MusicXML → MNX
-converter cover MNX schema version 40, including remaining import and
+converter cover MNX schema version 46, including remaining import and
 editor-integration gaps.
+
+## v46 integration status
+
+- Explicit dynamic glyphs, shared barline caesuras and note-local
+  scoop/plop/falloff/doit use native MNX fields. The four note markings engrave
+  with Bravura SMuFL glyphs, not hand-drawn curves.
+- MusicXML/MXL imports note slides on their originating chord note, native
+  coda destinations and all jump types. To Coda routing is distinct from a
+  destination sign; ambiguous multi-sign routes remain unsupported.
+- Lyric `<extend/>` and start/continue/stop map to explicit extenders.
+  Mixed ordinary/explicit lyric intent does not switch off inference globally.
+  Structural-edit reference lifecycle and staff-local timing remain under
+  integration review; schema acceptance alone does not establish those paths.
+- The pinned Denigma producer was exercised on its eight acceptance scores.
+  All actual adapted outputs validated against v46; it declares document
+  version `40`, which is not evidence of a schema revision. Acceptance now
+  validates every output even when that number differs from `46`. No
+  old-draft adapter is applied; unsupported output requires a producer update.
+- The corpus gate covers native fixtures, v46 fixtures and the embedded
+  viewer sample in TypeScript schema/round-trip validation and Rust layout of
+  every part and declared score view. Browser/native-host QA, reconnect and
+  cross-host packaged-asset checks are separate release gates.
 
 > **Package layout note.** The MusicXML converter lives in
 > [`packages/musicxml/src/convert/`](../../packages/musicxml/src/convert/) —
@@ -70,7 +92,7 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 - Lyrics (syllabic start/middle/end/whole; `<elision>` concatenation)
 - Tempo (`<metronome>` and `<sound tempo>` with mid-measure `location.fraction` positioning)
 - Volta endings (multi-number support, duration post-processing for start→stop range, `discontinue` → `open: true`)
-- Navigation: segno (with SMuFL `glyph`), fine, jumps (`dacapo` / `dalsegno`)
+- Navigation: segno/coda (with SMuFL `glyph` and color), Fine, all native jump types and rhythmic offsets
 - MusicXML colors on keys, clefs, volta endings, grace groups, and segnos
 - Beam grouping (per voice / level), ottava lines, multi-staff parts (grand staff with brace grouping), and cross-staff note/event assignments
 - `<stem>up\|down</stem>` → `event.stemDirection`
@@ -78,10 +100,10 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 
 **Features attached as `_x.viritura` vendor extensions** (no MNX-native equivalent yet):
 
-- Trills, mordents, turn variants, caesuras, event-level arpeggios, and fingerings
+- Trills, mordents, turn variants, event-level arpeggios, and fingerings
 - Rehearsal marks, text `<words>` directions, and pedal markings
 - Score metadata (title, creators, work, and movement details)
-- Glissando/slide spans, common chord symbols, and coda markers
+- Glissando/slide spans and common chord symbols
 
 **Diagnostics:**
 

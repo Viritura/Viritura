@@ -129,9 +129,10 @@ pub(crate) fn render_paged_ottavas(
     }
 }
 
-pub(crate) fn paged_ottava_render_salt(score: &Score, salt: u64) -> u64 {
+/// Deterministic cache fingerprint for ranges authored outside a system.
+pub(crate) fn paged_ottava_dependency_hash(score: &Score, context_hash: u64) -> u64 {
     let mut hasher = DefaultHasher::new();
-    salt.hash(&mut hasher);
+    context_hash.hash(&mut hasher);
     // Continuations depend on ranges authored outside their own system.
     for (part_index, part) in score.parts.iter().enumerate() {
         for (measure_index, measure) in part.measures.iter().enumerate() {

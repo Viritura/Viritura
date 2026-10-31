@@ -20,6 +20,7 @@ import { planPasteFragments } from "../clipboard/pasteContent/rhythmicFragments"
 import { mergeDestinationIntoPaste } from "../clipboard/pasteMerge";
 import { explodeFragment, reduceFragment } from "../score/chordDistribution";
 import type { ClipboardFragment, ClipboardTrack } from "../clipboard/ClipboardFragment";
+import { produce } from "../score/scoreClone";
 
 function event(id: string, base: NoteEvent["duration"]["base"] = "quarter"): NoteEvent {
   return { type: "event", id, duration: { base }, notes: [{ id: `${id}-note`, pitch: { step: "C", octave: 4 } }] };
@@ -67,8 +68,10 @@ describe("lyric target lifecycle", () => {
         beatPosition: 3.625,
         duration: { base: "eighth" as const },
       };
-      const changed =
-        kind === "rest" ? addRest(original, params) : addNote(original, { ...params, pitch: { step: "E", octave: 4 } });
+      const changed = produce(original, (draft) => {
+        if (kind === "rest") addRest(draft, params);
+        else addNote(draft, { ...params, pitch: { step: "E", octave: 4 } });
+      });
       const content = events(changed.parts[0]!.measures[0]!.sequences[0]!.content);
       const first = content.find((item) => item.id === "target")!;
       const last = content[content.indexOf(first) + 1]!;

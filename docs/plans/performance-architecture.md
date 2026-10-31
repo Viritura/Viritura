@@ -11,6 +11,38 @@
 workload is **Rhapsody in Blue, 510 measures × 33 parts** in the editor's
 chunked-Horizon mode, using trusted keyboard input in headed production Chrome.
 
+### MNX v46 authored-system regression verification
+
+The current Beethoven fixture has 26 measures and 23 parts. Its authored
+system path previously retained natural widths but rebuilt measure geometry
+and staff content, transferring a full frame on every edit. The unchanged
+80 ms p95 gate also failed with the pre-#344 native engine at 110.12 ms.
+
+Authored layouts now reuse normalized single-source measure geometry and
+independent, unchanged-position staff content. Cold/warm, local pitch, global
+key/support, and ottava-endpoint oracles verify bit-identical rendering and
+non-vacuous reuse. Shared accidental snapshots retain staff-order behavior;
+connectors and shared/cross-system spanners remain freshly computed.
+
+The complete five-file Node/direct-WASM batch passed **23/23** tests, with
+Beethoven p50/p95 **41.10/73.01 ms**, 30/30 patch calls and no full-layout
+fallback. Three independent large-fixture reruns measured p95 **76.47,
+71.56, and 72.65 ms**. Thresholds, warmups, sample counts, and budget
+multipliers were not changed. These are regression-gate results, not a
+controlled hardware speedup claim or a headed-browser/60 FPS validation.
+After rebuilding through the worktree's canonical Docker WASM builder and
+stopping its UI helpers, three further independent runs measured p95 **67.31,
+67.67, and 65.77 ms** against the same 80 ms ceiling.
+
+```powershell
+pnpm --filter @viritura/editor exec vitest run `
+  src\__tests__\noteInput.perf.test.ts `
+  src\__tests__\pagedPatchFrame.perf.test.ts `
+  src\__tests__\noteInputClick.perf.test.ts `
+  src\__tests__\lyricTargetLifecycle.test.ts `
+  src\score\eventFragments\index.test.ts --maxWorkers=1
+```
+
 ### PR188 source and measurement audit (2026-09-18, HEAD `a06bafa`)
 
 **Current scope is not fully O(dirty island), and 60 FPS has not been revalidated

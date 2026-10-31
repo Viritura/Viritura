@@ -13,6 +13,36 @@ Hairpins and all other dynamic semantics use standard MNX dynamic groups.
 Viritura adds only optional engraving placement under each group's
 `_x.viritura` dictionary — see [dynamics.md](./dynamics.md).
 
+The vendored schema is revision **46**. This is not the document's
+`mnx.version`: Viritura-created documents use `1`, while external producers may
+declare another document version. Compatibility is established by validating
+the actual document, not by comparing that number to the schema revision.
+Native v46 fields include global caesuras, note-local scoop/plop/falloff/doit,
+lyric extenders, coda destinations and the complete jump instruction union.
+See [lyric extenders](./lyric-extenders.md) and the
+[implementation plan](../plans/mnx-v46-end-to-end-support.md) for policy and
+remaining release gates. Old-draft field aliases are not accepted or repaired.
+
+The website and VS Code viewer consume published score-engine assets, not the
+editor's workspace WASM build. They must use JavaScript, workers and WASM from
+the same package release. Rebuilding the editor alone does not upgrade those
+hosts. The [packed-package verifier](../../scripts/verify-npm-packages.ts)
+checks the installed native WASM against the
+[v46 integration fixture](../../packages/format/fixtures/mnx-v46/feature-integration.mnx),
+including all dynamic appearances, global caesuras, note markings, lyric
+extenders and native navigation glyphs. Its browser gate also checks engine,
+worker and viewer rendering, navigation tempo restoration, intra-measure
+tempo automation and SVG export.
+The published engine deliberately keeps lightweight native parsing rather
+than bundling full schema validators. Importing hosts validate documents
+against the v46 schema before passing them to the engine; this preserves the
+existing bundle-size and input-policy contract.
+
+The public playground stages locally authored native D.C. al Fine and D.S.
+al Coda examples from the same validated corpus used by the parser and
+engraving gates. These demonstrate the two new v46 navigation routes rather
+than leaving them available only in tests or raw JSON.
+
 Lyric extender targets are stable event IDs. Clipboard duplication remaps
 targets copied with their source, including cross-track targets; targets outside
 the copied fragment are preserved, never silently changed to inferred endpoints.

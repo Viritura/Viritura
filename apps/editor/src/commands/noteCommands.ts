@@ -42,7 +42,7 @@ import {
 function preservedEventFragments(score: Score, event: NoteEvent, durations: readonly Duration[]): NoteEvent[] {
   const pieces = splitEventDurations(event, durations);
   const finalId = pieces.at(-1)?.id;
-  if (event.id && finalId) {
+  if (event.id && finalId && event.id !== finalId) {
     const targets = new Map([[event.id, finalId]]);
     remapLyricExtenderTargets(pieces, targets);
     remapScoreLyricExtenderTargets(score, targets);

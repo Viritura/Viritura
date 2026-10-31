@@ -3,6 +3,9 @@
  */
 
 import git from "isomorphic-git";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { parseMnx, serializeMnx } from "@viritura/format";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { InMemoryFs } from "../fs/inMemoryFs";
 import { initRepo, openRepo, GitProjectAdapter } from "../GitProjectAdapter";
@@ -57,6 +60,35 @@ describe("GitProjectAdapter end-to-end", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     _clearIdentityForTesting();
+  });
+
+  it("preserves integrated v46 features through save, commit history and repository reopen", async () => {
+    const initial = parseMnx(
+      JSON.parse(
+        readFileSync(
+          resolve(__dirname, "../../../../../packages/format/fixtures/mnx-v46/feature-integration.mnx"),
+          "utf8",
+        ),
+      ),
+    );
+    const initialJson = JSON.stringify(serializeMnx(initial));
+    const fs = new InMemoryFs();
+    const adapter = await initRepo({ fs, name: "v46", scorePath: "score.mnx", initialJson });
+    const initialCommit = (await adapter.log())[0]!.sha;
+    const edited = parseMnx(JSON.parse(initialJson));
+    const event = edited.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type !== "event" || !event.lyrics?.lines?.["1"]?.extender) {
+      throw new Error("Expected the integrated lyric source");
+    }
+    event.lyrics.lines["1"].extender.show = false;
+    edited.mnx.support = { ...edited.mnx.support, useLyricExtenders: false };
+    await adapter.writeScore(JSON.stringify(serializeMnx(edited)));
+    const editedCommit = await adapter.commit("Edit v46 lyric visibility and document policy");
+    expect(editedCommit).not.toBeNull();
+    const reopened = await openRepo({ fs, name: "v46", scorePath: "score.mnx" });
+    expect(parseMnx(JSON.parse(await reopened.readScore()))).toEqual(edited);
+    expect(parseMnx(JSON.parse(await reopened.readScoreAtCommit(initialCommit)))).toEqual(initial);
+    expect(parseMnx(JSON.parse(await reopened.readScoreAtCommit(editedCommit!)))).toEqual(edited);
   });
 
   it("init creates an initial commit and lists it in the log", async () => {

@@ -25,8 +25,75 @@
  */
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 
 const ROOM_ID_CHARSET = "abcdefghijkmnpqrstuvwxyz23456789";
+
+function expectV46Features(json: string): void {
+  const score: unknown = JSON.parse(json);
+  expect(score).toMatchObject({
+    mnx: { version: 1, support: { useLyricExtenders: true } },
+    global: {
+      measures: [
+        { caesura: expect.any(Object), segno: { glyph: "segnoSerpent1" } },
+        { coda: { glyph: "codaSquare" }, jump: { type: "dcAlFine" } },
+      ],
+    },
+    parts: [
+      {
+        measures: [
+          {
+            dynamics: ["immediate", "gradual", "relative", "accent"].map((type) => ({
+              type,
+              glyphs: ["dynamicPiano"],
+            })),
+            sequences: [
+              {
+                content: [
+                  {
+                    notes: [
+                      { markings: { slideIn: { type: "scoop" }, slideOut: { type: "doit" } } },
+                      { markings: { slideIn: { type: "plop" }, slideOut: { type: "falloff" } } },
+                    ],
+                    lyrics: {
+                      lines: {
+                        "1": {
+                          extender: {
+                            id: "integration-extender",
+                            target: "last",
+                            _x: { example: { retained: true } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+          { sequences: [{ content: [{ id: "last" }] }] },
+        ],
+      },
+    ],
+  });
+}
+
+async function downloadScore(page: Page): Promise<string> {
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: /^Save As(?:\s|$)/ }).click();
+  const file = await download;
+  const path = await file.path();
+  if (!path) throw new Error("The score download has no readable path");
+  return readFileSync(path, "utf8");
+}
+
+async function openScoreFile(page: Page, json: string, name: string): Promise<void> {
+  await page.getByRole("menuitem", { name: "File", exact: true }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: /^Open MNX Score(?:\s|$)/ }).click();
+  await (await chooser).setFiles({ name, mimeType: "application/json", buffer: Buffer.from(json) });
+}
 
 /** Generate a room id matching <c>@viritura/crdt</c>'s <c>isValidRoomId</c>. */
 function freshRoomId(): string {
@@ -73,6 +140,51 @@ async function openPeer(
 }
 
 test.describe("live collaboration: two peers awareness", () => {
+  test("@smoke v46 survives collaborative edits, download and file reopen", async ({ browser }) => {
+    test.setTimeout(180_000);
+    const roomId = freshRoomId();
+    const context = await browser.newContext({ acceptDownloads: true });
+    await context.addInitScript(() => {
+      Reflect.deleteProperty(window, "showOpenFilePicker");
+      Reflect.deleteProperty(window, "showSaveFilePicker");
+    });
+    try {
+      const source = readFileSync(
+        new URL("../packages/format/fixtures/mnx-v46/feature-integration.mnx", import.meta.url),
+        "utf8",
+      );
+      const host = await openPeer(context, roomId, "V46 Host");
+      await host.keyboard.press("Escape");
+      await openScoreFile(host, source, "v46-integration.mnx");
+      await expect(host.locator('canvas[tabindex="0"]')).toBeVisible({ timeout: 45_000 });
+      const peer = await openPeer(context, roomId, "V46 Peer");
+      await peer.keyboard.press("Escape");
+      await expect(peer.locator('canvas[tabindex="0"]')).toBeVisible({ timeout: 45_000 });
+      await host.getByRole("button", { name: "Setup", exact: true }).click();
+      await host.getByRole("tab", { name: "Project", exact: true }).click();
+      const title = host.getByRole("textbox", { name: "Title", exact: true });
+      await title.fill("V46 Shared Score");
+      await title.press("Enter");
+      await peer.getByRole("button", { name: "Setup", exact: true }).click();
+      await peer.getByRole("tab", { name: "Project", exact: true }).click();
+      await expect(peer.getByRole("textbox", { name: "Title", exact: true })).toHaveValue("V46 Shared Score");
+      const saved = await downloadScore(host);
+      expectV46Features(saved);
+      expect(saved).toContain("V46 Shared Score");
+      expectV46Features(await downloadScore(peer));
+      await host.goto("/");
+      await expect(host.locator('canvas[tabindex="0"]')).toBeVisible({ timeout: 45_000 });
+      await openScoreFile(host, saved, "v46-roundtrip.mnx");
+      await expect(host.getByText("Laying out score")).toHaveCount(0, { timeout: 45_000 });
+      await host.getByRole("button", { name: "Setup", exact: true }).click();
+      await host.getByRole("tab", { name: "Project", exact: true }).click();
+      await expect(host.getByRole("textbox", { name: "Title", exact: true })).toHaveValue("V46 Shared Score");
+      expectV46Features(await downloadScore(host));
+    } finally {
+      await context.close();
+    }
+  });
+
   test("each peer sees the other's collaborator chip", async ({ browser }) => {
     const roomId = freshRoomId();
 

@@ -28,13 +28,20 @@ import * as path from "node:path";
 import { parseMnx } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
 
-const scoresDir = path.resolve(__dirname, "../../fixtures/mnx");
 const schemaPath = path.resolve(__dirname, "../../schemas/mnx-schema.json");
 
-const mnxFiles = fs
-  .readdirSync(scoresDir)
-  .filter((f) => f.endsWith(".mnx"))
-  .sort();
+const mnxFiles = ["mnx", "mnx-v46"].flatMap((directory) => {
+  const scoresDir = path.resolve(__dirname, "../../fixtures", directory);
+  return fs
+    .readdirSync(scoresDir)
+    .filter((name) => name.endsWith(".mnx"))
+    .sort()
+    .map((name) => ({ name: `${directory}/${name}`, path: path.join(scoresDir, name) }));
+});
+mnxFiles.push({
+  name: "score-viewer-react-minimal/sample.mnx",
+  path: path.resolve(__dirname, "../../../../examples/score-viewer-react-minimal/public/sample.mnx"),
+});
 
 let validate: ValidateFunction;
 
@@ -59,8 +66,8 @@ function formatErrors(errors: ValidateFunction["errors"]): string {
 
 describe("MNX schema: example files on disk are valid", () => {
   for (const file of mnxFiles) {
-    it(`${file} validates against mnx-schema.json`, () => {
-      const raw = fs.readFileSync(path.join(scoresDir, file), "utf-8");
+    it(`${file.name} validates against mnx-schema.json`, () => {
+      const raw = fs.readFileSync(file.path, "utf-8");
       const doc = JSON.parse(raw);
       const ok = validate(doc);
       if (!ok) {
@@ -73,14 +80,14 @@ describe("MNX schema: example files on disk are valid", () => {
 
 describe("MNX schema: parser output round-trips to valid MNX", () => {
   for (const file of mnxFiles) {
-    it(`parse(${file}) → serialize → valid MNX`, () => {
-      const raw = fs.readFileSync(path.join(scoresDir, file), "utf-8");
+    it(`parse(${file.name}) → serialize → valid MNX`, () => {
+      const raw = fs.readFileSync(file.path, "utf-8");
       const doc = JSON.parse(raw);
       const score = parseMnx(doc);
       const reserialized = serializeMnx(score);
       const ok = validate(reserialized);
       if (!ok) {
-        throw new Error(`Serializer produced invalid MNX for ${file}:\n${formatErrors(validate.errors)}`);
+        throw new Error(`Serializer produced invalid MNX for ${file.name}:\n${formatErrors(validate.errors)}`);
       }
       expect(ok).toBe(true);
     });

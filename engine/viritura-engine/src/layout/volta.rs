@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 mod paged_ottavas;
 pub(crate) use paged_ottavas::{
-    paged_ottava_render_salt, render_ottavas_for_view, render_source_ottavas,
+    paged_ottava_dependency_hash, render_ottavas_for_view, render_source_ottavas,
 };
 
 // ═══════════════════════════════════════════

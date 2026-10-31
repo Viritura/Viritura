@@ -52,7 +52,7 @@
                           "target": "last-covered-event",
                           "_c": "retained extender note",
                           "_x": {
-                            "viritura": {}
+                            "example": { "annotation": "retained" }
                           }
                         }
                       }

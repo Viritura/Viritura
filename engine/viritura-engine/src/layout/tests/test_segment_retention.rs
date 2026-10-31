@@ -81,6 +81,104 @@ fn binary_bits(dl: &DisplayList) -> Vec<u32> {
     dl.to_binary().iter().map(|f| f.to_bits()).collect()
 }
 
+#[test]
+fn authored_measure_retention_preserves_cold_rendering_and_content_edits() {
+    use crate::model::{KeySignature, SequenceContent};
+
+    for name in [
+        "beethoven-5-finale.mnx",
+        "part-transposition.mnx",
+        "multiple-layouts.mnx",
+    ] {
+        let json = std::fs::read_to_string(fixture_path(name)).expect("fixture readable");
+        let original = parse_mnx(&json).expect("fixture parses");
+        for page_width in [None, Some(800.0)] {
+            let config = LayoutConfig {
+                page_width,
+                ..LayoutConfig::default()
+            };
+            for score_index in 0..original.scores.len() {
+                if original.scores[score_index]
+                    .pages
+                    .iter()
+                    .all(|page| page.systems.is_empty())
+                {
+                    continue;
+                }
+                let mut score = original.clone();
+                reconcile_score(&mut score);
+                let mut cache = LayoutCache::new();
+                let cold = layout_with_mnx_scores_cached(&score, &config, score_index, None);
+                let first =
+                    layout_with_mnx_scores_cached(&score, &config, score_index, Some(&mut cache));
+                assert_same(&format!("{name} score {score_index} first"), &cold, &first);
+                let warm =
+                    layout_with_mnx_scores_cached(&score, &config, score_index, Some(&mut cache));
+                assert_same(&format!("{name} score {score_index} warm"), &cold, &warm);
+                if name == "beethoven-5-finale.mnx" && score_index == 0 {
+                    assert!(
+                        cache.get_full_layout_unchecked(3_000_000).is_some(),
+                        "authored measures must populate the geometry cache"
+                    );
+                    assert!(
+                        cache.staff_content_reuses() > 0,
+                        "unchanged authored staves must reuse their rendered content"
+                    );
+                }
+
+                let note = score
+                    .parts
+                    .iter_mut()
+                    .flat_map(|part| &mut part.measures)
+                    .flat_map(|measure| &mut measure.sequences)
+                    .flat_map(|sequence| &mut sequence.content)
+                    .find_map(|item| match item {
+                        SequenceContent::Event(event) => {
+                            event.notes.as_mut().and_then(|notes| notes.first_mut())
+                        }
+                        _ => None,
+                    })
+                    .expect("fixture has a pitched event");
+                note.pitch.octave += 1;
+                let edited_cold = layout_with_mnx_scores_cached(&score, &config, score_index, None);
+                let edited_warm =
+                    layout_with_mnx_scores_cached(&score, &config, score_index, Some(&mut cache));
+                assert_same(
+                    &format!("{name} score {score_index} edited"),
+                    &edited_cold,
+                    &edited_warm,
+                );
+                score.global.measures[0].key = Some(KeySignature {
+                    fifths: 2,
+                    ..KeySignature::default()
+                });
+                let key_cold = layout_with_mnx_scores_cached(&score, &config, score_index, None);
+                let key_warm =
+                    layout_with_mnx_scores_cached(&score, &config, score_index, Some(&mut cache));
+                assert_same(
+                    &format!("{name} score {score_index} key edit"),
+                    &key_cold,
+                    &key_warm,
+                );
+                let (use_beams, _) = crate::layout::support_flags::engraving_flags(&score);
+                score
+                    .mnx
+                    .support
+                    .get_or_insert_with(Default::default)
+                    .use_beams = Some(!use_beams);
+                let flags_cold = layout_with_mnx_scores_cached(&score, &config, score_index, None);
+                let flags_warm =
+                    layout_with_mnx_scores_cached(&score, &config, score_index, Some(&mut cache));
+                assert_same(
+                    &format!("{name} score {score_index} support edit"),
+                    &flags_cold,
+                    &flags_warm,
+                );
+            }
+        }
+    }
+}
+
 /// Canonicalize a display list by merging abutting, collinear, untagged
 /// horizontal lines (same y, width, color, with `x2 == next.x1`) into a single
 /// span. Stitched-horizon chunking is *expected* to split each full-galley

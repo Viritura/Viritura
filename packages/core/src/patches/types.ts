@@ -280,6 +280,10 @@ export interface SpliceSequenceContentPatch {
  */
 export type GlobalMeasureField =
   | { field: "caesura"; value: GlobalMeasure["caesura"] }
+  | { field: "segno"; value: GlobalMeasure["segno"] }
+  | { field: "coda"; value: GlobalMeasure["coda"] }
+  | { field: "fine"; value: GlobalMeasure["fine"] }
+  | { field: "jump"; value: GlobalMeasure["jump"] }
   | { field: "time"; value: TimeSignature | undefined }
   | { field: "key"; value: KeySignature | undefined }
   | { field: "tempos"; value: Tempo[] | undefined }

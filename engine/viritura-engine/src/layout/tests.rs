@@ -7,6 +7,7 @@ mod test_barlines;
 mod test_bbox;
 mod test_beam_quanting;
 mod test_beams;
+mod test_bundled_scores;
 mod test_caesura;
 mod test_chord_displacement;
 mod test_color;

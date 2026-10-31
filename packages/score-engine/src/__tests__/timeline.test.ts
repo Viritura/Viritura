@@ -7,6 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import { createEngine } from "../engine";
 
 const MINIMAL_MNX = {
@@ -47,6 +48,17 @@ const MINIMAL_MNX = {
 
 describe("Engine.timeline", () => {
   const engine = createEngine();
+
+  it.each([
+    { name: "jumps-dc-al-fine", beats: 24, pitches: [62, 65, 69, 72, 62, 65] },
+    { name: "jumps-ds-al-coda", beats: 32, pitches: [62, 65, 69, 67, 64, 65, 69, 62] },
+  ])("realizes the public $name corpus example", ({ name, beats, pitches }) => {
+    const mnx = readFileSync(new URL(`../../../format/fixtures/mnx/${name}.mnx`, import.meta.url), "utf8");
+    const timeline = engine.timeline(mnx);
+    expect(timeline.totalBeats).toBe(beats);
+    expect(timeline.totalSeconds).toBe(beats / 2);
+    expect(timeline.events.filter((event) => !event.isRest).map((event) => event.midiPitch)).toEqual(pitches);
+  });
 
   it("produces a timeline with the public Timeline shape", () => {
     const tl = engine.timeline(MINIMAL_MNX);

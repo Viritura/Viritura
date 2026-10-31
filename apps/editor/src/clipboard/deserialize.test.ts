@@ -13,7 +13,7 @@ function note(id: string, target?: string): NoteEvent {
 }
 
 describe("lyric extender clipboard references", () => {
-  it("remaps internal targets and preserves targets outside the copied fragment", () => {
+  it("remaps internal targets and preserves references outside the copied fragment", () => {
     const copied = assignFreshIds([note("source", "inside"), note("inside"), note("external-source", "outside")]);
     const events = [...walkSequenceEvents(copied)].map(({ event }) => event);
 

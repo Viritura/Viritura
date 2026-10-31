@@ -36,9 +36,10 @@ use super::super::text_frames::{append_text_frames_by_bounds, layout_full_score_
 use super::authored_systems::resolve_explicit_systems_and_layouts;
 use super::auto_flow::layout_auto_flow_mnx_score;
 use super::explicit_pagination::{paginate_explicit_pages, ExplicitPagination};
+use super::explicit_staff_retention::{render_system_staves_and_contents, ExplicitStaffRetention};
 use super::explicit_system_breaks::{expand_oversized_systems_explicit, SystemLayoutChanges};
 use super::explicit_system_layouts::{
-    build_explicit_system_layouts, ExplicitSystemLayouts, PersistentStaffState,
+    build_explicit_system_layouts, ExplicitSystemCtx, ExplicitSystemLayouts, PersistentStaffState,
 };
 use super::explicit_widths::compute_explicit_max_widths;
 use super::instrument_labels::{explicit_label_margins, policy_for_system, render_staff_labels};
@@ -147,35 +148,6 @@ fn build_explicit_system_debug(
     }
 }
 
-/// Bundled inputs that don't change across systems for the explicit-pages
-/// per-system render. Carved off the giant call to keep the argument list
-/// merely large rather than absurd.
-struct ExplicitSystemCtx<'a> {
-    score: &'a Score,
-    score_def: &'a ScoreDefinition,
-    config: &'a LayoutConfig,
-    sp: f64,
-    staff_height: f64,
-    barline_w: f64,
-    base_margin_l: f64,
-    base_margin_r: f64,
-    first_label_margin: f64,
-    subsequent_label_margin: f64,
-    /// First-system indent (px) applied to `sys_idx == 0` only, for single-part
-    /// layouts — signals the start of the music exactly like the auto-flow path.
-    /// `0.0` for full scores (their instrument-name gutter is the start cue).
-    first_system_indent: f64,
-    system_count: usize,
-    common_shortest_beats: f64,
-    lyric_line_order: Option<&'a [String]>,
-    all_resolved: &'a [Vec<ResolvedMeasure>],
-    max_widths: &'a [f64],
-    mmr_start_map: &'a HashMap<usize, u32>,
-    mmr_skip_measures: &'a HashSet<usize>,
-    mmr_label_map: &'a HashMap<usize, String>,
-    pages: &'a [PageLayout],
-}
-
 fn explicit_system_horizontal_geometry(
     ctx: &ExplicitSystemCtx<'_>,
     system_index: usize,
@@ -220,6 +192,8 @@ fn render_explicit_system(
     slur_bounds: &mut HashMap<(usize, usize, usize), super::super::slurs::SystemSlurBounds>,
     global_slur_events: &mut Vec<super::super::slurs::GlobalSlurEvent>,
     global_tie_notes: &mut Vec<super::super::ties::GlobalTieNote>,
+    cache: Option<&mut cache::LayoutCache>,
+    retention: Option<&mut ExplicitStaffRetention>,
 ) {
     let sp = ctx.sp;
     let staff_height = ctx.staff_height;
@@ -299,6 +273,7 @@ fn render_explicit_system(
             ctx.mmr_start_map,
             ctx.mmr_label_map,
             persistent_state,
+            cache,
         );
 
         // Clef-change set scoped to the staves shown in THIS system (not the
@@ -394,6 +369,8 @@ fn render_explicit_system(
             global_tie_notes,
             &clef_change_measures,
             None,
+            group_ranges,
+            if lc_map.is_empty() { retention } else { None },
         );
 
         render_system_connectors(
@@ -744,7 +721,7 @@ pub fn layout_with_mnx_scores_cached(
         &mmr_start_map,
         &skip_measures,
         &shown_parts,
-        cache,
+        cache.as_deref_mut(),
     );
 
     let first_content_width = config
@@ -841,6 +818,13 @@ pub fn layout_with_mnx_scores_cached(
     // boundaries (clef/key/time/condensing-mode inheritance). See doc on
     // `PersistentStaffState` for the rationale.
     let mut persistent_state = PersistentStaffState::default();
+    let mut staff_retention = if config.emit_layout_debug {
+        None
+    } else {
+        cache
+            .as_deref_mut()
+            .map(|cache| ExplicitStaffRetention::new(cache, score))
+    };
 
     // Accumulators for the cross-system slur post-pass (explicit-pages path).
     let mut global_slur_events: Vec<super::super::slurs::GlobalSlurEvent> = Vec::new();
@@ -893,7 +877,12 @@ pub fn layout_with_mnx_scores_cached(
             &mut slur_bounds,
             &mut global_slur_events,
             &mut global_tie_notes,
+            cache.as_deref_mut(),
+            staff_retention.as_mut(),
         );
+    }
+    if let (Some(cache), Some(retention)) = (cache, staff_retention) {
+        retention.finish(cache);
     }
 
     super::super::ties::render_cross_system_ties(
