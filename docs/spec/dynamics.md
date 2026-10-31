@@ -286,6 +286,17 @@ destination whose tie source was skipped receives a fresh attack. The initial
 pass honors repeat/volta expansion; a navigation replay follows score order
 without taking those repeats again.
 
+Grace groups follow their principal note's performed-span eligibility, including
+the shifted principal of steal-following grace. Anticipation is retained across
+continuous barlines but cannot precede a replay destination. Skipped principals
+do not leak grace onsets into the route.
+
+Replay restores the destination's inherited tempo, including the shared default
+tempo before the first authored marking. Exposed tempo maps retain every played
+intra-measure change, omit changes at or beyond a route cut, and express offsets
+relative to the performed span's start. Their times come from the same continuous
+tempo model used by playback.
+
 ### 8.3 Lanes
 
 One MIDI channel carries one CC11 stream, so simultaneous `voice: "1"` at `p`

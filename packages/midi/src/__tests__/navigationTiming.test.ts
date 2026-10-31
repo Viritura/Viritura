@@ -1,6 +1,32 @@
 import { describe, expect, it } from "vitest";
-import type { NoteEvent, Score } from "@viritura/core";
-import { generateTimeline, generatePerformanceEvents } from "../index";
+import type { NoteEvent, Score, Tempo } from "@viritura/core";
+import { DEFAULT_BPM, generateTimeline, generatePerformanceEvents } from "../index";
+
+function wholeNoteScore(measures: Score["global"]["measures"]): Score {
+  return {
+    mnx: { version: 1 },
+    global: { measures },
+    parts: [
+      {
+        id: "p",
+        measures: measures.map((_, index) => ({
+          sequences: [
+            {
+              content: [
+                {
+                  type: "event",
+                  id: `e${index}`,
+                  duration: { base: "whole" },
+                  notes: [{ id: `n${index}`, pitch: { step: "C", octave: 4 } }],
+                },
+              ],
+            },
+          ],
+        })),
+      },
+    ],
+  };
+}
 
 function navigationScore(): Score {
   const note = (measure: number, beat: number): NoteEvent => ({
@@ -37,6 +63,222 @@ function navigationScore(): Score {
 }
 
 describe("location-aware navigation timing", () => {
+  it.each<{ initial: Tempo[] | undefined; bpm: number }>([
+    { initial: undefined, bpm: DEFAULT_BPM },
+    { initial: [{ bpm: 90, value: { base: "quarter" } }], bpm: 90 },
+    { initial: [{ bpm: 80, value: { base: "quarter", dots: 1 } }], bpm: 120 },
+  ])("restores the opening tempo $bpm on D.C. replay", ({ initial, bpm }) => {
+    const score = wholeNoteScore([
+      { time: { count: 4, unit: 4 }, tempos: initial, fine: { location: { fraction: [1, 1] } } },
+      { tempos: [{ bpm: 60, value: { base: "quarter" } }] },
+      { jump: { type: "dcAlFine", location: { fraction: [1, 1] } } },
+    ]);
+    const timeline = generateTimeline(score);
+    expect(timeline.expandedMeasureToOriginal).toEqual([0, 1, 2, 0]);
+    expect(timeline.model.bpmAtBeat(timeline.measureStartBeats[3]!)).toBe(bpm);
+    expect(timeline.duration).toBeCloseTo(8 + (8 * 60) / bpm);
+    const native = generatePerformanceEvents(score, 0).filter((event) => event.kind === "noteOn");
+    expect(native.at(-1)!.note.duration).toBeCloseTo((4 * 60) / bpm);
+  });
+
+  it("restores the implicit tempo before the opening measure's first mid-bar marking", () => {
+    const score = wholeNoteScore([
+      {
+        time: { count: 4, unit: 4 },
+        tempos: [{ bpm: 60, value: { base: "quarter" }, location: { fraction: [1, 2] } }],
+        fine: { location: { fraction: [1, 4] } },
+      },
+      {},
+      { jump: { type: "dcAlFine", location: { fraction: [1, 1] } } },
+    ]);
+    const timeline = generateTimeline(score);
+    expect(timeline.model.bpmAtBeat(timeline.measureStartBeats[3]!)).toBe(DEFAULT_BPM);
+    expect(timeline.duration).toBeCloseTo(11.5);
+    const native = generatePerformanceEvents(score, 0).filter((event) => event.kind === "noteOn");
+    expect(native.at(-1)!.note.duration).toBeCloseTo(0.5);
+  });
+
+  it("exports every played mid-bar tempo change on the same axis as the tempo model", () => {
+    const score = wholeNoteScore([
+      {
+        time: { count: 4, unit: 4 },
+        tempos: [
+          { bpm: 120, value: { base: "quarter" } },
+          { bpm: 60, value: { base: "quarter" }, location: { fraction: [1, 2] } },
+        ],
+        fine: { location: { fraction: [1, 1] } },
+      },
+      { jump: { type: "dcAlFine", location: { fraction: [1, 1] } } },
+    ]);
+    const timeline = generateTimeline(score);
+    expect(
+      timeline.tempoMap.map(({ measureIndex, beatInMeasure, timeSeconds, bpm }) => [
+        measureIndex,
+        beatInMeasure,
+        timeSeconds,
+        bpm,
+      ]),
+    ).toEqual([
+      [0, 0, 0, 120],
+      [0, 2, 1, 60],
+      [1, 0, 3, 60],
+      [2, 0, 7, 120],
+      [2, 2, 8, 60],
+    ]);
+    for (const entry of timeline.tempoMap) {
+      const beat = timeline.measureStartBeats[entry.measureIndex]! + entry.beatInMeasure;
+      expect(entry.timeSeconds).toBeCloseTo(timeline.model.timeAtBeat(beat));
+      expect(entry.bpm).toBe(timeline.model.bpmAtBeat(beat));
+    }
+  });
+
+  it("rebases destination tempo offsets and excludes changes at jump and Fine cuts", () => {
+    const score = navigationScore();
+    score.global.measures[1]!.tempos = [
+      { bpm: 90, value: { base: "quarter" }, location: { fraction: [1, 4] } },
+      { bpm: 80, value: { base: "quarter" }, location: { fraction: [3, 8] } },
+      { bpm: 70, value: { base: "quarter" }, location: { fraction: [7, 8] } },
+    ];
+    score.global.measures[2]!.tempos = [{ bpm: 60, value: { base: "quarter" }, location: { fraction: [1, 2] } }];
+    score.global.measures[3]!.tempos = [{ bpm: 30, value: { base: "quarter" }, location: { fraction: [3, 4] } }];
+    const timeline = generateTimeline(score);
+    expect(
+      timeline.tempoMap.filter((entry) => entry.measureIndex === 4).map((entry) => [entry.beatInMeasure, entry.bpm]),
+    ).toEqual([
+      [0, 90],
+      [0.5, 80],
+      [2.5, 70],
+    ]);
+    expect(timeline.tempoMap.some((entry) => entry.bpm === 30)).toBe(false);
+    expect(timeline.tempoMap.filter((entry) => entry.measureIndex === 5).map((entry) => entry.bpm)).toEqual([70]);
+    for (const entry of timeline.tempoMap) {
+      const beat = timeline.measureStartBeats[entry.measureIndex]! + entry.beatInMeasure;
+      expect(entry.timeSeconds).toBeCloseTo(timeline.model.timeAtBeat(beat));
+    }
+  });
+
+  it.each([undefined, "makeTime", "stealPrevious"] as const)(
+    "preserves %s grace notes before a continuous measure downbeat",
+    (graceType) => {
+      const score = wholeNoteScore([{ time: { count: 4, unit: 4 } }, {}]);
+      score.parts[0]!.measures[1]!.sequences[0]!.content.unshift({
+        type: "grace",
+        graceType,
+        content: [
+          {
+            type: "event",
+            id: "grace",
+            duration: { base: "eighth" },
+            notes: [{ pitch: { step: "D", octave: 4 } }],
+          },
+        ],
+      });
+      const normal = generateTimeline(score).events.filter(
+        (event) => event.type === "noteOn" && event.scoreEventId === "grace",
+      );
+      const once = generateTimeline(score, { expandRepeats: false }).events.filter(
+        (event) => event.type === "noteOn" && event.scoreEventId === "grace",
+      );
+      expect(normal).toHaveLength(1);
+      expect(normal[0]!.time).toBeCloseTo(once[0]!.time);
+      expect(normal[0]!.time).toBeLessThan(2);
+    },
+  );
+
+  it("keeps grace anticipation across continuous spans but clips it at a replay destination", () => {
+    const score = wholeNoteScore([
+      { time: { count: 4, unit: 4 }, fine: { location: { fraction: [1, 1] } } },
+      { jump: { type: "dcAlFine", location: { fraction: [1, 1] } } },
+    ]);
+    for (const [index, measure] of score.parts[0]!.measures.entries()) {
+      measure.sequences[0]!.content.unshift({
+        type: "grace",
+        content: [
+          {
+            type: "event",
+            id: `grace-${index}`,
+            duration: { base: "eighth" },
+            notes: [{ pitch: { step: "D", octave: 4 } }],
+          },
+        ],
+      });
+    }
+    const timeline = generateTimeline(score);
+    const first = timeline.events.filter((event) => event.type === "noteOn" && event.scoreEventId === "grace-0");
+    const second = timeline.events.filter((event) => event.type === "noteOn" && event.scoreEventId === "grace-1");
+    expect(first).toHaveLength(2);
+    expect(first[1]!.time).toBeGreaterThanOrEqual(timeline.measureStartTimes[2]!);
+    expect(second).toHaveLength(1);
+    expect(second[0]!.time).toBeLessThan(timeline.measureStartTimes[1]!);
+    expect(timeline.events.every((event) => event.time <= timeline.duration)).toBe(true);
+  });
+
+  it("does not play grace notes whose principal is in a skipped prefix or at a jump cut", () => {
+    const score = navigationScore();
+    for (const [measureIndex, offset] of [
+      [1, 0],
+      [3, 3],
+    ] as const) {
+      score.parts[0]!.measures[measureIndex]!.sequences[0]!.content.splice(offset, 0, {
+        type: "grace",
+        content: [
+          {
+            type: "event",
+            id: `grace-${measureIndex}`,
+            duration: { base: "eighth" },
+            notes: [{ pitch: { step: "D", octave: 4 } }],
+          },
+        ],
+      });
+    }
+    const notes = generateTimeline(score).events.filter((event) => event.type === "noteOn");
+    expect(notes.filter((event) => event.scoreEventId === "grace-1")).toHaveLength(1);
+    expect(notes.filter((event) => event.scoreEventId === "grace-3")).toHaveLength(0);
+  });
+
+  it("retains grace at an interior segno without anticipating before its performed destination", () => {
+    const score = navigationScore();
+    score.parts[0]!.measures[1]!.sequences[0]!.content.splice(1, 0, {
+      type: "grace",
+      graceType: "stealPrevious",
+      content: [
+        {
+          type: "event",
+          id: "segno-grace",
+          duration: { base: "eighth" },
+          notes: [{ pitch: { step: "D", octave: 4 } }],
+        },
+      ],
+    });
+    const timeline = generateTimeline(score);
+    const grace = timeline.events.filter((event) => event.type === "noteOn" && event.scoreEventId === "segno-grace");
+    expect(grace).toHaveLength(2);
+    expect(grace[0]!.time).toBeLessThan(2.5);
+    expect(grace[1]!.time).toBeGreaterThanOrEqual(timeline.measureStartTimes[4]!);
+  });
+
+  it("excludes steal-following grace when its shifted principal falls at a jump cut", () => {
+    const score = navigationScore();
+    score.global.measures[3]!.jump!.location.fraction = [17, 32];
+    score.parts[0]!.measures[3]!.sequences[0]!.content.splice(2, 0, {
+      type: "grace",
+      graceType: "stealFollowing",
+      content: [
+        {
+          type: "event",
+          id: "following-grace",
+          duration: { base: "eighth" },
+          notes: [{ pitch: { step: "D", octave: 4 } }],
+        },
+      ],
+    });
+    expect(
+      generateTimeline(score).events.filter(
+        (event) => event.type === "noteOn" && event.scoreEventId === "following-grace",
+      ),
+    ).toHaveLength(0);
+  });
+
   it("reattacks a tied destination when its source is outside the performed span", () => {
     const score = navigationScore();
     const content = score.parts[0]!.measures[1]!.sequences[0]!.content;

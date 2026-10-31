@@ -1316,6 +1316,28 @@ describe("convertMusicXmlToMnx — rehearsal marks", () => {
 });
 
 describe("convertMusicXmlToMnx — lyrics", () => {
+  it("does not suppress another part's inferred extenders when one part uses explicit extenders", () => {
+    const xml = wrapScore(`
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric><text>Ah</text><extend type="start"/></lyric></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric><extend type="stop"/></lyric></note>
+    `)
+      .replace("</part-list>", '<score-part id="P2"><part-name>Other</part-name></score-part></part-list>')
+      .replace(
+        "</score-partwise>",
+        `<part id="P2"><measure number="1">
+          <attributes><divisions>1</divisions></attributes>
+          <note><pitch><step>E</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+            <lyric><text>Oh</text></lyric></note>
+          <note><pitch><step>F</step><octave>4</octave></pitch><duration>2</duration><type>half</type></note>
+        </measure></part></score-partwise>`,
+      );
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.parts).toHaveLength(2);
+    expect(result.mnx.support?.useLyricExtenders).toBeUndefined();
+  });
+
   it("keeps inference enabled when explicit extenders are mixed with ordinary lyrics", () => {
     const result = convertMusicXmlToMnx(
       wrapScore(`
