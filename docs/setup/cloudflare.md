@@ -98,6 +98,15 @@ VITE_VIRITURA_ASSET_BASE_URL=https://assets.viritura.com
 ```
 
 Node 24 and pnpm 9.15.4 are pinned by the workflow and root package metadata.
+Application and Storybook builds share `scripts/cssBuild/index.ts`: PostCSS
+and Autoprefixer preprocess styles, then esbuild minifies the resulting CSS.
+Do not switch back to Vite's default Lightning CSS minifier without running
+`pnpm test:css-build`; it drops the standard `backdrop-filter` declaration when
+a variable-valued WebKit-prefixed declaration follows it, disabling glass blur
+in browsers that only support the standard property.
+The regression test runs in PR CI and `pnpm lint`; cached CSS-producing builds
+include the shared settings and root PostCSS configuration in their inputs.
+
 The GitHub `cloudflare-pages-production` Environment supplies only the
 Cloudflare account ID and API token. The runner installs the pinned Rust
 toolchain and `wasm-pack` 0.14.0 before rebuilding WASM.

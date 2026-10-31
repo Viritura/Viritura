@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import type { StorybookConfig } from "@storybook/react-vite";
+import { cssBuildOptions } from "../../../scripts/cssBuild";
 import { syncMnxFixtures, syncMnxSchema, syncMusxImporter, syncSharedAssets, syncSounds } from "../buildAssets";
 
 syncSharedAssets();
@@ -25,6 +26,7 @@ const config: StorybookConfig = {
   },
   staticDirs: ["../public"],
   viteFinal: async (config) => {
+    config.build = { ...config.build, ...cssBuildOptions };
     config.cacheDir = process.env.VIRITURA_VITE_CACHE_DIR;
     // Ensure WASM files are served correctly
     config.optimizeDeps = config.optimizeDeps || {};

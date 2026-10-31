@@ -197,6 +197,9 @@ jobs:
         name: Validate editor story schemas before asset staging
         run: pnpm --filter @viritura/editor exec vitest run src/__tests__/storiesMnxValidity.test.tsx
 
+      - name: Test production CSS preprocessing
+        run: pnpm test:css-build
+
       - name: Build and test affected workspaces
         run: pnpm turbo run build test --affected --filter='!@viritura/desktop'
 
