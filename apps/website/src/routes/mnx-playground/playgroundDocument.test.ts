@@ -6,13 +6,27 @@ import { publishedExamples } from "./publishedExamples";
 import { validatePlaygroundSource } from "./usePlaygroundDocument";
 
 describe("MNX playground documents", () => {
-  it("includes every published W3C example exactly once", () => {
-    expect(publishedExamples).toHaveLength(52);
-    expect(new Set(publishedExamples.map((example) => example.id)).size).toBe(52);
-    expect(new Set(publishedExamples.map((example) => example.filename)).size).toBe(52);
-    expect(playgroundCatalog).toHaveLength(53);
-    expect(playgroundCatalogGroups.flatMap((group) => group.items)).toHaveLength(53);
+  it("includes every published notation example exactly once", () => {
+    expect(publishedExamples).toHaveLength(54);
+    expect(new Set(publishedExamples.map((example) => example.id)).size).toBe(publishedExamples.length);
+    expect(new Set(publishedExamples.map((example) => example.filename)).size).toBe(publishedExamples.length);
+    expect(playgroundCatalog).toHaveLength(publishedExamples.length + 1);
+    expect(playgroundCatalogGroups.flatMap((group) => group.items)).toHaveLength(playgroundCatalog.length);
     expect(playgroundCatalog.slice(1).every((example) => example.assetUrl?.startsWith("/mnx-samples/"))).toBe(true);
+  });
+
+  it.each([
+    ["jumps-dc-al-fine", "D.C. al Fine"],
+    ["jumps-ds-al-coda", "D.S. al Coda"],
+  ])("publishes the native v46 example %s with its asset and stable hash", (id, title) => {
+    expect(publishedExamples.find((example) => example.id === id)).toMatchObject({
+      id,
+      title,
+      filename: `${id}.mnx`,
+      group: "Repeats and navigation",
+    });
+    expect(playgroundCatalog.find((example) => example.id === id)?.assetUrl).toBe(`/mnx-samples/${id}.mnx`);
+    expect(exampleIdFromHash(hashForExampleId(id))).toBe(id);
   });
 
   it("maps example ids to stable hashes and defaults invalid values", () => {
