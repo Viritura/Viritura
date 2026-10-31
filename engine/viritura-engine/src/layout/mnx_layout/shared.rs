@@ -35,6 +35,7 @@ use std::collections::{HashMap, HashSet};
 pub(super) use super::cache_hashing::{
     compound_layout_hash, ottava_aware_hash, time_signature_aware_hash,
 };
+pub(super) use super::horizon_bounds::fit_unpaged_bounds;
 pub(super) use super::instrument_labels::{
     build_label_lines, label_gutter_extent, split_label_transposition, EXPANSION_COLOR,
 };
@@ -44,24 +45,6 @@ pub(super) use super::staff_placement::{compute_staff_y_offsets_for_system, Staf
 pub(super) use super::structure_flattening::{
     build_measure_id_map, build_part_id_map, compute_flat_staff_transposition, flatten_layout,
 };
-
-/// Apply the constant galley headroom (Lever 0): shift every coordinate store
-/// down by a FIXED reserve so above-staff protrusion sits inside the workspace.
-///
-/// The offset is a constant (`pad_y`), not content-derived, so it is stable
-/// across edits — a high ledger note no longer re-shifts the whole galley.
-/// This lets chunked-horizon retained segments stay at a stable absolute y and
-/// horizon patch frames engage. Continuous-layout views reserve constant
-/// vertical space rather than re-fitting after every edit.
-///
-/// Width/height are left at their structural values (set at `DisplayList`
-/// construction: `page_w` × `total_height`) — NOT trimmed to a content scan —
-/// so the full-frame and patch-frame galley dimensions agree (the patch frame
-/// carries the same structural dims and applies this same constant offset via
-/// its `galley_offset_y` scalar).
-pub(super) fn fit_unpaged_bounds(dl: &mut DisplayList, pad_y: f64, _pad_x: f64) {
-    dl.translate(0.0, pad_y);
-}
 
 /// Split a staff label into two lines when it contains a transposition
 /// (e.g. "Clarinet in BΓÖ¡ 1" ΓåÆ ("Clarinet", "in BΓÖ¡ 1")).
@@ -944,6 +927,7 @@ pub(super) fn render_system_staff_content(
         sp,
         config,
         score,
+        &flat_staves[staff_idx].sources,
         lyric_line_order,
         sys_idx == system_count - 1,
         staff_part_idx,

@@ -743,10 +743,9 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       const sel = useSelectionStore.getState().selection;
       if (!score) return false;
 
-      const positions = resolveSpannerPositions(score, sel, selectedScoreIndex);
-      if (!positions) return false;
-
       const newScore = produce(score, (draft) => {
+        const positions = resolveSpannerPositions(draft, sel, selectedScoreIndex);
+        if (!positions) return;
         positions.targets.forEach((target) => {
           const partMeasure = draft.parts[target.partIndex]?.measures[target.measureIndex];
           if (partMeasure) onMutate(draft, target, partMeasure, positions.position, positions.end);

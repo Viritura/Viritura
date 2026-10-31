@@ -809,13 +809,14 @@ pub(crate) fn compute_above_staff_extra(
 /// Render the contents of a single system (staff lines already drawn by caller).
 /// `next_system_clef` is the explicit start clef of the next system's first measure, if any.
 /// When provided, a small courtesy clef is drawn at the end of this system before the barline.
-pub(crate) fn render_system_contents(
+fn render_system_contents(
     dl: &mut DisplayList,
     measure_layouts: &[MeasureLayout],
     staff_y: f64,
     sp: f64,
     config: &LayoutConfig,
     score: &Score,
+    staff_sources: &[full_score::FlatSource],
     lyric_line_order: Option<&[String]>,
     is_last_system: bool,
     part_idx: usize,
@@ -1001,7 +1002,7 @@ pub(crate) fn render_system_contents(
         slur_geom_start,
     );
     render_volta_brackets(dl, measure_layouts, staff_y, sp, part_idx);
-    render_ottavas(dl, measure_layouts, staff_y, sp, part_idx);
+    volta::render_ottavas_for_view(dl, measure_layouts, staff_y, config, score, staff_sources);
     render_hairpins(
         dl,
         measure_layouts,
