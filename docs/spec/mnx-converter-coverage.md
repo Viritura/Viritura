@@ -51,6 +51,27 @@ editor-integration gaps.
 | Precise `AccidentalDisplay` emit         | [`packages/format/src/mnx/serializer.ts`](../../packages/format/src/mnx/serializer.ts)               | Emits explicit `{ show, force?, enclosure: { symbol } }`.                                                                                                                                                          |
 | Serializer skips `stemDirection: "auto"` | [`packages/format/src/mnx/serializer.ts`](../../packages/format/src/mnx/serializer.ts)               | MNX schema only allows `up \| down`; `auto` is Viritura's internal sentinel.                                                                                                                                       |
 
+### MNX schema validation errors
+
+[`validateRawScore`](../../packages/format/src/mnx/validator.ts) validates the
+complete document before parsing. When sequence content fails validation,
+diagnostics report the schema for its declared `type` (or the ordinary event
+schema when `type` is omitted), rather than listing failures from every `anyOf`
+alternative. Nested content is diagnosed in its actual context: grace groups
+contain events, while tuplets and multi-note tremolos contain sequence content.
+Validation acceptance and sequence-recovery boundaries are unchanged.
+
+Diagnostics retain JSON pointers and validation keywords, name unrecognized
+properties, and explain two common format mistakes:
+
+- `_x` maps vendor namespaces to object dictionaries, for example
+  `"_x": { "yourApp": { "string": 1, "fret": 0 } }`. Arbitrary data belongs inside
+  a vendor dictionary, not directly under `_x`. See the MNX
+  [global attributes reference](https://mnx.formats.music/docs/mnx-reference/objects/global-attrs/).
+- `pitch.alter` requires integer semitone alterations; fractional microtonal
+  alterations are not supported by the current MNX schema. See the MNX
+  [note alter reference](https://mnx.formats.music/docs/mnx-reference/objects/alter/).
+
 ### MusicXML → MNX converter (`packages/musicxml`)
 
 **Layout.** All converter logic lives in `packages/musicxml/src/convert/` per

@@ -1,7 +1,6 @@
 /** Translation of public layout options into engine calls, shared by main thread and worker. */
 
 import { LayoutError, ParseError } from "./errors";
-import { assertRawScore, MNX_SCHEMA_VERSION, RawScoreValidationFailure } from "@viritura/format";
 import type { LayoutOptions } from "./types";
 
 export interface LayoutArgs {
@@ -13,29 +12,12 @@ export interface LayoutArgs {
 }
 
 export function mnxJson(mnx: string | object): string {
-  let json: string;
-  if (typeof mnx === "string") {
-    json = mnx;
-  } else {
-    try {
-      json = JSON.stringify(mnx);
-    } catch (err) {
-      throw new ParseError(`MNX input is not JSON-serializable: ${messageOf(err)}`, "json", err);
-    }
-  }
-  let parsed: unknown;
+  if (typeof mnx === "string") return mnx;
   try {
-    parsed = JSON.parse(json);
+    return JSON.stringify(mnx);
   } catch (err) {
-    throw new ParseError(`MNX input is not valid JSON: ${messageOf(err)}`, "json", err);
+    throw new ParseError(`MNX input is not JSON-serializable: ${messageOf(err)}`, "json", err);
   }
-  try {
-    assertRawScore(parsed);
-  } catch (err) {
-    if (!(err instanceof RawScoreValidationFailure)) throw err;
-    throw new ParseError(`MNX input does not match schema v${MNX_SCHEMA_VERSION}: ${messageOf(err)}`, "schema", err);
-  }
-  return json;
 }
 
 export function layoutArgs(mnx: string | object, opts: LayoutOptions): LayoutArgs {

@@ -4,7 +4,7 @@
  * one result per layer on `window.__scorePackages` for the verifier.
  */
 
-import { loadEngine, ParseError, type Engine } from "@viritura/score-engine";
+import { loadEngine, type Engine } from "@viritura/score-engine";
 import { mountScore } from "@viritura/score-viewer";
 import { ScoreViewer } from "@viritura/score-viewer-react";
 import { createElement } from "react";
@@ -142,37 +142,6 @@ function checkNavigationTimeline(engine: Engine): void {
   }
 }
 
-async function checkSchemaBoundary(engine: Engine): Promise<void> {
-  const obsolete = {
-    mnx: { version: 1 },
-    global: { measures: [{ jump: { type: "dsalfine", location: { fraction: [0, 1] } } }] },
-    parts: [],
-  };
-  for (const read of [() => engine.layout(obsolete, { pageWidth: 800 }), () => engine.info(obsolete)]) {
-    let rejected = false;
-    try {
-      read();
-    } catch (error) {
-      if (!(error instanceof ParseError) || error.code !== "schema") throw error;
-      rejected = true;
-    }
-    if (!rejected) throw new Error("Packed public API silently accepts obsolete MNX input");
-  }
-  const worker = engine.createLayoutWorker();
-  try {
-    let rejected = false;
-    try {
-      await worker.layout(obsolete, { pageWidth: 800 });
-    } catch (error) {
-      if (!(error instanceof ParseError) || error.code !== "schema") throw error;
-      rejected = true;
-    }
-    if (!rejected) throw new Error("Packed layout worker silently accepts obsolete MNX input");
-  } finally {
-    worker.dispose();
-  }
-}
-
 async function main(): Promise<void> {
   const mnx = await (await fetch("/score.mnx")).text();
   const integration = await (await fetch("/mnx46.mnx")).text();
@@ -186,7 +155,6 @@ async function main(): Promise<void> {
   await run("mnx46", async () => {
     const engine = await loadEngine({ assetBaseUrl });
     checkNavigationTimeline(engine);
-    await checkSchemaBoundary(engine);
     const svg = await engine.toSvg(engine.layout(integration, { pageWidth: 800 }));
     if (!svg.includes("<svg") || !svg.includes("<path")) throw new Error("Integrated v46 SVG export has no ink");
     results.mnx46 = "ok: native features, navigation tempo restoration, tempo automation and SVG export";

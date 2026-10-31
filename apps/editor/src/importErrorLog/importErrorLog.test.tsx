@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RecoveredSequence } from "@viritura/format";
+import { parseMnx, type RecoveredSequence } from "@viritura/format";
 import {
   buildImportErrorLog,
   buildImportIssueUrl,
@@ -73,6 +73,51 @@ describe("import error log", () => {
 
     expect(log.status).toBe("failed");
     expect(formatImportErrorLog(log)).toContain("/ [required] must have required property 'mnx'");
+  });
+
+  it("shows actionable schema errors without unrelated content-branch requirements", () => {
+    const document = {
+      mnx: { version: 1 },
+      global: { measures: [{}] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    {
+                      duration: { base: "quarter" },
+                      notes: [{ pitch: { step: "C", octave: 4, alter: 0.5 }, _x: { fret: 1 } }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    let failure: unknown;
+    try {
+      parseMnx(document);
+    } catch (error: unknown) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    const text = formatImportErrorLog(
+      buildImportErrorLog({
+        filename: "microtonal.mnx",
+        mnxJson: JSON.stringify(document),
+        recovered: [],
+        failure,
+      }),
+    );
+    expect(text).toContain("vendor namespaces");
+    expect(text).toContain("fractional microtonal alterations");
+    expect(text).not.toContain("required property 'content'");
+    expect(text).not.toContain("required property 'type'");
+    expect(text).not.toContain("[anyOf]");
   });
 
   it("builds a prefilled bug report and a download filename", () => {

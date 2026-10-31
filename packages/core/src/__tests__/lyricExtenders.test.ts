@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lyricExtenderTargetCandidates, resolveLyricExtenders } from "../operations";
-import type { Score } from "../model";
+import type { NoteEvent, Score } from "../model";
 
 function scoreWithLyrics(): Score {
   return {
@@ -90,6 +90,105 @@ function scoreWithLyrics(): Score {
 }
 
 describe("resolveLyricExtenders", () => {
+  it.each([undefined, "singer"])("stops inference at an empty fullMeasure rest (voice=%s)", (voice) => {
+    const score = scoreWithLyrics();
+    const first = score.parts[0]!.measures[0]!;
+    first.sequences[0]!.voice = voice;
+    first.sequences[0]!.content = first.sequences[0]!.content.slice(0, 1);
+    score.parts = [score.parts[0]!];
+    const part = score.parts[0]!;
+    part.measures = [
+      first,
+      { sequences: [{ voice, fullMeasure: { visualDuration: { base: "whole" } }, content: [] }] },
+      { sequences: [{ voice, content: [event("later")] }] },
+    ];
+    score.global.measures.push({});
+    expect(resolveLyricExtenders(score).extenders).toEqual([]);
+    delete part.measures[1]!.sequences[0]!.fullMeasure;
+    expect(resolveLyricExtenders(score).extenders[0]?.targetEventId).toBe("later");
+    if (voice) {
+      part.measures[1]!.sequences.unshift({ voice: "unrelated", content: [] });
+      part.measures[1]!.sequences[1]!.fullMeasure = { visualDuration: { base: "whole" } };
+      expect(resolveLyricExtenders(score).extenders).toEqual([]);
+    }
+  });
+  function event(id: string, base: NoteEvent["duration"]["base"] = "quarter"): NoteEvent {
+    return { type: "event", id, duration: { base }, notes: [{ pitch: { step: "C", octave: 4 } }] };
+  }
+
+  it("maps inherited staff-local fitMeasure beats before comparing cross-staff targets", () => {
+    const score = scoreWithLyrics();
+    score.global.measures = [{ time: { count: 2, unit: 4 } }, {}];
+    const source = event("source");
+    source.lyrics = { lines: { verse: { text: "Ah", extender: { target: "target" } } } };
+    const part = score.parts[0]!;
+    part.measures = [
+      { staffMeters: [{ staff: 1, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" }], sequences: [] },
+      {
+        sequences: [
+          { staff: 1, content: [event("lead", "half"), source] },
+          { staff: 2, content: [event("other-lead", "quarter"), event("target")] },
+        ],
+      },
+    ];
+    score.parts = [part];
+    expect(resolveLyricExtenders(score).diagnostics).toEqual([
+      expect.objectContaining({ code: "backward-target", sourceEventId: "source" }),
+    ]);
+    source.lyrics!.lines!.verse!.extender!.target = "source";
+    expect(resolveLyricExtenders(score).extenders[0]?.startBeat).toBeCloseTo(10 / 3);
+    expect(resolveLyricExtenders(score).extenders[0]?.endBeat).toBeCloseTo(4);
+  });
+
+  it("does not pad a spanning tuplet fragment to its entire declared outer duration", () => {
+    const score = scoreWithLyrics();
+    const source = event("source");
+    source.lyrics = { lines: { verse: { text: "Ah", extender: { target: "target" } } } };
+    const sequence = score.parts[0]!.measures[0]!.sequences[0]!;
+    sequence.content = [
+      {
+        type: "tuplet",
+        inner: { multiple: 3, duration: { base: "eighth" } },
+        outer: { multiple: 2, duration: { base: "eighth" } },
+        span: { id: "triplet", type: "start" },
+        content: [event("tuplet-note", "eighth")],
+      },
+      source,
+      event("target"),
+    ];
+    score.parts = [score.parts[0]!];
+    score.parts[0]!.measures = [score.parts[0]!.measures[0]!];
+    expect(resolveLyricExtenders(score).extenders[0]?.startBeat).toBeCloseTo(1 / 3);
+  });
+
+  it("subdivides tremolo outer duration equally even when component written values differ", () => {
+    const score = scoreWithLyrics();
+    const source = event("source", "half");
+    source.lyrics = { lines: { verse: { text: "Ah", extender: { target: "target" } } } };
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [
+      {
+        type: "tremolo",
+        marks: 3,
+        outer: { multiple: 1, duration: { base: "half" } },
+        content: [source, event("target", "quarter")],
+      },
+    ];
+    score.parts = [score.parts[0]!];
+    score.parts[0]!.measures = [score.parts[0]!.measures[0]!];
+    expect(resolveLyricExtenders(score).extenders[0]).toMatchObject({ startBeat: 0, endBeat: 2 });
+  });
+
+  it("advances an open-meter bar by its written span so the following bar is never backward", () => {
+    const score = scoreWithLyrics();
+    score.global.measures[0]!.time!.display = "senzaMisura";
+    const source = event("source");
+    source.lyrics = { lines: { verse: { text: "Ah", extender: { target: "target" } } } };
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [event("long-lead", "breve"), source];
+    score.parts[0]!.measures[1]!.sequences[0]!.content = [event("target")];
+    score.parts = [score.parts[0]!];
+    expect(resolveLyricExtenders(score).diagnostics).toEqual([]);
+    expect(resolveLyricExtenders(score).extenders[0]).toMatchObject({ startBeat: 8, endBeat: 10 });
+  });
   it("follows named voices across reordered sequences without crossing staves", () => {
     const score = scoreWithLyrics();
     const first = score.parts[0]!.measures[0]!.sequences[0]!;

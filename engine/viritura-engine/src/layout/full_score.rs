@@ -696,7 +696,7 @@ fn render_one_staff_for_system(
         staff_y,
         sp,
         config,
-        lyric_line_order,
+        staff_lyric_line_order.as_deref(),
         staff_number,
         Some(all_system_layouts),
     );

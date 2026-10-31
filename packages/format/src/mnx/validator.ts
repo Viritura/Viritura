@@ -11,10 +11,11 @@
  * validation does not require dynamic code evaluation.
  */
 
-import type { ValidateFunction, ErrorObject } from "ajv/dist/2020";
+import type { ValidateFunction } from "ajv/dist/2020";
 import type { Root as RawScore } from "@viritura/core/raw";
 import type { MeasureGlobalExtensions } from "@viritura/core/raw-viritura";
 import { isSupportedDynamicGlyph } from "@viritura/core";
+import { diagnoseMnxSchemaErrors, normaliseErrors } from "./schemaDiagnostics";
 import { validateInstrumentChanges } from "./instrumentChangeValidation";
 import {
   mnxDocument,
@@ -121,7 +122,7 @@ export function validateRawScore(json: unknown): RawScoreValidationResult {
     return { ok: true, value };
   }
 
-  return { ok: false, errors: normaliseErrors(validate.errors) };
+  return { ok: false, errors: diagnoseMnxSchemaErrors(json, validate.errors) };
 }
 
 type JsonObject = Record<string, unknown>;
@@ -570,15 +571,6 @@ export class RawScoreValidationFailure extends Error {
     this.name = "RawScoreValidationFailure";
     this.errors = errors;
   }
-}
-
-function normaliseErrors(errors: ErrorObject[] | null | undefined): RawScoreValidationError[] {
-  if (!errors) return [];
-  return errors.map((e) => ({
-    pointer: e.instancePath || "(root)",
-    message: e.message ?? "(no message)",
-    keyword: e.keyword,
-  }));
 }
 
 /** Validate dynamic-group requirements currently expressed only by MNX prose. */

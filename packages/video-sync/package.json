@@ -14,14 +14,15 @@
     "@viritura/ui": "workspace:*",
     "lucide-react": "^1.48.0",
     "mediainfo.js": "0.3.8",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "typescript": "^5.7.0",
-    "vitest": "^4.1.11"
+    "vite": "^8.3.0",
+    "vitest": "^5.0.5"
   }
 }
