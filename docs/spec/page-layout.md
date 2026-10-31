@@ -38,6 +38,12 @@ says "7.0 sp" it means seven staff spaces.
 
 ---
 
+Horizon is one continuous logical system, even when the renderer partitions it
+into retained chunks. These seams are not musical system breaks: an ottava
+crossing one keeps a single label, continuous dashed line, and final endpoint
+hook. Cross-chunk ottavas use the same collision-aware geometry as an unchunked
+staff and are included in the overlay on both full and retained patch frames.
+
 ## 1. Horizontal spacing
 
 The horizontal pass lives under

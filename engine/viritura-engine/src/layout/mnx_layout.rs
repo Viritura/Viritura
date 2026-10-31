@@ -10,6 +10,7 @@
 
 mod auto_flow;
 mod break_planning;
+mod horizon_ottavas;
 mod measure_widths;
 mod mmr_grouping;
 mod page_turn_planning;

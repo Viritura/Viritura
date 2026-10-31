@@ -4,6 +4,7 @@ use super::element_id;
 use super::types::*;
 use crate::render::smufl::smufl;
 use crate::render::*;
+use std::borrow::Borrow;
 use std::collections::HashMap;
 
 // ═══════════════════════════════════════════
@@ -233,6 +234,33 @@ pub(crate) fn render_ottavas(
     sp: f64,
     part_index: usize,
 ) {
+    render_ottavas_filtered(dl, measure_layouts, staff_y, sp, part_index, |_, _| true);
+}
+
+pub(crate) fn render_ottavas_across_chunks(
+    dl: &mut DisplayList,
+    chunked_measures: &[(usize, &MeasureLayout)],
+    staff_y: f64,
+    sp: f64,
+    part_index: usize,
+) {
+    let measures: Vec<_> = chunked_measures
+        .iter()
+        .map(|(_, measure)| *measure)
+        .collect();
+    render_ottavas_filtered(dl, &measures, staff_y, sp, part_index, |start, end| {
+        chunked_measures[start].0 != chunked_measures[end].0
+    });
+}
+
+fn render_ottavas_filtered<M: Borrow<MeasureLayout>>(
+    dl: &mut DisplayList,
+    measure_layouts: &[M],
+    staff_y: f64,
+    sp: f64,
+    part_index: usize,
+    should_render: impl Fn(usize, usize) -> bool,
+) {
     let line_width = 0.16 * sp; // Bravura engravingDefaults.octaveLineThickness
     let hook_length = 1.0 * sp;
     let dash_length = 0.8 * sp;
@@ -253,12 +281,14 @@ pub(crate) fn render_ottavas(
     // Build measure ID → index map
     let mut measure_id_map: HashMap<String, usize> = HashMap::new();
     for (i, ml) in measure_layouts.iter().enumerate() {
+        let ml = ml.borrow();
         if let Some(ref id) = ml.resolved.global.id {
             measure_id_map.insert(id.clone(), i);
         }
     }
 
     for (start_mi, ml) in measure_layouts.iter().enumerate() {
+        let ml = ml.borrow();
         let ottavas = match &ml.resolved.part.ottavas {
             Some(o) if !o.is_empty() => o,
             _ => continue,
@@ -270,6 +300,14 @@ pub(crate) fn render_ottavas(
         let measure_idx = ml.resolved.index;
 
         for (oi, ott) in ottavas.iter().enumerate() {
+            // True system breaks use the continuation pass; Horizon chunk seams
+            // use this same collision-aware geometry over the whole logical staff.
+            let Some(&end_mi) = measure_id_map.get(&ott.end.measure) else {
+                continue;
+            };
+            if !should_render(start_mi, end_mi) {
+                continue;
+            }
             let above = match ott.placement {
                 Some(crate::model::Placement::Above) => true,
                 Some(crate::model::Placement::Below) => false,
@@ -307,12 +345,7 @@ pub(crate) fn render_ottavas(
             };
 
             // Compute end x from measure-rhythmic-position
-            // Cross-system ottavas are emitted by the dedicated post-pass once
-            // all system measure bounds are known.
-            let Some(&end_mi) = measure_id_map.get(&ott.end.measure) else {
-                continue;
-            };
-            let end_ml = &measure_layouts[end_mi];
+            let end_ml = measure_layouts[end_mi].borrow();
             let end_total_beats = end_ml.resolved.active_time.measure_beats();
             let end_content_width = super::render_barlines::rhythmic_content_width(end_ml, sp);
             let end_x_origin = end_ml.x + end_ml.prefix_width;
@@ -421,8 +454,8 @@ pub(crate) fn render_ottavas(
 ///
 /// Scans all note positions in the spanned measures and adjusts the Y coordinate
 /// so the ottava line clears the most extreme notes (including stems).
-fn compute_ottava_y(
-    measure_layouts: &[MeasureLayout],
+fn compute_ottava_y<M: Borrow<MeasureLayout>>(
+    measure_layouts: &[M],
     start_mi: usize,
     end_mi: usize,
     start_x: f64,
@@ -445,6 +478,7 @@ fn compute_ottava_y(
         let mut min_y = default_above_y + min_clearance; // sentinel
         let hi = mi_hi.min(measure_layouts.len() - 1);
         for ml in &measure_layouts[mi_lo..=hi] {
+            let ml = ml.borrow();
             for vl in &ml.voice_layouts {
                 for i in 0..vl.events.len() {
                     // Only consider events within the ottava's x range
@@ -476,6 +510,7 @@ fn compute_ottava_y(
         let mut max_y = default_below_y - min_clearance; // sentinel
         let hi = mi_hi.min(measure_layouts.len() - 1);
         for ml in &measure_layouts[mi_lo..=hi] {
+            let ml = ml.borrow();
             for vl in &ml.voice_layouts {
                 for i in 0..vl.events.len() {
                     let ex = vl.events.x(i);

@@ -898,6 +898,9 @@ pub(super) fn layout_auto_flow_mnx_score(
             chunked,
         );
         tick!("  cross_system_slurs");
+        if let Some(placement) = &chunked_global_offsets {
+            super::horizon_ottavas::render(&mut dl, &precomp_layouts, flat_staves, placement, sp);
+        }
         super::super::cross_system::render_layout_staff_spanner_continuations(
             &mut dl,
             score,
