@@ -5,7 +5,7 @@ use super::super::slurs::{GlobalSlurEvent, SystemSlurBounds};
 use super::super::ties::GlobalTieNote;
 use super::super::types::{AccidentalObstacle, MeasureLayout};
 use super::render_hashing::{staff_content_render_hash, system_has_cross_staff_events};
-use super::render_setup::{clef_change_hash, score_render_salt};
+use super::render_setup::{clef_change_hash, score_render_context_hash};
 use super::retained_segments::{display_list_store_marker, extract_display_list_range};
 use super::shared::{
     collect_system_slur_data, render_system_staff_content, render_system_staff_lines,
@@ -21,7 +21,7 @@ pub(super) struct ExplicitStaffRetention {
     prior: HashMap<u64, RetainedSegment>,
     next: HashMap<u64, RetainedSegment>,
     reused: usize,
-    score_salt: u64,
+    score_dependency_hash: u64,
 }
 
 impl ExplicitStaffRetention {
@@ -29,13 +29,13 @@ impl ExplicitStaffRetention {
         let mut hasher = DefaultHasher::new();
         "authored-staff-content".hash(&mut hasher);
         super::super::lyric_extenders::cache_dependency_hash(score).hash(&mut hasher);
-        super::super::volta::paged_ottava_render_salt(score, 0).hash(&mut hasher);
+        super::super::volta::paged_ottava_dependency_hash(score, 0).hash(&mut hasher);
         super::super::support_flags::engraving_flags(score).hash(&mut hasher);
         Self {
             prior: cache.take_retained_segments(),
             next: HashMap::new(),
             reused: 0,
-            score_salt: hasher.finish(),
+            score_dependency_hash: hasher.finish(),
         }
     }
 
@@ -142,8 +142,8 @@ pub(super) fn render_system_staves_and_contents(
             .iter()
             .flatten()
             .all(|measure| measure.resolved.effective_staff_meter.is_none());
-    let salt = if retain {
-        let salt = score_render_salt(
+    let context_hash = if retain {
+        let context_hash = score_render_context_hash(
             sp,
             4.0 * sp,
             config.barline_width * sp,
@@ -152,13 +152,14 @@ pub(super) fn render_system_staves_and_contents(
             group_ranges,
             None,
         );
-        let salt = super::super::instrument_changes::state_salt(score, flat_staves, salt);
+        let context_hash =
+            super::super::instrument_changes::state_salt(score, flat_staves, context_hash);
         let mut hasher = DefaultHasher::new();
-        salt.hash(&mut hasher);
+        context_hash.hash(&mut hasher);
         retention
             .as_ref()
             .expect("retention is enabled")
-            .score_salt
+            .score_dependency_hash
             .hash(&mut hasher);
         hasher.finish()
     } else {
@@ -182,7 +183,7 @@ pub(super) fn render_system_staves_and_contents(
                 staff_idx,
                 sys_idx == system_count - 1,
                 clef_hash,
-                salt,
+                context_hash,
             );
             let mut hasher = DefaultHasher::new();
             hash.hash(&mut hasher);

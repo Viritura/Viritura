@@ -15,10 +15,10 @@ pub(super) fn system_render_hash(
     margin_left: f64,
     sys_idx: usize,
     is_last_system: bool,
-    salt: u64,
+    context_hash: u64,
 ) -> u64 {
     let mut h = DefaultHasher::new();
-    salt.hash(&mut h);
+    context_hash.hash(&mut h);
     sys_idx.hash(&mut h);
     is_last_system.hash(&mut h);
     margin_left.to_bits().hash(&mut h);
@@ -79,10 +79,10 @@ pub(super) fn staff_content_render_hash(
     staff_idx: usize,
     is_last_system: bool,
     clef_change_hash: u64,
-    salt: u64,
+    context_hash: u64,
 ) -> u64 {
     let mut h = DefaultHasher::new();
-    salt.hash(&mut h);
+    context_hash.hash(&mut h);
     sys_idx.hash(&mut h);
     staff_idx.hash(&mut h);
     is_last_system.hash(&mut h);

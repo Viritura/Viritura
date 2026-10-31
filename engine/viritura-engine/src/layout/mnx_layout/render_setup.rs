@@ -55,7 +55,7 @@ pub(super) fn prepare_render_retention(
     instrument_name_display: Option<&InstrumentNameDisplaySettings>,
     cache: &mut Option<&mut cache::LayoutCache>,
 ) -> (u64, bool) {
-    let render_salt = score_render_salt(
+    let context_hash = score_render_context_hash(
         config.sp,
         4.0 * config.sp,
         config.barline_width * config.sp,
@@ -64,18 +64,20 @@ pub(super) fn prepare_render_retention(
         group_ranges,
         instrument_name_display,
     );
-    let render_salt = super::super::instrument_changes::state_salt(score, flat_staves, render_salt);
+    let context_hash =
+        super::super::instrument_changes::state_salt(score, flat_staves, context_hash);
     if config.page_width.is_none() {
-        return (render_salt, true);
+        return (context_hash, true);
     }
-    let render_salt = super::super::volta::paged_ottava_render_salt(score, render_salt);
+    let context_hash = super::super::volta::paged_ottava_dependency_hash(score, context_hash);
     let paged_ottavas_stable = cache.as_deref_mut().is_some_and(|cache| {
-        cache.update_paged_ottava_salt(super::super::volta::paged_ottava_render_salt(score, 0))
+        cache.update_paged_ottava_salt(super::super::volta::paged_ottava_dependency_hash(score, 0))
     });
-    (render_salt, paged_ottavas_stable)
+    (context_hash, paged_ottavas_stable)
 }
 
-pub(super) fn score_render_salt(
+/// Deterministic, non-cryptographic fingerprint of the rendering context.
+pub(super) fn score_render_context_hash(
     sp: f64,
     staff_height: f64,
     barline_width: f64,
