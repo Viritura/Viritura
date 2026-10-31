@@ -90,6 +90,47 @@ function scoreWithLyrics(): Score {
 }
 
 describe("resolveLyricExtenders", () => {
+  it("follows named voices across reordered sequences without crossing staves", () => {
+    const score = scoreWithLyrics();
+    const first = score.parts[0]!.measures[0]!.sequences[0]!;
+    first.voice = "singer";
+    first.content = first.content.slice(0, 1);
+    const next = score.parts[0]!.measures[1]!.sequences[0]!;
+    next.voice = "singer";
+    const continuation = next.content[0]!;
+    if (continuation.type !== "event") throw new Error("Expected event");
+    delete continuation.lyrics;
+    score.parts[0]!.measures[1]!.sequences.unshift({
+      voice: "other",
+      content: [{ type: "event", duration: { base: "whole" }, rest: {} }],
+    });
+    expect(resolveLyricExtenders(score).extenders).toEqual([
+      expect.objectContaining({ sourceEventId: "start", targetEventId: "explicit-source" }),
+    ]);
+    next.staff = 2;
+    expect(resolveLyricExtenders(score).extenders).toEqual([]);
+    next.staff = 1;
+    delete first.voice;
+    delete next.voice;
+    expect(resolveLyricExtenders(score).extenders).toEqual([]);
+  });
+
+  it("diagnoses intervening syllables in a named voice after sequence reordering", () => {
+    const score = scoreWithLyrics();
+    const first = score.parts[0]!.measures[0]!.sequences[0]!;
+    first.voice = "singer";
+    first.content = first.content.slice(0, 1);
+    const source = first.content[0]!;
+    if (source.type !== "event") throw new Error("Expected event");
+    source.lyrics!.lines!.verse!.extender = { target: "far-target" };
+    const next = score.parts[0]!.measures[1]!.sequences[0]!;
+    next.voice = "singer";
+    score.parts[0]!.measures[1]!.sequences.unshift({ voice: "other", content: [] });
+    expect(resolveLyricExtenders(score).diagnostics).toEqual([
+      expect.objectContaining({ code: "conflicting-target", sourceEventId: "start" }),
+    ]);
+  });
+
   it("diagnoses targets crossing an intervening syllable and backward targets", () => {
     const score = scoreWithLyrics();
     const source = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
