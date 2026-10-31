@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+import { cssBuildOptions } from "../../scripts/cssBuild";
 
 const configDirectory = fileURLToPath(new URL(".", import.meta.url));
 
@@ -11,11 +12,11 @@ export default defineConfig({
   },
   oxc: { target: "es2022" },
   build: {
+    ...cssBuildOptions,
     outDir: "dist",
     target: "es2022",
     sourcemap: false,
     minify: "esbuild",
-    cssMinify: "esbuild",
     cssCodeSplit: false,
     lib: {
       entry: resolve(configDirectory, "src/main.tsx"),

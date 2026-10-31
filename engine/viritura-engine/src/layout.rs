@@ -135,18 +135,7 @@ pub fn layout_score_cached(
         return layout_grand_staff_score_cached(score, part_index, config, cache);
     }
 
-    let _use_beams = score
-        .mnx
-        .support
-        .as_ref()
-        .and_then(|s| s.use_beams)
-        .unwrap_or(false);
-    let _use_accidental_display = score
-        .mnx
-        .support
-        .as_ref()
-        .and_then(|s| s.use_accidental_display)
-        .unwrap_or(false);
+    let (_use_beams, _use_accidental_display) = support_flags::engraving_flags(score);
     let sp = config.sp;
 
     // Resolve measures (merge global + part data, inherit time/key)
@@ -811,13 +800,14 @@ pub(crate) fn compute_above_staff_extra(
 /// Render the contents of a single system (staff lines already drawn by caller).
 /// `next_system_clef` is the explicit start clef of the next system's first measure, if any.
 /// When provided, a small courtesy clef is drawn at the end of this system before the barline.
-pub(crate) fn render_system_contents(
+fn render_system_contents(
     dl: &mut DisplayList,
     measure_layouts: &[MeasureLayout],
     staff_y: f64,
     sp: f64,
     config: &LayoutConfig,
     score: &Score,
+    staff_sources: &[full_score::FlatSource],
     lyric_line_order: Option<&[String]>,
     is_last_system: bool,
     part_idx: usize,
@@ -1004,7 +994,7 @@ pub(crate) fn render_system_contents(
         lyric_staff_number,
     );
     render_volta_brackets(dl, measure_layouts, staff_y, sp, part_idx);
-    render_ottavas(dl, measure_layouts, staff_y, sp, part_idx);
+    volta::render_ottavas_for_view(dl, measure_layouts, staff_y, config, score, staff_sources);
     render_hairpins(
         dl,
         measure_layouts,

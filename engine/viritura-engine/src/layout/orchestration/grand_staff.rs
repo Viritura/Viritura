@@ -1,6 +1,12 @@
 use super::super::trill_lines::render_trill_lines_for_system;
 use super::super::*;
+use crate::layout::volta::render_source_ottavas;
+
+mod measure_bounds;
 use crate::layout::staff_brace::brace_geometry;
+mod spanner_endpoints;
+use measure_bounds::push_grand_staff_measure_bounds;
+use spanner_endpoints::collect_staff_spanner_endpoints;
 
 pub(in crate::layout) fn compute_grand_staff_natural_widths(
     all_resolved: &[Vec<ResolvedMeasure>],
@@ -176,41 +182,6 @@ pub(in crate::layout) fn layout_grand_staff_system_measures(
     all_sys_layouts
 }
 
-fn push_grand_staff_measure_bounds(
-    dl: &mut DisplayList,
-    ml: &MeasureLayout,
-    staff_y: f64,
-    sp: f64,
-    part_index: usize,
-    staff_index: usize,
-    system_index: usize,
-    clef_change_measures: &HashSet<usize>,
-) {
-    let (total_beats, beat_anchors) = build_beat_anchors(ml);
-    let leading_clef_gap = render_measure::measure_leading_clef_gap(ml, sp, clef_change_measures);
-    let (x, width, prefix_width) = render_measure::measure_bounds_geometry(ml, leading_clef_gap);
-    dl.measure_bounds.push(crate::render::MeasureBounds {
-        index: ml.resolved.index,
-        measure_id: ml.resolved.global.id.clone(),
-        part_index,
-        part_id: dl.parts[0].id.clone(),
-        source_part_indices: Vec::new(),
-        staff_index,
-        system_index,
-        x,
-        width,
-        y: staff_y,
-        height: 4.0 * sp,
-        prefix_width,
-        total_beats,
-        beat_anchors,
-        ghost_staff: false,
-        is_hidden: false,
-        has_music_hidden: false,
-        is_expansion: false,
-    });
-}
-
 /// Grand-staff helper — render every staff of one system: staff lines, per-measure
 /// content, beams, ties, slurs, glissandos, ottavas, hairpins, pedals, and
 /// per-staff slur-bound accumulation for the cross-system pass.
@@ -222,6 +193,7 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
     margin_left: f64,
     sp: f64,
     config: &LayoutConfig,
+    score: &Score,
     use_beams: bool,
     use_accidental_display: bool,
     lyric_line_order: Option<&[String]>,
@@ -398,7 +370,14 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
             sp,
             slur_geom_start,
         );
-        render_ottavas(dl, layouts, staff_y, sp, part_index);
+        render_source_ottavas(
+            dl,
+            layouts,
+            staff_y,
+            config,
+            score,
+            (part_index, si as u32 + 1),
+        );
         render_hairpins(
             dl,
             layouts,
@@ -412,33 +391,18 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
         );
         render_pedals(dl, layouts, staff_y, sp, config, part_index);
 
-        slur_bounds.insert(
+        collect_staff_spanner_endpoints(
+            layouts,
+            staff_y_offsets,
+            sp,
+            config,
             (sys_idx, part_index, si),
             slurs::SystemSlurBounds {
                 left_x: margin_left,
                 right_x: x_end,
             },
-        );
-        slurs::collect_global_slur_events(
-            layouts,
-            staff_y,
-            Some(staff_y_offsets),
-            sp,
-            config,
-            sys_idx,
-            part_index,
-            si,
+            slur_bounds,
             global_slur_events,
-        );
-        collect_global_tie_notes(
-            layouts,
-            staff_y,
-            Some(staff_y_offsets),
-            sp,
-            config,
-            sys_idx,
-            part_index,
-            si,
             global_tie_notes,
         );
     }
@@ -835,6 +799,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
             margin_left,
             sp,
             config,
+            score,
             use_beams,
             use_accidental_display,
             lyric_line_order,

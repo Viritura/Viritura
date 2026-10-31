@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { cssBuildOptions } from "../../scripts/cssBuild";
 import path from "node:path";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
@@ -15,6 +16,7 @@ export default defineConfig({
     "process.env.NODE_ENV": JSON.stringify("production"),
   },
   build: {
+    ...cssBuildOptions,
     emptyOutDir: false,
     outDir: "media",
     sourcemap: false,

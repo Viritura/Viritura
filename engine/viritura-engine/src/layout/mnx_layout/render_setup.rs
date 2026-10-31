@@ -46,6 +46,35 @@ pub(super) fn render_head(
     );
 }
 
+pub(super) fn prepare_render_retention(
+    score: &Score,
+    config: &LayoutConfig,
+    lyric_line_order: Option<&[String]>,
+    flat_staves: &[FlatStaff],
+    group_ranges: &[GroupRange],
+    instrument_name_display: Option<&InstrumentNameDisplaySettings>,
+    cache: &mut Option<&mut cache::LayoutCache>,
+) -> (u64, bool) {
+    let render_salt = score_render_salt(
+        config.sp,
+        4.0 * config.sp,
+        config.barline_width * config.sp,
+        lyric_line_order,
+        flat_staves,
+        group_ranges,
+        instrument_name_display,
+    );
+    let render_salt = super::super::instrument_changes::state_salt(score, flat_staves, render_salt);
+    if config.page_width.is_none() {
+        return (render_salt, true);
+    }
+    let render_salt = super::super::volta::paged_ottava_render_salt(score, render_salt);
+    let paged_ottavas_stable = cache.as_deref_mut().is_some_and(|cache| {
+        cache.update_paged_ottava_salt(super::super::volta::paged_ottava_render_salt(score, 0))
+    });
+    (render_salt, paged_ottavas_stable)
+}
+
 pub(super) fn score_render_salt(
     sp: f64,
     staff_height: f64,
