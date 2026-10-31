@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NoteEvent, Score } from "@viritura/core";
+import { resolveLyricExtenders } from "@viritura/core";
 import { buildClipboardSelection } from "../clipboard/buildClipboardSelection";
 import { deserializeFragment } from "../clipboard/deserialize";
 import { serializeFragment } from "../clipboard/serialize";
@@ -12,6 +13,7 @@ import {
   setLyricExtenderTarget,
 } from "../commands/lyricCommands";
 import { lyricElementId } from "../score/ElementPath";
+import { computeDeleteSelection } from "../commands/computeDeleteSelection";
 
 function scoreWithLyrics(): Score {
   return {
@@ -54,6 +56,50 @@ function scoreWithLyrics(): Score {
 }
 
 describe("lyric clipboard behavior", () => {
+  it("preserves external clipboard endpoints and diagnoses them only when absent from the destination", () => {
+    const source = scoreWithLyrics();
+    const selected = lyricElementId("p0/m0/s0/source", "original");
+    const targeted = setLyricExtenderTarget(source, selected, "target")!;
+    const copied = buildClipboardSelection(targeted, {
+      kind: "single",
+      elementId: "p0/m0/s0/source",
+      elementType: "event",
+    })!;
+    const fragment = deserializeFragment(
+      serializeFragment(copied.events, copied.timeSignature, copied.keySignature, copied.tracks),
+    )!;
+    const pastedContent = pasteResultFromFragment(fragment).content;
+    const pastedEvent = pastedContent[0] as NoteEvent;
+    expect(pastedEvent.lyrics?.lines?.original?.extender?.target).toBe("target");
+    expect(pastedEvent.id).not.toBe("source");
+    const destination = scoreWithLyrics();
+    destination.parts[0]!.measures[0]!.sequences[0]!.content[0] = pastedEvent;
+    expect(resolveLyricExtenders(destination).diagnostics).toEqual([]);
+    destination.parts[0]!.measures[0]!.sequences[0]!.content.pop();
+    expect(resolveLyricExtenders(destination).diagnostics).toEqual([
+      expect.objectContaining({ code: "missing-target", targetEventId: "target", sourceEventId: pastedEvent.id }),
+    ]);
+    expect(pastedEvent.lyrics?.lines?.original?.extender?.target).toBe("target");
+  });
+
+  it("deletion and undo retain explicit target intent rather than silently switching to inference", () => {
+    const score = setLyricExtenderTarget(scoreWithLyrics(), lyricElementId("p0/m0/s0/source", "original"), "target")!;
+    const undoSnapshot = structuredClone(score);
+    const deletion = computeDeleteSelection(score, {
+      kind: "single",
+      elementId: "p0/m0/s0/target",
+      elementType: "event",
+    });
+    if (deletion.kind !== "single") throw new Error("Expected event deletion");
+    expect(resolveLyricExtenders(deletion.score).diagnostics[0]?.code).toBe("missing-target");
+    expect(resolveLyricExtenders(deletion.score).extenders).toEqual([]);
+    expect(resolveLyricExtenders(undoSnapshot).extenders[0]?.targetEventId).toBe("target");
+    const hidden = setLyricExtenderMode(deletion.score, lyricElementId("p0/m0/s0/source", "original"), "hide")!;
+    expect(resolveLyricExtenders(hidden).diagnostics).toEqual([]);
+    expect(
+      (hidden.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent).lyrics?.lines?.original?.extender?.target,
+    ).toBe("target");
+  });
   it("treats a selected syllable as text rather than copying its parent event", () => {
     const score = scoreWithLyrics();
     const selection = {

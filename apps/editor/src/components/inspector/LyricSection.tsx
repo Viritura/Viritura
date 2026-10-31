@@ -17,6 +17,7 @@ interface LyricSectionProps {
   extenderMode: "auto" | "show" | "hide";
   extenderTarget?: string;
   extenderTargetOptions: LyricLineOption[];
+  extenderDiagnostic?: string;
   onTextChange: (text: string) => void;
   onSyllabicTypeChange: (type: LyricLineType) => void;
   onLineChange: (lineId: string) => void;
@@ -39,6 +40,7 @@ export function LyricSection({
   extenderMode,
   extenderTarget,
   extenderTargetOptions,
+  extenderDiagnostic,
   onTextChange,
   onSyllabicTypeChange,
   onLineChange,
@@ -105,6 +107,7 @@ export function LyricSection({
           />
         </label>
       )}
+      {extenderDiagnostic && <p role="status">{extenderDiagnostic}</p>}
     </fieldset>
   );
 }

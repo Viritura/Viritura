@@ -33,117 +33,6 @@ struct VisibleEvent<'a> {
     end_x: f64,
 }
 
-fn collect_content<'a>(
-    content: &'a [SequenceContent],
-    part_index: usize,
-    sequence_index: usize,
-    voice: Option<&'a str>,
-    event_index: &mut usize,
-    staff_number: u32,
-    measure_index: usize,
-    measure_start_beat: f64,
-    start_beat: f64,
-    scale: f64,
-    output: &mut Vec<LocatedEvent<'a>>,
-) -> f64 {
-    let mut cursor = start_beat;
-    for item in content {
-        match item {
-            SequenceContent::Event(event) => {
-                let duration_beats = event.duration.total_beats() * scale;
-                output.push(LocatedEvent {
-                    event,
-                    part_index,
-                    sequence_index,
-                    voice,
-                    event_index: *event_index,
-                    staff_number,
-                    measure_index,
-                    measure_start_beat,
-                    start_beat: cursor,
-                    duration_beats,
-                    order: output.len(),
-                });
-                *event_index += 1;
-                cursor += duration_beats;
-            }
-            SequenceContent::Tuplet(tuplet) => {
-                let inner = tuplet.inner.duration.total_beats() * f64::from(tuplet.inner.multiple);
-                let outer = tuplet.outer.duration.total_beats() * f64::from(tuplet.outer.multiple);
-                let ratio = if inner > 0.0 { outer / inner } else { 1.0 };
-                let end = collect_content(
-                    &tuplet.content,
-                    part_index,
-                    sequence_index,
-                    voice,
-                    event_index,
-                    staff_number,
-                    measure_index,
-                    measure_start_beat,
-                    cursor,
-                    scale * ratio,
-                    output,
-                );
-                cursor = end.max(cursor + outer * scale);
-            }
-            SequenceContent::MultiNoteTremolo(tremolo) => {
-                let outer =
-                    tremolo.outer.duration.total_beats() * f64::from(tremolo.outer.multiple);
-                let natural = tremolo
-                    .content
-                    .iter()
-                    .map(|event| event.duration.total_beats())
-                    .sum::<f64>();
-                let ratio = if natural > 0.0 { outer / natural } else { 1.0 };
-                for event in &tremolo.content {
-                    let duration_beats = event.duration.total_beats() * scale * ratio;
-                    output.push(LocatedEvent {
-                        event,
-                        part_index,
-                        sequence_index,
-                        voice,
-                        event_index: *event_index,
-                        staff_number,
-                        measure_index,
-                        measure_start_beat,
-                        start_beat: cursor,
-                        duration_beats,
-                        order: output.len(),
-                    });
-                    *event_index += 1;
-                    cursor += duration_beats;
-                }
-                cursor = cursor.max(start_beat + outer * scale);
-            }
-            SequenceContent::Grace(grace) => {
-                for event in &grace.content {
-                    output.push(LocatedEvent {
-                        event,
-                        part_index,
-                        sequence_index,
-                        voice,
-                        event_index: *event_index,
-                        staff_number,
-                        measure_index,
-                        measure_start_beat,
-                        start_beat: cursor,
-                        duration_beats: event.duration.total_beats(),
-                        order: output.len(),
-                    });
-                }
-            }
-            SequenceContent::Space(space) => {
-                let (numerator, denominator) = space.duration;
-                if denominator > 0 {
-                    cursor += (f64::from(numerator) * 4.0 / f64::from(denominator)) * scale;
-                }
-            }
-            SequenceContent::Other(_) => {}
-        }
-    }
-    cursor
-}
-
 fn collect_score_events(score: &Score) -> Vec<LocatedEvent<'_>> {
     let mut output = Vec::new();
     let measure_count = score.global.measures.len().max(
@@ -155,7 +44,8 @@ fn collect_score_events(score: &Score) -> Vec<LocatedEvent<'_>> {
             .unwrap_or(0),
     );
     let mut measure_starts = Vec::with_capacity(measure_count);
-    let (mut count, mut unit) = (4.0, 4.0);
+    let mut meters = Vec::with_capacity(measure_count);
+    let mut meter = TimeSignature::default();
     let mut beat = 0.0;
     for index in 0..measure_count {
         if let Some(time) = score
@@ -164,31 +54,97 @@ fn collect_score_events(score: &Score) -> Vec<LocatedEvent<'_>> {
             .get(index)
             .and_then(|measure| measure.time.as_ref())
         {
-            count = f64::from(time.count);
-            unit = f64::from(time.unit.max(1));
+            meter = time.clone();
         }
+        meters.push(meter.clone());
         measure_starts.push(beat);
-        beat += count * 4.0 / unit;
+        beat += meter.measure_beats();
     }
+    let mut written_spans = vec![0.0_f64; measure_count];
     for (part_index, part) in score.parts.iter().enumerate() {
+        let (staff_meters, _) =
+            crate::model::staff_meter::resolve_staff_meter_table(&part.measures, &meters);
         for (measure_index, measure) in part.measures.iter().enumerate() {
             let measure_start_beat = measure_starts.get(measure_index).copied().unwrap_or(0.0);
             for (sequence_index, sequence) in measure.sequences.iter().enumerate() {
-                collect_content(
-                    &sequence.content,
-                    part_index,
-                    sequence_index,
-                    sequence.voice.as_deref(),
-                    &mut 0,
-                    sequence.staff.unwrap_or(1),
-                    measure_index,
-                    measure_start_beat,
-                    measure_start_beat,
-                    1.0,
-                    &mut output,
-                );
+                let staff_number = sequence.staff.unwrap_or(1);
+                let ratio = staff_meters[measure_index]
+                    .get(&staff_number)
+                    .map_or(1.0, |meter| meter.ratio_to_global.as_f64());
+                let timeline =
+                    super::spacing::sequence_timeline(sequence, sequence_index, 1, ratio);
+                if sequence.full_measure.is_none() {
+                    written_spans[measure_index] =
+                        written_spans[measure_index].max(timeline.duration_beats);
+                }
+                for (event_index, timed) in timeline.events.iter().enumerate() {
+                    let graces = timeline.grace_before.get(&timed.key);
+                    for event in graces
+                        .into_iter()
+                        .flatten()
+                        .copied()
+                        .chain(std::iter::once(timed.event))
+                    {
+                        output.push(LocatedEvent {
+                            event,
+                            part_index,
+                            sequence_index,
+                            voice: sequence.voice.as_deref(),
+                            event_index,
+                            staff_number,
+                            measure_index,
+                            measure_start_beat,
+                            start_beat: measure_start_beat + timed.key.beats(),
+                            duration_beats: if std::ptr::eq(event, timed.event) {
+                                timed.duration_beats
+                            } else {
+                                0.0
+                            },
+                            order: output.len(),
+                        });
+                    }
+                }
+                if let Some(last) = timeline.events.last() {
+                    for event in timeline.grace_after.get(&last.key).into_iter().flatten() {
+                        output.push(LocatedEvent {
+                            event,
+                            part_index,
+                            sequence_index,
+                            voice: sequence.voice.as_deref(),
+                            event_index: timeline.events.len().saturating_sub(1),
+                            staff_number,
+                            measure_index,
+                            measure_start_beat,
+                            start_beat: measure_start_beat + timeline.duration_beats,
+                            duration_beats: 0.0,
+                            order: output.len(),
+                        });
+                    }
+                }
             }
         }
+    }
+    let mut correction = 0.0;
+    let mut corrections = Vec::with_capacity(measure_count);
+    for index in 0..measure_count {
+        corrections.push(correction);
+        let nominal = meters[index].measure_beats();
+        let global = score.global.measures.get(index);
+        if index == 0
+            && global.is_some_and(|measure| measure.number == Some(0))
+            && written_spans[index] > 0.0
+        {
+            correction += written_spans[index] - nominal;
+        } else if global
+            .and_then(|measure| measure.time.as_ref())
+            .is_some_and(|time| time.display == Some(TimeSignatureDisplay::SenzaMisura))
+        {
+            correction += written_spans[index].max(nominal) - nominal;
+        }
+    }
+    for event in &mut output {
+        event.start_beat += corrections[event.measure_index];
+        event.measure_start_beat += corrections[event.measure_index];
     }
     output
 }
@@ -213,6 +169,19 @@ pub(super) fn cache_dependency_hash(score: &Score) -> u64 {
         .as_ref()
         .and_then(|support| support.use_lyric_extenders)
         .hash(&mut hasher);
+    for (part_index, part) in score.parts.iter().enumerate() {
+        for (measure_index, measure) in part.measures.iter().enumerate() {
+            for (sequence_index, sequence) in measure.sequences.iter().enumerate() {
+                if sequence.full_measure.is_some() {
+                    part_index.hash(&mut hasher);
+                    measure_index.hash(&mut hasher);
+                    sequence_index.hash(&mut hasher);
+                    sequence.staff.hash(&mut hasher);
+                    sequence.voice.hash(&mut hasher);
+                }
+            }
+        }
+    }
     for located in events {
         located.part_index.hash(&mut hasher);
         located.sequence_index.hash(&mut hasher);
@@ -220,6 +189,8 @@ pub(super) fn cache_dependency_hash(score: &Score) -> u64 {
         located.staff_number.hash(&mut hasher);
         located.measure_index.hash(&mut hasher);
         located.order.hash(&mut hasher);
+        located.start_beat.to_bits().hash(&mut hasher);
+        located.duration_beats.to_bits().hash(&mut hasher);
         serde_json::to_string(located.event)
             .expect("score events are serializable")
             .hash(&mut hasher);
@@ -294,6 +265,7 @@ fn same_lyric_voice(source: &LocatedEvent<'_>, candidate: &LocatedEvent<'_>) -> 
 }
 
 fn inferred_target<'score, 'events>(
+    score: &Score,
     source: &LocatedEvent<'score>,
     line_id: &str,
     events: &'events [LocatedEvent<'score>],
@@ -304,7 +276,28 @@ fn inferred_target<'score, 'events>(
             && (candidate.start_beat > source.start_beat
                 || (candidate.start_beat == source.start_beat && candidate.order > source.order))
     }) {
-        if candidate.event.is_rest()
+        let full_measure_rest = score.parts[source.part_index]
+            .measures
+            .iter()
+            .enumerate()
+            .skip(source.measure_index + 1)
+            .take(candidate.measure_index.saturating_sub(source.measure_index))
+            .any(|(_, measure)| {
+                measure
+                    .sequences
+                    .iter()
+                    .enumerate()
+                    .any(|(index, sequence)| {
+                        sequence.full_measure.is_some()
+                            && sequence.staff.unwrap_or(1) == source.staff_number
+                            && match source.voice {
+                                Some(voice) => sequence.voice.as_deref() == Some(voice),
+                                None => sequence.voice.is_none() && index == source.sequence_index,
+                            }
+                    })
+            });
+        if full_measure_rest
+            || candidate.event.is_rest()
             || candidate
                 .event
                 .lyrics
@@ -320,6 +313,7 @@ fn inferred_target<'score, 'events>(
 }
 
 fn target_for<'score, 'events>(
+    score: &Score,
     source: &LocatedEvent<'score>,
     line_id: &str,
     line: &LyricLine,
@@ -351,7 +345,7 @@ fn target_for<'score, 'events>(
                             || candidate.order >= source.order)))
         });
     }
-    inferred_target(source, line_id, events)
+    inferred_target(score, source, line_id, events)
 }
 
 fn crosses_later_syllable(
@@ -432,7 +426,8 @@ pub(super) fn active_line_ids_for_system(
             continue;
         };
         for (line_id, line) in lines {
-            let Some(target) = target_for(source, line_id, line, &events, explicit_policy) else {
+            let Some(target) = target_for(score, source, line_id, line, &events, explicit_policy)
+            else {
                 continue;
             };
             let conflicts = target.order != source.order
@@ -484,7 +479,7 @@ pub(super) fn render_part_system_extenders(
     staff_y: f64,
     sp: f64,
     config: &LayoutConfig,
-    global_line_order: Option<&[String]>,
+    system_line_order: Option<&[String]>,
     staff_number: u32,
 ) {
     render_system_extenders(
@@ -495,7 +490,7 @@ pub(super) fn render_part_system_extenders(
         staff_y,
         sp,
         config,
-        global_line_order,
+        system_line_order,
         staff_number,
         None,
     );
@@ -509,7 +504,7 @@ pub(super) fn render_system_extenders(
     staff_y: f64,
     sp: f64,
     config: &LayoutConfig,
-    global_line_order: Option<&[String]>,
+    system_line_order: Option<&[String]>,
     staff_number: u32,
     all_system_layouts: Option<&[Vec<MeasureLayout>]>,
 ) {
@@ -546,22 +541,7 @@ pub(super) fn render_system_extenders(
         .as_ref()
         .and_then(|support| support.use_lyric_extenders)
         .unwrap_or(false);
-    let all_line_ids: HashSet<String> = events
-        .iter()
-        .filter(|located| located.part_index == part_index && located.staff_number == staff_number)
-        .flat_map(|located| {
-            located
-                .event
-                .lyrics
-                .as_ref()
-                .and_then(|lyrics| lyrics.lines.as_ref())
-                .into_iter()
-                .flat_map(|lines| lines.keys().cloned())
-        })
-        .collect();
-    let ordered_lines =
-        super::render_lyrics::line_order_for_used_lines(all_line_ids, global_line_order);
-    let Some(ordered_lines) = ordered_lines else {
+    let Some(ordered_lines) = system_line_order else {
         return;
     };
     let lyric_metrics = config.placement.resolve(ElementKind::Lyric);
@@ -585,7 +565,8 @@ pub(super) fn render_system_extenders(
             continue;
         };
         for (line_id, line) in lines {
-            let Some(target) = target_for(source, line_id, line, &events, explicit_policy) else {
+            let Some(target) = target_for(score, source, line_id, line, &events, explicit_policy)
+            else {
                 continue;
             };
             if target.start_beat < source.start_beat
