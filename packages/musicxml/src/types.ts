@@ -1,6 +1,6 @@
 // ─── MNX document output types (schema version 36) ──────────────────
 
-import type { ChordSymbol, DynamicGroup, NoteMarkings, Part, TextContent } from "@viritura/core";
+import type { ChordSymbol, DynamicGroup, Jump, NoteMarkings, Part, TextContent } from "@viritura/core";
 
 export interface MnxDocument {
   mnx: { version: number; support?: { useLyricExtenders?: boolean } };
@@ -40,12 +40,9 @@ export interface MnxGlobalMeasure {
   ending?: MnxEnding;
   tempos?: MnxTempo[];
   segno?: { location: MnxRhythmicPosition; glyph?: string; color?: string };
-  fine?: { location: MnxRhythmicPosition };
   coda?: { location: MnxRhythmicPosition; glyph?: string; color?: string };
-  jump?: {
-    type: "dc" | "dcAlCoda" | "dcAlFine" | "dsAlCoda" | "dsAlFine" | "segno" | "toCoda";
-    location: MnxRhythmicPosition;
-  };
+  fine?: { location: MnxRhythmicPosition };
+  jump?: { type: Jump["type"]; location: MnxRhythmicPosition };
   _x?: {
     viritura: {
       chordSymbols?: ChordSymbol[];

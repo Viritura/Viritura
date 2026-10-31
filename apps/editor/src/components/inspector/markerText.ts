@@ -12,13 +12,13 @@ interface MarkerDefinition {
   /** What the placement is relative to: a glyph symbol or a generated label. */
   noun: "symbol" | "label";
   placeholder: string;
-  /** "To Coda" conventionally precedes its sign; other instructions follow. */
+  /** Authored annotation placement; never determines navigation. */
   defaultPlacement: MarkerTextPlacement;
 }
 
 export const MARKER_DEFINITIONS: Record<NavigationMarkerKind, MarkerDefinition> = {
   segno: { title: "Segno", noun: "symbol", placeholder: "e.g. from here", defaultPlacement: "after" },
-  coda: { title: "Coda", noun: "symbol", placeholder: "e.g. To Coda", defaultPlacement: "before" },
+  coda: { title: "Coda", noun: "symbol", placeholder: "e.g. ending section", defaultPlacement: "after" },
   fine: { title: "Fine", noun: "label", placeholder: "e.g. last time only", defaultPlacement: "after" },
   jump: { title: "Jump", noun: "label", placeholder: "e.g. with repeats", defaultPlacement: "after" },
 };

@@ -135,18 +135,7 @@ pub fn layout_score_cached(
         return layout_grand_staff_score_cached(score, part_index, config, cache);
     }
 
-    let _use_beams = score
-        .mnx
-        .support
-        .as_ref()
-        .and_then(|s| s.use_beams)
-        .unwrap_or(false);
-    let _use_accidental_display = score
-        .mnx
-        .support
-        .as_ref()
-        .and_then(|s| s.use_accidental_display)
-        .unwrap_or(false);
+    let (_use_beams, _use_accidental_display) = support_flags::engraving_flags(score);
     let sp = config.sp;
 
     // Resolve measures (merge global + part data, inherit time/key)

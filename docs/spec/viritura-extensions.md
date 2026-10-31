@@ -16,7 +16,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, videoSync, lyricWorkflow |
 | score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks, textFrames                                                            |
 | [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                     |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX, markerText, chordSymbols                                               |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                               |
 | [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                               |
 | [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                     |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                 |
@@ -964,37 +964,25 @@ A rehearsal mark displayed above the staff.
 }
 ```
 
-### `coda`
+### Native navigation
 
-A coda navigation marker.
+MNX v46 stores `coda` and `jump` directly on the global measure. Coda is a
+destination, distinct from the `toCoda` jump instruction. Jump types are `dc`,
+`dcAlCoda`, `dcAlFine`, `dsAlCoda`, `dsAlFine`, `segno` (plain D.S.), and
+`toCoda`. Navigation is not stored in vendor extensions.
 
-| Property   | Type                                   | Required | Description                 |
-| ---------- | -------------------------------------- | -------- | --------------------------- |
-| `location` | [RhythmicPosition](#rhythmic-position) | **Yes**  | Position within the measure |
-| `glyph`    | string                                 | No       | SMuFL glyph name override   |
-| `color`    | string                                 | No       | Rendering color (CSS hex)   |
+The Repeats palette and radial menu author every native instruction. Segno
+and coda destinations use the selected event's onset; Fine and jump
+instructions use its end. Measure selections use the opening/closing boundary;
+barline selections put destinations after and concluding instructions before
+the boundary. The inspector exposes the exact whole-note fraction, jump type,
+segno/coda SMuFL glyph and applicable color, independently of authored text.
+These changes and marker deletion use the editor's normal undo/redo pipeline.
 
-```json
-{
-  "_x": {
-    "viritura": {
-      "coda": { "location": { "fraction": [0, 1] } }
-    }
-  }
-}
-```
-
-### `jump`
-
-Navigation jumps not covered by MNX's current `jump.type` enum.
-
-| Property   | Type                                   | Required | Description                 |
-| ---------- | -------------------------------------- | -------- | --------------------------- |
-| `type`     | `"dsalcoda"` \| `"dcalcoda"`           | **Yes**  | Jump variant                |
-| `location` | [RhythmicPosition](#rhythmic-position) | **Yes**  | Position within the measure |
-
-Use native MNX `jump` for standard values such as `dsalfine`; use this extension
-only when the target jump type is not yet in the spec enum.
+MusicXML/MXL navigation sound attributes preserve these native destinations
+and instructions without enabling Viritura extensions. D.C./D.S. directions
+combine explicit sound routing with their al Fine/al Coda qualifier; authored
+"To Coda" text alone never creates a trigger.
 
 ### `markerText`
 
@@ -1005,8 +993,7 @@ authoritative for playback, and moving or deleting the marker carries its text
 with it.
 
 `markerText` is an object keyed by owner. Each present key requires that marker
-on the measure (native MNX `segno`, `fine`, or `jump`; the Viritura `coda` or
-`jump` variant above).
+on the measure (native MNX `segno`, `coda`, `fine`, or `jump`).
 
 | Property    | Type                                        | Required | Description                                       |
 | ----------- | ------------------------------------------- | -------- | ------------------------------------------------- |
@@ -1014,20 +1001,21 @@ on the measure (native MNX `segno`, `fine`, or `jump`; the Viritura `coda` or
 | `placement` | `"before"` \| `"after"` \| `"replace"`      | **Yes**  | Position relative to the generated glyph or label |
 
 For the glyph markers (segno, coda), `before` and `after` set the text on the
-same line as the sign, centred on its ink, so "To Coda ⊕" is a coda with
-`before` text. For the text markers (fine, jump), the authored content is
+same line as the sign, centred on its ink. Labeling a coda destination
+"To Coda" does not turn it into a trigger: use native `jump.type: "toCoda"`.
+For the text markers (fine, jump), the authored content is
 joined to the generated label with a word space. `replace` prints only the
 authored content. Blank authored content leaves the generated glyph or label
 unchanged.
 
 ```json
 {
-  "jump": { "type": "dsalfine", "location": { "fraction": [1, 1] } },
+  "jump": { "type": "dsAlCoda", "location": { "fraction": [1, 1] } },
+  "coda": { "location": { "fraction": [0, 1] } },
   "_x": {
     "viritura": {
-      "coda": { "location": { "fraction": [1, 1] } },
       "markerText": {
-        "coda": { "content": [{ "text": "To Coda" }], "placement": "before" },
+        "coda": { "content": [{ "text": "ending" }], "placement": "after" },
         "jump": { "content": [{ "text": "with repeats" }], "placement": "after" }
       }
     }
