@@ -56,18 +56,22 @@ export interface PercussionImportReview {
   reason: string;
 }
 
-function hasLyricExtender(content: readonly MnxSequenceContent[]): boolean {
-  return content.some((item) => {
-    if (item.type === "tuplet") return hasLyricExtender(item.content);
-    if (item.type === "grace" || item.type === "tremolo") {
-      return item.content.some((event) =>
-        Object.values(event.lyrics?.lines ?? {}).some((line) => line.extender !== undefined),
-      );
+function lyricExtenderCoverage(content: readonly MnxSequenceContent[]): { explicit: boolean; implicit: boolean } {
+  let explicit = false;
+  let implicit = false;
+  for (const item of content) {
+    if (item.type === "tuplet" || item.type === "grace" || item.type === "tremolo") {
+      const nested = lyricExtenderCoverage(item.content);
+      explicit ||= nested.explicit;
+      implicit ||= nested.implicit;
+    } else if (item.type === undefined) {
+      for (const line of Object.values(item.lyrics?.lines ?? {})) {
+        explicit ||= line.extender !== undefined;
+        implicit ||= line.extender === undefined;
+      }
     }
-    return (
-      item.type === undefined && Object.values(item.lyrics?.lines ?? {}).some((line) => line.extender !== undefined)
-    );
-  });
+  }
+  return { explicit, implicit };
 }
 
 /**
@@ -109,10 +113,14 @@ export function convertMusicXmlToMnx(xmlString: string, options?: ConvertOptions
     global: { measures: globalMeasures },
     parts: mnxParts,
   };
-  const hasExplicitLyricExtenders = mnxParts.some((part) =>
-    part.measures.some((measure) => measure.sequences?.some((sequence) => hasLyricExtender(sequence.content))),
+  const lyricCoverage = mnxParts.flatMap((part) =>
+    part.measures.flatMap(
+      (measure) => measure.sequences?.map((sequence) => lyricExtenderCoverage(sequence.content)) ?? [],
+    ),
   );
-  if (hasExplicitLyricExtenders) result.mnx.support = { useLyricExtenders: true };
+  if (lyricCoverage.some((coverage) => coverage.explicit) && !lyricCoverage.some((coverage) => coverage.implicit)) {
+    result.mnx.support = { useLyricExtenders: true };
+  }
 
   // Route unpitched-percussion parts to drum-kit notes so playback uses the
   // GM drum channel instead of voicing them as piano.

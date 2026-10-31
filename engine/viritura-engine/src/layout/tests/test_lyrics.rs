@@ -381,7 +381,9 @@ fn test_sparse_lyric_lines_keep_stable_rows_within_system() {
     let lyric_boxes: Vec<&ElementBBox> = dl
         .element_bboxes
         .iter()
-        .filter(|bbox| bbox.element_id.contains("/lyric-"))
+        .filter(|bbox| {
+            bbox.element_id.contains("/lyric-") && (bbox.bbox.height - 1.6 * config.sp).abs() < 1e-6
+        })
         .collect();
     assert_eq!(lyric_boxes.len(), 2, "Each syllable needs its own hit box");
     assert!(
@@ -597,4 +599,159 @@ fn test_lyric_extender_cache_dependency_tracks_remote_endpoint_duration() {
         before, after,
         "remote endpoint changes must invalidate retained systems"
     );
+}
+
+#[test]
+fn test_lyric_extenders_without_ids_share_the_lyric_text_anchor() {
+    let mut json = serde_json::json!({
+        "mnx":{"version":1},
+        "global":{"measures":[{"time":{"count":4,"unit":4}}]},
+        "parts":[{"measures":[{"sequences":[{"content":[
+            {"duration":{"base":"quarter"},"notes":[{"pitch":{"step":"C","octave":4}}]},
+            {"type":"grace","content":[
+                {"duration":{"base":"eighth"},"notes":[{"pitch":{"step":"D","octave":4}}]}
+            ]},
+            {"duration":{"base":"quarter"},"notes":[{"pitch":{"step":"E","octave":4}}],
+             "lyrics":{"lines":{"1":{"text":"Ah","extender":{}}}}},
+            {"duration":{"base":"half"},"notes":[{"pitch":{"step":"F","octave":4}}]}
+        ]}]}]}]
+    });
+    let config = LayoutConfig::default();
+    let score = crate::parse::parse_mnx_strict(&json.to_string()).unwrap();
+    let dl = layout_full_score(&score, &config);
+    let segments: Vec<_> = dl
+        .commands
+        .iter()
+        .zip(&dl.element_ids)
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawLine { x1, x2, .. }
+                if id.as_deref() == Some("p0/m0/s0/e1/lyric-31") =>
+            {
+                Some((*x1, *x2))
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(segments.len(), 1);
+    assert!(segments[0].1 > segments[0].0);
+    assert!(dl
+        .commands
+        .iter()
+        .zip(&dl.element_ids)
+        .any(|(command, id)| {
+            matches!(command, RenderCommand::DrawText { text, .. } if text == "Ah")
+                && id.as_deref() == Some("p0/m0/s0/e1/lyric-31")
+        }));
+    json["parts"][0]["measures"][0]["sequences"][0]["content"][2]["id"] =
+        serde_json::json!("source");
+    let identified = crate::parse::parse_mnx_strict(&json.to_string()).unwrap();
+    let identified_dl = layout_full_score(&identified, &config);
+    let identified_segments: Vec<_> = identified_dl
+        .commands
+        .iter()
+        .zip(&identified_dl.element_ids)
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawLine { x1, x2, .. }
+                if id.as_deref() == Some("p0/m0/s0/source/lyric-31") =>
+            {
+                Some((*x1, *x2))
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(segments, identified_segments);
+}
+
+#[test]
+fn test_lyric_extender_inference_tracks_named_voices_across_sequence_reordering() {
+    let mut json = serde_json::json!({
+        "mnx":{"version":1},
+        "global":{"measures":[{"time":{"count":4,"unit":4}},{}]},
+        "parts":[{"measures":[
+            {"sequences":[{"voice":"singer","content":[
+                {"id":"source","duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":4}}],
+                 "lyrics":{"lines":{"1":{"text":"Ah","extender":{}}}}}
+            ]}]},
+            {"sequences":[
+                {"voice":"singer","content":[
+                    {"id":"last","duration":{"base":"whole"},"notes":[{"pitch":{"step":"D","octave":4}}]}
+                ]},
+                {"voice":"other","content":[{"duration":{"base":"whole"},"rest":{}}]}
+            ]}
+        ]}]
+    });
+    let config = LayoutConfig::default();
+    let count = |value: &serde_json::Value| {
+        let score = crate::parse::parse_mnx_strict(&value.to_string()).unwrap();
+        let dl = layout_full_score(&score, &config);
+        dl.commands
+            .iter()
+            .zip(&dl.element_ids)
+            .filter(|(command, id)| {
+                matches!(command, RenderCommand::DrawLine { .. })
+                    && id.as_deref() == Some("p0/m0/s0/source/lyric-31")
+            })
+            .count()
+    };
+    assert_eq!(count(&json), 1);
+    json["parts"][0]["measures"][1]["sequences"]
+        .as_array_mut()
+        .unwrap()
+        .swap(0, 1);
+    assert_eq!(count(&json), 1);
+    let mut score = crate::parse::parse_mnx_strict(&json.to_string()).unwrap();
+    let before = super::super::lyric_extenders::cache_dependency_hash(&score);
+    score.parts[0].measures[1].sequences[1].voice = Some("different".into());
+    assert_ne!(
+        before,
+        super::super::lyric_extenders::cache_dependency_hash(&score)
+    );
+}
+
+#[test]
+fn test_idless_lyric_extender_keeps_its_source_selection_tag_across_systems() {
+    let measures: Vec<_> = (0..4)
+        .map(|index| {
+            let mut event = serde_json::json!({
+                "duration":{"base":"whole"},
+                "notes":[{"pitch":{"step":"C","octave":4}}]
+            });
+            if index == 0 {
+                event["lyrics"] = serde_json::json!({
+                    "lines":{"1":{"text":"Ah","extender":{"target":"last"}}}
+                });
+            }
+            if index == 3 {
+                event["id"] = serde_json::json!("last");
+            }
+            serde_json::json!({"sequences":[{"content":[event]}]})
+        })
+        .collect();
+    let json = serde_json::json!({
+        "mnx":{"version":1,"support":{"useLyricExtenders":true}},
+        "global":{"measures":[{"time":{"count":4,"unit":4}},{},{},{}]},
+        "parts":[{"measures":measures}]
+    });
+    let score = crate::parse::parse_mnx_strict(&json.to_string()).unwrap();
+    let mut config = LayoutConfig::default();
+    config.page_width = Some(20.0 * config.sp);
+    config.page_margin_left = 0.0;
+    config.page_margin_right = 0.0;
+    let dl = layout_full_score(&score, &config);
+    let systems: HashSet<_> = dl
+        .measure_bounds
+        .iter()
+        .map(|bounds| bounds.system_index)
+        .collect();
+    assert!(systems.len() > 1);
+    let segments = dl
+        .commands
+        .iter()
+        .zip(&dl.element_ids)
+        .filter(|(command, id)| {
+            matches!(command, RenderCommand::DrawLine { .. })
+                && id.as_deref() == Some("p0/m0/s0/e0/lyric-31")
+        })
+        .count();
+    assert_eq!(segments, systems.len());
 }

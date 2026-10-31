@@ -47,6 +47,12 @@ on that lyric line. Tied continuation notes remain eligible textless events;
 the extender is independent of note tie notation. Explicit `extender` objects
 are honored in either mode.
 
+Automatic inference follows the sequence's named `voice` within its part and
+staff, even when sequence arrays are reordered between measures. Unnamed
+sequences retain positional continuity. Native rendering does not require
+optional event IDs for inferred extenders; their selection tags use the same
+positional fallback as the lyric text.
+
 The renderer carries a resolved extender across every system containing its
 source-to-target range, including system and page breaks. The visible lyric
 text remains on the source event, and the line is selectable through that
@@ -54,4 +60,6 @@ lyric element. Retained system identities include a conservative score-wide
 lyric dependency hash, so remote endpoint edits and inference-boundary changes
 cannot reuse stale line segments. MusicXML `<extend type="start|continue|stop">`
 boundaries map to one explicit MNX extender from the starting syllable through
-the stopping event.
+the stopping event. The converter enables the document-wide explicit policy
+only when every imported lyric line supplies explicit extender intent, so mixed
+explicit and ordinary lyrics retain automatic inference.
