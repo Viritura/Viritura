@@ -1,0 +1,21 @@
+{
+  "mnx": { "version": 1 },
+  "global": {
+    "measures": [
+      { "time": { "count": 4, "unit": 4 } },
+      { "fine": { "location": { "fraction": [1, 1] } } },
+      {},
+      { "jump": { "type": "dcAlFine", "location": { "fraction": [1, 1] } } }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        { "sequences": [{ "content": [{ "duration": { "base": "whole" }, "notes": [{ "pitch": { "step": "D", "octave": 4 } }] }] }] },
+        { "sequences": [{ "content": [{ "duration": { "base": "whole" }, "notes": [{ "pitch": { "step": "F", "octave": 4 } }] }] }] },
+        { "sequences": [{ "content": [{ "duration": { "base": "whole" }, "notes": [{ "pitch": { "step": "A", "octave": 4 } }] }] }] },
+        { "sequences": [{ "content": [{ "duration": { "base": "whole" }, "notes": [{ "pitch": { "step": "C", "octave": 5 } }] }] }] }
+      ]
+    }
+  ]
+}

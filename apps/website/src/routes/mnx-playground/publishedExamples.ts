@@ -140,6 +140,8 @@ export const publishedExamples: readonly PublishedExample[] = [
   },
 
   { id: "jumps-ds-al-fine", title: "D.S. al Fine", filename: "jumps-ds-al-fine.mnx", group: "Repeats and navigation" },
+  { id: "jumps-dc-al-fine", title: "D.C. al Fine", filename: "jumps-dc-al-fine.mnx", group: "Repeats and navigation" },
+  { id: "jumps-ds-al-coda", title: "D.S. al Coda", filename: "jumps-ds-al-coda.mnx", group: "Repeats and navigation" },
   { id: "jumps-dal-segno", title: "Dal Segno", filename: "jumps-dal-segno.mnx", group: "Repeats and navigation" },
   { id: "measure-repeats", title: "Measure repeats", filename: "measure-repeats.mnx", group: "Repeats and navigation" },
   {

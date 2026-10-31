@@ -38,6 +38,11 @@ than bundling full schema validators. Importing hosts validate documents
 against the v46 schema before passing them to the engine; this preserves the
 existing bundle-size and input-policy contract.
 
+The public playground stages locally authored native D.C. al Fine and D.S.
+al Coda examples from the same validated corpus used by the parser and
+engraving gates. These demonstrate the two new v46 navigation routes rather
+than leaving them available only in tests or raw JSON.
+
 Lyric extender targets are stable event IDs. Clipboard duplication remaps
 targets copied with their source, including cross-track targets; targets outside
 the copied fragment are preserved, never silently changed to inferred endpoints.
