@@ -9,7 +9,8 @@
     "preview": "vite preview --port 5174"
   },
   "dependencies": {
-    "@viritura/score-viewer-react": "workspace:*",
+    "@viritura/score-engine": "0.2.0",
+    "@viritura/score-viewer-react": "*",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
