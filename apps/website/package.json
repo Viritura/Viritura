@@ -25,12 +25,12 @@
     "@viritura/ui": "workspace:*",
     "marked": "^14.0.0",
     "monaco-editor": "0.57.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
-    "@astrojs/react": "7.0.0",
+    "@astrojs/react": "7.1.1",
     "@astrojs/sitemap": "3.7.4",
     "@rolldown/plugin-babel": "^0.2.4",
     "@types/react": "^19.3.0",
@@ -41,6 +41,6 @@
     "happy-dom": "^20.8.9",
     "typescript": "^5.7.0",
     "vite": "^8.3.0",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.5"
   }
 }
