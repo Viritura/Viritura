@@ -154,3 +154,53 @@ export const SparseVerses: StoryObj = {
     />
   ),
 };
+
+export const SplitSelfTarget: StoryObj = {
+  name: "Syllable on onset, endpoint on final tied fragment",
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1, support: { useLyricExtenders: true } },
+        global: { measures: [{ time: { count: 4, unit: 4 } }, {}] },
+        parts: [
+          {
+            measures: [
+              {
+                sequences: [
+                  {
+                    content: [
+                      { duration: { base: "half" }, rest: {} },
+                      { duration: { base: "quarter" }, rest: {} },
+                      {
+                        id: "onset",
+                        duration: { base: "quarter" },
+                        notes: [
+                          { id: "onset-note", pitch: { step: "C", octave: 4 }, ties: [{ target: "final-note" }] },
+                        ],
+                        lyrics: { lines: { "1": { text: "Ah", extender: { target: "final-fragment" } } } },
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                sequences: [
+                  {
+                    content: [
+                      {
+                        id: "final-fragment",
+                        duration: { base: "quarter" },
+                        notes: [{ id: "final-note", pitch: { step: "C", octave: 4 } }],
+                      },
+                      { duration: { base: "half", dots: 1 }, rest: {} },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      })}
+    />
+  ),
+};

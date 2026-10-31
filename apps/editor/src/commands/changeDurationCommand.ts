@@ -11,7 +11,7 @@
  */
 
 import type { Note, NoteEvent, Score, Sequence } from "@viritura/core";
-import { appendMeasure, isRest, measureBeats } from "@viritura/core";
+import { appendMeasure, isRest, measureBeats, remapScoreLyricExtenderTargets } from "@viritura/core";
 import {
   createRest,
   decomposeDuration,
@@ -25,6 +25,7 @@ import {
   type ChangeDurationParams,
 } from "./noteCommands";
 import { ensureMeasureContent } from "./autoTieCommands";
+import { splitEventDurations } from "../score/eventFragments";
 
 /**
  * Find a Note by its ID within a specific measure/voice.
@@ -55,7 +56,13 @@ function findNoteById(
  * Consume (remove) content at a beat position to make room for new content.
  * Handles splitting events that partially overlap the consumed range.
  */
-function consumeBeatsAt(sequence: Sequence, startBeat: number, beatsToConsume: number): void {
+function consumeBeatsAt(
+  sequence: Sequence,
+  startBeat: number,
+  beatsToConsume: number,
+  targetRemap: Map<string, string>,
+  replacementId: string,
+): void {
   let pos = 0;
   let i = 0;
   while (i < sequence.content.length && pos < startBeat - 1e-9) {
@@ -72,19 +79,15 @@ function consumeBeatsAt(sequence: Sequence, startBeat: number, beatsToConsume: n
     const evBeats = sequenceContentBeats(ev);
 
     if (evBeats <= remaining + 1e-9) {
+      if (ev.id) targetRemap.set(ev.id, replacementId);
       remaining -= evBeats;
       removeCount++;
     } else {
       const leftover = evBeats - remaining;
       const leftoverDurs = decomposeDuration(leftover);
-      sequence.content.splice(
-        removeStart + removeCount,
-        1,
-        ...leftoverDurs.map((d) => {
-          if (isRest(ev)) return createRest(d);
-          return { ...ev, duration: d, id: generateEventId() } as NoteEvent;
-        }),
-      );
+      const pieces = splitEventDurations(ev, leftoverDurs);
+      if (ev.id && pieces.at(-1)?.id) targetRemap.set(ev.id, pieces.at(-1)!.id!);
+      sequence.content.splice(removeStart + removeCount, 1, ...pieces);
       remaining = 0;
       break;
     }
@@ -121,6 +124,7 @@ export function changeDuration(score: Score, params: ChangeDurationParams): Scor
   const oldBeats = durationToBeats(event.duration);
   const newBeats = durationToBeats(newDuration);
   const diff = newBeats - oldBeats;
+  const targetRemap = new Map<string, string>();
 
   if (Math.abs(diff) < 1e-9) {
     event.duration = { ...newDuration };
@@ -138,7 +142,7 @@ export function changeDuration(score: Score, params: ChangeDurationParams): Scor
     const gapRests = decomposeRestsAtPosition(gapBeats, beatPos + newBeats, ts);
     const restEvents = gapRests.map((d) => createRest(d));
     sequence.content.splice(eventIndex + 1, 0, ...restEvents);
-    mergeAdjacentRests(sequence, eventIndex, ts);
+    mergeAdjacentRests(sequence, eventIndex, ts, score);
     return score;
   }
 
@@ -162,6 +166,7 @@ export function changeDuration(score: Score, params: ChangeDurationParams): Scor
     const next = sequence.content[idx]! as NoteEvent;
     const nextBeats = durationToBeats(next.duration);
     consumed += nextBeats;
+    if (consumed <= firstFragBeats + 1e-9 && next.id && event.id) targetRemap.set(next.id, event.id);
     removeCount++;
     idx++;
   }
@@ -179,7 +184,8 @@ export function changeDuration(score: Score, params: ChangeDurationParams): Scor
       const leftoverRests = decomposeRestsAtPosition(leftover, restStart, ts);
       sequence.content.splice(eventIndex + 1, 0, ...leftoverRests.map((d) => createRest(d)));
     }
-    mergeAdjacentRests(sequence, eventIndex, getEffectiveTimeSignature(score, measureIndex));
+    remapScoreLyricExtenderTargets(score, targetRemap);
+    mergeAdjacentRests(sequence, eventIndex, getEffectiveTimeSignature(score, measureIndex), score);
     return score;
   }
 
@@ -197,6 +203,8 @@ export function changeDuration(score: Score, params: ChangeDurationParams): Scor
   }
 
   let prevNoteId = firstNoteId;
+  let lastFragment = event;
+  const durationFragmentIds = new Set<string>(event.id ? [event.id] : []);
   for (let fi = 1; fi < firstDurs.length; fi++) {
     const fragDur = firstDurs[fi]!;
     const fragId = generateNoteId();
@@ -218,6 +226,8 @@ export function changeDuration(score: Score, params: ChangeDurationParams): Scor
     }
 
     sequence.content.splice(eventIndex + 1 + (fi - 1), 0, fragEvent);
+    lastFragment = fragEvent;
+    if (fragEvent.id) durationFragmentIds.add(fragEvent.id);
     prevNoteId = fragId;
   }
 
@@ -250,14 +260,13 @@ export function changeDuration(score: Score, params: ChangeDurationParams): Scor
     for (const fragDur of fragDurs) {
       const fragNoteId = generateNoteId();
       const targetSeq = score.parts[partIndex]!.measures[mIdx]!.sequences[voice]!;
-      consumeBeatsAt(targetSeq, fragBeatPos, durationToBeats(fragDur));
-
       const fragEvent: NoteEvent = {
         type: "event",
         id: generateEventId(),
         duration: fragDur,
         notes: [{ id: fragNoteId, pitch: { ...pitch } }],
       };
+      consumeBeatsAt(targetSeq, fragBeatPos, durationToBeats(fragDur), targetRemap, fragEvent.id!);
 
       let insertIdx = 0;
       let bp = 0;
@@ -271,6 +280,8 @@ export function changeDuration(score: Score, params: ChangeDurationParams): Scor
       }
 
       targetSeq.content.splice(insertIdx, 0, fragEvent);
+      lastFragment = fragEvent;
+      if (fragEvent.id) durationFragmentIds.add(fragEvent.id);
 
       const prevNote = findNoteById(
         score,
@@ -291,5 +302,9 @@ export function changeDuration(score: Score, params: ChangeDurationParams): Scor
     mIdx++;
   }
 
+  if (lastFragment.id) {
+    for (const fragmentId of durationFragmentIds) targetRemap.set(fragmentId, lastFragment.id);
+  }
+  remapScoreLyricExtenderTargets(score, targetRemap);
   return score;
 }

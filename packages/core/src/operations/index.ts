@@ -47,6 +47,8 @@ export {
 export {
   resolveLyricExtenders,
   lyricExtenderTargetCandidates,
+  remapLyricExtenderTargets,
+  remapScoreLyricExtenderTargets,
   type LyricExtenderDiagnostic,
   type LyricExtenderResolution,
   type LyricExtenderTargetCandidate,
