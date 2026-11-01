@@ -60,6 +60,8 @@ Continuation fragments keep the original ending's selection ID and clear the
 notes and stems on their own system. Horizon chunk seams keep one continuous
 bracket, and retained frames invalidate continuation geometry when an authored
 ending changes outside their system.
+Authored systems remain real fragment boundaries in unpaged/galley views;
+Horizon chunk-width hints do not turn those authored breaks into retained seams.
 
 ## 1. Horizontal spacing
 

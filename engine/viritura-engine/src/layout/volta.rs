@@ -30,13 +30,15 @@ pub(crate) fn render_volta_brackets(
     config: &LayoutConfig,
     score: &Score,
 ) {
+    let chunked =
+        config.page_width.is_none() && config.horizon_chunk_width.is_some_and(|width| width > 0.0);
     render_volta_brackets_filtered(
         dl,
         measure_layouts,
         staff_y,
         config.sp,
         score,
-        |_, _, starts_here, ends_here| config.page_width.is_some() || (starts_here && ends_here),
+        |_, _, starts_here, ends_here| !chunked || (starts_here && ends_here),
     );
 }
 

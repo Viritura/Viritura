@@ -180,6 +180,58 @@ fn test_volta_horizon_chunks_keep_one_continuous_bracket() {
 }
 
 #[test]
+fn test_volta_authored_galley_systems_keep_ending_continuations() {
+    let mut score = volta_test_score();
+    score.scores[0].pages = vec![crate::model::layout::PageDefinition {
+        systems: (0..24)
+            .step_by(4)
+            .map(|index| crate::model::layout::SystemDefinition {
+                measure: score.global.measures[index].id.clone().unwrap(),
+                layout: None,
+                layout_changes: Vec::new(),
+            })
+            .collect(),
+    }];
+    for horizon_chunk_width in [None, Some(500.0)] {
+        let config = LayoutConfig {
+            horizon_chunk_width,
+            ..LayoutConfig::default()
+        };
+        let display = layout_with_mnx_scores(&score, &config, 0);
+        let systems: HashSet<_> = display
+            .measure_bounds
+            .iter()
+            .filter(|bound| bound.staff_index == 0 && (1..=12).contains(&bound.index))
+            .map(|bound| bound.system_index)
+            .collect();
+        assert_eq!(
+            systems.len(),
+            4,
+            "the fixture must honor the authored systems"
+        );
+        let id = crate::layout::element_id::volta(1);
+        assert_eq!(
+            display
+                .element_bboxes
+                .iter()
+                .filter(|bbox| bbox.element_id == id)
+                .count(),
+            systems.len(),
+            "authored galley systems must retain every ending fragment"
+        );
+        assert_eq!(
+            volta_commands(&display)
+                .iter()
+                .filter(|command| matches!(command,
+                    RenderCommand::DrawText { text, .. } if text == "1."
+                ))
+                .count(),
+            1
+        );
+    }
+}
+
+#[test]
 fn test_volta_collapsed_rest_ending_reaches_repeat_barline() {
     let mut score = volta_test_score();
     let rest = minimal_spacing_score(

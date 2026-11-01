@@ -4,10 +4,60 @@ use super::super::full_score::{FlatSource, FlatStaff, GroupRange};
 use super::super::page::resolve_part_display_names;
 use super::explicit_system_breaks::SystemLayoutChanges;
 use super::structure_flattening::flatten_layout;
-use crate::model::{LayoutDefinition, Score, ScoreDefinition, SystemDefinition};
-use std::collections::HashMap;
+use crate::model::{LayoutBreakKind, LayoutDefinition, Score, ScoreDefinition, SystemDefinition};
+use std::collections::{HashMap, HashSet};
 
 type StaffGroupLayout = (Vec<FlatStaff>, Vec<GroupRange>);
+
+pub(super) fn collect_authored_systems(
+    score_def: &ScoreDefinition,
+    measure_id_map: &HashMap<String, usize>,
+) -> (Vec<SystemDefinition>, Vec<usize>) {
+    let mut all_systems: Vec<SystemDefinition> = Vec::new();
+    let mut forced_page_measures = HashSet::new();
+    for page in &score_def.pages {
+        if !all_systems.is_empty() {
+            if let Some(system) = page.systems.first() {
+                forced_page_measures.insert(system.measure.clone());
+            }
+        }
+        all_systems.extend(page.systems.iter().cloned());
+    }
+    if !all_systems.is_empty() {
+        for layout_break in &score_def.layout_breaks {
+            if !measure_id_map.contains_key(&layout_break.measure) {
+                continue;
+            }
+            if layout_break.kind == LayoutBreakKind::Page {
+                forced_page_measures.insert(layout_break.measure.clone());
+            }
+            if !all_systems
+                .iter()
+                .any(|system| system.measure == layout_break.measure)
+            {
+                all_systems.push(SystemDefinition {
+                    layout: None,
+                    measure: layout_break.measure.clone(),
+                    layout_changes: Vec::new(),
+                });
+            }
+        }
+        all_systems.sort_by_key(|system| {
+            measure_id_map
+                .get(&system.measure)
+                .copied()
+                .unwrap_or_default()
+        });
+        all_systems.dedup_by(|left, right| left.measure == right.measure);
+    }
+    let forced_page_starts = all_systems
+        .iter()
+        .enumerate()
+        .filter(|(_, system)| forced_page_measures.contains(&system.measure))
+        .map(|(index, _)| index)
+        .collect();
+    (all_systems, forced_page_starts)
+}
 
 /// Resolve per-system measure ranges, flattened staves, and layout changes.
 ///
