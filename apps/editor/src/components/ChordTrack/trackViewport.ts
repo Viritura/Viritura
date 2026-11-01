@@ -5,6 +5,22 @@ import type { TrackSystem } from "./types";
 export const CHORD_TRACK_GAP = 12;
 export const CHORD_TRACK_INSET = 108;
 
+export function trackBottomInset(bottom: number, sticky: boolean, overlay = 0): number {
+  return Math.max(bottom, sticky && overlay > 0 ? overlay + 12 : 0);
+}
+
+export function trackLaneY(
+  naturalY: number,
+  laneHeight: number,
+  viewportHeight: number,
+  sticky: boolean,
+  top = 0,
+  bottom = 0,
+): number {
+  if (!sticky || viewportHeight <= 0) return naturalY;
+  return Math.max(top, Math.min(naturalY, Math.max(top, viewportHeight - bottom - laneHeight)));
+}
+
 export function chordTrackScale(displayList: DisplayList): number {
   const staff = displayList.measureBounds?.find(
     (measure) => !measure.ghostStaff && !measure.isExpansion && !measure.isHidden,

@@ -2,7 +2,7 @@
 import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
-import type { DisplayList } from "@viritura/renderer";
+import { computeHorizonPaperGeometry, type DisplayList } from "@viritura/renderer";
 import { useChordTrackGeometry } from "./useChordTrackGeometry";
 import { trackBeatToX } from "./trackGeometry";
 
@@ -39,6 +39,74 @@ const displayList: DisplayList = {
 };
 
 describe("chord entry and drag grid geometry", () => {
+  it("reserves the hover status zone without moving the pinned lane when the status bar opens", () => {
+    const { result, rerender } = renderHook(
+      ({ safeAreaBottom }) =>
+        useChordTrackGeometry({
+          displayList,
+          score,
+          chords: [],
+          grid: "quarter",
+          sticky: true,
+          position: "below",
+          viewport: { zoom: 1, scrollX: 0, scrollY: 0 },
+          safeAreaLeft: 0,
+          safeAreaTop: 12,
+          safeAreaBottom,
+          selection: { kind: "none" },
+          hover: null,
+          size: { width: 500, height: 200, bottomOverlay: 56 },
+        }),
+      { initialProps: { safeAreaBottom: 12 } },
+    );
+    expect(result.current.bottomInset).toBe(68);
+    expect(result.current.railY).toBe(56);
+    rerender({ safeAreaBottom: 66 });
+    expect(result.current.bottomInset).toBe(68);
+    expect(result.current.railY).toBe(56);
+  });
+
+  it.each(["above", "below"] as const)(
+    "keeps paint and hit geometry aligned while pinning the %s lane vertically",
+    (position) => {
+      const { result, rerender } = renderHook(
+        ({ scrollY, zoom, sticky }) =>
+          useChordTrackGeometry({
+            displayList,
+            score,
+            chords: [],
+            grid: "quarter",
+            sticky,
+            position,
+            viewport: { zoom, scrollX: 20, scrollY },
+            safeAreaLeft: 0,
+            safeAreaTop: 12,
+            safeAreaBottom: 24,
+            selection: { kind: "none" },
+            hover: null,
+            size: { width: 500, height: 200 },
+          }),
+        { initialProps: { scrollY: 0, zoom: 1, sticky: true } },
+      );
+      const paper = computeHorizonPaperGeometry(displayList);
+      const natural = position === "above" ? paper.y - 88 : paper.y + paper.height + 12;
+      expect(result.current.naturalRailScoreY).toBe(natural);
+      expect(result.current.railY).toBe(position === "above" ? 12 : 100);
+      expect(result.current.surfaceStyle.top).toBe(result.current.railY);
+      expect(result.current.surfaceStyle.height).toBe(76);
+      rerender({ scrollY: 900, zoom: 1, sticky: true });
+      expect(result.current.railY).toBe(12);
+      expect(result.current.railScoreY - 900).toBe(result.current.railY);
+      expect(result.current.allPoints[1]!.x).toBe(180);
+      rerender({ scrollY: 0, zoom: 2, sticky: true });
+      expect(result.current.railY).toBe(position === "above" ? 12 : 24);
+      expect(result.current.railScoreY * 2).toBe(result.current.railY);
+      rerender({ scrollY: 900, zoom: 2, sticky: false });
+      expect(result.current.railY).toBe((natural - 900) * 2);
+      expect(result.current.laneVisible).toBe(false);
+    },
+  );
+
   it("uses quarter notes rather than compound beats and supplies sixteenth anchors for Alt", () => {
     const { result } = renderHook(() =>
       useChordTrackGeometry({
@@ -46,6 +114,8 @@ describe("chord entry and drag grid geometry", () => {
         score,
         chords: [],
         grid: "quarter",
+        sticky: true,
+        position: "below",
         viewport: { zoom: 1, scrollX: 0, scrollY: 0 },
         safeAreaLeft: 0,
         selection: { kind: "none" },

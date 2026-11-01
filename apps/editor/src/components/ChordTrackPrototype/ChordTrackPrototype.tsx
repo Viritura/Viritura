@@ -12,15 +12,77 @@ import {
   ChordTrackSettingsButton,
   trackHeaderGeometry,
   useChordTrackDrag,
+  trackLaneY,
 } from "../ChordTrack";
 import { moveTrackChordChanges } from "../../score/chordTrack";
 import { laneTop, paintTrackSystem } from "./trackPainter";
 import type { ChordTrackPrototypeProps, PrototypeChord, TrackPoint, TrackSystem } from "./types";
 import styles from "./ChordTrackPrototype.module.css";
+import { useTrackSurfaceViewport } from "./useTrackSurfaceViewport";
 
 interface EditorTarget {
   point: TrackPoint;
   position: { x: number; y: number };
+}
+
+function PrototypeStatus() {
+  return (
+    <div className={styles.status} role="status">
+      <span>Prototype only. Edits are local; nothing is saved or played.</span>
+      <span>Click a tick to enter. Space: next bar. Semicolon: next beat. Enter: finish. Esc: cancel.</span>
+      <span>Positions use quarter-note beats.</span>
+    </div>
+  );
+}
+
+interface PrototypeSettingsProps {
+  viewMode: ChordTrackPrototypeProps["viewMode"];
+  step: number;
+  onStepChange: (step: number) => void;
+  sticky: boolean;
+  onStickyChange: (enabled: boolean) => void;
+  position: "above" | "below";
+  onPositionChange: (position: "above" | "below") => void;
+  onCloseEntry: () => void;
+}
+
+function PrototypeChordSettings({
+  viewMode,
+  step,
+  onStepChange,
+  sticky,
+  onStickyChange,
+  position,
+  onPositionChange,
+  onCloseEntry,
+}: PrototypeSettingsProps) {
+  return (
+    <ChordTrackSettings
+      grid={step === 1 ? "quarter" : step === 0.5 ? "eighth" : "sixteenth"}
+      onGridChange={(grid) => {
+        onStepChange(grid === "quarter" ? 1 : grid === "eighth" ? 0.5 : 0.25);
+        onCloseEntry();
+      }}
+      sticky={sticky}
+      onStickyChange={
+        viewMode === "horizon"
+          ? (enabled) => {
+              onStickyChange(enabled);
+              onCloseEntry();
+            }
+          : undefined
+      }
+      position={position}
+      onPositionChange={
+        viewMode === "horizon"
+          ? (next) => {
+              onPositionChange(next);
+              onCloseEntry();
+            }
+          : undefined
+      }
+    />
+  );
 }
 
 interface SystemProps extends Pick<ChordTrackPrototypeProps, "displayList" | "viewMode"> {
@@ -38,6 +100,8 @@ interface SystemProps extends Pick<ChordTrackPrototypeProps, "displayList" | "vi
   onMove: (source: PrototypeChord, target: TrackPoint) => void;
   onSelect: (point: TrackPoint) => void;
   onPanBy: (delta: number) => void;
+  sticky: boolean;
+  position: "above" | "below";
 }
 
 function TrackSystemSurface({
@@ -57,12 +121,26 @@ function TrackSystemSurface({
   onMove,
   onSelect,
   onPanBy,
+  sticky,
+  position,
 }: SystemProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const points = useMemo(() => buildTrackPoints(system, step, chords), [system, step, chords]);
   const finePoints = useMemo(() => buildTrackPoints(system, 0.25, chords), [system, chords]);
-  const top = laneTop(system, viewMode);
+  const surfaceViewport = useTrackSurfaceViewport(root, viewportElement, zoom);
+  const naturalTop = laneTop(system, viewMode, position);
+  const top =
+    (trackLaneY(
+      naturalTop * zoom + surfaceViewport.offsetY,
+      LANE_HEIGHT * zoom,
+      surfaceViewport.height,
+      sticky && viewMode === "horizon",
+      8,
+      8,
+    ) -
+      surfaceViewport.offsetY) /
+    zoom;
   const header = trackHeaderGeometry(system.measures[0]!.x * zoom, zoom, true, scrollX);
   const drag = useChordTrackDrag({
     root,
@@ -79,7 +157,13 @@ function TrackSystemSurface({
   });
   const replacement = drag.preview?.target ? pointChord(chords, drag.preview.target) : undefined;
   const paintPoints = drag.preview?.fineGrid ? finePoints : points;
-  const dragStatusStyle: CSSProperties = { left: header.right, top: (top + LANE_HEIGHT) * zoom };
+  const dragStatusStyle: CSSProperties = {
+    left: header.right,
+    top:
+      surfaceViewport.height > 0
+        ? Math.min((top + LANE_HEIGHT) * zoom, surfaceViewport.height - surfaceViewport.offsetY - 28)
+        : (top + LANE_HEIGHT) * zoom,
+  };
   const systemStyle: CSSProperties = { width: system.width * zoom };
   const canvasStyle: CSSProperties = {
     width: system.width * zoom,
@@ -98,8 +182,10 @@ function TrackSystemSurface({
         viewMode,
         headerRight: header.right,
         dragPreview: drag.preview,
+        railY: top,
+        position,
       });
-  }, [displayList, system, chords, paintPoints, active, zoom, viewMode, header.right, drag.preview]);
+  }, [displayList, system, chords, paintPoints, active, zoom, viewMode, header.right, drag.preview, top, position]);
 
   function moveFocus(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const delta = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
@@ -229,6 +315,8 @@ export function ChordTrackPrototype({ displayList, initialChords, viewMode }: Ch
   const [selectedPoint, setSelectedPoint] = useState<TrackPoint | null>(null);
   const [editor, setEditor] = useState<EditorTarget | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sticky, setSticky] = useState(true);
+  const [position, setPosition] = useState<"above" | "below">("below");
   const [scrollX, setScrollX] = useState(0);
   const viewportElement = useRef<HTMLDivElement>(null);
   const systems = useMemo(() => buildTrackSystems(displayList), [displayList]);
@@ -331,7 +419,7 @@ export function ChordTrackPrototype({ displayList, initialChords, viewMode }: Ch
           className={styles.viewport}
           onScroll={(event) => {
             setScrollX(event.currentTarget.scrollLeft);
-            repositionEditor();
+            requestAnimationFrame(repositionEditor);
           }}
         >
           <div className={`${styles.paper} ${viewMode === "horizon" ? styles.horizon : ""}`}>
@@ -365,27 +453,28 @@ export function ChordTrackPrototype({ displayList, initialChords, viewMode }: Ch
                 onPanBy={(delta) => {
                   if (viewportElement.current) viewportElement.current.scrollLeft += delta;
                 }}
+                sticky={sticky}
+                position={position}
               />
             ))}
           </div>
         </div>
         {settingsOpen && (
           <Panel side="right" title="Chord settings" width={320} scrollBody onClose={() => setSettingsOpen(false)}>
-            <ChordTrackSettings
-              grid={step === 1 ? "quarter" : step === 0.5 ? "eighth" : "sixteenth"}
-              onGridChange={(grid) => {
-                setStep(grid === "quarter" ? 1 : grid === "eighth" ? 0.5 : 0.25);
-                setEditor(null);
-              }}
+            <PrototypeChordSettings
+              viewMode={viewMode}
+              step={step}
+              onStepChange={setStep}
+              sticky={sticky}
+              onStickyChange={setSticky}
+              position={position}
+              onPositionChange={setPosition}
+              onCloseEntry={() => setEditor(null)}
             />
           </Panel>
         )}
       </div>
-      <div className={styles.status} role="status">
-        <span>Prototype only. Edits are local; nothing is saved or played.</span>
-        <span>Click a tick to enter. Space: next bar. Semicolon: next beat. Enter: finish. Esc: cancel.</span>
-        <span>Positions use quarter-note beats.</span>
-      </div>
+      <PrototypeStatus />
       <TextPopover
         key={editor ? `${editor.point.measureIndex}:${editor.point.beat}` : "closed"}
         open={editor !== null}

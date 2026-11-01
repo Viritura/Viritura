@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { formatChordSymbolText, parseChordSymbolText, resolveChordSymbol } from "@viritura/core";
-import { Button, TextPopover } from "@viritura/ui";
+import { Button, TextPopover, type TextPopoverProps } from "@viritura/ui";
 import { useSelection } from "../../store/selectionStore";
 import { useViewStateStore } from "../../store/viewStateStore";
 import { useThemeStore } from "../../store/themeStore";
@@ -20,6 +20,56 @@ function chordPreview(value: string) {
   return resolution.status === "unsupported" ? <p role="status">{resolution.message}</p> : null;
 }
 
+function useTrackSize(root: RefObject<HTMLDivElement | null>) {
+  const [size, setSize] = useState({ width: 0, height: 0, bottomOverlay: 0 });
+  useEffect(() => {
+    if (!root.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      const overlay = getComputedStyle(entry.target).getPropertyValue("--workspace-status-zone-height");
+      setSize({
+        width: entry.contentRect.width,
+        height: entry.contentRect.height,
+        bottomOverlay: overlay ? parseFloat(overlay) : 0,
+      });
+    });
+    observer.observe(root.current);
+    return () => observer.disconnect();
+  }, [root]);
+  return size;
+}
+
+interface ChordEntryPopoverProps {
+  editing: ReturnType<typeof useChordTrackEditing>;
+  onClose: () => void;
+  onNavigate: NonNullable<TextPopoverProps["onNavigate"]>;
+}
+
+function ChordEntryPopover({ editing, onClose, onNavigate }: ChordEntryPopoverProps) {
+  const { editor } = editing;
+  return (
+    <TextPopover
+      key={editor ? `${editor.point.measureIndex}:${editor.point.beat}:${editor.point.position?.graceIndex}` : "closed"}
+      open={editor !== null}
+      onClose={onClose}
+      onSubmit={editing.commit}
+      onNavigate={onNavigate}
+      spaceNavigation="measure"
+      position={editor?.position ?? { x: 0, y: 0 }}
+      title={editor ? `Chord · Bar ${editor.point.measureIndex + 1} · Concert pitch` : "Chord"}
+      initialValue={editing.initialText || (editing.selected ? formatChordSymbolText(editing.selected.symbol) : "")}
+      placeholder="e.g. Cmaj7, Dm7, G7/B"
+      renderPreview={chordPreview}
+    >
+      {editing.selected && editor && (
+        <div className={styles.actions}>
+          <Button label="Remove chord" variant="danger" onClick={() => editing.remove(editor.point)} />
+        </div>
+      )}
+    </TextPopover>
+  );
+}
+
 export function ChordTrack({
   displayList,
   viewport,
@@ -27,15 +77,19 @@ export function ChordTrack({
   onRevealPoint,
   onPanBy,
   safeAreaLeft = 0,
+  safeAreaTop = 0,
+  safeAreaBottom = 0,
 }: ChordTrackProps) {
   const root = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
+  const size = useTrackSize(root);
   const [hover, setHover] = useState<TrackPoint | null>(null);
   const editing = useChordTrackEditing(displayList);
   const { score, chords, editor } = editing;
   const selection = useSelection();
   const grid = useViewStateStore((state) => state.chordTrackGrid);
+  const sticky = useViewStateStore((state) => state.chordTrackSticky);
+  const position = useViewStateStore((state) => state.chordTrackPosition);
   const theme = useThemeStore((state) => state.theme);
   const {
     system,
@@ -53,7 +107,23 @@ export function ChordTrack({
     active,
     points,
     laneVisible,
-  } = useChordTrackGeometry({ displayList, viewport, score, chords, grid, safeAreaLeft, selection, hover, size });
+    surfaceStyle,
+    bottomInset,
+  } = useChordTrackGeometry({
+    displayList,
+    viewport,
+    score,
+    chords,
+    grid,
+    sticky,
+    position,
+    safeAreaLeft,
+    safeAreaTop,
+    safeAreaBottom,
+    selection,
+    hover,
+    size,
+  });
   const drag = useChordTrackDrag({
     root,
     points: allPoints,
@@ -82,15 +152,6 @@ export function ChordTrack({
       entry.chord.elementId === drag.preview?.source.elementId,
   );
 
-  useEffect(() => {
-    if (!root.current) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
-    });
-    observer.observe(root.current);
-    return () => observer.disconnect();
-  }, []);
-
   useChordTrackPaint({
     canvas,
     system: paintSystem,
@@ -109,11 +170,15 @@ export function ChordTrack({
   });
 
   const replacement = drag.preview?.target ? pointChord(chords, drag.preview.target) : undefined;
-  const dragStatus: CSSProperties = { left: Math.max(header.right, 8), top: railY + LANE_HEIGHT * laneZoom + 4 };
+  const dragStatus: CSSProperties = {
+    left: Math.max(header.right, 8),
+    top: Math.max(safeAreaTop, Math.min(railY + LANE_HEIGHT * laneZoom + 4, size.height - bottomInset - 28)),
+  };
 
   return (
     <div ref={root} className={styles.root} role="group" aria-label="Concert-pitch chord track">
       <canvas ref={canvas} className={styles.canvas} aria-hidden="true" />
+      {laneVisible && <div className={styles.surface} style={surfaceStyle} aria-hidden="true" />}
       <ChordTrackSettingsTrigger
         system={system}
         viewport={viewport}
@@ -199,27 +264,7 @@ export function ChordTrack({
             : "Drop inside the chord track to move"}
         </div>
       )}
-      <TextPopover
-        key={
-          editor ? `${editor.point.measureIndex}:${editor.point.beat}:${editor.point.position?.graceIndex}` : "closed"
-        }
-        open={editor !== null}
-        onClose={close}
-        onSubmit={editing.commit}
-        onNavigate={navigate}
-        spaceNavigation="measure"
-        position={editor?.position ?? { x: 0, y: 0 }}
-        title={editor ? `Chord · Bar ${editor.point.measureIndex + 1} · Concert pitch` : "Chord"}
-        initialValue={editing.initialText || (editing.selected ? formatChordSymbolText(editing.selected.symbol) : "")}
-        placeholder="e.g. Cmaj7, Dm7, G7/B"
-        renderPreview={chordPreview}
-      >
-        {editing.selected && editor && (
-          <div className={styles.actions}>
-            <Button label="Remove chord" variant="danger" onClick={() => editing.remove(editor.point)} />
-          </div>
-        )}
-      </TextPopover>
+      <ChordEntryPopover editing={editing} onClose={close} onNavigate={navigate} />
     </div>
   );
 }

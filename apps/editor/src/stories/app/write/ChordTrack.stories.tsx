@@ -78,7 +78,7 @@ const meta: Meta<typeof ChordTrackStory> = {
           "there is no document mutation, playback, transposition, or export integration. " +
           "Single-click to select; double-click or press Enter to edit. Drag chords in Horizon to preview " +
           "snapped moves and destination replacements; hold Alt for a temporary sixteenth-note grid. " +
-          "The horizontal header stays pinned while scrolling. " +
+          "In Horizon, choose an above/below natural position and keep the whole track visible with vertical stickiness. " +
           "Use Space/Shift+Space to move to the first beat of the next/previous bar, semicolon to advance quarter beats, " +
           "and Ctrl+arrows as an alternative for bar navigation.",
       },
