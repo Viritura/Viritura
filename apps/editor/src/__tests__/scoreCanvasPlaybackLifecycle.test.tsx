@@ -23,7 +23,10 @@ const mocks = vi.hoisted(() => ({
   selectionActions: { clearSelection: vi.fn() },
   document: { mnxJson: '{"mnx":{"version":1},"parts":[]}', score: null, dirty: false },
   documentActions: { updateScore: vi.fn() },
-  documentStore: { subscribe: vi.fn(() => vi.fn()), getState: () => ({ workingScore: null, score: null }) },
+  documentStore: {
+    subscribe: vi.fn(() => vi.fn()),
+    getState: () => ({ workingScore: null, score: null, mnxJson: mocks.document.mnxJson }),
+  },
   playbackActions: {},
   follow: {
     detached: true,
@@ -181,6 +184,24 @@ afterEach(() => {
 });
 
 describe("ScoreCanvas playback lifecycle", () => {
+  it("discards a superseded initial layout without clearing the newer load", async () => {
+    const stale = deferred<DisplayList>();
+    const current = deferred<DisplayList>();
+    mocks.computeDisplayList.mockReturnValueOnce(stale.promise).mockReturnValueOnce(current.promise);
+    const mounted = render(<ScoreCanvas viewMode="page" />);
+    await waitFor(() => expect(mocks.computeDisplayList).toHaveBeenCalledTimes(1));
+    mocks.document.mnxJson = '{"mnx":{"version":1},"parts":[],"global":{"measures":[]}}';
+    mounted.rerender(<ScoreCanvas viewMode="page" />);
+    await waitFor(() => expect(mocks.computeDisplayList).toHaveBeenCalledTimes(2));
+    await act(async () => stale.resolve(displayList(2)));
+    expect(screen.getByText("Loading score...")).toBeTruthy();
+    expect(latestOverlay().displayList).toBeNull();
+    const finalLayout = displayList(3);
+    await act(async () => current.resolve(finalLayout));
+    expect(screen.queryByText("Loading score...")).toBeNull();
+    expect(latestOverlay().displayList).toBe(finalLayout);
+  });
+
   it("publishes the new layout and latest playing position after returning to the canvas without zoom", async () => {
     const firstLayout = displayList(2);
     const returningLayout = displayList(4);
