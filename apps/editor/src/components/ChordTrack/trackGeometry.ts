@@ -3,7 +3,7 @@ import { compareChordSymbolPositions } from "@viritura/core";
 import type { TimedChord, TrackPoint, TrackSystem } from "./types";
 
 export const LANE_HEIGHT = 76;
-export const MUSIC_PADDING = 60;
+const MUSIC_PADDING = 60;
 
 export function buildTrackSystems(displayList: DisplayList): TrackSystem[] {
   const groups = new Map<number, MeasureBounds[]>();

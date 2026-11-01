@@ -27,7 +27,7 @@ interface PendingDrag {
   altKey: boolean;
 }
 
-export function nearestTrackPoint(points: readonly TrackPoint[], x: number): TrackPoint | null {
+function nearestTrackPoint(points: readonly TrackPoint[], x: number): TrackPoint | null {
   let closest: TrackPoint | null = null;
   for (const point of points) {
     if (!closest || Math.abs(point.x - x) < Math.abs(closest.x - x)) closest = point;

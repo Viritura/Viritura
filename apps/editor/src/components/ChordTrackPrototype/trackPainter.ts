@@ -1,5 +1,5 @@
 import { paintCommand, paintInkCommands, type DisplayList } from "@viritura/renderer";
-import { LANE_HEIGHT, paintChordLane } from "../ChordTrack";
+import { LANE_HEIGHT, paintChordLane, type ChordDragPreview } from "../ChordTrack";
 import type { PrototypeChord, TrackPoint, TrackSystem } from "./types";
 
 interface PaintTrackArgs {
@@ -12,7 +12,7 @@ interface PaintTrackArgs {
   zoom: number;
   viewMode: "horizon" | "page";
   headerRight: number;
-  dragPreview: import("../ChordTrack").ChordDragPreview | null;
+  dragPreview: ChordDragPreview | null;
 }
 
 export function laneTop(system: TrackSystem, viewMode: "horizon" | "page"): number {
