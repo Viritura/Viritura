@@ -1,9 +1,9 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import type { MenuItemDef } from "@viritura/ui";
 import {
   buildMenuBarMenus,
   type MenuBarCallbacks,
   type MenuBarState,
+  type MenuBarItemDef,
   type RecentMenuEntry,
   type SampleScore,
 } from "./menuBarItems";
@@ -20,7 +20,7 @@ interface MenuBarProps {
 }
 
 /** Renders a single MenuItemDef as a Radix Menubar item, separator, or sub-menu. */
-function RenderItem({ item }: { readonly item: MenuItemDef }) {
+function RenderItem({ item }: { readonly item: MenuBarItemDef }) {
   if (item.separator) {
     return <Menubar.Separator className={styles.separator} />;
   }
@@ -28,9 +28,11 @@ function RenderItem({ item }: { readonly item: MenuItemDef }) {
   if (item.children && item.children.length > 0) {
     return (
       <Menubar.Sub>
-        <Menubar.SubTrigger className={styles.menuItem}>
+        <Menubar.SubTrigger className={styles.menuItem} disabled={item.disabled}>
           <span>{item.label}</span>
-          <span className={styles.submenuArrow}>&#x25B8;</span>
+          <span className={styles.submenuArrow} aria-hidden="true">
+            &#x25B8;
+          </span>
         </Menubar.SubTrigger>
         <Menubar.Portal>
           <Menubar.SubContent className={styles.submenu} sideOffset={2} alignOffset={-4}>
@@ -40,6 +42,22 @@ function RenderItem({ item }: { readonly item: MenuItemDef }) {
           </Menubar.SubContent>
         </Menubar.Portal>
       </Menubar.Sub>
+    );
+  }
+
+  if (item.checked !== undefined) {
+    return (
+      <Menubar.CheckboxItem
+        className={styles.menuItem}
+        checked={item.checked}
+        disabled={item.disabled}
+        onSelect={item.action}
+      >
+        <span>{item.label}</span>
+        <Menubar.ItemIndicator className={styles.checkIndicator} aria-hidden="true">
+          &#x2713;
+        </Menubar.ItemIndicator>
+      </Menubar.CheckboxItem>
     );
   }
 

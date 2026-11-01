@@ -23,6 +23,8 @@ export interface AppLocalState {
   setSelectedPartIds: React.Dispatch<React.SetStateAction<string[]>>;
   viewMode: ViewMode;
   setViewMode: React.Dispatch<React.SetStateAction<ViewMode>>;
+  chordSettingsOpen: boolean;
+  chordSettingsWidth: number;
   expandedCondensingStaves: Set<string>;
   setExpandedCondensingStaves: React.Dispatch<React.SetStateAction<Set<string>>>;
   currentZoom: number;
@@ -54,6 +56,8 @@ export function useAppLocalState(): AppLocalState {
   const setSelectedPartIds = useViewStateStore((s) => s.setSelectedPartIds);
   const viewMode = useViewStateStore((s) => s.viewMode);
   const setViewMode = useViewStateStore((s) => s.setViewMode);
+  const chordSettingsOpen = useViewStateStore((s) => s.chordSettingsOpen);
+  const chordSettingsWidth = useViewStateStore((s) => s.chordSettingsWidth);
   const [expandedCondensingStaves, setExpandedCondensingStaves] = useState<Set<string>>(new Set());
   const [currentZoom, setCurrentZoom] = useState(1.0);
   const [inspectorFocus] = useState<InspectorFocus>(null);
@@ -77,6 +81,8 @@ export function useAppLocalState(): AppLocalState {
     setSelectedPartIds,
     viewMode,
     setViewMode,
+    chordSettingsOpen,
+    chordSettingsWidth,
     expandedCondensingStaves,
     setExpandedCondensingStaves,
     currentZoom,

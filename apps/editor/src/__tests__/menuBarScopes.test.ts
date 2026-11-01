@@ -14,6 +14,7 @@ describe("menu bar callback scopes", () => {
       onZoomIn: vi.fn(),
       onDelete: vi.fn(),
       onSelectAll: vi.fn(),
+      onToggleChordTrack: vi.fn(),
     };
 
     const global = globalMenuCallbacks(callbacks);
@@ -27,17 +28,20 @@ describe("menu bar callback scopes", () => {
     expect(global.onZoomIn).toBeUndefined();
     expect(global.onDelete).toBeUndefined();
     expect(global.onSelectAll).toBeUndefined();
+    expect(global.onToggleChordTrack).toBeUndefined();
   });
 
   it("exposes Write panels only when the active workspace renders them", () => {
     const callbacks: MenuBarCallbacks = {
       onZoomIn: vi.fn(),
       onToggleSource: vi.fn(),
+      onToggleChordTrack: vi.fn(),
     };
 
     const setup = activityMenuCallbacks(callbacks, false);
     expect(setup.onZoomIn).toBe(callbacks.onZoomIn);
     expect(setup.onToggleSource).toBeUndefined();
+    expect(setup.onToggleChordTrack).toBeUndefined();
 
     expect(activityMenuCallbacks(callbacks, true)).toBe(callbacks);
   });

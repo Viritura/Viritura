@@ -1,0 +1,112 @@
+.prototype {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: var(--text);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar strong {
+  margin-right: 8px;
+}
+
+.hint {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 28px;
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.paper {
+  width: max-content;
+  box-shadow: 0 2px 12px rgb(30 40 35 / 12%);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+
+.horizon {
+  box-shadow: none;
+}
+
+.system {
+  position: relative;
+}
+
+.system canvas {
+  display: block;
+}
+
+.hit {
+  position: absolute;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+}
+
+.hit:focus-visible {
+  opacity: 1;
+  background: transparent;
+  outline: 2px solid var(--accent, #218b74);
+  outline-offset: -2px;
+}
+
+.chordHit {
+  width: max-content;
+  height: auto;
+  font-family: "Viritura Serif", serif;
+  line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  z-index: 1;
+}
+
+.status {
+  display: flex;
+  gap: 18px;
+  padding: 10px 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface);
+}
+
+.dragStatus {
+  position: absolute;
+  margin: 4px 0;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.popoverActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}

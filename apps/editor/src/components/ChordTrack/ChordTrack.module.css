@@ -1,0 +1,94 @@
+.root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hit {
+  position: absolute;
+  pointer-events: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+}
+
+.hit:focus-visible {
+  opacity: 1;
+  background: transparent;
+  outline: 2px solid var(--accent, #218b74);
+  outline-offset: -2px;
+}
+
+.chord {
+  width: max-content;
+  font:
+    22px/1.2 "Viritura Serif",
+    serif;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  z-index: 1;
+}
+
+.settingsButton {
+  pointer-events: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.trackHeader {
+  position: absolute;
+  pointer-events: auto;
+  z-index: 3;
+  background: var(--surface, #f7f9f8);
+}
+
+.headerRow {
+  position: absolute;
+  display: flex;
+  align-items: center;
+}
+
+.headerLabel {
+  color: var(--text);
+  font-family: sans-serif;
+  white-space: nowrap;
+}
+
+.dragging {
+  cursor: grabbing;
+}
+
+.dragStatus {
+  position: absolute;
+  pointer-events: none;
+  padding: 4px 8px;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 4;
+}
+
+.settingsContent {
+  padding: 16px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}

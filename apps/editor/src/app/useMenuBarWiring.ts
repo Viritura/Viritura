@@ -91,6 +91,6 @@ export function globalMenuCallbacks(callbacks: MenuBarCallbacks): MenuBarCallbac
 
 export function activityMenuCallbacks(callbacks: MenuBarCallbacks, supportsWritePanels: boolean): MenuBarCallbacks {
   if (supportsWritePanels) return callbacks;
-  const { onToggleSource: _source, ...activityCallbacks } = callbacks;
+  const { onToggleSource: _source, onToggleChordTrack: _chordTrack, ...activityCallbacks } = callbacks;
   return activityCallbacks;
 }

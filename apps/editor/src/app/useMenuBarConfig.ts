@@ -4,6 +4,7 @@ import type { SelectionState } from "../store/selectionStore";
 import { openDialog, toggleDialog } from "../store/dialogStore";
 import { openStartCenter, setStartCenterOpen } from "../store/onboardingStore";
 import type { RecentScore } from "../store/recentScores";
+import { useViewStateStore } from "../store/viewStateStore";
 
 const WEBSITE_BASE_URL =
   (import.meta.env.VITE_VIRITURA_WEBSITE_URL as string | undefined)?.replace(/\/+$/, "") ??
@@ -40,6 +41,7 @@ export interface MenuBarConfigDeps {
   handleZoomIn: () => void;
   handleZoomOut: () => void;
   handleResetZoom: () => void;
+  canUseChordTrack?: boolean;
   handleSetTimeSignature: NonNullable<MenuBarCallbacks["onSetTimeSignature"]>;
   handleSetKeySignature: NonNullable<MenuBarCallbacks["onSetKeySignature"]>;
   handleSetRepeatStart: NonNullable<MenuBarCallbacks["onSetRepeatStart"]>;
@@ -94,6 +96,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
     handleZoomIn,
     handleZoomOut,
     handleResetZoom,
+    canUseChordTrack,
     handleSetTimeSignature,
     handleSetKeySignature,
     handleSetRepeatStart,
@@ -105,6 +108,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
     handleExportSvg,
     onOpenPublish,
   } = deps;
+  const chordTrackEnabled = useViewStateStore((state) => state.chordTrackEnabled);
 
   const menuCallbacks: MenuBarCallbacks = useMemo(
     () => ({
@@ -156,6 +160,10 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       onZoomIn: handleZoomIn,
       onZoomOut: handleZoomOut,
       onResetZoom: handleResetZoom,
+      onToggleChordTrack: () => {
+        const state = useViewStateStore.getState();
+        state.setChordTrackEnabled(!state.chordTrackEnabled);
+      },
       onTranspose: () => openDialog("transpose"),
       onBarInstrumentChange: () => openDialog("barInstrumentChange"),
       onSplitOrchestralStaves: () => openDialog("orchestralStaffSplit"),
@@ -228,8 +236,20 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       canTranspose,
       canChangeBarInstrument,
       canDistribute,
+      canUseChordTrack,
+      chordTrackEnabled,
     }),
-    [hasDocument, canUndo, canRedo, selection, canTranspose, canChangeBarInstrument, canDistribute],
+    [
+      hasDocument,
+      canUndo,
+      canRedo,
+      selection,
+      canTranspose,
+      canChangeBarInstrument,
+      canDistribute,
+      canUseChordTrack,
+      chordTrackEnabled,
+    ],
   );
 
   const recentMenuEntries = useMemo(() => {

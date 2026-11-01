@@ -17,6 +17,7 @@ import { applyChordSymbolEdit } from "../popoverHandlers";
 import { navigateChordSymbolInput } from "../chordSymbolNavigation";
 import { beatPositionToFraction, eventBeatPosition } from "../timedAnnotationPosition";
 import { resolveDisplayTransposition } from "../../pitchContext";
+import { useViewStateStore } from "../../store/viewStateStore";
 
 interface Props {
   store: DocumentStore;
@@ -37,13 +38,10 @@ function initialText(score: Score | null, popover: ChordSymbolPopoverState | nul
     (candidate) => compareChordSymbolPositions(candidate.position, position) === 0,
   );
   if (!chord) return "";
-  const interval = resolveDisplayTransposition(
-    score,
-    popover.partIndex,
-    popover.measureIndex,
-    position.fraction,
-    scoreIndex,
-  )?.interval;
+  const interval = popover.concertPitch
+    ? undefined
+    : resolveDisplayTransposition(score, popover.partIndex, popover.measureIndex, position.fraction, scoreIndex)
+        ?.interval;
   const displayed = interval ? transposeChordSymbol(chord, interval) : chord;
   return displayed.rawText ?? formatChordSymbolText({ ...displayed, textOverride: undefined });
 }
@@ -52,6 +50,7 @@ export function ChordSymbolEntryPopover({ store, popover, updateScore, selectedS
   const { selectElement } = useSelectionActions();
   const { previewChord } = usePlaybackActions();
   const score = useStore(store, (state) => state.workingScore ?? state.score);
+  const trackAudition = useViewStateStore((state) => state.chordTrackAudition);
 
   function commit(value: string): Score | undefined {
     const state = store.getState();
@@ -68,7 +67,7 @@ export function ChordSymbolEntryPopover({ store, popover, updateScore, selectedS
     const committed = edited.global.measures[popover.measureIndex]?.chordSymbols?.find(
       (candidate) => !previous.includes(candidate),
     );
-    if (committed) void previewChord(committed, edited).catch(() => {});
+    if (committed && (!popover.concertPitch || trackAudition)) void previewChord(committed, edited).catch(() => {});
     return edited;
   }
 
@@ -79,9 +78,10 @@ export function ChordSymbolEntryPopover({ store, popover, updateScore, selectedS
       onClose={() => setChordSymbolPopover(null)}
       onSubmit={commit}
       position={popover?.position ?? { x: 0, y: 0 }}
-      title="Chord Symbol"
+      title={popover?.concertPitch ? "Chord Symbol (Concert pitch)" : "Chord Symbol"}
       placeholder="e.g. C#m7, Bb7, C/E"
       initialValue={initialText(score, popover, selectedScoreIndex)}
+      spaceNavigation="measure"
       renderPreview={(value) => {
         if (!value.trim()) return null;
         const resolution = resolveChordSymbol(parseChordSymbolText(value, { fraction: [0, 1] }));

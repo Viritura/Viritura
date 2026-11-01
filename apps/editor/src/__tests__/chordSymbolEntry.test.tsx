@@ -11,6 +11,7 @@ import { createDocumentStore } from "../store/documentStore";
 import { setChordSymbolPopover, useOverlayStore, type ChordSymbolPopoverState } from "../store/overlayStore";
 import { resetSelectionStore, useSelectionStore } from "../store/selectionStore";
 import { useViewStateStore } from "../store/viewStateStore";
+import { eventId, eventSuffix } from "../score/ElementPath";
 
 const { previewChord } = vi.hoisted(() => ({ previewChord: vi.fn(async (_chord: ChordSymbol, _score: Score) => {}) }));
 vi.mock("@viritura/playback", () => ({ usePlaybackActions: () => ({ previewChord }) }));
@@ -61,7 +62,7 @@ beforeEach(() => {
   previewChord.mockReset();
   previewChord.mockResolvedValue(undefined);
   resetSelectionStore();
-  useViewStateStore.setState({ selectedScoreIndex: 0, selectedPartIds: [] });
+  useViewStateStore.setState({ selectedScoreIndex: 0, selectedPartIds: [], chordTrackAudition: true });
 });
 afterEach(() => {
   cleanup();
@@ -70,6 +71,62 @@ afterEach(() => {
 });
 
 describe("chord entry commits", () => {
+  it("uses Space and Shift+Space to commit at the current position and land on bar downbeats", () => {
+    const score = buildScore();
+    score.global.measures[1]!.chordSymbols = [parseChordSymbolText("G7", { fraction: [0, 1] })];
+    const { store } = setup(score, {
+      ...target,
+      anchorElementId: eventId(0, 0, 0, eventSuffix(undefined, 0, 0, 0)),
+      concertPitch: true,
+      rhythmicPosition: { fraction: [1, 4] },
+    });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "C" } });
+    fireEvent.keyDown(window, { key: " " });
+    expect(store.getState().workingScore!.global.measures[0]!.chordSymbols![0]).toMatchObject({
+      rawText: "C",
+      position: { fraction: [1, 4] },
+    });
+    expect(useOverlayStore.getState().chordSymbolPopover).toMatchObject({
+      measureIndex: 1,
+      rhythmicPosition: { fraction: [0, 1] },
+      concertPitch: true,
+    });
+    expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("G7");
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Dm7" } });
+    fireEvent.keyDown(window, { key: " ", shiftKey: true });
+    expect(store.getState().workingScore!.global.measures[1]!.chordSymbols![0]).toMatchObject({
+      rawText: "Dm7",
+      position: { fraction: [0, 1] },
+    });
+    expect(useOverlayStore.getState().chordSymbolPopover).toMatchObject({
+      measureIndex: 0,
+      rhythmicPosition: { fraction: [0, 1] },
+      concertPitch: true,
+    });
+    expect(store.getState().workingScore!.global.measures[0]!.chordSymbols).toHaveLength(1);
+  });
+
+  it("respects disabled chord-track audition for keyboard entry", () => {
+    useViewStateStore.setState({ chordTrackAudition: false });
+    setup(buildScore(), { ...target, concertPitch: true });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Dm7" } });
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(previewChord).not.toHaveBeenCalled();
+  });
+
+  it("keeps chord-track entry in concert pitch and preserves hidden instrument visibility", () => {
+    const score = buildScore();
+    score.global.measures[0]!.chordSymbols = [parseChordSymbolText("F#maj7/A#", { fraction: [0, 1] })];
+    const { store } = setup(score, { ...target, concertPitch: true });
+    expect(screen.getByRole("textbox").getAttribute("value")).toBe("F#maj7/A#");
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "C/E" } });
+    fireEvent.keyDown(window, { key: "Enter" });
+    const next = store.getState().workingScore!;
+    expect(next.global.measures[0]!.chordSymbols![0]!.root).toEqual({ step: "C" });
+    expect(next.global.measures[0]!.chordSymbols![0]!.bass).toEqual({ step: "E" });
+    expect(next.parts[0]!.chordSymbolVisibility).toBe("hide");
+  });
+
   it("reopens harmony after an instrument change using the active display interval", () => {
     const score = buildScore();
     score.parts[0]!.transposition = { interval: { halfSteps: -12, staffDistance: -7 } };

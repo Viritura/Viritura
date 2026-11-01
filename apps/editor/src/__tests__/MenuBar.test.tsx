@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MenuBar, type MenuBarCallbacks, type MenuBarState } from "../components/MenuBar";
 
@@ -37,6 +37,50 @@ function renderMenuBar(overrides: Partial<MenuBarCallbacks> = {}, state: MenuBar
 }
 
 describe("MenuBar", () => {
+  it("places the checked chord-track toggle directly under View without a submenu", async () => {
+    const onToggleChordTrack = vi.fn();
+    const { user } = renderMenuBar(
+      { onToggleChordTrack },
+      { hasDocument: true, canUseChordTrack: true, chordTrackEnabled: true },
+    );
+    await user.click(screen.getByText("View"));
+    expect(screen.queryByText("Chords")).toBeNull();
+    const toggle = await screen.findByRole("menuitemcheckbox", { name: "Chord track" });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(toggle);
+    expect(onToggleChordTrack).toHaveBeenCalledOnce();
+  });
+
+  it("omits Go to chords while retaining the track toggle", async () => {
+    const callbacks = { onToggleChordTrack: vi.fn() };
+    const { user } = renderMenuBar(callbacks, { hasDocument: true, canUseChordTrack: true, chordTrackEnabled: true });
+    await user.click(screen.getByText("View"));
+    await screen.findByRole("menuitemcheckbox", { name: "Chord track" });
+    expect(screen.queryByRole("menuitem", { name: "Go to chords" })).toBeNull();
+    cleanup();
+    const disabled = renderMenuBar(callbacks, { hasDocument: true, canUseChordTrack: true, chordTrackEnabled: false });
+    await disabled.user.click(screen.getByText("View"));
+    expect(screen.queryByRole("menuitem", { name: "Go to chords" })).toBeNull();
+    expect((await screen.findByRole("menuitemcheckbox", { name: "Chord track" })).getAttribute("aria-checked")).toBe(
+      "false",
+    );
+  });
+
+  it.each([
+    { hasDocument: false, canUseChordTrack: true },
+    { hasDocument: true, canUseChordTrack: false },
+  ])("disables the chord-track toggle outside an available document/workspace", async (state) => {
+    const { user } = renderMenuBar({ onToggleChordTrack: vi.fn() }, state);
+    await user.click(screen.getByText("View"));
+    expect(screen.getByRole("menuitemcheckbox", { name: "Chord track" }).getAttribute("data-disabled")).not.toBeNull();
+  });
+
+  it("disables the chord-track toggle without a registered action", async () => {
+    const { user } = renderMenuBar({}, { hasDocument: true, canUseChordTrack: true });
+    await user.click(screen.getByText("View"));
+    expect(screen.getByRole("menuitemcheckbox", { name: "Chord track" }).getAttribute("data-disabled")).not.toBeNull();
+  });
+
   it("renders File, Edit, View, and Help menus", () => {
     renderMenuBar();
     expect(screen.getByText("File")).toBeTruthy();

@@ -200,7 +200,11 @@ describe("useFastLayoutCallback", () => {
     const paintNow = vi.fn();
     const lastFastPaintedJsonRef = { current: "" };
     const pendingFastJsonRef = { current: "" };
-    const onDisplayListCommit = vi.fn();
+    let loading = true;
+    const onDisplayListCommit = vi.fn(() => {
+      loading = false;
+    });
+    const lastInitialLoadJsonRef = { current: "initial" };
 
     renderHook(() =>
       useFastLayoutCallback({
@@ -217,10 +221,12 @@ describe("useFastLayoutCallback", () => {
         onDisplayListCommit,
         lastFastPaintedJsonRef,
         pendingFastJsonRef,
+        lastInitialLoadJsonRef,
       }),
     );
 
     const firstPaint = perfTracker.fastLayoutCallback?.("first");
+    expect(lastInitialLoadJsonRef.current).toBe("");
     expect(pendingFastJsonRef.current).toBe("first");
     docScoreRef.current = scoreB;
     firstLayout.resolve(displayList("stale", 160));
@@ -232,6 +238,7 @@ describe("useFastLayoutCallback", () => {
     expect(lastFastPaintedJsonRef.current).toBe("");
     expect(paintNow).not.toHaveBeenCalled();
     expect(onDisplayListCommit).not.toHaveBeenCalled();
+    expect(loading).toBe(true);
 
     const finalPaint = perfTracker.fastLayoutCallback?.("final");
     finalLayout.resolve(finalDisplayList);
@@ -244,6 +251,7 @@ describe("useFastLayoutCallback", () => {
     expect(pendingFastJsonRef.current).toBe("");
     expect(paintNow).toHaveBeenCalledOnce();
     expect(onDisplayListCommit).toHaveBeenCalledOnce();
+    expect(loading).toBe(false);
   });
 
   it("clears pending fast layout state after an error so queued edits can drain", async () => {
@@ -268,6 +276,7 @@ describe("useFastLayoutCallback", () => {
         onDisplayListCommit: vi.fn(),
         lastFastPaintedJsonRef,
         pendingFastJsonRef,
+        lastInitialLoadJsonRef: { current: "" },
       }),
     );
 

@@ -5,6 +5,59 @@ anchored to rhythmic positions in the music, but they are not owned by the note
 or rest you select to enter them. Every displayed copy refers to the same
 progression; there are no separate instrument-specific progressions.
 
+## Chord track
+
+In **Write → Horizon**, the **Chord track** is an editor-only lane below the
+paper, aligned with the music's rhythmic spacing. Scroll below the music to
+bring it into view, particularly in a tall orchestral score.
+The lane's text, ruler, and interaction targets scale with the music's canvas
+zoom and staff size. Click the settings cog beside **CHORDS** to open a
+resizable right-side **Chord settings** panel for entry-grid and audition
+options. These options no longer occupy the top toolbar.
+You can also find the same preferences under **Settings → Chord track**, even
+when the lane is hidden. Both settings surfaces apply the same session-wide
+values immediately; they do not save preferences into the document or across
+editor launches. Use the checked **View → Chord track** item to show or hide
+the lane.
+
+- Click an empty ruler tick to enter a change without selecting a note or rest.
+- Single-click an existing chord to select it in **Properties** and audition it.
+  Double-click it or press `Enter` while it has focus to edit its text.
+  Press `Space` on a focused chord to select and audition without opening entry.
+- Drag a chord label or occupied tick to move it to the nearest grid tick or
+  existing chord onset. The preview identifies any chord that will be replaced.
+  Release inside the lane to commit; press `Escape` or release outside to cancel.
+  Each drop is one undo step, restoring both chords if a destination was replaced.
+- Hold `Alt` during a drag for a temporary sixteenth-note grid. Pressing or
+  releasing `Alt` updates the snapped preview immediately, even without pointer
+  movement. Releasing it restores the selected grid without changing the preference.
+- The **CHORDS** label and settings cog stay pinned while scrolling horizontally.
+  This does not pin the lane vertically.
+- In **Chord settings**, choose **Quarter**, **Eighths**, or **Sixteenths** for
+  note-value entry spacing, regardless of meter. Semicolon navigation still
+  follows musical beats, including compound beats.
+- Press `Space` or `Shift+Space` during entry to commit and move to the first beat
+  of the next or previous bar, regardless of the entry grid. Use `;` or `Shift+;`
+  for beats and `Mod+→` or `Mod+←` as alternative bar shortcuts.
+- **Audition chords** in the settings panel controls automatic previews while playback is stopped.
+  The existing moving playhead provides timing feedback during playback.
+- Remove a selected chord with `Delete`/`Backspace` or **Remove chord**.
+  Committed edits and deletions participate in ordinary undo/redo; canceling
+  an entry does not change the document.
+
+The lane always displays and accepts **concert pitch**, including in a
+written-pitch view. Editing it does not change any instrument's chord-symbol
+visibility. Staff chord symbols are temporarily hidden while the lane is
+enabled in Horizon Write mode. Turning **View → Chord track** off restores them;
+page views, engraving, and exports retain their existing placement.
+
+> [!NOTE]
+> **Availability: Horizon Write mode**
+>
+> The chord lane is currently available only in Horizon Write mode. In page
+> views, use the engraved chord symbols and Properties to edit the same
+> shared progression.
+
 ## Enter a chord symbol
 
 1. Select the note or rest where the chord change begins.
@@ -64,16 +117,16 @@ no-chord change.
 
 Use these keys while the chord-symbol field is open:
 
-| Key             | Action                                              |
-| --------------- | --------------------------------------------------- |
-| `Enter`         | Commit and exit                                     |
-| `Space`         | Commit and move to the next note or rest            |
-| `Shift+Space`   | Commit and move to the previous note or rest        |
-| `;`             | Commit and move to the next beat                    |
-| `Shift+;` / `:` | Commit and move to the previous beat                |
-| `Mod+→`         | Commit and move to the first event in the next bar  |
-| `Mod+←`         | Commit and move to the first event in the prior bar |
-| `Esc`           | Cancel and exit                                     |
+| Key             | Action                                             |
+| --------------- | -------------------------------------------------- |
+| `Enter`         | Commit and exit                                    |
+| `Space`         | Commit and move to the first beat of the next bar  |
+| `Shift+Space`   | Commit and move to the first beat of the prior bar |
+| `;`             | Commit and move to the next beat                   |
+| `Shift+;` / `:` | Commit and move to the previous beat               |
+| `Mod+→`         | Commit and move to the first beat of the next bar  |
+| `Mod+←`         | Commit and move to the first beat of the prior bar |
+| `Esc`           | Cancel and exit                                    |
 
 Beat stepping follows the active meter. In compound meter, for example, it
 moves by the compound beat rather than by each notated beat unit. Navigation

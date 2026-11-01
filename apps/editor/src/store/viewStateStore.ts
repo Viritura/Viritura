@@ -34,18 +34,46 @@ interface ViewStateStore {
   selectedPartIds: string[];
   /** Page-layout view mode (page / spread / spread-h / horizon). */
   viewMode: ViewMode;
+  chordTrackEnabled: boolean;
+  chordTrackGrid: "quarter" | "eighth" | "sixteenth";
+  chordTrackAudition: boolean;
+  chordSettingsOpen: boolean;
+  chordSettingsWidth: number;
 
   setSelectedScoreIndex: (action: SetAction<number>) => void;
   setSelectedPartIds: (action: SetAction<string[]>) => void;
   setViewMode: (action: SetAction<ViewMode>) => void;
+  setChordTrackEnabled: (enabled: boolean) => void;
+  setChordTrackGrid: (grid: "quarter" | "eighth" | "sixteenth") => void;
+  setChordTrackAudition: (enabled: boolean) => void;
+  setChordSettingsOpen: (open: boolean) => void;
+  setChordSettingsWidth: (width: number) => void;
 }
 
 export const useViewStateStore = create<ViewStateStore>((set) => ({
   selectedScoreIndex: 0,
   selectedPartIds: [],
   viewMode: "horizon",
+  chordTrackEnabled: true,
+  chordTrackGrid: "quarter",
+  chordTrackAudition: true,
+  chordSettingsOpen: false,
+  chordSettingsWidth: 320,
 
   setSelectedScoreIndex: (action) => set((s) => ({ selectedScoreIndex: applySetAction(s.selectedScoreIndex, action) })),
   setSelectedPartIds: (action) => set((s) => ({ selectedPartIds: applySetAction(s.selectedPartIds, action) })),
-  setViewMode: (action) => set((s) => ({ viewMode: applySetAction(s.viewMode, action) })),
+  setViewMode: (action) =>
+    set((s) => {
+      const viewMode = applySetAction(s.viewMode, action);
+      return { viewMode, chordSettingsOpen: viewMode === "horizon" && s.chordSettingsOpen };
+    }),
+  setChordTrackEnabled: (chordTrackEnabled) =>
+    set((s) => ({
+      chordTrackEnabled,
+      chordSettingsOpen: chordTrackEnabled && s.chordSettingsOpen,
+    })),
+  setChordTrackGrid: (chordTrackGrid) => set({ chordTrackGrid }),
+  setChordTrackAudition: (chordTrackAudition) => set({ chordTrackAudition }),
+  setChordSettingsOpen: (chordSettingsOpen) => set({ chordSettingsOpen }),
+  setChordSettingsWidth: (chordSettingsWidth) => set({ chordSettingsWidth }),
 }));

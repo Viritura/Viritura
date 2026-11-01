@@ -10,6 +10,7 @@
 
 import { useMemo } from "react";
 import { create } from "zustand";
+import type { RhythmicPosition } from "@viritura/core";
 import { parseElementType, type SelectableElementType } from "../score/elementTypes";
 import { extractPartIndex, extractMeasureIndex } from "../score/ElementPath";
 
@@ -23,6 +24,10 @@ export interface MeasureSelectionPoint {
   readonly measureIndex: number;
   /** The pointer landed on a synthetic source staff under condensed notation. */
   readonly isExpansion?: boolean;
+  /** A global harmony selected in the concert-pitch, editor-only chord lane. */
+  readonly chordTrack?: true;
+  /** Exact harmony position, used to keep lane selections stable when array indices change. */
+  readonly chordPosition?: RhythmicPosition;
 }
 
 interface SelectionNone {

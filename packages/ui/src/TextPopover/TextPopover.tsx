@@ -39,6 +39,8 @@ export interface TextPopoverProps {
   /** Optional continuous-entry navigation handler. Returning true clears the
    * current value and keeps the popover open at the caller's next target. */
   onNavigate?: (value: string, command: TextPopoverNavigationCommand) => boolean;
+  /** Space navigation target; defaults to the caller's next/previous target. */
+  spaceNavigation?: "target" | "measure";
 }
 
 export type TextPopoverNavigationCommand =
@@ -62,6 +64,7 @@ export function TextPopover({
   inputType = "text",
   children,
   onNavigate,
+  spaceNavigation = "target",
 }: TextPopoverProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState(initialValue);
@@ -71,10 +74,8 @@ export function TextPopover({
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- controlled-sync effect — external source seeds local state when it changes
       setValue(initialValue);
-      requestAnimationFrame(() => {
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      });
+      inputRef.current?.focus();
+      inputRef.current?.select();
     }
   }, [open, initialValue]);
 
@@ -105,6 +106,7 @@ export function TextPopover({
         onClose();
         return;
       }
+      if (document.activeElement !== inputRef.current && e.target !== inputRef.current) return;
       if (e.key === "Enter") {
         e.preventDefault();
         e.stopPropagation();
@@ -113,9 +115,13 @@ export function TextPopover({
       }
       const command = onNavigate
         ? e.key === " " && e.shiftKey
-          ? "previous"
+          ? spaceNavigation === "measure"
+            ? "previousMeasure"
+            : "previous"
           : e.key === " "
-            ? "next"
+            ? spaceNavigation === "measure"
+              ? "nextMeasure"
+              : "next"
             : e.key === ":" || (e.key === ";" && e.shiftKey)
               ? "previousBeat"
               : e.key === ";"
@@ -134,7 +140,7 @@ export function TextPopover({
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [open, onClose, onNavigate, handleSubmit, handleNavigate]);
+  }, [open, onClose, onNavigate, spaceNavigation, handleSubmit, handleNavigate]);
 
   if (!open) return null;
 

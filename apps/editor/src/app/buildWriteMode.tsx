@@ -12,6 +12,8 @@
 import type { ReactNode, RefObject } from "react";
 import { Panel, WriteStatusBar, type WriteViewMode as ViewMode, type MenuItemDef } from "@viritura/ui";
 import { TransportBar } from "@viritura/playback";
+import { ConnectedChordTrackSettings } from "../components/ChordTrack";
+import { useViewStateStore } from "../store/viewStateStore";
 import { Toolbar } from "../components/Toolbar";
 import { WorkspaceToolbar } from "../components/WorkspaceToolbar";
 import { ScoreSwitcher } from "../scoreSwitcher";
@@ -34,6 +36,8 @@ export interface BuildWriteModeArgs {
   onTogglePanels: () => void;
   leftFloat: FloatingPanel;
   sourceFloat: FloatingPanel;
+  chordSettingsOpen: boolean;
+  chordSettingsWidth: number;
   selectedScoreIndex: number;
   handleSelectScore: (index: number) => void;
   /** Path keys of condensed staves currently expanded on the canvas. */
@@ -98,6 +102,24 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
       </Panel>,
     );
   }
+  if (args.chordSettingsOpen && args.viewMode === "horizon") {
+    panels.push(
+      <Panel
+        key="chord-settings"
+        side="right"
+        title="Chord settings"
+        width={args.chordSettingsWidth}
+        min={280}
+        max={500}
+        scrollBody
+        onResize={(width) => useViewStateStore.getState().setChordSettingsWidth(width)}
+        onClose={() => useViewStateStore.getState().setChordSettingsOpen(false)}
+        onCollapse={() => useViewStateStore.getState().setChordSettingsOpen(false)}
+      >
+        <ConnectedChordTrackSettings />
+      </Panel>,
+    );
+  }
   return {
     kind: "write",
     leftPanelCollapsed: leftFloat.collapsed,
@@ -106,6 +128,7 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
     canvasProps: {
       interactionMode: "write",
       showHiddenRests: true,
+      showChordTrack: true,
       selectedPartIds: args.selectedPartIds,
       onToggleCondensedStaff: args.handleExpandCondensingStave,
       buildSelectionMenuItems: args.buildSelectionMenuItems,

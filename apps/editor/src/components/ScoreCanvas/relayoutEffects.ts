@@ -32,6 +32,7 @@ interface FastLayoutCallbackArgs {
    *  mnxJson useEffect doesn't double-apply the same edit while the worker
    *  layout is still in flight. */
   pendingFastJsonRef: { current: string };
+  lastInitialLoadJsonRef: { current: string };
 }
 
 /**
@@ -55,6 +56,7 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
     onDisplayListCommit,
     lastFastPaintedJsonRef,
     pendingFastJsonRef,
+    lastInitialLoadJsonRef,
   } = args;
 
   useEffect(() => {
@@ -66,6 +68,8 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
     perf.fastLayoutCallback = (json: string, patchInfo?: PatchInfo) => {
       const capturedScoreInfo = cachedScoreInfoRef.current;
       if (!wasmReady || !capturedScoreInfo) return;
+      // Undo may restore the original JSON while this edit mutates the retained engine score.
+      lastInitialLoadJsonRef.current = "";
       const requestId = ++latestRequestId;
       const capturedScore = docScoreRef.current;
       const capturedDocScoreRef = { current: capturedScore };
@@ -119,7 +123,7 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
       latestRequestId += 1;
       perf.fastLayoutCallback = null;
     };
-  }, [wasmReady, computeDisplayList, selectedScoreIndex, onDisplayListCommit]);
+  }, [wasmReady, computeDisplayList, selectedScoreIndex, onDisplayListCommit, lastInitialLoadJsonRef]);
 }
 
 interface SecondaryRelayoutArgs {

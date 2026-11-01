@@ -118,7 +118,10 @@ export default defineConfig(({ command }) => ({
     // Compiler still runs through Babel, wired in with @rolldown/plugin-babel
     // and the plugin's own `reactCompilerPreset` (preconfigured filter).
     react(),
-    babel({ presets: [reactCompilerPreset()] }),
+    babel({
+      include: /[\\/](?:apps|packages)[\\/].*?[\\/]src[\\/].*\.(?:[jt]sx?|[cm][jt]s)(?:$|\?)/,
+      presets: [reactCompilerPreset()],
+    }),
     externalizeLargeSoundfont(),
   ],
   // The editor is served at its own origin (app.viritura.com in prod,

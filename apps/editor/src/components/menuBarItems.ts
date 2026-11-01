@@ -48,6 +48,7 @@ export interface MenuBarCallbacks {
   readonly onZoomIn?: () => void;
   readonly onZoomOut?: () => void;
   readonly onResetZoom?: () => void;
+  readonly onToggleChordTrack?: () => void;
   readonly onTranspose?: () => void;
   readonly onBarInstrumentChange?: () => void;
   readonly onExplodeSelection?: () => void | Promise<void>;
@@ -81,12 +82,19 @@ export interface MenuBarState {
   readonly canChangeBarInstrument?: boolean;
   readonly hasDocument?: boolean;
   readonly canDistribute?: boolean;
+  readonly canUseChordTrack?: boolean;
+  readonly chordTrackEnabled?: boolean;
+}
+
+export interface MenuBarItemDef extends MenuItemDef {
+  readonly checked?: boolean;
+  readonly children?: readonly MenuBarItemDef[];
 }
 
 export interface TopLevelMenu {
   readonly label: string;
   readonly id: string;
-  readonly items: MenuItemDef[];
+  readonly items: MenuBarItemDef[];
 }
 
 const SEPARATOR: MenuItemDef = { label: "separator", separator: true };
@@ -193,11 +201,18 @@ function editItems(callbacks: MenuBarCallbacks, state: MenuBarState): MenuItemDe
   ];
 }
 
-function viewItems(callbacks: MenuBarCallbacks, state: MenuBarState): MenuItemDef[] {
+function viewItems(callbacks: MenuBarCallbacks, state: MenuBarState): MenuBarItemDef[] {
   return [
     { label: "Zoom In", shortcut: `${MOD}+`, action: callbacks.onZoomIn, disabled: !callbacks.onZoomIn },
     { label: "Zoom Out", shortcut: `${MOD}−`, action: callbacks.onZoomOut, disabled: !callbacks.onZoomOut },
     { label: "Reset Zoom", shortcut: `${MOD}0`, action: callbacks.onResetZoom, disabled: !callbacks.onResetZoom },
+    SEPARATOR,
+    {
+      label: "Chord track",
+      checked: state.chordTrackEnabled ?? false,
+      action: callbacks.onToggleChordTrack,
+      disabled: !state.hasDocument || !state.canUseChordTrack || !callbacks.onToggleChordTrack,
+    },
     SEPARATOR,
     {
       label: "MNX Source",

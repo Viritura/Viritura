@@ -22,7 +22,8 @@ import {
 import { resolveCondensedFullMeasureRestTargets } from "../score/condensedWriteback";
 import { chordViewSources, anchoredChordSources } from "../score/chordSourceContext";
 import { openDialog, toggleDialog } from "../store/dialogStore";
-import type { RadialMenuState } from "../store/overlayStore";
+import type { ChordSymbolPopoverState, RadialMenuState } from "../store/overlayStore";
+export type { ChordSymbolPopoverState } from "../store/overlayStore";
 import { buildNavigationIndex } from "../navigation";
 import { useViewStateStore } from "../store/viewStateStore";
 import { measureAttributeShortcuts } from "./measureAttributeShortcuts";
@@ -54,19 +55,6 @@ export interface StaffTextPopoverState {
     graceContainerIndex?: number;
     staff?: number;
   }>;
-}
-
-export interface ChordSymbolPopoverState {
-  position: { x: number; y: number };
-  partIndex: number;
-  measureIndex: number;
-  sequenceIndex: number;
-  eventIndex: number;
-  tupletIndex?: number;
-  graceContainerIndex?: number;
-  anchorStaff?: number;
-  anchorElementId?: string;
-  rhythmicPosition?: import("@viritura/core").RhythmicPosition;
 }
 
 export function resolveStaffTextTargets(
@@ -190,6 +178,7 @@ export function resolveChordSymbolSource(
 ): { partIndex: number; staff: number } | undefined {
   const staves = chordViewSources(score, selectedScoreIndex, measureIndex, selectedPartIds);
   const anchor = chordSourceAnchor(selection);
+  if (anchor?.chordTrack) return trackChordSource(score, anchor);
   if (anchor && anchor.measureIndex !== measureIndex) return undefined;
   const part = anchor && score.parts[anchor.partIndex];
   const state = useSelectionStore.getState();
@@ -219,6 +208,12 @@ export function resolveChordSymbolSource(
   if (!source) return undefined;
   const partIndex = score.parts.findIndex((part) => part.id === source.part);
   return partIndex < 0 ? undefined : { partIndex, staff: source.staff ?? 1 };
+}
+
+function trackChordSource(score: Score, anchor: MeasureSelectionPoint) {
+  return score.parts[anchor.partIndex]
+    ? { partIndex: anchor.partIndex, staff: (anchor.localStaffIndex ?? 0) + 1 }
+    : undefined;
 }
 
 function resolveExistingChordTarget(
@@ -254,6 +249,7 @@ function resolveExistingChordTarget(
     anchorStaff: staff,
     anchorElementId: anchor.elementId,
     rhythmicPosition: chord.position,
+    concertPitch: selection.measureAnchor?.chordTrack,
   };
 }
 
