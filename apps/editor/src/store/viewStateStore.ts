@@ -37,6 +37,8 @@ interface ViewStateStore {
   chordTrackEnabled: boolean;
   chordTrackGrid: "quarter" | "eighth" | "sixteenth";
   chordTrackAudition: boolean;
+  chordTrackSticky: boolean;
+  chordTrackPosition: "above" | "below";
   chordSettingsOpen: boolean;
   chordSettingsWidth: number;
 
@@ -46,6 +48,8 @@ interface ViewStateStore {
   setChordTrackEnabled: (enabled: boolean) => void;
   setChordTrackGrid: (grid: "quarter" | "eighth" | "sixteenth") => void;
   setChordTrackAudition: (enabled: boolean) => void;
+  setChordTrackSticky: (enabled: boolean) => void;
+  setChordTrackPosition: (position: "above" | "below") => void;
   setChordSettingsOpen: (open: boolean) => void;
   setChordSettingsWidth: (width: number) => void;
 }
@@ -57,6 +61,8 @@ export const useViewStateStore = create<ViewStateStore>((set) => ({
   chordTrackEnabled: true,
   chordTrackGrid: "quarter",
   chordTrackAudition: true,
+  chordTrackSticky: true,
+  chordTrackPosition: "below",
   chordSettingsOpen: false,
   chordSettingsWidth: 320,
 
@@ -74,6 +80,8 @@ export const useViewStateStore = create<ViewStateStore>((set) => ({
     })),
   setChordTrackGrid: (chordTrackGrid) => set({ chordTrackGrid }),
   setChordTrackAudition: (chordTrackAudition) => set({ chordTrackAudition }),
+  setChordTrackSticky: (chordTrackSticky) => set({ chordTrackSticky }),
+  setChordTrackPosition: (chordTrackPosition) => set({ chordTrackPosition }),
   setChordSettingsOpen: (chordSettingsOpen) => set({ chordSettingsOpen }),
   setChordSettingsWidth: (chordSettingsWidth) => set({ chordSettingsWidth }),
 }));

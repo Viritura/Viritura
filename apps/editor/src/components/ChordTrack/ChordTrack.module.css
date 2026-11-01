@@ -10,6 +10,17 @@
   display: block;
 }
 
+.surface {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.surface[data-pinned="true"],
+.root:hover .surface,
+.root:focus-within .surface {
+  box-shadow: var(--shadow-floating-bar);
+}
+
 .hit {
   position: absolute;
   pointer-events: auto;

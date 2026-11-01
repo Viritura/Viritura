@@ -101,9 +101,13 @@ export function WorkspaceShell({
 
   const rootClass = className ? `${styles.shell} ${className}` : styles.shell;
   const statusClass = statusVisible ? `${styles.statusZone} ${styles.statusZoneVisible}` : styles.statusZone;
+  const shellStyle: CSSProperties & { "--workspace-status-zone-height": string } = {
+    ...style,
+    "--workspace-status-zone-height": `${statusBar !== undefined ? STATUS_ZONE_HEIGHT : 0}px`,
+  };
 
   return (
-    <div className={rootClass} style={style}>
+    <div className={rootClass} style={shellStyle}>
       {canvas !== undefined && <div className={styles.canvasLayer}>{canvas(insets)}</div>}
       {positioned}
       {others}

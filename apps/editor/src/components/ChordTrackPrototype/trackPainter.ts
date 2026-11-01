@@ -13,10 +13,16 @@ interface PaintTrackArgs {
   viewMode: "horizon" | "page";
   headerRight: number;
   dragPreview: ChordDragPreview | null;
+  railY: number;
+  position: "above" | "below";
 }
 
-export function laneTop(system: TrackSystem, viewMode: "horizon" | "page"): number {
-  return viewMode === "horizon" ? system.musicHeight + 12 : 12;
+export function laneTop(
+  system: TrackSystem,
+  viewMode: "horizon" | "page",
+  position: "above" | "below" = "below",
+): number {
+  return viewMode === "horizon" && position === "below" ? system.musicHeight + 12 : 12;
 }
 
 export function paintTrackSystem({
@@ -30,6 +36,8 @@ export function paintTrackSystem({
   viewMode,
   headerRight,
   dragPreview,
+  railY,
+  position,
 }: PaintTrackArgs): void {
   const height = system.musicHeight + LANE_HEIGHT + 24;
   const dpr = window.devicePixelRatio || 1;
@@ -38,10 +46,14 @@ export function paintTrackSystem({
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Chord track prototype requires Canvas 2D");
   ctx.scale(zoom * dpr, zoom * dpr);
-  const musicY = viewMode === "horizon" ? 0 : LANE_HEIGHT + 24;
-  const railY = laneTop(system, viewMode);
+  const musicY = viewMode === "horizon" && position === "below" ? 0 : LANE_HEIGHT + 24;
   ctx.fillStyle = "#faf7ef";
-  ctx.fillRect(0, 0, system.width, viewMode === "horizon" ? system.musicHeight : height);
+  ctx.fillRect(
+    0,
+    viewMode === "horizon" ? musicY : 0,
+    system.width,
+    viewMode === "horizon" ? system.musicHeight : height,
+  );
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, musicY, system.width, system.musicHeight);

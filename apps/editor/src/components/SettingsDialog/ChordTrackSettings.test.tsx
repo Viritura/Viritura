@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe("global chord-track settings", () => {
-  it.each(["chords", "harmony", "entry grid", "audition", "quarter", "alt drag"])(
+  it.each(["chords", "harmony", "entry grid", "audition", "quarter", "alt drag", "sticky vertical", "above"])(
     "finds chord-track preferences by searching %s",
     (query) => {
       const matches = filterCategories(availableCategories(), query);
@@ -54,6 +54,17 @@ describe("global chord-track settings", () => {
     );
     const panels = screen.getAllByRole("region", { name: "Chord settings" });
     expect(panels.map((panel) => panel.id)).toEqual(["chord-settings-panel", "settings-chord-track-controls"]);
+    fireEvent.click(within(panels[0]!).getByRole("switch", { name: "Sticky chord track" }));
+    expect(within(panels[1]!).getByRole<HTMLInputElement>("switch", { name: "Sticky chord track" }).checked).toBe(
+      false,
+    );
+    act(() => useViewStateStore.getState().setChordTrackPosition("above"));
+    expect(within(panels[0]!).getByRole("combobox", { name: "Chord track position" }).textContent).toContain(
+      "Above music",
+    );
+    expect(within(panels[1]!).getByRole("combobox", { name: "Chord track position" }).textContent).toContain(
+      "Above music",
+    );
     fireEvent.click(within(panels[0]!).getByRole("switch", { name: "Audition chords" }));
     expect(within(panels[1]!).getByRole<HTMLInputElement>("switch", { name: "Audition chords" }).checked).toBe(false);
     fireEvent.click(within(panels[1]!).getByRole("switch", { name: "Audition chords" }));

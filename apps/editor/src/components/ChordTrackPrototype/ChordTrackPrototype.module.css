@@ -58,6 +58,15 @@
   display: block;
 }
 
+.surface {
+  position: absolute;
+  pointer-events: none;
+}
+
+.surface[data-pinned="true"] {
+  box-shadow: var(--shadow-floating-bar);
+}
+
 .hit {
   position: absolute;
   min-width: 0;
