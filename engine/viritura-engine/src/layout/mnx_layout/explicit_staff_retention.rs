@@ -30,6 +30,7 @@ impl ExplicitStaffRetention {
         "authored-staff-content".hash(&mut hasher);
         super::super::lyric_extenders::cache_dependency_hash(score).hash(&mut hasher);
         super::super::volta::paged_ottava_dependency_hash(score, 0).hash(&mut hasher);
+        super::super::volta::ending_dependency_hash(score, 0).hash(&mut hasher);
         super::super::support_flags::engraving_flags(score).hash(&mut hasher);
         Self {
             prior: cache.take_retained_segments(),

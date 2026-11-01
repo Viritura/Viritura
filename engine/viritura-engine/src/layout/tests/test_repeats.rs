@@ -3,13 +3,329 @@
 
 use super::test_helpers::*;
 use crate::layout::config::LayoutConfig;
-use crate::layout::layout_score;
 use crate::layout::measure::*;
 use crate::layout::resolve::*;
+use crate::layout::{layout_full_score, layout_score, layout_with_mnx_scores};
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
 use std::collections::HashSet;
+
+fn volta_test_score() -> crate::model::Score {
+    let upper = serde_json::json!({
+        "staff": 1,
+        "content": (0..4).map(|_| serde_json::json!({
+            "duration": {"base": "quarter"},
+            "notes": (["C", "E", "G", "B"].map(|step| serde_json::json!({
+                "pitch": {"step": step, "octave": 5}
+            })))
+        })).collect::<Vec<_>>()
+    });
+    let lower = serde_json::json!({
+        "staff": 2,
+        "content": (0..4).map(|_| serde_json::json!({
+            "duration": {"base": "quarter"},
+            "notes": [{"pitch": {"step": "C", "octave": 3}}]
+        })).collect::<Vec<_>>()
+    });
+    let mut measures = vec![serde_json::json!({"sequences": [upper, lower]}); 24];
+    measures[0]["clefs"] = serde_json::json!([
+        {"staff": 1, "clef": {"sign": "G", "staffPosition": -2}},
+        {"staff": 2, "clef": {"sign": "F", "staffPosition": 2}}
+    ]);
+    let mut global = (0..24)
+        .map(|index| serde_json::json!({"id": format!("m{index}")}))
+        .collect::<Vec<_>>();
+    global[0]["time"] = serde_json::json!({"count": 4, "unit": 4});
+    global[0]["repeatStart"] = serde_json::json!({});
+    global[1]["ending"] = serde_json::json!({"duration": 12, "numbers": [1]});
+    global[12]["repeatEnd"] = serde_json::json!({});
+    global[13]["ending"] = serde_json::json!({"duration": 1, "numbers": [2], "open": true});
+    let json = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": global},
+        "parts": [{"id": "piano", "name": "Piano", "staves": 2, "measures": measures}],
+        "layouts": [{"id": "piano-layout", "content": [
+            {"type": "staff", "sources": [{"part": "piano", "staff": 1}]},
+            {"type": "staff", "sources": [{"part": "piano", "staff": 2}]}
+        ]}],
+        "scores": [{"name": "Piano", "layout": "piano-layout"}]
+    });
+    let mut score = parse_mnx(&json.to_string()).unwrap();
+    crate::reconcile::reconcile_score(&mut score);
+    score
+}
+
+fn volta_commands(display: &DisplayList) -> Vec<&RenderCommand> {
+    let id = crate::layout::element_id::volta(1);
+    display
+        .element_ids
+        .iter()
+        .enumerate()
+        .filter_map(|(index, owner)| {
+            (owner.as_deref() == Some(id.as_str())).then_some(&display.commands[index])
+        })
+        .collect()
+}
+
+#[test]
+fn test_volta_paged_ending_closes_only_at_its_repeat_barline() {
+    let score = volta_test_score();
+    let config = LayoutConfig {
+        page_width: Some(500.0),
+        ..LayoutConfig::default()
+    };
+    for display in [
+        layout_score(&score, 0, &config),
+        layout_full_score(&score, &config),
+        layout_with_mnx_scores(&score, &config, 0),
+    ] {
+        let systems: HashSet<_> = display
+            .measure_bounds
+            .iter()
+            .filter(|bound| bound.staff_index == 0 && (1..=12).contains(&bound.index))
+            .map(|bound| bound.system_index)
+            .collect();
+        assert!(systems.len() >= 3, "fixture must cross multiple systems");
+        let id = crate::layout::element_id::volta(1);
+        let fragments: Vec<_> = display
+            .element_bboxes
+            .iter()
+            .filter(|bbox| bbox.element_id == id)
+            .collect();
+        assert_eq!(
+            fragments.len(),
+            systems.len(),
+            "each system needs a selectable continuation"
+        );
+        let commands = volta_commands(&display);
+        assert_eq!(
+            commands
+                .iter()
+                .filter(|command| matches!(command,
+                    RenderCommand::DrawText { text, .. } if text == "1."
+                ))
+                .count(),
+            1,
+            "only the first fragment has a number"
+        );
+        let hooks: Vec<_> = commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawLine { x1, x2, y1, y2, .. }
+                    if (x1 - x2).abs() < 1e-9 && (y1 - y2).abs() > 1e-9 =>
+                {
+                    Some(*x1)
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            hooks.len(),
+            2,
+            "system seams must not close or restart the ending"
+        );
+        let closing_bar = display
+            .measure_bounds
+            .iter()
+            .find(|bound| bound.index == 12 && bound.staff_index == 0)
+            .unwrap();
+        assert!(
+            (hooks[1] - closing_bar.x - closing_bar.width).abs() < 1e-9,
+            "the closing hook must align with the repeat barline"
+        );
+    }
+}
+
+#[test]
+fn test_volta_horizon_chunks_keep_one_continuous_bracket() {
+    let score = volta_test_score();
+    let config = LayoutConfig {
+        horizon_chunk_width: Some(500.0),
+        ..LayoutConfig::default()
+    };
+    let display = layout_with_mnx_scores(&score, &config, 0);
+    let id = crate::layout::element_id::volta(1);
+    assert_eq!(
+        display
+            .element_bboxes
+            .iter()
+            .filter(|bbox| bbox.element_id == id)
+            .count(),
+        1
+    );
+    let commands = volta_commands(&display);
+    assert_eq!(
+        commands
+            .iter()
+            .filter(|command| matches!(command,
+                RenderCommand::DrawText { text, .. } if text == "1."
+            ))
+            .count(),
+        1
+    );
+    let closing_bar = display
+        .measure_bounds
+        .iter()
+        .find(|bound| bound.index == 12 && bound.staff_index == 0)
+        .unwrap();
+    assert!(
+        commands.iter().any(|command| matches!(command,
+            RenderCommand::DrawLine { x1, x2, y1, y2, .. }
+                if (x1 - x2).abs() < 1e-9 && (y1 - y2).abs() > 1e-9
+                && (x1 - closing_bar.x - closing_bar.width).abs() < 1e-9
+        )),
+        "the continuous bracket must reach its closing repeat"
+    );
+}
+
+#[test]
+fn test_volta_authored_galley_systems_keep_ending_continuations() {
+    let mut score = volta_test_score();
+    score.scores[0].pages = vec![crate::model::layout::PageDefinition {
+        systems: (0..24)
+            .step_by(4)
+            .map(|index| crate::model::layout::SystemDefinition {
+                measure: score.global.measures[index].id.clone().unwrap(),
+                layout: None,
+                layout_changes: Vec::new(),
+            })
+            .collect(),
+    }];
+    for horizon_chunk_width in [None, Some(500.0)] {
+        let config = LayoutConfig {
+            horizon_chunk_width,
+            ..LayoutConfig::default()
+        };
+        let display = layout_with_mnx_scores(&score, &config, 0);
+        let systems: HashSet<_> = display
+            .measure_bounds
+            .iter()
+            .filter(|bound| bound.staff_index == 0 && (1..=12).contains(&bound.index))
+            .map(|bound| bound.system_index)
+            .collect();
+        assert_eq!(
+            systems.len(),
+            4,
+            "the fixture must honor the authored systems"
+        );
+        let id = crate::layout::element_id::volta(1);
+        assert_eq!(
+            display
+                .element_bboxes
+                .iter()
+                .filter(|bbox| bbox.element_id == id)
+                .count(),
+            systems.len(),
+            "authored galley systems must retain every ending fragment"
+        );
+        assert_eq!(
+            volta_commands(&display)
+                .iter()
+                .filter(|command| matches!(command,
+                    RenderCommand::DrawText { text, .. } if text == "1."
+                ))
+                .count(),
+            1
+        );
+    }
+}
+
+#[test]
+fn test_volta_collapsed_rest_ending_reaches_repeat_barline() {
+    let mut score = volta_test_score();
+    let rest = minimal_spacing_score(
+        r#"[{"measures":[{"sequences":[{"content":[{"duration":{"base":"whole"},"rest":{}}]}]}]}]"#,
+    );
+    for measure in &mut score.parts[0].measures {
+        for sequence in &mut measure.sequences {
+            sequence.content = rest.parts[0].measures[0].sequences[0].content.clone();
+        }
+    }
+    let config = LayoutConfig {
+        page_width: Some(500.0),
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    let display = layout_score(&score, 0, &config);
+    let closing_rest = display
+        .measure_bounds
+        .iter()
+        .find(|bound| bound.index == 1 && bound.staff_index == 0)
+        .unwrap();
+    assert!(
+        volta_commands(&display)
+            .iter()
+            .any(|command| matches!(command,
+                RenderCommand::DrawLine { x1, x2, y1, y2, .. }
+                    if (x1 - x2).abs() < 1e-9 && (y1 - y2).abs() > 1e-9
+                    && (x1 - closing_rest.x - closing_rest.width).abs() < 1e-9
+            )),
+        "a collapsed ending must still close at its final repeat barline"
+    );
+}
+
+#[test]
+fn test_volta_retention_updates_continuations_after_source_edits() {
+    use super::test_patch_frame::reconstruct;
+    use crate::layout::cache::{DirtyRegion, LayoutCache};
+    use crate::layout::layout_with_mnx_scores_cached;
+
+    for paged in [true, false] {
+        let mut score = volta_test_score();
+        let config = LayoutConfig {
+            page_width: paged.then_some(500.0),
+            horizon_chunk_width: (!paged).then_some(500.0),
+            ..LayoutConfig::default()
+        };
+        let mut cache = LayoutCache::new();
+        cache.set_patch_frame_enabled(true);
+        layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let seed = cache.take_pending_patch().unwrap();
+        let (_, mut segments) = reconstruct(&seed, &[]);
+        for (duration, open) in [(18, false), (6, true)] {
+            let ending = score.global.measures[1].ending.as_mut().unwrap();
+            ending.duration = duration;
+            ending.open = Some(open);
+            ending.color = Some("#663399".into());
+            let expected = layout_with_mnx_scores(&score, &config, 0);
+            cache.set_pending_dirty_region(Some(DirtyRegion::local_part_measures(
+                1,
+                1,
+                vec![true],
+            )));
+            layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+            let patch = cache.take_pending_patch().unwrap();
+            let (actual, next) = reconstruct(&patch, &segments);
+            assert_eq!(
+                serde_json::to_value(volta_commands(&actual)).unwrap(),
+                serde_json::to_value(volta_commands(&expected)).unwrap(),
+                "retained continuations must follow the edited source ending"
+            );
+            let id = crate::layout::element_id::volta(1);
+            assert_eq!(
+                serde_json::to_value(
+                    actual
+                        .element_bboxes
+                        .iter()
+                        .filter(|bbox| bbox.element_id == id)
+                        .collect::<Vec<_>>()
+                )
+                .unwrap(),
+                serde_json::to_value(
+                    expected
+                        .element_bboxes
+                        .iter()
+                        .filter(|bbox| bbox.element_id == id)
+                        .collect::<Vec<_>>()
+                )
+                .unwrap(),
+                "retained continuation bounds must follow the source ending"
+            );
+            segments = next;
+        }
+    }
+}
 
 #[test]
 fn test_repeat_barlines_mnx_produces_glyphs() {

@@ -143,6 +143,27 @@ export const MultiMeasureEnding: StoryObj = {
   name: "Two-bar ending",
 };
 
+export const EndingAcrossSystems: StoryObj = {
+  render: () => {
+    const mnx = buildMnx({
+      measures: Array.from({ length: 24 }, (_, index) => ({
+        ...(index === 0 ? { time: { count: 4, unit: 4 }, repeatStart: true } : {}),
+        ...(index === 1 ? { ending: { duration: 12, numbers: [1] } } : {}),
+        ...(index === 12 ? { repeatEnd: true } : {}),
+        ...(index === 13 ? { ending: { duration: 1, numbers: [2], open: true } } : {}),
+        voices: [
+          Array.from({ length: 4 }, () => ({
+            duration: "quarter",
+            notes: ["C", "E", "G", "B"].map((step) => ({ step, octave: 5 })),
+          })),
+        ],
+      })),
+    });
+    return <ScorePreview mnxJson={mnx} viewMode="page" />;
+  },
+  name: "Ending continues across systems to the repeat barline",
+};
+
 /**
  * Repeat with explicit play count � `repeatEnd.times` controls how many
  * times the section is played (default 2 when omitted). Here we test 3� and 4�.

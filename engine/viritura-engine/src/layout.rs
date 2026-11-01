@@ -993,7 +993,7 @@ fn render_system_contents(
         staff_lyric_line_order.as_deref(),
         lyric_staff_number,
     );
-    render_volta_brackets(dl, measure_layouts, staff_y, sp, part_idx);
+    render_volta_brackets(dl, measure_layouts, staff_y, config, score);
     volta::render_ottavas_for_view(dl, measure_layouts, staff_y, config, score, staff_sources);
     render_hairpins(
         dl,

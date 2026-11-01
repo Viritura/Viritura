@@ -66,12 +66,16 @@ pub(super) fn prepare_render_retention(
     );
     let context_hash =
         super::super::instrument_changes::state_salt(score, flat_staves, context_hash);
+    let context_hash = super::super::volta::ending_dependency_hash(score, context_hash);
     if config.page_width.is_none() {
         return (context_hash, true);
     }
     let context_hash = super::super::volta::paged_ottava_dependency_hash(score, context_hash);
     let paged_ottavas_stable = cache.as_deref_mut().is_some_and(|cache| {
-        cache.update_paged_ottava_salt(super::super::volta::paged_ottava_dependency_hash(score, 0))
+        cache.update_paged_ottava_salt(super::super::volta::ending_dependency_hash(
+            score,
+            super::super::volta::paged_ottava_dependency_hash(score, 0),
+        ))
     });
     (context_hash, paged_ottavas_stable)
 }

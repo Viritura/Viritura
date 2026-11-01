@@ -351,14 +351,7 @@ pub fn layout_full_score_cached(
         render_trill_lines_for_system(&mut dl, &all_sys_layouts, &staff_y_offsets, sp, config);
 
         if let Some(first_layouts) = all_sys_layouts.first() {
-            let volta_part_index = visual_staves.first().map_or(0, |vs| vs.0);
-            render_volta_brackets(
-                &mut dl,
-                first_layouts,
-                staff_y_offsets[0],
-                sp,
-                volta_part_index,
-            );
+            render_volta_brackets(&mut dl, first_layouts, staff_y_offsets[0], config, score);
         }
 
         render_system_chrome(

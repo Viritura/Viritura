@@ -846,30 +846,8 @@ pub(super) fn layout_auto_flow_mnx_score(
     // salt. Hashing them here avoids a second O(all events/notes) identity
     // walk. Absolute system Y is added because `system_render_hash` deliberately
     // excludes rigid vertical translation while the overlay emits absolute Y.
-    let overlay_signature: Option<u64> = patch_valid.then(|| {
-        let mut h = DefaultHasher::new();
-        patch_order.len().hash(&mut h);
-        for hash in &patch_order {
-            hash.hash(&mut h);
-        }
-        system_y_positions.len().hash(&mut h);
-        for y in &system_y_positions {
-            y.to_bits().hash(&mut h);
-        }
-        // Bounds — sort keys for deterministic hash since HashMap iteration
-        // is undefined.
-        let mut bound_keys: Vec<_> = slur_bounds.keys().copied().collect();
-        bound_keys.sort();
-        for k in &bound_keys {
-            k.hash(&mut h);
-            let b = slur_bounds[k];
-            b.left_x.to_bits().hash(&mut h);
-            b.right_x.to_bits().hash(&mut h);
-        }
-        // Continuation geometry differs at stitched-horizon chunk seams.
-        chunked.hash(&mut h);
-        sp.to_bits().hash(&mut h);
-        h.finish()
+    let overlay_signature = patch_valid.then(|| {
+        cross_system_overlay_hash(&patch_order, &system_y_positions, &slur_bounds, chunked, sp)
     });
 
     let cached_overlay_hit: Option<DisplayList> = cache
@@ -901,7 +879,14 @@ pub(super) fn layout_auto_flow_mnx_score(
         );
         tick!("  cross_system_slurs");
         if let Some(placement) = &chunked_global_offsets {
-            super::horizon_ottavas::render(&mut dl, &precomp_layouts, flat_staves, placement, sp);
+            super::horizon_spanners::render(
+                &mut dl,
+                &precomp_layouts,
+                flat_staves,
+                placement,
+                sp,
+                score,
+            );
         }
         super::super::cross_system::render_layout_staff_spanner_continuations(
             &mut dl,

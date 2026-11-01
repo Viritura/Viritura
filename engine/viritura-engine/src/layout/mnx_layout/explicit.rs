@@ -33,7 +33,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 use super::super::text_frames::{append_text_frames_by_bounds, layout_full_score_with_frames};
-use super::authored_systems::resolve_explicit_systems_and_layouts;
+use super::authored_systems::{collect_authored_systems, resolve_explicit_systems_and_layouts};
 use super::auto_flow::layout_auto_flow_mnx_score;
 use super::explicit_pagination::{paginate_explicit_pages, ExplicitPagination};
 use super::explicit_staff_retention::{render_system_staves_and_contents, ExplicitStaffRetention};
@@ -489,49 +489,8 @@ pub fn layout_with_mnx_scores_cached(
     // Collect explicit systems and their authored page starts. Layout locks
     // remain automatic-flow constraints, but when a system layout override
     // requires this explicit path they are merged as additional anchors.
-    let mut all_systems: Vec<SystemDefinition> = Vec::new();
-    let mut forced_page_measures = HashSet::new();
-    for page in &score_def.pages {
-        if !all_systems.is_empty() {
-            if let Some(system) = page.systems.first() {
-                forced_page_measures.insert(system.measure.clone());
-            }
-        }
-        all_systems.extend(page.systems.iter().cloned());
-    }
-    if !all_systems.is_empty() {
-        for layout_break in &score_def.layout_breaks {
-            if !measure_id_map.contains_key(&layout_break.measure) {
-                continue;
-            }
-            if layout_break.kind == LayoutBreakKind::Page {
-                forced_page_measures.insert(layout_break.measure.clone());
-            }
-            if !all_systems
-                .iter()
-                .any(|system| system.measure == layout_break.measure)
-            {
-                all_systems.push(SystemDefinition {
-                    layout: None,
-                    measure: layout_break.measure.clone(),
-                    layout_changes: Vec::new(),
-                });
-            }
-        }
-        all_systems.sort_by_key(|system| {
-            measure_id_map
-                .get(&system.measure)
-                .copied()
-                .unwrap_or_default()
-        });
-        all_systems.dedup_by(|left, right| left.measure == right.measure);
-    }
-    let mut forced_page_starts: Vec<usize> = all_systems
-        .iter()
-        .enumerate()
-        .filter(|(_, system)| forced_page_measures.contains(&system.measure))
-        .map(|(index, _)| index)
-        .collect();
+    let (all_systems, mut forced_page_starts) =
+        collect_authored_systems(score_def, &measure_id_map);
 
     // Build MMR skip/start maps from score definition's multimeasureRests
     let mut skip_measures: HashSet<usize> = HashSet::new();
@@ -616,6 +575,13 @@ pub fn layout_with_mnx_scores_cached(
 
         return dl.with_raised_text_frames();
     }
+
+    // Authored systems are real breaks, not retained Horizon chunk seams.
+    let explicit_config = LayoutConfig {
+        horizon_chunk_width: None,
+        ..config.clone()
+    };
+    let config = &explicit_config;
 
     // Resolve system measure ranges + per-system flat staves + layout-change maps.
     let measure_count = score.global.measures.len();

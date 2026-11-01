@@ -1,11 +1,15 @@
 //! Volta brackets and ottava line rendering.
 
+use super::config::LayoutConfig;
 use super::element_id;
 use super::types::*;
+use crate::model::Score;
 use crate::render::smufl::smufl;
 use crate::render::*;
 use std::borrow::Borrow;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 mod paged_ottavas;
 pub(crate) use paged_ottavas::{
@@ -23,14 +27,69 @@ pub(crate) fn render_volta_brackets(
     dl: &mut DisplayList,
     measure_layouts: &[MeasureLayout],
     staff_y: f64,
+    config: &LayoutConfig,
+    score: &Score,
+) {
+    let chunked =
+        config.page_width.is_none() && config.horizon_chunk_width.is_some_and(|width| width > 0.0);
+    render_volta_brackets_filtered(
+        dl,
+        measure_layouts,
+        staff_y,
+        config.sp,
+        score,
+        |_, _, starts_here, ends_here| !chunked || (starts_here && ends_here),
+    );
+}
+
+pub(crate) fn render_volta_brackets_across_chunks(
+    dl: &mut DisplayList,
+    chunked_measures: &[(usize, &MeasureLayout)],
+    staff_y: f64,
     sp: f64,
-    _part_index: usize,
+    score: &Score,
+) {
+    let measures: Vec<_> = chunked_measures
+        .iter()
+        .map(|(_, measure)| *measure)
+        .collect();
+    render_volta_brackets_filtered(dl, &measures, staff_y, sp, score, |start, end, _, _| {
+        chunked_measures[start].0 != chunked_measures[end].0
+    });
+}
+
+pub(crate) fn ending_dependency_hash(score: &Score, context_hash: u64) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    context_hash.hash(&mut hasher);
+    score.global.measures.len().hash(&mut hasher);
+    for (index, measure) in score.global.measures.iter().enumerate() {
+        if let Some(ending) = &measure.ending {
+            index.hash(&mut hasher);
+            ending.duration.hash(&mut hasher);
+            ending.numbers.hash(&mut hasher);
+            ending.open.hash(&mut hasher);
+            ending.color.hash(&mut hasher);
+        }
+        if measure.repeat_end.is_some() {
+            index.hash(&mut hasher);
+        }
+    }
+    hasher.finish()
+}
+
+fn render_volta_brackets_filtered<M: Borrow<MeasureLayout>>(
+    dl: &mut DisplayList,
+    measure_layouts: &[M],
+    staff_y: f64,
+    sp: f64,
+    score: &Score,
+    should_render: impl Fn(usize, usize, bool, bool) -> bool,
 ) {
     // Alternate-ending brackets are system furniture: draw once on the same
     // top-level staff that owns tempo and rehearsal marks.
     if !measure_layouts
         .first()
-        .is_some_and(|ml| ml.show_system_objects)
+        .is_some_and(|ml| ml.borrow().show_system_objects)
     {
         return;
     }
@@ -52,23 +111,44 @@ pub(crate) fn render_volta_brackets(
         is_open: bool,
         color: String,
         label: String,
+        starts_here: bool,
         local_bracket_y: f64,
         measure_index: usize,
     }
 
     let mut spans: Vec<VoltaSpan> = Vec::new();
 
-    for (i, ml) in measure_layouts.iter().enumerate() {
-        if let Some(ref ending) = ml.resolved.global.ending {
+    for (measure_index, global) in score.global.measures.iter().enumerate() {
+        if let Some(ref ending) = global.ending {
+            let end_measure = measure_index
+                .saturating_add(ending.duration as usize)
+                .min(score.global.measures.len());
+            let overlaps = |layout: &M| {
+                let layout = layout.borrow();
+                layout.resolved.index < end_measure
+                    && layout.resolved.index + layout.multimeasure_rest_count.unwrap_or(1) as usize
+                        > measure_index
+            };
+            let Some(i) = measure_layouts.iter().position(&overlaps) else {
+                continue;
+            };
+            let end_i = measure_layouts.iter().rposition(overlaps).unwrap();
+            let ml = measure_layouts[i].borrow();
+            let last_ml = measure_layouts[end_i].borrow();
+            let starts_here = ml.resolved.index == measure_index;
+            let ends_here = last_ml.resolved.index
+                + last_ml.multimeasure_rest_count.unwrap_or(1) as usize
+                >= end_measure;
+            if !should_render(i, end_i, starts_here, ends_here) {
+                continue;
+            }
             let x_left = ml.x;
-            // Bracket spans `duration` measures from this one
-            let span_end = (i + ending.duration as usize).min(measure_layouts.len());
-            let last_ml = &measure_layouts[span_end - 1];
-            let is_open = ending.open.unwrap_or(false);
-            // A closed ending stops short of the barline so its right hook
-            // doesn't merge into the next ending's opening hook/label.
+            let span_end = end_i + 1;
+            let is_open = ending.open.unwrap_or(false) || !ends_here;
+            let closes_at_repeat = score.global.measures[end_measure - 1].repeat_end.is_some();
             let natural_x_right = last_ml.x + last_ml.width;
-            let x_right = if is_open {
+            // A first ending closes at its repeat barline, never at a system seam.
+            let x_right = if is_open || closes_at_repeat {
                 natural_x_right
             } else {
                 (natural_x_right - closed_end_gap).max(x_left + closed_end_gap)
@@ -79,6 +159,7 @@ pub(crate) fn render_volta_brackets(
             // note/stem tip in the spanned measures with minimum clearance.
             let mut highest_y = f64::INFINITY;
             for span_ml in measure_layouts.iter().take(span_end).skip(i) {
+                let span_ml = span_ml.borrow();
                 for vl in &span_ml.voice_layouts {
                     for ev in 0..vl.events.len() {
                         if vl.events.event(ev).is_rest() {
@@ -139,8 +220,9 @@ pub(crate) fn render_volta_brackets(
                 is_open,
                 color: color.to_string(),
                 label,
+                starts_here,
                 local_bracket_y,
-                measure_index: ml.resolved.index,
+                measure_index,
             });
         }
     }
@@ -157,15 +239,16 @@ pub(crate) fn render_volta_brackets(
         let color = span.color.as_str();
         let cmd_start = dl.commands.len();
 
-        // Left vertical hook (always drawn)
-        dl.push(RenderCommand::DrawLine {
-            x1: span.x_left,
-            y1: bracket_y,
-            x2: span.x_left,
-            y2: bracket_y + hook_length,
-            width: line_width,
-            color: color.into(),
-        });
+        if span.starts_here {
+            dl.push(RenderCommand::DrawLine {
+                x1: span.x_left,
+                y1: bracket_y,
+                x2: span.x_left,
+                y2: bracket_y + hook_length,
+                width: line_width,
+                color: color.into(),
+            });
+        }
 
         // Horizontal line across top
         dl.push(RenderCommand::DrawLine {
@@ -191,17 +274,18 @@ pub(crate) fn render_volta_brackets(
             });
         }
 
-        // Number label (e.g., "1.", "2.", "1, 2.")
-        dl.push(RenderCommand::DrawText {
-            x: span.x_left + text_x_offset,
-            y: bracket_y + text_y_offset,
-            text: span.label.clone(),
-            font: "serif bold".into(),
-            size: text_size,
-            color: color.into(),
-            align: TextAlign::Left,
-            baseline: TextBaseline::Top,
-        });
+        if span.starts_here {
+            dl.push(RenderCommand::DrawText {
+                x: span.x_left + text_x_offset,
+                y: bracket_y + text_y_offset,
+                text: span.label.clone(),
+                font: "serif bold".into(),
+                size: text_size,
+                color: color.into(),
+                align: TextAlign::Left,
+                baseline: TextBaseline::Top,
+            });
+        }
 
         // Tag all commands for this volta bracket with a structured element ID
         let eid = element_id::volta(span.measure_index);
