@@ -812,7 +812,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
 
         // Volta brackets on the top staff only
         if let Some(top_layouts) = all_sys_layouts.first() {
-            render_volta_brackets(&mut dl, top_layouts, staff_y_offsets[0], sp, part_index);
+            render_volta_brackets(&mut dl, top_layouts, staff_y_offsets[0], config, score);
         }
 
         render_grand_staff_system_connectors(

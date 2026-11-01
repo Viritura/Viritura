@@ -51,6 +51,16 @@ element ID and selectable bounds, including when a layout changes staff order.
 Paged render identities include authored ottava ranges so a placement or
 endpoint edit cannot reuse stale continuation geometry from another system.
 
+Alternate-ending brackets also continue across system and page breaks. MNX
+`ending.duration` includes the starting measure and the measure carrying the
+closing repeat: an ending starting at bar 98 with duration 4 covers bars 98-101.
+Only the first fragment carries the number and opening hook; only the final
+closed fragment carries a closing hook, aligned with its repeat barline.
+Continuation fragments keep the original ending's selection ID and clear the
+notes and stems on their own system. Horizon chunk seams keep one continuous
+bracket, and retained frames invalidate continuation geometry when an authored
+ending changes outside their system.
+
 ## 1. Horizontal spacing
 
 The horizontal pass lives under

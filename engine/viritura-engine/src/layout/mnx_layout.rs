@@ -11,7 +11,7 @@
 mod auto_flow;
 mod break_planning;
 mod horizon_bounds;
-mod horizon_ottavas;
+mod horizon_spanners;
 mod measure_widths;
 mod mmr_grouping;
 mod page_turn_planning;

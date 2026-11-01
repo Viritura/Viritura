@@ -24,6 +24,52 @@ describe("native navigation itinerary", () => {
     expect(expandMeasureOrder(score)).toEqual([0, 1, 2, 3, 4, 0, 1, 2, 6, 7]);
   });
 
+  it("honors repeats and multi-measure endings after landing in the coda", () => {
+    const score = measures(12);
+    score[1]!.segno = { location: { fraction: [0, 1] } };
+    jump(score[2]!, "toCoda");
+    jump(score[4]!, "dsAlCoda");
+    score[6]!.coda = { location: { fraction: [0, 1] } };
+    score[7]!.repeatStart = true;
+    score[8]!.ending = { numbers: [1], duration: 2 };
+    score[9]!.repeatEnd = {};
+    score[10]!.ending = { numbers: [2], duration: 1, open: true };
+
+    expect(expandMeasureOrder(score)).toEqual([0, 1, 2, 3, 4, 1, 2, 6, 7, 8, 9, 7, 10, 11]);
+  });
+
+  it("retains a mid-measure coda landing before repeating that measure in full", () => {
+    const score = measures(9);
+    jump(score[1]!, "toCoda");
+    jump(score[3]!, "dcAlCoda");
+    score[5]!.coda = { location: { fraction: [1, 4] } };
+    score[5]!.repeatStart = true;
+    score[6]!.repeatEnd = {};
+
+    expect(expandPlaybackItinerary(score).filter((span) => span.measureIndex >= 5)).toEqual([
+      { measureIndex: 5, startBeat: 1, endBeat: 4, measureBeats: 4 },
+      { measureIndex: 6, startBeat: 0, endBeat: 4, measureBeats: 4 },
+      { measureIndex: 5, startBeat: 0, endBeat: 4, measureBeats: 4 },
+      { measureIndex: 6, startBeat: 0, endBeat: 4, measureBeats: 4 },
+      { measureIndex: 7, startBeat: 0, endBeat: 4, measureBeats: 4 },
+      { measureIndex: 8, startBeat: 0, endBeat: 4, measureBeats: 4 },
+    ]);
+  });
+
+  it("can jump into an otherwise skipped ending and honor later repeats", () => {
+    const score = measures(11);
+    jump(score[1]!, "toCoda");
+    jump(score[3]!, "dcAlCoda");
+    score[4]!.repeatStart = true;
+    score[5]!.coda = { location: { fraction: [0, 1] } };
+    score[5]!.ending = { numbers: [3], duration: 1 };
+    score[5]!.repeatEnd = {};
+    score[7]!.repeatStart = true;
+    score[8]!.repeatEnd = {};
+
+    expect(expandMeasureOrder(score)).toEqual([0, 1, 2, 3, 0, 1, 5, 6, 7, 8, 7, 8, 9, 10]);
+  });
+
   it("replays from a nonzero segno and ends at a nonzero Fine", () => {
     const score = measures(4);
     score[1]!.segno = { location: { fraction: [1, 4] } };

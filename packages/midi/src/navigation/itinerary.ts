@@ -145,11 +145,12 @@ export function compileNavigation(
 ): PlayedMeasureSpan[] {
   const { markers, required } = resolveDestinations(measures, measureLengths);
   const result: PlayedMeasureSpan[] = [];
+  let order = initialOrder;
   const taken = new Set<number>();
   const state: ReplayState = { fineArmed: false, codaArmed: false, replay: false, orderIndex: 0 };
-  let cursor: Destination = { measureIndex: initialOrder[0] ?? 0, beat: 0 };
+  let cursor: Destination = { measureIndex: order[0] ?? 0, beat: 0 };
   let transitions = 0;
-  while (cursor.measureIndex < measures.length && (state.replay || state.orderIndex < initialOrder.length)) {
+  while (cursor.measureIndex < measures.length && (state.replay || state.orderIndex < order.length)) {
     if (++transitions > MAX_SPANS) {
       throw new NavigationError("Navigation exceeds the safe playback traversal limit", ["/global/measures"]);
     }
@@ -163,7 +164,7 @@ export function compileNavigation(
       state,
       markers.fine[0],
       taken,
-      initialOrder,
+      order,
     );
     if (endBeat > cursor.beat + EPS) {
       result.push({ measureIndex: index, startBeat: cursor.beat, endBeat, measureBeats: length });
@@ -174,11 +175,25 @@ export function compileNavigation(
     }
     if (jumpActive && jumpBeat <= endBeat + EPS) {
       taken.add(index);
-      state.replay = true;
       if (type === "toCoda") {
         state.codaArmed = false;
         cursor = required("coda", index);
+        state.orderIndex = order.indexOf(cursor.measureIndex);
+        if (state.orderIndex < 0) {
+          // A coda can enter an ending omitted by the normal passes. Read it
+          // before resuming any later, independently opened repeat sections.
+          const nextRepeat = measures.findIndex(
+            (measure, measureIndex) =>
+              measureIndex > cursor.measureIndex && measure.repeatStart && order.includes(measureIndex),
+          );
+          const end = nextRepeat < 0 ? measures.length : nextRepeat;
+          const prefix = Array.from({ length: end - cursor.measureIndex }, (_, offset) => cursor.measureIndex + offset);
+          order = [...prefix, ...(nextRepeat < 0 ? [] : order.slice(order.indexOf(nextRepeat)))];
+          state.orderIndex = 0;
+        }
+        state.replay = false;
       } else {
+        state.replay = true;
         state.fineArmed = type === "dcAlFine" || type === "dsAlFine";
         state.codaArmed = type === "dcAlCoda" || type === "dsAlCoda";
         cursor = ["segno", "dsAlFine", "dsAlCoda"].includes(type)
@@ -188,7 +203,7 @@ export function compileNavigation(
       continue;
     }
     state.orderIndex++;
-    cursor = { measureIndex: state.replay ? index + 1 : (initialOrder[state.orderIndex] ?? measures.length), beat: 0 };
+    cursor = { measureIndex: state.replay ? index + 1 : (order[state.orderIndex] ?? measures.length), beat: 0 };
   }
   if (state.fineArmed || state.codaArmed) {
     throw new NavigationError("The armed Fine or To Coda instruction is not reachable on replay", ["/global/measures"]);

@@ -43,6 +43,12 @@ al Coda examples from the same validated corpus used by the parser and
 engraving gates. These demonstrate the two new v46 navigation routes rather
 than leaving them available only in tests or raw JSON.
 
+Native `toCoda` instructions are inactive until a D.C./D.S. al Coda replay
+arms them. Landing at the coda resumes the repeat-expanded itinerary, so repeat
+barlines and alternate endings in the coda still apply. A multi-measure first
+ending includes its closing repeat measure; on the next pass that entire
+ending is skipped before taking the second ending.
+
 Lyric extender targets are stable event IDs. Clipboard duplication remaps
 targets copied with their source, including cross-track targets; targets outside
 the copied fragment are preserved, never silently changed to inferred endpoints.

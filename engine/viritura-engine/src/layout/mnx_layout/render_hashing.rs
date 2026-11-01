@@ -7,6 +7,35 @@ use crate::render::*;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+pub(super) fn cross_system_overlay_hash(
+    patch_order: &[u64],
+    system_y_positions: &[f64],
+    slur_bounds: &HashMap<(usize, usize, usize), super::super::slurs::SystemSlurBounds>,
+    chunked: bool,
+    sp: f64,
+) -> u64 {
+    let mut h = DefaultHasher::new();
+    patch_order.len().hash(&mut h);
+    for hash in patch_order {
+        hash.hash(&mut h);
+    }
+    system_y_positions.len().hash(&mut h);
+    for y in system_y_positions {
+        y.to_bits().hash(&mut h);
+    }
+    let mut bound_keys: Vec<_> = slur_bounds.keys().copied().collect();
+    bound_keys.sort();
+    for key in bound_keys {
+        key.hash(&mut h);
+        let bound = slur_bounds[&key];
+        bound.left_x.to_bits().hash(&mut h);
+        bound.right_x.to_bits().hash(&mut h);
+    }
+    chunked.hash(&mut h);
+    sp.to_bits().hash(&mut h);
+    h.finish()
+}
+
 pub(super) fn system_render_hash(
     all_staff_layouts: &[Vec<MeasureLayout>],
     staff_content_hashes: &[Vec<u64>],
