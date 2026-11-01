@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DisplayList } from "@viritura/renderer";
 import { buildTrackSystems, trackBeatToX } from "./trackGeometry";
-import { chordTrackScale, scaleTrackSystem, trackLaneY } from "./trackViewport";
+import { chordTrackScale, scaleTrackSystem, trackLaneY, trackBottomInset } from "./trackViewport";
 
 const displayList: DisplayList = {
   commands: [],
@@ -30,6 +30,15 @@ const displayList: DisplayList = {
 };
 
 describe("chord track score-space scaling", () => {
+  it.each([
+    { bottom: 12, sticky: true, overlay: 56, expected: 12 },
+    { bottom: 66, sticky: true, overlay: 56, expected: 12 },
+    { bottom: 106, sticky: true, overlay: 56, expected: 50 },
+    { bottom: 66, sticky: false, overlay: 56, expected: 66 },
+    { bottom: 24, sticky: true, overlay: 0, expected: 24 },
+  ])("excludes only the overlaid status zone from the sticky bottom inset", ({ bottom, sticky, overlay, expected }) => {
+    expect(trackBottomInset(bottom, sticky, overlay)).toBe(expected);
+  });
   it.each([
     [100, 76, 600, 12, 24, 100],
     [-100, 76, 600, 12, 24, 12],

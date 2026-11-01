@@ -25,6 +25,26 @@ interface EditorTarget {
   position: { x: number; y: number };
 }
 
+interface TrackShadowSurfaceProps {
+  left: number;
+  top: number;
+  naturalTop: number;
+  zoom: number;
+}
+
+function TrackShadowSurface({ left, top, naturalTop, zoom }: TrackShadowSurfaceProps) {
+  const style: CSSProperties = {
+    left,
+    right: 0,
+    top: top * zoom,
+    height: LANE_HEIGHT * zoom,
+    borderRadius: 8 * zoom,
+  };
+  return (
+    <div className={styles.surface} style={style} data-pinned={Math.abs(top - naturalTop) > 1e-6} aria-hidden="true" />
+  );
+}
+
 function PrototypeStatus() {
   return (
     <div className={styles.status} role="status">
@@ -207,6 +227,7 @@ function TrackSystemSurface({
   return (
     <div ref={root} className={styles.system} style={systemStyle}>
       <canvas ref={canvas} aria-hidden="true" style={canvasStyle} />
+      <TrackShadowSurface left={header.left} top={top} naturalTop={naturalTop} zoom={zoom} />
       <ChordTrackSettingsButton
         firstBarX={system.measures[0]!.x * zoom}
         railY={top * zoom}

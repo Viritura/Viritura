@@ -6,7 +6,8 @@ export const CHORD_TRACK_GAP = 12;
 export const CHORD_TRACK_INSET = 108;
 
 export function trackBottomInset(bottom: number, sticky: boolean, overlay = 0): number {
-  return Math.max(bottom, sticky && overlay > 0 ? overlay + 12 : 0);
+  if (!sticky || overlay <= 0) return bottom;
+  return Math.max(12, bottom - overlay);
 }
 
 export function trackLaneY(

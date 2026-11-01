@@ -109,6 +109,7 @@ export function ChordTrack({
     laneVisible,
     surfaceStyle,
     bottomInset,
+    pinned,
   } = useChordTrackGeometry({
     displayList,
     viewport,
@@ -178,7 +179,7 @@ export function ChordTrack({
   return (
     <div ref={root} className={styles.root} role="group" aria-label="Concert-pitch chord track">
       <canvas ref={canvas} className={styles.canvas} aria-hidden="true" />
-      {laneVisible && <div className={styles.surface} style={surfaceStyle} aria-hidden="true" />}
+      {laneVisible && <div className={styles.surface} style={surfaceStyle} data-pinned={pinned} aria-hidden="true" />}
       <ChordTrackSettingsTrigger
         system={system}
         viewport={viewport}

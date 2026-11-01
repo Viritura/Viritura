@@ -38,6 +38,9 @@ the lane.
   vertical scrolling or zoom would move it outside the visible score area.
   Turn it off to let the lane scroll normally with the music. These settings do
   not change horizontal rhythmic alignment or printed/paged layouts.
+- The lane gains a floating shadow when pinned, hovered, or focused. At the
+  bottom edge it shares the status bar's vertical position; the visible status
+  bar overlays the chord lane instead of pushing it upward.
 - In **Chord settings**, choose **Quarter**, **Eighths**, or **Sixteenths** for
   note-value entry spacing, regardless of meter. Semicolon navigation still
   follows musical beats, including compound beats.

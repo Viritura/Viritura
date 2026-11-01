@@ -49,14 +49,9 @@ export function useChordTrackGeometry({
     position === "above"
       ? paper.y - (CHORD_TRACK_GAP + LANE_HEIGHT) * scale
       : paper.y + paper.height + CHORD_TRACK_GAP * scale;
-  const railY = trackLaneY(
-    (naturalRailScoreY - viewport.scrollY) * viewport.zoom,
-    LANE_HEIGHT * laneZoom,
-    size.height,
-    sticky,
-    safeAreaTop,
-    bottomInset,
-  );
+  const naturalRailY = (naturalRailScoreY - viewport.scrollY) * viewport.zoom;
+  const railY = trackLaneY(naturalRailY, LANE_HEIGHT * laneZoom, size.height, sticky, safeAreaTop, bottomInset);
+  const pinned = railY !== naturalRailY;
   const railScoreY = railY / viewport.zoom + viewport.scrollY;
   const scoreX = (x: number) => (x - viewport.scrollX) * viewport.zoom;
   const allPoints =
@@ -93,6 +88,7 @@ export function useChordTrackGeometry({
     right: 0,
     top: railY,
     height: LANE_HEIGHT * laneZoom,
+    borderRadius: 8 * laneZoom,
   };
   return {
     system,
@@ -113,5 +109,6 @@ export function useChordTrackGeometry({
     laneVisible,
     surfaceStyle,
     bottomInset,
+    pinned,
   };
 }

@@ -39,7 +39,7 @@ const displayList: DisplayList = {
 };
 
 describe("chord entry and drag grid geometry", () => {
-  it("reserves the hover status zone without moving the pinned lane when the status bar opens", () => {
+  it("shares the bottom status zone without moving the pinned lane when the status bar opens", () => {
     const { result, rerender } = renderHook(
       ({ safeAreaBottom }) =>
         useChordTrackGeometry({
@@ -59,11 +59,12 @@ describe("chord entry and drag grid geometry", () => {
         }),
       { initialProps: { safeAreaBottom: 12 } },
     );
-    expect(result.current.bottomInset).toBe(68);
-    expect(result.current.railY).toBe(56);
+    expect(result.current.bottomInset).toBe(12);
+    expect(result.current.railY).toBe(112);
+    expect(result.current.pinned).toBe(true);
     rerender({ safeAreaBottom: 66 });
-    expect(result.current.bottomInset).toBe(68);
-    expect(result.current.railY).toBe(56);
+    expect(result.current.bottomInset).toBe(12);
+    expect(result.current.railY).toBe(112);
   });
 
   it.each(["above", "below"] as const)(
@@ -92,6 +93,7 @@ describe("chord entry and drag grid geometry", () => {
       const natural = position === "above" ? paper.y - 88 : paper.y + paper.height + 12;
       expect(result.current.naturalRailScoreY).toBe(natural);
       expect(result.current.railY).toBe(position === "above" ? 12 : 100);
+      expect(result.current.pinned).toBe(true);
       expect(result.current.surfaceStyle.top).toBe(result.current.railY);
       expect(result.current.surfaceStyle.height).toBe(76);
       rerender({ scrollY: 900, zoom: 1, sticky: true });
@@ -104,8 +106,29 @@ describe("chord entry and drag grid geometry", () => {
       rerender({ scrollY: 900, zoom: 2, sticky: false });
       expect(result.current.railY).toBe((natural - 900) * 2);
       expect(result.current.laneVisible).toBe(false);
+      expect(result.current.pinned).toBe(false);
     },
   );
+
+  it("does not mark a naturally visible lane as pinned", () => {
+    const { result } = renderHook(() =>
+      useChordTrackGeometry({
+        displayList,
+        score,
+        chords: [],
+        grid: "quarter",
+        sticky: true,
+        position: "below",
+        viewport: { zoom: 1, scrollX: 0, scrollY: 100 },
+        safeAreaLeft: 0,
+        selection: { kind: "none" },
+        hover: null,
+        size: { width: 500, height: 400 },
+      }),
+    );
+    expect(result.current.railY).toBe(result.current.naturalRailScoreY - 100);
+    expect(result.current.pinned).toBe(false);
+  });
 
   it("uses quarter notes rather than compound beats and supplies sixteenth anchors for Alt", () => {
     const { result } = renderHook(() =>
