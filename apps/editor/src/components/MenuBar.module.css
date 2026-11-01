@@ -96,6 +96,10 @@
   color: var(--text-muted);
 }
 
+.checkIndicator {
+  margin-left: var(--space-4);
+}
+
 .separator {
   height: 1px;
   background: var(--separator-h);

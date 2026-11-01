@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type CSSProperties } from "react";
-import { useDocument, useDocumentActions } from "../store/DocumentContext";
+import { useDocument, useDocumentActions, useDocumentStore } from "../store/DocumentContext";
 import { useSelection, useSelectedElementType } from "../store/selectionStore";
 import { resolveNotationSelectionTarget } from "../commands/notationInspectorCommands";
 
@@ -78,7 +78,10 @@ function NotationInspectorEmptyState({ horizonTextFrames }: { horizonTextFrames?
 export function NotationInspector(_props: NotationInspectorProps = {}) {
   const selection = useSelection();
   const selectedElementType = useSelectedElementType();
-  const { score } = useDocument();
+  const { score: paintedScore } = useDocument();
+  const score = useDocumentStore((state) =>
+    selectedElementType === "chord-symbol" ? (state.workingScore ?? state.score) : paintedScore,
+  );
   const { updateScore, commitPatches } = useDocumentActions();
   const [focusedSection, setFocusedSection] = useState<InspectorSection | null>(null);
   const tieSectionRef = useRef<HTMLFieldSetElement | null>(null);

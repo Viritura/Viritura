@@ -9,3 +9,4 @@ export {
   type EngraveClickModifiers,
 } from "./ScoreCanvas";
 export type { SelectionMenuContext } from "./types";
+export type { ViewportInfo } from "./types";

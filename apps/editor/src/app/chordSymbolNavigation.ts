@@ -151,7 +151,8 @@ export function navigateChordSymbolInput(
 ): ChordSymbolPopoverState | null {
   if (!current.anchorElementId) return null;
   if (command === "nextBeat" || command === "previousBeat") {
-    return navigateBeat(score, current, command === "nextBeat" ? 1 : -1, selectedScoreIndex);
+    const next = navigateBeat(score, current, command === "nextBeat" ? 1 : -1, selectedScoreIndex);
+    return next ? { ...next, concertPitch: current.concertPitch } : null;
   }
   const nav = buildNavigationIndex(score);
   const nextId =
@@ -162,5 +163,11 @@ export function navigateChordSymbolInput(
         : command === "nextMeasure"
           ? findNextMeasure(nav, current.anchorElementId)
           : findPrevMeasure(nav, current.anchorElementId);
-  return eventNavigationTarget(score, current, nextId, selectedScoreIndex);
+  const next = eventNavigationTarget(score, current, nextId, selectedScoreIndex);
+  if (!next) return null;
+  return {
+    ...next,
+    concertPitch: current.concertPitch,
+    ...(command === "nextMeasure" || command === "previousMeasure" ? { rhythmicPosition: fraction(0, 1) } : {}),
+  };
 }

@@ -266,8 +266,19 @@ website dev servers therefore poll whenever they detect a container
 `VIRITURA_CONTAINER_HOST`), and the API uses `dotnet watch` with polling for the
 same reason.
 
-The Storybook services do not set `VIRITURA_CONTAINER_HOST` and have no polling
-configured, so they are likely affected by the same problem. Untested so far.
+App Storybook also sets `VIRITURA_CONTAINER_HOST`, uses the shared scoped polling
+settings, and routes its HMR WebSocket through Traefik on port 80. Other Storybook
+profiles have separate Vite configurations; check their watcher settings if
+updates do not appear.
+
+App Storybook prebundles the linked core, format, and UI packages to avoid hundreds of
+individual module requests on first load. The renderer stays unbundled so Vite
+can resolve its layout worker relative to the original source module.
+The editor's Babel/React Compiler filter covers authored JavaScript and
+TypeScript under application/package source directories, not optimized
+dependencies in the container's temporary cache.
+If you edit the prebundled packages,
+run `pnpm dev:stack rebuild storybook-app` so Vite refreshes its dependency bundle.
 
 The failure mode to know about: **if the checked-out tree does not enable
 polling, the dev server goes blind and silently serves stale code.** Vite reads

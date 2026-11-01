@@ -186,6 +186,8 @@ export function useViewport({
     (x: number, y: number) => {
       const el = containerRef.current;
       if (!el) return;
+      // Explicit navigation must survive a relayout instead of reverting to the default anchor.
+      hasUserPositionedViewportRef.current = true;
       const vw = el.clientWidth;
       const vh = el.clientHeight;
       setViewport((prev) => ({

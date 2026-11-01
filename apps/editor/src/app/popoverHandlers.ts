@@ -116,13 +116,10 @@ export function applyChordSymbolEdit(
   const position = popover.rhythmicPosition ?? {
     fraction: beatPositionToFraction(eventBeatPosition(sequence, popover)),
   };
-  const interval = resolveDisplayTransposition(
-    score,
-    popover.partIndex,
-    popover.measureIndex,
-    position.fraction,
-    selectedScoreIndex,
-  )?.interval;
+  const interval = popover.concertPitch
+    ? undefined
+    : resolveDisplayTransposition(score, popover.partIndex, popover.measureIndex, position.fraction, selectedScoreIndex)
+        ?.interval;
   const parsed = parseChordSymbolText(rawValue, position);
   const parsedConcert = interval
     ? transposeChordSymbol(parsed, { halfSteps: -interval.halfSteps, staffDistance: -interval.staffDistance })
@@ -138,7 +135,7 @@ export function applyChordSymbolEdit(
 
   return produce(score, (draft) => {
     draft.global.measures[popover.measureIndex] = updated;
-    draft.parts[popover.partIndex]!.chordSymbolVisibility = "show";
+    if (!popover.concertPitch) draft.parts[popover.partIndex]!.chordSymbolVisibility = "show";
   });
 }
 

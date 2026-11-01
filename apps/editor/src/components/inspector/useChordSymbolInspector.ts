@@ -1,4 +1,5 @@
 import {
+  compareChordSymbolPositions,
   formatChordSymbolText,
   parseChordSymbolText,
   rewriteChordSymbolBase,
@@ -12,7 +13,7 @@ import { usePlaybackActions } from "@viritura/playback";
 import type { NotationSelectionTarget } from "../../commands/notationInspectorCommands";
 import { resolveChordSymbolSource } from "../../app/useAppKeyboardWiring";
 import { produce } from "../../score/scoreClone";
-import { useSelection, useSelectionStore } from "../../store/selectionStore";
+import { useSelection, useSelectionStore, type SelectionState } from "../../store/selectionStore";
 import { useViewStateStore } from "../../store/viewStateStore";
 import { resolveDisplayTransposition } from "../../pitchContext";
 
@@ -38,16 +39,38 @@ function chordDisplayInterval(
   );
 }
 
-export function useChordSymbolInspector({ score, target, updateScore }: Args) {
-  const selectedScoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
-  const selectedPartIds = useViewStateStore((state) => state.selectedPartIds);
-  const selection = useSelection();
-  useSelectionStore((state) => state.renderedStaffSources);
-  const { previewChord } = usePlaybackActions();
+function chordSelectionIdentity(
+  score: Score | null,
+  target: NotationSelectionTarget | null,
+  selection: SelectionState,
+) {
   const match = target?.elementId.match(/^(m(\d+)\/chord(\d+))(?:\/p\d+\/staff\d+)?$/);
   const canonicalId = match?.[1];
   const measureIndex = match ? Number(match[2]) : undefined;
-  const chordIndex = match ? Number(match[3]) : undefined;
+  const fromTrack =
+    selection.kind === "single" &&
+    selection.elementId === target?.elementId &&
+    selection.measureAnchor?.chordTrack === true;
+  const trackPosition = fromTrack && selection.kind === "single" ? selection.measureAnchor?.chordPosition : undefined;
+  const chordIndex =
+    trackPosition && measureIndex !== undefined
+      ? score?.global.measures[measureIndex]?.chordSymbols?.findIndex(
+          (candidate) => compareChordSymbolPositions(candidate.position, trackPosition) === 0,
+        )
+      : match
+        ? Number(match[3])
+        : undefined;
+  return { canonicalId, measureIndex, chordIndex, fromTrack };
+}
+
+export function useChordSymbolInspector({ score, target, updateScore }: Args) {
+  const selectedScoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
+  const selectedPartIds = useViewStateStore((state) => state.selectedPartIds);
+  const trackAudition = useViewStateStore((state) => state.chordTrackAudition);
+  const selection = useSelection();
+  useSelectionStore((state) => state.renderedStaffSources);
+  const { previewChord } = usePlaybackActions();
+  const { canonicalId, measureIndex, chordIndex, fromTrack } = chordSelectionIdentity(score, target, selection);
   const sourcePartIndex =
     score && measureIndex !== undefined
       ? resolveChordSymbolSource(
@@ -63,7 +86,9 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
     measureIndex === undefined || chordIndex === undefined
       ? undefined
       : score?.global.measures[measureIndex]?.chordSymbols?.[chordIndex];
-  const displayInterval = chordDisplayInterval(score, selectedScoreIndex, sourcePartIndex, measureIndex, stored);
+  const displayInterval = fromTrack
+    ? { halfSteps: 0, staffDistance: 0 }
+    : chordDisplayInterval(score, selectedScoreIndex, sourcePartIndex, measureIndex, stored);
   const chord = stored && sourcePart ? transposeChordSymbol(stored, displayInterval) : null;
 
   function commit(displayChord: ChordSymbol) {
@@ -78,7 +103,7 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
     });
     updateScore(nextScore);
     // Audio failures must not roll back an already committed notation edit.
-    void previewChord(concertChord, nextScore).catch(() => {});
+    if (!fromTrack || trackAudition) void previewChord(concertChord, nextScore).catch(() => {});
   }
 
   function mutateChord(mutate: (selected: ChordSymbol) => void) {

@@ -82,6 +82,15 @@ export interface DocumentStoreState {
 
 export type DocumentStore = ReturnType<typeof createDocumentStore>;
 
+function changedGlobalHarmony(previous: Score | null, next: Score, indices: readonly number[]): boolean {
+  return indices.some(
+    (index) =>
+      previous?.global.measures[index]?.chordSymbols !== next.global.measures[index]?.chordSymbols &&
+      JSON.stringify(previous?.global.measures[index]?.chordSymbols) !==
+        JSON.stringify(next.global.measures[index]?.chordSymbols),
+  );
+}
+
 export function createDocumentStore() {
   const deltaSerializer = new DeltaSerializer();
   let publishSequence = 0;
@@ -207,6 +216,7 @@ export function createDocumentStore() {
     ) => {
       const perf = getGlobalPerfTracker();
       const sequence = ++publishSequence;
+      const previousScore = get().workingScore ?? get().score;
       const cursorBeforeEdit = useNoteInputStore.getState().cursorPosition;
       // Commands submitted while the worker is busy must compose against this
       // latest model, but changing only `workingScore` does not invalidate the
@@ -246,11 +256,9 @@ export function createDocumentStore() {
       performance.mark("viritura:serialize-end");
       performance.measure("viritura:serialize", "viritura:serialize-start", "viritura:serialize-end");
 
-      // Structural edits can take a full WASM relayout before publication.
-      // Publish their serialized state immediately so Undo can restore them
-      // even if invoked while that relayout is still in flight. The visible
-      // score tree remains latest-painted until the layout promise resolves.
-      if (result.structuralChange) {
+      // Harmony entry can commit another change before the worker finishes.
+      // Record each commit immediately; visual publication still waits for paint.
+      if (result.structuralChange || changedGlobalHarmony(previousScore, newScore, result.changedGlobalMeasures)) {
         set({
           mnxJson: publishedJson(),
           dirty: true,

@@ -101,6 +101,9 @@ import {
 } from "./canvasHandlers";
 import { selectionAnnouncement } from "./selectionAnnouncement";
 import { UnsupportedChordOverlay } from "./UnsupportedChordOverlay";
+import { ChordTrack, CHORD_TRACK_INSET, chordTrackScale } from "../ChordTrack";
+import { withoutStaffChordHits, withoutStaffChordInk } from "./chordTrackProjection";
+import { useViewStateStore } from "../../store/viewStateStore";
 import { produce } from "../../score/scoreClone";
 import { reanchoredSlurElementId, reanchorSlurInScore } from "../../score/ScoreMutations";
 
@@ -125,6 +128,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       initialZoom,
       printPreview = false,
       showHiddenRests = false,
+      showChordTrack = false,
       scrollAnchor,
       safeArea,
       fitToWidth = false,
@@ -162,6 +166,10 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     const displayListVersionRef = useRef(0);
     const publishStaffSources = useRenderedStaffSources(displayListRef, displayListVersion, printPreview);
     const spatialIndexRef = useRef<SpatialIndex | null>(null);
+    const interactionSpatialIndexRef = useRef<SpatialIndex | null>(null);
+    const chordTrackEnabled = useViewStateStore((state) => state.chordTrackEnabled);
+    const chordTrackActive =
+      showChordTrack && chordTrackEnabled && viewMode === "horizon" && interactionMode === "write" && !printPreview;
     const perfTrackerRef = useRef(getGlobalPerfTracker());
     const tileCacheRef = useRef(new TileCache());
     /** Cached page setup for margin rendering. */
@@ -256,6 +264,12 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       clearSelection,
     } = selectionActions;
 
+    useEffect(() => {
+      if (!printPreview && !chordTrackActive && selection.kind === "single" && selection.measureAnchor?.chordTrack) {
+        selectElement(selection.elementId);
+      }
+    }, [chordTrackActive, printPreview, selection, selectElement]);
+
     const {
       state: noteInputState,
       setSlurStart,
@@ -268,7 +282,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       toggleNoteInput,
     } = useNoteInput();
 
-    const { mnxJson, score: docScore, dirty } = useDocument();
+    const { mnxJson, score: docScore, dirty, documentGeneration } = useDocument();
     usePublishRenderedPageCount(
       displayListRef,
       displayListVersion,
@@ -312,7 +326,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
 
     const { viewport, containerRef, isDragging, resetViewport, setZoom, setScroll, dragLockRef } = useViewport({
       contentWidth: contentSize.width,
-      contentHeight: contentSize.height,
+      contentHeight:
+        contentSize.height +
+        (chordTrackActive && displayListRef.current ? CHORD_TRACK_INSET * chordTrackScale(displayListRef.current) : 0),
       contentStartX,
       initialZoom,
       // Anchor strategy: if the caller supplied an explicit scrollAnchor,
@@ -588,6 +604,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     const rafRef = useRef(0);
     const handleDisplayListCommit = useCallback(() => {
       setDisplayListVersion((version) => version + 1);
+      setLoading(false);
     }, []);
     // Register synchronous fast-layout callback on the global perf tracker.
     // DocumentContext calls this from updateScore BEFORE React state updates,
@@ -606,6 +623,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       onDisplayListCommit: handleDisplayListCommit,
       lastFastPaintedJsonRef,
       pendingFastJsonRef,
+      lastInitialLoadJsonRef,
     });
 
     // Ref to track selectedScoreIndex without triggering the main effect
@@ -654,6 +672,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           /* ignore */
         }
         pendingFastJsonRef.current = mnxJson;
+        const requestedScore = docScoreRef.current;
         void runFastLayoutAndPaint({
           json: mnxJson,
           computeDisplayList: (j) => computeDisplayList(j, cachedScoreInfoRef.current!, selectedScoreIndexRef.current),
@@ -664,6 +683,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           paintNowRef,
           perfTracker: perfTrackerRef.current,
           onDisplayListCommit: handleDisplayListCommit,
+          shouldCommit: () => documentStore.getState().mnxJson === mnxJson && docScoreRef.current === requestedScore,
         })
           .then(() => {
             lastFastPaintedJsonRef.current = mnxJson;
@@ -696,6 +716,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       void runBackgroundTask("Laying out score…", () =>
         runInitialLoad({
           mnxJson,
+          isStale: () => documentStore.getState().mnxJson !== mnxJson,
           getScoreInfo: (j) => backend.getScoreInfo(j),
           computeDisplayList,
           viewMode,
@@ -718,6 +739,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         }),
       )
         .then(() => {
+          if (documentStore.getState().mnxJson !== mnxJson) return;
           // Initial/remounted layouts must notify the same consumers as relayouts.
           displayListVersionRef.current += 1;
           setDisplayListVersion(displayListVersionRef.current);
@@ -734,6 +756,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
                 ? (cb: () => void) => requestIdleCallback(() => cb(), { timeout: 1000 })
                 : (cb: () => void) => setTimeout(cb, 0);
             schedule(() => {
+              if (documentStore.getState().mnxJson !== mnxJson) return;
               // Bail if an edit already flowed through the fast path (it
               // re-seeded already) or one is in flight (it will).
               if (lastFastPaintedJsonRef.current === mnxJson) return;
@@ -755,6 +778,10 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           }
         })
         .catch((err: unknown) => {
+          if (documentStore.getState().mnxJson !== mnxJson) {
+            console.debug("[Layout] Discarding a superseded initial-load error", err);
+            return;
+          }
           // Allow a retry of this content on the next render.
           if (lastInitialLoadJsonRef.current === mnxJson) lastInitialLoadJsonRef.current = "";
           setError(err instanceof Error ? err.message : String(err));
@@ -762,6 +789,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         });
     }, [
       mnxJson,
+      documentStore,
       partIndex,
       wasmReady,
       computeDisplayList,
@@ -979,6 +1007,10 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         const canvas = canvasRef.current;
         const dl = displayListRef.current;
         if (!canvas || !dl) return;
+        const paintedList = chordTrackActive ? withoutStaffChordInk(dl) : dl;
+        interactionSpatialIndexRef.current = chordTrackActive
+          ? withoutStaffChordHits(spatialIndexRef.current)
+          : spatialIndexRef.current;
         publishStaffSources();
         const firstSelectedId = selectedIds?.values().next().value;
         performance.mark("viritura:paint-callback-ready");
@@ -986,7 +1018,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           canvas,
           container: containerRef.current,
           score: docScoreRef.current,
-          displayList: dl,
+          displayList: paintedList,
           forceDirect,
           viewport,
           prevZoomRef,
@@ -1002,8 +1034,8 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           perfTracker: perfTrackerRef.current,
           tileCache: tileCacheRef.current,
           glyphAtlas: glyphAtlasRef.current,
-          spatialIndex: spatialIndexRef.current,
-          displayListVersion: displayListVersionRef.current,
+          spatialIndex: interactionSpatialIndexRef.current,
+          displayListVersion: displayListVersionRef.current * 2 + (chordTrackActive ? 1 : 0),
           pageSetup: pageSetupRef.current,
           engraveBarlineHover: engraveBarlineHoverRef.current,
           engraveAdornments: engraveAdornmentsRef.current,
@@ -1033,6 +1065,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         docScoreRef,
         partIdByIndexRef,
         safeArea?.left,
+        chordTrackActive,
       ],
     );
 
@@ -1162,7 +1195,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         selectedIds,
         performanceOverlayEnabled,
         canvasRef,
-        spatialIndexRef,
+        spatialIndexRef: interactionSpatialIndexRef,
         displayListRef,
         displayListVersionRef,
         perfTrackerRef,
@@ -1325,7 +1358,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           >
             Interactive music score
           </canvas>
-          {!loading && wasmReady && !error && !printPreview && (
+          {!loading && wasmReady && !error && !printPreview && !chordTrackActive && (
             <UnsupportedChordOverlay
               score={docScore}
               selectedScoreIndex={selectedScoreIndex}
@@ -1336,6 +1369,19 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
               viewMode={viewMode}
               printPreview={printPreview}
               onSelect={selectElement}
+            />
+          )}
+          {!loading && wasmReady && !error && chordTrackActive && displayListRef.current && (
+            <ChordTrack
+              key={documentGeneration}
+              displayList={withoutStaffChordInk(displayListRef.current)}
+              viewport={viewport}
+              playhead={playback.status === "playing" ? playback.playheadPosition : null}
+              safeAreaLeft={safeArea?.left ?? 0}
+              onPanBy={(deltaX) => setScroll(viewport.scrollX + deltaX / viewport.zoom, viewport.scrollY)}
+              onRevealPoint={(point) =>
+                setScroll(point.x - ((safeArea?.left ?? 0) + 160) / viewport.zoom, viewport.scrollY)
+              }
             />
           )}
           <span id={selectionStatusId} aria-live="polite" style={SCREEN_READER_ONLY_STYLE}>

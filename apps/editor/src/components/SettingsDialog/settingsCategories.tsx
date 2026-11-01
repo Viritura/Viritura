@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from "react";
 import {
   Bug,
+  ChartNoAxesGantt,
   CircleUserRound,
   FileInput,
   Gauge,
@@ -24,6 +25,7 @@ import { LayoutDebugPanel } from "./panels/LayoutDebugPanel";
 import { AccountPanel } from "./panels/AccountPanel";
 import { MidiInputPanel } from "./panels/MidiInputPanel";
 import { PlaybackPanel } from "./panels/PlaybackPanel";
+import { ChordTrackPanel } from "./panels/ChordTrackPanel";
 
 /** Rail groups, in display order. */
 export const SETTINGS_GROUPS = ["General", "Audio", "Files", "Advanced"] as const;
@@ -78,6 +80,15 @@ const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     description: "Editor chrome and colour theme.",
     keywords: ["theme", "dark", "light", "midnight", "colour", "color", "contrast"],
     Panel: AppearancePanel,
+  },
+  {
+    id: "chord-track",
+    label: "Chord track",
+    group: "General",
+    icon: <ChartNoAxesGantt size={14} />,
+    description: "Chord entry grid and audition preferences.",
+    keywords: ["chords", "harmony", "quarter", "eighths", "sixteenths", "snap", "alt", "drag", "preview"],
+    Panel: ChordTrackPanel,
   },
   {
     id: "playback",

@@ -291,6 +291,7 @@ services:
     environment:
       <<: *public-environment
       CI: "true"
+      VIRITURA_CONTAINER_HOST: storybook.${VIRITURA_SLUG}.viritura.localhost
       VITE_VIRITURA_API_BASE_URL: http://api.viritura.localhost
     networks: *proxy-networks
     labels:

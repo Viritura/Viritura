@@ -1,11 +1,41 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TextPopover } from "@viritura/ui";
+import { Button, TextPopover } from "@viritura/ui";
 
 afterEach(cleanup);
 
 describe("TextPopover continuous navigation", () => {
+  it.each(["{Enter}", " "])("preserves child-button activation for %s", async (key) => {
+    const user = userEvent.setup();
+    const submit = vi.fn();
+    const navigate = vi.fn(() => true);
+    const remove = vi.fn();
+    const close = vi.fn();
+    render(
+      <TextPopover
+        open
+        position={{ x: 100, y: 100 }}
+        initialValue="C7"
+        onClose={close}
+        onSubmit={submit}
+        onNavigate={navigate}
+        spaceNavigation="measure"
+      >
+        <Button label="Remove chord" onClick={remove} />
+      </TextPopover>,
+    );
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Remove chord" }));
+    await user.keyboard(key);
+    expect(remove).toHaveBeenCalledOnce();
+    expect(submit).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+    await user.keyboard("{Escape}");
+    expect(close).toHaveBeenCalledOnce();
+  });
+
   it("allows spaces when continuous navigation is not configured", async () => {
     const user = userEvent.setup();
     render(<TextPopover open position={{ x: 100, y: 100 }} onClose={vi.fn()} onSubmit={vi.fn()} />);
@@ -58,6 +88,31 @@ describe("TextPopover continuous navigation", () => {
       "previousBeat",
       "nextMeasure",
       "previousMeasure",
+    ]);
+  });
+
+  it("uses bar navigation for chord entry without changing beat shortcuts", () => {
+    const navigate = vi.fn(() => true);
+    render(
+      <TextPopover
+        open
+        position={{ x: 100, y: 100 }}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onNavigate={navigate}
+        spaceNavigation="measure"
+      />,
+    );
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "C7" } });
+    fireEvent.keyDown(window, { key: " " });
+    fireEvent.keyDown(window, { key: " ", shiftKey: true });
+    fireEvent.keyDown(window, { key: ";" });
+    fireEvent.keyDown(window, { key: ":", shiftKey: true });
+    expect(navigate.mock.calls).toEqual([
+      ["C7", "nextMeasure"],
+      ["", "previousMeasure"],
+      ["", "nextBeat"],
+      ["", "previousBeat"],
     ]);
   });
 });

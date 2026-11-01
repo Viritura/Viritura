@@ -68,6 +68,8 @@ export interface ChordSymbolPopoverState {
   anchorElementId?: string;
   /** Direct beat-stepping position; absent when anchored to an event onset. */
   rhythmicPosition?: RhythmicPosition;
+  /** The editor-only chord lane always enters harmony in concert pitch. */
+  concertPitch?: boolean;
 }
 
 interface OverlayState {

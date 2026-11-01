@@ -45,6 +45,7 @@ interface InitialLoadArgs {
   setScoreDefinitions: (defs: string[]) => void;
   setContentSize: (s: { width: number; height: number }) => void;
   clearSelection: () => void;
+  isStale?: () => boolean;
 }
 
 /** Full initial-load layout pass: fetches ScoreInfo, runs full WASM layout,
@@ -74,6 +75,7 @@ export async function runInitialLoad(args: InitialLoadArgs): Promise<void> {
     clearSelection,
   } = args;
   const info = await getScoreInfo(mnxJson);
+  if (args.isStale?.()) return;
   cachedScoreInfoRef.current = info;
   perfTracker.scoreComplexity = `${info.measureCount}m × ${info.partCount}p`;
   setScoreInfo(
@@ -101,6 +103,7 @@ export async function runInitialLoad(args: InitialLoadArgs): Promise<void> {
   // otherwise the view-switch effect sees a "current" key but the wrong (full-
   // score) layout on screen.
   const displayList = await computeDisplayList(mnxJson, info, selectedScoreIndex);
+  if (args.isStale?.()) return;
   const t1 = performance.now();
   displayListRef.current = displayList;
   spatialIndexRef.current = buildEnrichedSpatialIndex(displayList, docScoreRef.current);
