@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { parseMnx } from "@viritura/format";
-import { fileSaveAs, fileDownload } from "../commands/fileCommands";
+import { fileSaveAs, fileDownload, isFileSystemAccessSupported } from "../commands/fileCommands";
 import type { OpenFileResult } from "../commands/fileCommands";
 import { useProjectStore } from "../store/projectStore";
 import { openExternalChangeConfirm } from "../store/modalFlowStore";
@@ -34,8 +34,16 @@ export function useFileSaveActions({
     diskBaselineRef.current = openedFile?.mnxJson ?? null;
   }, [openedFile]);
 
+  const recordSavedSnapshot = useCallback(
+    (json: string, documentGeneration: number) => {
+      store.getState().markSaved(json, documentGeneration);
+      diskBaselineRef.current = json;
+    },
+    [store],
+  );
+
   const handleSave = useCallback(async () => {
-    const { mnxJson: json, fileName: name } = store.getState();
+    const { mnxJson: json, fileName: name, documentGeneration } = store.getState();
     if (!json) return;
     const projectAdapter = useProjectStore.getState().adapter;
     let diskJson: string | null = null;
@@ -72,7 +80,7 @@ export function useFileSaveActions({
     if (projectAdapter && projectAdapter.isVersioned()) {
       try {
         await projectAdapter.writeScore(json);
-        diskBaselineRef.current = json;
+        recordSavedSnapshot(json, documentGeneration);
         toast.success("Saved");
         // Background commit — don't block UI.
         void useProjectStore
@@ -93,10 +101,12 @@ export function useFileSaveActions({
         const writable = await fileHandle.createWritable();
         await writable.write(json);
         await writable.close();
-        diskBaselineRef.current = json;
+        recordSavedSnapshot(json, documentGeneration);
         toast.success("Score saved");
       } else {
+        const downloadFallback = !isFileSystemAccessSupported();
         const handle = await fileSaveAs(json, name || "score.mnx");
+        if (handle || downloadFallback) store.getState().markSaved(json, documentGeneration);
         if (handle) {
           setFileHandle(handle);
           diskBaselineRef.current = json;
@@ -107,13 +117,15 @@ export function useFileSaveActions({
       console.error("Save failed:", err);
       toast.error("Save failed");
     }
-  }, [store, fileHandle, setFileHandle, resetHistory]);
+  }, [store, fileHandle, setFileHandle, resetHistory, recordSavedSnapshot]);
 
   const handleSaveAs = useCallback(async () => {
-    const { mnxJson: json, fileName: name } = store.getState();
+    const { mnxJson: json, fileName: name, documentGeneration } = store.getState();
     if (!json) return;
     try {
+      const downloadFallback = !isFileSystemAccessSupported();
       const handle = await fileSaveAs(json, name || "score.mnx");
+      if (handle || downloadFallback) store.getState().markSaved(json, documentGeneration);
       if (handle) {
         setFileHandle(handle);
         diskBaselineRef.current = json;
@@ -126,9 +138,10 @@ export function useFileSaveActions({
   }, [store, setFileHandle]);
 
   const handleDownload = useCallback(() => {
-    const { mnxJson: json, fileName: name } = store.getState();
+    const { mnxJson: json, fileName: name, documentGeneration } = store.getState();
     if (!json) return;
     fileDownload(json, name || "score.mnx");
+    store.getState().markSaved(json, documentGeneration);
   }, [store]);
 
   return { handleSave, handleSaveAs, handleDownload };

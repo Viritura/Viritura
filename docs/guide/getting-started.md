@@ -92,11 +92,20 @@ the Jump Bar.
 ## Save and share
 
 - `Mod+S` saves the current project document or standalone `.mnx` file.
+- Unsaved edits request a browser confirmation before closing, reloading, or
+  navigating away from the editor. Saving clears the warning for those edits.
 - `Mod+P` opens **Publish** for print‑ready page output.
 - Project folders keep Git history. Use **Review** to compare revisions and
   inspect musical changes.
 - The Live button creates a temporary collaboration link when you want to edit
   with someone else.
+
+> [!NOTE]
+> **Availability: Browser-dependent**
+>
+> The browser controls the confirmation wording and may suppress it without
+> prior interaction or when closing a mobile browser. Save before leaving;
+> the warning is not a substitute for saving.
 
 ## Where to next
 
