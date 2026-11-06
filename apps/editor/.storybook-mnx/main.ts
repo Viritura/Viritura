@@ -1,8 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import type { StorybookConfig } from "@storybook/react-vite";
-import { cssBuildOptions } from "../../../scripts/cssBuild";
-import { syncMnxFixtures, syncMnxSchema, syncMusxImporter, syncSharedAssets, syncSounds } from "../buildAssets";
+import { cssBuildOptions } from "../../../scripts/cssBuild/index.ts";
+import { syncMnxFixtures, syncMnxSchema, syncMusxImporter, syncSharedAssets, syncSounds } from "../buildAssets.ts";
 
 syncSharedAssets();
 syncSounds();
