@@ -7,6 +7,10 @@ const GRID_OPTIONS = [
   { value: "eighth", label: "Eighths" },
   { value: "sixteenth", label: "Sixteenths" },
 ];
+const POSITION_OPTIONS = [
+  { value: "above", label: "Above music" },
+  { value: "below", label: "Below music" },
+];
 
 interface ChordTrackSettingsProps {
   panelId?: string;
@@ -14,6 +18,10 @@ interface ChordTrackSettingsProps {
   onGridChange: (grid: "quarter" | "eighth" | "sixteenth") => void;
   audition?: boolean;
   onAuditionChange?: (enabled: boolean) => void;
+  sticky: boolean;
+  onStickyChange?: (enabled: boolean) => void;
+  position: "above" | "below";
+  onPositionChange?: (position: "above" | "below") => void;
 }
 
 export function ChordTrackSettings({
@@ -22,9 +30,43 @@ export function ChordTrackSettings({
   onGridChange,
   audition = false,
   onAuditionChange,
+  sticky,
+  onStickyChange,
+  position,
+  onPositionChange,
 }: ChordTrackSettingsProps) {
   return (
     <section id={panelId} className={styles.settingsContent} aria-label="Chord settings">
+      <SettingsRow
+        label="Sticky chord track"
+        description="In Horizon, keep the whole track visible at the nearest vertical edge when it scrolls out of view."
+      >
+        {({ controlId, descriptionId }) => (
+          <Switch
+            id={controlId}
+            aria-describedby={descriptionId}
+            checked={sticky}
+            disabled={!onStickyChange}
+            onCheckedChange={(enabled) => onStickyChange?.(enabled)}
+          />
+        )}
+      </SettingsRow>
+      <SettingsRow label="Position" description="Natural track position above or below the music in Horizon.">
+        {({ controlId, descriptionId }) => (
+          <Select
+            id={controlId}
+            aria-label="Chord track position"
+            aria-describedby={descriptionId}
+            value={position}
+            options={POSITION_OPTIONS}
+            disabled={!onPositionChange}
+            onValueChange={(value) => {
+              if (value === "above" || value === "below") onPositionChange?.(value);
+              else console.error("Unknown chord-track position", value);
+            }}
+          />
+        )}
+      </SettingsRow>
       <SettingsRow label="Entry grid" description="Hold Alt while dragging a chord to snap to sixteenth notes.">
         {({ controlId, descriptionId }) => (
           <Select
@@ -67,6 +109,10 @@ export function ConnectedChordTrackSettings({ panelId }: { panelId?: string }) {
   const audition = useViewStateStore((state) => state.chordTrackAudition);
   const setGrid = useViewStateStore((state) => state.setChordTrackGrid);
   const setAudition = useViewStateStore((state) => state.setChordTrackAudition);
+  const sticky = useViewStateStore((state) => state.chordTrackSticky);
+  const setSticky = useViewStateStore((state) => state.setChordTrackSticky);
+  const position = useViewStateStore((state) => state.chordTrackPosition);
+  const setPosition = useViewStateStore((state) => state.setChordTrackPosition);
   return (
     <ChordTrackSettings
       panelId={panelId}
@@ -74,6 +120,10 @@ export function ConnectedChordTrackSettings({ panelId }: { panelId?: string }) {
       onGridChange={setGrid}
       audition={audition}
       onAuditionChange={setAudition}
+      sticky={sticky}
+      onStickyChange={setSticky}
+      position={position}
+      onPositionChange={setPosition}
     />
   );
 }

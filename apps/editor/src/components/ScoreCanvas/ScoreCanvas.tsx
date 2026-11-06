@@ -168,6 +168,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     const spatialIndexRef = useRef<SpatialIndex | null>(null);
     const interactionSpatialIndexRef = useRef<SpatialIndex | null>(null);
     const chordTrackEnabled = useViewStateStore((state) => state.chordTrackEnabled);
+    const chordTrackPosition = useViewStateStore((state) => state.chordTrackPosition);
     const chordTrackActive =
       showChordTrack && chordTrackEnabled && viewMode === "horizon" && interactionMode === "write" && !printPreview;
     const perfTrackerRef = useRef(getGlobalPerfTracker());
@@ -328,7 +329,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       contentWidth: contentSize.width,
       contentHeight:
         contentSize.height +
-        (chordTrackActive && displayListRef.current ? CHORD_TRACK_INSET * chordTrackScale(displayListRef.current) : 0),
+        (chordTrackActive && chordTrackPosition === "below" && displayListRef.current
+          ? CHORD_TRACK_INSET * chordTrackScale(displayListRef.current)
+          : 0),
       contentStartX,
       initialZoom,
       // Anchor strategy: if the caller supplied an explicit scrollAnchor,
@@ -1378,6 +1381,8 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
               viewport={viewport}
               playhead={playback.status === "playing" ? playback.playheadPosition : null}
               safeAreaLeft={safeArea?.left ?? 0}
+              safeAreaTop={safeArea?.top ?? 0}
+              safeAreaBottom={safeArea?.bottom ?? 0}
               onPanBy={(deltaX) => setScroll(viewport.scrollX + deltaX / viewport.zoom, viewport.scrollY)}
               onRevealPoint={(point) =>
                 setScroll(point.x - ((safeArea?.left ?? 0) + 160) / viewport.zoom, viewport.scrollY)

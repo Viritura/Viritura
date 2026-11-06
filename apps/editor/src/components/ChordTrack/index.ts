@@ -13,4 +13,4 @@ export { ChordTrackSettings, ConnectedChordTrackSettings } from "./ChordTrackSet
 export { ChordTrackSettingsButton } from "./ChordTrackSettingsButton";
 export { trackHeaderGeometry } from "./trackHeaderGeometry";
 export { useChordTrackDrag } from "./useChordTrackDrag";
-export { CHORD_TRACK_INSET, chordTrackScale } from "./trackViewport";
+export { CHORD_TRACK_INSET, chordTrackScale, trackLaneY } from "./trackViewport";

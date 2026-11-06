@@ -31,6 +31,8 @@ export interface ChordTrackProps {
   onRevealPoint: (point: TrackPoint) => void;
   onPanBy: (deltaX: number) => void;
   safeAreaLeft?: number;
+  safeAreaTop?: number;
+  safeAreaBottom?: number;
 }
 
 export interface ChordDragPreview {

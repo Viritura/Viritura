@@ -6,6 +6,7 @@ import { ConnectedChordTrackSettings } from "./ChordTrackSettings";
 import { buildTrackSystems } from "./trackGeometry";
 import { ChordTrackSettingsTrigger } from "./ChordTrackSettingsButton";
 import { TooltipPrimitives } from "@viritura/ui";
+import userEvent from "@testing-library/user-event";
 
 const initial = useViewStateStore.getState();
 afterEach(() => {
@@ -14,6 +15,18 @@ afterEach(() => {
 });
 
 describe("chord settings", () => {
+  it("controls vertical stickiness and natural Horizon position independently", async () => {
+    const user = userEvent.setup();
+    useViewStateStore.setState({ chordTrackSticky: true, chordTrackPosition: "below" });
+    render(<ConnectedChordTrackSettings />);
+    fireEvent.click(screen.getByRole("switch", { name: "Sticky chord track" }));
+    expect(useViewStateStore.getState().chordTrackSticky).toBe(false);
+    await user.click(screen.getByRole("combobox", { name: "Chord track position" }));
+    await user.click(await screen.findByRole("option", { name: "Above music", exact: true }));
+    expect(useViewStateStore.getState().chordTrackPosition).toBe("above");
+    expect(useViewStateStore.getState().chordTrackSticky).toBe(false);
+  });
+
   it("keeps entry and playback settings together without navigation buttons", () => {
     render(<ConnectedChordTrackSettings />);
     expect(screen.queryByRole("button", { name: "Chord track" })).toBeNull();

@@ -7,12 +7,12 @@ progression; there are no separate instrument-specific progressions.
 
 ## Chord track
 
-In **Write → Horizon**, the **Chord track** is an editor-only lane below the
-paper, aligned with the music's rhythmic spacing. Scroll below the music to
-bring it into view, particularly in a tall orchestral score.
+In **Write → Horizon**, the **Chord track** is an editor-only lane aligned with
+the music's rhythmic spacing. Its default natural position is below the paper;
+vertical stickiness keeps it visible even in a tall orchestral score.
 The lane's text, ruler, and interaction targets scale with the music's canvas
 zoom and staff size. Click the settings cog beside **CHORDS** to open a
-resizable right-side **Chord settings** panel for entry-grid and audition
+resizable right-side **Chord settings** panel for track position, vertical stickiness, entry-grid, and audition
 options. These options no longer occupy the top toolbar.
 You can also find the same preferences under **Settings → Chord track**, even
 when the lane is hidden. Both settings surfaces apply the same session-wide
@@ -32,7 +32,15 @@ the lane.
   releasing `Alt` updates the snapped preview immediately, even without pointer
   movement. Releasing it restores the selected grid without changing the preference.
 - The **CHORDS** label and settings cog stay pinned while scrolling horizontally.
-  This does not pin the lane vertically.
+- In Horizon, **Position** chooses the lane's natural location **Above music**
+  or **Below music**. **Sticky chord track** keeps the entire lane at its natural
+  position when visible, and pins it inside the nearest top or bottom edge when
+  vertical scrolling or zoom would move it outside the visible score area.
+  Turn it off to let the lane scroll normally with the music. These settings do
+  not change horizontal rhythmic alignment or printed/paged layouts.
+- The lane gains a floating shadow when pinned, hovered, or focused. At the
+  bottom edge it shares the status bar's vertical position; the visible status
+  bar overlays the chord lane instead of pushing it upward.
 - In **Chord settings**, choose **Quarter**, **Eighths**, or **Sixteenths** for
   note-value entry spacing, regardless of meter. Semicolon navigation still
   follows musical beats, including compound beats.

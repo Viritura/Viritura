@@ -46,6 +46,15 @@ afterEach(() => {
 });
 
 describe("isolated chord track editing", () => {
+  it("disables Horizon-only placement settings in the wrapped-system prototype", () => {
+    render(<ChordTrackPrototype displayList={displayList} initialChords={[]} viewMode="page" />, {
+      wrapper: TooltipPrimitives.Provider,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Chord settings" }));
+    expect(screen.getByRole<HTMLInputElement>("switch", { name: "Sticky chord track" }).disabled).toBe(true);
+    expect(screen.getByRole("combobox", { name: "Chord track position" }).getAttribute("data-disabled")).not.toBeNull();
+  });
+
   it("paints a temporary fine ruler during Alt dragging and restores the Quarter grid after a drop", () => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 900, 400));
     const initial = [{ measureIndex: 0, symbol: parseChordSymbolText("Cmaj7", { fraction: [0, 1] }) }];

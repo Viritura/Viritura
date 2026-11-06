@@ -126,7 +126,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 56px;
+  height: var(--workspace-status-zone-height);
   display: flex;
   align-items: flex-end;
   justify-content: center;
