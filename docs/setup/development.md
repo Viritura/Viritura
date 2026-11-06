@@ -108,6 +108,17 @@ suite exits instead of competing for Cargo artifacts or process-global test
 state. Use this command for full and focused engine tests rather than creating
 an alternate `CARGO_TARGET_DIR`.
 
+### npm security overrides
+
+The root `package.json` owns workspace-wide pnpm security overrides. Keep the
+patched lower bounds current and regenerate `pnpm-lock.yaml` after changing
+them. The scoped `glob`, `minimatch`, and `@azure/msal-node` overrides cross
+major versions because their upstream tooling still requests vulnerable
+releases; remove them when the parent dependencies require patched versions.
+Validate changes with `pnpm audit`, the affected workspace tests, and Storybook
+and VSIX tooling checks. Storybook configuration uses explicit local `.ts`
+entry points so its native ESM loader can resolve them.
+
 ### Rust dependency-audit exceptions
 
 `pnpm audit:rust` runs `cargo audit` against each Rust lockfile
