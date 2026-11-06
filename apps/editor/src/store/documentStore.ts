@@ -24,6 +24,7 @@ export interface DocumentStoreState {
    * rapid commands compose correctly while React panels wait for paint. */
   workingScore: Score | null;
   mnxJson: string;
+  savedMnxJson: string;
   dirty: boolean;
   fileName: string;
   /** Increments only when the open document changes, never for ordinary edits. */
@@ -41,6 +42,7 @@ export interface DocumentStoreState {
   lastCommittedPatches: readonly ScorePatch[];
 
   // ── Actions ──
+  markSaved: (mnxJson: string, documentGeneration: number) => void;
   loadScoreFromUrl: (url: string) => Promise<void>;
   loadScore: (score: Score, fileName?: string, mnxJson?: string, preserveDocumentGeneration?: boolean) => void;
   updateScore: (
@@ -91,6 +93,7 @@ function changedGlobalHarmony(previous: Score | null, next: Score, indices: read
   );
 }
 
+// eslint-disable-next-line max-lines-per-function -- Zustand factory keeps document state and its mutation actions together.
 export function createDocumentStore() {
   const deltaSerializer = new DeltaSerializer();
   let publishSequence = 0;
@@ -110,6 +113,7 @@ export function createDocumentStore() {
     score: null,
     workingScore: null,
     mnxJson: "",
+    savedMnxJson: "",
     dirty: false,
     fileName: "",
     documentGeneration: 0,
@@ -118,6 +122,10 @@ export function createDocumentStore() {
     lastCommittedPatches: [],
 
     // ── Actions ──
+    markSaved: (mnxJson, documentGeneration) => {
+      if (get().documentGeneration === documentGeneration) set({ savedMnxJson: mnxJson });
+    },
+
     loadScoreFromUrl: async (url: string) => {
       publishSequence += 1;
       const response = await fetch(url);
@@ -142,6 +150,7 @@ export function createDocumentStore() {
         score: parsed,
         workingScore: parsed,
         mnxJson: json,
+        savedMnxJson: json,
         dirty: false,
         fileName: url,
         documentGeneration: get().documentGeneration + 1,
@@ -201,6 +210,7 @@ export function createDocumentStore() {
         score: newScore,
         workingScore: newScore,
         mnxJson: json,
+        ...(!preserveDocumentGeneration ? { savedMnxJson: json } : {}),
         dirty: false,
         fileName: name ?? "",
         documentGeneration: get().documentGeneration + (preserveDocumentGeneration ? 0 : 1),
@@ -359,6 +369,7 @@ export function createDocumentStore() {
         score: null,
         workingScore: null,
         mnxJson: "",
+        savedMnxJson: "",
         dirty: false,
         fileName: "",
         documentGeneration: get().documentGeneration + 1,

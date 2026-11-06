@@ -17,6 +17,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { createDocumentStore, type DocumentStore, type DocumentStoreState } from "./documentStore";
+import { useUnsavedChangesWarning } from "./useUnsavedChangesWarning";
 import type { Score, ScorePatch } from "@viritura/core";
 import type { MeasureBeatInfo } from "../commands/measureValidation";
 
@@ -84,6 +85,7 @@ export function DocumentProvider({ children }: DocumentProviderProps) {
   // guarantees the initializer is called only on the first render, and the
   // returned reference is stable across re-renders.
   const [store] = useState(createDocumentStore);
+  useUnsavedChangesWarning(store);
 
   return <DocumentStoreContext.Provider value={store}>{children}</DocumentStoreContext.Provider>;
 }
