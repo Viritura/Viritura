@@ -14,7 +14,7 @@
   "devDependencies": {
     "tsx": "^4.23.15",
     "typescript": "^5.7.0",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   },
   "dependencies": {
     "spessasynth_lib": "^4.3.1"
