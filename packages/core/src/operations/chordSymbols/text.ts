@@ -13,9 +13,41 @@ function parseRoot(step: string, accidental: string): ChordRoot {
   return alter === 0 ? { step: step.toUpperCase() } : { step: step.toUpperCase(), alter };
 }
 
-/** Captures whitespace, root, suffix, and optional slash root without rewriting authored syntax. */
-export const CHORD_TEXT_PATTERN =
-  /^(\s*)([A-Ga-g])((?:#+|b+|♯+|♭+|x|𝄪|𝄫)?)([^/]*?)(?:\/([A-Ga-g])((?:#+|b+|♯+|♭+|x|𝄪|𝄫)?))?(\s*)$/u;
+const ROOT_PREFIX_PATTERN = /^([A-Ga-g])((?:#+|b+|♯+|♭+|x|𝄪|𝄫)?)/u;
+
+interface ChordTextParts {
+  leadingWhitespace: string;
+  root: ChordRoot;
+  suffix: string;
+  bass?: ChordRoot;
+  trailingWhitespace: string;
+}
+
+/** Split boundaries before matching roots so malformed text cannot trigger polynomial backtracking. */
+export function splitChordSymbolText(input: string): ChordTextParts | undefined {
+  const withoutLeadingWhitespace = input.trimStart();
+  const content = withoutLeadingWhitespace.trimEnd();
+  const slash = content.indexOf("/");
+  const head = slash < 0 ? content : content.slice(0, slash);
+  const root = ROOT_PREFIX_PATTERN.exec(head);
+  if (!root) return undefined;
+
+  let bass: ChordRoot | undefined;
+  if (slash >= 0) {
+    const bassText = content.slice(slash + 1);
+    const bassMatch = ROOT_PREFIX_PATTERN.exec(bassText);
+    if (!bassMatch || bassMatch[0].length !== bassText.length) return undefined;
+    bass = parseRoot(bassMatch[1]!, bassMatch[2] ?? "");
+  }
+
+  return {
+    leadingWhitespace: input.slice(0, input.length - withoutLeadingWhitespace.length),
+    root: parseRoot(root[1]!, root[2] ?? ""),
+    suffix: head.slice(root[0].length),
+    bass,
+    trailingWhitespace: withoutLeadingWhitespace.slice(content.length),
+  };
+}
 
 export function isNoChordText(text: string): boolean {
   return /^(?:NC|N\.C\.?)$/i.test(text.trim());
@@ -139,23 +171,22 @@ export function parseQuality(text: string): ParsedQuality | undefined {
  * before playback or semantic validation.
  */
 export function parseChordSymbolText(input: string, position: RhythmicPosition): ChordSymbol {
-  const match = CHORD_TEXT_PATTERN.exec(input);
-  if (!match) return { position, rawText: input };
+  const parts = splitChordSymbolText(input);
+  if (!parts) return { position, rawText: input };
 
-  const root = parseRoot(match[2]!, match[3] ?? "");
-  const parsedQuality = parseQuality(match[4] ?? "");
+  const parsedQuality = parseQuality(parts.suffix);
 
   const chord: ChordSymbol = {
     position,
     rawText: input,
-    root,
+    root: parts.root,
     quality: parsedQuality?.quality ?? "other",
   };
-  if (!parsedQuality || parsedQuality.modifiers) chord.kindText = match[4]!;
+  if (!parsedQuality || parsedQuality.modifiers) chord.kindText = parts.suffix;
   if (parsedQuality?.extension !== undefined) chord.extension = parsedQuality.extension;
 
-  if (match[5]) {
-    chord.bass = parseRoot(match[5], match[6] ?? "");
+  if (parts.bass) {
+    chord.bass = parts.bass;
   }
 
   return chord;

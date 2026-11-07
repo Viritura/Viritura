@@ -163,6 +163,32 @@ describe("transposeChordSymbol", () => {
     });
   });
 
+  it.each([
+    `C${"#".repeat(100_000)}/!`,
+    `C${" ".repeat(100_000)}/!`,
+    `C/E${"#".repeat(100_000)}!`,
+    `C/E${" ".repeat(100_000)}!`,
+  ])("preserves long malformed raw and override text without backtracking %#", (text) => {
+    const original: ChordSymbol = { position: position(), rawText: text, textOverride: text };
+    const start = performance.now();
+    expect(transposeChordSymbol(original, { staffDistance: 1, halfSteps: 2 })).toEqual(original);
+    expect(performance.now() - start).toBeLessThan(1_000);
+  });
+
+  it.each([
+    [" \tC7 \n", " \tD7 \n"],
+    ["C7 /E ", "D7 /F# "],
+    ["C#b", "D#b"],
+    ["C𝄪𝄫", "D##𝄫"],
+  ])("retains suffix and whitespace boundaries when transposing %j", (text, expected) => {
+    const original: ChordSymbol = { position: position(), rawText: text, textOverride: text };
+    expect(transposeChordSymbol(original, { staffDistance: 1, halfSteps: 2 })).toEqual({
+      ...original,
+      rawText: expected,
+      textOverride: expected,
+    });
+  });
+
   it("leaves malformed raw/override text intact while transposing structured harmony", () => {
     const original: ChordSymbol = freeze({
       position: position(),

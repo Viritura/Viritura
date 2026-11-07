@@ -1051,6 +1051,8 @@ The schema requires `position`; the parsers additionally enforce the
 `root`-or-`rawText` constraint. Rootless text does not acquire an invented root.
 Authored spelling is retained; explicit transposition changes recognized root
 and bass spellings while retaining unsupported suffixes.
+Core splits whitespace, suffix, and slash-bass boundaries before parsing roots,
+avoiding backtracking on long malformed text without imposing a text-length cap.
 
 `resolveChordSymbol` in `@viritura/core` is the semantic authority for editor
 feedback and audio. Its results are `supported`, `silent`, or `unsupported`.
