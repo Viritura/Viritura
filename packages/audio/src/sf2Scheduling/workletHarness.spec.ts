@@ -1,5 +1,6 @@
 import { createContext, runInContext } from "node:vm";
 import { vi, type Mock } from "vitest";
+import type { SynthCoreConfig } from "spessasynth_lib";
 import { buildSchedulingWorklet, cancelScheduledNotes } from "./index";
 import type { Sf2Sampler } from "../Sf2Sampler";
 
@@ -89,7 +90,13 @@ export function createWorkletHarness(
   });
   runInContext(buildSchedulingWorklet(vendorSource), sandbox);
   if (!Processor) throw new Error("The worklet did not register a processor");
-  const processor = new Processor({ processorOptions: { oneOutput: false, eventsEnabled: true } });
+  const processorOptions = {
+    sampleRate: sandbox.sampleRate,
+    initialTime: sandbox.currentTime,
+    convolverMode: false,
+    processorConfig: { eventsEnabled: true },
+  } satisfies SynthCoreConfig;
+  const processor = new Processor({ processorOptions });
   const outputs = Array.from({ length: 17 }, () => [new Float32Array(128), new Float32Array(128)]);
   return {
     port: mainPort as unknown as MessagePort,
