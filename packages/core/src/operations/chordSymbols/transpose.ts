@@ -1,5 +1,5 @@
 import type { ChordRoot, ChordSymbol, Interval } from "../../model";
-import { CHORD_TEXT_PATTERN, formatChordRoot, parseChordSymbolText } from "./text";
+import { formatChordRoot, splitChordSymbolText } from "./text";
 
 const STEPS = "CDEFGAB";
 const NATURALS = [0, 2, 4, 5, 7, 9, 11];
@@ -14,16 +14,15 @@ function transposeRoot(root: ChordRoot, interval: Interval): ChordRoot {
   return { step: STEPS[targetIndex]!, ...(alter === 0 ? {} : { alter }) };
 }
 
-function transposeText(text: string, chord: ChordSymbol, interval: Interval): string {
-  const match = CHORD_TEXT_PATTERN.exec(text);
-  const parsed = parseChordSymbolText(text, chord.position);
-  if (!match || !parsed.root) return text;
+function transposeText(text: string, interval: Interval): string {
+  const parts = splitChordSymbolText(text);
+  if (!parts) return text;
   return (
-    match[1]! +
-    formatChordRoot(transposeRoot(parsed.root, interval)) +
-    match[4]! +
-    (parsed.bass ? `/${formatChordRoot(transposeRoot(parsed.bass, interval))}` : "") +
-    match[7]!
+    parts.leadingWhitespace +
+    formatChordRoot(transposeRoot(parts.root, interval)) +
+    parts.suffix +
+    (parts.bass ? `/${formatChordRoot(transposeRoot(parts.bass, interval))}` : "") +
+    parts.trailingWhitespace
   );
 }
 
@@ -43,7 +42,7 @@ export function transposeChordSymbol(chord: ChordSymbol, interval: Interval): Ch
     ...chord,
     ...(chord.root ? { root: transposeRoot(chord.root, interval) } : {}),
     ...(chord.bass ? { bass: transposeRoot(chord.bass, interval) } : {}),
-    ...(chord.rawText !== undefined ? { rawText: transposeText(chord.rawText, chord, interval) } : {}),
-    ...(chord.textOverride !== undefined ? { textOverride: transposeText(chord.textOverride, chord, interval) } : {}),
+    ...(chord.rawText !== undefined ? { rawText: transposeText(chord.rawText, interval) } : {}),
+    ...(chord.textOverride !== undefined ? { textOverride: transposeText(chord.textOverride, interval) } : {}),
   };
 }
