@@ -871,9 +871,9 @@ dependencies = [
 
 [[package]]
 name = "vst3-host"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57a1b316200861ab8b9f634c587e882b796cb2fa8005d9f6c6d21df42386e896"
+checksum = "fb1a88d785bdc5b826b1dcb501a3e81f7ce0be045f7cd46659ef4cd747408e47"
 dependencies = [
  "core-foundation",
  "cpal",
