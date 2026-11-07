@@ -6,11 +6,20 @@ updates:
       interval: weekly
     open-pull-requests-limit: 10
     groups:
+      storybook:
+        patterns:
+          - "storybook"
+          - "@storybook/*"
       # The website and VS Code extension pin the published score packages;
       # bump them together so the engine and viewer never drift apart.
       viritura-score-packages:
         patterns:
           - "@viritura/score-*"
+    ignore:
+      # Vite's React plugin currently accepts only the Babel plugin 0.1/0.2 lines.
+      - dependency-name: "@rolldown/plugin-babel"
+        versions:
+          - ">=0.3.0"
 
   - package-ecosystem: cargo
     directory: /engine
@@ -40,6 +49,17 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    groups:
+      openiddict:
+        patterns:
+          - "OpenIddict.*"
+          - "System.Security.Cryptography.Xml"
+    ignore:
+      # ASP.NET Core OpenAPI 10 requires Microsoft.OpenApi < 3.0.0.
+      # Revisit this constraint when upgrading the framework integration.
+      - dependency-name: "Microsoft.OpenApi"
+        versions:
+          - ">=3.0.0"
 
   - package-ecosystem: github-actions
     directory: /

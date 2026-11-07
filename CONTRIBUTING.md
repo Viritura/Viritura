@@ -39,6 +39,20 @@ The lint gates check schema provenance and generated-artifact drift. See
 [`docs/spec/data-model-pipeline.md`](docs/spec/data-model-pipeline.md) for the
 authoritative source/generated boundary.
 
+## Dependency updates
+
+Keep `storybook` and `@storybook/*` packages on the same exact version across
+workspaces. Update OpenIddict packages and the test project's
+`System.Security.Cryptography.Xml` pin together when their minimum versions
+change. Regenerate the pnpm and affected NuGet lockfiles after changing manifests;
+do not suppress package downgrade or dependency constraint warnings.
+
+Dependabot groups these related updates in [its configuration](.github/dependabot.yml).
+The ASP.NET Core 10 OpenAPI integration requires `Microsoft.OpenApi` 2.x, so
+Dependabot excludes 3.x and later until the framework integration supports them.
+Likewise, `@rolldown/plugin-babel` stays on 0.2.x until Vite's React plugin declares
+support for a newer line. Revisit these exclusions when upgrading their consumers.
+
 ## Third-party material
 
 Do not add code, fonts, scores, audio, images, videos, fixtures, or other material
