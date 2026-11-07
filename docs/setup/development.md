@@ -108,6 +108,14 @@ suite exits instead of competing for Cargo artifacts or process-global test
 state. Use this command for full and focused engine tests rather than creating
 an alternate `CARGO_TARGET_DIR`.
 
+### Radix dependency updates
+
+Keep Radix Dialog, Popover, Dropdown Menu, Tooltip, and Select compatible with
+the same focus-scope implementation. Mixing old and new focus-scope versions
+can trap focus in competing scopes when a Select opens inside a Dialog.
+Validate these updates with the editor's StartCenter, BarInstrumentChangeDialog,
+and ChordTrackSettings tests, not only the UI package tests.
+
 ### npm security overrides
 
 The root `package.json` owns workspace-wide pnpm security overrides. Keep the

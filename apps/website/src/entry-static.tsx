@@ -1,5 +1,10 @@
+import { Readable } from "node:stream";
 import { prerenderToNodeStream } from "react-dom/static";
-import { createRequestHandler, RouterServer } from "@tanstack/react-router/ssr/server";
+import {
+  createRequestHandler,
+  RouterServer,
+  transformPipeableStreamWithRouter,
+} from "@tanstack/react-router/ssr/server";
 import { AppProviders } from "./App";
 import { createWebsiteRouter } from "./router";
 import { SITE_ORIGIN } from "./seo";
@@ -7,6 +12,7 @@ export { sitemapRoutes, staticRoutes } from "./seo";
 
 export interface StaticRouteRender {
   html: string;
+  /** Hydration scripts are now merged into html by the router's stream transformer. */
   injectedHtml: string;
 }
 
@@ -24,19 +30,15 @@ export async function renderRoute(url: string): Promise<StaticRouteRender> {
       if (postponed) throw new Error(`Static render for ${url} was postponed.`);
 
       let html = "";
-      for await (const chunk of prelude) html += chunk.toString();
+      for await (const chunk of transformPipeableStreamWithRouter(router, Readable.from(prelude))) {
+        html += chunk.toString();
+      }
       if (!html) {
         const matches = router.state.matches.map((match) => ({ id: match.routeId, status: match.status }));
         throw new Error(`Static render for ${url} was empty: ${JSON.stringify(matches)}`);
       }
 
-      const serverSsr = router.serverSsr;
-      serverSsr?.setRenderFinished();
-      if (serverSsr && !serverSsr.isSerializationFinished()) {
-        await new Promise<void>((resolve) => serverSsr.onSerializationFinished(resolve));
-      }
-      const injectedHtml = serverSsr?.takeBufferedHtml() ?? "";
-      return Response.json({ html, injectedHtml } satisfies StaticRouteRender);
+      return Response.json({ html, injectedHtml: "" } satisfies StaticRouteRender);
     } finally {
       router.serverSsr?.cleanup();
     }
