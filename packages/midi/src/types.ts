@@ -91,12 +91,17 @@ export interface MidiTimeline {
    *  measure (which beats click, where the accent falls) without re-resolving
    *  the score's meter changes. */
   measureTimeSignatures: { count: number; unit: number }[];
-  /** Explicit degradation notices for physical MIDI 1 channel allocation. */
+  /** Explicit degradation notices for physical MIDI allocation and unsupported rhythm scope. */
   diagnostics?: TimelineDiagnostic[];
 }
 
 export interface TimelineDiagnostic {
-  code: "midi-channel-capacity" | "percussion-lane-collapse" | "instrument-program-unavailable";
+  source?: { partIndex: number; measureIndex: number; staff: number };
+  code:
+    | "midi-channel-capacity"
+    | "percussion-lane-collapse"
+    | "instrument-program-unavailable"
+    | "swing-staff-meter-unsupported";
   message: string;
   playbackLaneIds: string[];
 }

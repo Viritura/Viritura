@@ -448,6 +448,37 @@ describe("PlaybackEngine", () => {
   });
 
   describe("seek", () => {
+    it("schedules already-realized swing timestamps literally after seek while the playhead keeps its score clock", () => {
+      const engine = new PlaybackEngine(audioCtx, { scheduleAheadTime: 1, leadInTime: 0 });
+      const sampler = createMockSampler();
+      // Quarter=90, one 3:2 sixteenth pair: upstream rhythm realization owns
+      // these deadlines. The audio layer must not reinterpret their subdivision.
+      const timeline: MidiTimeline = {
+        events: [
+          { type: "noteOn", time: 0, midiNote: 60, velocity: 80, partIndex: 0, channel: 0 },
+          { type: "noteOff", time: 0.2, midiNote: 60, velocity: 0, partIndex: 0, channel: 0 },
+          { type: "noteOn", time: 0.2, midiNote: 64, velocity: 80, partIndex: 0, channel: 0 },
+          { type: "noteOff", time: 1 / 3, midiNote: 64, velocity: 0, partIndex: 0, channel: 0 },
+        ],
+        duration: 8 / 3,
+        tempoMap: [{ measureIndex: 0, beat: 0, time: 0, bpm: 90 }],
+        measureStartTimes: [0],
+      };
+      engine.loadTimeline(timeline, new Map([[0, sampler]]));
+      engine.setPlayheadResolver((time) => ({ measureIndex: 0, beat: time * 1.5 }));
+      engine.seek(0.18);
+      expect(engine.getPlayheadPosition().beat).toBeCloseTo(0.27, 12);
+      engine.play();
+      expect(sampler.noteOnCalls).toHaveLength(1);
+      expect(sampler.noteOnCalls[0]!.midiNote).toBe(64);
+      expect(sampler.noteOnCalls[0]!.time).toBeCloseTo(0.02, 12);
+      expect(sampler.noteOffCalls.map((call) => call.midiNote)).toEqual([60, 64]);
+      expect(sampler.noteOffCalls[0]!.time).toBeCloseTo(0.02, 12);
+      expect(sampler.noteOffCalls[1]!.time).toBeCloseTo(1 / 3 - 0.18, 12);
+      expect(engine.getTimeline()).toBe(timeline);
+      engine.dispose();
+    });
+
     it("should update playhead position when paused", () => {
       const engine = new PlaybackEngine(audioCtx);
       engine.loadTimeline(createTestTimeline(), new Map());

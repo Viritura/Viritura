@@ -380,11 +380,11 @@ describe("derived global chord playback", () => {
     ]);
     const timeline = generateTimeline(score);
     expect(timeline.measureStartBeats).toEqual([0, 3]);
-    expect(timeline.duration).toBeCloseTo(5.25, 10);
+    expect(timeline.duration).toBeCloseTo(5, 10);
     expect(timeline.duration).toBe(timeline.model.timeAtBeat(6));
     expectSpans(score, [
-      { symbol: c, start: 0.5, end: 1.25 },
-      { symbol: d, start: 1.25, end: 5.25 },
+      { symbol: c, start: 0.5, end: 1 },
+      { symbol: d, start: 1, end: 5 },
     ]);
   });
 

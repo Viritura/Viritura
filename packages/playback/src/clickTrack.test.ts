@@ -35,6 +35,27 @@ function makeScore(): Score {
 }
 
 describe("buildClickTrack", () => {
+  it.each([
+    { count: 4, unit: 4 },
+    { count: 6, unit: 8 },
+  ])("does not groove standard clicks/count-in or the playhead clock in $count/$unit", (time) => {
+    const score = makeScore();
+    score.global.measures[0]!.time = time;
+    score.global.measures[0]!.tempos![0]!.swing = {
+      mode: "swing",
+      subdivision: "16th",
+      ratio: [3, 2],
+    };
+    const swung = generateTimeline(score);
+    delete score.global.measures[0]!.tempos![0]!.swing;
+    const straight = generateTimeline(score);
+    expect(buildClickTrack(swung, { countInBeats: 4 })).toEqual(buildClickTrack(straight, { countInBeats: 4 }));
+    expect(countInLeadSeconds(swung, 4)).toBe(countInLeadSeconds(straight, 4));
+    for (const beat of [0, 0.25, 0.5, 1, 2.5, 3]) {
+      expect(swung.model.timeAtBeat(beat)).toBe(straight.model.timeAtBeat(beat));
+      expect(swung.model.beatAtTime(swung.model.timeAtBeat(beat))).toBeCloseTo(beat, 12);
+    }
+  });
   it("keeps the original beat accents when navigation returns inside a measure", () => {
     const score = makeScore();
     score.global.measures[0]!.segno = { location: { fraction: [1, 4] } };

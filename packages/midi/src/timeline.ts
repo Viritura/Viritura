@@ -83,6 +83,7 @@ import {
 import { noteVelocityAt, emitDynamicsCc11, type DynamicsEnvelope } from "./dynamicsEnvelope";
 import { compileDynamicProgram, laneForScope, laneForSequence } from "./dynamicPlayback";
 import type { DynamicProgram } from "./dynamicPlayback";
+import { compileRhythmProgram, realizeRhythmEvent, type RhythmProgram, type RhythmTimings } from "./rhythmRealization";
 
 // ═══════════════════════════════════════════
 // Constants
@@ -114,6 +115,8 @@ export function fractionToBeats(frac: readonly [number, number]): number {
 
 /** Options for timeline generation. */
 export interface TimelineOptions {
+  /** Native generation requires a collector when a swing/local-meter scope is unsupported. */
+  onDiagnostic?: (diagnostic: TimelineDiagnostic) => void;
   /** GM program number per part index (used for tremolo sound selection). */
   partPrograms?: number[];
   /** Resolved profile programs by part and playback instrument key. */
@@ -137,6 +140,7 @@ export interface TimelineOptions {
  * mutates per recursion step.
  */
 export interface PartCtx {
+  rhythm?: RhythmTimings;
   readonly playedSpan?: PlayedMeasureSpan;
   /** Grace anticipation may cross continuous barlines, but not a route entry. */
   readonly graceBoundaryBeat?: number;
@@ -268,7 +272,8 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   const { tempoMap } = buildTempoMap(expandedGlobal, holdSchedule);
   const tempoBuild = buildTempoModel(expandedGlobal, holdSchedule);
   const { model, measureStartTimes, measureStartBeats } = tempoBuild;
-  const timing: TimelineTiming = { tempoMap, measureStartTimes, model, measureStartBeats, playedSpans: spans };
+  const rhythm = compileRhythmProgram(score);
+  const timing: TimelineTiming = { tempoMap, measureStartTimes, model, measureStartBeats, playedSpans: spans, rhythm };
 
   // Step 3: For each part, generate MIDI events
   const allEvents: MidiEvent[] = [];
@@ -311,7 +316,12 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
     options?.instrumentPrograms,
     options?.partPrograms,
   );
-  const diagnostics = [...assignPhysicalMidiChannels(allEvents, score), ...instrumentDiagnostics];
+  const diagnostics = [
+    ...assignPhysicalMidiChannels(allEvents, score),
+    ...instrumentDiagnostics,
+    ...rhythm.diagnostics,
+  ];
+  for (const diagnostic of diagnostics) options?.onDiagnostic?.(diagnostic);
   allEvents.sort(compareEvents);
 
   const duration = model.timeAtBeat(tempoBuild.totalBeats);
@@ -501,6 +511,7 @@ function collectPartTieTargets(part: Score["parts"][number], measureOrder: reado
 
 /** Timing bundle threaded into `processPart` (keeps the param count in check). */
 interface TimelineTiming {
+  rhythm: RhythmProgram;
   readonly tempoMap: readonly TempoMapEntry[];
   readonly measureStartTimes: readonly number[];
   readonly model: TempoModel;
@@ -681,6 +692,7 @@ function processPart(
       const effectiveStaffMeter = staffMeterTable[origMeasureIdx]?.get(ctx.sequenceStaff);
       ctx.timeSig = effectiveStaffMeter ? effectiveStaffMeter.timeSignature : activeTime;
       ctx.staffMeterRatio = staffMeterRatioAt(staffMeterTable, origMeasureIdx, ctx.sequenceStaff);
+      ctx.rhythm = timing.rhythm.sequences.get(seq);
       const firstNewEvent = allEvents.length;
       processSequence(ctx, seq, measureStartTime, measureHolds, measureSpq);
       stampPlaybackLane(allEvents, firstNewEvent, lane.id);
@@ -748,7 +760,12 @@ function processScopedNoteEvent(
     event,
     measureStartTime,
     beatOffset,
-    dynamicVelocityAt(ctx, measureStartTime, beatOffset),
+    dynamicVelocityAt(
+      ctx,
+      measureStartTime,
+      realizeRhythmEvent(ctx.rhythm, event, beatOffset, durationBeats(event.duration) * tupletRatio, ctx.playedSpan)
+        .start,
+    ),
     tupletRatio,
   );
   stampPlaybackLane(ctx.out, firstNewEvent, lane.id);
@@ -834,6 +851,7 @@ function resolveFermataDuration(
   event: NoteEvent,
   naturalDurationSec: number,
   beatOffset: number,
+  soundingBeatOffset = beatOffset,
 ): { durationSec: number; durationScale: number; held: boolean } {
   if (event.fermata && event.fermata.duration !== "none" && ctx.fermataGroups.length > 0) {
     // Hold groups are expressed on the shared global axis. Convert this
@@ -847,7 +865,7 @@ function resolveFermataDuration(
       // the driver and any member ending at/after it, naturalDurationSec already
       // reaches this (the gap is inside its span); a member ending earlier is
       // extended up to it so the group releases together.
-      const startTime = eventTime(ctx, beatOffset);
+      const startTime = eventTime(ctx, soundingBeatOffset);
       const resumeTime = ctx.model.timeAtBeat(ctx.measureStartBeat + group.insertBeat);
       return { durationSec: Math.max(naturalDurationSec, resumeTime - startTime), durationScale: 1, held: true };
     }
@@ -923,6 +941,9 @@ function processNoteEvent(
     flushVoiceLegato(ctx.pendingLegato, ctx.voiceKey, ctx.out);
     return beats;
   }
+  const realized = realizeRhythmEvent(ctx.rhythm, event, beatOffset, beats, ctx.playedSpan);
+  const startTime = eventTime(ctx, realized.start);
+  const naturalDurationSec = eventSeconds(ctx, realized.start, realized.beats);
 
   // Resolve any deferred legato noteOffs from the previous note against this
   // note's onset (the "next" note from their perspective). Done up front so it
@@ -938,6 +959,8 @@ function processNoteEvent(
     beatOffset,
     beats,
     notes: event.notes ?? [],
+    soundingOnset: startTime,
+    soundingDuration: naturalDurationSec,
   });
 
   // Special playback modes (percussion roll / pitched tremolo / trill) handle
@@ -945,16 +968,14 @@ function processNoteEvent(
   const specialBeats = tryProcessSpecialEvent(ctx, event, measureStartTime, beatOffset, baseVelocity, beats);
   if (specialBeats !== null) return specialBeats;
 
-  const startTime = eventTime(ctx, beatOffset);
   const timingOffset = timingHumanize(measureStartTime, beatOffset, partIndex);
-  const naturalDurationSec = eventSeconds(ctx, beatOffset, beats);
   // A fermata holds the note in place (see resolveFermataDuration); otherwise
   // normal articulation scaling applies.
   const {
     durationSec,
     durationScale,
     held: fermataHeld,
-  } = resolveFermataDuration(ctx, event, naturalDurationSec, beatOffset);
+  } = resolveFermataDuration(ctx, event, naturalDurationSec, beatOffset, realized.start);
   const velocity = Math.min(
     127,
     Math.max(

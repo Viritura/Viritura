@@ -112,7 +112,7 @@ export function buildTempoMap(
     if (gm.tempos && gm.tempos.length > 0) {
       for (const tempo of gm.tempos) {
         if (tempo.bpm === undefined) continue;
-        const beatOffset = tempo.location ? (tempo.location.fraction[0] / tempo.location.fraction[1]) * mBeats : 0;
+        const beatOffset = tempo.location ? posBeats(tempo.location.fraction) : 0;
         const qpm = effectiveQpm(tempo.bpm, tempo.value.base, tempo.value.dots);
         changes.push({ beatOffset, qpm });
       }
@@ -224,10 +224,10 @@ export function buildTempoModel(globalMeasures: readonly GlobalMeasure[], holds?
     measureStartBeats.push(cumBeats);
 
     if (gm.tempos && gm.tempos.length > 0) {
-      const sorted = [...gm.tempos].sort((a, b) => tempoBeat(a, mBeats) - tempoBeat(b, mBeats));
+      const sorted = [...gm.tempos].sort((a, b) => tempoBeat(a) - tempoBeat(b));
       for (const tempo of sorted) {
         if (tempo.bpm === undefined) continue;
-        const startBeat = cumBeats + tempoBeat(tempo, mBeats);
+        const startBeat = cumBeats + tempoBeat(tempo);
         const qpm = effectiveQpm(tempo.bpm, tempo.value.base, tempo.value.dots);
         regions.push({ startBeat, endBeat: Infinity, startBpm: qpm, endBpm: qpm });
       }
@@ -331,8 +331,8 @@ function resolveGradualEndBeat(
 }
 
 /** Global-measure tempo's beat offset within its measure (0 if unlocated). */
-function tempoBeat(tempo: NonNullable<GlobalMeasure["tempos"]>[number], mBeats: number): number {
-  return tempo.location ? (tempo.location.fraction[0] / tempo.location.fraction[1]) * mBeats : 0;
+function tempoBeat(tempo: NonNullable<GlobalMeasure["tempos"]>[number]): number {
+  return tempo.location ? posBeats(tempo.location.fraction) : 0;
 }
 
 /**

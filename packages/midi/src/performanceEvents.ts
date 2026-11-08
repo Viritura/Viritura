@@ -12,7 +12,7 @@ import type {
 } from "@viritura/core";
 import { isRest, pitchToMidi, plainTextContent } from "@viritura/core";
 import { buildDynamicsEnvelope, cc11Events, sampleDynamics } from "./dynamicsEnvelope";
-import { buildHoldSchedule } from "./holds";
+import { buildHoldSchedule, type HoldSchedule, type MeasureHold } from "./holds";
 import { classifyTechniqueText, type TechniqueAction } from "./technique";
 import { buildTempoModel, type TempoBuild } from "./tempoMap";
 import { durationBeats, fractionToBeats, type TimelineOptions } from "./timeline";
@@ -28,6 +28,7 @@ import {
   realizePerformanceNavigation,
   type PlayedMeasureSpan,
 } from "./navigation";
+import { compileRhythmProgram, realizeRhythmEvent, type RhythmTimings } from "./rhythmRealization";
 
 export interface Articulations {
   staccato: boolean;
@@ -78,6 +79,8 @@ interface TimingContext {
 }
 
 interface TraversalContext extends TimingContext {
+  readonly holds: readonly MeasureHold[];
+  readonly rhythm: RhythmTimings | undefined;
   readonly playedSpan?: PlayedMeasureSpan;
   readonly partIndex: number;
   readonly expandedMeasureIndex: number;
@@ -325,10 +328,22 @@ function processNoteEvent(ctx: TraversalContext, event: NoteEvent, beatOffset: n
   if (!beatInPlayedSpan(beatOffset * ctx.staffMeterRatio, ctx.playedSpan)) return beats;
   if (isRest(event)) return beats;
 
-  const startTime = timeAt(ctx, beatOffset);
-  const segmentSeconds = secondsForBeats(ctx, beatOffset, beats);
+  const realized = realizeRhythmEvent(ctx.rhythm, event, beatOffset, beats, ctx.playedSpan);
+  const startTime = timeAt(ctx, realized.start);
+  let segmentSeconds = secondsForBeats(ctx, realized.start, realized.beats);
+  if (event.fermata && event.fermata.duration !== "none") {
+    const writtenBeat = beatOffset * ctx.staffMeterRatio;
+    const group = ctx.holds.find(
+      (hold) =>
+        hold.kind === "fermata" &&
+        writtenBeat >= (hold.startBeat ?? hold.atBeat) - EPS &&
+        writtenBeat < (hold.spanEndBeat ?? hold.atBeat) - EPS,
+    );
+    if (group)
+      segmentSeconds = Math.max(segmentSeconds, ctx.model.timeAtBeat(ctx.measureStartBeat + group.atBeat) - startTime);
+  }
   const articulations = emptyArticulations(event);
-  const playingState = noteState(stateForEvent(ctx, beatOffset), event);
+  const playingState = noteState(stateForEvent(ctx, realized.start), event);
 
   for (const [noteIndex, note] of (event.notes ?? []).entries()) {
     const pitch = pitchToMidi(note.pitch);
@@ -441,13 +456,13 @@ function sortPerformanceEvents(events: readonly TimedEvent[]): PerformanceEvent[
     .map(({ event }) => event);
 }
 
-function buildPerformanceTiming(score: Score, measureOrder: readonly number[]): TempoBuild {
+function buildPerformanceTiming(score: Score, measureOrder: readonly number[]): TempoBuild & { holds: HoldSchedule } {
   const expandedGlobal = playbackGlobalMeasures(score, measureOrder);
   const holds = suppressCadenzaFermataHolds(
     expandedGlobal,
     buildHoldSchedule(score, measureOrder, score.global.measures),
   );
-  return buildTempoModel(expandedGlobal, holds);
+  return { ...buildTempoModel(expandedGlobal, holds), holds };
 }
 
 function generateChordPerformanceEvents(score: Score, options?: TimelineOptions): PerformanceEvent[] {
@@ -519,7 +534,13 @@ function generateFullPerformanceEvents(
       : scorePlaybackItinerary(score).map((span) => span.measureIndex);
   if (measureOrder.length === 0) return [{ kind: "reset", time: 0 }];
 
-  const { model, measureStartBeats } = buildPerformanceTiming(score, measureOrder);
+  const { model, measureStartBeats, holds } = buildPerformanceTiming(score, measureOrder);
+  const rhythm = compileRhythmProgram(score);
+  for (const diagnostic of rhythm.diagnostics) {
+    if (diagnostic.source?.partIndex !== partIndex) continue;
+    if (!options?.onDiagnostic) throw new Error(diagnostic.message);
+    options.onDiagnostic(diagnostic);
+  }
   const staffMeterTable = resolvePartStaffMeterTable(part, globalMeasures);
   const dynamicsEnvelope = buildDynamicsEnvelope(
     part,
@@ -565,6 +586,8 @@ function generateFullPerformanceEvents(
     measure.sequences.forEach((sequence, sequenceIndex) => {
       const voiceKey = sequence.voice ?? `v${sequenceIndex}`;
       const ctx: TraversalContext = {
+        rhythm: rhythm.sequences.get(sequence),
+        holds: holds[expandedMeasureIndex] ?? [],
         playedSpan: playedSpans?.[expandedMeasureIndex],
         model,
         measureStartBeat,
