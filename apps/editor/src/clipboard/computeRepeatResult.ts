@@ -243,6 +243,7 @@ export function computeRepeatResult(
     sourceKeySignature: sel.keySignature,
     dynamics: sel.dynamics,
     chordSymbols: sel.chordSymbols,
+    measureSignatures: sel.measureSignatures,
   };
 
   const { partIndex, measureIndex, sequenceIndex, eventIndex } = anchor;

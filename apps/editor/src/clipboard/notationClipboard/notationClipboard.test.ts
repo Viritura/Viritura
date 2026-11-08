@@ -4,6 +4,7 @@ import type { ClipboardSelection } from "../../commands/clipboardCommands";
 import { copyToClipboard, pasteFromClipboard } from "../../commands/clipboardCommands";
 import { MuseScoreConversionError } from "@viritura/musescore-clipboard";
 import { readNotationClipboard, writeClipboardFragment, writeNotationClipboard } from ".";
+import { FRAGMENT_VERSION } from "../ClipboardFragment";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -120,7 +121,7 @@ describe("clipboard command integration", () => {
     const payload = vi.mocked(invoke).mock.calls[0]?.[1] as {
       text: string;
     };
-    expect(JSON.parse(payload.text)).toMatchObject({ type: "viritura/fragment", version: 5 });
+    expect(JSON.parse(payload.text)).toMatchObject({ type: "viritura/fragment", version: FRAGMENT_VERSION });
     expect(invoke).toHaveBeenCalledExactlyOnceWith("notation_clipboard_write", { text: payload.text });
   });
 

@@ -25,8 +25,10 @@ import type {
   ClipboardTrack,
   CapturedDynamic,
   CapturedChordSymbol,
+  CapturedMeasureSignatures,
 } from "../clipboard/ClipboardFragment";
 import type { ClipboardFragment } from "../clipboard/ClipboardFragment";
+import { applyMeasureSignatures } from "../clipboard/measureSignatures";
 import type { AnnotationLocation } from "../score/ElementPath";
 import { deleteAnnotations } from "./deleteCommands";
 import { timedAnnotationsAnchoredToCollapsedSequences } from "./computeDeleteSelection";
@@ -72,6 +74,7 @@ export interface ClipboardSelection {
   dynamics?: CapturedDynamic[];
   chordSymbols?: CapturedChordSymbol[];
   measureRepeats?: CapturedMeasureRepeat[];
+  measureSignatures?: CapturedMeasureSignatures[];
   /** Metadata and ordering for lyric lines referenced by copied events. */
   lyrics?: GlobalLyrics;
   /** Location info for paste/cut */
@@ -119,6 +122,7 @@ export async function copyToClipboard(selection: ClipboardSelection): Promise<bo
       transposition: selection.transposition,
       dynamics: selection.dynamics,
       measureRepeats: selection.measureRepeats,
+      measureSignatures: selection.measureSignatures,
       lyrics: selection.lyrics,
       chordSymbols: selection.chordSymbols,
     });
@@ -219,6 +223,7 @@ export function pasteResultFromFragment(fragment: ClipboardFragment): PasteResul
     dynamics: fragment.dynamics,
     chordSymbols: fragment.chordSymbols,
     measureRepeats: fragment.measureRepeats,
+    measureSignatures: fragment.measureSignatures,
     lyrics: fragment.lyrics ? structuredClone(fragment.lyrics) : undefined,
   };
 }
@@ -239,6 +244,7 @@ export interface PasteResult {
   /** Multi-track content for cross-staff paste */
   tracks?: ClipboardTrack[];
   measureRepeats?: CapturedMeasureRepeat[];
+  measureSignatures?: CapturedMeasureSignatures[];
   lyrics?: GlobalLyrics;
 }
 
@@ -289,6 +295,9 @@ export function applyPaste(
         exactWholeFraction(physicalTrackStartBeat));
   const pasteStartBeat = (pasteStartFraction[0] / pasteStartFraction[1]) * 4;
   applyCapturedMeasureRepeats(newScore, paste.measureRepeats, partIndex, measureIndex);
+  applyMeasureSignatures(newScore, paste.measureSignatures, partIndex, (sequence.staff ?? 1) - 1, (offset) =>
+    resolveExactOffsetPosition(newScore, measureIndex, pasteStartFraction, offset),
+  );
 
   // Multi-track paste: apply each track at its relative part offset
   if (paste.tracks && paste.tracks.length > 0) {
