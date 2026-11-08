@@ -108,6 +108,48 @@ suite exits instead of competing for Cargo artifacts or process-global test
 state. Use this command for full and focused engine tests rather than creating
 an alternate `CARGO_TARGET_DIR`.
 
+### Editor PWA
+
+Production browser builds emit `manifest.webmanifest`, `sw.js`, and generated
+PNG icons from the shared favicon. Vite development and Storybook do not
+register a service worker. Desktop frontend builds disable the PWA plugin via
+`VIRITURA_DESKTOP_BUILD=true`; externalizing the SF2 for Pages/CDN builds does
+not disable the PWA. The Tauri
+runtime also skips registration and OS web-file handling.
+
+The Workbox precache includes the editor shell, lazy JS/CSS chunks, engraving
+WASM, notation fonts, schema, bundled MNX examples, audio worklets, and reverb
+impulse responses. The built-in SF2 is an explicit, content-revisioned precache
+entry outside the glob size limit: it uses the exact configured
+`VITE_VIRITURA_ASSET_BASE_URL` URL when hosted on R2, or the app-local URL without
+that override. Its revision is derived from the canonical bundled SF2, not from
+the deployment directory where Pages removes the large file. Offline readiness
+includes successfully caching this roughly 119 MiB download. MUSX converter
+binaries, other remote responses, and user documents are not cached.
+CI restores the canonical SF2 with a targeted Git LFS pull before editor builds;
+a pointer file is not accepted as a sound-library revision.
+Cached responses retain the cross-origin-isolation headers required
+by the engraving engine. A failed precache install must not report offline
+readiness.
+
+Updates wait for all editor clients to close instead of forcing a reload or
+discarding unsaved documents. Keep `skipWaiting: false` and prompt-mode
+registration. Workbox's service-worker generator still requires Babel 7; the
+scoped `workbox-build>@babel/core` override retains the patched Babel 7 line
+without changing the editor's Babel tooling.
+
+File launches use `/?open-file=1` to bypass default-score startup. The Start
+Center remains available when that URL has no launch data, and closes when a
+delayed file successfully opens. The supplied filesystem handle passes through
+the normal validated MNX opening flow so Save and recent documents continue to
+work.
+
+For release verification, use a production build served over HTTPS (or
+localhost), install it in Windows Chrome/Edge, approve file handling, and test
+double-click, Save, offline restart, and an update while another window has
+unsaved edits. Development servers intentionally cannot verify service-worker
+install/update behavior.
+
 ### Radix dependency updates
 
 Keep Radix Dialog, Popover, Dropdown Menu, Tooltip, and Select compatible with

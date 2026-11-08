@@ -3,6 +3,7 @@ import { copyFileSync, cpSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { syncDenigmaAssets } from "@viritura/musx-import/asset-staging";
+import { stagePwaIcons } from "./pwa/index.ts";
 
 const editorRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(editorRoot, "../..");
@@ -38,6 +39,7 @@ export function syncSharedAssets(): void {
     for (const asset of BRANDING_ASSETS) {
       copyFileSync(resolve(sharedBranding, asset), resolve(editorRoot, "public", asset));
     }
+    stagePwaIcons(sharedBranding, resolve(editorRoot, "public"));
   });
 }
 

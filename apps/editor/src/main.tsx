@@ -47,6 +47,7 @@ import { Toaster } from "sonner";
 import { LiveSessionProvider } from "./live";
 import { BackgroundTaskToaster } from "./app/BackgroundTaskToaster";
 import { McpProposalReview, McpSessionBridge } from "./mcpSession";
+import { PwaNotifications } from "./pwa";
 
 const GistShareViewer = React.lazy(() =>
   import("./gistShareViewer").then((module) => ({ default: module.GistShareViewer })),
@@ -312,6 +313,7 @@ function AppWithActivityBar() {
           <PathPromptHost />
           <Toaster position="bottom-right" richColors closeButton />
           <BackgroundTaskToaster />
+          <PwaNotifications />
         </PlaybackProvider>
       </DocumentProvider>
     </AccountProvider>

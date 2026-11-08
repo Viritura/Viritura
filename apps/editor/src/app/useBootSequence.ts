@@ -11,6 +11,7 @@ import { parseLiveRoomIdFromUrl } from "../live/liveUrl";
 import type { DocumentStore } from "../store/documentStore";
 import { hasPendingTwoFactorChallenge } from "../auth/api";
 import { FOLDER_PROJECT_UNAVAILABLE_MESSAGE, isFolderProjectSupported } from "./projectFolder";
+import { isFileLaunchUrl } from "../pwa";
 
 export interface BootSequenceDeps {
   store: DocumentStore;
@@ -35,7 +36,6 @@ export function useBootSequence(deps: BootSequenceDeps): void {
   const { store, loadScore, resetHistory, setFileHandle, loadDefaultScore, suppressStartCenter } = deps;
   useEffect(() => {
     if (store.getState().score) return;
-
     // Live-session guest path: a `?live=ROOMID` URL means the user clicked
     // an invite link. Don't open the Start Center and don't load the
     // default sample score — either would either occlude the host's
@@ -43,6 +43,10 @@ export function useBootSequence(deps: BootSequenceDeps): void {
     // local doc is the correct starting condition for LiveSessionProvider
     // to join the room and have the bridge pull the host's content down.
     if (parseLiveRoomIdFromUrl() !== null) return;
+    if (isFileLaunchUrl()) {
+      setStartCenterOpen(true);
+      return;
+    }
 
     let cancelled = false;
     (async () => {

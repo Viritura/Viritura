@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { containerWatchOptions } from "../../infra/dev/viteWatch.ts";
 import { cssBuildOptions } from "../../scripts/cssBuild";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
@@ -8,6 +8,8 @@ import path, { normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import { syncMnxFixtures, syncMnxSchema, syncMusxImporter, syncSharedAssets, syncSounds } from "./buildAssets.ts";
+import { VitePWA } from "vite-plugin-pwa";
+import { pwaOptions, createPwaOptions } from "./pwa/index.ts";
 
 syncSharedAssets();
 syncSounds();
@@ -108,7 +110,7 @@ const wasmAssetHash = existsSync(wasmAssetVersionPath)
   ? (JSON.parse(readFileSync(wasmAssetVersionPath, "utf8")) as { assetHash: string }).assetHash
   : "";
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(({ command, mode }) => ({
   cacheDir: process.env.VIRITURA_VITE_CACHE_DIR,
   define: {
     __VIRITURA_WASM_ASSET_HASH__: JSON.stringify(command === "build" ? wasmAssetHash : ""),
@@ -124,6 +126,15 @@ export default defineConfig(({ command }) => ({
       presets: [reactCompilerPreset()],
     }),
     externalizeLargeSoundfont(),
+    VitePWA({
+      ...(command === "build" && process.env.VIRITURA_DESKTOP_BUILD !== "true"
+        ? createPwaOptions(
+            resolve(configDirectory, "../../packages/audio/assets/sounds/Shan-SGM-Pro-15.sf2"),
+            loadEnv(mode, configDirectory, "VITE_").VITE_VIRITURA_ASSET_BASE_URL,
+          )
+        : pwaOptions),
+      disable: process.env.VIRITURA_DESKTOP_BUILD === "true",
+    }),
   ],
   // The editor is served at its own origin (app.viritura.com in prod,
   // localhost:5173 in dev), so it always lives at the root path.
