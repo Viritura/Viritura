@@ -39,7 +39,7 @@ function MixerStory({ unsupported = false }: { unsupported?: boolean }) {
           {
             time: { count: 4, unit: 4 },
             chordSymbols: showChords
-              ? ["Cmaj7", "NC", unsupported ? "C7(b9)" : "G7"].map((text, index) =>
+              ? ["Cmaj7", "NC", unsupported ? "C7(b8)" : "G7"].map((text, index) =>
                   parseChordSymbolText(text, { fraction: [index, 4] }),
                 )
               : [],
