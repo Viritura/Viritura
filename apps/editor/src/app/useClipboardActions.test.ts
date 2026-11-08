@@ -125,6 +125,17 @@ afterEach(() => {
 });
 
 describe("clipboard actions with a selected lyric", () => {
+  it("warns when unresolved notation cannot be copied rather than silently retaining an old clip", async () => {
+    addHistory();
+    const { result } = harness({ kind: "single", elementType: "event", elementId: "p0/m0/s0/missing" });
+    await act(() => result.current.handleCopy());
+    expect(writeText).not.toHaveBeenCalled();
+    expect(useClipboardHistoryStore.getState().entries).toHaveLength(1);
+    expect(toast.warning).toHaveBeenCalledWith(
+      "The selected notation could not be copied. The clipboard was not changed.",
+    );
+  });
+
   it.each(["handleCopy", "handleCut"] as const)("writes lyric text without native notation on %s", async (action) => {
     vi.stubGlobal("__TAURI_INTERNALS__", {});
     vi.mocked(invoke).mockResolvedValue({ supported: true });

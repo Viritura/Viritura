@@ -12,6 +12,85 @@ use std::collections::HashSet;
 // ═══════════════════════════════════════
 
 #[test]
+fn grand_staff_tags_preserve_source_sequence_indices_without_explicit_layout() {
+    let mut score = parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"id": "piano", "staves": 2, "measures": [{
+                "sequences": [
+                    {"staff": 1, "content": [
+                        {"id": "upper", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+                    ]},
+                    {"staff": 2, "content": [
+                        {"id": "lower", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}
+                    ]},
+                    {"staff": 2, "content": [
+                        {"id": "lower-voice-two", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "G", "octave": 3}}]}
+                    ]}
+                ]
+            }]}]
+        }"#,
+    )
+    .unwrap();
+    let config = LayoutConfig::default();
+    for dl in [
+        layout_full_score(&score, &config),
+        layout_with_mnx_scores(&score, &config, 0),
+    ] {
+        for event_id in [
+            "p0/m0/s0/upper",
+            "p0/m0/s1/lower",
+            "p0/m0/s2/lower-voice-two",
+        ] {
+            assert!(
+                dl.element_bboxes
+                    .iter()
+                    .any(|bbox| bbox.element_id == event_id),
+                "missing canonical event path {event_id}"
+            );
+            let notehead_id = format!("{event_id}/n0");
+            assert!(
+                dl.element_bboxes
+                    .iter()
+                    .any(|bbox| bbox.element_id == notehead_id),
+                "missing canonical notehead path {notehead_id}"
+            );
+            assert!(
+                dl.element_ids
+                    .iter()
+                    .any(|id| id.as_deref() == Some(notehead_id.as_str())),
+                "render commands must use canonical notehead path {notehead_id}"
+            );
+        }
+        assert!(
+            !dl.element_bboxes
+                .iter()
+                .any(|bbox| bbox.element_id == "p0/m0/s0/lower"),
+            "staff-local voice indices must not replace source sequence indices"
+        );
+    }
+    for sequence in &mut score.parts[0].measures[0].sequences {
+        for content in &mut sequence.content {
+            if let SequenceContent::Event(event) = content {
+                event.id = None;
+            }
+        }
+    }
+    let anonymous = layout_full_score(&score, &config);
+    for index in 0..3 {
+        let id = format!("p0/m0/s{index}/__auto_m0_v{index}_e0");
+        assert!(
+            anonymous
+                .element_bboxes
+                .iter()
+                .any(|bbox| bbox.element_id == id),
+            "anonymous events must also preserve their source sequence in {id}"
+        );
+    }
+}
+
+#[test]
 fn test_tag_clef_id_format() {
     let json = r#"{
         "mnx": {"version": 1},

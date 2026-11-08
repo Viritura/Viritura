@@ -223,7 +223,7 @@ function buildSingleClipboardSelection(
     events: [event],
     timeSignature: time,
     keySignature: key,
-    clef: getActiveClef(score, loc.partIndex, loc.measureIndex),
+    clef: getActiveClef(score, loc.partIndex, loc.measureIndex, sourceStaff),
     transposition: score.parts[loc.partIndex]?.transposition,
     partIndex: loc.partIndex,
     measureIndex: loc.measureIndex,

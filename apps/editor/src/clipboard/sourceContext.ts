@@ -4,10 +4,11 @@ import type { SelectionState } from "../store/selectionStore";
 import { resolveSelectionMeasureRange } from "../store/selectionUtils";
 import { resolveEventFromSubElement, resolveEventLocation } from "../score/ElementPath";
 
-export function getActiveClef(score: Score, partIndex: number, measureIndex: number) {
+export function getActiveClef(score: Score, partIndex: number, measureIndex: number, staff = 1) {
   for (let measure = measureIndex; measure >= 0; measure--) {
     const clefs = score.parts[partIndex]?.measures[measure]?.clefs;
-    if (clefs && clefs.length > 0) return clefs[0]!.clef;
+    const clef = clefs?.find((entry) => (entry.staff ?? 1) === staff);
+    if (clef) return clef.clef;
   }
   return undefined;
 }

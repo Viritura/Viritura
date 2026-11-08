@@ -1,18 +1,20 @@
 import { measureBeats, walkSequenceEvents, type Score, type SequenceContent } from "@viritura/core";
 import {
   resolveEventLocation,
+  resolveFullMeasureRestLocation,
   eventId as buildEventId,
   eventSuffix as buildEventSuffix,
   graceId,
 } from "../score/ElementPath";
 import type { SelectionRhythmicRange, SelectionState, SelectionTrackRhythmicRange } from "../store/selectionStore";
 import { parseElementType } from "../score/elementTypes";
-import { voiceIndexWithinStaff } from "./clipboardTrackMapping";
+import { measureSelectionStaffOffsets, voiceIndexWithinStaff } from "./clipboardTrackMapping";
 import type { CursorPosition } from "../store/noteInputStore";
 import { applyPaste, type PasteResult } from "../commands/clipboardCommands";
 import { sequenceContentBeats } from "../commands/noteCommands";
 import { advanceCursor } from "../commands/cursorCommands";
-import { findPlacedAnnotationIds } from "./annotations";
+import { findPlacedAnnotationIds, resolvePhysicalStaffDestination } from "./annotations";
+import { resolveRangeElementIds } from "../store/selectionUtils";
 import { mergeDestinationIntoPaste, pasteMergeWarnings } from "./pasteMerge";
 import { resolveVoiceTarget } from "../voiceLanes";
 
@@ -306,6 +308,39 @@ export function findPlacedSelection(
   return { range, selection };
 }
 
+function selectedEventPasteAnchor(score: Score, selection: Extract<SelectionState, { kind: "range" | "multi" }>) {
+  const ids =
+    selection.kind === "multi"
+      ? selection.elementIds
+      : [
+          ...resolveRangeElementIds(
+            selection.startElementId,
+            selection.endElementId,
+            score,
+            selection.measureAnchor,
+            selection.measureFocus,
+          ),
+          selection.startElementId,
+          selection.endElementId,
+        ];
+  const locations = ids.flatMap((id) => {
+    const location = resolveEventLocation(id, score) ?? resolveFullMeasureRestLocation(id, score);
+    return location ? [location] : [];
+  });
+  const staffAt = (location: (typeof locations)[number]) =>
+    score.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex]?.staff ?? 1;
+  locations.sort(
+    (a, b) =>
+      a.measureIndex - b.measureIndex ||
+      a.partIndex - b.partIndex ||
+      staffAt(a) - staffAt(b) ||
+      a.sequenceIndex - b.sequenceIndex ||
+      (a.tupletIndex ?? a.eventIndex) - (b.tupletIndex ?? b.eventIndex),
+  );
+  const first = locations[0];
+  return first ? { ...first, eventIndex: first.tupletIndex ?? first.eventIndex } : null;
+}
+
 /**
  * Resolve the (part, measure, sequence, event) anchor for a paste based on the
  * current selection. Returns null when the selection can't anchor a paste.
@@ -356,17 +391,24 @@ function resolvePasteAnchor(
     };
   }
   if (selection.kind === "measure") {
+    const startPart = Math.min(selection.startPartIndex, selection.endPartIndex);
+    const offsets = measureSelectionStaffOffsets(score, selection);
+    const destination = offsets ? resolvePhysicalStaffDestination(score, startPart, 0, offsets.start) : undefined;
+    const measureIndex = Math.min(selection.startMeasure, selection.endMeasure);
     return {
-      partIndex: selection.startPartIndex,
-      measureIndex: selection.startMeasure,
+      partIndex: destination?.partIndex ?? startPart,
+      measureIndex,
       sequenceIndex: sequenceIndexForStaff(
         score,
-        selection.startPartIndex,
-        selection.startMeasure,
-        selection.startLocalStaffIndex,
+        destination?.partIndex ?? startPart,
+        measureIndex,
+        destination?.staffIndex,
       ),
       eventIndex: 0,
     };
+  }
+  if (selection.kind === "range" || selection.kind === "multi") {
+    return selectedEventPasteAnchor(score, selection);
   }
 
   function sequenceIndexForStaff(

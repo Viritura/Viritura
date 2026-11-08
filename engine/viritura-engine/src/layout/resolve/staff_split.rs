@@ -55,8 +55,13 @@ pub(super) fn split_part_measure_by_staff_count(
     let sequences: Vec<_> = pm
         .sequences
         .iter()
-        .filter(|s| s.staff.unwrap_or(1) == staff_num)
-        .cloned()
+        .enumerate()
+        .filter(|(_, sequence)| sequence.staff.unwrap_or(1) == staff_num)
+        .map(|(index, sequence)| {
+            let mut sequence = sequence.clone();
+            sequence.source_seq_index = Some(sequence.source_seq_index.unwrap_or(index));
+            sequence
+        })
         .collect();
     let clefs = pm.clefs.as_ref().map(|clefs| {
         clefs

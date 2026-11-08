@@ -1,4 +1,4 @@
-import type { SequenceContent, NoteEvent, Pitch, Clef, Score, ChordSymbol } from "@viritura/core";
+import type { Sequence, SequenceContent, NoteEvent, Pitch, Clef, Score, ChordSymbol } from "@viritura/core";
 import type { ClipboardFragment } from "../../clipboard/ClipboardFragment";
 import { sequenceContentBeats } from "../../commands/noteCommands";
 
@@ -238,35 +238,45 @@ function buildPartForOffset(
   measureCount: number,
   beatsPerMeasure: number,
 ): Score["parts"][number] {
-  const partTracks = rawTracks.slice().sort((a, b) => a.voiceIndex - b.voiceIndex);
-  const allContent = partTracks.flatMap((t) => t.content);
-  const clef = partTracks[0]!.clef ?? inferClef(allContent);
+  const partTracks = rawTracks
+    .slice()
+    .sort((a, b) => (a.staffOffset ?? 0) - (b.staffOffset ?? 0) || a.voiceIndex - b.voiceIndex);
+  const physical = partTracks.every((track) => track.staffOffset !== undefined);
+  const firstOffset = Math.min(...partTracks.map((track) => track.staffOffset ?? 0));
+  const staffFor = (track: (typeof partTracks)[number]) => (track.staffOffset ?? 0) - firstOffset + 1;
+  const staves = physical ? Math.max(...partTracks.map(staffFor)) : 1;
+  const clefs = [...new Set(partTracks.map(staffFor))].map((staff) => {
+    const staffTracks = partTracks.filter((track) => staffFor(track) === staff);
+    return {
+      clef: staffTracks[0]!.clef ?? inferClef(staffTracks.flatMap((track) => track.content)),
+      ...(physical ? { staff } : {}),
+    };
+  });
   const srcTransposition = partTracks[0]!.transposition;
   const transposition = srcTransposition ? { ...srcTransposition, prefersWrittenPitches: true } : undefined;
 
-  const sequencesPerMeasure: SequenceContent[][][] = Array.from(
-    { length: measureCount },
-    () => [] as SequenceContent[][],
-  );
+  const sequencesPerMeasure: Sequence[][] = Array.from({ length: measureCount }, () => []);
   for (const track of partTracks) {
     const events = track.content.map((ev, i) => {
       const clone = structuredClone(ev);
-      if (!("id" in clone) || !clone.id) (clone as { id?: string }).id = `preview-${offset}-${track.voiceIndex}-${i}`;
+      if (!("id" in clone) || !clone.id)
+        (clone as { id?: string }).id = `preview-${offset}-${staffFor(track)}-${track.voiceIndex}-${i}`;
       return clone;
     });
     const perMeasure = distributeAcrossMeasures(events, beatsPerMeasure, measureCount);
     for (let m = 0; m < measureCount; m++) {
-      sequencesPerMeasure[m]!.push(perMeasure[m]!);
+      sequencesPerMeasure[m]!.push({ content: perMeasure[m]!, ...(physical ? { staff: staffFor(track) } : {}) });
     }
   }
 
   return {
     name: `Part ${offset + 1}`,
     chordSymbolVisibility: "show",
+    ...(staves > 1 ? { staves } : {}),
     ...(transposition ? { transposition } : {}),
     measures: sequencesPerMeasure.map((seqs, m) => ({
-      ...(m === 0 ? { clefs: [{ clef }] } : {}),
-      sequences: seqs.map((content) => ({ content })),
+      ...(m === 0 ? { clefs } : {}),
+      sequences: seqs,
     })),
   };
 }
