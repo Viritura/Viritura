@@ -487,6 +487,28 @@ export function generatePerformanceEvents(
   return realizePerformanceNavigation(events, timing, spans, crossJumpContinuations);
 }
 
+function retainCrossJumpPerformanceNotes(
+  pending: Map<string, PerformanceNote>,
+  targets: TiePlaybackTargets,
+  continuing: ReadonlySet<string>,
+  cutTime: number,
+  continued: PerformanceNote[],
+  events: TimedEvent[],
+  order: number,
+): number {
+  for (const [key, note] of pending) {
+    if (continuing.has(key) && note.startTime + note.duration >= cutTime - 1e-7) {
+      continued.push(note);
+      continue;
+    }
+    note.duration = Math.min(note.duration, Math.max(0, cutTime - note.startTime));
+    events.push({ event: { kind: "noteOff", time: note.startTime + note.duration, note }, order: order++ });
+    pending.delete(key);
+    targets.delete(key);
+  }
+  return order;
+}
+
 function generateFullPerformanceEvents(
   inputScore: Score,
   partIndex: number,
@@ -549,18 +571,17 @@ function generateFullPerformanceEvents(
       const cutTime = model.timeAtBeat(
         measureStartBeats[expandedMeasureIndex - 1]! + playedSpans[expandedMeasureIndex - 1]!.endBeat,
       );
-      for (const [key, note] of pendingTies) {
-        if (continuing.has(key) && note.startTime + note.duration >= cutTime - 1e-7) {
-          const continued = crossJumpContinuations.get(expandedMeasureIndex) ?? [];
-          continued.push(note);
-          crossJumpContinuations.set(expandedMeasureIndex, continued);
-          continue;
-        }
-        note.duration = Math.min(note.duration, Math.max(0, cutTime - note.startTime));
-        events.push({ event: { kind: "noteOff", time: note.startTime + note.duration, note }, order: order++ });
-        pendingTies.delete(key);
-        pendingTieTargets.delete(key);
-      }
+      const continued = crossJumpContinuations.get(expandedMeasureIndex) ?? [];
+      order = retainCrossJumpPerformanceNotes(
+        pendingTies,
+        pendingTieTargets,
+        continuing,
+        cutTime,
+        continued,
+        events,
+        order,
+      );
+      crossJumpContinuations.set(expandedMeasureIndex, continued);
     }
     if (!measure) continue;
 
