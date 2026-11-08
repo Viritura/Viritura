@@ -8,6 +8,15 @@ import { DiagnosticCollector, ptr } from "@viritura/core";
  * a 1:1 location for the dropped data.
  */
 export function collectLossyDiagnostics(root: Element, dx: DiagnosticCollector, vendorExt: boolean): void {
+  const words = root.getElementsByTagName("words");
+  for (let index = 0; index < words.length; index++) {
+    if (words[index]?.textContent?.trim().toLowerCase() !== "swung 16ths") continue;
+    dx.warn(
+      "/words",
+      "Text-only 'Swung 16ths' does not specify a ratio. Configure tempo swing explicitly; no ratio was inferred.",
+      "musicxml-swing-text-only",
+    );
+  }
   const all = root.getElementsByTagName("*");
   const counts: Record<string, number> = {};
   for (let i = 0; i < all.length; i++) {
@@ -61,6 +70,12 @@ export function collectLossyDiagnostics(root: Element, dx: DiagnosticCollector, 
 
   // Conditionally lossy — only without the vendor-extension toggle.
   if (!vendorExt) {
+    note(
+      "swing",
+      "warning",
+      "Explicit swing dropped — enable Viritura extensions to preserve its exact ratio",
+      "musicxml-swing",
+    );
     note("harmony", "info", "Chord symbols dropped — enable Viritura extensions to preserve", "musicxml-harmony");
     note("glissando", "info", "Glissando dropped — enable Viritura extensions to preserve", "musicxml-glissando");
     note("slide", "info", "Slide dropped — enable Viritura extensions to preserve", "musicxml-slide");

@@ -1,7 +1,7 @@
 import { BARLINE_STYLE_MAP, BEAT_UNIT_MAP } from "../constants";
 import { Fraction } from "../fraction";
 import { childElements, childText, findChild, findChildren } from "../xmlHelpers";
-import type { MnxGlobalMeasure, MnxRhythmicPosition, MnxTempo } from "../types";
+import type { MnxGlobalMeasure, MnxRhythmicPosition, MnxTempo, MnxTempoInstruction } from "../types";
 import { normalizeMusicXmlColor } from "./colors";
 import { durationFraction } from "./durationFraction";
 import { IdGenerator } from "./idGenerator";
@@ -9,6 +9,7 @@ import { makePosition } from "./pitchDuration";
 import { plainOf, textContentFromDirectionType } from "./textRuns";
 import type { TextContent } from "@viritura/core";
 import { applyNavigationSound, navigationDirectionWords } from "./navigation";
+import { readSoundSwing } from "./swing";
 
 // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- branchy traversal of MusicXML measure grammar (time/key/direction/barline/repeat/volta); decomposing further would fragment a single linear pipeline
 export function buildGlobalMeasures(
@@ -30,6 +31,7 @@ export function buildGlobalMeasures(
     const mxmlMeasure = firstPartMeasures[mi]!;
     const measureId = ids.next("m");
     const gm: MnxGlobalMeasure = { id: measureId };
+    const orderedTempos: Array<MnxTempo | MnxTempoInstruction> = [];
 
     const measureNum = mxmlMeasure.getAttribute("number");
     if (measureNum) {
@@ -91,18 +93,35 @@ export function buildGlobalMeasures(
     // changes). Handle both via this closure so neither placement is dropped.
     const navigationWords = new Map<string, string>();
     const positionKey = (pos: Fraction) => JSON.stringify(makePosition(pos).fraction);
-    const applySound = (sound: Element, pos: Fraction, direction?: Element): void => {
+    const applySound = (sound: Element, pos: Fraction, direction?: Element, metronomeTempo?: MnxTempo): void => {
       const tempoAttr = sound.getAttribute("tempo");
-      // Only the first tempo per measure wins (a metronome direction, when
-      // present, is processed earlier and takes precedence over `<sound>`).
-      if (tempoAttr && !gm.tempos?.length) {
-        const bpm = parseFloat(tempoAttr);
-        if (bpm > 0) {
-          const tempo: MnxTempo = { bpm, value: { base: "quarter" } };
-          if (pos.n !== 0) {
-            tempo.location = makePosition(pos);
-          }
-          gm.tempos = [tempo];
+      let tempo = metronomeTempo;
+      if (tempoAttr && !tempo) {
+        const bpm = Number(tempoAttr);
+        if (!Number.isFinite(bpm) || bpm <= 0) throw new Error("MusicXML sound tempo must be a positive finite BPM.");
+        tempo = { bpm, value: { base: "quarter" } };
+        if (pos.n !== 0) {
+          tempo.location = makePosition(pos);
+        }
+        (gm.tempos ??= []).push(tempo);
+        orderedTempos.push(tempo);
+      }
+      const swing = readSoundSwing(sound);
+      if (vendorExt && swing && !findChild(direction ?? sound, "staff")) {
+        if (pos.isNegative()) throw new Error("MusicXML swing position must be inside the current measure.");
+        if (tempo && positionKey(pos) === JSON.stringify(tempo.location?.fraction ?? [0, 1])) {
+          (tempo._x ??= { viritura: {} }).viritura["swing"] = swing;
+        } else {
+          const text = direction
+            ? findChildren(direction, "direction-type")
+                .map(textContentFromDirectionType)
+                .find((content) => content?.length)
+            : undefined;
+          orderedTempos.push({
+            swing,
+            location: makePosition(pos),
+            text: text ?? [{ text: swing.mode === "straight" ? "Straight" : "Swing" }],
+          });
         }
       }
 
@@ -118,9 +137,18 @@ export function buildGlobalMeasures(
     let tempoText: TextContent | undefined;
     for (const child of childElements(mxmlMeasure)) {
       if (child.tagName === "direction") {
+        let metronomeTempo: MnxTempo | undefined;
         const navigationSound = findChild(child, "sound");
         const offset = Number(childText(child, "offset") ?? "0");
         const directionPos = currentPos.add(durationFraction(offset, divisions));
+        const soundOffset = navigationSound && findChild(navigationSound, "offset");
+        const playbackOffset = soundOffset
+          ? Number(soundOffset.textContent)
+          : findChild(child, "offset")?.getAttribute("sound") === "yes"
+            ? offset
+            : 0;
+        if (!Number.isFinite(playbackOffset)) throw new Error("MusicXML sound offset must be finite.");
+        const soundPos = currentPos.add(durationFraction(playbackOffset, divisions));
         const words = navigationDirectionWords(gm, child, makePosition(directionPos));
         if (words) navigationWords.set(positionKey(directionPos), words);
         // Tempo
@@ -139,12 +167,14 @@ export function buildGlobalMeasures(
                   value: beatDots > 0 ? { base, dots: beatDots } : { base },
                 };
                 // eslint-disable-next-line max-depth -- nested MusicXML grammar requires this depth
-                if (currentPos.n !== 0) {
-                  tempo.location = makePosition(currentPos);
+                if (directionPos.n !== 0) {
+                  tempo.location = makePosition(directionPos);
                 }
                 // eslint-disable-next-line max-depth -- nested MusicXML grammar requires this depth
                 if (!gm.tempos) gm.tempos = [];
                 gm.tempos.push(tempo);
+                orderedTempos.push(tempo);
+                metronomeTempo = tempo;
               }
             }
           }
@@ -180,7 +210,7 @@ export function buildGlobalMeasures(
         // Sound element for tempo / navigation
         const sound = findChild(child, "sound");
         if (sound) {
-          applySound(sound, directionPos, child);
+          applySound(sound, soundPos, child, metronomeTempo);
         }
 
         // Tempo text directive (e.g. "Molto moderato"). Only directions flagged
@@ -197,7 +227,9 @@ export function buildGlobalMeasures(
         }
       } else if (child.tagName === "sound") {
         // Bare `<sound>` directly under `<measure>` (tempo changes, jumps).
-        applySound(child, currentPos);
+        const offset = Number(childText(child, "offset") ?? "0");
+        if (!Number.isFinite(offset)) throw new Error("MusicXML sound offset must be finite.");
+        applySound(child, currentPos.add(durationFraction(offset, divisions)));
       } else if (child.tagName === "note") {
         if (findChild(child, "chord") === null && findChild(child, "grace") === null) {
           const durEl = findChild(child, "duration");
@@ -235,6 +267,16 @@ export function buildGlobalMeasures(
       if (hideMetronomeWhenTempoText) {
         tempo._x.viritura["showMetronomeMark"] = false;
       }
+    }
+    if (orderedTempos.some((tempo) => tempo.bpm === undefined)) {
+      (gm._x ??= { viritura: {} }).viritura.tempos = orderedTempos.map((tempo) => {
+        if ("_x" in tempo) {
+          const { _x, ...instruction } = tempo;
+          return { ...instruction, ..._x?.viritura };
+        }
+        return tempo;
+      });
+      delete gm.tempos;
     }
 
     // Barlines and repeats

@@ -10,6 +10,7 @@ import { extractMetadata } from "./metadata";
 import { buildParts } from "./parts";
 import { getPartsInfo } from "./partsInfo";
 import { applyPercussionKits } from "./percussion";
+import { diagnoseUnsupportedSwingScope } from "./swing";
 
 /** Options for MusicXML → MNX conversion */
 export interface ConvertOptions {
@@ -93,6 +94,7 @@ export function convertMusicXmlToMnx(xmlString: string, options?: ConvertOptions
   const ids = new IdGenerator();
   const { parts: partsInfo, groups } = getPartsInfo(root);
   const metadata = extractMetadata(root);
+  diagnoseUnsupportedSwingScope(root, opts.diagnostics);
   const globalMeasures = buildGlobalMeasures(root, ids, vendorExt, hideMetronomeWhenTempoText);
   const { mnxParts, lyricLineIds, lyricLineMetadata, harmonySources } = buildParts(
     root,

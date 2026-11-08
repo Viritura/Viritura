@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { convertImportedMusicFile } from "../commands/fileCommands";
 import { useImportSettingsStore } from "../store/importSettingsStore";
+import { parseMnx, serializeMnx, validateRawScore } from "@viritura/format";
 
 function score(harmonies: string): string {
   return `<score-partwise version="4.0">
@@ -30,6 +31,28 @@ afterEach(() => {
 });
 
 describe.each(["musicxml", "xml", "mxl"])("%s source diagnostic propagation", (extension) => {
+  it("preserves explicit tempo swing and BPM-free anchors through import and save/load", async () => {
+    const result = await convertImportedMusicFile(
+      await sourceFile(
+        score(`
+      <sound tempo="90"><swing><first>3</first><second>2</second><swing-type>16th</swing-type></swing></sound>
+      <forward><duration>1</duration></forward>
+      <direction><direction-type><words>Keep moving</words></direction-type><sound><swing><straight/></swing></sound></direction>
+    `),
+        extension,
+      ),
+    );
+    const imported = parseMnx(JSON.parse(result.mnxJson));
+    const tempos = imported.global.measures[0].tempos;
+    expect(tempos?.[0].swing).toEqual({ mode: "swing", subdivision: "16th", ratio: [3, 2] });
+    expect(tempos?.[1].bpm).toBeUndefined();
+    expect(tempos?.[1].swing).toEqual({ mode: "straight" });
+    expect(tempos?.[1].text).toEqual([{ text: "Keep moving" }]);
+    const saved = serializeMnx(imported);
+    expect(validateRawScore(saved)).toMatchObject({ ok: true });
+    expect(parseMnx(saved).global.measures[0].tempos).toEqual(tempos);
+  });
+
   it("retains unsupported chord text warnings from the source converter", async () => {
     const xml = score('<harmony><root><root-step>C</root-step></root><kind text="Mystery">major</kind></harmony>');
     const result = await convertImportedMusicFile(await sourceFile(xml, extension));
