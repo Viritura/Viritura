@@ -12,6 +12,75 @@ use std::collections::HashSet;
 // ═══════════════════════════════════════
 
 #[test]
+fn omitted_staff_matches_explicit_staff_one_in_grand_staff_layouts() {
+    let implicit = parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}, {}]},
+            "layouts": [{"id": "piano", "content": [{"type": "group", "symbol": "brace", "content": [
+                {"type": "staff", "sources": [{"part": "P1", "staff": 1}]},
+                {"type": "staff", "sources": [{"part": "P1", "staff": 2}]}
+            ]}]}],
+            "scores": [{"name": "Full score", "layout": "piano"}, {"name": "Piano", "layout": "piano"}],
+            "parts": [{"id": "P1", "staves": 2, "measures": [
+                {
+                    "clefs": [
+                        {"clef": {"sign": "G", "staffPosition": -2}},
+                        {"staff": 2, "clef": {"sign": "F", "staffPosition": 2}}
+                    ],
+                    "sequences": [
+                        {"content": [{"id": "upper", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}]},
+                        {"staff": 2, "content": [{"id": "lower", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}]}
+                    ]
+                },
+                {"sequences": [
+                    {"content": [{"id": "upper-only", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "D", "octave": 5}}]}]}
+                ]}
+            ]}]
+        }"#,
+    )
+    .unwrap();
+    let mut explicit = implicit.clone();
+    for measure in &mut explicit.parts[0].measures {
+        for sequence in &mut measure.sequences {
+            sequence.staff = Some(sequence.staff.unwrap_or(1));
+        }
+        for clef in measure.clefs.iter_mut().flatten() {
+            clef.staff = Some(clef.staff.unwrap_or(1));
+        }
+    }
+    let config = LayoutConfig::default();
+    for score_index in 0..2 {
+        let actual = layout_with_mnx_scores(&implicit, &config, score_index);
+        let expected = layout_with_mnx_scores(&explicit, &config, score_index);
+        for id in [
+            "p0/m0/s0/upper/n0",
+            "p0/m0/s1/lower/n0",
+            "p0/m1/s0/upper-only/n0",
+        ] {
+            assert_eq!(
+                actual
+                    .element_bboxes
+                    .iter()
+                    .filter(|bbox| bbox.element_id == id)
+                    .count(),
+                1,
+                "source notehead {id} must not be copied onto another staff"
+            );
+        }
+        assert_eq!(
+            serde_json::to_value(&actual.commands).unwrap(),
+            serde_json::to_value(&expected.commands).unwrap(),
+            "omitted sequence and clef staff must engrave exactly like explicit staff 1"
+        );
+        assert_eq!(
+            serde_json::to_value(&actual.element_bboxes).unwrap(),
+            serde_json::to_value(&expected.element_bboxes).unwrap()
+        );
+    }
+}
+
+#[test]
 fn grand_staff_tags_preserve_source_sequence_indices_without_explicit_layout() {
     let mut score = parse_mnx(
         r#"{

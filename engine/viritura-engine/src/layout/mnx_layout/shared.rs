@@ -80,10 +80,8 @@ pub(super) fn filter_sequences_for_source(
     for (seq_idx, seq) in part_measure.sequences.iter().enumerate() {
         // Filter by staff number if specified
         if let Some(staff_num) = source.staff_number {
-            if let Some(seq_staff) = seq.staff {
-                if seq_staff != staff_num {
-                    continue;
-                }
+            if seq.staff.unwrap_or(1) != staff_num {
+                continue;
             }
         }
         // Filter by voice name if specified
@@ -471,7 +469,7 @@ pub(super) fn build_virtual_part_measure(
                     // Filter clefs to only those matching this staff
                     let filtered: Vec<_> = c
                         .iter()
-                        .filter(|pc| pc.staff.is_none_or(|s| s == staff_num))
+                        .filter(|pc| pc.staff.unwrap_or(1) == staff_num)
                         .cloned()
                         .collect();
                     if !filtered.is_empty() {

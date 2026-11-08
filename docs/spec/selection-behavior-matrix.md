@@ -18,6 +18,12 @@ modes—such as clipboard shape, condensed writeback, deletion, and
 staff-specific markings—use explicit specialized resolvers. Where Viritura
 intentionally differs, it is called out.
 
+Rendered staff identity follows MNX defaults: omitted `sequence.staff` and
+positioned-clef `staff` mean staff 1, not every staff in an explicit layout.
+A lower-staff layout source must not display or select the upper staff's
+default-staff content. Explicit staff assignments and their omitted defaults
+must produce equivalent render commands and hit boxes.
+
 ## The five selection kinds
 
 Defined as a discriminated union in
