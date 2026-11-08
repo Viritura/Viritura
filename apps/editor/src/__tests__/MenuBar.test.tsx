@@ -115,6 +115,29 @@ describe("MenuBar", () => {
     expect(screen.getByText("Select All")).toBeTruthy();
   });
 
+  it("dispatches whole-bar deletion separately from clearing music", async () => {
+    const onDeleteSelectedBars = vi.fn();
+    const { user, callbacks } = renderMenuBar(
+      { onDeleteSelectedBars },
+      { hasDocument: true, hasSelection: true, canDeleteSelectedBars: true },
+    );
+    await user.click(screen.getByText("Edit"));
+    await user.click(screen.getByText("Delete Selected Bars"));
+    expect(onDeleteSelectedBars).toHaveBeenCalledOnce();
+    expect(callbacks.onDelete).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { hasDocument: true, hasSelection: true, canDeleteSelectedBars: false },
+    { hasDocument: false, canDeleteSelectedBars: true },
+  ])("disables whole-bar deletion without a document and bar selection", async (state) => {
+    const { user } = renderMenuBar({ onDeleteSelectedBars: vi.fn() }, state);
+    await user.click(screen.getByText("Edit"));
+    expect(
+      screen.getByText("Delete Selected Bars").closest('[role="menuitem"]')?.getAttribute("data-disabled"),
+    ).not.toBeNull();
+  });
+
   it("describes transpose as a selection dialog without an unrelated keyboard hint", async () => {
     const { user } = renderMenuBar({}, { canTranspose: true });
     await user.click(screen.getByText("Edit"));

@@ -3,7 +3,9 @@ import { selectAllRange } from "../store/selectionUtils";
 import { computeDeleteSelection } from "../commands/computeDeleteSelection";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
-import type { useSelection } from "../store/selectionStore";
+import { useSelectionStore, type useSelection } from "../store/selectionStore";
+import { removeMeasureRangeFromScore } from "../keyboard/normalModeDeleteHelpers";
+import { toast } from "sonner";
 import type { Score } from "@viritura/core";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import type { RefObject } from "react";
@@ -25,6 +27,7 @@ interface UseEditorMiscActionsArgs {
 export interface EditorMiscActions {
   handleSelectAll: () => void;
   handleDeleteSelection: () => void;
+  handleDeleteSelectedBars: () => void;
   handleZoomIn: () => void;
   handleZoomOut: () => void;
   handleResetZoom: () => void;
@@ -69,6 +72,24 @@ export function useEditorMiscActions({
     }
   }, [store, selection, updateScore, selectElement, clearSelection]);
 
+  const handleDeleteSelectedBars = useCallback(() => {
+    const { score } = store.getState();
+    const selected = useSelectionStore.getState().selection;
+    if (!score || selected.kind !== "measure") {
+      toast.info("Select bars to delete first.");
+      return;
+    }
+    const start = Math.min(selected.startMeasure, selected.endMeasure);
+    const end = Math.max(selected.startMeasure, selected.endMeasure);
+    const next = removeMeasureRangeFromScore(score, start, end, true);
+    if (!next) {
+      toast.error("The selected bars are no longer available.");
+      return;
+    }
+    updateScore(next);
+    clearSelection();
+  }, [store, updateScore, clearSelection]);
+
   const handleZoomIn = useCallback(() => {
     const z = Math.min(currentZoom * 1.25, MAX_ZOOM);
     canvasRef.current?.setZoom(z);
@@ -103,6 +124,7 @@ export function useEditorMiscActions({
   return {
     handleSelectAll,
     handleDeleteSelection,
+    handleDeleteSelectedBars,
     handleZoomIn,
     handleZoomOut,
     handleResetZoom,

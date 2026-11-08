@@ -8,6 +8,7 @@ const callbacks: MenuBarCallbacks = {
   onPaste: () => {},
   onPasteMerge: () => {},
   onDelete: () => {},
+  onDeleteSelectedBars: () => {},
   onSelectAll: () => {},
   onExplodeSelection: () => {},
   onReduceSelection: () => {},
@@ -32,6 +33,7 @@ describe("buildSelectionContextMenuItems", () => {
       "Paste",
       "Paste and Merge",
       "Delete",
+      "Delete Selected Bars",
       "Explode to Staves",
       "Reduce to Staff",
       "Select Top Note of Chords",
@@ -80,6 +82,20 @@ describe("buildSelectionContextMenuItems", () => {
     const items = buildSelectionContextMenuItems({ ...callbacks, onReduceSelection }, state, { hasSelection: true });
     items.find((i) => i.label === "Reduce to Staff")?.action?.();
     expect(onReduceSelection).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([false, true])("matches bar deletion availability in both menus: %s", (canDeleteSelectedBars) => {
+    const onDeleteSelectedBars = vi.fn();
+    const items = buildSelectionContextMenuItems(
+      { ...callbacks, onDeleteSelectedBars },
+      { ...state, canDeleteSelectedBars },
+      { hasSelection: true },
+    );
+    expect(enabled(items, "Delete Selected Bars")).toBe(canDeleteSelectedBars);
+    if (canDeleteSelectedBars) {
+      items.find((item) => item.label === "Delete Selected Bars")?.action?.();
+      expect(onDeleteSelectedBars).toHaveBeenCalledOnce();
+    }
   });
 
   it("offers bar instrument/transposition commands only for a resolved single-bar target", () => {

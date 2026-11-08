@@ -8,8 +8,9 @@
 
 import type { MouseEvent } from "react";
 import type { CanvasHandlerCtx } from "./canvasHandlers";
-import { findNearbyElement, pointerToMeasure } from "./hitTesting";
+import { findNearbyElement, pointerToMeasure, pointerToMeasureStaff } from "./hitTesting";
 import { screenToEngine } from "./engineCoordinates";
+import { useSelectionStore } from "../../store/selectionStore";
 
 /** Strip a notehead suffix so a right-click resolves to its parent event. */
 function toEventId(hitId: string, exact: boolean): string {
@@ -17,7 +18,21 @@ function toEventId(hitId: string, exact: boolean): string {
   return hitId.replace(/\/n\d+$/, "");
 }
 
-export function openWriteSelectionContextMenu(e: MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+type SelectionContextMenuCtx = Pick<
+  CanvasHandlerCtx,
+  | "buildSelectionMenuItemsRef"
+  | "canvasRef"
+  | "spatialIndexRef"
+  | "selectedIds"
+  | "viewport"
+  | "displayListRef"
+  | "viewMode"
+  | "selectElement"
+  | "selectMeasure"
+  | "setContextMenu"
+>;
+
+export function openWriteSelectionContextMenu(e: MouseEvent<HTMLCanvasElement>, ctx: SelectionContextMenuCtx): void {
   const buildItems = ctx.buildSelectionMenuItemsRef.current;
   if (!buildItems) return;
   const canvas = ctx.canvasRef.current;
@@ -28,16 +43,36 @@ export function openWriteSelectionContextMenu(e: MouseEvent<HTMLCanvasElement>, 
   const pt = screenToEngine(e, canvas, ctx.viewport, ctx.displayListRef.current, ctx.viewMode);
   if (pt) {
     const measureBounds = ctx.displayListRef.current?.measureBounds;
+    const measureAnchor = pointerToMeasure(pt.scoreX, pt.scoreY, measureBounds);
+    const selection = useSelectionStore.getState().selection;
+    const insideSelectedBars =
+      selection.kind === "measure" &&
+      measureAnchor !== null &&
+      measureAnchor.measureIndex >= Math.min(selection.startMeasure, selection.endMeasure) &&
+      measureAnchor.measureIndex <= Math.max(selection.startMeasure, selection.endMeasure) &&
+      measureAnchor.partIndex >= Math.min(selection.startPartIndex, selection.endPartIndex) &&
+      measureAnchor.partIndex <= Math.max(selection.startPartIndex, selection.endPartIndex) &&
+      measureAnchor.staffIndex >= Math.min(selection.startStaffIndex, selection.endStaffIndex) &&
+      measureAnchor.staffIndex <= Math.max(selection.startStaffIndex, selection.endStaffIndex);
     const exactHit = si.hitTest(pt.scoreX, pt.scoreY);
     const hitId = exactHit ?? findNearbyElement(si, pt.scoreX, pt.scoreY, measureBounds);
-    if (hitId) {
+    if (insideSelectedBars) {
+      hasSelection = true;
+    } else if (hitId) {
       const eventId = toEventId(hitId, exactHit === hitId);
       // Preserve an existing multi-element selection when the user right-clicks
       // inside it — that selection is usually the subject of the command.
       if (!ctx.selectedIds?.has(eventId)) {
-        const measureAnchor = pointerToMeasure(pt.scoreX, pt.scoreY, measureBounds);
         ctx.selectElement(eventId, measureAnchor ?? undefined);
       }
+      hasSelection = true;
+    } else if (selection.kind === "none" || selection.kind === "measure") {
+      const staff = pointerToMeasureStaff(pt.scoreX, pt.scoreY, measureBounds);
+      if (staff) {
+        ctx.selectMeasure(staff.partIndex, staff.staffIndex, staff.measureIndex, staff.localStaffIndex);
+        hasSelection = true;
+      }
+    } else {
       hasSelection = true;
     }
   }

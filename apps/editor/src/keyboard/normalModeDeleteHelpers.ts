@@ -149,11 +149,52 @@ export function deleteClefByElementId(score: Score, elementId: string): Score | 
   return next;
 }
 
-/** Remove measures in [startM, endM] from all parts. Returns null if it would delete all measures. */
-export function removeMeasureRangeFromScore(score: Score, startM: number, endM: number): Score | null {
+/** Remove bars across all parts; optionally keep one empty bar when removing everything. */
+export function removeMeasureRangeFromScore(
+  score: Score,
+  startM: number,
+  endM: number,
+  keepEmptyBar = false,
+): Score | null {
   const totalMeasures = score.global.measures.length;
   const count = endM - startM + 1;
-  if (count >= totalMeasures) return null;
+  if (!Number.isInteger(startM) || !Number.isInteger(endM) || startM < 0 || endM >= totalMeasures || count <= 0)
+    return null;
+  if (count === totalMeasures) {
+    if (!keepEmptyBar) return null;
+    const first = score.global.measures[0]!;
+    return {
+      ...score,
+      global: {
+        ...score.global,
+        measures: [
+          {
+            ...(first.id && { id: first.id }),
+            ...(first.time && { time: first.time }),
+            ...(first.key && { key: first.key }),
+            ...(first.tempos && { tempos: first.tempos }),
+          },
+        ],
+      },
+      parts: score.parts.map((part) => ({
+        ...part,
+        measures: [
+          {
+            ...(part.measures[0]?.clefs && { clefs: part.measures[0].clefs }),
+            ...(part.measures[0]?.staffConfigs && { staffConfigs: part.measures[0].staffConfigs }),
+            sequences: [{ content: [], fullMeasure: { visualDuration: { base: "whole" } } }],
+          },
+        ],
+      })),
+      ...(score.scores && {
+        scores: score.scores.map((definition) => {
+          const { pages, layoutBreaks: _breaks, multimeasureRests: _rests, ...settings } = definition;
+          const initialLayout = pages?.flatMap((page) => page.systems)[0]?.layout;
+          return { ...settings, ...(initialLayout && { layout: initialLayout }) };
+        }),
+      }),
+    };
+  }
   return {
     ...score,
     global: {

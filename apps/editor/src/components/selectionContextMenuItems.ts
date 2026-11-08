@@ -48,6 +48,11 @@ export function buildSelectionContextMenuItems(
     },
     SEPARATOR,
     { label: "Delete", shortcut: "Del", action: callbacks.onDelete, disabled: !hasSelection },
+    {
+      label: "Delete Selected Bars",
+      action: callbacks.onDeleteSelectedBars,
+      disabled: !state.hasDocument || !state.canDeleteSelectedBars,
+    },
     SEPARATOR,
     {
       label: "Change instrument or tuning",
