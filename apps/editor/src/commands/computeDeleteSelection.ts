@@ -43,6 +43,7 @@ import { removeGlissandoByElementId } from "./glissandoCommands";
 import { removeTrillExtensionByElementId } from "../score/trillExtensionMutations";
 import { removeTuplet } from "./tupletCommands";
 import { cloneScore } from "../score/scoreClone";
+import { clearMeasureContent } from "./measureContent";
 import { deleteTextFrameInScore, textFrameIdFromElementId, textFramesForScore } from "../score/textFrameMutations";
 
 export type DeleteSelectionResult =
@@ -54,7 +55,6 @@ export type DeleteSelectionResult =
 type SingleSel = Extract<SelectionState, { kind: "single" }>;
 type MultiOrRangeSel = Extract<SelectionState, { kind: "multi" | "range" }>;
 type MeasureSel = Extract<SelectionState, { kind: "measure" }>;
-type SequenceEntry = Score["parts"][number]["measures"][number]["sequences"][number]["content"][number];
 type TimedPartAnnotation = {
   position: { fraction: [number, number] };
   voice?: string;
@@ -435,7 +435,7 @@ function deleteTimedAnnotationsAnchoredToCollapsedSequences(
  * every event in a sequence collapses its roots into one full-measure rest, so
  * remove annotations whose anchors would otherwise disappear with that tree.
  */
-function timedAnnotationsAnchoredToCollapsedSequences(
+export function timedAnnotationsAnchoredToCollapsedSequences(
   score: Score,
   events: ReturnType<typeof resolveSelectionEvents>,
 ): AnnotationLocation[] {
@@ -557,79 +557,5 @@ function deleteSelectedGraceNotes(score: Score, graceIds: readonly string[]): Sc
 }
 
 function deleteMeasure(score: Score, selection: MeasureSel): DeleteSelectionResult {
-  const startP = Math.min(selection.startPartIndex, selection.endPartIndex);
-  const endP = Math.max(selection.startPartIndex, selection.endPartIndex);
-  const startM = Math.min(selection.startMeasure, selection.endMeasure);
-  const endM = Math.max(selection.startMeasure, selection.endMeasure);
-
-  let newScore = score;
-  for (let p = startP; p <= Math.min(endP, newScore.parts.length - 1); p++) {
-    const part = newScore.parts[p];
-    if (!part) continue;
-    for (let m = startM; m <= Math.min(endM, part.measures.length - 1); m++) {
-      newScore = deleteMeasureContent(newScore, p, m);
-    }
-  }
-  return { kind: "measure", score: newScore };
-}
-
-function deleteMeasureContent(score: Score, p: number, m: number): Score {
-  let next = score;
-  const measure = next.parts[p]?.measures[m];
-  if (!measure) return next;
-  for (let s = 0; s < measure.sequences.length; s++) {
-    const seq = measure.sequences[s];
-    if (!seq) continue;
-    // Delete back-to-front to keep indices stable.
-    for (let e = seq.content.length - 1; e >= 0; e--) {
-      next = deleteSequenceEntry(next, p, m, s, seq.content[e], e);
-    }
-  }
-  return next;
-}
-
-function deleteSequenceEntry(
-  score: Score,
-  p: number,
-  m: number,
-  s: number,
-  item: SequenceEntry | undefined,
-  eventIndex: number,
-): Score {
-  if (!item) return score;
-  if (item.type === "event") {
-    if (!item.notes || item.notes.length === 0) return score;
-    try {
-      return deleteNote(score, { partIndex: p, measureIndex: m, voice: s, eventIndex });
-    } catch {
-      return score;
-    }
-  }
-  if (item.type === "tremolo") {
-    try {
-      let next = deleteNote(score, { partIndex: p, measureIndex: m, voice: s, eventIndex: 1, tupletIndex: eventIndex });
-      next = deleteNote(next, { partIndex: p, measureIndex: m, voice: s, eventIndex });
-      return next;
-    } catch {
-      return score;
-    }
-  }
-  if (item.type !== "tuplet") return score;
-  let next = score;
-  for (let ti = item.content.length - 1; ti >= 0; ti--) {
-    const inner = item.content[ti];
-    if (inner?.type !== "event" || !inner.notes || inner.notes.length === 0) continue;
-    try {
-      next = deleteNote(next, {
-        partIndex: p,
-        measureIndex: m,
-        voice: s,
-        eventIndex: ti,
-        tupletIndex: eventIndex,
-      });
-    } catch {
-      /* ignore */
-    }
-  }
-  return next;
+  return { kind: "measure", score: clearMeasureContent(score, selection) };
 }
