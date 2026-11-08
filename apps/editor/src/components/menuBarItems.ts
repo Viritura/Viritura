@@ -44,6 +44,7 @@ export interface MenuBarCallbacks {
   /** Paste, merging pitches into the destination chords instead of replacing them. */
   readonly onPasteMerge?: () => void;
   readonly onDelete?: () => void;
+  readonly onDeleteSelectedBars?: () => void;
   readonly onSelectAll?: () => void;
   readonly onZoomIn?: () => void;
   readonly onZoomOut?: () => void;
@@ -78,6 +79,7 @@ export interface MenuBarState {
   readonly canUndo?: boolean;
   readonly canRedo?: boolean;
   readonly hasSelection?: boolean;
+  readonly canDeleteSelectedBars?: boolean;
   readonly canTranspose?: boolean;
   readonly canChangeBarInstrument?: boolean;
   readonly hasDocument?: boolean;
@@ -167,6 +169,11 @@ function editItems(callbacks: MenuBarCallbacks, state: MenuBarState): MenuItemDe
       disabled: !callbacks.onPasteMerge,
     },
     { label: "Delete", shortcut: "Del", action: callbacks.onDelete, disabled: !state.hasSelection },
+    {
+      label: "Delete Selected Bars",
+      action: callbacks.onDeleteSelectedBars,
+      disabled: !callbacks.onDeleteSelectedBars || !state.hasDocument || !state.canDeleteSelectedBars,
+    },
     SEPARATOR,
     { label: "Transpose Selection", action: callbacks.onTranspose, disabled: !state.canTranspose },
     {

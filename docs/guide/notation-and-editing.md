@@ -20,6 +20,15 @@ staff.
 
 ## Apply common edits
 
+To remove whole bars, click empty staff space to select a bar and Shift-click
+to extend the bar selection. Choose **Edit → Delete Selected Bars**, or
+right-click inside the selected bars and choose **Delete Selected Bars**.
+This removes those bars from every source part in the document, even when
+only one staff is selected. Deleting all bars leaves one empty bar. Use
+**Undo** to restore the deleted bars.
+
+The existing **Delete** command clears selected music without removing bars.
+
 The fastest commands act directly on the selection:
 
 | Key       | Action                                        |

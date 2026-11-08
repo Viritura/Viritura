@@ -11,6 +11,7 @@ import {
   useRegisterRecentEntries,
 } from "../components/AppShell";
 import type { MenuBarCallbacks, MenuBarState } from "../components/MenuBar";
+import { useSelectionStore } from "../store/selectionStore";
 
 interface UseMenuBarWiringParams extends MenuBarConfigDeps {
   isActiveView: boolean | undefined;
@@ -62,7 +63,12 @@ export function useMenuBarWiring({
 
   const buildSelectionMenuItems = useCallback(
     // Built on open so item state reflects the selection at right-click time.
-    (context: SelectionMenuContext) => buildSelectionContextMenuItems(menuCallbacks, menuState, context),
+    (context: SelectionMenuContext) =>
+      buildSelectionContextMenuItems(
+        menuCallbacks,
+        { ...menuState, canDeleteSelectedBars: useSelectionStore.getState().selection.kind === "measure" },
+        context,
+      ),
     [menuCallbacks, menuState],
   );
   return { buildSelectionMenuItems };

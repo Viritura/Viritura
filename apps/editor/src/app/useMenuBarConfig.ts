@@ -37,6 +37,7 @@ export interface MenuBarConfigDeps {
   handleSelectChordTopNote: () => void;
   handleSelectChordBottomNote: () => void;
   handleDeleteSelection: () => void;
+  handleDeleteSelectedBars: () => void;
   handleSelectAll: () => void;
   handleZoomIn: () => void;
   handleZoomOut: () => void;
@@ -92,6 +93,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
     handleSelectChordTopNote,
     handleSelectChordBottomNote,
     handleDeleteSelection,
+    handleDeleteSelectedBars,
     handleSelectAll,
     handleZoomIn,
     handleZoomOut,
@@ -156,6 +158,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       onSelectChordTopNote: handleSelectChordTopNote,
       onSelectChordBottomNote: handleSelectChordBottomNote,
       onDelete: handleDeleteSelection,
+      onDeleteSelectedBars: handleDeleteSelectedBars,
       onSelectAll: handleSelectAll,
       onZoomIn: handleZoomIn,
       onZoomOut: handleZoomOut,
@@ -210,6 +213,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       handleSelectChordTopNote,
       handleSelectChordBottomNote,
       handleDeleteSelection,
+      handleDeleteSelectedBars,
       handleSelectAll,
       handleZoomIn,
       handleZoomOut,
@@ -233,6 +237,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       canUndo,
       canRedo,
       hasSelection: selection.kind !== "none",
+      canDeleteSelectedBars: selection.kind === "measure",
       canTranspose,
       canChangeBarInstrument,
       canDistribute,
