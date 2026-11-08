@@ -18,7 +18,7 @@ import { AppShell } from "./components/AppShell";
 import { PersistentJumpBarHost } from "./app/PersistentJumpBarHost";
 import { PlayView } from "./components/modes/PlayView";
 import { PictureView } from "./components/modes/PictureView";
-import { MixerSyncBridge } from "./components/MixerSyncBridge";
+import { DocumentMixerBridge } from "./components/DocumentMixerBridge";
 import { VideoSyncBridge } from "./components/VideoSyncBridge";
 import { SelectionPlaybackBridge } from "./components/playbackSelection";
 import { RollView } from "./components/modes/RollView";
@@ -239,7 +239,7 @@ function AppWithActivityBar() {
           audioRenderMode={audioRenderMode}
           soundfontLoader={getDesktopSoundfontLoader()}
         >
-          <MixerSyncBridge score={currentScore} />
+          <DocumentMixerBridge />
           <VideoSyncBridge />
           <SelectionPlaybackBridge />
           <AppShell>

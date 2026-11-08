@@ -11,21 +11,21 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                       | Extensions                                                                                                            |
-| -------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks, textFrames                                                            |
-| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                     |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                               |
-| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                               |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                     |
-| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                 |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                         |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                          |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                            |
-| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                  |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                 |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                              |
+| MNX Object                                   | JSON Path                                       | Extensions                                                                                                                   |
+| -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks, textFrames                                                                   |
+| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                            |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                      |
+| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                      |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                            |
+| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                        |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                 |
+| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                                   |
+| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                         |
+| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                        |
+| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                     |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -885,6 +885,24 @@ is the score, and any later score definition whose layout draws exactly one
 part — what the editor's "add part" flow produces — reads `parts`. Everything
 else (a condensed score, a custom subset) is engraved as a score.
 
+### `mixer`
+
+Score-scoped channel, family-group, and master controls are saved in root
+`_x.viritura.mixer`. `channels` is keyed by stable MNX part ID; the derived
+Chords channel uses `viritura:derived:chords`, never a persisted part index.
+Each channel may specify `volume` (linear gain, 0 to +6 dB), `pan` (-1 to 1),
+`muted`, `solo`, `ensembleEnabled`, and `spatialMode` (`stereo` or `stage`).
+`groups` is keyed by family label and saves `volume`, `muted`, and `solo`.
+`masterVolume` and `masterMuted` control the output bus.
+
+Omitted controls retain editor defaults: channels start at -6 dB, centered,
+unmuted, not soloed, ensemble enabled, in stage mode; group and master gain
+start at unity. Opening a different document restores its own settings rather
+than carrying over the previous mix. Mixer edits mark the document unsaved and
+use the normal save and collaboration paths. Hidden Chords retain their saved
+controls without participating in solo. This payload does not store stage
+coordinates or global audio effects (reverb, EQ, limiter).
+
 ### `soundProfile`
 
 Score playback assignment (`sound-profile-assignment`). `profileId` and
@@ -1302,7 +1320,8 @@ Any global chord symbols create a runtime-only **Chords** mixer lane, including
 when all symbols are unsupported or silent. Its identity is
 `viritura:derived:chords`, with runtime part index `score.parts.length`; it is
 never serialized as a `Part` or assigned a user instrument profile. It starts
-unmuted and uses the GM program 0 SoundFont piano on web and native playback.
+unmuted unless restored from `_x.viritura.mixer`, and uses the GM program 0
+SoundFont piano on web and native playback.
 
 `voiceChordSymbol` uses a fixed-register voicing: one root/slash bass at MIDI
 36–47, and every semantic chord tone at MIDI 60–71, sorted and deduplicated.

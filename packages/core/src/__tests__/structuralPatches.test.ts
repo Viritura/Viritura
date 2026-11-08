@@ -201,6 +201,17 @@ describe("structural patches — parts and score-level", () => {
     const cleared = applyPatchesToScore(withSync, [patch.setScoreExtension({ field: "videoSync", value: undefined })]);
     expect(cleared.videoSync).toBeUndefined();
   });
+
+  it("setScoreExtension writes and clears saved mixer settings", () => {
+    const score = makeScore();
+    const settings = { channels: { p1: { muted: true } }, masterVolume: 0.7 };
+    const next = applyPatchesToScore(score, [patch.setScoreExtension({ field: "mixer", value: settings })]);
+    expect(next.mixer).toEqual(settings);
+    expect(score.mixer).toBeUndefined();
+    expect(next.parts).toBe(score.parts);
+    const cleared = applyPatchesToScore(next, [patch.setScoreExtension({ field: "mixer", value: undefined })]);
+    expect(cleared.mixer).toBeUndefined();
+  });
 });
 
 describe("patchAffectedMeasures for structural patches", () => {

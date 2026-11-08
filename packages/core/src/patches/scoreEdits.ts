@@ -79,6 +79,7 @@ export function applySetScoreExtension(draft: Draft<Score>, p: SetScoreExtension
 function writeScoreExtension(score: Score, update: ScoreExtensionField): void {
   const target = score as unknown as Record<string, unknown>;
   switch (update.field) {
+    case "mixer":
     case "videoSync":
     case "soundProfile":
     case "textStyles":

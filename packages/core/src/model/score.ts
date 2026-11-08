@@ -4,6 +4,7 @@ import type { LayoutDefinition, ScoreDefinition } from "./layout";
 import type { Sound } from "./kit";
 import type { GroupingDisplay } from "./time";
 import type { InstrumentChangeStyle } from "./instrumentChange";
+import type { ScoreMixerSettings } from "./mixer";
 
 /** Score-level metadata (title, composer, etc.) — stored in root _x.viritura.metadata. */
 export interface ScoreMetadata {
@@ -325,6 +326,8 @@ export interface Score {
   instrumentChangeStyle?: InstrumentChangeStyle;
   /** Per-part playback sound assignments (root `_x.viritura.soundProfile`). */
   soundProfile?: SoundProfileAssignment;
+  /** Saved channel, group, and master controls (root `_x.viritura.mixer`). */
+  mixer?: ScoreMixerSettings;
   /** Score-to-picture synchronization settings (root `_x.viritura.videoSync`). */
   videoSync?: VideoSyncSettings;
   /** Paste/reflow source text and stable token anchors (root `_x.viritura.lyricWorkflow`). */

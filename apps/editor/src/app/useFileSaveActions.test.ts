@@ -1,6 +1,11 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useFileSaveActions } from "./useFileSaveActions";
+import { CHORDS_PART_ID } from "@viritura/core";
+import { parseMnx } from "@viritura/format";
+import { createDocumentStore } from "../store/documentStore";
+import { bindMixerDocument } from "../store/mixerPersistence";
+import { useMixerActions } from "../store/mixerStore";
 
 const fileSaveAs = vi.hoisted(() => vi.fn());
 const fileDownload = vi.hoisted(() => vi.fn());
@@ -107,6 +112,56 @@ describe("useFileSaveActions external changes", () => {
     expect(write).toHaveBeenCalledWith(EDITOR_JSON);
     expect(markSaved).toHaveBeenCalledWith(EDITOR_JSON, 1);
   });
+
+  it.each(["handleSave", "handleSaveAs", "handleDownload"] as const)(
+    "%s writes muted Chords from the real document store and restores them on reopen",
+    async (action) => {
+      const store = createDocumentStore();
+      const unbind = bindMixerDocument(store);
+      try {
+        store.getState().loadScore(
+          {
+            mnx: { version: 1 },
+            global: { measures: [{ chordSymbols: [{ position: { fraction: [0, 1] }, rawText: "C" }] }] },
+            parts: [{ id: "flute", name: "Flute", measures: [{ sequences: [] }] }],
+          },
+          "score.mnx",
+        );
+        const baseline = store.getState().mnxJson;
+        const { fileHandle, getFile, write } = createHarness();
+        getFile.mockResolvedValueOnce(new File([baseline], "score.mnx"));
+        fileSaveAs.mockResolvedValueOnce(fileHandle);
+        const { result: mixer } = renderHook(useMixerActions);
+        const { result } = renderHook(() =>
+          useFileSaveActions({
+            store,
+            fileHandle,
+            setFileHandle: vi.fn(),
+            openedFile: { filename: "score.mnx", mnxJson: baseline, fileHandle },
+            resetHistory: vi.fn(),
+          }),
+        );
+        act(() => mixer.current.toggleMute(1));
+        const expected = store.getState().mnxJson;
+        await act(async () => {
+          await result.current[action]();
+        });
+        const written =
+          action === "handleSave"
+            ? write.mock.calls[0]?.[0]
+            : action === "handleSaveAs"
+              ? fileSaveAs.mock.calls[0]?.[0]
+              : fileDownload.mock.calls[0]?.[0];
+        expect(written).toBe(expected);
+        expect(store.getState().savedMnxJson).toBe(expected);
+        const reopened = parseMnx(JSON.parse(expected));
+        expect(reopened.mixer?.channels?.[CHORDS_PART_ID]?.muted).toBe(true);
+        expect(reopened.parts).toHaveLength(1);
+      } finally {
+        unbind();
+      }
+    },
+  );
 
   it("cancels without writing when external changes are detected", async () => {
     openExternalChangeConfirm.mockResolvedValue(null);

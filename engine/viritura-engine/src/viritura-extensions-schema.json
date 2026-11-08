@@ -1959,6 +1959,47 @@
       "additionalProperties": false
     },
 
+    "mixer-bus-settings": {
+      "type": "object",
+      "properties": {
+        "volume": { "type": "number", "minimum": 0, "maximum": 1.9952623149688795 },
+        "muted": { "type": "boolean" },
+        "solo": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
+    "mixer-channel-settings": {
+      "type": "object",
+      "properties": {
+        "volume": { "type": "number", "minimum": 0, "maximum": 1.9952623149688795 },
+        "pan": { "type": "number", "minimum": -1, "maximum": 1 },
+        "muted": { "type": "boolean" },
+        "solo": { "type": "boolean" },
+        "ensembleEnabled": { "type": "boolean" },
+        "spatialMode": { "enum": ["stereo", "stage"] }
+      },
+      "additionalProperties": false
+    },
+
+    "score-mixer-settings": {
+      "type": "object",
+      "description": "Saved mixer intent. Omitted controls use editor defaults. Channels are keyed by stable MNX part ID, or viritura:derived:chords for the derived Chords channel; groups by family label.",
+      "properties": {
+        "channels": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/mixer-channel-settings" }
+        },
+        "groups": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/mixer-bus-settings" }
+        },
+        "masterVolume": { "type": "number", "minimum": 0, "maximum": 1.9952623149688795 },
+        "masterMuted": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
     "root-extensions": {
       "type": "object",
       "description": "Viritura vendor extensions on the MNX document root (the `_x.viritura` dict on the top-level score object).",
@@ -1995,6 +2036,10 @@
         "soundProfile": {
           "$ref": "#/$defs/sound-profile-assignment",
           "description": "Per-part playback sound assignments keyed by stable MNX part ID."
+        },
+        "mixer": {
+          "$ref": "#/$defs/score-mixer-settings",
+          "description": "Score-scoped channel, group, and master mixer settings."
         },
         "videoSync": {
           "$ref": "#/$defs/video-sync",

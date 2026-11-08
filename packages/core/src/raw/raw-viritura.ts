@@ -989,6 +989,31 @@ export interface components {
                 [key: string]: components["schemas"]["lyric-workflow-source"];
             };
         };
+        "mixer-bus-settings": {
+            volume?: number;
+            muted?: boolean;
+            solo?: boolean;
+        };
+        "mixer-channel-settings": {
+            volume?: number;
+            pan?: number;
+            muted?: boolean;
+            solo?: boolean;
+            ensembleEnabled?: boolean;
+            /** @enum {unknown} */
+            spatialMode?: "stereo" | "stage";
+        };
+        /** @description Saved mixer intent. Omitted controls use editor defaults. Channels are keyed by stable MNX part ID, or viritura:derived:chords for the derived Chords channel; groups by family label. */
+        "score-mixer-settings": {
+            channels?: {
+                [key: string]: components["schemas"]["mixer-channel-settings"];
+            };
+            groups?: {
+                [key: string]: components["schemas"]["mixer-bus-settings"];
+            };
+            masterVolume?: number;
+            masterMuted?: boolean;
+        };
         /** @description Viritura vendor extensions on the MNX document root (the `_x.viritura` dict on the top-level score object). */
         "root-extensions": {
             /** @description Score-level bibliographic metadata. */
@@ -1010,6 +1035,8 @@ export interface components {
             };
             /** @description Per-part playback sound assignments keyed by stable MNX part ID. */
             soundProfile?: components["schemas"]["sound-profile-assignment"];
+            /** @description Score-scoped channel, group, and master mixer settings. */
+            mixer?: components["schemas"]["score-mixer-settings"];
             /** @description Score-to-picture synchronization settings. */
             videoSync?: components["schemas"]["video-sync"];
             /** @description Original lyric source text and stable token anchors for distribution and repair. */
@@ -1129,4 +1156,7 @@ export type VideoSync = components["schemas"]["video-sync"];
 export type LyricWorkflowToken = components["schemas"]["lyric-workflow-token"];
 export type LyricWorkflowSource = components["schemas"]["lyric-workflow-source"];
 export type LyricWorkflow = components["schemas"]["lyric-workflow"];
+export type MixerBusSettings = components["schemas"]["mixer-bus-settings"];
+export type MixerChannelSettings = components["schemas"]["mixer-channel-settings"];
+export type ScoreMixerSettings = components["schemas"]["score-mixer-settings"];
 export type RootExtensions = components["schemas"]["root-extensions"];

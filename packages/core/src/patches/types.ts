@@ -57,6 +57,7 @@ import type {
   VideoSyncSettings,
 } from "../model/score";
 import type { StemDirection } from "../enums";
+import type { ScoreMixerSettings } from "../model/mixer";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Path types — addresses inside the Score tree.
@@ -407,6 +408,7 @@ export interface SetMnxSupportPatch {
  * the extensions JSON schema), so the interpreter only writes the field.
  */
 export type ScoreExtensionField =
+  | { field: "mixer"; value: ScoreMixerSettings | undefined }
   | { field: "videoSync"; value: VideoSyncSettings | undefined }
   | { field: "soundProfile"; value: SoundProfileAssignment | undefined }
   | { field: "textStyles"; value: TextStyles | undefined }

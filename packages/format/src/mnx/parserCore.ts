@@ -34,6 +34,7 @@ type Obj = Record<string, unknown>;
 import { parseGlobalMeasures, parseGlobalLyrics, parseGlobalSounds } from "./parseGlobal";
 import { parseParts } from "./parseParts";
 import { parseRootInstrumentChangeStyle } from "./parseInstrumentChangeStyle";
+import { parseMixerSettings } from "./mixerSettings";
 import { parseLayoutDefinition, parseScoreDefinition } from "./parseLayout";
 import type {
   SystemLayout as RawSystemLayout,
@@ -552,6 +553,8 @@ function applyRootExtensions(score: Score, rootX: Obj | undefined): void {
 
   const soundProfile = parseRootSoundProfile(rootX);
   if (soundProfile) score.soundProfile = soundProfile;
+  const mixer = parseMixerSettings((rootX?.["viritura"] as Obj | undefined)?.["mixer"]);
+  if (mixer) score.mixer = mixer;
 
   const videoSync = parseRootVideoSync(rootX);
   if (videoSync) score.videoSync = videoSync;

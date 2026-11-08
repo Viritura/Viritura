@@ -9,6 +9,7 @@
  */
 
 export * from "./score";
+export * from "./mixer";
 export * from "./text";
 export * from "./textFrame";
 export * from "./part";

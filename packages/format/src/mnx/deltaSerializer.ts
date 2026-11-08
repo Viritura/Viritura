@@ -71,6 +71,7 @@ export class DeltaSerializer {
   private textStylesRef: unknown = undefined;
   private timeSignaturesRef: unknown = undefined;
   private soundProfileRef: unknown = undefined;
+  private mixerRef: unknown = undefined;
   private lyricWorkflowRef: unknown = undefined;
   private globalLyricsRef: unknown = undefined;
   private mnxRef: unknown = undefined;
@@ -84,6 +85,7 @@ export class DeltaSerializer {
   private textStylesCache = "";
   private timeSignaturesCache = "";
   private soundProfileCache = "";
+  private mixerCache = "";
   private lyricWorkflowCache = "";
   private globalLyricsCache = "";
   private mnxCache = "";
@@ -228,7 +230,7 @@ export class DeltaSerializer {
   /**
    * Reference-equality + JSON-fallback check for the top-level structural
    * fields (mnx — version + support, global.lyrics, layouts, scores, metadata,
-   * textStyles, soundProfile). Returns true if any field's serialized form changed.
+   * textStyles, soundProfile, mixer). Returns true if any field's serialized form changed.
    */
   private checkStructuralFields(score: Score): boolean {
     let structuralChange = false;
@@ -267,6 +269,11 @@ export class DeltaSerializer {
         value: score.soundProfile,
         refKey: "soundProfileRef" as const,
         cacheKey: "soundProfileCache" as const,
+      },
+      {
+        value: score.mixer,
+        refKey: "mixerRef" as const,
+        cacheKey: "mixerCache" as const,
       },
       {
         value: score.lyricWorkflow,
@@ -407,6 +414,8 @@ export class DeltaSerializer {
     this.timeSignaturesRef = undefined;
     this.soundProfileCache = "";
     this.soundProfileRef = undefined;
+    this.mixerCache = "";
+    this.mixerRef = undefined;
     this.lyricWorkflowCache = "";
     this.lyricWorkflowRef = undefined;
     this.globalLyricsCache = "";
