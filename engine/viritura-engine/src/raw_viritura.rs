@@ -4390,6 +4390,14 @@ impl ::std::default::Default for MarkerTexts {
 ///      "items": {
 ///        "$ref": "#/$defs/system-text"
 ///      }
+///    },
+///    "tempos": {
+///      "description": "Unified ordered tempo collection when any marking has no BPM. Mutually exclusive with standard measure tempos; prevents fabricated BPM resets.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/tempo-instruction"
+///      },
+///      "minItems": 1
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -4438,6 +4446,9 @@ pub struct MeasureGlobalExtensions {
         skip_serializing_if = "::std::vec::Vec::is_empty"
     )]
     pub system_text: ::std::vec::Vec<SystemText>,
+    ///Unified ordered tempo collection when any marking has no BPM. Mutually exclusive with standard measure tempos; prevents fabricated BPM resets.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub tempos: ::std::vec::Vec<TempoInstruction>,
 }
 impl ::std::convert::From<&MeasureGlobalExtensions> for MeasureGlobalExtensions {
     fn from(value: &MeasureGlobalExtensions) -> Self {
@@ -4453,6 +4464,7 @@ impl ::std::default::Default for MeasureGlobalExtensions {
             rehearsal_mark: Default::default(),
             senza_misura: Default::default(),
             system_text: Default::default(),
+            tempos: Default::default(),
         }
     }
 }
@@ -8357,6 +8369,160 @@ impl ::std::convert::From<&StagePosition> for StagePosition {
         value.clone()
     }
 }
+///Explicit rhythm instruction, independent of the metronome beat unit. Omission means inherit; straight explicitly resets swing.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Explicit rhythm instruction, independent of the metronome beat unit. Omission means inherit; straight explicitly resets swing.",
+///  "oneOf": [
+///    {
+///      "type": "object",
+///      "required": [
+///        "mode"
+///      ],
+///      "properties": {
+///        "mode": {
+///          "type": "string",
+///          "const": "straight"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "type": "object",
+///      "required": [
+///        "mode",
+///        "ratio",
+///        "subdivision"
+///      ],
+///      "properties": {
+///        "mode": {
+///          "type": "string",
+///          "const": "swing"
+///        },
+///        "ratio": {
+///          "description": "Exact positive long:short ratio, not a percentage or a guessed source value.",
+///          "type": "array",
+///          "items": {
+///            "type": "integer"
+///          },
+///          "maxItems": 2,
+///          "minItems": 2
+///        },
+///        "subdivision": {
+///          "type": "string",
+///          "enum": [
+///            "eighth",
+///            "16th"
+///          ]
+///        }
+///      },
+///      "additionalProperties": false
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(tag = "mode", deny_unknown_fields)]
+pub enum Swing {
+    #[serde(rename = "straight")]
+    Straight,
+    #[serde(rename = "swing")]
+    Swing {
+        ///Exact positive long:short ratio, not a percentage or a guessed source value.
+        ratio: [i64; 2usize],
+        subdivision: SwingSubdivision,
+    },
+}
+impl ::std::convert::From<&Self> for Swing {
+    fn from(value: &Swing) -> Self {
+        value.clone()
+    }
+}
+///`SwingSubdivision`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "eighth",
+///    "16th"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum SwingSubdivision {
+    #[serde(rename = "eighth")]
+    Eighth,
+    #[serde(rename = "16th")]
+    X16th,
+}
+impl ::std::convert::From<&Self> for SwingSubdivision {
+    fn from(value: &SwingSubdivision) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for SwingSubdivision {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Eighth => f.write_str("eighth"),
+            Self::X16th => f.write_str("16th"),
+        }
+    }
+}
+impl ::std::str::FromStr for SwingSubdivision {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "eighth" => Ok(Self::Eighth),
+            "16th" => Ok(Self::X16th),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for SwingSubdivision {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for SwingSubdivision {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for SwingSubdivision {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///Viritura extensions on a standard MNX system-layout object.
 ///
 /// <details><summary>JSON schema</summary>
@@ -8578,6 +8744,9 @@ impl<'de> ::serde::Deserialize<'de> for SystemTextId {
 ///    "showText": {
 ///      "type": "boolean"
 ///    },
+///    "swing": {
+///      "$ref": "#/$defs/swing"
+///    },
 ///    "text": {
 ///      "$ref": "#/$defs/text-content"
 ///    }
@@ -8614,6 +8783,8 @@ pub struct TempoExtensions {
     )]
     pub show_text: ::std::option::Option<bool>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub swing: ::std::option::Option<Swing>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub text: ::std::option::Option<TextContent>,
 }
 impl ::std::convert::From<&TempoExtensions> for TempoExtensions {
@@ -8628,8 +8799,643 @@ impl ::std::default::Default for TempoExtensions {
             manual_offset: Default::default(),
             show_metronome_mark: Default::default(),
             show_text: Default::default(),
+            swing: Default::default(),
             text: Default::default(),
         }
+    }
+}
+///Unified tempo marking. BPM and value must occur together; without them an explicit swing instruction is required.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Unified tempo marking. BPM and value must occur together; without them an explicit swing instruction is required.",
+///  "type": "object",
+///  "oneOf": [
+///    {
+///      "required": [
+///        "bpm",
+///        "value"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "anyOf": [
+///          {
+///            "required": [
+///              "bpm"
+///            ]
+///          },
+///          {
+///            "required": [
+///              "value"
+///            ]
+///          }
+///        ]
+///      },
+///      "required": [
+///        "swing"
+///      ]
+///    }
+///  ],
+///  "properties": {
+///    "avoidCollisions": {
+///      "type": "boolean"
+///    },
+///    "bpm": {
+///      "type": "number"
+///    },
+///    "location": {
+///      "type": "object",
+///      "required": [
+///        "fraction"
+///      ],
+///      "properties": {
+///        "fraction": {
+///          "type": "array",
+///          "items": false,
+///          "maxItems": 2,
+///          "minItems": 2,
+///          "prefixItems": [
+///            {
+///              "type": "integer"
+///            },
+///            {
+///              "type": "integer"
+///            }
+///          ]
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    "manualOffset": {
+///      "$ref": "#/$defs/sp-delta"
+///    },
+///    "showMetronomeMark": {
+///      "type": "boolean"
+///    },
+///    "showText": {
+///      "type": "boolean"
+///    },
+///    "swing": {
+///      "$ref": "#/$defs/swing"
+///    },
+///    "text": {
+///      "$ref": "#/$defs/text-content"
+///    },
+///    "value": {
+///      "type": "object",
+///      "required": [
+///        "base"
+///      ],
+///      "properties": {
+///        "base": {
+///          "type": "string",
+///          "enum": [
+///            "duplexMaxima",
+///            "maxima",
+///            "longa",
+///            "breve",
+///            "whole",
+///            "half",
+///            "quarter",
+///            "eighth",
+///            "16th",
+///            "32nd",
+///            "64th",
+///            "128th",
+///            "256th",
+///            "512th",
+///            "1024th",
+///            "2048th",
+///            "4096th"
+///          ]
+///        },
+///        "dots": {
+///          "type": "integer"
+///        }
+///      },
+///      "additionalProperties": false
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum TempoInstruction {
+    Variant0(TempoInstructionVariant0),
+    Variant1 {
+        #[serde(
+            rename = "avoidCollisions",
+            default,
+            skip_serializing_if = "::std::option::Option::is_none"
+        )]
+        avoid_collisions: ::std::option::Option<bool>,
+        #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+        location: ::std::option::Option<TempoInstructionVariant1Location>,
+        #[serde(
+            rename = "manualOffset",
+            default,
+            skip_serializing_if = "::std::option::Option::is_none"
+        )]
+        manual_offset: ::std::option::Option<SpDelta>,
+        #[serde(
+            rename = "showMetronomeMark",
+            default,
+            skip_serializing_if = "::std::option::Option::is_none"
+        )]
+        show_metronome_mark: ::std::option::Option<bool>,
+        #[serde(
+            rename = "showText",
+            default,
+            skip_serializing_if = "::std::option::Option::is_none"
+        )]
+        show_text: ::std::option::Option<bool>,
+        swing: Swing,
+        #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+        text: ::std::option::Option<TextContent>,
+    },
+}
+impl ::std::convert::From<&Self> for TempoInstruction {
+    fn from(value: &TempoInstruction) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<TempoInstructionVariant0> for TempoInstruction {
+    fn from(value: TempoInstructionVariant0) -> Self {
+        Self::Variant0(value)
+    }
+}
+///`TempoInstructionVariant0`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "allOf": [
+///    {
+///      "type": "object",
+///      "properties": {
+///        "avoidCollisions": {
+///          "type": "boolean"
+///        },
+///        "bpm": {
+///          "type": "number"
+///        },
+///        "location": {
+///          "type": "object",
+///          "required": [
+///            "fraction"
+///          ],
+///          "properties": {
+///            "fraction": {
+///              "type": "array",
+///              "items": false,
+///              "maxItems": 2,
+///              "minItems": 2,
+///              "prefixItems": [
+///                {
+///                  "type": "integer"
+///                },
+///                {
+///                  "type": "integer"
+///                }
+///              ]
+///            }
+///          },
+///          "additionalProperties": false
+///        },
+///        "manualOffset": {
+///          "$ref": "#/$defs/sp-delta"
+///        },
+///        "showMetronomeMark": {
+///          "type": "boolean"
+///        },
+///        "showText": {
+///          "type": "boolean"
+///        },
+///        "swing": {
+///          "$ref": "#/$defs/swing"
+///        },
+///        "text": {
+///          "$ref": "#/$defs/text-content"
+///        },
+///        "value": {
+///          "type": "object",
+///          "required": [
+///            "base"
+///          ],
+///          "properties": {
+///            "base": {
+///              "type": "string",
+///              "enum": [
+///                "duplexMaxima",
+///                "maxima",
+///                "longa",
+///                "breve",
+///                "whole",
+///                "half",
+///                "quarter",
+///                "eighth",
+///                "16th",
+///                "32nd",
+///                "64th",
+///                "128th",
+///                "256th",
+///                "512th",
+///                "1024th",
+///                "2048th",
+///                "4096th"
+///              ]
+///            },
+///            "dots": {
+///              "type": "integer"
+///            }
+///          },
+///          "additionalProperties": false
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "required": [
+///        "bpm",
+///        "value"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "not": {
+///          "anyOf": [
+///            {
+///              "required": [
+///                "bpm"
+///              ]
+///            },
+///            {
+///              "required": [
+///                "value"
+///              ]
+///            }
+///          ]
+///        },
+///        "required": [
+///          "swing"
+///        ]
+///      }
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum TempoInstructionVariant0 {
+    Variant0(TempoInstructionVariant0Variant0),
+    Variant1(TempoInstructionVariant0Variant1),
+}
+impl ::std::convert::From<&Self> for TempoInstructionVariant0 {
+    fn from(value: &TempoInstructionVariant0) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<TempoInstructionVariant0Variant0>
+for TempoInstructionVariant0 {
+    fn from(value: TempoInstructionVariant0Variant0) -> Self {
+        Self::Variant0(value)
+    }
+}
+impl ::std::convert::From<TempoInstructionVariant0Variant1>
+for TempoInstructionVariant0 {
+    fn from(value: TempoInstructionVariant0Variant1) -> Self {
+        Self::Variant1(value)
+    }
+}
+///`TempoInstructionVariant0Variant0`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "allOf": [
+///    {
+///      "type": "object",
+///      "required": [
+///        "bpm",
+///        "value"
+///      ],
+///      "properties": {
+///        "avoidCollisions": {
+///          "type": "boolean"
+///        },
+///        "bpm": {
+///          "type": "number"
+///        },
+///        "location": {
+///          "type": "object",
+///          "required": [
+///            "fraction"
+///          ],
+///          "properties": {
+///            "fraction": {
+///              "type": "array",
+///              "items": false,
+///              "maxItems": 2,
+///              "minItems": 2,
+///              "prefixItems": [
+///                {
+///                  "type": "integer"
+///                },
+///                {
+///                  "type": "integer"
+///                }
+///              ]
+///            }
+///          },
+///          "additionalProperties": false
+///        },
+///        "manualOffset": {
+///          "$ref": "#/$defs/sp-delta"
+///        },
+///        "showMetronomeMark": {
+///          "type": "boolean"
+///        },
+///        "showText": {
+///          "type": "boolean"
+///        },
+///        "swing": false,
+///        "text": {
+///          "$ref": "#/$defs/text-content"
+///        },
+///        "value": {
+///          "type": "object",
+///          "required": [
+///            "base"
+///          ],
+///          "properties": {
+///            "base": {
+///              "type": "string",
+///              "enum": [
+///                "duplexMaxima",
+///                "maxima",
+///                "longa",
+///                "breve",
+///                "whole",
+///                "half",
+///                "quarter",
+///                "eighth",
+///                "16th",
+///                "32nd",
+///                "64th",
+///                "128th",
+///                "256th",
+///                "512th",
+///                "1024th",
+///                "2048th",
+///                "4096th"
+///              ]
+///            },
+///            "dots": {
+///              "type": "integer"
+///            }
+///          },
+///          "additionalProperties": false
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "required": [
+///        "bpm"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "value"
+///        ]
+///      }
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+#[serde(deny_unknown_fields)]
+pub enum TempoInstructionVariant0Variant0 {}
+impl ::std::convert::From<&Self> for TempoInstructionVariant0Variant0 {
+    fn from(value: &TempoInstructionVariant0Variant0) -> Self {
+        value.clone()
+    }
+}
+///`TempoInstructionVariant0Variant1`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "allOf": [
+///    {
+///      "type": "object",
+///      "required": [
+///        "bpm",
+///        "value"
+///      ],
+///      "properties": {
+///        "avoidCollisions": {
+///          "type": "boolean"
+///        },
+///        "bpm": {
+///          "type": "number"
+///        },
+///        "location": {
+///          "type": "object",
+///          "required": [
+///            "fraction"
+///          ],
+///          "properties": {
+///            "fraction": {
+///              "type": "array",
+///              "items": false,
+///              "maxItems": 2,
+///              "minItems": 2,
+///              "prefixItems": [
+///                {
+///                  "type": "integer"
+///                },
+///                {
+///                  "type": "integer"
+///                }
+///              ]
+///            }
+///          },
+///          "additionalProperties": false
+///        },
+///        "manualOffset": {
+///          "$ref": "#/$defs/sp-delta"
+///        },
+///        "showMetronomeMark": {
+///          "type": "boolean"
+///        },
+///        "showText": {
+///          "type": "boolean"
+///        },
+///        "swing": false,
+///        "text": {
+///          "$ref": "#/$defs/text-content"
+///        },
+///        "value": {
+///          "type": "object",
+///          "required": [
+///            "base"
+///          ],
+///          "properties": {
+///            "base": {
+///              "type": "string",
+///              "enum": [
+///                "duplexMaxima",
+///                "maxima",
+///                "longa",
+///                "breve",
+///                "whole",
+///                "half",
+///                "quarter",
+///                "eighth",
+///                "16th",
+///                "32nd",
+///                "64th",
+///                "128th",
+///                "256th",
+///                "512th",
+///                "1024th",
+///                "2048th",
+///                "4096th"
+///              ]
+///            },
+///            "dots": {
+///              "type": "integer"
+///            }
+///          },
+///          "additionalProperties": false
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "required": [
+///        "value"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "bpm"
+///        ]
+///      }
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+#[serde(deny_unknown_fields)]
+pub enum TempoInstructionVariant0Variant1 {}
+impl ::std::convert::From<&Self> for TempoInstructionVariant0Variant1 {
+    fn from(value: &TempoInstructionVariant0Variant1) -> Self {
+        value.clone()
+    }
+}
+///`TempoInstructionVariant1Location`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "fraction"
+///  ],
+///  "properties": {
+///    "fraction": {
+///      "type": "array",
+///      "items": false,
+///      "maxItems": 2,
+///      "minItems": 2,
+///      "prefixItems": [
+///        {
+///          "type": "integer"
+///        },
+///        {
+///          "type": "integer"
+///        }
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TempoInstructionVariant1Location {
+    pub fraction: [TempoInstructionVariant1LocationFractionItem; 2usize],
+}
+impl ::std::convert::From<&TempoInstructionVariant1Location>
+for TempoInstructionVariant1Location {
+    fn from(value: &TempoInstructionVariant1Location) -> Self {
+        value.clone()
+    }
+}
+///`TempoInstructionVariant1LocationFractionItem`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///false
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+#[serde(deny_unknown_fields)]
+pub enum TempoInstructionVariant1LocationFractionItem {}
+impl ::std::convert::From<&Self> for TempoInstructionVariant1LocationFractionItem {
+    fn from(value: &TempoInstructionVariant1LocationFractionItem) -> Self {
+        value.clone()
     }
 }
 ///Horizontal alignment of a text style relative to its anchor.
@@ -13466,6 +14272,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "stage-position": {
 ///      "$ref": "#/$defs/stage-position"
 ///    },
+///    "swing": {
+///      "$ref": "#/$defs/swing"
+///    },
 ///    "system-layout-extensions": {
 ///      "$ref": "#/$defs/system-layout-extensions"
 ///    },
@@ -13474,6 +14283,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    },
 ///    "tempo-extensions": {
 ///      "$ref": "#/$defs/tempo-extensions"
+///    },
+///    "tempo-instruction": {
+///      "$ref": "#/$defs/tempo-instruction"
 ///    },
 ///    "text-alignment": {
 ///      "$ref": "#/$defs/text-alignment"
@@ -13972,6 +14784,8 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub stage_position: ::std::option::Option<StagePosition>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub swing: ::std::option::Option<Swing>,
     #[serde(
         rename = "system-layout-extensions",
         default,
@@ -13990,6 +14804,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub tempo_extensions: ::std::option::Option<TempoExtensions>,
+    #[serde(
+        rename = "tempo-instruction",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub tempo_instruction: ::std::option::Option<TempoInstruction>,
     #[serde(
         rename = "text-alignment",
         default,
@@ -14240,9 +15060,11 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             staff_meter_synchronization: Default::default(),
             staff_text_frame_presentation: Default::default(),
             stage_position: Default::default(),
+            swing: Default::default(),
             system_layout_extensions: Default::default(),
             system_text: Default::default(),
             tempo_extensions: Default::default(),
+            tempo_instruction: Default::default(),
             text_alignment: Default::default(),
             text_content: Default::default(),
             text_expression: Default::default(),

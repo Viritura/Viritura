@@ -880,9 +880,12 @@ fn test_parse_tempo_markings_mnx_file() {
         .as_ref()
         .expect("Expected tempos on first global measure");
     assert_eq!(tempos.len(), 1);
-    assert_eq!(tempos[0].bpm, 200.0);
-    assert_eq!(tempos[0].value.base, NoteValueBase::Quarter);
-    assert!(tempos[0].value.dots.is_none());
+    assert_eq!(tempos[0].bpm, Some(200.0));
+    assert_eq!(
+        tempos[0].value.as_ref().unwrap().base,
+        NoteValueBase::Quarter
+    );
+    assert!(tempos[0].value.as_ref().unwrap().dots.is_none());
 
     // Second global measure should have no tempos
     assert!(score.global.measures[1].tempos.is_none());
@@ -909,7 +912,7 @@ fn test_parse_fractional_tempo() {
     let score = parse_mnx(json).expect("fractional MNX tempo should parse");
     assert_eq!(
         score.global.measures[0].tempos.as_ref().unwrap()[0].bpm,
-        116.5
+        Some(116.5)
     );
 }
 

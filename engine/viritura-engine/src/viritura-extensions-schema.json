@@ -203,10 +203,105 @@
       "additionalProperties": false
     },
 
+    "swing": {
+      "description": "Explicit rhythm instruction, independent of the metronome beat unit. Omission means inherit; straight explicitly resets swing.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["mode"],
+          "properties": { "mode": { "const": "straight", "type": "string" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["mode", "subdivision", "ratio"],
+          "properties": {
+            "mode": { "const": "swing", "type": "string" },
+            "subdivision": { "type": "string", "enum": ["eighth", "16th"] },
+            "ratio": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+              "minItems": 2,
+              "maxItems": 2,
+              "description": "Exact positive long:short ratio, not a percentage or a guessed source value."
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+
+    "tempo-instruction": {
+      "type": "object",
+      "description": "Unified tempo marking. BPM and value must occur together; without them an explicit swing instruction is required.",
+      "properties": {
+        "bpm": { "type": "number", "exclusiveMinimum": 0 },
+        "value": {
+          "type": "object",
+          "required": ["base"],
+          "properties": {
+            "base": {
+              "type": "string",
+              "enum": [
+                "duplexMaxima",
+                "maxima",
+                "longa",
+                "breve",
+                "whole",
+                "half",
+                "quarter",
+                "eighth",
+                "16th",
+                "32nd",
+                "64th",
+                "128th",
+                "256th",
+                "512th",
+                "1024th",
+                "2048th",
+                "4096th"
+              ]
+            },
+            "dots": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "location": {
+          "type": "object",
+          "required": ["fraction"],
+          "properties": {
+            "fraction": {
+              "type": "array",
+              "prefixItems": [
+                { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "additionalProperties": false
+        },
+        "swing": { "$ref": "#/$defs/swing" },
+        "text": { "$ref": "#/$defs/text-content" },
+        "showMetronomeMark": { "type": "boolean" },
+        "showText": { "type": "boolean" },
+        "manualOffset": { "$ref": "#/$defs/sp-delta" },
+        "avoidCollisions": { "type": "boolean" }
+      },
+      "oneOf": [
+        { "required": ["bpm", "value"] },
+        { "required": ["swing"], "not": { "anyOf": [{ "required": ["bpm"] }, { "required": ["value"] }] } }
+      ],
+      "additionalProperties": false
+    },
+
     "tempo-extensions": {
       "type": "object",
       "description": "Viritura display and placement extensions on a standard MNX tempo object.",
       "properties": {
+        "swing": { "$ref": "#/$defs/swing" },
         "text": { "$ref": "#/$defs/text-content" },
         "showMetronomeMark": { "type": "boolean" },
         "showText": { "type": "boolean" },
@@ -722,6 +817,12 @@
       "type": "object",
       "description": "Viritura vendor extensions on a global measure object.",
       "properties": {
+        "tempos": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/tempo-instruction" },
+          "description": "Unified ordered tempo collection when any marking has no BPM. Mutually exclusive with standard measure tempos; prevents fabricated BPM resets."
+        },
         "rehearsalMark": { "$ref": "#/$defs/rehearsal-mark" },
         "markerText": { "$ref": "#/$defs/marker-texts" },
         "systemText": {

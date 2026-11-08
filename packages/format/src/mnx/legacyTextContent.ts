@@ -34,6 +34,10 @@ function eachTextOwner(doc: Obj, visit: (owner: Obj) => void): void {
       const tempoExt = virituraOf(tempo);
       if (tempoExt) visit(tempoExt);
     }
+    for (const tempo of asArray(viritura?.["tempos"]) ?? []) {
+      const owner = asObj(tempo);
+      if (owner) visit(owner);
+    }
   }
   for (const part of asArray(doc["parts"]) ?? []) {
     for (const measure of asArray(asObj(part)?.["measures"]) ?? []) {

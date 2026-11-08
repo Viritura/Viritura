@@ -111,6 +111,7 @@ export function buildTempoMap(
 
     if (gm.tempos && gm.tempos.length > 0) {
       for (const tempo of gm.tempos) {
+        if (tempo.bpm === undefined) continue;
         const beatOffset = tempo.location ? (tempo.location.fraction[0] / tempo.location.fraction[1]) * mBeats : 0;
         const qpm = effectiveQpm(tempo.bpm, tempo.value.base, tempo.value.dots);
         changes.push({ beatOffset, qpm });
@@ -225,6 +226,7 @@ export function buildTempoModel(globalMeasures: readonly GlobalMeasure[], holds?
     if (gm.tempos && gm.tempos.length > 0) {
       const sorted = [...gm.tempos].sort((a, b) => tempoBeat(a, mBeats) - tempoBeat(b, mBeats));
       for (const tempo of sorted) {
+        if (tempo.bpm === undefined) continue;
         const startBeat = cumBeats + tempoBeat(tempo, mBeats);
         const qpm = effectiveQpm(tempo.bpm, tempo.value.base, tempo.value.dots);
         regions.push({ startBeat, endBeat: Infinity, startBpm: qpm, endBpm: qpm });

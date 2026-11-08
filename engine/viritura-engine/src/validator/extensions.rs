@@ -13,6 +13,8 @@ const DEFINITIONS: &[&str] = &[
     "time-extensions",
     "key-extensions",
     "tempo-extensions",
+    "tempo-instruction",
+    "swing",
     "part-extensions",
     "kit-component-extensions",
     "part-measure-extensions",
@@ -74,6 +76,14 @@ fn validate_definition(value: &Value, definition: &str) -> Result<(), String> {
                 .collect::<Vec<_>>()
                 .join("; ")
         })
+}
+
+pub(crate) fn validate_swing(value: &Value) -> Result<(), String> {
+    validate_definition(value, "swing")
+}
+
+pub(crate) fn validate_tempo_instruction(value: &Value) -> Result<(), String> {
+    validate_definition(value, "tempo-instruction")
 }
 
 fn pointer_token(value: &str) -> String {
@@ -228,6 +238,15 @@ pub(super) fn extension_errors(root: &Value) -> Vec<RawScoreValidationError> {
     if let Some(global) = root.get("global") {
         for (measure_index, measure) in array(global, "measures").iter().enumerate() {
             let pointer = format!("/global/measures/{measure_index}");
+            if measure.pointer("/_x/viritura/tempos").is_some()
+                && !array(measure, "tempos").is_empty()
+            {
+                errors.push(RawScoreValidationError {
+                    pointer: format!("{pointer}/_x/viritura/tempos"),
+                    message: "Viritura tempos cannot coexist with standard measure tempos".into(),
+                    keyword: "exclusiveTempoCollection".into(),
+                });
+            }
             validate_at(
                 Some(measure),
                 &pointer,

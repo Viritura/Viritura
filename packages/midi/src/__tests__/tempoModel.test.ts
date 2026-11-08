@@ -1,5 +1,29 @@
 import { describe, it, expect } from "vitest";
 import { TempoModel } from "../tempoModel";
+import { buildTempoMap, buildTempoModel } from "../tempoMap";
+import type { GlobalMeasure } from "@viritura/core";
+
+it("does not reset BPM or interrupt a ramp at a swing-only tempo anchor", () => {
+  const measures: GlobalMeasure[] = [
+    {
+      id: "m1",
+      time: { count: 4, unit: 4 },
+      tempos: [
+        { bpm: 90, value: { base: "quarter" } },
+        { location: { fraction: [1, 2] }, swing: { mode: "swing", subdivision: "16th", ratio: [3, 2] } },
+      ],
+      gradualTempo: {
+        position: { fraction: [0, 1] },
+        end: { measure: "m1", position: { fraction: [1, 1] } },
+        endBpm: 60,
+      },
+    },
+  ];
+  const { model } = buildTempoModel(measures);
+  expect(model.bpmAtBeat(2)).toBeCloseTo(75);
+  expect(model.bpmAtBeat(3)).toBeCloseTo(67.5);
+  expect(buildTempoMap(measures).tempoMap).toHaveLength(1);
+});
 
 /** A constant-tempo region helper. */
 function constReg(startBeat: number, endBeat: number, bpm: number) {

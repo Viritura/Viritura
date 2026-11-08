@@ -15,6 +15,8 @@ use super::time::{GroupingDisplay, TimeSignature};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+mod tempo_wire;
+
 /// Generic wrapper for the MNX `_x` vendor extension dict.
 /// `T` is the vendor-specific payload (e.g. `GlobalMeasureExtensions`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -44,6 +46,7 @@ pub struct GlobalMeasureExtensions {
 
 /// A global measure — score-wide properties (MNX global.measures[n]).
 #[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(into = "tempo_wire::GlobalMeasureWire")]
 pub struct GlobalMeasure {
     /// Native MNX global marking, including its global attributes.
     #[serde(skip_serializing_if = "Option::is_none")]

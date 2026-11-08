@@ -40,7 +40,10 @@ pub(crate) fn tempo_metronome_runs(
 ) -> (Vec<TempoRun>, f64) {
     let glyph_size = 3.0 * sp;
     let glyph_scale = glyph_size / 4.0;
-    let bpm = format_bpm(tempo.bpm);
+    let (Some(bpm), Some(value)) = (tempo.bpm, tempo.value.as_ref()) else {
+        return (Vec::new(), 0.0);
+    };
+    let bpm = format_bpm(bpm);
 
     let mut runs: Vec<TempoRun> = Vec::new();
     let mut dx = 0.0;
@@ -50,7 +53,7 @@ pub(crate) fn tempo_metronome_runs(
         runs.push(TempoRun::Content { dx: 0.0, content });
     }
 
-    let note_cp = smufl::metronome_note_glyph(&tempo.value.base);
+    let note_cp = smufl::metronome_note_glyph(&value.base);
     runs.push(TempoRun::Glyph {
         dx,
         codepoint: note_cp,
@@ -58,7 +61,7 @@ pub(crate) fn tempo_metronome_runs(
     });
     dx += smufl::metronome_glyph_advance(note_cp) * glyph_scale;
 
-    for _ in 0..tempo.value.dots.unwrap_or(0) {
+    for _ in 0..value.dots.unwrap_or(0) {
         dx += 0.2 * sp;
         runs.push(TempoRun::Glyph {
             dx,
@@ -85,7 +88,7 @@ pub(crate) fn tempo_marking_width(tempo: &Tempo, config: &LayoutConfig, sp: f64)
     let tempo_style = config.text_styles.resolve(TextRole::Tempo);
     let text_size = tempo_style.size_px(sp);
     let has_text = tempo.text.as_ref().is_some_and(|t| !t.is_empty());
-    let show_metronome = tempo.show_metronome_mark.unwrap_or(true);
+    let show_metronome = tempo.bpm.is_some() && tempo.show_metronome_mark.unwrap_or(true);
     let show_text = has_text && tempo.show_text.unwrap_or(true);
     if show_metronome {
         let (_runs, w) = tempo_metronome_runs(
@@ -357,7 +360,7 @@ pub(crate) fn render_tempo_markings(
 
     for (i, tempo) in tempos.iter().enumerate() {
         let cmd_idx = dl.commands.len();
-        let show_metronome = tempo.show_metronome_mark.unwrap_or(true);
+        let show_metronome = tempo.bpm.is_some() && tempo.show_metronome_mark.unwrap_or(true);
         let has_text = tempo.text.as_ref().is_some_and(|t| !t.is_empty());
         let show_text = has_text && tempo.show_text.unwrap_or(true);
         let beat = tempo.location.as_ref().map_or(0.0, |loc| loc.beats());
@@ -519,11 +522,12 @@ mod tests {
     #[test]
     fn measures_rich_tempo_text_before_the_metronome_glyph() {
         let tempo = Tempo {
-            bpm: 120.0,
-            value: TempoNoteValue {
+            bpm: Some(120.0),
+            value: Some(TempoNoteValue {
                 base: NoteValueBase::Quarter,
                 dots: None,
-            },
+            }),
+            swing: None,
             location: None,
             text: Some(TextContent(vec![TextContentChunk::Text(TextRun {
                 text: "Allegro".into(),

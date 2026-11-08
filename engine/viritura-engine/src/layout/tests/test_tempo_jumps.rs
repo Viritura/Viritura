@@ -24,7 +24,7 @@ fn test_tempo_markings_render() {
     );
     let tempos = score.global.measures[0].tempos.as_ref().unwrap();
     assert_eq!(tempos.len(), 1, "Expected 1 tempo marking");
-    assert_eq!(tempos[0].bpm, 200.0);
+    assert_eq!(tempos[0].bpm, Some(200.0));
 
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);

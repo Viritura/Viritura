@@ -357,11 +357,12 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
     let sp = config.sp;
 
     let wide_tempo = Tempo {
-        bpm: 120.0,
-        value: TempoNoteValue {
+        bpm: Some(120.0),
+        value: Some(TempoNoteValue {
             base: NoteValueBase::Quarter,
             dots: None,
-        },
+        }),
+        swing: None,
         location: None,
         text: Some("Grandioso ma non troppo".to_string().into()),
         show_metronome_mark: Some(false),

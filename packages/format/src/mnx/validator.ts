@@ -248,6 +248,14 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
   asObjects(global?.["measures"]).forEach((measure, measureIndex) => {
     const measurePointer = `/global/measures/${measureIndex}`;
     validateAt(measure, measurePointer, "measure-global-extensions");
+    const vendorTempos = asObject(asObject(measure["_x"])?.["viritura"])?.["tempos"];
+    if (vendorTempos !== undefined && asObjects(measure["tempos"]).length > 0) {
+      errors.push({
+        pointer: `${measurePointer}/_x/viritura/tempos`,
+        message: "Viritura tempos cannot coexist with standard measure tempos",
+        keyword: "exclusiveTempoCollection",
+      });
+    }
     validateAt(asObject(measure["time"]), `${measurePointer}/time`, "time-extensions");
     validateAt(asObject(measure["key"]), `${measurePointer}/key`, "key-extensions");
     asObjects(measure["tempos"]).forEach((tempo, tempoIndex) =>
