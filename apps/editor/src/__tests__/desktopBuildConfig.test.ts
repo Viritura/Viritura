@@ -122,6 +122,18 @@ describe("desktop frontend build orchestration", () => {
 });
 
 describe("editor soundfont output", () => {
+  it("restores the actual SoundFont before CI builds the editor", () => {
+    const workflow = readFileSync(resolve(root, ".github", "workflows", "pr.yml"), "utf8");
+    const pnpmJob = workflow.slice(workflow.indexOf("\n  pnpm:"), workflow.indexOf("\n  musx:"));
+    expect(pnpmJob).toContain(
+      "steps.plan.outputs.needs_editor == 'true' || needs.changes.outputs.engine_consumers == 'true'",
+    );
+    const restore = pnpmJob.indexOf('run: git lfs pull --include="packages/audio/assets/sounds/Shan-SGM-Pro-15.sf2"');
+    expect(restore).toBeGreaterThan(-1);
+    expect(restore).toBeLessThan(pnpmJob.indexOf("name: Build and test affected workspaces"));
+    expect(restore).toBeLessThan(pnpmJob.indexOf("name: Build and test the editor after engine changes"));
+  });
+
   it.each([
     [undefined, "true", false],
     ["false", "true", false],

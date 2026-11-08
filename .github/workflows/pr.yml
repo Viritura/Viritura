@@ -179,6 +179,10 @@ jobs:
             echo "needs_wasm=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - if: steps.plan.outputs.needs_editor == 'true' || needs.changes.outputs.engine_consumers == 'true'
+        name: Restore bundled SoundFont
+        run: git lfs pull --include="packages/audio/assets/sounds/Shan-SGM-Pro-15.sf2"
+
       - if: steps.plan.outputs.needs_wasm == 'true' || needs.changes.outputs.engine_consumers == 'true'
         name: Install Rust toolchain
         run: |
