@@ -7,6 +7,7 @@
  */
 
 import type { SpatialIndex, ElementBBox } from "./hitTest";
+import { endingHandleAnchors } from "./hitTest";
 import type { MeasureBounds, DisplayList, RenderCommand } from "./wasm";
 import {
   commandsForElement,
@@ -147,6 +148,15 @@ function paintSelectionFor(
   displayListVersion?: number,
 ): void {
   const bboxes = spatialIndex.getAllBBoxes(id);
+  if (/^m\d+\/volta$/.test(id)) {
+    if (!displayList || !paintInkHighlight(ctx, id, color, displayList, null, displayListVersion)) {
+      for (const bbox of bboxes) paintSpannerHighlight(ctx, bbox, color, false, false);
+    }
+    for (const anchor of endingHandleAnchors(bboxes)) {
+      paintSpannerHandle(ctx, anchor.handleX, anchor.handleY, color);
+    }
+    return;
+  }
   // A key signature is one global property shown on every staff. Unlike a
   // duplicated event in a condensed score, all of its staff copies are active.
   const isGlobalKey = id.endsWith("/key") || /^m\d+\/caesura$/.test(id);
@@ -295,21 +305,21 @@ function paintSpannerHighlight(
   if (!showHandles) return;
 
   // Drag handles at left and right edges.
-  const handleRadius = 4;
   const cy = bbox.y + bbox.height * 0.5;
+
+  if (showStartHandle) {
+    paintSpannerHandle(ctx, bbox.x, cy, color);
+  }
+
+  paintSpannerHandle(ctx, bbox.x + bbox.width, cy, color);
+}
+
+function paintSpannerHandle(ctx: CanvasRenderingContext2D, x: number, y: number, color: string): void {
   ctx.fillStyle = color;
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 1.5;
-
-  if (showStartHandle) {
-    ctx.beginPath();
-    ctx.arc(bbox.x, cy, handleRadius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  }
-
   ctx.beginPath();
-  ctx.arc(bbox.x + bbox.width, cy, handleRadius, 0, Math.PI * 2);
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 }

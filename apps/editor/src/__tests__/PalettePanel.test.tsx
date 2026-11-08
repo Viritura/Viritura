@@ -3,10 +3,11 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import type { Score } from "@viritura/core";
 import { TooltipPrimitives } from "@viritura/ui";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
 import { PalettePanel } from "../components/PalettePanel";
 import { DocumentProvider, useDocumentStore } from "../store/DocumentContext";
-import { resetSelectionStore, useSelectionStore } from "../store/selectionStore";
+import { resetSelectionStore, useSelectionStore, type Selection } from "../store/selectionStore";
 import { setChordSymbolPopover, useOverlayStore } from "../store/overlayStore";
 
 const SCORE: Score = {
@@ -63,6 +64,7 @@ const SCORE: Score = {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   resetSelectionStore();
   setChordSymbolPopover(null);
 });
@@ -120,6 +122,108 @@ function WithScore({
 }
 
 describe("PalettePanel", () => {
+  const endingSelections: { name: string; selection: Selection; duration: number }[] = [
+    {
+      name: "forward note range",
+      selection: { kind: "range", startElementId: "p0/m1/s0/first-note", endElementId: "p0/m2/s0/ending-note" },
+      duration: 2,
+    },
+    {
+      name: "backward note range",
+      selection: { kind: "range", startElementId: "p0/m2/s0/ending-note", endElementId: "p0/m1/s0/first-note/n0" },
+      duration: 2,
+    },
+    {
+      name: "backward measure range",
+      selection: {
+        kind: "measure",
+        startPartIndex: 0,
+        endPartIndex: 0,
+        startStaffIndex: 0,
+        endStaffIndex: 0,
+        startMeasure: 2,
+        endMeasure: 1,
+      },
+      duration: 2,
+    },
+    {
+      name: "multiple notes",
+      selection: { kind: "multi", elementIds: ["p0/m2/s0/ending-note", "p0/m1/s0/first-note"] },
+      duration: 2,
+    },
+    {
+      name: "single note",
+      selection: { kind: "single", elementId: "p0/m1/s0/first-note/n0", elementType: "note" },
+      duration: 1,
+    },
+    {
+      name: "single barline",
+      selection: { kind: "single", elementId: "m2/barline", elementType: "barline" },
+      duration: 1,
+    },
+  ];
+
+  describe.each([
+    { button: "1st Ending", numbers: [1] },
+    { button: "2nd Ending", numbers: [2], open: true },
+    { button: "1st+2nd Ending", numbers: [1, 2] },
+  ])("$button", ({ button, numbers, open }) => {
+    it.each(endingSelections)("applies to the $name without changing earlier bars", async ({ selection, duration }) => {
+      const initialScore = structuredClone(SCORE);
+      initialScore.global.measures.push({});
+      initialScore.parts[0]!.measures.push({
+        sequences: [
+          {
+            content: [{ type: "event", id: "ending-note", duration: { base: "whole" }, rest: {} }],
+          },
+        ],
+      });
+      useSelectionStore.setState({ selection });
+      const user = userEvent.setup();
+      render(
+        <TooltipPrimitives.Provider delayDuration={0}>
+          <DocumentProvider>
+            <WithScore initialScore={initialScore}>
+              <PalettePanel />
+            </WithScore>
+          </DocumentProvider>
+        </TooltipPrimitives.Provider>,
+      );
+
+      await user.click(await screen.findByRole("button", { name: button, exact: true }));
+
+      const updated = JSON.parse(screen.getByTestId("score").textContent ?? "{}") as Score;
+      expect(updated.global.measures[1]!.ending).toEqual({
+        duration,
+        numbers,
+        ...(open ? { open: true } : {}),
+      });
+      expect(updated.global.measures[0]!.ending).toBeUndefined();
+      expect(updated.global.measures[2]!.ending).toBeUndefined();
+      expect(initialScore.global.measures[1]!.ending).toBeUndefined();
+      expect(useSelectionStore.getState().selection).toEqual(selection);
+    });
+  });
+
+  it("reports a missing ending selection instead of applying to the first bar", async () => {
+    const warning = vi.spyOn(toast, "warning").mockImplementation(() => "warning");
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "1st Ending", exact: true }));
+
+    expect(warning).toHaveBeenCalledWith("Select a note, rest, or measure range to apply an ending.");
+    expect(JSON.parse(screen.getByTestId("score").textContent ?? "{}")).toEqual(SCORE);
+  });
+
   it.each([
     { range: false, button: "Ottava 8vb (down)", field: "ottavas" as const },
     { range: true, button: "Ottava 8vb (down)", field: "ottavas" as const },

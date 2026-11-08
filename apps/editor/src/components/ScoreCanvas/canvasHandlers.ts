@@ -423,7 +423,11 @@ export function handleCanvasMouseDownImpl(e: React.PointerEvent<HTMLCanvasElemen
   );
   if (handleHit) {
     e.preventDefault();
-    const bbox = si.getBBox(handleHit.elementId);
+    const bbox = /^m\d+\/volta$/.test(handleHit.elementId)
+      ? si
+          .getAllBBoxes(handleHit.elementId)
+          .find((box) => handleHit.handleY >= box.y && handleHit.handleY <= box.y + box.height)
+      : si.getBBox(handleHit.elementId);
     if (!bbox) return;
     capturePointer(e);
     ctx.dragLockRef.current = true;
@@ -432,6 +436,7 @@ export function handleCanvasMouseDownImpl(e: React.PointerEvent<HTMLCanvasElemen
       spatialIndex: si,
       measureBounds: dl?.measureBounds,
       elementId: handleHit.elementId,
+      handle: handleHit.handle,
       altKey: e.altKey,
       buildRhythmicSnaps: ctx.buildDragSnapPoints,
     });

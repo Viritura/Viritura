@@ -138,6 +138,26 @@ describe("commandsForElement", () => {
 });
 
 describe("paintSelectionOverlay — ink highlight", () => {
+  it.each([false, true])("paints only the true ending handles across systems (display list: %s)", (withDisplayList) => {
+    const id = "m1/volta";
+    const ctx = makeCtx();
+    const index = new SpatialIndex([
+      { id, x: 200, y: 50, width: 300, height: 20 },
+      { id, x: 100, y: 250, width: 200, height: 20 },
+    ]);
+    const dl: DisplayList = {
+      width: 600,
+      height: 350,
+      commands: [makeStem(200, 50), makeStem(100, 250)],
+      elementIds: [id, id],
+    };
+    paintSelectionOverlay(ctx, index, new Set([id]), withDisplayList ? dl : undefined);
+
+    expect(ctx.arc).toHaveBeenCalledTimes(2);
+    expect(ctx.arc).toHaveBeenCalledWith(200, 60, 4, 0, Math.PI * 2);
+    expect(ctx.arc).toHaveBeenCalledWith(300, 260, 4, 0, Math.PI * 2);
+  });
+
   const slurIndex = new SpatialIndex([{ id: SLUR_ID, x: 50, y: 100, width: 350, height: 30 }]);
 
   it("traces the curve outline instead of the hit box when a display list is supplied", () => {

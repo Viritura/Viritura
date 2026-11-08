@@ -25,6 +25,23 @@ start/end beats. MIDI, native performance events, seeking, playhead, click
 track and picture timing consume the same performed route. Invalid or
 ambiguous routing is reported, not silently replaced by score-order playback.
 
+Ending palette actions store one native `global.measures[n].ending` at the
+earliest selected measure, with `duration` covering the inclusive selected
+measure span. Note ranges, measure ranges, and multi-selections work in either
+direction; a single element covers one measure. First and combined endings
+are closed, while the second-ending preset remains open. An unresolved
+selection is reported rather than silently placing an ending in the first bar.
+Selecting a rendered bracket (`m{index}/volta`) and deleting removes only its
+native `ending`, leaving notes and repeat barlines unchanged. Explicit
+multi-selections can remove several endings together; continued bracket
+segments share the starting measure's identity.
+Ending drag handles snap to whole-measure barline boundaries, not rhythmic
+positions. Resizing keeps the opposite endpoint fixed and clamps to at least
+one measure. Moving the start relocates the native ending and its selection
+identity; open/closed state, numbers, and metadata survive. Dragging uses both
+canvas coordinates to distinguish systems and reports overlapping endings
+without overwriting them. Notes and repeat barlines are not moved.
+
 ### Global caesura contract
 
 Native `global.measures[n].caesura` is a shared ending-barline marking.

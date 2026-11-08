@@ -41,6 +41,83 @@ function contentAt(score: Score, i: number): NoteEvent {
 }
 
 describe("computeDeleteSelection (migrated to resolveSelectionEvents)", () => {
+  function makeEndingScore(): Score {
+    const score = makeScore();
+    score.global.measures[0]!.ending = { duration: 2, numbers: [1] };
+    score.global.measures[0]!.repeatStart = {};
+    score.global.measures.push({ repeatEnd: {} }, { ending: { duration: 1, numbers: [2], open: true } });
+    score.parts[0]!.measures.push(
+      { sequences: [{ content: [note("ending-note-1")] }] },
+      { sequences: [{ content: [note("ending-note-2")] }] },
+    );
+    return score;
+  }
+
+  it.each([0, 2])("deletes the ending at measure %s without deleting music or repeats", (measureIndex) => {
+    const score = makeEndingScore();
+    const original = structuredClone(score);
+    const result = computeDeleteSelection(score, {
+      kind: "single",
+      elementId: `m${measureIndex}/volta`,
+      elementType: "volta",
+    });
+
+    expect(result.kind).toBe("single");
+    if (result.kind !== "single") return;
+    const expected = structuredClone(original);
+    delete expected.global.measures[measureIndex]!.ending;
+    expect(result.score).toEqual(expected);
+    expect(score).toEqual(original);
+    expect(result.nextSelection).toEqual({ kind: "clear" });
+  });
+
+  it("deletes both selected endings, deduplicating bracket segments", () => {
+    const score = makeEndingScore();
+    const original = structuredClone(score);
+    const result = computeDeleteSelection(score, {
+      kind: "multi",
+      elementIds: ["m0/volta", "m2/volta", "m0/volta"],
+    });
+
+    expect(result.kind).toBe("multi");
+    if (result.kind !== "multi") return;
+    const expected = structuredClone(original);
+    delete expected.global.measures[0]!.ending;
+    delete expected.global.measures[2]!.ending;
+    expect(result.score).toEqual(expected);
+    expect(score).toEqual(original);
+    expect(result.nextSelection).toEqual({ kind: "clear" });
+  });
+
+  it("deletes a mixed ending and note selection while preserving the other ending", () => {
+    const score = makeEndingScore();
+    const result = computeDeleteSelection(score, {
+      kind: "multi",
+      elementIds: ["m0/volta", "p0/m0/s0/ev1"],
+    });
+
+    expect(result.kind).toBe("multi");
+    if (result.kind !== "multi") return;
+    expect(result.score.global.measures[0]!.ending).toBeUndefined();
+    expect(result.score.global.measures[2]!.ending).toEqual(score.global.measures[2]!.ending);
+    expect(contentAt(result.score, 1).rest).toBeDefined();
+    expect(contentAt(result.score, 0).notes).toHaveLength(3);
+    expect(score.global.measures[0]!.ending).toBeDefined();
+  });
+
+  it.each(["m1/volta", "m99/volta", "m0/volta0", "m0/volta0junk", "m0/volta/extra"])(
+    "ignores missing or malformed ending paths: %s",
+    (elementId) => {
+      const score = makeEndingScore();
+      const original = structuredClone(score);
+      expect(computeDeleteSelection(score, { kind: "single", elementId, elementType: "volta" })).toEqual({
+        kind: "noop",
+      });
+      expect(computeDeleteSelection(score, { kind: "multi", elementIds: [elementId] })).toEqual({ kind: "noop" });
+      expect(score).toEqual(original);
+    },
+  );
+
   it.each(["m0/chord0", "m0/chord0/p0/staff1"])(
     "deletes global harmony from %s without deleting music",
     (elementId) => {

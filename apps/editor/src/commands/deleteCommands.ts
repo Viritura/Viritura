@@ -9,15 +9,16 @@ import { canonicalNavigationId } from "../navigation";
 export function resolveDeletableAnnotationLocation(elementId: string): AnnotationLocation | null {
   const canonicalId = canonicalNavigationId(elementId);
   if (/^m\d+\/chord/.test(canonicalId) && !/^m\d+\/chord\d+$/.test(canonicalId)) return null;
+  if (/^m\d+\/volta/.test(canonicalId) && !/^m\d+\/volta$/.test(canonicalId)) return null;
   const location = resolveAnnotationLocation(canonicalId);
   return location?.type === "chord" && location.kind !== "global" ? null : location;
 }
 
-/** Delete explicitly selected global chords, coalescing all copies of each root. */
-export function deleteChordSymbolsByElementIds(score: Score, elementIds: readonly string[]): Score | null {
+/** Delete explicitly selected global chords and endings, coalescing copies of each root. */
+export function deleteGlobalAnnotationsByElementIds(score: Score, elementIds: readonly string[]): Score | null {
   const locations = elementIds.flatMap((id) => {
     const location = resolveDeletableAnnotationLocation(id);
-    return location?.type === "chord" ? [location] : [];
+    return location?.kind === "global" && (location.type === "chord" || location.type === "volta") ? [location] : [];
   });
   return locations.length > 0 ? deleteAnnotations(score, locations) : null;
 }
@@ -60,6 +61,10 @@ function deleteGlobalAnnotation(gm: GlobalMeasure, loc: AnnotationLocation): boo
     case "coda":
       if (!gm.coda) return false;
       delete rec.coda;
+      return true;
+    case "volta":
+      if (!gm.ending) return false;
+      delete gm.ending;
       return true;
     case "rehearsal":
       if (!gm.rehearsalMark) return false;

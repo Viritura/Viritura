@@ -479,7 +479,9 @@ export function hitTestSpannerHandle(
     if (classifyElement(id) !== "spanner") continue;
     if (id.startsWith("tie/")) continue;
 
-    const anchors = curveHandleAnchors(id, displayList, displayListVersion) ?? bboxHandleAnchors(id, spatialIndex);
+    const anchors = /^m\d+\/volta$/.test(id)
+      ? endingHandleAnchors(spatialIndex.getAllBBoxes(id))
+      : (curveHandleAnchors(id, displayList, displayListVersion) ?? bboxHandleAnchors(id, spatialIndex));
     if (!anchors) continue;
 
     for (const anchor of anchors) {
@@ -495,6 +497,17 @@ export function hitTestSpannerHandle(
 }
 
 type HandleAnchor = { handle: SpannerHandleEnd; handleX: number; handleY: number };
+
+export function endingHandleAnchors(bboxes: readonly ElementBBox[]): HandleAnchor[] {
+  const ordered = [...bboxes].sort((a, b) => a.y - b.y || a.x - b.x);
+  const first = ordered[0];
+  const last = ordered.at(-1);
+  if (!first || !last) return [];
+  return [
+    { handle: "start", handleX: first.x, handleY: first.y + first.height * 0.5 },
+    { handle: "end", handleX: last.x + last.width, handleY: last.y + last.height * 0.5 },
+  ];
+}
 
 function curveHandleAnchors(
   id: string,
