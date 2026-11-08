@@ -136,6 +136,16 @@ belongs in an explicitly named resolver documented below.
 
 ### Behaviors that live outside the registry (by design)
 
+- **Delete / Cut bar content** — a `measure` selection clears every sequence
+  in the selected part × measure rectangle to a full-measure rest, including
+  tuplets, tremolos, grace notes, and spaces. It also removes the selected bars'
+  part-owned dynamics, hairpins, expressions, pedals, ottavas, beams, arpeggios,
+  and measure-repeat signs. Menu Delete, Delete/Backspace, and Cut share this
+  immutable operation. Bar count, clefs, meter, key, instrument changes, and
+  score-wide annotations stay intact; Ctrl/Cmd+Delete remains the separate
+  whole-bar removal action. Cutting an event selection that collapses an entire
+  sequence also removes its orphaned timed part annotations, just like menu
+  Delete; partial event selections retain unrelated markings.
 - **Beam selection** — clicking the painted beam polygon selects the exact
   member events exported by the layout engine. Beam ink wins over overlapping
   stem/event rectangles. In condensed layouts, visual members expand through

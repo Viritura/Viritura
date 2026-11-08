@@ -94,7 +94,12 @@ export function buildClipboardSelection(
     : !regularSelection
       ? repeatSelection
       : mergeStructuralClipboardSelection(score, regularSelection, repeatSelection);
-  return combined ? withClipboardLyricMetadata(score, combined) : null;
+  return combined
+    ? withClipboardLyricMetadata(
+        score,
+        selection.kind === "measure" ? { ...combined, cutMeasureSelection: selection } : combined,
+      )
+    : null;
 }
 
 function mergeStructuralClipboardSelection(

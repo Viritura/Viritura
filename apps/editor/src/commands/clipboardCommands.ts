@@ -29,6 +29,8 @@ import type {
 import type { ClipboardFragment } from "../clipboard/ClipboardFragment";
 import type { AnnotationLocation } from "../score/ElementPath";
 import { deleteAnnotations } from "./deleteCommands";
+import { timedAnnotationsAnchoredToCollapsedSequences } from "./computeDeleteSelection";
+import { clearMeasureContent, type MeasureContentSelection } from "./measureContent";
 import { collapseRestOnlySequence, sequenceContentBeats } from "./noteCommands";
 import {
   addWholeFractions,
@@ -83,6 +85,7 @@ export interface ClipboardSelection {
   cutLocations?: ClipboardCutLocation[];
   cutAnnotationLocations?: AnnotationLocation[];
   cutMeasureRepeats?: Array<{ partIndex: number; measureIndex: number }>;
+  cutMeasureSelection?: MeasureContentSelection;
 }
 
 interface ClipboardCutLocation {
@@ -159,6 +162,7 @@ export async function cutToClipboard(
     cutLocations: selection.cutLocations,
     cutAnnotationLocations: selection.cutAnnotationLocations,
     cutMeasureRepeats: selection.cutMeasureRepeats,
+    cutMeasureSelection: selection.cutMeasureSelection,
   };
 }
 
@@ -172,6 +176,7 @@ export interface CutResult {
   cutLocations?: ClipboardCutLocation[];
   cutAnnotationLocations?: AnnotationLocation[];
   cutMeasureRepeats?: Array<{ partIndex: number; measureIndex: number }>;
+  cutMeasureSelection?: MeasureContentSelection;
 }
 
 /**
@@ -703,6 +708,12 @@ function applyCapturedDynamics(
  * Returns a new Score (immutable update).
  */
 export function applyCut(score: Score, cut: CutResult): Score {
+  if (cut.cutMeasureSelection) return clearMeasureContent(score, cut.cutMeasureSelection);
+  const annotationLocations = [
+    ...timedAnnotationsAnchoredToCollapsedSequences(score, cut.cutLocations ?? []),
+    ...(cut.cutAnnotationLocations ?? []),
+  ];
+  if (annotationLocations.length > 0) score = deleteAnnotations(score, annotationLocations) ?? score;
   const scoreWithoutRepeats = removeCutMeasureRepeats(score, cut.cutMeasureRepeats);
   if (cut.cutLocations && cut.cutLocations.length > 0) {
     const newScore = structuredClone(scoreWithoutRepeats);
@@ -732,10 +743,10 @@ export function applyCut(score: Score, cut: CutResult): Score {
       touchedSequences.add(sequence);
     }
     for (const sequence of touchedSequences) collapseRestOnlySequence(sequence);
-    return deleteCutAnnotations(newScore, cut);
+    return newScore;
   }
 
-  if (cut.replacements.length === 0) return deleteCutAnnotations(scoreWithoutRepeats, cut);
+  if (cut.replacements.length === 0) return scoreWithoutRepeats;
   const part = scoreWithoutRepeats.parts[cut.partIndex];
   if (!part) return scoreWithoutRepeats;
   const measure = part.measures[cut.measureIndex];
@@ -757,7 +768,7 @@ export function applyCut(score: Score, cut: CutResult): Score {
   }
 
   if (replaced) collapseRestOnlySequence(targetSeq);
-  return deleteCutAnnotations(newScore, cut);
+  return newScore;
 }
 
 function removeCutMeasureRepeats(
@@ -771,8 +782,4 @@ function removeCutMeasureRepeats(
     if (measure) delete measure.measureRepeat;
   }
   return next;
-}
-
-function deleteCutAnnotations(score: Score, cut: CutResult): Score {
-  return cut.cutAnnotationLocations?.length ? (deleteAnnotations(score, cut.cutAnnotationLocations) ?? score) : score;
 }
