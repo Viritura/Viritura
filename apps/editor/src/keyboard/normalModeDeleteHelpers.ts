@@ -169,6 +169,7 @@ export function removeMeasureRangeFromScore(
         ...score.global,
         measures: [
           {
+            ...(first.id && { id: first.id }),
             ...(first.time && { time: first.time }),
             ...(first.key && { key: first.key }),
             ...(first.tempos && { tempos: first.tempos }),
@@ -185,6 +186,13 @@ export function removeMeasureRangeFromScore(
           },
         ],
       })),
+      ...(score.scores && {
+        scores: score.scores.map((definition) => {
+          const { pages, layoutBreaks: _breaks, multimeasureRests: _rests, ...settings } = definition;
+          const initialLayout = pages?.flatMap((page) => page.systems)[0]?.layout;
+          return { ...settings, ...(initialLayout && { layout: initialLayout }) };
+        }),
+      }),
     };
   }
   return {

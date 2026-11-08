@@ -92,7 +92,7 @@ describe("Delete Selected Bars", () => {
       result.current.handleDeleteSelectedBars();
     });
     const next = updateScore.mock.calls[0]![0];
-    expect(next.global.measures).toEqual([{ time: { count: 3, unit: 4 }, key: { fifths: 2 } }]);
+    expect(next.global.measures).toEqual([{ id: "m0", time: { count: 3, unit: 4 }, key: { fifths: 2 } }]);
     for (const [index, part] of next.parts.entries()) {
       expect(part.measures).toHaveLength(1);
       expect(part.measures[0]!.clefs).toEqual(score.parts[index]!.measures[0]!.clefs);
@@ -109,6 +109,39 @@ describe("Delete Selected Bars", () => {
     expect(next.global.measures).toHaveLength(1);
     expect(next.parts.every((part) => part.measures[0]!.sequences[0]!.content.length === 0)).toBe(true);
     expect(removeMeasureRangeFromScore(oneBar, 0, 0)).toBeNull();
+  });
+
+  it("clears deleted-bar layout anchors while keeping each score's initial layout and settings", () => {
+    const score = makeScore();
+    score.scores = [
+      {
+        name: "Full score",
+        layout: "default",
+        useWritten: true,
+        pages: [
+          { systems: [{ measure: "m0", layout: "initial" }] },
+          {
+            systems: [
+              { measure: "m2", layout: "later", layoutChanges: [{ layout: "default", location: { measure: "m2" } }] },
+            ],
+          },
+        ],
+        layoutBreaks: [{ measure: "m2", kind: "page" }],
+        multimeasureRests: [{ start: "m1", duration: 2 }],
+      },
+      {
+        name: "Flute",
+        layout: "flute",
+        layoutBreaks: [{ measure: "m1", kind: "system" }],
+      },
+    ];
+    const next = removeMeasureRangeFromScore(score, 0, 2, true)!;
+    expect(next.global.measures[0]!.id).toBe("m0");
+    expect(next.scores).toEqual([
+      { name: "Full score", layout: "initial", useWritten: true },
+      { name: "Flute", layout: "flute" },
+    ]);
+    expect(score.scores[0]!.pages).toHaveLength(2);
   });
 
   it("reports missing and stale selections without changing the document", () => {

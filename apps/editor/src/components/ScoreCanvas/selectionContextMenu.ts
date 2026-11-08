@@ -66,12 +66,14 @@ export function openWriteSelectionContextMenu(e: MouseEvent<HTMLCanvasElement>, 
         ctx.selectElement(eventId, measureAnchor ?? undefined);
       }
       hasSelection = true;
-    } else {
+    } else if (selection.kind === "none" || selection.kind === "measure") {
       const staff = pointerToMeasureStaff(pt.scoreX, pt.scoreY, measureBounds);
       if (staff) {
         ctx.selectMeasure(staff.partIndex, staff.staffIndex, staff.measureIndex, staff.localStaffIndex);
         hasSelection = true;
       }
+    } else {
+      hasSelection = true;
     }
   }
 

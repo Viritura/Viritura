@@ -87,4 +87,18 @@ describe("bar selection context menu", () => {
     fireEvent.contextMenu(screen.getByTestId("canvas"));
     expect(selectElement).toHaveBeenCalledWith("p0/m1/s0/event", expect.objectContaining({ measureIndex: 1 }));
   });
+
+  it("preserves an element range when right-clicking empty staff space", () => {
+    const selection = {
+      kind: "range",
+      startElementId: "p0/m0/s0/start",
+      endElementId: "p0/m1/s0/end",
+    } as const;
+    useSelectionStore.setState({ selection });
+    const { selectElement, buildItems } = harness();
+    fireEvent.contextMenu(screen.getByTestId("canvas"));
+    expect(useSelectionStore.getState().selection).toEqual(selection);
+    expect(selectElement).not.toHaveBeenCalled();
+    expect(buildItems).toHaveBeenCalledWith({ hasSelection: true });
+  });
 });
