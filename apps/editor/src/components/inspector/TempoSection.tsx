@@ -1,11 +1,11 @@
-import type { CSSProperties } from "react";
 import type { Tempo, NoteValueBase, TextContent, Swing, ResolvedTempoSwing } from "@viritura/core";
-import { ButtonGroup, Checkbox, FormInput } from "@viritura/ui";
-import { sectionStyle, legendStyle, labelStyle } from "./types";
+import { Checkbox, FormField, FormInput, SectionLabel, Select } from "@viritura/ui";
+import { sectionStyle } from "./types";
 import { ManualOffsetFields, type ManualOffsetControl } from "./DirectionTextSection";
 import { useDebouncedInput } from "../../hooks/useDebouncedInput";
 import { TextContentEditor, type InheritedTextStyle } from "./TextContentEditor";
 import { SwingControls } from "./SwingControls";
+import styles from "./TempoSection.module.css";
 
 const BEAT_BASE_OPTIONS: { value: NoteValueBase; label: string }[] = [
   { value: "whole", label: "whole" },
@@ -18,11 +18,9 @@ const BEAT_BASE_OPTIONS: { value: NoteValueBase; label: string }[] = [
 
 const DOTS_OPTIONS: { value: "0" | "1" | "2"; label: string }[] = [
   { value: "0", label: "None" },
-  { value: "1", label: "." },
-  { value: "2", label: ".." },
+  { value: "1", label: "1 dot" },
+  { value: "2", label: "2 dots" },
 ];
-
-const TEMPO_BPM_INPUT_STYLE: CSSProperties = { width: "4.5rem" };
 
 // Stable identity so an absent tempo text does not look like a new value on
 // every render, which would make the debounced input reset in a loop.
@@ -69,69 +67,75 @@ export function TempoSection({
       bpmInput.reset();
     }
   };
+  const beatOptions =
+    !tempo.value || BEAT_BASE_OPTIONS.some((option) => option.value === tempo.value?.base)
+      ? BEAT_BASE_OPTIONS
+      : [...BEAT_BASE_OPTIONS, { value: tempo.value.base, label: tempo.value.base }];
+  const dots = tempo.value?.dots ?? 0;
+  const dotsOptions = dots > 2 ? [...DOTS_OPTIONS, { value: String(dots), label: `${dots} dots` }] : DOTS_OPTIONS;
 
   return (
     <fieldset style={sectionStyle}>
-      <legend style={legendStyle}>Tempo</legend>
+      <legend className={styles.title}>Tempo</legend>
+      {tempo.bpm !== undefined && tempo.value !== undefined && (
+        <div className={styles.metronomeFields}>
+          <FormField label="BPM" className={styles.field}>
+            <FormInput
+              type="number"
+              min={Number.MIN_VALUE}
+              max={999}
+              step="any"
+              className={styles.input}
+              value={bpmInput.value}
+              onChange={(e) => bpmInput.onChange(e.target.value)}
+              onBlur={handleBpmBlur}
+            />
+          </FormField>
+          <FormField label="Beat unit" className={styles.field}>
+            <Select
+              options={beatOptions}
+              value={tempo.value.base}
+              onValueChange={(value) => {
+                const option = beatOptions.find((option) => option.value === value);
+                if (!option) throw new Error(`Unsupported tempo beat unit: ${value}`);
+                onValueBaseChange(option.value);
+              }}
+            />
+          </FormField>
+          <FormField label="Dots" className={styles.field}>
+            <Select options={dotsOptions} value={String(dots)} onValueChange={(value) => onDotsChange(Number(value))} />
+          </FormField>
+        </div>
+      )}
       <SwingControls swing={tempo.swing} effective={effectiveSwing} onChange={onSwingChange} />
-      {tempo.bpm !== undefined && (
-        <label style={labelStyle}>
-          BPM
-          <FormInput
-            type="number"
-            min={Number.MIN_VALUE}
-            max={999}
-            step="any"
-            style={TEMPO_BPM_INPUT_STYLE}
-            value={bpmInput.value}
-            onChange={(e) => bpmInput.onChange(e.target.value)}
-            onBlur={handleBpmBlur}
+      <div className={styles.group} role="group" aria-label="Appearance">
+        <SectionLabel className={styles.groupTitle} label="Appearance" />
+        <div className={styles.textField}>
+          <span className={styles.textLabel}>Printed text</span>
+          <TextContentEditor
+            value={textInput.value}
+            placeholder="e.g. Allegro con brio"
+            ariaLabel="Printed text"
+            onChange={textInput.onChange}
+            onBlur={textInput.onBlur}
+            inheritedStyle={inheritedStyle}
           />
-        </label>
-      )}
-      {tempo.value !== undefined && (
-        <label style={labelStyle}>
-          Beat unit
-          <ButtonGroup<NoteValueBase>
-            options={BEAT_BASE_OPTIONS}
-            value={tempo.value.base}
-            onChange={onValueBaseChange}
+        </div>
+        <div className={styles.visibility}>
+          <Checkbox
+            label="Show text"
+            checked={tempo.showText !== false}
+            onChange={(e) => onShowTextChange(e.target.checked)}
           />
-        </label>
-      )}
-      {tempo.value !== undefined && (
-        <label style={labelStyle}>
-          Dots
-          <ButtonGroup<"0" | "1" | "2">
-            options={DOTS_OPTIONS}
-            value={String(tempo.value.dots ?? 0) as "0" | "1" | "2"}
-            onChange={(v) => onDotsChange(parseInt(v, 10))}
-          />
-        </label>
-      )}
-      <div style={labelStyle}>
-        <span>Text</span>
-        <TextContentEditor
-          value={textInput.value}
-          placeholder="e.g. Allegro con brio"
-          ariaLabel="Text"
-          onChange={textInput.onChange}
-          onBlur={textInput.onBlur}
-          inheritedStyle={inheritedStyle}
-        />
+          {tempo.bpm !== undefined && (
+            <Checkbox
+              label="Show metronome mark"
+              checked={tempo.showMetronomeMark !== false}
+              onChange={(e) => onShowMetronomeChange(e.target.checked)}
+            />
+          )}
+        </div>
       </div>
-      <Checkbox
-        label="Show text"
-        checked={tempo.showText !== false}
-        onChange={(e) => onShowTextChange(e.target.checked)}
-      />
-      {tempo.bpm !== undefined && (
-        <Checkbox
-          label="Show metronome mark"
-          checked={tempo.showMetronomeMark !== false}
-          onChange={(e) => onShowMetronomeChange(e.target.checked)}
-        />
-      )}
       {offset && <ManualOffsetFields offset={offset} />}
     </fieldset>
   );
