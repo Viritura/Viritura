@@ -8,7 +8,6 @@
  */
 
 import type { Score } from "@viritura/core";
-import { isRest } from "@viritura/core";
 import { deleteNote } from "../commands/noteCommands";
 import {
   deleteAnnotation,
@@ -37,6 +36,7 @@ import {
 import { isClefElementId } from "../score/clefElementId";
 import { resolveSelectionEvents, resolveSelectionMeasureRange } from "../store/selectionUtils";
 import { cloneScore } from "../score/scoreClone";
+import { clearMeasureContent } from "../commands/measureContent";
 import { deleteTextFrameInScore, textFrameIdFromElementId, textFramesForScore } from "../score/textFrameMutations";
 import {
   deleteSlurByElementId,
@@ -328,58 +328,17 @@ function deleteSingleSelection(
   ctx.updateScore(newScore);
 }
 
-/** Replace all notes in a measure/part/voice range with rests (mutates `newScore`). */
-function blankNotesInRange(
-  newScore: Score,
-  startM: number,
-  endM: number,
-  startP: number,
-  endP: number,
-  startV?: number,
-  endV?: number,
-): void {
-  for (let p = startP; p <= Math.min(endP, newScore.parts.length - 1); p++) {
-    const part = newScore.parts[p]!;
-    for (let m = startM; m <= Math.min(endM, part.measures.length - 1); m++) {
-      const measure = part.measures[m]!;
-      const sLo = startV ?? 0;
-      const sHi = Math.min(endV ?? measure.sequences.length - 1, measure.sequences.length - 1);
-      for (let s = sLo; s <= sHi; s++) {
-        const seq = measure.sequences[s]!;
-        for (let ev = seq.content.length - 1; ev >= 0; ev--) {
-          const event = seq.content[ev]!;
-          if (event.type === "event" && !isRest(event)) {
-            deleteNote(newScore, {
-              measureIndex: m,
-              partIndex: p,
-              voice: s,
-              eventIndex: ev,
-            });
-          }
-        }
-      }
-    }
-  }
-}
-
 /** Delete handling for a measure selection. */
 function deleteMeasureSelection(
   e: KeyboardEvent,
   ctrlHeld: boolean,
   ctx: KeyboardHandlerContext,
-  sel: {
-    startMeasure?: number;
-    endMeasure?: number;
-    startPartIndex?: number;
-    endPartIndex?: number;
-  },
+  sel: Extract<Selection, { kind: "measure" }>,
 ): void {
   const currentScore = ctx.getScore();
   if (!currentScore) return;
   const startM = Math.min(sel.startMeasure ?? 0, sel.endMeasure ?? 0);
   const endM = Math.max(sel.startMeasure ?? 0, sel.endMeasure ?? 0);
-  const startP = Math.min(sel.startPartIndex ?? 0, sel.endPartIndex ?? 0);
-  const endP = Math.max(sel.startPartIndex ?? 0, sel.endPartIndex ?? 0);
 
   if (ctrlHeld) {
     const newScore = removeMeasureRangeFromScore(currentScore, startM, endM);
@@ -391,9 +350,7 @@ function deleteMeasureSelection(
   }
 
   e.preventDefault();
-  const newScore = cloneScore(currentScore);
-  blankNotesInRange(newScore, startM, endM, startP, endP);
-  ctx.updateScore(newScore);
+  ctx.updateScore(clearMeasureContent(currentScore, sel));
 }
 
 /** Delete handling for a range selection. */

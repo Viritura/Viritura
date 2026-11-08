@@ -36,6 +36,12 @@ to concrete events/scope on demand.
 
 ## The four targeting modes
 
+Measure-content Delete and Cut honor physical-staff boundaries when the
+selection carries local staff indices. Unselected staves retain their notes,
+rests, and staff-owned annotations; part-wide measure-repeat signs remain
+unless every staff in that part is selected. Legacy measure selections without
+local staff indices continue to clear the whole selected part/measure rectangle.
+
 Every action declares one **mode** (see `SelectionTargetMode`). The mode picks
 which resolver in `selectionUtils.ts` turns the abstract selection into concrete
 targets:
@@ -136,6 +142,16 @@ belongs in an explicitly named resolver documented below.
 
 ### Behaviors that live outside the registry (by design)
 
+- **Delete / Cut bar content** — a `measure` selection clears every sequence
+  in the selected part × measure rectangle to a full-measure rest, including
+  tuplets, tremolos, grace notes, and spaces. It also removes the selected bars'
+  part-owned dynamics, hairpins, expressions, pedals, ottavas, beams, arpeggios,
+  and measure-repeat signs. Menu Delete, Delete/Backspace, and Cut share this
+  immutable operation. Bar count, clefs, meter, key, instrument changes, and
+  score-wide annotations stay intact; Ctrl/Cmd+Delete remains the separate
+  whole-bar removal action. Cutting an event selection that collapses an entire
+  sequence also removes its orphaned timed part annotations, just like menu
+  Delete; partial event selections retain unrelated markings.
 - **Beam selection** — clicking the painted beam polygon selects the exact
   member events exported by the layout engine. Beam ink wins over overlapping
   stem/event rectangles. In condensed layouts, visual members expand through

@@ -163,6 +163,11 @@ Copy and paste use MNX-aware score fragments rather than pixels. The
 **History** tab in the left panel retains recent copied fragments and shows a
 musical preview, making it useful when reusing several passages.
 
+For multi-staff instruments such as piano, selecting measures on one staff
+copies only that staff's music and voices. Select across both staves to copy
+both. A single-staff fragment pastes onto the selected destination staff;
+the lower staff's first voice remains voice 1, not voice 2.
+
 > [!NOTE]
 > **Availability: MuseScore paste in the Windows desktop app**
 >
