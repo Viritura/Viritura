@@ -1,0 +1,74 @@
+.field {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.metronomeFields,
+.swingFields {
+  display: grid;
+  align-items: end;
+  gap: var(--space-3) var(--space-2);
+}
+
+.metronomeFields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 5.5rem), 1fr));
+}
+
+.swingFields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+}
+
+.input {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-soft);
+}
+
+.title {
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-eyebrow-weight);
+  line-height: var(--type-eyebrow-lh);
+  letter-spacing: var(--type-eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0;
+  float: left;
+  width: 100%;
+  margin-bottom: var(--space-1);
+}
+
+.groupTitle {
+  padding: 0;
+}
+
+.textField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.textLabel {
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  color: var(--text-muted);
+}
+
+.visibility {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.customRatio {
+  max-width: 12rem;
+}

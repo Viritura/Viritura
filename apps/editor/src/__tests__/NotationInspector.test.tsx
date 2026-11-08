@@ -1102,7 +1102,7 @@ describe("NotationInspector", () => {
       />,
     );
 
-    const input = screen.getByRole("textbox", { name: "Text" }) as HTMLDivElement;
+    const input = screen.getByRole("textbox", { name: "Printed text" }) as HTMLDivElement;
     for (const value of ["A", "Al", "All", "Alle", "Alleg", "Allegro", "Allegro con brio"]) {
       input.textContent = value;
       fireEvent.input(input);

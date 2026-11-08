@@ -446,8 +446,16 @@ Selecting any tempo marking exposes Inherit (no instruction), Straight, and
 Swing. Swing controls offer independent eighth/sixteenth subdivision,
 the explicit application preset 60% (3:2), exact triplet 2:1, and a custom
 positive-integer long:short ratio. Invalid drafts display an error and are not
-committed. The effective setting and originating written measure/tempo are
-shown; scores without any instruction remain straight.
+committed. Inherit mode shows the effective setting and originating written bar;
+explicit modes do not repeat their selected settings in a status paragraph.
+Scores without any instruction remain straight.
+
+The inspector uses flat Tempo, Playback and Appearance groups within its glass
+panel. BPM, beat unit and dots share a compact responsive row. Playback uses a
+ratio selector; the exact custom ratio field appears only for Custom or an
+already-authored non-preset ratio. Preset provenance is available through
+contextual help rather than a permanent warning. Printed text and visibility
+remain accessible together under Appearance.
 
 Changing a BPM-free marking to Inherit retains its cosmetic text as a
 `TextOnlyTempo`, with neither a BPM nor a groove reset. Clearing the last text

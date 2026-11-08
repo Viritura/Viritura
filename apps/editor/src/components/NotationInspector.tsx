@@ -194,7 +194,9 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   }
 
   const selectionSubtitle = target
-    ? `Selected: ${selectedElementType ?? target.elementType} (${target.elementId})`
+    ? tempo.isTempoSelected
+      ? `Selected: tempo in bar ${target.measureIndex + 1}`
+      : `Selected: ${selectedElementType ?? target.elementType} (${target.elementId})`
     : staffConfig.target
       ? staffConfig.target.endMeasureIndex > staffConfig.target.measureIndex
         ? `Selected: bars ${staffConfig.target.measureIndex + 1}-${staffConfig.target.endMeasureIndex + 1}, staff ${staffConfig.target.staff}`
