@@ -61,6 +61,7 @@ function historyFragment(sel: ClipboardSelection) {
     ...(sel.dynamics && sel.dynamics.length > 0 ? { dynamics: sel.dynamics } : {}),
     ...(sel.chordSymbols && sel.chordSymbols.length > 0 ? { chordSymbols: sel.chordSymbols } : {}),
     ...(sel.measureRepeats && sel.measureRepeats.length > 0 ? { measureRepeats: sel.measureRepeats } : {}),
+    ...(sel.measureSignatures?.length ? { measureSignatures: sel.measureSignatures } : {}),
     ...(sel.lyrics ? { lyrics: sel.lyrics } : {}),
     tracks: sel.tracks,
   };

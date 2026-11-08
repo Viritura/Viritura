@@ -45,6 +45,7 @@ function isClipboardFragment(value: unknown): value is ClipboardFragment {
   if (!isKeySignature(obj["keySignature"])) return false;
   if (!Array.isArray(obj["content"])) return false;
   if (obj["lyrics"] !== undefined && !isGlobalLyrics(obj["lyrics"])) return false;
+  if (obj["measureSignatures"] !== undefined && !isMeasureSignatures(obj["measureSignatures"])) return false;
 
   // Validate each content item is a valid SequenceContent
   for (const item of obj["content"] as unknown[]) {
@@ -52,6 +53,29 @@ function isClipboardFragment(value: unknown): value is ClipboardFragment {
   }
 
   return true;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isMeasureSignatures(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  return value.every((entry: unknown) => {
+    if (!isRecord(entry) || !isSpaceDuration(entry["offset"])) return false;
+    if (entry["key"] !== undefined && !isKeySignature(entry["key"])) return false;
+    if (entry["clefs"] === undefined) return true;
+    if (!Array.isArray(entry["clefs"])) return false;
+    return entry["clefs"].every((item: unknown) => {
+      if (!isRecord(item) || !Number.isInteger(item["staffOffset"]) || Number(item["staffOffset"]) < 0) return false;
+      const positioned = item["clef"];
+      if (!isRecord(positioned) || !isRecord(positioned["clef"])) return false;
+      const clef = positioned["clef"];
+      if (typeof clef["sign"] !== "string" || typeof clef["staffPosition"] !== "number") return false;
+      const position = positioned["position"];
+      return position === undefined || (isRecord(position) && isSpaceDuration(position["fraction"]));
+    });
+  });
 }
 
 function isGlobalLyrics(value: unknown): boolean {

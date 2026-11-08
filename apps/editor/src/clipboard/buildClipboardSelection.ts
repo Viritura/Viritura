@@ -62,6 +62,7 @@ import { captureTimedSelection } from "./captureTimedSelection";
 import { buildChordAnnotationClipboardSelection } from "./chordAnnotationSelection";
 import { getActiveClef, resolveActiveTimeKey } from "./sourceContext";
 import { buildTrackFromEvents, groupByTrack, type TrackedEvent } from "./captureTracks";
+import { captureMeasureSignatures } from "./measureSignatures";
 export { buildClipboardSourceRef } from "./sourceContext";
 
 /**
@@ -771,6 +772,7 @@ function buildMeasureClipboardSelection(
 
   return {
     captureOrigin: { measureIndex: startM, beat: 0 },
+    measureSignatures: captureMeasureSignatures(score, startP, startM, endM, tracks),
     events: primaryEvents,
     timeSignature: time,
     keySignature: key,

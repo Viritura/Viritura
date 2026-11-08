@@ -20,6 +20,7 @@ import {
  * @param clef - Optional active clef at the source location (primary track)
  * @param transposition - Optional source-part transposition (primary track)
  * @param dynamics - Optional captured dynamics (primary track)
+ * @param annotations - Captured chords and whole-bar signatures, or a legacy chord array
  * @returns JSON string representing the clipboard fragment
  */
 export function serializeFragment(
@@ -32,8 +33,11 @@ export function serializeFragment(
   dynamics?: CapturedDynamic[],
   measureRepeats?: CapturedMeasureRepeat[],
   lyrics?: GlobalLyrics,
-  chordSymbols?: CapturedChordSymbol[],
+  annotations?: CapturedChordSymbol[] | Pick<ClipboardFragment, "chordSymbols" | "measureSignatures">,
 ): string {
+  const { chordSymbols, measureSignatures } = Array.isArray(annotations)
+    ? { chordSymbols: annotations }
+    : (annotations ?? {});
   const fragment: ClipboardFragment = {
     type: VIRITURA_FRAGMENT_TYPE,
     version: FRAGMENT_VERSION,
@@ -46,6 +50,7 @@ export function serializeFragment(
     ...(measureRepeats && measureRepeats.length > 0 ? { measureRepeats: structuredClone(measureRepeats) } : {}),
     ...(lyrics ? { lyrics: structuredClone(lyrics) } : {}),
     ...(chordSymbols && chordSymbols.length > 0 ? { chordSymbols: structuredClone(chordSymbols) } : {}),
+    ...(measureSignatures?.length ? { measureSignatures: structuredClone(measureSignatures) } : {}),
     ...(tracks
       ? {
           tracks: tracks.map((t) => ({

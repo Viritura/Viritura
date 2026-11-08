@@ -124,6 +124,35 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("whole-bar clipboard actions", () => {
+  it("keeps signatures in both system clipboard and clipboard history, including history fallback paste", async () => {
+    const source = scoreWithLyric();
+    source.global.measures[0]!.key = { fifths: -3 };
+    source.parts[0]!.measures[0]!.clefs = [{ clef: { sign: "F", staffPosition: 2 } }];
+    const selection: SelectionState = {
+      kind: "measure",
+      startPartIndex: 0,
+      endPartIndex: 0,
+      startMeasure: 0,
+      endMeasure: 0,
+    };
+    const { result, updateScore } = harness(selection, source);
+    await act(() => result.current.handleCopy());
+    const systemFragment = JSON.parse(writeText.mock.calls[0]![0]) as ClipboardFragment;
+    const historyFragment = useClipboardHistoryStore.getState().entries[0]!.fragment;
+    expect(systemFragment.measureSignatures).toMatchObject([
+      { offset: [0, 1], key: { fifths: -3 }, clefs: [{ staffOffset: 0, clef: { clef: { sign: "F" } } }] },
+    ]);
+    expect(historyFragment.measureSignatures).toEqual(systemFragment.measureSignatures);
+    await act(() => result.current.handlePaste());
+    const pasted = updateScore.mock.calls[0]![0];
+    expect(pasted.global.measures[0]!.key).toEqual({ fifths: -3 });
+    expect(pasted.parts[0]!.measures[0]!.clefs).toEqual([
+      { staff: 1, clef: { sign: "F", staffPosition: 2 }, position: { fraction: [0, 1] } },
+    ]);
+  });
+});
+
 describe("clipboard actions with a selected lyric", () => {
   it("warns when unresolved notation cannot be copied rather than silently retaining an old clip", async () => {
     addHistory();

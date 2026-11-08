@@ -16,7 +16,7 @@ export async function writeClipboardFragment(fragment: Omit<ClipboardFragment, "
     fragment.dynamics,
     fragment.measureRepeats,
     fragment.lyrics,
-    fragment.chordSymbols,
+    { chordSymbols: fragment.chordSymbols, measureSignatures: fragment.measureSignatures },
   );
   await writeNotationClipboard({ text });
 }

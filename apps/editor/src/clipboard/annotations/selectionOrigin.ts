@@ -61,5 +61,6 @@ export function shiftSelectionOrigin(
     })),
     dynamics: selection.dynamics?.map(shiftAnnotation),
     chordSymbols: selection.chordSymbols?.map(shiftAnnotation),
+    measureSignatures: selection.measureSignatures?.map((entry) => ({ ...entry, offset: shiftOffset(entry.offset) })),
   };
 }
