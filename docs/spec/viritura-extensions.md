@@ -338,9 +338,42 @@ such as quarter = dotted quarter at a 4/4 to 12/8 transition, can carry its
 own typed relationship without pretending to be an absolute BPM or swing.
 Metric modulation is not implemented by this extension.
 
-This persistence phase has no swing playback effect. Explicit import, inspector
+Swing persistence and explicit import have no swing playback effect. Inspector
 controls and shared browser/native rhythm realization follow separately.
 No MuseScore implementation source or third-party fixtures were used.
+
+#### Explicit MusicXML import
+
+With Viritura extensions enabled, `<sound><swing>` imports its exact positive
+`first`/`second` ratio and `swing-type`; omitted `swing-type` means `eighth`
+per MusicXML, not the metronome beat unit. `<straight>` imports an explicit reset.
+BPM-free directions remain BPM-free. Both bare measure sounds and nested
+direction sounds are handled; metronome markings retain their beat unit and
+take precedence over a duplicate sound tempo in the same direction.
+
+Playback offsets follow MusicXML: a direction offset affects sound only with
+`sound="yes"`; an offset inside sound takes precedence. Backup/forward positions
+and coincident instruction order are retained. Cosmetic words remain editable
+independently. Exact text-only `Swung 16ths` produces a configuration suggestion,
+never a guessed ratio; arbitrary prose does not enable swing.
+
+Initial swing ownership is score-wide, following the existing first-part global
+tempo import surface. Explicit staff instructions and secondary-part swing are
+not silently promoted to global scope: the diagnostic collector reports
+`musicxml-swing-scope`, or conversion throws if no collector can report the
+unsupported scope. Staff-specific tempo ownership and inspector scope controls
+are not implemented in this slice. Disabling vendor extensions reports explicit
+swing loss through the existing import diagnostics.
+
+MusicXML conversion is import-only. The existing MuseScore clipboard adapter
+does not transport tempo directions; this change does not invent clipboard
+source encodings. Native MNX persistence retains the full unified collection.
+
+Behavioral references verified from public documentation only:
+[MusicXML swing](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/swing/),
+[swing-type default](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/swing-type/),
+and [offset playback](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/offset/).
+No black-box MuseScore comparison has been performed.
 
 MUSX/Denigma mapping follows in a separate adapter change when representative
 source payloads and units are available. Optional `sourceReference` retains a
