@@ -152,10 +152,22 @@ fn parse_quality(text: &str) -> Option<Quality> {
 }
 
 fn parse_suffix(text: &str) -> Option<(Quality, Modifiers)> {
+    if let Some(quality) = parse_quality(text) {
+        return Some((quality, Modifiers::default()));
+    }
     let lower = text.to_ascii_lowercase();
     let boundary = ["add", "omit", "no", "("]
         .into_iter()
         .filter_map(|marker| lower.find(marker))
+        .chain(text.char_indices().filter_map(|(index, marker)| {
+            matches!(marker, 'b' | '#' | '♭' | '♯')
+                .then_some(index)
+                .filter(|_| {
+                    ["13", "11", "9", "5"]
+                        .iter()
+                        .any(|degree| text[index + marker.len_utf8()..].starts_with(degree))
+                })
+        }))
         .min()
         .unwrap_or(text.len());
     let base = &text[..boundary];
@@ -169,6 +181,7 @@ fn parse_suffix(text: &str) -> Option<(Quality, Modifiers)> {
         && quality.extension.is_none()
         && modifiers.added == [6]
         && modifiers.omitted.is_empty()
+        && modifiers.altered.is_empty()
     {
         quality.extension = Some(6);
         modifiers = Modifiers::default();

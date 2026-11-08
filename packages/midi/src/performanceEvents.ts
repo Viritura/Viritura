@@ -3,7 +3,6 @@ import type {
   MultiNoteTremolo,
   Note,
   NoteEvent,
-  Part,
   Score,
   Sequence,
   SequenceContent,
@@ -22,6 +21,13 @@ import { compileChordPlayback, realizeChordPlayback } from "./chordPlayback";
 import { expandScoreMeasureRepeats } from "./measureRepeats";
 import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "./cadenzaTiming";
 import { scorePlaybackItinerary } from "./repeatExpansion";
+import {
+  crossJumpContinuationKeys,
+  recordTieTargets,
+  tieContinuesTo,
+  tiePlaybackKey,
+  type TiePlaybackTargets,
+} from "./tiePlayback";
 import {
   beatInPlayedSpan,
   playedSpansContinue,
@@ -87,7 +93,7 @@ interface TraversalContext extends TimingContext {
   readonly originalMeasureIndex: number;
   readonly sequenceIndex: number;
   readonly voiceKey: string;
-  readonly tieTargets: ReadonlySet<string>;
+  readonly pendingTieTargets: TiePlaybackTargets;
   readonly pendingTies: Map<string, PerformanceNote>;
   readonly events: TimedEvent[];
   readonly dynamicsEnvelope: ReturnType<typeof buildDynamicsEnvelope>;
@@ -199,48 +205,8 @@ function stableNoteId(
   ].join("");
 }
 
-function tieKey(ctx: TraversalContext, pitch: number): string {
-  return `${pitch}:${ctx.partIndex}:${ctx.voiceKey}`;
-}
-
 function hasTieOut(note: Note): boolean {
-  return note.ties?.some((tie) => tie.target !== undefined) ?? false;
-}
-
-function isTieTarget(ctx: TraversalContext, note: Note): boolean {
-  return note.id !== undefined && ctx.tieTargets.has(note.id);
-}
-
-function collectNoteTieTargets(notes: readonly Note[] | undefined, targets: Set<string>): void {
-  for (const note of notes ?? []) {
-    for (const tie of note.ties ?? []) {
-      if (tie.target) targets.add(tie.target);
-    }
-  }
-}
-
-function collectTieTargets(content: readonly SequenceContent[], targets: Set<string>): void {
-  for (const item of content) {
-    if (item.type === "event") {
-      collectNoteTieTargets(item.notes, targets);
-    } else if (item.type === "tuplet") {
-      collectTieTargets(item.content, targets);
-    } else if (item.type === "grace") {
-      for (const event of item.content) collectNoteTieTargets(event.notes, targets);
-    } else if (item.type === "tremolo") {
-      for (const event of item.content) collectNoteTieTargets(event.notes, targets);
-    }
-  }
-}
-
-function collectPartTieTargets(part: Part, measureOrder: readonly number[]): Set<string> {
-  const targets = new Set<string>();
-  for (const measureIndex of measureOrder) {
-    const measure = part.measures[measureIndex];
-    if (!measure) continue;
-    for (const sequence of measure.sequences) collectTieTargets(sequence.content, targets);
-  }
-  return targets;
+  return note.ties?.some((tie) => tie.lv !== true && tie.target !== undefined) ?? false;
 }
 
 interface TechniqueMark {
@@ -349,8 +315,8 @@ function processNoteEvent(ctx: TraversalContext, event: NoteEvent, beatOffset: n
     const pitch = pitchToMidi(note.pitch);
     if (pitch < 0 || pitch > 127) continue;
 
-    const key = tieKey(ctx, pitch);
-    const tiedToPrevious = isTieTarget(ctx, note) && ctx.pendingTies.has(key);
+    const key = tiePlaybackKey(pitch, ctx.partIndex, ctx.voiceKey);
+    const tiedToPrevious = tieContinuesTo(ctx.pendingTieTargets, key, note) && ctx.pendingTies.has(key);
     const tiedOut = hasTieOut(note);
     if (tiedToPrevious) {
       const pending = ctx.pendingTies.get(key);
@@ -361,7 +327,14 @@ function processNoteEvent(ctx: TraversalContext, event: NoteEvent, beatOffset: n
           ctx.pendingTies.delete(key);
         }
       }
+      recordTieTargets(ctx.pendingTieTargets, key, note);
       continue;
+    }
+
+    const previous = ctx.pendingTies.get(key);
+    if (previous) {
+      emitNoteOff(ctx, previous);
+      ctx.pendingTies.delete(key);
     }
 
     const performanceNote: PerformanceNote = {
@@ -376,6 +349,7 @@ function processNoteEvent(ctx: TraversalContext, event: NoteEvent, beatOffset: n
     ctx.order = pushEvent(ctx, { kind: "noteOn", time: startTime, note: performanceNote });
     if (tiedOut) ctx.pendingTies.set(key, performanceNote);
     else emitNoteOff(ctx, performanceNote);
+    recordTieTargets(ctx.pendingTieTargets, key, note);
   }
   return beats;
 }
@@ -498,7 +472,8 @@ export function generatePerformanceEvents(
 ): PerformanceEvent[] {
   const score = expandScoreMeasureRepeats(inputScore);
   const spans = options?.expandRepeats === false ? undefined : scorePlaybackItinerary(score);
-  const events = generateFullPerformanceEvents(score, partIndex, options, spans);
+  const crossJumpContinuations = new Map<number, PerformanceNote[]>();
+  const events = generateFullPerformanceEvents(score, partIndex, options, spans, crossJumpContinuations);
   if (spans === undefined) return events;
   if (
     !score.global.measures.some((measure) => measure.jump !== undefined) &&
@@ -509,7 +484,29 @@ export function generatePerformanceEvents(
     score,
     spans.map((span) => span.measureIndex),
   );
-  return realizePerformanceNavigation(events, timing, spans);
+  return realizePerformanceNavigation(events, timing, spans, crossJumpContinuations);
+}
+
+function retainCrossJumpPerformanceNotes(
+  pending: Map<string, PerformanceNote>,
+  targets: TiePlaybackTargets,
+  continuing: ReadonlySet<string>,
+  cutTime: number,
+  continued: PerformanceNote[],
+  events: TimedEvent[],
+  order: number,
+): number {
+  for (const [key, note] of pending) {
+    if (continuing.has(key) && note.startTime + note.duration >= cutTime - 1e-7) {
+      continued.push(note);
+      continue;
+    }
+    note.duration = Math.min(note.duration, Math.max(0, cutTime - note.startTime));
+    events.push({ event: { kind: "noteOff", time: note.startTime + note.duration, note }, order: order++ });
+    pending.delete(key);
+    targets.delete(key);
+  }
+  return order;
 }
 
 function generateFullPerformanceEvents(
@@ -517,6 +514,7 @@ function generateFullPerformanceEvents(
   partIndex: number,
   options?: TimelineOptions,
   playedSpans?: readonly PlayedMeasureSpan[],
+  crossJumpContinuations = new Map<number, PerformanceNote[]>(),
 ): PerformanceEvent[] {
   const score = expandScoreMeasureRepeats(inputScore);
   if (partIndex === score.parts.length) return generateChordPerformanceEvents(score, options);
@@ -552,25 +550,39 @@ function generateFullPerformanceEvents(
     staffMeterTable,
     playedSpans,
   );
-  const tieTargets = collectPartTieTargets(part, measureOrder);
+  const pendingTieTargets: TiePlaybackTargets = new Map();
   const pendingTies = new Map<string, PerformanceNote>();
   const events: TimedEvent[] = [{ event: { kind: "reset", time: 0 }, order: 0 }];
   let order = emitDynamicsEvents(events, 1, dynamicsEnvelope);
   let persistentState = cloneState(DEFAULT_PLAYING_STATE);
 
   for (let expandedMeasureIndex = 0; expandedMeasureIndex < measureOrder.length; expandedMeasureIndex++) {
+    const originalMeasureIndex = measureOrder[expandedMeasureIndex]!;
+    const measure = part.measures[originalMeasureIndex];
     if (
       expandedMeasureIndex > 0 &&
       playedSpans &&
       !playedSpansContinue(playedSpans[expandedMeasureIndex - 1]!, playedSpans[expandedMeasureIndex])
     ) {
-      for (const note of pendingTies.values()) {
-        events.push({ event: { kind: "noteOff", time: note.startTime + note.duration, note }, order: order++ });
-      }
-      pendingTies.clear();
+      const span = playedSpans[expandedMeasureIndex]!;
+      const continuing = crossJumpContinuationKeys(pendingTieTargets, measure, span.startBeat, partIndex, (staff) =>
+        staffMeterRatioAt(staffMeterTable, originalMeasureIndex, staff),
+      );
+      const cutTime = model.timeAtBeat(
+        measureStartBeats[expandedMeasureIndex - 1]! + playedSpans[expandedMeasureIndex - 1]!.endBeat,
+      );
+      const continued = crossJumpContinuations.get(expandedMeasureIndex) ?? [];
+      order = retainCrossJumpPerformanceNotes(
+        pendingTies,
+        pendingTieTargets,
+        continuing,
+        cutTime,
+        continued,
+        events,
+        order,
+      );
+      crossJumpContinuations.set(expandedMeasureIndex, continued);
     }
-    const originalMeasureIndex = measureOrder[expandedMeasureIndex]!;
-    const measure = part.measures[originalMeasureIndex];
     if (!measure) continue;
 
     const measureStartBeat = measureStartBeats[expandedMeasureIndex]!;
@@ -597,7 +609,7 @@ function generateFullPerformanceEvents(
         originalMeasureIndex,
         sequenceIndex,
         voiceKey,
-        tieTargets,
+        pendingTieTargets,
         pendingTies,
         events,
         dynamicsEnvelope,

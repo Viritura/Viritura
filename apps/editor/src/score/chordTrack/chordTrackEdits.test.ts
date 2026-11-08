@@ -86,12 +86,21 @@ describe("concert-pitch chord-track document edits", () => {
 
   it("retains unsupported text and deletes only the selected harmony", () => {
     const original = score();
-    const unsupported = editChordTrackText(original, { measureIndex: 0, beat: 0, x: 0 }, "C7b9");
+    const unsupported = editChordTrackText(original, { measureIndex: 0, beat: 0, x: 0 }, "C7b8");
     expect(resolveChordSymbol(unsupported.global.measures[0]!.chordSymbols![0]!).status).toBe("unsupported");
     const next = removeChordTrackChord(unsupported, { measureIndex: 0, beat: 0, x: 0 });
     expect(next.parts).toBe(original.parts);
     expect(next.global.measures[0]!.chordSymbols!.map((chord) => chord.rawText)).toEqual(["G7/B"]);
     expect(scoreTrackChords(next)[0]!.elementId).toBe("m0/chord0");
+  });
+
+  it.each(["D7b9/F#", "D7#9", "D#7b9/Fx"])("accepts altered harmony %s without changing other chords", (text) => {
+    const original = score();
+    const next = editChordTrackText(original, { measureIndex: 0, beat: 0, x: 0 }, text);
+    const chord = next.global.measures[0]!.chordSymbols![0]!;
+    expect(chord.rawText).toBe(text);
+    expect(resolveChordSymbol(chord).status).toBe("supported");
+    expect(next.global.measures[0]!.chordSymbols![1]).toBe(original.global.measures[0]!.chordSymbols![1]);
   });
 
   it("preserves grace changes when editing the main onset and rejects invalid input", () => {

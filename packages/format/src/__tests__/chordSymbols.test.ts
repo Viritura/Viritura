@@ -100,6 +100,30 @@ describe("central chord-symbol contract", () => {
       label: "Cadd7add9add11add13",
       rightHand: [60, 62, 64, 65, 67, 69, 70],
     },
+    {
+      text: "C7b9",
+      quality: "dominant",
+      extension: 7,
+      kindText: "7b9",
+      label: "C7b9",
+      rightHand: [60, 61, 64, 67, 70],
+    },
+    {
+      text: "C7#9",
+      quality: "dominant",
+      extension: 7,
+      kindText: "7#9",
+      label: "C7#9",
+      rightHand: [60, 63, 64, 67, 70],
+    },
+    {
+      text: "Cmaj7#11",
+      quality: "major",
+      extension: 7,
+      kindText: "maj7#11",
+      label: "Cmaj7#11",
+      rightHand: [60, 64, 66, 67, 71],
+    },
   ];
 
   it.each(modifierCases)(
@@ -146,7 +170,7 @@ describe("central chord-symbol contract", () => {
   it.each([
     "C7(9)",
     "C79",
-    "C7b9",
+    "C7b8",
     "Caddb9",
     "Cadd#11",
     "Cadd8",

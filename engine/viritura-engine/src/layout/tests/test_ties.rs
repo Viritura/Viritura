@@ -10,6 +10,57 @@ use crate::render::smufl::smufl::{self, NOTEHEAD_WHOLE};
 use crate::render::*;
 
 #[test]
+fn cross_jump_chord_ties_use_short_fragments_without_crossing_skipped_measures() {
+    let score = parse_mnx(include_str!(
+        "../../../../../packages/format/fixtures/mnx/cross-jump-ties.mnx"
+    ))
+    .unwrap();
+    for width in [None, Some(300.0)] {
+        let config = LayoutConfig {
+            page_width: width,
+            ..LayoutConfig::default()
+        };
+        let dl = layout_full_score(&score, &config);
+        for step in ["C", "E", "G"] {
+            let backward = format!("tie/n1{step}/n0{step}");
+            let alternate = format!("tie/n0{step}/n2{step}");
+            let matching = |prefix: &str| {
+                dl.commands
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, command)| {
+                        let id = dl.element_ids.get(index)?.as_deref()?;
+                        if !id.starts_with(prefix) {
+                            return None;
+                        }
+                        match command {
+                            RenderCommand::DrawFilledBezier { x1, x2, .. } => Some((*x1, *x2)),
+                            _ => None,
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            };
+            let fragments = matching(&backward);
+            assert_eq!(fragments.len(), 2, "backward repeat needs both endpoints");
+            for (x1, x2) in fragments {
+                assert!(x2 > x1, "both fragments read left-to-right");
+                assert!(
+                    x2 - x1 <= 2.51 * config.sp,
+                    "no sweep across other measures"
+                );
+            }
+            let fragments = matching(&alternate);
+            assert_eq!(
+                fragments.len(),
+                1,
+                "ordinary first-ending tie already supplies source ink"
+            );
+            assert!(fragments[0].1 - fragments[0].0 <= 2.51 * config.sp);
+        }
+    }
+}
+
+#[test]
 fn test_tie_within_measure_produces_bezier() {
     // Two half notes tied together within one measure
     let json = r#"{
@@ -1306,6 +1357,8 @@ fn test_tie_across_chunk_seam_stays_continuous_in_stitched_horizon() {
     let make = |id: &str, x: f64, system_idx: usize, ties: Vec<Tie>| GlobalTieNote {
         note_id: Rc::from(id),
         x,
+        measure_left_x: x - 50.0,
+        measure_right_x: x + 100.0,
         stem_x: x + 12.0,
         y_pos: 0.0,
         eff_staff_y: 100.0,

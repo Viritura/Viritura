@@ -179,26 +179,30 @@ describe("syncJsonToYDoc — structural sync", () => {
     expect(readJsonFromYDoc(b)).toEqual(readJsonFromYDoc(a));
   });
 
-  it("round-trips arbitrary mutations across the full MNX corpus", () => {
-    // For each score: project, then apply a deterministic mutation, sync,
-    // round-trip back, and assert equality. Catches cases where the
-    // structural diff loses information on real-world shapes.
-    for (const file of mnxFiles) {
+  it.each(mnxFiles)(
+    "round-trips arbitrary mutations in %s",
+    (file) => {
+      // Bound each fixture independently without reducing full-corpus coverage.
       const original = loadScore(file);
       const ydoc = new Y.Doc();
-      syncJsonToYDoc(original, ydoc);
+      try {
+        syncJsonToYDoc(original, ydoc);
 
-      const mutated = structuredClone(original);
-      // Toggle / inject a marker on the root.
-      (mutated as Record<string, unknown>).__virituraSyncTest__ = file;
+        const mutated = structuredClone(original);
+        // Toggle / inject a marker on the root.
+        mutated.__virituraSyncTest__ = file;
 
-      syncJsonToYDoc(mutated, ydoc);
-      expect(readJsonFromYDoc(ydoc)).toEqual(mutated);
+        syncJsonToYDoc(mutated, ydoc);
+        expect(readJsonFromYDoc(ydoc)).toEqual(mutated);
 
-      // Reverse: drop the marker, sync back.
-      delete (mutated as Record<string, unknown>).__virituraSyncTest__;
-      syncJsonToYDoc(mutated, ydoc);
-      expect(readJsonFromYDoc(ydoc)).toEqual(original);
-    }
-  }, 30_000);
+        // Reverse: drop the marker, sync back.
+        delete mutated.__virituraSyncTest__;
+        syncJsonToYDoc(mutated, ydoc);
+        expect(readJsonFromYDoc(ydoc)).toEqual(original);
+      } finally {
+        ydoc.destroy();
+      }
+    },
+    30_000,
+  );
 });

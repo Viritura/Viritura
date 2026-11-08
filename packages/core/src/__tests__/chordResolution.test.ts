@@ -65,8 +65,8 @@ describe("parseChordSymbolText lossless entry", () => {
   });
 
   it.each([
-    ["C7b9", "7b9"],
-    ["Cmaj7#11", "maj7#11"],
+    ["C7b8", "7b8"],
+    ["Cmaj7#8", "maj7#8"],
     ["C6/9", undefined],
     ["Cgarbage", "garbage"],
     ["C14", "14"],

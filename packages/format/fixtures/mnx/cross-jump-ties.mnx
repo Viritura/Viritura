@@ -1,0 +1,62 @@
+{
+  "mnx": { "version": 1 },
+  "global": {
+    "measures": [
+      { "id": "m0", "time": { "count": 4, "unit": 4 }, "repeatStart": {}, "tempos": [{ "bpm": 120, "value": { "base": "quarter" } }] },
+      { "id": "m1", "ending": { "numbers": [1], "duration": 1 }, "repeatEnd": {} },
+      { "id": "m2", "ending": { "numbers": [2], "duration": 1, "open": true } },
+      { "id": "m3" }
+    ]
+  },
+  "parts": [
+    {
+      "id": "p",
+      "name": "Synthetic tie example",
+      "measures": [
+        {
+          "clefs": [{ "staff": 1, "clef": { "sign": "G", "staffPosition": -2 } }],
+          "sequences": [{
+            "voice": "upper", "staff": 1,
+            "content": [{
+              "id": "e0", "duration": { "base": "whole" },
+              "notes": [
+                { "id": "n0C", "pitch": { "step": "C", "octave": 4 }, "ties": [{ "target": "n1C", "targetType": "nextNote" }, { "target": "n2C", "targetType": "crossJump" }] },
+                { "id": "n0E", "pitch": { "step": "E", "octave": 4 }, "ties": [{ "target": "n1E", "targetType": "nextNote" }, { "target": "n2E", "targetType": "crossJump" }] },
+                { "id": "n0G", "pitch": { "step": "G", "octave": 4 }, "ties": [{ "target": "n1G", "targetType": "nextNote" }, { "target": "n2G", "targetType": "crossJump" }] }
+              ]
+            }]
+          }]
+        },
+        {
+          "sequences": [{
+            "voice": "upper", "staff": 1,
+            "content": [{
+              "id": "e1", "duration": { "base": "whole" },
+              "notes": [
+                { "id": "n1C", "pitch": { "step": "C", "octave": 4 }, "ties": [{ "target": "n0C", "targetType": "crossJump" }] },
+                { "id": "n1E", "pitch": { "step": "E", "octave": 4 }, "ties": [{ "target": "n0E", "targetType": "crossJump" }] },
+                { "id": "n1G", "pitch": { "step": "G", "octave": 4 }, "ties": [{ "target": "n0G", "targetType": "crossJump" }] }
+              ]
+            }]
+          }]
+        },
+        {
+          "sequences": [{
+            "voice": "upper", "staff": 1,
+            "content": [{
+              "id": "e2", "duration": { "base": "whole" },
+              "notes": [
+                { "id": "n2C", "pitch": { "step": "C", "octave": 4 } },
+                { "id": "n2E", "pitch": { "step": "E", "octave": 4 } },
+                { "id": "n2G", "pitch": { "step": "G", "octave": 4 } }
+              ]
+            }]
+          }]
+        },
+        {
+          "sequences": [{ "voice": "upper", "staff": 1, "content": [{ "id": "e3", "duration": { "base": "whole" }, "rest": {} }] }]
+        }
+      ]
+    }
+  ]
+}

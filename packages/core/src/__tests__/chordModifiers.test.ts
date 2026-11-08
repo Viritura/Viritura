@@ -32,6 +32,17 @@ describe("central chord degree grammar", () => {
     ["Csus2add9no2", [0, 2, 7], "Csus2add9omit2"],
     ["Cadd99omit55", [0, 2, 4], "Cadd9omit5"],
     ["Cadd2add4", [0, 2, 4, 5, 7], "Cadd2add4"],
+    ["C7b9", [0, 1, 4, 7, 10], "C7b9"],
+    ["C7#9", [0, 3, 4, 7, 10], "C7#9"],
+    ["C9b9", [0, 1, 4, 7, 10], "C9b9"],
+    ["C7(b9,#11)", [0, 1, 4, 6, 7, 10], "C7b9#11"],
+    ["C7b5#9", [0, 3, 4, 6, 10], "C7b5#9"],
+    ["Cmaj7#11", [0, 4, 6, 7, 11], "Cmaj7#11"],
+    ["C7♭9omit5", [0, 1, 4, 10], "C7b9omit5"],
+    ["C7b9#9", [0, 1, 3, 4, 7, 10], "C7b9#9"],
+    ["C7#5", [0, 4, 8, 10], "C7#5"],
+    ["C7b13", [0, 4, 7, 8, 10], "C7b13"],
+    ["C13b9", [0, 1, 4, 5, 7, 9, 10], "C13b9"],
   ] satisfies [string, number[], string][])("resolves and labels %s", (text, pitches, label) => {
     const chord = parseChordSymbolText(text, position);
     const before = structuredClone(chord);
@@ -88,7 +99,10 @@ describe("central chord degree grammar", () => {
     "Cadd,9",
     "Cadd9()",
     "Cadd9,(",
-    "C7b9",
+    "C7b8",
+    "C7#",
+    "C7b9,",
+    "C7(b9,,#11)",
     "C6/9",
     "Cgarbage",
   ])("retains unsupported %s without guessing", (text) => {
@@ -121,5 +135,24 @@ describe("central chord degree grammar", () => {
       status: "supported",
       pitchClasses: [0, 3, 9],
     });
+  });
+
+  it("preserves altered degree intent under transposition and rejects conflicting metadata", () => {
+    const chord = parseChordSymbolText("D#7b9/Fx", position);
+    expect(chord).toMatchObject({ quality: "dominant", extension: 7, kindText: "7b9" });
+    expect(resolveChordSymbol(chord)).toMatchObject({
+      status: "supported",
+      rootPitchClass: 3,
+      bassPitchClass: 7,
+      pitchClasses: [1, 3, 4, 7, 10],
+    });
+    expect(resolveChordSymbol(transposeChordSymbol(chord, { halfSteps: 2, staffDistance: 1 }))).toMatchObject({
+      status: "supported",
+      rootPitchClass: 5,
+      bassPitchClass: 9,
+      pitchClasses: [0, 3, 5, 6, 9],
+    });
+    expect(resolveChordSymbol({ ...chord, textOverride: "D#9/Fx" }).status).toBe("unsupported");
+    expect(resolveChordSymbol({ ...chord, quality: "minor" }).status).toBe("unsupported");
   });
 });

@@ -129,7 +129,7 @@ describe("transposeChordSymbol", () => {
 
   it("preserves unsupported suffixes, whitespace, positions and independent override spelling", () => {
     const original = freeze({
-      ...chord(" \tC7(b9)/E  ", position(2, 3, 0)),
+      ...chord(" \tC7(b8)/E  ", position(2, 3, 0)),
       textOverride: "\tDbadd9/Ab ",
     });
     const snapshot = structuredClone(original);
@@ -138,10 +138,10 @@ describe("transposeChordSymbol", () => {
       ...original,
       root: { step: "D" },
       bass: { step: "F", alter: 1 },
-      rawText: " \tD7(b9)/F#  ",
+      rawText: " \tD7(b8)/F#  ",
       textOverride: "\tEbadd9/Bb ",
     });
-    expect(result.kindText).toBe("7(b9)");
+    expect(result.kindText).toBe("7(b8)");
     expect(result.quality).toBe("other");
     expect(resolveChordSymbol(result).status).toBe("unsupported");
     expect(original).toEqual(snapshot);

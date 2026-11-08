@@ -79,27 +79,30 @@ describe("Mixer Chords row", () => {
     expect(screen.queryByText(WARNING)).toBeNull();
   });
 
-  it.each(["C", "H7", "NC", "N.C."])("appends one row for global %s, with stable ID and no fake Part", (text) => {
-    const score = scoreWith([{}, { chordSymbols: [chord(text), chord(text)] }]);
-    const original = structuredClone(score);
-    Object.freeze(score.parts);
-    const state = renderHook(useMixer).result;
-    render(<Harness score={score} />);
-    const rows = screen.getAllByTestId(/^mixer-channel-/);
-    expect(rows).toHaveLength(3);
-    const row = rows.at(-1)!;
-    expect(row.getAttribute("data-testid")).toBe("mixer-channel-2");
-    expect(row.getAttribute("data-part-id")).toBe(CHORDS_PART_ID);
-    expect(within(row).getByRole("slider", { name: "Volume Chords" }).textContent).toContain("Chords");
-    expect(state.current.channels[2]).toMatchObject({ volume: MIXER_DEFAULT_GAIN, muted: false, solo: false });
-    expect(within(row).queryByRole("button", { name: /^Sound for/ })).toBeNull();
-    expect(within(row).queryByRole("button", { name: /spatial mode/ })).toBeNull();
-    expect(screen.getAllByRole("button", { name: /^Sound for/ })).toHaveLength(2);
-    expect(score).toEqual(original);
-    expect(score.parts.some((part) => part.id === CHORDS_PART_ID)).toBe(false);
-    expect(onSoundSourceChange).not.toHaveBeenCalled();
-    expect(screen.queryByText(WARNING) !== null).toBe(text === "H7");
-  });
+  it.each(["C", "H7", "NC", "N.C.", "D7b9/F#", "D7#9", "D#7b9/Fx"])(
+    "appends one row for global %s, with stable ID and no fake Part",
+    (text) => {
+      const score = scoreWith([{}, { chordSymbols: [chord(text), chord(text)] }]);
+      const original = structuredClone(score);
+      Object.freeze(score.parts);
+      const state = renderHook(useMixer).result;
+      render(<Harness score={score} />);
+      const rows = screen.getAllByTestId(/^mixer-channel-/);
+      expect(rows).toHaveLength(3);
+      const row = rows.at(-1)!;
+      expect(row.getAttribute("data-testid")).toBe("mixer-channel-2");
+      expect(row.getAttribute("data-part-id")).toBe(CHORDS_PART_ID);
+      expect(within(row).getByRole("slider", { name: "Volume Chords" }).textContent).toContain("Chords");
+      expect(state.current.channels[2]).toMatchObject({ volume: MIXER_DEFAULT_GAIN, muted: false, solo: false });
+      expect(within(row).queryByRole("button", { name: /^Sound for/ })).toBeNull();
+      expect(within(row).queryByRole("button", { name: /spatial mode/ })).toBeNull();
+      expect(screen.getAllByRole("button", { name: /^Sound for/ })).toHaveLength(2);
+      expect(score).toEqual(original);
+      expect(score.parts.some((part) => part.id === CHORDS_PART_ID)).toBe(false);
+      expect(onSoundSourceChange).not.toHaveBeenCalled();
+      expect(screen.queryByText(WARNING) !== null).toBe(text === "H7");
+    },
+  );
 
   it("uses resolver diagnostics, updates on global edits, and never diagnoses NC", () => {
     const view = render(<Harness score={scoreWith([{ chordSymbols: [chord("C"), chord("NC")] }])} />);
