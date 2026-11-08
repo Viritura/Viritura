@@ -37,6 +37,12 @@ git config --get core.hooksPath
 
 The expected hook path is `.githooks`.
 
+Linux CI installs Binaryen from the distribution package repository before
+building WASM. `wasm-pack` uses the resulting `wasm-opt` on `PATH`, avoiding its
+fallback GitHub release download while keeping release optimization enabled.
+For the same setup on Debian or Ubuntu, install it with
+`sudo apt-get install binaryen`.
+
 After the hooks are active, creating or checking out a fresh linked Git
 worktree automatically runs a frozen pnpm install when its dependency links are
 missing or stale. The hook does not run dependency checks in the primary

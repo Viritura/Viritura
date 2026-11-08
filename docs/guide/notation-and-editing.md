@@ -168,6 +168,11 @@ copies only that staff's music and voices. Select across both staves to copy
 both. A single-staff fragment pastes onto the selected destination staff;
 the lower staff's first voice remains voice 1, not voice 2.
 
+To paste a complete grand-staff passage, select the upper destination staff or
+select both destination staves. Both-staff selections use the upper staff as
+the anchor, even when selected from bottom to top. This also works between
+browser tabs. Clipboard previews keep the two staves separate.
+
 > [!NOTE]
 > **Availability: MuseScore paste in the Windows desktop app**
 >

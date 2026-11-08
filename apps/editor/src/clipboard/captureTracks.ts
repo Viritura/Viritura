@@ -54,7 +54,7 @@ export function buildTrackFromEvents(
     staffOffset: partStaffOffset(score, range.startPart, srcPartIndex, staff) - anchorStaffOffset,
     sourceStaff: staff,
     content: [],
-    clef: getActiveClef(score, srcPartIndex, range.startMeasure),
+    clef: getActiveClef(score, srcPartIndex, range.startMeasure, staff),
     transposition: score.parts[srcPartIndex]?.transposition,
   };
   const leadIn = first.absBeat - selectionStartBeat;

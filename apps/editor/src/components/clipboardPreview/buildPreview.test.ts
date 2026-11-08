@@ -25,6 +25,34 @@ function chordSymbolFragment(): ClipboardFragment {
 }
 
 describe("clipboard preview score", () => {
+  it("keeps piano tracks on separate staves instead of displaying the lower staff as voice 2", () => {
+    const fragment = chordSymbolFragment();
+    delete fragment.chordSymbols;
+    fragment.tracks = [1, 2].map((staff) => ({
+      partOffset: 0,
+      voiceIndex: 0,
+      staffOffset: staff - 1,
+      sourceStaff: staff,
+      clef: staff === 1 ? { sign: "G", staffPosition: -2 } : { sign: "F", staffPosition: 2 },
+      content: [
+        {
+          type: "event",
+          duration: { base: "whole" },
+          notes: [{ pitch: { step: "C", octave: staff === 1 ? 5 : 3 } }],
+        },
+      ],
+    }));
+    fragment.content = fragment.tracks[0]!.content;
+    const preview = buildPreviewScore(fragment);
+    expect(preview.parts).toHaveLength(1);
+    expect(preview.parts[0]!.staves).toBe(2);
+    expect(preview.parts[0]!.measures[0]!.sequences.map((sequence) => sequence.staff)).toEqual([1, 2]);
+    expect(preview.parts[0]!.measures[0]!.clefs).toMatchObject([
+      { staff: 1, clef: { sign: "G" } },
+      { staff: 2, clef: { sign: "F" } },
+    ]);
+  });
+
   it("renders annotation-only chord-symbol fragments", () => {
     const score = buildPreviewScore(chordSymbolFragment());
 

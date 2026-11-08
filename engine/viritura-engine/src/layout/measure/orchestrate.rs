@@ -675,6 +675,14 @@ pub(super) fn layout_voice_for_measure(
         sp,
     );
 
+    if let Some(source_index) = seq.source_seq_index {
+        for (index, event) in events.iter_mut().enumerate() {
+            if event.event.id.is_none() && event.id.is_some() {
+                event.id = event_layout_id(&event.event, rm.index, source_index, index);
+            }
+        }
+    }
+
     VoiceLayout {
         voice_index: vi,
         events: super::super::arena::EventArena::from_events(events),

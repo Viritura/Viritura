@@ -190,6 +190,13 @@ jobs:
           rustup default 1.93.1
 
       - if: steps.plan.outputs.needs_wasm == 'true' || needs.changes.outputs.engine_consumers == 'true'
+        name: Install Binaryen
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends binaryen
+          wasm-opt --version
+
+      - if: steps.plan.outputs.needs_wasm == 'true' || needs.changes.outputs.engine_consumers == 'true'
         name: Install wasm-pack
         run: cargo install wasm-pack --version 0.14.0 --locked
 

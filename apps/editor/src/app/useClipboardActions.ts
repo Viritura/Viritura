@@ -116,7 +116,11 @@ export function useClipboardActions({
       return;
     }
     const sel = getClipboardSelection();
-    if (!sel) return;
+    if (!sel) {
+      if (selection.kind !== "none")
+        toast.warning("The selected notation could not be copied. The clipboard was not changed.");
+      return;
+    }
     let copied = false;
     try {
       copied = await copyToClipboard(sel);
@@ -199,6 +203,7 @@ export function useClipboardActions({
       try {
         const result = computePasteResult(score, selection, paste, pasteCursor, { merge });
         if (!result) {
+          toast.info("Select a note or staff measure as the paste destination.");
           showClipboardWarnings(warnings);
           return;
         }
