@@ -4505,6 +4505,208 @@ impl ::std::convert::From<&MeasureRhythmicPosition> for MeasureRhythmicPosition 
         value.clone()
     }
 }
+///`MixerBusSettings`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "properties": {
+///    "muted": {
+///      "type": "boolean"
+///    },
+///    "solo": {
+///      "type": "boolean"
+///    },
+///    "volume": {
+///      "type": "number"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct MixerBusSettings {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub muted: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub solo: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub volume: ::std::option::Option<f64>,
+}
+impl ::std::convert::From<&MixerBusSettings> for MixerBusSettings {
+    fn from(value: &MixerBusSettings) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for MixerBusSettings {
+    fn default() -> Self {
+        Self {
+            muted: Default::default(),
+            solo: Default::default(),
+            volume: Default::default(),
+        }
+    }
+}
+///`MixerChannelSettings`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "properties": {
+///    "ensembleEnabled": {
+///      "type": "boolean"
+///    },
+///    "muted": {
+///      "type": "boolean"
+///    },
+///    "pan": {
+///      "type": "number"
+///    },
+///    "solo": {
+///      "type": "boolean"
+///    },
+///    "spatialMode": {
+///      "enum": [
+///        "stereo",
+///        "stage"
+///      ]
+///    },
+///    "volume": {
+///      "type": "number"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct MixerChannelSettings {
+    #[serde(
+        rename = "ensembleEnabled",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub ensemble_enabled: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub muted: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pan: ::std::option::Option<f64>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub solo: ::std::option::Option<bool>,
+    #[serde(
+        rename = "spatialMode",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub spatial_mode: ::std::option::Option<MixerChannelSettingsSpatialMode>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub volume: ::std::option::Option<f64>,
+}
+impl ::std::convert::From<&MixerChannelSettings> for MixerChannelSettings {
+    fn from(value: &MixerChannelSettings) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for MixerChannelSettings {
+    fn default() -> Self {
+        Self {
+            ensemble_enabled: Default::default(),
+            muted: Default::default(),
+            pan: Default::default(),
+            solo: Default::default(),
+            spatial_mode: Default::default(),
+            volume: Default::default(),
+        }
+    }
+}
+///`MixerChannelSettingsSpatialMode`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "enum": [
+///    "stereo",
+///    "stage"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum MixerChannelSettingsSpatialMode {
+    #[serde(rename = "stereo")]
+    Stereo,
+    #[serde(rename = "stage")]
+    Stage,
+}
+impl ::std::convert::From<&Self> for MixerChannelSettingsSpatialMode {
+    fn from(value: &MixerChannelSettingsSpatialMode) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for MixerChannelSettingsSpatialMode {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Stereo => f.write_str("stereo"),
+            Self::Stage => f.write_str("stage"),
+        }
+    }
+}
+impl ::std::str::FromStr for MixerChannelSettingsSpatialMode {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "stereo" => Ok(Self::Stereo),
+            "stage" => Ok(Self::Stage),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for MixerChannelSettingsSpatialMode {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for MixerChannelSettingsSpatialMode {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for MixerChannelSettingsSpatialMode {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///Viritura vendor extensions on an MNX note object (the `_x.viritura` dict on a pitched note).
 ///
 /// <details><summary>JSON schema</summary>
@@ -6847,6 +7049,10 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 ///      "description": "Score-level bibliographic metadata.",
 ///      "$ref": "#/$defs/score-metadata"
 ///    },
+///    "mixer": {
+///      "description": "Score-scoped channel, group, and master mixer settings.",
+///      "$ref": "#/$defs/score-mixer-settings"
+///    },
 ///    "placement": {
 ///      "description": "Per-document placement (clearance) overrides keyed by dependent kind.",
 ///      "$ref": "#/$defs/placement"
@@ -6900,6 +7106,9 @@ pub struct RootExtensions {
     ///Score-level bibliographic metadata.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub metadata: ::std::option::Option<ScoreMetadata>,
+    ///Score-scoped channel, group, and master mixer settings.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub mixer: ::std::option::Option<ScoreMixerSettings>,
     ///Per-document placement (clearance) overrides keyed by dependent kind.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub placement: ::std::option::Option<Placement>,
@@ -6944,6 +7153,7 @@ impl ::std::default::Default for RootExtensions {
             instrument_change_style: Default::default(),
             lyric_workflow: Default::default(),
             metadata: Default::default(),
+            mixer: Default::default(),
             placement: Default::default(),
             sound_profile: Default::default(),
             text_styles: Default::default(),
@@ -7195,6 +7405,76 @@ impl ::std::default::Default for ScoreMetadata {
             title: Default::default(),
             work_number: Default::default(),
             work_title: Default::default(),
+        }
+    }
+}
+///Saved mixer intent. Omitted controls use editor defaults. Channels are keyed by stable MNX part ID, or viritura:derived:chords for the derived Chords channel; groups by family label.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Saved mixer intent. Omitted controls use editor defaults. Channels are keyed by stable MNX part ID, or viritura:derived:chords for the derived Chords channel; groups by family label.",
+///  "type": "object",
+///  "properties": {
+///    "channels": {
+///      "type": "object",
+///      "additionalProperties": {
+///        "$ref": "#/$defs/mixer-channel-settings"
+///      }
+///    },
+///    "groups": {
+///      "type": "object",
+///      "additionalProperties": {
+///        "$ref": "#/$defs/mixer-bus-settings"
+///      }
+///    },
+///    "masterMuted": {
+///      "type": "boolean"
+///    },
+///    "masterVolume": {
+///      "type": "number"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ScoreMixerSettings {
+    #[serde(default, skip_serializing_if = ":: std :: collections :: HashMap::is_empty")]
+    pub channels: ::std::collections::HashMap<
+        ::std::string::String,
+        MixerChannelSettings,
+    >,
+    #[serde(default, skip_serializing_if = ":: std :: collections :: HashMap::is_empty")]
+    pub groups: ::std::collections::HashMap<::std::string::String, MixerBusSettings>,
+    #[serde(
+        rename = "masterMuted",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub master_muted: ::std::option::Option<bool>,
+    #[serde(
+        rename = "masterVolume",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub master_volume: ::std::option::Option<f64>,
+}
+impl ::std::convert::From<&ScoreMixerSettings> for ScoreMixerSettings {
+    fn from(value: &ScoreMixerSettings) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for ScoreMixerSettings {
+    fn default() -> Self {
+        Self {
+            channels: Default::default(),
+            groups: Default::default(),
+            master_muted: Default::default(),
+            master_volume: Default::default(),
         }
     }
 }
@@ -14148,6 +14428,12 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "measure-rhythmic-position": {
 ///      "$ref": "#/$defs/measure-rhythmic-position"
 ///    },
+///    "mixer-bus-settings": {
+///      "$ref": "#/$defs/mixer-bus-settings"
+///    },
+///    "mixer-channel-settings": {
+///      "$ref": "#/$defs/mixer-channel-settings"
+///    },
 ///    "note-extensions": {
 ///      "$ref": "#/$defs/note-extensions"
 ///    },
@@ -14210,6 +14496,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    },
 ///    "score-metadata": {
 ///      "$ref": "#/$defs/score-metadata"
+///    },
+///    "score-mixer-settings": {
+///      "$ref": "#/$defs/score-mixer-settings"
 ///    },
 ///    "senza-misura-display": {
 ///      "$ref": "#/$defs/senza-misura-display"
@@ -14563,6 +14852,18 @@ pub struct VirituraExtensionsRoot {
     )]
     pub measure_rhythmic_position: ::std::option::Option<MeasureRhythmicPosition>,
     #[serde(
+        rename = "mixer-bus-settings",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub mixer_bus_settings: ::std::option::Option<MixerBusSettings>,
+    #[serde(
+        rename = "mixer-channel-settings",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub mixer_channel_settings: ::std::option::Option<MixerChannelSettings>,
+    #[serde(
         rename = "note-extensions",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -14682,6 +14983,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub score_metadata: ::std::option::Option<ScoreMetadata>,
+    #[serde(
+        rename = "score-mixer-settings",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub score_mixer_settings: ::std::option::Option<ScoreMixerSettings>,
     #[serde(
         rename = "senza-misura-display",
         default,
@@ -15004,6 +15311,8 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             marker_texts: Default::default(),
             measure_global_extensions: Default::default(),
             measure_rhythmic_position: Default::default(),
+            mixer_bus_settings: Default::default(),
+            mixer_channel_settings: Default::default(),
             note_extensions: Default::default(),
             notehead_shape: Default::default(),
             ornament_type: Default::default(),
@@ -15025,6 +15334,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             root_extensions: Default::default(),
             score_extensions: Default::default(),
             score_metadata: Default::default(),
+            score_mixer_settings: Default::default(),
             senza_misura_display: Default::default(),
             slur_extensions: Default::default(),
             slur_shape: Default::default(),

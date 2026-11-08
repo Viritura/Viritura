@@ -311,9 +311,27 @@ const useMixerStore = create<MixerStore>()((set) => ({
   _dispatch: makeDispatch(set),
 }));
 
+const editListeners = new Set<(state: MixerState) => void>();
+
+/** Observe user edits, excluding roster/group synchronization and restoration. */
+export function subscribeMixerEdits(listener: (state: MixerState) => void): () => void {
+  editListeners.add(listener);
+  return () => {
+    editListeners.delete(listener);
+  };
+}
+
+export function restoreMixerState(state: MixerState): void {
+  useMixerStore.setState(state);
+}
+
 /** Dispatch a mixer action from outside React (commands, bridges, tests). */
 function dispatchMixer(action: MixerAction): void {
+  const previous = useMixerStore.getState();
   useMixerStore.getState()._dispatch(action);
+  const next = useMixerStore.getState();
+  if (next === previous || action.type === "SYNC_PARTS" || action.type === "SYNC_GROUPS") return;
+  for (const listener of editListeners) listener(next);
 }
 
 // ═════════════════════════════════════════════

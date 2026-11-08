@@ -36,6 +36,12 @@ to concrete events/scope on demand.
 
 ## The four targeting modes
 
+Measure-content Delete and Cut honor physical-staff boundaries when the
+selection carries local staff indices. Unselected staves retain their notes,
+rests, and staff-owned annotations; part-wide measure-repeat signs remain
+unless every staff in that part is selected. Legacy measure selections without
+local staff indices continue to clear the whole selected part/measure rectangle.
+
 Every action declares one **mode** (see `SelectionTargetMode`). The mode picks
 which resolver in `selectionUtils.ts` turns the abstract selection into concrete
 targets:

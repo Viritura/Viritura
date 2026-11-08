@@ -140,6 +140,7 @@ function serializeRootExtensions(score: Score): Obj {
   if (score.videoSync) {
     virituraExt["videoSync"] = serializeVideoSync(score.videoSync);
   }
+  if (score.mixer) virituraExt["mixer"] = { ...score.mixer };
 
   if (score.lyricWorkflow && Object.keys(score.lyricWorkflow.sources).length > 0) {
     virituraExt["lyricWorkflow"] = score.lyricWorkflow as unknown as Obj;

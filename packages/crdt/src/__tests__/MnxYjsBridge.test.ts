@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import { LOCAL_WRITE_ORIGIN, MnxYjsBridge } from "../MnxYjsBridge";
+import { applyPatchesToScore, CHORDS_PART_ID, patch } from "@viritura/core";
+import { parseMnx, serializeMnx } from "@viritura/format";
 
 const sampleScore = () =>
   JSON.stringify({
@@ -20,6 +22,33 @@ describe("MnxYjsBridge", () => {
     const mnx = sampleScore();
     bridge.setMnxJson(mnx);
     expect(JSON.parse(bridge.getMnxJson())).toEqual(JSON.parse(mnx));
+  });
+
+  it("projects mixer patches to peers and persisted snapshots, including removal", () => {
+    const a = new MnxYjsBridge();
+    const b = new MnxYjsBridge();
+    const reopened = new MnxYjsBridge();
+    a.doc.on("update", (update: Uint8Array) => Y.applyUpdate(b.doc, update, "from-network"));
+    const score = parseMnx({
+      mnx: { version: 1 },
+      global: { measures: [{}] },
+      parts: [{ id: "flute", measures: [{ sequences: [] }] }],
+    });
+    a.setMnxJson(JSON.stringify(serializeMnx(score)));
+    const settings = { channels: { [CHORDS_PART_ID]: { muted: true } }, masterVolume: 0.8 };
+    const patches = [patch.setScoreExtension({ field: "mixer", value: settings })];
+    const edited = applyPatchesToScore(score, patches);
+    a.applyPatches(patches, edited, JSON.stringify(serializeMnx(edited)));
+    expect(parseMnx(JSON.parse(b.getMnxJson())).mixer).toEqual(settings);
+    Y.applyUpdate(reopened.doc, Y.encodeStateAsUpdate(a.doc));
+    expect(parseMnx(JSON.parse(reopened.getMnxJson())).mixer).toEqual(settings);
+    const clear = [patch.setScoreExtension({ field: "mixer", value: undefined })];
+    const cleared = applyPatchesToScore(edited, clear);
+    a.applyPatches(clear, cleared, JSON.stringify(serializeMnx(cleared)));
+    expect(parseMnx(JSON.parse(b.getMnxJson())).mixer).toBeUndefined();
+    a.doc.destroy();
+    b.doc.destroy();
+    reopened.doc.destroy();
   });
 
   it("no-ops when setting identical contents", () => {

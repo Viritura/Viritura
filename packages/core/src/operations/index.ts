@@ -54,3 +54,4 @@ export {
   type LyricExtenderTargetCandidate,
   type ResolvedLyricExtender,
 } from "./lyricExtenders";
+export { pruneMixerSettings } from "./mixer";

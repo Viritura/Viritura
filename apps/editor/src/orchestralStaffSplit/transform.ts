@@ -13,7 +13,7 @@ import type {
   TextExpression,
 } from "@viritura/core";
 import { durationToBeats, generateEventId, generateNoteId, sequenceContentBeats } from "../commands/noteCommands";
-import { plainTextContent } from "@viritura/core";
+import { plainTextContent, pruneMixerSettings } from "@viritura/core";
 import { buildCondensedLayoutContent } from "../app/condensedLayout";
 import { parsePlayerRoutingLabel, type PlayerRouting } from "./routingText";
 import { SPLIT_POLICIES, type SplitPolicy } from "./splitPolicies";
@@ -72,7 +72,7 @@ export function splitOrchestralParts(score: Score): Score {
   if (splitPartIds.size === 0) return result;
   remapSoundAssignments(result, splitPartIds);
   rebuildLayoutsAndScores(result, score, splitPartIds);
-  return result;
+  return pruneMixerSettings(result);
 }
 
 export function refreshOrchestralCondensedScore(score: Score): Score {

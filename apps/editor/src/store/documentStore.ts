@@ -16,6 +16,7 @@ import { getGlobalPerfTracker } from "@viritura/renderer";
 import { produce } from "../score/scoreClone";
 import { LayoutCoalescer } from "./layoutCoalescer";
 import { useNoteInputStore, type CursorPosition } from "./noteInputStore";
+import { reconcileScoreMixer } from "./mixerRoster";
 
 export interface DocumentStoreState {
   // ── State ──
@@ -133,7 +134,7 @@ export function createDocumentStore() {
         throw new Error(`Failed to load MNX file: ${response.status} ${response.statusText}`);
       }
       const jsonText = await response.text();
-      const parsed = parseMnx(JSON.parse(jsonText));
+      let parsed = parseMnx(JSON.parse(jsonText));
       // Normalise on import so the very first edit doesn't trigger a flood of
       // "many changes across N parts" diffs from auto-repair (creating new
       // rest IDs to fix overfull/underfull measures). See loadScore().
@@ -141,6 +142,7 @@ export function createDocumentStore() {
       // Backfill instrument identity from the catalog so audio playback
       // doesn't have to fall back to fuzzy name matching.
       enrichInstrumentIdentities(parsed);
+      parsed = reconcileScoreMixer(parsed);
       const json = JSON.stringify(serializeMnx(parsed));
       // Prime the delta serializer so the first edit yields a real incremental
       // diff (see loadScore for the full rationale).
@@ -161,8 +163,9 @@ export function createDocumentStore() {
       coalescer.reset();
     },
 
-    loadScore: (newScore: Score, name?: string, preSerializedJson?: string, preserveDocumentGeneration = false) => {
+    loadScore: (source: Score, name?: string, preSerializedJson?: string, preserveDocumentGeneration = false) => {
       publishSequence += 1;
+      const newScore = reconcileScoreMixer(source);
       // Auto-repair on load so subsequent edits don't surface a spurious
       // "27 changes across 22 parts" history entry the moment a user touches
       // anything. `updateScore` runs `repairBeatCounts` after every edit, and
@@ -177,9 +180,11 @@ export function createDocumentStore() {
       // Backfill instrument identity from the catalog (idempotent — parts
       // that already have `_x.viritura.instrumentId` are left alone).
       const enriched = enrichInstrumentIdentities(newScore);
-      // If repairs or enrichment happened, the caller's preSerializedJson is stale.
+      // Repairs, enrichment, or mixer cleanup make the caller's preSerializedJson stale.
       const json =
-        repairs > 0 || enriched > 0 || !preSerializedJson ? JSON.stringify(serializeMnx(newScore)) : preSerializedJson;
+        repairs > 0 || enriched > 0 || newScore !== source || !preSerializedJson
+          ? JSON.stringify(serializeMnx(newScore))
+          : preSerializedJson;
       // Prime the delta serializer's per-measure/structural caches against the
       // loaded score so the FIRST edit produces a real incremental diff. Without
       // this, the first `serialize()` sees cold caches and reports EVERY measure
@@ -224,6 +229,7 @@ export function createDocumentStore() {
       affectedMeasures?: { start: number; end: number },
       patches?: readonly ScorePatch[],
     ) => {
+      newScore = reconcileScoreMixer(newScore);
       const perf = getGlobalPerfTracker();
       const sequence = ++publishSequence;
       const previousScore = get().workingScore ?? get().score;

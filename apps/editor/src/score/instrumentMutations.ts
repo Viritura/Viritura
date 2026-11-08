@@ -6,7 +6,7 @@
  */
 
 import type { ClefSign, LayoutContent, LayoutGroup, LayoutStaff, Part, Score, ScoreDefinition } from "@viritura/core";
-import { resolvePartDisplayNames } from "@viritura/core";
+import { pruneMixerSettings, resolvePartDisplayNames } from "@viritura/core";
 import {
   type Player,
   FAMILY_META,
@@ -246,15 +246,24 @@ export function applyPlayerChanges(score: Score, change: PlayerChange): Score {
   const measureCount = score.global.measures.length;
   const newParts: Part[] = [];
   const partIds: string[] = [];
+  const usedIds = new Set(score.parts.flatMap((part) => (part.id ? [part.id] : [])));
+  let newPartNumber = score.parts.length + 1;
 
   for (let i = 0; i < players.length; i++) {
     const player = players[i]!;
     const origIdx = originalPartIndices[i]!;
-    const partId = `P${i + 1}`;
+    const existing = origIdx >= 0 && origIdx < score.parts.length ? score.parts[origIdx] : undefined;
+    let partId = existing?.id;
+    if (partId && partIds.includes(partId)) partId = undefined;
+    if (!partId) {
+      while (usedIds.has(`P${newPartNumber}`)) newPartNumber++;
+      partId = `P${newPartNumber++}`;
+      usedIds.add(partId);
+    }
     partIds.push(partId);
 
-    if (origIdx >= 0 && origIdx < score.parts.length) {
-      newParts.push(updateExistingPart(score.parts[origIdx]!, player, partId));
+    if (existing) {
+      newParts.push(updateExistingPart(existing, player, partId));
     } else {
       newParts.push(buildNewPart(player, partId, measureCount));
     }
@@ -263,7 +272,7 @@ export function applyPlayerChanges(score: Score, change: PlayerChange): Score {
   const layouts = buildLayouts(players, partIds);
   const scores = buildScoreDefinitions(players, partIds);
 
-  return { ...score, parts: newParts, layouts, scores };
+  return pruneMixerSettings({ ...score, parts: newParts, layouts, scores });
 }
 
 // ─── Remove a part from layout content ──────────────────────────
@@ -555,7 +564,7 @@ export function removeInstrumentFromScore(score: Score, partId: string): Score {
     (score.scores ?? []).filter((sd) => sd.layout !== perPartLayoutId),
   );
 
-  return { ...score, parts: newParts, layouts: newLayouts, scores: newScores };
+  return pruneMixerSettings({ ...score, parts: newParts, layouts: newLayouts, scores: newScores });
 }
 
 // ─── Reorder an instrument ───────────────────────────────────────
