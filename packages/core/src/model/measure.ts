@@ -115,7 +115,14 @@ export interface SwingOnlyTempo extends TempoPresentation {
 }
 
 /** Instruction variants share presentation, not fabricated metronome values. */
-export type Tempo = MetronomicTempo | SwingOnlyTempo;
+export interface TextOnlyTempo extends TempoPresentation {
+  bpm?: never;
+  value?: never;
+  swing?: never;
+  text: TextContent;
+}
+
+export type Tempo = MetronomicTempo | SwingOnlyTempo | TextOnlyTempo;
 
 /** Standard MNX v46 dynamic-group discriminator. */
 export type DynamicGroupType = "immediate" | "gradual" | "relative" | "accent";

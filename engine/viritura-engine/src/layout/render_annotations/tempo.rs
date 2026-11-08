@@ -87,7 +87,8 @@ pub(crate) fn tempo_metronome_runs(
 pub(crate) fn tempo_marking_width(tempo: &Tempo, config: &LayoutConfig, sp: f64) -> f64 {
     let tempo_style = config.text_styles.resolve(TextRole::Tempo);
     let text_size = tempo_style.size_px(sp);
-    let has_text = tempo.text.as_ref().is_some_and(|t| !t.is_empty());
+    let display_text = tempo.display_text();
+    let has_text = display_text.as_ref().is_some_and(|t| !t.is_empty());
     let show_metronome = tempo.bpm.is_some() && tempo.show_metronome_mark.unwrap_or(true);
     let show_text = has_text && tempo.show_text.unwrap_or(true);
     if show_metronome {
@@ -101,8 +102,7 @@ pub(crate) fn tempo_marking_width(tempo: &Tempo, config: &LayoutConfig, sp: f64)
         );
         w
     } else if show_text {
-        tempo
-            .text
+        display_text
             .as_ref()
             .map(|text| {
                 super::text_content::content_width(
@@ -361,7 +361,8 @@ pub(crate) fn render_tempo_markings(
     for (i, tempo) in tempos.iter().enumerate() {
         let cmd_idx = dl.commands.len();
         let show_metronome = tempo.bpm.is_some() && tempo.show_metronome_mark.unwrap_or(true);
-        let has_text = tempo.text.as_ref().is_some_and(|t| !t.is_empty());
+        let display_text = tempo.display_text();
+        let has_text = display_text.as_ref().is_some_and(|t| !t.is_empty());
         let show_text = has_text && tempo.show_text.unwrap_or(true);
         let beat = tempo.location.as_ref().map_or(0.0, |loc| loc.beats());
         let event_x = if beat == 0.0 {
@@ -452,7 +453,7 @@ pub(crate) fn render_tempo_markings(
                 }
             }
         } else if show_text {
-            let Some(text) = tempo.text.as_ref() else {
+            let Some(text) = display_text.as_deref() else {
                 continue;
             };
             let est_width =

@@ -213,6 +213,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           <TempoSection
             key={target.elementId}
             tempo={tempo.selectedTempo}
+            effectiveSwing={tempo.effectiveSwing ?? undefined}
+            onSwingChange={tempo.handleTempoSwingChange}
             onBpmChange={tempo.handleTempoBpmChange}
             onValueBaseChange={tempo.handleTempoValueBaseChange}
             onDotsChange={tempo.handleTempoDotsChange}

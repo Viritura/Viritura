@@ -1,10 +1,11 @@
 import type { CSSProperties } from "react";
-import type { Tempo, NoteValueBase, TextContent } from "@viritura/core";
+import type { Tempo, NoteValueBase, TextContent, Swing, ResolvedTempoSwing } from "@viritura/core";
 import { ButtonGroup, Checkbox, FormInput } from "@viritura/ui";
 import { sectionStyle, legendStyle, labelStyle } from "./types";
 import { ManualOffsetFields, type ManualOffsetControl } from "./DirectionTextSection";
 import { useDebouncedInput } from "../../hooks/useDebouncedInput";
 import { TextContentEditor, type InheritedTextStyle } from "./TextContentEditor";
+import { SwingControls } from "./SwingControls";
 
 const BEAT_BASE_OPTIONS: { value: NoteValueBase; label: string }[] = [
   { value: "whole", label: "whole" },
@@ -29,6 +30,8 @@ const NO_TEXT: TextContent = [];
 
 export interface TempoSectionProps {
   tempo: Tempo;
+  effectiveSwing?: ResolvedTempoSwing;
+  onSwingChange: (swing: Swing | undefined) => void;
   onBpmChange: (bpm: number) => void;
   onValueBaseChange: (base: NoteValueBase) => void;
   onDotsChange: (dots: number) => void;
@@ -43,6 +46,8 @@ export interface TempoSectionProps {
 
 export function TempoSection({
   tempo,
+  effectiveSwing,
+  onSwingChange,
   onBpmChange,
   onValueBaseChange,
   onDotsChange,
@@ -68,6 +73,7 @@ export function TempoSection({
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>Tempo</legend>
+      <SwingControls swing={tempo.swing} effective={effectiveSwing} onChange={onSwingChange} />
       {tempo.bpm !== undefined && (
         <label style={labelStyle}>
           BPM

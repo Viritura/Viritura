@@ -15,6 +15,11 @@ import {
   type ScorePatch,
   type SystemText,
   type Tempo,
+  type Swing,
+  type ResolvedTempoSwing,
+  resolveTempoSwing,
+  withTempoSwing,
+  withTempoText,
   type TextContent,
   type TextExpression,
   type StaffTextFramePresentation,
@@ -222,6 +227,8 @@ export function useMeasureRepeatHandlers({ score, target, updateScore }: Selecti
 export interface TempoHandlers {
   isTempoSelected: boolean;
   selectedTempo: Tempo | null;
+  effectiveSwing: ResolvedTempoSwing | null;
+  handleTempoSwingChange: (swing: Swing | undefined) => void;
   handleTempoTextChange: (text: TextContent) => void;
   handleTempoShowTextChange: (checked: boolean) => void;
   handleTempoShowMetronomeChange: (checked: boolean) => void;
@@ -244,13 +251,16 @@ export function useTempoHandlers({ score, target, updateScore }: SelectionArgs):
   }, [isTempoSelected, score, target, tempoMatch]);
 
   const mutateTempo = useCallback(
-    (fn: (tempo: Tempo) => void) => {
+    (fn: (tempo: Tempo) => Tempo | null | void) => {
       if (!score || !target || !tempoMatch) return;
       const tempoIdx = parseInt(tempoMatch[1]!, 10);
       const nextScore = produce(score, (draft) => {
-        const tempo = draft.global.measures[target.measureIndex]?.tempos?.[tempoIdx];
-        if (!tempo) return;
-        fn(tempo);
+        const tempos = draft.global.measures[target.measureIndex]?.tempos;
+        const tempo = tempos?.[tempoIdx];
+        if (!tempo || !tempos) return;
+        const replacement = fn(tempo);
+        if (replacement === null) tempos.splice(tempoIdx, 1);
+        else if (replacement !== undefined) tempos[tempoIdx] = replacement;
       });
       if (nextScore !== score) updateScore(nextScore);
     },
@@ -287,11 +297,26 @@ export function useTempoHandlers({ score, target, updateScore }: SelectionArgs):
   return {
     isTempoSelected,
     selectedTempo,
+    effectiveSwing:
+      selectedTempo && score && target && tempoMatch
+        ? resolveTempoSwing(score.global.measures, target.measureIndex, Number(tempoMatch[1]))
+        : null,
+    handleTempoSwingChange: (swing: Swing | undefined) => {
+      if (!score || !target || !tempoMatch) return;
+      const tempoIndex = Number(tempoMatch[1]);
+      const nextScore = produce(score, (draft) => {
+        const tempos = draft.global.measures[target.measureIndex]?.tempos;
+        const selected = tempos?.[tempoIndex];
+        if (!tempos || !selected) return;
+        const replacement = withTempoSwing(selected, swing);
+        if (replacement) tempos[tempoIndex] = replacement;
+        else tempos.splice(tempoIndex, 1);
+      });
+      if (nextScore !== score) updateScore(nextScore);
+    },
     handleTempoTextChange: (text: TextContent) => {
       performance.mark("viritura:input-event");
-      mutateTempo((tempo) => {
-        tempo.text = text.length > 0 ? text : undefined;
-      });
+      mutateTempo((tempo) => withTempoText(tempo, text));
     },
     handleTempoShowTextChange: (checked: boolean) =>
       mutateTempo((tempo) => {

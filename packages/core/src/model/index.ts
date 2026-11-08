@@ -14,6 +14,7 @@ export * from "./textFrame";
 export * from "./part";
 export * from "./instrumentChange";
 export * from "./measure";
+export * from "./tempo";
 export * from "./event";
 export * from "./sequenceWalk";
 export * from "./pitch";

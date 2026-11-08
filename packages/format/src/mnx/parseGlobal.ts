@@ -216,7 +216,10 @@ function parseVendorTempos(raw: RawMeasureGlobal, viritura: RawMeasureGlobalExt)
         swing: instruction.swing === undefined ? undefined : parseSwing(instruction.swing),
       };
     }
-    if (!instruction.swing) throw new Error("A BPM-free tempo requires an explicit swing instruction.");
+    if (!instruction.swing) {
+      if (!instruction.text?.length) throw new Error("A BPM-free tempo requires swing or nonempty text.");
+      return { ...presentation, text: instruction.text };
+    }
     return { ...presentation, swing: parseSwing(instruction.swing) };
   });
 }

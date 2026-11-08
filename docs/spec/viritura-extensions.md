@@ -338,8 +338,8 @@ such as quarter = dotted quarter at a 4/4 to 12/8 transition, can carry its
 own typed relationship without pretending to be an absolute BPM or swing.
 Metric modulation is not implemented by this extension.
 
-Swing persistence and explicit import have no swing playback effect. Inspector
-controls and shared browser/native rhythm realization follow separately.
+Swing persistence, explicit import and inspector controls have no swing playback
+effect yet. Shared browser/native rhythm realization follows separately.
 No MuseScore implementation source or third-party fixtures were used.
 
 #### Explicit MusicXML import
@@ -374,6 +374,26 @@ Behavioral references verified from public documentation only:
 [swing-type default](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/swing-type/),
 and [offset playback](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/offset/).
 No black-box MuseScore comparison has been performed.
+
+#### Tempo inspector
+
+Selecting any tempo marking exposes Inherit (no instruction), Straight, and
+Swing. Swing controls offer independent eighth/sixteenth subdivision,
+the explicit application preset 60% (3:2), exact triplet 2:1, and a custom
+positive-integer long:short ratio. Invalid drafts display an error and are not
+committed. The effective setting and originating written measure/tempo are
+shown; scores without any instruction remain straight.
+
+Changing a BPM-free marking to Inherit retains its cosmetic text as a
+`TextOnlyTempo`, with neither a BPM nor a groove reset. Clearing the last text
+from such an otherwise empty anchor removes it. BPM-bearing markings, printed
+text, and metronome units remain independent of swing editing. Existing score
+history and MNX save/load preserve these edits. No unsupported scope controls
+are exposed.
+
+BPM-free Swing/Straight markings without authored text receive a generated
+selectable label. This engraving label does not alter the saved payload or
+infer a source ratio.
 
 MUSX/Denigma mapping follows in a separate adapter change when representative
 source payloads and units are available. Optional `sourceReference` retains a
