@@ -82,10 +82,11 @@ export interface TempoNoteValue {
   dots?: number;
 }
 
-/** A tempo marking at a rhythmic position (MNX tempos[]). */
-export interface Tempo {
-  bpm: number;
-  value: TempoNoteValue;
+/** An explicit groove instruction. Omission on a tempo means inherit. */
+export type Swing = { mode: "straight" } | { mode: "swing"; subdivision: "eighth" | "16th"; ratio: [number, number] };
+
+/** Shared presentation of metronomic and swing-only tempo markings. */
+export interface TempoPresentation {
   location?: RhythmicPosition;
   /** Optional text label (e.g. "Allegro"). Viritura extension (_x.viritura.text). */
   text?: TextContent;
@@ -99,6 +100,22 @@ export interface Tempo {
    *  = re-flow (default); false = pinned. Viritura extension. */
   avoidCollisions?: boolean;
 }
+
+export interface MetronomicTempo extends TempoPresentation {
+  bpm: number;
+  value: TempoNoteValue;
+  swing?: Swing;
+}
+
+/** BPM-free instructions never reset the metronome or interrupt a tempo ramp. */
+export interface SwingOnlyTempo extends TempoPresentation {
+  bpm?: never;
+  value?: never;
+  swing: Swing;
+}
+
+/** Instruction variants share presentation, not fabricated metronome values. */
+export type Tempo = MetronomicTempo | SwingOnlyTempo;
 
 /** Standard MNX v46 dynamic-group discriminator. */
 export type DynamicGroupType = "immediate" | "gradual" | "relative" | "accent";

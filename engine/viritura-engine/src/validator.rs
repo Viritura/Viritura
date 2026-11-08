@@ -18,7 +18,9 @@
 //! …matching the TS `assertRawScore → promote` sandwich.
 
 mod extensions;
-pub(crate) use extensions::{validate_staff_text_frame, validate_system_text};
+pub(crate) use extensions::{
+    validate_staff_text_frame, validate_swing, validate_system_text, validate_tempo_instruction,
+};
 
 use std::collections::HashSet;
 use std::fmt;

@@ -21,6 +21,8 @@ import type {
   RhythmicPosition,
   Tempo,
   TempoNoteValue,
+  TempoPresentation,
+  Swing,
   DynamicGroup,
   DynamicGroupBase,
   MeasureRhythmicPosition,
@@ -81,11 +83,13 @@ import type {
   MarkerTexts as RawMarkerTexts,
   GradualTempo as RawGradualTempo,
   TempoExtensions as RawTempoExt,
+  Swing as RawSwing,
 } from "@viritura/core/raw-viritura";
 
 import { parseTextContent } from "./textContent";
 import { parseStaffTextFramePresentation, parseTextFramePagePosition } from "./staffTextFrame";
 import { parseSystemText } from "./systemText";
+import { measureGlobalExtensions, swing as validateSwing } from "./standaloneValidators";
 
 /** Untyped vendor-extension payload — used only for fields outside the
  * extensions schema (e.g. legacy `times` on repeat-start, atonal key flag). */
@@ -171,6 +175,7 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
   // _x.viritura vendor extensions on the global measure
   const viritura = raw._x?.["viritura"] as RawMeasureGlobalExt | undefined;
   if (viritura) {
+    if (viritura.tempos !== undefined) measure.tempos = parseVendorTempos(raw, viritura);
     if (viritura.senzaMisura && measure.time) measure.time.display = "senzaMisura";
     if (viritura.rehearsalMark) {
       const rm = viritura.rehearsalMark;
@@ -189,6 +194,31 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
   }
 
   return measure;
+}
+
+function parseVendorTempos(raw: RawMeasureGlobal, viritura: RawMeasureGlobalExt): Tempo[] {
+  if (raw.tempos?.length) throw new Error("Viritura tempos cannot coexist with standard measure tempos.");
+  if (!measureGlobalExtensions(viritura)) throw new Error("Invalid Viritura tempo instructions.");
+  if (!viritura.tempos) throw new Error("Viritura tempo instructions are missing.");
+  return viritura.tempos.map((instruction): Tempo => {
+    const presentation: TempoPresentation = {
+      text: instruction.text,
+      showText: instruction.showText,
+      showMetronomeMark: instruction.showMetronomeMark,
+    };
+    if (instruction.location) presentation.location = parseRhythmicPosition(instruction.location);
+    applyManualPlacement(presentation, instruction as VendorObj);
+    if (instruction.bpm !== undefined && instruction.value !== undefined) {
+      return {
+        ...presentation,
+        bpm: instruction.bpm,
+        value: parseTempoNoteValue(instruction.value),
+        swing: instruction.swing === undefined ? undefined : parseSwing(instruction.swing),
+      };
+    }
+    if (!instruction.swing) throw new Error("A BPM-free tempo requires an explicit swing instruction.");
+    return { ...presentation, swing: parseSwing(instruction.swing) };
+  });
 }
 
 function parseRepeatStart(raw: RawRepeatStart): RepeatStart {
@@ -254,6 +284,10 @@ function parseTempo(raw: RawTempo): Tempo {
   // the unvalidated parse path, where no schema validation has run.
   const viritura = raw._x?.["viritura"] as RawTempoExt | undefined;
   if (viritura) {
+    if (viritura.swing !== undefined) {
+      if (!validateSwing(viritura.swing)) throw new Error("Invalid Viritura tempo swing instruction.");
+      tempo.swing = parseSwing(viritura.swing);
+    }
     const text = parseTextContent(viritura.text);
     if (text !== undefined) tempo.text = text;
     if (typeof viritura.showMetronomeMark === "boolean") tempo.showMetronomeMark = viritura.showMetronomeMark;
@@ -261,6 +295,11 @@ function parseTempo(raw: RawTempo): Tempo {
     applyManualPlacement(tempo, viritura as VendorObj);
   }
   return tempo;
+}
+
+function parseSwing(raw: RawSwing): Swing {
+  if (raw.mode === "straight") return { mode: "straight" };
+  return { mode: "swing", subdivision: raw.subdivision, ratio: [raw.ratio[0]!, raw.ratio[1]!] };
 }
 
 function parseTempoNoteValue(raw: RawNoteValue): TempoNoteValue {

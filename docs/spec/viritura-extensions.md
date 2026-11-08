@@ -302,6 +302,46 @@ Specialized tempo and dynamics retain their musical semantics even when they
 reuse text presentation. Collision avoidance and automatic space reservation
 are a separate layout concern and remain outside the floating-frame slice.
 
+### Tempo-owned swing instructions
+
+Tempo markings carry optional `_x.viritura.swing`:
+
+```json
+{
+  "bpm": 90,
+  "value": { "base": "quarter" },
+  "_x": {
+    "viritura": {
+      "swing": { "mode": "swing", "subdivision": "16th", "ratio": [3, 2] }
+    }
+  }
+}
+```
+
+`mode: "straight"` is an explicit reset and has no subdivision or ratio.
+Omission means inherit, not reset. Swing subdivision (`eighth` or `16th`) is
+independent of the metronome's beat unit and dots. Ratios are exact pairs of
+positive safe integers; they are retained without normalization or rounding.
+Printed rich tempo text is independent and never establishes a ratio.
+
+A swing-only tempo marking has no BPM or beat value. If any such marking is
+present in a measure, the **entire ordered tempo collection** is serialized
+under the global measure's `_x.viritura.tempos`, with tempo presentation and
+swing fields directly on its entries. Standard measure `tempos` must then be
+absent. This preserves order, including coincident instructions, without
+manufacturing a BPM reset. Parsing reunifies both wire representations into
+the domain `Tempo[]`; BPM-free entries do not interrupt tempo ramps.
+
+The domain separates shared tempo presentation from instruction variants
+(`MetronomicTempo` and `SwingOnlyTempo`). A future metric-modulation variant,
+such as quarter = dotted quarter at a 4/4 to 12/8 transition, can carry its
+own typed relationship without pretending to be an absolute BPM or swing.
+Metric modulation is not implemented by this extension.
+
+This persistence phase has no swing playback effect. Explicit import, inspector
+controls and shared browser/native rhythm realization follow separately.
+No MuseScore implementation source or third-party fixtures were used.
+
 MUSX/Denigma mapping follows in a separate adapter change when representative
 source payloads and units are available. Optional `sourceReference` retains a
 source `unit` and `referenceStaffSize` for loss-aware conversion. Finale

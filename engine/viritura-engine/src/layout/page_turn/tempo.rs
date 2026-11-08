@@ -50,10 +50,11 @@ impl TempoMap {
         let mut current = seconds_per_quarter(default_bpm, 1.0);
         for m in measures {
             if let Some(tempos) = &m.tempos {
-                if let Some(t) = tempos.first() {
-                    let dots = t.value.dots.unwrap_or(0);
-                    let vb = tempo_value_beats(t.value.base.beats(), dots);
-                    current = seconds_per_quarter(t.bpm, vb);
+                if let Some((bpm, value)) = tempos.iter().find_map(|t| t.bpm.zip(t.value.as_ref()))
+                {
+                    let dots = value.dots.unwrap_or(0);
+                    let vb = tempo_value_beats(value.base.beats(), dots);
+                    current = seconds_per_quarter(bpm, vb);
                 }
             }
             spq.push(current);

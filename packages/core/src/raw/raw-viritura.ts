@@ -101,8 +101,42 @@ export interface components {
             /** @description Whether automatic collision avoidance may re-flow this dynamic group. Default/unset: true. */
             avoidCollisions?: boolean;
         };
+        /** @description Explicit rhythm instruction, independent of the metronome beat unit. Omission means inherit; straight explicitly resets swing. */
+        swing: {
+            /** @constant */
+            mode: "straight";
+        } | {
+            /** @constant */
+            mode: "swing";
+            /** @enum {string} */
+            subdivision: "eighth" | "16th";
+            /** @description Exact positive long:short ratio, not a percentage or a guessed source value. */
+            ratio: number[];
+        };
+        /** @description Unified tempo marking. BPM and value must occur together; without them an explicit swing instruction is required. */
+        "tempo-instruction": {
+            bpm?: number;
+            value?: {
+                /** @enum {string} */
+                base: "duplexMaxima" | "maxima" | "longa" | "breve" | "whole" | "half" | "quarter" | "eighth" | "16th" | "32nd" | "64th" | "128th" | "256th" | "512th" | "1024th" | "2048th" | "4096th";
+                dots?: number;
+            };
+            location?: {
+                fraction: [
+                    number,
+                    number
+                ];
+            };
+            swing?: components["schemas"]["swing"];
+            text?: components["schemas"]["text-content"];
+            showMetronomeMark?: boolean;
+            showText?: boolean;
+            manualOffset?: components["schemas"]["sp-delta"];
+            avoidCollisions?: boolean;
+        } & (unknown | unknown);
         /** @description Viritura display and placement extensions on a standard MNX tempo object. */
         "tempo-extensions": {
+            swing?: components["schemas"]["swing"];
             text?: components["schemas"]["text-content"];
             showMetronomeMark?: boolean;
             showText?: boolean;
@@ -358,6 +392,8 @@ export interface components {
         };
         /** @description Viritura vendor extensions on a global measure object. */
         "measure-global-extensions": {
+            /** @description Unified ordered tempo collection when any marking has no BPM. Mutually exclusive with standard measure tempos; prevents fabricated BPM resets. */
+            tempos?: components["schemas"]["tempo-instruction"][];
             rehearsalMark?: components["schemas"]["rehearsal-mark"];
             markerText?: components["schemas"]["marker-texts"];
             /** @description Shared music-relative text displayed once per score/part view, independent of hidden or condensed source staves. */
@@ -1001,6 +1037,8 @@ export type StaffMeterReset = components["schemas"]["staff-meter-reset"];
 export type StaffMeterChange = components["schemas"]["staff-meter-change"];
 export type RehearsalMark = components["schemas"]["rehearsal-mark"];
 export type DynamicGroupExtensions = components["schemas"]["dynamic-group-extensions"];
+export type Swing = components["schemas"]["swing"];
+export type TempoInstruction = components["schemas"]["tempo-instruction"];
 export type TempoExtensions = components["schemas"]["tempo-extensions"];
 export type KeyExtensions = components["schemas"]["key-extensions"];
 export type PedalType = components["schemas"]["pedal-type"];

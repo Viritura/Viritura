@@ -80,6 +80,16 @@ fn read_avoid_collisions(ext: Option<&serde_json::Map<String, serde_json::Value>
 pub(crate) fn promote_tempo(raw: raw::Tempo) -> Result<Tempo, PromoteError> {
     // Hoist Viritura tempo extensions (text, showMetronomeMark, showText).
     let ext = read_viritura_ext(raw.x.as_ref());
+    if let Some(swing) = ext.and_then(|value| value.get("swing")) {
+        crate::validator::validate_swing(swing).map_err(PromoteError::InvalidTempoInstruction)?;
+    }
+    let swing = ext
+        .and_then(|value| value.get("swing"))
+        .map(|value| {
+            serde_json::from_value(value.clone())
+                .map_err(|error| PromoteError::InvalidTempoInstruction(error.to_string()))
+        })
+        .transpose()?;
     let text = ext
         .and_then(|v| v.get("text"))
         .map(|value| {
@@ -94,11 +104,12 @@ pub(crate) fn promote_tempo(raw: raw::Tempo) -> Result<Tempo, PromoteError> {
         .and_then(|v| v.get("showText"))
         .and_then(|v| v.as_bool());
     Ok(Tempo {
-        bpm: raw.bpm.0,
-        value: TempoNoteValue {
+        bpm: Some(raw.bpm.0),
+        value: Some(TempoNoteValue {
             base: promote_note_value_base(raw.value.base)?,
             dots: raw.value.dots.map(|d| u32::try_from(d.0).unwrap_or(0)),
-        },
+        }),
+        swing,
         location: raw.location.map(promote_rhythmic_position),
         text,
         show_metronome_mark,
@@ -106,6 +117,103 @@ pub(crate) fn promote_tempo(raw: raw::Tempo) -> Result<Tempo, PromoteError> {
         manual_offset: read_manual_offset(ext),
         avoid_collisions: read_avoid_collisions(ext),
     })
+}
+
+#[cfg(test)]
+mod swing_tests {
+    use crate::promote::promote_global_measure_json;
+    use serde_json::json;
+
+    #[test]
+    fn round_trips_swing_and_bpm_free_tempos() {
+        let swing = json!({"mode": "swing", "subdivision": "16th", "ratio": [3, 2]});
+        let inputs = [
+            json!({"tempos": [{"bpm": 90, "value": {"base": "half", "dots": 1}, "_x": {"viritura": {"swing": swing}}}]}),
+            json!({"_x": {"viritura": {"tempos": [
+                {"bpm": 90, "value": {"base": "quarter"}, "swing": swing},
+                {"location": {"fraction": [1, 4]}, "swing": {"mode": "straight"}, "text": [{"text": "Straight"}]}
+            ]}}}),
+        ];
+        for input in inputs {
+            let measure = promote_global_measure_json(&input).unwrap();
+            let saved = serde_json::to_value(&measure).unwrap();
+            let restored = promote_global_measure_json(&saved).unwrap();
+            assert_eq!(restored.tempos, measure.tempos);
+        }
+    }
+
+    #[test]
+    fn diagnoses_invalid_swing_without_defaults() {
+        for swing in [
+            json!(null),
+            json!({}),
+            json!({"mode": "straight", "ratio": [2, 1]}),
+            json!({"mode": "swing", "subdivision": "quarter", "ratio": [2, 1]}),
+            json!({"mode": "swing", "subdivision": "16th", "ratio": [0, 1]}),
+            json!({"mode": "swing", "subdivision": "16th", "ratio": [1.5, 1]}),
+            json!({"mode": "swing", "subdivision": "16th", "ratio": [1]}),
+        ] {
+            let input = json!({"tempos": [{"bpm": 90, "value": {"base": "quarter"}, "_x": {"viritura": {"swing": swing}}}]});
+            assert!(promote_global_measure_json(&input).is_err());
+        }
+        for tempos in [
+            json!([]),
+            json!([{}]),
+            json!([{"bpm": 90, "swing": {"mode": "straight"}}]),
+            json!([{"swing": {"mode": "straight"}, "location": {"fraction": [0, 0]}}]),
+        ] {
+            assert!(
+                promote_global_measure_json(&json!({"_x": {"viritura": {"tempos": tempos}}}))
+                    .is_err()
+            );
+        }
+    }
+}
+
+pub(crate) fn promote_vendor_tempos(
+    extensions: Option<&raw::VendorExtensions>,
+) -> Result<Option<Vec<Tempo>>, PromoteError> {
+    let Some(value) = read_viritura_ext(extensions).and_then(|ext| ext.get("tempos")) else {
+        return Ok(None);
+    };
+    let error = PromoteError::InvalidTempoInstruction;
+    let array = value
+        .as_array()
+        .filter(|array| !array.is_empty())
+        .ok_or_else(|| error("tempos must be a nonempty array".into()))?;
+    let tempos = array
+        .iter()
+        .map(|value| {
+            crate::validator::validate_tempo_instruction(value).map_err(error)?;
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase", deny_unknown_fields)]
+            struct Instruction {
+                bpm: Option<f64>,
+                value: Option<TempoNoteValue>,
+                swing: Option<crate::model::direction::Swing>,
+                location: Option<RhythmicPosition>,
+                text: Option<crate::model::TextContent>,
+                show_metronome_mark: Option<bool>,
+                show_text: Option<bool>,
+                manual_offset: Option<[f64; 2]>,
+                avoid_collisions: Option<bool>,
+            }
+            let instruction: Instruction = serde_json::from_value(value.clone())
+                .map_err(|reason| error(reason.to_string()))?;
+            Ok(Tempo {
+                bpm: instruction.bpm,
+                value: instruction.value,
+                swing: instruction.swing,
+                location: instruction.location,
+                text: instruction.text,
+                show_metronome_mark: instruction.show_metronome_mark,
+                show_text: instruction.show_text,
+                manual_offset: instruction.manual_offset,
+                avoid_collisions: instruction.avoid_collisions,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Some(tempos))
 }
 
 struct DynamicGroupCommon {

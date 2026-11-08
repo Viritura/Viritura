@@ -104,9 +104,13 @@ pub enum JumpType {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Tempo {
     /// Beats per minute
-    pub bpm: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bpm: Option<f64>,
     /// Note value that gets one beat (e.g. quarter, half)
-    pub value: TempoNoteValue,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<TempoNoteValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub swing: Option<Swing>,
     /// Optional rhythmic position within the measure (defaults to start)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub location: Option<RhythmicPosition>,
@@ -124,11 +128,29 @@ pub struct Tempo {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "showText")]
     pub show_text: Option<bool>,
     /// Manual [dx, dy] offset in spatia (sp); +x right, +y up. Viritura extension.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", rename = "manualOffset")]
     pub manual_offset: Option<[f64; 2]>,
     /// Whether collision avoidance may re-flow this marking (unset/true = on).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", rename = "avoidCollisions")]
     pub avoid_collisions: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "mode", rename_all = "lowercase", deny_unknown_fields)]
+pub enum Swing {
+    Straight,
+    Swing {
+        subdivision: SwingSubdivision,
+        ratio: [u64; 2],
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum SwingSubdivision {
+    #[serde(rename = "eighth")]
+    Eighth,
+    #[serde(rename = "16th")]
+    Sixteenth,
 }
 
 // Tempo: model-internal type. Construction goes through

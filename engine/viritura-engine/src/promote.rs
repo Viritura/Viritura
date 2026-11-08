@@ -91,6 +91,7 @@ pub enum PromoteError {
     InvalidTextFrame(String),
     /// A globally owned `systemText` entry is malformed or reuses an ID.
     InvalidSystemText(String),
+    InvalidTempoInstruction(String),
 }
 
 impl std::fmt::Display for PromoteError {
@@ -114,6 +115,9 @@ impl std::fmt::Display for PromoteError {
             }
             Self::InvalidTextFrame(reason) => write!(f, "Viritura textFrames: {reason}"),
             Self::InvalidSystemText(reason) => write!(f, "Viritura systemText: {reason}"),
+            Self::InvalidTempoInstruction(reason) => {
+                write!(f, "Viritura tempo instruction: {reason}")
+            }
             Self::MarkerTextWithoutOwner(owner) => {
                 write!(
                     f,

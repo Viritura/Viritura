@@ -283,11 +283,15 @@ function serializeGlobalMeasure(gm: GlobalMeasure): Obj {
   if (Object.keys(virituraExt).length > 0) {
     obj["_x"] = { viritura: virituraExt };
   }
-  if (gm.tempos && gm.tempos.length > 0) {
-    obj["tempos"] = gm.tempos.map(serializeTempo);
-  }
+  const tempos = serializeMetronomicTempos(gm.tempos);
+  if (tempos) obj["tempos"] = tempos;
   if (gm.time) obj["time"] = serializeTimeSignature(gm.time);
   return obj;
+}
+
+function serializeMetronomicTempos(tempos: Tempo[] | undefined): Obj[] | undefined {
+  if (!tempos?.length || tempos.some((tempo) => tempo.bpm === undefined)) return undefined;
+  return tempos.map(serializeTempo);
 }
 
 function serializeTimeSignature(time: NonNullable<GlobalMeasure["time"]>): Obj {
@@ -312,6 +316,7 @@ function collectMarkerText(gm: GlobalMeasure): Obj | undefined {
 
 function collectGlobalMeasureVendorExt(gm: GlobalMeasure): Obj {
   const ext: Obj = {};
+  if (gm.tempos?.some((tempo) => tempo.bpm === undefined)) ext["tempos"] = gm.tempos;
   if (gm.rehearsalMark) {
     const rm: Obj = { text: gm.rehearsalMark.text };
     if (gm.rehearsalMark.style) rm["style"] = gm.rehearsalMark.style;
@@ -340,12 +345,15 @@ function collectGlobalMeasureVendorExt(gm: GlobalMeasure): Obj {
 }
 
 function serializeTempo(t: Tempo): Obj {
+  if (t.bpm === undefined || t.value === undefined)
+    throw new Error("A swing-only tempo requires vendor tempo serialization.");
   const tObj: Obj = {
     bpm: t.bpm,
     value: serializeTempoNoteValue(t.value),
   };
   if (t.location) tObj["location"] = t.location;
   const tempoViritura: Obj = {};
+  if (t.swing !== undefined) tempoViritura["swing"] = t.swing;
   if (t.text !== undefined) tempoViritura["text"] = t.text;
   if (t.showMetronomeMark !== undefined) tempoViritura["showMetronomeMark"] = t.showMetronomeMark;
   if (t.showText !== undefined) tempoViritura["showText"] = t.showText;

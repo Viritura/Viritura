@@ -52,7 +52,7 @@ export function TempoSection({
   offset,
   inheritedStyle,
 }: TempoSectionProps) {
-  const bpmInput = useDebouncedInput(String(tempo.bpm), (value) => {
+  const bpmInput = useDebouncedInput(tempo.bpm === undefined ? "" : String(tempo.bpm), (value) => {
     const bpm = Number(value);
     if (Number.isFinite(bpm)) onBpmChange(bpm);
   });
@@ -68,31 +68,41 @@ export function TempoSection({
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>Tempo</legend>
-      <label style={labelStyle}>
-        BPM
-        <FormInput
-          type="number"
-          min={Number.MIN_VALUE}
-          max={999}
-          step="any"
-          style={TEMPO_BPM_INPUT_STYLE}
-          value={bpmInput.value}
-          onChange={(e) => bpmInput.onChange(e.target.value)}
-          onBlur={handleBpmBlur}
-        />
-      </label>
-      <label style={labelStyle}>
-        Beat unit
-        <ButtonGroup<NoteValueBase> options={BEAT_BASE_OPTIONS} value={tempo.value.base} onChange={onValueBaseChange} />
-      </label>
-      <label style={labelStyle}>
-        Dots
-        <ButtonGroup<"0" | "1" | "2">
-          options={DOTS_OPTIONS}
-          value={String(tempo.value.dots ?? 0) as "0" | "1" | "2"}
-          onChange={(v) => onDotsChange(parseInt(v, 10))}
-        />
-      </label>
+      {tempo.bpm !== undefined && (
+        <label style={labelStyle}>
+          BPM
+          <FormInput
+            type="number"
+            min={Number.MIN_VALUE}
+            max={999}
+            step="any"
+            style={TEMPO_BPM_INPUT_STYLE}
+            value={bpmInput.value}
+            onChange={(e) => bpmInput.onChange(e.target.value)}
+            onBlur={handleBpmBlur}
+          />
+        </label>
+      )}
+      {tempo.value !== undefined && (
+        <label style={labelStyle}>
+          Beat unit
+          <ButtonGroup<NoteValueBase>
+            options={BEAT_BASE_OPTIONS}
+            value={tempo.value.base}
+            onChange={onValueBaseChange}
+          />
+        </label>
+      )}
+      {tempo.value !== undefined && (
+        <label style={labelStyle}>
+          Dots
+          <ButtonGroup<"0" | "1" | "2">
+            options={DOTS_OPTIONS}
+            value={String(tempo.value.dots ?? 0) as "0" | "1" | "2"}
+            onChange={(v) => onDotsChange(parseInt(v, 10))}
+          />
+        </label>
+      )}
       <div style={labelStyle}>
         <span>Text</span>
         <TextContentEditor
@@ -109,11 +119,13 @@ export function TempoSection({
         checked={tempo.showText !== false}
         onChange={(e) => onShowTextChange(e.target.checked)}
       />
-      <Checkbox
-        label="Show metronome mark"
-        checked={tempo.showMetronomeMark !== false}
-        onChange={(e) => onShowMetronomeChange(e.target.checked)}
-      />
+      {tempo.bpm !== undefined && (
+        <Checkbox
+          label="Show metronome mark"
+          checked={tempo.showMetronomeMark !== false}
+          onChange={(e) => onShowMetronomeChange(e.target.checked)}
+        />
+      )}
       {offset && <ManualOffsetFields offset={offset} />}
     </fieldset>
   );

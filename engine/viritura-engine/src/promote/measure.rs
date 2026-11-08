@@ -159,7 +159,13 @@ pub(crate) fn promote_global_measure_with_json(
         .into_iter()
         .map(promote_tempo)
         .collect::<Result<Vec<_>, _>>()?;
-    let tempos = vec_or_none(tempos);
+    let vendor_tempos = super::direction::promote_vendor_tempos(r.x.as_ref())?;
+    if vendor_tempos.is_some() && !tempos.is_empty() {
+        return Err(PromoteError::InvalidTempoInstruction(
+            "vendor tempos cannot coexist with standard measure tempos".into(),
+        ));
+    }
+    let tempos = vendor_tempos.or_else(|| vec_or_none(tempos));
     let mut time = r.time.map(promote_time);
     if vendor.senza_misura == Some(true) {
         if let Some(time) = time.as_mut() {

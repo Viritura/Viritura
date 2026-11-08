@@ -1362,11 +1362,12 @@ fn test_tempo_text_clears_multimeasure_rest_number() {
 
     // Part A's MMR group starts at global measure index 2. Attach a tempo there.
     score.global.measures[2].tempos = Some(vec![Tempo {
-        bpm: 120.0,
-        value: TempoNoteValue {
+        bpm: Some(120.0),
+        value: Some(TempoNoteValue {
             base: NoteValueBase::Quarter,
             dots: None,
-        },
+        }),
+        swing: None,
         location: None,
         text: Some("Allegro molto vivace".to_string().into()),
         show_metronome_mark: Some(true),
@@ -1454,11 +1455,12 @@ fn test_tempo_text_clears_neighbouring_multimeasure_rest_number() {
     // multimeasure-rest group at indices 2-3. Attach a long tempo string there
     // so it reaches over the rest's centered count number.
     score.global.measures[1].tempos = Some(vec![Tempo {
-        bpm: 120.0,
-        value: TempoNoteValue {
+        bpm: Some(120.0),
+        value: Some(TempoNoteValue {
             base: NoteValueBase::Quarter,
             dots: None,
-        },
+        }),
+        swing: None,
         location: None,
         text: Some(
             "Allegro molto vivace ed appassionato assai"

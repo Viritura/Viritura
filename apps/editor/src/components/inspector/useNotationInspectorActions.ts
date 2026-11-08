@@ -305,16 +305,16 @@ export function useTempoHandlers({ score, target, updateScore }: SelectionArgs):
       if (!Number.isFinite(value) || value <= 0) return;
       const clamped = Math.min(999, value);
       mutateTempo((tempo) => {
-        tempo.bpm = clamped;
+        if (tempo.bpm !== undefined) tempo.bpm = clamped;
       });
     },
     handleTempoValueBaseChange: (base: NoteValueBase) =>
       mutateTempo((tempo) => {
-        tempo.value = { ...tempo.value, base };
+        if (tempo.value !== undefined) tempo.value = { ...tempo.value, base };
       }),
     handleTempoDotsChange: (dots: number) =>
       mutateTempo((tempo) => {
-        tempo.value = { ...tempo.value, dots: dots > 0 ? dots : undefined };
+        if (tempo.value !== undefined) tempo.value = { ...tempo.value, dots: dots > 0 ? dots : undefined };
       }),
     handleTempoOffsetChange,
     handleTempoOffsetReset,
