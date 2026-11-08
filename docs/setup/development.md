@@ -108,6 +108,37 @@ suite exits instead of competing for Cargo artifacts or process-global test
 state. Use this command for full and focused engine tests rather than creating
 an alternate `CARGO_TARGET_DIR`.
 
+### Editor PWA
+
+Production browser builds emit `manifest.webmanifest`, `sw.js`, and generated
+PNG icons from the shared favicon. Vite development and Storybook do not
+register a service worker. Desktop frontend builds disable the PWA plugin via
+their existing `VIRITURA_EXTERNAL_SOUNDFONT=true` build environment; the Tauri
+runtime also skips registration and OS web-file handling.
+
+The Workbox precache includes the editor shell, lazy JS/CSS chunks, engraving
+WASM, notation fonts, schema, and bundled MNX examples. Sound libraries, MUSX
+converter binaries, remote responses, and user documents are deliberately not
+cached. Cached responses retain the cross-origin-isolation headers required
+by the engraving engine. A failed precache install must not report offline
+readiness.
+
+Updates wait for all editor clients to close instead of forcing a reload or
+discarding unsaved documents. Keep `skipWaiting: false` and prompt-mode
+registration. Workbox's service-worker generator still requires Babel 7; the
+scoped `workbox-build>@babel/core` override retains the patched Babel 7 line
+without changing the editor's Babel tooling.
+
+File launches use `/?open-file=1` to bypass default-score startup,
+then pass the supplied filesystem handle through the normal validated MNX
+opening flow so Save and recent documents continue to work.
+
+For release verification, use a production build served over HTTPS (or
+localhost), install it in Windows Chrome/Edge, approve file handling, and test
+double-click, Save, offline restart, and an update while another window has
+unsaved edits. Development servers intentionally cannot verify service-worker
+install/update behavior.
+
 ### Radix dependency updates
 
 Keep Radix Dialog, Popover, Dropdown Menu, Tooltip, and Select compatible with

@@ -21,6 +21,7 @@ engine/target-*/
 # Canonical WASM build output and generated application staging
 engine/viritura-wasm/pkg-browser/
 apps/editor/public/fonts/
+apps/editor/public/pwa-icons/
 apps/editor/public/favicon.svg
 apps/editor/public/viritura-logo.svg
 apps/editor/public/viritura-mark.svg

@@ -5,6 +5,35 @@ engraving, and sharing scores.
 
 This guide gets you from the Start Center to an edited, saved document.
 
+## Install Viritura as an app
+
+Open [app.viritura.com](https://app.viritura.com) and choose **Install Viritura**
+when offered, or use your browser's **Install app** command. The installed web
+app opens in its own window and uses the same editor as the browser.
+
+> [!NOTE]
+> **Availability: Windows / Chrome or Edge**
+>
+> Opening documents by double-clicking requires installing the web app in Chrome
+> or Edge and approving its file-handling permission. Other browsers can still
+> open documents through **Open MNX file** or drag and drop.
+
+To open a document from Windows File Explorer, right-click an `.mnx` file,
+choose **Open with**, and select Viritura. Choose it as the default app for
+`.mnx` files to open them by double-clicking. Each document opens in a separate
+window. The extension is `.mnx`, not `.mxn`.
+
+After the editor reports that it is ready for offline notation editing, you can
+reopen it without a connection and work with local documents. Browser storage
+must remain available; clearing site data removes the offline cache. Account
+features, collaboration, remote repositories, and playback libraries that need
+downloading still require a connection. The installed web app does not provide
+the native desktop app's VST hosting.
+
+Updates download in the background without reloading an open document. When an
+update is ready, save your work and close all Viritura windows and browser tabs;
+the next launch uses the update.
+
 ## Open or create work
 
 Launch the editor from the landing page (**Open Editor**) or go straight to

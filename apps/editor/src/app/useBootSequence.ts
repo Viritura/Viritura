@@ -11,6 +11,7 @@ import { parseLiveRoomIdFromUrl } from "../live/liveUrl";
 import type { DocumentStore } from "../store/documentStore";
 import { hasPendingTwoFactorChallenge } from "../auth/api";
 import { FOLDER_PROJECT_UNAVAILABLE_MESSAGE, isFolderProjectSupported } from "./projectFolder";
+import { isFileLaunchUrl } from "../pwa";
 
 export interface BootSequenceDeps {
   store: DocumentStore;
@@ -35,6 +36,7 @@ export function useBootSequence(deps: BootSequenceDeps): void {
   const { store, loadScore, resetHistory, setFileHandle, loadDefaultScore, suppressStartCenter } = deps;
   useEffect(() => {
     if (store.getState().score) return;
+    if (isFileLaunchUrl()) return;
 
     // Live-session guest path: a `?live=ROOMID` URL means the user clicked
     // an invite link. Don't open the Start Center and don't load the

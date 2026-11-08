@@ -8,6 +8,8 @@ import path, { normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import { syncMnxFixtures, syncMnxSchema, syncMusxImporter, syncSharedAssets, syncSounds } from "./buildAssets.ts";
+import { VitePWA } from "vite-plugin-pwa";
+import { pwaOptions } from "./pwa/index.ts";
 
 syncSharedAssets();
 syncSounds();
@@ -124,6 +126,7 @@ export default defineConfig(({ command }) => ({
       presets: [reactCompilerPreset()],
     }),
     externalizeLargeSoundfont(),
+    VitePWA({ ...pwaOptions, disable: process.env.VIRITURA_EXTERNAL_SOUNDFONT === "true" }),
   ],
   // The editor is served at its own origin (app.viritura.com in prod,
   // localhost:5173 in dev), so it always lives at the root path.

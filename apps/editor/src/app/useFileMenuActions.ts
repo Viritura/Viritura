@@ -49,6 +49,7 @@ export interface FileMenuDeps {
 
 export interface FileMenuActions {
   handleOpenFile: () => Promise<void>;
+  handleOpenFileResult: (result: OpenFileResult) => Promise<boolean>;
   /** Import a MusicXML/MXL/MUSX file, converting it to MNX and loading it. */
   handleImportFile: () => Promise<void>;
   handleDismissTrackBanner: (permanent: boolean) => void;
@@ -85,19 +86,18 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
     onNewScore,
   } = deps;
 
-  const handleOpenFile = useCallback(async () => {
-    setFileError(null);
-    try {
-      const result = await openMnxFile();
-      if (!result) return;
+  const handleOpenFileResult = useCallback(
+    async (result: OpenFileResult) => {
       const validationError = validateMnxJson(result.mnxJson);
       if (validationError) {
         setFileError(`${result.filename}: ${validationError}`);
         toast.error(`Invalid MNX: ${validationError}`);
-        return;
+        return false;
       }
+      await useProjectStore.getState().setAdapter(null);
+      setFileError(null);
       setOpenedFile(result);
-      void useProjectStore.getState().setAdapter(null);
+      setStartCenterOpen(false);
       if (result.fileHandle) {
         rememberScore({ scoreName: result.filename, fileHandle: result.fileHandle })
           .then((entry) => {
@@ -110,16 +110,24 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
           .catch((err) => console.warn("Failed to remember recent score:", err));
       }
       const folderPickerAvailable = isFolderProjectSupported();
-      if (!suppressTrackBanner && folderPickerAvailable && result.fileHandle) {
-        setTrackBannerFile(result.filename);
-      }
+      setTrackBannerFile(!suppressTrackBanner && folderPickerAvailable && result.fileHandle ? result.filename : null);
       toast.success(`Opened ${result.filename}`);
+      return true;
+    },
+    [suppressTrackBanner, setFileError, setOpenedFile],
+  );
+
+  const handleOpenFile = useCallback(async () => {
+    setFileError(null);
+    try {
+      const result = await openMnxFile();
+      if (result) await handleOpenFileResult(result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to open file";
       setFileError(msg);
       toast.error(msg);
     }
-  }, [suppressTrackBanner, setFileError, setOpenedFile]);
+  }, [handleOpenFileResult, setFileError]);
 
   const handleImportFile = useCallback(async () => {
     setFileError(null);
@@ -258,6 +266,7 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
 
   return {
     handleOpenFile,
+    handleOpenFileResult,
     handleImportFile,
     handleDismissTrackBanner,
     handleSelectRecent,
