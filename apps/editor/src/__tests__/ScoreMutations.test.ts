@@ -14,7 +14,7 @@ import {
 import { buildBlankScore, type NewScoreSettings } from "../score/ScoreBuilder";
 import { createPlayer, renumberPlayers } from "../score/InstrumentCatalog";
 import { parseMnx } from "@viritura/format";
-import type { Score, LayoutStaff, LayoutGroup } from "@viritura/core";
+import { CHORDS_PART_ID, type Score, type LayoutStaff, type LayoutGroup } from "@viritura/core";
 
 /** Create a parsed score from instrument IDs. */
 function makeScore(...ids: string[]): Score {
@@ -62,6 +62,41 @@ describe("extractPlayersFromScore", () => {
 });
 
 describe("applyPlayerChanges", () => {
+  it("assigns a fresh ID when copying the same source part twice", () => {
+    const score = makeScore("wind.flutes.flute");
+    const sourceId = score.parts[0]!.id!;
+    score.mixer = { channels: { [sourceId]: { muted: true } } };
+    const players = renumberPlayers([createPlayer("wind.flutes.flute"), createPlayer("wind.flutes.flute")]);
+    const result = applyPlayerChanges(score, { players, originalPartIndices: [0, 0] });
+    expect(result.parts[0]!.id).toBe(sourceId);
+    expect(result.parts[1]!.id).not.toBe(sourceId);
+    expect(result.mixer?.channels?.[sourceId]?.muted).toBe(true);
+    expect(result.mixer?.channels?.[result.parts[1]!.id!]).toBeUndefined();
+  });
+  it("keeps existing part IDs and mixer controls attached through a bulk roster rebuild", () => {
+    const score = makeScore("wind.flutes.flute", "wind.reed.oboe", "strings.violin");
+    const [flute, oboe, violin] = score.parts;
+    score.mixer = {
+      channels: {
+        [flute!.id!]: { volume: 0.3 },
+        [oboe!.id!]: { muted: true },
+        [violin!.id!]: { pan: -0.5 },
+      },
+    };
+    const players = renumberPlayers([
+      createPlayer("strings.violin"),
+      createPlayer("wind.flutes.flute"),
+      createPlayer("brass.trumpet.bflat"),
+    ]);
+    const result = applyPlayerChanges(score, { players, originalPartIndices: [2, 0, -1] });
+    expect(result.parts.slice(0, 2).map((part) => part.id)).toEqual([violin!.id, flute!.id]);
+    expect(score.parts.some((part) => part.id === result.parts[2]!.id)).toBe(false);
+    expect(result.mixer?.channels).toEqual({
+      [flute!.id!]: { volume: 0.3 },
+      [violin!.id!]: { pan: -0.5 },
+    });
+    expect(score.mixer.channels?.[oboe!.id!]).toEqual({ muted: true });
+  });
   it("preserves music data when reordering parts", () => {
     const score = makeScore("wind.flutes.flute", "strings.violin");
     const originalPart0 = score.parts[0]!;
@@ -438,6 +473,24 @@ describe("synchronizePartScoreDefinitions", () => {
 // ─── removeInstrumentFromScore tests ─────────────────────────────
 
 describe("removeInstrumentFromScore", () => {
+  it("removes the deleted channel's saved controls without mutating the original mix", () => {
+    const score = makeScore("wind.flutes.flute", "wind.reed.oboe");
+    const fluteId = score.parts[0]!.id!;
+    const oboeId = score.parts[1]!.id!;
+    score.mixer = {
+      channels: {
+        [fluteId]: { volume: 0.4 },
+        [oboeId]: { muted: true },
+        [CHORDS_PART_ID]: { muted: true },
+      },
+    };
+    const result = removeInstrumentFromScore(score, oboeId);
+    expect(result.mixer?.channels).toEqual({
+      [fluteId]: { volume: 0.4 },
+      [CHORDS_PART_ID]: { muted: true },
+    });
+    expect(score.mixer.channels?.[oboeId]).toEqual({ muted: true });
+  });
   it("removes a part by ID", () => {
     const score = makeScore("wind.flutes.flute", "wind.reed.oboe");
     const oboeId = score.parts[1]!.id!;

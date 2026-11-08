@@ -7,6 +7,8 @@ import { createDocumentStore } from "../documentStore";
 import { bindMixerDocument } from "../mixerPersistence";
 import { MIXER_DEFAULT_GAIN } from "../mixerGain";
 import { useMixer, useMixerActions } from "../mixerStore";
+import { changeInstrumentInScore } from "../../score/changeInstrument";
+import { addInstrumentToScore, removeInstrumentFromScore } from "../../score/ScoreMutations";
 
 const subscriptions: (() => void)[] = [];
 afterEach(() => {
@@ -113,6 +115,9 @@ describe("document mixer persistence", () => {
     act(() => {
       const score = store.getState().workingScore!;
       store.getState().updateScore({ ...score, parts: score.parts.slice(1) });
+      const immediatelySaved = parseMnx(JSON.parse(store.getState().mnxJson)).mixer;
+      expect(immediatelySaved?.channels?.["violin"]).toBeUndefined();
+      expect(immediatelySaved?.groups?.["Strings"]).toBeUndefined();
       result.current.actions.toggleMute(0);
     });
     expect(result.current.mixer.channels[1]?.volume).toBe(0.3);
@@ -120,6 +125,102 @@ describe("document mixer persistence", () => {
     expect(saved?.channels?.["violin"]).toBeUndefined();
     expect(saved?.channels?.["clarinet"]?.muted).toBe(true);
     expect(saved?.channels?.[CHORDS_PART_ID]?.muted).toBe(true);
+  });
+
+  it("preserves channel and family controls across renaming and same-family instrument changes", () => {
+    const { store, result } = setup();
+    act(() => {
+      result.current.actions.setVolume(0, 0.3);
+      result.current.actions.setPan(0, -0.4);
+      result.current.actions.toggleMute(0);
+      result.current.actions.toggleSolo(0);
+      result.current.actions.toggleEnsemble(0);
+      result.current.actions.toggleSpatialMode(0);
+      result.current.actions.setGroupVolume("Woodwinds", 0.7);
+    });
+    const channel = result.current.mixer.channels[0];
+    act(() =>
+      store
+        .getState()
+        .commitPatches([
+          patch.setPartField("flute", { field: "name", value: "Solo Flute" }),
+          patch.setPartField("flute", { field: "shortName", value: "Solo Fl." }),
+        ]),
+    );
+    expect(result.current.mixer.channels[0]).toEqual(channel);
+    act(() =>
+      store.getState().updateScore(changeInstrumentInScore(store.getState().workingScore!, "flute", "wind.reed.oboe")!),
+    );
+    expect(store.getState().workingScore?.parts[0]?.id).toBe("flute");
+    expect(store.getState().workingScore?.parts[0]?.name).toBe("Oboe");
+    expect(result.current.mixer.channels[0]).toEqual(channel);
+    expect(result.current.mixer.groups["Woodwinds"]?.volume).toBe(0.7);
+    expect(parseMnx(JSON.parse(store.getState().mnxJson)).mixer?.channels?.["flute"]).toEqual(channel);
+  });
+
+  it("preserves channel controls across family changes but removes obsolete family buses immediately", () => {
+    const { store, result } = setup();
+    act(() => {
+      result.current.actions.toggleMute(0);
+      result.current.actions.setGroupVolume("Woodwinds", 0.4);
+      result.current.actions.setGroupVolume("Strings", 0.8);
+      store
+        .getState()
+        .updateScore(changeInstrumentInScore(store.getState().workingScore!, "flute", "brass.trumpet.bflat")!);
+    });
+    expect(result.current.mixer.channels[0]?.muted).toBe(true);
+    expect(result.current.mixer.groups["Brass"]).toEqual({ volume: 1, muted: false, solo: false });
+    expect(result.current.mixer.groups["Strings"]?.volume).toBe(0.8);
+    const saved = parseMnx(JSON.parse(store.getState().mnxJson)).mixer;
+    expect(saved?.groups?.["Woodwinds"]).toBeUndefined();
+    expect(saved?.channels?.["flute"]?.muted).toBe(true);
+    act(() =>
+      store.getState().updateScore(changeInstrumentInScore(store.getState().workingScore!, "flute", "wind.reed.oboe")!),
+    );
+    expect(result.current.mixer.groups["Woodwinds"]?.volume).toBe(1);
+    expect(parseMnx(JSON.parse(store.getState().mnxJson)).mixer?.groups?.["Brass"]).toBeUndefined();
+  });
+
+  it("cleans up UI instrument removal immediately and gives a new instrument default controls", () => {
+    const { store, result } = setup();
+    act(() => {
+      result.current.actions.toggleMute(1);
+      result.current.actions.toggleMute(2);
+      store.getState().updateScore(removeInstrumentFromScore(store.getState().workingScore!, "violin"));
+    });
+    const deleted = parseMnx(JSON.parse(store.getState().mnxJson)).mixer;
+    expect(deleted?.channels?.["violin"]).toBeUndefined();
+    expect(deleted?.groups?.["Strings"]).toBeUndefined();
+    expect(deleted?.channels?.[CHORDS_PART_ID]?.muted).toBe(true);
+    act(() => store.getState().updateScore(addInstrumentToScore(store.getState().workingScore!, "strings.violin")));
+    const violinIndex = store.getState().workingScore!.parts.findIndex((part) => part.name === "Violin");
+    expect(result.current.mixer.channels[violinIndex]).toMatchObject({
+      volume: MIXER_DEFAULT_GAIN,
+      muted: false,
+      solo: false,
+    });
+  });
+
+  it("prunes stale imported controls even when the caller supplies pre-serialized JSON", () => {
+    const { store, result } = setup();
+    const raw = JSON.parse(store.getState().mnxJson);
+    raw._x = {
+      viritura: {
+        mixer: {
+          channels: { flute: { muted: true }, orphan: { solo: true }, [CHORDS_PART_ID]: { muted: true } },
+          groups: { Woodwinds: { volume: 0.5 }, Brass: { solo: true } },
+        },
+      },
+    };
+    const json = JSON.stringify(raw);
+    act(() => store.getState().loadScore(parseMnx(raw), "score.mnx", json));
+    const saved = parseMnx(JSON.parse(store.getState().mnxJson)).mixer;
+    expect(saved?.channels?.["orphan"]).toBeUndefined();
+    expect(saved?.groups?.["Brass"]).toBeUndefined();
+    expect(result.current.mixer.channels[0]?.muted).toBe(true);
+    expect(result.current.mixer.channels[2]?.muted).toBe(true);
+    expect(store.getState().dirty).toBe(false);
+    expect(store.getState().savedMnxJson).toBe(store.getState().mnxJson);
   });
 
   it("retains hidden chord controls through saving and reopening without active solo", () => {

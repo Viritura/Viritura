@@ -903,6 +903,13 @@ use the normal save and collaboration paths. Hidden Chords retain their saved
 controls without participating in solo. This payload does not store stage
 coordinates or global audio effects (reverb, EQ, limiter).
 
+Renaming a part or changing its instrument preserves its channel controls as
+long as its MNX part ID is unchanged. Part deletion removes the channel entry
+immediately; adding a genuinely new part starts with default controls. Family
+membership is re-derived after mutations: remaining family buses keep their
+controls, new families start at defaults, and obsolete family entries are
+removed. The reserved Chords entry is retained even without chord symbols.
+
 ### `soundProfile`
 
 Score playback assignment (`sound-profile-assignment`). `profileId` and

@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { CHORDS_PART_ID, patch, resolvePartDisplayNames, type Score, type ScoreMixerSettings } from "@viritura/core";
+import { CHORDS_PART_ID, patch, type Score, type ScoreMixerSettings } from "@viritura/core";
 import type { DocumentStore } from "./documentStore";
 import { useDocumentStoreApi } from "./DocumentContext";
-import { buildPartGroups, extractFamilyGroups } from "./familyGroups";
+import { buildPartGroups } from "./familyGroups";
+import { scoreMixerGroups } from "./mixerRoster";
 import { initialMixerState, mixerReducer, restoreMixerState, subscribeMixerEdits, type MixerState } from "./mixerStore";
 
 function hasChords(score: Score): boolean {
@@ -20,14 +21,7 @@ function restoreScoreMixer(score: Score | null): void {
   state = mixerReducer(state, { type: "SYNC_PARTS", partCount: score.parts.length, hasChords: true });
   const saved = score.mixer;
   const chords = { ...state.channels[score.parts.length]!, ...saved?.channels?.[CHORDS_PART_ID] };
-  const displayNames = resolvePartDisplayNames(score.parts);
-  const groups = extractFamilyGroups(
-    score,
-    score.parts.map((part, index) => ({
-      index,
-      name: displayNames[index]?.displayName ?? part.name,
-    })),
-  );
+  const groups = scoreMixerGroups(score);
   const visible = hasChords(score);
   restoreMixerState({
     ...state,
