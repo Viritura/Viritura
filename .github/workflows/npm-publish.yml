@@ -155,6 +155,12 @@ jobs:
         with:
           workspaces: engine
 
+      - name: Install Binaryen
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends binaryen
+          wasm-opt --version
+
       - name: Install wasm-pack
         run: cargo install wasm-pack --version 0.14.0 --locked
 
