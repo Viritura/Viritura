@@ -8,7 +8,7 @@ const pnpmCli = process.env.npm_execpath;
 if (!pnpmCli) throw new Error("Desktop frontend preparation must run from a pnpm command");
 
 // Set this before Turbo starts so desktop and browser assets have distinct cache keys.
-const env = { ...process.env, VIRITURA_EXTERNAL_SOUNDFONT: "true" };
+const env = { ...process.env, VIRITURA_EXTERNAL_SOUNDFONT: "true", VIRITURA_DESKTOP_BUILD: "true" };
 for (const args of [["build:wasm"], ["turbo", "run", "build", "--filter=@viritura/editor"]]) {
   execFileSync(process.execPath, [pnpmCli, ...args], { cwd: root, env, stdio: "inherit" });
 }

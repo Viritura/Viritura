@@ -147,6 +147,12 @@ SoundFont is approximately 119 MiB, so it cannot be included in a Pages deploy.
 The Cloudflare build removes that one file and the playback package loads it
 from the configured asset origin.
 
+The editor PWA precaches that public R2 URL, together with its app-local audio
+worklets and reverb files, so built-in playback survives an offline relaunch.
+Its service-worker cache revision comes from the canonical bundled SF2 bytes;
+externalizing the file does not disable PWA generation. Initial offline setup
+requires downloading the full SoundFont and enough browser storage to retain it.
+
 Current public asset configuration:
 
 1. R2 Standard bucket `viritura-assets`.

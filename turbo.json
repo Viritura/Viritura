@@ -19,6 +19,7 @@
         "$TURBO_ROOT$/packages/format/schemas/mnx-schema.json"
       ],
       "env": [
+        "VIRITURA_DESKTOP_BUILD",
         "VIRITURA_EXTERNAL_SOUNDFONT",
         "VIRITURA_SITE",
         "VIRITURA_WASM_BUILD_HASH",

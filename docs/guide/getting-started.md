@@ -23,12 +23,16 @@ choose **Open with**, and select Viritura. Choose it as the default app for
 `.mnx` files to open them by double-clicking. Each document opens in a separate
 window. The extension is `.mnx`, not `.mxn`.
 
-After the editor reports that it is ready for offline notation editing, you can
-reopen it without a connection and work with local documents. Browser storage
-must remain available; clearing site data removes the offline cache. Account
-features, collaboration, remote repositories, and playback libraries that need
-downloading still require a connection. The installed web app does not provide
-the native desktop app's VST hosting.
+After the editor reports that it is ready for offline editing and playback, you
+can reopen it without a connection, work with local documents, and play them
+using the built-in sound library. The initial offline setup downloads the
+SoundFont (about 119 MiB), playback worklet, and reverb files along with the
+editor. Wait for that setup to finish before disconnecting.
+
+Browser storage must remain available; clearing site data removes the offline
+cache. Account features, collaboration, remote repositories, and MUSX imports
+that need the converter download still require a connection. The installed web
+app does not provide the native desktop app's VST hosting.
 
 Updates download in the background without reloading an open document. When an
 update is ready, save your work and close all Viritura windows and browser tabs;

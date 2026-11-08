@@ -1,2 +1,2 @@
-export { pwaOptions } from "./manifest.ts";
+export { pwaOptions, createPwaOptions } from "./manifest.ts";
 export { stagePwaIcons } from "./iconAssets.ts";

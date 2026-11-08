@@ -49,7 +49,7 @@ describe("PWA installation and update notifications", () => {
     expect(register).toHaveBeenCalledWith({ immediate: true });
     expect(toast.success).not.toHaveBeenCalled();
     callbacks.get("installed")?.({ isUpdate: false, sw: {} });
-    expect(toast.success).toHaveBeenCalledWith("Viritura is ready for offline notation editing.");
+    expect(toast.success).toHaveBeenCalledWith("Viritura is ready for offline editing and playback.");
   });
 
   it("prompts to close windows for updates without forcing activation", async () => {

@@ -113,13 +113,20 @@ an alternate `CARGO_TARGET_DIR`.
 Production browser builds emit `manifest.webmanifest`, `sw.js`, and generated
 PNG icons from the shared favicon. Vite development and Storybook do not
 register a service worker. Desktop frontend builds disable the PWA plugin via
-their existing `VIRITURA_EXTERNAL_SOUNDFONT=true` build environment; the Tauri
+`VIRITURA_DESKTOP_BUILD=true`; externalizing the SF2 for Pages/CDN builds does
+not disable the PWA. The Tauri
 runtime also skips registration and OS web-file handling.
 
 The Workbox precache includes the editor shell, lazy JS/CSS chunks, engraving
-WASM, notation fonts, schema, and bundled MNX examples. Sound libraries, MUSX
-converter binaries, remote responses, and user documents are deliberately not
-cached. Cached responses retain the cross-origin-isolation headers required
+WASM, notation fonts, schema, bundled MNX examples, audio worklets, and reverb
+impulse responses. The built-in SF2 is an explicit, content-revisioned precache
+entry outside the glob size limit: it uses the exact configured
+`VITE_VIRITURA_ASSET_BASE_URL` URL when hosted on R2, or the app-local URL without
+that override. Its revision is derived from the canonical bundled SF2, not from
+the deployment directory where Pages removes the large file. Offline readiness
+includes successfully caching this roughly 119 MiB download. MUSX converter
+binaries, other remote responses, and user documents are not cached.
+Cached responses retain the cross-origin-isolation headers required
 by the engraving engine. A failed precache install must not report offline
 readiness.
 

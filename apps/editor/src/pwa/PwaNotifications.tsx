@@ -48,7 +48,7 @@ export function PwaNotifications(): null {
         worker.addEventListener("installed", (event) => {
           if (event.sw) completedInstallations.add(event.sw);
           if (!disposed && !event.isUpdate) {
-            toast.success("Viritura is ready for offline notation editing.");
+            toast.success("Viritura is ready for offline editing and playback.");
           }
         });
         worker.addEventListener("waiting", () => {

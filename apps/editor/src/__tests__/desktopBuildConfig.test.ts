@@ -4,6 +4,8 @@ import { readFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Plugin, UserConfigFnObject } from "vite";
+import { resolveConfig } from "vite";
+import type { VitePluginPWAAPI } from "vite-plugin-pwa";
 
 vi.mock("node:child_process", () => ({ execFileSync: vi.fn() }));
 vi.mock("node:fs", async (importOriginal) => ({
@@ -77,7 +79,7 @@ describe("desktop frontend build orchestration", () => {
       expect(call[2]).toEqual({
         cwd: root,
         stdio: "inherit",
-        env: { ...process.env, VIRITURA_EXTERNAL_SOUNDFONT: "true" },
+        env: { ...process.env, VIRITURA_EXTERNAL_SOUNDFONT: "true", VIRITURA_DESKTOP_BUILD: "true" },
       });
     }
     expect(process.env.VIRITURA_EXTERNAL_SOUNDFONT).toBe(value);
@@ -90,6 +92,7 @@ describe("desktop frontend build orchestration", () => {
     );
     const turbo = readJson<{ tasks: Record<string, { env: string[] }> }>("turbo.json");
     expect(turbo.tasks["@viritura/editor#build"].env).toContain("VIRITURA_EXTERNAL_SOUNDFONT");
+    expect(turbo.tasks["@viritura/editor#build"].env).toContain("VIRITURA_DESKTOP_BUILD");
   });
 
   it("stops before building the editor when WASM preparation fails", async () => {
@@ -119,6 +122,21 @@ describe("desktop frontend build orchestration", () => {
 });
 
 describe("editor soundfont output", () => {
+  it.each([
+    [undefined, "true", false],
+    ["false", "true", false],
+    ["true", "true", true],
+  ])("only disables the PWA for an explicit desktop build (%s)", async (desktop, external, disabled) => {
+    vi.stubEnv("VIRITURA_DESKTOP_BUILD", desktop);
+    vi.stubEnv("VIRITURA_EXTERNAL_SOUNDFONT", external);
+    vi.stubEnv("VITE_VIRITURA_ASSET_BASE_URL", "https://assets.viritura.com");
+    const { default: defineConfig } = await import("../../vite.config.ts");
+    const config = (defineConfig as UserConfigFnObject)({ command: "build", mode: "production" });
+    const resolved = await resolveConfig({ ...config, configFile: false, logLevel: "silent" }, "build");
+    const api: VitePluginPWAAPI | undefined = resolved.plugins.find((entry) => entry.name === "vite-plugin-pwa")?.api;
+    expect(api?.disabled).toBe(disabled);
+  });
+
   it.each([
     [undefined, false],
     ["false", false],
