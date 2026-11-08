@@ -1096,6 +1096,7 @@ describe("NotationInspector", () => {
         onValueBaseChange={vi.fn()}
         onDotsChange={vi.fn()}
         onTextChange={onTextChange}
+        onSwingChange={vi.fn()}
         onShowTextChange={vi.fn()}
         onShowMetronomeChange={vi.fn()}
       />,
@@ -1121,6 +1122,7 @@ describe("NotationInspector", () => {
       <TempoSection
         tempo={{ bpm: 120, value: { base: "quarter" } }}
         onBpmChange={onBpmChange}
+        onSwingChange={vi.fn()}
         onValueBaseChange={vi.fn()}
         onDotsChange={vi.fn()}
         onTextChange={vi.fn()}
@@ -1148,6 +1150,7 @@ describe("NotationInspector", () => {
       <TempoSection
         tempo={{ bpm: 120, value: { base: "quarter" } }}
         onBpmChange={onBpmChange}
+        onSwingChange={vi.fn()}
         onValueBaseChange={vi.fn()}
         onDotsChange={vi.fn()}
         onTextChange={vi.fn()}
@@ -1169,6 +1172,7 @@ describe("NotationInspector", () => {
       <TempoSection
         tempo={{ bpm: 120, value: { base: "quarter" } }}
         onBpmChange={vi.fn()}
+        onSwingChange={vi.fn()}
         onValueBaseChange={vi.fn()}
         onDotsChange={vi.fn()}
         onTextChange={vi.fn()}

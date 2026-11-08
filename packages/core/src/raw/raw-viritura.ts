@@ -113,7 +113,7 @@ export interface components {
             /** @description Exact positive long:short ratio, not a percentage or a guessed source value. */
             ratio: number[];
         };
-        /** @description Unified tempo marking. BPM and value must occur together; without them an explicit swing instruction is required. */
+        /** @description Unified tempo marking. BPM and value occur together; BPM-free markings carry explicit swing or nonempty cosmetic text. */
         "tempo-instruction": {
             bpm?: number;
             value?: {
@@ -133,7 +133,9 @@ export interface components {
             showText?: boolean;
             manualOffset?: components["schemas"]["sp-delta"];
             avoidCollisions?: boolean;
-        } & (unknown | unknown);
+        } & (unknown | unknown | {
+            text: unknown;
+        });
         /** @description Viritura display and placement extensions on a standard MNX tempo object. */
         "tempo-extensions": {
             swing?: components["schemas"]["swing"];

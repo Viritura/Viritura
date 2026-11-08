@@ -8,6 +8,29 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 
 #[test]
+fn swing_only_tempo_without_authored_text_has_selectable_generated_label() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4},
+            "_x": {"viritura": {"tempos": [{"swing": {"mode": "swing", "subdivision": "16th", "ratio": [3, 2]}}]}}}]},
+        "parts": [{"measures": [{"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}]}]
+    }"#;
+    let score = crate::parse::parse_mnx(json).unwrap();
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    assert!(dl.commands.iter().enumerate().any(|(index, command)| {
+        matches!(command, RenderCommand::DrawText { text, .. } if text == "Swing")
+            && dl.element_ids.get(index).and_then(Option::as_deref) == Some("m0/tempo0")
+    }));
+    assert!(score.global.measures[0].tempos.as_ref().unwrap()[0]
+        .text
+        .is_none());
+    let mut empty_text_score = score.clone();
+    empty_text_score.global.measures[0].tempos.as_mut().unwrap()[0].text = Some(Default::default());
+    let empty_text_dl = layout_score(&empty_text_score, 0, &LayoutConfig::default());
+    assert_eq!(tagged_texts(&empty_text_dl, "m0/tempo0"), vec!["Swing"]);
+}
+
+#[test]
 fn test_tempo_markings_render() {
     // Load tempo-markings.mnx: quarter = 200 in measure 1
     let json = std::fs::read_to_string(concat!(

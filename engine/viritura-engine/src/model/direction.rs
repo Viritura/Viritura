@@ -153,6 +153,24 @@ pub enum SwingSubdivision {
     Sixteenth,
 }
 
+impl Tempo {
+    pub fn display_text(&self) -> Option<std::borrow::Cow<'_, TextContent>> {
+        if let Some(text) = self.text.as_ref().filter(|text| !text.is_empty()) {
+            return Some(std::borrow::Cow::Borrowed(text));
+        }
+        if self.bpm.is_some() {
+            return None;
+        }
+        self.swing.as_ref().map(|swing| {
+            let label = match swing {
+                Swing::Straight => "Straight",
+                Swing::Swing { .. } => "Swing",
+            };
+            std::borrow::Cow::Owned(label.to_owned().into())
+        })
+    }
+}
+
 // Tempo: model-internal type. Construction goes through
 // `promote::direction::promote_tempo`. See `docs/spec/data-model-pipeline.md`.
 

@@ -128,6 +128,7 @@ mod swing_tests {
     fn round_trips_swing_and_bpm_free_tempos() {
         let swing = json!({"mode": "swing", "subdivision": "16th", "ratio": [3, 2]});
         let inputs = [
+            json!({"_x": {"viritura": {"tempos": [{"text": [{"text": "Cosmetic only"}]}]}}}),
             json!({"tempos": [{"bpm": 90, "value": {"base": "half", "dots": 1}, "_x": {"viritura": {"swing": swing}}}]}),
             json!({"_x": {"viritura": {"tempos": [
                 {"bpm": 90, "value": {"base": "quarter"}, "swing": swing},

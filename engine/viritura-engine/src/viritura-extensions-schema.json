@@ -233,7 +233,7 @@
 
     "tempo-instruction": {
       "type": "object",
-      "description": "Unified tempo marking. BPM and value must occur together; without them an explicit swing instruction is required.",
+      "description": "Unified tempo marking. BPM and value occur together; BPM-free markings carry explicit swing or nonempty cosmetic text.",
       "properties": {
         "bpm": { "type": "number", "exclusiveMinimum": 0 },
         "value": {
@@ -292,7 +292,15 @@
       },
       "oneOf": [
         { "required": ["bpm", "value"] },
-        { "required": ["swing"], "not": { "anyOf": [{ "required": ["bpm"] }, { "required": ["value"] }] } }
+        {
+          "required": ["swing"],
+          "not": { "anyOf": [{ "required": ["bpm"] }, { "required": ["value"] }] }
+        },
+        {
+          "required": ["text"],
+          "properties": { "text": { "minItems": 1 } },
+          "not": { "anyOf": [{ "required": ["bpm"] }, { "required": ["value"] }, { "required": ["swing"] }] }
+        }
       ],
       "additionalProperties": false
     },
