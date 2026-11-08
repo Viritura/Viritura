@@ -396,6 +396,51 @@ describe("native mixer reconciliation", () => {
     assertMix();
   });
 
+  it.each(["vst", "sf2"] as const)(
+    "sends shared swing onset/releases to %s and invalidates content caches after ratio edits",
+    async (kind) => {
+      mockMultitimbralMapper();
+      const document = score();
+      document.global.measures[0]!.tempos = [
+        { bpm: 90, value: { base: "quarter" }, swing: { mode: "swing", subdivision: "16th", ratio: [3, 2] } },
+      ];
+      document.parts[0]!.measures[0]!.sequences[0]!.content = ["first", "second"].map((id) => ({
+        type: "event",
+        id,
+        duration: { base: "16th" },
+        markings: { tenuto: {} },
+        notes: [{ id, pitch: { step: "C", octave: 4 } }],
+      }));
+      const { createVstTransport } = await import("./vstTransport");
+      const transport = createVstTransport()!;
+      const schedules = () =>
+        mocks.invoke.mock.calls
+          .filter(([command]) => command === "vst_playback_load")
+          .map((call) =>
+            (call[1]?.slots as LoadSlot[])[0]!.events.filter(
+              (event) => event.type === "note_on" || event.type === "note_off",
+            ),
+          );
+      await transport.prepare(document, plan(kind));
+      const first = schedules()[0]!;
+      expect(first.map((event) => event.type)).toEqual(["note_on", "note_off", "note_on", "note_off"]);
+      first.forEach((event, index) => expect(event.atSeconds).toBeCloseTo([0, 0.2, 0.2, 1 / 3][index]!, 12));
+      await transport.start(0);
+      await transport.seek(0.18);
+      await transport.stop();
+      await transport.prepare(document, plan(kind));
+      expect(schedules()).toHaveLength(1);
+      document.global.measures[0]!.tempos![0]!.swing = { mode: "swing", subdivision: "16th", ratio: [2, 1] };
+      await transport.prepare(document, plan(kind));
+      expect(schedules()).toHaveLength(2);
+      schedules()[1]!.forEach((event, index) =>
+        expect(event.atSeconds).toBeCloseTo([0, 2 / 9, 2 / 9, 1 / 3][index]!, 12),
+      );
+      if (kind === "vst") expect(mocks.compileMapper).toHaveBeenCalledTimes(2);
+      else expect(mocks.compileMapper).not.toHaveBeenCalled();
+    },
+  );
+
   it.each(["vst", "sf2"] as const)("uses the latest %s controls changed during slow loading", async (kind) => {
     const { createVstTransport } = await import("./vstTransport");
     const transport = createVstTransport()!;

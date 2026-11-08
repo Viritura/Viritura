@@ -181,6 +181,8 @@ export interface ResolveVoiceLegatoArgs {
   beatOffset: number;
   beats: number;
   notes: readonly Note[];
+  soundingOnset?: number;
+  soundingDuration?: number;
 }
 
 /**
@@ -193,9 +195,9 @@ export function resolveVoiceLegato(a: ResolveVoiceLegatoArgs): void {
   if (!bucket || bucket.length === 0) return;
   const onset = Math.max(
     0,
-    a.model.timeAtBeat(a.measureStartBeat + a.beatOffset) +
+    (a.soundingOnset ?? a.model.timeAtBeat(a.measureStartBeat + a.beatOffset)) +
       timingHumanize(a.measureStartTime, a.beatOffset, a.partIndex),
   );
-  const nextDur = a.model.secondsForBeats(a.measureStartBeat + a.beatOffset, a.beats);
+  const nextDur = a.soundingDuration ?? a.model.secondsForBeats(a.measureStartBeat + a.beatOffset, a.beats);
   resolveLegato(bucket, a.out, onset, nextDur, a.notes);
 }

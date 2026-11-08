@@ -338,9 +338,74 @@ such as quarter = dotted quarter at a 4/4 to 12/8 transition, can carry its
 own typed relationship without pretending to be an absolute BPM or swing.
 Metric modulation is not implemented by this extension.
 
-Swing persistence, explicit import and inspector controls have no swing playback
-effect yet. Shared browser/native rhythm realization follows separately.
-No MuseScore implementation source or third-party fixtures were used.
+#### Shared playback realization
+
+Browser/MIDI and native performance generation use one deterministic,
+written-source rhythm compiler. The audio scheduler does not interpret swing;
+the continuous tempo model remains a score-beat/time clock, not an alternating
+BPM map. Native VST/Lua and native SF2 receive the resulting onset and release
+timestamps through the same performance-event path.
+
+Only **complete adjacent equal undotted event pairs** of the selected nominal
+subdivision on the source metric grid are eligible, per voice. Notes and rests
+both count; chord heads remain simultaneous. Eighth pairs span one quarter
+beat; sixteenth pairs span **half a quarter beat**. At quarter = 90, a
+sixteenth pair lasts 333.333333 ms: straight gives 166.666667/166.666667 ms,
+3:2 gives 200/133.333333 ms, and 2:1 gives 222.222222/111.111111 ms.
+Pair endpoints, ordinary eighth boundaries for swung sixteenths, and barlines
+remain fixed. Ratios divide score beats; a tempo ramp can therefore change the
+ratio of elapsed seconds without changing the requested beat ratio.
+
+Unequal/dotted rhythms, spaces, incomplete/off-grid pairs, explicit tuplet
+contents, and generated tremolo/trill rhythms remain literal. Voices containing
+grace groups remain entirely literal, conservatively preserving the generators'
+existing different grace policies. Cross-staff events cannot form an eligible
+pair with their sequence's ordinary staff events. Open-meter cadenzas have no
+metric swing grid and remain literal.
+
+The opening `number: 0` pickup is right-aligned to its nominal meter; its partial
+pairs are literal. Subsequent bars restart their own source grid. A swing
+instruction strictly inside a pair (including its midpoint) makes that pair
+literal; instructions at its start apply in coincident array order, and those
+at its end apply to the following pair. Changing subdivision does not infer or
+rewrite already unequal notation. BPM-only or text-only markings inherit swing.
+Repeats/jumps resolve swing at the **written source position**, never from a
+leaking expanded-traversal state. Entering or exiting a pair through a partial
+navigation span makes that pair literal; subsequent complete source-grid pairs
+remain eligible, regardless of expanded linear beat phase.
+
+Onset **and release** beats are realized before tempo integration, browser
+articulation/legato, and existing deterministic humanization. Tied continuations
+extend the existing lifetime without reattack, including across continuous
+barlines. Native events retain their full realized duration and articulation
+flags for the instrument mapper; native SF2 uses the provided lifetime without
+adding browser humanization or browser articulation scaling.
+Fermata/caesura insertion points retain their score-clock positions. A hold
+strictly inside a pair leaves the pair literal, including when the hold comes
+from another voice. At a pair endpoint, normal releases precede an insertion;
+fermata carriers explicitly ring through its resume time in both generators.
+BPM-free swing anchors and continuous inherited bars do not synthesize BPM
+resets or truncate an active ramp.
+
+Derived chord-symbol attacks/releases, continuous controllers, instrument and
+technique directions remain literal **score-clock anchors**, not inferred
+subdivision pairs. Note dynamics are sampled at the realized attack. Standard
+metronome clicks and count-in are never swung. Playhead/seek and selection
+coordinates use the unchanged continuous score clock; event schedules carry
+realized audio timestamps and preserve nominal score-event metadata. Native
+content-addressed caches include the changed event times and invalidate on
+ratio/instruction edits.
+
+Global swing does **not** implement staff-scoped swing. Sequences with an
+effective local staff meter remain literal and report
+`swing-staff-meter-unsupported` with written part/measure/staff coordinates
+in timeline diagnostics. Native generation reports this through
+`TimelineOptions.onDiagnostic`, or throws when no collector is supplied.
+This does not change the explicit MusicXML scope diagnostics below.
+
+The compiler and synthetic regression fixtures are independently authored.
+No MuseScore implementation source or third-party fixtures were used, and no
+compatibility is asserted for unverified edge cases.
 
 #### Explicit MusicXML import
 

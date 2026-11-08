@@ -61,17 +61,18 @@ export function playbackGlobalMeasures(score: Score, measureOrder: readonly numb
     bpm: DEFAULT_BPM,
     value: { base: "quarter" },
   };
+  const inheritedTempos: NonNullable<GlobalMeasure["tempos"]>[number][] = [];
   const resolved = score.global.measures.map((original, measureIndex) => {
+    inheritedTempos.push(activeTempo);
     if (original.time) activeTime = original.time;
     const measure: GlobalMeasure = {
       ...original,
       time: { ...activeTime },
-      tempos: original.tempos?.some((tempo) => !tempo.location || tempo.location.fraction[0] === 0)
-        ? original.tempos
-        : [{ ...activeTempo, location: { fraction: [0, 1] } }, ...(original.tempos ?? [])],
+      tempos: original.tempos,
     };
-    if (original.tempos?.length)
-      activeTempo = [...original.tempos]
+    const metronomicTempos = original.tempos?.filter((tempo) => tempo.bpm !== undefined);
+    if (metronomicTempos?.length)
+      activeTempo = [...metronomicTempos]
         .sort(
           (a, b) =>
             (a.location?.fraction[0] ?? 0) / (a.location?.fraction[1] ?? 1) -
@@ -105,7 +106,20 @@ export function playbackGlobalMeasures(score: Score, measureOrder: readonly numb
       },
     };
   });
-  return measureOrder.map((index) => resolved[index]!);
+  return measureOrder.map((index, expandedIndex) => {
+    const measure = resolved[index]!;
+    // Continuous bars must not acquire synthetic BPM resets: those truncate
+    // active ramps, including at otherwise BPM-free swing anchors.
+    if (expandedIndex === 0 || index === measureOrder[expandedIndex - 1]! + 1) return measure;
+    if (
+      measure.tempos?.some((tempo) => tempo.bpm !== undefined && (!tempo.location || tempo.location.fraction[0] === 0))
+    )
+      return measure;
+    return {
+      ...measure,
+      tempos: [{ ...inheritedTempos[index]!, location: { fraction: [0, 1] } }, ...(measure.tempos ?? [])],
+    };
+  });
 }
 
 /** Visual fermatas in an open-meter cadenza do not introduce a second delay. */
