@@ -2,7 +2,7 @@ import type { ChordSymbol, LayoutContent, Score } from "@viritura/core";
 import { resolveAnnotationLocation, type AnnotationLocation, type EventLocation } from "../score/ElementPath";
 import type { MeasureSelectionPoint, SelectionTrackRhythmicRange } from "../store/selectionStore";
 import { resolveChordRange } from "../store/chordRange";
-import type { CapturedChordSymbol } from "./ClipboardFragment";
+import type { CapturedChordSymbol, ClipboardTrack } from "./ClipboardFragment";
 import { partStaffOffset } from "./clipboardTrackMapping";
 import {
   addWholeFractions,
@@ -10,7 +10,7 @@ import {
   sequenceBoundaryFraction,
   subtractWholeFractions,
 } from "./clipboardTrackPlacement";
-import { annotationInTrackRanges, type CaptureOrigin } from "./annotations";
+import { annotationInTrackRanges, sourceStavesForPart, type CaptureOrigin } from "./annotations";
 import { getEventAtLocation } from "../score/ElementPath";
 import { resolveCondensedSelectionEvents } from "../score/condensedWriteback";
 
@@ -335,13 +335,23 @@ export function captureMeasureChordSymbols(
   startMeasure: number,
   endMeasure: number,
   selectedScoreIndex?: number,
+  tracks?: readonly ClipboardTrack[],
+  anchorStaffOffset = 0,
 ): CapturedChordSymbol[] {
   const seen = new Map<ChordSymbol, CapturedChordSymbol>();
   return Array.from({ length: endPart - startPart + 1 }, (_, offset) => startPart + offset).flatMap((partIndex) =>
-    captureChordSymbols(score, partIndex, startMeasure, endMeasure, 0, Infinity, partIndex - startPart, 0, undefined, {
-      selectedScoreIndex,
-      seen,
-    }),
+    captureChordSymbols(
+      score,
+      partIndex,
+      startMeasure,
+      endMeasure,
+      0,
+      Infinity,
+      partIndex - startPart,
+      anchorStaffOffset,
+      tracks ? sourceStavesForPart(tracks, partIndex - startPart) : undefined,
+      { selectedScoreIndex, seen },
+    ),
   );
 }
 

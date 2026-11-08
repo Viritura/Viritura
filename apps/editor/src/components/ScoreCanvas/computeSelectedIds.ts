@@ -4,6 +4,7 @@ import { resolveRangeElementIds } from "../../store/selectionUtils";
 import { measureRepeatElementIdsForSelection } from "../../commands/measureRepeatCommands";
 import { buildClefElementId, parseClefElementId } from "../../score/clefElementId";
 import type { Selection } from "../../store/selectionStore";
+import { measureSelectionStaffOffsets, partStaffOffset } from "../../clipboard/clipboardTrackMapping";
 
 /**
  * Compute the flat set of element IDs implied by a `Selection`. Pure of refs
@@ -29,7 +30,7 @@ export function computeSelectedIds(
     return ids;
   }
   if (selection.kind === "measure") {
-    addMeasureSelectionIds(selection, spatialIndex, ids);
+    addMeasureSelectionIds(selection, spatialIndex, score, ids);
     return ids;
   }
   if (selection.kind === "range") {
@@ -42,6 +43,7 @@ export function computeSelectedIds(
 function addMeasureSelectionIds(
   selection: Extract<Selection, { kind: "measure" }>,
   si: SpatialIndex | null,
+  score: Score | null,
   ids: Set<string>,
 ): void {
   if (!si) return;
@@ -49,12 +51,19 @@ function addMeasureSelectionIds(
   const endM = Math.max(selection.startMeasure, selection.endMeasure);
   const startP = Math.min(selection.startPartIndex, selection.endPartIndex);
   const endP = Math.max(selection.startPartIndex, selection.endPartIndex);
+  const staffOffsets = score ? measureSelectionStaffOffsets(score, selection) : undefined;
   for (const entry of si.all) {
     const pMatch = entry.id.match(/^p(\d+)\/m(\d+)\//);
     if (!pMatch) continue;
     const p = parseInt(pMatch[1]!, 10);
     const m = parseInt(pMatch[2]!, 10);
     if (p < startP || p > endP || m < startM || m > endM) continue;
+    const sequenceMatch = entry.id.match(/^p\d+\/m\d+\/s(\d+)\//);
+    if (score && staffOffsets && sequenceMatch) {
+      const sequence = score.parts[p]?.measures[m]?.sequences[Number(sequenceMatch[1])];
+      const offset = partStaffOffset(score, startP, p, sequence?.staff ?? 1);
+      if (offset < staffOffsets.start || offset > staffOffsets.end) continue;
+    }
     // Skip per-notehead sub-bboxes (n0, n1...)
     if (/\/n\d+$/.test(entry.id)) continue;
     ids.add(entry.id);

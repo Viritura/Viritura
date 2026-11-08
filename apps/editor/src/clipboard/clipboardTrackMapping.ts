@@ -1,5 +1,17 @@
 import type { Score } from "@viritura/core";
 import type { EventLocation } from "../score/ElementPath";
+import type { SelectionState } from "../store/selectionStore";
+
+export function measureSelectionStaffOffsets(
+  score: Score,
+  selection: Extract<SelectionState, { kind: "measure" }>,
+): { start: number; end: number } | undefined {
+  if (selection.startLocalStaffIndex === undefined || selection.endLocalStaffIndex === undefined) return undefined;
+  const startPart = Math.min(selection.startPartIndex, selection.endPartIndex);
+  const anchor = partStaffOffset(score, startPart, selection.startPartIndex, selection.startLocalStaffIndex + 1);
+  const focus = partStaffOffset(score, startPart, selection.endPartIndex, selection.endLocalStaffIndex + 1);
+  return { start: Math.min(anchor, focus), end: Math.max(anchor, focus) };
+}
 
 export function selectionStaffAnchor(
   score: Score,
