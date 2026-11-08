@@ -95,4 +95,28 @@ describe("grand-staff paste into a separate document", () => {
     expect(result.newScore.parts[0]!.measures[1]!.sequences[0]!.content).toEqual(paste.tracks![0]!.content);
     expect(result.newScore.parts[0]!.measures[1]!.sequences[1]!.content).toEqual(paste.tracks![1]!.content);
   });
+
+  it("pastes into both selected full-measure rest placeholders", () => {
+    const paste = copiedPiano();
+    const destination = piano();
+    destination.parts[0]!.measures[1]!.sequences = [1, 2].map((staff) => ({
+      staff,
+      content: [],
+      fullMeasure: { visualDuration: { base: "whole" } },
+    }));
+    const result = computePasteResult(
+      destination,
+      {
+        kind: "range",
+        startElementId: "p0/m1/s1/e0",
+        endElementId: "p0/m1/s0/e0",
+      },
+      paste,
+    )!;
+    expect(result).not.toBeNull();
+    expect(result.newScore.parts[0]!.measures[1]!.sequences).toMatchObject([
+      { staff: 1, content: paste.tracks![0]!.content },
+      { staff: 2, content: paste.tracks![1]!.content },
+    ]);
+  });
 });
