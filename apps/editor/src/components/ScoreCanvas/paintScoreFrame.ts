@@ -451,7 +451,9 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
           spannerDrag.hit.handle,
           spannerDrag.dragX,
           spannerDrag.snapPoints,
-          spannerDrag.hit.elementId.startsWith("trill-line/") ? spannerDrag.dragY : undefined,
+          spannerDrag.hit.elementId.startsWith("trill-line/") || /^m\d+\/volta$/.test(spannerDrag.hit.elementId)
+            ? spannerDrag.dragY
+            : undefined,
         );
       }
 

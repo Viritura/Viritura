@@ -1,5 +1,6 @@
 /* eslint-disable max-lines -- component shell after 25+ sibling extractions (canvasHandlers, paintScoreFrame, paintEngraveAdornments, repaintCanvas, computeDisplayList, hitTesting, layoutHelpers, viewportGeometry, ...). The remainder is React glue that does not decompose cleanly: state/ref declarations, useImperativeHandle, prop-mirror refs for engrave callbacks, effect orchestration coordinating WASM/fast-layout/relayout, and JSX. Splitting further would scatter cross-effect dependencies into argument bundles. */
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   GlyphAtlas,
   PageCache,
@@ -73,6 +74,7 @@ import { paintScoreFrame } from "./paintScoreFrame";
 import { selectionVoiceIndex } from "./selectionVoice";
 import { buildDragSnapPoints as buildDragSnapPointsImpl } from "./dragSnapPoints";
 import { commitSpannerDragImpl, resolveTrillLineDragTarget } from "./commitSpannerDrag";
+import { planEndingDrag } from "./endingDrag";
 import { runFastLayoutAndPaint } from "./fastLayout";
 import { computeSelectedIds } from "./computeSelectedIds";
 import { buildScoreCanvasHandle } from "./imperativeHandle";
@@ -1180,11 +1182,17 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         const score = docScoreRef.current;
         if (!score) return;
         const drag = spannerDragRef.current;
+        const endingPlan = planEndingDrag(score, hit, dragX, drag?.snapPoints ?? [], drag?.dragY);
+        if (endingPlan.kind === "error") {
+          toast.warning(endingPlan.error);
+          return;
+        }
         const newScore = commitSpannerDragImpl(score, hit, dragX, drag?.snapPoints ?? [], drag?.dragY);
         if (newScore !== score) {
           updateScore(newScore);
           const trillTarget = resolveTrillLineDragTarget(hit, dragX, drag?.snapPoints ?? [], drag?.dragY);
           if (trillTarget) selectElement(trillTarget.elementId);
+          if (endingPlan.kind === "move") selectElement(endingPlan.elementId);
         }
       },
       [docScoreRef, selectElement, updateScore],

@@ -4,18 +4,21 @@ import { trillExtensionPartIndex, trillExtensionSourceId } from "../../score/tri
 import { resolveAnnotationLocation } from "../../score/ElementPath";
 import { buildSlurAnchorPoints } from "./slurAnchorSnap";
 import type { SpannerDragState } from "./paintScoreFrame";
+import { buildEndingDragSnaps } from "./endingDrag";
 
 interface PrepareSpannerDragArgs {
   score: Score | null;
   spatialIndex: SpatialIndex;
   measureBounds?: readonly MeasureBounds[];
   elementId: string;
+  handle: "start" | "end";
   altKey: boolean;
   buildRhythmicSnaps: (partIndex: number, fine: boolean) => SpannerDragState["snapPoints"];
 }
 
 export interface SpannerDragSetup {
   eventAnchored: boolean;
+  measureAnchored: boolean;
   partIndex: number;
   snapPoints: SpannerDragState["snapPoints"];
 }
@@ -49,19 +52,24 @@ export function prepareSpannerDrag({
   spatialIndex,
   measureBounds,
   elementId,
+  handle,
   altKey,
   buildRhythmicSnaps,
 }: PrepareSpannerDragArgs): SpannerDragSetup {
   const eventAnchored = elementId.startsWith("trill-line/");
+  const measureAnchored = /^m\d+\/volta$/.test(elementId);
   const partIndex = eventAnchored
     ? (trillExtensionPartIndex(score, elementId) ?? 0)
     : (resolveAnnotationLocation(elementId)?.partIndex ?? 0);
   return {
     eventAnchored,
+    measureAnchored,
     partIndex,
     snapPoints: eventAnchored
       ? forwardTrillAnchors(score, spatialIndex, measureBounds, partIndex, elementId)
-      : buildRhythmicSnaps(partIndex, altKey),
+      : measureAnchored
+        ? buildEndingDragSnaps(measureBounds, handle)
+        : buildRhythmicSnaps(partIndex, altKey),
   };
 }
 
@@ -75,7 +83,7 @@ export function updateSpannerDrag(
 ): void {
   drag.dragX = (event.clientX - rect.left) / viewport.zoom + viewport.scrollX;
   drag.dragY = (event.clientY - rect.top) / viewport.zoom + viewport.scrollY;
-  if (setup.eventAnchored || event.altKey === drag.altKey) return;
+  if (setup.eventAnchored || setup.measureAnchored || event.altKey === drag.altKey) return;
   drag.altKey = event.altKey;
   drag.snapPoints = buildRhythmicSnaps(setup.partIndex, event.altKey);
 }

@@ -3,6 +3,7 @@ import type { Score } from "@viritura/core";
 import type { SpannerHandleHit } from "@viritura/renderer";
 import { resolveAnnotationLocation } from "../../score/ElementPath";
 import { reanchorTrillExtension } from "../../score/trillExtensionMutations";
+import { planEndingDrag } from "./endingDrag";
 
 export interface SpannerDragSnap {
   x: number;
@@ -65,6 +66,19 @@ export function commitSpannerDragImpl(
   dragY?: number,
 ): Score {
   if (snapPoints.length === 0) return score;
+
+  if (/^m\d+\/volta$/.test(hit.elementId)) {
+    const plan = planEndingDrag(score, hit, dragX, snapPoints, dragY);
+    if (plan.kind !== "move") return score;
+    return produce(score, (draft) => {
+      const ending = draft.global.measures[plan.sourceMeasure]!.ending!;
+      delete draft.global.measures[plan.sourceMeasure]!.ending;
+      draft.global.measures[plan.startMeasure]!.ending = {
+        ...ending,
+        duration: plan.endMeasure - plan.startMeasure + 1,
+      };
+    });
+  }
 
   if (hit.elementId.startsWith("trill-line/")) {
     const target = resolveTrillLineDragTarget(hit, dragX, snapPoints, dragY);

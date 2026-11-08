@@ -7,7 +7,7 @@ import type { SelectionState } from "../store/selectionStore";
 import {
   deleteAnnotation,
   deleteAnnotations,
-  deleteChordSymbolsByElementIds,
+  deleteGlobalAnnotationsByElementIds,
   deleteArpeggioByElementId,
   deleteGraceNote,
   resolveDeletableAnnotationLocation,
@@ -358,12 +358,12 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
       ? []
       : resolveSelectionEvents(eventSelection, score);
 
-  const chordSymbolsResult = deleteSelectedChordSymbols(score, selection);
-  const lyricResult = removeLyrics(chordSymbolsResult.score, lyricIds);
+  const globalAnnotationsResult = deleteSelectedGlobalAnnotations(score, selection);
+  const lyricResult = removeLyrics(globalAnnotationsResult.score, lyricIds);
   let newScore = lyricResult.score;
   const annotationResult = deleteTimedAnnotationsAnchoredToCollapsedSequences(newScore, events);
   newScore = annotationResult.score;
-  const leavesRemoved = [markingsRemoved, lyricResult.removed, chordSymbolsResult.removed].includes(true);
+  const leavesRemoved = [markingsRemoved, lyricResult.removed, globalAnnotationsResult.removed].includes(true);
   if (events.length === 0) {
     const graceRemoved = deleteSelectedGraceNotes(newScore, graceIds);
     return didDeleteSelectionLeaves(leavesRemoved, annotationResult.removed, chordsThinned, graceRemoved !== newScore)
@@ -407,8 +407,8 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
   return { kind: "multi", score: deleteSelectedGraceNotes(newScore, graceIds), nextSelection: { kind: "clear" } };
 }
 
-function deleteSelectedChordSymbols(score: Score, selection: MultiOrRangeSel): { score: Score; removed: boolean } {
-  const next = selection.kind === "multi" ? deleteChordSymbolsByElementIds(score, selection.elementIds) : null;
+function deleteSelectedGlobalAnnotations(score: Score, selection: MultiOrRangeSel): { score: Score; removed: boolean } {
+  const next = selection.kind === "multi" ? deleteGlobalAnnotationsByElementIds(score, selection.elementIds) : null;
   return { score: next ?? score, removed: next !== null };
 }
 

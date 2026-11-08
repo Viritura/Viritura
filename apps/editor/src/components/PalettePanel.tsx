@@ -31,7 +31,7 @@ import {
   type EventLocation,
 } from "../score/ElementPath";
 import { resolveCapabilityTargets, selectionSupports, EVENT_ACTION } from "../store/selectionCapabilities";
-import { groupEventsByVoice } from "../store/selectionUtils";
+import { groupEventsByVoice, resolveSelectionScope } from "../store/selectionUtils";
 import {
   resolveCondensedEventTargets,
   resolveCondensedFullMeasureRestTargets,
@@ -623,10 +623,17 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     (ending: Ending | null) => {
       const es = getEditorState();
       if (!es) return;
-      const range = measureRangeFromElementId(es.elementId, es.score);
-      const idx = range?.start ?? 0;
-      const endingToSet = ending !== null && range ? { ...ending, duration: range.end - range.start + 1 } : ending;
-      updateScore(setEnding(es.score, idx, endingToSet));
+      const selection = useSelectionStore.getState().selection;
+      const scope = resolveSelectionScope(selection, es.score);
+      const range = scope
+        ? { start: scope.startMeasure, end: scope.endMeasure }
+        : measureRangeFromElementId(es.elementId, es.score);
+      if (!range) {
+        toast.warning("Select a note, rest, or measure range to apply an ending.");
+        return;
+      }
+      const endingToSet = ending === null ? null : { ...ending, duration: range.end - range.start + 1 };
+      updateScore(setEnding(es.score, range.start, endingToSet));
     },
     [getEditorState, updateScore],
   );

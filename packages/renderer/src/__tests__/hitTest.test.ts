@@ -532,6 +532,20 @@ describe("getElementType", () => {
   });
 
   describe("hitTestSpannerHandle", () => {
+    it("uses the true ending endpoints across systems, not continuation seams", () => {
+      const id = "m1/volta";
+      const index = new SpatialIndex([
+        { id, x: 200, y: 50, width: 300, height: 20 },
+        { id, x: 100, y: 250, width: 200, height: 20 },
+      ]);
+      const selected = new Set([id]);
+
+      expect(hitTestSpannerHandle(index, selected, 200, 60)).toMatchObject({ elementId: id, handle: "start" });
+      expect(hitTestSpannerHandle(index, selected, 300, 260)).toMatchObject({ elementId: id, handle: "end" });
+      expect(hitTestSpannerHandle(index, selected, 500, 60)).toBeNull();
+      expect(hitTestSpannerHandle(index, selected, 100, 260)).toBeNull();
+    });
+
     it("exposes only the end handle for a trill extension", () => {
       const id = "trill-line/ev1/ev2";
       const index = new SpatialIndex([{ id, x: 100, y: 50, width: 80, height: 10 }]);
