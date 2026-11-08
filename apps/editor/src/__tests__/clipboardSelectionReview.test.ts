@@ -370,16 +370,15 @@ describe("clipboard selection review: delayed ranges", () => {
     })!;
 
     expect(selection.tracks!.map((track) => [track.staffOffset, track.voiceIndex, ids(track.content)])).toEqual([
-      [0, 0, ["unselected", "later-upper"]],
-      [1, 0, ["start", "later-lower-a"]],
-      [1, 1, ["later-lower-b"]],
+      [0, 0, ["start", "later-lower-a"]],
+      [0, 1, ["later-lower-b"]],
     ]);
-    expect(selection.tracks!.find((track) => track.staffOffset === 1 && track.voiceIndex === 1)?.leadIn).toEqual([
+    expect(selection.tracks!.find((track) => track.staffOffset === 0 && track.voiceIndex === 1)?.leadIn).toEqual([
       1024, 1024,
     ]);
   });
 
-  it("resolves a delayed first voice when earlier sequences on that staff are missing", () => {
+  it("keeps a same-staff range isolated when another staff introduces a new sequence slot", () => {
     const source = score([[measure(voice("start")), measure(voice("later-lower", 2), voice("later-upper"))]]);
     const selection = buildClipboardSelection(source, {
       kind: "range",
@@ -387,9 +386,7 @@ describe("clipboard selection review: delayed ranges", () => {
       endElementId: "p0/m1/s1/later-upper",
     })!;
 
-    expect(selection.tracks!.map((track) => [track.staffOffset, track.voiceIndex, ids(track.content)])).toEqual([
-      [0, 0, ["start", "later-upper"]],
-      [1, 0, ["later-lower"]],
-    ]);
+    expect(selection.tracks).toBeUndefined();
+    expect(ids(selection.events)).toEqual(["start", "later-upper"]);
   });
 });

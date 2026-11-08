@@ -18,6 +18,7 @@ import {
 import { isMeasureLevel } from "../score/elementTypes";
 import type { MeasureSelectionPoint, Selection } from "./selectionStore";
 import { resolveChordRange } from "./chordRange";
+import { laneOfSequence } from "../voiceLanes";
 
 /**
  * Measure-index range derived from element-ID-based selection.
@@ -86,15 +87,29 @@ function appendMeasureLevelRangeEntries(
 }
 
 function resolveSamePartRangeEventIds(
+  score: Score,
   entries: readonly NavigationEntry[],
   partIndex: number,
   earlierEntry: NavigationEntry,
   laterEntry: NavigationEntry,
 ): string[] {
+  const sequencesAt = (entry: NavigationEntry) =>
+    score.parts[entry.partIndex]?.measures[entry.measureIndex]?.sequences ?? [];
+  const staffAt = (entry: NavigationEntry) => sequencesAt(entry)[entry.sequenceIndex]?.staff ?? 1;
+  const startStaff = staffAt(earlierEntry);
+  const endStaff = staffAt(laterEntry);
+  const startLane = laneOfSequence(sequencesAt(earlierEntry), earlierEntry.sequenceIndex);
+  const sameLane =
+    startStaff === endStaff &&
+    startLane !== undefined &&
+    startLane === laneOfSequence(sequencesAt(laterEntry), laterEntry.sequenceIndex);
   return entries
     .filter((entry) => {
       if (entry.elementType !== "event" && entry.elementType !== "rest") return false;
       if (entry.partIndex !== partIndex) return false;
+      const staff = staffAt(entry);
+      if (staff < Math.min(startStaff, endStaff) || staff > Math.max(startStaff, endStaff)) return false;
+      if (sameLane && laneOfSequence(sequencesAt(entry), entry.sequenceIndex) !== startLane) return false;
       if (entry.measureIndex < earlierEntry.measureIndex || entry.measureIndex > laterEntry.measureIndex) return false;
       if (entry.measureIndex === earlierEntry.measureIndex && entry.sortKey < earlierEntry.sortKey - 1e-9) return false;
       if (entry.measureIndex === laterEntry.measureIndex && entry.sortKey > laterEntry.sortKey + 1e-9) return false;
@@ -110,7 +125,7 @@ function resolveSamePartRangeEventIds(
  * For same-part selections: uses navigation index slice for precise event matching.
  * For cross-part selections: uses measure range to include all events across staves.
  */
-// eslint-disable-next-line complexity, max-statements -- range resolution keeps note, voice, staff, and direction boundaries together
+// eslint-disable-next-line complexity -- range resolution keeps note, voice, staff, and direction boundaries together
 export function resolveRangeElementIds(
   startElementId: string,
   endElementId: string,
@@ -153,26 +168,14 @@ export function resolveRangeElementIds(
           : hiEntry;
       const laterEntry = earlierEntry === loEntry ? hiEntry : loEntry;
 
-      // Same-part: use navigation index slice with voice filtering
-      const sameSeq = loEntry.sequenceIndex === hiEntry.sequenceIndex && loEntry.sequenceIndex >= 0;
-      if (sameSeq) {
-        // Same voice: events use the contiguous slice, while measure-level
-        // annotations use their temporal position because they are indexed
-        // after all events in the measure.
-        const selected = navIndex.entries
-          .slice(lo, hi + 1)
-          .filter((e) => {
-            if (e.elementType !== "event" && e.elementType !== "rest") return false;
-            if (e.partIndex !== loEntry.partIndex) return false;
-            if (e.sequenceIndex !== loEntry.sequenceIndex) return false;
-            return true;
-          })
-          .map((e) => e.elementId);
-        appendMeasureLevelRangeEntries(navIndex.entries, selected, loEntry.partIndex, earlierEntry, laterEntry);
-        return selected;
-      }
-      // Same part, different voice: use beat-position filtering
-      const selected = resolveSamePartRangeEventIds(navIndex.entries, loEntry.partIndex, earlierEntry, laterEntry);
+      // Sequence slots can change across bars; resolve the physical staff and voice lane in each measure.
+      const selected = resolveSamePartRangeEventIds(
+        score,
+        navIndex.entries,
+        loEntry.partIndex,
+        earlierEntry,
+        laterEntry,
+      );
       appendMeasureLevelRangeEntries(navIndex.entries, selected, loEntry.partIndex, earlierEntry, laterEntry);
       return selected;
     }
