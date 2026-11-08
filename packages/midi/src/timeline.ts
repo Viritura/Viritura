@@ -46,6 +46,13 @@ import { buildHoldSchedule, type HoldSchedule, type MeasureHold } from "./holds"
 import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "./cadenzaTiming";
 import { collectPartLegatoOut, flushVoiceLegato, flushAllLegato, pushVoiceLegato, resolveVoiceLegato } from "./legato";
 import { ARCO_CAPABLE_PROGRAMS, muteFamilyForProgram, applyMeasureTechniques, type TechniqueState } from "./technique";
+import {
+  crossJumpContinuationKeys,
+  recordTieTargets,
+  tieContinuesTo,
+  tiePlaybackKey,
+  type TiePlaybackTargets,
+} from "./tiePlayback";
 import { resolveActiveTime, resolvePartStaffMeterTable, staffMeterRatioAt } from "./staffMeterTiming";
 import {
   applyInstrumentPlayback,
@@ -155,7 +162,7 @@ export interface PartCtx {
   readonly measureStartBeat: number;
   readonly partIndex: number;
   readonly channel: number;
-  readonly tieTargets: ReadonlySet<string>;
+  readonly pendingTieTargets: TiePlaybackTargets;
   readonly pendingTieOffs: Map<string, MidiEvent>;
   /** Event ids interior to a slur span; their noteOff is deferred and resolved as a legato overlap. */
   readonly legatoOutIds: ReadonlySet<string>;
@@ -273,7 +280,16 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   const tempoBuild = buildTempoModel(expandedGlobal, holdSchedule);
   const { model, measureStartTimes, measureStartBeats } = tempoBuild;
   const rhythm = compileRhythmProgram(score);
-  const timing: TimelineTiming = { tempoMap, measureStartTimes, model, measureStartBeats, playedSpans: spans, rhythm };
+  const crossJumpContinuations = new Map<number, MidiEvent[]>();
+  const timing: TimelineTiming = {
+    tempoMap,
+    measureStartTimes,
+    model,
+    measureStartBeats,
+    playedSpans: spans,
+    rhythm,
+    crossJumpContinuations,
+  };
 
   // Step 3: For each part, generate MIDI events
   const allEvents: MidiEvent[] = [];
@@ -347,7 +363,7 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   return spans &&
     (globalMeasures.some((measure) => measure.jump !== undefined) ||
       spans.some((span) => span.startBeat > 0 || span.endBeat < span.measureBeats))
-    ? realizeNavigation(result, spans)
+    ? realizeNavigation(result, spans, crossJumpContinuations)
     : { ...result, playedSpans: spans };
 }
 
@@ -399,37 +415,6 @@ function assignPhysicalMidiChannels(events: MidiEvent[], score: Score): Timeline
     event.channel = channelByLane.get(event.playbackLaneId ?? `part:${event.partIndex}`) ?? event.channel;
   }
   return diagnostics;
-}
-
-// ═══════════════════════════════════════════
-// Tie target collection
-// ═══════════════════════════════════════════
-
-/** Add every tie-target note id from `notes` to `targets`. */
-function collectNoteTieTargets(notes: readonly Note[] | undefined, targets: Set<string>): void {
-  if (!notes) return;
-  for (const note of notes) {
-    if (!note.ties) continue;
-    for (const tie of note.ties) {
-      if (tie.target) targets.add(tie.target);
-    }
-  }
-}
-
-/** Recursively collect all note IDs that are tie targets. */
-function collectTieTargets(content: readonly SequenceContent[], targets: Set<string>): void {
-  for (const item of content) {
-    if (item.type === "event") {
-      collectNoteTieTargets(item.notes, targets);
-    } else if (item.type === "tuplet") {
-      collectTieTargets(item.content, targets);
-    } else if (item.type === "grace") {
-      // Grace notes may also have ties
-      for (const evt of item.content) {
-        collectNoteTieTargets(evt.notes, targets);
-      }
-    }
-  }
 }
 
 // ═══════════════════════════════════════════
@@ -492,23 +477,6 @@ function buildKitAltProgramMap(part: Score["parts"][number]): ReadonlyMap<string
   return map;
 }
 
-/**
- * Pre-scan a part to collect every note id that is the target of a tie.
- * These notes have their noteOn suppressed and instead extend the
- * preceding pending noteOff.
- */
-function collectPartTieTargets(part: Score["parts"][number], measureOrder: readonly number[]): Set<string> {
-  const tieTargets = new Set<string>();
-  for (const expandedIdx of measureOrder) {
-    const partMeasure = part.measures[expandedIdx];
-    if (!partMeasure) continue;
-    for (const seq of partMeasure.sequences) {
-      collectTieTargets(seq.content, tieTargets);
-    }
-  }
-  return tieTargets;
-}
-
 /** Timing bundle threaded into `processPart` (keeps the param count in check). */
 interface TimelineTiming {
   rhythm: RhythmProgram;
@@ -517,6 +485,27 @@ interface TimelineTiming {
   readonly model: TempoModel;
   readonly measureStartBeats: readonly number[];
   readonly playedSpans?: readonly PlayedMeasureSpan[];
+  readonly crossJumpContinuations: Map<number, MidiEvent[]>;
+}
+
+function retainCrossJumpNoteOffs(
+  pending: Map<string, MidiEvent>,
+  targets: TiePlaybackTargets,
+  continuing: ReadonlySet<string>,
+  cutTime: number,
+  continued: MidiEvent[],
+  out: MidiEvent[],
+): void {
+  for (const [key, noteOff] of pending) {
+    if (continuing.has(key) && noteOff.time >= cutTime - 1e-7) {
+      continued.push(noteOff);
+      continue;
+    }
+    noteOff.time = Math.min(noteOff.time, cutTime);
+    out.push(noteOff);
+    pending.delete(key);
+    targets.delete(key);
+  }
 }
 
 /**
@@ -542,7 +531,7 @@ function processPart(
   const gmProgram = options?.partPrograms?.[partIdx] ?? -1;
   const kitMidiMap = buildKitMidiMap(score, part);
   const kitAltProgramMap = buildKitAltProgramMap(part);
-  const tieTargets = collectPartTieTargets(part, measureOrder);
+  const pendingTieTargets: TiePlaybackTargets = new Map();
   const pendingTieOffs = new Map<string, MidiEvent>();
   const legatoOutIds = collectPartLegatoOut(part);
   const pendingLegato = new Map<string, MidiEvent[]>();
@@ -579,17 +568,29 @@ function processPart(
       : (options?.instrumentPrograms?.get(partIdx)?.get(key) ?? instruments.get(key)?._x?.viritura?.midiProgram ?? -1);
 
   for (let expandedIdx = 0; expandedIdx < measureOrder.length; expandedIdx++) {
+    const origMeasureIdx = measureOrder[expandedIdx]!;
+    const partMeasure = part.measures[origMeasureIdx];
     if (
       expandedIdx > 0 &&
       timing.playedSpans &&
       !playedSpansContinue(timing.playedSpans[expandedIdx - 1]!, timing.playedSpans[expandedIdx])
     ) {
-      allEvents.push(...pendingTieOffs.values(), ...Array.from(pendingLegato.values()).flat());
-      pendingTieOffs.clear();
+      const continuing = crossJumpContinuationKeys(
+        pendingTieTargets,
+        partMeasure,
+        timing.playedSpans[expandedIdx]!.startBeat,
+        partIdx,
+        (staff) => staffMeterRatioAt(staffMeterTable, origMeasureIdx, staff),
+      );
+      const cutTime = model.timeAtBeat(
+        measureStartBeats[expandedIdx - 1]! + timing.playedSpans[expandedIdx - 1]!.endBeat,
+      );
+      const continued = timing.crossJumpContinuations.get(expandedIdx) ?? [];
+      retainCrossJumpNoteOffs(pendingTieOffs, pendingTieTargets, continuing, cutTime, continued, allEvents);
+      timing.crossJumpContinuations.set(expandedIdx, continued);
+      allEvents.push(...Array.from(pendingLegato.values()).flat());
       pendingLegato.clear();
     }
-    const origMeasureIdx = measureOrder[expandedIdx]!;
-    const partMeasure = part.measures[origMeasureIdx];
     if (!partMeasure) continue;
 
     const measureStartTime = measureStartTimes[expandedIdx]!;
@@ -633,7 +634,7 @@ function processPart(
       measureStartBeat,
       partIndex: partIdx,
       channel,
-      tieTargets,
+      pendingTieTargets,
       pendingTieOffs,
       legatoOutIds,
       pendingLegato,
@@ -931,7 +932,7 @@ function processNoteEvent(
   tupletRatio: number,
 ): number {
   ctx.gmProgram = ctx.instrumentAtBeatOffset?.(beatOffset * ctx.staffMeterRatio).program ?? ctx.gmProgram;
-  const { partIndex, channel, tieTargets, out, timeSig, kitMidiMap, kitAltProgramMap } = ctx;
+  const { partIndex, channel, out, timeSig, kitMidiMap, kitAltProgramMap } = ctx;
   const beats = durationBeats(event.duration) * tupletRatio;
   if (!beatInPlayedSpan(beatOffset * ctx.staffMeterRatio, ctx.playedSpan)) return beats;
 
@@ -998,13 +999,18 @@ function processNoteEvent(
     const midiNote = noteToMidi(note);
     if (midiNote < 0 || midiNote > 127) continue;
 
-    const noteId = note.id ?? "";
-    const isTiedTo = tieTargets.has(noteId) && ctx.pendingTieOffs.has(`${midiNote}:${partIndex}:${ctx.voiceKey}`);
-    const hasTieOut = note.ties?.some((t) => t.target) ?? false;
+    const key = tiePlaybackKey(midiNote, partIndex, ctx.voiceKey);
+    const isTiedTo = tieContinuesTo(ctx.pendingTieTargets, key, note) && ctx.pendingTieOffs.has(key);
+    const hasTieOut = note.ties?.some((t) => t.lv !== true && t.target) ?? false;
 
     if (isTiedTo) {
       extendOrFinalizeTie(ctx, midiNote, startTime, durationSec, durationScale, hasTieOut);
     } else {
+      const previous = ctx.pendingTieOffs.get(key);
+      if (previous) {
+        out.push(previous);
+        ctx.pendingTieOffs.delete(key);
+      }
       emitFreshNote(
         ctx,
         midiNote,
@@ -1022,6 +1028,7 @@ function processNoteEvent(
         },
       );
     }
+    recordTieTargets(ctx.pendingTieTargets, key, note);
   }
 
   // Kit notes (MNX `kitNotes`): always on the GM drum channel.
@@ -1075,7 +1082,7 @@ function extendOrFinalizeTie(
   hasTieOut: boolean,
 ): void {
   const { partIndex, channel, pendingTieOffs, out } = ctx;
-  const tieKey = `${midiNote}:${partIndex}:${ctx.voiceKey}`;
+  const tieKey = tiePlaybackKey(midiNote, partIndex, ctx.voiceKey);
   const pending = pendingTieOffs.get(tieKey);
   if (pending) {
     if (hasTieOut) {
@@ -1139,7 +1146,7 @@ function emitFreshNote(
 
   if (hasTieOut) {
     // Start of a tie chain — defer noteOff (no jitter on ties).
-    const tieKey = `${midiNote}:${partIndex}:${ctx.voiceKey}`;
+    const tieKey = tiePlaybackKey(midiNote, partIndex, ctx.voiceKey);
     pendingTieOffs.set(tieKey, {
       type: "noteOff",
       time: startTime + durationSec,

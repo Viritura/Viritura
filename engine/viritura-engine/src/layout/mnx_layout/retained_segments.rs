@@ -77,6 +77,9 @@ pub(super) fn splice_retained_slur_data(
         for n in &src.notes {
             let mut n = n.clone();
             n.x += dx;
+            n.stem_x += dx;
+            n.measure_left_x += dx;
+            n.measure_right_x += dx;
             n.eff_staff_y += dy;
             global_tie_notes.push(n);
         }

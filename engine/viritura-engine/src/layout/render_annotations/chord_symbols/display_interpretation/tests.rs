@@ -32,6 +32,17 @@ fn modifier_equality_keys_track_named_harmonic_degrees() {
         ("Csus4add11omit4", vec![0, 5, 7]),
         ("C6add13omit6", vec![0, 4, 7, 9]),
         ("Comit5add9", vec![0, 2, 4]),
+        ("C7b9", vec![0, 1, 4, 7, 10]),
+        ("C7#9", vec![0, 3, 4, 7, 10]),
+        ("C9b9", vec![0, 1, 4, 7, 10]),
+        ("C7(b9,#11)", vec![0, 1, 4, 6, 7, 10]),
+        ("C7b5#9", vec![0, 3, 4, 6, 10]),
+        ("Cmaj7#11", vec![0, 4, 6, 7, 11]),
+        ("C7♭9omit5", vec![0, 1, 4, 10]),
+        ("C7b9#9", vec![0, 1, 3, 4, 7, 10]),
+        ("C7#5", vec![0, 4, 8, 10]),
+        ("C7b13", vec![0, 4, 7, 8, 10]),
+        ("C13b9", vec![0, 1, 4, 5, 7, 9, 10]),
     ] {
         let harmony = Harmony::from_text(text).unwrap_or_else(|| panic!("{text}"));
         let key = harmony.key().unwrap();
@@ -60,6 +71,8 @@ fn modifier_grammar_normalizes_operations_without_implied_extensions() {
             "omit1omit2omit3omit4omit5omit6omit7omit9omit11omit13",
         ),
         ("omit5,add9,add7,add9", "add7add9omit5"),
+        ("7(b9,#11)", "b9#11"),
+        ("7#9b5", "b5#9"),
     ] {
         let (_, modifiers) = parse_suffix(suffix).unwrap();
         assert_eq!(modifiers.label(), label, "{suffix}");
@@ -76,6 +89,23 @@ fn modifier_grammar_normalizes_operations_without_implied_extensions() {
         assert_eq!(quality.kind, ChordQuality::Suspended4);
         assert_eq!(quality.extension, Some(7));
     }
+}
+
+#[test]
+fn altered_chord_spelling_matches_structured_harmony() {
+    let chord: ChordSymbol = serde_json::from_value(serde_json::json!({
+        "position": {"fraction": [0, 1]},
+        "root": {"step": "D", "alter": 1}, "quality": "dominant", "extension": 7,
+        "kindText": "7b9", "rawText": "D#7b9/Fx", "bass": {"step": "F", "alter": 2}
+    }))
+    .unwrap();
+    let display = semantic_display(&chord).expect("explicit altered ninth is supported");
+    assert_eq!(display.modifier_label, "b9");
+    assert!(semantic_display(&ChordSymbol {
+        raw_text: Some("D#9/Fx".into()),
+        ..chord
+    })
+    .is_none());
 }
 
 #[test]

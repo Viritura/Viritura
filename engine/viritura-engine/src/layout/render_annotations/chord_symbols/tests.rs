@@ -115,7 +115,7 @@ fn malformed_modifiers_and_inconsistent_bases_remain_literal() {
         "Cadd9,",
         "C7(9)",
         "C79",
-        "C7b9",
+        "C7b8",
         "Cadd9unknown",
         "C(add9)()",
         "Cadd(no5)",
@@ -320,7 +320,7 @@ fn unsupported_chords_retain_verbatim_raw_text_in_black_exports() {
         }),
         json!({
             "root": {"step": "C"}, "quality": "dominant", "extension": 7,
-            "kindText": "7(b9)", "rawText": "  C7(b9)  "
+            "kindText": "7(b8)", "rawText": "  C7(b8)  "
         }),
     ] {
         let commands = rendered_chord_commands(fields.clone());

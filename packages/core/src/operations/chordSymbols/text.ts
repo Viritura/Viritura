@@ -145,7 +145,9 @@ function parseBaseQuality(text: string): ParsedQuality | undefined {
 }
 
 export function parseQuality(text: string): ParsedQuality | undefined {
-  const boundary = text.search(/add|omit|no|\(/i);
+  const complete = parseBaseQuality(text);
+  if (complete) return complete;
+  const boundary = text.search(/add|omit|no|\(|[b#♭♯](?:13|11|9|5)/iu);
   if (boundary < 0) return parseBaseQuality(text);
   const base = parseBaseQuality(text.slice(0, boundary).trim());
   const modifiers = parseModifiers(text.slice(boundary));
@@ -155,7 +157,8 @@ export function parseQuality(text: string): ParsedQuality | undefined {
     base.extension === undefined &&
     modifiers.added.length === 1 &&
     modifiers.added[0] === 6 &&
-    modifiers.omitted.length === 0
+    modifiers.omitted.length === 0 &&
+    !modifiers.altered?.length
   ) {
     return { quality: "major", extension: 6 };
   }
@@ -233,6 +236,12 @@ function formatRewriteModifiers(kind: ParsedQuality | undefined, raw: ChordSymbo
     omitted: [...new Set([...(kind?.modifiers?.omitted ?? []), ...(rawModifiers?.omitted ?? [])])].sort(
       (a, b) => a - b,
     ),
+    altered: [...(kind?.modifiers?.altered ?? []), ...(rawModifiers?.altered ?? [])]
+      .filter(
+        (item, index, items) =>
+          items.findIndex((other) => other.degree === item.degree && other.alter === item.alter) === index,
+      )
+      .sort((a, b) => a.degree - b.degree || a.alter - b.alter),
   });
 }
 

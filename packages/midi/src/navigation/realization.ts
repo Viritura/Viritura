@@ -2,6 +2,24 @@ import type { MidiEvent, MidiTimeline } from "../types";
 import { TempoModel } from "../tempoModel";
 import { playedSpansContinue, type PlayedMeasureSpan } from "./itinerary";
 
+function navigationNoteKey(event: MidiEvent): string {
+  return `${event.partIndex}:${event.playbackLaneId ?? event.channel}:${event.midiNote}:${event.drumKitProgram ?? ""}`;
+}
+
+function releaseUncontinuedNotes(
+  activeNotes: Map<string, MidiEvent[]>,
+  continuations: readonly MidiEvent[],
+  time: number,
+  out: MidiEvent[],
+): void {
+  const continued = new Set(continuations.map(navigationNoteKey));
+  for (const [key, pending] of activeNotes) {
+    if (continued.has(key)) continue;
+    for (const onset of pending) out.push({ ...onset, type: "noteOff", velocity: 0, time });
+    pending.length = 0;
+  }
+}
+
 function authoredOnsetInSpan(event: MidiEvent, start: number, end: number): boolean {
   return (
     event.type === "noteOn" &&
@@ -51,7 +69,11 @@ function spanTempoMap(
   return entries;
 }
 
-export function realizeNavigation(timeline: MidiTimeline, spans: readonly PlayedMeasureSpan[]): MidiTimeline {
+export function realizeNavigation(
+  timeline: MidiTimeline,
+  spans: readonly PlayedMeasureSpan[],
+  crossJumpContinuations: ReadonlyMap<number, readonly MidiEvent[]> = new Map(),
+): MidiTimeline {
   const sourceSpans = spans.map((span, index) => ({
     startBeat: timeline.measureStartBeats[index]! + span.startBeat,
     endBeat: timeline.measureStartBeats[index]! + span.endBeat,
@@ -73,8 +95,6 @@ export function realizeNavigation(timeline: MidiTimeline, spans: readonly Played
     tempoMap.push(...spanTempoMap(timeline, index, span, model, outputBeat));
     const translate = (time: number): number =>
       model.timeAtBeat(outputBeat) + Math.min(endTime - startTime, Math.max(0, time - startTime));
-    const noteKey = (event: MidiEvent): string =>
-      `${event.partIndex}:${event.playbackLaneId ?? event.channel}:${event.midiNote}:${event.drumKitProgram ?? ""}`;
     for (const event of timeline.events) {
       const authoredOnset = authoredOnsetInSpan(event, source.startBeat, source.endBeat);
       if (event.time < startTime - 1e-9 && !authoredOnset) {
@@ -103,12 +123,12 @@ export function realizeNavigation(timeline: MidiTimeline, spans: readonly Played
                 ),
         };
         events.push(output);
-        const key = noteKey(event);
+        const key = navigationNoteKey(event);
         const pending = activeNotes.get(key) ?? [];
         pending.push(output);
         activeNotes.set(key, pending);
       } else if (event.type === "noteOff") {
-        const pending = activeNotes.get(noteKey(event));
+        const pending = activeNotes.get(navigationNoteKey(event));
         if (!pending?.length) continue;
         pending.shift();
         events.push({ ...event, time: translate(event.time) });
@@ -123,18 +143,14 @@ export function realizeNavigation(timeline: MidiTimeline, spans: readonly Played
     );
     const next = spans[index + 1];
     const continues = playedSpansContinue(span, next);
-    if (!continues)
-      for (const pending of activeNotes.values()) {
-        for (const onset of pending) {
-          events.push({
-            ...onset,
-            type: "noteOff",
-            velocity: 0,
-            time: model.timeAtBeat(outputBeat + span.endBeat - span.startBeat, "release"),
-          });
-        }
-        pending.length = 0;
-      }
+    if (!continues) {
+      releaseUncontinuedNotes(
+        activeNotes,
+        crossJumpContinuations.get(index + 1) ?? [],
+        model.timeAtBeat(outputBeat + span.endBeat - span.startBeat, "release"),
+        events,
+      );
+    }
     outputBeat += span.endBeat - span.startBeat;
   }
   const rank = { noteOff: 0, programChange: 1, controlChange: 2, noteOn: 3 };

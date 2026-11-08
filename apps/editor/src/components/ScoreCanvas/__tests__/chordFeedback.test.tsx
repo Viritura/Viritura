@@ -1,7 +1,7 @@
 import type { MouseEvent, ReactElement } from "react";
 import { cleanup, fireEvent, render as renderUi, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ChordSymbol, Score } from "@viritura/core";
+import { parseChordSymbolText, type ChordSymbol, type Score } from "@viritura/core";
 import { SpatialIndex, type DisplayList } from "@viritura/renderer";
 import { TooltipPrimitives } from "@viritura/ui";
 import { resolveChordSymbolSource } from "../../../app/useAppKeyboardWiring";
@@ -355,6 +355,18 @@ function overlayProps() {
 }
 
 describe("editor-only unsupported chord overlay", () => {
+  it.each(["D7b9/F#", "D7#9", "D#7b9/Fx"])("does not flag valid altered harmony %s red", (text) => {
+    const props = overlayProps();
+    props.score.global.measures[0]!.chordSymbols![1] = parseChordSymbolText(text, {
+      fraction: [1, 4],
+    });
+    const before = JSON.stringify(props.score);
+    const { container } = render(<UnsupportedChordOverlay {...props} />);
+    expect(container.querySelectorAll("[data-chord-warning]")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: MESSAGE })).toBeNull();
+    expect(JSON.stringify(props.score)).toBe(before);
+  });
+
   it("warns on each rendered unsupported copy, not supported or NC; preserves authored display commands", () => {
     const props = overlayProps();
     const before = JSON.stringify({ score: props.score, displayList: props.displayList });

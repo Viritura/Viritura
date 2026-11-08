@@ -1200,7 +1200,7 @@ it, without changing stored harmony.
 | `root`         | [ChordRoot](#chord-root)               | No       | Structured concert root; parser requires `root` or `rawText`   |
 | `rawText`      | string                                 | No       | Preserved authored text, including unsupported symbols and NC  |
 | `quality`      | [ChordQuality](#chord-quality)         | No       | Omitted quality on a structured root means major               |
-| `kindText`     | string                                 | No       | Authored suffix, including supported `add`/`no`/`omit` degrees |
+| `kindText`     | string                                 | No       | Authored suffix, including add/omit and altered degrees        |
 | `bass`         | [ChordRoot](#chord-root)               | No       | Concert slash bass note                                        |
 | `extension`    | `6` \| `7` \| `9` \| `11` \| `13`      | No       | Chord extension                                                |
 | `textOverride` | string                                 | No       | Display override, not a replacement for the underlying harmony |
@@ -1227,6 +1227,15 @@ adds only the named degrees (added seventh is minor), then removes named
 omissions; `add9` and `add13` do not imply lower extensions. `Cadd6` normalizes
 to major quality with extension 6. No additional schema fields are needed.
 Both base and modified harmony must agree across structured and text descriptions.
+
+Altered fifths, ninths, elevenths and thirteenths accept `b`/`#` or Unicode
+flat/sharp signs, directly or in parentheses: `C7b9`, `C7#9`, `Cmaj7#11`,
+and `C7(b9,#11)`. An alteration replaces that degree's natural tone; it does
+not imply other extensions. Explicit additions remain additive, and an
+omission removes all variants of its degree. `D7b9/F#` stores dominant quality,
+extension 7, `kindText: "7b9"` and the F-sharp bass. Older documents that stored
+these labels with `quality: "other"` need to be re-entered/reparsed; an explicit
+unknown or contradictory structured quality is not silently promoted.
 
 Semantic accidentals use Bravura SMuFL glyphs; literal display overrides remain
 text. Unsupported symbols receive an editor-only red warning and the message

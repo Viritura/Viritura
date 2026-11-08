@@ -4,6 +4,7 @@
 pub(super) struct Modifiers {
     pub(super) added: Vec<usize>,
     pub(super) omitted: Vec<usize>,
+    pub(super) altered: Vec<(usize, i32)>,
 }
 
 impl Modifiers {
@@ -21,6 +22,22 @@ impl Modifiers {
         let mut in_group = false;
         let mut after_comma = false;
         while !rest.is_empty() {
+            if let Some(marker @ ('b' | '#' | '♭' | '♯')) = rest.chars().next() {
+                if needs_degree {
+                    return None;
+                }
+                let tail = &rest[marker.len_utf8()..];
+                let (token, degree) = [("13", 13), ("11", 11), ("9", 9), ("5", 5)]
+                    .into_iter()
+                    .find(|(token, _)| tail.starts_with(token))?;
+                let alter = if matches!(marker, 'b' | '♭') { -1 } else { 1 };
+                modifiers.altered.push((degree, alter));
+                operation = None;
+                after_degree = true;
+                after_comma = false;
+                rest = tail[token.len()..].trim_start();
+                continue;
+            }
             if let Some((token, add)) = [("add", true), ("omit", false), ("no", false)]
                 .into_iter()
                 .find(|(token, _)| rest.starts_with(token))
@@ -83,10 +100,26 @@ impl Modifiers {
         modifiers.added.dedup();
         modifiers.omitted.sort_unstable();
         modifiers.omitted.dedup();
+        modifiers.altered.sort_unstable();
+        modifiers.altered.dedup();
         Some(modifiers)
     }
 
     pub(super) fn intervals(&self, mut degrees: [u16; 14]) -> u16 {
+        let mut altered = [0; 14];
+        for &(degree, alter) in &self.altered {
+            let natural = match degree {
+                5 => 7,
+                9 => 2,
+                11 => 5,
+                13 => 9,
+                _ => unreachable!("validated altered degree"),
+            };
+            altered[degree] |= 1 << (natural + alter);
+        }
+        for &(degree, _) in &self.altered {
+            degrees[degree] = altered[degree];
+        }
         for degree in &self.added {
             let interval = match degree {
                 2 | 9 => 2,
@@ -104,9 +137,10 @@ impl Modifiers {
     }
 
     pub(super) fn label(&self) -> String {
-        self.added
+        self.altered
             .iter()
-            .map(|degree| format!("add{degree}"))
+            .map(|(degree, alter)| format!("{}{degree}", if *alter == -1 { "b" } else { "#" }))
+            .chain(self.added.iter().map(|degree| format!("add{degree}")))
             .chain(self.omitted.iter().map(|degree| format!("omit{degree}")))
             .collect()
     }

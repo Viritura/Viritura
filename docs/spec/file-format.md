@@ -13,6 +13,15 @@ Hairpins and all other dynamic semantics use standard MNX dynamic groups.
 Viritura adds only optional engraving placement under each group's
 `_x.viritura` dictionary — see [dynamics.md](./dynamics.md).
 
+Ties across repeats, alternate endings and jumps use standard MNX
+`targetType: "crossJump"`, with `target` identifying the destination note.
+They are not vendor extensions. Ordinary consecutive-event ties use
+`"nextNote"`; see the [MNX tie target types](https://mnx.formats.music/docs/mnx-reference/objects/tie-target-type/).
+Structural ties engrave as short endpoint fragments rather than sweeping
+through skipped measures. MIDI and native performance retain a sustain at a
+navigation boundary only when its explicit cross-jump target is at the actual
+route-entry beat in the correct voice; other pending ties and slurs release.
+
 The vendored schema is revision **46**. This is not the document's
 `mnx.version`: Viritura-created documents use `1`, while external producers may
 declare another document version. Compatibility is established by validating

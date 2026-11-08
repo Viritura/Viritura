@@ -4,6 +4,8 @@
 //! differing only in parameters: ties are thinner, flatter, and hug notehead
 //! edges rather than centering on noteheads.
 
+mod cross_jump;
+mod endpoints;
 mod notehead_geometry;
 
 use super::config::LayoutConfig;
@@ -13,59 +15,12 @@ use super::slurs::tuning as slur_tuning;
 use super::slurs::SystemSlurBounds;
 use super::types::*;
 use crate::render::*;
+pub(crate) use endpoints::{GlobalTieNote, NoteRenderInfo};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 const TIE_STEM_INWARD_TUCK_SP: f64 = 0.25;
 const TIE_CHAIN_TIP_GAP_SP: f64 = 0.4;
-
-pub(crate) struct NoteRenderInfo {
-    x: f64,
-    stem_x: f64,
-    y_pos: f64,       // staff position (half-spaces from top line)
-    eff_staff_y: f64, // effective staff_y (cross-staff aware)
-    stem_up: bool,
-    inner_chord_note: bool,
-    continues_tie: bool,
-    notehead_center_offset: f64,
-    measure_idx: usize,
-}
-
-/// Snapshot of one tied note captured per (system, part, staff) and
-/// accumulated globally so a post-pass can resolve tie targets that the
-/// per-staff `render_ties` call would miss when they land on another system.
-///
-/// Mirrors `slurs::GlobalSlurEvent`: `render_ties` only builds a note map for
-/// the single staff it is handed, so a tie whose target note lives on the next
-/// system (or page) is silently dropped. We accumulate every note here and run
-/// `render_cross_system_ties` once after all systems are laid out, emitting the
-/// tie as two half-curves at the system edges (standard engraving practice).
-#[derive(Clone)]
-pub(crate) struct GlobalTieNote {
-    // Lever 2: `Rc<str>` (not `String`) so the per-edit retention path
-    // (`splice_retained_slur_data` clones every retained note on reuse) is a
-    // refcount bump instead of a heap alloc + copy. Byte-identity-transparent
-    // (derefs to `&str`, so id equality / hashing / element-id construction is
-    // unchanged).
-    pub note_id: Rc<str>,
-    /// Absolute X of the parent event (left edge of notehead).
-    pub x: f64,
-    pub stem_x: f64,
-    /// This note's staff position (half-spaces from top line).
-    pub y_pos: f64,
-    /// Effective staff Y in absolute pixels (cross-staff aware).
-    pub eff_staff_y: f64,
-    pub stem_up: bool,
-    pub num_voices: usize,
-    pub notehead_center_offset: f64,
-    /// All note staff-positions in the parent event (for `chord_tie_dir`).
-    pub chord_positions: Vec<f64>,
-    pub system_idx: usize,
-    pub part_index: usize,
-    pub staff_idx: usize,
-    /// Ties originating on this note (empty for plain or target notes).
-    pub ties: Vec<crate::model::event::Tie>,
-}
 
 fn has_continuing_tie(ties: &[crate::model::event::Tie]) -> bool {
     ties.iter()
@@ -186,6 +141,9 @@ pub(crate) fn render_ties(
                                     config,
                                     max_x,
                                 );
+                            } else if tie.target_type.as_deref() == Some("crossJump") {
+                                // Structural ties are short endpoint fragments, collected after all systems.
+                                continue;
                             } else if let Some(ref target_id) = tie.target {
                                 if let Some(target) = note_map.get(target_id) {
                                     let src_note_id = note.id.as_deref().unwrap_or("");
@@ -653,6 +611,8 @@ pub(crate) fn collect_global_tie_notes(
                         } else {
                             event_x
                         },
+                        measure_left_x: ml.x,
+                        measure_right_x: ml.x + ml.width,
                         y_pos: ev_note_positions[i],
                         eff_staff_y,
                         stem_up: vl.events.stem_up(ei),
@@ -697,6 +657,7 @@ pub(crate) fn render_cross_system_ties(
     if notes.iter().all(|n| n.ties.is_empty()) {
         return;
     }
+    cross_jump::render(dl, notes, sp, config);
 
     // Lever 2 (alloc bucket): collect the note-ids actually referenced as tie
     // targets before building the lookup map. The map is only queried via
@@ -736,6 +697,9 @@ pub(crate) fn render_cross_system_ties(
             // in-system (mirrors the `tie.lv == Some(true)` branch in
             // `render_ties`); they never connect to a target.
             if tie.lv == Some(true) {
+                continue;
+            }
+            if tie.target_type.as_deref() == Some("crossJump") {
                 continue;
             }
             let Some(ref target_id) = tie.target else {

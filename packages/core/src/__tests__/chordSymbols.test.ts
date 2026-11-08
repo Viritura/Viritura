@@ -20,7 +20,7 @@ describe("parseChordSymbolText", () => {
     ["D0", { root: { step: "D" }, quality: "half-diminished", extension: 7 }],
     ["CmMaj7", { root: { step: "C" }, quality: "minor-major", extension: 7 }],
     ["Cadd9", { root: { step: "C" }, quality: "major", kindText: "add9" }],
-    ["C7b9", { root: { step: "C" }, quality: "other", kindText: "7b9" }],
+    ["C7b9", { root: { step: "C" }, quality: "dominant", extension: 7, kindText: "7b9" }],
     ["C7/E", { root: { step: "C" }, quality: "dominant", extension: 7, bass: { step: "E" } }],
   ])("parses %s", (input, expected) => {
     expect(parseChordSymbolText(input, POSITION)).toEqual({ position: POSITION, rawText: input, ...expected });
