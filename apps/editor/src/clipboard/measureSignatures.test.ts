@@ -106,6 +106,31 @@ describe("whole-bar clipboard signatures", () => {
     ]);
   });
 
+  it("replaces destination-only signature changes inside copied bars while retaining other staves", () => {
+    const source = score();
+    delete source.global.measures[2]!.key;
+    source.parts[0]!.measures[2]!.clefs = [];
+    const { paste } = roundTrip(source, bars());
+    const destination = score();
+    destination.parts[0]!.measures[1]!.clefs = [
+      { staff: 1, clef: treble, position: { fraction: [1, 4] } },
+      { staff: 2, clef: alto, position: { fraction: [1, 4] } },
+    ];
+    destination.parts[0]!.measures[2]!.clefs!.push({
+      staff: 1,
+      clef: treble,
+      position: { fraction: [1, 4] },
+    });
+    const result = applyPaste(destination, paste, 0, 1, 0, 0);
+    expect(resolveActiveTimeKey(result, 2).key).toEqual({ fifths: -2 });
+    expect(result.parts[0]!.measures[1]!.clefs).toEqual([
+      { staff: 1, clef: bass, position: { fraction: [0, 1] } },
+      { staff: 2, clef: alto, position: { fraction: [1, 4] } },
+    ]);
+    expect(result.parts[0]!.measures[2]!.clefs).toEqual([{ staff: 2, clef: alto, position: { fraction: [1, 2] } }]);
+    expect(result.parts[0]!.measures[0]).toEqual(destination.parts[0]!.measures[0]);
+  });
+
   it("maps physical staves between a grand staff and separate parts", () => {
     const source = score();
     const selection = { ...bars(0, 0), startStaffIndex: 0, startLocalStaffIndex: 0 };
@@ -124,6 +149,34 @@ describe("whole-bar clipboard signatures", () => {
       { staff: 1, clef: treble, position: { fraction: [0, 1] } },
       { staff: 1, clef: bass, position: { fraction: [1, 2] } },
     ]);
+  });
+
+  it("retains clefs before a mid-bar paste and at its exact endpoint", () => {
+    const { paste } = roundTrip(score(), bars(0, 0));
+    const destination = score();
+    destination.global.measures[1]!.key = { fifths: 4 };
+    destination.parts[0]!.measures[0]!.sequences[0]!.content = [
+      { type: "event", duration: { base: "quarter" }, rest: {} },
+      { type: "event", duration: { base: "half", dots: 1 }, rest: {} },
+    ];
+    destination.parts[0]!.measures[0]!.clefs = [
+      { staff: 1, clef: alto },
+      { staff: 1, clef: bass, position: { fraction: [1, 4] } },
+    ];
+    destination.parts[0]!.measures[1]!.clefs = [
+      { staff: 1, clef: alto },
+      { staff: 1, clef: alto, position: { fraction: [1, 4] } },
+    ];
+    const result = applyPaste(destination, paste, 0, 0, 0, 1);
+    expect(result.parts[0]!.measures[0]!.clefs).toEqual([
+      { staff: 1, clef: alto },
+      { staff: 1, clef: treble, position: { fraction: [1, 4] } },
+      { staff: 1, clef: bass, position: { fraction: [3, 4] } },
+    ]);
+    expect(result.parts[0]!.measures[1]!.clefs).toEqual([{ staff: 1, clef: alto, position: { fraction: [1, 4] } }]);
+    expect(resolveActiveTimeKey(result, 1).key).toEqual({ fifths: -2 });
+    expect(result.global.measures[2]).toEqual(destination.global.measures[2]);
+    expect(result.parts[0]!.measures[2]).toEqual(destination.parts[0]!.measures[2]);
   });
 
   it("remaps signature timing when destination bars are shorter", () => {
@@ -172,10 +225,19 @@ describe("whole-bar clipboard signatures", () => {
 
   it.each([
     [{ offset: [0, 0] }],
+    [{ offset: [0, 1], duration: [0, 1] }],
+    [{ offset: [0, 1], staffOffsets: [-1] }],
     [{ offset: [0, 1], clefs: [{ staffOffset: -1, clef: { clef: bass } }] }],
     [{ offset: [0, 1], clefs: [{ staffOffset: 0, clef: { clef: bass, position: { fraction: [1, 0] } } }] }],
   ])("rejects malformed signature data: %j", (...signatures) => {
     const { text } = roundTrip(score(), bars());
-    expect(deserializeFragment(JSON.stringify({ ...JSON.parse(text), measureSignatures: signatures }))).toBeNull();
+    expect(
+      deserializeFragment(
+        JSON.stringify({
+          ...JSON.parse(text),
+          measureSignatures: signatures.map((entry) => ({ duration: [1, 1], staffOffsets: [0], ...entry })),
+        }),
+      ),
+    ).toBeNull();
   });
 });

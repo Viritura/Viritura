@@ -12,6 +12,8 @@ type WholeNoteFraction = [number, number];
 /** Whole-bar signatures, distinct from preview-only context on note selections. */
 export interface CapturedMeasureSignatures {
   offset: WholeNoteFraction;
+  duration: WholeNoteFraction;
+  staffOffsets: number[];
   key?: KeySignature;
   clefs?: Array<{ staffOffset: number; clef: PositionedClef }>;
 }

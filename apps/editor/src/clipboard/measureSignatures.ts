@@ -52,6 +52,8 @@ export function captureMeasureSignatures(
     }
     signatures.push({
       offset,
+      duration: [time.count, time.unit],
+      staffOffsets: staves.map((source) => source.staffOffset),
       key: m === startMeasure ? structuredClone(key) : structuredClone(score.global.measures[m]?.key),
       clefs,
     });
@@ -60,13 +62,52 @@ export function captureMeasureSignatures(
   return signatures;
 }
 
+type SignaturePosition = { measureIndex: number; fraction: Space["duration"] };
+
+function clearDestinationSignatures(
+  score: Score,
+  signatures: CapturedMeasureSignatures[],
+  partIndex: number,
+  staffIndex: number,
+  locate: (offset: Space["duration"]) => SignaturePosition,
+): void {
+  const first = signatures[0];
+  if (!first) return;
+  const firstMeasure = locate(first.offset).measureIndex;
+  for (const entry of signatures) {
+    const start = locate(entry.offset);
+    const end = locate(addWholeFractions(entry.offset, entry.duration));
+    const destinations = entry.staffOffsets.map((offset) =>
+      resolvePhysicalStaffDestination(score, partIndex, staffIndex, offset),
+    );
+    for (let m = start.measureIndex; m <= end.measureIndex; m++) {
+      if (m === end.measureIndex && end.fraction[0] === 0) break;
+      ensurePasteMeasure(score, m);
+      if (m !== firstMeasure) delete score.global.measures[m]!.key;
+      for (const destination of destinations) {
+        const measure = score.parts[destination.partIndex]!.measures[m]!;
+        if (!measure.clefs) continue;
+        measure.clefs = measure.clefs.filter((clef) => {
+          if ((clef.staff ?? 1) !== destination.staffIndex + 1) return true;
+          const position = clef.position?.fraction ?? [0, 1];
+          return (
+            (m === start.measureIndex && compareWholeFractions(position, start.fraction) < 0) ||
+            (m === end.measureIndex && compareWholeFractions(position, end.fraction) >= 0)
+          );
+        });
+      }
+    }
+  }
+}
+
 export function applyMeasureSignatures(
   score: Score,
   signatures: CapturedMeasureSignatures[] | undefined,
   partIndex: number,
   staffIndex: number,
-  locate: (offset: Space["duration"]) => { measureIndex: number; fraction: Space["duration"] },
+  locate: (offset: Space["duration"]) => SignaturePosition,
 ): void {
+  clearDestinationSignatures(score, signatures ?? [], partIndex, staffIndex, locate);
   for (const signaturesAtMeasure of signatures ?? []) {
     if (signaturesAtMeasure.key) {
       const target = locate(signaturesAtMeasure.offset);

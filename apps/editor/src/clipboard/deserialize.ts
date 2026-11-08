@@ -63,6 +63,14 @@ function isMeasureSignatures(value: unknown): boolean {
   if (!Array.isArray(value)) return false;
   return value.every((entry: unknown) => {
     if (!isRecord(entry) || !isSpaceDuration(entry["offset"])) return false;
+    const duration = entry["duration"];
+    if (!isSpaceDuration(duration) || !Array.isArray(duration) || Number(duration[0]) <= 0) return false;
+    const staffOffsets = entry["staffOffsets"];
+    if (
+      !Array.isArray(staffOffsets) ||
+      !staffOffsets.every((offset: unknown) => typeof offset === "number" && Number.isInteger(offset) && offset >= 0)
+    )
+      return false;
     if (entry["key"] !== undefined && !isKeySignature(entry["key"])) return false;
     if (entry["clefs"] === undefined) return true;
     if (!Array.isArray(entry["clefs"])) return false;

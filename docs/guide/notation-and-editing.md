@@ -165,7 +165,9 @@ musical preview, making it useful when reusing several passages.
 
 Whole-bar copies include the starting clefs and key signature, plus changes
 within the copied bars. Clefs follow the copied staves; key signatures apply
-to all staves in the destination document. Individual-note and partial-passage
+to all staves in the destination document. Existing clef and key changes inside
+the pasted passage are replaced. Explicit changes outside the passage and clef
+changes on uncopied staves are retained. Individual-note and partial-passage
 copies leave destination clefs and key signatures unchanged.
 
 For multi-staff instruments such as piano, selecting measures on one staff
