@@ -152,6 +152,12 @@ worklets and reverb files, so built-in playback survives an offline relaunch.
 Its service-worker cache revision comes from the canonical bundled SF2 bytes;
 externalizing the file does not disable PWA generation. Initial offline setup
 requires downloading the full SoundFont and enough browser storage to retain it.
+The Pages workflow restores only that SoundFont with Git LFS before editor
+builds; website-only deployments do not need the download. For workstation
+builds, run
+`git lfs pull --include="packages/audio/assets/sounds/Shan-SGM-Pro-15.sf2"`
+before invoking the editor build script. A Git LFS pointer is not a valid
+SoundFont and the PWA build rejects it.
 
 Current public asset configuration:
 

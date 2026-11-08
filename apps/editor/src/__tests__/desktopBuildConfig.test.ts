@@ -122,6 +122,19 @@ describe("desktop frontend build orchestration", () => {
 });
 
 describe("editor soundfont output", () => {
+  it("restores only the editor SoundFont before Pages builds its PWA", () => {
+    const workflow = readFileSync(resolve(root, ".github", "workflows", "deploy-pages.yml"), "utf8");
+    const restoreStep =
+      "      - name: Restore editor SoundFont for PWA cache revision\n" +
+      "        if: matrix.target == 'editor'\n" +
+      '        run: git lfs pull --include="packages/audio/assets/sounds/Shan-SGM-Pro-15.sf2"';
+    const restore = workflow.indexOf(restoreStep);
+    expect(restore).toBeGreaterThan(-1);
+    expect(restore).toBeGreaterThan(workflow.indexOf("uses: actions/checkout@"));
+    expect(restore).toBeLessThan(workflow.indexOf("name: Build ${{ matrix.target }} Pages artifact"));
+    expect(workflow).toContain("persist-credentials: false");
+  });
+
   it("restores the actual SoundFont before CI builds the editor", () => {
     const workflow = readFileSync(resolve(root, ".github", "workflows", "pr.yml"), "utf8");
     const pnpmJob = workflow.slice(workflow.indexOf("\n  pnpm:"), workflow.indexOf("\n  musx:"));
