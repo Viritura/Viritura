@@ -139,6 +139,12 @@ for that pitch in the current measure.
 - `/` toggles **grace‑note** entry in note input — the next note(s) you enter
   become grace notes attached to the following main note.
 
+In normal mode, select a grace notehead and press `Delete` / `Backspace` to
+remove it without changing the main note or inserting a rest. For a grace
+chord, only the selected pitches are removed; the grace chord disappears when
+its last pitch is deleted. Ctrl/Cmd-click can select several grace noteheads
+for deletion together.
+
 ## Tuplets
 
 Press `Shift+T` in note input to open the tuplet menu (triplets, quintuplets,

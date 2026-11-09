@@ -14,6 +14,7 @@ import {
   deleteAnnotations,
   deleteArpeggioByElementId,
   deleteGraceNote,
+  deleteSelectedGraceNotes,
   expandCondensedDynamicLocations,
   resolveDeletableAnnotationLocation,
 } from "../commands/deleteCommands";
@@ -411,16 +412,6 @@ function deleteRangeSelection(
   e.preventDefault();
   ctx.updateScore(newScore);
   ctx.clearSelection();
-}
-
-/** Delete grace IDs after ordinary events, resolving each against the latest score as containers shift. */
-function deleteSelectedGraceNotes(score: Score, graceIds: readonly string[]): Score {
-  let next = score;
-  for (const id of graceIds) {
-    const location = resolveGraceLocation(id, next);
-    if (location) next = deleteGraceNote(next, location);
-  }
-  return next;
 }
 
 /** Delete handling for a multi selection: blank every selected event to a rest. */
