@@ -32,6 +32,7 @@ import {
 import type { Score } from "@viritura/core";
 import { ToolbarPortal } from "../AppShell";
 import { partFamilyColor } from "../../score/familyColors";
+import { getMixerMutedParts, useMixer } from "../../store/mixerStore";
 
 const ROOT_STYLE: CSSProperties = {
   flex: 1,
@@ -111,7 +112,12 @@ export function RollView({ score }: RollViewProps) {
 }
 
 function RollViewInner({ score }: { score: Score | null }) {
-  const notes = useMemo(() => projectToRoll(score), [score]);
+  const allNotes = useMemo(() => projectToRoll(score), [score]);
+  const mixer = useMixer();
+  const notes = useMemo(() => {
+    const mutedParts = getMixerMutedParts(mixer);
+    return allNotes.filter((note) => !mutedParts.has(note.partIndex));
+  }, [allNotes, mixer]);
   const playback = usePlaybackState();
   const playheadSeconds = playback.playheadPosition?.timeSeconds ?? 0;
 
@@ -168,7 +174,9 @@ function RollViewInner({ score }: { score: Score | null }) {
         <div style={PANEL_BODY_STYLE}>
           <PianoRollCanvas notes={notes} playheadSeconds={playheadSeconds} partColors={partColors} />
           <RollKeyboard activeNotes={activeNotes} highlightColor={highlightColor} />
-          {notes.length === 0 && <div style={EMPTY_OVERLAY_STYLE}>No notes to visualize — open or load a score.</div>}
+          {allNotes.length === 0 && (
+            <div style={EMPTY_OVERLAY_STYLE}>No notes to visualize — open or load a score.</div>
+          )}
           {import.meta.env.DEV && <FpsCounter />}
         </div>
       </div>

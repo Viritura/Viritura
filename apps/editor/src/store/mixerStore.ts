@@ -10,7 +10,7 @@
  * gain/pan/mute to each part's audio output.
  */
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { create } from "zustand";
 import { CHORDS_PART_ID } from "@viritura/core";
 import { MIXER_DEFAULT_GAIN, MIXER_MAX_GAIN } from "./mixerGain";
@@ -70,6 +70,27 @@ export interface MixerState {
   masterVolume: number;
   /** Master mute. */
   masterMuted: boolean;
+}
+
+/** Resolve the same channel, group, solo, and master mask for audio and visualization. */
+export function getMixerMutedParts(mixer: MixerState): ReadonlySet<number> {
+  const anyChannelSolo = mixer.channels.some((channel) => channel.solo);
+  const anyGroupSolo = Object.values(mixer.groups).some((group) => group.solo);
+  const muted = new Set<number>();
+  mixer.channels.forEach((channel, index) => {
+    const groupId = index === mixer.chordsPartIndex ? "" : (mixer.partGroups[index] ?? "");
+    const group = groupId ? mixer.groups[groupId] : undefined;
+    if (
+      channel.muted ||
+      group?.muted ||
+      mixer.masterMuted ||
+      (anyChannelSolo && !channel.solo) ||
+      (anyGroupSolo && !group?.solo)
+    ) {
+      muted.add(index);
+    }
+  });
+  return muted;
 }
 
 // ═════════════════════════════════════════════
@@ -382,7 +403,10 @@ export function useMixer(): MixerState {
   const partGroups = useMixerStore((s) => s.partGroups);
   const masterVolume = useMixerStore((s) => s.masterVolume);
   const masterMuted = useMixerStore((s) => s.masterMuted);
-  return { channels, chordsPartIndex, groups, partGroups, masterVolume, masterMuted };
+  return useMemo(
+    () => ({ channels, chordsPartIndex, groups, partGroups, masterVolume, masterMuted }),
+    [channels, chordsPartIndex, groups, partGroups, masterVolume, masterMuted],
+  );
 }
 
 /** Mixer action creators. Identity is stable across renders. */

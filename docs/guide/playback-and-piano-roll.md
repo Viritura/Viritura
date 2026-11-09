@@ -39,7 +39,8 @@ Its fixed voicing places one root or slash bass in MIDI notes 36–47 and all
 chord tones, including the root, in MIDI notes 60–71, sorted from low to high
 without duplicates. A slash bass that is not a chord tone sounds only in the
 low register. Unsupported symbols and no-chord changes produce no notes but
-end the preceding harmony.
+end the preceding harmony. Each chord ends at the next symbol or the end of its
+bar, whichever comes first; empty bars do not sustain the previous chord.
 
 Clicking a supported chord symbol or committing a chord edit auditions the
 same voicing for 400 ms while transport is stopped, respecting effective mute,
@@ -79,6 +80,10 @@ spatial view matches what the audio engine is actually rendering.
 The **Roll** activity is a read-only falling-note visualization: notes approach
 a full piano keyboard while sounding keys light in their instrument-family
 colors.
+
+Muted channels are hidden from both the falling notes and keyboard highlights.
+Roll follows channel, group, and master mute, as well as solo exclusions,
+including the Chords channel. Unmuting restores their notes.
 
 Roll uses the same transport and playback timeline as the notation view. It is
 useful for checking register, density, entrances, and harmonic motion, but note

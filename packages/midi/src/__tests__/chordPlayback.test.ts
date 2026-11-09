@@ -247,7 +247,7 @@ describe("derived global chord playback", () => {
     expectSpans(score, [{ symbol, start: 0, end: 2 }]);
   });
 
-  it("sustains through continuous barlines and stops at NC or unsupported symbols", () => {
+  it("ends at the barline even across empty bars and stops at NC or unsupported symbols", () => {
     const c = major("C", 2);
     const d = major("D");
     const score = makeScore([
@@ -259,7 +259,7 @@ describe("derived global chord playback", () => {
       {},
     ]);
     expectSpans(score, [
-      { symbol: c, start: 3, end: 6.5 },
+      { symbol: c, start: 3, end: 4 },
       { symbol: d, start: 8, end: 9.5 },
     ]);
   });
@@ -316,16 +316,15 @@ describe("derived global chord playback", () => {
     expect(score.parts.some((part) => part.id === CHORDS_PART_ID)).toBe(false);
   });
 
-  it("restores pre-repeat written carry instead of the last performed chord", () => {
+  it("leaves empty repeat destinations silent instead of carrying earlier chords", () => {
     const c = major("C");
     const d = major("D", 2);
     const score = makeScore([{ chordSymbols: [c] }, { repeatStart: {} }, { chordSymbols: [d], repeatEnd: {} }, {}]);
     expect(generateTimeline(score).expandedMeasureToOriginal).toEqual([0, 1, 2, 1, 2, 3]);
     expectSpans(score, [
-      { symbol: c, start: 0, end: 5 },
+      { symbol: c, start: 0, end: 2 },
       { symbol: d, start: 5, end: 6 },
-      { symbol: c, start: 6, end: 9 },
-      { symbol: d, start: 9, end: 12 },
+      { symbol: d, start: 9, end: 10 },
     ]);
   });
 
@@ -338,16 +337,13 @@ describe("derived global chord playback", () => {
     ]);
   });
 
-  it("releases and reattacks the same written carry at a noncontiguous repeat jump", () => {
+  it("does not reattack earlier chords when repeating empty bars", () => {
     const symbol = major("C");
     const score = makeScore([{ chordSymbols: [symbol] }, { repeatStart: {} }, { repeatEnd: {} }]);
-    expectSpans(score, [
-      { symbol, start: 0, end: 6 },
-      { symbol, start: 6, end: 10 },
-    ]);
+    expectSpans(score, [{ symbol, start: 0, end: 2 }]);
   });
 
-  it("restores written destination carry when a forward volta jump skips a chord", () => {
+  it("does not carry skipped harmony into an empty volta destination", () => {
     const c = major("C");
     const d = major("D");
     const score = makeScore([
@@ -358,9 +354,8 @@ describe("derived global chord playback", () => {
     expect(generateTimeline(score).expandedMeasureToOriginal).toEqual([0, 1, 2, 0, 2]);
     expectSpans(score, [
       { symbol: c, start: 0, end: 2 },
-      { symbol: d, start: 2, end: 6 },
+      { symbol: d, start: 2, end: 4 },
       { symbol: c, start: 6, end: 8 },
-      { symbol: d, start: 8, end: 10 },
     ]);
   });
 
@@ -384,7 +379,7 @@ describe("derived global chord playback", () => {
     expect(timeline.duration).toBe(timeline.model.timeAtBeat(6));
     expectSpans(score, [
       { symbol: c, start: 0.5, end: 1 },
-      { symbol: d, start: 1, end: 5 },
+      { symbol: d, start: 1, end: 2 },
     ]);
   });
 
@@ -406,7 +401,7 @@ describe("derived global chord playback", () => {
     expect(timeline.model.timeAtBeat(4)).toBeCloseTo(4 * Math.log(2), 10);
     expectSpans(score, [
       { symbol: c, start: timeline.model.timeAtBeat(1), end: timeline.model.timeAtBeat(3) },
-      { symbol: d, start: timeline.model.timeAtBeat(3), end: timeline.model.timeAtBeat(8) },
+      { symbol: d, start: timeline.model.timeAtBeat(3), end: timeline.model.timeAtBeat(4) },
     ]);
     expect(timeline.duration).toBe(timeline.model.timeAtBeat(8));
   });

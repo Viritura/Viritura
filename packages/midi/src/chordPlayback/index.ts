@@ -22,7 +22,6 @@ interface ChordChange {
 }
 
 interface ChordMeasure {
-  carry: readonly number[];
   changes: readonly ChordChange[];
 }
 
@@ -38,12 +37,11 @@ export interface ChordPlaybackNote {
   duration: number;
 }
 
-/** Resolve harmony in written order, before repeats can change the carried state. */
+/** Compile each written bar's harmony independently. */
 export function compileChordPlayback(score: Score, includeGlobalChords = true): ChordPlaybackProgram | undefined {
   if (!includeGlobalChords) return undefined;
   const part = getChordPlaybackPart(score);
   if (!part) return undefined;
-  let carry: readonly number[] = [];
   const measures = score.global.measures.map((measure): ChordMeasure => {
     const changes = (measure.chordSymbols ?? [])
       .map((chord): ChordChange => {
@@ -54,14 +52,12 @@ export function compileChordPlayback(score: Score, includeGlobalChords = true): 
         };
       })
       .sort((a, b) => a.beat - b.beat);
-    const result = { carry, changes };
-    if (changes.length > 0) carry = changes[changes.length - 1]!.pitches;
-    return result;
+    return { changes };
   });
   return { part, measures };
 }
 
-/** Continuous measures sustain; jumps release and restore the destination's written harmony. */
+/** Chords end at the next symbol or the barline, including repeated bars. */
 export function realizeChordPlayback(
   program: ChordPlaybackProgram,
   measureOrder: readonly number[],
@@ -84,19 +80,16 @@ export function realizeChordPlayback(
     const originalIndex = measureOrder[expandedIndex]!;
     const measure = program.measures[originalIndex]!;
     const measureStart = timing.measureStartBeats[expandedIndex]!;
-    if (expandedIndex === 0 || originalIndex !== measureOrder[expandedIndex - 1]! + 1) {
-      finish(measureStart);
-      pitches = measure.carry;
-      startBeat = measureStart;
-    }
+    pitches = [];
+    startBeat = measureStart;
     for (const change of measure.changes) {
       const beat = measureStart + change.beat;
       finish(beat);
       pitches = change.pitches;
       startBeat = beat;
     }
+    finish(timing.measureStartBeats[expandedIndex + 1] ?? timing.totalBeats);
   }
-  finish(timing.totalBeats);
   return notes;
 }
 
