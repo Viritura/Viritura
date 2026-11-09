@@ -236,6 +236,20 @@ describe("native mixer reconciliation", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
+  it.each(["vst", "sf2"] as const)(
+    "leaves glissando parts on browser playback instead of claiming them for %s",
+    async (kind) => {
+      const document = score();
+      const event = document.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+      if (event.type !== "event") throw new Error("Expected event");
+      event.glissandos = [{ target: "target", kind: "portamento" }];
+      const { createVstTransport } = await import("./vstTransport");
+      expect(await createVstTransport()!.prepare(document, plan(kind))).toEqual(new Set());
+      expect(mocks.compileMapper).not.toHaveBeenCalled();
+      expect(mocks.invoke.mock.calls.some(([command]) => command === "vst_soundfont_path")).toBe(false);
+    },
+  );
+
   it("routes the real global repeat timeline to the shared Rust SF2 fixture without a persisted Part", async () => {
     const { document, preparation } = chordFixture();
     const original = structuredClone(document);

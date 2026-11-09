@@ -153,7 +153,7 @@ export function realizeNavigation(
     }
     outputBeat += span.endBeat - span.startBeat;
   }
-  const rank = { noteOff: 0, programChange: 1, controlChange: 2, noteOn: 3 };
+  const rank = { noteOff: 0, programChange: 1, controlChange: 2, pitchBend: 2, noteOn: 3 };
   events.sort((a, b) => a.time - b.time || rank[a.type] - rank[b.type]);
   return {
     ...timeline,

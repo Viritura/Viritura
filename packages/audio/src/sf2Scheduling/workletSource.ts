@@ -44,8 +44,9 @@ export function buildSchedulingWorklet(vendorSource: string): string {
             const { messageData, channelOffset, options } = event.data.data;
             const status = messageData[0];
             const kind = status & 0xf0;
+            const bendState = kind === 0xb0 && [6, 38, 100, 101, 120].includes(messageData[1]);
             return !(options.time >= fromAudioTime &&
-              (kind === 0x80 || kind === 0x90) &&
+              (kind === 0x80 || kind === 0x90 || kind === 0xe0 || bendState) &&
               owned.has((status & 0x0f) + channelOffset));
           });
           return;

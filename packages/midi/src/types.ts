@@ -9,10 +9,10 @@
 import type { TempoModel } from "./tempoModel";
 import type { PlayedMeasureSpan } from "./navigation";
 
-/** A single MIDI event (noteOn, noteOff, programChange, or controlChange). */
+/** A single MIDI channel-voice event. */
 export interface MidiEvent {
   /** Event type */
-  type: "noteOn" | "noteOff" | "programChange" | "controlChange";
+  type: "noteOn" | "noteOff" | "programChange" | "controlChange" | "pitchBend";
   /** Absolute time in seconds from the start of the score */
   time: number;
   /** MIDI note number (0–127) */
@@ -44,8 +44,10 @@ export interface MidiEvent {
   drumKitProgram?: number;
   /** MIDI controller number (0–127) — only present for `type: "controlChange"`. */
   cc?: number;
-  /** Controller value (0–127) — only present for `type: "controlChange"`. */
+  /** Controller value (0–127), or 14-bit pitch bend (0–16383; neutral 8192). */
   value?: number;
+  /** Pitch-bend sensitivity in semitones, retained for seek/state chase. */
+  bendRange?: number;
 }
 
 /** An entry in the tempo map for playhead positioning. */
@@ -101,6 +103,7 @@ export interface TimelineDiagnostic {
     | "midi-channel-capacity"
     | "percussion-lane-collapse"
     | "instrument-program-unavailable"
+    | "glissando-playback-unsupported"
     | "swing-staff-meter-unsupported";
   message: string;
   playbackLaneIds: string[];

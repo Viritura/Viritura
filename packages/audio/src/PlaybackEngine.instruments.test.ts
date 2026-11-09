@@ -12,6 +12,7 @@ function sampler() {
     resetTechniqueState: vi.fn(),
     resetInstrument: vi.fn(),
     sendControl: vi.fn(),
+    sendPitchBend: vi.fn(),
     setProgram: vi.fn(),
   } satisfies ISampler;
 }
@@ -133,6 +134,40 @@ function setup() {
 describe("instrument-routed playback", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
+
+  it("chases an isolated glissando bend and its held note when seeking", async () => {
+    const initial = sampler();
+    const bent = sampler();
+    const context = { state: "running", currentTime: 10, resume: vi.fn(async () => {}) };
+    const lane = "part:0:gliss:source:0";
+    const base = { partIndex: 0, channel: 1, playbackLaneId: lane, midiNote: 60, velocity: 80 };
+    const engine = new PlaybackEngine(context as unknown as AudioContext);
+    engine.loadTimeline(
+      {
+        duration: 3,
+        tempoMap: [],
+        measureStartTimes: [0],
+        events: [
+          { ...base, type: "noteOn", time: 0 },
+          { ...base, type: "pitchBend", time: 0, value: 8192, bendRange: 12 },
+          { ...base, type: "pitchBend", time: 0.5, value: 12288, bendRange: 12 },
+          { ...base, type: "noteOff", time: 2, velocity: 0 },
+          { ...base, type: "pitchBend", time: 2, value: 8192, bendRange: 12 },
+        ],
+      },
+      new Map<number | string, ISampler>([
+        [0, new SamplerGroup([initial, bent])],
+        [lane, bent],
+      ]),
+    );
+    engine.seek(1);
+    await engine.play();
+    expect(bent.sendPitchBend).toHaveBeenCalledExactlyOnceWith(12288, undefined, 12);
+    expect(bent.noteOn).toHaveBeenCalledOnce();
+    expect(initial.sendPitchBend).not.toHaveBeenCalled();
+    expect(bent.sendPitchBend.mock.invocationCallOrder[0]).toBeLessThan(bent.noteOn.mock.invocationCallOrder[0]!);
+    engine.dispose();
+  });
 
   it("routes a look-ahead window across the exact boundary, including layered releases", async () => {
     const { engine, initial, primary, layer } = setup();

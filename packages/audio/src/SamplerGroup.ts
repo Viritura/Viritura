@@ -62,6 +62,10 @@ export class SamplerGroup implements ISampler {
     for (const sampler of this.samplers) sampler.sendControl?.(cc, value, time);
   }
 
+  sendPitchBend(value: number, time?: number, range?: number): void {
+    for (const sampler of this.samplers) sampler.sendPitchBend?.(value, time, range);
+  }
+
   resetTechniqueState(): void {
     for (const sampler of this.samplers) sampler.resetTechniqueState?.();
   }

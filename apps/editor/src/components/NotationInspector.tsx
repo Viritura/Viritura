@@ -185,6 +185,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleGlissandoTargetChange,
     handleGlissandoKindChange,
     handleGlissandoStyleChange,
+    handleGlissandoPlaybackTypeChange,
     handleGlissandoTextVisibleChange,
     handleGlissandoTextChange,
   } = useTieSlurHandlers({ score, target, glissando: selectedGlissando, updateScore });
@@ -378,6 +379,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             onTargetChange={handleGlissandoTargetChange}
             onKindChange={handleGlissandoKindChange}
             onStyleChange={handleGlissandoStyleChange}
+            onPlaybackTypeChange={handleGlissandoPlaybackTypeChange}
             onTextVisibleChange={handleGlissandoTextVisibleChange}
             onTextChange={handleGlissandoTextChange}
           />

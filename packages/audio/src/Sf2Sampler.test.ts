@@ -30,6 +30,35 @@ function createMockSf2Synth(currentTime = 10) {
 }
 
 describe("Sf2Sampler", () => {
+  it("schedules 14-bit pitch bends and restores neutral pitch on panic", () => {
+    const { synth, sf2Synth } = createMockSf2Synth();
+    const sampler = new Sf2Sampler(sf2Synth, 3, 0);
+    sampler.sendPitchBend(12288, 10.2);
+    expect(synth.sendMessage).toHaveBeenCalledWith([0xe3, 0, 96], 0, { time: 10.2 });
+    sampler.allNotesOff();
+    expect(synth.sendMessage).toHaveBeenLastCalledWith([0xe3, 0, 64], 0, undefined);
+  });
+
+  it("restores wide bend sensitivity during chase and preserves ensemble detuning", () => {
+    const { synth, sf2Synth } = createMockSf2Synth();
+    const sampler = new Sf2Sampler(sf2Synth, 3, 0);
+    sampler.setDetune(5);
+    synth.controllerChange.mockClear();
+    sampler.sendPitchBend(12288, undefined, 12);
+    expect(synth.controllerChange.mock.calls).toEqual([
+      [3, 101, 0],
+      [3, 100, 0],
+      [3, 6, 12],
+      [3, 38, 0],
+      [3, 101, 127],
+      [3, 100, 127],
+    ]);
+    const adjusted = Math.round(12288 + (5 * 8192) / 1200);
+    expect(synth.sendMessage).toHaveBeenLastCalledWith([0xe3, adjusted & 127, adjusted >> 7], 0, undefined);
+    sampler.allNotesOff();
+    expect(synth.controllerChange).toHaveBeenCalledWith(3, 6, 2);
+  });
+
   it("schedules a baseline timbre restore without resetting expression or mixer controllers", () => {
     const { synth, sf2Synth } = createMockSf2Synth(10);
     const sampler = new Sf2Sampler(sf2Synth, 3, 72);

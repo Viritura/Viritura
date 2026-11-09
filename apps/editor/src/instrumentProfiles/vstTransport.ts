@@ -15,7 +15,7 @@
 
 import { CHORDS_PART_ID, type Score } from "@viritura/core";
 import type { Sf2PartAssignment, VstPartAssignment, VstPreparePlan, VstTransport } from "@viritura/playback";
-import { generatePerformanceEvents, getChordPlaybackPart } from "@viritura/midi";
+import { generatePerformanceEvents, getChordPlaybackPart, partHasGlissando } from "@viritura/midi";
 import type { SlotBinding, ProfileSlot, VstInstrumentProfile } from "@viritura/instrument-profiles";
 import { isDesktopHost } from "./profileHostBridge";
 import { readInstrumentProfileState, useInstrumentProfileStore } from "./instrumentProfileStore";
@@ -499,6 +499,12 @@ async function buildVstSlots(
   for (const { partIndex, vst } of parts) {
     // Derived lanes never inherit a score's VST assignment.
     if (!Number.isInteger(partIndex) || partIndex < 0 || partIndex >= score.parts.length) continue;
+    if (partHasGlissando(score, partIndex)) {
+      toast.info(
+        `${score.parts[partIndex]?.name || `Part ${partIndex + 1}`} uses SoundFont playback for glissando lines.`,
+      );
+      continue;
+    }
     const slot = findSlot(profiles, vst.hostProfileId, vst.instrumentSlot);
     const binding = slot?.binding;
     // A partially-configured slot can't be hosted: leave the part on SF2 (§3.8).
@@ -538,10 +544,17 @@ async function buildSf2Slots(
   builds: Map<string, SlotBuild>,
   owned: Set<number>,
 ): Promise<void> {
-  if (parts.length === 0) return;
+  const playableParts = parts.filter(({ partIndex }) => {
+    if (!partHasGlissando(score, partIndex)) return true;
+    toast.info(
+      `${score.parts[partIndex]?.name || `Part ${partIndex + 1}`} uses browser SoundFont playback for glissando lines.`,
+    );
+    return false;
+  });
+  if (playableParts.length === 0) return;
   const fontPath = await soundfontPath();
   const chords = getChordPlaybackPart(score);
-  for (const { partIndex, program, isDrum } of parts) {
+  for (const { partIndex, program, isDrum } of playableParts) {
     const isChords = partIndex === chords?.partIndex;
     if (!Number.isInteger(partIndex) || partIndex < 0 || (partIndex >= score.parts.length && !isChords)) continue;
     const events = sf2Schedule(score, partIndex);

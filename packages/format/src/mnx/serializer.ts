@@ -593,6 +593,7 @@ export function serializeEvent(ev: NoteEvent): Obj {
       const gObj: Obj = { target: g.target };
       if (g.kind) gObj["kind"] = g.kind;
       if (g.style) gObj["style"] = g.style;
+      if (g.playbackType) gObj["playbackType"] = g.playbackType;
       if (g.text) gObj["text"] = g.text;
       if (g.showText !== undefined) gObj["showText"] = g.showText;
       return gObj;

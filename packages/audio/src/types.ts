@@ -5,7 +5,7 @@
 /** A single MIDI event in the timeline. */
 export interface MidiEvent {
   /** Event type */
-  readonly type: "noteOn" | "noteOff" | "programChange" | "controlChange";
+  readonly type: "noteOn" | "noteOff" | "programChange" | "controlChange" | "pitchBend";
   /** Absolute time in seconds from the start of the score */
   readonly time: number;
   /** MIDI note number (0–127) */
@@ -28,8 +28,9 @@ export interface MidiEvent {
   readonly drumKitProgram?: number;
   /** MIDI controller number (0–127) — only present for `type: "controlChange"`. */
   readonly cc?: number;
-  /** Controller value (0–127) — only present for `type: "controlChange"`. */
+  /** Controller value (0–127), or 14-bit pitch bend (0–16383; neutral 8192). */
   readonly value?: number;
+  readonly bendRange?: number;
 }
 
 /** A tempo map entry marking where tempo changes occur. */
@@ -85,13 +86,16 @@ export interface ISampler {
    * allNotesOff must cancel remaining notes before releasing this playback-only
    * mute, so stopped/paused preview notes can use the same sampler safely. */
   setPlaybackMuted?(muted: boolean): void;
-  /** Cancel queued note attacks/releases at or after an audio-clock cutoff,
-   * without changing sounding voices, controllers, programs, or mixer state. */
+  /** Cancel queued note attacks/releases, all-sound-off, and pitch bends (including sensitivity)
+   * at or after an audio-clock cutoff, without changing sounding voices,
+   * unrelated controllers, programs, or mixer state. */
   cancelScheduledNotes?(fromAudioTime: number): void;
   /** Change the GM program (instrument sound). Optional — not all samplers support it. */
   setProgram?(program: number, time?: number): void;
   /** Send a raw MIDI control change (CC) on this part's channel. Optional. */
   sendControl?(cc: number, value: number, time?: number): void;
+  /** Scheduled 14-bit MIDI pitch bend (8192 is neutral). */
+  sendPitchBend?(value: number, time?: number, range?: number): void;
   /** Restore baseline instrument + neutral technique filter (pizz/arco/mute). Optional. */
   resetTechniqueState?(): void;
   /** Scheduled baseline timbre/filter restore, without changing expression. */

@@ -1840,6 +1840,15 @@ impl ::std::convert::TryFrom<::std::string::String> for FontFamily {
 ///      "description": "Semantic kind. Default: 'glissando'.",
 ///      "$ref": "#/$defs/glissando-kind"
 ///    },
+///    "playbackType": {
+///      "description": "Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento.",
+///      "type": "string",
+///      "enum": [
+///        "chromatic",
+///        "diatonic",
+///        "pitch-bend"
+///      ]
+///    },
 ///    "showText": {
 ///      "description": "Whether to display the text label. Default: true.",
 ///      "type": "boolean"
@@ -1867,6 +1876,13 @@ pub struct Glissando {
     ///Semantic kind. Default: 'glissando'.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub kind: ::std::option::Option<GlissandoKind>,
+    ///Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento.
+    #[serde(
+        rename = "playbackType",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub playback_type: ::std::option::Option<GlissandoPlaybackType>,
     ///Whether to display the text label. Default: true.
     #[serde(
         rename = "showText",
@@ -1963,6 +1979,93 @@ impl ::std::convert::TryFrom<&::std::string::String> for GlissandoKind {
     }
 }
 impl ::std::convert::TryFrom<::std::string::String> for GlissandoKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento.",
+///  "type": "string",
+///  "enum": [
+///    "chromatic",
+///    "diatonic",
+///    "pitch-bend"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum GlissandoPlaybackType {
+    #[serde(rename = "chromatic")]
+    Chromatic,
+    #[serde(rename = "diatonic")]
+    Diatonic,
+    #[serde(rename = "pitch-bend")]
+    PitchBend,
+}
+impl ::std::convert::From<&Self> for GlissandoPlaybackType {
+    fn from(value: &GlissandoPlaybackType) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for GlissandoPlaybackType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Chromatic => f.write_str("chromatic"),
+            Self::Diatonic => f.write_str("diatonic"),
+            Self::PitchBend => f.write_str("pitch-bend"),
+        }
+    }
+}
+impl ::std::str::FromStr for GlissandoPlaybackType {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "chromatic" => Ok(Self::Chromatic),
+            "diatonic" => Ok(Self::Diatonic),
+            "pitch-bend" => Ok(Self::PitchBend),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for GlissandoPlaybackType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for GlissandoPlaybackType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GlissandoPlaybackType {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,

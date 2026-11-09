@@ -106,6 +106,7 @@ export interface TieSlurHandlers {
   handleGlissandoTargetChange: (v: string) => void;
   handleGlissandoKindChange: (v: string) => void;
   handleGlissandoStyleChange: (v: string) => void;
+  handleGlissandoPlaybackTypeChange: (v: string) => void;
   handleGlissandoTextVisibleChange: (visible: boolean) => void;
   handleGlissandoTextChange: (v: string) => void;
 }
@@ -207,6 +208,13 @@ export function useTieSlurHandlers({ score, target, glissando, updateScore }: Ti
       const patch: Parameters<typeof setPrimaryGlissandoProperties>[2] = { kind: v };
       if (glissando?.text === oldDefault) patch.text = v === "portamento" ? "port." : "gliss.";
       applyGlissando(patch, "Unable to update glissando type.");
+    },
+    handleGlissandoPlaybackTypeChange: (v: string) => {
+      if (v !== "chromatic" && v !== "diatonic" && v !== "pitch-bend") {
+        setGlissandoError("Invalid glissando playback type.");
+        return;
+      }
+      applyGlissando({ playbackType: v }, "Unable to update glissando playback type.");
     },
     handleGlissandoStyleChange: (v: string) => {
       if (v === "straight" || v === "wavy") {

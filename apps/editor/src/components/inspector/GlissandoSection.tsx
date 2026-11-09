@@ -21,6 +21,7 @@ export interface GlissandoSectionProps {
   onTargetChange: (value: string) => void;
   onKindChange: (value: string) => void;
   onStyleChange: (value: string) => void;
+  onPlaybackTypeChange: (value: string) => void;
   onTextVisibleChange: (visible: boolean) => void;
   onTextChange: (value: string) => void;
 }
@@ -32,6 +33,7 @@ export function GlissandoSection({
   onTargetChange,
   onKindChange,
   onStyleChange,
+  onPlaybackTypeChange,
   onTextVisibleChange,
   onTextChange,
 }: GlissandoSectionProps) {
@@ -60,6 +62,19 @@ export function GlissandoSection({
           value={glissando.style ?? "straight"}
           onValueChange={onStyleChange}
           options={[...STYLE_OPTIONS]}
+        />
+      </label>
+      <label style={labelStyle}>
+        Playback type
+        <Select
+          data-testid="notation-glissando-playback-type"
+          value={glissando.playbackType ?? (glissando.kind === "portamento" ? "pitch-bend" : "diatonic")}
+          onValueChange={onPlaybackTypeChange}
+          options={[
+            { value: "chromatic", label: "Chromatic" },
+            { value: "diatonic", label: "Diatonic" },
+            { value: "pitch-bend", label: "Pitch bend" },
+          ]}
         />
       </label>
       <label style={labelStyle}>

@@ -656,6 +656,11 @@
           "$ref": "#/$defs/glissando-style",
           "description": "Line style. Default: 'straight'."
         },
+        "playbackType": {
+          "type": "string",
+          "enum": ["chromatic", "diatonic", "pitch-bend"],
+          "description": "Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento."
+        },
         "text": {
           "type": "string",
           "description": "Optional text label (e.g. 'gliss.', 'port.')."

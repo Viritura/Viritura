@@ -1856,13 +1856,26 @@ Extensions on `event._x.viritura` (on the event object itself, not inside markin
 
 Array of glissando/portamento lines connecting this event to target events.
 
-| Property   | Type                            | Required | Description                                                 |
-| ---------- | ------------------------------- | -------- | ----------------------------------------------------------- |
-| `target`   | string                          | **Yes**  | ID of the target event                                      |
-| `kind`     | `"glissando"` \| `"portamento"` | No       | Semantic kind, independent of its label. Default: glissando |
-| `style`    | `"straight"` \| `"wavy"`        | No       | Line style. Default: `"straight"`                           |
-| `text`     | string                          | No       | Optional text label (e.g. "gliss.", "port.")                |
-| `showText` | boolean                         | No       | Whether to display the label. Default: `true`               |
+| Property       | Type                                            | Required | Description                                                 |
+| -------------- | ----------------------------------------------- | -------- | ----------------------------------------------------------- |
+| `target`       | string                                          | **Yes**  | ID of the target event                                      |
+| `kind`         | `"glissando"` \| `"portamento"`                 | No       | Semantic kind, independent of its label. Default: glissando |
+| `style`        | `"straight"` \| `"wavy"`                        | No       | Line style. Default: `"straight"`                           |
+| `playbackType` | `"chromatic"` \| `"diatonic"` \| `"pitch-bend"` | No       | Default: diatonic for glissando, pitch bend for portamento  |
+| `text`         | string                                          | No       | Optional text label (e.g. "gliss.", "port.")                |
+| `showText`     | boolean                                         | No       | Whether to display the label. Default: `true`               |
+
+Playback runs from the source onset to the target onset. Chromatic playback
+visits every intermediate semitone; diatonic playback follows the source key
+signature. Chord endpoints pair notes in ascending pitch order, reusing the
+highest target note if the source chord has more notes. Transitions use an
+isolated lane per source note, so other voices are not detuned or released. Lines do not
+cross playback jumps. Missing, backward, simultaneous, or percussion endpoints
+produce a playback diagnostic. Text visibility and line style do not affect sound.
+
+The line inspector exposes the playback type for both glissando and portamento.
+Desktop native/Lua playback does not yet support these transitions; parts with
+glissando-family lines use browser SoundFont playback with a notification.
 
 ```json
 {
