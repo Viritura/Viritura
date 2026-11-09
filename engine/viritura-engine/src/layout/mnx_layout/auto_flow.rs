@@ -104,7 +104,6 @@ pub(super) fn layout_auto_flow_mnx_score(
         c.check_config(config);
         super::super::instrument_changes::revalidate(c, score, flat_staves, &mut dirty_region);
     }
-    let dirty_range = dirty_region.as_ref().map(cache::DirtyRegion::measure_range);
 
     // Env-gated phase timing probe (no-op unless VIRITURA_LAYOUT_TIMING is set).
     // NOTE: `Instant::now()` panics on wasm32-unknown-unknown ("time not
@@ -163,6 +162,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         measures: all_staff_resolved,
         ottavas: all_staff_ottavas,
         duration_histogram,
+        resolved_end,
     } = resolve_staves_with_condensing_labels(
         score,
         flat_staves,
@@ -170,6 +170,11 @@ pub(super) fn layout_auto_flow_mnx_score(
         dirty_region.as_ref(),
         cache.as_deref_mut(),
     );
+    // Carried clef/key state can change geometry beyond the authored patch.
+    if let (Some(region), Some(end)) = (dirty_region.as_mut(), resolved_end) {
+        region.measure_end = region.measure_end.max(end);
+    }
+    let dirty_range = dirty_region.as_ref().map(cache::DirtyRegion::measure_range);
 
     // Phase B: MMR grouping (explicit map wins; else auto-detect)
     let mmr = resolve_mmr_grouping(

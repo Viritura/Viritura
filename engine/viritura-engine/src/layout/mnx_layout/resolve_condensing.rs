@@ -9,158 +9,16 @@ use crate::render::*;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+mod staff_meter;
+use staff_meter::FlatStaffMeterState;
+pub(super) use staff_meter::{flat_staff_meter_states, has_incompatible_staff_meters};
+
 pub(super) type ResolvedStaffSnapshot = Arc<[ResolvedMeasure]>;
 pub(super) struct ResolvedStaffSet {
     pub(super) measures: Vec<ResolvedStaffSnapshot>,
     pub(super) ottavas: Vec<Arc<[ResolvedOttavaRange]>>,
     pub(super) duration_histogram: DurationHistogram,
-}
-
-#[derive(Clone)]
-pub(super) struct FlatStaffMeterState {
-    pub(super) compatible: bool,
-    pub(super) effective: Option<EffectiveStaffMeter>,
-    authored_here: bool,
-}
-
-impl FlatStaffMeterState {
-    pub(super) fn apply_authored_change(&self, measure: &mut PartMeasure) {
-        if !self.authored_here {
-            return;
-        }
-        measure.staff_meters = Some(vec![match self.effective.as_ref() {
-            Some(effective) => StaffMeterChange::Set {
-                staff: 1,
-                meter: StaffMeter {
-                    count: effective.time_signature.count,
-                    unit: effective.time_signature.unit,
-                    beat_structure: effective.time_signature.beat_structure.clone(),
-                },
-                synchronization: effective.synchronization,
-            },
-            None => StaffMeterChange::Reset { staff: 1 },
-        }]);
-    }
-}
-
-fn same_effective_meter(
-    left: Option<&EffectiveStaffMeter>,
-    right: Option<&EffectiveStaffMeter>,
-) -> bool {
-    match (left, right) {
-        (None, None) => true,
-        (Some(left), Some(right)) => {
-            left.time_signature == right.time_signature
-                && left.synchronization == right.synchronization
-                && left.ratio_to_global == right.ratio_to_global
-        }
-        _ => false,
-    }
-}
-
-pub(super) fn flat_staff_meter_states(
-    flat_staff: &FlatStaff,
-    score: &Score,
-    measure_count: usize,
-) -> Vec<FlatStaffMeterState> {
-    let global_time_at = crate::model::effective_time_signature_table(&score.global.measures);
-    let source_tables: Vec<_> = flat_staff
-        .sources
-        .iter()
-        .map(|source| {
-            let part = &score.parts[source.part_index];
-            (
-                source.staff_number.unwrap_or(1),
-                &part.measures,
-                crate::model::staff_meter::resolve_staff_meter_table(
-                    &part.measures,
-                    &global_time_at,
-                )
-                .0,
-            )
-        })
-        .collect();
-
-    (0..measure_count)
-        .map(|measure_index| {
-            let mut first_effective: Option<EffectiveStaffMeter> = None;
-            let mut first_displayed: Option<TimeSignature> = None;
-            let mut first = true;
-            let mut compatible = true;
-
-            for (staff, measures, table) in &source_tables {
-                let effective = table
-                    .get(measure_index)
-                    .and_then(|meters| meters.get(staff));
-                let authored_here = measures
-                    .get(measure_index)
-                    .and_then(|measure| measure.staff_meters.as_ref())
-                    .is_some_and(|changes| changes.iter().any(|change| change.staff() == *staff));
-                let displayed = if authored_here {
-                    effective
-                        .map(|meter| meter.time_signature.clone())
-                        .or_else(|| global_time_at.get(measure_index).cloned())
-                } else if effective.is_some() {
-                    None
-                } else {
-                    score
-                        .global
-                        .measures
-                        .get(measure_index)
-                        .and_then(|measure| measure.time.clone())
-                };
-
-                if first {
-                    first_effective = effective.cloned();
-                    first_displayed = displayed;
-                    first = false;
-                } else if !same_effective_meter(first_effective.as_ref(), effective)
-                    || first_displayed != displayed
-                {
-                    compatible = false;
-                }
-            }
-
-            if let Some(effective) = first_effective.as_mut() {
-                effective.staff = 1;
-            }
-            let authored_here = compatible
-                && first_displayed.is_some()
-                && (first_effective.is_some()
-                    || score
-                        .global
-                        .measures
-                        .get(measure_index)
-                        .is_none_or(|measure| measure.time.is_none()));
-            FlatStaffMeterState {
-                compatible,
-                effective: compatible.then_some(first_effective).flatten(),
-                authored_here,
-            }
-        })
-        .collect()
-}
-
-pub(super) fn has_incompatible_staff_meters(flat_staff: &FlatStaff, score: &Score) -> bool {
-    if flat_staff.sources.len() < 2 {
-        return false;
-    }
-    let has_staff_meter_declaration = flat_staff.sources.iter().any(|source| {
-        let staff = source.staff_number.unwrap_or(1);
-        score.parts[source.part_index]
-            .measures
-            .iter()
-            .any(|measure| {
-                measure
-                    .staff_meters
-                    .as_ref()
-                    .is_some_and(|changes| changes.iter().any(|change| change.staff() == staff))
-            })
-    });
-    has_staff_meter_declaration
-        && flat_staff_meter_states(flat_staff, score, score.global.measures.len())
-            .iter()
-            .any(|state| !state.compatible)
+    pub(super) resolved_end: Option<usize>,
 }
 
 pub(super) fn resolve_dirty_flat_staves(
@@ -255,6 +113,7 @@ pub(super) fn resolve_staves_with_condensing_labels(
         .unwrap_or_default();
 
     let mut resolved_span = 0usize;
+    let mut resolved_end = None;
     let mut staff_aux_reuses = 0usize;
     let mut all_staff_resolved: Vec<ResolvedStaffSnapshot> = Vec::with_capacity(flat_staves.len());
     let mut all_staff_ottavas: Vec<Arc<[ResolvedOttavaRange]>> =
@@ -346,6 +205,8 @@ pub(super) fn resolve_staves_with_condensing_labels(
                 prior,
             );
             resolved_span += this_span;
+            let end = dirty_start + this_span - 1;
+            resolved_end = Some(resolved_end.map_or(end, |prior: usize| prior.max(end)));
             staff_aux_reuses += usize::from(staff_aux_reused);
             merge_duration_histogram(&mut duration_histogram, &staff_duration_histogram);
             fresh_cache.push(cache::CachedResolvedStaff {
@@ -392,6 +253,18 @@ pub(super) fn resolve_staves_with_condensing_labels(
                 measure_count,
             );
         }
+        if let (true, Some(region), Some(layout_cache)) = (affected, dirty_region, cache.as_deref())
+        {
+            for measure in resolved.iter().skip(region.measure_end + 1) {
+                if layout_cache
+                    .natural_width_content_hash(measure.index * 1000 + staff_idx)
+                    .is_some_and(|prior| prior != measure_content_hash(measure))
+                {
+                    resolved_end =
+                        Some(resolved_end.map_or(measure.index, |end| end.max(measure.index)));
+                }
+            }
+        }
         let resolved: ResolvedStaffSnapshot = resolved.into();
         let (ottavas, staff_duration_histogram) = build_resolved_staff_aux(&resolved);
         merge_duration_histogram(&mut duration_histogram, &staff_duration_histogram);
@@ -428,6 +301,7 @@ pub(super) fn resolve_staves_with_condensing_labels(
         measures: all_staff_resolved,
         ottavas: all_staff_ottavas,
         duration_histogram,
+        resolved_end,
     }
 }
 

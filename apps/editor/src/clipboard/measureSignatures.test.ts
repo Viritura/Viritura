@@ -6,7 +6,7 @@ import { buildClipboardSelection } from "./buildClipboardSelection";
 import { deserializeFragment } from "./deserialize";
 import { serializeFragment } from "./serialize";
 import { computeRepeatResult } from "./computeRepeatResult";
-import { resolveActiveTimeKey } from "./sourceContext";
+import { getActiveClef, resolveActiveTimeKey } from "./sourceContext";
 
 const treble: Clef = { sign: "G", staffPosition: -2 };
 const bass: Clef = { sign: "F", staffPosition: 2, octave: -1, showOctave: true };
@@ -72,6 +72,52 @@ function roundTrip(source: Score, selection: SelectionState) {
 }
 
 describe("whole-bar clipboard signatures", () => {
+  it.each([
+    [treble, bass],
+    [bass, treble],
+    [treble, alto],
+  ])("keeps destination clef and sounding pitches when copying bars between instruments (%j to %j)", (from, to) => {
+    const source: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }, {}, {}] },
+      parts: [from, to].map((clef, partIndex) => ({
+        id: `part${partIndex}`,
+        measures: Array.from({ length: 3 }, (_, measureIndex) => ({
+          ...(measureIndex === 0 ? { clefs: [{ clef }] } : {}),
+          sequences: [
+            {
+              content: [
+                {
+                  type: "event" as const,
+                  id: `p${partIndex}m${measureIndex}`,
+                  duration: { base: "whole" as const },
+                  notes: [{ pitch: { step: "C" as const, octave: 4 } }],
+                },
+              ],
+            },
+          ],
+        })),
+      })),
+    };
+    const { paste } = roundTrip(source, {
+      ...bars(0, 1),
+      startStaffIndex: 0,
+      endStaffIndex: 0,
+      startLocalStaffIndex: 0,
+      endLocalStaffIndex: 0,
+    });
+    const result = applyPaste(source, paste, 1, 0, 0, 0);
+    for (const measureIndex of [0, 1, 2]) {
+      expect(getActiveClef(result, 1, measureIndex, 1)).toEqual(to);
+    }
+    for (const measureIndex of [0, 1]) {
+      const event = result.parts[1]!.measures[measureIndex]!.sequences[0]!.content[0]!;
+      expect(event.type).toBe("event");
+      if (event.type === "event") expect(event.notes?.map((note) => note.pitch)).toEqual([{ step: "C", octave: 4 }]);
+    }
+    expect(source.parts[1]!.measures[0]!.clefs).toEqual([{ clef: to }]);
+  });
+
   it("round-trips inherited context and later changes onto the destination staff without mutating either score", () => {
     const source = score();
     const destination = score();
@@ -86,7 +132,8 @@ describe("whole-bar clipboard signatures", () => {
     const result = applyPaste(destination, paste, 0, 1, 0, 0);
     expect(result.global.measures[1]!.key).toEqual({ fifths: -2 });
     expect(result.global.measures[2]!.key).toEqual({ fifths: 3 });
-    expect(result.parts[0]!.measures[1]!.clefs).toEqual([{ staff: 1, clef: bass, position: { fraction: [0, 1] } }]);
+    expect(result.parts[0]!.measures[1]!.clefs).toEqual([]);
+    expect(getActiveClef(result, 0, 1, 1)).toEqual(treble);
     expect(result.parts[0]!.measures[2]!.clefs).toContainEqual({
       staff: 1,
       clef: alto,
@@ -97,13 +144,10 @@ describe("whole-bar clipboard signatures", () => {
     expect(source).toEqual(sourceBefore);
   });
 
-  it("preserves the starting clef and mid-bar changes instead of treating a later change as the initial clef", () => {
+  it("preserves the destination starting clef and copies mid-bar changes", () => {
     const { paste } = roundTrip(score(), bars(0, 0));
     const result = applyPaste(score(), paste, 0, 1, 1, 0);
-    expect(result.parts[0]!.measures[1]!.clefs).toEqual([
-      { staff: 2, clef: treble, position: { fraction: [0, 1] } },
-      { staff: 2, clef: bass, position: { fraction: [1, 2] } },
-    ]);
+    expect(result.parts[0]!.measures[1]!.clefs).toEqual([{ staff: 2, clef: bass, position: { fraction: [1, 2] } }]);
   });
 
   it("replaces destination-only signature changes inside copied bars while retaining other staves", () => {
@@ -123,10 +167,7 @@ describe("whole-bar clipboard signatures", () => {
     });
     const result = applyPaste(destination, paste, 0, 1, 0, 0);
     expect(resolveActiveTimeKey(result, 2).key).toEqual({ fifths: -2 });
-    expect(result.parts[0]!.measures[1]!.clefs).toEqual([
-      { staff: 1, clef: bass, position: { fraction: [0, 1] } },
-      { staff: 2, clef: alto, position: { fraction: [1, 4] } },
-    ]);
+    expect(result.parts[0]!.measures[1]!.clefs).toEqual([{ staff: 2, clef: alto, position: { fraction: [1, 4] } }]);
     expect(result.parts[0]!.measures[2]!.clefs).toEqual([{ staff: 2, clef: alto, position: { fraction: [1, 2] } }]);
     expect(result.parts[0]!.measures[0]).toEqual(destination.parts[0]!.measures[0]);
   });
@@ -144,11 +185,8 @@ describe("whole-bar clipboard signatures", () => {
       })),
     };
     const result = applyPaste(destination, paste, 0, 1, 0, 0);
-    expect(result.parts[0]!.measures[1]!.clefs).toEqual([{ staff: 1, clef: treble, position: { fraction: [0, 1] } }]);
-    expect(result.parts[1]!.measures[1]!.clefs).toEqual([
-      { staff: 1, clef: treble, position: { fraction: [0, 1] } },
-      { staff: 1, clef: bass, position: { fraction: [1, 2] } },
-    ]);
+    expect(result.parts[0]!.measures[1]!.clefs).toBeUndefined();
+    expect(result.parts[1]!.measures[1]!.clefs).toEqual([{ staff: 1, clef: bass, position: { fraction: [1, 2] } }]);
   });
 
   it("retains clefs before a mid-bar paste and at its exact endpoint", () => {
@@ -170,7 +208,7 @@ describe("whole-bar clipboard signatures", () => {
     const result = applyPaste(destination, paste, 0, 0, 0, 1);
     expect(result.parts[0]!.measures[0]!.clefs).toEqual([
       { staff: 1, clef: alto },
-      { staff: 1, clef: treble, position: { fraction: [1, 4] } },
+      { staff: 1, clef: bass, position: { fraction: [1, 4] } },
       { staff: 1, clef: bass, position: { fraction: [3, 4] } },
     ]);
     expect(result.parts[0]!.measures[1]!.clefs).toEqual([{ staff: 1, clef: alto, position: { fraction: [1, 4] } }]);

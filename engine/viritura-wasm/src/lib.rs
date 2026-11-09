@@ -17,6 +17,9 @@ use viritura_engine::render::svg::{display_list_to_svg_pages, SvgExportConfig};
 use viritura_engine::render::DisplayList;
 use wasm_bindgen::prelude::*;
 
+#[cfg(test)]
+mod clef_paste_tests;
+
 /// Recursively collect slur target event ids and tie target note ids referenced
 /// by events in `content` (descending into tuplet/tremolo/grace containers).
 fn collect_connector_targets(content: &[SequenceContent], out: &mut Vec<String>) {
