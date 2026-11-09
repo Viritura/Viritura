@@ -172,6 +172,14 @@ Copy and paste use MNX-aware score fragments rather than pixels. The
 **History** tab in the left panel retains recent copied fragments and shows a
 musical preview, making it useful when reusing several passages.
 
+Pasting preserves written rest values: a quarter rest followed by a half rest
+stays as two rests rather than becoming a dotted half rest. Rests created to
+fill leftover time or split at a barline follow the destination meter. Simple
+meters such as 4/4 use undotted rests; compound meters such as 12/8 allow dotted
+rests within their beat groups. Existing dotted values in copied music are
+preserved when they fit without splitting.
+Fractional timing is retained exactly rather than rounded to beat boundaries.
+
 Whole-bar copies include the starting clefs and key signature, plus changes
 within the copied bars. Clefs follow the copied staves; key signatures apply
 to all staves in the destination document. Existing clef and key changes inside

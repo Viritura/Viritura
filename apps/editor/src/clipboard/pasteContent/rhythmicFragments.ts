@@ -1,9 +1,10 @@
 import type { Duration, NoteEvent, Score, SequenceContent, Space } from "@viritura/core";
-import { remapLyricExtenderTargets } from "@viritura/core";
+import { isRest, remapLyricExtenderTargets } from "@viritura/core";
 import {
   addWholeFractions,
   compareWholeFractions,
   contentWholeFraction,
+  exactRestDurations,
   exactWholeFraction,
   sequenceBoundaryFraction,
   subtractWholeFractions,
@@ -94,7 +95,10 @@ function splitAcrossMeasures(
     if (item.type === "space") {
       pieces = [{ ...structuredClone(item), duration: beats }];
     } else {
-      pieces = exactDurations(beats).map((duration) => {
+      const durations = isRest(item)
+        ? exactRestDurations(beats, position.beat, getEffectiveTimeSignature(score, position.measureIndex))
+        : exactDurations(beats);
+      pieces = durations.map((duration) => {
         const piece = eventDurationFragment(item, duration, previous);
         previous = piece;
         return piece;

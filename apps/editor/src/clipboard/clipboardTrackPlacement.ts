@@ -6,8 +6,9 @@ import {
   type SequenceContent,
   type Space,
   type TupletDuration,
+  type TimeSignature,
 } from "@viritura/core";
-import { decomposeDuration, generateEventId, sequenceContentBeats } from "../commands/noteCommands";
+import { decomposeRestsAtPosition, generateEventId, sequenceContentBeats } from "../commands/noteCommands";
 
 function checkedFraction([numerator, denominator]: Space["duration"]): [bigint, bigint] {
   if (!Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || numerator < 0 || denominator <= 0) {
@@ -165,6 +166,7 @@ export function splitSequenceAtBeat(
   targetBeat: number,
   targetFraction?: Space["duration"],
   targetRemap: Map<string, string> = new Map(),
+  time: TimeSignature = { count: 4, unit: 4 },
 ): void {
   const target = targetFraction ?? sequenceBoundaryFraction(content, targetBeat) ?? exactWholeFraction(targetBeat);
   let onset: Space["duration"] = [0, 1];
@@ -184,11 +186,13 @@ export function splitSequenceAtBeat(
     if (item.type !== "event" || !isRest(item)) {
       throw new Error("The destination voice must have a rhythmic boundary at the clipboard voice offset.");
     }
-    const rests = [...exactRestDurations(before), ...exactRestDurations(after)].map((durationValue, pieceIndex) => ({
-      ...(pieceIndex === 0 ? structuredClone(item) : { type: "event" as const, rest: {} }),
-      id: pieceIndex === 0 ? (item.id ?? generateEventId()) : generateEventId(),
-      duration: durationValue,
-    }));
+    const rests = [...exactRestDurations(before, onset, time), ...exactRestDurations(after, target, time)].map(
+      (durationValue, pieceIndex) => ({
+        ...(pieceIndex === 0 ? structuredClone(item) : { type: "event" as const, rest: {} }),
+        id: pieceIndex === 0 ? (item.id ?? generateEventId()) : generateEventId(),
+        duration: durationValue,
+      }),
+    );
     if (item.id) targetRemap.set(item.id, rests.at(-1)!.id);
     content.splice(index, 1, ...rests);
     remapLyricExtenderTargets(content, targetRemap);
@@ -213,14 +217,26 @@ export function ensureSequencePosition(
   });
 }
 
-function exactRestDurations(fraction: Space["duration"]): Duration[] {
-  const durations = decomposeDuration((fraction[0] / fraction[1]) * 4);
+export function exactRestDurations(
+  fraction: Space["duration"],
+  onset: Space["duration"],
+  time: TimeSignature,
+): Duration[] {
+  // Fractional spaces can place a binary-valued rest off the notated grid.
+  // Keep its exact duration rather than inventing tuplets to reach a beat boundary.
+  const denominator = BigInt(onset[1]);
+  const onBinaryGrid = (denominator & (denominator - 1n)) === 0n;
+  const durations = decomposeRestsAtPosition(
+    (fraction[0] / fraction[1]) * 4,
+    onBinaryGrid ? (onset[0] / onset[1]) * 4 : 0,
+    time,
+  );
   const actual = durations.reduce<Space["duration"]>(
     (sum, duration) => addWholeFractions(sum, durationWholeFraction(duration)),
     [0, 1],
   );
   if (compareWholeFractions(fraction, actual) !== 0) {
-    throw new Error("Cannot represent the destination voice offset exactly.");
+    throw new Error("Cannot represent clipboard rest timing exactly.");
   }
   return durations;
 }

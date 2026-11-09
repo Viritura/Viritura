@@ -68,7 +68,7 @@ describe("selection of actual clipboard placement", () => {
     const source = create("pasted-breve", "breve");
     const snapshot = structuredClone({ score, source });
     const result = pasteAt(score, { content: [source] });
-    const continuation = content(result.newScore, 1)[0] as NoteEvent;
+    const continuation = content(result.newScore, 1).at(-1) as NoteEvent;
 
     expect(continuation.id).toBeTruthy();
     expect(continuation.id).not.toBe(source.id);
@@ -76,7 +76,11 @@ describe("selection of actual clipboard placement", () => {
       start: "p0/m0/s0/pasted-breve",
       end: `p0/m1/s0/${continuation.id}`,
     });
-    expect(selectedIds(result)).toEqual([result.range!.start, result.range!.end]);
+    expect(selectedIds(result)).toEqual(
+      [...walkSequenceEvents(content(result.newScore, 0))]
+        .map(({ event }) => `p0/m0/s0/${event.id}`)
+        .concat([...walkSequenceEvents(content(result.newScore, 1))].map(({ event }) => `p0/m1/s0/${event.id}`)),
+    );
     expect({ score, source }).toEqual(snapshot);
   });
 
@@ -144,8 +148,8 @@ describe("selection of actual clipboard placement", () => {
 
       expect(result.range).toEqual({ start: "p0/m0/s0/actual-primary", end: "p1/m0/s0/actual-other" });
       expect(selectedIds(result)).toEqual(["p0/m0/s0/actual-primary", "p1/m0/s0/actual-other"]);
-      expect(content(result.newScore, 0, 0, 0)).toHaveLength(2);
-      expect(content(result.newScore, 0, 0, 1)).toHaveLength(2);
+      expect(content(result.newScore, 0, 0, 0)).toHaveLength(3);
+      expect(content(result.newScore, 0, 0, 1)).toHaveLength(3);
     },
   );
 
@@ -260,7 +264,10 @@ describe("selection of actual clipboard placement", () => {
     expect(result.range).toEqual({ start: "p0/m0/s0/pasted", end: "p0/m0/s0/pasted" });
     expect(selectedIds(result)).toEqual(["p0/m0/s0/pasted"]);
     expect(placed[0]).toEqual(pasted);
-    expect(placed[1]).toMatchObject({ rest: {}, duration: { base: "half", dots: 1 } });
+    expect(placed.slice(1)).toMatchObject([
+      { rest: {}, duration: { base: "quarter" } },
+      { rest: {}, duration: { base: "half" } },
+    ]);
   });
 
   it("retains a pasted rest between destination rests without merging away its ID", () => {
@@ -270,17 +277,17 @@ describe("selection of actual clipboard placement", () => {
 
     expect(result.range).toEqual({ start: "p0/m0/s0/pasted", end: "p0/m0/s0/pasted" });
     expect(selectedIds(result)).toEqual(["p0/m0/s0/pasted"]);
-    expect(content(result.newScore).map(sequenceContentBeats)).toEqual([1, 1, 2]);
+    expect(content(result.newScore).map(sequenceContentBeats)).toEqual([1, 1, 1, 1]);
     expect(content(result.newScore)[0]).toEqual(rest("before", "quarter"));
   });
 
-  it("selects the surviving ID when adjacent pasted rests merge", () => {
+  it("selects both written rests without merging adjacent pasted rests", () => {
     const result = pasteAt(scoreWithRests(), { content: [rest("first", "quarter"), rest("second", "quarter")] });
 
-    expect(result.range).toEqual({ start: "p0/m0/s0/first", end: "p0/m0/s0/first" });
-    expect(selectedIds(result)).toEqual(["p0/m0/s0/first"]);
-    expect(content(result.newScore)[0]).toEqual(rest("first", "half"));
-    expect(content(result.newScore)[1]).toMatchObject({ rest: {}, duration: { base: "half" } });
+    expect(result.range).toEqual({ start: "p0/m0/s0/first", end: "p0/m0/s0/second" });
+    expect(selectedIds(result)).toEqual(["p0/m0/s0/first", "p0/m0/s0/second"]);
+    expect(content(result.newScore).slice(0, 2)).toEqual([rest("first", "quarter"), rest("second", "quarter")]);
+    expect(content(result.newScore)[2]).toMatchObject({ rest: {}, duration: { base: "half" } });
   });
 
   it("selects kit events in tuplets and tremolos without flattening the placed containers", () => {
@@ -378,17 +385,18 @@ describe("pasteTrackIntoScore placed-content contract", () => {
     expect(ids[1]).not.toBe("breve");
     expect(ids[2]).toBe("quarter");
     for (let measure = 0; measure < 3; measure++) expect(placed[measure]).toBe(content(score, measure)[0]);
-    expect(content(score, 2)).toHaveLength(2);
+    expect(content(score, 2)).toHaveLength(3);
     expect(placed).not.toContain(content(score, 2)[1]);
   });
 
-  it("returns only surviving pasted rests after merging within the pasted interval", () => {
+  it("returns every pasted rest without including destination remainder rests", () => {
     const score = scoreWithRests();
     const placed = pasteTrackIntoScore(score, 0, 0, 0, 0, [rest("first", "quarter"), rest("second", "quarter")]);
 
-    expect(placed).toEqual([rest("first", "half")]);
+    expect(placed).toEqual([rest("first", "quarter"), rest("second", "quarter")]);
     expect(placed[0]).toBe(content(score)[0]);
-    expect(content(score)).toHaveLength(2);
+    expect(placed[1]).toBe(content(score)[1]);
+    expect(content(score)).toHaveLength(3);
   });
 
   it.each([

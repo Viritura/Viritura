@@ -473,7 +473,7 @@ describe("exact clipboard track positions", () => {
   it("still splits rests at exactly representable rhythmic boundaries", () => {
     const content: SequenceContent[] = [{ type: "event", id: "rest", duration: { base: "whole" }, rest: {} }];
     splitSequenceAtBeat(content, 1.5);
-    expect(content.map(sequenceContentBeats)).toEqual([1.5, 2, 0.5]);
+    expect(content.map(sequenceContentBeats)).toEqual([1, 0.5, 0.5, 2]);
     expect(content.every((item) => item.type === "event" && item.rest)).toBe(true);
   });
 
