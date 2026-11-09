@@ -344,6 +344,12 @@ later. Text-only and swing-only instructions do not interrupt ramps.
 Overlapping ramps, nonpositive targets and invalid endpoints are rejected.
 This initial model permits one ramp start per global measure.
 
+Playback resolves curves in written-score order before realizing the repeat
+and jump itinerary. Each played interval retains its source curve progress;
+repeating or skipping bars does not create overlapping copies of the ramp or
+stretch its curve to reach an endpoint on a later pass. Fermata and caesura
+holds are then inserted for each played occurrence.
+
 `systemTextId`, when present, references an ordinary `systemText` entry on the
 owning measure. The editor creates, moves and removes that owned label with
 the ramp while preserving other system text. Printed wording has no implicit
@@ -357,6 +363,12 @@ the bar. Edit the start/end bars and zero-based quarter-note offsets, target,
 curve and printed text, then apply the edit. Select the starting bar or its
 printed system text to edit or remove an existing ramp. Edits participate in
 normal undo/redo, save/reload and collaborative document persistence.
+
+Deleting a ramp's endpoint bar removes the surviving ramp and its owned printed
+label, preserving unrelated system text. Deleting bars inside a stable-ID span
+keeps its endpoints and shortens the span; legacy numeric endpoints shift with
+the deletion. These changes are part of the same bar-deletion edit, so undo
+restores both the bars and their ramp.
 
 MusicXML/MXL import and reconstruction of sampled tempo automation are outside
 this feature's scope. Ramps do not imply MIDI velocity or dynamics changes.

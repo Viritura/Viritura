@@ -13,7 +13,8 @@ import { isRest, pitchToMidi, plainTextContent } from "@viritura/core";
 import { buildDynamicsEnvelope, cc11Events, sampleDynamics } from "./dynamicsEnvelope";
 import { buildHoldSchedule, type HoldSchedule, type MeasureHold } from "./holds";
 import { classifyTechniqueText, type TechniqueAction } from "./technique";
-import { buildTempoModel, type TempoBuild } from "./tempoMap";
+import type { TempoBuild } from "./tempoMap";
+import { buildPlaybackTempoModel } from "./playbackTempo";
 import { durationBeats, fractionToBeats, type TimelineOptions } from "./timeline";
 import type { TempoModel } from "./tempoModel";
 import { resolvePartStaffMeterTable, staffMeterRatioAt } from "./staffMeterTiming";
@@ -436,7 +437,7 @@ function buildPerformanceTiming(score: Score, measureOrder: readonly number[]): 
     expandedGlobal,
     buildHoldSchedule(score, measureOrder, score.global.measures),
   );
-  return { ...buildTempoModel(expandedGlobal, holds), holds };
+  return { ...buildPlaybackTempoModel(score, measureOrder, holds), holds };
 }
 
 function generateChordPerformanceEvents(score: Score, options?: TimelineOptions): PerformanceEvent[] {

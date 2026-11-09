@@ -4,7 +4,7 @@
  */
 
 import type { Score, NoteEvent, Sequence } from "@viritura/core";
-import { walkSequenceEvents, setClef } from "@viritura/core";
+import { walkSequenceEvents, setClef, removeGlobalMeasures } from "@viritura/core";
 import { cloneScore } from "../score/scoreClone";
 import { resolveEventLocation, getEventAtLocation } from "../score/ElementPath";
 import { parseClefElementId } from "../score/clefElementId";
@@ -199,7 +199,7 @@ export function removeMeasureRangeFromScore(
     ...score,
     global: {
       ...score.global,
-      measures: [...score.global.measures.slice(0, startM), ...score.global.measures.slice(endM + 1)],
+      measures: removeGlobalMeasures(score.global.measures, startM, count),
     },
     parts: score.parts.map((part) => ({
       ...part,

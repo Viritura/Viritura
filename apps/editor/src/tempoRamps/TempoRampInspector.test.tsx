@@ -14,6 +14,7 @@ import { selectedRampSpan } from "./selection";
 import { NotationInspector } from "../components/NotationInspector";
 import { DocumentProvider, useDocument, useDocumentActions } from "../store/DocumentContext";
 import { resetSelectionStore, useSelectionActions } from "../store/selectionStore";
+import { removeMeasureRangeFromScore } from "../keyboard/normalModeDeleteHelpers";
 
 afterEach(() => {
   cleanup();
@@ -210,6 +211,29 @@ describe("native tempo ramp authoring", () => {
     expect(label?.text).toEqual([{ text: "rit.", style: { weight: "bold" } }]);
     expect(label?.manualOffset).toEqual([2, 3]);
     expect(removeTempoRamp(edited, 0).global.measures[0]!.systemText?.map((text) => text.id)).toEqual(["other"]);
+  });
+
+  it("keeps playback, inspector rendering and undo/redo valid after deleting the endpoint bar", () => {
+    const initial = saveTempoRamp(source(), edit).score!;
+    initial.global.measures[0]!.systemText!.push({
+      id: "other",
+      text: [{ text: "espressivo" }],
+      position: { fraction: [0, 1] },
+    });
+    const history = createHistoryStore(JSON.stringify(serializeMnx(initial)), { current: undefined });
+    const removed = removeMeasureRangeFromScore(initial, 1, 1)!;
+    history.getState().pushState(JSON.stringify(serializeMnx(removed)), "Delete bars");
+    expect(removed.global.measures[0]!.gradualTempo).toBeUndefined();
+    expect(removed.global.measures[0]!.systemText?.map((text) => text.id)).toEqual(["other"]);
+    expect(() => generateTimeline(removed)).not.toThrow();
+    render(<Harness initial={removed} onUpdate={() => {}} />);
+    expect(screen.getByRole("button", { name: "Add tempo ramp" })).toBeTruthy();
+    const undone = parseMnx(JSON.parse(history.getState().undo()!));
+    expect(undone.global.measures[0]!.gradualTempo?.end.measure).toBe("m1");
+    expect(() => generateTimeline(undone)).not.toThrow();
+    const redone = parseMnx(JSON.parse(history.getState().redo()!));
+    expect(redone.global.measures[0]!.gradualTempo).toBeUndefined();
+    expect(() => generateTimeline(redone)).not.toThrow();
   });
 
   it("rejects overlaps and a second ramp in the same starting bar", () => {

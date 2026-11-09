@@ -77,7 +77,12 @@ export function buildTempoMap(
   tempoMap: TempoMapEntry[];
   measureStartTimes: number[];
 } {
-  const { model, measureStartBeats, measureStartTimes } = buildTempoModel(globalMeasures, holds);
+  const timing = buildTempoModel(globalMeasures, holds);
+  return { tempoMap: tempoMapEntries(globalMeasures, timing), measureStartTimes: timing.measureStartTimes };
+}
+
+export function tempoMapEntries(globalMeasures: readonly GlobalMeasure[], timing: TempoBuild): TempoMapEntry[] {
+  const { model, measureStartBeats } = timing;
   const tempoMap: TempoMapEntry[] = [];
   globalMeasures.forEach((measure, measureIndex) => {
     for (const tempo of [...(measure.tempos ?? [])].sort((a, b) => tempoBeat(a) - tempoBeat(b))) {
@@ -101,7 +106,7 @@ export function buildTempoMap(
     });
   }
 
-  return { tempoMap, measureStartTimes };
+  return tempoMap;
 }
 
 /**

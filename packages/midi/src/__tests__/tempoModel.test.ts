@@ -111,6 +111,21 @@ describe("TempoModel — gradual ramp (rit./accel.)", () => {
 });
 
 describe("TempoModel — point insertions (caesura)", () => {
+  it("adds holds to an existing curve without losing slopes or earlier holds", () => {
+    const source = TempoModel.build(
+      [{ startBeat: 0, endBeat: 4, startBpm: 60, endBpm: 120 }, constReg(4, Infinity, 120)],
+      [{ beat: 1, seconds: 0.25 }],
+    );
+    const augmented = source.withInsertions([{ beat: 2, seconds: 0.5 }]);
+    for (const beat of [0, 0.5, 1, 1.5, 2, 3.75, 4, 6]) {
+      expect(augmented.bpmAtBeat(beat)).toBeCloseTo(source.bpmAtBeat(beat), 7);
+      expect(augmented.timeAtBeat(beat)).toBeCloseTo(source.timeAtBeat(beat) + (beat >= 2 ? 0.5 : 0), 7);
+      expect(augmented.beatAtTime(augmented.timeAtBeat(beat))).toBeCloseTo(beat, 7);
+    }
+    expect(augmented.timeAtBeat(2, "release")).toBeCloseTo(source.timeAtBeat(2), 7);
+    expect(augmented.beatAtTime(source.timeAtBeat(2) + 0.25)).toBeCloseTo(2, 7);
+  });
+
   // 120 throughout; a 1s caesura inserted at beat 2.
   const m = TempoModel.build([constReg(0, Infinity, 120)], [{ beat: 2, seconds: 1.0 }]);
 

@@ -55,3 +55,4 @@ export {
   type ResolvedLyricExtender,
 } from "./lyricExtenders";
 export { pruneMixerSettings } from "./mixer";
+export { removeGlobalMeasures } from "./measureDeletion";

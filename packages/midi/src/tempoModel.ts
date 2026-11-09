@@ -107,6 +107,24 @@ export class TempoModel {
     this.knots = knots;
   }
 
+  /** Add holds without changing the already resolved BPM curves. */
+  withInsertions(insertions: readonly TempoInsertion[]): TempoModel {
+    if (insertions.length === 0) return this;
+    const regions = this.knots.map((knot, index): TempoRegion => {
+      const endBeat = this.knots[index + 1]?.beat ?? Infinity;
+      return {
+        startBeat: knot.beat,
+        endBeat,
+        startBpm: knot.bpm,
+        endBpm: Number.isFinite(endBeat) ? knot.bpm + knot.slope * (endBeat - knot.beat) : knot.bpm,
+      };
+    });
+    const existing = this.knots
+      .filter((knot) => knot.insertBefore > 0)
+      .map((knot) => ({ beat: knot.beat, seconds: knot.insertBefore }));
+    return TempoModel.build(regions, [...existing, ...insertions]);
+  }
+
   /** Realize selected source-beat intervals on one continuous performance axis. */
   static concatenate(source: TempoModel, spans: readonly { startBeat: number; endBeat: number }[]): TempoModel {
     const regions: TempoRegion[] = [];

@@ -79,7 +79,8 @@ function kitNoteToMidi(kn: KitNote, kitMidiMap: ReadonlyMap<string, number>): nu
   return kitMidiMap.get(kn.kitComponent) ?? -1;
 }
 import type { MidiEvent, MidiTimeline, TempoMapEntry, TimelineDiagnostic } from "./types";
-import { buildTempoMap, buildTempoModel } from "./tempoMap";
+import { tempoMapEntries } from "./tempoMap";
+import { buildPlaybackTempoModel } from "./playbackTempo";
 import { TempoModel } from "./tempoModel";
 import {
   applyArticulationVelocity,
@@ -277,8 +278,8 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   // `measureStartTimes` is derived FROM the model so it matches event timing
   // through sub-bar tempo changes / holds. The legacy `tempoMap` entry array is
   // kept for UI, dynamics, and the score-engine consumers.
-  const { tempoMap } = buildTempoMap(expandedGlobal, holdSchedule);
-  const tempoBuild = buildTempoModel(expandedGlobal, holdSchedule);
+  const tempoBuild = buildPlaybackTempoModel(score, measureOrder, holdSchedule);
+  const tempoMap = tempoMapEntries(expandedGlobal, tempoBuild);
   const { model, measureStartTimes, measureStartBeats } = tempoBuild;
   const rhythm = compileRhythmProgram(score);
   const crossJumpContinuations = new Map<number, MidiEvent[]>();
