@@ -201,6 +201,12 @@ Implementation:
 - Note scheduling — `PlaybackEngine` + `Scheduler` in `packages/audio`
 - Per-part mixer (volume / pan / mute / solo) — `partLevels.ts` in `packages/playback`
 
+The note and metronome scheduler ticks every 25 ms and queues events 500 ms ahead
+on the audio clock, in both browser tabs and installed PWAs. This buffer protects
+against main-thread scheduling delays shorter than the look-ahead window; it does
+not add 500 ms to the Play command. The separate start pre-roll remains 120 ms.
+Longer stalls or browser background throttling can still exhaust the buffer.
+
 ---
 
 ## EQ color buses

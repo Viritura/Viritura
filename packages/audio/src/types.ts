@@ -180,7 +180,7 @@ export interface PlaybackEngineOptions {
    *  (notably the synchronous Canvas2D full-score repaint on view switches),
    *  otherwise events in the gap become stale: late `noteOn`s are dropped and
    *  `noteOff`s fire crammed to now, producing an audible glitch. 0.5s covers
-   *  a ~500ms paint block; the only cost is mid-playback tempo changes taking
+   *  stalls shorter than the window; the only cost is mid-playback tempo changes taking
    *  up to one window to apply (seek rebuilds the scheduler, so it's exact). */
   readonly scheduleAheadTime?: number;
   /** Look-ahead tick interval in milliseconds (default: 25) */
@@ -197,7 +197,7 @@ export interface PlaybackEngineOptions {
 
 /** Default engine configuration values. */
 export const DEFAULT_ENGINE_OPTIONS: Required<PlaybackEngineOptions> = {
-  scheduleAheadTime: 0.2,
+  scheduleAheadTime: 0.5,
   tickIntervalMs: 25,
   playheadIntervalMs: 1000 / 60,
   leadInTime: 0.12,

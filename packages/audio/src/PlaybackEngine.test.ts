@@ -187,6 +187,36 @@ describe("PlaybackEngine", () => {
     vi.useRealTimers();
   });
 
+  it.each([0.25, 0.35, 0.45])("keeps notes on time when scheduling ticks are delayed by %s seconds", (stall) => {
+    const engine = new PlaybackEngine(audioCtx);
+    const sampler = createMockSampler();
+    const events = Array.from({ length: 20 }, (_, index): MidiEvent[] => [
+      { type: "noteOn", time: index / 10, midiNote: 60, velocity: 80, partIndex: 0, channel: 0 },
+      { type: "noteOff", time: index / 10 + 0.05, midiNote: 60, velocity: 0, partIndex: 0, channel: 0 },
+    ]).flat();
+    engine.loadTimeline({ events, duration: 3, tempoMap: [], measureStartTimes: [0] }, new Map([[0, sampler]]));
+
+    try {
+      engine.play();
+      const startTime = 0.12;
+      expect(sampler.noteOnCalls[0]?.time).toBe(startTime);
+      // The audio thread keeps rendering while the main-thread timer is delayed.
+      for (let now = stall; now < 2.5; now += stall) {
+        setTime(now);
+        vi.advanceTimersByTime(25);
+      }
+
+      expect(sampler.noteOnCalls.map((call) => call.time)).toEqual(
+        events.filter((event) => event.type === "noteOn").map((event) => startTime + event.time),
+      );
+      expect(sampler.noteOffCalls.map((call) => call.time)).toEqual(
+        events.filter((event) => event.type === "noteOff").map((event) => startTime + event.time),
+      );
+    } finally {
+      engine.dispose();
+    }
+  });
+
   describe("initial state", () => {
     it("should start in stopped state", () => {
       const engine = new PlaybackEngine(audioCtx);
