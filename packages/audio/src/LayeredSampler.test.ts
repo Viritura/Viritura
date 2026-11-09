@@ -31,6 +31,64 @@ function mockSampler(): ISampler & {
 }
 
 describe("LayeredSampler", () => {
+  it.each([40, 41, 42, 43])("restores ensemble programs after pizzicato for primary program %i", (program) => {
+    const primary = { ...mockSampler(), setProgram: vi.fn(), sendControl: vi.fn() };
+    const layers = [48, 49].map((baselineProgram) => ({
+      sampler: { ...mockSampler(), setProgram: vi.fn(), sendControl: vi.fn() },
+      baselineProgram,
+      volumeRatio: 0.5,
+    }));
+    const sampler = new LayeredSampler(primary, layers, 1, program);
+
+    sampler.sendControl(74, 44);
+    sampler.setProgram(45, 1);
+    sampler.setProgram(program, 2);
+
+    expect(primary.setProgram.mock.calls).toEqual([
+      [45, 1],
+      [program, 2],
+    ]);
+    for (const layer of layers) {
+      expect(layer.sampler.setProgram.mock.calls).toEqual([
+        [45, 1],
+        [layer.baselineProgram, 2],
+      ]);
+      expect(layer.sampler.sendControl).toHaveBeenCalledExactlyOnceWith(74, 44, undefined);
+    }
+
+    sampler.setProgram(program);
+    expect(layers[0]!.sampler.setProgram).toHaveBeenLastCalledWith(48, undefined);
+    expect(layers[1]!.sampler.setProgram).toHaveBeenLastCalledWith(49, undefined);
+  });
+
+  it("keeps disabled layers' programs current before re-enabling them", () => {
+    const primary = { ...mockSampler(), setProgram: vi.fn() };
+    const layer = { ...mockSampler(), setProgram: vi.fn() };
+    const sampler = new LayeredSampler(primary, [{ sampler: layer, baselineProgram: 48, volumeRatio: 0.5 }], 1, 40);
+
+    sampler.setProgram(45, 1);
+    sampler.setLayerEnabled(0, false);
+    sampler.setProgram(40, 2);
+    sampler.setLayerEnabled(0, true);
+
+    expect(layer.setProgram.mock.calls).toEqual([
+      [45, 1],
+      [48, 2],
+    ]);
+  });
+
+  it("preserves program forwarding when no baseline mapping is configured", () => {
+    const primary = { ...mockSampler(), setProgram: vi.fn() };
+    const layer = { ...mockSampler(), setProgram: vi.fn() };
+    const sampler = new LayeredSampler(primary, [{ sampler: layer, volumeRatio: 0.5 }]);
+    sampler.setProgram(45, 1);
+    sampler.setProgram(40, 2);
+    expect(layer.setProgram.mock.calls).toEqual([
+      [45, 1],
+      [40, 2],
+    ]);
+  });
+
   it("cancels every layer queue, including disabled layers, only when all support it", () => {
     const primary = { ...mockSampler(), cancelScheduledNotes: vi.fn() };
     const layer = { ...mockSampler(), cancelScheduledNotes: vi.fn() };

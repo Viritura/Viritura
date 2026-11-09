@@ -12,6 +12,8 @@ import type { ISampler } from "./types";
 /** Configuration for a single layer added to the composite. */
 export interface LayerConfig {
   sampler: ISampler;
+  /** This layer's program when the primary returns to its baseline sound. */
+  baselineProgram?: number;
   /** Volume relative to the primary (e.g. 0.5 = half the primary volume). */
   volumeRatio: number;
 }
@@ -28,7 +30,12 @@ export class LayeredSampler implements ISampler {
   readonly setPlaybackMuted?: (muted: boolean) => void;
   readonly cancelScheduledNotes?: (fromAudioTime: number) => void;
 
-  constructor(primary: ISampler, layers: LayerConfig[], primaryRatio = 1.0) {
+  constructor(
+    primary: ISampler,
+    layers: LayerConfig[],
+    primaryRatio = 1.0,
+    private readonly baselineProgram?: number,
+  ) {
     this.primary = primary;
     this.primaryRatio = primaryRatio;
     this.layers = layers.map((l) => ({ ...l, enabled: true }));
@@ -69,9 +76,8 @@ export class LayeredSampler implements ISampler {
   setProgram(program: number, time?: number): void {
     if (this.primary.setProgram) this.primary.setProgram(program, time);
     for (const layer of this.layers) {
-      if (layer.enabled && layer.sampler.setProgram) {
-        layer.sampler.setProgram(program, time);
-      }
+      const layerProgram = program === this.baselineProgram ? (layer.baselineProgram ?? program) : program;
+      layer.sampler.setProgram?.(layerProgram, time);
     }
   }
 
