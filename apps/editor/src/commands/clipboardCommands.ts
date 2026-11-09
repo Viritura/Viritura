@@ -659,6 +659,7 @@ function applyCapturedDynamics(
       id: generateId(),
       position: { fraction: quarterBeatsToFraction(target.beat) },
     };
+    delete newDynamic.placement;
     if (newDynamic.type === "gradual") {
       if (!c.endOffset) return;
       const end = absoluteDynamicEnd(c.endOffset);
@@ -689,6 +690,7 @@ function applyCapturedDynamics(
       id: generateId(),
       position: { fraction: quarterBeatsToFraction(Math.max(0, newBeats)) },
     };
+    delete newDyn.placement;
 
     if (newDyn.type === "gradual") {
       if (c.endOffset) {

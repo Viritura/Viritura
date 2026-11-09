@@ -2,6 +2,84 @@ use super::*;
 use serde_json::json;
 
 #[test]
+fn automatic_paste_directions_follow_destination_clef_in_first_frame() {
+    use viritura_engine::render::{smufl::smufl, ElementKind, RenderCommand};
+
+    let document = json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [
+            {"id": "treble", "measures": [{
+                "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+                "sequences": [{"content": [{
+                    "id": "source", "duration": {"base": "quarter"},
+                    "stemDirection": "up", "markings": {"staccato": {"placement": "below"}},
+                    "notes": [{"pitch": {"step": "C", "octave": 4}}]
+                }]}]
+            }]},
+            {"id": "bass", "measures": [{
+                "clefs": [{"clef": {"sign": "F", "staffPosition": 2}}],
+                "sequences": [{"content": [], "fullMeasure": {}}]
+            }]}
+        ],
+        "layouts": [{"id": "layout", "content": [
+            {"type": "staff", "sources": [{"part": "treble"}]},
+            {"type": "staff", "sources": [{"part": "bass"}]}
+        ]}],
+        "scores": [{"name": "Score", "layout": "layout"}]
+    });
+    let patch = json!({"partMeasures": {"1": {"0": {
+        "clefs": [{"clef": {"sign": "F", "staffPosition": 2}}],
+        "sequences": [{"content": [{
+            "id": "pasted", "duration": {"base": "quarter"},
+            "markings": {"staccato": {}},
+            "notes": [{"pitch": {"step": "C", "octave": 4}}]
+        }]}]
+    }}}});
+    let mut engine = LayoutEngine::default();
+    engine
+        .compute_full_score_layout_cached_dl(&document.to_string(), 10.0, 800.0, None, Some(0))
+        .expect("initial layout");
+    let display = engine
+        .apply_patch_and_layout_display_list(&patch.to_string(), 10.0, 800.0, None, Some(0))
+        .expect("automatic paste layout");
+    let stems: Vec<_> = display
+        .element_shapes
+        .iter()
+        .filter(|shape| shape.kind == ElementKind::Stem)
+        .map(|shape| shape.bbox(&display.commands).expect("stem bounds"))
+        .collect();
+    assert_eq!(stems.len(), 2, "one stem per single-note staff");
+    for (staff, id, stem_up, articulation) in [
+        (0, "source", true, smufl::ARTIC_STACCATO_BELOW),
+        (1, "pasted", false, smufl::ARTIC_STACCATO_ABOVE),
+    ] {
+        let note_y = display
+            .commands
+            .iter()
+            .zip(&display.element_ids)
+            .find_map(|(command, tag)| match command {
+                RenderCommand::DrawGlyph { codepoint, y, .. }
+                    if *codepoint == smufl::NOTEHEAD_BLACK
+                        && tag
+                            .as_deref()
+                            .is_some_and(|tag| tag.split('/').any(|segment| segment == id)) =>
+                {
+                    Some(*y)
+                }
+                _ => None,
+            })
+            .expect("tagged notehead");
+        let stem = &stems[staff];
+        assert_eq!(stem.y + stem.height * 0.5 < note_y, stem_up);
+        assert!(display.commands.iter().zip(&display.element_ids).any(|(command, tag)| {
+            matches!(command, RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == articulation)
+                && tag.as_deref().is_some_and(|tag| tag.ends_with(&format!("/{id}/art-staccato")))
+        }), "{id} must use its own staff's automatic articulation side");
+    }
+}
+
+#[test]
 fn clef_changes_refresh_inherited_notes_after_paste() {
     let note = json!({
         "id": "source",

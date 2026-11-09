@@ -127,7 +127,11 @@ describe("MuseScore slur paste integration", () => {
     const placed = scoreEvents(score).filter((event) => event.notes?.length);
     const [onset, continuation, endpoint] = placed;
     expect(placed).toHaveLength(3);
-    expect(onset).toMatchObject({ id: start!.id, duration: { base: "quarter" }, slurs: start!.slurs });
+    expect(onset).toMatchObject({
+      id: start!.id,
+      duration: { base: "quarter" },
+      slurs: [{ target: end!.id, lineType: "dashed" }],
+    });
     expect(continuation).toMatchObject({ duration: { base: "quarter" } });
     expect(continuation!.slurs).toBeUndefined();
     expect(onset!.notes![0]!.ties).toEqual([{ target: continuation!.notes![0]!.id }]);
@@ -152,9 +156,7 @@ describe("MuseScore slur paste integration", () => {
     vi.mocked(invoke).mockResolvedValue({ text: written.text, museScore: null, supported: true });
     const repaste = await pasteFromClipboard();
     const copiedEvents = events(repaste!.content);
-    expect(copiedEvents[0]!.slurs).toEqual([
-      { target: copiedEvents[2]!.id, side: "down", sideEnd: "down", lineType: "dashed" },
-    ]);
+    expect(copiedEvents[0]!.slurs).toEqual([{ target: copiedEvents[2]!.id, lineType: "dashed" }]);
     expect(copiedEvents[2]!.id).not.toBe(endpoint!.id);
   });
 
@@ -179,7 +181,8 @@ describe("MuseScore slur paste integration", () => {
       const sequences = score.parts[0]!.measures[measure]!.sequences;
       const [start, rest] = incoming;
       const lower = incoming[2]!;
-      expect(sequences[0]!.content).toContainEqual(start);
+      const expectedSlurs = [{ target: rest!.id }, { target: lower.id, lineType: "dotted" }];
+      expect(sequences[0]!.content).toContainEqual({ ...start, slurs: expectedSlurs });
       expect(sequences[0]!.content).toContainEqual(rest);
       expect(sequences[3]).toMatchObject({ staff: 2 });
       expect(sequences[3]!.content).toContainEqual(lower);
@@ -189,7 +192,7 @@ describe("MuseScore slur paste integration", () => {
       ]);
       expect(rest!.rest).toEqual({});
       const savedStart = scoreEvents(score).find((event) => event.id === start!.id)!;
-      expect(savedStart.slurs).toEqual(start!.slurs);
+      expect(savedStart.slurs).toEqual(expectedSlurs);
       for (const slur of savedStart.slurs!) {
         expect(scoreEvents(score).some((event) => event.id === slur.target)).toBe(true);
       }
@@ -212,7 +215,7 @@ describe("MuseScore slur paste integration", () => {
     const tuplet = score.parts[0]!.measures[1]!.sequences[0]!.content[1]!;
     expect(tuplet.type).toBe("tuplet");
     const [start, end] = events([tuplet]);
-    expect(start!.slurs).toEqual([{ target: end!.id, side: "down", sideEnd: "down", lineType: "dashed" }]);
+    expect(start!.slurs).toEqual([{ target: end!.id, lineType: "dashed" }]);
     expect(end!.id).not.toBe(end!.notes![0]!.id);
   });
 });

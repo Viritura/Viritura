@@ -273,7 +273,7 @@ describe("clipboard cross-bar rhythmic placement review", () => {
 
     expect(placed[0]!.notes![0]!.ties).toEqual([{ target: chain[0]!.notes![0]!.id }]);
     expectTiedChain(chain);
-    expect(chain.at(-1)!.notes![0]!.ties).toEqual([{ target: "target-note", side: "down" }]);
+    expect(chain.at(-1)!.notes![0]!.ties).toEqual([{ target: "target-note" }]);
     expect(chain.at(-1)!.notes![1]!.ties).toEqual([{ lv: true }]);
     expect(chain[0]!.slurs).toEqual(source.slurs);
     expect(chain.slice(1).every((event) => !event.slurs && !event.markings)).toBe(true);
