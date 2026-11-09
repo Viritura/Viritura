@@ -162,6 +162,13 @@ belongs in an explicitly named resolver documented below.
   member events exported by the layout engine. Beam ink wins over overlapping
   stem/event rectangles. In condensed layouts, visual members expand through
   the standard writeback provenance to every represented source voice.
+- **Delete time signature** — Delete/Backspace and menu Delete remove an
+  explicitly selected meter change, including individual meters in a multi
+  selection. The measure and following measures inherit the preceding meter
+  until the next explicit change (or default to 4/4 if none precedes it).
+  Music, bar boundaries, and manual beams remain unchanged; automatic beams
+  follow the inherited meter on the next layout. A continuation copy with no
+  explicit meter on its measure is a no-op. Successful deletion clears selection.
 - **Slur / tie** — _span_ actions: they consult the `events` capability to find
   the covered notes, then apply a connection rather than a per-event mark. A
   bar (measure) or multi/range selection behaves as if every covered note were

@@ -48,7 +48,7 @@ import {
 } from "./normalModeDeleteHelpers";
 import type { KeyboardHandlerContext } from "./types";
 import type { Selection } from "../store/selectionStore";
-import { deleteKeySignatureByElementId } from "../commands/signatureCommands";
+import { deleteKeySignatureByElementId, deleteTimeSignaturesByElementIds } from "../commands/signatureCommands";
 import {
   deleteMeasureRepeatByElementId,
   deleteMeasureRepeatsForSelection,
@@ -213,6 +213,7 @@ function deleteStandaloneLeaf(
   if (isLyricId(elementId)) return removeLyricByElementId(score, elementId);
   if (elementId.endsWith("/measurerepeat")) return deleteMeasureRepeatByElementId(score, elementId);
   if (elementId.endsWith("/key")) return deleteKeySignatureByElementId(score, elementId);
+  if (elementId.endsWith("/time")) return deleteTimeSignaturesByElementIds(score, [elementId]);
   if (elementId.endsWith("/arp")) return deleteArpeggioByElementId(score, elementId);
   if (isAccidentalId(elementId)) return deleteCondensedAccidental(score, elementId, selectedScoreIndex);
   if (isArticulationId(elementId) || isNoteMarkingId(elementId))
@@ -285,7 +286,7 @@ function deleteSingleSelection(
     return;
   }
 
-  // Key signatures and event-level leaf markings must never fall through to
+  // Signatures and event-level leaf markings must never fall through to
   // whole-event deletion. Merged markings route across every source first.
   const selectedScoreIndex = ctx.getConfig?.().selectedScoreIndex ?? 0;
   const forceDirect = sel.measureAnchor?.isExpansion === true;
@@ -454,6 +455,8 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
         )
       : null;
   let newScore = annotationsResult ?? cloneScore(currentScore);
+  const timeSignaturesResult = deleteTimeSignaturesByElementIds(newScore, selectedIds);
+  if (timeSignaturesResult) newScore = timeSignaturesResult;
   const annotationsRemoved = annotationsResult !== null;
   const lyricsRemoved = removeLyricsByElementId(newScore, lyricIds);
   let connectorsRemoved = false;
@@ -469,12 +472,12 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
   // is left to the event pass — selecting everything means the rest, not a
   // chord with nothing in it.
   const wholeEventIds = deletableEventIds.filter((id) => !isNoteheadId(id));
-  const markingsRemoved = markingIds.length > 0 && removeMarkings(newScore, markingIds);
+  const markingsRemoved = removeMarkings(newScore, markingIds);
   const chordsRemoved = thinSelectedChords(newScore, deletableEventIds, wholeEventIds);
 
   const eventSelection = { ...selection, elementIds: wholeEventIds };
   const events = wholeEventIds.length > 0 ? resolveSelectionEvents(eventSelection, currentScore) : [];
-  const leavesRemoved = [markingsRemoved, lyricsRemoved].includes(true);
+  const leavesRemoved = [markingsRemoved, lyricsRemoved, timeSignaturesResult !== null].includes(true);
   if (
     events.length === 0 &&
     !annotationsRemoved &&
