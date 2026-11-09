@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Sf2Synth } from "@viritura/audio";
-import type { Score } from "@viritura/core";
+import { textContentFromPlain, type Score } from "@viritura/core";
 import { PlaybackProvider } from "./PlaybackContext";
 import { SCORE_CHANGE_DEBOUNCE_MS } from "./playbackReducer";
 import { getPlaybackSnapshot } from "./usePlayback";
@@ -132,6 +132,80 @@ afterEach(async () => {
 });
 
 describe("published instrument changes", () => {
+  it("restores each string ensemble voice after pizzicato during playback and seeks", async () => {
+    const input = score();
+    delete input.soundProfile;
+    const part = input.parts[0]!;
+    part.name = "Violin";
+    part._x = {
+      viritura: {
+        initialInstrument: "violin",
+        instruments: { violin: { instrumentId: "strings.violin", midiProgram: 40 } },
+      },
+    };
+    for (const [index, measure] of part.measures.entries()) {
+      delete measure.instrumentChanges;
+      if (index > 0) {
+        measure.expressions = [
+          {
+            text: textContentFromPlain(index === 1 ? "pizz." : "arco"),
+            position: { fraction: [0, 1] },
+          },
+        ];
+      }
+    }
+    await publish(input);
+    act(() => {
+      actions().stop();
+      actions().setSelectionPartIds(null);
+      if (getPlaybackSnapshot().state.countInEnabled) actions().toggleCountIn();
+      if (getPlaybackSnapshot().state.metronomeEnabled) actions().toggleMetronome();
+    });
+    await act(async () => {
+      await actions().play();
+    });
+    const voices = synths.flatMap(({ synth }) =>
+      [...new Map(synth.programChange.mock.calls).entries()]
+        .filter(([, program]) => [40, 48, 49].includes(program))
+        .map(([channel, program]) => ({ synth, channel, program })),
+    );
+    expect(voices.map(({ program }) => program).sort()).toEqual([40, 48, 49]);
+
+    for (const { synth } of synths) synth.sendMessage.mockClear();
+    await act(async () => {
+      for (const synth of synths) {
+        Object.defineProperty(synth.context, "currentTime", { value: synth.context.currentTime + 2 });
+      }
+      await vi.advanceTimersByTimeAsync(30);
+    });
+    for (const { synth, channel } of voices) {
+      expect(synth.sendMessage).toHaveBeenCalledWith([0xc0 | channel, 45], 0, { time: expect.any(Number) });
+    }
+    for (const { synth } of synths) synth.sendMessage.mockClear();
+    await act(async () => {
+      for (const synth of synths) {
+        Object.defineProperty(synth.context, "currentTime", { value: synth.context.currentTime + 2 });
+      }
+      await vi.advanceTimersByTimeAsync(30);
+    });
+    for (const { synth, channel, program } of voices) {
+      expect(synth.sendMessage).toHaveBeenCalledWith([0xc0 | channel, program], 0, { time: expect.any(Number) });
+    }
+
+    for (const [time, pizz] of [
+      [2.5, true],
+      [4.5, false],
+    ] as const) {
+      act(() => actions().seek(time));
+      for (const { synth, channel, program } of voices) {
+        expect(synth.programChange.mock.calls.filter(([ch]) => ch === channel).at(-1)).toEqual([
+          channel,
+          pizz ? 45 : program,
+        ]);
+      }
+    }
+  });
+
   it("previews the selected bar's timbre and layers while preserving sounding MIDI", async () => {
     await publish(score());
     await act(async () => {

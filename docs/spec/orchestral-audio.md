@@ -96,6 +96,13 @@ Built once per `PlaybackContext` mount: [`packages/playback/src/PlaybackContext.
 
 ---
 
+Technique program changes apply to the primary and all ensemble layers, including
+disabled layers so they remain current when re-enabled. Returning to the primary's
+baseline program (for example, `arco` after `pizz.`) restores each layer's own
+profile-defined program rather than replacing the ensemble voices with solo
+strings. This also applies when starting or seeking into an arco region and does
+not reset mute filters or mixer controls.
+
 ## Spatial layout
 
 The "concert hall" is a flat XY plane in meters with the listener at the origin facing forward (`+Y`, toward the stage). Per-part positions come from the spatial canvas; defaults follow a standard orchestral arrangement.

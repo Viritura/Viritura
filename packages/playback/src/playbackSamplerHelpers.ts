@@ -475,18 +475,20 @@ async function allocateSectionChannels(
 
 async function buildProfileLayered(args: {
   primarySampler: Sf2Sampler;
+  primaryProgram: number;
   synth: Sf2Synth;
   layers: readonly Sf2Layer[];
   layerChannels: readonly number[];
   primaryVolumeRatio: number;
   defaultPos: SpatialPosition;
 }): Promise<LayeredSampler> {
-  const { primarySampler, synth, layers, layerChannels, primaryVolumeRatio, defaultPos } = args;
+  const { primarySampler, primaryProgram, synth, layers, layerChannels, primaryVolumeRatio, defaultPos } = args;
   const layerSamplers = layers.map((layer, index) => ({
     sampler: new Sf2Sampler(synth, layerChannels[index]!, layer.source.program),
+    baselineProgram: layer.source.program,
     volumeRatio: layer.defaults.volumeRatio,
   }));
-  const layered = new LayeredSampler(primarySampler, layerSamplers, primaryVolumeRatio);
+  const layered = new LayeredSampler(primarySampler, layerSamplers, primaryVolumeRatio, primaryProgram);
 
   // Apply profile layer pans so stereo spread works even
   // without SpatialBridge (e.g. playing from editor view).
@@ -625,6 +627,7 @@ export async function createPartSampler(args: {
     const laneSampler: ISampler = isLayered
       ? await buildProfileLayered({
           primarySampler,
+          primaryProgram: supportedSf2.primary.program,
           synth: bundle.synth,
           layers: supportedSf2.layers,
           layerChannels: bundle.channels.slice(ensembleOffset),
