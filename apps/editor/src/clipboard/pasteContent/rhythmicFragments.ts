@@ -1,19 +1,15 @@
-import type { Duration, NoteEvent, Score, SequenceContent, Space, TimeSignature } from "@viritura/core";
+import type { Duration, NoteEvent, Score, SequenceContent, Space } from "@viritura/core";
 import { isRest, remapLyricExtenderTargets } from "@viritura/core";
 import {
   addWholeFractions,
   compareWholeFractions,
   contentWholeFraction,
+  exactRestDurations,
   exactWholeFraction,
   sequenceBoundaryFraction,
   subtractWholeFractions,
 } from "../clipboardTrackPlacement";
-import {
-  decomposeDuration,
-  decomposeRestsAtPosition,
-  durationToBeats,
-  getEffectiveTimeSignature,
-} from "../../commands/noteCommands";
+import { decomposeDuration, durationToBeats, getEffectiveTimeSignature } from "../../commands/noteCommands";
 import { eventDurationFragment } from "../../score/eventFragments";
 
 export interface MeasureFragment {
@@ -70,11 +66,8 @@ function appendFragment(
   position.beat = addWholeFractions(position.beat, beats);
 }
 
-function exactDurations(beats: Space["duration"], startBeat: number, restTime?: TimeSignature): Duration[] {
-  const quarterBeats = (beats[0] / beats[1]) * 4;
-  const durations = restTime
-    ? decomposeRestsAtPosition(quarterBeats, startBeat, restTime)
-    : decomposeDuration(quarterBeats);
+function exactDurations(beats: Space["duration"]): Duration[] {
+  const durations = decomposeDuration((beats[0] / beats[1]) * 4);
   const actual = durations.reduce<Space["duration"]>(
     (sum, duration) => addWholeFractions(sum, exactWholeFraction(durationToBeats(duration))),
     [0, 1],
@@ -102,8 +95,10 @@ function splitAcrossMeasures(
     if (item.type === "space") {
       pieces = [{ ...structuredClone(item), duration: beats }];
     } else {
-      const restTime = isRest(item) ? getEffectiveTimeSignature(score, position.measureIndex) : undefined;
-      pieces = exactDurations(beats, (position.beat[0] / position.beat[1]) * 4, restTime).map((duration) => {
+      const durations = isRest(item)
+        ? exactRestDurations(beats, position.beat, getEffectiveTimeSignature(score, position.measureIndex))
+        : exactDurations(beats);
+      pieces = durations.map((duration) => {
         const piece = eventDurationFragment(item, duration, previous);
         previous = piece;
         return piece;

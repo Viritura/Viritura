@@ -217,7 +217,11 @@ export function ensureSequencePosition(
   });
 }
 
-function exactRestDurations(fraction: Space["duration"], onset: Space["duration"], time: TimeSignature): Duration[] {
+export function exactRestDurations(
+  fraction: Space["duration"],
+  onset: Space["duration"],
+  time: TimeSignature,
+): Duration[] {
   // Fractional spaces can place a binary-valued rest off the notated grid.
   // Keep its exact duration rather than inventing tuplets to reach a beat boundary.
   const denominator = BigInt(onset[1]);
@@ -232,7 +236,7 @@ function exactRestDurations(fraction: Space["duration"], onset: Space["duration"
     [0, 1],
   );
   if (compareWholeFractions(fraction, actual) !== 0) {
-    throw new Error("Cannot represent the destination voice offset exactly.");
+    throw new Error("Cannot represent clipboard rest timing exactly.");
   }
   return durations;
 }

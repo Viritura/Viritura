@@ -15,6 +15,7 @@ import { deserializeFragment } from "../clipboard/deserialize";
 import { serializeFragment } from "../clipboard/serialize";
 import { applyPaste, pasteResultFromFragment, type PasteResult } from "../commands/clipboardCommands";
 import { sequenceContentBeats } from "../commands/noteCommands";
+import { addWholeFractions, contentWholeFraction } from "../clipboard/clipboardTrackPlacement";
 
 const commonTime: TimeSignature = { count: 4, unit: 4 };
 
@@ -131,6 +132,39 @@ describe("clipboard cross-bar rhythmic placement review", () => {
     const result = applyPaste(score, { content: [note("pasted")] }, 0, 0, 0, 0);
 
     expect(content(result, 0).slice(1)).toEqual(untouched);
+  });
+
+  it.each([1, 42])("preserves an exact destination rest remainder after %s fractional spaces", (count) => {
+    const score = scoreWithMeters();
+    const prefix: SequenceContent[] = Array.from({ length: count }, () => ({
+      type: "space",
+      duration: count === 1 ? [7, 10] : [1, 60],
+    }));
+    content(score, 0).push(...prefix, rest("destination", "quarter"));
+    const paste = { content: [note("pasted", "32nd")] };
+    const snapshot = structuredClone({ score, paste });
+    const result = applyPaste(score, paste, 0, 0, 0, prefix.length);
+    const placed = content(result, 0);
+    const remainder = events(result).slice(1);
+
+    expect(placed.slice(0, prefix.length)).toEqual(prefix);
+    expect(placed[prefix.length]).toEqual(paste.content[0]);
+    expect(remainder.map((event) => event.duration)).toEqual([{ base: "eighth" }, { base: "16th" }, { base: "32nd" }]);
+    expect(remainder.every((event) => event.rest && !event.notes)).toBe(true);
+    expect(
+      placed.reduce<[number, number]>((sum, item) => addWholeFractions(sum, contentWholeFraction(item)), [0, 1]),
+    ).toEqual([19, 20]);
+    expect({ score, paste }).toEqual(snapshot);
+  });
+
+  it("rejects an unrepresentable destination rest remainder at a fractional onset without rounding", () => {
+    const score = scoreWithMeters();
+    content(score, 0).push({ type: "space", duration: [7, 10] }, rest("destination", "quarter"));
+    const paste: PasteResult = { content: [{ type: "space", duration: [1, 12] }] };
+    const snapshot = structuredClone({ score, paste });
+
+    expect(() => applyPaste(score, paste, 0, 0, 0, 1)).toThrow(/exact/i);
+    expect({ score, paste }).toEqual(snapshot);
   });
 
   it("retains a copied dotted rest that fits without splitting", () => {

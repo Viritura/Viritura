@@ -7,16 +7,12 @@ import {
   type Space,
   type TimeSignature,
 } from "@viritura/core";
-import {
-  decomposeRestsAtPosition,
-  generateEventId,
-  getEffectiveTimeSignature,
-  sequenceContentBeats,
-} from "../../commands/noteCommands";
+import { generateEventId, getEffectiveTimeSignature, sequenceContentBeats } from "../../commands/noteCommands";
 import {
   addWholeFractions,
   compareWholeFractions,
   contentWholeFraction,
+  exactRestDurations,
   subtractWholeFractions,
 } from "../clipboardTrackPlacement";
 import { planPasteFragments } from "./rhythmicFragments";
@@ -96,19 +92,12 @@ function clearEventsInMeasure(
       sequence.content.splice(index, 1, { type: "space", duration: remainder });
       return;
     }
-    const rests: NoteEvent[] = decomposeRestsAtPosition(
-      (remainder[0] / remainder[1]) * 4,
-      (restStart[0] / restStart[1]) * 4,
-      time,
-    ).map((duration) => ({
+    const rests: NoteEvent[] = exactRestDurations(remainder, restStart, time).map((duration) => ({
       type: "event",
       id: generateEventId(),
       duration,
       rest: {},
     }));
-    if (compareWholeFractions(contentDuration(rests), remainder) !== 0) {
-      throw new Error("Cannot represent the destination remainder exactly as rests.");
-    }
     sequence.content.splice(index, 1, ...rests);
     return;
   }
