@@ -85,6 +85,10 @@ export interface DocumentStoreState {
 
 export type DocumentStore = ReturnType<typeof createDocumentStore>;
 
+export function hasUnsavedChanges(state: DocumentStoreState): boolean {
+  return state.mnxJson !== state.savedMnxJson || state.workingScore !== state.score;
+}
+
 function changedGlobalHarmony(previous: Score | null, next: Score, indices: readonly number[]): boolean {
   return indices.some(
     (index) =>
