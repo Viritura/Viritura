@@ -302,6 +302,77 @@ Specialized tempo and dynamics retain their musical semantics even when they
 reuse text presentation. Collision avoidance and automatic space reservation
 are a separate layout concern and remain outside the floating-frame slice.
 
+### Native tempo ramps
+
+Global measures may carry `_x.viritura.gradualTempo`. This is a score-wide
+playback span, independent of the printed instruction:
+
+```json
+{
+  "position": { "fraction": [0, 1] },
+  "end": { "measure": "m2", "position": { "fraction": [0, 1] } },
+  "endRatio": 0.8,
+  "curve": "smooth",
+  "systemTextId": "rit-label"
+}
+```
+
+Exactly one target is required: `endBpm` (absolute quarter-note BPM) or
+`endRatio` (a positive multiplier of the starting tempo). `0.8` means 80% of
+the starting tempo, not 80% slower. Relative targets are resolved again when
+the preceding tempo changes. Optional `startBpm` overrides the inherited
+quarter-note tempo; otherwise the actual tempo at the start is inherited,
+including any preceding ramp's held target. Legacy `endBpm` ramps remain valid.
+
+Progress `u` follows musical quarter-note beats across the span, not wall-clock
+seconds. Playback interpolates BPM using:
+
+| `curve`            | Progress function |
+| ------------------ | ----------------- |
+| `linear` (default) | `u`               |
+| `early`            | `1 - (1 - u)^2`   |
+| `late`             | `u^2`             |
+| `smooth`           | `3u^2 - 2u^3`     |
+
+Nonlinear curves compile into linear-BPM segments with a conservative
+0.1 ms integration-error budget per ramp. The shared continuous tempo model
+drives note timing, beat/time inversion and click placement.
+
+The target holds after the span. An explicit BPM marking inside a ramp
+interrupts it without compressing its curve or restoring its discarded target
+later. Text-only and swing-only instructions do not interrupt ramps.
+Overlapping ramps, nonpositive targets and invalid endpoints are rejected.
+This initial model permits one ramp start per global measure.
+
+Playback resolves curves in written-score order before realizing the repeat
+and jump itinerary. Each played interval retains its source curve progress;
+repeating or skipping bars does not create overlapping copies of the ramp or
+stretch its curve to reach an endpoint on a later pass. Fermata and caesura
+holds are then inserted for each played occurrence.
+
+`systemTextId`, when present, references an ordinary `systemText` entry on the
+owning measure. The editor creates, moves and removes that owned label with
+the ramp while preserving other system text. Printed wording has no implicit
+playback effect: rit., rall., accel., stringendo and custom text use the same
+explicit target and curve controls. An empty label creates a playback-only ramp.
+
+In Notation Properties, select notes or bars and use **Tempo ramp** to create
+the span. Note ranges include the final selected note; bar ranges include the
+final selected bar. A single note starts at its onset and extends to the end of
+the bar. Edit the start/end bars and zero-based quarter-note offsets, target,
+curve and printed text, then apply the edit. Select the starting bar or its
+printed system text to edit or remove an existing ramp. Edits participate in
+normal undo/redo, save/reload and collaborative document persistence.
+
+Deleting a ramp's endpoint bar removes the surviving ramp and its owned printed
+label, preserving unrelated system text. Deleting bars inside a stable-ID span
+keeps its endpoints and shortens the span; legacy numeric endpoints shift with
+the deletion. These changes are part of the same bar-deletion edit, so undo
+restores both the bars and their ramp.
+
+MusicXML/MXL import and reconstruction of sampled tempo automation are outside
+this feature's scope. Ramps do not imply MIDI velocity or dynamics changes.
+
 ### Tempo-owned swing instructions
 
 Tempo markings carry optional `_x.viritura.swing`:

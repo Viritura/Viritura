@@ -55,4 +55,43 @@ describe("yProjection round-trip (schema-blind walker)", () => {
 
     expect(decoded).toEqual(original);
   });
+
+  it("transports native ramp ratios, curves and their independently printed text", () => {
+    const original = {
+      global: {
+        measures: [
+          {
+            id: "m0",
+            _x: {
+              viritura: {
+                gradualTempo: {
+                  position: { fraction: [0, 1] },
+                  end: { measure: "m0", position: { fraction: [1, 1] } },
+                  endRatio: 0.8,
+                  curve: "smooth",
+                  systemTextId: "label",
+                },
+                systemText: [{ id: "label", text: [{ text: "rit." }], position: { fraction: [0, 1] } }],
+              },
+            },
+          },
+        ],
+      },
+    };
+    const sender = new Y.Doc();
+    const receiver = new Y.Doc();
+    try {
+      projectJsonIntoYDoc(original, sender);
+      Y.applyUpdate(receiver, Y.encodeStateAsUpdate(sender));
+      expect(readJsonFromYDoc(receiver)).toEqual(original);
+      original.global.measures[0]!._x.viritura.gradualTempo.endRatio = 1.2;
+      original.global.measures[0]!._x.viritura.gradualTempo.curve = "early";
+      projectJsonIntoYDoc(original, sender);
+      Y.applyUpdate(receiver, Y.encodeStateAsUpdate(sender));
+      expect(readJsonFromYDoc(receiver)).toEqual(original);
+    } finally {
+      sender.destroy();
+      receiver.destroy();
+    }
+  });
 });

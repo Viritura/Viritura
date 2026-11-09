@@ -20,6 +20,7 @@ import type { KeySignature } from "../model/key";
 import type { Barline } from "../model/barline";
 import type { Clef, PositionedClef } from "../model/clef";
 import { generateId, collectScoreIds } from "../id";
+import { removeGlobalMeasures } from "./measureDeletion";
 
 /**
  * Create a default empty PartMeasure with a single full-measure rest.
@@ -120,7 +121,7 @@ export function deleteMeasure(score: Score, index: number): Score {
     throw new RangeError("deleteMeasure: cannot delete the last measure");
   }
 
-  const newGlobalMeasures = [...score.global.measures.slice(0, index), ...score.global.measures.slice(index + 1)];
+  const newGlobalMeasures = removeGlobalMeasures(score.global.measures, index, 1);
 
   const newParts: Part[] = score.parts.map((part) => ({
     ...part,

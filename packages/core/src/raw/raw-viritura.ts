@@ -381,14 +381,20 @@ export interface components {
             fine?: components["schemas"]["marker-text"];
             jump?: components["schemas"]["marker-text"];
         };
-        /** @description A gradual tempo change (ritardando / accelerando) playback curve. MNX has no gradual-tempo field, so Viritura models the playback ramp as a vendor extension on the global measure where it begins. The tempo ramps linearly in BPM from the tempo active at `position` (or `startBpm` if given) to `endBpm` at `end`. This is playback data only; the printed 'rit.'/'accel.' text is an ordinary text-expression. */
+        /** @description A native tempo ramp over musical beats. Exactly one target is required: absolute quarter-note endBpm or endRatio times the starting tempo. An omitted curve means linear. Optional printed text is an independently engraved systemText entry referenced by systemTextId. */
         "gradual-tempo": {
             /** @description Start position within this measure. */
             position: components["schemas"]["rhythmic-position"];
             /** @description End position (may reference a later measure). */
             end: components["schemas"]["measure-rhythmic-position"];
             /** @description Quarter-note BPM reached at the end of the ramp. */
-            endBpm: number;
+            endBpm?: number;
+            /** @description Target multiplier of the tempo at the ramp start; 0.8 means 80%. */
+            endRatio?: number;
+            /** @enum {string} */
+            curve?: "linear" | "early" | "late" | "smooth";
+            /** @description Identity of the ramp's optional printed system text in this measure. */
+            systemTextId?: string;
             /** @description Optional start BPM (quarter-note). Defaults to the tempo active at `position`. */
             startBpm?: number;
             /**
@@ -396,7 +402,7 @@ export interface components {
              * @enum {string}
              */
             kind?: "rit" | "accel";
-        };
+        } & (unknown | unknown);
         /** @description Viritura vendor extensions on a global measure object. */
         "measure-global-extensions": {
             /** @description Unified ordered tempo collection when any marking has no BPM. Mutually exclusive with standard measure tempos; prevents fabricated BPM resets. */

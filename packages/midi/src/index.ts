@@ -25,7 +25,17 @@ export { generatePerformanceEvents } from "./performanceEvents";
 export type { PerformanceEvent, PerformanceNote, Articulations, PlayingState } from "./performanceEvents";
 
 // Tempo map
-export { buildTempoMap, measureBeatsFromTime, tempoNoteBeats, effectiveQpm, spqAtTime, DEFAULT_BPM } from "./tempoMap";
+export {
+  buildTempoMap,
+  buildTempoModel,
+  measureBeatsFromTime,
+  tempoNoteBeats,
+  effectiveQpm,
+  spqAtTime,
+  DEFAULT_BPM,
+} from "./tempoMap";
+export type { TempoBuild } from "./tempoMap";
+export { playbackGlobalMeasures } from "./cadenzaTiming";
 
 // Dynamics
 export { applyArticulationVelocity, articulationDurationScale, metricAccentOffset, velocityHumanize } from "./dynamics";

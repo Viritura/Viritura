@@ -796,8 +796,12 @@
 
     "gradual-tempo": {
       "type": "object",
-      "description": "A gradual tempo change (ritardando / accelerando) playback curve. MNX has no gradual-tempo field, so Viritura models the playback ramp as a vendor extension on the global measure where it begins. The tempo ramps linearly in BPM from the tempo active at `position` (or `startBpm` if given) to `endBpm` at `end`. This is playback data only; the printed 'rit.'/'accel.' text is an ordinary text-expression.",
-      "required": ["position", "end", "endBpm"],
+      "description": "A native tempo ramp over musical beats. Exactly one target is required: absolute quarter-note endBpm or endRatio times the starting tempo. An omitted curve means linear. Optional printed text is an independently engraved systemText entry referenced by systemTextId.",
+      "required": ["position", "end"],
+      "oneOf": [
+        { "required": ["endBpm"], "not": { "required": ["endRatio"] } },
+        { "required": ["endRatio"], "not": { "required": ["endBpm"] } }
+      ],
       "properties": {
         "position": {
           "$ref": "#/$defs/rhythmic-position",
@@ -811,6 +815,20 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "Quarter-note BPM reached at the end of the ramp."
+        },
+        "endRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Target multiplier of the tempo at the ramp start; 0.8 means 80%."
+        },
+        "curve": {
+          "type": "string",
+          "enum": ["linear", "early", "late", "smooth"]
+        },
+        "systemTextId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Identity of the ramp's optional printed system text in this measure."
         },
         "startBpm": {
           "type": "number",

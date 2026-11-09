@@ -13,6 +13,7 @@ import type { Score } from "../model/score";
 import type { GlobalMeasure, PartMeasure } from "../model/measure";
 import type { Part } from "../model/part";
 import { PatchTargetMissing } from "./locate";
+import { removeGlobalMeasures } from "../operations/measureDeletion";
 import type {
   GlobalMeasureField,
   InsertMeasuresPatch,
@@ -88,7 +89,7 @@ export function applyRemoveMeasures(draft: Draft<Score>, p: RemoveMeasuresPatch)
   if (p.startIndex < 0 || p.startIndex >= score.global.measures.length) {
     throw new PatchTargetMissing(`removeMeasures: start ${p.startIndex} is out of range`);
   }
-  score.global.measures.splice(p.startIndex, p.count);
+  score.global.measures = removeGlobalMeasures(score.global.measures, p.startIndex, p.count);
   for (const part of score.parts) {
     part.measures.splice(p.startIndex, p.count);
   }

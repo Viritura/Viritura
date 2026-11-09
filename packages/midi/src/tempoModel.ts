@@ -107,6 +107,24 @@ export class TempoModel {
     this.knots = knots;
   }
 
+  /** Add holds without changing the already resolved BPM curves. */
+  withInsertions(insertions: readonly TempoInsertion[]): TempoModel {
+    if (insertions.length === 0) return this;
+    const regions = this.knots.map((knot, index): TempoRegion => {
+      const endBeat = this.knots[index + 1]?.beat ?? Infinity;
+      return {
+        startBeat: knot.beat,
+        endBeat,
+        startBpm: knot.bpm,
+        endBpm: Number.isFinite(endBeat) ? knot.bpm + knot.slope * (endBeat - knot.beat) : knot.bpm,
+      };
+    });
+    const existing = this.knots
+      .filter((knot) => knot.insertBefore > 0)
+      .map((knot) => ({ beat: knot.beat, seconds: knot.insertBefore }));
+    return TempoModel.build(regions, [...existing, ...insertions]);
+  }
+
   /** Realize selected source-beat intervals on one continuous performance axis. */
   static concatenate(source: TempoModel, spans: readonly { startBeat: number; endBeat: number }[]): TempoModel {
     const regions: TempoRegion[] = [];
@@ -166,12 +184,10 @@ export class TempoModel {
     const boundaries = [...boundarySet].sort((a, b) => a - b);
 
     // Resolve the tempo (bpm + slope) active at a given beat from the regions.
+    let activeIndex = -1;
     const tempoAt = (beat: number): { bpm: number; slope: number } => {
-      let active: TempoRegion | undefined;
-      for (const r of sorted) {
-        if (r.startBeat <= beat + 1e-9) active = r;
-        else break;
-      }
+      while (activeIndex + 1 < sorted.length && sorted[activeIndex + 1]!.startBeat <= beat + 1e-9) activeIndex++;
+      const active = sorted[activeIndex];
       if (!active) {
         // Before the first region: use the first region's start tempo, or 120.
         const first = sorted[0];

@@ -332,10 +332,13 @@ function collectGlobalMeasureVendorExt(gm: GlobalMeasure): Obj {
     const gt: Obj = {
       position: gm.gradualTempo.position,
       end: gm.gradualTempo.end,
-      endBpm: gm.gradualTempo.endBpm,
     };
+    if (gm.gradualTempo.endBpm !== undefined) gt["endBpm"] = gm.gradualTempo.endBpm;
+    if (gm.gradualTempo.endRatio !== undefined) gt["endRatio"] = gm.gradualTempo.endRatio;
     if (gm.gradualTempo.startBpm !== undefined) gt["startBpm"] = gm.gradualTempo.startBpm;
     if (gm.gradualTempo.kind) gt["kind"] = gm.gradualTempo.kind;
+    if (gm.gradualTempo.curve) gt["curve"] = gm.gradualTempo.curve;
+    if (gm.gradualTempo.systemTextId) gt["systemTextId"] = gm.gradualTempo.systemTextId;
     ext["gradualTempo"] = gt;
   }
   if (gm.chordSymbols && gm.chordSymbols.length > 0) {

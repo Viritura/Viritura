@@ -2282,26 +2282,60 @@ impl<'de> ::serde::Deserialize<'de> for GlyphRunGlyphsItem {
             })
     }
 }
-///A gradual tempo change (ritardando / accelerando) playback curve. MNX has no gradual-tempo field, so Viritura models the playback ramp as a vendor extension on the global measure where it begins. The tempo ramps linearly in BPM from the tempo active at `position` (or `startBpm` if given) to `endBpm` at `end`. This is playback data only; the printed 'rit.'/'accel.' text is an ordinary text-expression.
+///A native tempo ramp over musical beats. Exactly one target is required: absolute quarter-note endBpm or endRatio times the starting tempo. An omitted curve means linear. Optional printed text is an independently engraved systemText entry referenced by systemTextId.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "A gradual tempo change (ritardando / accelerando) playback curve. MNX has no gradual-tempo field, so Viritura models the playback ramp as a vendor extension on the global measure where it begins. The tempo ramps linearly in BPM from the tempo active at `position` (or `startBpm` if given) to `endBpm` at `end`. This is playback data only; the printed 'rit.'/'accel.' text is an ordinary text-expression.",
+///  "description": "A native tempo ramp over musical beats. Exactly one target is required: absolute quarter-note endBpm or endRatio times the starting tempo. An omitted curve means linear. Optional printed text is an independently engraved systemText entry referenced by systemTextId.",
 ///  "type": "object",
+///  "oneOf": [
+///    {
+///      "not": {
+///        "required": [
+///          "endRatio"
+///        ]
+///      },
+///      "required": [
+///        "endBpm"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "endBpm"
+///        ]
+///      },
+///      "required": [
+///        "endRatio"
+///      ]
+///    }
+///  ],
 ///  "required": [
 ///    "end",
-///    "endBpm",
 ///    "position"
 ///  ],
 ///  "properties": {
+///    "curve": {
+///      "type": "string",
+///      "enum": [
+///        "linear",
+///        "early",
+///        "late",
+///        "smooth"
+///      ]
+///    },
 ///    "end": {
 ///      "description": "End position (may reference a later measure).",
 ///      "$ref": "#/$defs/measure-rhythmic-position"
 ///    },
 ///    "endBpm": {
 ///      "description": "Quarter-note BPM reached at the end of the ramp.",
+///      "type": "number"
+///    },
+///    "endRatio": {
+///      "description": "Target multiplier of the tempo at the ramp start; 0.8 means 80%.",
 ///      "type": "number"
 ///    },
 ///    "kind": {
@@ -2319,6 +2353,11 @@ impl<'de> ::serde::Deserialize<'de> for GlyphRunGlyphsItem {
 ///    "startBpm": {
 ///      "description": "Optional start BPM (quarter-note). Defaults to the tempo active at `position`.",
 ///      "type": "number"
+///    },
+///    "systemTextId": {
+///      "description": "Identity of the ramp's optional printed system text in this measure.",
+///      "type": "string",
+///      "minLength": 1
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -2326,27 +2365,155 @@ impl<'de> ::serde::Deserialize<'de> for GlyphRunGlyphsItem {
 /// ```
 /// </details>
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct GradualTempo {
-    ///End position (may reference a later measure).
-    pub end: MeasureRhythmicPosition,
-    #[serde(rename = "endBpm")]
-    pub end_bpm: f64,
-    ///Optional classification. Cosmetic only; the BPM direction determines the audible behavior.
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub kind: ::std::option::Option<GradualTempoKind>,
-    ///Start position within this measure.
-    pub position: RhythmicPosition,
-    #[serde(
-        rename = "startBpm",
-        default,
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub start_bpm: ::std::option::Option<f64>,
+#[serde(untagged, deny_unknown_fields)]
+pub enum GradualTempo {
+    Variant0 {
+        #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+        curve: ::std::option::Option<GradualTempoVariant0Curve>,
+        ///End position (may reference a later measure).
+        end: MeasureRhythmicPosition,
+        #[serde(rename = "endBpm")]
+        end_bpm: f64,
+        ///Optional classification. Cosmetic only; the BPM direction determines the audible behavior.
+        #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+        kind: ::std::option::Option<GradualTempoVariant0Kind>,
+        ///Start position within this measure.
+        position: RhythmicPosition,
+        #[serde(
+            rename = "startBpm",
+            default,
+            skip_serializing_if = "::std::option::Option::is_none"
+        )]
+        start_bpm: ::std::option::Option<f64>,
+        ///Identity of the ramp's optional printed system text in this measure.
+        #[serde(
+            rename = "systemTextId",
+            default,
+            skip_serializing_if = "::std::option::Option::is_none"
+        )]
+        system_text_id: ::std::option::Option<GradualTempoVariant0SystemTextId>,
+    },
+    Variant1 {
+        #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+        curve: ::std::option::Option<GradualTempoVariant1Curve>,
+        ///End position (may reference a later measure).
+        end: MeasureRhythmicPosition,
+        #[serde(rename = "endRatio")]
+        end_ratio: f64,
+        ///Optional classification. Cosmetic only; the BPM direction determines the audible behavior.
+        #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+        kind: ::std::option::Option<GradualTempoVariant1Kind>,
+        ///Start position within this measure.
+        position: RhythmicPosition,
+        #[serde(
+            rename = "startBpm",
+            default,
+            skip_serializing_if = "::std::option::Option::is_none"
+        )]
+        start_bpm: ::std::option::Option<f64>,
+        ///Identity of the ramp's optional printed system text in this measure.
+        #[serde(
+            rename = "systemTextId",
+            default,
+            skip_serializing_if = "::std::option::Option::is_none"
+        )]
+        system_text_id: ::std::option::Option<GradualTempoVariant1SystemTextId>,
+    },
 }
-impl ::std::convert::From<&GradualTempo> for GradualTempo {
+impl ::std::convert::From<&Self> for GradualTempo {
     fn from(value: &GradualTempo) -> Self {
         value.clone()
+    }
+}
+///`GradualTempoVariant0Curve`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "linear",
+///    "early",
+///    "late",
+///    "smooth"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum GradualTempoVariant0Curve {
+    #[serde(rename = "linear")]
+    Linear,
+    #[serde(rename = "early")]
+    Early,
+    #[serde(rename = "late")]
+    Late,
+    #[serde(rename = "smooth")]
+    Smooth,
+}
+impl ::std::convert::From<&Self> for GradualTempoVariant0Curve {
+    fn from(value: &GradualTempoVariant0Curve) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for GradualTempoVariant0Curve {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Linear => f.write_str("linear"),
+            Self::Early => f.write_str("early"),
+            Self::Late => f.write_str("late"),
+            Self::Smooth => f.write_str("smooth"),
+        }
+    }
+}
+impl ::std::str::FromStr for GradualTempoVariant0Curve {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "linear" => Ok(Self::Linear),
+            "early" => Ok(Self::Early),
+            "late" => Ok(Self::Late),
+            "smooth" => Ok(Self::Smooth),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for GradualTempoVariant0Curve {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for GradualTempoVariant0Curve {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GradualTempoVariant0Curve {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///Optional classification. Cosmetic only; the BPM direction determines the audible behavior.
@@ -2376,18 +2543,18 @@ impl ::std::convert::From<&GradualTempo> for GradualTempo {
     PartialEq,
     PartialOrd
 )]
-pub enum GradualTempoKind {
+pub enum GradualTempoVariant0Kind {
     #[serde(rename = "rit")]
     Rit,
     #[serde(rename = "accel")]
     Accel,
 }
-impl ::std::convert::From<&Self> for GradualTempoKind {
-    fn from(value: &GradualTempoKind) -> Self {
+impl ::std::convert::From<&Self> for GradualTempoVariant0Kind {
+    fn from(value: &GradualTempoVariant0Kind) -> Self {
         value.clone()
     }
 }
-impl ::std::fmt::Display for GradualTempoKind {
+impl ::std::fmt::Display for GradualTempoVariant0Kind {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::Rit => f.write_str("rit"),
@@ -2395,7 +2562,7 @@ impl ::std::fmt::Display for GradualTempoKind {
         }
     }
 }
-impl ::std::str::FromStr for GradualTempoKind {
+impl ::std::str::FromStr for GradualTempoVariant0Kind {
     type Err = self::error::ConversionError;
     fn from_str(
         value: &str,
@@ -2407,7 +2574,7 @@ impl ::std::str::FromStr for GradualTempoKind {
         }
     }
 }
-impl ::std::convert::TryFrom<&str> for GradualTempoKind {
+impl ::std::convert::TryFrom<&str> for GradualTempoVariant0Kind {
     type Error = self::error::ConversionError;
     fn try_from(
         value: &str,
@@ -2415,7 +2582,7 @@ impl ::std::convert::TryFrom<&str> for GradualTempoKind {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<&::std::string::String> for GradualTempoKind {
+impl ::std::convert::TryFrom<&::std::string::String> for GradualTempoVariant0Kind {
     type Error = self::error::ConversionError;
     fn try_from(
         value: &::std::string::String,
@@ -2423,12 +2590,347 @@ impl ::std::convert::TryFrom<&::std::string::String> for GradualTempoKind {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for GradualTempoKind {
+impl ::std::convert::TryFrom<::std::string::String> for GradualTempoVariant0Kind {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
+    }
+}
+///Identity of the ramp's optional printed system text in this measure.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Identity of the ramp's optional printed system text in this measure.",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct GradualTempoVariant0SystemTextId(::std::string::String);
+impl ::std::ops::Deref for GradualTempoVariant0SystemTextId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<GradualTempoVariant0SystemTextId> for ::std::string::String {
+    fn from(value: GradualTempoVariant0SystemTextId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&GradualTempoVariant0SystemTextId>
+for GradualTempoVariant0SystemTextId {
+    fn from(value: &GradualTempoVariant0SystemTextId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for GradualTempoVariant0SystemTextId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for GradualTempoVariant0SystemTextId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for GradualTempoVariant0SystemTextId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for GradualTempoVariant0SystemTextId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for GradualTempoVariant0SystemTextId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`GradualTempoVariant1Curve`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "linear",
+///    "early",
+///    "late",
+///    "smooth"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum GradualTempoVariant1Curve {
+    #[serde(rename = "linear")]
+    Linear,
+    #[serde(rename = "early")]
+    Early,
+    #[serde(rename = "late")]
+    Late,
+    #[serde(rename = "smooth")]
+    Smooth,
+}
+impl ::std::convert::From<&Self> for GradualTempoVariant1Curve {
+    fn from(value: &GradualTempoVariant1Curve) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for GradualTempoVariant1Curve {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Linear => f.write_str("linear"),
+            Self::Early => f.write_str("early"),
+            Self::Late => f.write_str("late"),
+            Self::Smooth => f.write_str("smooth"),
+        }
+    }
+}
+impl ::std::str::FromStr for GradualTempoVariant1Curve {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "linear" => Ok(Self::Linear),
+            "early" => Ok(Self::Early),
+            "late" => Ok(Self::Late),
+            "smooth" => Ok(Self::Smooth),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for GradualTempoVariant1Curve {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for GradualTempoVariant1Curve {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GradualTempoVariant1Curve {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Optional classification. Cosmetic only; the BPM direction determines the audible behavior.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Optional classification. Cosmetic only; the BPM direction determines the audible behavior.",
+///  "type": "string",
+///  "enum": [
+///    "rit",
+///    "accel"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum GradualTempoVariant1Kind {
+    #[serde(rename = "rit")]
+    Rit,
+    #[serde(rename = "accel")]
+    Accel,
+}
+impl ::std::convert::From<&Self> for GradualTempoVariant1Kind {
+    fn from(value: &GradualTempoVariant1Kind) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for GradualTempoVariant1Kind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Rit => f.write_str("rit"),
+            Self::Accel => f.write_str("accel"),
+        }
+    }
+}
+impl ::std::str::FromStr for GradualTempoVariant1Kind {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "rit" => Ok(Self::Rit),
+            "accel" => Ok(Self::Accel),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for GradualTempoVariant1Kind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for GradualTempoVariant1Kind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GradualTempoVariant1Kind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Identity of the ramp's optional printed system text in this measure.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Identity of the ramp's optional printed system text in this measure.",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct GradualTempoVariant1SystemTextId(::std::string::String);
+impl ::std::ops::Deref for GradualTempoVariant1SystemTextId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<GradualTempoVariant1SystemTextId> for ::std::string::String {
+    fn from(value: GradualTempoVariant1SystemTextId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&GradualTempoVariant1SystemTextId>
+for GradualTempoVariant1SystemTextId {
+    fn from(value: &GradualTempoVariant1SystemTextId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for GradualTempoVariant1SystemTextId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for GradualTempoVariant1SystemTextId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for GradualTempoVariant1SystemTextId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for GradualTempoVariant1SystemTextId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for GradualTempoVariant1SystemTextId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
     }
 }
 ///How a meter's beat grouping is presented, independent of its semantic beatStructure. `standard` shows an ordinary numeric (or symbolic) meter. `additive` writes the numerator as its beat groups joined by `+` (e.g. `2+3+2` over `8`). `annotation` engraves the ordinary meter plus a generated grouping annotation (e.g. `2+3+2+2`) above it.

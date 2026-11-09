@@ -36,7 +36,6 @@ import type {
   Coda,
   MarkerText,
   GradualTempo,
-  GradualTempoKind,
   RepeatStart,
   RepeatEnd,
   Ending,
@@ -89,7 +88,11 @@ import type {
 import { parseTextContent } from "./textContent";
 import { parseStaffTextFramePresentation, parseTextFramePagePosition } from "./staffTextFrame";
 import { parseSystemText } from "./systemText";
-import { measureGlobalExtensions, swing as validateSwing } from "./standaloneValidators";
+import {
+  measureGlobalExtensions,
+  swing as validateSwing,
+  gradualTempo as validateGradualTempo,
+} from "./standaloneValidators";
 
 /** Untyped vendor-extension payload — used only for fields outside the
  * extensions schema (e.g. legacy `times` on repeat-start, atonal key flag). */
@@ -520,13 +523,18 @@ function rejectRetiredNavigationExtensions(raw: RawMeasureGlobal): void {
 
 /** Gradual tempo (rit./accel.) is a Viritura vendor extension (no MNX schema). */
 function parseGradualTempo(raw: RawGradualTempo): GradualTempo {
+  if (!validateGradualTempo(raw)) {
+    throw new Error("Invalid tempo ramp: provide positive tempo targets, one target mode, and a supported curve.");
+  }
   const gt: GradualTempo = {
     position: parseRhythmicPosition(raw.position),
     end: parseMeasureRhythmicPosition(raw.end),
-    endBpm: raw.endBpm,
+    ...(raw.endBpm !== undefined ? { endBpm: raw.endBpm } : { endRatio: raw.endRatio! }),
   };
   if (raw.startBpm !== undefined) gt.startBpm = raw.startBpm;
-  if (raw.kind) gt.kind = raw.kind as GradualTempoKind;
+  if (raw.kind) gt.kind = raw.kind;
+  if (raw.curve) gt.curve = raw.curve;
+  if (raw.systemTextId) gt.systemTextId = raw.systemTextId;
   return gt;
 }
 
