@@ -82,6 +82,9 @@ time signature. Double barlines straddle their anchor; final and heavy
 barlines end at it. Measurement, rendering, and key-signature selection bounds
 share this geometry. At system starts the previous system's ending barline
 does not contribute prefix space.
+Without prefix furniture, first-onset accidentals and displaced chord heads
+impose an absolute clearance from the barline ink, not extra padding after the
+signature cursor advance.
 
 ### 1.1 Duration spring — fixed-quarter power law
 

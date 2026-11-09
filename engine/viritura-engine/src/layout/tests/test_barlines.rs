@@ -205,6 +205,62 @@ fn key_changes_clear_the_right_ink_of_every_barline() {
 }
 
 #[test]
+fn first_onset_ink_clears_the_barline_without_double_padding() {
+    use crate::layout::measure::{prefix_layout, PrefixContext};
+    use crate::layout::resolve::resolve_measures;
+
+    for notes in [
+        r#"{"pitch": {"step": "C", "octave": 5, "alter": 1}}"#,
+        r#"{"pitch": {"step": "C", "octave": 5}}, {"pitch": {"step": "D", "octave": 5}}"#,
+    ] {
+        let json = format!(
+            r#"{{
+            "mnx": {{"version": 1}},
+            "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}, {{}}]}},
+            "parts": [{{"measures": [
+                {{"clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}],
+                 "sequences": [{{"content": [{{"duration": {{"base": "whole"}}, "rest": {{}}}}]}}]}},
+                {{"sequences": [{{"content": [{{"duration": {{"base": "whole"}}, "notes": [{notes}]}}]}}]}}
+            ]}}]
+        }}"#
+        );
+        let score = parse_mnx(&json).unwrap();
+        let resolved = resolve_measures(&score, 0);
+        for thin in [0.12, 0.16, 0.3] {
+            let config = LayoutConfig {
+                barline_width: thin,
+                ..Default::default()
+            };
+            let sp = config.sp;
+            for context in [PrefixContext::Alignment, PrefixContext::MeasureLayout] {
+                let mut measure = resolved[1].clone();
+                measure.prev_barline_type = Some(BarlineType::NoBarline);
+                let baseline = prefix_layout(&measure, sp, false, None, None, context, &config);
+                assert!(baseline.first_onset_padding > 0.0);
+                for kind in [
+                    BarlineType::Regular,
+                    BarlineType::Double,
+                    BarlineType::Final,
+                    BarlineType::Heavy,
+                ] {
+                    measure.prev_barline_type = Some(kind);
+                    let prefix = prefix_layout(&measure, sp, false, None, None, context, &config);
+                    let expected = baseline.first_onset_padding
+                        + barline_right_extent(&BarlineKind::from(kind), &config, sp);
+                    assert!(
+                        (prefix.first_onset_padding - expected).abs() < 1e-9,
+                        "{kind:?}"
+                    );
+                    assert!((prefix.width - expected).abs() < 1e-9,
+                        "{kind:?}: prefix {} must equal the single barline-relative clearance {expected}",
+                        prefix.width);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn previous_barline_changes_invalidate_following_measure_cache() {
     use crate::layout::cache::measure_content_hash;
     use crate::layout::resolve::{barline_context_matches, resolve_measures};

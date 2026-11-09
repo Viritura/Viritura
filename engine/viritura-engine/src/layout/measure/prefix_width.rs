@@ -217,7 +217,8 @@ pub(crate) fn prefix_layout(
         );
     }
 
-    if prefix_width > 0.0 {
+    let has_prefix_furniture = prefix_width > 0.0;
+    if has_prefix_furniture {
         prefix_width += 1.2 * sp;
         prefix_width += barline_advance;
     } else {
@@ -229,8 +230,10 @@ pub(crate) fn prefix_layout(
     // zero a second time.
     let first_onset_padding_sp = first_onset_ink_padding_sp(rm, config, is_system_start);
     let first_onset_padding = first_onset_padding_sp * sp;
-    if first_onset_padding > 0.0 {
+    if has_prefix_furniture {
         prefix_width += first_onset_padding;
+    } else {
+        prefix_width = prefix_width.max(first_onset_padding);
     }
 
     let first_onset_padding = forced_prefix.map_or(first_onset_padding, |forced| {
