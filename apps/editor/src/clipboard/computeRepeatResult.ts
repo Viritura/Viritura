@@ -1,6 +1,6 @@
 import { measureBeats, walkSequenceEvents, type Score, type SequenceContent } from "@viritura/core";
 import { applyPaste, type PasteResult } from "../commands/clipboardCommands";
-import { sequenceContentBeats } from "../commands/noteCommands";
+import { getEffectiveTimeSignature, sequenceContentBeats } from "../commands/noteCommands";
 import { assignFreshTrackIds } from "./deserialize";
 import type { ClipboardSelection } from "../commands/clipboardCommands";
 import { findPlacedSelection } from "./computePasteResult";
@@ -204,7 +204,13 @@ function repeatAnchor(score: Score, sel: ClipboardSelection) {
   const sequence = sequenceForStaffVoice(destination, staff, voice);
   if (physicalTrackStartBeat === undefined) {
     ensureSequencePosition(sequence.content, beat);
-    splitSequenceAtBeat(sequence.content, beat);
+    splitSequenceAtBeat(
+      sequence.content,
+      beat,
+      undefined,
+      undefined,
+      getEffectiveTimeSignature(prepared, measureIndex),
+    );
   }
   let onset = 0;
   let eventIndex = 0;

@@ -33,7 +33,7 @@ import type { AnnotationLocation } from "../score/ElementPath";
 import { deleteAnnotations } from "./deleteCommands";
 import { timedAnnotationsAnchoredToCollapsedSequences } from "./computeDeleteSelection";
 import { clearMeasureContent, type MeasureContentSelection } from "./measureContent";
-import { collapseRestOnlySequence, sequenceContentBeats } from "./noteCommands";
+import { collapseRestOnlySequence, getEffectiveTimeSignature, sequenceContentBeats } from "./noteCommands";
 import {
   addWholeFractions,
   compareWholeFractions,
@@ -355,7 +355,13 @@ export function applyPaste(
         track.voiceIndex,
       );
       ensureSequencePosition(targetSequence.content, targetPosition.beat, targetPosition.fraction);
-      splitSequenceAtBeat(targetSequence.content, targetPosition.beat, targetPosition.fraction, targetRemap);
+      splitSequenceAtBeat(
+        targetSequence.content,
+        targetPosition.beat,
+        targetPosition.fraction,
+        targetRemap,
+        getEffectiveTimeSignature(score, targetPosition.measureIndex),
+      );
       const inserted = pasteTrackIntoScore(
         score,
         destination.partIndex,

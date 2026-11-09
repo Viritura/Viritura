@@ -1,13 +1,18 @@
 import {
-  isRest,
   remapScoreLyricExtenderTargets,
   type NoteEvent,
   type Score,
   type Sequence,
   type SequenceContent,
   type Space,
+  type TimeSignature,
 } from "@viritura/core";
-import { decomposeDuration, generateEventId, sequenceContentBeats } from "../../commands/noteCommands";
+import {
+  decomposeRestsAtPosition,
+  generateEventId,
+  getEffectiveTimeSignature,
+  sequenceContentBeats,
+} from "../../commands/noteCommands";
 import {
   addWholeFractions,
   compareWholeFractions,
@@ -50,11 +55,10 @@ export function pasteTrackIntoScore(
     const clearBudget = contentDuration(fragment.content);
     if (clearBudget[0] > 0) {
       delete sequence.fullMeasure;
-      clearEventsInMeasure(sequence, index, clearBudget);
+      clearEventsInMeasure(sequence, index, clearBudget, getEffectiveTimeSignature(score, fragment.measureIndex));
     }
     sequence.content.splice(index, 0, ...fragment.content);
     for (const item of fragment.content) placedContent.add(item);
-    mergeRests(sequence, placedContent, targetRemap);
   }
   remapScoreLyricExtenderTargets(score, targetRemap);
   return [...placedContent];
@@ -71,7 +75,13 @@ function contentDuration(content: readonly SequenceContent[]): Space["duration"]
   return content.reduce<Space["duration"]>((sum, item) => addWholeFractions(sum, contentWholeFraction(item)), [0, 1]);
 }
 
-function clearEventsInMeasure(sequence: Sequence, index: number, clearBudget: Space["duration"]): void {
+function clearEventsInMeasure(
+  sequence: Sequence,
+  index: number,
+  clearBudget: Space["duration"],
+  time: TimeSignature,
+): void {
+  const restStart = addWholeFractions(contentDuration(sequence.content.slice(0, index)), clearBudget);
   let remaining = clearBudget;
   while (index < sequence.content.length && remaining[0] > 0) {
     const item = sequence.content[index]!;
@@ -86,7 +96,11 @@ function clearEventsInMeasure(sequence: Sequence, index: number, clearBudget: Sp
       sequence.content.splice(index, 1, { type: "space", duration: remainder });
       return;
     }
-    const rests: NoteEvent[] = decomposeDuration((remainder[0] / remainder[1]) * 4).map((duration) => ({
+    const rests: NoteEvent[] = decomposeRestsAtPosition(
+      (remainder[0] / remainder[1]) * 4,
+      (restStart[0] / restStart[1]) * 4,
+      time,
+    ).map((duration) => ({
       type: "event",
       id: generateEventId(),
       duration,
@@ -97,39 +111,5 @@ function clearEventsInMeasure(sequence: Sequence, index: number, clearBudget: Sp
     }
     sequence.content.splice(index, 1, ...rests);
     return;
-  }
-}
-
-function mergeRests(sequence: Sequence, placedContent: Set<SequenceContent>, targetRemap: Map<string, string>): void {
-  let index = 0;
-  while (index < sequence.content.length - 1) {
-    const current = sequence.content[index]!;
-    const next = sequence.content[index + 1]!;
-    // Preserve the pasted interval: merging across its boundaries would either
-    // discard a pasted ID or select untouched destination rests.
-    const sameOrigin = placedContent.has(current) === placedContent.has(next);
-    if (
-      sameOrigin &&
-      current.type === "event" &&
-      next.type === "event" &&
-      isRest(current) &&
-      isRest(next) &&
-      !next.lyrics
-    ) {
-      const durations = decomposeDuration(sequenceContentBeats(current) + sequenceContentBeats(next));
-      if (durations.length === 1) {
-        current.duration = durations[0]!;
-        if (next.id && current.id) {
-          for (const [sourceId, targetId] of targetRemap) {
-            if (targetId === next.id) targetRemap.set(sourceId, current.id);
-          }
-          targetRemap.set(next.id, current.id);
-        }
-        sequence.content.splice(index + 1, 1);
-        placedContent.delete(next);
-        continue;
-      }
-    }
-    index++;
   }
 }

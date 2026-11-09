@@ -73,6 +73,107 @@ function tuplet(): Tuplet {
 }
 
 describe("clipboard cross-bar rhythmic placement review", () => {
+  it.each(["single", "physical", "legacy"] as const)(
+    "preserves quarter and half rests through copy/paste (%s)",
+    (mode) => {
+      const source = [note("onset"), rest("quarter", "quarter"), rest("half", "half")];
+      source[1]!.rest = { staffPosition: 2 };
+      source[2]!.fermata = {};
+      const fragment = deserializeFragment(serializeFragment(source, commonTime, { fifths: 0 }));
+      expect(fragment).not.toBeNull();
+      const paste = pasteResultFromFragment(fragment!);
+      if (mode !== "single") {
+        paste.tracks = [
+          {
+            partOffset: 0,
+            voiceIndex: 0,
+            ...(mode === "physical" ? { staffOffset: 0 } : {}),
+            content: paste.content,
+          },
+        ];
+      }
+      const score = scoreWithMeters();
+      content(score, 0).push(rest("destination"));
+      const snapshot = structuredClone({ score, paste });
+      const result = applyPaste(score, paste, 0, 0, 0, 0);
+
+      expect(content(result, 0)).toEqual(paste.content);
+      expect(events(result).map((event) => event.duration)).toEqual([
+        { base: "quarter" },
+        { base: "quarter" },
+        { base: "half" },
+      ]);
+      expect({ score, paste }).toEqual(snapshot);
+    },
+  );
+
+  it.each([
+    { time: commonTime, source: "quarter", expected: [{ base: "quarter" }, { base: "half" }] },
+    { time: { count: 12, unit: 8 }, source: "half", expected: [{ base: "quarter" }, { base: "half", dots: 1 }] },
+  ] as const)("fills destination remainders according to $time.count/$time.unit", ({ time, source, expected }) => {
+    const score = scoreWithMeters([time]);
+    content(score, 0).push(note("destination", time.count === 4 ? "whole" : "breve"));
+    // In 12/8 use a six-beat destination event.
+    if (time.count === 12) (content(score, 0)[0] as NoteEvent).duration = { base: "whole", dots: 1 };
+    const result = applyPaste(score, { content: [note("pasted", source)] }, 0, 0, 0, 0);
+    const remainder = events(result).slice(1);
+
+    expect(remainder.map((event) => event.duration)).toEqual(expected);
+    expect(remainder.every((event) => event.rest && !event.notes)).toBe(true);
+    expect(beats(content(result, 0))).toBe(measureBeats(time));
+  });
+
+  it("does not rewrite untouched destination rests or their markings", () => {
+    const score = scoreWithMeters();
+    const untouched = [rest("quarter", "quarter"), rest("half", "half")];
+    untouched[1]!.fermata = {};
+    content(score, 0).push(note("replace"), ...untouched);
+    const result = applyPaste(score, { content: [note("pasted")] }, 0, 0, 0, 0);
+
+    expect(content(result, 0).slice(1)).toEqual(untouched);
+  });
+
+  it("retains a copied dotted rest that fits without splitting", () => {
+    const score = scoreWithMeters();
+    const source = rest("authored", "half");
+    source.duration.dots = 1;
+    const result = applyPaste(score, { content: [source] }, 0, 0, 0, 0);
+    expect(content(result, 0)).toEqual([source]);
+  });
+
+  it.each([
+    { time: commonTime, expected: [{ base: "quarter" }] },
+    { time: { count: 12, unit: 8 }, expected: [{ base: "quarter", dots: 1 }] },
+  ] as const)("splits a crossing rest using the destination $time.count/$time.unit meter", ({ time, expected }) => {
+    const score = scoreWithMeters([time, commonTime]);
+    const prefix = note("prefix", "half");
+    prefix.duration.dots = 1;
+    content(score, 0).push(prefix);
+    if (time.count === 12) {
+      const secondPrefix = note("second-prefix");
+      secondPrefix.duration.dots = 1;
+      content(score, 0).push(secondPrefix);
+    }
+    const source = rest("crossing", "whole");
+    const result = applyPaste(score, { content: [source] }, 0, 0, 0, content(score, 0).length);
+    expect(
+      events(result)
+        .filter((event) => event.rest)
+        .slice(0, expected.length)
+        .map((event) => event.duration),
+    ).toEqual(expected);
+    expect(
+      events(result)
+        .filter((event) => event.rest)
+        .every((event, index) => (time.count === 12 && index === 0 ? event.duration.dots === 1 : !event.duration.dots)),
+    ).toBe(true);
+    expect(
+      events(result)
+        .filter((event) => event.rest)
+        .reduce((sum, event) => sum + sequenceContentBeats(event), 0),
+    ).toBe(4);
+  });
+
   it.each<{ base: NoteValueBase; measures: number }>([
     { base: "breve", measures: 2 },
     { base: "longa", measures: 4 },
