@@ -20,7 +20,7 @@ import type { Score } from "@viritura/core";
 import { resolvePartDisplayNames } from "@viritura/core";
 import { virituraSoundsProfile } from "@viritura/sound-profiles";
 import { usePlaybackActions, usePlaybackState } from "@viritura/playback";
-import { useMixer, useMixerActions, useMixerPartSync } from "../store/mixerStore";
+import { getMixerMutedParts, useMixer, useMixerActions, useMixerPartSync } from "../store/mixerStore";
 import { extractFamilyGroups, buildPartGroups } from "../store/familyGroups";
 import { useDocumentStoreApi } from "../store/DocumentContext";
 import { useAudioRenderModeStore } from "../instrumentProfiles";
@@ -139,39 +139,25 @@ function MixerGroupSync({
 function MixerEngineBridge({ partCount, chordsPartIndex }: { partCount: number; chordsPartIndex?: number }) {
   const mixer = useMixer();
   const { applyMix, setEnsembleLayer, setVstMutedParts } = usePlaybackActions();
-  const anyChannelSolo = mixer.channels.some((ch) => ch.solo);
-  let anyGroupSolo = false;
-  for (const id in mixer.groups) {
-    if (mixer.groups[id]!.solo) {
-      anyGroupSolo = true;
-      break;
-    }
-  }
-
   useEffect(() => {
     // Part sync runs in an effect too. Never apply an old roster to new indices.
     if (mixer.channels.length !== partCount || mixer.chordsPartIndex !== chordsPartIndex) return;
-    const mutedParts = new Set<number>();
+    const mutedParts = getMixerMutedParts(mixer);
     for (let i = 0; i < partCount; i++) {
       const ch = mixer.channels[i];
       if (!ch) continue;
       const groupId = i === chordsPartIndex ? "" : (mixer.partGroups[i] ?? "");
       const group = groupId ? mixer.groups[groupId] : undefined;
       const groupVolume = group?.volume ?? 1;
-      const groupMuted = group?.muted ?? false;
-      const groupSolo = group?.solo ?? false;
-
-      const effectivelyMuted =
-        ch.muted || groupMuted || mixer.masterMuted || (anyChannelSolo && !ch.solo) || (anyGroupSolo && !groupSolo);
+      const effectivelyMuted = mutedParts.has(i);
       const effectiveVolume = ch.volume * groupVolume * mixer.masterVolume;
       applyMix(i, effectiveVolume, ch.pan, effectivelyMuted, ch.spatialMode === "stage");
       setEnsembleLayer(i, ch.ensembleEnabled);
-      if (effectivelyMuted) mutedParts.add(i);
     }
     // Mirror the resolved mute set to the native VST host (no-op on the web
     // build), so mute/solo silences VST-hosted parts just like SF2 parts.
     setVstMutedParts(mutedParts);
-  }, [mixer, partCount, chordsPartIndex, anyChannelSolo, anyGroupSolo, applyMix, setEnsembleLayer, setVstMutedParts]);
+  }, [mixer, partCount, chordsPartIndex, applyMix, setEnsembleLayer, setVstMutedParts]);
 
   return null;
 }
