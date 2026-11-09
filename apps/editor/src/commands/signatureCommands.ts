@@ -8,7 +8,7 @@
  */
 
 import type { Ending, Score } from "@viritura/core";
-import { setKeySignature } from "@viritura/core";
+import { setKeySignature, setTimeSignature } from "@viritura/core";
 import type { Selection } from "../store/selectionStore";
 import { resolveSelectionAnchor, resolveSelectionScope } from "../store/selectionUtils";
 
@@ -68,6 +68,22 @@ export function deleteKeySignatureByElementId(score: Score, elementId: string): 
   const measureIndex = measureIndexFromElementId(elementId, score);
   if (measureIndex === null || score.global.measures[measureIndex]?.key === undefined) return null;
   return setKeySignature(score, measureIndex, null);
+}
+
+/**
+ * Remove explicitly selected global meters without changing the music or
+ * authored beams. Inheritance and automatic beaming resolve on the next layout.
+ * Continuation copies without an explicit meter have nothing to remove.
+ */
+export function deleteTimeSignaturesByElementIds(score: Score, elementIds: readonly string[]): Score | null {
+  let next = score;
+  for (const elementId of elementIds) {
+    if (!/^(?:p\d+\/)?m\d+\/time$/.test(elementId)) continue;
+    const measureIndex = measureIndexFromElementId(elementId, next);
+    if (measureIndex === null || next.global.measures[measureIndex]?.time === undefined) continue;
+    next = setTimeSignature(next, measureIndex, null);
+  }
+  return next === score ? null : next;
 }
 
 /**

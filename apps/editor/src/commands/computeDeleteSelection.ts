@@ -33,7 +33,7 @@ import {
   addressesWholeEvent,
 } from "../score/ElementPath";
 import type { AnnotationLocation, GraceLocation } from "../score/ElementPath";
-import { deleteKeySignatureByElementId } from "./signatureCommands";
+import { deleteKeySignatureByElementId, deleteTimeSignaturesByElementIds } from "./signatureCommands";
 import {
   deleteMeasureRepeatByElementId,
   deleteMeasureRepeatsForSelection,
@@ -247,6 +247,10 @@ function deleteStandaloneElement(score: Score, elementId: string): DeleteSelecti
     if (!withoutKey) return { kind: "noop" };
     return { kind: "single", score: withoutKey, nextSelection: { kind: "clear" } };
   }
+  if (elementId.endsWith("/time")) {
+    const withoutTime = deleteTimeSignaturesByElementIds(score, [elementId]);
+    return withoutTime ? { kind: "single", score: withoutTime, nextSelection: { kind: "clear" } } : { kind: "noop" };
+  }
   return null;
 }
 
@@ -316,6 +320,9 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
   score = cloneScore(score);
   const repeatResult = deleteRepeatOnlySelection(score, selection);
   if (repeatResult) return repeatResult;
+  const timeSignaturesResult =
+    selection.kind === "multi" ? deleteTimeSignaturesByElementIds(score, selection.elementIds) : null;
+  if (timeSignaturesResult) score = timeSignaturesResult;
   // Markings selected explicitly (ctrl-click) delete on their own; only the
   // rest of the selection is event-level. Without this split they resolve to
   // their events and blank the notes they belong to.
@@ -364,7 +371,12 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
   let newScore = lyricResult.score;
   const annotationResult = deleteTimedAnnotationsAnchoredToCollapsedSequences(newScore, events);
   newScore = annotationResult.score;
-  const leavesRemoved = [markingsRemoved, lyricResult.removed, globalAnnotationsResult.removed].includes(true);
+  const leavesRemoved = [
+    markingsRemoved,
+    lyricResult.removed,
+    globalAnnotationsResult.removed,
+    timeSignaturesResult !== null,
+  ].includes(true);
   if (events.length === 0) {
     const graceRemoved = deleteSelectedGraceNotes(newScore, graceIds);
     return didDeleteSelectionLeaves(leavesRemoved, annotationResult.removed, chordsThinned, graceRemoved !== newScore)
