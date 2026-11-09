@@ -10,6 +10,9 @@
 
 use super::super::config::LayoutConfig;
 use super::super::measure::helpers::collect_flat_events;
+use super::super::render_barlines::{
+    barline_right_extent, leading_barline_advance, leading_barline_kind,
+};
 use super::super::render_signatures::{clef_prefix_advance_sp, key_signature_layout};
 use super::super::resolve::*;
 use super::super::spacing::{
@@ -33,6 +36,7 @@ pub(crate) struct AlignedPrefix {
 pub(crate) struct PrefixLayout {
     pub(crate) width: f64,
     pub(crate) leading_clef_gap: f64,
+    pub(crate) barline_advance: f64,
     pub(crate) first_onset_padding: f64,
     pub(crate) defer_repeat_start: bool,
     pub(crate) time_signature_x_offset: Option<f64>,
@@ -68,12 +72,12 @@ fn first_onset_ink_padding_sp(
         return 0.0;
     }
 
-    // Prefix geometry starts at the barline center, while the clearance rule
+    // Prefix geometry starts at the barline anchor, while the clearance rule
     // starts at its rightmost ink edge.
     let has_leading_barline =
         (rm.index != 0 && !is_system_start) || rm.global.repeat_start.is_some();
-    let barline_half_width = if has_leading_barline {
-        config.barline_width * 0.5
+    let barline_right_ink = if has_leading_barline && !is_system_start {
+        barline_right_extent(&leading_barline_kind(rm), config, 1.0)
     } else {
         0.0
     };
@@ -101,12 +105,12 @@ fn first_onset_ink_padding_sp(
         Some(&suppressed_note_ids),
     );
     let accidental_padding = if accidental_extent > 0.0 {
-        accidental_padding_sp(accidental_extent) + barline_half_width
+        accidental_padding_sp(accidental_extent) + barline_right_ink
     } else {
         0.0
     };
     let cluster_padding = if notes_contain_second(&notes) {
-        max_notehead_left_extent + APPROACH_CLEARANCE_SP + barline_half_width
+        max_notehead_left_extent + APPROACH_CLEARANCE_SP + barline_right_ink
     } else {
         0.0
     };
@@ -132,8 +136,9 @@ pub(crate) fn prefix_layout(
     let is_first = rm.index == 0;
     let mut prefix_width = 0.0;
     let has_repeat_start = rm.global.repeat_start.is_some();
+    let barline_advance = leading_barline_advance(rm, is_system_start, config, sp);
 
-    if has_repeat_start {
+    if has_repeat_start && (is_first || is_system_start) {
         prefix_width += 1.5 * sp;
     }
 
@@ -212,8 +217,12 @@ pub(crate) fn prefix_layout(
         );
     }
 
-    if prefix_width > 0.0 {
+    let has_prefix_furniture = prefix_width > 0.0;
+    if has_prefix_furniture {
         prefix_width += 1.2 * sp;
+        prefix_width += barline_advance;
+    } else {
+        prefix_width = barline_advance;
     }
 
     // Reserve all left-extending first-onset ink in the prefix itself. The
@@ -221,8 +230,10 @@ pub(crate) fn prefix_layout(
     // zero a second time.
     let first_onset_padding_sp = first_onset_ink_padding_sp(rm, config, is_system_start);
     let first_onset_padding = first_onset_padding_sp * sp;
-    if first_onset_padding > 0.0 {
+    if has_prefix_furniture {
         prefix_width += first_onset_padding;
+    } else {
+        prefix_width = prefix_width.max(first_onset_padding);
     }
 
     let first_onset_padding = forced_prefix.map_or(first_onset_padding, |forced| {
@@ -258,6 +269,7 @@ pub(crate) fn prefix_layout(
     PrefixLayout {
         width: prefix_width,
         leading_clef_gap,
+        barline_advance,
         first_onset_padding,
         defer_repeat_start,
         time_signature_x_offset: time_reserve.map(|reserve| {

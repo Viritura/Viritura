@@ -32,6 +32,267 @@ fn repeat_start_left_extent_matches_glyph_anchor() {
 }
 
 #[test]
+fn barline_extents_match_rendered_primitive_ink() {
+    for thin in [0.12, 0.16, 0.3] {
+        let config = LayoutConfig {
+            barline_width: thin,
+            ..Default::default()
+        };
+        let sp = config.sp;
+        for kind in [
+            BarlineKind::Regular,
+            BarlineKind::Double,
+            BarlineKind::Final,
+            BarlineKind::Heavy,
+            BarlineKind::HeavyLight,
+            BarlineKind::HeavyHeavy,
+            BarlineKind::Dotted,
+            BarlineKind::Dashed,
+            BarlineKind::Tick,
+            BarlineKind::Short,
+        ] {
+            let mut dl = DisplayList::new(800.0, 600.0);
+            let anchor = 100.0;
+            render_barline(&mut dl, anchor, 60.0, 4.0 * sp, sp, &config, &kind);
+            let (left, right) = dl.commands.iter().fold(
+                (f64::INFINITY, f64::NEG_INFINITY),
+                |(left, right), cmd| {
+                    let (l, r) = match cmd {
+                        RenderCommand::DrawLine { x1, x2, width, .. } => {
+                            (x1.min(*x2) - width * 0.5, x1.max(*x2) + width * 0.5)
+                        }
+                        RenderCommand::DrawRect { x, w, .. } => (*x, x + w),
+                        RenderCommand::DrawCircle { cx, r, .. } => (cx - r, cx + r),
+                        _ => panic!("unexpected barline command: {cmd:?}"),
+                    };
+                    (left.min(l), right.max(r))
+                },
+            );
+            assert!(
+                (anchor - left - barline_left_extent(&kind, &config, sp)).abs() < 1e-9,
+                "{kind:?}"
+            );
+            assert!(
+                (right - anchor - barline_right_extent(&kind, &config, sp)).abs() < 1e-9,
+                "{kind:?}"
+            );
+            assert!(
+                (right - left - barline_ink_width(&kind, &config, sp)).abs() < 1e-9,
+                "{kind:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn key_changes_clear_the_right_ink_of_every_barline() {
+    use crate::layout::measure::compute_prefix_width;
+    use crate::layout::render_signatures::key_signature_prefix_x;
+    use crate::layout::resolve::resolve_measures;
+    use crate::render::smufl::smufl;
+
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}},
+            {"key": {"fifths": 2}, "time": {"count": 3, "unit": 4}}
+        ]},
+        "parts": [{"measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+             "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "half"}, "dots": 1,
+                "notes": [{"pitch": {"step": "D", "octave": 5}}]}]}]}
+        ]}]
+    }"#;
+    let boundaries = [
+        BarlineType::Regular,
+        BarlineType::Double,
+        BarlineType::Final,
+        BarlineType::Heavy,
+        BarlineType::HeavyLight,
+        BarlineType::HeavyHeavy,
+        BarlineType::Dotted,
+        BarlineType::Dashed,
+        BarlineType::Tick,
+        BarlineType::Short,
+        BarlineType::NoBarline,
+    ]
+    .map(|barline| (barline, false, false));
+    for (barline, repeat_end, repeat_start) in boundaries.into_iter().chain([
+        (BarlineType::Regular, true, false),
+        (BarlineType::Regular, false, true),
+        (BarlineType::Regular, true, true),
+    ]) {
+        let mut score = parse_mnx(json).unwrap();
+        score.global.measures[0].barline = Some(Barline {
+            barline_type: barline,
+        });
+        score.global.measures[0].repeat_end = repeat_end.then_some(RepeatEnd { times: None });
+        score.global.measures[1].repeat_start = repeat_start.then_some(RepeatStart { times: None });
+        let config = LayoutConfig::default();
+        let sp = config.sp;
+        let dl = layout_score(&score, 0, &config);
+        let resolved = resolve_measures(&score, 0);
+        let kind = leading_barline_kind(&resolved[1]);
+        let ml =
+            crate::layout::measure::layout_measure(&resolved[1], sp, 0.0, &config, None, &[], 1.0);
+        let key_origin = key_signature_prefix_x(&ml, sp, 0.0, &config);
+        assert!(
+            (key_origin - barline_right_extent(&kind, &config, sp) - 0.5 * sp).abs() < 1e-9,
+            "{kind:?}"
+        );
+
+        let tagged_key_ink = dl
+            .commands
+            .iter()
+            .zip(&dl.element_ids)
+            .filter_map(|(cmd, id)| match cmd {
+                RenderCommand::DrawGlyph {
+                    x, size, codepoint, ..
+                } if id.as_deref() == Some("p0/m1/key") => {
+                    let (bearing, _, _, _) = smufl::glyph_bbox(*codepoint);
+                    Some(x + bearing * size / 4.0)
+                }
+                _ => None,
+            })
+            .fold(f64::INFINITY, f64::min);
+        assert!(tagged_key_ink.is_finite(), "key signature was not tagged");
+        let boundary = dl
+            .measure_bounds
+            .iter()
+            .find(|bound| bound.index == 1)
+            .unwrap();
+        assert!(
+            (tagged_key_ink - boundary.x - key_origin).abs() < 1e-9,
+            "{kind:?}"
+        );
+        let key_bbox = dl
+            .element_bboxes
+            .iter()
+            .find(|bbox| bbox.element_id == "p0/m1/key")
+            .unwrap();
+        assert!(
+            key_bbox.bbox.x < tagged_key_ink
+                && key_bbox.bbox.x + key_bbox.bbox.width > tagged_key_ink
+        );
+
+        let regular_width = {
+            let mut regular = resolved[1].clone();
+            regular.prev_barline_type = Some(BarlineType::Regular);
+            regular.prev_has_repeat_end = false;
+            regular.global.repeat_start = None;
+            compute_prefix_width(&regular, sp, false, &config)
+        };
+        let expected_delta = barline_right_extent(&kind, &config, sp)
+            - barline_right_extent(&BarlineKind::Regular, &config, sp);
+        assert!(
+            (compute_prefix_width(&resolved[1], sp, false, &config)
+                - regular_width
+                - expected_delta)
+                .abs()
+                < 1e-9,
+            "{kind:?}"
+        );
+        let mut regular = resolved[1].clone();
+        regular.prev_barline_type = Some(BarlineType::Regular);
+        assert!(
+            (compute_prefix_width(&resolved[1], sp, true, &config)
+                - compute_prefix_width(&regular, sp, true, &config))
+            .abs()
+                < 1e-9
+        );
+    }
+}
+
+#[test]
+fn first_onset_ink_clears_the_barline_without_double_padding() {
+    use crate::layout::measure::{prefix_layout, PrefixContext};
+    use crate::layout::resolve::resolve_measures;
+
+    for notes in [
+        r#"{"pitch": {"step": "C", "octave": 5, "alter": 1}}"#,
+        r#"{"pitch": {"step": "C", "octave": 5}}, {"pitch": {"step": "D", "octave": 5}}"#,
+    ] {
+        let json = format!(
+            r#"{{
+            "mnx": {{"version": 1}},
+            "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}, {{}}]}},
+            "parts": [{{"measures": [
+                {{"clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}],
+                 "sequences": [{{"content": [{{"duration": {{"base": "whole"}}, "rest": {{}}}}]}}]}},
+                {{"sequences": [{{"content": [{{"duration": {{"base": "whole"}}, "notes": [{notes}]}}]}}]}}
+            ]}}]
+        }}"#
+        );
+        let score = parse_mnx(&json).unwrap();
+        let resolved = resolve_measures(&score, 0);
+        for thin in [0.12, 0.16, 0.3] {
+            let config = LayoutConfig {
+                barline_width: thin,
+                ..Default::default()
+            };
+            let sp = config.sp;
+            for context in [PrefixContext::Alignment, PrefixContext::MeasureLayout] {
+                let mut measure = resolved[1].clone();
+                measure.prev_barline_type = Some(BarlineType::NoBarline);
+                let baseline = prefix_layout(&measure, sp, false, None, None, context, &config);
+                assert!(baseline.first_onset_padding > 0.0);
+                for kind in [
+                    BarlineType::Regular,
+                    BarlineType::Double,
+                    BarlineType::Final,
+                    BarlineType::Heavy,
+                ] {
+                    measure.prev_barline_type = Some(kind);
+                    let prefix = prefix_layout(&measure, sp, false, None, None, context, &config);
+                    let expected = baseline.first_onset_padding
+                        + barline_right_extent(&BarlineKind::from(kind), &config, sp);
+                    assert!(
+                        (prefix.first_onset_padding - expected).abs() < 1e-9,
+                        "{kind:?}"
+                    );
+                    assert!((prefix.width - expected).abs() < 1e-9,
+                        "{kind:?}: prefix {} must equal the single barline-relative clearance {expected}",
+                        prefix.width);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn previous_barline_changes_invalidate_following_measure_cache() {
+    use crate::layout::cache::measure_content_hash;
+    use crate::layout::resolve::{barline_context_matches, resolve_measures};
+    let json = r#"{
+        "mnx": {"version": 1}, "global": {"measures": [{}, {}]},
+        "parts": [{"measures": [{"sequences": []}, {"sequences": []}]}]
+    }"#;
+    let mut score = parse_mnx(json).unwrap();
+    let prior = resolve_measures(&score, 0);
+    let hash = measure_content_hash(&prior[1]);
+    assert!(barline_context_matches(&prior, &score.global.measures, 0));
+    score.global.measures[0].barline = Some(Barline {
+        barline_type: BarlineType::Double,
+    });
+    assert!(!barline_context_matches(&prior, &score.global.measures, 0));
+    let updated = resolve_measures(&score, 0);
+    assert_ne!(hash, measure_content_hash(&updated[1]));
+    assert!(barline_context_matches(&updated, &score.global.measures, 0));
+    score.global.measures[0].repeat_end = Some(RepeatEnd { times: None });
+    let repeated = resolve_measures(&score, 0);
+    assert_ne!(
+        measure_content_hash(&updated[1]),
+        measure_content_hash(&repeated[1])
+    );
+    assert!(!barline_context_matches(
+        &updated,
+        &score.global.measures,
+        0
+    ));
+}
+
+#[test]
 fn test_heavy_barline_uses_primitive() {
     let mut dl = DisplayList::new(800.0, 600.0);
     let config = LayoutConfig::default();

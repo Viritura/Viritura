@@ -3,6 +3,7 @@
 use super::super::condensing::*;
 use super::super::*;
 use super::shared::*;
+use crate::layout::resolve::{barline_context_matches, measure_barline_context};
 use crate::model::*;
 use crate::render::*;
 use std::collections::{HashMap, HashSet};
@@ -602,7 +603,10 @@ pub(super) fn resolve_staff_scoped(
         // boundary fingerprint match means the carried state going INTO mi+1
         // matches the prior pass, so the suffix is byte-identical — already
         // in place (we wrote nothing past `mi`).
-        if mi >= dirty_end && prior_fp == fp {
+        if mi >= dirty_end
+            && prior_fp == fp
+            && barline_context_matches(resolved_mut, &score.global.measures, mi)
+        {
             converged_at = Some(mi);
             break;
         }
@@ -729,6 +733,8 @@ pub(super) fn resolve_one_measure_phase1(
         crate::layout::resolve::collect_tie_targets(&sequence.content, &mut new_tie_targets);
     }
     state.tie_targets.extend(new_tie_targets);
+    let (prev_barline_type, prev_has_repeat_end, next_has_repeat_start) =
+        measure_barline_context(&score.global.measures, mi);
     let rm = ResolvedMeasure {
         index: mi,
         chord_symbols: {
@@ -744,11 +750,9 @@ pub(super) fn resolve_one_measure_phase1(
                 crate::layout::resolve::measure_is_covered_by_repeat(&part.measures, mi)
             })
         }),
-        next_has_repeat_start: score
-            .global
-            .measures
-            .get(mi + 1)
-            .is_some_and(|measure| measure.repeat_start.is_some()),
+        next_has_repeat_start,
+        prev_barline_type,
+        prev_has_repeat_end,
         active_time: state.active_time.clone(),
         active_key: display_key.clone(),
         prev_key: state.prev_display_key.clone(),

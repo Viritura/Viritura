@@ -407,15 +407,17 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             part_measure.staff_configs.as_deref(),
         );
 
+        let (prev_barline_type, prev_has_repeat_end, next_has_repeat_start) =
+            measure_barline_context(globals, i);
         result.push(ResolvedMeasure {
             index: i,
             global,
             part: part_measure,
             chord_symbols,
             measure_repeat_covered: measure_is_covered_by_repeat(&part.measures, i),
-            next_has_repeat_start: globals
-                .get(i + 1)
-                .is_some_and(|measure| measure.repeat_start.is_some()),
+            next_has_repeat_start,
+            prev_barline_type,
+            prev_has_repeat_end,
             active_time: active_time.clone(),
             active_key: display_key.clone(),
             prev_key: prev_display_key.clone(),
@@ -432,6 +434,35 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         prev_display_key = display_key;
     }
     result
+}
+
+pub(crate) fn measure_barline_context(
+    globals: &[GlobalMeasure],
+    index: usize,
+) -> (Option<BarlineType>, bool, bool) {
+    let previous = index.checked_sub(1).and_then(|index| globals.get(index));
+    (
+        previous
+            .and_then(|measure| measure.barline.as_ref())
+            .map(|barline| barline.barline_type),
+        previous.is_some_and(|measure| measure.repeat_end.is_some()),
+        globals
+            .get(index + 1)
+            .is_some_and(|measure| measure.repeat_start.is_some()),
+    )
+}
+
+pub(crate) fn barline_context_matches(
+    measures: &[ResolvedMeasure],
+    globals: &[GlobalMeasure],
+    index: usize,
+) -> bool {
+    measures.get(index + 1).is_none_or(|next| {
+        let (prev_barline_type, prev_has_repeat_end, _) =
+            measure_barline_context(globals, index + 1);
+        (next.prev_barline_type, next.prev_has_repeat_end)
+            == (prev_barline_type, prev_has_repeat_end)
+    })
 }
 
 fn event_has_lyrics_on_staff(event: &Event, sequence_staff: u32, staff_num: u32) -> bool {

@@ -37,6 +37,24 @@ export const AllBarlineTypes: StoryObj = {
   name: "Barlines between measures",
 };
 
+export const KeyChangesAfterBarlines: StoryObj = {
+  name: "Key changes clear barline ink",
+  render: () => {
+    const measures: MeasureArgs[] = barlineTypes.flatMap((type) => [
+      {
+        key: { fifths: 0 },
+        barline: { type },
+        voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
+      },
+      {
+        key: { fifths: 2 },
+        voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
+      },
+    ]);
+    return <ScorePreview mnxJson={buildMnx({ measures })} />;
+  },
+};
+
 type InteractiveArgs = {
   barlineType: (typeof barlineTypes)[number];
 };

@@ -126,6 +126,8 @@ pub(crate) fn multimeasure_rest_structural_prefix(ml: &MeasureLayout, sp: f64) -
 
     if w > 0.0 {
         w += 1.2 * sp;
+        // The measured prefix also includes the leading boundary's ink edge.
+        w = w.max(ml.prefix_width - ml.first_onset_padding);
     }
     w
 }
@@ -179,7 +181,7 @@ pub(crate) fn render_multimeasure_rest(
         let start_bt = BarlineKind::at_boundary(
             prev_has_repeat_end,
             has_repeat_start,
-            None,
+            ml.resolved.prev_barline_type.as_ref(),
             BarlineType::Regular,
         );
         let cmd_idx = dl.commands.len();
@@ -190,7 +192,8 @@ pub(crate) fn render_multimeasure_rest(
     }
 
     // Repeat structural signatures at score and system starts.
-    let mut x_cursor = ml.x;
+    let mut x_cursor =
+        ml.x + leading_barline_advance(&ml.resolved, ml.is_first_on_system, config, sp);
     let at_start = is_first || ml.is_first_on_system;
     if at_start {
         if let Some(clefs) = &ml.resolved.part.clefs {

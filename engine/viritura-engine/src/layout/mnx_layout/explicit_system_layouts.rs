@@ -378,6 +378,11 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 transposition,
                 key_fifths_flip_at,
             );
+            let (prev_barline_type, prev_has_repeat_end, next_has_repeat_start) =
+                crate::layout::resolve::measure_barline_context(
+                    &score.global.measures,
+                    measure_index,
+                );
             virtual_resolved.push(ResolvedMeasure {
                 index: measure_index,
                 chord_symbols: super::chord_symbols::visible_global_chord_symbols(
@@ -395,11 +400,9 @@ pub(super) fn build_explicit_system_layouts<'a>(
                         )
                     })
                 }),
-                next_has_repeat_start: score
-                    .global
-                    .measures
-                    .get(measure_index + 1)
-                    .is_some_and(|measure| measure.repeat_start.is_some()),
+                next_has_repeat_start,
+                prev_barline_type,
+                prev_has_repeat_end,
                 active_time: active_time.clone(),
                 active_key: display_key.clone(),
                 prev_key: previous_display_key.clone(),

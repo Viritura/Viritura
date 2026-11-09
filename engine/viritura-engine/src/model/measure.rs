@@ -312,6 +312,9 @@ pub struct ResolvedMeasure {
     /// Whether the following measure starts a repeat, used to resolve the
     /// combined repeat-end/repeat-start barline at this measure's boundary.
     pub next_has_repeat_start: bool,
+    /// Previous measure's ending boundary, retained for prefix spacing.
+    pub prev_barline_type: Option<super::barline::BarlineType>,
+    pub prev_has_repeat_end: bool,
     pub active_time: TimeSignature,
     pub active_key: KeySignature,
     /// The display key in effect in the measure immediately before this one.
