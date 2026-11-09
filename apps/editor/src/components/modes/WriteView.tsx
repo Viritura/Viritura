@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { type ScoreCanvasHandle } from "../../components/ScoreCanvas";
 
 import { useNoteInput, type CursorPosition } from "../../store/noteInputStore";
@@ -44,6 +44,7 @@ import { useScoreHandlers } from "../../app/useScoreHandlers";
 import { useAppFloatingPanels } from "../../app/useAppFloatingPanels";
 import { togglePanels } from "../../app/useAppKeyboardWiring";
 import { useAppStoreSelectors } from "../../app/useAppStoreSelectors";
+import { useDocumentTitle } from "../../app/useDocumentTitle";
 import { useAppLocalState } from "../../app/useAppLocalState";
 import { isFolderProjectSupported } from "../../app/projectFolder";
 import type { ActivityView } from "../../components/activityRegistry";
@@ -251,8 +252,6 @@ function AppInner({
     commitPatches,
     repairMeasures,
     dismissBeatCountWarnings,
-    dirty,
-    fileName,
     beatCountIssues,
     selection,
     clearSelection,
@@ -618,11 +617,7 @@ function AppInner({
   const [printOverflowPages, setPrintOverflowPages] = useState<number[]>([]);
 
   // ─── Render ─────────────────────────────────────
-  const scoreName = fileName || "Untitled";
-  const titleSuffix = dirty ? " •" : "";
-  useEffect(() => {
-    document.title = `${scoreName}${titleSuffix} — Viritura`;
-  }, [scoreName, titleSuffix]);
+  useDocumentTitle(store);
 
   // Prop bags for AppInnerView.
   const banners = {

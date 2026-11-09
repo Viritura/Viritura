@@ -123,6 +123,11 @@ register a service worker. Desktop frontend builds disable the PWA plugin via
 not disable the PWA. The Tauri
 runtime also skips registration and OS web-file handling.
 
+The editor window title uses the score metadata title, falling back to the
+filename and then `Untitled`, with a dot for unsaved changes. Browser tabs append
+the Viritura name; installed app windows omit that redundant suffix and update
+when the display mode changes.
+
 The Workbox precache includes the editor shell, lazy JS/CSS chunks, engraving
 WASM, notation fonts, schema, bundled MNX examples, audio worklets, and reverb
 impulse responses. The built-in SF2 is an explicit, content-revisioned precache

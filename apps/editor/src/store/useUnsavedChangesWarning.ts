@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { DocumentStore } from "./documentStore";
+import { hasUnsavedChanges, type DocumentStore } from "./documentStore";
 
 export function useUnsavedChangesWarning(store: DocumentStore): void {
   useEffect(() => {
@@ -10,8 +10,7 @@ export function useUnsavedChangesWarning(store: DocumentStore): void {
     };
     let listening = false;
     const updateListener = (): void => {
-      const { mnxJson, savedMnxJson, workingScore, score } = store.getState();
-      const unsaved = mnxJson !== savedMnxJson || workingScore !== score;
+      const unsaved = hasUnsavedChanges(store.getState());
       if (unsaved === listening) return;
       listening = unsaved;
       if (unsaved) window.addEventListener("beforeunload", handleBeforeUnload);
