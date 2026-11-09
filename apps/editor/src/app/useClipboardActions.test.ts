@@ -147,9 +147,7 @@ describe("whole-bar clipboard actions", () => {
     await act(() => result.current.handlePaste());
     const pasted = updateScore.mock.calls[0]![0];
     expect(pasted.global.measures[0]!.key).toEqual({ fifths: -3 });
-    expect(pasted.parts[0]!.measures[0]!.clefs).toEqual([
-      { staff: 1, clef: { sign: "F", staffPosition: 2 }, position: { fraction: [0, 1] } },
-    ]);
+    expect(pasted.parts[0]!.measures[0]!.clefs).toEqual(source.parts[0]!.measures[0]!.clefs);
   });
 });
 

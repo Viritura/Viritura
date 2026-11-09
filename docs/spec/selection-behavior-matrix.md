@@ -148,6 +148,17 @@ belongs in an explicitly named resolver documented below.
 
 ### Behaviors that live outside the registry (by design)
 
+- **Paste bars** — preserve sounding note pitches and the destination's active
+  clef at the paste boundary. The source's initial clef is preview context,
+  not a replacement for the destination clef; later clef changes within the
+  copied passage are retained. Incremental layout invalidates inherited
+  clef geometry through carried-state convergence, including later chunks.
+- **Paste / Repeat directions** — placed notation resets visual direction overrides
+  (including stems, articulations, fermatas, tuplets, slur/tie sides, and dynamics)
+  to automatic engraving in the destination. Source
+  slur-shape adjustments are discarded; musical directions such as bowing
+  and arpeggiation, note pitches, and destination voice hints are retained.
+  Clipboard previews and source content keep their original engraving.
 - **Delete / Cut bar content** — a `measure` selection clears every sequence
   in the selected part × measure rectangle to a full-measure rest, including
   tuplets, tremolos, grace notes, and spaces. It also removes the selected bars'

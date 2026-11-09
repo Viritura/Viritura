@@ -73,7 +73,8 @@ function clearDestinationSignatures(
 ): void {
   const first = signatures[0];
   if (!first) return;
-  const firstMeasure = locate(first.offset).measureIndex;
+  const pasteStart = locate(first.offset);
+  const firstMeasure = pasteStart.measureIndex;
   for (const entry of signatures) {
     const start = locate(entry.offset);
     const end = locate(addWholeFractions(entry.offset, entry.duration));
@@ -91,6 +92,7 @@ function clearDestinationSignatures(
           if ((clef.staff ?? 1) !== destination.staffIndex + 1) return true;
           const position = clef.position?.fraction ?? [0, 1];
           return (
+            (m === pasteStart.measureIndex && compareWholeFractions(position, pasteStart.fraction) === 0) ||
             (m === start.measureIndex && compareWholeFractions(position, start.fraction) < 0) ||
             (m === end.measureIndex && compareWholeFractions(position, end.fraction) >= 0)
           );
@@ -121,6 +123,8 @@ export function applyMeasureSignatures(
       if (!unchangedContext) measure.key = structuredClone(signaturesAtMeasure.key);
     }
     for (const entry of signaturesAtMeasure.clefs ?? []) {
+      // The initial source clef is context, not a change within the passage.
+      if (signaturesAtMeasure.offset[0] === 0 && (entry.clef.position?.fraction[0] ?? 0) === 0) continue;
       const destination = resolvePhysicalStaffDestination(score, partIndex, staffIndex, entry.staffOffset);
       const target = locate(addWholeFractions(signaturesAtMeasure.offset, entry.clef.position?.fraction ?? [0, 1]));
       ensurePasteMeasure(score, target.measureIndex);

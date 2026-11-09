@@ -160,7 +160,6 @@ describe("computeRepeatResult", () => {
         target: repeatedTarget.id,
         startNote: repeatedSource.notes![0]!.id,
         endNote: repeatedTarget.notes![0]!.id,
-        side: "up",
       },
     ]);
     expect(repeatedSource.notes![0]!.ties).toEqual([{ target: repeatedTarget.notes![0]!.id }]);

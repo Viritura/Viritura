@@ -51,14 +51,16 @@ function connect(source: NoteEvent, target: NoteEvent): void {
   ];
 }
 
-function expectConnection(source: NoteEvent, target: NoteEvent): void {
-  expect(source.kitNotes![0]!.ties).toEqual([{ target: target.kitNotes![0]!.id, side: "down" }]);
+function expectConnection(source: NoteEvent, target: NoteEvent, automatic = false): void {
+  expect(source.kitNotes![0]!.ties).toEqual([
+    { target: target.kitNotes![0]!.id, ...(automatic ? {} : { side: "down" }) },
+  ]);
   expect(source.slurs).toEqual([
     {
       target: target.id,
       startNote: source.kitNotes![0]!.id,
       endNote: target.kitNotes![1]!.id,
-      side: "up",
+      ...(automatic ? {} : { side: "up" }),
     },
   ]);
 }
@@ -203,19 +205,25 @@ describe("clipboard kit-note rhythmic splitting", () => {
     ]);
     expect(chain[0]!.id).toBe(sustained.id);
     expect(chain[0]!.kitNotes!.map((note) => note.id)).toEqual(sustained.kitNotes!.map((note) => note.id));
-    expectConnection(placed[0]!, chain[0]!);
+    expectConnection(placed[0]!, chain[0]!, true);
     expect(new Set(ids(placedContent)).size).toBe(placed.length * 3);
     for (let index = 0; index < chain.length - 1; index++) {
       for (const [noteIndex, note] of chain[index]!.kitNotes!.entries()) {
         expect(note.ties).toEqual([{ target: chain[index + 1]!.kitNotes![noteIndex]!.id }]);
       }
     }
-    expect(chain.at(-1)!.kitNotes![0]!.ties).toEqual(sustained.kitNotes![0]!.ties);
+    expect(chain.at(-1)!.kitNotes![0]!.ties).toEqual([{ target: target.kitNotes![0]!.id }]);
     expect(chain.at(-1)!.kitNotes![1]!.ties).toEqual([{ lv: true }]);
     expect(chain.every((event) => event.kitNotes!.map((note) => note.kitComponent).join() === "snare,cymbal")).toBe(
       true,
     );
-    expect(chain[0]!.slurs).toEqual(sustained.slurs);
+    expect(chain[0]!.slurs).toEqual([
+      {
+        target: target.id,
+        startNote: sustained.kitNotes![0]!.id,
+        endNote: target.kitNotes![1]!.id,
+      },
+    ]);
     expect(chain.slice(1).every((event) => !event.slurs && !event.markings)).toBe(true);
     expect(chain.slice(0, -1).every((event) => !event.fermata)).toBe(true);
     expect(chain.at(-1)!.fermata).toEqual({});

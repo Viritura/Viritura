@@ -433,9 +433,7 @@ describe("automatic placed-selection clipboard round trips", () => {
       const head = eventRows(trackAt(result.newScore, tracks[0]!, measure).content)[1]!.event;
       const tail = eventRows(trackAt(result.newScore, tracks[1]!, measure).content)[1]!.event;
       expect(head.notes![0]!.ties).toEqual([{ target: tail.notes![0]!.id }]);
-      expect(head.slurs).toEqual([
-        { target: tail.id, startNote: head.notes![0]!.id, endNote: tail.notes![0]!.id, side: "up" },
-      ]);
+      expect(head.slurs).toEqual([{ target: tail.id, startNote: head.notes![0]!.id, endNote: tail.notes![0]!.id }]);
       const oldIds = new Set(
         placedRows(current, tracks, 0, 16).flatMap(({ event }) => [event.id, ...event.notes!.map((n) => n.id)]),
       );

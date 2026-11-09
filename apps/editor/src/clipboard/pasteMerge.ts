@@ -20,6 +20,7 @@ import {
 import { sequenceContentBeats } from "../commands/noteCommands";
 import { mergeNotesIntoEvent, mergeEventNotation } from "../score/chordDistribution";
 import { voiceIndexWithinStaff } from "./clipboardTrackMapping";
+import { resetPasteDirections } from "./pasteContent";
 
 const EPSILON = 1e-9;
 
@@ -110,6 +111,7 @@ export function mergeDestinationIntoPaste(
     }
   }
   remapScoreLyricExtenderTargets(next, targetRemap);
+  resetPasteDirections(placed);
   return outcome;
 }
 

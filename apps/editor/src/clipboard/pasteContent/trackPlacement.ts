@@ -17,6 +17,7 @@ import {
 } from "../clipboardTrackPlacement";
 import { planPasteFragments } from "./rhythmicFragments";
 import { sequenceForStaffVoice } from "./staffVoice";
+import { resetPasteDirections } from "./notationDirections";
 
 /** Place by stable staff/voice and return the surviving inserted fragments, including continuations. */
 export function pasteTrackIntoScore(
@@ -42,6 +43,7 @@ export function pasteTrackIntoScore(
   const placedContent = new Set<SequenceContent>();
 
   for (const fragment of fragments) {
+    resetPasteDirections(fragment.content);
     ensurePasteMeasure(score, fragment.measureIndex);
     const measure = part.measures[fragment.measureIndex]!;
     const sequence = sequenceForStaffVoice(measure.sequences, staff, voice);
