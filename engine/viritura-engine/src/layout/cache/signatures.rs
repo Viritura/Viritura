@@ -33,6 +33,10 @@ pub(crate) fn measure_content_hash(rm: &ResolvedMeasure) -> u64 {
     }
     rm.measure_repeat_covered.hash(&mut hasher);
     rm.next_has_repeat_start.hash(&mut hasher);
+    if let Ok(json) = serde_json::to_string(&rm.prev_barline_type) {
+        json.hash(&mut hasher);
+    }
+    rm.prev_has_repeat_end.hash(&mut hasher);
     rm.active_staff_lines.hash(&mut hasher);
     if let Ok(json) = serde_json::to_string(&rm.active_time) {
         json.hash(&mut hasher);

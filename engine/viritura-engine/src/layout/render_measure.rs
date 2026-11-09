@@ -275,10 +275,7 @@ fn render_measure_prefix(
         for ci in cmd_idx..dl.commands.len() {
             dl.tag_command(ci, element_id::barline(rm.index));
         }
-        match start_bt {
-            BarlineKind::RepeatStart | BarlineKind::RepeatBoth => x_cursor += 1.5 * sp,
-            _ => x_cursor += 0.5 * sp,
-        }
+        x_cursor += prefix.barline_advance;
     }
 
     // Condensing change marker: small dashed line above the staff at the barline

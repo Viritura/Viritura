@@ -272,6 +272,8 @@ pub(crate) fn resolve_measures_for_staff(
                 tie_continuation_ids: rm.tie_continuation_ids.clone(),
                 measure_repeat_covered: rm.measure_repeat_covered,
                 next_has_repeat_start: rm.next_has_repeat_start,
+                prev_barline_type: rm.prev_barline_type,
+                prev_has_repeat_end: rm.prev_has_repeat_end,
                 active_time: rm.active_time,
                 active_key: rm.active_key,
                 prev_key: rm.prev_key,

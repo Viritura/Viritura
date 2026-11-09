@@ -76,6 +76,13 @@ tremolos, grace attachment, accidentals, flags, displacement, and annotations.
 Spacing estimators consume that snapshot rather than independently walking raw
 `SequenceContent`.
 
+Measure prefixes use the leading barline's right ink edge, rather than its
+anchor or half its total width, with 0.5 sp clearance before a changed key or
+time signature. Double barlines straddle their anchor; final and heavy
+barlines end at it. Measurement, rendering, and key-signature selection bounds
+share this geometry. At system starts the previous system's ending barline
+does not contribute prefix space.
+
 ### 1.1 Duration spring — fixed-quarter power law
 
 The natural width contributed by the gap between two consecutive onsets is a

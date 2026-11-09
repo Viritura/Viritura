@@ -103,6 +103,7 @@ pub(crate) fn barline_left_extent(bt: &BarlineKind, config: &LayoutConfig, sp: f
         // Short): ink reaches only half a line-width left.
         // RepeatStart's SMuFL glyph is anchored at x and has no left ink.
         BarlineKind::RepeatStart => 0.0,
+        BarlineKind::Dotted => thin * 0.8,
         _ => thin * 0.5,
     }
 }
@@ -117,14 +118,45 @@ pub(crate) fn barline_ink_width(bt: &BarlineKind, config: &LayoutConfig, sp: f64
     match bt {
         BarlineKind::Heavy => thick,
         BarlineKind::Double => 2.0 * thin + sep,
-        BarlineKind::Final | BarlineKind::HeavyLight => thin + sep + thick,
+        BarlineKind::Final => thin * 0.5 + sep + thick,
+        BarlineKind::HeavyLight => thin + sep + thick,
         BarlineKind::HeavyHeavy => 2.0 * thick + sep,
         BarlineKind::RepeatStart => 1.472 * sp,
         BarlineKind::RepeatEnd => 1.468 * sp,
         BarlineKind::RepeatBoth => 2.432 * sp,
         BarlineKind::NoBarline => 0.0,
+        BarlineKind::Dotted => thin * 1.6,
         _ => thin,
     }
+}
+
+/// Right-hand ink measured from the drawing anchor, not half the total width:
+/// final/heavy barlines end at the anchor, while double barlines straddle it.
+pub(crate) fn barline_right_extent(bt: &BarlineKind, config: &LayoutConfig, sp: f64) -> f64 {
+    (barline_ink_width(bt, config, sp) - barline_left_extent(bt, config, sp)).max(0.0)
+}
+
+pub(crate) fn leading_barline_kind(rm: &ResolvedMeasure) -> BarlineKind {
+    BarlineKind::at_boundary(
+        rm.prev_has_repeat_end,
+        rm.global.repeat_start.is_some(),
+        rm.prev_barline_type.as_ref(),
+        BarlineType::Regular,
+    )
+}
+
+/// Standard engraving practice: signatures clear the barline's visible ink.
+pub(crate) fn leading_barline_advance(
+    rm: &ResolvedMeasure,
+    is_system_start: bool,
+    config: &LayoutConfig,
+    sp: f64,
+) -> f64 {
+    if rm.index == 0 || is_system_start {
+        return 0.0;
+    }
+    let kind = leading_barline_kind(rm);
+    barline_right_extent(&kind, config, sp) + 0.5 * sp
 }
 
 /// Width beyond a regular stroke reserved at this measure's trailing boundary.

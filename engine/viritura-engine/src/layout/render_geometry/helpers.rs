@@ -364,7 +364,7 @@ pub(crate) fn compute_measure_bboxes(
         } else {
             None
         };
-        let key_x = key_signature_prefix_x(ml, sp, leading_clef_gap);
+        let key_x = key_signature_prefix_x(ml, sp, leading_clef_gap, config);
         let placement = key_signature_layout(
             key_x,
             staff_y,

@@ -1,5 +1,7 @@
 // Extracted from render_measure.rs — render_signatures
 
+use super::config::LayoutConfig;
+use super::render_barlines::leading_barline_advance;
 use super::types::MeasureLayout;
 use crate::layout::time_signatures::{render_time_signature_layout, time_signature_layout};
 use crate::model::clef::Clef;
@@ -290,24 +292,26 @@ pub(crate) fn key_signature_is_rendered(ml: &MeasureLayout) -> bool {
 }
 
 /// X where this measure's key signature starts — the prefix cursor after the
-/// start barline and any restated clef. Mirrors `render_measure_prefix` (and
-/// `render_multimeasure_rest`, which draws its barline without advancing the
-/// cursor) so the geometry pass places the hitbox on the engraved glyphs.
-pub(crate) fn key_signature_prefix_x(ml: &MeasureLayout, sp: f64, leading_clef_gap: f64) -> f64 {
+/// start barline and any restated clef, shared with the geometry pass so the
+/// hitbox follows the engraved glyphs.
+pub(crate) fn key_signature_prefix_x(
+    ml: &MeasureLayout,
+    sp: f64,
+    leading_clef_gap: f64,
+    config: &LayoutConfig,
+) -> f64 {
     let rm = &ml.resolved;
     let at_start = rm.index == 0 || ml.is_first_on_system;
     let is_mmr = ml.multimeasure_rest_count.is_some();
     let mut x = ml.x;
 
-    if !at_start && !is_mmr {
+    if !at_start {
         // The cursor clears the mid-system change clef's leading gap and the
         // start barline. A repeat-start reserves a wider slot than a plain bar.
-        x += leading_clef_gap;
-        x += if rm.global.repeat_start.is_some() {
-            1.5 * sp
-        } else {
-            0.5 * sp
-        };
+        if !is_mmr {
+            x += leading_clef_gap;
+        }
+        x += leading_barline_advance(rm, ml.is_first_on_system, config, sp);
     }
 
     if at_start {
