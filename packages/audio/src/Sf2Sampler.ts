@@ -279,6 +279,10 @@ export class Sf2Sampler implements ISampler {
    *  parts without overrides. */
   private readonly altKitChannels: ReadonlyMap<number, number>;
   private readonly isDrum: boolean;
+  private detuneCents = 0;
+  private bendRange = 2;
+  private rpnMsb = 127;
+  private rpnLsb = 127;
 
   constructor(
     sf2Synth: Sf2Synth,
@@ -395,6 +399,7 @@ export class Sf2Sampler implements ISampler {
     // Include overdue, undrained events. Port FIFO ordering cancels old notes
     // before silencing voices and releasing the transport-only mute for previews.
     this.cancelScheduledNotes(-Infinity);
+    this.sendPitchBend(8192, undefined, 2);
     for (const channel of new Set([this.channel, ...this.altKitChannels.values()])) {
       this.synth.controllerChange(channel, 120, 0);
       this.synth.controllerChange(channel, 123, 0);
@@ -402,8 +407,8 @@ export class Sf2Sampler implements ISampler {
     this.setPlaybackMuted(false);
   }
 
-  /** Remove queued attacks/releases at or after the audio-clock cutoff without
-   * changing active voices, playback mute, programs, or controller queues. */
+  /** Remove queued notes and bend state without changing active voices,
+   * playback mute, programs, or unrelated controller queues. */
   cancelScheduledNotes(fromAudioTime: number): void {
     this.sf2Synth.cancelScheduledNotes([...new Set([this.channel, ...this.altKitChannels.values()])], fromAudioTime);
   }
@@ -450,11 +455,31 @@ export class Sf2Sampler implements ISampler {
    */
   sendControl(cc: number, value: number, time?: number): void {
     const v = Math.max(0, Math.min(127, Math.round(value)));
+    if (cc === 101) this.rpnMsb = v;
+    if (cc === 100) this.rpnLsb = v;
+    if (cc === 6 && this.rpnMsb === 0 && this.rpnLsb === 0) this.bendRange = Math.max(1, v);
     if (time !== undefined) {
       this.synth.controllerChange(this.channel, cc, v, { time });
     } else {
       this.synth.controllerChange(this.channel, cc, v);
     }
+  }
+
+  sendPitchBend(value: number, time?: number, range?: number): void {
+    if (range !== undefined && range !== this.bendRange) {
+      this.sendControl(101, 0, time);
+      this.sendControl(100, 0, time);
+      this.sendControl(6, range, time);
+      this.sendControl(38, 0, time);
+      this.sendControl(101, 127, time);
+      this.sendControl(100, 127, time);
+    }
+    const bend = Math.max(0, Math.min(16383, Math.round(value + (this.detuneCents * 8192) / (100 * this.bendRange))));
+    this.synth.sendMessage(
+      [0xe0 | this.channel, bend & 0x7f, (bend >> 7) & 0x7f],
+      0,
+      time === undefined ? undefined : { time },
+    );
   }
 
   /**
@@ -473,6 +498,7 @@ export class Sf2Sampler implements ISampler {
     this.synth.controllerChange(this.channel, 74, 64);
     this.synth.controllerChange(this.channel, 71, 64);
     this.synth.controllerChange(this.channel, 11, 127);
+    this.sendPitchBend(8192, undefined, 2);
   }
 
   resetInstrument(time?: number): void {
@@ -489,11 +515,8 @@ export class Sf2Sampler implements ISampler {
    */
   setDetune(cents: number): void {
     // Pitch bend: 14-bit value, center = 8192, range = ±200 cents (±2 semitones)
-    const bend = Math.round(8192 + (cents * 8192) / 200);
-    const clamped = Math.max(0, Math.min(16383, bend));
-    const lsb = clamped & 0x7f;
-    const msb = (clamped >> 7) & 0x7f;
-    this.synth.sendMessage([0xe0 | this.channel, lsb, msb]);
+    this.detuneCents = cents;
+    this.sendPitchBend(8192);
   }
 
   dispose(): void {

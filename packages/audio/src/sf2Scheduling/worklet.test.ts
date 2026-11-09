@@ -173,7 +173,7 @@ describe("SF2 scheduling worklet", () => {
     expect(h.sandbox.registerProcessor).toBe(h.originalGlobals.registerProcessor);
   });
 
-  it("filters both note statuses including velocity-zero attacks using channel nibble plus offset", () => {
+  it("cancels notes and pitch-bend state using channel nibble plus offset", () => {
     const received: MidiEnvelope[] = [];
     const h = createWorkletHarness(undefined, (data) => received.push(data as MidiEnvelope));
     const messages = [
@@ -184,9 +184,13 @@ describe("SF2 scheduling worklet", () => {
       midiEnvelope([0x83, 62, 0], 10.75, 16),
       midiEnvelope([0x93, 63, 90], 12),
       midiEnvelope([0x94, 64, 90], 12, 16),
-      midiEnvelope([0xb3, 120, 0], 12, 16),
+      midiEnvelope([0xb3, 11, 80], 12, 16),
       midiEnvelope([0xc3, 41], 12, 16),
       midiEnvelope([0xe3, 0, 64], 12, 16),
+      midiEnvelope([0xb3, 101, 0], 12, 16),
+      midiEnvelope([0xb3, 100, 0], 12, 16),
+      midiEnvelope([0xb3, 6, 12], 12, 16),
+      midiEnvelope([0xb3, 120, 0], 12, 16),
     ];
     for (const message of messages) h.port.postMessage(message);
 
@@ -194,9 +198,9 @@ describe("SF2 scheduling worklet", () => {
     h.advance(12);
 
     expect(received.map((message) => [...message.data.messageData])).toEqual(
-      messages.slice(3).map((message) => [...message.data.messageData]),
+      messages.slice(3, 9).map((message) => [...message.data.messageData]),
     );
-    expect(received.map((message) => message.data.channelOffset)).toEqual([16, 16, 0, 16, 16, 16, 16]);
+    expect(received.map((message) => message.data.channelOffset)).toEqual([16, 16, 0, 16, 16, 16]);
     expect(messages[0]!.data.options.time).toBe(11);
   });
 

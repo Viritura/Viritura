@@ -561,6 +561,7 @@ export interface GlissandoInspectorPatch {
   target?: string;
   kind?: NonNullable<Glissando["kind"]>;
   style?: GlissandoStyle;
+  playbackType?: Glissando["playbackType"];
   text?: string | null;
   showText?: boolean;
 }

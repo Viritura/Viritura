@@ -85,6 +85,13 @@ export class LayeredSampler implements ISampler {
     }
   }
 
+  sendPitchBend(value: number, time?: number, range?: number): void {
+    this.primary.sendPitchBend?.(value, time, range);
+    for (const layer of this.layers) {
+      if (layer.enabled) layer.sampler.sendPitchBend?.(value, time, range);
+    }
+  }
+
   /** Reset baseline instrument + neutral technique filter on primary + all layers. */
   resetTechniqueState(): void {
     this.primary.resetTechniqueState?.();

@@ -118,7 +118,9 @@ export class PlaybackEngine {
         .map((event) => [event.playbackLaneId, event.partIndex]),
     );
     this.pausedAtScoreTime = 0;
-    this.hasControlEvents = timeline.events.some((e) => e.type === "programChange" || e.type === "controlChange");
+    this.hasControlEvents = timeline.events.some(
+      (e) => e.type === "programChange" || e.type === "controlChange" || e.type === "pitchBend",
+    );
 
     this.emit("loaded", {
       partCount: new Set(timeline.events.map((event) => event.partIndex)).size,
@@ -457,6 +459,9 @@ export class PlaybackEngine {
 
   private restoreStartingNotes(scoreTime: number): void {
     const parts = new Set(this.timeline?.chasePartIndices ?? []);
+    for (const event of this.timeline?.events ?? []) {
+      if (event.type === "pitchBend") parts.add(event.partIndex);
+    }
     this.filterContinuity.restore(
       parts,
       scoreTime,
@@ -525,6 +530,20 @@ export class PlaybackEngine {
         sampler.sendControl(cc, value);
       }
     }
+    this.applyStartingPitchBends(startScoreTime);
+  }
+
+  private applyStartingPitchBends(startScoreTime: number): void {
+    const lastBend = new Map<number | string, MidiEvent>();
+    for (const event of this.timeline?.events ?? []) {
+      if (event.time > startScoreTime) break;
+      if (event.type === "pitchBend" && event.value !== undefined) {
+        lastBend.set(this.routingKeyForEvent(event), event);
+      }
+    }
+    for (const [key, event] of lastBend) {
+      this.samplers.get(key)?.sendPitchBend?.(event.value!, undefined, event.bendRange);
+    }
   }
 
   /** Route a scheduled MIDI event to the appropriate part sampler. */
@@ -575,6 +594,11 @@ export class PlaybackEngine {
         if (sampler.sendControl && event.cc !== undefined && event.value !== undefined) {
           sampler.sendControl(event.cc, event.value, audioTime);
         }
+      } else if (event.type === "pitchBend") {
+        if (!sampler.sendPitchBend || event.value === undefined) {
+          throw new Error("Sampler does not support pitch-bend playback.");
+        }
+        sampler.sendPitchBend(event.value, audioTime, event.bendRange);
       } else {
         sampler.noteOff(event.midiNote, audioTime, event.drumKitProgram);
       }

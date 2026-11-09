@@ -1406,6 +1406,9 @@ describe("NotationInspector", () => {
 
     const kind = await screen.findByTestId("notation-glissando-kind");
     expect(kind.textContent).toContain("Portamento");
+    expect(screen.getByTestId("notation-glissando-playback-type").textContent).toContain("Pitch bend");
+    await user.click(screen.getByTestId("notation-glissando-playback-type"));
+    await user.click(await screen.findByRole("option", { name: "Chromatic" }));
 
     await user.click(screen.getByTestId("notation-glissando-style"));
     await user.click(await screen.findByRole("option", { name: "Wavy" }));
@@ -1413,13 +1416,23 @@ describe("NotationInspector", () => {
 
     await waitFor(() => {
       expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
-        glissandos: [{ target: "ev2", kind: "portamento", style: "wavy", text: "port.", showText: false }],
+        glissandos: [
+          {
+            target: "ev2",
+            kind: "portamento",
+            style: "wavy",
+            text: "port.",
+            showText: false,
+            playbackType: "chromatic",
+          },
+        ],
       });
     });
     expect(screen.queryByTestId("notation-glissando-text")).toBeNull();
     expect(JSON.stringify(currentMnx())).toContain('"kind":"portamento"');
     expect(JSON.stringify(currentMnx())).toContain('"text":"port."');
     expect(JSON.stringify(currentMnx())).toContain('"showText":false');
+    expect(JSON.stringify(currentMnx())).toContain('"playbackType":"chromatic"');
   });
 
   it("enables a trill extension to the end of the selected note", async () => {

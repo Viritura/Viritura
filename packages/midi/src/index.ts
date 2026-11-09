@@ -79,3 +79,4 @@ export type {
   ControllerPortProfile,
   ControllerProfile,
 } from "./controllerProfiles";
+export { partHasGlissando } from "./glissandoPlayback";

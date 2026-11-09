@@ -42,16 +42,22 @@ export const AllGlissandoStyles: StoryObj = {
   name: "Straight and wavy glissandi",
 };
 
-type InteractiveArgs = { lineType: string };
+interface InteractiveArgs {
+  lineType: string;
+  kind: string;
+  playbackType: string;
+}
 
 /** Pick glissando line type with Storybook controls. */
 export const Interactive: StoryObj<InteractiveArgs> = {
   name: "Try glissando line types",
-  args: { lineType: "straight" },
+  args: { lineType: "straight", kind: "glissando", playbackType: "diatonic" },
   argTypes: {
     lineType: { control: { type: "select" }, options: ["straight", "wavy"] },
+    kind: { control: { type: "select" }, options: ["glissando", "portamento"] },
+    playbackType: { control: { type: "select" }, options: ["chromatic", "diatonic", "pitch-bend"] },
   },
-  render: ({ lineType }) => {
+  render: ({ lineType, kind, playbackType }) => {
     const mnx = buildMnx({
       measures: [
         {
@@ -62,7 +68,7 @@ export const Interactive: StoryObj<InteractiveArgs> = {
                 duration: "half",
                 id: "ev1",
                 notes: [{ step: "C", octave: 4 }],
-                virituraExtensions: { glissandos: [{ target: "ev2", style: lineType }] },
+                virituraExtensions: { glissandos: [{ target: "ev2", style: lineType, kind, playbackType }] },
               },
               { duration: "half", id: "ev2", notes: [{ step: "E", octave: 5 }] },
             ],

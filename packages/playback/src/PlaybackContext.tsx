@@ -1409,7 +1409,19 @@ export function PlaybackProvider({
             ),
           ]),
         );
-        const midiTimeline = generateTimeline(score, { partPrograms, instrumentPrograms, includeGlobalChords: true });
+        const midiTimeline = generateTimeline(score, {
+          partPrograms,
+          instrumentPrograms,
+          includeGlobalChords: true,
+          onDiagnostic: (diagnostic) => {
+            if (diagnostic.code === "glissando-playback-unsupported") {
+              toast.warning("Glissando playback unavailable", {
+                description: diagnostic.message,
+                id: "glissando-playback",
+              });
+            }
+          },
+        });
         const timeline: EngineMidiTimeline = {
           chasePartIndices: getChordPlaybackPart(score) ? [score.parts.length] : [],
           events: midiTimeline.events,

@@ -40,6 +40,7 @@ import { pitchToMidi, isRest, DURATION_BEATS, SHARP_ORDER, FLAT_ORDER } from "@v
 import { expandMeasureOrder, scorePlaybackItinerary } from "./repeatExpansion";
 import { beatInPlayedSpan, playedSpansContinue, realizeNavigation, type PlayedMeasureSpan } from "./navigation";
 import { expandScoreMeasureRepeats } from "./measureRepeats";
+import { applyGlissandoPlayback } from "./glissandoPlayback";
 import { compileChordPlayback, chordMidiEvents } from "./chordPlayback";
 import { analyzeImpliedSectionDynamics, type ImpliedSectionDynamicAnchor } from "./sectionDynamics";
 import { buildHoldSchedule, type HoldSchedule, type MeasureHold } from "./holds";
@@ -332,12 +333,7 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
     options?.instrumentPrograms,
     options?.partPrograms,
   );
-  const diagnostics = [
-    ...assignPhysicalMidiChannels(allEvents, score),
-    ...instrumentDiagnostics,
-    ...rhythm.diagnostics,
-  ];
-  for (const diagnostic of diagnostics) options?.onDiagnostic?.(diagnostic);
+  const diagnostics = [...instrumentDiagnostics, ...rhythm.diagnostics];
   allEvents.sort(compareEvents);
 
   const duration = model.timeAtBeat(tempoBuild.totalBeats);
@@ -360,11 +356,16 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
     measureTimeSignatures,
     diagnostics,
   };
-  return spans &&
+  const realized =
+    spans &&
     (globalMeasures.some((measure) => measure.jump !== undefined) ||
       spans.some((span) => span.startBeat > 0 || span.endBeat < span.measureBeats))
-    ? realizeNavigation(result, spans, crossJumpContinuations)
-    : { ...result, playedSpans: spans };
+      ? realizeNavigation(result, spans, crossJumpContinuations)
+      : { ...result, playedSpans: spans };
+  diagnostics.push(...applyGlissandoPlayback(score, realized), ...assignPhysicalMidiChannels(realized.events, score));
+  for (const diagnostic of diagnostics) options?.onDiagnostic?.(diagnostic);
+  realized.events.sort(compareEvents);
+  return realized;
 }
 
 /** Assign one MIDI 1 channel per independent dynamic lane where possible.

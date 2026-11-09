@@ -310,6 +310,11 @@ export interface components {
             kind?: components["schemas"]["glissando-kind"];
             /** @description Line style. Default: 'straight'. */
             style?: components["schemas"]["glissando-style"];
+            /**
+             * @description Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento.
+             * @enum {string}
+             */
+            playbackType?: "chromatic" | "diatonic" | "pitch-bend";
             /** @description Optional text label (e.g. 'gliss.', 'port.'). */
             text?: string;
             /** @description Whether to display the text label. Default: true. */

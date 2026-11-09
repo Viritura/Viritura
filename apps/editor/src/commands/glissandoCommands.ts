@@ -9,6 +9,7 @@ export interface AddGlissandoParams {
   targetEventId: string;
   kind?: GlissandoKind;
   style?: GlissandoStyle;
+  playbackType?: Glissando["playbackType"];
   text?: string;
   showText?: boolean;
 }
@@ -24,6 +25,7 @@ export interface SetGlissandoPropertiesParams {
   target?: string;
   kind?: GlissandoKind;
   style?: GlissandoStyle;
+  playbackType?: Glissando["playbackType"];
   text?: string | null;
   showText?: boolean;
 }
@@ -72,6 +74,7 @@ export function addGlissando(score: Score, params: AddGlissandoParams): Score {
   };
   if (params.text) glissando.text = params.text;
   if (params.showText !== undefined) glissando.showText = params.showText;
+  if (params.playbackType !== undefined) glissando.playbackType = params.playbackType;
   source.event.glissandos = [...(source.event.glissandos ?? []), glissando];
   return score;
 }
@@ -109,6 +112,7 @@ export function setGlissandoProperties(score: Score, params: SetGlissandoPropert
   }
   if (params.kind !== undefined) glissando.kind = params.kind;
   if (params.style !== undefined) glissando.style = params.style;
+  if (params.playbackType !== undefined) glissando.playbackType = params.playbackType;
   if (params.text === null) delete glissando.text;
   else if (params.text !== undefined) glissando.text = params.text;
   if (params.showText !== undefined) glissando.showText = params.showText;
