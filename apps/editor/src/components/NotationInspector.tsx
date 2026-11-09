@@ -5,6 +5,7 @@ import { resolveNotationSelectionTarget } from "../commands/notationInspectorCom
 
 import { LayoutSection } from "./inspector/LayoutSection";
 import { TempoSection } from "./inspector/TempoSection";
+import { TempoRampInspector } from "../tempoRamps";
 import { inheritedStyleForRole } from "./inspector/TextContentEditor";
 import { DirectionTextSections } from "./inspector/DirectionTextSections";
 import { TieSection, SlurSection } from "./inspector/TieSlurSections";
@@ -190,7 +191,14 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleGlissandoTextChange,
   } = useTieSlurHandlers({ score, target, glissando: selectedGlissando, updateScore });
 
-  if (!target && !staffConfig.target && !measureNumber.isAvailable && !beam.isAvailable) {
+  if (
+    !target &&
+    !staffConfig.target &&
+    !measureNumber.isAvailable &&
+    !beam.isAvailable &&
+    selection.kind !== "measure" &&
+    selection.kind !== "range"
+  ) {
     return <NotationInspectorEmptyState horizonTextFrames={_props.horizonTextFrames} />;
   }
 
@@ -211,6 +219,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
       <PanelHeader title="Notation Properties" subtitle={selectionSubtitle} />
       <div className="viritura-scroll" style={bodyStyle}>
         <BeamSection state={beam} />
+        {score && <TempoRampInspector score={score} selection={selection} updateScore={updateScore} />}
 
         {target && tempo.isTempoSelected && tempo.selectedTempo && (
           <TempoSection

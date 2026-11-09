@@ -318,25 +318,29 @@ export interface Jump {
 
 /** Gradual-tempo classification (cosmetic; BPM direction is authoritative). */
 export type GradualTempoKind = "rit" | "accel";
+export type TempoRampCurve = "linear" | "early" | "late" | "smooth";
 
 /**
  * A gradual tempo change (ritardando / accelerando) playback curve on a global
- * measure (Viritura extension). The tempo ramps linearly in BPM from the active
- * tempo at `position` (or `startBpm` if given) to `endBpm` at `end`. Playback
- * data only — the printed "rit."/"accel." text is an ordinary text-expression.
+ * measure (Viritura extension). Targets are quarter-note BPM or a multiplier
+ * of the active starting tempo. Omitted curves retain legacy linear playback.
  */
-export interface GradualTempo {
+export interface GradualTempoSpan {
   /** Start position within this measure. */
   position: RhythmicPosition;
   /** End position (may reference a later measure). */
   end: MeasureRhythmicPosition;
-  /** Quarter-note BPM reached at the end of the ramp. */
-  endBpm: number;
   /** Optional start BPM (quarter-note). Defaults to the tempo active at `position`. */
   startBpm?: number;
   /** Optional classification. Cosmetic; the BPM direction determines behavior. */
   kind?: GradualTempoKind;
+  curve?: TempoRampCurve;
+  /** Optional independently engraved system text owned by this ramp. */
+  systemTextId?: string;
 }
+
+export type GradualTempo = GradualTempoSpan &
+  ({ endBpm: number; endRatio?: never } | { endRatio: number; endBpm?: never });
 
 /** Rehearsal mark display style. */
 export type RehearsalMarkStyle = "boxed" | "circled" | "plain";

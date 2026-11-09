@@ -166,12 +166,10 @@ export class TempoModel {
     const boundaries = [...boundarySet].sort((a, b) => a - b);
 
     // Resolve the tempo (bpm + slope) active at a given beat from the regions.
+    let activeIndex = -1;
     const tempoAt = (beat: number): { bpm: number; slope: number } => {
-      let active: TempoRegion | undefined;
-      for (const r of sorted) {
-        if (r.startBeat <= beat + 1e-9) active = r;
-        else break;
-      }
+      while (activeIndex + 1 < sorted.length && sorted[activeIndex + 1]!.startBeat <= beat + 1e-9) activeIndex++;
+      const active = sorted[activeIndex];
       if (!active) {
         // Before the first region: use the first region's start tempo, or 120.
         const first = sorted[0];

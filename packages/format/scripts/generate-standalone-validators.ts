@@ -16,6 +16,7 @@ const extensionDefinitions = [
   "key-extensions",
   "tempo-extensions",
   "swing",
+  "gradual-tempo",
   "part-extensions",
   "kit-component-extensions",
   "part-measure-extensions",

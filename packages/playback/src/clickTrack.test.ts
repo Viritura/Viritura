@@ -35,6 +35,26 @@ function makeScore(): Score {
 }
 
 describe("buildClickTrack", () => {
+  it.each(["linear", "early", "late", "smooth"] as const)(
+    "follows a native %s ramp and keeps the count-in constant",
+    (curve) => {
+      const score = makeScore();
+      score.global.measures[0]!.id = "m0";
+      score.global.measures[0]!.gradualTempo = {
+        position: { fraction: [0, 1] },
+        end: { measure: "m0", position: { fraction: [1, 1] } },
+        endRatio: 0.5,
+        curve,
+      };
+      const timeline = generateTimeline(score);
+      const clicks = buildClickTrack(timeline, { countInBeats: 2 });
+      expect(clicks.slice(0, 2).map((click) => click.time)).toEqual([-1, -0.5]);
+      expect(clicks.slice(2).map((click) => click.time)).toEqual(
+        Array.from({ length: 8 }, (_, beat) => timeline.model.timeAtBeat(beat)),
+      );
+      expect(clicks[5]!.time - clicks[4]!.time).toBeGreaterThan(clicks[3]!.time - clicks[2]!.time);
+    },
+  );
   it.each([
     { count: 4, unit: 4 },
     { count: 6, unit: 8 },

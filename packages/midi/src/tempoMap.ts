@@ -12,6 +12,7 @@ import { DURATION_BEATS } from "@viritura/core";
 import type { TempoMapEntry } from "./types";
 import type { HoldSchedule } from "./holds";
 import { TempoModel, type TempoRegion, type TempoInsertion } from "./tempoModel";
+import { compileTempoRamps } from "./tempoRamps";
 
 type PlaybackGlobalMeasure = GlobalMeasure & { __playbackNominalTime?: TimeSignature };
 
@@ -63,10 +64,9 @@ export function effectiveQpm(bpm: number, tempoBase: string, tempoDots?: number)
  * The first entry always starts at time 0. If no tempo is specified,
  * the default of 120 QPM is used.
  *
- * When a `holds` schedule is supplied (one entry per expanded measure), the
- * extra time that fermatas/caesuras insert is added to the running clock at
- * the measure-start tempo, so every later measure's start time is pushed back
- * uniformly — keeping all parts aligned through the hold.
+ * Anchor times and measure starts use the continuous tempo model, including
+ * ramps and fermata/caesura holds. The array records explicit BPM anchors, not
+ * samples of ramp curves; continuous queries must use the model.
  *
  * @returns tempoMap entries and cumulative measure start times (in seconds).
  */
@@ -77,95 +77,27 @@ export function buildTempoMap(
   tempoMap: TempoMapEntry[];
   measureStartTimes: number[];
 } {
+  const { model, measureStartBeats, measureStartTimes } = buildTempoModel(globalMeasures, holds);
   const tempoMap: TempoMapEntry[] = [];
-  const measureStartTimes: number[] = [];
-
-  let currentQpm = DEFAULT_BPM;
-  let currentSpq = 60 / currentQpm;
-  let currentTime = { count: DEFAULT_TIME.count, unit: DEFAULT_TIME.unit };
-  let absoluteTime = 0;
-  let hasInitialTempo = false;
-
-  for (let m = 0; m < globalMeasures.length; m++) {
-    const gm = globalMeasures[m]!;
-    const nominalTime = playbackNominalTime(gm) ?? gm.time;
-
-    if (nominalTime) {
-      currentTime = { count: nominalTime.count, unit: nominalTime.unit };
-    }
-
-    const mBeats = measureBeatsFromTime(gm.time ?? currentTime);
-    measureStartTimes.push(absoluteTime);
-
-    // Seconds-per-beat at the measure start — used for hold insertion so it
-    // matches the timeline's within-measure event timing (which also uses the
-    // measure-start tempo).
-    const measureStartSpq = currentSpq;
-
-    // Collect and sort tempo changes within this measure by beat position
-    interface TempoChange {
-      beatOffset: number;
-      qpm: number;
-    }
-    const changes: TempoChange[] = [];
-
-    if (gm.tempos && gm.tempos.length > 0) {
-      for (const tempo of gm.tempos) {
-        if (tempo.bpm === undefined) continue;
-        const beatOffset = tempo.location ? posBeats(tempo.location.fraction) : 0;
-        const qpm = effectiveQpm(tempo.bpm, tempo.value.base, tempo.value.dots);
-        changes.push({ beatOffset, qpm });
-      }
-      changes.sort((a, b) => a.beatOffset - b.beatOffset);
-    }
-
-    // Walk through the measure, advancing time segment-by-segment
-    let beatCursor = 0;
-    for (const change of changes) {
-      // Advance time from beatCursor to the change's beat offset at the current tempo
-      if (change.beatOffset > beatCursor) {
-        absoluteTime += (change.beatOffset - beatCursor) * currentSpq;
-        beatCursor = change.beatOffset;
-      }
-
-      // Record the tempo change
+  globalMeasures.forEach((measure, measureIndex) => {
+    for (const tempo of [...(measure.tempos ?? [])].sort((a, b) => tempoBeat(a) - tempoBeat(b))) {
+      if (tempo.bpm === undefined) continue;
+      const beatInMeasure = tempoBeat(tempo);
+      const beat = measureStartBeats[measureIndex]! + beatInMeasure;
       tempoMap.push({
-        measureIndex: m,
-        beatInMeasure: change.beatOffset,
-        timeSeconds: absoluteTime,
-        bpm: change.qpm,
+        measureIndex,
+        beatInMeasure,
+        timeSeconds: beat === 0 ? 0 : model.timeAtBeat(beat),
+        bpm: model.bpmAtBeat(beat),
       });
-
-      if (m === 0 && change.beatOffset === 0) {
-        hasInitialTempo = true;
-      }
-
-      currentQpm = change.qpm;
-      currentSpq = 60 / currentQpm;
     }
-
-    // Advance time for the remaining beats in the measure
-    if (mBeats > beatCursor) {
-      absoluteTime += (mBeats - beatCursor) * currentSpq;
-    }
-
-    // Insert fermata/caesura hold time for this measure (at the measure-start
-    // tempo, matching the timeline's within-measure event shifting).
-    const measureHolds = holds?.[m];
-    if (measureHolds) {
-      for (const hold of measureHolds) {
-        absoluteTime += hold.extraBeats * measureStartSpq;
-      }
-    }
-  }
-
-  // Ensure there's always an initial tempo entry at time 0
-  if (!hasInitialTempo) {
+  });
+  if (!tempoMap.some((entry) => entry.measureIndex === 0 && entry.beatInMeasure === 0)) {
     tempoMap.unshift({
       measureIndex: 0,
       beatInMeasure: 0,
       timeSeconds: 0,
-      bpm: DEFAULT_BPM,
+      bpm: model.bpmAtBeat(0),
     });
   }
 
@@ -204,7 +136,7 @@ export interface TempoBuild {
  * `measureStartTimes[i] = model.timeAtBeat(measureStartBeats[i])`.
  */
 export function buildTempoModel(globalMeasures: readonly GlobalMeasure[], holds?: HoldSchedule): TempoBuild {
-  const regions: TempoRegion[] = [];
+  let regions: TempoRegion[] = [];
   const measureStartBeats: number[] = [];
 
   let cumBeats = 0;
@@ -247,33 +179,7 @@ export function buildTempoModel(globalMeasures: readonly GlobalMeasure[], holds?
     regions.unshift({ startBeat: 0, endBeat: Infinity, startBpm: DEFAULT_BPM, endBpm: DEFAULT_BPM });
   }
 
-  // Resolve gradual-tempo ramps. `startBpm` defaults to the tempo active at the
-  // ramp's start (read from a constant-only model so the ramp begins
-  // continuously). A linear-in-BPM ramp region replaces the constant tempo over
-  // [start, end); a trailing constant anchor at `end` holds `endBpm` afterwards
-  // unless a real tempo ("a tempo") already starts there.
-  if (gradualDecls.length > 0) {
-    const idToIdx = buildMeasureIdToIndex(globalMeasures);
-    const constModel = TempoModel.build(regions);
-    for (const { declIdx, gt, startBeat } of gradualDecls) {
-      const endBeat = resolveGradualEndBeat(gt.end, declIdx, globalMeasures, measureStartBeats, idToIdx);
-      if (endBeat === undefined || endBeat <= startBeat + 1e-9) continue;
-      const startBpm = gt.startBpm ?? constModel.bpmAtBeat(startBeat);
-      regions.push({ startBeat, endBeat, startBpm, endBpm: gt.endBpm });
-      const hasAnchorAtEnd = regions.some((r) => Math.abs(r.startBeat - endBeat) < 1e-9);
-      if (!hasAnchorAtEnd) {
-        regions.push({ startBeat: endBeat, endBeat: Infinity, startBpm: gt.endBpm, endBpm: gt.endBpm });
-      }
-    }
-  }
-
-  // Close each region at the next region's start (constant regions are
-  // contiguous; ramp regions land exactly on the boundary we inserted at their
-  // end; the final region stays open at Infinity).
-  regions.sort((a, b) => a.startBeat - b.startBeat);
-  for (let i = 0; i < regions.length - 1; i++) {
-    regions[i]!.endBeat = regions[i + 1]!.startBeat;
-  }
+  regions = compileTempoRamps(regions, gradualDecls, globalMeasures, measureStartBeats, cumBeats);
 
   // Insertions (fermata/caesura gaps). Seconds use the tempo at the measure
   // start (matching the legacy hold seconds), computed from a regions-only model.
@@ -300,34 +206,6 @@ export function buildTempoModel(globalMeasures: readonly GlobalMeasure[], holds?
 function posBeats(frac: readonly [number, number]): number {
   if (!frac || frac[1] === 0) return 0;
   return (frac[0] / frac[1]) * 4;
-}
-
-/** Map every global-measure id → its index (for gradual-tempo end resolution). */
-function buildMeasureIdToIndex(globalMeasures: readonly GlobalMeasure[]): Map<string, number> {
-  const m = new Map<string, number>();
-  globalMeasures.forEach((gm, i) => {
-    if (gm.id && !m.has(gm.id)) m.set(gm.id, i);
-  });
-  return m;
-}
-
-/** Resolve a gradual-tempo end (measure id + position) to a global beat. */
-function resolveGradualEndBeat(
-  end: NonNullable<GlobalMeasure["gradualTempo"]>["end"],
-  fromIdx: number,
-  globalMeasures: readonly GlobalMeasure[],
-  measureStartBeats: readonly number[],
-  idToIdx: ReadonlyMap<string, number>,
-): number | undefined {
-  let idx = idToIdx.get(end.measure);
-  if (idx === undefined) {
-    const parsed = Number.parseInt(end.measure, 10);
-    if (!Number.isNaN(parsed) && parsed >= 0 && parsed < globalMeasures.length) idx = parsed;
-  }
-  if (idx === undefined) idx = fromIdx; // same-measure ramp fallback
-  const start = measureStartBeats[idx];
-  if (start === undefined) return undefined;
-  return start + posBeats(end.position.fraction);
 }
 
 /** Global-measure tempo's beat offset within its measure (0 if unlocated). */
