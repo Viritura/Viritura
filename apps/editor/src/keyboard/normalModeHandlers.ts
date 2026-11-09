@@ -6,7 +6,7 @@
  * edit transforms (Q - rest toggle), and inspector keys (Y/L/G/D/O/R/E/W/B/C).
  */
 
-import type { Score, NoteValueBase, ScorePatch, SequenceContent } from "@viritura/core";
+import type { Note, Score, NoteValueBase, ScorePatch, SequenceContent } from "@viritura/core";
 import { patch, walkSequenceEvents } from "@viritura/core";
 import {
   addSlur,
@@ -253,6 +253,7 @@ function transposeSelectedGraceNotes(
   mode: "chromatic" | "diatonic",
   amount: number,
 ): void {
+  const transposed = new Set<Note>();
   for (const id of graceIds) {
     const graceLoc = resolveGraceLocation(id, score);
     if (!graceLoc) continue;
@@ -265,7 +266,10 @@ function transposeSelectedGraceNotes(
     const event = grace?.type === "grace" ? grace.content[graceLoc.graceNoteIndex] : undefined;
     if (!event?.notes) continue;
     const keyFifths = resolveKeyAtMeasure(score, graceLoc.measureIndex);
-    for (const note of event.notes) {
+    for (const [noteIndex, note] of event.notes.entries()) {
+      if (graceLoc.noteIndex !== undefined && graceLoc.noteIndex !== noteIndex) continue;
+      if (transposed.has(note)) continue;
+      transposed.add(note);
       note.pitch =
         mode === "chromatic"
           ? transposePitchChromatic(note.pitch, amount)

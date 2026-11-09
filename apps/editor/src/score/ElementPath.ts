@@ -581,6 +581,8 @@ export interface GraceLocation {
   graceContainerIndex: number;
   /** Index of the grace note inside the grace container's content. */
   graceNoteIndex: number;
+  /** Specific notehead within a grace chord, if selected. */
+  noteIndex?: number;
   /** If the grace container is inside a tuplet, that tuplet's index in the sequence. */
   tupletIndex?: number;
 }
@@ -597,25 +599,20 @@ function graceNoteIndexInContainer(content: SequenceContent[], containerIndex: n
 }
 
 /**
- * Parse a grace-note element id (`p{p}/m{m}/s{s}/{evSuffix}/grace/{graceSuffix}`).
+ * Parse a grace-note element id (`p{p}/m{m}/s{s}/{evSuffix}/grace/{graceSuffix}`)
+ * or one of its noteheads (`/n{index}`).
  * `evSuffix` identifies the regular event the grace adorns; `graceSuffix` is
  * either the grace note's own id or the positional `e{N}` form. The grace
  * container itself is the immediately preceding sibling of the parent event.
  */
 export function resolveGraceLocation(elementId: string, score: Score): GraceLocation | null {
-  const segments = elementId.split("/");
-  // Format: p{}/m{}/s{}/{evSuffix}/grace/{graceSuffix}
-  if (segments.length !== 6 || segments[4] !== "grace") return null;
-
-  const partMatch = segments[0]?.match(/^p(\d+)$/);
-  const measureMatch = segments[1]?.match(/^m(\d+)$/);
-  const seqMatch = segments[2]?.match(/^s(\d+)$/);
-  const evSuffix = segments[3];
-  const graceSuffix = segments[5];
-  if (!partMatch || !measureMatch || !seqMatch || !evSuffix || !graceSuffix) return null;
+  const match = elementId.match(/^(p\d+\/m\d+\/s\d+\/[^/]+)\/grace\/([^/]+)(?:\/n(\d+))?$/);
+  if (!match) return null;
+  const graceSuffix = match[2]!;
+  const noteIndex = match[3] === undefined ? undefined : Number.parseInt(match[3], 10);
 
   // Resolve the parent event location (handles ID, e{N}, tuplet nesting).
-  const parentLoc = resolveEventLocation(`${segments[0]}/${segments[1]}/${segments[2]}/${evSuffix}`, score);
+  const parentLoc = resolveEventLocation(match[1]!, score);
   if (!parentLoc) return null;
 
   const sequence =
@@ -648,6 +645,11 @@ export function resolveGraceLocation(elementId: string, score: Score): GraceLoca
     }
   }
   if (graceContainerIndex === -1 || graceNoteIndex === -1) return null;
+  const grace = containerArray[graceContainerIndex];
+  if (noteIndex !== undefined) {
+    const event = grace?.type === "grace" ? grace.content[graceNoteIndex] : undefined;
+    if (!event || noteIndex >= (event.notes?.length ?? 0) + (event.kitNotes?.length ?? 0)) return null;
+  }
 
   return {
     partIndex: parentLoc.partIndex,
@@ -655,6 +657,7 @@ export function resolveGraceLocation(elementId: string, score: Score): GraceLoca
     sequenceIndex: parentLoc.sequenceIndex,
     graceContainerIndex,
     graceNoteIndex,
+    ...(noteIndex !== undefined && { noteIndex }),
     ...(parentLoc.tupletIndex !== undefined && { tupletIndex: parentLoc.tupletIndex }),
   };
 }

@@ -77,6 +77,176 @@ function makeCtx(score: Score, selection: Selection): { ctx: KeyboardHandlerCont
 
 const noopEvent = { preventDefault() {} } as unknown as KeyboardEvent;
 
+describe("grace notehead deletion", () => {
+  function withGrace(notes = 1, anonymous = false): Score {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content.unshift({
+      type: "grace",
+      content: [
+        {
+          type: "event",
+          ...(anonymous ? {} : { id: "grace-note" }),
+          duration: { base: "eighth" },
+          notes: [
+            { id: "grace-c", pitch: { step: "C", octave: 5 } },
+            { id: "grace-e", pitch: { step: "E", octave: 5 } },
+            { id: "grace-g", pitch: { step: "G", octave: 5 } },
+          ].slice(0, notes),
+        },
+      ],
+    });
+    return score;
+  }
+
+  function deleteThroughBothPaths(score: Score, selection: Selection): Score[] {
+    const original = structuredClone(score);
+    const result = computeDeleteSelection(score, selection);
+    if (result.kind !== "single" && result.kind !== "multi") throw new Error("Expected grace deletion");
+    const { ctx, latest } = makeCtx(score, selection);
+    handleDelete(noopEvent, false, ctx);
+    expect(score).toEqual(original);
+    return [result.score, latest()];
+  }
+
+  it.each([false, true])("deletes a selected grace notehead (anonymous: %s)", (anonymous) => {
+    const score = withGrace(1, anonymous);
+    for (const multi of [false, true]) {
+      const elementId = `${EVENT}/grace/${anonymous ? "e0" : "grace-note"}/n0`;
+      const selection: Selection = multi ? { kind: "multi", elementIds: [elementId] } : { kind: "single", elementId };
+      for (const updated of deleteThroughBothPaths(score, selection)) {
+        expect(updated).toEqual(makeScore());
+      }
+    }
+  });
+
+  it("deletes only the selected grace chord member and repairs note references", () => {
+    const score = withGrace(3);
+    eventAt(score, 1).slurs = [{ target: "grace-note", endNote: "grace-e" }];
+    const elementId = `${EVENT}/grace/grace-note/n1`;
+    for (const multi of [false, true]) {
+      const selection: Selection = multi ? { kind: "multi", elementIds: [elementId] } : { kind: "single", elementId };
+      for (const updated of deleteThroughBothPaths(score, selection)) {
+        const grace = updated.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+        if (grace.type !== "grace") throw new Error("Expected surviving grace chord");
+        expect(grace.content[0]!.notes?.map((note) => note.id)).toEqual(["grace-c", "grace-g"]);
+        expect(eventAt(updated, 1).slurs).toEqual([{ target: "grace-note" }]);
+        expect(eventAt(updated, 1).notes).toEqual(eventAt(score, 1).notes);
+      }
+    }
+  });
+
+  it.each([
+    ["n0", "n1", "n0"],
+    ["n1", "n0"],
+    ["n0", "n1", "n2"],
+  ])("deletes grace chord selections without shifting targets: %s", (...suffixes) => {
+    const score = withGrace(3);
+    const selection: Selection = {
+      kind: "multi",
+      elementIds: suffixes.map((suffix) => `${EVENT}/grace/grace-note/${suffix}`),
+    };
+    for (const updated of deleteThroughBothPaths(score, selection)) {
+      const content = updated.parts[0]!.measures[0]!.sequences[0]!.content;
+      if (suffixes.includes("n2")) {
+        expect(updated).toEqual(makeScore());
+      } else {
+        const grace = content[0]!;
+        if (grace.type !== "grace") throw new Error("Expected surviving grace chord");
+        expect(grace.content[0]!.notes?.map((note) => note.id)).toEqual(["grace-g"]);
+      }
+    }
+  });
+
+  it("coalesces a whole grace event and its selected noteheads", () => {
+    const score = withGrace(3);
+    const elementId = `${EVENT}/grace/grace-note`;
+    for (const updated of deleteThroughBothPaths(score, {
+      kind: "multi",
+      elementIds: [`${elementId}/n0`, elementId, `${elementId}/n1`],
+    })) {
+      expect(updated).toEqual(makeScore());
+    }
+  });
+
+  it("removes multiple anonymous grace events using their original positions", () => {
+    const score = withGrace(1, true);
+    const grace = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (grace.type !== "grace") throw new Error("Expected grace group");
+    grace.content.push({
+      type: "event",
+      duration: { base: "eighth" },
+      notes: [{ pitch: { step: "D", octave: 5 } }],
+    });
+    for (const updated of deleteThroughBothPaths(score, {
+      kind: "multi",
+      elementIds: [`${EVENT}/grace/e0/n0`, `${EVENT}/grace/e1/n0`],
+    })) {
+      expect(updated).toEqual(makeScore());
+    }
+  });
+
+  it("deletes a grace notehead inside a tuplet without removing its principal", () => {
+    const score = withGrace();
+    const sequence = score.parts[0]!.measures[0]!.sequences[0]!;
+    const grace = sequence.content[0]!;
+    if (grace.type !== "grace") throw new Error("Expected grace group");
+    const principal = eventAt(score, 1);
+    sequence.content = [
+      {
+        type: "tuplet",
+        inner: { duration: { base: "eighth" }, multiple: 3 },
+        outer: { duration: { base: "eighth" }, multiple: 2 },
+        content: [grace, principal],
+      },
+    ];
+    for (const updated of deleteThroughBothPaths(score, {
+      kind: "single",
+      elementId: `${EVENT}/grace/grace-note/n0`,
+    })) {
+      const tuplet = updated.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+      if (tuplet.type !== "tuplet") throw new Error("Expected surviving tuplet");
+      expect(tuplet.content).toEqual([principal]);
+    }
+  });
+
+  it("deletes a trailing grace notehead without removing its principal", () => {
+    const score = withGrace();
+    const content = score.parts[0]!.measures[0]!.sequences[0]!.content;
+    content.push(content.shift()!);
+    const expected = makeScore();
+    for (const updated of deleteThroughBothPaths(score, {
+      kind: "single",
+      elementId: "p0/m0/s0/e2/grace/grace-note/n0",
+    })) {
+      expect(updated).toEqual(expected);
+    }
+  });
+
+  it("deletes an anonymous principal's grace notehead using the rendered parent ID", () => {
+    const score = withGrace(1, true);
+    delete eventAt(score, 1).id;
+    const expected = makeScore();
+    delete eventAt(expected, 0).id;
+    for (const updated of deleteThroughBothPaths(score, {
+      kind: "single",
+      elementId: "p0/m0/s0/__auto_m0_v0_e0/grace/e0/n0",
+    })) {
+      expect(updated).toEqual(expected);
+    }
+  });
+
+  it.each(["n99", "n0/typo", "dot/0/0", "typo"])("ignores invalid grace sub-elements: %s", (suffix) => {
+    const score = withGrace();
+    const original = structuredClone(score);
+    const selection: Selection = { kind: "single", elementId: `${EVENT}/grace/grace-note/${suffix}` };
+    expect(computeDeleteSelection(score, selection)).toEqual({ kind: "noop" });
+    const { ctx, latest } = makeCtx(score, selection);
+    handleDelete(noopEvent, false, ctx);
+    expect(latest()).toEqual(original);
+    expect(score).toEqual(original);
+  });
+});
+
 describe("global chord keyboard deletion", () => {
   it.each(["m0/chord0", "m0/chord0/p0/staff1"])("deletes %s without touching notes", (elementId) => {
     const score = makeScore();

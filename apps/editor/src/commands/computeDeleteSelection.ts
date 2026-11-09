@@ -10,6 +10,7 @@ import {
   deleteGlobalAnnotationsByElementIds,
   deleteArpeggioByElementId,
   deleteGraceNote,
+  deleteSelectedGraceNotes,
   resolveDeletableAnnotationLocation,
 } from "./deleteCommands";
 import { deleteNote, sequenceContentBeats } from "./noteCommands";
@@ -544,16 +545,6 @@ function deleteRepeatOnlySelection(score: Score, selection: MultiOrRangeSel): De
   if (!isRepeatOnlySelection) return null;
   const withoutRepeats = deleteMeasureRepeatsForSelection(score, selection);
   return withoutRepeats ? { kind: "multi", score: withoutRepeats, nextSelection: { kind: "clear" } } : { kind: "noop" };
-}
-
-/** Remove explicit grace-note selections after ordinary events, re-resolving IDs as containers shift. */
-function deleteSelectedGraceNotes(score: Score, graceIds: readonly string[]): Score {
-  let next = score;
-  for (const id of graceIds) {
-    const loc = resolveGraceLocation(id, next);
-    if (loc) next = deleteGraceNote(next, loc);
-  }
-  return next;
 }
 
 function deleteMeasure(score: Score, selection: MeasureSel): DeleteSelectionResult {

@@ -383,6 +383,41 @@ describe("keyboard edit handlers — multi-aware", () => {
     });
   });
 
+  it.each([
+    { suffixes: ["/n1"], octaves: [4, 5, 4] },
+    { suffixes: ["/n0", "/n1", "/n0"], octaves: [5, 5, 4] },
+    { suffixes: ["/n1", ""], octaves: [5, 5, 5] },
+    { suffixes: ["", "/n1"], octaves: [5, 5, 5] },
+  ])("transposes selected grace chord pitches exactly once: $suffixes", ({ suffixes, octaves }) => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [
+      { type: "grace", content: [chord("grace-chord")] },
+      note("parent", "E"),
+    ];
+    const original = structuredClone(score);
+    const elementIds = suffixes.map((suffix) => `p0/m0/s0/parent/grace/grace-chord${suffix}`);
+    const selection: Selection =
+      elementIds.length === 1 ? { kind: "single", elementId: elementIds[0]! } : { kind: "multi", elementIds };
+    const { ctx, latest } = makeCtx(score, selection);
+    const event = {
+      key: "ArrowUp",
+      shiftKey: false,
+      altKey: true,
+      ctrlKey: false,
+      metaKey: false,
+      preventDefault() {},
+    } as KeyboardEvent;
+
+    handleArrowUpDown(event, true, ctx);
+
+    const content = latest().parts[0]!.measures[0]!.sequences[0]!.content;
+    const grace = content[0]!;
+    if (grace.type !== "grace") throw new Error("Expected grace chord");
+    expect(grace.content[0]!.notes?.map((note) => note.pitch.octave)).toEqual(octaves);
+    expect(content[1]).toEqual(original.parts[0]!.measures[0]!.sequences[0]!.content[1]);
+    expect(score).toEqual(original);
+  });
+
   it("transposes both a grace note and its parent when both are explicitly selected", () => {
     const score = makeScore();
     score.parts[0]!.measures[0]!.sequences[0]!.content = [

@@ -1,6 +1,12 @@
 import type { DynamicGroup, Score, SequenceContent } from "@viritura/core";
 import type { AnnotationLocation, GraceLocation } from "../score/ElementPath";
-import { getEventAtLocation, resolveEventLocation, resolveAnnotationLocation } from "../score/ElementPath";
+import {
+  getEventAtLocation,
+  resolveEventLocation,
+  resolveAnnotationLocation,
+  resolveGraceLocation,
+} from "../score/ElementPath";
+import { removeEventChordNotes } from "./chordNoteDeletion";
 import { cloneScore } from "../score/scoreClone";
 import { condensedStaffSourcePartIndices } from "../score/condensedWriteback";
 import { canonicalNavigationId } from "../navigation";
@@ -306,7 +312,7 @@ export function deleteAnnotations(score: Score, locations: readonly AnnotationLo
 // ═══════════════════════════════════════════
 
 /**
- * Remove a single grace note from its grace container. If the container becomes
+ * Remove a selected notehead or whole grace event from its container. If the container becomes
  * empty, the container itself is spliced out so we never leave a dangling
  * `{type:"grace", content:[]}` in the sequence.
  */
@@ -327,9 +333,54 @@ export function deleteGraceNote(score: Score, loc: GraceLocation): Score {
   const grace = container[loc.graceContainerIndex];
   if (!grace || grace.type !== "grace") return score;
 
+  const event = grace.content[loc.graceNoteIndex];
+  if (!event) return score;
+  if (loc.noteIndex !== undefined) {
+    const result = removeEventChordNotes(newScore, event, [loc.noteIndex]);
+    if (result === "none") return score;
+    if (result === "removed") return newScore;
+  }
+
   grace.content.splice(loc.graceNoteIndex, 1);
   if (grace.content.length === 0) {
     container.splice(loc.graceContainerIndex, 1);
   }
   return newScore;
+}
+
+/** Resolve before editing and delete backwards so positional IDs and chord indices remain stable. */
+export function deleteSelectedGraceNotes(score: Score, elementIds: readonly string[]): Score {
+  const locations = elementIds.flatMap((id) => {
+    const loc = resolveGraceLocation(id, score);
+    return loc ? [loc] : [];
+  });
+  const path = (loc: GraceLocation): number[] => [
+    loc.partIndex,
+    loc.measureIndex,
+    loc.sequenceIndex,
+    loc.tupletIndex ?? loc.graceContainerIndex,
+    loc.tupletIndex === undefined ? -1 : loc.graceContainerIndex,
+    loc.graceNoteIndex,
+  ];
+  const groups = new Map<string, GraceLocation[]>();
+  for (const loc of locations) {
+    const key = path(loc).join("/");
+    const group = groups.get(key);
+    if (group) group.push(loc);
+    else groups.set(key, [loc]);
+  }
+  const targets = [...groups.values()].flatMap((group) => {
+    const whole = group.find((loc) => loc.noteIndex === undefined);
+    return whole ? [whole] : [...new Map(group.map((loc) => [loc.noteIndex, loc])).values()];
+  });
+  targets.sort((a, b) => {
+    const aPath = [...path(a), a.noteIndex ?? -1];
+    const bPath = [...path(b), b.noteIndex ?? -1];
+    for (let i = 0; i < aPath.length; i++) {
+      const difference = bPath[i]! - aPath[i]!;
+      if (difference !== 0) return difference;
+    }
+    return 0;
+  });
+  return targets.reduce((next, loc) => deleteGraceNote(next, loc), score);
 }

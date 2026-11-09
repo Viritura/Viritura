@@ -82,6 +82,15 @@ export function removeChordNotes(
   if (!loc) return "none";
   const event = getEventAtLocation(score, loc);
   if (!event || event.type !== "event") return "none";
+  return removeEventChordNotes(score, event, noteIndexes);
+}
+
+/** Remove chord members from a resolved regular or grace event, repairing note references. */
+export function removeEventChordNotes(
+  score: Score,
+  event: NoteEvent,
+  noteIndexes: readonly number[],
+): ChordNoteRemoval {
   const notes = event.notes;
   const kitNotes = event.kitNotes;
   const pitchedCount = notes?.length ?? 0;
