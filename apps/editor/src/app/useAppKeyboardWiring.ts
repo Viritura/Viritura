@@ -1,5 +1,5 @@
 import { useCallback, type RefObject, type MutableRefObject } from "react";
-import type { Barline, Clef, LayoutSource, Score } from "@viritura/core";
+import { partShowsChordSymbols, type Barline, type Clef, type LayoutSource, type Score } from "@viritura/core";
 import { type PanelImperativeHandle } from "react-resizable-panels";
 import { useEditorKeyboard, type EditorKeyboardActions } from "../keyboard/useEditorKeyboard";
 import { requestPanelToggle } from "../keyboard/panelToggle";
@@ -116,7 +116,6 @@ function harmonySources(score: Score, staves: LayoutSource[][]): LayoutSource[] 
   const validStaves = staves.map((staff) =>
     staff.filter((source) => score.parts.some((part) => part.id === source.part)),
   );
-  const automaticPart = validStaves.flat()[0]?.part;
   const seenParts = new Set<string>();
   return validStaves.flatMap((staff) => {
     let harmony: LayoutSource | undefined;
@@ -124,9 +123,8 @@ function harmonySources(score: Score, staves: LayoutSource[][]): LayoutSource[] 
       const firstStaff = !seenParts.has(source.part);
       // Match the renderer: every source is consumed, even after this staff has a harmony owner.
       seenParts.add(source.part);
-      const visibility = score.parts.find((part) => part.id === source.part)?.chordSymbolVisibility;
-      const visible = visibility === "show" || (visibility !== "hide" && source.part === automaticPart);
-      if (firstStaff && visible && !harmony) harmony = source;
+      const part = score.parts.find((candidate) => candidate.id === source.part);
+      if (firstStaff && part && partShowsChordSymbols(part) && !harmony) harmony = source;
     }
     return harmony ? [harmony] : [];
   });

@@ -27,6 +27,9 @@ describe("roster source chord-symbol visibility", () => {
   ] as const)("displays the %s source policy", (chordSymbolVisibility, label) => {
     render(row({ ...PART, chordSymbolVisibility }, vi.fn()));
     expect(screen.getByRole("combobox", { name: "Chord symbols" }).textContent).toBe(label);
+    expect(
+      screen.getByText("Automatic shows chords for recognized piano, guitar, bass guitar and double bass."),
+    ).toBeTruthy();
   });
 
   it.each([

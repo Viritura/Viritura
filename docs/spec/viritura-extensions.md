@@ -656,14 +656,22 @@ between them.
 Controls projection of the single document-wide chord progression for this
 source part:
 
-- `auto` (or omitted): show the progression on the first displayed staff of the
-  topmost displayed source part.
+- `auto` (or omitted): show the progression on the first displayed staff of
+  each source part whose initial instrument has a recognized piano, bass, or
+  guitar identity. Other and unrecognized instruments are hidden.
 - `show`: show the progression on this source part's first displayed staff.
 - `hide`: suppress the progression for this source part.
 
+Automatic recognizes the MusicXML sound IDs `keyboard.piano`, `pluck.bass`,
+`pluck.guitar`, and `strings.contrabass`, including dot-delimited descendants
+of each. It reads the source part's `instrumentId`, or the definition named by
+`initialInstrument` if `instrumentId` is absent. It does not infer an identity
+from the part name or change visibility during mid-part instrument changes. On
+load, the editor may fill a missing identity from a recognized catalog name.
+
 This policy persists wherever the source part appears. It is not a per-layout
-or per-chord switch, and hiding the automatic topmost source does not promote
-the next source to automatic placement. It does not mute chord playback.
+or per-chord switch, and it does not mute chord playback. Explicit `show` and
+`hide` settings override the automatic policy.
 
 The decoded TypeScript field is `Part.chordSymbolVisibility`; serialization
 stores it under the source part's `_x.viritura`, not as a top-level MNX field.

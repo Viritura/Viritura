@@ -652,7 +652,12 @@ describe("applyChordSymbolEdit", () => {
   it("uses the active part layout to resolve a canonical global chord", () => {
     const score = scoreWithQuarterNotes();
     score.parts[0]!.id = "first";
-    score.parts.push({ id: "second", measures: [{ sequences: [{ content: [], fullMeasure: {} }] }] });
+    score.parts.push({
+      id: "second",
+      name: "Piano",
+      _x: { viritura: { instrumentId: "keyboard.piano" } },
+      measures: [{ sequences: [{ content: [], fullMeasure: {} }] }],
+    });
     score.layouts = [{ id: "second-only", content: [{ type: "staff", sources: [{ part: "second" }] }] }];
     score.scores = [{ name: "Part", layout: "second-only", useWritten: true }];
     score.global.measures[0]!.chordSymbols = [parseChordSymbolText("C", { fraction: [0, 1] })];

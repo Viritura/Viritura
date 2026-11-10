@@ -64,6 +64,7 @@ export const Default: StoryObj<ChordArgs> = {
     if (args.rootAlter !== 0) root.alter = args.rootAlter;
 
     const mnx = buildSingleMeasure([{ duration: "whole", notes: [{ step: "C", octave: 4 }] }], {
+      virituraPart: { chordSymbolVisibility: "show" },
       virituraGlobal: {
         chordSymbols: [
           {
@@ -90,6 +91,7 @@ export const CommonProgression: StoryObj = {
         { duration: "quarter", notes: [{ step: "C", octave: 4 }] },
       ],
       {
+        virituraPart: { chordSymbolVisibility: "show" },
         virituraGlobal: {
           chordSymbols: [
             { position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" },
@@ -120,6 +122,7 @@ export const AllQualities: StoryObj = {
       "suspended4",
     ];
     const mnx = buildMnx({
+      virituraPart: { chordSymbolVisibility: "show" },
       measures: qualities.map((quality, i) => ({
         ...(i === 0 ? { time: { count: 4, unit: 4 } } : {}),
         voices: [[{ duration: "whole", notes: [{ step: "C", octave: 4 }] }]],
@@ -166,6 +169,7 @@ export const AddedAndOmittedDegrees: StoryObj = {
       "Cadd791113",
     ];
     const mnx = buildMnx({
+      virituraPart: { chordSymbolVisibility: "show" },
       measures: symbols.map((text, index) => ({
         ...(index === 0 ? { time: { count: 4, unit: 4 } } : {}),
         voices: [[{ duration: "whole", notes: [{ step: "C", octave: 4 }] }]],
@@ -186,6 +190,7 @@ const GLOBAL_PROGRESSION: ChordSymbol[] = [
 
 interface HarmonySource extends Pick<Part, "name" | "chordSymbolVisibility" | "transposition"> {
   id: string;
+  instrumentId?: string;
 }
 
 function buildGlobalProgression(sources: HarmonySource[], useWritten = false): string {
@@ -201,12 +206,21 @@ function buildGlobalProgression(sources: HarmonySource[], useWritten = false): s
   const measures = base.parts[0]!.measures;
   const mnx = {
     ...base,
-    parts: sources.map(({ id, name, chordSymbolVisibility, transposition }) => ({
+    parts: sources.map(({ id, name, instrumentId, chordSymbolVisibility, transposition }) => ({
       id,
       name,
       measures: structuredClone(measures),
       ...(transposition ? { transposition } : {}),
-      ...(chordSymbolVisibility ? { _x: { viritura: { chordSymbolVisibility } } } : {}),
+      ...(instrumentId || chordSymbolVisibility
+        ? {
+            _x: {
+              viritura: {
+                ...(instrumentId ? { instrumentId } : {}),
+                ...(chordSymbolVisibility ? { chordSymbolVisibility } : {}),
+              },
+            },
+          }
+        : {}),
     })),
     layouts: [
       {
@@ -222,8 +236,13 @@ function buildGlobalProgression(sources: HarmonySource[], useWritten = false): s
 
 function buildVisibilityProgression(visibility: NonNullable<Part["chordSymbolVisibility"]>): string {
   return buildGlobalProgression([
-    { id: "upper", name: `Upper — ${visibility}`, chordSymbolVisibility: visibility },
-    { id: "lower", name: `Lower — ${visibility}`, chordSymbolVisibility: visibility },
+    {
+      id: "upper",
+      name: `Flute — ${visibility}`,
+      instrumentId: "wind.flutes.flute",
+      chordSymbolVisibility: visibility,
+    },
+    { id: "lower", name: `Piano — ${visibility}`, instrumentId: "keyboard.piano", chordSymbolVisibility: visibility },
   ]);
 }
 
@@ -234,15 +253,15 @@ export const GlobalProgression: StoryObj = {
       description: {
         story:
           "Four global measures hold C/E–Dm7/F–G7/B–Cmaj7/E once, in concert pitch. " +
-          "Neither source part stores harmony. With visibility omitted, automatic placement selects the top eligible staff.",
+          "Neither source part stores harmony. With visibility omitted, automatic placement shows it on the piano.",
       },
     },
   },
   render: () => (
     <ScorePreview
       mnxJson={buildGlobalProgression([
-        { id: "upper", name: "Upper" },
-        { id: "lower", name: "Lower" },
+        { id: "upper", name: "Piano", instrumentId: "keyboard.piano" },
+        { id: "lower", name: "Flute", instrumentId: "wind.flutes.flute" },
       ])}
     />
   ),
@@ -255,11 +274,34 @@ export const SourcePartVisibilityAuto: StoryObj = {
       description: {
         story:
           "Both source Parts explicitly use _x.viritura.chordSymbolVisibility = auto. " +
-          "Expect one global harmony lane above the top eligible staff, not a duplicate above every staff.",
+          "Expect harmony above the piano, but not the flute, even though the flute is the top staff.",
       },
     },
   },
   render: () => <ScorePreview mnxJson={buildVisibilityProgression("auto")} />,
+};
+
+export const AutomaticInstrumentDefaults: StoryObj = {
+  name: "Automatic instrument defaults",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Automatic shows the shared progression on recognized piano, bass, and guitar instruments, " +
+          "but not on flute. Each eligible source displays it above its first displayed staff.",
+      },
+    },
+  },
+  render: () => (
+    <ScorePreview
+      mnxJson={buildGlobalProgression([
+        { id: "flute", name: "Flute", instrumentId: "wind.flutes.flute" },
+        { id: "piano", name: "Piano", instrumentId: "keyboard.piano" },
+        { id: "bass", name: "Double Bass", instrumentId: "strings.contrabass" },
+        { id: "guitar", name: "Guitar", instrumentId: "pluck.guitar" },
+      ])}
+    />
+  ),
 };
 
 export const SourcePartVisibilityShow: StoryObj = {

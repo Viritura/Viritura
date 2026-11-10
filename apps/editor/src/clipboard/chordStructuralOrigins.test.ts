@@ -392,6 +392,7 @@ describe("deduplicated global chords retain every visible source part", () => {
     { name: "canonical", chordIds: ["m0/chord0"] },
   ])("excludes auto-hidden timed origins for $name selection", ({ chordIds }) => {
     const score = fixture();
+    score.parts[0]!.chordSymbolVisibility = "show";
     const selection = timedSelection([0, 1], 1, chordIds);
     const captured = captureTimedSelection(score, selection, selection.rhythmicRange);
     expect(captured).not.toBeNull();

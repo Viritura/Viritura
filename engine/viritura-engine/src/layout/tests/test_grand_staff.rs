@@ -1235,12 +1235,14 @@ fn harmony_layout_fixture(content: serde_json::Value) -> serde_json::Value {
         "parts": [
             {
                 "id": "flute-source", "name": "Flute",
+                "_x": {"viritura": {"instrumentId": "wind.flutes.flute"}},
                 "measures": [{"sequences": [{"content": [
                     {"duration": {"base": "whole"}, "rest": {}}
                 ]}]}]
             },
             {
                 "id": "keyboard-source", "name": "Piano", "staves": 2,
+                "_x": {"viritura": {"instrumentId": "keyboard.piano"}},
                 "measures": [{"sequences": [
                     {"staff": 1, "content": [{"duration": {"base": "whole"}, "rest": {}}]},
                     {"staff": 2, "content": [{"duration": {"base": "whole"}, "rest": {}}]}
@@ -1248,6 +1250,7 @@ fn harmony_layout_fixture(content: serde_json::Value) -> serde_json::Value {
             },
             {
                 "id": "clarinet-source", "name": "Clarinet",
+                "_x": {"viritura": {"instrumentId": "wind.reed.clarinet"}},
                 "transposition": {"interval": {"staffDistance": 1, "halfSteps": 2}},
                 "measures": [{"sequences": [{"content": [
                     {"duration": {"base": "whole"}, "rest": {}}
@@ -1347,7 +1350,7 @@ fn test_global_chords_project_once_on_grand_staff_with_source_indices() {
 }
 
 #[test]
-fn test_hiding_first_displayed_part_suppresses_automatic_harmony() {
+fn test_hiding_eligible_part_suppresses_its_automatic_harmony() {
     let mut value = harmony_layout_fixture(serde_json::json!([
         {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
         {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]},
@@ -1367,7 +1370,7 @@ fn test_hiding_first_displayed_part_suppresses_automatic_harmony() {
 }
 
 #[test]
-fn test_harmony_auto_uses_first_displayed_source_after_extract_and_reorder() {
+fn test_harmony_auto_uses_eligible_source_after_extract_and_reorder() {
     for content in [
         serde_json::json!([
             {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]}
@@ -1379,8 +1382,7 @@ fn test_harmony_auto_uses_first_displayed_source_after_extract_and_reorder() {
         ]),
     ] {
         let mut value = harmony_layout_fixture(content);
-        value["parts"][1]["_x"] =
-            serde_json::json!({"viritura": {"chordSymbolVisibility": "auto"}});
+        value["parts"][1]["_x"]["viritura"]["chordSymbolVisibility"] = serde_json::json!("auto");
         let score = parse_mnx(&value.to_string()).unwrap();
         assert_eq!(
             score.parts[1].chord_symbol_visibility,
@@ -1393,6 +1395,74 @@ fn test_harmony_auto_uses_first_displayed_source_after_extract_and_reorder() {
 }
 
 #[test]
+fn test_automatic_harmony_shows_each_eligible_instrument_across_layouts() {
+    let mut value = harmony_layout_fixture(serde_json::json!([
+        {"type": "staff", "sources": [{"part": "flute-source"}]},
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]},
+        {"type": "staff", "sources": [{"part": "clarinet-source"}]}
+    ]));
+    for (id, name, instrument_id) in [
+        ("bass-source", "Double Bass", Some("strings.contrabass")),
+        ("guitar-source", "Guitar", Some("pluck.guitar.electric")),
+        ("unknown-source", "Piano", None),
+    ] {
+        let mut part = serde_json::json!({
+            "id": id, "name": name,
+            "measures": [{"sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]}]
+        });
+        if let Some(instrument_id) = instrument_id {
+            part["_x"] = serde_json::json!({"viritura": {"instrumentId": instrument_id}});
+        }
+        value["parts"].as_array_mut().unwrap().push(part);
+        value["layouts"][0]["content"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"type": "staff", "sources": [{"part": id}]}));
+    }
+
+    for page_width in [None, Some(1200.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let score = parse_mnx(&value.to_string()).unwrap();
+        for dl in [
+            layout_with_mnx_scores(&score, &config, 0),
+            layout_full_score(&score, &config),
+        ] {
+            assert_harmony_copies(&dl, 3);
+            let lines = harmony_staff_lines(&dl);
+            assert_eq!(lines.len(), 35);
+            let mut ys: Vec<_> = harmony_text_runs(&dl, "m0/chord0")
+                .iter()
+                .map(|(_, y)| *y)
+                .collect();
+            ys.sort_by(f64::total_cmp);
+            for (y, staff) in ys.iter().zip([1, 4, 5]) {
+                assert!(*y < lines[staff * 5]);
+                assert!(*y > lines[staff * 5 - 1]);
+            }
+        }
+        for (part, copies) in [0, 1, 0, 1, 1, 0].into_iter().enumerate() {
+            assert_harmony_copies(&layout_score(&score, part, &config), copies);
+        }
+    }
+
+    value["parts"][0]["_x"]["viritura"]["chordSymbolVisibility"] = serde_json::json!("show");
+    value["parts"][1]["_x"]["viritura"]["chordSymbolVisibility"] = serde_json::json!("hide");
+    let score = parse_mnx(&value.to_string()).unwrap();
+    assert_harmony_copies(
+        &layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+        3,
+    );
+    assert_harmony_copies(&layout_score(&score, 0, &LayoutConfig::default()), 1);
+    assert_harmony_copies(&layout_score(&score, 1, &LayoutConfig::default()), 0);
+}
+
+#[test]
 fn test_show_copies_harmony_on_each_source_parts_first_rendered_staff() {
     let mut value = harmony_layout_fixture(serde_json::json!([
         {"type": "staff", "sources": [{"part": "flute-source"}]},
@@ -1400,7 +1470,7 @@ fn test_show_copies_harmony_on_each_source_parts_first_rendered_staff() {
         {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
         {"type": "staff", "sources": [{"part": "clarinet-source"}]}
     ]));
-    for index in [1, 2] {
+    for index in [0, 1, 2] {
         value["parts"][index]["_x"] =
             serde_json::json!({"viritura": {"chordSymbolVisibility": "show"}});
     }
@@ -1486,6 +1556,7 @@ fn test_harmony_written_bb_slash_uses_source_transposition_in_extracts_and_conde
         let mut value = harmony_layout_fixture(content);
         value["parts"][0]["_x"] =
             serde_json::json!({"viritura": {"chordSymbolVisibility": "hide"}});
+        value["parts"][1]["_x"]["viritura"]["chordSymbolVisibility"] = serde_json::json!("hide");
         value["parts"][2]["_x"] =
             serde_json::json!({"viritura": {"chordSymbolVisibility": "show"}});
         value["global"]["measures"][0]["_x"]["viritura"]["chordSymbols"] = serde_json::json!([
@@ -1633,11 +1704,11 @@ fn test_full_score_and_single_part_harmony_share_canonical_ids() {
     let mut score = parse_mnx(&value.to_string()).unwrap();
     let config = LayoutConfig::default();
     assert_harmony_copies(&layout_full_score(&score, &config), 1);
-    for part in 0..3 {
-        assert_harmony_copies(&layout_score(&score, part, &config), 1);
+    for (part, copies) in [0, 1, 0].into_iter().enumerate() {
+        assert_harmony_copies(&layout_score(&score, part, &config), copies);
     }
     score.parts[0].chord_symbol_visibility = Some(ChordSymbolVisibility::Hide);
-    assert_harmony_copies(&layout_full_score(&score, &config), 0);
+    assert_harmony_copies(&layout_full_score(&score, &config), 1);
     score.parts[1].chord_symbol_visibility = Some(ChordSymbolVisibility::Show);
     score.parts[2].chord_symbol_visibility = Some(ChordSymbolVisibility::Show);
     assert_harmony_copies(&layout_full_score(&score, &config), 2);
@@ -1656,15 +1727,15 @@ fn test_harmony_visibility_without_mnx_layouts_uses_each_parts_first_staff() {
             ..LayoutConfig::default()
         };
         for (visibility, expected_staffs) in [
-            (["auto", "auto", "auto"], vec![0]),
-            (["hide", "auto", "auto"], vec![]),
+            (["auto", "auto", "auto"], vec![1]),
+            (["hide", "auto", "auto"], vec![1]),
             (["show", "show", "show"], vec![0, 1, 3]),
             (["hide", "show", "hide"], vec![1]),
             (["hide", "hide", "hide"], vec![]),
         ] {
             for (part, visibility) in visibility.iter().enumerate() {
-                value["parts"][part]["_x"] =
-                    serde_json::json!({"viritura": {"chordSymbolVisibility": visibility}});
+                value["parts"][part]["_x"]["viritura"]["chordSymbolVisibility"] =
+                    serde_json::json!(visibility);
             }
             let score = parse_mnx(&value.to_string()).unwrap();
             for dl in [
@@ -1732,6 +1803,7 @@ fn test_cached_global_chord_edit_matches_fresh() {
         let mut value = harmony_layout_fixture(serde_json::json!([
             {"type": "staff", "sources": [{"part": "flute-source"}]}
         ]));
+        value["parts"][0]["_x"]["viritura"]["chordSymbolVisibility"] = serde_json::json!("show");
         let mut cache = LayoutCache::new();
         assert_harmony_copies(
             &cached_harmony_matches_fresh(&value, &config, &mut cache),
@@ -1772,10 +1844,38 @@ fn test_cached_global_chord_visibility_matches_fresh() {
             ("show", "show", 2),
             ("auto", "auto", 1),
         ] {
-            value["parts"][1]["_x"] =
-                serde_json::json!({"viritura": {"chordSymbolVisibility": keyboard}});
-            value["parts"][2]["_x"] =
-                serde_json::json!({"viritura": {"chordSymbolVisibility": clarinet}});
+            value["parts"][1]["_x"]["viritura"]["chordSymbolVisibility"] =
+                serde_json::json!(keyboard);
+            value["parts"][2]["_x"]["viritura"]["chordSymbolVisibility"] =
+                serde_json::json!(clarinet);
+            assert_harmony_copies(
+                &cached_harmony_matches_fresh(&value, &config, &mut cache),
+                copies,
+            );
+        }
+    }
+}
+
+#[test]
+fn test_cached_automatic_harmony_tracks_instrument_identity_changes() {
+    for page_width in [None, Some(1200.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let mut value = harmony_layout_fixture(serde_json::json!([
+            {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
+            {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]}
+        ]));
+        let mut cache = LayoutCache::new();
+        for (instrument, copies) in [
+            ("keyboard.piano", 1),
+            ("keyboard.organ", 0),
+            ("pluck.guitar.electric", 1),
+            ("wind.reed.clarinet.bass", 0),
+            ("strings.contrabass", 1),
+        ] {
+            value["parts"][1]["_x"]["viritura"]["instrumentId"] = serde_json::json!(instrument);
             assert_harmony_copies(
                 &cached_harmony_matches_fresh(&value, &config, &mut cache),
                 copies,

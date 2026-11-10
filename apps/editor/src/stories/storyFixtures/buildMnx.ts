@@ -163,6 +163,8 @@ export interface ScoreArgs {
   support?: { useBeams?: boolean; useAccidentalDisplay?: boolean; useLyricExtenders?: boolean };
   /** Document-level Viritura extensions (placed in root `_x.viritura`) */
   virituraRoot?: Record<string, unknown>;
+  /** Source-part Viritura extensions (placed in part `_x.viritura`) */
+  virituraPart?: Record<string, unknown>;
 }
 
 // ─── Builders ──────────────────────────────────────────────────
@@ -354,6 +356,9 @@ export function buildMnx(args: ScoreArgs): string {
       {
         ...(args.partName ? { name: args.partName } : {}),
         ...(args.staves && args.staves > 1 ? { staves: args.staves } : {}),
+        ...(args.virituraPart && Object.keys(args.virituraPart).length > 0
+          ? { _x: { viritura: args.virituraPart } }
+          : {}),
         measures: partMeasures,
       },
     ],
@@ -373,6 +378,7 @@ export function buildSingleMeasure(
     key?: { fifths: number };
     clef?: { sign: string; staffPosition: number; glyph?: string };
     virituraGlobal?: Record<string, unknown>;
+    virituraPart?: Record<string, unknown>;
     virituraPartMeasure?: Record<string, unknown>;
     dynamics?: MeasureArgs["dynamics"];
     arpeggios?: MeasureArgs["arpeggios"];
@@ -382,6 +388,7 @@ export function buildSingleMeasure(
 ): string {
   return buildMnx({
     support: options?.support,
+    virituraPart: options?.virituraPart,
     measures: [
       {
         time: options?.time ?? { count: 4, unit: 4 },

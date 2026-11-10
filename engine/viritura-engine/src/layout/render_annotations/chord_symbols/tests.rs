@@ -202,7 +202,7 @@ fn rendered_chord_commands(fields: serde_json::Value) -> Vec<RenderCommand> {
             "time": {"count": 4, "unit": 4},
             "_x": {"viritura": {"chordSymbols": [symbol]}}
         }]},
-        "parts": [{"measures": [{
+        "parts": [{"_x": {"viritura": {"chordSymbolVisibility": "show"}}, "measures": [{
             "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]
         }]}]
     });

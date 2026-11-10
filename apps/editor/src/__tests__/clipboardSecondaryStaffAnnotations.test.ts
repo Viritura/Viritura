@@ -117,6 +117,7 @@ function offsetValue(offset: [number, number] | undefined): number {
 describe("secondary physical staff annotation capture", () => {
   it("uses each staff's selected intervals and captures global harmony only through the first staff", () => {
     const source = score([2], 1);
+    source.parts[0]!.chordSymbolVisibility = "show";
     source.global.measures[0]!.time = { count: 4, unit: 4 };
     const measure = source.parts[0]!.measures[0]!;
     measure.sequences = [

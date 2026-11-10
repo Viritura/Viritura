@@ -144,6 +144,60 @@ mod tests {
     }
 
     #[test]
+    fn automatic_chord_visibility_uses_recognized_instrument_identity() {
+        use crate::model::part::ChordSymbolVisibility;
+
+        for (instrument_id, visible) in [
+            (Some("keyboard.piano"), true),
+            (Some("keyboard.piano.electric"), true),
+            (Some("pluck.guitar"), true),
+            (Some("pluck.guitar.electric"), true),
+            (Some("pluck.bass.electric"), true),
+            (Some("strings.contrabass"), true),
+            (Some("wind.reed.clarinet.bass"), false),
+            (Some("voice.bass"), false),
+            (Some("keyboard.organ"), false),
+            (Some("keyboard.pianoforte"), false),
+            (Some("strings.contrabassoon"), false),
+            (Some("unknown"), false),
+            (None, false),
+        ] {
+            let mut json = serde_json::json!({"name": "Piano", "measures": []});
+            if let Some(id) = instrument_id {
+                json["_x"] = serde_json::json!({"viritura": {"instrumentId": id}});
+            }
+            let mut part = parse(&json.to_string());
+            assert_eq!(part.shows_chord_symbols(), visible, "{instrument_id:?}");
+            part.chord_symbol_visibility = Some(ChordSymbolVisibility::Auto);
+            assert_eq!(part.shows_chord_symbols(), visible, "{instrument_id:?}");
+            part.chord_symbol_visibility = Some(ChordSymbolVisibility::Show);
+            assert!(part.shows_chord_symbols(), "{instrument_id:?}");
+            part.chord_symbol_visibility = Some(ChordSymbolVisibility::Hide);
+            assert!(!part.shows_chord_symbols(), "{instrument_id:?}");
+        }
+    }
+
+    #[test]
+    fn automatic_chord_visibility_uses_initial_instrument_definition() {
+        let json = serde_json::json!({
+            "measures": [],
+            "_x": {"viritura": {
+                "initialInstrument": "guitar",
+                "instruments": {
+                    "guitar": {"instrumentId": "pluck.guitar.electric"},
+                    "flute": {"instrumentId": "wind.flutes.flute"}
+                }
+            }}
+        });
+        let mut part = parse(&json.to_string());
+        assert!(part.shows_chord_symbols());
+        part.instrument_extensions.initial_instrument = Some("flute".into());
+        assert!(!part.shows_chord_symbols());
+        part.instrument_extensions.initial_instrument = Some("missing".into());
+        assert!(!part.shows_chord_symbols());
+    }
+
+    #[test]
     fn does_not_read_top_level_or_other_vendor_visibility() {
         let part = parse(
             r#"{"measures":[],"chordSymbolVisibility":"show",

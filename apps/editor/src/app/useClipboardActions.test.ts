@@ -604,6 +604,7 @@ describe("clipboard chord symbol placement", () => {
 
   it("shows unsupported chord warnings after an atomic repeat", () => {
     const score = scoreWithLyric();
+    score.parts[0]!.chordSymbolVisibility = "show";
     score.global.measures[0]!.chordSymbols = [parseChordSymbolText("mystery harmony", { fraction: [0, 1] })];
     const snapshot = structuredClone(score);
     const { result, updateScore } = harness(noteSelection, score);

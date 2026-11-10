@@ -3,7 +3,12 @@ import type { ChordSymbol, Score } from "@viritura/core";
 import { parseMnx, serializeMnx, validateRawScore } from "@viritura/format";
 import { buildClipboardSelection } from "./buildClipboardSelection";
 import { captureTimedSelection } from "./captureTimedSelection";
-import { captureChordSymbols, captureSelectedChordSymbols, clipboardAnnotationLocation } from "./chordSymbolCapture";
+import {
+  captureChordSymbols,
+  captureSelectedChordSymbols,
+  chordCaptureStaff,
+  clipboardAnnotationLocation,
+} from "./chordSymbolCapture";
 import { findPlacedAnnotationIds } from "./annotations/placedSelection";
 import { serializeFragment } from "./serialize";
 import { deserializeFragment } from "./deserialize";
@@ -28,6 +33,7 @@ function fixture(): Score {
     parts: Array.from({ length: 3 }, (_, part) => ({
       id: `part-${part}`,
       staves: 2,
+      ...(part === 0 ? { _x: { viritura: { instrumentId: "keyboard.piano" } } } : {}),
       measures: Array.from({ length: 2 }, (_, measure) => ({
         sequences: [1, 2].map((staff) => ({
           staff,
@@ -97,6 +103,7 @@ describe("global chord capture", () => {
 
   it("preserves root part identities when a structural view starts with a later part and lower staff", () => {
     const score = fixture();
+    score.parts[2]!.chordSymbolVisibility = "show";
     score.layouts = [
       {
         id: "extracted",
@@ -198,6 +205,8 @@ describe("global chord capture", () => {
 
   it("inherits authored system layouts and respects within-system changes without remapping parts", () => {
     const score = fixture();
+    score.parts[1]!.chordSymbolVisibility = "show";
+    score.parts[2]!.chordSymbolVisibility = "show";
     score.global.measures = Array.from({ length: 4 }, (_, index) => ({
       ...structuredClone(score.global.measures[0]!),
       id: `measure-${index}`,
@@ -229,6 +238,32 @@ describe("global chord capture", () => {
     expect(captured(1)).toEqual([0, 0, 2, 2]);
     expect(captured(2)).toEqual([1, 1, 3, 3]);
     expect(score.parts.map((part) => part.id)).toEqual(["part-0", "part-1", "part-2"]);
+  });
+
+  it("captures automatic harmony for each eligible instrument, not the topmost staff", () => {
+    const score = fixture();
+    score.parts[0]!._x = { viritura: { instrumentId: "wind.flutes.flute" } };
+    score.parts[1]!._x = { viritura: { instrumentId: "keyboard.piano" } };
+    score.parts[2]!._x = { viritura: { instrumentId: "pluck.bass.electric" } };
+    score.layouts = [
+      {
+        id: "full",
+        content: [
+          { type: "staff", sources: [{ part: "part-0" }] },
+          { type: "staff", sources: [{ part: "part-1", staff: 2 }] },
+          { type: "staff", sources: [{ part: "part-2" }] },
+        ],
+      },
+    ];
+    score.scores = [{ layout: "full" }];
+    expect([0, 1, 2].map((part) => chordCaptureStaff(score, part, 0))).toEqual([undefined, 2, 1]);
+    expect(buildClipboardSelection(score, noteSelection(0), 0)!.chordSymbols).toEqual([]);
+    expect(buildClipboardSelection(score, noteSelection(1, 2), 0)!.chordSymbols).toHaveLength(2);
+    expect(buildClipboardSelection(score, noteSelection(2), 0)!.chordSymbols).toHaveLength(2);
+    score.parts[1]!.chordSymbolVisibility = "hide";
+    expect(chordCaptureStaff(score, 1, 0)).toBeUndefined();
+    score.parts[0]!.chordSymbolVisibility = "show";
+    expect(chordCaptureStaff(score, 0, 0)).toBe(1);
   });
 
   it("recovers exact origins after accumulated fractional spaces", () => {

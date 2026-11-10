@@ -228,7 +228,8 @@ fn test_chord_symbols_render_text() {
         "/../../packages/format/fixtures/mnx/chord-symbols.mnx"
     ))
     .expect("Failed to read chord-symbols.mnx");
-    let score = crate::parse::parse_mnx(&json).expect("Failed to parse chord-symbols.mnx");
+    let mut score = crate::parse::parse_mnx(&json).expect("Failed to parse chord-symbols.mnx");
+    score.parts[0].chord_symbol_visibility = Some(crate::model::ChordSymbolVisibility::Show);
 
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
@@ -310,7 +311,7 @@ fn test_chord_symbols_render_text() {
 
 #[test]
 fn test_global_harmony_renders_with_global_element_id() {
-    let score = crate::parse::parse_mnx(
+    let mut score = crate::parse::parse_mnx(
         r#"{
             "mnx": {"version": 1},
             "global": {"measures": [{
@@ -328,6 +329,7 @@ fn test_global_harmony_renders_with_global_element_id() {
         }"#,
     )
     .expect("Failed to parse global harmony");
+    score.parts[0].chord_symbol_visibility = Some(crate::model::ChordSymbolVisibility::Show);
 
     let dl = layout_score(&score, 0, &LayoutConfig::default());
     assert!(
@@ -340,7 +342,7 @@ fn test_global_harmony_renders_with_global_element_id() {
 
 #[test]
 fn test_chord_symbol_accidentals_use_smufl_glyphs() {
-    let score = crate::parse::parse_mnx(
+    let mut score = crate::parse::parse_mnx(
         r#"{
             "mnx": {"version": 1},
             "global": {"measures": [{
@@ -359,6 +361,7 @@ fn test_chord_symbol_accidentals_use_smufl_glyphs() {
         }"#,
     )
     .unwrap();
+    score.parts[0].chord_symbol_visibility = Some(crate::model::ChordSymbolVisibility::Show);
     let dl = layout_score(&score, 0, &LayoutConfig::default());
     let chord_id = "m0/chord0";
     let glyphs: Vec<(u32, &str)> = dl
@@ -399,7 +402,7 @@ fn test_chord_symbol_accidentals_use_smufl_glyphs() {
 
 #[test]
 fn test_default_chord_style_uses_quality_glyphs_and_superscripts() {
-    let score = crate::parse::parse_mnx(
+    let mut score = crate::parse::parse_mnx(
         r#"{
             "mnx": {"version": 1},
             "global": {"measures": [{
@@ -417,6 +420,7 @@ fn test_default_chord_style_uses_quality_glyphs_and_superscripts() {
         }"#,
     )
     .unwrap();
+    score.parts[0].chord_symbol_visibility = Some(crate::model::ChordSymbolVisibility::Show);
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
     let quality_glyphs: Vec<u32> = dl
@@ -460,7 +464,7 @@ fn test_default_chord_style_uses_quality_glyphs_and_superscripts() {
 
 #[test]
 fn test_plain_text_chord_house_style_uses_lowercase_minor_and_baseline_extension() {
-    let score = crate::parse::parse_mnx(
+    let mut score = crate::parse::parse_mnx(
         r#"{
             "mnx": {"version": 1},
             "_x": {"viritura": {"chordSymbolStyle": {
@@ -483,6 +487,7 @@ fn test_plain_text_chord_house_style_uses_lowercase_minor_and_baseline_extension
         }"#,
     )
     .unwrap();
+    score.parts[0].chord_symbol_visibility = Some(crate::model::ChordSymbolVisibility::Show);
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
     let chord_text: Vec<(&str, f64)> = dl
@@ -502,7 +507,7 @@ fn test_plain_text_chord_house_style_uses_lowercase_minor_and_baseline_extension
 
 #[test]
 fn test_half_diminished_fallback_honors_minor_house_style() {
-    let score = crate::parse::parse_mnx(
+    let mut score = crate::parse::parse_mnx(
         r#"{
             "mnx": {"version": 1},
             "_x": {"viritura": {"chordSymbolStyle": {
@@ -524,6 +529,7 @@ fn test_half_diminished_fallback_honors_minor_house_style() {
         }"#,
     )
     .unwrap();
+    score.parts[0].chord_symbol_visibility = Some(crate::model::ChordSymbolVisibility::Show);
     let dl = layout_score(&score, 0, &LayoutConfig::default());
     let glyphs: Vec<u32> = dl
         .commands
@@ -795,7 +801,8 @@ fn test_chord_symbol_element_ids_tagged() {
         "/../../packages/format/fixtures/mnx/chord-symbols.mnx"
     ))
     .expect("Failed to read chord-symbols.mnx");
-    let score = crate::parse::parse_mnx(&json).expect("Failed to parse chord-symbols.mnx");
+    let mut score = crate::parse::parse_mnx(&json).expect("Failed to parse chord-symbols.mnx");
+    score.parts[0].chord_symbol_visibility = Some(crate::model::ChordSymbolVisibility::Show);
 
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);

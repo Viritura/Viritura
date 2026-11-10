@@ -162,6 +162,42 @@ describe("DeltaSerializer incremental assembly", () => {
     expect(result.json).toBe(JSON.stringify(serializeMnx(score)));
     expect(result.json).toContain('"notehead":"triangleDown"');
   });
+
+  it("detects chord visibility and instrument identity edits as structural changes", () => {
+    const raw = fs.readFileSync(path.join(scoresDir, "c-major-scale.mnx"), "utf-8");
+    let score = parseMnx(JSON.parse(raw));
+    const delta = new DeltaSerializer();
+    delta.serialize(score);
+
+    for (const chordSymbolVisibility of ["show", "hide", "auto", undefined] as const) {
+      score = {
+        ...score,
+        parts: score.parts.map((part, index) => (index === 0 ? { ...part, chordSymbolVisibility } : part)),
+      };
+      const result = delta.serialize(score);
+      expect(result.structuralChange).toBe(true);
+      expect(result.changedPartMeasures.size).toBe(0);
+      expect(result.json).toBe(JSON.stringify(serializeMnx(score)));
+      expect(delta.serialize(score).structuralChange).toBe(false);
+    }
+
+    for (const instrumentId of ["keyboard.piano", "wind.flutes.flute"]) {
+      score = {
+        ...score,
+        parts: score.parts.map((part, index) =>
+          index === 0
+            ? {
+                ...part,
+                _x: { ...part._x, viritura: { ...part._x?.viritura, instrumentId } },
+              }
+            : part,
+        ),
+      };
+      const result = delta.serialize(score);
+      expect(result.structuralChange).toBe(true);
+      expect(result.json).toBe(JSON.stringify(serializeMnx(score)));
+    }
+  });
 });
 
 describe("DeltaSerializer root extensions", () => {

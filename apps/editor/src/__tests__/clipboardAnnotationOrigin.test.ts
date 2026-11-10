@@ -90,6 +90,7 @@ function onsets(content: SequenceContent[]): [string | undefined, number][] {
 describe("clipboard annotation source staff metadata", () => {
   it("captures global Cm on the first staff without changing the uncopied second sequence", () => {
     const source = score([2]);
+    source.parts[0]!.chordSymbolVisibility = "show";
     source.parts[0]!.measures[0]!.sequences.splice(1);
     source.global.measures[0]!.chordSymbols = [harmony()];
     const selection = copy(source);
@@ -146,6 +147,7 @@ describe("clipboard annotation source staff metadata", () => {
 
   it.each([undefined, 1])("maps default/explicit staff %s dynamics while keeping singleton harmony global", (staff) => {
     const source = score([1]);
+    source.parts[0]!.chordSymbolVisibility = "show";
     source.global.measures[0]!.chordSymbols = [harmony()];
     source.parts[0]!.measures[0]!.dynamics = [dynamic("default-staff", 0, staff)];
     for (const selection of [
@@ -329,6 +331,7 @@ describe("clipboard common annotation and note origin", () => {
     "keeps harmony before the first selected note in a %s selection",
     (kind) => {
       const source = score([1], 2);
+      source.parts[0]!.chordSymbolVisibility = "show";
       source.global.measures[0]!.chordSymbols = [{ ...harmony(), position: { fraction: [3, 4] } }, harmony("D")];
       source.global.measures[1]!.chordSymbols = [harmony("E")];
       const snapshot = structuredClone(source);

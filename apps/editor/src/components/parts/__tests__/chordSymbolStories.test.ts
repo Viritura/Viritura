@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { formatChordSymbolText, transposeChordSymbol } from "@viritura/core";
+import { formatChordSymbolText, partShowsChordSymbols, transposeChordSymbol } from "@viritura/core";
 import { assertRawScore, parseMnx, serializeMnx, validateRawScore } from "@viritura/format";
 import * as stories from "../../../stories/viritura-extensions/directions/ChordSymbol.stories";
 
@@ -49,6 +49,12 @@ describe("global chord-symbol notation stories", () => {
     for (const layout of score.layouts ?? []) {
       for (const staff of layout.content) expect(staff).not.toHaveProperty("chordSymbolVisibility");
     }
+  });
+
+  it("illustrates automatic visibility for each chord-reading instrument", () => {
+    const score = readStory("AutomaticInstrumentDefaults");
+    expect(score.parts.map(partShowsChordSymbols)).toEqual([false, true, true, true]);
+    expect(score.parts.every((part) => part.chordSymbolVisibility === undefined)).toBe(true);
   });
 
   it("keeps concert harmony canonical while both B-flat root and bass transpose for display", () => {

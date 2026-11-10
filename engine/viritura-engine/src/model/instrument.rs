@@ -21,6 +21,8 @@ pub struct InstrumentDefinition {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PartInstrumentExtensions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instrument_id: Option<String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub instruments: HashMap<String, InstrumentDefinition>,
     #[serde(skip_serializing_if = "Option::is_none")]
