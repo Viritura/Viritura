@@ -342,7 +342,9 @@ export interface SetPartMeasureFieldPatch {
 /**
  * Replace a voice's content array wholesale. Unlike `spliceSequenceContent`
  * this needs no anchor events, so it is the only patch that can fill an empty
- * (freshly inserted) measure — the empty-measure bootstrap. If the addressed
+ * (freshly inserted) measure — the empty-measure bootstrap. Non-empty content
+ * clears the voice's `fullMeasure` rest marker; empty content preserves it.
+ * If the addressed
  * `voice` index does not exist yet, intervening voices are created empty so the
  * target voice lands at the requested index.
  */
