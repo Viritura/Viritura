@@ -276,8 +276,8 @@ export interface SpliceSequenceContentPatch {
 
 /**
  * A single field update on a `GlobalMeasure`. `undefined` clears the field.
- * These are score-wide: meter, key, tempo, barline, repeats and voltas all
- * live on the shared `global.measures[i]`, not on any part.
+ * These are score-wide: meter, key, tempo, chord symbols, barline, repeats
+ * and voltas all live on the shared `global.measures[i]`, not on any part.
  */
 export type GlobalMeasureField =
   | { field: "caesura"; value: GlobalMeasure["caesura"] }
@@ -288,6 +288,7 @@ export type GlobalMeasureField =
   | { field: "time"; value: TimeSignature | undefined }
   | { field: "key"; value: KeySignature | undefined }
   | { field: "tempos"; value: Tempo[] | undefined }
+  | { field: "chordSymbols"; value: GlobalMeasure["chordSymbols"] }
   | { field: "barline"; value: Barline | undefined }
   | { field: "repeatStart"; value: RepeatStart | undefined }
   | { field: "repeatEnd"; value: RepeatEnd | undefined }

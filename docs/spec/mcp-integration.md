@@ -56,6 +56,9 @@ The server catalogue is defined in [server/Viritura.Api/Mcp/McpToolCatalog.cs](.
 | `preview.normalize_tritsch_instruments` | Normalize the known Tritsch score's identities, voices, stems, and playback sources.      |
 | `preview.get_status`                    | Observe whether a proposal is pending, accepted, rejected, or stale.                      |
 
+Global-measure field patches can set or clear score-wide `chordSymbols`, with
+each symbol anchored at an exact rhythmic position in its measure.
+
 Accepted patch proposals enter the editor's normal `commitPatches()` path and therefore retain validation, undo grouping, and Yjs collaboration behavior. Whole-document proposals use `commitDocument()`. Both manual and automatic acceptance check that the document still matches the proposal's original snapshot before committing. Proposal tools return `pending` for manual review or `accepted` after successful auto-accept; `preview.get_status` exposes the recorded outcome. Commit failures mark the proposal stale and return an MCP error rather than reporting acceptance.
 
 ### Large edits

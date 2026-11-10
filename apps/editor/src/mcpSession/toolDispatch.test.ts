@@ -290,6 +290,58 @@ describe("MCP editor tool dispatch", () => {
     expect(proposal?.proposedMnx).toContain('"step": "D"');
   });
 
+  it("validates and stages global chord-symbol patches", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    const before = store.getState().mnxJson;
+
+    const result = await dispatchMcpTool(store, "preview.propose_patches", {
+      summary: "Add D harmony",
+      patches: [
+        {
+          kind: "setGlobalMeasureField",
+          measureIndex: 0,
+          update: {
+            field: "chordSymbols",
+            value: [{ position: { fraction: [0, 1] }, rawText: "D" }],
+          },
+        },
+      ],
+    });
+
+    expect(result.isError).not.toBe(true);
+    expect(store.getState().mnxJson).toBe(before);
+    const proposal = Object.values(useMcpSessionStore.getState().proposals)[0];
+    expect(proposal).toMatchObject({ status: "pending", summary: "Add D harmony" });
+    expect(proposal?.proposedMnx).toContain('"chordSymbols"');
+    expect(proposal?.proposedMnx).toContain('"rawText": "D"');
+  });
+
+  it("applies global chord-symbol patches through auto-accept", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    useMcpSessionStore.getState().start({ autoAccept: true });
+
+    const result = await dispatchMcpTool(store, "preview.propose_patches", {
+      patches: [
+        {
+          kind: "setGlobalMeasureField",
+          measureIndex: 0,
+          update: {
+            field: "chordSymbols",
+            value: [{ position: { fraction: [0, 1] }, rawText: "D" }],
+          },
+        },
+      ],
+    });
+
+    expect(result.structuredContent).toMatchObject({ status: "accepted" });
+    expect(store.getState().workingScore?.global.measures[0]?.chordSymbols).toEqual([
+      { position: { fraction: [0, 1] }, rawText: "D" },
+    ]);
+    expect(store.getState().mnxJson).toContain('"rawText":"D"');
+  });
+
   it("returns an MCP tool error for a stale patch target", async () => {
     const store = createDocumentStore();
     store.getState().loadScore(makeScore(), "test.mnx");
