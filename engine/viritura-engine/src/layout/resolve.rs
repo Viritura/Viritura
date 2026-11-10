@@ -328,9 +328,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             part_index,
             score,
         );
-        // A direct resolve call displays this selected part. Full-score layout
-        // coordinates automatic visibility across its displayed parts separately.
-        let chord_symbols = if part.chord_symbol_visibility == Some(ChordSymbolVisibility::Hide) {
+        let chord_symbols = if !part.shows_chord_symbols() {
             None
         } else {
             global.chord_symbols().map(|global_chords| {

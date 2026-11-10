@@ -14,6 +14,7 @@ export * from "./text";
 export * from "./textFrame";
 export * from "./part";
 export * from "./instrumentChange";
+export * from "./chordSymbolVisibility";
 export * from "./measure";
 export * from "./tempo";
 export * from "./event";

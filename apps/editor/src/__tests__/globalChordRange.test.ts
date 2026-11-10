@@ -740,6 +740,8 @@ describe("condensed chord ranges retain downstream writeback policy", () => {
     "broadcasts only to merged sources, unless on an expansion (isExpansion=%s)",
     (isExpansion) => {
       const score = fixture();
+      score.parts[1]!.chordSymbolVisibility = "show";
+      score.parts[2]!.chordSymbolVisibility = "show";
       score.layouts = [
         {
           id: "merged",

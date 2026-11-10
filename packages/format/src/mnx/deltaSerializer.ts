@@ -434,6 +434,7 @@ function partHeaderJson(part: {
   id?: string;
   transposition?: unknown;
   kit?: unknown;
+  chordSymbolVisibility?: Part["chordSymbolVisibility"];
   _x?: unknown;
 }): string {
   return JSON.stringify({
@@ -448,6 +449,7 @@ function partHeaderJson(part: {
     // a structural change and the part re-layouts (every kit-note resolves its
     // staffPosition + notehead from this dict).
     kit: part.kit,
+    chordSymbolVisibility: part.chordSymbolVisibility,
     _x: part._x,
   });
 }

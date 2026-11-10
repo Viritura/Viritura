@@ -116,7 +116,10 @@ export function RosterPartRow({
               />
             </FormField>
           </div>
-          <FormField label="Chord symbols">
+          <FormField
+            label="Chord symbols"
+            message="Automatic shows chords for recognized piano, guitar, bass guitar and double bass."
+          >
             <Select
               aria-label={`Chord symbols for ${displayName}`}
               value={part.chordSymbolVisibility ?? "auto"}

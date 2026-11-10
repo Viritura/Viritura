@@ -33,10 +33,11 @@ style. To remain playable, the override must describe the same harmony;
 unsupported or contradictory text is retained with an editor-only warning.
 
 Chord visibility belongs to the instrument, not the layout: **Automatic**
-places the shared progression above the topmost displayed instrument,
-**Show** above the instrument's first displayed staff, and **Hide** suppresses
-it for that instrument wherever it appears. Adding or pasting a chord sets the
-affected instrument to **Show** for the entire progression, even after **Hide**.
+shows the shared progression for recognized piano, bass, and guitar
+instruments; **Show** places it above any instrument's first displayed staff,
+and **Hide** suppresses it for that instrument wherever it appears. Adding or
+pasting a chord sets the affected instrument to **Show** for the entire
+progression, even after **Hide**.
 See [Chord Symbols](/docs/chord-symbols) for entry, progression navigation,
 editing, and playback.
 

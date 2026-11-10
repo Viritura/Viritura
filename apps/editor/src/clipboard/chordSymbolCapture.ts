@@ -1,4 +1,4 @@
-import type { ChordSymbol, LayoutContent, Score } from "@viritura/core";
+import { partShowsChordSymbols, type ChordSymbol, type LayoutContent, type Score } from "@viritura/core";
 import { resolveAnnotationLocation, type AnnotationLocation, type EventLocation } from "../score/ElementPath";
 import type { MeasureSelectionPoint, SelectionTrackRhythmicRange } from "../store/selectionStore";
 import { resolveChordRange } from "../store/chordRange";
@@ -168,15 +168,15 @@ export function chordCaptureStaff(
   measureIndex = 0,
 ): number | undefined {
   const part = score.parts[partIndex];
-  if (!part || part.chordSymbolVisibility === "hide") return undefined;
+  if (!part || !partShowsChordSymbols(part)) return undefined;
   const layoutId = captureLayoutId(score, selectedScoreIndex ?? 0, measureIndex);
   const layout = score.layouts?.find((candidate) => candidate.id === layoutId);
-  if (!layout) return part.chordSymbolVisibility === "show" || partIndex === 0 ? 1 : undefined;
+  if (!layout) return 1;
   const sources = (content: LayoutContent[]): { part: string; staff?: number }[] =>
     content.flatMap((node) => (node.type === "group" ? sources(node.content) : node.sources));
   const ordered = sources(layout.content);
   const source = ordered.find((candidate) => candidate.part === part.id);
-  if (!source || (part.chordSymbolVisibility !== "show" && ordered[0]?.part !== part.id)) return undefined;
+  if (!source) return undefined;
   return source.staff ?? 1;
 }
 

@@ -168,15 +168,21 @@ Use the instrument's **Chord Symbols** control in Setup, or chord visibility in
 **Properties**:
 
 - **Automatic** (**Auto** in Properties): show the progression above the first
-  displayed staff of the topmost displayed instrument.
+  displayed staff of each recognized piano, guitar, bass guitar, or double
+  bass. Other instruments, including bass clarinet and bass voice, and
+  instruments without a recognized identity do not show it automatically.
 - **Show**: show the progression above this instrument's first displayed staff.
 - **Hide**: suppress it for this instrument.
 
 This is an instrument setting, stored on its source part. It follows that
 instrument wherever it appears, including the full score and instrumental
-parts; it is not an independent layout or per-symbol staff setting. Hiding the
-topmost instrument's symbols does not move automatic placement to the next
-instrument. Visibility affects engraving, not playback.
+parts; it is not an independent layout or per-symbol staff setting. Automatic
+uses the source part's initial instrument identity, even if the player changes
+instruments later. Use **Show** to include any other instrument or an instrument
+whose identity is unrecognized. An existing explicit **Show** or **Hide**
+setting takes precedence over Automatic. When multiple instruments share a
+staff, only one copy is displayed on that staff. Visibility affects engraving,
+not playback.
 
 ## Import, paste, and export
 

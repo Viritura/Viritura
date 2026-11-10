@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatChordSymbolText, parseChordSymbolText, type ChordSymbol, type Score } from "@viritura/core";
 import { TooltipPrimitives } from "@viritura/ui";
 import { ChordSymbolEntryPopover } from "../app/chordSymbolEntry";
-import { resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
+import { resolveChordSymbolSource, resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
 import { ChordSymbolEntryAction } from "../components/inspector/ChordSymbolEntryAction";
 import { resolveNotationSelectionTarget } from "../commands/notationInspectorCommands";
 import { createDocumentStore } from "../store/documentStore";
@@ -314,6 +314,25 @@ describe("keyboard chord source mapping", () => {
     score.scores![0]!.layout = "written-part";
     return score;
   }
+
+  it("resolves automatic harmony from an eligible instrument below the top staff", () => {
+    const score = sourceScore();
+    score.parts[0]!._x = { viritura: { instrumentId: "keyboard.piano" } };
+    score.parts[1]!.chordSymbolVisibility = "auto";
+    score.layouts![0]!.content = [
+      { type: "staff", sources: [{ part: "clarinet" }] },
+      { type: "staff", sources: [{ part: "keyboard.piano" }] },
+    ];
+    expect(
+      resolveChordSymbolSource(
+        score,
+        { kind: "single", elementId: "m0/chord0", elementType: "chord-symbol" },
+        0,
+        0,
+        [],
+      ),
+    ).toEqual({ partIndex: 0, staff: 1 });
+  });
 
   it.each(["m0/chord0", "m0/chord0/p0/staff8"])(
     "resolves %s from source measure bounds, not copy indices",

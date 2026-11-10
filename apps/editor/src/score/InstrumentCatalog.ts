@@ -6,7 +6,7 @@
  * standard score ordering, and playable range.
  */
 
-import type { Transposition } from "@viritura/core";
+import type { PartVirituraExt, Transposition } from "@viritura/core";
 
 /** Instrument family for grouping and layout brackets. */
 export type InstrumentFamily = "woodwinds" | "brass" | "percussion" | "keyboards" | "strings" | "voices" | "plucked";
@@ -513,9 +513,10 @@ export function expandTemplate(templateId: string): Player[] {
  *
  * Match strategy:
  *   1. Existing `_x.viritura.instrumentId` — never overwritten.
- *   2. Exact / case-insensitive name match against `INSTRUMENT_CATALOG`
+ *   2. Declared initial instrument, if present.
+ *   3. Exact / case-insensitive name match against `INSTRUMENT_CATALOG`
  *      (catalog `name`, `baseName`, with trailing numbering tolerated).
- *   3. Transposition match (halfSteps + staves) when the name was ambiguous.
+ *   4. Transposition match (halfSteps + staves) when the name was ambiguous.
  *
  * Used at score-load time so MusicXML imports, hand-edited MNX, and legacy
  * Viritura files inherit the audio-engine reliability the wizard already
@@ -527,31 +528,37 @@ export function enrichInstrumentIdentities<
       name: string;
       staves?: number;
       transposition?: { interval: { halfSteps: number } };
-      _x?: { viritura?: { instrumentId?: string; midiProgram?: number; family?: string } };
+      _x?: { viritura?: PartVirituraExt };
     }>;
   },
 >(score: T): number {
   let filled = 0;
   for (const part of score.parts) {
-    if (part._x?.viritura?.instrumentId) continue;
-    const inst =
-      getCatalogInstrumentByName(part.name) ??
-      // Fallback: name-or-baseName + transposition + staves
-      INSTRUMENT_CATALOG.find((i) => {
-        const partHs = part.transposition?.interval?.halfSteps;
-        const partSt = part.staves ?? 1;
-        const matchesT = partHs === undefined ? !i.transposition : i.transposition?.halfSteps === partHs;
-        const matchesS = i.staves === partSt;
-        const matchesN =
-          i.name.toLowerCase() === part.name.toLowerCase() ||
-          (i.baseName && i.baseName.toLowerCase() === part.name.toLowerCase());
-        return matchesT && matchesS && matchesN;
-      });
-    if (!inst) continue;
     const ext = part._x?.viritura ?? {};
-    ext.instrumentId = inst.id;
-    if (ext.midiProgram === undefined) ext.midiProgram = inst.midiProgram;
-    if (ext.family === undefined) ext.family = inst.family;
+    if (ext.instrumentId) continue;
+    const key = ext.initialInstrument;
+    const initial =
+      key !== undefined && ext.instruments && Object.hasOwn(ext.instruments, key) ? ext.instruments[key] : undefined;
+    const inst = initial
+      ? getCatalogInstrument(initial.instrumentId)
+      : (getCatalogInstrumentByName(part.name) ??
+        // Fallback: name-or-baseName + transposition + staves
+        INSTRUMENT_CATALOG.find((i) => {
+          const partHs = part.transposition?.interval?.halfSteps;
+          const partSt = part.staves ?? 1;
+          const matchesT = partHs === undefined ? !i.transposition : i.transposition?.halfSteps === partHs;
+          const matchesS = i.staves === partSt;
+          const matchesN =
+            i.name.toLowerCase() === part.name.toLowerCase() ||
+            (i.baseName && i.baseName.toLowerCase() === part.name.toLowerCase());
+          return matchesT && matchesS && matchesN;
+        }));
+    const instrumentId = initial?.instrumentId ?? inst?.id;
+    if (instrumentId === undefined) continue;
+    ext.instrumentId = instrumentId;
+    const midiProgram = initial?.midiProgram ?? inst?.midiProgram;
+    if (ext.midiProgram === undefined && midiProgram !== undefined) ext.midiProgram = midiProgram;
+    if (ext.family === undefined && inst) ext.family = inst.family;
     part._x = { viritura: ext };
     filled++;
   }

@@ -205,9 +205,11 @@ Chord symbols illustrate the boundary between authored data and projections:
   `textOverride` forces literal display, including for existing documents;
   unsupported raw text remains literal diagnostic text. Supported raw-only
   harmony is interpreted on display copies without adding stored structure.
-- **Display projection:** automatic placement uses the topmost displayed
-  source part; explicit Show uses that source part's first displayed staff and
-  Hide suppresses it. The policy follows the source part across outputs.
+- **Display projection:** automatic placement uses the first displayed staff
+  of each recognized piano, bass, or guitar source part; other and unrecognized
+  identities are hidden. Explicit Show uses that source part's first displayed
+  staff and Hide suppresses it. A shared staff receives one copy even when
+  multiple source parts are eligible. The policy follows the source part across outputs.
   Written entry inverts its transposition for storage; layout projects both
   root and slash bass into the displayed pitch convention. Rendered copies do
   not become additional authored chord events. Red unsupported warnings are

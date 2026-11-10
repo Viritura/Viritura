@@ -139,19 +139,11 @@ pub fn layout_full_score_cached(
     let all_resolved: Vec<Vec<ResolvedMeasure>> = visual_staves
         .iter()
         .map(|&(pi, sn)| {
-            let mut resolved = if score.parts[pi].staves >= 2 {
+            if score.parts[pi].staves >= 2 {
                 resolve_measures_for_staff(score, pi, sn)
             } else {
                 resolve_measures(score, pi)
-            };
-            if pi != 0
-                && score.parts[pi].chord_symbol_visibility != Some(ChordSymbolVisibility::Show)
-            {
-                for measure in &mut resolved {
-                    measure.chord_symbols = None;
-                }
             }
-            resolved
         })
         .collect();
     let all_resolved_ottavas: Vec<Vec<ResolvedOttavaRange>> = all_resolved

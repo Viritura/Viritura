@@ -1,6 +1,6 @@
 use super::super::full_score::{FlatSource, FlatStaff, GroupRange};
 use super::super::page::{resolve_part_display_names, PartDisplayInfo};
-use crate::model::{ChordSymbolVisibility, LayoutContent, Score};
+use crate::model::{LayoutContent, Score};
 use std::collections::{HashMap, HashSet};
 
 struct ResolvedStaffLabels {
@@ -193,22 +193,15 @@ fn flatten_content_recursive(
 }
 
 pub(super) fn resolve_chord_symbol_sources(staves: &mut [FlatStaff], score: &Score) {
-    let automatic_part = staves
-        .iter()
-        .flat_map(|staff| &staff.sources)
-        .next()
-        .map(|source| source.part_index);
     let mut seen_parts = HashSet::new();
     for staff in staves {
         staff.chord_symbol_source = None;
         for source in &staff.sources {
             let first_staff = seen_parts.insert(source.part_index);
-            let visible = match score.parts[source.part_index].chord_symbol_visibility {
-                Some(ChordSymbolVisibility::Show) => true,
-                Some(ChordSymbolVisibility::Hide) => false,
-                _ => automatic_part == Some(source.part_index),
-            };
-            if first_staff && visible && staff.chord_symbol_source.is_none() {
+            if first_staff
+                && score.parts[source.part_index].shows_chord_symbols()
+                && staff.chord_symbol_source.is_none()
+            {
                 staff.chord_symbol_source = Some(source.part_index);
             }
         }

@@ -68,6 +68,7 @@ function buildScore(): Score {
       {
         id: "clarinet",
         name: "Clarinet",
+        chordSymbolVisibility: "show",
         transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
         measures: [
           {
@@ -906,7 +907,9 @@ describe("global chord symbol inspector", () => {
   });
 
   it("changes only the source Part visibility for show, hide, and auto, without auditioning", async () => {
-    const { user, getScore, onUpdate, initialScore } = renderInspector();
+    const initial = buildScore();
+    initial.parts[1]!.chordSymbolVisibility = "auto";
+    const { user, getScore, onUpdate, initialScore } = renderInspector(initial);
     expect(screen.getByRole("combobox", { name: /^Chord visibility — Clarinet/ }).textContent).toContain("Auto");
     for (const [label, value] of [
       ["Show", "show"],
@@ -924,6 +927,14 @@ describe("global chord symbol inspector", () => {
     }
     expect(onUpdate).toHaveBeenCalledTimes(3);
     expect(previewChord).not.toHaveBeenCalled();
+  });
+
+  it("does not resolve a hidden automatic clarinet copy in its extract", () => {
+    useViewStateStore.setState({ selectedScoreIndex: 1 });
+    const initial = buildScore();
+    initial.parts[1]!.chordSymbolVisibility = "auto";
+    renderInspector(initial);
+    expect(screen.queryByRole("textbox", { name: "Chord text" })).toBeNull();
   });
 
   it("discards an uncommitted draft when its selection is cleared", async () => {

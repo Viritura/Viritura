@@ -63,6 +63,7 @@ function copyMeasures(source: Score): PasteResult {
 describe("clipboard physical annotation destinations", () => {
   it.each([undefined, 1])("moves staff %s notes and dynamics to piano staff 2 with global harmony", (staff) => {
     const source = score([1]);
+    source.parts[0]!.chordSymbolVisibility = "show";
     source.parts[0]!.measures[0]!.dynamics = [dynamic("source-dynamic", staff)];
     source.global.measures[0]!.chordSymbols = [harmony("E")];
     const target = score([2]);
@@ -89,6 +90,7 @@ describe("clipboard physical annotation destinations", () => {
 
   it.each([false, true])("maps piano annotations into separate parts (dynamics: %s)", (withDynamics) => {
     const source = score([2]);
+    source.parts[0]!.chordSymbolVisibility = "show";
     source.global.measures[0]!.chordSymbols = [harmony("C")];
     if (withDynamics) {
       source.parts[0]!.measures[0]!.dynamics = [dynamic("upper", 1), dynamic("lower", 2)];

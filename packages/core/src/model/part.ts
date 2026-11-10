@@ -62,7 +62,7 @@ export interface Part {
   measures: PartMeasure[];
   /** Number of staves for this part (default 1; grand staff = 2, organ = 3) */
   staves?: number;
-  /** Source-part display policy for score-wide harmony; unset/auto uses automatic placement. */
+  /** Source-part display policy for score-wide harmony; unset/auto uses the initial instrument identity. */
   chordSymbolVisibility?: "auto" | "show" | "hide";
   /** Transposition for transposing instruments (MNX `transposition`). */
   transposition?: Transposition;

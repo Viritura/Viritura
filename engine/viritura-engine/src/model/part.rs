@@ -66,3 +66,38 @@ pub struct Part {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kit: Option<HashMap<String, KitComponent>>,
 }
+
+impl Part {
+    pub(crate) fn shows_chord_symbols(&self) -> bool {
+        match self.chord_symbol_visibility {
+            Some(ChordSymbolVisibility::Show) => true,
+            Some(ChordSymbolVisibility::Hide) => false,
+            None | Some(ChordSymbolVisibility::Auto) => {
+                let extensions = &self.instrument_extensions;
+                let instrument_id = extensions.instrument_id.as_deref().or_else(|| {
+                    extensions
+                        .initial_instrument
+                        .as_ref()
+                        .and_then(|key| extensions.instruments.get(key))
+                        .map(|instrument| instrument.instrument_id.as_str())
+                });
+                instrument_id.is_some_and(|id| {
+                    // Keep the sound-ID families in sync with @viritura/core.
+                    [
+                        "keyboard.piano",
+                        "pluck.bass",
+                        "pluck.guitar",
+                        "strings.contrabass",
+                    ]
+                    .iter()
+                    .any(|family| {
+                        id == *family
+                            || id
+                                .strip_prefix(*family)
+                                .is_some_and(|suffix| suffix.starts_with('.'))
+                    })
+                })
+            }
+        }
+    }
+}

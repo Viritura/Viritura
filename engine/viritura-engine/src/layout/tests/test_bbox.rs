@@ -378,7 +378,8 @@ fn test_bbox_chord_symbol() {
         "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}]}]
     }"#;
 
-    let score = parse_mnx(json).unwrap();
+    let mut score = parse_mnx(json).unwrap();
+    score.parts[0].chord_symbol_visibility = Some(crate::model::ChordSymbolVisibility::Show);
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
 

@@ -379,6 +379,7 @@ fn test_chord_symbols_render_in_mnx_score_layout() {
             "quality": "major"
         }]}
     });
+    value["parts"][0]["_x"]["viritura"]["chordSymbolVisibility"] = serde_json::json!("show");
     let json = serde_json::to_string(&value).unwrap();
     let score = parse_mnx(&json).expect("Failed to parse");
     assert!(
