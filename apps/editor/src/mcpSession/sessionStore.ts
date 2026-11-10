@@ -36,12 +36,13 @@ export interface McpRegistration {
 
 interface McpSessionState {
   desired: boolean;
+  autoAccept: boolean;
   status: McpConnectionStatus;
   registration: McpRegistration | null;
   clientName: string | null;
   error: string | null;
   proposals: Record<string, McpProposal>;
-  start: () => void;
+  start: (options?: { autoAccept?: boolean }) => void;
   stop: () => void;
   setRegistering: () => void;
   setRegistration: (registration: McpRegistration) => void;
@@ -55,13 +56,15 @@ interface McpSessionState {
 
 export const useMcpSessionStore = create<McpSessionState>((set) => ({
   desired: false,
+  autoAccept: false,
   status: "idle",
   registration: null,
   clientName: null,
   error: null,
   proposals: {},
-  start: () => set({ desired: true, status: "registering", error: null }),
-  stop: () => set({ desired: false }),
+  start: (options) =>
+    set({ desired: true, autoAccept: options?.autoAccept ?? false, status: "registering", error: null }),
+  stop: () => set({ desired: false, autoAccept: false }),
   setRegistering: () => set({ status: "registering", registration: null, clientName: null, error: null }),
   setRegistration: (registration) => set({ registration, status: "waiting", error: null }),
   setReady: () => set({ status: "waiting", error: null }),

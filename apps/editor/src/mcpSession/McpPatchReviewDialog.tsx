@@ -12,7 +12,7 @@ interface McpPatchReviewDialogProps {
 /** Bounded review surface for scores too large for a whole-document Monaco diff. */
 export function McpPatchReviewDialog({ proposal, onAccept, onReject }: McpPatchReviewDialogProps) {
   return (
-    <Dialog open onClose={onReject} size="wide">
+    <Dialog open onClose={onReject} size="wide" dismissOnOutsideClick={false}>
       <div className={styles.root} data-testid="mcp-patch-review">
         <header className={styles.header}>
           <div>

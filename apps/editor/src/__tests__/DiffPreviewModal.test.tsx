@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { DiffPreviewModal } from "../components/DiffPreviewModal";
 
 // Mock Monaco DiffEditor - it requires a browser DOM
@@ -43,6 +44,16 @@ describe("DiffPreviewModal", () => {
     fireEvent.click(screen.getByTestId("diff-reject-btn"));
     expect(onReject).toHaveBeenCalledTimes(1);
     expect(onAccept).not.toHaveBeenCalled();
+  });
+
+  it("preserves outside-click dismissal by default for non-MCP callers", async () => {
+    const user = userEvent.setup();
+    const onReject = vi.fn();
+    render(<DiffPreviewModal originalMnx={ORIGINAL} proposedMnx={PROPOSED} onAccept={vi.fn()} onReject={onReject} />);
+
+    await user.click(document.querySelector<HTMLElement>("[data-dialog-overlay]")!);
+
+    expect(onReject).toHaveBeenCalledTimes(1);
   });
 
   it("passes original and proposed MNX to the diff editor", () => {

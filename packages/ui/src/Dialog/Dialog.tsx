@@ -28,6 +28,8 @@ export interface DialogProps {
   container?: HTMLElement | null;
   /** Disable focus trapping and body interaction locking for embedded surfaces. */
   modal?: boolean;
+  /** Allow pointer interactions outside the dialog to dismiss it. Defaults to true. */
+  dismissOnOutsideClick?: boolean;
 }
 
 const sizeToClass: Record<DialogSize, string> = {
@@ -47,6 +49,7 @@ export function Dialog({
   onEscapeKeyDown,
   container,
   modal = true,
+  dismissOnOutsideClick = true,
 }: DialogProps) {
   return (
     <RadixDialog.Root
@@ -63,6 +66,9 @@ export function Dialog({
           data-dialog-content
           aria-describedby={undefined}
           onEscapeKeyDown={onEscapeKeyDown}
+          onPointerDownOutside={(event) => {
+            if (!dismissOnOutsideClick) event.preventDefault();
+          }}
         >
           {children}
         </RadixDialog.Content>

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Score } from "@viritura/core";
 import { parseMnx } from "@viritura/format";
 import { createDocumentStore } from "../store/documentStore";
@@ -41,7 +41,117 @@ function makeScore(): Score {
 
 describe("MCP editor tool dispatch", () => {
   beforeEach(() => {
-    useMcpSessionStore.setState({ proposals: {} });
+    useMcpSessionStore.setState(useMcpSessionStore.getInitialState());
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it.each([false, true])("auto-accepts validated patches (large score: %s)", async (largeScore) => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    if (largeScore) {
+      store.setState({ mnxJson: `${store.getState().mnxJson}${" ".repeat(513 * 1024)}` });
+    }
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    const commit = vi.spyOn(store.getState(), "commitPatches");
+
+    const result = await dispatchMcpTool(store, "preview.propose_patches", {
+      patches: [
+        {
+          kind: "setNotePitch",
+          locator: { sequencePath: { partId: "keyboard.piano", measureIndex: 0, voice: 0 }, eventId: "event-1" },
+          noteId: "note-1",
+          pitch: { step: "D", octave: 4 },
+        },
+      ],
+    });
+
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ status: "accepted" });
+    expect(result.content[0]?.text).toContain("auto-accepted and applied");
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(store.getState().mnxJson).toContain('"step":"D"');
+    expect(store.getState().dirty).toBe(true);
+    const proposal = Object.values(useMcpSessionStore.getState().proposals)[0]!;
+    const status = await dispatchMcpTool(store, "preview.get_status", { proposalId: proposal.id });
+    expect(status.structuredContent).toMatchObject({ status: "accepted" });
+  });
+
+  it("auto-accepts whole-document and generated proposals through the normal document commit", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.stemDirection = "up";
+    store.getState().loadScore(score, "test.mnx");
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    const commit = vi.spyOn(store.getState(), "commitDocument");
+
+    const reset = await dispatchMcpTool(store, "preview.reset_stem_directions", {});
+    expect(reset.structuredContent).toMatchObject({ status: "accepted" });
+    expect(store.getState().mnxJson).not.toContain("stemDirection");
+
+    const proposed = JSON.parse(store.getState().mnxJson) as { global: { measures: object[] } };
+    proposed.global.measures.push({});
+    const replace = await dispatchMcpTool(store, "preview.propose_mnx", { mnx: proposed });
+
+    expect(replace.structuredContent).toMatchObject({ status: "accepted" });
+    expect(store.getState().workingScore?.global.measures).toHaveLength(2);
+    expect(commit).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps validation dry-runs and invalid proposals non-mutating with auto-accept enabled", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    const before = store.getState().mnxJson;
+    useMcpSessionStore.getState().start({ autoAccept: true });
+
+    const validation = await dispatchMcpTool(store, "score.validate", { mnx: JSON.parse(before) as unknown });
+    expect(validation.structuredContent).toMatchObject({ valid: true });
+    const invalid = await dispatchMcpTool(store, "preview.propose_mnx", { mnx: { invalid: true } });
+    expect(invalid.isError).toBe(true);
+    const invalidPatches = await dispatchMcpTool(store, "preview.propose_patches", {
+      patches: [{ kind: "setNotePitch", locator: {}, noteId: "missing", pitch: { step: "D", octave: 4 } }],
+    });
+    expect(invalidPatches.isError).toBe(true);
+    expect(store.getState().mnxJson).toBe(before);
+    expect(useMcpSessionStore.getState().proposals).toEqual({});
+  });
+
+  it("reports failed auto-accept commits as errors and marks the proposal stale", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    const before = store.getState().mnxJson;
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    vi.spyOn(store.getState(), "commitDocument").mockImplementation(() => {
+      throw new Error("Commit failed");
+    });
+
+    const result = await dispatchMcpTool(store, "preview.propose_mnx", { mnx: JSON.parse(before) as unknown });
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({ code: "tool_failed", message: "Commit failed" });
+    expect(Object.values(useMcpSessionStore.getState().proposals)[0]?.status).toBe("stale");
+    expect(store.getState().mnxJson).toBe(before);
+  });
+
+  it("defaults to manual approval again after disconnecting an auto-accept session", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    const before = store.getState().mnxJson;
+    const session = useMcpSessionStore.getState();
+    session.start({ autoAccept: true });
+    session.setRegistering();
+    expect(useMcpSessionStore.getState().autoAccept).toBe(true);
+    session.stop();
+    expect(useMcpSessionStore.getState().autoAccept).toBe(false);
+    session.clear();
+    session.start();
+
+    const result = await dispatchMcpTool(store, "preview.propose_mnx", { mnx: JSON.parse(before) as unknown });
+
+    expect(result.structuredContent).toMatchObject({ status: "pending" });
+    expect(store.getState().mnxJson).toBe(before);
   });
 
   it("returns a compact overview without exposing the whole score", async () => {

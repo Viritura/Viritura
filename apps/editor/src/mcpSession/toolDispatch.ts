@@ -1,5 +1,6 @@
 import { applyPatchesToScore, walkSequenceEvents, type Pitch, type ScorePatch } from "@viritura/core";
 import { parseMnx, serializeMnx } from "@viritura/format";
+import { toast } from "sonner";
 import { generateNoteId } from "../commands/noteCommands";
 import type { DocumentStore } from "../store/documentStore";
 import { useSelectionStore } from "../store/selectionStore";
@@ -13,6 +14,7 @@ import { normalizeWindPlayerVoices } from "../windVoiceNormalization";
 import { getMeasureSlice, getSelectionContext } from "./scoreQueries";
 import { getScoreTimeline, getScoreVideoSync } from "./scoreTimeline";
 import { useMcpSessionStore, type McpProposal } from "./sessionStore";
+import { acceptMcpProposal } from "./proposalAcceptance";
 
 const MAX_WHOLE_DOCUMENT_PREVIEW_BYTES = 512 * 1024;
 
@@ -209,10 +211,10 @@ function proposeMnx(documentStore: DocumentStore, args: unknown): McpToolResult 
     document: { proposedMnx: canonicalMnx, diff },
     status: "pending",
   };
-  useMcpSessionStore.getState().addProposal(proposal);
+  const status = registerProposal(documentStore, proposal);
   return success(
-    { proposalId: proposal.id, status: proposal.status, summary: proposal.summary, diff },
-    `Whole-document proposal ${proposal.id} is awaiting review in Viritura.`,
+    { proposalId: proposal.id, status, summary: proposal.summary, diff },
+    proposalResultText(proposal.id, status),
   );
 }
 
@@ -344,11 +346,31 @@ function stageProposal(documentStore: DocumentStore, patches: readonly ScorePatc
       state.mnxJson.length <= MAX_WHOLE_DOCUMENT_PREVIEW_BYTES ? JSON.stringify(proposedDocument, null, 2) : null,
     status: "pending",
   };
-  useMcpSessionStore.getState().addProposal(proposal);
+  const status = registerProposal(documentStore, proposal);
   return success(
-    { proposalId: proposal.id, status: proposal.status, summary: proposal.summary },
-    `Proposal ${proposal.id} is awaiting review in Viritura.`,
+    { proposalId: proposal.id, status, summary: proposal.summary },
+    proposalResultText(proposal.id, status),
   );
+}
+
+function registerProposal(documentStore: DocumentStore, proposal: McpProposal): "pending" | "accepted" {
+  const session = useMcpSessionStore.getState();
+  session.addProposal(proposal);
+  if (!session.desired || !session.autoAccept) return "pending";
+  try {
+    acceptMcpProposal(documentStore, proposal);
+    toast.success("MCP proposal auto-accepted");
+    return "accepted";
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : "The proposal could not be applied.");
+    throw error;
+  }
+}
+
+function proposalResultText(id: string, status: "pending" | "accepted"): string {
+  return status === "accepted"
+    ? `Proposal ${id} was auto-accepted and applied in Viritura.`
+    : `Proposal ${id} is awaiting review in Viritura.`;
 }
 
 function readPitch(value: unknown): Pitch {

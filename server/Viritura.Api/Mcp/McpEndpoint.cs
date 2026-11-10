@@ -210,7 +210,7 @@ internal static class McpEndpoint
                     protocolVersion = ProtocolVersion,
                     capabilities = new { tools = new { listChanged = false } },
                     serverInfo = new { name = "Viritura live editor", version = "0.1.0" },
-                    instructions = "Call editor.list_sessions first when more than one Viritura document may be open, then pass sessionId to score and preview tools. Submit edits with preview.propose_patches; a person must approve them in Viritura."
+                    instructions = "Call editor.list_sessions first when more than one Viritura document may be open, then pass sessionId to score and preview tools. Submit edits with preview tools; proposals require approval in Viritura unless the user enabled auto-accept for that session. Check the returned proposal status."
                 });
 
             case "ping":

@@ -5,6 +5,7 @@ import { useDocumentStoreApi } from "../store/DocumentContext";
 import { useMcpSessionStore } from "./sessionStore";
 import { McpDocumentReviewDialog } from "./McpDocumentReviewDialog";
 import { McpPatchReviewDialog } from "./McpPatchReviewDialog";
+import { acceptMcpProposal } from "./proposalAcceptance";
 
 /** Displays the oldest pending MCP patch proposal and commits it only after approval. */
 export function McpProposalReview() {
@@ -20,23 +21,10 @@ export function McpProposalReview() {
 
   const accept = useCallback(() => {
     if (!proposal) return;
-    const currentMnx = documentStore.getState().mnxJson;
-    if (currentMnx !== proposal.originalMnx) {
-      useMcpSessionStore.getState().setProposalStatus(proposal.id, "stale");
-      toast.error("The score changed after this proposal was created. Ask the MCP client to propose it again.");
-      return;
-    }
-
     try {
-      if (proposal.document) {
-        documentStore.getState().commitDocument(proposal.document.proposedMnx);
-      } else {
-        documentStore.getState().commitPatches(proposal.patches);
-      }
-      useMcpSessionStore.getState().setProposalStatus(proposal.id, "accepted");
+      acceptMcpProposal(documentStore, proposal);
       toast.success("MCP proposal applied");
     } catch (error) {
-      useMcpSessionStore.getState().setProposalStatus(proposal.id, "stale");
       toast.error(error instanceof Error ? error.message : "The proposal could not be applied.");
     }
   }, [documentStore, proposal]);
@@ -54,6 +42,7 @@ export function McpProposalReview() {
       proposedMnx={proposal.proposedMnx}
       onAccept={accept}
       onReject={reject}
+      dismissOnOutsideClick={false}
     />
   );
 }

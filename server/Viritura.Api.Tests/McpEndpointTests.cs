@@ -124,6 +124,7 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
         });
         Assert.Equal("2025-06-18", initialize.GetProperty("result").GetProperty("protocolVersion").GetString());
         Assert.Equal("Viritura live editor", initialize.GetProperty("result").GetProperty("serverInfo").GetProperty("name").GetString());
+        Assert.Contains("auto-accept", initialize.GetProperty("result").GetProperty("instructions").GetString(), StringComparison.Ordinal);
 
         var tools = await PostRpcAsync(
             client,
@@ -147,6 +148,13 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Contains("preview.normalize_tritsch_instruments", names);
         Assert.Contains("preview.propose_chord_notes", names);
         Assert.Contains("editor.list_sessions", names);
+        foreach (var tool in tools.GetProperty("result").GetProperty("tools").EnumerateArray())
+        {
+            if (tool.GetProperty("name").GetString()?.StartsWith("preview.", StringComparison.Ordinal) == true)
+            {
+                Assert.Contains("auto-accept", tool.GetProperty("description").GetString(), StringComparison.Ordinal);
+            }
+        }
 
         var listed = await PostRpcAsync(client, endpoint, grant.AccessToken, new
         {
