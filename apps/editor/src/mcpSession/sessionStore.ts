@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { ScorePatch } from "@viritura/core";
 import type { StructuralDiffSummary } from "./documentSummary";
+import { clearPatchBatches } from "./patchBatches";
 
 type McpConnectionStatus = "idle" | "registering" | "waiting" | "connected" | "error";
 type McpProposalStatus = "pending" | "accepted" | "rejected" | "stale";
@@ -36,12 +37,13 @@ export interface McpRegistration {
 
 interface McpSessionState {
   desired: boolean;
+  autoAccept: boolean;
   status: McpConnectionStatus;
   registration: McpRegistration | null;
   clientName: string | null;
   error: string | null;
   proposals: Record<string, McpProposal>;
-  start: () => void;
+  start: (options?: { autoAccept?: boolean }) => void;
   stop: () => void;
   setRegistering: () => void;
   setRegistration: (registration: McpRegistration) => void;
@@ -55,19 +57,27 @@ interface McpSessionState {
 
 export const useMcpSessionStore = create<McpSessionState>((set) => ({
   desired: false,
+  autoAccept: false,
   status: "idle",
   registration: null,
   clientName: null,
   error: null,
   proposals: {},
-  start: () => set({ desired: true, status: "registering", error: null }),
-  stop: () => set({ desired: false }),
+  start: (options) =>
+    set({ desired: true, autoAccept: options?.autoAccept ?? false, status: "registering", error: null }),
+  stop: () => {
+    clearPatchBatches();
+    set({ desired: false, autoAccept: false });
+  },
   setRegistering: () => set({ status: "registering", registration: null, clientName: null, error: null }),
   setRegistration: (registration) => set({ registration, status: "waiting", error: null }),
   setReady: () => set({ status: "waiting", error: null }),
   setClientConnected: (clientName) => set({ status: "connected", clientName, error: null }),
   setError: (error) => set({ status: "error", error }),
-  clear: () => set({ status: "idle", registration: null, clientName: null, error: null, proposals: {} }),
+  clear: () => {
+    clearPatchBatches();
+    set({ status: "idle", registration: null, clientName: null, error: null, proposals: {} });
+  },
   addProposal: (proposal) => set((state) => ({ proposals: { ...state.proposals, [proposal.id]: proposal } })),
   setProposalStatus: (id, status) =>
     set((state) => {

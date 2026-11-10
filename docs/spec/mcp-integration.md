@@ -1,6 +1,6 @@
 # MCP Integration
 
-> **Status:** External MCP clients are the supported model-assisted interaction surface. The browser-hosted relay, OAuth flow, session routing, score queries, and mandatory in-app proposal review are shipped. The experimental first-party chat panel and provider integration have been retired.
+> **Status:** External MCP clients are the supported model-assisted interaction surface. The browser-hosted relay, OAuth flow, session routing, score queries, and in-app proposal review with optional session auto-accept are shipped. The experimental first-party chat panel and provider integration have been retired.
 
 ## Shipped architecture
 
@@ -13,7 +13,7 @@ flowchart LR
     Tab --> Reads[Score and selection queries]
     Tab --> Shadow[Shadow-score validation]
     Shadow --> Review[In-app proposal review]
-    Review -->|accept| Commit[Normal patch/Yjs commit path]
+    Review -->|manual or session auto-accept| Commit[Normal patch/Yjs commit path]
 ```
 
 - Each editor tab must explicitly opt in before it registers a browser-host session.
@@ -21,7 +21,8 @@ flowchart LR
 - `editor.list_sessions` returns only the signed-in user's connected sessions. A `sessionId` is required when more than one session is available.
 - The API relays calls to the authoritative tab and does not store score content.
 - Capacity is bounded per user, per session, and globally. Sessions reconnect automatically but remain ephemeral and tab-scoped.
-- There is no direct-write scope or tool. Every mutation is first validated against a shadow score and shown for explicit approval in Viritura.
+- There is no direct-write scope or tool. Every mutation is first validated against a shadow score. Manual approval is the default; users may explicitly enable auto-accept before connecting a trusted client. This tab-local option survives relay reconnects but resets on disconnect or reload, and cannot be enabled by an MCP tool.
+- Manual review dialogs ignore outside clicks. Accept, Reject, and Escape remain explicit decisions.
 
 The server catalogue is defined in [server/Viritura.Api/Mcp/McpToolCatalog.cs](../../server/Viritura.Api/Mcp/McpToolCatalog.cs). Browser-side execution lives in [apps/editor/src/mcpSession/toolDispatch.ts](../../apps/editor/src/mcpSession/toolDispatch.ts), with proposal review in [apps/editor/src/mcpSession/McpProposalReview.tsx](../../apps/editor/src/mcpSession/McpProposalReview.tsx).
 
@@ -45,17 +46,21 @@ The server catalogue is defined in [server/Viritura.Api/Mcp/McpToolCatalog.cs](.
 
 ### Reviewable proposals
 
-| Tool                                    | Purpose                                                                              |
-| --------------------------------------- | ------------------------------------------------------------------------------------ |
-| `preview.propose_patches`               | Validate up to 256 typed score patches and open the patch diff.                      |
-| `preview.propose_mnx`                   | Validate and review a complete replacement MNX document.                             |
-| `preview.propose_chord_notes`           | Add pitches to existing events through generated typed patches.                      |
-| `preview.reset_stem_directions`         | Remove explicit stem directions and review the resulting document.                   |
-| `preview.split_orchestral_staves`       | Split supported combined orchestral parts and create a condensed score.              |
-| `preview.normalize_tritsch_instruments` | Normalize the known Tritsch score's identities, voices, stems, and playback sources. |
-| `preview.get_status`                    | Observe whether a proposal is pending, accepted, rejected, or stale.                 |
+| Tool                                    | Purpose                                                                                   |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `preview.propose_patches`               | Validate up to 256 typed score patches per call (4096 per batch) and open the patch diff. |
+| `preview.propose_mnx`                   | Validate and review a complete replacement MNX document.                                  |
+| `preview.propose_chord_notes`           | Add pitches to existing events through generated typed patches.                           |
+| `preview.reset_stem_directions`         | Remove explicit stem directions and review the resulting document.                        |
+| `preview.split_orchestral_staves`       | Split supported combined orchestral parts and create a condensed score.                   |
+| `preview.normalize_tritsch_instruments` | Normalize the known Tritsch score's identities, voices, stems, and playback sources.      |
+| `preview.get_status`                    | Observe whether a proposal is pending, accepted, rejected, or stale.                      |
 
-Accepted patch proposals enter the editor's normal `commitPatches()` path and therefore retain validation, undo grouping, and Yjs collaboration behavior. Whole-document proposals use the same mandatory review boundary before replacing the working document.
+Accepted patch proposals enter the editor's normal `commitPatches()` path and therefore retain validation, undo grouping, and Yjs collaboration behavior. Whole-document proposals use `commitDocument()`. Both manual and automatic acceptance check that the document still matches the proposal's original snapshot before committing. Proposal tools return `pending` for manual review or `accepted` after successful auto-accept; `preview.get_status` exposes the recorded outcome. Commit failures mark the proposal stale and return an MCP error rather than reporting acceptance.
+
+### Large edits
+
+MCP client requests may be up to 4 MiB; the rest of the API keeps its 256 KB limit. The relay reads a request body only after authorizing its bearer token. Edits larger than one `preview.propose_patches` call can be split into sequential calls with the same `batchId`. Calls with `final: false` validate their patches on top of the earlier parts and return `batching` with the running `patchCount`. The call with `final: true` (the default) creates one proposal that is reviewed, auto-accepted, and undone as a single edit. A batch holds at most 4096 patches. It is discarded if the document changes before it is finalized (`batch_stale`) or if the MCP session stops. An invalid part is rejected without discarding earlier valid parts.
 
 ## Known limitations and follow-ups
 
@@ -85,7 +90,7 @@ That endpoint would support authenticated score access when no browser tab is co
 - **First-party chat panel and BYO provider keys.** Retired. Users interact through an external MCP client that already supplies the model and chat UI.
 - **MCP sampling for an in-app model.** Sampling was deprecated in the `2026-07-28` MCP revision; provider integration or ACP would be the appropriate shape if first-party chat is reconsidered.
 - **A new `@viritura/ai` package or parallel `ToolRegistry`.** The shipped server catalogue and browser dispatcher are the tool surface. A second registry would duplicate schemas and dispatch behavior.
-- **Direct MCP writes.** Proposal review is a deliberate security and collaboration boundary, not a temporary limitation.
+- **Direct MCP writes.** All edits remain validated proposals using the normal commit paths; auto-accept requires an explicit user choice for the current connection.
 - **Local model routing and Chrome Prompt API integration.** These belonged to the retired first-party chat design.
 - **ACP client integration.** Possible in the Tauri shell, but not scheduled; the external MCP workflow already covers bring-your-own-agent usage.
 

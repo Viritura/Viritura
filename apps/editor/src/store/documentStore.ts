@@ -75,7 +75,7 @@ export interface DocumentStoreState {
    * on schema violations), then routes the fresh score through `updateScore`
    * with no patch list — forcing a full structural relayout and marking the
    * document dirty. Throws if the document fails validation; callers keep the
-   * propose/approve gate by only invoking this on human approval.
+   * proposal gate by invoking this only after manual or session auto-acceptance.
    */
   commitDocument: (mnxJson: string) => void;
   newScore: () => void;

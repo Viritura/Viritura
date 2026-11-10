@@ -12,9 +12,16 @@ interface DiffPreviewModalProps {
   proposedMnx: string;
   onAccept: () => void;
   onReject: () => void;
+  dismissOnOutsideClick?: boolean;
 }
 
-export function DiffPreviewModal({ originalMnx, proposedMnx, onAccept, onReject }: DiffPreviewModalProps) {
+export function DiffPreviewModal({
+  originalMnx,
+  proposedMnx,
+  onAccept,
+  onReject,
+  dismissOnOutsideClick = true,
+}: DiffPreviewModalProps) {
   const diffEditorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
 
   const handleMount = useCallback((ed: editor.IStandaloneDiffEditor) => {
@@ -22,7 +29,7 @@ export function DiffPreviewModal({ originalMnx, proposedMnx, onAccept, onReject 
   }, []);
 
   return (
-    <Dialog open={true} onClose={onReject} size="full">
+    <Dialog open={true} onClose={onReject} size="full" dismissOnOutsideClick={dismissOnOutsideClick}>
       <div data-testid="diff-preview-modal">
         {/* Header */}
         <div className={diffStyles.header}>

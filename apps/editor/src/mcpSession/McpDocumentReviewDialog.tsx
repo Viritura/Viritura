@@ -16,7 +16,7 @@ interface McpDocumentReviewDialogProps {
 export function McpDocumentReviewDialog({ proposal, onAccept, onReject }: McpDocumentReviewDialogProps) {
   const metrics = proposal.document?.diff.metrics ?? [];
   return (
-    <Dialog open onClose={onReject} size="wide">
+    <Dialog open onClose={onReject} size="wide" dismissOnOutsideClick={false}>
       <div className={styles.root} data-testid="mcp-document-review">
         <header className={styles.header}>
           <div>

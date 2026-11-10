@@ -484,12 +484,12 @@ app.MapDelete("/mcp/sessions/{sessionId}/host", McpEndpoint.StopHost)
     .RequireCors("VirituraEditor")
     .RequireRateLimiting("McpSessionCreate");
 app.MapPost("/mcp/sessions/{sessionId}", McpEndpoint.HandleMcpAsync)
-    .WithMetadata(new RequestSizeLimitAttribute(256 * 1024))
+    .WithMetadata(new RequestSizeLimitAttribute(McpEndpoint.MaxClientRequestBytes))
     .RequireRateLimiting("McpRequest");
 app.MapDelete("/mcp/sessions/{sessionId}", McpEndpoint.StopClient)
     .RequireRateLimiting("McpRequest");
 app.MapPost("/mcp", McpEndpoint.HandleStaticMcpAsync)
-    .WithMetadata(new RequestSizeLimitAttribute(256 * 1024))
+    .WithMetadata(new RequestSizeLimitAttribute(McpEndpoint.MaxClientRequestBytes))
     .RequireRateLimiting("McpRequest");
 app.MapDelete("/mcp", (Delegate)McpEndpoint.StopStaticClient)
     .RequireRateLimiting("McpRequest");

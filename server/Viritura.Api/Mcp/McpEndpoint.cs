@@ -13,6 +13,10 @@ internal static class McpEndpoint
 {
     private const string ProtocolVersion = "2025-06-18";
 
+    // Large enough for a complete score or a sizeable patch batch. Bodies are
+    // read only after the bearer token is authorized.
+    internal const long MaxClientRequestBytes = 4 * 1024 * 1024;
+
     internal static IResult Register(
         HttpContext context,
         McpSessionRegistry registry,
@@ -164,11 +168,16 @@ internal static class McpEndpoint
         IWebHostEnvironment? environment,
         CancellationToken cancellationToken)
     {
+        var body = await ReadBoundedBodyAsync(context.Request, MaxClientRequestBytes, cancellationToken);
+        if (body is null)
+        {
+            return McpError(null, -32600, "Request body is too large.", "payload_too_large", StatusCodes.Status413PayloadTooLarge);
+        }
 
         JsonElement request;
         try
         {
-            request = (await JsonDocument.ParseAsync(context.Request.Body, cancellationToken: cancellationToken)).RootElement.Clone();
+            request = JsonDocument.Parse(body).RootElement.Clone();
         }
         catch (JsonException)
         {
@@ -210,7 +219,7 @@ internal static class McpEndpoint
                     protocolVersion = ProtocolVersion,
                     capabilities = new { tools = new { listChanged = false } },
                     serverInfo = new { name = "Viritura live editor", version = "0.1.0" },
-                    instructions = "Call editor.list_sessions first when more than one Viritura document may be open, then pass sessionId to score and preview tools. Submit edits with preview.propose_patches; a person must approve them in Viritura."
+                    instructions = "Call editor.list_sessions first when more than one Viritura document may be open, then pass sessionId to score and preview tools. Submit edits with preview tools; proposals require approval in Viritura unless the user enabled auto-accept for that session. Check the returned proposal status. For more than 256 patches, send sequential preview.propose_patches calls with one batchId and final: false, then a last call with final: true to create one proposal."
                 });
 
             case "ping":
@@ -479,6 +488,32 @@ internal static class McpEndpoint
 
     private static IResult McpResult(JsonElement id, object result) =>
         Results.Json(new { jsonrpc = "2.0", id, result }, contentType: "application/json");
+
+    // Route metadata caps the body under Kestrel; this also covers hosts that
+    // ignore it and chunked bodies without Content-Length.
+    private static async Task<byte[]?> ReadBoundedBodyAsync(
+        HttpRequest request,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        if (request.ContentLength > maxBytes)
+        {
+            return null;
+        }
+
+        using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+        while ((read = await request.Body.ReadAsync(chunk, cancellationToken)) > 0)
+        {
+            if (buffer.Length + read > maxBytes)
+            {
+                return null;
+            }
+            await buffer.WriteAsync(chunk.AsMemory(0, read), cancellationToken);
+        }
+        return buffer.ToArray();
+    }
 
     private static IResult McpError(
         JsonElement? id,

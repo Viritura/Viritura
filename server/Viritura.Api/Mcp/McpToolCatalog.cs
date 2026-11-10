@@ -122,19 +122,21 @@ internal static class McpToolCatalog
         new
         {
             name = "preview.propose_patches",
-            description = "Validate ScorePatch objects against the current score and show an in-app diff for user approval. This never changes the score directly.",
+            description = "Validate ScorePatch objects against the current score and propose edits. Show an in-app diff for approval, or apply immediately if the user enabled session auto-accept. Check the returned proposal status. For more than 256 patches (up to 4096), send the batches sequentially with the same batchId: earlier calls use final: false and return status \"batching\"; the call with final: true creates ONE proposal containing every batch, approved and undone as a single edit. A batch is discarded if the score changes before it is final.",
             inputSchema = Schema("""
                 {
                   "type": "object",
                   "properties": {
-                                        "sessionId": { "type": "string", "minLength": 16 },
+                    "sessionId": { "type": "string", "minLength": 16 },
                     "patches": {
                       "type": "array",
                       "minItems": 1,
                       "maxItems": 256,
                       "items": { "type": "object", "required": ["kind"] }
                     },
-                    "summary": { "type": "string", "maxLength": 240 }
+                    "summary": { "type": "string", "maxLength": 240 },
+                    "batchId": { "type": "string", "minLength": 1, "maxLength": 64 },
+                    "final": { "type": "boolean", "default": true }
                   },
                   "required": ["patches"],
                   "additionalProperties": false
@@ -145,7 +147,7 @@ internal static class McpToolCatalog
         new
         {
             name = "preview.propose_mnx",
-            description = "Validate a complete MNX document via the MNX schema and stage ONE whole-document proposal for ONE approval, reviewed by a structural summary. Use this to author or replace a large score without serializing many patch approvals. This never changes the score before user approval.",
+            description = "Validate a complete MNX document via the MNX schema and submit ONE whole-document proposal, reviewed by a structural summary. Use this to author or replace a large score without serializing many patch approvals. Apply immediately only if the user enabled session auto-accept. Check the returned proposal status.",
             inputSchema = Schema("""
                 {
                   "type": "object",
@@ -163,28 +165,28 @@ internal static class McpToolCatalog
         new
         {
             name = "preview.reset_stem_directions",
-            description = "Remove every explicit note-event stemDirection, including nested tuplets, grace groups, and tremolos, and stage one whole-document proposal for approval. This never changes the score before approval.",
+            description = "Remove every explicit note-event stemDirection, including nested tuplets, grace groups, and tremolos, and submit one whole-document proposal. Requires approval unless the user enabled session auto-accept.",
             inputSchema = SessionRoutingSchema,
             annotations = new { readOnlyHint = false, destructiveHint = false }
         },
         new
         {
             name = "preview.split_orchestral_staves",
-            description = "Split the current score's combined P2/P5/P6/P7 orchestral parts into separate player Parts, add a distinct auto-condensed score, and stage one whole-document proposal for approval. This never changes the score before approval.",
+            description = "Split the current score's combined P2/P5/P6/P7 orchestral parts into separate player Parts, add a distinct auto-condensed score, and submit one whole-document proposal. Requires approval unless the user enabled session auto-accept.",
             inputSchema = SessionRoutingSchema,
             annotations = new { readOnlyHint = false, destructiveHint = false }
         },
         new
         {
             name = "preview.normalize_tritsch_instruments",
-            description = "Normalize the known 23-part Tritsch score to modern English names and catalog identities, normalize split wind/brass voices and automatic stems, assign Viritura Sounds sources, correct bass drum/triangle/cymbal routing, and stage one whole-document proposal for approval. This never changes the score before approval.",
+            description = "Normalize the known 23-part Tritsch score to modern English names and catalog identities, normalize split wind/brass voices and automatic stems, assign Viritura Sounds sources, correct bass drum/triangle/cymbal routing, and submit one whole-document proposal. Requires approval unless the user enabled session auto-accept.",
             inputSchema = SessionRoutingSchema,
             annotations = new { readOnlyHint = false, destructiveHint = false }
         },
         new
         {
                         name = "preview.propose_chord_notes",
-                        description = "Add one or more pitches to existing note events as a reviewable proposal. This never changes the score before user approval.",
+                        description = "Add one or more pitches to existing note events as a reviewable proposal. Requires approval unless the user enabled session auto-accept.",
                         inputSchema = Schema("""
                                 {
                                     "type": "object",
@@ -232,7 +234,7 @@ internal static class McpToolCatalog
                 new
                 {
             name = "preview.get_status",
-            description = "Return whether a previously proposed patch set is still awaiting review, accepted, or rejected.",
+            description = "Return whether a previous proposal is pending review, accepted (manually or via session auto-accept), rejected, or stale.",
             inputSchema = Schema("""
                 {
                   "type": "object",

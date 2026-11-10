@@ -1,5 +1,5 @@
-import { useCallback } from "react";
-import { Button, FormInput } from "@viritura/ui";
+import { useCallback, useState } from "react";
+import { Button, Checkbox, FormInput } from "@viritura/ui";
 import { Bot, Copy, Link2Off, MessageSquareText, Radio } from "lucide-react";
 import { toast } from "sonner";
 import { useMcpSessionStore } from "./sessionStore";
@@ -8,6 +8,8 @@ import styles from "./McpSessionPanel.module.css";
 /** Controls the live MCP browser host selected by the user's stable OAuth endpoint. */
 export function McpSessionPanel() {
   const desired = useMcpSessionStore((state) => state.desired);
+  const autoAccept = useMcpSessionStore((state) => state.autoAccept);
+  const [allowAutoAccept, setAllowAutoAccept] = useState(false);
   const status = useMcpSessionStore((state) => state.status);
   const registration = useMcpSessionStore((state) => state.registration);
   const clientName = useMcpSessionStore((state) => state.clientName);
@@ -38,9 +40,29 @@ export function McpSessionPanel() {
       </div>
 
       {!desired ? (
-        <Button variant="primary" size="sm" onClick={start} fullWidth testId="mcp-start-session">
-          <Radio size={14} /> Connect MCP client
-        </Button>
+        <>
+          <Checkbox
+            label="Auto-accept proposed edits for this session"
+            checked={allowAutoAccept}
+            onChange={(event) => setAllowAutoAccept(event.target.checked)}
+            aria-describedby="mcp-auto-accept-warning"
+          />
+          <p id="mcp-auto-accept-warning" className={styles.warning}>
+            Only enable this for a trusted client. Validated edits will apply without a review dialog.
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              start({ autoAccept: allowAutoAccept });
+              setAllowAutoAccept(false);
+            }}
+            fullWidth
+            testId="mcp-start-session"
+          >
+            <Radio size={14} /> Connect MCP client
+          </Button>
+        </>
       ) : (
         <>
           <div className={styles.status} data-status={status}>
@@ -77,8 +99,10 @@ export function McpSessionPanel() {
           )}
           <p className={styles.warning}>
             Access is enabled only for tabs where you select Connect MCP client. If multiple tabs or browsers opt in,
-            the MCP client can discover each open score and address it separately. Proposed edits always require
-            approval in the corresponding Viritura tab.
+            the MCP client can discover each open score and address it separately.{" "}
+            {autoAccept
+              ? "Auto-accept is enabled for this session. Validated edits apply without review."
+              : "Proposed edits require approval in the corresponding Viritura tab."}
           </p>
           {error && <div className={styles.error}>{error}</div>}
           <Button variant="ghost" size="sm" onClick={stop} fullWidth testId="mcp-stop-session">
