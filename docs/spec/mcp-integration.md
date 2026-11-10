@@ -17,7 +17,7 @@ flowchart LR
 ```
 
 - Each editor tab must explicitly opt in before it registers a browser-host session.
-- External clients use Authorization Code with S256 PKCE. One-hour reference tokens are audience-bound and scoped to `score:read`, `selection:read`, and `score:propose`.
+- External clients use Authorization Code with S256 PKCE. One-hour reference access tokens are audience-bound and scoped to `score:read`, `selection:read`, and `score:propose`. Clients requesting `offline_access` receive reference refresh tokens that rotate on use, have no sliding expiry, and expire 30 days after authorization. Reusing a rotated refresh token is rejected; clients must start a new browser authorization after expiry or revocation.
 - `editor.list_sessions` returns only the signed-in user's connected sessions. A `sessionId` is required when more than one session is available.
 - The API relays calls to the authoritative tab and does not store score content.
 - Capacity is bounded per user, per session, and globally. Sessions reconnect automatically but remain ephemeral and tab-scoped.
