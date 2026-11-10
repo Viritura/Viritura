@@ -134,9 +134,18 @@ describe("structural patches — part measures and sequences", () => {
         },
       ]),
     ]);
-    const content = next.parts[0]!.measures[1]!.sequences[0]!.content;
-    expect(content).toHaveLength(1);
-    expect(content[0]).toMatchObject({ id: "x1" });
+    const sequence = next.parts[0]!.measures[1]!.sequences[0]!;
+    expect(sequence.content).toHaveLength(1);
+    expect(sequence.content[0]).toMatchObject({ id: "x1" });
+    expect(sequence.fullMeasure).toBeUndefined();
+  });
+
+  it("setSequenceContent with empty content keeps a full-measure rest", () => {
+    const inserted = applyPatchesToScore(makeScore(), [patch.insertMeasures(1, [{}])]);
+    const next = applyPatchesToScore(inserted, [
+      patch.setSequenceContent({ partId: "p1", measureIndex: 1, voice: 0 }, []),
+    ]);
+    expect(next.parts[0]!.measures[1]!.sequences[0]!.fullMeasure).toEqual({ visualDuration: { base: "whole" } });
   });
 
   it("setSequenceContent creates intervening voices up to the target index", () => {

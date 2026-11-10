@@ -124,7 +124,11 @@ export function applySetSequenceContent(draft: Draft<Score>, p: SetSequenceConte
   while (measure.sequences.length <= p.sequencePath.voice) {
     measure.sequences.push({ content: [] });
   }
-  measure.sequences[p.sequencePath.voice]!.content = p.content;
+  const sequence = measure.sequences[p.sequencePath.voice]!;
+  sequence.content = p.content;
+  // A full-measure rest marker overrides content during layout, so written
+  // content must replace it (as note entry does).
+  if (p.content.length > 0) delete sequence.fullMeasure;
 }
 
 function resolvePartMeasure(score: Score, path: MeasurePath | SequencePath): PartMeasure {
