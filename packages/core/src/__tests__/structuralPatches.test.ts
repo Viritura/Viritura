@@ -51,6 +51,25 @@ describe("structural patches — global measures", () => {
     expect(next.global.measures[0]!.tempos).toEqual([{ bpm: 96, value: { base: "quarter" } }]);
   });
 
+  it("setGlobalMeasureField sets and clears chord symbols", () => {
+    const score = makeScore();
+    const chordSymbols = [
+      { position: { fraction: [0, 1] as [number, number] }, rawText: "D" },
+      { position: { fraction: [2, 1] as [number, number] }, rawText: "A" },
+    ];
+    const set = applyPatchesToScore(score, [
+      patch.setGlobalMeasureField(0, { field: "chordSymbols", value: chordSymbols }),
+    ]);
+
+    expect(set.global.measures[0]!.chordSymbols).toEqual(chordSymbols);
+    expect(score.global.measures[0]!.chordSymbols).toBeUndefined();
+
+    const cleared = applyPatchesToScore(set, [
+      patch.setGlobalMeasureField(0, { field: "chordSymbols", value: undefined }),
+    ]);
+    expect(cleared.global.measures[0]!.chordSymbols).toBeUndefined();
+  });
+
   it("setGlobalMeasureField throws for a missing measure", () => {
     const score = makeScore();
     expect(() =>

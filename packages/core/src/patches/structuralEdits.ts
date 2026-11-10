@@ -59,6 +59,7 @@ function writeGlobalMeasureField(measure: GlobalMeasure, update: GlobalMeasureFi
     case "time":
     case "key":
     case "tempos":
+    case "chordSymbols":
     case "barline":
     case "repeatStart":
     case "repeatEnd":
