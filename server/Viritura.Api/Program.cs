@@ -65,15 +65,20 @@ builder.Services.AddOpenIddict()
             .SetTokenEndpointUris("/oauth/token")
             .SetRevocationEndpointUris("/oauth/revoke");
         options.AllowAuthorizationCodeFlow();
+        options.AllowRefreshTokenFlow();
         options.RequireProofKeyForCodeExchange();
         // MCP resources are ephemeral /mcp/sessions/{id} URLs and cannot be
         // pre-seeded in OpenIddict's resource store. McpOAuthEndpoint validates
         // their existence, expiry, and owner before issuing an authorization.
         options.DisableResourceValidation();
         options.IgnoreResourcePermissions();
-        options.RegisterScopes("score:read", "selection:read", "score:propose");
+        options.RegisterScopes("score:read", "selection:read", "score:propose", "offline_access");
         options.UseReferenceAccessTokens();
         options.SetAccessTokenLifetime(TimeSpan.FromHours(1));
+        options.UseReferenceRefreshTokens();
+        options.SetRefreshTokenLifetime(TimeSpan.FromDays(30));
+        options.DisableSlidingRefreshTokenExpiration();
+        options.SetRefreshTokenReuseLeeway(TimeSpan.Zero);
         options.UseDataProtection();
         options.AddEventHandler<OpenIddictServerEvents.HandleConfigurationRequestContext>(builder =>
             builder.UseInlineHandler(context =>

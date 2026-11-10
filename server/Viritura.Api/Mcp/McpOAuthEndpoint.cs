@@ -29,10 +29,10 @@ internal static class McpOAuthEndpoint
     internal const string SessionClaim = "viritura:mcp_session";
     internal const string DevelopmentSubject = "development-user";
     private static readonly SemaphoreSlim RegistrationGate = new(1, 1);
-    private static readonly string[] SupportedScopes = ["score:read", "selection:read", "score:propose"];
+    private static readonly string[] SupportedScopes = ["score:read", "selection:read", "score:propose", "offline_access"];
     private static readonly string[] HeaderBearerMethod = ["header"];
     private static readonly string[] CodeResponseType = ["code"];
-    private static readonly string[] AuthorizationCodeGrant = ["authorization_code"];
+    private static readonly string[] SupportedGrantTypes = ["authorization_code", "refresh_token"];
     private static readonly string[] AccessTokenDestination = [Destinations.AccessToken];
     private static readonly string[] NoDestinations = [];
     private static readonly string[] ApplicationPermissions =
@@ -41,10 +41,12 @@ internal static class McpOAuthEndpoint
         Permissions.Endpoints.Token,
         Permissions.Endpoints.Revocation,
         Permissions.GrantTypes.AuthorizationCode,
+        Permissions.GrantTypes.RefreshToken,
         Permissions.ResponseTypes.Code,
         Permissions.Prefixes.Scope + "score:read",
         Permissions.Prefixes.Scope + "selection:read",
-        Permissions.Prefixes.Scope + "score:propose"
+        Permissions.Prefixes.Scope + "score:propose",
+        Permissions.Prefixes.Scope + "offline_access"
     ];
 
     internal static IResult ProtectedResourceMetadata(
@@ -154,7 +156,7 @@ internal static class McpOAuthEndpoint
                 client_name = displayName,
                 redirect_uris = redirectUris.Select(uri => uri.AbsoluteUri),
                 token_endpoint_auth_method = "none",
-                grant_types = AuthorizationCodeGrant,
+                grant_types = SupportedGrantTypes,
                 response_types = CodeResponseType
             }, statusCode: StatusCodes.Status201Created);
         }
@@ -249,18 +251,29 @@ internal static class McpOAuthEndpoint
         return Results.SignIn(principal, authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }
 
-    internal static async Task<IResult> ExchangeTokenAsync(HttpContext context)
+    internal static async Task<IResult> ExchangeTokenAsync(HttpContext context, McpSessionRegistry sessions)
     {
         var request = context.GetOpenIddictServerRequest();
-        if (request?.IsAuthorizationCodeGrantType() != true)
+        if (request is null
+            || (!request.IsAuthorizationCodeGrantType() && !request.IsRefreshTokenGrantType()))
         {
-            return OAuthError(StatusCodes.Status400BadRequest, Errors.UnsupportedGrantType, "Only authorization_code is supported.");
+            return OAuthError(
+                StatusCodes.Status400BadRequest,
+                Errors.UnsupportedGrantType,
+                "Only authorization_code and refresh_token are supported.");
         }
 
         var result = await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         if (!result.Succeeded || result.Principal is null)
         {
-            return OAuthError(StatusCodes.Status400BadRequest, Errors.InvalidGrant, "The authorization code is invalid or expired.");
+            return OAuthError(StatusCodes.Status400BadRequest, Errors.InvalidGrant, "The authorization grant is invalid or expired.");
+        }
+
+        if (request.IsRefreshTokenGrantType()
+            && result.Principal.FindFirstValue(SessionClaim) is { } sessionId
+            && !sessions.Exists(sessionId))
+        {
+            return OAuthError(StatusCodes.Status400BadRequest, Errors.InvalidGrant, "The MCP session has expired.");
         }
 
         return Results.SignIn(

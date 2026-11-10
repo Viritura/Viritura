@@ -20,6 +20,7 @@ namespace Viritura.Api.Tests;
 public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly string[] CapacityTestRedirectUris = ["http://127.0.0.1:43129/callback"];
+    private static readonly string[] RefreshReplayTestRedirectUris = ["http://127.0.0.1:43130/callback"];
     private static readonly string[] NonObjectPayload = ["not", "an", "object"];
     private readonly WebApplicationFactory<Program> _factory;
 
@@ -316,6 +317,10 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
             "none",
             server.GetProperty("token_endpoint_auth_methods_supported").EnumerateArray()
                 .Select(method => method.GetString()!));
+        Assert.Contains(
+            "refresh_token",
+            server.GetProperty("grant_types_supported").EnumerateArray()
+                .Select(grant => grant.GetString()!));
     }
 
     [Fact]
@@ -339,6 +344,11 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
         var registration = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.StartsWith("mcp-", registration.GetProperty("client_id").GetString(), StringComparison.Ordinal);
         Assert.Equal("none", registration.GetProperty("token_endpoint_auth_method").GetString());
+        Assert.Equal(
+            ["authorization_code", "refresh_token"],
+            registration.GetProperty("grant_types").EnumerateArray()
+                .Select(grant => grant.GetString()!)
+                .ToArray());
         Assert.Equal(
             redirectUris,
             registration.GetProperty("redirect_uris").EnumerateArray()
@@ -379,6 +389,80 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
             new { jsonrpc = "2.0", id = 2, method = "ping" });
         var blocked = await client.SendAsync(afterRevoke);
         Assert.Equal(HttpStatusCode.Unauthorized, blocked.StatusCode);
+    }
+
+    [Fact]
+    public async Task OAuthRefreshToken_RotatesAndRejectsReuse()
+    {
+        using var client = CreateClient();
+        var registration = await RegisterAsync(client);
+        var mcpUrl = SessionMcpUrl(registration);
+        var grant = await AuthorizeOAuthAsync(client, mcpUrl);
+        Assert.False(string.IsNullOrEmpty(grant.RefreshToken));
+        var refreshToken = grant.RefreshToken!;
+
+        var otherClientResponse = await client.PostAsJsonAsync("/oauth/register", new
+        {
+            client_name = "Different MCP client",
+            redirect_uris = RefreshReplayTestRedirectUris
+        });
+        otherClientResponse.EnsureSuccessStatusCode();
+        var otherClient = await otherClientResponse.Content.ReadFromJsonAsync<JsonElement>();
+        using var wrongClientRefresh = CreateRefreshTokenRequest(
+            otherClient.GetProperty("client_id").GetString()!,
+            refreshToken);
+        var wrongClientResponse = await client.SendAsync(wrongClientRefresh);
+        Assert.Equal(HttpStatusCode.BadRequest, wrongClientResponse.StatusCode);
+
+        using var refresh = CreateRefreshTokenRequest(grant.ClientId, refreshToken);
+        var refreshedResponse = await client.SendAsync(refresh);
+        Assert.Equal(HttpStatusCode.OK, refreshedResponse.StatusCode);
+        var refreshed = await refreshedResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Bearer", refreshed.GetProperty("token_type").GetString());
+        Assert.NotEqual(refreshToken, refreshed.GetProperty("refresh_token").GetString());
+
+        using var ping = CreateAuthorizedRequest(
+            mcpUrl,
+            refreshed.GetProperty("access_token").GetString()!,
+            new { jsonrpc = "2.0", id = 1, method = "ping" });
+        var pingResponse = await client.SendAsync(ping);
+        pingResponse.EnsureSuccessStatusCode();
+
+        using var replay = CreateRefreshTokenRequest(grant.ClientId, refreshToken);
+        var replayResponse = await client.SendAsync(replay);
+        Assert.Equal(HttpStatusCode.BadRequest, replayResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task OAuthAuthorizationCode_DoesNotIssueRefreshTokenWithoutOfflineAccess()
+    {
+        using var client = CreateClient();
+        var registration = await RegisterAsync(client);
+        var grant = await AuthorizeOAuthAsync(
+            client,
+            SessionMcpUrl(registration),
+            requestOfflineAccess: false);
+
+        Assert.Null(grant.RefreshToken);
+    }
+
+    [Fact]
+    public async Task OAuthRefreshToken_RejectsExpiredMcpSession()
+    {
+        using var client = CreateClient();
+        var registration = await RegisterAsync(client);
+        var grant = await AuthorizeOAuthAsync(client, SessionMcpUrl(registration));
+        Assert.False(string.IsNullOrEmpty(grant.RefreshToken));
+        var sessionId = registration.GetProperty("sessionId").GetString()!;
+        var registry = _factory.Services.GetRequiredService<McpSessionRegistry>();
+        Assert.True(registry.Stop(sessionId));
+
+        using var refresh = CreateRefreshTokenRequest(grant.ClientId, grant.RefreshToken!);
+        var response = await client.SendAsync(refresh);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("invalid_grant", body.GetProperty("error").GetString());
     }
 
     [Fact]
@@ -712,7 +796,21 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
         return request;
     }
 
-    private static async Task<OAuthGrant> AuthorizeOAuthAsync(HttpClient client, string resource)
+    private static HttpRequestMessage CreateRefreshTokenRequest(string clientId, string refreshToken) =>
+        new(HttpMethod.Post, "/oauth/token")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["client_id"] = clientId,
+                ["refresh_token"] = refreshToken
+            })
+        };
+
+    private static async Task<OAuthGrant> AuthorizeOAuthAsync(
+        HttpClient client,
+        string resource,
+        bool requestOfflineAccess = true)
     {
         const string RedirectUri = "http://127.0.0.1:43129/callback";
         var clientRegistration = await client.PostAsJsonAsync("/oauth/register", new
@@ -731,7 +829,9 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
             ["response_type"] = "code",
             ["client_id"] = clientId,
             ["redirect_uri"] = RedirectUri,
-            ["scope"] = "score:read selection:read score:propose",
+            ["scope"] = requestOfflineAccess
+                ? "score:read selection:read score:propose offline_access"
+                : "score:read selection:read score:propose",
             ["state"] = state,
             ["code_challenge"] = challenge,
             ["code_challenge_method"] = "S256",
@@ -778,7 +878,10 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
         tokenResponse.EnsureSuccessStatusCode();
         var token = await tokenResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Bearer", token.GetProperty("token_type").GetString());
-        return new OAuthGrant(clientId, token.GetProperty("access_token").GetString()!);
+        return new OAuthGrant(
+            clientId,
+            token.GetProperty("access_token").GetString()!,
+            token.TryGetProperty("refresh_token", out var refreshToken) ? refreshToken.GetString() : null);
     }
 
     private static Dictionary<string, string> ParseHiddenInputs(string html)
@@ -806,7 +909,7 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
     private static string Base64Url(byte[] value) =>
         Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
-    private sealed record OAuthGrant(string ClientId, string AccessToken);
+    private sealed record OAuthGrant(string ClientId, string AccessToken, string? RefreshToken);
 
     private static async Task SendSocketJsonAsync(WebSocket socket, object value, CancellationToken cancellationToken)
     {
