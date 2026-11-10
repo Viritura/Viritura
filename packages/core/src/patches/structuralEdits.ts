@@ -117,14 +117,15 @@ function writePartMeasureField(measure: PartMeasure, update: PartMeasureField): 
 }
 
 export function applySetSequenceContent(draft: Draft<Score>, p: SetSequenceContentPatch): void {
-  const measure = resolvePartMeasure(draft as Score, p.sequencePath);
-  if (p.sequencePath.voice < 0) {
-    throw new PatchTargetMissing(`setSequenceContent: voice ${p.sequencePath.voice} is negative`);
+  const { voice } = p.sequencePath;
+  if (!Number.isInteger(voice) || voice < 0) {
+    throw new PatchTargetMissing(`setSequenceContent: voice ${voice} must be a non-negative integer`);
   }
-  while (measure.sequences.length <= p.sequencePath.voice) {
+  const measure = resolvePartMeasure(draft as Score, p.sequencePath);
+  while (measure.sequences.length <= voice) {
     measure.sequences.push({ content: [] });
   }
-  const sequence = measure.sequences[p.sequencePath.voice]!;
+  const sequence = measure.sequences[voice]!;
   sequence.content = p.content;
   // A full-measure rest marker overrides content during layout, so written
   // content must replace it (as note entry does).

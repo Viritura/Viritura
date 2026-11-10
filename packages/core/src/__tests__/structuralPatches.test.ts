@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Score } from "../model/score";
 import type { Part } from "../model/part";
+import type { SetSequenceContentPatch } from "../patches";
 import { applyPatchesToScore, patch, patchAffectedMeasures, PatchTargetMissing } from "../patches";
 
 function makeScore(): Score {
@@ -158,6 +159,37 @@ describe("structural patches — part measures and sequences", () => {
     expect(seqs).toHaveLength(3);
     expect(seqs[2]!.content[0]).toMatchObject({ id: "v2" });
   });
+
+  it.each([-1, 0.5, NaN, Infinity, -Infinity])("setSequenceContent rejects invalid numeric voice %s", (voice) => {
+    const score = makeScore();
+    expect(() =>
+      applyPatchesToScore(score, [patch.setSequenceContent({ partId: "p1", measureIndex: 0, voice }, [])]),
+    ).toThrow(PatchTargetMissing);
+    expect(score).toEqual(makeScore());
+  });
+
+  it.each(["__proto__", "constructor", "prototype", "0", null, true, {}, []])(
+    "setSequenceContent rejects non-numeric voice %j from JSON",
+    (voice) => {
+      const score = makeScore();
+      const untrustedPatch: SetSequenceContentPatch = JSON.parse(
+        JSON.stringify({
+          kind: "setSequenceContent",
+          sequencePath: { partId: "p1", measureIndex: 0, voice },
+          content: [],
+        }),
+      );
+      const prototypeContent = Object.getOwnPropertyDescriptor(Array.prototype, "content");
+      try {
+        expect(() => applyPatchesToScore(score, [untrustedPatch])).toThrow(PatchTargetMissing);
+        expect(Object.getOwnPropertyDescriptor(Array.prototype, "content")).toEqual(prototypeContent);
+        expect(score).toEqual(makeScore());
+      } finally {
+        if (prototypeContent) Object.defineProperty(Array.prototype, "content", prototypeContent);
+        else Reflect.deleteProperty(Array.prototype, "content");
+      }
+    },
+  );
 });
 
 describe("structural patches — parts and score-level", () => {

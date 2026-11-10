@@ -344,9 +344,9 @@ export interface SetPartMeasureFieldPatch {
  * this needs no anchor events, so it is the only patch that can fill an empty
  * (freshly inserted) measure — the empty-measure bootstrap. Non-empty content
  * clears the voice's `fullMeasure` rest marker; empty content preserves it.
- * If the addressed
- * `voice` index does not exist yet, intervening voices are created empty so the
- * target voice lands at the requested index.
+ * The `voice` index must be a non-negative integer; invalid runtime values throw
+ * `PatchTargetMissing`. If the index does not exist yet, intervening voices are
+ * created empty so the target voice lands at the requested index.
  */
 export interface SetSequenceContentPatch {
   kind: "setSequenceContent";
