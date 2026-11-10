@@ -108,6 +108,35 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task AuthorizedRequests_AcceptLargeBodiesUpToTheMcpLimit()
+    {
+        using var client = CreateClient();
+        var registration = await RegisterAsync(client);
+        var endpoint = SessionMcpUrl(registration);
+        var grant = await AuthorizeOAuthAsync(client, endpoint);
+
+        // Well past the 256 KB limit that applies to other API routes.
+        var large = await PostRpcAsync(client, endpoint, grant.AccessToken, new
+        {
+            jsonrpc = "2.0",
+            id = 1,
+            method = "ping",
+            @params = new { padding = new string('x', 1024 * 1024) }
+        });
+        Assert.True(large.TryGetProperty("result", out _));
+
+        using var oversized = CreateAuthorizedRequest(endpoint, grant.AccessToken, new
+        {
+            jsonrpc = "2.0",
+            id = 2,
+            method = "ping",
+            @params = new { padding = new string('x', (int)McpEndpoint.MaxClientRequestBytes) }
+        });
+        var response = await client.SendAsync(oversized);
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Initialize_AndToolsList_ImplementMcpJsonRpc()
     {
         using var client = CreateClient();
@@ -153,6 +182,12 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
             if (tool.GetProperty("name").GetString()?.StartsWith("preview.", StringComparison.Ordinal) == true)
             {
                 Assert.Contains("auto-accept", tool.GetProperty("description").GetString(), StringComparison.Ordinal);
+            }
+            if (tool.GetProperty("name").GetString() == "preview.propose_patches")
+            {
+                var properties = tool.GetProperty("inputSchema").GetProperty("properties");
+                Assert.True(properties.TryGetProperty("batchId", out _));
+                Assert.True(properties.TryGetProperty("final", out _));
             }
         }
 

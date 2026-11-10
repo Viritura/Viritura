@@ -122,19 +122,21 @@ internal static class McpToolCatalog
         new
         {
             name = "preview.propose_patches",
-            description = "Validate ScorePatch objects against the current score and propose edits. Show an in-app diff for approval, or apply immediately if the user enabled session auto-accept. Check the returned proposal status.",
+            description = "Validate ScorePatch objects against the current score and propose edits. Show an in-app diff for approval, or apply immediately if the user enabled session auto-accept. Check the returned proposal status. For more than 256 patches (up to 4096), send the batches sequentially with the same batchId: earlier calls use final: false and return status \"batching\"; the call with final: true creates ONE proposal containing every batch, approved and undone as a single edit. A batch is discarded if the score changes before it is final.",
             inputSchema = Schema("""
                 {
                   "type": "object",
                   "properties": {
-                                        "sessionId": { "type": "string", "minLength": 16 },
+                    "sessionId": { "type": "string", "minLength": 16 },
                     "patches": {
                       "type": "array",
                       "minItems": 1,
                       "maxItems": 256,
                       "items": { "type": "object", "required": ["kind"] }
                     },
-                    "summary": { "type": "string", "maxLength": 240 }
+                    "summary": { "type": "string", "maxLength": 240 },
+                    "batchId": { "type": "string", "minLength": 1, "maxLength": 64 },
+                    "final": { "type": "boolean", "default": true }
                   },
                   "required": ["patches"],
                   "additionalProperties": false

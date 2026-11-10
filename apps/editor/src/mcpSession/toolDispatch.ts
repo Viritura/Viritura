@@ -15,6 +15,7 @@ import { getMeasureSlice, getSelectionContext } from "./scoreQueries";
 import { getScoreTimeline, getScoreVideoSync } from "./scoreTimeline";
 import { useMcpSessionStore, type McpProposal } from "./sessionStore";
 import { acceptMcpProposal } from "./proposalAcceptance";
+import { appendPatchBatch, discardPatchBatch } from "./patchBatches";
 
 const MAX_WHOLE_DOCUMENT_PREVIEW_BYTES = 512 * 1024;
 
@@ -171,12 +172,45 @@ function proposePatches(documentStore: DocumentStore, args: unknown): McpToolRes
   if (!rawPatches.every((patch) => isObject(patch) && typeof patch.kind === "string")) {
     return failure("invalid_patches", "Every patch must be an object with a kind discriminator.");
   }
+  const { batchId, final } = input;
+  if (batchId !== undefined && (typeof batchId !== "string" || batchId.length === 0 || batchId.length > 64)) {
+    return failure("invalid_batch", "batchId must be a string of 1 to 64 characters.");
+  }
+  if (final !== undefined && typeof final !== "boolean") {
+    return failure("invalid_batch", "final must be a boolean.");
+  }
 
-  return stageProposal(
-    documentStore,
-    structuredClone(rawPatches) as ScorePatch[],
-    typeof input.summary === "string" ? input.summary.slice(0, 240) : `${rawPatches.length} score patches`,
-  );
+  const patches = structuredClone(rawPatches) as ScorePatch[];
+  const summary = typeof input.summary === "string" ? input.summary.slice(0, 240) : undefined;
+  if (batchId === undefined) {
+    if (final === false) return failure("invalid_batch", "final: false requires a batchId.");
+    return stageProposal(documentStore, patches, summary ?? `${patches.length} score patches`);
+  }
+  return proposePatchBatch(documentStore, batchId, patches, final !== false, summary);
+}
+
+function proposePatchBatch(
+  documentStore: DocumentStore,
+  batchId: string,
+  patches: readonly ScorePatch[],
+  final: boolean,
+  summary: string | undefined,
+): McpToolResult {
+  const state = documentStore.getState();
+  if (!state.workingScore || !state.mnxJson) return failure("no_document", "No score is open in Viritura.");
+
+  const result = appendPatchBatch(batchId, state.workingScore, state.mnxJson, patches);
+  if (!result.ok) return failure(result.code, result.message);
+  const patchCount = result.patches.length;
+  if (!final) {
+    return success(
+      { batchId, status: "batching", patchCount },
+      `Batch ${batchId} holds ${String(patchCount)} validated patches. Send the remaining patches with final: true to create one proposal.`,
+    );
+  }
+
+  discardPatchBatch(batchId);
+  return stageProposal(documentStore, result.patches, summary ?? `${String(patchCount)} score patches`);
 }
 
 function proposeMnx(documentStore: DocumentStore, args: unknown): McpToolResult {
@@ -333,8 +367,9 @@ function stageProposal(documentStore: DocumentStore, patches: readonly ScorePatc
   if (!score || !state.mnxJson) return failure("no_document", "No score is open in Viritura.");
 
   // The patch interpreter verifies targets and the MNX round-trip verifies the
-  // resulting value shapes before anything is offered to the user.
-  const proposedScore = applyPatchesToScore(score, patches);
+  // resulting value shapes before anything is offered to the user. The clone
+  // keeps the proposal's patches intact when later patches edit inserted objects.
+  const proposedScore = applyPatchesToScore(score, structuredClone(patches));
   const proposedDocument = serializeMnx(proposedScore);
   parseMnx(structuredClone(proposedDocument));
   const proposal: McpProposal = {

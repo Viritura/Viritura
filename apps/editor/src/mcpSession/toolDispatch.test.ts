@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Score } from "@viritura/core";
+import type { Score, ScorePatch } from "@viritura/core";
 import { parseMnx } from "@viritura/format";
 import { createDocumentStore } from "../store/documentStore";
 import { dispatchMcpTool } from "./toolDispatch";
 import { useMcpSessionStore } from "./sessionStore";
+import { clearPatchBatches } from "./patchBatches";
 
 function makeScore(): Score {
   return {
@@ -42,10 +43,111 @@ function makeScore(): Score {
 describe("MCP editor tool dispatch", () => {
   beforeEach(() => {
     useMcpSessionStore.setState(useMcpSessionStore.getInitialState());
+    clearPatchBatches();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  const pianoLocator = { sequencePath: { partId: "keyboard.piano", measureIndex: 0, voice: 0 }, eventId: "event-1" };
+  const addNote4 = {
+    kind: "addNoteToEvent",
+    locator: pianoLocator,
+    note: { id: "note-4", pitch: { step: "B", octave: 4 } },
+  };
+  const pitchNote4 = { kind: "setNotePitch", locator: pianoLocator, noteId: "note-4", pitch: { step: "A", octave: 4 } };
+  const pitchNote1 = { kind: "setNotePitch", locator: pianoLocator, noteId: "note-1", pitch: { step: "D", octave: 4 } };
+
+  it.each([false, true])("combines batched patch calls into one proposal (auto-accept: %s)", async (autoAccept) => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    const before = store.getState().mnxJson;
+    useMcpSessionStore.getState().start({ autoAccept });
+    const commit = vi.spyOn(store.getState(), "commitPatches");
+
+    const first = await dispatchMcpTool(store, "preview.propose_patches", {
+      batchId: "orchestration",
+      final: false,
+      patches: [addNote4],
+    });
+    expect(first.isError).not.toBe(true);
+    expect(first.structuredContent).toEqual({ batchId: "orchestration", status: "batching", patchCount: 1 });
+    expect(useMcpSessionStore.getState().proposals).toEqual({});
+    expect(store.getState().mnxJson).toBe(before);
+
+    // The final part targets a note that only exists after the first part.
+    const last = await dispatchMcpTool(store, "preview.propose_patches", {
+      batchId: "orchestration",
+      final: true,
+      patches: [pitchNote4, pitchNote1],
+      summary: "Orchestrate passage",
+    });
+
+    expect(last.isError).not.toBe(true);
+    expect(last.structuredContent).toMatchObject({
+      status: autoAccept ? "accepted" : "pending",
+      summary: "Orchestrate passage",
+    });
+    const proposals = Object.values(useMcpSessionStore.getState().proposals);
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0]!.patches).toEqual([addNote4, pitchNote4, pitchNote1]);
+    expect(commit).toHaveBeenCalledTimes(autoAccept ? 1 : 0);
+    if (autoAccept) {
+      const notes = store.getState().workingScore!.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+      expect(notes).toMatchObject({
+        notes: expect.arrayContaining([{ id: "note-4", pitch: { step: "A", octave: 4 } }]),
+      });
+    }
+  });
+
+  it("discards a batch when the score changes before it is final", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    useMcpSessionStore.getState().start();
+    await dispatchMcpTool(store, "preview.propose_patches", { batchId: "b", final: false, patches: [addNote4] });
+    store.getState().commitPatches([pitchNote1 as ScorePatch]);
+
+    const stale = await dispatchMcpTool(store, "preview.propose_patches", { batchId: "b", patches: [pitchNote4] });
+
+    expect(stale.isError).toBe(true);
+    expect(stale.structuredContent).toMatchObject({ code: "batch_stale" });
+    expect(useMcpSessionStore.getState().proposals).toEqual({});
+  });
+
+  it("keeps earlier batch parts when a later part is invalid", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    useMcpSessionStore.getState().start();
+    await dispatchMcpTool(store, "preview.propose_patches", { batchId: "b", final: false, patches: [addNote4] });
+
+    const invalid = await dispatchMcpTool(store, "preview.propose_patches", {
+      batchId: "b",
+      final: false,
+      patches: [{ ...pitchNote4, noteId: "missing" }],
+    });
+    expect(invalid.isError).toBe(true);
+
+    const final = await dispatchMcpTool(store, "preview.propose_patches", { batchId: "b", patches: [pitchNote4] });
+    expect(final.isError).not.toBe(true);
+    expect(Object.values(useMcpSessionStore.getState().proposals)[0]!.patches).toEqual([addNote4, pitchNote4]);
+  });
+
+  it("rejects non-final calls without a batch and clears batches when the session stops", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    useMcpSessionStore.getState().start();
+
+    const missingBatch = await dispatchMcpTool(store, "preview.propose_patches", { final: false, patches: [addNote4] });
+    expect(missingBatch.structuredContent).toMatchObject({ code: "invalid_batch" });
+
+    await dispatchMcpTool(store, "preview.propose_patches", { batchId: "b", final: false, patches: [addNote4] });
+    useMcpSessionStore.getState().stop();
+    useMcpSessionStore.getState().start();
+    const orphan = await dispatchMcpTool(store, "preview.propose_patches", { batchId: "b", patches: [pitchNote4] });
+
+    expect(orphan.isError).toBe(true);
+    expect(useMcpSessionStore.getState().proposals).toEqual({});
   });
 
   it.each([false, true])("auto-accepts validated patches (large score: %s)", async (largeScore) => {

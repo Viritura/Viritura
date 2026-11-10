@@ -9,7 +9,7 @@ export function acceptMcpProposal(documentStore: DocumentStore, proposal: McpPro
     if (proposal.document) {
       documentStore.getState().commitDocument(proposal.document.proposedMnx);
     } else {
-      documentStore.getState().commitPatches(proposal.patches);
+      documentStore.getState().commitPatches(structuredClone(proposal.patches));
     }
     useMcpSessionStore.getState().setProposalStatus(proposal.id, "accepted");
   } catch (error) {

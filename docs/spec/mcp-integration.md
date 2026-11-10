@@ -46,17 +46,21 @@ The server catalogue is defined in [server/Viritura.Api/Mcp/McpToolCatalog.cs](.
 
 ### Reviewable proposals
 
-| Tool                                    | Purpose                                                                              |
-| --------------------------------------- | ------------------------------------------------------------------------------------ |
-| `preview.propose_patches`               | Validate up to 256 typed score patches and open the patch diff.                      |
-| `preview.propose_mnx`                   | Validate and review a complete replacement MNX document.                             |
-| `preview.propose_chord_notes`           | Add pitches to existing events through generated typed patches.                      |
-| `preview.reset_stem_directions`         | Remove explicit stem directions and review the resulting document.                   |
-| `preview.split_orchestral_staves`       | Split supported combined orchestral parts and create a condensed score.              |
-| `preview.normalize_tritsch_instruments` | Normalize the known Tritsch score's identities, voices, stems, and playback sources. |
-| `preview.get_status`                    | Observe whether a proposal is pending, accepted, rejected, or stale.                 |
+| Tool                                    | Purpose                                                                                   |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `preview.propose_patches`               | Validate up to 256 typed score patches per call (4096 per batch) and open the patch diff. |
+| `preview.propose_mnx`                   | Validate and review a complete replacement MNX document.                                  |
+| `preview.propose_chord_notes`           | Add pitches to existing events through generated typed patches.                           |
+| `preview.reset_stem_directions`         | Remove explicit stem directions and review the resulting document.                        |
+| `preview.split_orchestral_staves`       | Split supported combined orchestral parts and create a condensed score.                   |
+| `preview.normalize_tritsch_instruments` | Normalize the known Tritsch score's identities, voices, stems, and playback sources.      |
+| `preview.get_status`                    | Observe whether a proposal is pending, accepted, rejected, or stale.                      |
 
 Accepted patch proposals enter the editor's normal `commitPatches()` path and therefore retain validation, undo grouping, and Yjs collaboration behavior. Whole-document proposals use `commitDocument()`. Both manual and automatic acceptance check that the document still matches the proposal's original snapshot before committing. Proposal tools return `pending` for manual review or `accepted` after successful auto-accept; `preview.get_status` exposes the recorded outcome. Commit failures mark the proposal stale and return an MCP error rather than reporting acceptance.
+
+### Large edits
+
+MCP client requests may be up to 4 MiB; the rest of the API keeps its 256 KB limit. The relay reads a request body only after authorizing its bearer token. Edits larger than one `preview.propose_patches` call can be split into sequential calls with the same `batchId`. Calls with `final: false` validate their patches on top of the earlier parts and return `batching` with the running `patchCount`. The call with `final: true` (the default) creates one proposal that is reviewed, auto-accepted, and undone as a single edit. A batch holds at most 4096 patches. It is discarded if the document changes before it is finalized (`batch_stale`) or if the MCP session stops. An invalid part is rejected without discarding earlier valid parts.
 
 ## Known limitations and follow-ups
 
