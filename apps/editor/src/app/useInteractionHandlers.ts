@@ -74,6 +74,7 @@ interface UseInteractionHandlersParams {
   handleCut: () => void | Promise<void>;
   handlePaste: () => void | Promise<void>;
   handlePasteMerge: () => void | Promise<void>;
+  handleDeleteSelection: () => void;
   handleExplodeSelection: () => void | Promise<void>;
   handleReduceSelection: () => void | Promise<void>;
   handleSelectChordTopNote: () => void;
@@ -161,6 +162,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     handleCut,
     handlePaste,
     handlePasteMerge,
+    handleDeleteSelection,
     handleExplodeSelection,
     handleReduceSelection,
     handleSelectChordTopNote,
@@ -264,6 +266,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     handleCut,
     handlePaste,
     handlePasteMerge,
+    handleDeleteSelection,
     handleExplodeSelection,
     handleReduceSelection,
     handleSelectChordTopNote,

@@ -48,6 +48,7 @@ export function useEngraveContextRefs(
 export function useMarkerSelection(
   refs: EngraveContextRefs,
   activeScoreIndex: number,
+  active: boolean,
 ): {
   selectedMarkerId: string | null;
   setSelectedMarkerId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -56,20 +57,22 @@ export function useMarkerSelection(
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!active || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
       if (e.key !== "Delete" && e.key !== "Backspace") return;
       const id = selectedMarkerId;
       if (!id) return;
       const sc = refs.scoreRef.current;
       if (!sc) return;
-      const tgt = e.target as HTMLElement | null;
-      if (tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.isContentEditable)) return;
+      const tgt = e.target instanceof Element ? e.target : document.activeElement;
+      if (tgt?.closest("input, textarea, select, [contenteditable]:not([contenteditable='false']), [role='dialog']"))
+        return;
       e.preventDefault();
       refs.updateScoreRef.current(clearBreakInScore(sc, refs.activeScoreIndexRef.current, id));
       setSelectedMarkerId(null);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selectedMarkerId, refs]);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [selectedMarkerId, refs, active]);
 
   // Clear marker selection when switching scores so the Delete key never
   // targets a marker on the wrong score.

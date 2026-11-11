@@ -1,7 +1,6 @@
 import type { Score, NoteEvent, Sequence } from "@viritura/core";
 import { walkSequenceEvents, setClef, removeGlobalMeasures } from "@viritura/core";
 import { cloneScore } from "../../score/scoreClone";
-import { resolveEventLocation, getEventAtLocation } from "../../score/ElementPath";
 import { parseClefElementId } from "../../score/clefElementId";
 
 /**
@@ -65,24 +64,6 @@ export function deleteTieByElementId(score: Score, elementId: string): Score | n
     }
   }
   return null;
-}
-
-/** Delete an ornament or trill marking from the parent event. */
-export function deleteOrnamentOrTrill(score: Score, parentId: string, markingType: "ornament" | "trill"): Score | null {
-  const loc = resolveEventLocation(parentId, score);
-  if (!loc) return null;
-  const newScore = cloneScore(score);
-  const ev = getEventAtLocation(newScore, loc);
-  if (!ev || ev.type !== "event" || !ev.markings) return null;
-  if (markingType === "ornament") {
-    delete ev.markings.ornaments;
-  } else {
-    delete ev.markings.trill;
-  }
-  if (ev.markings && Object.keys(ev.markings).length === 0) {
-    delete (ev as unknown as Record<string, unknown>).markings;
-  }
-  return newScore;
 }
 
 /**

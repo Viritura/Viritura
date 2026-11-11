@@ -123,7 +123,7 @@ export function useEngraveMode({
 
   const refs = useEngraveContextRefs(score, selectedScoreIndex, updateScore);
   const { scoreRef, activeScoreIndexRef, updateScoreRef } = refs;
-  const { selectedMarkerId, setSelectedMarkerId } = useMarkerSelection(refs, selectedScoreIndex);
+  const { selectedMarkerId, setSelectedMarkerId } = useMarkerSelection(refs, selectedScoreIndex, active);
   const staffVis = useStaffVisibility(refs, score, selectedScoreIndex, canvasRef);
   const slur = useSlurEditState(refs, score);
   const pageSetup = usePageSetupEditor(refs);

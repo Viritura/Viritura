@@ -1,8 +1,1 @@
-export {
-  iterAllEvents,
-  deleteSlurByElementId,
-  deleteTieByElementId,
-  deleteOrnamentOrTrill,
-  deleteClefByElementId,
-  removeMeasureRangeFromScore,
-} from "../commands/deletion";
+export { iterAllEvents, deleteClefByElementId, removeMeasureRangeFromScore } from "../commands/deletion";
