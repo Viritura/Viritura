@@ -12,6 +12,7 @@ const callbacks: MenuBarCallbacks = {
   onSelectAll: () => {},
   onExplodeSelection: () => {},
   onReduceSelection: () => {},
+  onSwapStaffContents: () => {},
   onSelectChordTopNote: () => {},
   onSelectChordBottomNote: () => {},
 };
@@ -36,6 +37,7 @@ describe("buildSelectionContextMenuItems", () => {
       "Delete Selected Bars",
       "Explode to Staves",
       "Reduce to Staff",
+      "Swap Staff Contents",
       "Select Top Note of Chords",
       "Select Bottom Note of Chords",
       "Select All",
@@ -111,5 +113,19 @@ describe("buildSelectionContextMenuItems", () => {
     );
     items.find((item) => item.label === "Change instrument or tuning")?.action?.();
     expect(onBarInstrumentChange).toHaveBeenCalledOnce();
+  });
+
+  it.each([false, true])("gates staff swapping on the shared two-staff capability: %s", (canSwapStaffContents) => {
+    const onSwapStaffContents = vi.fn();
+    const items = buildSelectionContextMenuItems(
+      { ...callbacks, onSwapStaffContents },
+      { ...state, canSwapStaffContents },
+      { hasSelection: true },
+    );
+    expect(enabled(items, "Swap Staff Contents")).toBe(canSwapStaffContents);
+    if (canSwapStaffContents) {
+      items.find((item) => item.label === "Swap Staff Contents")?.action?.();
+      expect(onSwapStaffContents).toHaveBeenCalledOnce();
+    }
   });
 });
