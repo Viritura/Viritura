@@ -9,6 +9,13 @@
 import { computeNotePreview, type DisplayList, type MeasureBounds, type NotePreviewInput } from "./wasm";
 import { paintCommand } from "./displayListPainter";
 import { canvasTextFont } from "./textFont";
+import {
+  activeStickyKey,
+  extractStickyKeySignatures,
+  paintStickyKeySignature,
+  stickyKeyWidth,
+  type StickyKeySignature,
+} from "./stickyKeySignature";
 
 type ContentPointSnapper = (x: number, y: number) => { x: number; y: number };
 
@@ -360,7 +367,7 @@ function isClefCodepoint(cp: number): boolean {
   return cp >= CLEF_RANGE_MIN && cp <= CLEF_RANGE_MAX;
 }
 
-/** Per-staff clef and label info extracted from a display list. */
+/** Per-staff clef, key signature and label info extracted from a display list. */
 export interface StickyClefInfo {
   /** Staff index (parallel to detectStaves result). */
   staffIndex: number;
@@ -372,12 +379,30 @@ export interface StickyClefInfo {
    * The painter shows only the one in effect at the current scroll position.
    */
   clefs: Array<{ x: number; y: number; codepoint: number; size: number; color: string }>;
+  /** Engraved key changes, including empty signatures after cancellation. */
+  keySignatures: StickyKeySignature[];
   /** Staff label text command, if found. */
   label: { x: number; y: number; text: string; font: string; size: number; align: string; baseline: string } | null;
 }
 
+function closestStickyStaff(staves: readonly StaffInfo[], y: number, labelX?: number): number | undefined {
+  let closest: number | undefined;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  for (let si = 0; si < staves.length; si++) {
+    const staff = staves[si]!;
+    if (y < staff.y - staff.spatium * 2 || y > staff.y + staff.height + staff.spatium * 2) continue;
+    if (labelX !== undefined && labelX >= staff.x + staff.spatium * 2) continue;
+    const distance = Math.abs(y - (staff.y + staff.height / 2));
+    if (distance < closestDistance) {
+      closest = si;
+      closestDistance = distance;
+    }
+  }
+  return closest;
+}
+
 /**
- * Extract per-staff clef and label info from a display list.
+ * Extract per-staff clef, key signature and label info from a display list.
  * For each staff, collects every clef glyph that sits on the staff's row
  * (the initial clef and any mid-staff clef changes), plus the label text
  * that appears near the staff's left edge.
@@ -388,68 +413,54 @@ export function extractStickyClefInfo(displayList: DisplayList, staves: StaffInf
   const result: StickyClefInfo[] = staves.map((_, i) => ({
     staffIndex: i,
     clefs: [],
+    keySignatures: [],
     label: null,
   }));
 
   for (const cmd of displayList.commands) {
     if (cmd.type === "DrawGlyph" && isClefCodepoint(cmd.codepoint)) {
-      // Match the clef to its staff by Y proximity only. We deliberately do NOT
-      // restrict to the staff's left edge: a staff may carry mid-staff clef
-      // changes (and, in stitched-horizon mode, repeated clefs at each chunk
-      // seam) that all belong to this row. Matching by Y and breaking on the
-      // first hit funnels every clef on a physical row into a single staff
-      // entry, so duplicate per-chunk staff segments don't each accumulate a
-      // clef in the sticky overlay.
-      for (let si = 0; si < staves.length; si++) {
-        const staff = staves[si]!;
-        if (cmd.y >= staff.y - staff.spatium * 2 && cmd.y <= staff.y + staff.height + staff.spatium * 2) {
-          result[si]!.clefs.push({
-            x: cmd.x,
-            y: cmd.y,
-            codepoint: cmd.codepoint,
-            size: cmd.size,
-            color: cmd.color,
-          });
-          break;
-        }
+      // Match by Y only so mid-staff changes and stitched chunks share a row.
+      // The nearest row disambiguates tightly spaced staves.
+      const si = closestStickyStaff(staves, cmd.y);
+      if (si !== undefined) {
+        result[si]!.clefs.push({
+          x: cmd.x,
+          y: cmd.y,
+          codepoint: cmd.codepoint,
+          size: cmd.size,
+          color: cmd.color,
+        });
       }
     } else if (cmd.type === "DrawText" && cmd.font === "serif") {
       // Staff labels are rendered in serif font to the left of the staff
-      for (let si = 0; si < staves.length; si++) {
-        const staff = staves[si]!;
-        if (
-          cmd.y >= staff.y - staff.spatium * 2 &&
-          cmd.y <= staff.y + staff.height + staff.spatium * 2 &&
-          cmd.x < staff.x + staff.spatium * 2
-        ) {
-          if (!result[si]!.label) {
-            result[si]!.label = {
-              x: cmd.x,
-              y: cmd.y,
-              text: cmd.text,
-              font: cmd.font,
-              size: cmd.size,
-              align: cmd.align,
-              baseline: cmd.baseline,
-            };
-          }
-          break;
-        }
+      const si = closestStickyStaff(staves, cmd.y, cmd.x);
+      if (si !== undefined && !result[si]!.label) {
+        result[si]!.label = {
+          x: cmd.x,
+          y: cmd.y,
+          text: cmd.text,
+          font: cmd.font,
+          size: cmd.size,
+          align: cmd.align,
+          baseline: cmd.baseline,
+        };
       }
     }
   }
 
   // Sort each staff's clefs left-to-right so the painter can pick the most
   // recent one (the last clef whose x is at or before the scroll position).
+  const keySignatures = extractStickyKeySignatures(displayList, staves);
   for (const info of result) {
     info.clefs.sort((a, b) => a.x - b.x);
+    info.keySignatures = keySignatures[info.staffIndex]!;
   }
 
   return result;
 }
 
 /**
- * Paint sticky clefs and staff labels at the left edge of the viewport.
+ * Paint sticky clefs, key signatures and staff labels at the viewport's left edge.
  * Designed for horizon view where horizontal scrolling can move the initial
  * clef/label off-screen. Mirrors Dorico's sticky clef behavior.
  *
@@ -461,7 +472,6 @@ export function extractStickyClefInfo(displayList: DisplayList, staves: StaffInf
  * @param stickyInfo Per-staff clef/label info from extractStickyClefInfo()
  * @param scrollX Current horizontal scroll position in content-space
  * @param zoom Current zoom level
- * @param viewportWidth Viewport width in CSS pixels
  * @param leftInsetPx Safe-area left inset in CSS pixels (sticky column
  *   is offset by this so it lands flush with the visible region rather
  *   than at the canvas left edge — clears floating side panels).
@@ -518,14 +528,14 @@ function paintStickyStaffLabel(
   label: NonNullable<StickyClefInfo["label"]>,
   staff: StaffInfo,
   stickyX: number,
-  clefWidth: number,
+  stickyWidth: number,
   snapContentPoint: ContentPointSnapper | undefined,
   paperFill: string | CanvasPattern,
 ): void {
   const sp = staff.spatium;
   const labelSize = label.size * 0.75;
-  // Offset label to the right of the clef so they don't overlap
-  const labelX = stickyX + clefWidth;
+  // Keep the label's paper background clear of the key signature.
+  const labelX = stickyX + stickyWidth;
   const labelY = staff.y - sp * 0.6;
   const labelPoint = snapContentPoint ? snapContentPoint(labelX, labelY) : { x: labelX, y: labelY };
   ctx.font = canvasTextFont(label.font, labelSize);
@@ -548,12 +558,43 @@ function paintStickyStaffLabel(
  * clef when every clef is to the right of `contentX`.
  */
 function pickActiveClef(clefs: StickyClefInfo["clefs"], contentX: number): StickyClefInfo["clefs"][number] {
-  let chosen = clefs[0]!;
-  for (const c of clefs) {
-    if (c.x <= contentX) chosen = c;
-    else break;
+  let lo = 0;
+  let hi = clefs.length;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (clefs[mid]!.x <= contentX) lo = mid + 1;
+    else hi = mid;
   }
-  return chosen;
+  return clefs[Math.max(0, lo - 1)]!;
+}
+
+export const STICKY_CLEF_WIDTH_SPATIA = 3.5;
+export const STICKY_CLEF_THRESHOLD_SPATIA = 2;
+
+function stickyRailSpatium(staves: readonly StaffInfo[]): number {
+  return staves.reduce((maximum, staff) => Math.max(maximum, staff.spatium), 0);
+}
+
+/** Width of the active rail in score coordinates, or zero before it appears. */
+export function stickyClefRailWidth(
+  staves: readonly StaffInfo[],
+  info: readonly StickyClefInfo[],
+  contentX: number,
+): number {
+  const railSpatium = stickyRailSpatium(staves);
+  if (railSpatium === 0) return 0;
+  let active = false;
+  let maxKeyWidth = 0;
+  for (let si = 0; si < staves.length; si++) {
+    const staff = staves[si]!;
+    const staffInfo = info[si];
+    const firstClef = staffInfo?.clefs[0];
+    if (!staffInfo || !firstClef || contentX < firstClef.x + staff.spatium * STICKY_CLEF_THRESHOLD_SPATIA) continue;
+    active = true;
+    const signature = activeStickyKey(staffInfo.keySignatures, contentX);
+    maxKeyWidth = Math.max(maxKeyWidth, stickyKeyWidth(signature, staff, railSpatium));
+  }
+  return active ? railSpatium * STICKY_CLEF_WIDTH_SPATIA + maxKeyWidth : 0;
 }
 
 export function paintStickyClefs(
@@ -571,28 +612,17 @@ export function paintStickyClefs(
   const leftInsetContent = leftInsetPx / zoom;
   const contentLeftEdge = scrollX + leftInsetContent;
 
-  // Check if any staff has its initial clef scrolled off — if not, skip entirely
-  let anyActive = false;
   const sp0 = staves[0]!.spatium;
-  const minScrollThreshold = 2; // spatiums past the original clef
-  for (let si = 0; si < staves.length; si++) {
-    const firstClef = stickyInfo[si]?.clefs[0];
-    if (firstClef && contentLeftEdge >= firstClef.x + sp0 * minScrollThreshold) {
-      anyActive = true;
-      break;
-    }
-  }
-  if (!anyActive) return;
-
-  // Determine sticky column width — just enough for the clef
-  const clefWidth = sp0 * 3.5;
-  const stickyWidth = clefWidth;
+  const stickyWidth = stickyClefRailWidth(staves, stickyInfo, contentLeftEdge);
+  if (stickyWidth === 0) return;
+  const railSpatium = stickyRailSpatium(staves);
+  const clefWidth = railSpatium * STICKY_CLEF_WIDTH_SPATIA;
 
   // Paint paper rectangle covering only the staff region (first staff top to last staff bottom),
   // with a small margin for labels above and notes below.
   const firstStaff = staves[0]!;
   const lastStaff = staves[staves.length - 1]!;
-  const labelMargin = sp0 * 1.5; // space for staff labels above
+  const labelMargin = sp0 * (stickyWidth > clefWidth ? 2.2 : 1.5);
   const belowMargin = sp0 * 2; // space for notes/ledger lines below
   const bgTop = firstStaff.y - labelMargin;
   const bgBottom = lastStaff.y + lastStaff.height + belowMargin;
@@ -613,7 +643,7 @@ export function paintStickyClefs(
 
     const firstClef = clefs[0]!;
     // Only show sticky elements for staves whose initial clef has scrolled off
-    if (contentLeftEdge < firstClef.x + sp * minScrollThreshold) continue;
+    if (contentLeftEdge < firstClef.x + sp * STICKY_CLEF_THRESHOLD_SPATIA) continue;
 
     // Show the clef in EFFECT at the scroll position: the most recent clef
     // whose x is at or before the visible left edge. Earlier clefs (including
@@ -629,11 +659,25 @@ export function paintStickyClefs(
 
     paintStickyStaffLines(ctx, staff, stickyX, stickyWidth, snapContentPoint);
     paintStickyClefGlyph(ctx, clef, staff, stickyX, fullClefSize, snapContentPoint);
+    const signature = activeStickyKey(info.keySignatures, contentLeftEdge);
+    if (signature) {
+      const sourceClef = pickActiveClef(clefs, signature.x);
+      paintStickyKeySignature(
+        ctx,
+        signature,
+        staff,
+        clef,
+        sourceClef,
+        stickyX + clefWidth,
+        railSpatium,
+        snapContentPoint,
+      );
+    }
 
     // Draw the staff label above the clef (standard) with paper background
     const label = info.label;
     if (label) {
-      paintStickyStaffLabel(ctx, label, staff, stickyX, clefWidth, snapContentPoint, paperFill);
+      paintStickyStaffLabel(ctx, label, staff, stickyX, stickyWidth, snapContentPoint, paperFill);
     }
   }
 }

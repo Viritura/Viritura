@@ -67,6 +67,7 @@ pub use config::LayoutConfig;
 pub use note_preview::{compute_note_preview, NotePreviewAccidental, NotePreviewInput};
 pub use orchestration::layout_score;
 pub use page::compute_page_breaks;
+pub use render_signatures::compute_key_signature_positions;
 pub use slur_preview::{
     compute_slur_preview, SlurPreview, SlurPreviewHandle, SlurPreviewInput, SlurPreviewMode,
 };

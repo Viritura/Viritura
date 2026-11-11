@@ -1429,6 +1429,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
             <CondensedStaffToggles
               score={docScore}
               displayList={displayListRef.current}
+              displayListVersion={displayListVersion}
               selectedScoreIndex={selectedScoreIndex}
               expanded={expandedCondensingStaves ?? EMPTY_EXPANDED}
               onToggle={onToggleCondensedStaff}

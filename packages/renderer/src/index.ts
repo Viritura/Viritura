@@ -98,6 +98,9 @@ export {
   paintGhostClef,
   extractStickyClefInfo,
   paintStickyClefs,
+  stickyClefRailWidth,
+  STICKY_CLEF_WIDTH_SPATIA,
+  STICKY_CLEF_THRESHOLD_SPATIA,
   paintMeasureNumber,
 } from "./overlayPainter";
 export type { StaffInfo, GhostNoteOptions, GhostClefOptions, StickyClefInfo } from "./overlayPainter";

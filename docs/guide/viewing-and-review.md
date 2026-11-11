@@ -10,6 +10,8 @@ Switch how the score flows from the view menu / status bar:
   proofreading and publishing.
 - **Horizon** — one continuous galley that scrolls horizontally. Best for fast
   note entry and reading long passages without page breaks getting in the way.
+  As you scroll, the clef and current key signature stay visible at the left
+  of each staff.
 - **Spread** — facing pages, for checking page turns.
 
 The same score can look subtly different between view modes because each uses a

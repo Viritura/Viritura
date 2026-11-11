@@ -5,7 +5,7 @@ use crate::layout::config::LayoutConfig;
 use crate::layout::measure::*;
 use crate::layout::render_signatures::{key_signature_layout, render_key_signature};
 use crate::layout::resolve::*;
-use crate::layout::{layout_full_score, layout_score};
+use crate::layout::{compute_key_signature_positions, layout_full_score, layout_score};
 use crate::model::*;
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
@@ -56,6 +56,25 @@ fn key_signature_accidentals_land_on_standard_line_and_space_centers() {
             let layout = key_signature_layout(0.0, 0.0, 2.0, &key, &clef_sign, None);
             let positions: Vec<_> = layout.glyphs.iter().map(|glyph| glyph.y).collect();
             assert_eq!(positions, expected);
+        }
+    }
+}
+
+#[test]
+fn sticky_key_positions_match_scaled_signature_engraving() {
+    for clef_sign in [ClefSign::G, ClefSign::F, ClefSign::C] {
+        for fifths in -7..=7 {
+            let key = KeySignature {
+                fifths,
+                ..Default::default()
+            };
+            let layout = key_signature_layout(80.0, 100.0, 12.0, &key, &clef_sign, None);
+            let expected: Vec<_> = layout
+                .glyphs
+                .iter()
+                .map(|glyph| (glyph.y - 100.0) / 12.0)
+                .collect();
+            assert_eq!(compute_key_signature_positions(fifths, clef_sign), expected);
         }
     }
 }

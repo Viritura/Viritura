@@ -67,6 +67,7 @@ let wasmModule: {
   engine_version: () => string;
   compute_slur_preview: (preview_json: string) => string;
   compute_note_preview?: (preview_json: string) => string;
+  compute_key_signature_positions?: (fifths: number, clef_sign: string) => Float64Array;
   export_svg: (
     display_list_json: string,
     bravura_data: Uint8Array,
@@ -173,6 +174,14 @@ export function computeSlurPreview(input: SlurPreviewInput): SlurPreview {
 export function computeNotePreview(input: NotePreviewInput): RenderCommand[] {
   if (!wasmModule?.compute_note_preview) return [];
   return JSON.parse(wasmModule.compute_note_preview(JSON.stringify(input))) as RenderCommand[];
+}
+
+/** Staff-space positions from the engine's key-signature engraver. */
+export function computeKeySignaturePositions(fifths: number, clefSign: "G" | "F" | "C"): number[] {
+  if (!wasmModule?.compute_key_signature_positions) {
+    throw new Error("The WASM engine cannot engrave key signatures. Reload with the current engine.");
+  }
+  return Array.from(wasmModule.compute_key_signature_positions(fifths, clefSign));
 }
 
 /**

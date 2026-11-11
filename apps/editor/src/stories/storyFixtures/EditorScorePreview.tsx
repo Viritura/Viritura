@@ -61,6 +61,8 @@ export interface EditorScorePreviewProps {
   viewMode?: "horizon" | "page" | "spread" | "spread-h";
   /** Initial canvas framing. Storybook previews default to centered. */
   scrollAnchor?: ScrollAnchor | ScrollAnchorAxes;
+  /** Override automatic Horizon fit when a story needs horizontal scrolling. */
+  fitToWidth?: boolean;
   /**
    * When true, every multi-source staff in the active layout is rendered with
    * its individual source staves underneath (the blue "expansion" staves the
@@ -80,6 +82,7 @@ function EditorScorePreviewInner({
   editorRatio = 0.45,
   viewMode = "horizon",
   scrollAnchor = "center",
+  fitToWidth,
   expandCondensingSources = false,
 }: EditorScorePreviewProps) {
   const { loadScore } = useDocumentActions();
@@ -177,7 +180,7 @@ function EditorScorePreviewInner({
           viewMode={viewMode}
           initialZoom={1.0}
           scrollAnchor={scrollAnchor}
-          fitToWidth={viewMode === "horizon"}
+          fitToWidth={fitToWidth ?? viewMode === "horizon"}
           expandedCondensingStaves={expandedPaths}
         />
       </ErrorBoundary>
