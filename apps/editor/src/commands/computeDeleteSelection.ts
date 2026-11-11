@@ -16,14 +16,7 @@ import {
 import { deleteNote, sequenceContentBeats } from "./noteCommands";
 import { isAccidentalId, removeAccidental } from "./accidentalCommands";
 import { isArticulationId, removeArticulation } from "./articulationDeletion";
-import {
-  isCaesuraId,
-  isNoteMarkingId,
-  partitionMarkingIds,
-  removeCaesura,
-  removeMarkings,
-  removeNoteMarking,
-} from "./markingSelection";
+import { isCaesuraId, isNoteMarkingId, partitionMarkingIds, removeCaesura, removeMarkings } from "./markingSelection";
 import { isNoteheadId, removeChordNoteById, thinSelectedChords } from "./chordNoteDeletion";
 import { resolveSelectionEvents } from "../store/selectionUtils";
 import {
@@ -40,7 +33,8 @@ import {
   measureRepeatElementIdsForSelection,
 } from "./measureRepeatCommands";
 import { isLyricId, removeLyricByElementId, removeLyrics } from "./lyricCommands";
-import { removeGlissandoByElementId } from "./glissandoCommands";
+import { removeGlissandosByElementId } from "./glissandoCommands";
+import { expandCondensedSubElementIds } from "../score/condensedWriteback";
 import { removeTrillExtensionByElementId } from "../score/trillExtensionMutations";
 import { removeTuplet } from "./tupletCommands";
 import { cloneScore } from "../score/scoreClone";
@@ -75,12 +69,12 @@ export function computeDeleteSelection(
   if (selection.kind === "single" && selection.elementId.startsWith("text-frame/")) {
     return deleteSelectedTextFrame(score, selection.elementId, scoreIndex);
   }
-  if (selection.kind === "single") return deleteSingle(score, selection);
-  if (selection.kind === "multi" || selection.kind === "range") return deleteMultiOrRange(score, selection);
+  if (selection.kind === "single") return deleteSingle(score, selection, scoreIndex);
+  if (selection.kind === "multi" || selection.kind === "range") return deleteMultiOrRange(score, selection, scoreIndex);
   return deleteMeasure(score, selection);
 }
 
-function deleteSingle(score: Score, selection: SingleSel): DeleteSelectionResult {
+function deleteSingle(score: Score, selection: SingleSel, scoreIndex: number): DeleteSelectionResult {
   if (!selection.elementId) return { kind: "noop" };
   const elementId = selection.elementId;
 
@@ -94,7 +88,7 @@ function deleteSingle(score: Score, selection: SingleSel): DeleteSelectionResult
     return { kind: "single", score: withoutAnnotation, nextSelection: { kind: "clear" } };
   }
 
-  const standaloneResult = deleteStandaloneElement(score, elementId);
+  const standaloneResult = deleteStandaloneElement(score, selection, scoreIndex);
   if (standaloneResult) return standaloneResult;
 
   // Grace notes live inside a `{type:"grace"}` container — handle before the
@@ -181,7 +175,8 @@ function deleteSelectedTuplet(score: Score, elementId: string): DeleteSelectionR
 }
 
 /** Delete a selected leaf or global property that must never fall through to its parent event. */
-function deleteStandaloneElement(score: Score, elementId: string): DeleteSelectionResult | null {
+function deleteStandaloneElement(score: Score, selection: SingleSel, scoreIndex: number): DeleteSelectionResult | null {
+  const { elementId } = selection;
   if (elementId.startsWith("trill-line/")) {
     const withoutExtension = removeTrillExtensionByElementId(score, elementId);
     return withoutExtension
@@ -189,7 +184,12 @@ function deleteStandaloneElement(score: Score, elementId: string): DeleteSelecti
       : { kind: "noop" };
   }
   if (elementId.startsWith("gliss/")) {
-    const withoutGlissando = removeGlissandoByElementId(score, elementId);
+    const withoutGlissando = removeGlissandosByElementId(
+      score,
+      [elementId],
+      scoreIndex,
+      selection.measureAnchor?.isExpansion === true,
+    );
     return withoutGlissando
       ? { kind: "single", score: withoutGlissando, nextSelection: { kind: "clear" } }
       : { kind: "noop" };
@@ -234,8 +234,16 @@ function deleteStandaloneElement(score: Score, elementId: string): DeleteSelecti
     return stripped ? { kind: "single", score: stripped, nextSelection: { kind: "clear" } } : { kind: "noop" };
   }
   if (isNoteMarkingId(elementId)) {
-    const stripped = removeNoteMarking(cloneScore(score), elementId);
-    return stripped ? { kind: "single", score: stripped, nextSelection: { kind: "clear" } } : { kind: "noop" };
+    const ids = expandCondensedSubElementIds(
+      score,
+      [elementId],
+      scoreIndex,
+      selection.measureAnchor?.isExpansion === true,
+    );
+    const stripped = cloneScore(score);
+    return removeMarkings(stripped, ids)
+      ? { kind: "single", score: stripped, nextSelection: { kind: "clear" } }
+      : { kind: "noop" };
   }
 
   // MNX key signatures are global-measure properties even though the renderer
@@ -316,13 +324,15 @@ function findAdjacentElementId(
   return undefined;
 }
 
-function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSelectionResult {
+function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel, scoreIndex: number): DeleteSelectionResult {
   score = cloneScore(score);
   const repeatResult = deleteRepeatOnlySelection(score, selection);
   if (repeatResult) return repeatResult;
   const timeSignaturesResult =
     selection.kind === "multi" ? deleteTimeSignaturesByElementIds(score, selection.elementIds) : null;
   if (timeSignaturesResult) score = timeSignaturesResult;
+  const glissandoResult = deleteSelectedGlissandos(score, selection, scoreIndex);
+  score = glissandoResult.score;
   // Markings selected explicitly (ctrl-click) delete on their own; only the
   // rest of the selection is event-level. Without this split they resolve to
   // their events and blank the notes they belong to.
@@ -330,7 +340,7 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
   // Only a `multi` selection can name a marking: a range expands through the
   // navigation index, whose entries are events, so shift-selecting across an
   // accidental selects the music — which is what a range should mean.
-  const markingIds = selection.kind === "multi" ? partitionMarkingIds(selection.elementIds).markingIds : [];
+  const markingIds = selectedMarkingIds(score, selection, scoreIndex);
   const markingsRemoved = markingIds.length > 0 && removeMarkings(score, markingIds);
   const lyricIds = selection.kind === "multi" ? selection.elementIds.filter(isLyricId) : [];
   const graceIds =
@@ -374,6 +384,7 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
   const leavesRemoved = [
     markingsRemoved,
     lyricResult.removed,
+    glissandoResult.removed,
     globalAnnotationsResult.removed,
     timeSignaturesResult !== null,
   ].includes(true);
@@ -418,6 +429,37 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
     }
   }
   return { kind: "multi", score: deleteSelectedGraceNotes(newScore, graceIds), nextSelection: { kind: "clear" } };
+}
+
+function selectedMarkingIds(score: Score, selection: MultiOrRangeSel, scoreIndex: number): string[] {
+  if (selection.kind !== "multi") return [];
+  const ids = partitionMarkingIds(selection.elementIds).markingIds;
+  return [
+    ...ids.filter((id) => !isNoteMarkingId(id)),
+    ...expandCondensedSubElementIds(
+      score,
+      ids.filter(isNoteMarkingId),
+      scoreIndex,
+      selection.measureAnchor?.isExpansion === true,
+    ),
+  ];
+}
+
+function deleteSelectedGlissandos(
+  score: Score,
+  selection: MultiOrRangeSel,
+  scoreIndex: number,
+): { score: Score; removed: boolean } {
+  const next =
+    selection.kind === "multi"
+      ? removeGlissandosByElementId(
+          score,
+          selection.elementIds,
+          scoreIndex,
+          selection.measureAnchor?.isExpansion === true,
+        )
+      : null;
+  return { score: next ?? score, removed: next !== null };
 }
 
 function deleteSelectedGlobalAnnotations(score: Score, selection: MultiOrRangeSel): { score: Score; removed: boolean } {

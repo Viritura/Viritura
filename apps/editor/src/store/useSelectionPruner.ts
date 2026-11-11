@@ -75,9 +75,18 @@ function textFrameExists(elementId: string, score: Score, scoreIndex: number | u
   return views.some((index) => textFrameIdFromElementId(elementId, textFramesForScore(score, index)) !== null);
 }
 
+function noteMarkingExists(suffix: string, event: NoteEvent): boolean | undefined {
+  const noteMarking = suffix.match(/^n(\d+)\/(slideIn|slideOut)$/);
+  if (!noteMarking) return undefined;
+  const markings = event.notes?.[Number(noteMarking[1])]?.markings;
+  return noteMarking[2] === "slideIn" ? markings?.slideIn !== undefined : markings?.slideOut !== undefined;
+}
+
 function eventSubElementExists(suffix: string, event: NoteEvent): boolean {
   const indexedNote = suffix.match(/^(?:n|acc)(\d+)$/);
   if (indexedNote) return event.notes?.[Number(indexedNote[1])] !== undefined;
+  const noteMarking = noteMarkingExists(suffix, event);
+  if (noteMarking !== undefined) return noteMarking;
   const articulationNames = articulationNamesInMarkings(event.markings);
   if (suffix === "artic") return articulationNames.length > 0;
   if (suffix.startsWith("art-")) return articulationNames.includes(suffix.slice(4));

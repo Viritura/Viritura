@@ -77,6 +77,61 @@ function makeCtx(score: Score, selection: Selection): { ctx: KeyboardHandlerCont
 
 const noopEvent = { preventDefault() {} } as unknown as KeyboardEvent;
 
+describe("glissando connector deletion", () => {
+  it.each(["glissando", "portamento"] as const)("deletes a %s in both keyboard and menu paths", (kind) => {
+    const score = makeScore();
+    eventAt(score, 0).glissandos = [{ target: "e2", kind }];
+    const original = structuredClone(score);
+    for (const multi of [false, true]) {
+      const id = "gliss/e1/e2";
+      const selection: Selection = multi
+        ? { kind: "multi", elementIds: [id, id] }
+        : { kind: "single", elementId: id, elementType: "glissando" };
+      const result = computeDeleteSelection(score, selection);
+      if (result.kind !== "single" && result.kind !== "multi") throw new Error("Expected connector deletion");
+      const { ctx, latest } = makeCtx(score, selection);
+      handleDelete(noopEvent, false, ctx);
+      const expected = structuredClone(score);
+      delete eventAt(expected, 0).glissandos;
+      expect(result.score).toEqual(expected);
+      expect(latest()).toEqual(expected);
+      expect(result.nextSelection).toEqual({ kind: "clear" });
+    }
+    expect(score).toEqual(original);
+  });
+
+  it("deletes a mixed selection without deleting the connector's source note", () => {
+    const score = makeScore();
+    eventAt(score, 0).glissandos = [{ target: "e2" }];
+    const selection: Selection = { kind: "multi", elementIds: ["gliss/e1/e2", "p0/m0/s0/e2"] };
+    const result = computeDeleteSelection(score, selection);
+    if (result.kind !== "multi") throw new Error("Expected multi deletion");
+    const { ctx, latest } = makeCtx(score, selection);
+    handleDelete(noopEvent, false, ctx);
+    for (const updated of [result.score, latest()]) {
+      expect(eventAt(updated, 0).glissandos).toBeUndefined();
+      expect(eventAt(updated, 0).notes).toEqual(eventAt(score, 0).notes);
+      expect(eventAt(updated, 1).rest).toBeDefined();
+    }
+  });
+
+  it("deletes connectors with sanitized endpoint IDs without changing other connectors", () => {
+    const score = makeScore();
+    eventAt(score, 0).id = "source/one";
+    eventAt(score, 1).id = "target/one";
+    eventAt(score, 0).glissandos = [{ target: "target/one" }, { target: "other" }];
+    const selection: Selection = { kind: "single", elementId: "gliss/source_one/target_one", elementType: "glissando" };
+    const result = computeDeleteSelection(score, selection);
+    if (result.kind !== "single") throw new Error("Expected connector deletion");
+    const { ctx, latest } = makeCtx(score, selection);
+    handleDelete(noopEvent, false, ctx);
+    for (const updated of [result.score, latest()]) {
+      expect(eventAt(updated, 0).glissandos).toEqual([{ target: "other" }]);
+      expect(eventAt(updated, 1).notes).toEqual(eventAt(score, 1).notes);
+    }
+  });
+});
+
 describe("grace notehead deletion", () => {
   function withGrace(notes = 1, anonymous = false): Score {
     const score = makeScore();

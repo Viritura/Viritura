@@ -15,6 +15,7 @@ import { applyArticulationToSelection } from "../radialMenu/applyToSelection";
 import { resolveStaffTextTargets } from "../app/useAppKeyboardWiring";
 import { applyStaffTextEdit } from "../app/popoverHandlers";
 import { handleDelete } from "../keyboard/normalModeDelete";
+import { computeDeleteSelection } from "../commands/computeDeleteSelection";
 import type { KeyboardHandlerContext } from "../keyboard/types";
 import type { Selection } from "../store/selectionStore";
 import { selectBeamAtPoint } from "../components/ScoreCanvas/beamSelection";
@@ -82,6 +83,70 @@ function deleteSelection(score: Score, selection: Selection): Score {
 }
 
 describe("condensed projection write-back", () => {
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+    [true, true],
+  ])("deletes condensed glissandos (expanded=%s, multi=%s)", (expanded, multi) => {
+    const score = condensedScore(2);
+    for (const [index, part] of score.parts.entries()) {
+      const sequence = part.measures[0]!.sequences[0]!;
+      const source = sequence.content[0]!;
+      if (source.type !== "event") throw new Error("Expected event");
+      source.duration = { base: "half" };
+      source.glissandos = [{ target: `target-${index}`, kind: "portamento" }];
+      sequence.content.push({
+        type: "event",
+        id: `target-${index}`,
+        duration: { base: "half" },
+        notes: [{ pitch: { step: "D", octave: 4 } }],
+      });
+    }
+    const anchor = expanded
+      ? { measureAnchor: { partIndex: 0, staffIndex: 1, measureIndex: 0, isExpansion: true } }
+      : {};
+    const selection: Selection = multi
+      ? { kind: "multi", elementIds: ["gliss/event-0/target-0"], ...anchor }
+      : { kind: "single", elementId: "gliss/event-0/target-0", elementType: "glissando", ...anchor };
+    const menu = computeDeleteSelection(score, selection, 0);
+    if (menu.kind !== "single" && menu.kind !== "multi") throw new Error("Expected connector deletion");
+    for (const updated of [deleteSelection(score, selection), menu.score]) {
+      for (const [index, part] of updated.parts.entries()) {
+        const event = part.measures[0]!.sequences[0]!.content[0]!;
+        if (event.type !== "event") throw new Error("Expected event");
+        expect(event.glissandos).toEqual(
+          expanded && index === 1 ? [{ target: "target-1", kind: "portamento" }] : undefined,
+        );
+        expect(event.notes).toHaveLength(1);
+      }
+    }
+  });
+
+  it("expands glissando endpoints with sanitized model IDs", () => {
+    const score = condensedScore(2);
+    for (const [index, part] of score.parts.entries()) {
+      const sequence = part.measures[0]!.sequences[0]!;
+      const source = sequence.content[0]!;
+      if (source.type !== "event") throw new Error("Expected event");
+      source.id = `event/${index}`;
+      source.duration = { base: "half" };
+      source.glissandos = [{ target: `target/${index}` }];
+      sequence.content.push({
+        type: "event",
+        id: `target/${index}`,
+        duration: { base: "half" },
+        notes: [{ pitch: { step: "D", octave: 4 } }],
+      });
+    }
+    const updated = deleteSelection(score, { kind: "single", elementId: "gliss/event_0/target_0" });
+    for (const part of updated.parts) {
+      const event = part.measures[0]!.sequences[0]!.content[0]!;
+      if (event.type !== "event") throw new Error("Expected event");
+      expect(event.glissandos).toBeUndefined();
+    }
+  });
+
   it("keeps conflicting same-pitch slides on separate source voices", () => {
     const score = condensedScore(3);
     for (const [index, part] of score.parts.entries()) {
@@ -107,16 +172,40 @@ describe("condensed projection write-back", () => {
       event.notes![0]!.markings = { slideIn: { type: "scoop" }, slideOut: { type: "doit" } };
     }
     const elementId = "p0/m0/s0/event-0/n0/slideIn";
-    const updated = deleteSelection(
-      score,
-      multi ? { kind: "multi", elementIds: [elementId] } : { kind: "single", elementId },
-    );
-    for (const part of updated.parts) {
+    const selection: Selection = multi ? { kind: "multi", elementIds: [elementId] } : { kind: "single", elementId };
+    const menu = computeDeleteSelection(score, selection, 0);
+    if (menu.kind !== "single" && menu.kind !== "multi") throw new Error("Expected marking deletion");
+    for (const updated of [deleteSelection(score, selection), menu.score]) {
+      for (const part of updated.parts) {
+        const event = part.measures[0]!.sequences[0]!.content[0]!;
+        if (event.type !== "event") throw new Error("Expected event");
+        expect(event.notes![0]!.markings).toEqual({ slideOut: { type: "doit" } });
+      }
+      expect(updated).not.toBe(score);
+    }
+  });
+
+  it.each([false, true])("limits expanded-staff slide deletion to its source (multi=%s)", (multi) => {
+    const score = condensedScore(2);
+    for (const part of score.parts) {
       const event = part.measures[0]!.sequences[0]!.content[0]!;
       if (event.type !== "event") throw new Error("Expected event");
-      expect(event.notes![0]!.markings).toEqual({ slideOut: { type: "doit" } });
+      event.notes![0]!.markings = { slideOut: { type: "doit" } };
     }
-    expect(updated).not.toBe(score);
+    const anchor = { measureAnchor: { partIndex: 0, staffIndex: 1, measureIndex: 0, isExpansion: true } };
+    const elementId = "p0/m0/s0/event-0/n0/slideOut";
+    const selection: Selection = multi
+      ? { kind: "multi", elementIds: [elementId], ...anchor }
+      : { kind: "single", elementId, ...anchor };
+    const menu = computeDeleteSelection(score, selection, 0);
+    if (menu.kind !== "single" && menu.kind !== "multi") throw new Error("Expected marking deletion");
+    for (const updated of [deleteSelection(score, selection), menu.score]) {
+      for (const [index, part] of updated.parts.entries()) {
+        const event = part.measures[0]!.sequences[0]!.content[0]!;
+        if (event.type !== "event") throw new Error("Expected event");
+        expect(event.notes![0]!.markings).toEqual(index === 0 ? undefined : { slideOut: { type: "doit" } });
+      }
+    }
   });
 
   it("keeps amalgamated note marking deletion on its canonical source", () => {

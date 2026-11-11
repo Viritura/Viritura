@@ -1,6 +1,7 @@
 import type { Glissando, GlissandoStyle, NoteEvent, Score, SequenceContent } from "@viritura/core";
 import { walkSequenceEvents } from "@viritura/core";
 import { produce } from "../score/scoreClone";
+import { expandCondensedSpannerIds } from "../score/condensedWriteback";
 
 export type GlissandoKind = NonNullable<Glissando["kind"]>;
 
@@ -120,8 +121,10 @@ export function setGlissandoProperties(score: Score, params: SetGlissandoPropert
 }
 
 export function removeGlissandoByElementId(score: Score, elementId: string): Score | null {
-  const [, sourceEventId, targetEventId] = elementId.split("/");
-  if (!sourceEventId || !targetEventId || !elementId.startsWith("gliss/")) return null;
+  const match = /^gliss\/([^/]+)\/([^/]+)$/.exec(elementId);
+  if (!match) return null;
+  const [, sourceEventId, targetEventId] = match;
+  if (!sourceEventId || !targetEventId) return null;
 
   const source = findEventById(score, sourceEventId)?.event;
   const index =
@@ -136,4 +139,24 @@ export function removeGlissandoByElementId(score: Score, elementId: string): Sco
     draftSource.glissandos.splice(index, 1);
     if (draftSource.glissandos.length === 0) delete draftSource.glissandos;
   });
+}
+
+export function removeGlissandosByElementId(
+  score: Score,
+  elementIds: readonly string[],
+  scoreIndex = 0,
+  forceDirect = false,
+): Score | null {
+  let next = score;
+  let removed = false;
+  const ids = elementIds.filter((id) => id.startsWith("gliss/"));
+  const expanded = forceDirect ? ids : ids.flatMap((id) => expandCondensedSpannerIds(score, id, scoreIndex));
+  for (const id of new Set(expanded)) {
+    const candidate = removeGlissandoByElementId(next, id);
+    if (candidate) {
+      next = candidate;
+      removed = true;
+    }
+  }
+  return removed ? next : null;
 }

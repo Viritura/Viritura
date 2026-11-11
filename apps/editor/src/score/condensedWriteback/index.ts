@@ -226,7 +226,7 @@ export function resolveCondensedSelectionNotes(
 function eventElementId(score: Score, location: EventLocation): string | undefined {
   const event = getEventAtLocation(score, location);
   if (event?.type !== "event") return undefined;
-  const suffix = event.id ?? `e${location.eventIndex}`;
+  const suffix = event.id?.replaceAll("/", "_") ?? `e${location.eventIndex}`;
   return `p${location.partIndex}/m${location.measureIndex}/s${location.sequenceIndex}/${suffix}`;
 }
 
@@ -279,13 +279,22 @@ export function expandCondensedSubElementIds(
 }
 
 function findEventLocationByModelId(score: Score, eventId: string): EventLocation | undefined {
+  return findEventLocation(score, eventId, false) ?? findEventLocation(score, eventId, true);
+}
+
+function findEventLocation(score: Score, eventId: string, sanitized: boolean): EventLocation | undefined {
   for (let partIndex = 0; partIndex < score.parts.length; partIndex++) {
     const part = score.parts[partIndex]!;
     for (let measureIndex = 0; measureIndex < part.measures.length; measureIndex++) {
       const measure = part.measures[measureIndex]!;
       for (let sequenceIndex = 0; sequenceIndex < measure.sequences.length; sequenceIndex++) {
         const sequence = measure.sequences[sequenceIndex]!;
-        if (![...walkSequenceEvents(sequence.content)].some(({ event }) => event.id === eventId)) continue;
+        if (
+          ![...walkSequenceEvents(sequence.content)].some(({ event }) =>
+            sanitized ? event.id?.replaceAll("/", "_") === eventId : event.id === eventId,
+          )
+        )
+          continue;
         const location = resolveEventLocation(`p${partIndex}/m${measureIndex}/s${sequenceIndex}/${eventId}`, score);
         if (location) return location;
       }
@@ -312,12 +321,12 @@ function findNoteLocation(score: Score, noteId: string): { event: EventLocation;
   return undefined;
 }
 
-/** Expand slur/tie connector IDs to parallel connectors on merged sources. */
+/** Expand event and note connector IDs to parallel connectors on merged sources. */
 export function expandCondensedSpannerIds(score: Score, elementId: string, selectedScoreIndex: number): string[] {
-  const slur = elementId.match(/^slur\/([^/]+)\/([^/]+)$/);
+  const slur = elementId.match(/^(slur|gliss)\/([^/]+)\/([^/]+)$/);
   if (slur) {
-    const source = findEventLocationByModelId(score, slur[1]!);
-    const target = findEventLocationByModelId(score, slur[2]!);
+    const source = findEventLocationByModelId(score, slur[2]!);
+    const target = findEventLocationByModelId(score, slur[3]!);
     if (!source || !target) return [elementId];
     const sourceTargets = resolveCondensedEventTargets(score, selectedScoreIndex, source);
     const targetByPart = new Map(
@@ -328,7 +337,7 @@ export function expandCondensedSpannerIds(score: Score, elementId: string, selec
       const sourceEvent = getEventAtLocation(score, sourceLocation);
       const targetEvent = targetLocation && getEventAtLocation(score, targetLocation);
       return sourceEvent?.type === "event" && sourceEvent.id && targetEvent?.type === "event" && targetEvent.id
-        ? [`slur/${sourceEvent.id}/${targetEvent.id}`]
+        ? [`${slur[1]}/${sourceEvent.id.replaceAll("/", "_")}/${targetEvent.id.replaceAll("/", "_")}`]
         : [];
     });
   }
