@@ -126,20 +126,3 @@ export function removeLyricByElementId(score: Score, elementId: string): Score |
     if (Object.keys(event.lyrics!.lines!).length === 0) delete event.lyrics;
   });
 }
-
-export function removeLyricsByElementId(score: Score, elementIds: readonly string[]): boolean {
-  let removed = false;
-  for (const elementId of elementIds) {
-    const lineId = extractLyricLineId(elementId);
-    if (lineId === null) continue;
-    const location = resolveEventFromSubElement(elementId, score);
-    if (!location) continue;
-    const content = getContentArrayForLocation(score, location);
-    const event = content?.[location.eventIndex];
-    if (event?.type !== "event" || !event.lyrics?.lines?.[lineId]) continue;
-    delete event.lyrics.lines[lineId];
-    if (Object.keys(event.lyrics.lines).length === 0) delete event.lyrics;
-    removed = true;
-  }
-  return removed;
-}

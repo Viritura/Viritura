@@ -19,7 +19,3 @@ export function parseClefElementId(elementId: string): ClefElementLocation | nul
     clefIndex: match[3] === undefined ? 0 : Number.parseInt(match[3], 10),
   };
 }
-
-export function isClefElementId(elementId: string): boolean {
-  return parseClefElementId(elementId) !== null;
-}

@@ -120,17 +120,6 @@ export function removeEventChordNotes(
 }
 
 /**
- * Remove the note named by a notehead element id (`{event}/n{index}`) from its
- * chord, mutating `score`. The convenience entry point for the delete paths,
- * which hold an element id rather than an event id and index.
- */
-export function removeChordNoteById(score: Score, elementId: string): ChordNoteRemoval {
-  const match = elementId.match(NOTEHEAD_SUFFIX);
-  if (!match) return "none";
-  return removeChordNotes(score, elementId.slice(0, match.index), [parseInt(match[1]!, 10)]);
-}
-
-/**
  * Thin every chord named by a notehead id in `elementIds`, mutating `score`.
  *
  * `wholeEventIds` is read *and* written: an event already selected in full is

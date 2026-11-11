@@ -1,14 +1,8 @@
 /**
  * Markings that are selectable and deletable in their own right.
  *
- * An accidental or an articulation is drawn as part of its event but is its
- * own object: deleting one must leave the note alone. Every delete path has to
- * split these out of a selection before handing the rest to the event-level
- * primitives, which replace whole events with rests.
- *
- * Grouping them here keeps that partition in one place. The alternative — each
- * delete path testing both id shapes itself — is how the multi-selection path
- * came to blank notes while the single-selection path did the right thing.
+ * These mutation primitives leave their owning notes intact. Selection
+ * classification and batching belong to the deletion operation registry.
  */
 
 import type { Score, SequenceContent } from "@viritura/core";
@@ -25,7 +19,7 @@ import {
 const CAESURA_SUFFIX = "/caesura";
 const NOTE_MARKING_SUFFIX = /\/n(\d+)\/(slideIn|slideOut)$/;
 
-export function isNoteMarkingId(elementId: string): boolean {
+function isNoteMarkingId(elementId: string): boolean {
   return NOTE_MARKING_SUFFIX.test(elementId);
 }
 
@@ -54,7 +48,7 @@ function removeNoteMarking(score: Score, elementId: string): Score | null {
   return score;
 }
 
-export function isCaesuraId(elementId: string): boolean {
+function isCaesuraId(elementId: string): boolean {
   return elementId.endsWith(CAESURA_SUFFIX);
 }
 
@@ -75,13 +69,6 @@ export function removeCaesura(score: Score, elementId: string): Score | null {
   return score;
 }
 
-/** True when `elementId` names a marking that deletes on its own. */
-function isMarkingId(elementId: string): boolean {
-  return (
-    isAccidentalId(elementId) || isArticulationId(elementId) || isCaesuraId(elementId) || isNoteMarkingId(elementId)
-  );
-}
-
 /**
  * Remove the marking named by `elementId`, mutating `score` in place. Returns
  * null when the id isn't a marking, or names one the event doesn't carry.
@@ -92,23 +79,6 @@ function removeMarking(score: Score, elementId: string): Score | null {
   if (isCaesuraId(elementId)) return removeCaesura(score, elementId);
   if (isNoteMarkingId(elementId)) return removeNoteMarking(score, elementId);
   return null;
-}
-
-/**
- * Split selected ids into markings and everything else, so a mixed selection
- * can delete each kind with the right primitive.
- */
-export function partitionMarkingIds(elementIds: readonly string[]): {
-  markingIds: string[];
-  eventIds: string[];
-} {
-  const markingIds: string[] = [];
-  const eventIds: string[] = [];
-  for (const id of elementIds) {
-    if (isMarkingId(id)) markingIds.push(id);
-    else eventIds.push(id);
-  }
-  return { markingIds, eventIds };
 }
 
 /**
