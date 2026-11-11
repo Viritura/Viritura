@@ -130,6 +130,7 @@ function makeKeyboardContext(
       current = applyPatchesToScore(current, patches);
     },
     clearSelection: vi.fn(),
+    selectElement: vi.fn(),
     previewPitch: vi.fn(),
     getNavIndex: () => null,
   } as unknown as KeyboardHandlerContext;

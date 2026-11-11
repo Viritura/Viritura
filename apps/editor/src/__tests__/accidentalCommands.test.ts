@@ -240,6 +240,7 @@ function makeCtx(
   const ctx = {
     getScore: () => current,
     getSelection: () => selection,
+    getConfig: () => ({ selectedScoreIndex: 0 }),
     updateScore: (next: Score) => {
       current = next;
     },

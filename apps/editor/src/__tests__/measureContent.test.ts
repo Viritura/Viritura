@@ -105,6 +105,7 @@ describe("bar content deletion and cutting", () => {
     const ctx = {
       getScore: () => score,
       getSelection: () => bars,
+      getConfig: () => ({ selectedScoreIndex: 0 }),
       updateScore,
       clearSelection,
     } as unknown as KeyboardHandlerContext;
