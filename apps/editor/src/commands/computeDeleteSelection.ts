@@ -66,6 +66,7 @@ export function computeDeleteSelection(
   scoreIndex = 0,
 ): DeleteSelectionResult {
   if (!score || selection.kind === "none") return { kind: "noop" };
+  score = cloneScore(score);
   if (selection.kind === "single" && selection.elementId.startsWith("text-frame/")) {
     return deleteSelectedTextFrame(score, selection.elementId, scoreIndex);
   }
