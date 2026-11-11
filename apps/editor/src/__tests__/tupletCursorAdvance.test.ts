@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import type { Score } from "@viritura/core";
+import { addNote } from "../commands/noteCommands";
 import {
+  advanceCursorAfterEntry,
   getTupletScaleAt,
   advanceCursorByNotatedDuration,
   moveCursorToNextEvent,
@@ -104,6 +106,61 @@ describe("advanceCursorByNotatedDuration", () => {
     const cursor = { measureIndex: 0, beatPosition: 1 + 2 / 3, partIndex: 0 };
     const prev = advanceCursorByNotatedDuration(score, cursor, 0.5, 0, -1);
     expect(prev.beatPosition).toBeCloseTo(1 + 1 / 3, 6);
+  });
+});
+
+describe("advanceCursorAfterEntry", () => {
+  it("advances by the written tuplet slot duration instead of the selected toolbar duration", () => {
+    const score = scoreWithTriplet();
+    const cursor = { measureIndex: 0, beatPosition: 1 + 2 / 3, partIndex: 0 };
+    addNote(score, {
+      pitch: { step: "C", octave: 4 },
+      duration: { base: "quarter" },
+      measureIndex: 0,
+      partIndex: 0,
+      voice: 0,
+      beatPosition: cursor.beatPosition,
+    });
+
+    const next = advanceCursorAfterEntry(score, cursor, 0, 1);
+
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.content[1]).toMatchObject({
+      type: "tuplet",
+      content: [{ type: "event" }, { type: "event" }, { type: "event", duration: { base: "eighth" } }],
+    });
+    expect(next.beatPosition).toBeCloseTo(2, 6);
+  });
+
+  it("keeps the selected duration for grace-note entry inside a tuplet", () => {
+    const score = scoreWithTriplet();
+    const cursor = { measureIndex: 0, beatPosition: 1 + 2 / 3, partIndex: 0 };
+
+    const next = advanceCursorAfterEntry(score, cursor, 0, 1, false);
+
+    expect(next.beatPosition).toBeCloseTo(1 + 2 / 3 + 2 / 3, 6);
+  });
+
+  it("uses the combined scale for a nested tuplet slot", () => {
+    const score = scoreWithTriplet();
+    const outer = score.parts[0]!.measures[0]!.sequences[0]!.content[1]!;
+    if (outer.type !== "tuplet") throw new Error("Expected outer tuplet");
+    outer.content = [
+      {
+        type: "tuplet",
+        inner: { multiple: 3, duration: { base: "eighth" } },
+        outer: { multiple: 2, duration: { base: "eighth" } },
+        content: [
+          { type: "event", duration: { base: "eighth" }, rest: {} },
+          { type: "event", duration: { base: "eighth" }, rest: {} },
+          { type: "event", duration: { base: "eighth" }, rest: {} },
+        ],
+      },
+    ];
+    const cursor = { measureIndex: 0, beatPosition: 1 + 2 / 9, partIndex: 0 };
+
+    const next = advanceCursorAfterEntry(score, cursor, 0, 1);
+
+    expect(next.beatPosition).toBeCloseTo(1 + 4 / 9, 6);
   });
 });
 

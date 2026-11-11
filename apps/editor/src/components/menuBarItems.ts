@@ -45,6 +45,7 @@ export interface MenuBarCallbacks {
   readonly onPasteMerge?: () => void;
   readonly onDelete?: () => void;
   readonly onDeleteSelectedBars?: () => void;
+  readonly onSwapStaffContents?: () => void;
   readonly onSelectAll?: () => void;
   readonly onZoomIn?: () => void;
   readonly onZoomOut?: () => void;
@@ -80,6 +81,7 @@ export interface MenuBarState {
   readonly canRedo?: boolean;
   readonly hasSelection?: boolean;
   readonly canDeleteSelectedBars?: boolean;
+  readonly canSwapStaffContents?: boolean;
   readonly canTranspose?: boolean;
   readonly canChangeBarInstrument?: boolean;
   readonly hasDocument?: boolean;
@@ -193,6 +195,11 @@ function editItems(callbacks: MenuBarCallbacks, state: MenuBarState): MenuItemDe
       disabled: !state.canDistribute,
     },
     { label: "Reduce to Staff", action: callbacks.onReduceSelection, disabled: !state.canDistribute },
+    {
+      label: "Swap Staff Contents",
+      action: callbacks.onSwapStaffContents,
+      disabled: !callbacks.onSwapStaffContents || !state.hasDocument || !state.canSwapStaffContents,
+    },
     {
       label: "Select Top Note of Chords",
       action: callbacks.onSelectChordTopNote,
