@@ -42,7 +42,7 @@ function noteMarkingEvent(score: Score, eventId: string): SequenceContent | null
   return graceContainer?.type === "grace" ? graceContainer.content[grace.graceNoteIndex] : null;
 }
 
-export function removeNoteMarking(score: Score, elementId: string): Score | null {
+function removeNoteMarking(score: Score, elementId: string): Score | null {
   const match = NOTE_MARKING_SUFFIX.exec(elementId);
   if (!match) return null;
   const event = noteMarkingEvent(score, elementId.slice(0, match.index));
