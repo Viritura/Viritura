@@ -209,6 +209,42 @@ describe("structural patches — part measures and sequences", () => {
       }
     },
   );
+
+  it("setSequenceContent cannot delete a prototype's full-measure rest", () => {
+    const score = makeScore();
+    const untrustedPatch: SetSequenceContentPatch = JSON.parse(
+      JSON.stringify({
+        kind: "setSequenceContent",
+        sequencePath: { partId: "p1", measureIndex: 0, voice: "__proto__" },
+        content: [{ type: "event", id: "x1", duration: { base: "whole" }, rest: {} }],
+      }),
+    );
+    const prototypeContent = Object.getOwnPropertyDescriptor(Array.prototype, "content");
+    const prototypeFullMeasure = Object.getOwnPropertyDescriptor(Array.prototype, "fullMeasure");
+    const fullMeasure = { visualDuration: { base: "whole" } };
+    try {
+      Object.defineProperty(Array.prototype, "fullMeasure", {
+        configurable: true,
+        writable: true,
+        value: fullMeasure,
+      });
+
+      expect(() => applyPatchesToScore(score, [untrustedPatch])).toThrow(PatchTargetMissing);
+      expect(Object.getOwnPropertyDescriptor(Array.prototype, "content")).toEqual(prototypeContent);
+      expect(Object.getOwnPropertyDescriptor(Array.prototype, "fullMeasure")).toEqual({
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value: fullMeasure,
+      });
+      expect(score).toEqual(makeScore());
+    } finally {
+      if (prototypeContent) Object.defineProperty(Array.prototype, "content", prototypeContent);
+      else Reflect.deleteProperty(Array.prototype, "content");
+      if (prototypeFullMeasure) Object.defineProperty(Array.prototype, "fullMeasure", prototypeFullMeasure);
+      else Reflect.deleteProperty(Array.prototype, "fullMeasure");
+    }
+  });
 });
 
 describe("structural patches — parts and score-level", () => {
