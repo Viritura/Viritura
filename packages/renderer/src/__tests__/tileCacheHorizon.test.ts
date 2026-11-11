@@ -260,4 +260,58 @@ describe("TileCache horizon bucketing", () => {
     expect(cache.tilesRendered).toBeGreaterThan(0);
     expect(sharedRec.rects.some((entry) => entry.x === 80 && entry.w === 30)).toBe(true);
   });
+
+  it("keeps retained tile memory within the device-pixel budget", () => {
+    globalThis.window = { devicePixelRatio: 2 } as unknown as Window & typeof globalThis;
+    const cache = new TileCache();
+    const canvas = {
+      width: 10_000,
+      height: 10_000,
+      getContext: vi.fn(() => makeRecordingCtx(sharedRec)),
+    } as unknown as HTMLCanvasElement;
+
+    expect(cache.canCacheViewport(canvas, 0, 0, 1)).toBe(false);
+    expect(cache.cachedTileCount).toBeLessThanOrEqual(64);
+  });
+
+  it("evicts distant tiles before touching tiles in the visible viewport", () => {
+    const tileSize = 2048;
+    const cache = new TileCache(tileSize);
+    const canvas = {
+      width: 256,
+      height: 256,
+      getContext: vi.fn(() => makeRecordingCtx(sharedRec)),
+    } as unknown as HTMLCanvasElement;
+    const displayList = horizonDisplayList([rect(0, 30), rect(99_900, 30)], 100_000);
+
+    for (let position = 0; position < 20; position++) {
+      cache.paintFrame({
+        canvas,
+        displayList,
+        scrollX: position * tileSize * 3,
+        scrollY: 0,
+        zoom: 1,
+        version: 1,
+        glyphAtlas: null,
+        viewMode: "horizon",
+      });
+    }
+
+    cache.paintFrame({
+      canvas,
+      displayList,
+      scrollX: 19 * tileSize * 3,
+      scrollY: 0,
+      zoom: 1,
+      version: 1,
+      glyphAtlas: null,
+      viewMode: "horizon",
+    });
+
+    expect(cache.cachedTileCount).toBeGreaterThan(0);
+    expect(cache.hasPendingTiles).toBe(false);
+    expect(cache.tilesRendered).toBe(0);
+    expect(cache.cachedTileCount).toBeLessThanOrEqual(16);
+    expect(cache.canCacheViewport(canvas, 0, 0, 1)).toBe(true);
+  });
 });

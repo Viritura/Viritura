@@ -6,6 +6,7 @@
  * edit transforms (Q - rest toggle), and inspector keys (Y/L/G/D/O/R/E/W/B/C).
  */
 
+import { markPerformance } from "@viritura/renderer";
 import type { Note, Score, NoteValueBase, ScorePatch, SequenceContent } from "@viritura/core";
 import { patch, walkSequenceEvents } from "@viritura/core";
 import {
@@ -109,7 +110,7 @@ function emitOptimisticPitchPreview(
     optimisticOnly: true,
     currentVoice: location.sequenceIndex + 1,
   };
-  performance.mark("viritura:input-event");
+  markPerformance("viritura:input-event");
   window.dispatchEvent(new CustomEvent(OPTIMISTIC_NOTE_INPUT_EVENT, { detail }));
 }
 

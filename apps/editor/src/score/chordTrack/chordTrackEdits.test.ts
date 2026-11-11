@@ -94,6 +94,15 @@ describe("concert-pitch chord-track document edits", () => {
     expect(scoreTrackChords(next)[0]!.elementId).toBe("m0/chord0");
   });
 
+  it("removes duplicate chords at the selected rhythmic position together", () => {
+    const original = score();
+    original.global.measures[0]!.chordSymbols!.push(parseChordSymbolText("C", { fraction: [0, 1] }));
+
+    const next = removeChordTrackChord(original, { measureIndex: 0, beat: 0, x: 0 });
+
+    expect(next.global.measures[0]!.chordSymbols!.map((chord) => chord.rawText)).toEqual(["G7/B"]);
+  });
+
   it.each(["D7b9/F#", "D7#9", "D#7b9/Fx"])("accepts altered harmony %s without changing other chords", (text) => {
     const original = score();
     const next = editChordTrackText(original, { measureIndex: 0, beat: 0, x: 0 }, text);

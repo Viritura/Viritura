@@ -1,3 +1,4 @@
+import { markPerformance, measurePerformance } from "@viritura/renderer";
 import { useEffect } from "react";
 import type { DisplayList, PatchInfo, PerfTracker, ScoreInfo, SpatialIndex } from "@viritura/renderer";
 import { buildEnrichedSpatialIndex } from "../../store/enrichSpatialIndex";
@@ -77,9 +78,9 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
       // (which runs ~32 ms later, before the worker resolves) skips it instead
       // of laying out — and patching — the same edit a second time.
       pendingFastJsonRef.current = json;
-      performance.mark("viritura:fast-effect-start");
+      markPerformance("viritura:fast-effect-start");
       try {
-        performance.measure("viritura:react-schedule", "viritura:setState-done", "viritura:fast-effect-start");
+        measurePerformance("viritura:react-schedule", "viritura:setState-done", "viritura:fast-effect-start");
       } catch {
         /* ignore */
       }

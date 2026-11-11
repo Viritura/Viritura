@@ -6,6 +6,7 @@
  * preventing the 2000+ component re-render cascade that Context causes.
  */
 
+import { markPerformance, measurePerformance } from "@viritura/renderer";
 import { createStore } from "zustand";
 import type { Score, ScorePatch } from "@viritura/core";
 import { applyPatchesToScore, patchAffectedMeasures } from "@viritura/core";
@@ -243,9 +244,9 @@ export function createDocumentStore() {
       // React-visible `score` selector tree.
       set({ workingScore: newScore });
       perf.markEditStart();
-      performance.mark("viritura:edit-start");
+      markPerformance("viritura:edit-start");
       try {
-        const m = performance.measure("viritura:command-processing", "viritura:input-event", "viritura:edit-start");
+        const m = measurePerformance("viritura:command-processing", "viritura:input-event", "viritura:edit-start");
         perf.commandProcessingMs = m.duration;
       } catch {
         /* no input-event mark for programmatic calls */
@@ -263,7 +264,7 @@ export function createDocumentStore() {
         console.debug(`[Viritura] Beat count repair: ${repairMs.toFixed(1)}ms`);
       }
 
-      performance.mark("viritura:serialize-start");
+      markPerformance("viritura:serialize-start");
       const t0 = performance.now();
       const result = deltaSerializer.prepare(newScore);
       let json: string | null = null;
@@ -273,8 +274,8 @@ export function createDocumentStore() {
       // snapshot so recovery can never mix generations.
       const fallbackJson = (): string => JSON.stringify(serializeMnx(newScore));
       perf.serializeMs = performance.now() - t0;
-      performance.mark("viritura:serialize-end");
-      performance.measure("viritura:serialize", "viritura:serialize-start", "viritura:serialize-end");
+      markPerformance("viritura:serialize-end");
+      measurePerformance("viritura:serialize", "viritura:serialize-start", "viritura:serialize-end");
 
       // Harmony entry can commit another change before the worker finishes.
       // Record each commit immediately; visual publication still waits for paint.
@@ -320,9 +321,9 @@ export function createDocumentStore() {
           lastEditCursorBefore: cursorBeforeEdit,
           lastCommittedPatches: patches ?? [],
         });
-        performance.mark("viritura:setState-done");
+        markPerformance("viritura:setState-done");
         try {
-          performance.measure("viritura:updateScore", "viritura:edit-start", "viritura:setState-done");
+          measurePerformance("viritura:updateScore", "viritura:edit-start", "viritura:setState-done");
         } catch {
           /* */
         }
