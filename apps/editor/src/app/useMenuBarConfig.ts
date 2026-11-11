@@ -19,6 +19,7 @@ export interface MenuBarConfigDeps {
   canTranspose: boolean;
   canChangeBarInstrument?: boolean;
   canDistribute: boolean;
+  canSwapStaffContents: boolean;
   recentScores: readonly RecentScore[];
   handleOpenFile: () => void | Promise<void>;
   handleImportFile: () => void | Promise<void>;
@@ -38,6 +39,7 @@ export interface MenuBarConfigDeps {
   handleSelectChordBottomNote: () => void;
   handleDeleteSelection: () => void;
   handleDeleteSelectedBars: () => void;
+  handleSwapStaffContents: () => void;
   handleSelectAll: () => void;
   handleZoomIn: () => void;
   handleZoomOut: () => void;
@@ -94,6 +96,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
     handleSelectChordBottomNote,
     handleDeleteSelection,
     handleDeleteSelectedBars,
+    handleSwapStaffContents,
     handleSelectAll,
     handleZoomIn,
     handleZoomOut,
@@ -149,16 +152,13 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       onPasteMerge: () => {
         void handlePasteMerge();
       },
-      onExplodeSelection: () => {
-        void handleExplodeSelection();
-      },
-      onReduceSelection: () => {
-        void handleReduceSelection();
-      },
+      onExplodeSelection: handleExplodeSelection,
+      onReduceSelection: handleReduceSelection,
       onSelectChordTopNote: handleSelectChordTopNote,
       onSelectChordBottomNote: handleSelectChordBottomNote,
       onDelete: handleDeleteSelection,
       onDeleteSelectedBars: handleDeleteSelectedBars,
+      onSwapStaffContents: handleSwapStaffContents,
       onSelectAll: handleSelectAll,
       onZoomIn: handleZoomIn,
       onZoomOut: handleZoomOut,
@@ -214,6 +214,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       handleSelectChordBottomNote,
       handleDeleteSelection,
       handleDeleteSelectedBars,
+      handleSwapStaffContents,
       handleSelectAll,
       handleZoomIn,
       handleZoomOut,
@@ -241,6 +242,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       canTranspose,
       canChangeBarInstrument,
       canDistribute,
+      canSwapStaffContents: deps.canSwapStaffContents,
       canUseChordTrack,
       chordTrackEnabled,
     }),
@@ -252,6 +254,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       canTranspose,
       canChangeBarInstrument,
       canDistribute,
+      deps.canSwapStaffContents,
       canUseChordTrack,
       chordTrackEnabled,
     ],

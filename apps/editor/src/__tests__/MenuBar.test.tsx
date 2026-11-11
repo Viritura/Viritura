@@ -37,6 +37,21 @@ function renderMenuBar(overrides: Partial<MenuBarCallbacks> = {}, state: MenuBar
 }
 
 describe("MenuBar", () => {
+  it.each([false, true])("gates Swap Staff Contents on a two-staff bar selection: %s", async (canSwapStaffContents) => {
+    const onSwapStaffContents = vi.fn();
+    const { user } = renderMenuBar(
+      { onSwapStaffContents },
+      { hasDocument: true, hasSelection: true, canSwapStaffContents },
+    );
+    await user.click(screen.getByText("Edit"));
+    const item = screen.getByRole("menuitem", { name: "Swap Staff Contents" });
+    expect(item.getAttribute("data-disabled") === null).toBe(canSwapStaffContents);
+    if (canSwapStaffContents) {
+      await user.click(item);
+      expect(onSwapStaffContents).toHaveBeenCalledOnce();
+    }
+  });
+
   it("places the checked chord-track toggle directly under View without a submenu", async () => {
     const onToggleChordTrack = vi.fn();
     const { user } = renderMenuBar(
