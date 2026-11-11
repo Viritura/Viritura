@@ -16,6 +16,7 @@ import { meteredRhythm, type RhythmContext, type SoundingNote } from "./beatGrid
 import { cloneNoteForChord } from "./chordMerge";
 import { FragmentDistributionError } from "./distributionError";
 import { applyCarriedNotation, carriedNotation } from "./eventNotation";
+import { recordRendering, relinkSourceTies, type SourceNoteRenderings } from "./sourceTies";
 import { dynamicsForTarget, mergedDynamics } from "./trackDynamics";
 import { buildSegments, segmentsMaxSimultaneity, type DistributionSegment } from "./tupletSegments";
 
@@ -23,6 +24,12 @@ export { FragmentDistributionError };
 
 type TieCarry = Map<string, Note>;
 type DistributedTargets = Map<string, Map<number, string>>;
+
+/** Where each source event and note ended up, for re-linking id-addressed notation. */
+interface DistributionTrace {
+  events: DistributedTargets;
+  notes: SourceNoteRenderings;
+}
 
 function leadInBeats(track: ClipboardTrack): number {
   const [numerator, denominator] = track.leadIn ?? [0, 1];
@@ -67,7 +74,7 @@ function emitChord(
   assigned: readonly SoundingNote[],
   carry: TieCarry,
   targetIndex: number,
-  targets: DistributedTargets,
+  trace: DistributionTrace,
 ): NoteEvent[] {
   const durations = decomposeDuration(beats);
   const events: NoteEvent[] = [];
@@ -84,6 +91,7 @@ function emitChord(
       const previous = carry.get(key);
       if (previous && (pieceIndex > 0 || entry.continuation)) previous.ties = [{ target: note.id! }];
       carry.set(key, note);
+      recordRendering(trace.notes, entry.note, targetIndex, note);
       return note;
     });
     const event: NoteEvent = { type: "event", id: generateEventId(), duration, notes };
@@ -91,9 +99,9 @@ function emitChord(
     events.push(event);
     for (const entry of assigned) {
       if (!entry.event.id) continue;
-      const destinations = targets.get(entry.event.id) ?? new Map<number, string>();
+      const destinations = trace.events.get(entry.event.id) ?? new Map<number, string>();
       destinations.set(targetIndex, event.id!);
-      targets.set(entry.event.id, destinations);
+      trace.events.set(entry.event.id, destinations);
     }
   }
 
@@ -108,7 +116,7 @@ function writePlainSegment(
   targetCount: number,
   content: readonly SequenceContent[][],
   carries: readonly TieCarry[],
-  targets: DistributedTargets,
+  trace: DistributionTrace,
 ): void {
   for (const slot of segment.grid.slots) {
     const allocations = allocateTopDown(sortByPitchDescending(slot.notes), targetCount);
@@ -118,7 +126,7 @@ function writePlainSegment(
         carries[targetIndex]!.clear();
         content[targetIndex]!.push(...emitRests(slot.beat, slot.beats, segment.rhythm));
       } else {
-        content[targetIndex]!.push(...emitChord(slot.beats, assigned, carries[targetIndex]!, targetIndex, targets));
+        content[targetIndex]!.push(...emitChord(slot.beats, assigned, carries[targetIndex]!, targetIndex, trace));
       }
     }
   }
@@ -134,9 +142,9 @@ function writeTupletSegment(
   content: readonly SequenceContent[][],
   rhythm: RhythmContext,
   startBeat: number,
-  targets: DistributedTargets,
+  trace: DistributionTrace,
 ): void {
-  const shares = writeSegments(segment.inner, targetCount, segment.innerRhythm, targets);
+  const shares = writeSegments(segment.inner, targetCount, segment.innerRhythm, trace);
   const { content: _interior, ...shape } = segment.template;
   for (let targetIndex = 0; targetIndex < targetCount; targetIndex++) {
     const share = shares[targetIndex]!;
@@ -154,7 +162,7 @@ function writeSegments(
   segments: readonly DistributionSegment[],
   targetCount: number,
   rhythm: RhythmContext,
-  targets: DistributedTargets,
+  trace: DistributionTrace,
 ): SequenceContent[][] {
   const content: SequenceContent[][] = Array.from({ length: targetCount }, () => []);
   const carries: TieCarry[] = Array.from({ length: targetCount }, () => new Map());
@@ -162,14 +170,14 @@ function writeSegments(
 
   for (const segment of segments) {
     if (segment.kind === "plain") {
-      writePlainSegment(segment, targetCount, content, carries, targets);
+      writePlainSegment(segment, targetCount, content, carries, trace);
       beat += segment.grid.duration;
       continue;
     }
     // A tuplet bracket ends every grid-derived tie chain: its interior is a
     // separate timeline and nothing the grid tracked sustains across it.
     for (const carry of carries) carry.clear();
-    writeTupletSegment(segment, targetCount, content, rhythm, beat, targets);
+    writeTupletSegment(segment, targetCount, content, rhythm, beat, trace);
     beat += segment.outerBeats;
   }
   return content;
@@ -182,10 +190,11 @@ function writeTracks(
   timeSignature: TimeSignature,
   fragmentDynamics: readonly CapturedDynamic[] | undefined,
 ): ClipboardTrack[] {
-  const targets: DistributedTargets = new Map();
-  const content = writeSegments(segments, targetCount, meteredRhythm(timeSignature), targets);
+  const trace: DistributionTrace = { events: new Map(), notes: new Map() };
+  const content = writeSegments(segments, targetCount, meteredRhythm(timeSignature), trace);
+  relinkSourceTies(trace.notes);
   const targetRemap = new Map<string, string>();
-  for (const [sourceId, destinations] of targets) {
+  for (const [sourceId, destinations] of trace.events) {
     if (destinations.size === 1) targetRemap.set(sourceId, [...destinations.values()][0]!);
   }
   for (const trackContent of content) remapLyricExtenderTargets(trackContent, targetRemap);

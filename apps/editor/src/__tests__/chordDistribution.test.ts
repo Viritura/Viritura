@@ -186,6 +186,84 @@ describe("clipboard fragment distribution", () => {
     expect(events[0]!.notes?.[0]!.ties?.[0]?.target).toBe(events[1]!.notes?.[0]!.id);
   });
 
+  it("keeps ties written between copied chords on every exploded staff", () => {
+    const chord = (id: string, tied: boolean): NoteEvent => ({
+      type: "event",
+      id,
+      duration: { base: "half" },
+      notes: (["C", "E", "G"] as const).map((step) => ({
+        id: `${id}-${step}`,
+        pitch: { step, octave: 4 },
+        ...(tied ? { ties: [{ target: `second-${step}` }] } : {}),
+      })),
+    });
+
+    const result = explodeFragment(fragment([track([chord("first", true), chord("second", false)], 0)]));
+
+    expect(result.tracks).toHaveLength(3);
+    for (const target of result.tracks!) {
+      const [first, second] = target.content as NoteEvent[];
+      expect(first!.notes?.[0]!.ties).toEqual([{ target: second!.notes?.[0]!.id }]);
+      expect(second!.notes?.[0]!.ties).toBeUndefined();
+    }
+  });
+
+  it("keeps a copied tie that crosses a tuplet boundary and preserves let-ring ties", () => {
+    const triplet: Tuplet = {
+      type: "tuplet",
+      inner: { multiple: 3, duration: { base: "eighth" } },
+      outer: { multiple: 2, duration: { base: "eighth" } },
+      content: [
+        noteEvent("t1", "D", 4, "eighth"),
+        noteEvent("t2", "D", 4, "eighth"),
+        {
+          ...noteEvent("t3", "D", 4, "eighth"),
+          notes: [{ id: "t3-note", pitch: { step: "D", octave: 4 }, ties: [{ target: "after-note" }] }],
+        },
+      ],
+    };
+    const after: NoteEvent = {
+      ...noteEvent("after", "D", 4),
+      notes: [{ id: "after-note", pitch: { step: "D", octave: 4 }, ties: [{ lv: true }] }],
+    };
+
+    const content = reduceFragment(fragment([track([triplet, after], 0)])).tracks![0]!.content;
+    const tupletOut = content[0] as Tuplet;
+    const last = tupletOut.content.at(-1) as NoteEvent;
+    const tail = content[1] as NoteEvent;
+
+    expect(last.notes?.[0]!.ties).toEqual([{ target: tail.notes?.[0]!.id }]);
+    expect(tail.notes?.[0]!.ties).toEqual([{ lv: true }]);
+  });
+
+  it("drops a copied tie whose two notes explode onto different staves", () => {
+    const first: NoteEvent = {
+      type: "event",
+      id: "first",
+      duration: { base: "half" },
+      notes: [
+        { id: "first-c", pitch: { step: "C", octave: 4 } },
+        { id: "first-g", pitch: { step: "G", octave: 4 }, ties: [{ target: "second-g" }] },
+      ],
+    };
+    const second: NoteEvent = {
+      type: "event",
+      id: "second",
+      duration: { base: "half" },
+      notes: [
+        { id: "second-g", pitch: { step: "G", octave: 4 } },
+        { id: "second-b", pitch: { step: "B", octave: 4 } },
+      ],
+    };
+
+    const result = explodeFragment(fragment([track([first, second], 0)]));
+    const ties = result.tracks!.flatMap((target) =>
+      (target.content as NoteEvent[]).flatMap((event) => (event.notes ?? []).flatMap((note) => note.ties ?? [])),
+    );
+
+    expect(ties).toEqual([]);
+  });
+
   it("refuses fragments containing a secondary voice", () => {
     const source = fragment([track([noteEvent("c", "C", 4)], 0), track([noteEvent("e", "E", 4)], 0, 1)]);
 
