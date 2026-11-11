@@ -35,7 +35,7 @@ import { resolveEntryPitch } from "../../commands/transposeCommands";
 import { resolveDisplayKeyFifths, resolveDisplayTransposition } from "../../pitchContext";
 import { beatPositionToFraction } from "../../app/timedAnnotationPosition";
 import { prevailingAlterationAtPosition } from "../../commands/accidentalCommands";
-import { advanceCursorByNotatedDuration } from "../../commands/cursorCommands";
+import { advanceCursorAfterEntry } from "../../commands/cursorCommands";
 import {
   findCondensingStaff,
   getActiveLayoutId,
@@ -491,12 +491,12 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
         );
         updateScore(resultScore);
         setCursor(
-          advanceCursorByNotatedDuration(
+          advanceCursorAfterEntry(
             resultScore,
             { measureIndex, beatPosition, partIndex, staffIndex: clickedStaffNumber - 1 },
-            noteBeats,
             lane,
-            1,
+            noteBeats,
+            !noteInputState.currentGraceType,
           ),
         );
         setLastPitch(writtenPitch);
@@ -509,12 +509,12 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
         clearExplicitAccidental();
       }
       setCursor(
-        advanceCursorByNotatedDuration(
+        advanceCursorAfterEntry(
           newScore,
           { measureIndex, beatPosition, partIndex, staffIndex: clickedStaffNumber - 1 },
-          noteBeats,
           lane,
-          1,
+          noteBeats,
+          !noteInputState.currentGraceType,
         ),
       );
       return;
@@ -733,12 +733,12 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
 
       updateScore(resultScore);
       setCursor(
-        advanceCursorByNotatedDuration(
+        advanceCursorAfterEntry(
           resultScore,
           { measureIndex, beatPosition, partIndex, staffIndex: clickedStaffNumber - 1 },
-          noteBeats,
           lane,
-          1,
+          noteBeats,
+          !noteInputState.currentGraceType,
         ),
       );
       setLastPitch(writtenPitch);
@@ -751,12 +751,12 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
       clearExplicitAccidental();
     }
     setCursor(
-      advanceCursorByNotatedDuration(
+      advanceCursorAfterEntry(
         newScore,
         { measureIndex, beatPosition, partIndex, staffIndex: clickedStaffNumber - 1 },
-        noteBeats,
         lane,
-        1,
+        noteBeats,
+        !noteInputState.currentGraceType,
       ),
     );
   } catch (err) {
