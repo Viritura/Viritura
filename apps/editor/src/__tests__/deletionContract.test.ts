@@ -79,17 +79,20 @@ describe("deletion compatibility contract", () => {
     expect(first(score).notes).toHaveLength(1);
   });
 
-  it("characterizes the missing fermata dispatch without weakening parent safety", () => {
+  it("wires fermata deletion in the shared computation without weakening parent safety", () => {
     const score = fixture();
     first(score).fermata = {};
     const selection: Selection = { kind: "single", elementId: "p0/m0/s0/a/ferm" };
-    expect(computeDeleteSelection(score, selection)).toEqual({ kind: "noop" });
+    const result = computeDeleteSelection(score, selection);
+    if (result.kind !== "single") throw new Error("Expected fermata deletion");
+    expect(first(result.score).fermata).toBeUndefined();
+    expect(first(result.score).notes).toHaveLength(1);
     expect(keyboard(score, selection).updateScore).not.toHaveBeenCalled();
     expect(first(score).fermata).toEqual({});
     expect(first(score).notes).toHaveLength(1);
   });
 
-  it("characterizes single-rest normalization divergence", () => {
+  it("normalizes explicit rest-only sequences in both computation and keyboard", () => {
     const score = fixture();
     for (const event of score.parts[0]!.measures[0]!.sequences[0]!.content) {
       if (event.type !== "event") throw new Error("Expected event");
@@ -97,7 +100,9 @@ describe("deletion compatibility contract", () => {
       event.rest = {};
     }
     const selection: Selection = { kind: "single", elementId: "p0/m0/s0/a" };
-    expect(computeDeleteSelection(score, selection)).toEqual({ kind: "noop" });
+    const result = computeDeleteSelection(score, selection);
+    if (result.kind !== "single") throw new Error("Expected rest normalization");
+    expect(result.score.parts[0]!.measures[0]!.sequences[0]!.fullMeasure).toBeDefined();
     expect(keyboard(score, selection).score.parts[0]!.measures[0]!.sequences[0]!.fullMeasure).toBeDefined();
   });
 

@@ -20,15 +20,6 @@ export function resolveDeletableAnnotationLocation(elementId: string): Annotatio
   return location?.type === "chord" && location.kind !== "global" ? null : location;
 }
 
-/** Delete explicitly selected global chords and endings, coalescing copies of each root. */
-export function deleteGlobalAnnotationsByElementIds(score: Score, elementIds: readonly string[]): Score | null {
-  const locations = elementIds.flatMap((id) => {
-    const location = resolveDeletableAnnotationLocation(id);
-    return location?.kind === "global" && (location.type === "chord" || location.type === "volta") ? [location] : [];
-  });
-  return locations.length > 0 ? deleteAnnotations(score, locations) : null;
-}
-
 type GlobalMeasure = Score["global"]["measures"][number];
 type PartMeasure = Score["parts"][number]["measures"][number];
 
