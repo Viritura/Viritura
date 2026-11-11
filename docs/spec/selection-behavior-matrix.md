@@ -48,6 +48,13 @@ rests, and staff-owned annotations; part-wide measure-repeat signs remain
 unless every staff in that part is selected. Legacy measure selections without
 local staff indices continue to clear the whole selected part/measure rectangle.
 
+**Swap Staff Contents** in Edit and the score context menu is enabled only for
+bar selections covering exactly two physical staves, including two staves of
+the same part. It exchanges all voices and staff-owned markings in the selected
+bars in one undoable edit, preserving the bar selection and clipboard.
+Instrument identities, clefs, staff configuration, local meters, and global
+measure settings stay in place; pitches are not transposed.
+
 Every action declares one **mode** (see `SelectionTargetMode`). The mode picks
 which resolver in `selectionUtils.ts` turns the abstract selection into concrete
 targets:

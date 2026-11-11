@@ -10,6 +10,7 @@ import type { Score } from "@viritura/core";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import type { RefObject } from "react";
 import { useViewStateStore } from "../store/viewStateStore";
+import { swapStaffContents } from "../commands/staffSwap";
 
 type SelectionState = ReturnType<typeof useSelection>;
 
@@ -28,6 +29,7 @@ export interface EditorMiscActions {
   handleSelectAll: () => void;
   handleDeleteSelection: () => void;
   handleDeleteSelectedBars: () => void;
+  handleSwapStaffContents: () => void;
   handleZoomIn: () => void;
   handleZoomOut: () => void;
   handleResetZoom: () => void;
@@ -95,6 +97,16 @@ export function useEditorMiscActions({
     canvasRef.current?.setZoom(z);
   }, [currentZoom, canvasRef]);
 
+  const handleSwapStaffContents = useCallback(() => {
+    const { score } = store.getState();
+    const next = score && swapStaffContents(score, useSelectionStore.getState().selection);
+    if (!next) {
+      toast.info("Select bars on exactly two staves to swap their contents.");
+      return;
+    }
+    updateScore(next);
+  }, [store, updateScore]);
+
   const handleZoomOut = useCallback(() => {
     const z = Math.max(currentZoom / 1.25, MIN_ZOOM);
     canvasRef.current?.setZoom(z);
@@ -125,6 +137,7 @@ export function useEditorMiscActions({
     handleSelectAll,
     handleDeleteSelection,
     handleDeleteSelectedBars,
+    handleSwapStaffContents,
     handleZoomIn,
     handleZoomOut,
     handleResetZoom,

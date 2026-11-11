@@ -62,6 +62,11 @@ export function buildSelectionContextMenuItems(
     SEPARATOR,
     { label: "Explode to Staves", action: callbacks.onExplodeSelection, disabled: !canDistribute },
     { label: "Reduce to Staff", action: callbacks.onReduceSelection, disabled: !canDistribute },
+    {
+      label: "Swap Staff Contents",
+      action: callbacks.onSwapStaffContents,
+      disabled: !state.hasDocument || !state.canSwapStaffContents,
+    },
     SEPARATOR,
     { label: "Select Top Note of Chords", action: callbacks.onSelectChordTopNote, disabled: !hasSelection },
     { label: "Select Bottom Note of Chords", action: callbacks.onSelectChordBottomNote, disabled: !hasSelection },

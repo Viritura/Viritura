@@ -12,6 +12,8 @@ import {
 } from "../components/AppShell";
 import type { MenuBarCallbacks, MenuBarState } from "../components/MenuBar";
 import { useSelectionStore } from "../store/selectionStore";
+import { useDocumentStoreApi } from "../store/DocumentContext";
+import { resolveStaffSwapTarget } from "../commands/staffSwap";
 
 interface UseMenuBarWiringParams extends MenuBarConfigDeps {
   isActiveView: boolean | undefined;
@@ -37,6 +39,7 @@ export function useMenuBarWiring({
   ...deps
 }: UseMenuBarWiringParams): MenuBarWiring {
   const config = useMenuBarConfig(deps);
+  const store = useDocumentStoreApi();
   const { menuCallbacks, menuState, recentMenuEntries } = config;
 
   const emptyCallbacks = useMemo<MenuBarCallbacks>(() => ({}), []);
@@ -66,10 +69,15 @@ export function useMenuBarWiring({
     (context: SelectionMenuContext) =>
       buildSelectionContextMenuItems(
         menuCallbacks,
-        { ...menuState, canDeleteSelectedBars: useSelectionStore.getState().selection.kind === "measure" },
+        {
+          ...menuState,
+          canDeleteSelectedBars: useSelectionStore.getState().selection.kind === "measure",
+          canSwapStaffContents:
+            resolveStaffSwapTarget(store.getState().score, useSelectionStore.getState().selection) !== null,
+        },
         context,
       ),
-    [menuCallbacks, menuState],
+    [menuCallbacks, menuState, store],
   );
   return { buildSelectionMenuItems };
 }
