@@ -1,3 +1,4 @@
+import { markPerformance, measurePerformance } from "@viritura/renderer";
 import { useCallback, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
 import {
   detectStavesForViewMode,
@@ -192,14 +193,14 @@ export function InputCursor({
       });
       if (!painted) return;
 
-      performance.mark("viritura:optimistic-paint-end");
+      markPerformance("viritura:optimistic-paint-end");
       try {
-        performance.measure(
+        measurePerformance(
           "viritura:optimistic-input-to-paint",
           "viritura:input-event",
           "viritura:optimistic-paint-end",
         );
-        performance.measure("viritura:input-to-paint", "viritura:input-event", "viritura:optimistic-paint-end");
+        measurePerformance("viritura:input-to-paint", "viritura:input-event", "viritura:optimistic-paint-end");
         (
           window as typeof window & { __VIRITURA_OPTIMISTIC_INPUT_PAINTED__?: boolean }
         ).__VIRITURA_OPTIMISTIC_INPUT_PAINTED__ = true;

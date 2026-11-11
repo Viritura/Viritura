@@ -115,9 +115,10 @@ export function pointChord(chords: readonly TimedChord[], point: TrackPoint) {
 }
 
 export function positionTrackChords(system: TrackSystem, chords: readonly TimedChord[]) {
+  const measures = new Map(system.measures.map((measure) => [measure.index, measure]));
   const positioned = chords
     .flatMap((chord) => {
-      const measure = system.measures.find((candidate) => candidate.index === chord.measureIndex);
+      const measure = measures.get(chord.measureIndex);
       if (!measure) return [];
       const beat = (chord.symbol.position.fraction[0] / chord.symbol.position.fraction[1]) * 4;
       return [

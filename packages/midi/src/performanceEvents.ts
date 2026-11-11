@@ -36,6 +36,7 @@ import {
   type PlayedMeasureSpan,
 } from "./navigation";
 import { compileRhythmProgram, realizeRhythmEvent, type RhythmTimings } from "./rhythmRealization";
+import { withSoundingNotes } from "./unpitchedNoteheads";
 
 export interface Articulations {
   staccato: boolean;
@@ -290,7 +291,13 @@ function emitNoteOff(ctx: TraversalContext, note: PerformanceNote): void {
   ctx.order = pushEvent(ctx, { kind: "noteOff", time: note.startTime + note.duration, note });
 }
 
-function processNoteEvent(ctx: TraversalContext, event: NoteEvent, beatOffset: number, tupletRatio: number): number {
+function processNoteEvent(
+  ctx: TraversalContext,
+  writtenEvent: NoteEvent,
+  beatOffset: number,
+  tupletRatio: number,
+): number {
+  const event = withSoundingNotes(writtenEvent);
   const beats = durationBeats(event.duration) * tupletRatio;
   if (!beatInPlayedSpan(beatOffset * ctx.staffMeterRatio, ctx.playedSpan)) return beats;
   if (isRest(event)) return beats;

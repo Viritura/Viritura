@@ -1,4 +1,5 @@
 /* eslint-disable complexity -- canvas interaction layer; each handler is irreducibly large but cohesive */
+import { markPerformance } from "@viritura/renderer";
 import type React from "react";
 import {
   hitTestSpannerHandle,
@@ -121,7 +122,7 @@ export interface CanvasHandlerCtx {
 }
 
 export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
-  performance.mark("viritura:input-event");
+  markPerformance("viritura:input-event");
   // Perf overlay buttons take precedence
   if (ctx.performanceOverlayEnabled) {
     const canvas = ctx.canvasRef.current;

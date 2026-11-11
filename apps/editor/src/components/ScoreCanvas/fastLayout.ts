@@ -1,3 +1,4 @@
+import { markPerformance, measurePerformance } from "@viritura/renderer";
 import { type DisplayList, type PatchInfo, type PerfTracker, type SpatialIndex } from "@viritura/renderer";
 import { buildEnrichedSpatialIndex } from "../../store/enrichSpatialIndex";
 import type { Score } from "@viritura/core";
@@ -47,22 +48,22 @@ export async function runFastLayoutAndPaint(
     onDisplayListCommit,
   } = args;
 
-  performance.mark("viritura:wasm-layout-start");
+  markPerformance("viritura:wasm-layout-start");
   const t0 = performance.now();
   const displayList = await computeDisplayList(json, patchInfo);
   const t1 = performance.now();
-  performance.mark("viritura:wasm-layout-end");
-  performance.measure("viritura:wasm-layout", "viritura:wasm-layout-start", "viritura:wasm-layout-end");
+  markPerformance("viritura:wasm-layout-end");
+  measurePerformance("viritura:wasm-layout", "viritura:wasm-layout-start", "viritura:wasm-layout-end");
 
   // Consume even an unpainted frame: the next patch may reuse a segment that
   // was freshly supplied here. Skipping this leaves the flattened stores a
   // generation behind the reconstructor's segment order.
   if (displayList.finalizeRetainedFrame) {
-    performance.mark("viritura:compatibility-reconstruct-start");
+    markPerformance("viritura:compatibility-reconstruct-start");
     displayList.finalizeRetainedFrame();
-    performance.mark("viritura:compatibility-reconstruct-end");
+    markPerformance("viritura:compatibility-reconstruct-end");
     try {
-      performance.measure(
+      measurePerformance(
         "viritura:compatibility-reconstruct",
         "viritura:compatibility-reconstruct-start",
         "viritura:compatibility-reconstruct-end",
@@ -76,16 +77,16 @@ export async function runFastLayoutAndPaint(
   // targets and paint. Transport retention above must still advance in order.
   if (shouldCommit && !shouldCommit()) return;
 
-  performance.mark("viritura:spatial-start");
+  markPerformance("viritura:spatial-start");
   const s0 = performance.now();
   // A measure edit can move other systems/staves. Retained display lists also
   // mutate in place, so their "previous" measure bounds are not a before-image.
   // Index the authoritative frame rather than retaining stale hit regions.
   const spatialIndex = buildEnrichedSpatialIndex(displayList, docScoreRef.current);
   perfTracker.spatialIndexMs = performance.now() - s0;
-  performance.mark("viritura:spatial-end");
+  markPerformance("viritura:spatial-end");
   try {
-    performance.measure("viritura:spatial-index", "viritura:spatial-start", "viritura:spatial-end");
+    measurePerformance("viritura:spatial-index", "viritura:spatial-start", "viritura:spatial-end");
   } catch {
     /* ignore */
   }
@@ -95,7 +96,7 @@ export async function runFastLayoutAndPaint(
   perfTracker.wasmLayoutMs = t1 - t0;
   displayListVersionRef.current += 1;
   onDisplayListCommit?.();
-  performance.mark("viritura:raf-callback");
-  performance.mark("viritura:repaint-call");
+  markPerformance("viritura:raf-callback");
+  markPerformance("viritura:repaint-call");
   paintNowRef.current(true);
 }

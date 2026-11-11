@@ -1,4 +1,5 @@
 /* eslint-disable max-lines -- component shell after 25+ sibling extractions (canvasHandlers, paintScoreFrame, paintEngraveAdornments, repaintCanvas, computeDisplayList, hitTesting, layoutHelpers, viewportGeometry, ...). The remainder is React glue that does not decompose cleanly: state/ref declarations, useImperativeHandle, prop-mirror refs for engrave callbacks, effect orchestration coordinating WASM/fast-layout/relayout, and JSX. Splitting further would scatter cross-effect dependencies into argument bundles. */
+import { markPerformance, measurePerformance } from "@viritura/renderer";
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -670,9 +671,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
 
       // ── Fast path for incremental edits (fallback if callback wasn't registered) ──
       if (!isInitialLoad && cachedScoreInfoRef.current) {
-        performance.mark("viritura:fast-effect-start");
+        markPerformance("viritura:fast-effect-start");
         try {
-          performance.measure("viritura:react-schedule", "viritura:setState-done", "viritura:fast-effect-start");
+          measurePerformance("viritura:react-schedule", "viritura:setState-done", "viritura:fast-effect-start");
         } catch {
           /* ignore */
         }
@@ -999,9 +1000,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
      */
     const paintNow = useCallback(
       (forceDirect = false) => {
-        performance.mark("viritura:paint-callback-entry");
+        markPerformance("viritura:paint-callback-entry");
         try {
-          performance.measure(
+          measurePerformance(
             "viritura:paint-callback-dispatch",
             "viritura:raf-callback",
             "viritura:paint-callback-entry",
@@ -1018,7 +1019,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           : spatialIndexRef.current;
         publishStaffSources();
         const firstSelectedId = selectedIds?.values().next().value;
-        performance.mark("viritura:paint-callback-ready");
+        markPerformance("viritura:paint-callback-ready");
         paintScoreFrame({
           canvas,
           container: containerRef.current,
@@ -1080,9 +1081,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     const repaint = useCallback(() => {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
-        performance.mark("viritura:raf-callback");
+        markPerformance("viritura:raf-callback");
         try {
-          performance.measure("viritura:raf-wait", "viritura:repaint-call", "viritura:raf-callback");
+          measurePerformance("viritura:raf-wait", "viritura:repaint-call", "viritura:raf-callback");
         } catch {
           /* ignore */
         }

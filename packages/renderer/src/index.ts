@@ -7,6 +7,7 @@ export { renderScore } from "./renderScore";
 export { paintDisplayList, paintCommand, loadMusicFont } from "./displayListPainter";
 export { paintInkCommands, raiseStaffEraseFrames } from "./inkMask";
 export type { FontLoadResult, LoadMusicFontOptions } from "./displayListPainter";
+export { markPerformance, measurePerformance } from "./performanceTimeline";
 export { canvasFontFamily, canvasTextFont, TEXT_FONT_FAMILY } from "./textFont";
 export {
   decodeBinaryDisplayList,
