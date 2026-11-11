@@ -129,18 +129,34 @@ Selection-based editing. Use these when **not** in note input mode.
 
 ### Navigation
 
-| Key                    | Action                              |
-| ---------------------- | ----------------------------------- |
-| `←` / `→`              | Previous / next event               |
-| `Ctrl+←` / `Ctrl+→`    | Previous / next measure             |
-| `Shift+←` / `Shift+→`  | Extend selection by one event       |
-| `Shift+↑` / `Shift+↓`  | Extend selection to adjacent staff  |
-| `Alt+←` / `Alt+→`      | Cycle between annotations on event  |
-| `↑` / `↓`              | Move between staves                 |
-| `Home` / `End`         | First / last event in measure       |
-| `Alt+Page Up`          | Previous score or part              |
-| `Alt+Page Down`        | Next score or part                  |
-| `Delete` / `Backspace` | Replace selected event(s) with rest |
+| Key                    | Action                                                      |
+| ---------------------- | ----------------------------------------------------------- |
+| `←` / `→`              | Previous / next event                                       |
+| `Ctrl+←` / `Ctrl+→`    | Previous / next measure                                     |
+| `Shift+←` / `Shift+→`  | Extend selection by one event                               |
+| `Shift+↑` / `Shift+↓`  | Extend selection to adjacent staff                          |
+| `Alt+←` / `Alt+→`      | Cycle between annotations on event                          |
+| `↑` / `↓`              | Move between staves                                         |
+| `Home` / `End`         | First / last event in measure                               |
+| `Alt+Page Up`          | Previous score or part                                      |
+| `Alt+Page Down`        | Next score or part                                          |
+| `Delete` / `Backspace` | Delete selected items; replace selected event(s) with rests |
+
+Deleting an attached marking, such as a fermata or slide, leaves its note or
+rest intact. Whole-event deletion selects a surviving replacement rest when
+available; otherwise it clears the selection. Unsupported or stale targets
+never delete their parent music.
+
+A rectangular bar selection clears content but retains the bars. Use
+**Edit → Delete Selected Bars** to remove bars across the document; removing all
+bars retains one empty bar. No modified Delete/Backspace shortcut is assigned
+to bar removal.
+
+The Edit menu and Jump Bar **Delete Selection** use the same score-selection
+command, even during note input. Physical Delete/Backspace during note input
+instead retracts the last entered event in the active voice. In Engrave, a
+selected break marker takes precedence over ordinary score selection for an
+unmodified deletion key. Text inputs keep their normal editing behavior.
 
 ### Transposition
 
@@ -284,8 +300,8 @@ Active after pressing `N`. Most letter keys enter notes directly; the cursor adv
 | `Space`                       | Advance cursor without entering anything     |
 | `H`                           | Previous event                               |
 | `J`                           | Next measure                                 |
-| `Backspace`                   | Delete previous event                        |
-| `Delete`                      | Delete current event                         |
+| `Backspace`                   | Retract last entered event in active voice   |
+| `Delete`                      | Retract last entered event in active voice   |
 | `Esc` / `N`                   | Exit note input mode                         |
 
 ### Tuplets & Voices

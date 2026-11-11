@@ -3,12 +3,7 @@ import { isRest } from "@viritura/core";
 import { deleteLeafTarget, deleteLeafTargets, deletionOperations, resolveDeletionTarget } from "./operations";
 import { deleteEventTargets } from "./eventTargets";
 import type { SelectionState } from "../../store/selectionStore";
-import {
-  deleteAnnotations,
-  deleteGraceNote,
-  deleteSelectedGraceNotes,
-  resolveDeletableAnnotationLocation,
-} from "../deleteCommands";
+import { deleteAnnotations, deleteGraceNote, deleteSelectedGraceNotes } from "../deleteCommands";
 import { sequenceContentBeats } from "../noteCommands";
 import { isNoteheadId, thinSelectedChords } from "../chordNoteDeletion";
 import { resolveSelectionEvents } from "../../store/selectionUtils";
@@ -113,12 +108,19 @@ function deleteSingle(score: Score, selection: SingleSel, scoreIndex: number): D
   const newScore = result.score;
   const thinnedChord = isPartialChordSelection(elementId, event);
 
-  // Move selection to the replacement rest (same index), else an adjacent event.
+  // Select a surviving rest in the same container; never jump out of a tuplet.
   const sequence = newScore.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex];
   const deletedIndex = tremoloContainerIndex === undefined ? loc.eventIndex : tremoloContainerIndex + loc.eventIndex;
   const nextId =
     sequence && !thinnedChord
-      ? findAdjacentElementId(sequence, deletedIndex, loc.partIndex, loc.measureIndex, loc.sequenceIndex)
+      ? findAdjacentElementId(
+          sequence,
+          deletedIndex,
+          loc.partIndex,
+          loc.measureIndex,
+          loc.sequenceIndex,
+          tremoloContainerIndex === undefined ? loc.tupletIndex : undefined,
+        )
       : undefined;
   return {
     kind: "single",
@@ -175,13 +177,16 @@ function findAdjacentElementId(
   partIndex: number,
   measureIndex: number,
   seqIndex: number,
+  tupletIndex?: number,
 ): string | undefined {
+  const container = tupletIndex === undefined ? undefined : sequence.content[tupletIndex];
+  const content = tupletIndex === undefined ? sequence.content : container?.type === "tuplet" ? container.content : [];
   // Try the same index (the replacement rest), then the neighbors.
   const candidates = [deletedIndex, deletedIndex - 1, deletedIndex + 1];
   for (const idx of candidates) {
-    if (idx >= 0 && idx < sequence.content.length) {
-      const ev = sequence.content[idx]! as NoteEvent;
-      if (ev.id && ev.type === "event" && isRest(ev)) {
+    if (idx >= 0 && idx < content.length) {
+      const ev = content[idx]!;
+      if (ev.type === "event" && ev.id && isRest(ev)) {
         return `p${partIndex}/m${measureIndex}/s${seqIndex}/${ev.id}`;
       }
     }
@@ -220,7 +225,7 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel, scoreIndex
   const deletableIds =
     selection.kind === "multi"
       ? selection.elementIds.filter(
-          (id) => addressesWholeEvent(id) && resolveDeletableAnnotationLocation(id)?.type !== "chord",
+          (id) => addressesWholeEvent(id) && deletionOperations[resolveDeletionTarget(id).kind].kind === "event",
         )
       : [];
 

@@ -101,6 +101,31 @@ describe("Delete Selection", () => {
     expect(updateScore).not.toHaveBeenCalled();
     expect(clearSelection).not.toHaveBeenCalled();
   });
+
+  it("composes consecutive commands before the published layout catches up", () => {
+    const { result, store, score, updateScore } = harness();
+    const working = structuredClone(score);
+    const event = working.parts[0]!.measures[0]!.sequences[0]!.content[0];
+    if (event?.type !== "event") throw new Error("Expected event");
+    event.fermata = {};
+    event.markings = { ornaments: ["mordent"], accent: {} };
+    store.setState({ workingScore: working });
+    updateScore.mockImplementation((next) => store.setState({ workingScore: next }));
+    act(() => {
+      result.current.actions.selectElement("p0/m0/s0/flute-0/ferm");
+      result.current.handleDeleteSelection();
+      result.current.actions.selectElement("p0/m0/s0/flute-0/ornament");
+      result.current.handleDeleteSelection();
+    });
+    expect(updateScore).toHaveBeenCalledTimes(2);
+    const latest = store.getState().workingScore!.parts[0]!.measures[0]!.sequences[0]!.content[0];
+    expect(latest).not.toHaveProperty("fermata");
+    expect(latest).toMatchObject({ markings: { accent: {} }, notes: event.notes });
+    expect(latest).not.toHaveProperty("markings.ornaments");
+    expect(store.getState().score).toBe(score);
+    expect(event.fermata).toEqual({});
+    expect(event.markings.ornaments).toEqual(["mordent"]);
+  });
 });
 
 describe("Swap Staff Contents", () => {

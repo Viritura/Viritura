@@ -160,6 +160,35 @@ interface ScoreEngine {
 }
 ```
 
+**Deletion orchestration:**
+
+- `apps/editor/src/commands/deletion/` is the shared selection-deletion feature.
+  The exhaustive operation registry declares event handlers, leaf handlers, or
+  explicit unsupported reasons for every selectable kind. Unknown subobjects
+  never fall through to deleting their parent note. MNX and CRDT models remain
+  plain data; copy and edit are separate capabilities, not inherited lifecycle
+  methods.
+- `computeDeleteSelection` computes an immutable result; `executeDeletion`
+  applies one score update and the resulting selection policy. Keyboard, Edit
+  menu, and Jump Bar adapters read the latest working score and selection.
+  Empty or stale selections do not create history entries. Existing history,
+  serialization, and collaboration subscribers own persistence.
+- Canonical target resolution preserves condensed source provenance and
+  expanded-source isolation. Multi-selection batches ordinal annotations before
+  removing events and re-resolves event identity after rest merges or container
+  unwrapping. Rectangular bar clearing retains its canonical part/staff scope;
+  it does not implicitly broadcast to every condensed source.
+- Explicit bar removal is separate from clearing bar contents and retains one
+  empty bar when the entire document is selected. Physical note-input
+  Delete/Backspace remains a retraction command. Jump Bar **Delete Selection**
+  always acts on the score selection, including during note input. An active
+  Engrave break marker owns an unmodified physical deletion key before ordinary
+  score selection; text fields and dialogs retain their own key handling.
+- Add regression cases through actual selection dispatch when introducing a
+  selectable kind: prove removal, parent/unrelated-content preservation,
+  single/multi selection, stale-target no-op, and condensed/expanded scope.
+  Registry membership alone is not a behavior test.
+
 #### 2. Layout Engine (`@viritura/engine-wasm`)
 
 Runs in a **Web Worker** as a **Rust→WASM** module for near-native performance. This follows Figma's architecture where the core computational engine is compiled to WebAssembly. Receives score model data, computes spatial layout, and returns a display list of render commands.
