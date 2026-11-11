@@ -262,6 +262,13 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
   let usedTileCache = false;
   markPerformance("viritura:base-score-paint-start");
   const suppressedSlurId = slurHandleDrag?.elementId;
+  const tileViewportWithinBudget = tileCache.canCacheViewport(
+    canvas,
+    viewport.scrollX,
+    viewport.scrollY,
+    viewport.zoom,
+  );
+  if (!tileViewportWithinBudget) tileCache.invalidate();
   const baseSelectedIds =
     suppressedSlurId && selectedIds?.has(suppressedSlurId)
       ? new Set([...selectedIds].filter((id) => id !== suppressedSlurId))
@@ -270,6 +277,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
     forceDirect ||
     suppressedSlurId ||
     zoomChanged ||
+    !tileViewportWithinBudget ||
     isTileCacheDisabled() ||
     viewMode === "spread" ||
     viewMode === "spread-h"

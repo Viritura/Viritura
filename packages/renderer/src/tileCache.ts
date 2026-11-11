@@ -37,8 +37,10 @@ const HORIZON_BUCKET_WIDTH = 2048;
 /** Approximate pixel-memory budget for cached tiles. */
 const MAX_CACHED_TILE_BYTES = 256 * 1024 * 1024;
 
-/** Tile buffer kept around the visible range when evicting distant tiles. */
-const TILE_EVICT_BUFFER = 8;
+function maxCachedTiles(tileSize: number, dpr: number): number {
+  const deviceTileSize = Math.round(tileSize * dpr);
+  return Math.max(1, Math.floor(MAX_CACHED_TILE_BYTES / (deviceTileSize * deviceTileSize * 4)));
+}
 
 /**
  * Horizontal spatial index over a display list's commands for horizon view.
@@ -285,6 +287,24 @@ export class TileCache {
   /** Number of rasterized tiles currently retained by the cache. */
   get cachedTileCount(): number {
     return this.tiles.size;
+  }
+
+  /** Avoid raster caching when the viewport alone would exceed its memory budget. */
+  canCacheViewport(
+    canvas: HTMLCanvasElement,
+    scrollX: number,
+    scrollY: number,
+    zoom: number,
+    dpr = window.devicePixelRatio || 1,
+  ): boolean {
+    const viewW = canvas.width / dpr;
+    const viewH = canvas.height / dpr;
+    const startCol = Math.floor((scrollX * zoom) / this.tileSize);
+    const endCol = Math.ceil(((scrollX + viewW / zoom) * zoom) / this.tileSize);
+    const startRow = Math.floor((scrollY * zoom) / this.tileSize);
+    const endRow = Math.ceil(((scrollY + viewH / zoom) * zoom) / this.tileSize);
+    const visibleTileCount = (endCol - startCol + 1) * (endRow - startRow + 1);
+    return visibleTileCount <= maxCachedTiles(this.tileSize, dpr);
   }
 
   /** Compute the actual bounding box of all render commands, with padding. */
@@ -696,6 +716,7 @@ export class TileCache {
             this.hasPendingTiles = true;
             continue;
           }
+          this.evictDistantTiles(range, dpr);
           tile = this.renderTile(col, row, tileOpts);
           this.tiles.set(key, tile);
           this.tilesRendered++;
@@ -716,36 +737,22 @@ export class TileCache {
    * re-render when scrolled back into view.
    */
   private evictDistantTiles(range: ReturnType<TileCache["computeVisibleTileRange"]>, dpr: number): void {
-    const deviceTileSize = Math.round(this.tileSize * dpr);
-    const maxCachedTiles = Math.max(1, Math.floor(MAX_CACHED_TILE_BYTES / (deviceTileSize * deviceTileSize * 4)));
-    if (this.tiles.size <= maxCachedTiles) return;
-    const keepMin = range.startCol - TILE_EVICT_BUFFER;
-    const keepMax = range.endCol + TILE_EVICT_BUFFER;
-    const keepMinRow = range.startRow - TILE_EVICT_BUFFER;
-    const keepMaxRow = range.endRow + TILE_EVICT_BUFFER;
-    for (const key of this.tiles.keys()) {
+    const maxTiles = maxCachedTiles(this.tileSize, dpr);
+    if (this.tiles.size <= maxTiles) return;
+    const distanceFromVisibleRange = (key: string): number => {
       const comma = key.indexOf(",");
       const col = parseInt(key.slice(0, comma), 10);
       const row = parseInt(key.slice(comma + 1), 10);
-      if (col < keepMin || col > keepMax || row < keepMinRow || row > keepMaxRow) this.tiles.delete(key);
-    }
-
-    if (this.tiles.size > maxCachedTiles) {
-      const distanceFromVisibleRange = (key: string): number => {
-        const comma = key.indexOf(",");
-        const col = parseInt(key.slice(0, comma), 10);
-        const row = parseInt(key.slice(comma + 1), 10);
-        const dx = Math.max(range.startCol - col, 0, col - range.endCol);
-        const dy = Math.max(range.startRow - row, 0, row - range.endRow);
-        return dx * dx + dy * dy;
-      };
-      const farthestFirst = [...this.tiles.keys()].sort(
-        (left, right) => distanceFromVisibleRange(right) - distanceFromVisibleRange(left),
-      );
-      for (const key of farthestFirst) {
-        if (this.tiles.size <= maxCachedTiles) break;
-        this.tiles.delete(key);
-      }
+      const dx = Math.max(range.startCol - col, 0, col - range.endCol);
+      const dy = Math.max(range.startRow - row, 0, row - range.endRow);
+      return dx * dx + dy * dy;
+    };
+    const farthestFirst = [...this.tiles.keys()]
+      .filter((key) => distanceFromVisibleRange(key) > 0)
+      .sort((left, right) => distanceFromVisibleRange(right) - distanceFromVisibleRange(left));
+    for (const key of farthestFirst) {
+      if (this.tiles.size <= maxTiles) break;
+      this.tiles.delete(key);
     }
   }
 }
