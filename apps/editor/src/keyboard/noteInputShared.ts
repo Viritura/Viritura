@@ -5,6 +5,7 @@
  * pulling in the full handler module.
  */
 
+import { markPerformance } from "@viritura/renderer";
 import type { Score, Pitch, Clef, AccidentalType } from "@viritura/core";
 import { clefLineFromBottom, clefReferencePitch, diatonicPosition } from "@viritura/core";
 import type { KeyboardHandlerContext } from "./types";
@@ -38,7 +39,7 @@ export function emitOptimisticNoteInput(args: {
   if (args.isRest || typeof window === "undefined") return;
   // Mark the input boundary so InputCursor can measure `viritura:input-to-paint`
   // for real keyboard entry (the keydown→emit handler gap is sub-millisecond).
-  performance.mark("viritura:input-event");
+  markPerformance("viritura:input-event");
   window.dispatchEvent(new CustomEvent(OPTIMISTIC_NOTE_INPUT_EVENT, { detail: args }));
 }
 

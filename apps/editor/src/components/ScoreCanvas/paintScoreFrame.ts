@@ -1,3 +1,4 @@
+import { markPerformance, measurePerformance } from "@viritura/renderer";
 import {
   paintSelectionOverlay,
   paintMeasureSelectionOverlay,
@@ -182,10 +183,10 @@ export interface PaintScoreFrameArgs {
 
 // eslint-disable-next-line max-lines-per-function, complexity, max-statements -- single cohesive paint pipeline; sub-pieces are already extracted helpers
 export function paintScoreFrame(args: PaintScoreFrameArgs): void {
-  performance.mark("viritura:paint-frame-entry");
+  markPerformance("viritura:paint-frame-entry");
   try {
-    performance.measure("viritura:paint-dispatch", "viritura:raf-callback", "viritura:paint-frame-entry");
-    performance.measure("viritura:paint-args", "viritura:paint-callback-ready", "viritura:paint-frame-entry");
+    measurePerformance("viritura:paint-dispatch", "viritura:raf-callback", "viritura:paint-frame-entry");
+    measurePerformance("viritura:paint-args", "viritura:paint-callback-ready", "viritura:paint-frame-entry");
   } catch {
     /* optional performance telemetry */
   }
@@ -231,14 +232,14 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
   const vw = container?.clientWidth ?? dl.width;
   const vh = container ? container.clientHeight : Math.max(dl.height * viewport.zoom, 400);
 
-  performance.mark("viritura:canvas-size-start");
+  markPerformance("viritura:canvas-size-start");
   canvas.width = vw * dpr;
   canvas.height = vh * dpr;
   canvas.style.width = `${vw}px`;
   canvas.style.height = `${vh}px`;
-  performance.mark("viritura:canvas-size-end");
+  markPerformance("viritura:canvas-size-end");
   try {
-    performance.measure("viritura:canvas-size", "viritura:canvas-size-start", "viritura:canvas-size-end");
+    measurePerformance("viritura:canvas-size", "viritura:canvas-size-start", "viritura:canvas-size-end");
   } catch {
     /* optional performance telemetry */
   }
@@ -246,9 +247,9 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
   const endFrame = perfTracker.beginFrame();
 
   const ctx = canvas.getContext("2d");
-  performance.mark("viritura:paint-setup-end");
+  markPerformance("viritura:paint-setup-end");
   try {
-    performance.measure("viritura:paint-setup", "viritura:paint-frame-entry", "viritura:paint-setup-end");
+    measurePerformance("viritura:paint-setup", "viritura:paint-frame-entry", "viritura:paint-setup-end");
   } catch {
     /* optional performance telemetry */
   }
@@ -259,7 +260,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
   prevZoomRef.current = viewport.zoom;
 
   let usedTileCache = false;
-  performance.mark("viritura:base-score-paint-start");
+  markPerformance("viritura:base-score-paint-start");
   const suppressedSlurId = slurHandleDrag?.elementId;
   const baseSelectedIds =
     suppressedSlurId && selectedIds?.has(suppressedSlurId)
@@ -333,17 +334,13 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
       },
     });
   }
-  performance.mark("viritura:base-score-paint-end");
+  markPerformance("viritura:base-score-paint-end");
   try {
-    performance.measure(
-      "viritura:base-score-paint",
-      "viritura:base-score-paint-start",
-      "viritura:base-score-paint-end",
-    );
+    measurePerformance("viritura:base-score-paint", "viritura:base-score-paint-start", "viritura:base-score-paint-end");
   } catch {
     /* optional performance telemetry */
   }
-  performance.mark("viritura:post-score-paint-start");
+  markPerformance("viritura:post-score-paint-start");
 
   if (ctx) {
     const paper = getPaperPattern(ctx);
@@ -496,7 +493,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
       (viewMode === "spread" || viewMode === "spread-h" || pageMultiStacked) && dl.pages
         ? computePagePlacements(dl, viewMode)
         : null;
-    performance.mark("viritura:engine-overlays-start");
+    markPerformance("viritura:engine-overlays-start");
     if (overlayPlacements && dl.pages) {
       const PAGE_W_OV = dl.width;
       // Visible world rect in content coords — skip overlays for pages that
@@ -540,31 +537,31 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
     if (!printPreview && spatialIndex && hitboxOverlayEnabled) {
       paintHitboxDebugLegend(ctx, spatialIndex, dl.measureBounds?.length ?? 0, dpr);
     }
-    performance.mark("viritura:engine-overlays-end");
+    markPerformance("viritura:engine-overlays-end");
     try {
-      performance.measure("viritura:engine-overlays", "viritura:engine-overlays-start", "viritura:engine-overlays-end");
+      measurePerformance("viritura:engine-overlays", "viritura:engine-overlays-start", "viritura:engine-overlays-end");
     } catch {
       /* optional performance telemetry */
     }
 
     // Sticky clefs, key signatures and labels in horizon view
-    performance.mark("viritura:sticky-total-start");
+    markPerformance("viritura:sticky-total-start");
     const visibleLeftContent = viewport.scrollX + safeAreaLeft / viewport.zoom;
     if (viewMode === "horizon" && dl && visibleLeftContent > 0) {
       if (stickyClefCache.version !== displayListVersion) {
-        performance.mark("viritura:sticky-derive-start");
+        markPerformance("viritura:sticky-derive-start");
         stickyClefCache.staves = detectHorizonStaves(dl);
         stickyClefCache.info = extractStickyClefInfo(dl, stickyClefCache.staves);
         stickyClefCache.version = displayListVersion;
-        performance.mark("viritura:sticky-derive-end");
+        markPerformance("viritura:sticky-derive-end");
         try {
-          performance.measure("viritura:sticky-derive", "viritura:sticky-derive-start", "viritura:sticky-derive-end");
+          measurePerformance("viritura:sticky-derive", "viritura:sticky-derive-start", "viritura:sticky-derive-end");
         } catch {
           /* optional performance telemetry */
         }
       }
       if (stickyClefCache.staves.length > 0 && stickyClefCache.info.length > 0) {
-        performance.mark("viritura:sticky-paint-start");
+        markPerformance("viritura:sticky-paint-start");
         const snapContentPoint = usedTileCache
           ? (x: number, y: number): { x: number; y: number } => {
               const tileSize = DEFAULT_TILE_SIZE;
@@ -598,17 +595,17 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
             paperFill,
           );
         }
-        performance.mark("viritura:sticky-paint-end");
+        markPerformance("viritura:sticky-paint-end");
         try {
-          performance.measure("viritura:sticky-paint", "viritura:sticky-paint-start", "viritura:sticky-paint-end");
+          measurePerformance("viritura:sticky-paint", "viritura:sticky-paint-start", "viritura:sticky-paint-end");
         } catch {
           /* optional performance telemetry */
         }
       }
     }
-    performance.mark("viritura:sticky-total-end");
+    markPerformance("viritura:sticky-total-end");
     try {
-      performance.measure("viritura:sticky-total", "viritura:sticky-total-start", "viritura:sticky-total-end");
+      measurePerformance("viritura:sticky-total", "viritura:sticky-total-start", "viritura:sticky-total-end");
     } catch {
       /* optional performance telemetry */
     }
@@ -674,27 +671,23 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
     }
   }
 
-  performance.mark("viritura:post-score-paint-end");
+  markPerformance("viritura:post-score-paint-end");
   try {
-    performance.measure(
-      "viritura:post-score-paint",
-      "viritura:post-score-paint-start",
-      "viritura:post-score-paint-end",
-    );
+    measurePerformance("viritura:post-score-paint", "viritura:post-score-paint-start", "viritura:post-score-paint-end");
   } catch {
     /* optional performance telemetry */
   }
 
   endFrame();
 
-  performance.mark("viritura:paint-end");
+  markPerformance("viritura:paint-end");
   try {
-    performance.measure("viritura:canvas-paint", "viritura:raf-callback", "viritura:paint-end");
+    measurePerformance("viritura:canvas-paint", "viritura:raf-callback", "viritura:paint-end");
   } catch {
     /* ignore */
   }
   try {
-    performance.measure("viritura:edit-to-paint", "viritura:edit-start", "viritura:paint-end");
+    measurePerformance("viritura:edit-to-paint", "viritura:edit-start", "viritura:paint-end");
     performance.clearMarks("viritura:edit-start");
     performance.clearMarks("viritura:setState-done");
   } catch {
@@ -705,7 +698,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
     if (virituraWindow.__VIRITURA_OPTIMISTIC_INPUT_PAINTED__) {
       virituraWindow.__VIRITURA_OPTIMISTIC_INPUT_PAINTED__ = false;
     } else {
-      const m = performance.measure("viritura:input-to-paint", "viritura:input-event", "viritura:paint-end");
+      const m = measurePerformance("viritura:input-to-paint", "viritura:input-event", "viritura:paint-end");
       perfTracker.inputToPaintMs = m.duration;
     }
     performance.clearMarks("viritura:input-event");

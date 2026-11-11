@@ -34,10 +34,10 @@ export const DEFAULT_TILE_SIZE = 512;
  */
 const HORIZON_BUCKET_WIDTH = 2048;
 
-/** Max cached tiles before distant ones are evicted (bounds memory for very wide horizon scores). */
-const MAX_CACHED_TILES = 512;
+/** Approximate pixel-memory budget for cached tiles. */
+const MAX_CACHED_TILE_BYTES = 256 * 1024 * 1024;
 
-/** Column buffer kept around the visible range when evicting distant tiles. */
+/** Tile buffer kept around the visible range when evicting distant tiles. */
 const TILE_EVICT_BUFFER = 8;
 
 /**
@@ -280,6 +280,11 @@ export class TileCache {
   /** Invalidate all cached tiles (e.g. on zoom change). */
   invalidate(): void {
     this.tiles.clear();
+  }
+
+  /** Number of rasterized tiles currently retained by the cache. */
+  get cachedTileCount(): number {
+    return this.tiles.size;
   }
 
   /** Compute the actual bounding box of all render commands, with padding. */
@@ -703,22 +708,44 @@ export class TileCache {
       }
     }
 
-    this.evictDistantTiles(range);
+    this.evictDistantTiles(range, dpr);
   }
 
   /**
-   * Bound memory for very wide scores (horizon can be ~190k px) by dropping
-   * cached tiles whose column is far outside the visible range. Evicted tiles
-   * simply re-render when scrolled back into view.
+   * Keep raster memory bounded for wide or tall scores. Evicted tiles simply
+   * re-render when scrolled back into view.
    */
-  private evictDistantTiles(range: ReturnType<TileCache["computeVisibleTileRange"]>): void {
-    if (this.tiles.size <= MAX_CACHED_TILES) return;
+  private evictDistantTiles(range: ReturnType<TileCache["computeVisibleTileRange"]>, dpr: number): void {
+    const deviceTileSize = Math.round(this.tileSize * dpr);
+    const maxCachedTiles = Math.max(1, Math.floor(MAX_CACHED_TILE_BYTES / (deviceTileSize * deviceTileSize * 4)));
+    if (this.tiles.size <= maxCachedTiles) return;
     const keepMin = range.startCol - TILE_EVICT_BUFFER;
     const keepMax = range.endCol + TILE_EVICT_BUFFER;
+    const keepMinRow = range.startRow - TILE_EVICT_BUFFER;
+    const keepMaxRow = range.endRow + TILE_EVICT_BUFFER;
     for (const key of this.tiles.keys()) {
       const comma = key.indexOf(",");
       const col = parseInt(key.slice(0, comma), 10);
-      if (col < keepMin || col > keepMax) this.tiles.delete(key);
+      const row = parseInt(key.slice(comma + 1), 10);
+      if (col < keepMin || col > keepMax || row < keepMinRow || row > keepMaxRow) this.tiles.delete(key);
+    }
+
+    if (this.tiles.size > maxCachedTiles) {
+      const distanceFromVisibleRange = (key: string): number => {
+        const comma = key.indexOf(",");
+        const col = parseInt(key.slice(0, comma), 10);
+        const row = parseInt(key.slice(comma + 1), 10);
+        const dx = Math.max(range.startCol - col, 0, col - range.endCol);
+        const dy = Math.max(range.startRow - row, 0, row - range.endRow);
+        return dx * dx + dy * dy;
+      };
+      const farthestFirst = [...this.tiles.keys()].sort(
+        (left, right) => distanceFromVisibleRange(right) - distanceFromVisibleRange(left),
+      );
+      for (const key of farthestFirst) {
+        if (this.tiles.size <= maxCachedTiles) break;
+        this.tiles.delete(key);
+      }
     }
   }
 }

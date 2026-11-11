@@ -1,3 +1,4 @@
+import { markPerformance } from "@viritura/renderer";
 import { useCallback, useMemo, useRef } from "react";
 import {
   setBarline,
@@ -272,7 +273,7 @@ export function useTempoHandlers({ score, target, updateScore }: SelectionArgs):
   const handleTempoOffsetChange = useCallback(
     (axis: 0 | 1, value: number) => {
       if (!score || !target) return;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const nextScore = setAnnotationOffsetAxisInScore(score, target.elementId, axis, value);
       if (nextScore !== score) updateScore(nextScore);
     },
@@ -280,14 +281,14 @@ export function useTempoHandlers({ score, target, updateScore }: SelectionArgs):
   );
   const handleTempoOffsetReset = useCallback(() => {
     if (!score || !target) return;
-    performance.mark("viritura:input-event");
+    markPerformance("viritura:input-event");
     const nextScore = resetAnnotationPlacementInScore(score, target.elementId);
     if (nextScore !== score) updateScore(nextScore);
   }, [score, target, updateScore]);
   const handleTempoAvoidCollisionsChange = useCallback(
     (avoid: boolean) => {
       if (!score || !target) return;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const nextScore = setAnnotationAvoidCollisionsInScore(score, target.elementId, avoid);
       if (nextScore !== score) updateScore(nextScore);
     },
@@ -315,7 +316,7 @@ export function useTempoHandlers({ score, target, updateScore }: SelectionArgs):
       if (nextScore !== score) updateScore(nextScore);
     },
     handleTempoTextChange: (text: TextContent) => {
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       mutateTempo((tempo) => withTempoText(tempo, text));
     },
     handleTempoShowTextChange: (checked: boolean) =>
@@ -410,7 +411,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
   const updateSelectedDynamic = useCallback(
     (update: (dynamic: DynamicGroup) => void) => {
       if (!score || !target || !dynamicMatch) return;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const groupId = dynamicMatch[1]!;
       const nextScore = produce(score, (draft) => {
         const dynamic = draft.parts[target.partIndex]?.measures[target.measureIndex]?.dynamics?.find(
@@ -428,7 +429,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
   const handleExpressionTextChange = useCallback(
     (text: import("@viritura/core").TextContent) => {
       if (!score || !target || (!expressionMatch && !isSystemTextSelected)) return;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const nextScore = produce(score, (draft) => {
         const expression = isSystemTextSelected
           ? draft.global.measures[target.measureIndex]?.systemText?.find((text) => text.id === target.systemTextId)
@@ -467,7 +468,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
   const handleAnnotationOffsetChange = useCallback(
     (axis: 0 | 1, value: number) => {
       if (!score || !target) return;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const nextScore = setAnnotationOffsetAxisInScore(score, target.elementId, axis, value);
       if (nextScore !== score) updateScore(nextScore);
     },
@@ -476,7 +477,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
 
   const handleAnnotationOffsetReset = useCallback(() => {
     if (!score || !target) return;
-    performance.mark("viritura:input-event");
+    markPerformance("viritura:input-event");
     const nextScore = resetAnnotationPlacementInScore(score, target.elementId);
     if (nextScore !== score) updateScore(nextScore);
   }, [score, target, updateScore]);
@@ -484,7 +485,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
   const handleAnnotationAvoidCollisionsChange = useCallback(
     (avoid: boolean) => {
       if (!score || !target) return;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const nextScore = setAnnotationAvoidCollisionsInScore(score, target.elementId, avoid);
       if (nextScore !== score) updateScore(nextScore);
     },
@@ -494,7 +495,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
   const handleRehearsalTextChange = useCallback(
     (text: import("@viritura/core").TextContent) => {
       if (!score || !target || !isRehearsalSelected) return;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const nextScore = produce(score, (draft) => {
         const mark = draft.global.measures[target.measureIndex]?.rehearsalMark;
         if (!mark) return;
@@ -508,7 +509,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
   const handleMarkerTextChange = useCallback(
     (text: MarkerText | null) => {
       if (!score || !target || !markerKind) return;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const nextScore = produce(score, (draft) => {
         const marker = navigationMarker(draft.global.measures[target.measureIndex], markerKind);
         if (!marker) return;

@@ -1,3 +1,4 @@
+import { markPerformance, measurePerformance } from "@viritura/renderer";
 import { type DisplayList, type PatchInfo, type PerfTracker, type ScoreInfo } from "@viritura/renderer";
 import type { LayoutBackend } from "./layoutBackend";
 import { buildPatchJson } from "./layoutHelpers";
@@ -104,15 +105,15 @@ async function tryPatchPath(args: {
     setLayoutPerfDebug,
   } = args;
   try {
-    performance.mark("viritura:patch-build-start");
+    markPerformance("viritura:patch-build-start");
     const patchJson = patchInfo.prebuiltPatchJson ?? buildPatchJson(mnxJson, patchInfo);
-    performance.mark("viritura:patch-build-end");
-    performance.measure("viritura:patch-build", "viritura:patch-build-start", "viritura:patch-build-end");
+    markPerformance("viritura:patch-build-end");
+    measurePerformance("viritura:patch-build", "viritura:patch-build-start", "viritura:patch-build-end");
 
-    performance.mark("viritura:patch-layout-start");
+    markPerformance("viritura:patch-layout-start");
     const result = await engine.applyPatchAndLayout(patchJson, sp, pageWidthPx, pageSetupJson, scoreIdx);
-    performance.mark("viritura:patch-layout-end");
-    performance.measure("viritura:patch-layout", "viritura:patch-layout-start", "viritura:patch-layout-end");
+    markPerformance("viritura:patch-layout-end");
+    measurePerformance("viritura:patch-layout", "viritura:patch-layout-start", "viritura:patch-layout-end");
 
     const [hits, misses] = engine.cacheStats();
     perfTracker.cacheHits = hits;

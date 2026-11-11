@@ -260,4 +260,30 @@ describe("TileCache horizon bucketing", () => {
     expect(cache.tilesRendered).toBeGreaterThan(0);
     expect(sharedRec.rects.some((entry) => entry.x === 80 && entry.w === 30)).toBe(true);
   });
+
+  it("keeps retained tile memory within the device-pixel budget", () => {
+    globalThis.window = { devicePixelRatio: 2 } as unknown as Window & typeof globalThis;
+    const cache = new TileCache();
+    const canvas = {
+      width: 10_000,
+      height: 10_000,
+      getContext: vi.fn(() => makeRecordingCtx(sharedRec)),
+    } as unknown as HTMLCanvasElement;
+    const displayList = horizonDisplayList([{ type: "DrawRect", x: 0, y: 0, w: 5000, h: 5000, color: "#000" }], 5000);
+
+    for (let frame = 0; frame < 5; frame++) {
+      cache.paintFrame({
+        canvas,
+        displayList,
+        scrollX: 0,
+        scrollY: 0,
+        zoom: 1,
+        version: 1,
+        glyphAtlas: null,
+        viewMode: "horizon",
+      });
+    }
+
+    expect(cache.cachedTileCount).toBeLessThanOrEqual(64);
+  });
 });

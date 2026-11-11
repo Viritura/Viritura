@@ -11,6 +11,7 @@
  * back to the synchronous main-thread engine.
  */
 
+import { markPerformance, measurePerformance } from "../performanceTimeline";
 import * as Comlink from "comlink";
 import { resolveBasePath } from "../basePath";
 import { decodeBinaryDisplayList } from "../binaryDisplayList";
@@ -164,7 +165,7 @@ export function createLayoutService(emitLayoutDebug = false): LayoutService {
       // come back tagged `full` (the engine couldn't produce a delta this
       // edit — e.g. a structural change); `decodeFrame` handles both and the
       // reconstructor resets itself on a full frame.
-      performance.mark("viritura:worker-rpc-start");
+      markPerformance("viritura:worker-rpc-start");
       const tagged = await proxy.engineApplyPatchAndLayoutPatchFrameBinary(
         patchJson,
         spatium,
@@ -172,18 +173,18 @@ export function createLayoutService(emitLayoutDebug = false): LayoutService {
         pageSetupJson,
         scoreIndex,
       );
-      performance.mark("viritura:worker-rpc-end");
+      markPerformance("viritura:worker-rpc-end");
       try {
-        performance.measure("viritura:worker-rpc", "viritura:worker-rpc-start", "viritura:worker-rpc-end");
+        measurePerformance("viritura:worker-rpc", "viritura:worker-rpc-start", "viritura:worker-rpc-end");
       } catch {
         /* optional performance telemetry */
       }
       try {
-        performance.mark("viritura:patch-reconstruct-start");
+        markPerformance("viritura:patch-reconstruct-start");
         const displayList = reconstructor.apply(decodeFrame(tagged), pageWidth === 0);
-        performance.mark("viritura:patch-reconstruct-end");
+        markPerformance("viritura:patch-reconstruct-end");
         try {
-          performance.measure(
+          measurePerformance(
             "viritura:patch-reconstruct",
             "viritura:patch-reconstruct-start",
             "viritura:patch-reconstruct-end",

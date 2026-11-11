@@ -5,6 +5,7 @@
  * a clean TypeScript API for the editor to use.
  */
 
+import { markPerformance, measurePerformance } from "./performanceTimeline";
 import { decodeBinaryDisplayList } from "./binaryDisplayList";
 
 // Type re-exports — definitions live in wasmTypes.ts.
@@ -755,15 +756,15 @@ export function createCachedLayoutEngine(): CachedLayoutEngine {
       return engine.relayout_retained_score_cached_binary(spatium, pageWidth, pageSetupJson, scoreIndex);
     },
     applyPatchAndLayout(patchJson, spatium, pageWidth = 0, pageSetupJson?, scoreIndex?) {
-      performance.mark("viritura:wasm-raw-start");
+      markPerformance("viritura:wasm-raw-start");
       const binary = engine.apply_patch_and_layout_binary(patchJson, spatium, pageWidth, pageSetupJson, scoreIndex);
-      performance.mark("viritura:wasm-raw-end");
-      performance.measure("viritura:wasm-raw", "viritura:wasm-raw-start", "viritura:wasm-raw-end");
+      markPerformance("viritura:wasm-raw-end");
+      measurePerformance("viritura:wasm-raw", "viritura:wasm-raw-start", "viritura:wasm-raw-end");
 
-      performance.mark("viritura:displaylist-parse-start");
+      markPerformance("viritura:displaylist-parse-start");
       const normalized = decodeBinaryDisplayList(binary);
-      performance.mark("viritura:displaylist-parse-end");
-      performance.measure(
+      markPerformance("viritura:displaylist-parse-end");
+      measurePerformance(
         "viritura:displaylist-parse",
         "viritura:displaylist-parse-start",
         "viritura:displaylist-parse-end",

@@ -1,3 +1,4 @@
+import { markPerformance } from "@viritura/renderer";
 import { useCallback, useMemo } from "react";
 import type {
   ArpeggioMarkKind,
@@ -139,7 +140,7 @@ export function useSelectedMarking({
   const mutateEvent = useCallback(
     (mutate: (event: NoteEvent) => void) => {
       if (!score || !target) return;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const next = produce(score, (draft) => {
         const event = eventAtTarget(draft, target);
         if (event) mutate(event);
@@ -152,7 +153,7 @@ export function useSelectedMarking({
   const mutatePedal = useCallback(
     (mutate: (pedal: Pedal) => void) => {
       if (!score || !target || !Number.isInteger(pedalIndex)) return;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const next = produce(score, (draft) => {
         const pedal = draft.parts[target.partIndex]?.measures[target.measureIndex]?.pedals?.[pedalIndex];
         if (pedal) mutate(pedal);
@@ -166,7 +167,7 @@ export function useSelectedMarking({
     (mutate: (value: PartMeasureArpeggio | NonArpeggio) => void) => {
       if (!score || !target || !selectedArpeggio) return;
       const selectedSpan = selectedArpeggio.value.span;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const next = produce(score, (draft) => {
         const measure = draft.parts[target.partIndex]?.measures[target.measureIndex];
         const value =
@@ -183,7 +184,7 @@ export function useSelectedMarking({
     (kind: ArpeggioMarkKind) => {
       if (!score || !target || !selectedArpeggio) return;
       const selectedSpan = selectedArpeggio.value.span;
-      performance.mark("viritura:input-event");
+      markPerformance("viritura:input-event");
       const next = produce(score, (draft) => {
         const measure = draft.parts[target.partIndex]?.measures[target.measureIndex];
         if (!measure) return;
