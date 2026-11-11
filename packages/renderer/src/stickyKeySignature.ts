@@ -22,6 +22,11 @@ interface KeyRun {
 
 type KeyClefSign = "G" | "F" | "C";
 
+export interface StickyClefContext {
+  x: number;
+  sign: KeyClefSign;
+}
+
 function isKeyAccidental(codepoint: number): boolean {
   return codepoint === FLAT || codepoint === NATURAL || codepoint === SHARP;
 }
@@ -120,6 +125,63 @@ export function extractStickyKeySignatures(
   return result;
 }
 
+export function extractStickyClefContexts(
+  displayList: DisplayList,
+  staves: readonly StaffInfo[],
+  info: readonly StickyClefInfo[],
+): StickyClefContext[][] {
+  const result: StickyClefContext[][] = staves.map(() => []);
+  const staffByTop = new Map(staves.map((staff, index) => [staff.y, index]));
+  const allStaffIndices = staves.map((_, index) => index);
+  const clefXs = info.map((staff) => {
+    const byId = new Map<string, number[]>();
+    for (const clef of staff.clefs) {
+      if (!clef.elementId) continue;
+      const xs = byId.get(clef.elementId);
+      if (xs) xs.push(clef.x);
+      else byId.set(clef.elementId, [clef.x]);
+    }
+    return byId;
+  });
+  for (const bound of displayList.measureBounds ?? []) {
+    if (bound.isHidden || !bound.clefSign) continue;
+    const index = staffByTop.get(bound.y) ?? nearestStaff(staves, bound.y + bound.height / 2, allStaffIndices);
+    if (index === undefined) continue;
+    const id = `p${bound.partIndex}/m${bound.index}/clef`;
+    const candidates = clefXs[index]!.get(id) ?? [];
+    const sp = staves[index]!.spatium;
+    const matching = candidates.filter(
+      (x) => x >= bound.x - 4 * sp && x <= bound.x + Math.max(bound.prefixWidth, 4 * sp),
+    );
+    const clefX =
+      matching.length === 0
+        ? bound.x
+        : matching.reduce((best, x) => (Math.abs(x - bound.x) < Math.abs(best - bound.x) ? x : best));
+    const sign = bound.clefSign === "P" ? "G" : bound.clefSign;
+    result[index]!.push({ x: clefX, sign });
+    for (const change of bound.clefChanges ?? []) {
+      result[index]!.push({ x: change.x, sign: change.sign === "P" ? "G" : change.sign });
+    }
+  }
+  for (const contexts of result) contexts.sort((a, b) => a.x - b.x);
+  return result;
+}
+
+export function activeStickyClefContext(
+  contexts: readonly StickyClefContext[],
+  contentX: number,
+): KeyClefSign | undefined {
+  if (contexts.length === 0) return undefined;
+  let lo = 0;
+  let hi = contexts.length;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (contexts[mid]!.x <= contentX) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo > 0 ? contexts[lo - 1]!.sign : undefined;
+}
+
 export function activeStickyKey(
   signatures: readonly StickyKeySignature[],
   contentX: number,
@@ -146,7 +208,7 @@ export function stickyKeyWidth(
   return KEY_GAP_SPATIA * railSpatium + last.x - first.x + ACCIDENTAL_ADVANCE_SPATIA * staff.spatium;
 }
 
-function clefSign(codepoint: number): KeyClefSign {
+export function clefSignFromGlyph(codepoint: number): KeyClefSign {
   if (codepoint >= 0xe05c && codepoint <= 0xe061) return "C";
   if (codepoint >= 0xe062 && codepoint <= 0xe068) return "F";
   return "G";
@@ -170,16 +232,15 @@ export function paintStickyKeySignature(
   ctx: CanvasRenderingContext2D,
   signature: StickyKeySignature | undefined,
   staff: StaffInfo,
-  clef: StickyClefInfo["clefs"][number],
-  sourceClef: StickyClefInfo["clefs"][number],
+  sign: KeyClefSign,
+  sourceSign: KeyClefSign,
   keyX: number,
   railSpatium: number,
   snapContentPoint?: (x: number, y: number) => { x: number; y: number },
 ): void {
   const first = signature?.glyphs[0];
   if (!signature || !first) return;
-  const sign = clefSign(clef.codepoint);
-  const positions = sign === clefSign(sourceClef.codepoint) ? undefined : positionsForClef(signature, sign);
+  const positions = sign === sourceSign ? undefined : positionsForClef(signature, sign);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   for (let i = 0; i < signature.glyphs.length; i++) {

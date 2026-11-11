@@ -419,6 +419,13 @@ pub struct SlurGeometry {
     pub sp: f64,
 }
 
+/// A clef change within a measure, in score coordinates.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StaffClefChange {
+    pub x: f64,
+    pub sign: crate::model::ClefSign,
+}
+
 /// Layout bounds for a single measure, exported for the editor's cursor/ruler.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeasureBounds {
@@ -459,6 +466,12 @@ pub struct MeasureBounds {
     /// Beat→X anchor points: each entry is (beat_position, absolute_x).
     /// These are the actual positions used by the layout engine for note placement.
     pub beat_anchors: Vec<(f64, f64)>,
+    /// Semantic clef at the start of this staff's measure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clef_sign: Option<crate::model::ClefSign>,
+    /// Semantic clef changes within the measure, including hidden clefs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clef_changes: Vec<StaffClefChange>,
     /// True when this bound represents a ghost rail for a part that the
     /// effective layout omits at this system. The editor uses this to draw a
     /// faint placeholder and surface a "show staff" affordance.

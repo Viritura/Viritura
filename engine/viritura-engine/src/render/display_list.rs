@@ -682,6 +682,11 @@ mod translate_tests {
             prefix_width: 5.0,
             total_beats: 4.0,
             beat_anchors: vec![(0.0, 12.0), (1.0, 24.0), (2.0, 36.0)],
+            clef_sign: Some(crate::model::ClefSign::G),
+            clef_changes: vec![StaffClefChange {
+                x: 30.0,
+                sign: crate::model::ClefSign::F,
+            }],
             ghost_staff: false,
             is_hidden: false,
             has_music_hidden: false,
@@ -757,6 +762,8 @@ mod translate_tests {
         assert_eq!(mb.beat_anchors[1], (1.0, 34.0));
         assert_eq!(mb.beat_anchors[2], (2.0, 46.0));
         assert_eq!(mb.source_part_indices, vec![0, 2]);
+        assert_eq!(mb.clef_changes[0].x, 40.0);
+        assert_eq!(mb.clef_changes[0].sign, crate::model::ClefSign::F);
 
         // pages: y_offset shifted, height unchanged
         assert_eq!(dl.pages[0].y_offset, 27.0);

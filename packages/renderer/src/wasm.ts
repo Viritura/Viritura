@@ -12,6 +12,7 @@ export * from "./wasmTypes";
 import type {
   BoundingBox,
   DisplayList,
+  MeasureBounds,
   NotePreviewInput,
   RenderCommand,
   ScoreInfo,
@@ -231,6 +232,8 @@ function normalizeDisplayList(raw: Record<string, unknown>): DisplayList {
       prefixWidth: (b["prefixWidth"] ?? b["prefix_width"]) as number,
       totalBeats: (b["totalBeats"] ?? b["total_beats"]) as number,
       beatAnchors: (b["beatAnchors"] ?? b["beat_anchors"]) as [number, number][],
+      clefSign: (b["clefSign"] ?? b["clef_sign"]) as MeasureBounds["clefSign"],
+      clefChanges: (b["clefChanges"] ?? b["clef_changes"]) as MeasureBounds["clefChanges"],
       ghostStaff: (b["ghostStaff"] ?? b["ghost_staff"]) as boolean | undefined,
       isHidden: (b["isHidden"] ?? b["is_hidden"]) as boolean | undefined,
       hasMusicHidden: (b["hasMusicHidden"] ?? b["has_music_hidden"]) as boolean | undefined,

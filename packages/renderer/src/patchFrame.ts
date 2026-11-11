@@ -188,6 +188,7 @@ function translateSegmentInPlace(dl: DisplayList, dx: number, dy: number): void 
       mb.x += dx;
       mb.y += dy;
       for (const anchor of mb.beatAnchors) anchor[1] += dx;
+      for (const change of mb.clefChanges ?? []) change.x += dx;
     }
   }
   const retainedLayer = retainedLayerCache.get(dl);
@@ -212,6 +213,7 @@ function cloneSegmentForTranslation(segment: DisplayList): DisplayList {
     measureBounds: segment.measureBounds?.map((bound) => ({
       ...bound,
       beatAnchors: bound.beatAnchors.map(([beat, x]) => [beat, x]),
+      clefChanges: bound.clefChanges?.map((change) => ({ ...change })),
     })),
   };
   const layer = retainedLayerCache.get(segment);

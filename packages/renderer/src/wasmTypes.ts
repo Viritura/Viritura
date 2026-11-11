@@ -467,6 +467,10 @@ export interface MeasureBounds {
   /** Beat→X anchor points: each entry is [beat_position, absolute_x].
    * These are the actual positions used by the layout engine for note placement. */
   beatAnchors: [number, number][];
+  /** Semantic clef at the start of this staff's measure. */
+  clefSign?: "G" | "F" | "C" | "P";
+  /** Semantic mid-measure clef changes, including hidden clefs. */
+  clefChanges?: Array<{ x: number; sign: "G" | "F" | "C" | "P" }>;
   /** True when this bound represents a ghost rail for an omitted part at this system. */
   ghostStaff?: boolean;
   /** True when the part is hidden at this system (always true for ghost rails). */

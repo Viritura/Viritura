@@ -650,6 +650,7 @@ fn render_one_staff_for_system(
                 super::render_measure::measure_leading_clef_gap(ml, sp, clef_change_measures);
             let (bounds_x, bounds_width, bounds_prefix) =
                 super::render_measure::measure_bounds_geometry(ml, leading_clef_gap);
+            let (clef_sign, clef_changes) = super::render_measure::measure_clef_context(ml, sp);
             crate::render::MeasureBounds {
                 index: ml.resolved.index,
                 measure_id: ml.resolved.global.id.clone(),
@@ -665,6 +666,8 @@ fn render_one_staff_for_system(
                 prefix_width: bounds_prefix,
                 total_beats,
                 beat_anchors,
+                clef_sign: Some(clef_sign),
+                clef_changes,
                 ghost_staff: false,
                 is_hidden: false,
                 has_music_hidden: false,

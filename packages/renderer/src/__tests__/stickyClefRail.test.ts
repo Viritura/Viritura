@@ -144,6 +144,36 @@ describe("sticky key signatures", () => {
     expect(texts.filter((text) => text.text === String.fromCodePoint(BASS))).toHaveLength(1);
   });
 
+  it("uses the semantic clef when a custom glyph looks like the previous clef", () => {
+    const { dl, add } = fixture();
+    dl.measureBounds![0]!.clefSign = "G";
+    dl.measureBounds![1]!.clefSign = "F";
+    dl.measureBounds![2]!.clefSign = "F";
+    add(glyph(180, 110, TREBLE), "p0/m1/clef");
+    vi.spyOn(wasm, "computeKeySignaturePositions").mockReturnValue([1, 2.5]);
+    expect(accidentals(paint(dl, 179).texts).map((text) => text.y)).toEqual([100, 115]);
+    expect(accidentals(paint(dl, 190).texts).map((text) => text.y)).toEqual([110, 125]);
+  });
+
+  it("updates key placement for hidden and mid-measure clef changes", () => {
+    const { dl } = fixture();
+    dl.measureBounds![0]!.clefSign = "G";
+    dl.measureBounds![0]!.clefChanges = [{ x: 150, sign: "F" }];
+    dl.measureBounds![1]!.clefSign = "F";
+    vi.spyOn(wasm, "computeKeySignaturePositions").mockReturnValue([1, 2.5]);
+    expect(accidentals(paint(dl, 149).texts).map((text) => text.y)).toEqual([100, 115]);
+    expect(accidentals(paint(dl, 151).texts).map((text) => text.y)).toEqual([110, 125]);
+    expect(accidentals(paint(dl, 205).texts).map((text) => text.y)).toEqual([110, 125]);
+  });
+
+  it("falls back to visible clefs before the first semantic context", () => {
+    const { dl, add } = fixture();
+    dl.measureBounds![1]!.clefSign = "G";
+    add(glyph(150, 110, BASS), "p0/m0/clef");
+    vi.spyOn(wasm, "computeKeySignaturePositions").mockReturnValue([1, 2.5]);
+    expect(accidentals(paint(dl, 160).texts).map((text) => text.y)).toEqual([110, 125]);
+  });
+
   it("keeps the rail and staff label outside a seven-accidental signature", () => {
     const { dl, add } = fixture(false);
     for (let i = 0; i < 7; i++) add(glyph(60 + i * 11, 100 + (i % 3) * 5, SHARP), "p0/m0/key");

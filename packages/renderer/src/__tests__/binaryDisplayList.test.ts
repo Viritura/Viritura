@@ -705,7 +705,47 @@ describe("element bounding box decoding", () => {
 });
 
 describe("measure bounds decoding", () => {
-  it("decodes part identities and bounds IDs from the final binary trailer", () => {
+  it("preserves semantic clef contexts across retained-frame translations", () => {
+    const bounds = [-1, 0, 0, 0, 0, 10, 200, 50, 40, 25, 4, 0, 0, 0, 0, 0];
+    const base = buildBinaryBuffer(100, 50, [], [], undefined, [], [bounds]);
+    const segment = new Float32Array([
+      ...base,
+      0, // selection groups
+      0, // sparse source mappings
+      0, // part summaries
+      1,
+      ...encodeId("#0"), // bounds identities
+      1, // clef-context bounds count
+      1, // G clef at measure start
+      1,
+      150,
+      2, // hidden F clef change
+    ]);
+    const decoded = decodeBinaryDisplayList(segment);
+    expect(decoded.measureBounds?.[0]).toMatchObject({
+      clefSign: "G",
+      clefChanges: [{ x: 150, sign: "F" }],
+    });
+
+    const reconstructor = new PatchReconstructor();
+    const first = reconstructor.apply(decodeFrame(retainedPatchFrame([freshPlacement(segment)])));
+    const next = reconstructor.apply(decodeFrame(retainedPatchFrame([reusePlacement(0, 10, 20)])));
+    expect(first.measureBounds?.[0]?.clefChanges).toEqual([{ x: 150, sign: "F" }]);
+    expect(next.measureBounds?.[0]?.clefChanges).toEqual([{ x: 160, sign: "F" }]);
+  });
+
+  it("rejects malformed semantic clef context trailers", () => {
+    const bounds = [-1, 0, 0, 0, 0, 10, 200, 50, 40, 25, 4, 0, 0, 0, 0, 0];
+    const base = buildBinaryBuffer(100, 50, [], [], undefined, [], [bounds]);
+    const prefix = [...base, 0, 0, 0, 1, ...encodeId("#0")];
+    expect(() => decodeBinaryDisplayList(new Float32Array([...prefix, 0]))).toThrow(/context count/);
+    expect(() => decodeBinaryDisplayList(new Float32Array([...prefix, 1, 9, 0]))).toThrow(/clef sign/);
+    expect(() => decodeBinaryDisplayList(new Float32Array([...prefix, 1, 1, -1]))).toThrow(/change count/);
+    expect(() => decodeBinaryDisplayList(new Float32Array([...prefix, 1, 1, 1, NaN, 2]))).toThrow(/change position/);
+    expect(() => decodeBinaryDisplayList(new Float32Array([...prefix, 1, 1, 1, 150, 0]))).toThrow(/no sign/);
+  });
+
+  it("decodes part identities and bounds IDs from their binary trailer", () => {
     const bounds = [-1, 0, 1, 0, 0, 10, 200, 50, 40, 25, 4, 0, 0, 0, 0, 0];
     const base = buildBinaryBuffer(100, 50, [], [], undefined, [], [bounds]);
     const data = new Float32Array([

@@ -11,9 +11,13 @@ import { paintCommand } from "./displayListPainter";
 import { canvasTextFont } from "./textFont";
 import {
   activeStickyKey,
+  activeStickyClefContext,
+  clefSignFromGlyph,
+  extractStickyClefContexts,
   extractStickyKeySignatures,
   paintStickyKeySignature,
   stickyKeyWidth,
+  type StickyClefContext,
   type StickyKeySignature,
 } from "./stickyKeySignature";
 
@@ -378,7 +382,9 @@ export interface StickyClefInfo {
    * list can contain several entries with the same codepoint at increasing x.
    * The painter shows only the one in effect at the current scroll position.
    */
-  clefs: Array<{ x: number; y: number; codepoint: number; size: number; color: string }>;
+  clefs: Array<{ x: number; y: number; codepoint: number; size: number; color: string; elementId?: string }>;
+  /** Semantic clef changes, including hidden and custom-glyph clefs. */
+  clefContexts: StickyClefContext[];
   /** Engraved key changes, including empty signatures after cancellation. */
   keySignatures: StickyKeySignature[];
   /** Staff label text command, if found. */
@@ -413,22 +419,26 @@ export function extractStickyClefInfo(displayList: DisplayList, staves: StaffInf
   const result: StickyClefInfo[] = staves.map((_, i) => ({
     staffIndex: i,
     clefs: [],
+    clefContexts: [],
     keySignatures: [],
     label: null,
   }));
 
-  for (const cmd of displayList.commands) {
+  for (let commandIndex = 0; commandIndex < displayList.commands.length; commandIndex++) {
+    const cmd = displayList.commands[commandIndex]!;
     if (cmd.type === "DrawGlyph" && isClefCodepoint(cmd.codepoint)) {
       // Match by Y only so mid-staff changes and stitched chunks share a row.
       // The nearest row disambiguates tightly spaced staves.
       const si = closestStickyStaff(staves, cmd.y);
       if (si !== undefined) {
+        const elementId = displayList.elementIds?.[commandIndex];
         result[si]!.clefs.push({
           x: cmd.x,
           y: cmd.y,
           codepoint: cmd.codepoint,
           size: cmd.size,
           color: cmd.color,
+          ...(elementId?.endsWith("/clef") ? { elementId } : {}),
         });
       }
     } else if (cmd.type === "DrawText" && cmd.font === "serif") {
@@ -451,9 +461,11 @@ export function extractStickyClefInfo(displayList: DisplayList, staves: StaffInf
   // Sort each staff's clefs left-to-right so the painter can pick the most
   // recent one (the last clef whose x is at or before the scroll position).
   const keySignatures = extractStickyKeySignatures(displayList, staves);
+  const clefContexts = extractStickyClefContexts(displayList, staves, result);
   for (const info of result) {
     info.clefs.sort((a, b) => a.x - b.x);
     info.keySignatures = keySignatures[info.staffIndex]!;
+    info.clefContexts = clefContexts[info.staffIndex]!;
   }
 
   return result;
@@ -662,12 +674,15 @@ export function paintStickyClefs(
     const signature = activeStickyKey(info.keySignatures, contentLeftEdge);
     if (signature) {
       const sourceClef = pickActiveClef(clefs, signature.x);
+      const sign = activeStickyClefContext(info.clefContexts, contentLeftEdge) ?? clefSignFromGlyph(clef.codepoint);
+      const sourceSign =
+        activeStickyClefContext(info.clefContexts, signature.x) ?? clefSignFromGlyph(sourceClef.codepoint);
       paintStickyKeySignature(
         ctx,
         signature,
         staff,
-        clef,
-        sourceClef,
+        sign,
+        sourceSign,
         stickyX + clefWidth,
         railSpatium,
         snapContentPoint,
