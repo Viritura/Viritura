@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { walkSequenceEvents, type NoteEvent, type Score } from "@viritura/core";
 import { computeDeleteSelection } from "../commands/deletion";
 import type { Selection } from "../store/selectionStore";
+import { getEventAtLocation, resolveEventLocation } from "../score/ElementPath";
 
 function note(id: string): NoteEvent {
   return {
@@ -25,6 +26,45 @@ function events(score: Score): NoteEvent[] {
 }
 
 describe("shared deletion semantics", () => {
+  it("selects a surviving replacement rest inside the original tuplet", () => {
+    const score = fixture();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [
+      {
+        type: "tuplet",
+        inner: { duration: { base: "half" }, multiple: 3 },
+        outer: { duration: { base: "half" }, multiple: 2 },
+        content: [note("a"), note("b"), note("c")],
+      },
+      note("outside"),
+    ];
+    const result = computeDeleteSelection(score, { kind: "single", elementId: "p0/m0/s0/b" });
+    if (result.kind !== "single") throw new Error("Expected event deletion");
+    expect(result.nextSelection.kind).toBe("select");
+    if (result.nextSelection.kind !== "select") throw new Error("Expected rest selection");
+    const location = resolveEventLocation(result.nextSelection.elementId, result.score);
+    if (!location) throw new Error("Selection must resolve in the new score");
+    expect(location.tupletIndex).toBe(0);
+    expect(getEventAtLocation(result.score, location)).toMatchObject({ type: "event", rest: {} });
+  });
+
+  it("keeps rectangular condensed-staff clearing canonical instead of broadcasting to other sources", () => {
+    const score = fixture();
+    score.parts.push({ ...structuredClone(score.parts[0]!), id: "two" });
+    score.layouts = [{ id: "condensed", content: [{ type: "staff", sources: [{ part: "one" }, { part: "two" }] }] }];
+    score.scores = [{ layout: "condensed" }];
+    const result = computeDeleteSelection(score, {
+      kind: "measure",
+      startPartIndex: 0,
+      endPartIndex: 0,
+      startStaffIndex: 0,
+      endStaffIndex: 0,
+      startMeasure: 0,
+      endMeasure: 0,
+    });
+    if (result.kind !== "measure") throw new Error("Expected bar clearing");
+    expect(result.score.parts[0]!.measures[0]!.sequences[0]!.content).toEqual([]);
+    expect(result.score.parts[1]).toEqual(score.parts[1]);
+  });
   it.each([false, true])("routes condensed bar-rest fermatas with source isolation=%s", (expanded) => {
     const score = fixture();
     score.parts[0]!.measures[0]!.sequences = [{ content: [], fullMeasure: { fermata: {} } }];

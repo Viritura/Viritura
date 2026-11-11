@@ -1,5 +1,5 @@
 import type { Score } from "@viritura/core";
-import type { SelectionState } from "../../store/selectionStore";
+import type { MeasureSelectionPoint, SelectionState } from "../../store/selectionStore";
 import { resolveSelectionMeasureRange } from "../../store/selectionUtils";
 import { computeDeleteSelection } from "./selection";
 import { removeMeasureRangeFromScore } from "./structuralTargets";
@@ -9,7 +9,7 @@ interface DeletionContext {
   getSelection: () => SelectionState;
   getScoreIndex: () => number;
   updateScore: (score: Score) => void;
-  selectElement: (id: string) => void;
+  selectElement: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
   clearSelection: () => void;
 }
 
@@ -44,7 +44,11 @@ export function executeDeletion(context: DeletionContext, intent: "selection" | 
   if (result.kind === "noop") return false;
   context.updateScore(result.score);
   if (result.kind === "measure") return true;
-  if (result.nextSelection.kind === "select") context.selectElement(result.nextSelection.elementId);
-  else context.clearSelection();
+  if (result.nextSelection.kind === "select") {
+    context.selectElement(
+      result.nextSelection.elementId,
+      selection.kind === "single" ? selection.measureAnchor : undefined,
+    );
+  } else context.clearSelection();
   return true;
 }

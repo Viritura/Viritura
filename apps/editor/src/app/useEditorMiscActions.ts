@@ -3,7 +3,7 @@ import { selectAllRange } from "../store/selectionUtils";
 import { executeDeletion } from "../commands/deletion";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
-import { useSelectionStore, type useSelection } from "../store/selectionStore";
+import { useSelectionStore, type MeasureSelectionPoint, type useSelection } from "../store/selectionStore";
 import { toast } from "sonner";
 import type { Score } from "@viritura/core";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
@@ -16,7 +16,7 @@ interface UseEditorMiscActionsArgs {
   store: ReturnType<typeof useDocumentStoreApi>;
   selection: SelectionState;
   updateScore: (next: Score) => void;
-  selectElement: (id: string) => void;
+  selectElement: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
   selectRange: (start: string, end: string) => void;
   clearSelection: () => void;
   canvasRef: RefObject<ScoreCanvasHandle | null>;
