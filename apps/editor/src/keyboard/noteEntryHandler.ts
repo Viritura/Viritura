@@ -33,7 +33,7 @@ import {
   resolveWrittenPitchFromSounding,
 } from "../commands/transposeCommands";
 import { prevailingAlterationAtPosition } from "../commands/accidentalCommands";
-import { getActiveTimeSignature, computeUsedBeats, advanceCursorByNotatedDuration } from "../commands/cursorCommands";
+import { getActiveTimeSignature, computeUsedBeats, advanceCursorAfterEntry } from "../commands/cursorCommands";
 import { closestOctave, aboveOctave, defaultPitchForClef } from "../input/octaveLogic";
 import {
   isPercussionPart,
@@ -559,16 +559,13 @@ function consumeLockedRest(
     );
   });
   ctx.updateScore(resultScore, { start: plan.measureIdx, end: plan.measureIdx });
-  ctx.setCursor({
-    ...advanceCursorByNotatedDuration(
-      resultScore,
-      { measureIndex: plan.measureIdx, beatPosition: plan.beatPos, partIndex: entryCtx.partIndex },
-      durationToBeats(plan.rhythmSlot!.duration),
-      entryCtx.lane,
-      1,
-    ),
-    staffIndex: entryCtx.staffIdx,
-  });
+  const cursor = advanceCursorAfterEntry(
+    resultScore,
+    { measureIndex: plan.measureIdx, beatPosition: plan.beatPos, partIndex: entryCtx.partIndex },
+    entryCtx.lane,
+    durationToBeats(plan.rhythmSlot!.duration),
+  );
+  ctx.setCursor({ ...cursor, staffIndex: entryCtx.staffIdx });
 }
 
 function advanceAfterInsert(
@@ -580,12 +577,12 @@ function advanceAfterInsert(
 ): void {
   ctx.setLastPitch(writtenPitch);
   ctx.setCursor({
-    ...advanceCursorByNotatedDuration(
+    ...advanceCursorAfterEntry(
       resultScore,
       { measureIndex: plan.measureIdx, beatPosition: plan.beatPos, partIndex: entryCtx.partIndex },
-      plan.noteBeats,
       entryCtx.lane,
-      1,
+      plan.noteBeats,
+      !ctx.getNoteInput().currentGraceType,
     ),
     staffIndex: entryCtx.staffIdx,
   });

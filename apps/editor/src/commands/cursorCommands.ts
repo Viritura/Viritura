@@ -1,8 +1,10 @@
-import type { Score, TimeSignature } from "@viritura/core";
+import type { Score, SequenceContent, TimeSignature } from "@viritura/core";
 import { measureBeats } from "@viritura/core";
 import { durationToBeats, sequenceContentBeats } from "./noteCommands";
 import type { CursorPosition } from "../store/noteInputStore";
 import { sequenceAt, type VoiceTarget } from "../voiceLanes";
+
+const EVENT_ONSET_TOLERANCE = 0.005;
 
 /**
  * Compute the number of beats used in a given measure/voice.
@@ -195,6 +197,60 @@ export function advanceCursorByNotatedDuration(
   const scale = getTupletScaleAt(score, cursor.measureIndex, cursor.partIndex, voice, cursor.beatPosition);
   const scaled = notatedBeats * scale;
   return direction > 0 ? advanceCursor(score, cursor, scaled) : moveCursorLeft(score, cursor, scaled);
+}
+
+function findEventTimingAtBeat(
+  content: readonly SequenceContent[],
+  startBeat: number,
+  durationScale: number,
+  beatPosition: number,
+  insideTuplet = false,
+): { realBeats: number; insideTuplet: boolean } | undefined {
+  let position = startBeat;
+  for (const item of content) {
+    if (item.type === "event") {
+      const realBeats = durationToBeats(item.duration) * durationScale;
+      if (Math.abs(position - beatPosition) < EVENT_ONSET_TOLERANCE) return { realBeats, insideTuplet };
+      position += realBeats;
+      continue;
+    }
+
+    if (item.type === "tuplet") {
+      const innerBeats = item.inner.multiple * durationToBeats(item.inner.duration);
+      const outerBeats = item.outer.multiple * durationToBeats(item.outer.duration);
+      const tupletScale = innerBeats > 0 ? (outerBeats / innerBeats) * durationScale : durationScale;
+      const event = findEventTimingAtBeat(item.content, position, tupletScale, beatPosition, true);
+      if (event) return event;
+    }
+    position += sequenceContentBeats(item) * durationScale;
+  }
+  return undefined;
+}
+
+function eventAtBeat(
+  score: Score,
+  measureIndex: number,
+  partIndex: number,
+  voice: VoiceTarget,
+  beatPosition: number,
+): { realBeats: number; insideTuplet: boolean } | undefined {
+  const sequence = sequenceAt(score, partIndex, measureIndex, voice);
+  return sequence ? findEventTimingAtBeat(sequence.content, 0, 1, beatPosition) : undefined;
+}
+
+/** Advance after insertion by the duration actually written at the cursor. */
+export function advanceCursorAfterEntry(
+  score: Score,
+  cursor: CursorPosition,
+  voice: VoiceTarget,
+  fallbackNotatedBeats: number,
+  preferWrittenSlotDuration = true,
+): CursorPosition {
+  const event = eventAtBeat(score, cursor.measureIndex, cursor.partIndex, voice, cursor.beatPosition);
+  if (preferWrittenSlotDuration && event?.insideTuplet === true) {
+    return advanceCursor(score, cursor, event.realBeats);
+  }
+  return advanceCursorByNotatedDuration(score, cursor, fallbackNotatedBeats, voice, 1);
 }
 
 function eventStartBeats(score: Score, measureIndex: number, partIndex: number, voice: VoiceTarget): number[] {

@@ -6,6 +6,9 @@ import { useEditorMiscActions } from "./useEditorMiscActions";
 import { createDocumentStore } from "../store/documentStore";
 import { resetSelectionStore, useSelectionActions, useSelectionStore } from "../store/selectionStore";
 import { removeMeasureRangeFromScore } from "../keyboard/normalModeDeleteHelpers";
+import { createHistoryStore } from "../store/historyStore";
+import { parseMnx } from "@viritura/format";
+import { useMnxChangeReporter } from "./useMnxChangeReporter";
 
 vi.mock("sonner", () => ({ toast: { info: vi.fn(), error: vi.fn() } }));
 
@@ -97,6 +100,86 @@ describe("Delete Selection", () => {
     });
     expect(updateScore).not.toHaveBeenCalled();
     expect(clearSelection).not.toHaveBeenCalled();
+  });
+});
+
+describe("Swap Staff Contents", () => {
+  it("uses the live bar selection in a single document update and keeps it selected", () => {
+    const { result, updateScore, clearSelection, score } = harness();
+    act(() => {
+      result.current.actions.selectMeasure(0, 0, 0, 0);
+      result.current.actions.extendMeasure(1, 1, 1, 0);
+      result.current.handleSwapStaffContents();
+    });
+    expect(updateScore).toHaveBeenCalledOnce();
+    const next = updateScore.mock.calls[0]![0];
+    expect(next.parts[0]!.measures[0]!.sequences[0]!.content).toEqual(
+      score.parts[1]!.measures[0]!.sequences[0]!.content,
+    );
+    expect(next.parts[1]!.measures[1]!.sequences[0]!.content).toEqual(
+      score.parts[0]!.measures[1]!.sequences[0]!.content,
+    );
+    expect(next.parts[0]!.measures[2]).toEqual(score.parts[0]!.measures[2]);
+    expect(clearSelection).not.toHaveBeenCalled();
+    expect(useSelectionStore.getState().selection.kind).toBe("measure");
+  });
+
+  it("reports invalid or stale selections rather than changing music", () => {
+    const { result, updateScore } = harness();
+    act(() => result.current.handleSwapStaffContents());
+    act(() => {
+      result.current.actions.selectMeasure(0, 0, 0, 0);
+      result.current.handleSwapStaffContents();
+      result.current.actions.extendMeasure(1, 1, 10, 0);
+      result.current.handleSwapStaffContents();
+    });
+    expect(toast.info).toHaveBeenCalledTimes(3);
+    expect(updateScore).not.toHaveBeenCalled();
+  });
+
+  it("creates one undoable edit and restores the swap on redo", async () => {
+    const store = createDocumentStore();
+    const initial = makeScore();
+    for (const part of initial.parts) {
+      part.measures[0]!.clefs = [{ clef: { sign: "G", staffPosition: -2 } }];
+    }
+    store.getState().loadScore(initial);
+    const initialMnx = store.getState().mnxJson;
+    const history = createHistoryStore(initialMnx, {
+      current: (mnxJson) => store.getState().loadScore(parseMnx(JSON.parse(mnxJson)), undefined, mnxJson, true),
+    });
+    const { result } = renderHook(() => {
+      useMnxChangeReporter({ store, pushState: history.getState().pushState });
+      return {
+        actions: useSelectionActions(),
+        ...useEditorMiscActions({
+          store,
+          selection: { kind: "none" },
+          updateScore: store.getState().updateScore,
+          selectElement: vi.fn(),
+          selectRange: vi.fn(),
+          clearSelection: vi.fn(),
+          canvasRef: { current: null },
+          currentZoom: 1,
+        }),
+      };
+    });
+    await act(async () => {
+      result.current.actions.selectMeasure(0, 0, 0, 0);
+      result.current.actions.extendMeasure(1, 1, 1, 0);
+      result.current.handleSwapStaffContents();
+    });
+    const swapped = store.getState().mnxJson;
+    expect(swapped).not.toBe(initialMnx);
+    expect(history.getState().historySize).toBe(2);
+    act(() => {
+      history.getState().undo();
+    });
+    expect(store.getState().mnxJson).toBe(initialMnx);
+    act(() => {
+      history.getState().redo();
+    });
+    expect(store.getState().mnxJson).toBe(swapped);
   });
 });
 
