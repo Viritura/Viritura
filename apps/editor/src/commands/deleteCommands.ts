@@ -82,6 +82,7 @@ function deleteGlobalAnnotation(gm: GlobalMeasure, loc: AnnotationLocation): boo
       if (remaining.length === gm.systemText.length) return false;
       if (remaining.length === 0) delete rec.systemText;
       else gm.systemText = remaining;
+      if (gm.gradualTempo?.systemTextId === loc.annotationId) delete gm.gradualTempo;
       return true;
     }
     default:

@@ -355,6 +355,9 @@ owning measure. The editor creates, moves and removes that owned label with
 the ramp while preserving other system text. Printed wording has no implicit
 playback effect: rit., rall., accel., stringendo and custom text use the same
 explicit target and curve controls. An empty label creates a playback-only ramp.
+Deleting the owned printed label also removes its tempo ramp, so playback does
+not retain the deleted instruction. Unrelated system text and explicit tempo
+markings are preserved.
 
 In Notation Properties, select notes or bars and use **Tempo ramp** to create
 the span. Note ranges include the final selected note; bar ranges include the
