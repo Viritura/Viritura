@@ -143,15 +143,3 @@ export function removeLyricsByElementId(score: Score, elementIds: readonly strin
   }
   return removed;
 }
-
-export function removeLyrics(score: Score, elementIds: readonly string[]): { score: Score; removed: boolean } {
-  let next = score;
-  let removed = false;
-  for (const elementId of elementIds) {
-    const candidate = removeLyricByElementId(next, elementId);
-    if (!candidate) continue;
-    next = candidate;
-    removed = true;
-  }
-  return { score: next, removed };
-}

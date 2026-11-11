@@ -24,7 +24,7 @@ import { expandCondensedSubElementIds, planCondensedEventWriteback } from "../..
 import { cloneScore } from "../../score/scoreClone";
 import { clearMeasureContent } from "../measureContent";
 
-export type DeleteSelectionResult =
+type DeleteSelectionResult =
   | { kind: "noop" }
   | { kind: "single"; score: Score; nextSelection: { kind: "select"; elementId: string } | { kind: "clear" } }
   | { kind: "multi"; score: Score; nextSelection: { kind: "clear" } }
