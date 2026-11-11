@@ -17,6 +17,7 @@ pub(super) fn push_grand_staff_measure_bounds(
     let (total_beats, beat_anchors) = build_beat_anchors(ml);
     let leading_clef_gap = render_measure::measure_leading_clef_gap(ml, sp, clef_change_measures);
     let (x, width, prefix_width) = render_measure::measure_bounds_geometry(ml, leading_clef_gap);
+    let (clef_sign, clef_changes) = render_measure::measure_clef_context(ml, sp);
     dl.measure_bounds.push(crate::render::MeasureBounds {
         index: ml.resolved.index,
         measure_id: ml.resolved.global.id.clone(),
@@ -32,6 +33,8 @@ pub(super) fn push_grand_staff_measure_bounds(
         prefix_width,
         total_beats,
         beat_anchors,
+        clef_sign: Some(clef_sign),
+        clef_changes,
         ghost_staff: false,
         is_hidden: false,
         has_music_hidden: false,

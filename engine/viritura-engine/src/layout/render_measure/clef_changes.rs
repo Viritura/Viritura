@@ -1,5 +1,6 @@
 use super::super::types::MeasureLayout;
-use crate::model::ResolvedMeasure;
+use crate::model::{ClefSign, ResolvedMeasure};
+use crate::render::StaffClefChange;
 use std::collections::HashSet;
 
 /// Horizontal footprint (in spaces) of the 2/3-size change clef engraved in the
@@ -36,6 +37,28 @@ pub(crate) fn measure_bounds_geometry(
         (ml.width - leading_clef_gap).max(0.0),
         (ml.prefix_width - leading_clef_gap).max(0.0),
     )
+}
+
+pub(crate) fn measure_clef_context(
+    ml: &MeasureLayout,
+    sp: f64,
+) -> (ClefSign, Vec<StaffClefChange>) {
+    let sign = ml
+        .resolved
+        .part
+        .clefs
+        .as_ref()
+        .and_then(|clefs| clefs.first())
+        .map_or(ClefSign::G, |clef| clef.clef.sign);
+    let changes = ml
+        .mid_clef_changes
+        .iter()
+        .map(|change| StaffClefChange {
+            x: change.x + super::super::measure::MID_CLEF_LEFT_PAD_SP * sp,
+            sign: change.clef.sign,
+        })
+        .collect();
+    (sign, changes)
 }
 
 /// Measures carrying a start-of-measure clef change in any resolved shown staff.

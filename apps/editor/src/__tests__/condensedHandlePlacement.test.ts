@@ -51,6 +51,12 @@ describe("condensedHandleX", () => {
     expect(x).toBeGreaterThanOrEqual(stickyColumnRight);
   });
 
+  it("clears the full rail when a key signature makes it wider", () => {
+    const stickyRailWidth = BASE.spatium * 11.4;
+    const x = condensedHandleX({ ...BASE, scrollX: 5000, stickyRailWidth });
+    expect(x).toBeCloseTo(BASE.safeAreaLeft + stickyRailWidth * BASE.zoom + 6, 5);
+  });
+
   it("stays put while scrolling once sticky, rather than drifting off-screen", () => {
     const a = condensedHandleX({ ...BASE, scrollX: 5000 });
     const b = condensedHandleX({ ...BASE, scrollX: 50000 });

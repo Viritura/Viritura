@@ -148,6 +148,8 @@ impl DisplayList {
     /// 4. Part identities: `[part_count, (index, id_len, ...id_codepoints,
     ///    name_len, ...name_codepoints)..., bounds_count,
     ///    (id_len, ...id_codepoints)...]`.
+    /// 5. Clef contexts: `[bounds_count, (start_sign, change_count,
+    ///    (x, sign)...)...]`, where 0 means no sign and 1–4 mean G/F/C/P.
     ///
     /// A later trailer requires all earlier counts, including explicit zeros.
     /// Trailing empty sections are omitted. Thus main's pre-source buffers remain
@@ -355,7 +357,33 @@ impl DisplayList {
             }
         }
 
+        if self
+            .measure_bounds
+            .iter()
+            .any(|bounds| bounds.clef_sign.is_some() || !bounds.clef_changes.is_empty())
+        {
+            buf.push(self.measure_bounds.len() as f32);
+            for bounds in &self.measure_bounds {
+                buf.push(encode_clef_sign(bounds.clef_sign));
+                buf.push(bounds.clef_changes.len() as f32);
+                for change in &bounds.clef_changes {
+                    buf.push(change.x as f32);
+                    buf.push(encode_clef_sign(Some(change.sign)));
+                }
+            }
+        }
+
         buf
+    }
+}
+
+fn encode_clef_sign(sign: Option<crate::model::ClefSign>) -> f32 {
+    match sign {
+        None => 0.0,
+        Some(crate::model::ClefSign::G) => 1.0,
+        Some(crate::model::ClefSign::F) => 2.0,
+        Some(crate::model::ClefSign::C) => 3.0,
+        Some(crate::model::ClefSign::P) => 4.0,
     }
 }
 
@@ -585,7 +613,7 @@ fn encode_command(buf: &mut Vec<f32>, cmd: &RenderCommand) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::render::{MeasureBounds, PageLayout, PartSummary, SelectionGroup};
+    use crate::render::{MeasureBounds, PageLayout, PartSummary, SelectionGroup, StaffClefChange};
 
     #[test]
     fn test_encode_decode_color() {
@@ -696,6 +724,8 @@ mod tests {
                     prefix_width: 25.0,
                     total_beats: 4.0,
                     beat_anchors: vec![],
+                    clef_sign: None,
+                    clef_changes: Vec::new(),
                     ghost_staff: false,
                     is_hidden: false,
                     has_music_hidden: false,
@@ -746,6 +776,15 @@ mod tests {
                 expected,
                 "bounds={has_bounds}, groups={has_groups}, sources={has_sources}"
             );
+            if has_bounds {
+                dl.measure_bounds[0].clef_sign = Some(crate::model::ClefSign::G);
+                dl.measure_bounds[0].clef_changes.push(StaffClefChange {
+                    x: 42.0,
+                    sign: crate::model::ClefSign::F,
+                });
+                expected.extend([2.0, 1.0, 1.0, 42.0, 2.0, 0.0, 0.0]);
+                assert_eq!(dl.to_binary(), expected);
+            }
         }
     }
 

@@ -4,12 +4,13 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use viritura_engine::layout::cache::{DirtyRegion, LayoutCache, RangeScope};
 use viritura_engine::layout::{
+    compute_key_signature_positions as compute_engine_key_signature_positions,
     compute_note_preview as compute_engine_note_preview,
     compute_slur_preview as compute_engine_slur_preview, layout_full_score,
     layout_full_score_cached, layout_score, layout_score_cached, layout_with_mnx_scores,
     layout_with_mnx_scores_cached, LayoutConfig, NotePreviewInput, SlurPreviewInput,
 };
-use viritura_engine::model::{PartMeasure, Score, SequenceContent};
+use viritura_engine::model::{ClefSign, PartMeasure, Score, SequenceContent};
 use viritura_engine::parse::parse_mnx;
 use viritura_engine::promote::{promote_global_measure_json, promote_part_measure_json};
 use viritura_engine::reconcile::{reconcile_score, reconcile_score_range};
@@ -905,6 +906,40 @@ pub fn compute_note_preview(preview_json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Note preview parse error: {}", e)))?;
     serde_json::to_string(&compute_engine_note_preview(&input))
         .map_err(|e| JsValue::from_str(&format!("Note preview serialization error: {}", e)))
+}
+
+/// Engrave the vertical positions of a key signature in staff spaces.
+#[wasm_bindgen]
+pub fn compute_key_signature_positions(fifths: i32, clef_sign: &str) -> Result<Vec<f64>, JsValue> {
+    if !(-7..=7).contains(&fifths) {
+        return Err(JsValue::from_str(
+            "Key signature fifths must be between -7 and 7",
+        ));
+    }
+    let sign = match clef_sign {
+        "G" => ClefSign::G,
+        "F" => ClefSign::F,
+        "C" => ClefSign::C,
+        _ => return Err(JsValue::from_str("Invalid key signature clef sign")),
+    };
+    Ok(compute_engine_key_signature_positions(fifths, sign))
+}
+
+#[cfg(test)]
+mod key_signature_position_tests {
+    use super::*;
+
+    #[test]
+    fn binding_returns_engine_positions_for_each_clef() {
+        for (name, sign) in [("G", ClefSign::G), ("F", ClefSign::F), ("C", ClefSign::C)] {
+            for fifths in -7..=7 {
+                assert_eq!(
+                    compute_key_signature_positions(fifths, name).unwrap(),
+                    compute_engine_key_signature_positions(fifths, sign)
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]

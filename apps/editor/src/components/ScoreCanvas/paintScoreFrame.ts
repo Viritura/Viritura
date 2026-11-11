@@ -547,7 +547,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
       /* optional performance telemetry */
     }
 
-    // Sticky clefs + labels in horizon view
+    // Sticky clefs, key signatures and labels in horizon view
     performance.mark("viritura:sticky-total-start");
     const visibleLeftContent = viewport.scrollX + safeAreaLeft / viewport.zoom;
     if (viewMode === "horizon" && dl && visibleLeftContent > 0) {

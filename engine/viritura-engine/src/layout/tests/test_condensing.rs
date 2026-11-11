@@ -20,12 +20,26 @@ use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
 
-fn identity_trailer_len(dl: &DisplayList) -> usize {
-    2 + dl
-        .parts
+fn trailers_after_sources_len(dl: &DisplayList) -> usize {
+    let clef_context_len = if dl
+        .measure_bounds
         .iter()
-        .map(|p| 3 + p.id.chars().count() + p.name.chars().count())
-        .sum::<usize>()
+        .any(|bounds| bounds.clef_sign.is_some() || !bounds.clef_changes.is_empty())
+    {
+        1 + dl
+            .measure_bounds
+            .iter()
+            .map(|bounds| 2 + 2 * bounds.clef_changes.len())
+            .sum::<usize>()
+    } else {
+        0
+    };
+    clef_context_len
+        + 2
+        + dl.parts
+            .iter()
+            .map(|p| 3 + p.id.chars().count() + p.name.chars().count())
+            .sum::<usize>()
         + dl.measure_bounds
             .iter()
             .map(|b| 1 + b.part_id.chars().count())
@@ -264,6 +278,35 @@ fn condensed_measure_bounds_include_silent_sources_in_explicit_and_auto_layouts(
 }
 
 #[test]
+fn source_trailer_boundary_is_independent_of_optional_clef_contexts() {
+    let score = load_condensing_test();
+    let mut dl = layout_with_mnx_scores(&score, &default_config(), 3);
+    assert!(dl
+        .measure_bounds
+        .iter()
+        .any(|bounds| bounds.clef_sign.is_some()));
+    let source_end = dl.to_binary().len() - trailers_after_sources_len(&dl);
+
+    dl.measure_bounds[0].clef_changes.push(StaffClefChange {
+        x: 150.0,
+        sign: crate::model::ClefSign::F,
+    });
+    assert_eq!(
+        dl.to_binary().len() - trailers_after_sources_len(&dl),
+        source_end
+    );
+
+    for bounds in &mut dl.measure_bounds {
+        bounds.clef_sign = None;
+        bounds.clef_changes.clear();
+    }
+    assert_eq!(
+        dl.to_binary().len() - trailers_after_sources_len(&dl),
+        source_end
+    );
+}
+
+#[test]
 fn condensed_source_identity_survives_json_and_binary_transport() {
     let score = load_condensing_test();
     let dl = layout_with_mnx_scores(&score, &default_config(), 3);
@@ -291,7 +334,7 @@ fn condensed_source_identity_survives_json_and_binary_transport() {
 
     let binary = dl.to_binary();
     let legacy_binary = legacy.to_binary();
-    let source_start = legacy_binary.len() - identity_trailer_len(&legacy) - 1;
+    let source_start = legacy_binary.len() - trailers_after_sources_len(&legacy) - 1;
     assert_eq!(
         binary[..source_start]
             .iter()
@@ -307,7 +350,7 @@ fn condensed_source_identity_survives_json_and_binary_transport() {
         expected.extend([index as f32, 2.0, 0.0, 1.0]);
     }
     assert_eq!(
-        &binary[source_start..binary.len() - identity_trailer_len(&dl)],
+        &binary[source_start..binary.len() - trailers_after_sources_len(&dl)],
         expected
     );
 }
@@ -446,8 +489,8 @@ fn explicit_layout_changes_preserve_per_measure_source_identity() {
             }
             let binary = dl.to_binary();
             let legacy_binary = legacy.to_binary();
-            let source_start = legacy_binary.len() - identity_trailer_len(&legacy) - 1;
-            let actual = &binary[source_start..binary.len() - identity_trailer_len(&dl)];
+            let source_start = legacy_binary.len() - trailers_after_sources_len(&legacy) - 1;
+            let actual = &binary[source_start..binary.len() - trailers_after_sources_len(&dl)];
             assert_eq!(
                 actual,
                 if count > 0 {

@@ -12,7 +12,7 @@ impl DisplayList {
     /// * `commands` — every render command (via `RenderCommand::translate_in_place`)
     /// * `element_bboxes` — bbox.x and bbox.y
     /// * `slur_geometries` — spine endpoints + control points
-    /// * `measure_bounds` — x and y (and beat anchors' x)
+    /// * `measure_bounds` — x and y (and beat anchors' / clef changes' x)
     /// * `layout_debug.systems[*]` — all *_y fields and x_start/x_end
     /// * `pages[].y_offset` — page positions
     pub fn translate(&mut self, dx: f64, dy: f64) {
@@ -61,6 +61,9 @@ impl DisplayList {
             bounds.y += dy;
             for (_, anchor_x) in &mut bounds.beat_anchors {
                 *anchor_x += dx;
+            }
+            for change in &mut bounds.clef_changes {
+                change.x += dx;
             }
         }
         for page in &mut self.pages {

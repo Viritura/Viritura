@@ -67,6 +67,7 @@ pub use config::LayoutConfig;
 pub use note_preview::{compute_note_preview, NotePreviewAccidental, NotePreviewInput};
 pub use orchestration::layout_score;
 pub use page::compute_page_breaks;
+pub use render_signatures::compute_key_signature_positions;
 pub use slur_preview::{
     compute_slur_preview, SlurPreview, SlurPreviewHandle, SlurPreviewInput, SlurPreviewMode,
 };
@@ -869,18 +870,12 @@ fn render_system_contents(
         render_measure::should_render_ordinary_measure_number(&shared_lane, staff_idx);
 
     for (i, ml) in measure_layouts.iter().enumerate() {
+        let previous_measure = i.checked_sub(1).map(|index| &measure_layouts[index]);
         let prev_has_repeat_end =
-            i > 0 && measure_layouts[i - 1].resolved.global.repeat_end.is_some();
-        let prev_barline_type = if i > 0 {
-            measure_layouts[i - 1]
-                .resolved
-                .global
-                .barline
-                .as_ref()
-                .map(|b| &b.barline_type)
-        } else {
-            None
-        };
+            previous_measure.is_some_and(|measure| measure.resolved.global.repeat_end.is_some());
+        let prev_barline_type = previous_measure
+            .and_then(|measure| measure.resolved.global.barline.as_ref())
+            .map(|barline| &barline.barline_type);
         render_measure(
             dl,
             ml,
@@ -930,6 +925,7 @@ fn render_system_contents(
                 render_measure::measure_leading_clef_gap(ml, sp, clef_change_measures);
             let (bounds_x, bounds_width, bounds_prefix) =
                 render_measure::measure_bounds_geometry(ml, leading_clef_gap);
+            let (clef_sign, clef_changes) = render_measure::measure_clef_context(ml, sp);
             crate::render::MeasureBounds {
                 index: ml.resolved.index,
                 measure_id: ml.resolved.global.id.clone(),
@@ -945,6 +941,8 @@ fn render_system_contents(
                 prefix_width: bounds_prefix,
                 total_beats,
                 beat_anchors,
+                clef_sign: Some(clef_sign),
+                clef_changes,
                 ghost_staff: false,
                 is_hidden: false,
                 has_music_hidden: false,

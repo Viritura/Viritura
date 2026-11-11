@@ -16,7 +16,7 @@
 import { useMemo, type CSSProperties } from "react";
 import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { Tooltip } from "@viritura/ui";
-import type { DisplayList } from "@viritura/renderer";
+import { detectHorizonStaves, extractStickyClefInfo, stickyClefRailWidth, type DisplayList } from "@viritura/renderer";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import type { Score } from "@viritura/core";
 import { collectCondensedStaffRows } from "./condensedStaffRows";
@@ -33,6 +33,8 @@ const ROOT_STYLE: CSSProperties = {
 export interface CondensedStaffTogglesProps {
   readonly score: Score | null;
   readonly displayList: DisplayList | null;
+  /** Changes when a retained display list is updated in place. */
+  readonly displayListVersion: number;
   readonly selectedScoreIndex: number;
   readonly expanded: Set<string>;
   readonly onToggle: (pathKey: string) => void;
@@ -73,6 +75,7 @@ function handlePosition(top: number, left: number): CSSProperties {
 export function CondensedStaffToggles({
   score,
   displayList,
+  displayListVersion,
   selectedScoreIndex,
   expanded,
   onToggle,
@@ -82,9 +85,23 @@ export function CondensedStaffToggles({
   viewMode,
   safeAreaLeft = 0,
 }: CondensedStaffTogglesProps) {
+  const rows = useMemo(
+    () => collectCondensedStaffRows(score, selectedScoreIndex, expanded),
+    [score, selectedScoreIndex, expanded],
+  );
+  const frame = useMemo(() => ({ displayList, version: displayListVersion }), [displayList, displayListVersion]);
+  const stickyRail = useMemo(() => {
+    if (rows.length === 0 || viewMode !== "horizon" || !frame.displayList) return null;
+    const staves = detectHorizonStaves(frame.displayList);
+    return { staves, info: extractStickyClefInfo(frame.displayList, staves) };
+  }, [frame, rows.length, viewMode]);
+
   const handles = useMemo<PositionedHandle[]>(() => {
-    const rows = collectCondensedStaffRows(score, selectedScoreIndex, expanded);
+    const { displayList } = frame;
     if (rows.length === 0 || !displayList?.measureBounds?.length) return [];
+    const stickyRailWidth = stickyRail
+      ? stickyClefRailWidth(stickyRail.staves, stickyRail.info, scrollX + safeAreaLeft / zoom)
+      : 0;
 
     // Extents keyed per (system, staff). Keying on staffIndex alone would fuse
     // the same staff across every system of a paged layout into one giant
@@ -140,6 +157,7 @@ export function CondensedStaffToggles({
           zoom,
           horizon: viewMode === "horizon",
           safeAreaLeft,
+          stickyRailWidth,
         });
         const top = condensedHandleY({
           staffBottomScore: extent.bottom,
@@ -163,7 +181,7 @@ export function CondensedStaffToggles({
       }
     }
     return out;
-  }, [score, selectedScoreIndex, expanded, displayList, scrollX, scrollY, zoom, viewMode, safeAreaLeft]);
+  }, [rows, frame, scrollX, scrollY, zoom, viewMode, safeAreaLeft, stickyRail]);
 
   if (handles.length === 0) return null;
 

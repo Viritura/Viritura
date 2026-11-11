@@ -12,6 +12,7 @@ export * from "./wasmTypes";
 import type {
   BoundingBox,
   DisplayList,
+  MeasureBounds,
   NotePreviewInput,
   RenderCommand,
   ScoreInfo,
@@ -67,6 +68,7 @@ let wasmModule: {
   engine_version: () => string;
   compute_slur_preview: (preview_json: string) => string;
   compute_note_preview?: (preview_json: string) => string;
+  compute_key_signature_positions?: (fifths: number, clef_sign: string) => Float64Array;
   export_svg: (
     display_list_json: string,
     bravura_data: Uint8Array,
@@ -175,6 +177,14 @@ export function computeNotePreview(input: NotePreviewInput): RenderCommand[] {
   return JSON.parse(wasmModule.compute_note_preview(JSON.stringify(input))) as RenderCommand[];
 }
 
+/** Staff-space positions from the engine's key-signature engraver. */
+export function computeKeySignaturePositions(fifths: number, clefSign: "G" | "F" | "C"): number[] {
+  if (!wasmModule?.compute_key_signature_positions) {
+    throw new Error("The WASM engine cannot engrave key signatures. Reload with the current engine.");
+  }
+  return Array.from(wasmModule.compute_key_signature_positions(fifths, clefSign));
+}
+
 /**
  * Compute layout using the WASM engine.
  * Returns a DisplayList of render commands.
@@ -222,6 +232,8 @@ function normalizeDisplayList(raw: Record<string, unknown>): DisplayList {
       prefixWidth: (b["prefixWidth"] ?? b["prefix_width"]) as number,
       totalBeats: (b["totalBeats"] ?? b["total_beats"]) as number,
       beatAnchors: (b["beatAnchors"] ?? b["beat_anchors"]) as [number, number][],
+      clefSign: (b["clefSign"] ?? b["clef_sign"]) as MeasureBounds["clefSign"],
+      clefChanges: (b["clefChanges"] ?? b["clef_changes"]) as MeasureBounds["clefChanges"],
       ghostStaff: (b["ghostStaff"] ?? b["ghost_staff"]) as boolean | undefined,
       isHidden: (b["isHidden"] ?? b["is_hidden"]) as boolean | undefined,
       hasMusicHidden: (b["hasMusicHidden"] ?? b["has_music_hidden"]) as boolean | undefined,

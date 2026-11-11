@@ -276,6 +276,19 @@ pub(crate) fn key_signature_layout(
     }
 }
 
+/// Staff-space offsets for a key signature, without change-of-key naturals.
+pub fn compute_key_signature_positions(fifths: i32, clef_sign: ClefSign) -> Vec<f64> {
+    let key = KeySignature {
+        fifths,
+        ..Default::default()
+    };
+    key_signature_layout(0.0, 0.0, 1.0, &key, &clef_sign, None)
+        .glyphs
+        .into_iter()
+        .map(|glyph| glyph.y)
+        .collect()
+}
+
 /// Whether this measure engraves a key signature in its prefix — on a key
 /// change, at the start of the score, and as a continuation restatement at the
 /// start of every system.

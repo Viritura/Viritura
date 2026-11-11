@@ -156,6 +156,44 @@ function readSelectionGroups(r: BinaryReader, count: number): SelectionGroup[] {
   return groups;
 }
 
+function readClefSign(r: BinaryReader): MeasureBounds["clefSign"] {
+  const code = r.f32();
+  switch (code) {
+    case 0:
+      return undefined;
+    case 1:
+      return "G";
+    case 2:
+      return "F";
+    case 3:
+      return "C";
+    case 4:
+      return "P";
+    default:
+      throw new Error(`Unknown binary clef sign: ${code}`);
+  }
+}
+
+function readClefContexts(r: BinaryReader, bounds: MeasureBounds[]): void {
+  const count = r.f32();
+  if (count !== bounds.length) throw new Error("Binary clef context count does not match measure bounds");
+  for (const bound of bounds) {
+    const sign = readClefSign(r);
+    if (sign) bound.clefSign = sign;
+    const changeCount = r.f32();
+    if (!Number.isInteger(changeCount) || changeCount < 0) throw new Error("Invalid binary clef change count");
+    const changes: NonNullable<MeasureBounds["clefChanges"]> = [];
+    for (let i = 0; i < changeCount; i++) {
+      const x = r.f32();
+      if (!Number.isFinite(x)) throw new Error("Invalid binary clef change position");
+      const changeSign = readClefSign(r);
+      if (!changeSign) throw new Error("Binary clef change has no sign");
+      changes.push({ x, sign: changeSign });
+    }
+    if (changes.length > 0) bound.clefChanges = changes;
+  }
+}
+
 function readElementIds(r: BinaryReader, numCommands: number, numStrings: number): (string | null)[] | undefined {
   if (numStrings === 0) {
     // Skip per-command indices (all -1.0)
@@ -239,6 +277,7 @@ export function decodeBinaryDisplayList(data: Float32Array): DisplayList {
       if (bounds) bounds.partId = id;
     }
   }
+  if (r.pos < data.length) readClefContexts(r, measureBounds);
 
   const result: DisplayList = { commands, width, height };
   if (pages.length > 0) result.pages = pages;
