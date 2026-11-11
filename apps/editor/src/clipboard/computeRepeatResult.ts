@@ -6,7 +6,8 @@ import type { ClipboardSelection } from "../commands/clipboardCommands";
 import { findPlacedSelection } from "./computePasteResult";
 import type { SelectionState } from "../store/selectionStore";
 import { partStaffOffset, voiceIndexWithinStaff } from "./clipboardTrackMapping";
-import { ensureSequencePosition, splitSequenceAtBeat } from "./clipboardTrackPlacement";
+import { compareWholeFractions, ensureSequencePosition, splitSequenceAtBeat } from "./clipboardTrackPlacement";
+import { captureSelectedChordSymbols } from "./chordSymbolCapture";
 import { ensurePasteMeasure, sequenceForStaffVoice } from "./pasteContent";
 import { beatsBetweenMeasures, findPlacedAnnotationIds, resolvePhysicalStaffDestination } from "./annotations";
 
@@ -248,7 +249,7 @@ export function computeRepeatResult(
     sourceTimeSignature: sel.timeSignature,
     sourceKeySignature: sel.keySignature,
     dynamics: sel.dynamics,
-    chordSymbols: sel.chordSymbols,
+    chordSymbols: selectedRepeatChordSymbols(score, sel),
     measureSignatures: sel.measureSignatures,
   };
 
@@ -283,4 +284,21 @@ export function computeRepeatResult(
     ...findPlacedSelection(newScore, placedContent, measureIndex, startBeat, annotationIds),
     warnings: [...new Set(warnings)],
   };
+}
+
+function selectedRepeatChordSymbols(score: Score, sel: ClipboardSelection) {
+  const selected = captureSelectedChordSymbols(
+    score,
+    sel.cutAnnotationLocations ?? [],
+    sel.captureOrigin ?? { measureIndex: sel.measureIndex, beat: 0 },
+    sel.partIndex,
+    0,
+  );
+  return sel.chordSymbols?.filter((captured) =>
+    selected.some(
+      (symbol) =>
+        symbol.measureOffset === captured.measureOffset &&
+        compareWholeFractions(symbol.chordSymbol.position.fraction, captured.chordSymbol.position.fraction) === 0,
+    ),
+  );
 }

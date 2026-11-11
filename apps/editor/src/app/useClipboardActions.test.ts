@@ -602,16 +602,26 @@ describe("clipboard chord symbol placement", () => {
     },
   );
 
-  it("shows unsupported chord warnings after an atomic repeat", () => {
+  it.each([false, true])("warns about repeated unsupported chords only when explicitly selected: %s", (selected) => {
     const score = scoreWithLyric();
     score.parts[0]!.chordSymbolVisibility = "show";
     score.global.measures[0]!.chordSymbols = [parseChordSymbolText("mystery harmony", { fraction: [0, 1] })];
     const snapshot = structuredClone(score);
-    const { result, updateScore } = harness(noteSelection, score);
+    const selection: SelectionState = selected
+      ? { kind: "multi", elementIds: ["p0/m0/s0/source", "m0/chord0/p0/staff1"] }
+      : noteSelection;
+    const { result, updateScore } = harness(selection, score);
     act(() => result.current.handleRepeat());
     expect(updateScore).toHaveBeenCalledOnce();
-    expect(updateScore.mock.calls[0]![0].global.measures[0]!.chordSymbols).toHaveLength(2);
-    expect(toast.warning).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("Unsupported chord"));
+    const repeated = updateScore.mock.calls[0]![0];
+    expect(repeated.parts[0]!.measures[0]!.sequences[0]!.content).toHaveLength(2);
+    if (selected) {
+      expect(repeated.global.measures[0]!.chordSymbols).toHaveLength(2);
+      expect(toast.warning).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("Unsupported chord"));
+    } else {
+      expect(repeated.global.measures[0]!.chordSymbols).toEqual(snapshot.global.measures[0]!.chordSymbols);
+      expect(toast.warning).not.toHaveBeenCalled();
+    }
     expect(score).toEqual(snapshot);
   });
 
