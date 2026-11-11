@@ -15,6 +15,8 @@ import { NotationInspector } from "../components/NotationInspector";
 import { DocumentProvider, useDocument, useDocumentActions } from "../store/DocumentContext";
 import { resetSelectionStore, useSelectionActions } from "../store/selectionStore";
 import { removeMeasureRangeFromScore } from "../keyboard/normalModeDeleteHelpers";
+import { deleteAnnotation, deleteAnnotations } from "../commands/deleteCommands";
+import { resolveAnnotationLocation } from "../score/ElementPath";
 
 afterEach(() => {
   cleanup();
@@ -212,6 +214,45 @@ describe("native tempo ramp authoring", () => {
     expect(label?.manualOffset).toEqual([2, 3]);
     expect(removeTempoRamp(edited, 0).global.measures[0]!.systemText?.map((text) => text.id)).toEqual(["other"]);
   });
+
+  it.each(["single", "multiple"] as const)(
+    "removes ramp playback when deleting its printed label through %s annotation deletion",
+    (mode) => {
+      const baseline = source();
+      baseline.global.measures[2]!.tempos = [{ bpm: 110, value: { base: "quarter" } }];
+      const initial = saveTempoRamp(baseline, edit).score!;
+      const measure = initial.global.measures[0]!;
+      measure.systemText!.push({
+        id: "other",
+        text: [{ text: "espressivo" }],
+        position: { fraction: [0, 1] },
+      });
+      const labelId = measure.gradualTempo!.systemTextId!;
+      const location = resolveAnnotationLocation(`m0/systemText/${labelId}`)!;
+      const history = createHistoryStore(JSON.stringify(serializeMnx(initial)), { current: undefined });
+      const removed =
+        mode === "single" ? deleteAnnotation(initial, location)! : deleteAnnotations(initial, [location, location])!;
+      expect(removed.global.measures[0]!.gradualTempo).toBeUndefined();
+      expect(removed.global.measures[0]!.systemText?.map((text) => text.id)).toEqual(["other"]);
+      expect(removed.global.measures.map((bar) => bar.tempos)).toEqual(
+        baseline.global.measures.map((bar) => bar.tempos),
+      );
+      expect(generateTimeline(initial).model.bpmAtBeat(3)).toBeCloseTo(90);
+      expect(generateTimeline(removed)).toEqual(generateTimeline(baseline));
+      expect(initial.global.measures[0]!.gradualTempo?.systemTextId).toBe(labelId);
+
+      history.getState().pushState(JSON.stringify(serializeMnx(removed)), "Delete tempo ramp label");
+      const restored = parseMnx(serializeMnx(removed));
+      expect(restored.global.measures[0]!.gradualTempo).toBeUndefined();
+      expect(generateTimeline(restored)).toEqual(generateTimeline(baseline));
+      const undone = parseMnx(JSON.parse(history.getState().undo()!));
+      expect(undone.global.measures[0]!.gradualTempo?.systemTextId).toBe(labelId);
+      expect(generateTimeline(undone).model.bpmAtBeat(3)).toBeCloseTo(90);
+      const redone = parseMnx(JSON.parse(history.getState().redo()!));
+      expect(redone.global.measures[0]!.gradualTempo).toBeUndefined();
+      expect(generateTimeline(redone)).toEqual(generateTimeline(baseline));
+    },
+  );
 
   it("keeps playback, inspector rendering and undo/redo valid after deleting the endpoint bar", () => {
     const initial = saveTempoRamp(source(), edit).score!;

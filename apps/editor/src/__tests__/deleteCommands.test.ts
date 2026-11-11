@@ -379,6 +379,52 @@ describe("deleteAnnotation", () => {
       expect(result?.global.measures[0]!.systemText?.map((text) => text.id)).toEqual(["note-b"]);
     });
 
+    it("preserves a tempo ramp when deleting unrelated system text", () => {
+      const score = makeAnnotatedScore();
+      const measure = score.global.measures[0]!;
+      measure.gradualTempo = {
+        position: { fraction: [0, 1] },
+        end: { measure: "1", position: { fraction: [0, 1] } },
+        endBpm: 80,
+        systemTextId: "ramp",
+      };
+      measure.systemText = [
+        { id: "ramp", text: [{ text: "rit." }], position: { fraction: [0, 1] } },
+        { id: "other", text: [{ text: "espressivo" }], position: { fraction: [0, 1] } },
+      ];
+      const result = deleteAnnotation(score, {
+        kind: "global",
+        type: "systemText",
+        measureIndex: 0,
+        annotationId: "other",
+      });
+      expect(result?.global.measures[0]!.gradualTempo).toEqual(measure.gradualTempo);
+      expect(result?.global.measures[0]!.systemText?.map((text) => text.id)).toEqual(["ramp"]);
+    });
+
+    it("removes the ramp when its only printed label is deleted", () => {
+      const score = makeAnnotatedScore();
+      const measure = score.global.measures[0]!;
+      measure.gradualTempo = {
+        position: { fraction: [0, 1] },
+        end: { measure: "1", position: { fraction: [0, 1] } },
+        endBpm: 80,
+        systemTextId: "ramp",
+      };
+      measure.systemText = [{ id: "ramp", text: [{ text: "rit." }], position: { fraction: [0, 1] } }];
+      expect(
+        deleteAnnotation(score, { kind: "global", type: "systemText", measureIndex: 0, annotationId: "missing" }),
+      ).toBeNull();
+      const result = deleteAnnotation(score, {
+        kind: "global",
+        type: "systemText",
+        measureIndex: 0,
+        annotationId: "ramp",
+      });
+      expect(result?.global.measures[0]!.gradualTempo).toBeUndefined();
+      expect(result?.global.measures[0]!.systemText).toBeUndefined();
+    });
+
     it("deletes a global chord symbol", () => {
       const score = makeAnnotatedScore();
       score.global.measures[0]!.chordSymbols = [
