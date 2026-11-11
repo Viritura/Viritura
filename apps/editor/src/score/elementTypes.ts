@@ -46,6 +46,7 @@ export type SelectableElementType =
   | "tuplet"
   | "grace-note"
   | "note"
+  | "note-marking"
   | "accidental"
   | "text-frame"
   | "unknown";
@@ -109,6 +110,8 @@ const PREFIX_MAP: ReadonlyArray<readonly [string, SelectableElementType]> = [
 export function parseElementType(elementId: string): SelectableElementType {
   if (!elementId) return "unknown";
   if (elementId.startsWith("trill-line/")) return "trill";
+  if (elementId.startsWith("gliss/")) return "glissando";
+  if (/\/n\d+\/(?:slideIn|slideOut)$/.test(elementId)) return "note-marking";
   if (/^m\d+\/systemText\/.+$/.test(elementId)) return "system-text";
   // `text-frame/{frameId}`: the frame ID is authored free text (percent-encoded), so its last segment must not be classified.
   if (elementId.startsWith("text-frame/")) return "text-frame";
@@ -152,6 +155,7 @@ const EVENT_ATTACHED: ReadonlySet<SelectableElementType> = new Set([
   "tie",
   "glissando",
   "note",
+  "note-marking",
 ]);
 
 /** Element types scoped to a part-measure (below staff). */

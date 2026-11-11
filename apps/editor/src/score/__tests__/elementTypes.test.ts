@@ -68,6 +68,13 @@ describe("parseElementType", () => {
     it("returns 'glissando' for gliss-prefixed segments", () => {
       expect(parseElementType("p0/m0/s0/ev0/gliss0")).toBe("glissando");
       expect(parseElementType("p0/m0/s0/ev0/glissando")).toBe("glissando");
+      expect(parseElementType("gliss/source/target")).toBe("glissando");
+    });
+
+    it("classifies note-scoped slides independently of their notes", () => {
+      expect(parseElementType("p0/m0/s0/ev0/n1/slideIn")).toBe("note-marking");
+      expect(parseElementType("p0/m0/s0/ev0/n1/slideOut")).toBe("note-marking");
+      expect(isEventAttached("note-marking")).toBe(true);
     });
   });
 

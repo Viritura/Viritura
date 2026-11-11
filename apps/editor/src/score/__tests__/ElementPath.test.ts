@@ -78,6 +78,18 @@ describe("ID construction", () => {
     expect(eventSuffix("my-note", 0)).toBe("my-note");
   });
 
+  describe("rendered event IDs", () => {
+    it("resolves sanitized IDs and prefers exact model IDs when they collide", () => {
+      const score = makeScore();
+      const content = score.parts[0]!.measures[0]!.sequences[0]!.content;
+      content[0] = makeNote("event/one", "quarter");
+      const path = "p0/m0/s0/event_one";
+      expect(resolveEventLocation(path, score)?.eventIndex).toBe(0);
+      content[1] = makeNote("event_one", "quarter");
+      expect(resolveEventLocation(path, score)?.eventIndex).toBe(1);
+    });
+  });
+
   it("eventSuffix falls back to index", () => {
     expect(eventSuffix(undefined, 3)).toBe("e3");
   });

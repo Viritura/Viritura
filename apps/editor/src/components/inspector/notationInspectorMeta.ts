@@ -15,6 +15,7 @@ const SECTION_BY_TYPE: Partial<Record<SelectableElementType, InspectorSection>> 
   event: "event",
   rest: "event",
   note: "event",
+  "note-marking": "markings",
   articulation: "markings",
   fermata: "markings",
   ornament: "markings",

@@ -60,6 +60,7 @@ import {
   expandCondensedSubElementIds,
 } from "../score/condensedWriteback";
 import { isLyricId, removeLyricByElementId, removeLyricsByElementId } from "../commands/lyricCommands";
+import { removeGlissandosByElementId } from "../commands/glissandoCommands";
 import { removeTuplet } from "../commands/tupletCommands";
 function applyDeletion(e: KeyboardEvent, ctx: KeyboardHandlerContext, newScore: Score | null): boolean {
   if (!newScore) return false;
@@ -159,6 +160,7 @@ function deleteConnectorSelection(
   score: Score,
   elementId: string,
   selectedScoreIndex: number,
+  forceDirect = false,
 ): Score | null | undefined {
   if (elementId.startsWith("slur/")) {
     return deleteCondensedSpanner(score, elementId, selectedScoreIndex, deleteSlurByElementId);
@@ -166,7 +168,37 @@ function deleteConnectorSelection(
   if (elementId.startsWith("tie/")) {
     return deleteCondensedSpanner(score, elementId, selectedScoreIndex, deleteTieByElementId);
   }
+  if (elementId.startsWith("gliss/")) {
+    return removeGlissandosByElementId(score, [elementId], selectedScoreIndex, forceDirect);
+  }
   return undefined;
+}
+
+function isConnectorId(id: string): boolean {
+  return id.startsWith("slur/") || id.startsWith("tie/") || id.startsWith("gliss/");
+}
+
+function deleteSelectedConnectors(
+  score: Score,
+  ids: readonly string[],
+  selection: Extract<Selection, { kind: "multi" }>,
+  ctx: KeyboardHandlerContext,
+): { score: Score; removed: boolean } {
+  let next = score;
+  let removed = false;
+  for (const id of ids) {
+    const candidate = deleteConnectorSelection(
+      next,
+      id,
+      ctx.getConfig?.().selectedScoreIndex ?? 0,
+      selection.measureAnchor?.isExpansion === true,
+    );
+    if (candidate) {
+      next = candidate;
+      removed = true;
+    }
+  }
+  return { score: next, removed };
 }
 
 function deleteCondensedWholeEvent(
@@ -274,6 +306,7 @@ function deleteSingleSelection(
     currentScore,
     sel.elementId,
     ctx.getConfig?.().selectedScoreIndex ?? 0,
+    sel.measureAnchor?.isExpansion === true,
   );
   if (connectorResult !== undefined) {
     applyDeletion(e, ctx, connectorResult);
@@ -435,7 +468,7 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
     ctx.getConfig?.().selectedScoreIndex ?? 0,
     selection.measureAnchor?.isExpansion === true,
   );
-  const connectorIds = selectedIds.filter((id) => id.startsWith("slur/") || id.startsWith("tie/"));
+  const connectorIds = selectedIds.filter(isConnectorId);
   const lyricIds = selectedIds.filter(isLyricId);
   const graceIds = selectedIds.filter((id) => resolveGraceLocation(id, currentScore) !== null);
   const annotationLocations = selectedIds.map(resolveDeletableAnnotationLocation).filter((loc) => loc !== null);
@@ -459,14 +492,8 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
   if (timeSignaturesResult) newScore = timeSignaturesResult;
   const annotationsRemoved = annotationsResult !== null;
   const lyricsRemoved = removeLyricsByElementId(newScore, lyricIds);
-  let connectorsRemoved = false;
-  for (const connectorId of connectorIds) {
-    const next = deleteConnectorSelection(newScore, connectorId, ctx.getConfig?.().selectedScoreIndex ?? 0);
-    if (next) {
-      newScore = next;
-      connectorsRemoved = true;
-    }
-  }
+  const connectors = deleteSelectedConnectors(newScore, connectorIds, selection, ctx);
+  newScore = connectors.score;
 
   // Noteheads thin their chords first. A chord also selected as a whole event
   // is left to the event pass — selecting everything means the rest, not a
@@ -483,7 +510,7 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
     !annotationsRemoved &&
     !leavesRemoved &&
     !chordsRemoved &&
-    !connectorsRemoved &&
+    !connectors.removed &&
     graceIds.length === 0
   )
     return;

@@ -82,6 +82,46 @@ describe("isSelectionIdValid", () => {
     expect(isSelectionIdValid("p0/m0/s0/ev1/art-staccato", current)).toBe(false);
   });
 
+  it("keeps only existing note-scoped slide markings", () => {
+    const current = score();
+    const event = current.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type !== "event") throw new Error("Expected note event fixture");
+    event.notes![0]!.markings = { slideIn: { type: "scoop" }, slideOut: { type: "doit" } };
+    const prefix = "p0/m0/s0/ev1/n0";
+    expect(isSelectionIdValid(`${prefix}/slideIn`, current)).toBe(true);
+    expect(isSelectionIdValid(`${prefix}/slideOut`, current)).toBe(true);
+    expect(isSelectionIdValid("p0/m0/s0/ev1/n1/slideOut", current)).toBe(false);
+    delete event.notes![0]!.markings!.slideIn;
+    expect(isSelectionIdValid(`${prefix}/slideIn`, current)).toBe(false);
+    expect(isSelectionIdValid(`${prefix}/slideOut`, current)).toBe(true);
+  });
+
+  it("validates note markings on events with sanitized model IDs", () => {
+    const current = score();
+    const event = current.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type !== "event") throw new Error("Expected note event fixture");
+    event.id = "event/one";
+    event.notes![0]!.markings = { slideOut: { type: "falloff" } };
+    expect(isSelectionIdValid("p0/m0/s0/event_one/n0/slideOut", current)).toBe(true);
+  });
+
+  it("validates slide markings on grace notes", () => {
+    const current = score();
+    current.parts[0]!.measures[0]!.sequences[0]!.content.unshift({
+      type: "grace",
+      content: [
+        {
+          type: "event",
+          id: "grace",
+          duration: { base: "eighth" },
+          notes: [{ pitch: { step: "D", octave: 4 }, markings: { slideOut: { type: "falloff" } } }],
+        },
+      ],
+    });
+    expect(isSelectionIdValid("p0/m0/s0/ev1/grace/grace/n0/slideOut", current)).toBe(true);
+    expect(isSelectionIdValid("p0/m0/s0/ev1/grace/grace/n0/slideIn", current)).toBe(false);
+  });
+
   it("validates annotation indices instead of only the containing measure", () => {
     const current = score();
     expect(isSelectionIdValid("p0/m0/expr0", current)).toBe(true);

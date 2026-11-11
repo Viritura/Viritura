@@ -286,8 +286,14 @@ function parseEventPathSegments(elementId: string): { base: EventBase; evSuffix:
   };
 }
 
-function findEventByModelId(sequence: Sequence, base: EventBase, evSuffix: string): EventLocation | null {
-  const eventIndex = sequence.content.findIndex((ev) => (ev as { id?: string }).id === evSuffix);
+function findEventByModelId(
+  sequence: Sequence,
+  base: EventBase,
+  evSuffix: string,
+  sanitized = false,
+): EventLocation | null {
+  const matches = (id: string | undefined) => (sanitized && id ? sanitize(id) : id) === evSuffix;
+  const eventIndex = sequence.content.findIndex((ev) => matches((ev as { id?: string }).id));
   if (eventIndex !== -1) return { ...base, eventIndex };
 
   // tuplet and tremolo containers both project onto `tupletIndex` (grace has
@@ -295,7 +301,7 @@ function findEventByModelId(sequence: Sequence, base: EventBase, evSuffix: strin
   for (let ti = 0; ti < sequence.content.length; ti++) {
     const item = sequence.content[ti];
     if (item && (item.type === "tuplet" || item.type === "tremolo") && item.content) {
-      const innerIdx = item.content.findIndex((ev) => (ev as { id?: string }).id === evSuffix);
+      const innerIdx = item.content.findIndex((ev) => matches((ev as { id?: string }).id));
       if (innerIdx !== -1) return { ...base, eventIndex: innerIdx, tupletIndex: ti };
     }
   }
@@ -371,7 +377,7 @@ export function resolveEventLocation(elementId: string, score: Score): EventLoca
     return null;
   }
 
-  const byId = findEventByModelId(sequence, base, evSuffix);
+  const byId = findEventByModelId(sequence, base, evSuffix) ?? findEventByModelId(sequence, base, evSuffix, true);
   if (byId) return byId;
   const hiddenSpace = findHiddenSpaceByPlaceholderId(sequence, base, evSuffix);
   if (hiddenSpace) return hiddenSpace;
