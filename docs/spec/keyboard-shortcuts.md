@@ -180,6 +180,10 @@ unmodified deletion key. Text inputs keep their normal editing behavior.
 | `Shift+K` | Enter chord symbols at the selected rhythmic position                          |
 | `Shift+X` | Add staff text                                                                 |
 
+`R` repeats chord-track symbols only when those symbols are explicitly selected.
+Repeating notes or rests alone leaves the chord track unchanged, including on
+successive repeats. Normal copy and paste still include accompanying chord symbols.
+
 ### Chord symbol input
 
 After selecting a note or rest, press `Shift+K`. The selected event establishes
