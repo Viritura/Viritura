@@ -564,7 +564,7 @@ describe("secondary physical staff annotation capture", () => {
   );
 
   it.each([false, true])(
-    "merges coincident physical-staff harmony with identical=%s and exposes paste/repeat warnings",
+    "merges coincident harmony on paste but preserves unselected harmony on repeat (identical: %s)",
     (identical) => {
       const target = score([2]);
       const retained: ChordSymbol = {
@@ -604,8 +604,8 @@ describe("secondary physical staff annotation capture", () => {
       })!;
       copied.chordSymbols = paste.chordSymbols;
       const repeated = computeRepeatResult(target, copied)!;
-      expect(repeated.newScore.global.measures[0]!.chordSymbols).toEqual(result.global.measures[0]!.chordSymbols);
-      expect(repeated.warnings).toEqual(warnings);
+      expect(repeated.newScore.global.measures[0]!.chordSymbols).toEqual(snapshot.global.measures[0]!.chordSymbols);
+      expect(repeated.warnings).toEqual([]);
       expect(target).toEqual(snapshot);
     },
   );
