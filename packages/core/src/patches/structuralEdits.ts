@@ -126,7 +126,8 @@ export function applySetSequenceContent(draft: Draft<Score>, p: SetSequenceConte
   while (measure.sequences.length <= voice) {
     measure.sequences.push({ content: [] });
   }
-  const sequence = measure.sequences[voice]!;
+  // Array.at interprets the index as a number, not an arbitrary property name.
+  const sequence = measure.sequences.at(voice)!;
   sequence.content = p.content;
   // A full-measure rest marker overrides content during layout, so written
   // content must replace it (as note entry does).
