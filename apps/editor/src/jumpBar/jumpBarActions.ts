@@ -52,6 +52,7 @@ export interface JumpBarCallbacks {
   selectChordBottomNote: () => void;
   selectAll: () => void;
   deleteSelection: () => void;
+  canDeleteSelection?: () => boolean;
 
   // View
   zoomIn: () => void;
@@ -201,6 +202,7 @@ export function buildJumpBarActions(
       shortcut: "Delete",
       keywords: ["remove", "backspace"],
       execute: cb.deleteSelection,
+      enabled: cb.canDeleteSelection,
     },
     {
       id: "edit.repeat",

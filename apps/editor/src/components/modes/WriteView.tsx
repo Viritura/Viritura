@@ -519,6 +519,7 @@ function AppInner({
     handleCut,
     handlePaste,
     handlePasteMerge,
+    handleDeleteSelection,
     handleExplodeSelection,
     handleReduceSelection,
     handleSelectChordTopNote,

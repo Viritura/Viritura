@@ -69,10 +69,12 @@ function makeCtx(score: Score, selection: Selection): { ctx: KeyboardHandlerCont
   const ctx = {
     getScore: () => current,
     getSelection: () => selection,
+    getConfig: () => ({ selectedScoreIndex: 0 }),
     updateScore: (next: Score) => {
       current = next;
     },
     clearSelection: () => {},
+    selectElement: () => {},
   } as unknown as KeyboardHandlerContext;
   return { ctx, latest: () => current };
 }

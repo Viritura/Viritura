@@ -1,10 +1,9 @@
 import { useCallback } from "react";
 import { selectAllRange } from "../store/selectionUtils";
-import { computeDeleteSelection } from "../commands/computeDeleteSelection";
+import { executeDeletion } from "../commands/deletion";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
 import { useSelectionStore, type useSelection } from "../store/selectionStore";
-import { removeMeasureRangeFromScore } from "../keyboard/normalModeDeleteHelpers";
 import { toast } from "sonner";
 import type { Score } from "@viritura/core";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
@@ -54,41 +53,38 @@ export function useEditorMiscActions({
   }, [store, selectRange]);
 
   const handleDeleteSelection = useCallback(() => {
-    const result = computeDeleteSelection(
-      store.getState().score,
-      selection,
-      useViewStateStore.getState().selectedScoreIndex,
-    );
-    if (result.kind === "noop") return;
-    updateScore(result.score);
-    if (result.kind === "single") {
-      if (result.nextSelection.kind === "select") {
-        selectElement(result.nextSelection.elementId);
-      } else {
-        clearSelection();
-      }
-    } else if (result.kind === "multi") {
-      clearSelection();
-    }
-  }, [store, selection, updateScore, selectElement, clearSelection]);
+    executeDeletion({
+      getScore: () => store.getState().workingScore,
+      getSelection: () => useSelectionStore.getState().selection,
+      getScoreIndex: () => useViewStateStore.getState().selectedScoreIndex,
+      updateScore,
+      selectElement,
+      clearSelection,
+    });
+  }, [store, updateScore, selectElement, clearSelection]);
 
   const handleDeleteSelectedBars = useCallback(() => {
-    const { score } = store.getState();
+    const { workingScore: score } = store.getState();
     const selected = useSelectionStore.getState().selection;
     if (!score || selected.kind !== "measure") {
       toast.info("Select bars to delete first.");
       return;
     }
-    const start = Math.min(selected.startMeasure, selected.endMeasure);
-    const end = Math.max(selected.startMeasure, selected.endMeasure);
-    const next = removeMeasureRangeFromScore(score, start, end, true);
-    if (!next) {
+    const deleted = executeDeletion(
+      {
+        getScore: () => score,
+        getSelection: () => selected,
+        getScoreIndex: () => useViewStateStore.getState().selectedScoreIndex,
+        updateScore,
+        selectElement,
+        clearSelection,
+      },
+      "remove-bars",
+    );
+    if (!deleted) {
       toast.error("The selected bars are no longer available.");
-      return;
     }
-    updateScore(next);
-    clearSelection();
-  }, [store, updateScore, clearSelection]);
+  }, [store, updateScore, selectElement, clearSelection]);
 
   const handleZoomIn = useCallback(() => {
     const z = Math.min(currentZoom * 1.25, MAX_ZOOM);

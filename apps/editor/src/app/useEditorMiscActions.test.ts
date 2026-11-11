@@ -40,7 +40,7 @@ function makeScore(): Score {
 function harness() {
   const store = createDocumentStore();
   const score = makeScore();
-  store.setState({ score });
+  store.setState({ score, workingScore: score });
   const updateScore = vi.fn<(next: Score) => void>();
   const clearSelection = vi.fn();
   const hook = renderHook(() => ({
@@ -64,6 +64,41 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 afterEach(cleanup);
+
+describe("Delete Selection", () => {
+  it("uses live selection and pending working score, not captured selection or published layout", () => {
+    const { result, store, updateScore, score, clearSelection } = harness();
+    const working = structuredClone(score);
+    const event = working.parts[0]!.measures[0]!.sequences[0]!.content[0];
+    if (event?.type !== "event") throw new Error("Expected event");
+    event.fermata = {};
+    event.ornament = "turn";
+    store.setState({ workingScore: working });
+    act(() => {
+      result.current.actions.selectElement("p0/m0/s0/flute-0/ferm");
+      result.current.handleDeleteSelection();
+    });
+    expect(updateScore).toHaveBeenCalledOnce();
+    const next = updateScore.mock.calls[0]![0];
+    expect(next.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+      ornament: "turn",
+      notes: event.notes,
+    });
+    expect(next.parts[0]!.measures[0]!.sequences[0]!.content[0]).not.toHaveProperty("fermata");
+    expect(event.fermata).toEqual({});
+    expect(clearSelection).toHaveBeenCalledOnce();
+  });
+
+  it("does not commit or clear a stale target", () => {
+    const { result, updateScore, clearSelection } = harness();
+    act(() => {
+      result.current.actions.selectElement("p0/m0/s0/missing/ferm");
+      result.current.handleDeleteSelection();
+    });
+    expect(updateScore).not.toHaveBeenCalled();
+    expect(clearSelection).not.toHaveBeenCalled();
+  });
+});
 
 describe("Delete Selected Bars", () => {
   it("uses the live reversed bar range and removes it from every part in one update", () => {

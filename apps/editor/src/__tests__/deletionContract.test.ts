@@ -87,7 +87,7 @@ describe("deletion compatibility contract", () => {
     if (result.kind !== "single") throw new Error("Expected fermata deletion");
     expect(first(result.score).fermata).toBeUndefined();
     expect(first(result.score).notes).toHaveLength(1);
-    expect(keyboard(score, selection).updateScore).not.toHaveBeenCalled();
+    expect(keyboard(score, selection).score).toEqual(result.score);
     expect(first(score).fermata).toEqual({});
     expect(first(score).notes).toHaveLength(1);
   });

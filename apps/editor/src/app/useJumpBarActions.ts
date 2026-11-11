@@ -5,6 +5,7 @@ import { openDialog, toggleDialog } from "../store/dialogStore";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
+import { useSelectionStore } from "../store/selectionStore";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import type { ActivityView } from "../components/activityRegistry";
 import { openSettings } from "../components/SettingsDialog";
@@ -23,6 +24,13 @@ import { radialMenuJumpBarCallbacks } from "./radialMenuJumpBarCallbacks";
 const BAR_CHANGE_DIALOG_ACTIONS = {
   changeBarInstrument: () => openDialog("barInstrumentChange"),
 };
+
+function selectAll(store: DocumentStore, selectRange: (start: string, end: string) => void): void {
+  const { score } = store.getState();
+  if (!score) return;
+  const range = selectAllRange(score);
+  if (range) selectRange(range.startElementId, range.endElementId);
+}
 
 export interface JumpBarActionsDeps {
   /** Create a named project folder, initialize its score and history, then open Setup mode. */
@@ -48,6 +56,7 @@ export interface JumpBarActionsDeps {
   handleCut: () => void | Promise<void>;
   handlePaste: () => void | Promise<void>;
   handlePasteMerge: () => void | Promise<void>;
+  handleDeleteSelection: () => void;
   handleExplodeSelection: () => void | Promise<void>;
   handleReduceSelection: () => void | Promise<void>;
   handleSelectChordTopNote: () => void;
@@ -87,6 +96,7 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
     handleCut,
     handlePaste,
     handlePasteMerge,
+    handleDeleteSelection,
     handleExplodeSelection,
     handleReduceSelection,
     handleSelectChordTopNote,
@@ -147,16 +157,10 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
           },
           selectChordTopNote: handleSelectChordTopNote,
           selectChordBottomNote: handleSelectChordBottomNote,
-          selectAll: () => {
-            const { score } = store.getState();
-            if (score) {
-              const range = selectAllRange(score);
-              if (range) selectRange(range.startElementId, range.endElementId);
-            }
-          },
-          deleteSelection: () => {
-            window.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
-          },
+          selectAll: () => selectAll(store, selectRange),
+          deleteSelection: handleDeleteSelection,
+          canDeleteSelection: () =>
+            store.getState().workingScore !== null && useSelectionStore.getState().selection.kind !== "none",
           transpose: () => openDialog("transpose"),
           ...BAR_CHANGE_DIALOG_ACTIONS,
           splitOrchestralStaves: () => openDialog("orchestralStaffSplit"),
@@ -242,6 +246,7 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
       handleCut,
       handlePaste,
       handlePasteMerge,
+      handleDeleteSelection,
       handleExplodeSelection,
       handleReduceSelection,
       handleSelectChordTopNote,
