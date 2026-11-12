@@ -1938,6 +1938,10 @@ Extensions on `event._x.viritura` (on the event object itself, not inside markin
 
 Array of glissando/portamento lines connecting this event to target events.
 
+Copy/paste and repeat assign fresh IDs to both endpoints and retarget each copied
+line to the copied target, including across selected staves and voices. Lines
+whose targets are outside the copied selection are omitted from the pasted events.
+
 | Property       | Type                                            | Required | Description                                                 |
 | -------------- | ----------------------------------------------- | -------- | ----------------------------------------------------------- |
 | `target`       | string                                          | **Yes**  | ID of the target event                                      |

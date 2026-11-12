@@ -395,11 +395,17 @@ function commandBBox(cmd: RenderCommand): { x: number; y: number; width: number;
       };
     case "DrawText": {
       const approxWidth = cmd.text.length * cmd.size * 0.6;
+      const height = cmd.size * 1.5;
+      const x = cmd.x - (cmd.align === "center" ? approxWidth / 2 : cmd.align === "right" ? approxWidth : 0);
+      const y =
+        cmd.baseline === "top"
+          ? cmd.y
+          : cmd.y - (cmd.baseline === "middle" ? height / 2 : cmd.baseline === "bottom" ? height : cmd.size);
       return {
-        x: cmd.x,
-        y: cmd.y - cmd.size,
+        x,
+        y,
         width: approxWidth,
-        height: cmd.size * 1.5,
+        height,
       };
     }
     case "DrawRect":
