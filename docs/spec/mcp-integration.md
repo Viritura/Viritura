@@ -80,10 +80,10 @@ Read the current annotations with `score.get_measures`: staff text lives in
 index in the full score (not the returned slice), and `expressionIndex` is the
 zero-based index in that measure's expressions array, including entries on other
 staves/voices. Removing several expressions in one measure requires descending
-index order because patches are applied sequentially. Missing targets and
-negative, fractional, or non-numeric expression indices are rejected. Only the
-selected expression is removed; music, neighboring text, and other annotations
-are preserved. This patch targets staff expressions, not system text or page text
+index order because patches are applied sequentially. Both indices must be
+non-negative integers, and missing targets are rejected. Only the selected
+expression is removed; music, neighboring text, and other annotations are
+preserved. This patch targets staff expressions, not system text or page text
 frames.
 
 Accepted patch proposals enter the editor's normal `commitPatches()` path and therefore retain validation, undo grouping, and Yjs collaboration behavior. Whole-document proposals use `commitDocument()`. Both manual and automatic acceptance check that the document still matches the proposal's original snapshot before committing. Proposal tools return `pending` for manual review or `accepted` after successful auto-accept; `preview.get_status` exposes the recorded outcome. Commit failures mark the proposal stale and return an MCP error rather than reporting acceptance.

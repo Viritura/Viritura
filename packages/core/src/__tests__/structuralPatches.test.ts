@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Score } from "../model/score";
 import type { Part } from "../model/part";
-import type { SetSequenceContentPatch } from "../patches";
+import type { RemoveMeasureExpressionPatch, SetSequenceContentPatch } from "../patches";
 import { applyPatchesToScore, patch, patchAffectedMeasures, PatchTargetMissing } from "../patches";
 
 function makeScore(): Score {
@@ -141,6 +141,57 @@ describe("structural patches — part measures and sequences", () => {
       expect(() => applyPatchesToScore(score, [patch.removeMeasureExpression(target, 0)])).toThrow(PatchTargetMissing);
     }
     expect(score).toEqual(before);
+  });
+
+  it.each([-1, 0.5, NaN, Infinity, -Infinity])("rejects invalid numeric measure index %s", (measureIndex) => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.expressions = [{ position: { fraction: [0, 1] }, text: [{ text: "keep me" }] }];
+    const before = structuredClone(score);
+    expect(() =>
+      applyPatchesToScore(score, [patch.removeMeasureExpression({ partId: "p1", measureIndex }, 0)]),
+    ).toThrow("measureIndex must be a non-negative integer");
+    expect(score).toEqual(before);
+  });
+
+  it.each(["__proto__", "constructor", "prototype", "0", null, true, {}, []])(
+    "rejects a non-numeric measure index %j from JSON",
+    (measureIndex) => {
+      const score = makeScore();
+      score.parts[0]!.measures[0]!.expressions = [{ position: { fraction: [0, 1] }, text: [{ text: "keep me" }] }];
+      const before = structuredClone(score);
+      const untrustedPatch: RemoveMeasureExpressionPatch = JSON.parse(
+        JSON.stringify({
+          kind: "removeMeasureExpression",
+          measurePath: { partId: "p1", measureIndex },
+          expressionIndex: 0,
+        }),
+      );
+      expect(() => applyPatchesToScore(score, [untrustedPatch])).toThrow(PatchTargetMissing);
+      expect(score).toEqual(before);
+    },
+  );
+
+  it("does not mutate Array.prototype through a malicious measure index", () => {
+    const score = makeScore();
+    const untrustedPatch: RemoveMeasureExpressionPatch = JSON.parse(
+      JSON.stringify({
+        kind: "removeMeasureExpression",
+        measurePath: { partId: "p1", measureIndex: "__proto__" },
+        expressionIndex: 0,
+      }),
+    );
+    const previous = Object.getOwnPropertyDescriptor(Array.prototype, "expressions");
+    const expressions = [{ position: { fraction: [0, 1] }, text: [{ text: "keep me" }] }];
+    try {
+      Object.defineProperty(Array.prototype, "expressions", { configurable: true, writable: true, value: expressions });
+      expect(() => applyPatchesToScore(score, [untrustedPatch])).toThrow(PatchTargetMissing);
+      expect(Object.getOwnPropertyDescriptor(Array.prototype, "expressions")?.value).toBe(expressions);
+      expect(expressions).toHaveLength(1);
+      expect(score).toEqual(makeScore());
+    } finally {
+      if (previous) Object.defineProperty(Array.prototype, "expressions", previous);
+      else Reflect.deleteProperty(Array.prototype, "expressions");
+    }
   });
 
   it("setPartMeasureField sets clefs", () => {

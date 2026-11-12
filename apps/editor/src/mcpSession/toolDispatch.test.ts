@@ -124,6 +124,32 @@ describe("MCP editor tool dispatch", () => {
     },
   );
 
+  it.each(["0", "__proto__", -1, 0.5, null])(
+    "rejects an invalid measure index (%s) during validation and proposal",
+    async (measureIndex) => {
+      const score = makeScore();
+      score.parts[0]!.measures[0]!.expressions = [{ position: { fraction: [0, 1] }, text: [{ text: "keep me" }] }];
+      const store = createDocumentStore();
+      store.getState().loadScore(score, "test.mnx");
+      const before = store.getState().mnxJson;
+      useMcpSessionStore.getState().start({ autoAccept: true });
+      const patches = [
+        {
+          kind: "removeMeasureExpression",
+          measurePath: { partId: "keyboard.piano", measureIndex },
+          expressionIndex: 0,
+        },
+      ];
+
+      const validation = await dispatchMcpTool(store, "score.validate", { patches });
+      expect(validation.structuredContent).toMatchObject({ valid: false });
+      const result = await dispatchMcpTool(store, "preview.propose_patches", { patches });
+      expect(result.isError).toBe(true);
+      expect(store.getState().mnxJson).toBe(before);
+      expect(useMcpSessionStore.getState().proposals).toEqual({});
+    },
+  );
+
   it.each([false, true])("combines batched patch calls into one proposal (auto-accept: %s)", async (autoAccept) => {
     const store = createDocumentStore();
     store.getState().loadScore(makeScore(), "test.mnx");

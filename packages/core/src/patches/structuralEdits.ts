@@ -149,10 +149,15 @@ export function applySetSequenceContent(draft: Draft<Score>, p: SetSequenceConte
 }
 
 function resolvePartMeasure(score: Score, path: MeasurePath | SequencePath): PartMeasure {
+  const { measureIndex } = path;
+  if (!Number.isInteger(measureIndex) || measureIndex < 0) {
+    throw new PatchTargetMissing("measureIndex must be a non-negative integer");
+  }
   const part = score.parts.find((pt) => pt.id === path.partId);
   if (!part) throw new PatchTargetMissing(`Part "${path.partId}" not found`);
-  const measure = part.measures[path.measureIndex];
-  if (!measure) throw new PatchTargetMissing(`Measure ${path.measureIndex} not found in part "${path.partId}"`);
+  // Avoid property-key lookup on the untrusted index.
+  const measure = part.measures.at(measureIndex);
+  if (!measure) throw new PatchTargetMissing(`Measure ${measureIndex} not found in part "${path.partId}"`);
   return measure;
 }
 
