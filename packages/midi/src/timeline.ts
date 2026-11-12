@@ -41,6 +41,7 @@ import { expandMeasureOrder, scorePlaybackItinerary } from "./repeatExpansion";
 import { beatInPlayedSpan, playedSpansContinue, realizeNavigation, type PlayedMeasureSpan } from "./navigation";
 import { expandScoreMeasureRepeats } from "./measureRepeats";
 import { applyGlissandoPlayback } from "./glissandoPlayback";
+import { withSoundingNotes } from "./unpitchedNoteheads";
 import { compileChordPlayback, chordMidiEvents } from "./chordPlayback";
 import { analyzeImpliedSectionDynamics, type ImpliedSectionDynamicAnchor } from "./sectionDynamics";
 import { buildHoldSchedule, type HoldSchedule, type MeasureHold } from "./holds";
@@ -927,12 +928,13 @@ function tryProcessSpecialEvent(
  */
 function processNoteEvent(
   ctx: PartCtx,
-  event: NoteEvent,
+  writtenEvent: NoteEvent,
   measureStartTime: number,
   beatOffset: number,
   baseVelocity: number,
   tupletRatio: number,
 ): number {
+  const event = withSoundingNotes(writtenEvent);
   ctx.gmProgram = ctx.instrumentAtBeatOffset?.(beatOffset * ctx.staffMeterRatio).program ?? ctx.gmProgram;
   const { partIndex, channel, out, timeSig, kitMidiMap, kitAltProgramMap } = ctx;
   const beats = durationBeats(event.duration) * tupletRatio;
