@@ -8,6 +8,10 @@ export interface MidiEvent {
   readonly type: "noteOn" | "noteOff" | "programChange" | "controlChange" | "pitchBend";
   /** Absolute time in seconds from the start of the score */
   readonly time: number;
+  /** Unhumanized onset time for noteOn events whose `time` includes timing jitter. */
+  readonly nominalTime?: number;
+  /** Nominal attack time for a noteOff paired with a humanized noteOn. */
+  readonly onsetNominalTime?: number;
   /** MIDI note number (0–127) */
   readonly midiNote: number;
   /** Velocity (0–127) */

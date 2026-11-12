@@ -197,6 +197,7 @@ export class PlaybackEngine {
 
     const startTime = fromSeconds !== undefined ? fromSeconds : this.pausedAtScoreTime;
     this.prepareFilterPlayback();
+    const startingNoteParts = this.startingNoteParts();
 
     this.scheduler = new Scheduler(
       this.timeline.events,
@@ -208,11 +209,17 @@ export class PlaybackEngine {
       this.handleScheduledEvent,
       () => this.audioContext.currentTime,
       this.clickSchedulerArg(),
+      {
+        isPlayableOnset: (event) =>
+          (!this.viewPartFilter || this.viewPartFilter.has(event.partIndex)) &&
+          this.samplerForEvent(event) !== undefined,
+        shouldKeepPastNoteOff: (event) => startingNoteParts.has(event.partIndex),
+      },
     );
 
-    this.scheduler.start(startTime, this.tempoScale);
+    this.scheduler.start(startTime, this.tempoScale, startTime < 0 ? 0 : startTime);
     this.applyStartingState(startTime);
-    this.restoreStartingNotes(startTime);
+    this.restoreStartingNotes(startTime, startingNoteParts);
     this.startPlayheadUpdates();
     this.setState("playing");
   }
@@ -259,6 +266,7 @@ export class PlaybackEngine {
       if (this.scheduler) {
         this.scheduler.stop();
       }
+      const startingNoteParts = this.startingNoteParts();
 
       this.scheduler = new Scheduler(
         this.timeline.events,
@@ -270,10 +278,16 @@ export class PlaybackEngine {
         this.handleScheduledEvent,
         () => this.audioContext.currentTime,
         this.clickSchedulerArg(),
+        {
+          isPlayableOnset: (event) =>
+            (!this.viewPartFilter || this.viewPartFilter.has(event.partIndex)) &&
+            this.samplerForEvent(event) !== undefined,
+          shouldKeepPastNoteOff: (event) => startingNoteParts.has(event.partIndex),
+        },
       );
       this.scheduler.start(clamped, this.tempoScale);
       this.applyStartingState(clamped);
-      this.restoreStartingNotes(clamped);
+      this.restoreStartingNotes(clamped, startingNoteParts);
     } else {
       this.pausedAtScoreTime = clamped;
     }
@@ -457,19 +471,28 @@ export class PlaybackEngine {
     }
   }
 
-  private restoreStartingNotes(scoreTime: number): void {
+  private startingNoteParts(): Set<number> {
     const parts = new Set(this.timeline?.chasePartIndices ?? []);
     for (const event of this.timeline?.events ?? []) {
       if (event.type === "pitchBend") parts.add(event.partIndex);
     }
+    return parts;
+  }
+
+  private restoreStartingNotes(scoreTime: number, parts: ReadonlySet<number>): void {
     this.filterContinuity.restore(
       parts,
       scoreTime,
       this.audioContext.currentTime + this.options.leadInTime,
       () => true,
       (event, audioTime) => {
-        // Onsets at/after the origin already belong to the scheduler window.
-        if (event.type !== "noteOn" || event.time < scoreTime) this.dispatchEvent(event, audioTime);
+        const onsetTime =
+          event.type === "noteOn"
+            ? (event.nominalTime ?? event.time)
+            : event.type === "noteOff"
+              ? (event.onsetNominalTime ?? event.time)
+              : undefined;
+        if (onsetTime === undefined || onsetTime < scoreTime - 1e-6) this.dispatchEvent(event, audioTime);
       },
     );
   }

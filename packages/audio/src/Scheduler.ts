@@ -1,5 +1,14 @@
 import type { MidiEvent, ScheduleCallback, SchedulerConfig, ClickEvent, ClickCallback } from "./types";
 
+// Humanized note attacks can move up to 15 ms before their nominal onset.
+const START_ONSET_JITTER_SECONDS = 0.015;
+const START_ONSET_MATCH_TOLERANCE = 1e-6;
+
+interface SchedulerStartPolicy {
+  readonly isPlayableOnset?: (event: MidiEvent) => boolean;
+  readonly shouldKeepPastNoteOff?: (event: MidiEvent) => boolean;
+}
+
 /**
  * Windowed MIDI event scheduler.
  *
@@ -27,6 +36,8 @@ export class Scheduler {
   /** Sorted metronome click track in score time (empty when no click track). */
   private readonly clicks: readonly ClickEvent[];
   private readonly onClick: ClickCallback | null;
+  private readonly isPlayableOnset: (event: MidiEvent) => boolean;
+  private readonly shouldKeepPastNoteOff: (event: MidiEvent) => boolean;
 
   /** Index into `events` — next event not yet scheduled. */
   private nextEventIndex = 0;
@@ -38,6 +49,10 @@ export class Scheduler {
   private startAudioTime = 0;
   /** Score-time offset corresponding to the seek position. */
   private startScoreTime = 0;
+  /** Original boundary of the onset group, retained across tempo changes. */
+  private startGroupScoreTime = 0;
+  /** Score-time shift used only to anchor the starting onset group. */
+  private startGroupShift = 0;
   /** Tempo scaling factor (1.0 = original tempo). */
   private tempoScale = 1;
 
@@ -50,6 +65,7 @@ export class Scheduler {
     onSchedule: ScheduleCallback,
     getAudioTime: () => number,
     clickTrack?: { readonly events: readonly ClickEvent[]; readonly onClick: ClickCallback },
+    startPolicy?: SchedulerStartPolicy,
   ) {
     this.events = events;
     this.config = config;
@@ -57,14 +73,17 @@ export class Scheduler {
     this.getAudioTime = getAudioTime;
     this.clicks = clickTrack?.events ?? [];
     this.onClick = clickTrack?.onClick ?? null;
+    this.isPlayableOnset = startPolicy?.isPlayableOnset ?? (() => true);
+    this.shouldKeepPastNoteOff = startPolicy?.shouldKeepPastNoteOff ?? (() => false);
   }
 
   /** Start the look-ahead loop. */
-  start(fromScoreTime = 0, tempoScale = 1): void {
+  start(fromScoreTime = 0, tempoScale = 1, startGroupScoreTime = fromScoreTime): void {
     if (this.running) return;
     this.running = true;
     this.tempoScale = tempoScale;
     this.startScoreTime = fromScoreTime;
+    this.startGroupScoreTime = startGroupScoreTime;
     this.scheduledUpTo = fromScoreTime;
     // Pre-roll: anchor startAudioTime slightly in the future so events at
     // exactly `fromScoreTime` (e.g. the downbeat) land in the worklet's
@@ -74,7 +93,13 @@ export class Scheduler {
     // an audible flam on the first beat.
     const leadIn = Math.max(0, this.config.leadInTime ?? 0);
     this.startAudioTime = this.getAudioTime() + leadIn;
-    this.nextEventIndex = this.findEventIndex(fromScoreTime);
+    this.nextEventIndex = this.findEventIndex(
+      Math.min(fromScoreTime, startGroupScoreTime) - START_ONSET_JITTER_SECONDS - START_ONSET_MATCH_TOLERANCE,
+    );
+    this.startGroupShift = this.findStartGroupShift(
+      this.findEventIndex(startGroupScoreTime - START_ONSET_JITTER_SECONDS - START_ONSET_MATCH_TOLERANCE),
+      startGroupScoreTime,
+    );
     this.nextClickIndex = this.findClickIndex(fromScoreTime);
     this.tick();
   }
@@ -159,14 +184,35 @@ export class Scheduler {
     while (this.nextEventIndex < this.events.length) {
       const event = this.events[this.nextEventIndex]!;
       if (event.time >= windowEnd) break;
-      if (event.time < this.scheduledUpTo) {
+      const eventOnsetTime = this.eventOnsetTime(event);
+      const onsetIsBeforeStart =
+        eventOnsetTime !== undefined && eventOnsetTime < this.startScoreTime - START_ONSET_MATCH_TOLERANCE;
+      if (
+        (event.type === "noteOn" && onsetIsBeforeStart) ||
+        (event.type === "noteOff" &&
+          onsetIsBeforeStart &&
+          (!this.shouldKeepPastNoteOff(event) || event.time < this.scheduledUpTo))
+      ) {
+        this.nextEventIndex++;
+        continue;
+      }
+      const belongsToStart = this.isStartGroupEvent(event);
+      const eventTime = event.time - (belongsToStart ? this.startGroupShift : 0);
+      const belongsToPlayback =
+        eventOnsetTime === undefined
+          ? event.time >= this.startScoreTime - START_ONSET_MATCH_TOLERANCE
+          : eventOnsetTime >= this.startScoreTime - START_ONSET_MATCH_TOLERANCE ||
+            (event.type === "noteOff" &&
+              this.shouldKeepPastNoteOff(event) &&
+              event.time >= this.startScoreTime - START_ONSET_MATCH_TOLERANCE);
+      if (event.time < this.scheduledUpTo && !belongsToPlayback) {
         // Already scheduled in a previous window
         this.nextEventIndex++;
         continue;
       }
 
       // Convert score-time → audio-time
-      const scoreTimeDelta = event.time - this.startScoreTime;
+      const scoreTimeDelta = eventTime - this.startScoreTime;
       const audioTime = this.startAudioTime + scoreTimeDelta / this.tempoScale;
 
       if (audioTime >= audioNow) {
@@ -229,6 +275,35 @@ export class Scheduler {
       }
     }
     return lo;
+  }
+
+  private findStartGroupShift(firstCandidate: number, scoreTime: number): number {
+    let earliestOnset = Number.POSITIVE_INFINITY;
+    for (let index = firstCandidate; index < this.events.length; index++) {
+      const event = this.events[index]!;
+      if (event.time > scoreTime + START_ONSET_JITTER_SECONDS + START_ONSET_MATCH_TOLERANCE) break;
+      if (event.type !== "noteOn" || !this.isPlayableOnset(event) || !this.isAtStart(event.nominalTime, scoreTime))
+        continue;
+      earliestOnset = Math.min(earliestOnset, event.time);
+    }
+    return Number.isFinite(earliestOnset) ? earliestOnset - scoreTime : 0;
+  }
+
+  private isStartGroupEvent(event: MidiEvent): boolean {
+    return (
+      (event.type === "noteOn" && this.isAtStart(event.nominalTime, this.startGroupScoreTime)) ||
+      (event.type === "noteOff" && this.isAtStart(event.onsetNominalTime, this.startGroupScoreTime))
+    );
+  }
+
+  private eventOnsetTime(event: MidiEvent): number | undefined {
+    if (event.type === "noteOn") return event.nominalTime ?? event.time;
+    if (event.type === "noteOff") return event.onsetNominalTime;
+    return undefined;
+  }
+
+  private isAtStart(eventTime: number | undefined, startTime: number): boolean {
+    return eventTime !== undefined && Math.abs(eventTime - startTime) <= START_ONSET_MATCH_TOLERANCE;
   }
 
   /** Binary search to find the first click at or after `scoreTime`. */

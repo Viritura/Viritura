@@ -77,6 +77,14 @@ describe("location-aware navigation timing", () => {
     expect(timeline.expandedMeasureToOriginal).toEqual([0, 1, 2, 0]);
     expect(timeline.model.bpmAtBeat(timeline.measureStartBeats[3]!)).toBe(bpm);
     expect(timeline.duration).toBeCloseTo(8 + (8 * 60) / bpm);
+    const noteOns = timeline.events.filter((candidate) => candidate.type === "noteOn");
+    const noteOffs = timeline.events.filter((candidate) => candidate.type === "noteOff");
+    for (const event of noteOns) {
+      expect(event.nominalTime).toBeCloseTo(timeline.model.timeAtBeat(event.scoreBeat!), 12);
+    }
+    expect(noteOffs.map((event) => event.onsetNominalTime).sort()).toEqual(
+      noteOns.map((event) => event.nominalTime).sort(),
+    );
     const native = generatePerformanceEvents(score, 0).filter((event) => event.kind === "noteOn");
     expect(native.at(-1)!.note.duration).toBeCloseTo((4 * 60) / bpm);
   });
@@ -96,6 +104,28 @@ describe("location-aware navigation timing", () => {
     expect(timeline.duration).toBeCloseTo(11.5);
     const native = generatePerformanceEvents(score, 0).filter((event) => event.kind === "noteOn");
     expect(native.at(-1)!.note.duration).toBeCloseTo(0.5);
+  });
+
+  it("keeps a tied note's originating onset when its release is in a later navigation span", () => {
+    const score = wholeNoteScore([
+      {
+        time: { count: 4, unit: 4 },
+        tempos: [{ bpm: 120, value: { base: "quarter" } }],
+        fine: { location: { fraction: [1, 1] } },
+      },
+      {},
+      { jump: { type: "dcAlFine", location: { fraction: [1, 1] } } },
+    ]);
+    const tiedEvent = score.parts[0]!.measures[1]!.sequences[0]!.content[0]!;
+    if (tiedEvent.type !== "event" || !tiedEvent.notes) throw new Error("Expected a note event");
+    tiedEvent.notes[0]!.ties = [{ target: "n2" }];
+
+    const timeline = generateTimeline(score);
+    const attack = timeline.events.find((event) => event.type === "noteOn" && event.nominalTime === 2);
+    const release = timeline.events.find((event) => event.type === "noteOff" && event.time > 5.5);
+
+    expect(attack).toBeDefined();
+    expect(release?.onsetNominalTime).toBe(attack?.nominalTime);
   });
 
   it("exports every played mid-bar tempo change on the same axis as the tempo model", () => {

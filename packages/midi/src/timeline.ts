@@ -1045,6 +1045,7 @@ function processNoteEvent(
       out.push({
         type: "noteOn",
         time: jitteredStart,
+        nominalTime: startTime,
         midiNote,
         velocity,
         partIndex,
@@ -1057,6 +1058,7 @@ function processNoteEvent(
       out.push({
         type: "noteOff",
         time: jitteredStart + durationSec * durationScale,
+        onsetNominalTime: startTime,
         midiNote,
         velocity: 0,
         partIndex,
@@ -1102,6 +1104,7 @@ function extendOrFinalizeTie(
     pendingTieOffs.set(tieKey, {
       type: "noteOff",
       time: startTime + durationSec,
+      onsetNominalTime: startTime,
       midiNote,
       velocity: 0,
       partIndex,
@@ -1139,6 +1142,7 @@ function emitFreshNote(
   out.push({
     type: "noteOn",
     time: jitteredStart,
+    nominalTime: startTime,
     midiNote,
     velocity,
     partIndex,
@@ -1152,6 +1156,7 @@ function emitFreshNote(
     pendingTieOffs.set(tieKey, {
       type: "noteOff",
       time: startTime + durationSec,
+      onsetNominalTime: startTime,
       midiNote,
       velocity: 0,
       partIndex,
@@ -1165,6 +1170,7 @@ function emitFreshNote(
     const off: MidiEvent = {
       type: "noteOff",
       time: jitteredStart + durationSec * durationScale,
+      onsetNominalTime: startTime,
       midiNote,
       velocity: 0,
       partIndex,
@@ -1247,6 +1253,7 @@ function processKitRoll(
     out.push({
       type: "noteOn",
       time: jitteredStart,
+      nominalTime: startTime,
       midiNote,
       velocity,
       partIndex,
@@ -1259,6 +1266,7 @@ function processKitRoll(
     out.push({
       type: "noteOff",
       time: jitteredStart + durationSec,
+      onsetNominalTime: startTime,
       midiNote,
       velocity: 0,
       partIndex,
@@ -1324,6 +1332,7 @@ function processSingleNoteTremolo(
       out.push({
         type: "noteOn",
         time: jitteredTremStart,
+        nominalTime: startTime,
         midiNote,
         velocity,
         partIndex,
@@ -1335,6 +1344,7 @@ function processSingleNoteTremolo(
       out.push({
         type: "noteOff",
         time: jitteredTremStart + durationSec,
+        onsetNominalTime: startTime,
         midiNote,
         velocity: 0,
         partIndex,
@@ -1375,6 +1385,7 @@ function processSingleNoteTremolo(
       out.push({
         type: "noteOn",
         time: jitteredSubStart,
+        nominalTime: subStartTime,
         midiNote,
         velocity,
         partIndex,
@@ -1386,6 +1397,7 @@ function processSingleNoteTremolo(
       out.push({
         type: "noteOff",
         time: jitteredSubStart + subDurationSec * 0.9,
+        onsetNominalTime: subStartTime,
         midiNote,
         velocity: 0,
         partIndex,
@@ -1503,6 +1515,7 @@ function tryProcessTrill(
       out.push({
         type: "noteOn",
         time: jitteredStart,
+        nominalTime: subStartTime,
         midiNote,
         velocity,
         partIndex,
@@ -1514,6 +1527,7 @@ function tryProcessTrill(
       out.push({
         type: "noteOff",
         time: jitteredStart + subDurationSec * 0.9,
+        onsetNominalTime: subStartTime,
         midiNote,
         velocity: 0,
         partIndex,
