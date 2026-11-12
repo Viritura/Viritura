@@ -488,6 +488,9 @@ app.MapMethods("/mcp/sessions/{sessionId}/host", [HttpMethods.Get, HttpMethods.C
 app.MapDelete("/mcp/sessions/{sessionId}/host", McpEndpoint.StopHost)
     .RequireCors("VirituraEditor")
     .RequireRateLimiting("McpSessionCreate");
+app.MapGet("/mcp/sessions/{sessionId}/host/status", McpEndpoint.HostStatus)
+    .RequireCors("VirituraEditor")
+    .RequireRateLimiting("McpSessionCreate");
 app.MapPost("/mcp/sessions/{sessionId}", McpEndpoint.HandleMcpAsync)
     .WithMetadata(new RequestSizeLimitAttribute(McpEndpoint.MaxClientRequestBytes))
     .RequireRateLimiting("McpRequest");

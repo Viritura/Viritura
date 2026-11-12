@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "gen:score-patches": "tsx scripts/generate-score-patch-schema.ts",
+    "gen:score-patches:check": "tsx scripts/generate-score-patch-schema.ts --check",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",

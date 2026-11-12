@@ -103,6 +103,15 @@ internal static class McpEndpoint
         return registry.Stop(sessionId, token) ? Results.NoContent() : Results.Unauthorized();
     }
 
+    internal static IResult HostStatus(HttpContext context, string sessionId, McpSessionRegistry registry)
+    {
+        var authorization = context.Request.Headers.Authorization.ToString();
+        var token = authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+            ? authorization["Bearer ".Length..]
+            : null;
+        return registry.CanResumeHost(sessionId, token) ? Results.NoContent() : Results.NotFound();
+    }
+
     internal static async Task<IResult> HandleMcpAsync(
         HttpContext context,
         string sessionId,
@@ -110,10 +119,15 @@ internal static class McpEndpoint
         IWebHostEnvironment environment,
         CancellationToken cancellationToken)
     {
-        if (!await AuthorizeClientAsync(context, sessionId, registry))
+        if (!await AuthorizeClientAsync(context, sessionId))
         {
             SetBearerChallenge(context, sessionId);
             return McpError(null, -32000, "OAuth authorization is required.", "unauthorized", StatusCodes.Status401Unauthorized);
+        }
+
+        if (!registry.Exists(sessionId))
+        {
+            return McpError(null, -32000, "The editor relay registration expired or was stopped. OAuth authorization may still be valid.", "session_not_found", StatusCodes.Status404NotFound);
         }
 
         return await HandleAuthorizedMcpAsync(
@@ -289,7 +303,7 @@ internal static class McpEndpoint
         string sessionId,
         McpSessionRegistry registry)
     {
-        if (!await AuthorizeClientAsync(context, sessionId, registry))
+        if (!await AuthorizeClientAsync(context, sessionId))
         {
             SetBearerChallenge(context, sessionId);
             return Results.Unauthorized();
@@ -398,7 +412,7 @@ internal static class McpEndpoint
         {
             return registry.TryResolveOwnedSession(requestedSessionId, subject, isDevelopment, out var ownedSessionId)
                 ? new SessionResolution(ownedSessionId, null)
-                : new SessionResolution(null, ("session_not_found", "That Viritura session is unavailable or is not owned by this OAuth user."));
+                : new SessionResolution(null, ("session_not_found", "That editor relay registration expired or is not owned by this OAuth user. OAuth authorization may still be valid."));
         }
 
         var sessions = registry.ListConnectedSessions(subject, isDevelopment);
@@ -433,12 +447,10 @@ internal static class McpEndpoint
 
     private static async Task<bool> AuthorizeClientAsync(
         HttpContext context,
-        string sessionId,
-        McpSessionRegistry registry)
+        string sessionId)
     {
         var result = await context.AuthenticateAsync(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
-        if (!registry.Exists(sessionId)
-            || !result.Succeeded
+        if (!result.Succeeded
             || result.Principal?.FindFirstValue(McpOAuthEndpoint.SessionClaim) != sessionId)
         {
             return false;

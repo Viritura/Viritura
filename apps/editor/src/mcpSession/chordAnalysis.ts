@@ -1,4 +1,6 @@
 import { pitchToMidi, walkSequenceEvents, type Pitch, type Score } from "@viritura/core";
+import { measureReference, resolveMeasureRange } from "./measureReferences";
+import { selectParts } from "./queryFilters";
 
 interface ChordTemplate {
   readonly quality: string;
@@ -21,21 +23,8 @@ const CHORD_TEMPLATES: readonly ChordTemplate[] = [
 
 export function analyzeChords(score: Score, args: unknown): Record<string, unknown> {
   const input = isObject(args) ? args : {};
-  const startMeasure = readMeasure(input.startMeasure, 1, score.global.measures.length);
-  const endMeasure = readMeasure(
-    input.endMeasure,
-    Math.min(startMeasure + 7, score.global.measures.length),
-    score.global.measures.length,
-  );
-  if (endMeasure < startMeasure) throw new Error("endMeasure must be greater than or equal to startMeasure.");
-  if (endMeasure - startMeasure + 1 > 32) throw new Error("Chord analysis is limited to 32 measures per call.");
-  const requestedPartIds = readPartIds(input.partIds);
-  const parts = score.parts.filter((part) => requestedPartIds === null || (part.id && requestedPartIds.has(part.id)));
-  if (requestedPartIds !== null && parts.length !== requestedPartIds.size) {
-    const found = new Set(parts.map((part) => part.id));
-    const missing = [...requestedPartIds].filter((id) => !found.has(id));
-    throw new Error(`Unknown partIds: ${missing.join(", ")}`);
-  }
+  const { startMeasure, endMeasure } = resolveMeasureRange(score, input, 8, 32);
+  const parts = selectParts(score, input.partIds);
 
   const measures = [];
   for (let measureIndex = startMeasure - 1; measureIndex < endMeasure; measureIndex++) {
@@ -63,6 +52,7 @@ export function analyzeChords(score: Score, args: unknown): Record<string, unkno
     }
     measures.push({
       measure: measureIndex + 1,
+      ...measureReference(score, measureIndex),
       pitchClasses: [...measurePitchClasses].sort((a, b) => a - b).map(pitchClassName),
       chordEvents,
     });
@@ -115,22 +105,6 @@ function pitchName(pitch: Pitch): string {
 
 function pitchClassName(value: number): string {
   return ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"][value]!;
-}
-
-function readMeasure(value: unknown, fallback: number, maximum: number): number {
-  if (value === undefined) return fallback;
-  if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > maximum) {
-    throw new Error(`Measure numbers must be integers from 1 to ${maximum}.`);
-  }
-  return value as number;
-}
-
-function readPartIds(value: unknown): Set<string> | null {
-  if (value === undefined) return null;
-  if (!Array.isArray(value) || value.some((id) => typeof id !== "string")) {
-    throw new Error("partIds must be an array of part ID strings.");
-  }
-  return new Set(value);
 }
 
 function sameNumbers(left: readonly number[], right: readonly number[]): boolean {

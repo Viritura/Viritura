@@ -44,6 +44,7 @@ export default tseslint.config(
       "packages/core/src/raw/raw.ts",
       "packages/core/src/raw/raw-viritura.ts",
       "packages/format/src/mnx/standaloneValidators.ts",
+      "apps/editor/src/mcpSession/scorePatchValidator.generated.ts",
       // Bundled webview output (generated, not source)
       "apps/vscode-mnx-viewer/media/**",
     ],

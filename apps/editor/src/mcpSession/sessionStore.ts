@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { ScorePatch } from "@viritura/core";
 import type { StructuralDiffSummary } from "./documentSummary";
 import { clearPatchBatches } from "./patchBatches";
+import { clearIdempotentRequests } from "./idempotentRequests";
 
 type McpConnectionStatus = "idle" | "registering" | "waiting" | "connected" | "error";
 type McpProposalStatus = "pending" | "accepted" | "rejected" | "stale";
@@ -21,8 +22,11 @@ export interface McpProposal {
   readonly summary: string;
   readonly patches: readonly ScorePatch[];
   readonly originalMnx: string;
+  readonly originalRevision: string;
   /** Whole-document diff payload for small scores; large scores use patch review. */
   readonly proposedMnx: string | null;
+  /** Full repaired document when a repair cannot be addressed by part ID. */
+  readonly repairMnx?: string;
   /** Present for whole-document proposals; drives the structural review surface. */
   readonly document?: McpDocumentProposal;
   readonly status: McpProposalStatus;
@@ -45,7 +49,7 @@ interface McpSessionState {
   proposals: Record<string, McpProposal>;
   start: (options?: { autoAccept?: boolean }) => void;
   stop: () => void;
-  setRegistering: () => void;
+  setRegistering: (clearRegistration?: boolean) => void;
   setRegistration: (registration: McpRegistration) => void;
   setReady: () => void;
   setClientConnected: (name: string | null) => void;
@@ -67,15 +71,18 @@ export const useMcpSessionStore = create<McpSessionState>((set) => ({
     set({ desired: true, autoAccept: options?.autoAccept ?? false, status: "registering", error: null }),
   stop: () => {
     clearPatchBatches();
+    clearIdempotentRequests();
     set({ desired: false, autoAccept: false });
   },
-  setRegistering: () => set({ status: "registering", registration: null, clientName: null, error: null }),
+  setRegistering: (clearRegistration = false) =>
+    set({ status: "registering", ...(clearRegistration ? { registration: null } : {}), clientName: null, error: null }),
   setRegistration: (registration) => set({ registration, status: "waiting", error: null }),
   setReady: () => set({ status: "waiting", error: null }),
   setClientConnected: (clientName) => set({ status: "connected", clientName, error: null }),
   setError: (error) => set({ status: "error", error }),
   clear: () => {
     clearPatchBatches();
+    clearIdempotentRequests();
     set({ status: "idle", registration: null, clientName: null, error: null, proposals: {} });
   },
   addProposal: (proposal) => set((state) => ({ proposals: { ...state.proposals, [proposal.id]: proposal } })),

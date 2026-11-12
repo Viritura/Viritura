@@ -31,6 +31,8 @@ export interface DocumentStoreState {
   fileName: string;
   /** Increments only when the open document changes, never for ordinary edits. */
   documentGeneration: number;
+  /** Opaque identity of the latest working-score state, including unpublished edits. */
+  scoreRevision: string;
   beatCountIssues: MeasureBeatInfo[];
   /** Note-input cursor captured synchronously before the latest user edit. */
   lastEditCursorBefore: CursorPosition | null;
@@ -103,6 +105,9 @@ function changedGlobalHarmony(previous: Score | null, next: Score, indices: read
 export function createDocumentStore() {
   const deltaSerializer = new DeltaSerializer();
   let publishSequence = 0;
+  const revisionScope = crypto.randomUUID();
+  let revisionCounter = 0;
+  const nextRevision = (): string => `${revisionScope}:${String(++revisionCounter)}`;
 
   // Drop-stale / latest-wins layout coalescer: keeps at most one layout
   // in-flight + one pending on the single layout worker, so a fast-typed burst
@@ -114,6 +119,7 @@ export function createDocumentStore() {
     (json, patchInfo) => getGlobalPerfTracker().fastLayoutCallback?.(json, patchInfo),
   );
 
+  // eslint-disable-next-line max-lines-per-function -- The Zustand initializer keeps document state and its mutation actions together.
   return createStore<DocumentStoreState>((set, get) => ({
     // ── Initial state ──
     score: null,
@@ -123,6 +129,7 @@ export function createDocumentStore() {
     dirty: false,
     fileName: "",
     documentGeneration: 0,
+    scoreRevision: nextRevision(),
     beatCountIssues: [],
     lastEditCursorBefore: null,
     lastCommittedPatches: [],
@@ -161,6 +168,7 @@ export function createDocumentStore() {
         dirty: false,
         fileName: url,
         documentGeneration: get().documentGeneration + 1,
+        scoreRevision: nextRevision(),
         beatCountIssues: [],
         lastCommittedPatches: [],
       });
@@ -170,6 +178,7 @@ export function createDocumentStore() {
 
     loadScore: (source: Score, name?: string, preSerializedJson?: string, preserveDocumentGeneration = false) => {
       publishSequence += 1;
+      const scoreRevision = nextRevision();
       const newScore = reconcileScoreMixer(source);
       // Auto-repair on load so subsequent edits don't surface a spurious
       // "27 changes across 22 parts" history entry the moment a user touches
@@ -202,7 +211,7 @@ export function createDocumentStore() {
       if (perf.fastLayoutCallback) {
         // Dispatch against the loaded model, just as updateScore dispatches
         // against workingScore before publishing its React-visible snapshot.
-        set({ workingScore: newScore });
+        set({ workingScore: newScore, scoreRevision });
         // A new document supersedes any in-flight/pending coalesced layout;
         // reset, then fire its full layout through the coalescer so a fast
         // first edit during a slow cold load still coalesces behind it.
@@ -224,6 +233,7 @@ export function createDocumentStore() {
         dirty: false,
         fileName: name ?? "",
         documentGeneration: get().documentGeneration + (preserveDocumentGeneration ? 0 : 1),
+        scoreRevision,
         beatCountIssues: [],
         lastCommittedPatches: [],
       });
@@ -242,7 +252,7 @@ export function createDocumentStore() {
       // Commands submitted while the worker is busy must compose against this
       // latest model, but changing only `workingScore` does not invalidate the
       // React-visible `score` selector tree.
-      set({ workingScore: newScore });
+      set({ workingScore: newScore, scoreRevision: nextRevision() });
       perf.markEditStart();
       markPerformance("viritura:edit-start");
       try {
@@ -363,6 +373,7 @@ export function createDocumentStore() {
           workingScore: newScoreCopy,
           mnxJson: json,
           dirty: true,
+          scoreRevision: nextRevision(),
           lastCommittedPatches: [],
         });
       }
@@ -384,6 +395,7 @@ export function createDocumentStore() {
         dirty: false,
         fileName: "",
         documentGeneration: get().documentGeneration + 1,
+        scoreRevision: nextRevision(),
         beatCountIssues: [],
         lastCommittedPatches: [],
       });

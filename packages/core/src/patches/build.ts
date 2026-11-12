@@ -9,10 +9,11 @@
 
 import type { Pitch } from "../model/pitch";
 import type { Markings, Note, NoteMarkings, SequenceContent } from "../model/event";
-import type { DynamicGroup, GlobalMeasure, IdPair, RhythmicPosition } from "../model/measure";
+import type { DynamicGroup, GlobalMeasure, IdPair, RhythmicPosition, TextExpression } from "../model/measure";
 import type { Part } from "../model/part";
 import type { ScoreMetadata, Support } from "../model/score";
 import type {
+  AddMeasureExpressionPatch,
   AddNoteToEventPatch,
   AddPartPatch,
   ArpeggioMarkKind,
@@ -36,6 +37,7 @@ import type {
   SetGlobalMeasureFieldPatch,
   SetMeasureArpeggioPatch,
   SetMeasureDynamicGroupPatch,
+  SetMeasureExpressionPatch,
   SetMnxSupportPatch,
   SetNoteFieldPatch,
   SetNoteMarkingPatch,
@@ -105,6 +107,27 @@ export const patch = {
     mark: ArpeggioMarkKind | undefined,
   ): SetMeasureArpeggioPatch {
     return { kind: "setMeasureArpeggio", measurePath, position, span, mark };
+  },
+
+  addMeasureExpression(
+    measurePath: MeasurePath,
+    value: TextExpression,
+    expressionIndex?: number,
+  ): AddMeasureExpressionPatch {
+    return {
+      kind: "addMeasureExpression",
+      measurePath,
+      value,
+      ...(expressionIndex === undefined ? {} : { expressionIndex }),
+    };
+  },
+
+  setMeasureExpression(
+    measurePath: MeasurePath,
+    expressionIndex: number,
+    value: TextExpression,
+  ): SetMeasureExpressionPatch {
+    return { kind: "setMeasureExpression", measurePath, expressionIndex, value };
   },
 
   removeMeasureExpression(measurePath: MeasurePath, expressionIndex: number): RemoveMeasureExpressionPatch {

@@ -107,6 +107,29 @@ describe("MnxYjsBridge", () => {
     reopened.doc.destroy();
   });
 
+  it("propagates expression additions and replacements to peers", () => {
+    const a = new MnxYjsBridge();
+    const b = new MnxYjsBridge();
+    a.doc.on("update", (update: Uint8Array) => Y.applyUpdate(b.doc, update, "from-network"));
+    const score = parseMnx({
+      mnx: { version: 1 },
+      global: { measures: [{}] },
+      parts: [{ id: "flute", measures: [{ sequences: [] }] }],
+    });
+    a.setMnxJson(JSON.stringify(serializeMnx(score)));
+    const path = { partId: "flute", measureIndex: 0 };
+    const expression = { position: { fraction: [0, 1] as [number, number] }, text: [{ text: "pizz." }] };
+    const patches = [
+      patch.addMeasureExpression(path, expression),
+      patch.setMeasureExpression(path, 0, { ...expression, text: [{ text: "arco" }] }),
+    ];
+    const edited = applyPatchesToScore(score, structuredClone(patches));
+    a.applyPatches(patches, edited, JSON.stringify(serializeMnx(edited)));
+    expect(parseMnx(JSON.parse(b.getMnxJson()))).toEqual(edited);
+    a.doc.destroy();
+    b.doc.destroy();
+  });
+
   it("does not fire onRemoteUpdate for local writes", () => {
     const bridge = new MnxYjsBridge();
     const received: string[] = [];

@@ -14,10 +14,12 @@ import type { NonArpeggio, PartMeasure, PartMeasureArpeggio, RhythmicPosition } 
 import { findEvent, findNoteIndex, findOwningContentArray } from "./locate";
 import { PatchTargetMissing } from "./locate";
 import {
+  applyAddMeasureExpression,
   applyInsertMeasures,
   applyRemoveMeasureExpression,
   applyRemoveMeasures,
   applySetGlobalMeasureField,
+  applySetMeasureExpression,
   applySetPartMeasureField,
   applySetSequenceContent,
 } from "./structuralEdits";
@@ -196,6 +198,12 @@ function applyOnePatch(draft: Draft<Score>, p: ScorePatch): void {
       installArpeggio(partMeasure, p.position, p.span, p.mark);
       return;
     }
+    case "addMeasureExpression":
+      applyAddMeasureExpression(draft, p);
+      return;
+    case "setMeasureExpression":
+      applySetMeasureExpression(draft, p);
+      return;
     case "removeMeasureExpression":
       applyRemoveMeasureExpression(draft, p);
       return;

@@ -120,6 +120,11 @@ function parseContent(arr: RawSequenceContentList | undefined): SequenceContent[
   return arr.map(parseSequenceContent);
 }
 
+/** Convert already schema-validated MNX sequence content to the internal model. */
+export function parseRawSequenceContent(content: RawSequenceContentList): SequenceContent[] {
+  return parseContent(content);
+}
+
 function parseSequenceContent(raw: RawSequenceItem): SequenceContent {
   // The discriminator is `type` — required on every variant except `event`,
   // where it's optional (default "event").

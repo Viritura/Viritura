@@ -84,6 +84,7 @@ export function applyScorePatchesToYDoc(
   }, origin);
 }
 
+// eslint-disable-next-line complexity -- Each variant of the closed patch union has an explicit projection or fallback.
 function applyOnePatch(patch: ScorePatch, newScore: Score, root: Y.Map<unknown>): void {
   switch (patch.kind) {
     // ── Event-targeted patches: re-sync the affected event Y.Map ────────
@@ -152,6 +153,8 @@ function applyOnePatch(patch: ScorePatch, newScore: Score, root: Y.Map<unknown>)
     case "insertMeasures":
     case "removeMeasures":
     case "setPartMeasureField":
+    case "addMeasureExpression":
+    case "setMeasureExpression":
     case "removeMeasureExpression":
     case "setSequenceContent":
     case "addPart":

@@ -4,9 +4,9 @@ const MAX_BATCH_PATCHES = 4096;
 const MAX_OPEN_BATCHES = 8;
 
 interface PatchBatch {
-  /** Document snapshot the batch was started against; any change invalidates it. */
-  readonly baseMnx: string;
+  readonly baseRevision: string;
   readonly patches: readonly ScorePatch[];
+  readonly chunkCount: number;
   /** Base score with every accepted batch part applied, so later parts can target earlier results. */
   readonly shadow: Score;
 }
@@ -25,11 +25,12 @@ const batches = new Map<string, PatchBatch>();
 export function appendPatchBatch(
   batchId: string,
   baseScore: Score,
-  baseMnx: string,
+  baseRevision: string,
   patches: readonly ScorePatch[],
+  retain: boolean,
 ): AppendResult {
   const existing = batches.get(batchId);
-  if (existing && existing.baseMnx !== baseMnx) {
+  if (existing && existing.baseRevision !== baseRevision) {
     batches.delete(batchId);
     return {
       ok: false,
@@ -57,12 +58,35 @@ export function appendPatchBatch(
   // Clone first: applying patches can mutate patch-owned objects inserted into the draft.
   const shadow = applyPatchesToScore(existing?.shadow ?? baseScore, structuredClone(patches));
   const combined = [...priorPatches, ...patches];
-  batches.set(batchId, { baseMnx, patches: combined, shadow });
+  if (retain) {
+    batches.set(batchId, { baseRevision, patches: combined, shadow, chunkCount: (existing?.chunkCount ?? 0) + 1 });
+  }
   return { ok: true, patches: combined };
 }
 
-export function discardPatchBatch(batchId: string): void {
-  batches.delete(batchId);
+export function getPatchBatch(
+  batchId: string,
+  currentRevision: string,
+): {
+  batchId: string;
+  status: "batching" | "stale";
+  baseRevision: string;
+  patchCount: number;
+  chunkCount: number;
+} | null {
+  const batch = batches.get(batchId);
+  if (!batch) return null;
+  return {
+    batchId,
+    status: batch.baseRevision === currentRevision ? "batching" : "stale",
+    baseRevision: batch.baseRevision,
+    patchCount: batch.patches.length,
+    chunkCount: batch.chunkCount,
+  };
+}
+
+export function discardPatchBatch(batchId: string): boolean {
+  return batches.delete(batchId);
 }
 
 export function clearPatchBatches(): void {
