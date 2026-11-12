@@ -15,6 +15,7 @@ import { setAssetBasePath } from "../basePath";
 import {
   initWasm,
   isWasmReady,
+  getWasmMemoryBytes,
   getScoreInfo,
   computeMnxScoreLayout,
   computeMnxScoreLayoutBinary,
@@ -55,6 +56,8 @@ const api: LayoutWorkerApi = {
   isReady() {
     return isWasmReady() && engine !== null;
   },
+
+  getWasmMemoryBytes,
 
   setEmitLayoutDebug(enabled) {
     setEmitLayoutDebug(enabled);

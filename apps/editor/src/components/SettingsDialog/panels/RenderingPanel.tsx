@@ -1,5 +1,6 @@
 import { SettingsRow, Switch } from "@viritura/ui";
 import { useDebugSettingsStore } from "../../../store/debugSettingsStore";
+import { MemoryDiagnosticsSettings } from "../../../memoryDiagnostics";
 
 export function RenderingPanel() {
   const performanceOverlay = useDebugSettingsStore((s) => s.performanceOverlay);
@@ -11,6 +12,7 @@ export function RenderingPanel() {
 
   return (
     <>
+      <MemoryDiagnosticsSettings />
       <SettingsRow
         label="Performance overlay"
         description="Show frame timing and layout cost on top of the score while it renders."

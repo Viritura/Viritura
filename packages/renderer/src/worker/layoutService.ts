@@ -69,6 +69,7 @@ export interface LayoutService {
   readonly ready: Promise<boolean>;
   /** Synchronous snapshot of readiness (false until `ready` resolves true). */
   isReady(): boolean;
+  getWasmMemoryBytes(): Promise<number | null>;
   getScoreInfo(mnxJson: string): Promise<ScoreInfo>;
   computeMnxScoreLayout(
     mnxJson: string,
@@ -235,6 +236,9 @@ export function createLayoutService(emitLayoutDebug = false): LayoutService {
     ready,
     isReady() {
       return readyResolved;
+    },
+    getWasmMemoryBytes() {
+      return proxy.getWasmMemoryBytes();
     },
     getScoreInfo(mnxJson) {
       return proxy.getScoreInfo(mnxJson);

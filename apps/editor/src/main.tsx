@@ -48,6 +48,7 @@ import { LiveSessionProvider } from "./live";
 import { BackgroundTaskToaster } from "./app/BackgroundTaskToaster";
 import { McpProposalReview, McpSessionBridge } from "./mcpSession";
 import { PwaNotifications } from "./pwa";
+import { MemoryDiagnostics } from "./memoryDiagnostics";
 
 const GistShareViewer = React.lazy(() =>
   import("./gistShareViewer").then((module) => ({ default: module.GistShareViewer })),
@@ -314,6 +315,7 @@ function AppWithActivityBar() {
           <Toaster position="bottom-right" richColors closeButton />
           <BackgroundTaskToaster />
           <PwaNotifications />
+          <MemoryDiagnostics />
         </PlaybackProvider>
       </DocumentProvider>
     </AccountProvider>
