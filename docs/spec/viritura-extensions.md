@@ -2034,6 +2034,12 @@ defaults, not only drum kits.
 Allowed values: `"normal"`, `"x"`, `"circleX"`, `"diamond"`, `"slash"`,
 `"triangleUp"`, `"triangleDown"`. Default: `"normal"`.
 
+A pitched `note` may carry the same `_x.viritura.notehead` as a per-note override.
+Playback does not sound pitched notes with `"x"`, `"circleX"`, or `"slash"` noteheads:
+those mark unpitched techniques (claps, taps, spoken or percussive effects, rhythmic
+slashes) that MIDI cannot reproduce. Diamond (harmonic) and triangle (shape-note)
+noteheads still sound their pitch. Kit hits always sound through the percussion map.
+
 ```json
 {
   "id": "kc-hh",
