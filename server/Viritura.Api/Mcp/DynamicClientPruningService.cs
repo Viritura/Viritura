@@ -9,8 +9,7 @@ using Viritura.Infrastructure;
 namespace Viritura.Api.Mcp;
 
 /// <summary>
-/// Background service that periodically prunes stale dynamic MCP OAuth client registrations
-/// so they do not permanently consume capacity against the client cap.
+/// Background service that prunes expired OAuth artifacts and stale dynamic MCP clients.
 ///
 /// Two categories are reclaimed:
 /// - Unactivated: clients that never received an authorization, older than UnactivatedClientLifetime.
@@ -18,7 +17,7 @@ namespace Viritura.Api.Mcp;
 /// - Inactive: clients whose every authorization is in a terminal state (no valid auth or live token),
 ///   older than InactiveClientLifetime. Clients used historically whose tokens all expired or revoked.
 ///
-/// Clients with at least one valid authorization or a non-expired access token are never pruned.
+/// Clients with at least one valid authorization or live token are never pruned.
 /// Deletion is performed through IOpenIddictApplicationManager so the EF Core store handles cascade
 /// (ClientSetNull) cleanup of related authorizations and tokens correctly.
 /// </summary>
@@ -29,6 +28,7 @@ internal sealed class DynamicClientPruningService(
     : BackgroundService
 {
     private const int BatchSize = 500;
+    private static readonly TimeSpan ArtifactRetention = TimeSpan.FromDays(14);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -64,16 +64,24 @@ internal sealed class DynamicClientPruningService(
         await using var scope = scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<VirituraDbContext>();
         var manager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+        var tokens = scope.ServiceProvider.GetRequiredService<IOpenIddictTokenManager>();
+        var authorizations = scope.ServiceProvider.GetRequiredService<IOpenIddictAuthorizationManager>();
         var opts = optionsMonitor.CurrentValue;
         var utcNow = DateTime.UtcNow;
 
+        // Token rows must be removed before OpenIddict can prune their orphaned authorizations.
+        var threshold = new DateTimeOffset(utcNow - ArtifactRetention);
+        var prunedTokens = await tokens.PruneAsync(threshold, cancellationToken);
+        var prunedAuthorizations = await authorizations.PruneAsync(threshold, cancellationToken);
         var unactivated = await PruneUnactivatedAsync(db, manager, opts, utcNow, cancellationToken);
         var inactive = await PruneInactiveAsync(db, manager, opts, utcNow, cancellationToken);
 
-        if (unactivated + inactive > 0)
+        if (prunedTokens + prunedAuthorizations + unactivated + inactive > 0)
         {
             logger.LogInformation(
-                "Pruned {Unactivated} unactivated and {Inactive} inactive dynamic MCP client registrations.",
+                "Pruned {Tokens} OAuth tokens, {Authorizations} authorizations, and {Unactivated} unactivated and {Inactive} inactive dynamic MCP clients.",
+                prunedTokens,
+                prunedAuthorizations,
                 unactivated,
                 inactive);
         }
@@ -98,8 +106,13 @@ internal sealed class DynamicClientPruningService(
                 on mc.ClientId equals app.ClientId into apps
             from app in apps.DefaultIfEmpty()
             where app == null
-                || !db.Set<OpenIddictEntityFrameworkCoreAuthorization>()
-                    .Any(a => a.Application!.ClientId == mc.ClientId)
+                || (!db.Set<OpenIddictEntityFrameworkCoreAuthorization>()
+                        .Any(a => a.Application!.ClientId == mc.ClientId)
+                    && !db.Set<OpenIddictEntityFrameworkCoreToken>()
+                        .Any(t => t.Application!.ClientId == mc.ClientId
+                               && (t.Status == OpenIddictConstants.Statuses.Valid
+                                   || t.Status == OpenIddictConstants.Statuses.Inactive)
+                               && (t.ExpirationDate == null || t.ExpirationDate > utcNow)))
             select mc.ClientId)
             .Take(BatchSize)
             .ToListAsync(ct);
@@ -127,8 +140,9 @@ internal sealed class DynamicClientPruningService(
                              && a.Status == OpenIddictConstants.Statuses.Valid)
                && !db.Set<OpenIddictEntityFrameworkCoreToken>()
                       .Any(t => t.Application!.ClientId == mc.ClientId
-                             && t.Status == OpenIddictConstants.Statuses.Valid
-                             && t.ExpirationDate > utcNow)
+                             && (t.Status == OpenIddictConstants.Statuses.Valid
+                                 || t.Status == OpenIddictConstants.Statuses.Inactive)
+                             && (t.ExpirationDate == null || t.ExpirationDate > utcNow))
             select mc.ClientId)
             .Take(BatchSize)
             .ToListAsync(ct);
