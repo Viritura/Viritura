@@ -52,6 +52,19 @@ interface SpessaSynthLike {
 const configuredDrumChannels = new WeakMap<object, Map<number, number>>();
 const configuredMelodicChannels = new WeakMap<object, Map<number, number>>();
 
+/** Live SF2 synth instances and the SoundFont copies they were given. */
+export interface Sf2MemoryStats {
+  liveSynths: number;
+  soundBankBytes: number;
+}
+
+const liveSynthStats: Sf2MemoryStats = { liveSynths: 0, soundBankBytes: 0 };
+
+/** Snapshot of undestroyed synths, for memory diagnostics. */
+export function getSf2MemoryStats(): Sf2MemoryStats {
+  return { ...liveSynthStats };
+}
+
 /**
  * Shared SF2 synthesizer singleton.
  * Multiple Sf2Sampler instances share one synth, each using a different MIDI channel.
@@ -63,14 +76,18 @@ export class Sf2Synth {
    * NOT connected to ctx.destination by default — the caller must wire routing.
    */
   public readonly outputNode: GainNode;
+  private destroyed = false;
 
   private constructor(
     public readonly synth: SpessaSynthLike,
     public readonly context: AudioContext,
     outputNode: GainNode,
     private readonly schedulingPort: MessagePort,
+    private readonly soundBankBytes: number,
   ) {
     this.outputNode = outputNode;
+    liveSynthStats.liveSynths++;
+    liveSynthStats.soundBankBytes += soundBankBytes;
   }
 
   /**
@@ -112,10 +129,12 @@ export class Sf2Synth {
     // CRITICAL: Must .slice() the buffer for WorkletSynthesizer
     // Worklet buffers cannot be transferred twice
     const bufferCopy = sf2Buffer.slice(0);
+    // Read before loading: the worklet transfer detaches the copy.
+    const soundBankBytes = bufferCopy.byteLength;
     await synth.soundBankManager.addSoundBank(bufferCopy, "default");
     console.log("[Sf2Synth] SoundBank loaded with", synth.presetList.length, "presets");
 
-    return new Sf2Synth(synth as unknown as SpessaSynthLike, audioContext, outputGain, schedulingPort);
+    return new Sf2Synth(synth as unknown as SpessaSynthLike, audioContext, outputGain, schedulingPort, soundBankBytes);
   }
 
   /** Cancel only adapter-owned note events; active voices and other MIDI are untouched. */
@@ -162,6 +181,10 @@ export class Sf2Synth {
 
   /** Clean up the synth. */
   destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    liveSynthStats.liveSynths--;
+    liveSynthStats.soundBankBytes -= this.soundBankBytes;
     if (this.synth.destroy) {
       this.synth.destroy();
     }

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { subscribePlaybackStatus } from "@viritura/playback";
 import { Button, SettingsRow } from "@viritura/ui";
 import { useDocumentStoreApi } from "../store/DocumentContext";
 import { readMemorySample } from "./browserSample";
@@ -49,14 +50,20 @@ export function MemoryDiagnostics(): null {
     const checkpoint = (): void => {
       saveMemoryReport(recorder.report("checkpoint"));
     };
+    const visibilityChanged = (): void => {
+      recorder.mark(document.hidden ? "hidden" : "visible");
+      checkpoint();
+    };
+    const unsubscribePlayback = subscribePlaybackStatus((status) => recorder.mark(status));
     sample();
     const timer = setInterval(sample, 10000);
     window.addEventListener("pagehide", checkpoint);
-    document.addEventListener("visibilitychange", checkpoint);
+    document.addEventListener("visibilitychange", visibilityChanged);
     return () => {
       clearInterval(timer);
+      unsubscribePlayback();
       window.removeEventListener("pagehide", checkpoint);
-      document.removeEventListener("visibilitychange", checkpoint);
+      document.removeEventListener("visibilitychange", visibilityChanged);
       if (activeRecorder === recorder) activeRecorder = null;
     };
   }, [store]);

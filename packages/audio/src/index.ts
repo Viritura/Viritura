@@ -34,8 +34,10 @@ export {
   Sf2Synth,
   Sf2SynthPool,
   Sf2Sampler,
+  getSf2MemoryStats,
   DRUM_KIT_STANDARD,
   DRUM_KIT_ORCHESTRA,
+  type Sf2MemoryStats,
   type Sf2SamplerOptions,
 } from "./Sf2Sampler";
 

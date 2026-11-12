@@ -11,6 +11,18 @@ vi.mock("../store/DocumentContext", () => {
   return { useDocumentStoreApi: () => store };
 });
 vi.mock("./browserSample", () => ({ readMemorySample: vi.fn() }));
+const playback = vi.hoisted(() => ({
+  listener: null as ((status: string) => void) | null,
+  subscriptions: 0,
+  unsubscribe: vi.fn(),
+}));
+vi.mock("@viritura/playback", () => ({
+  subscribePlaybackStatus: (listener: (status: string) => void) => {
+    playback.listener = listener;
+    playback.subscriptions++;
+    return playback.unsubscribe;
+  },
+}));
 vi.mock("sonner", () => ({
   toast: { warning: vi.fn(), info: vi.fn(), error: vi.fn() },
 }));
@@ -18,11 +30,16 @@ vi.mock("sonner", () => ({
 function sample(): MemorySample {
   return {
     timestamp: Date.now(),
-    heapUsedBytes: 600 * 1024 * 1024,
+    uptimeMs: 1000,
+    heapUsedBytes: 1600 * 1024 * 1024,
     heapLimitBytes: 2 ** 32,
     mainWasmBytes: null,
     workerWasmBytes: null,
     workerSampleAgeMs: null,
+    liveSynths: 0,
+    soundBankBytes: 0,
+    playbackStatus: "stopped",
+    zoom: 1,
     canvasCount: 1,
     canvasPixelBytes: 100,
     parts: 4,
@@ -111,6 +128,21 @@ describe("local memory diagnostics", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("records playback and visibility markers in saved checkpoints", () => {
+    playback.subscriptions = 0;
+    const view = render(<MemoryDiagnostics />);
+    act(() => {
+      playback.listener?.("playing");
+      playback.listener?.("stopped");
+    });
+    fireEvent(document, new Event("visibilitychange"));
+    const saved = JSON.parse(readSavedMemoryReport() ?? "null") as { markers: { kind: string }[] };
+    expect(saved.markers.map((marker) => marker.kind)).toEqual(["playing", "stopped", "visible"]);
+    view.unmount();
+    expect(playback.subscriptions).toBeGreaterThan(0);
+    expect(playback.unsubscribe).toHaveBeenCalledTimes(playback.subscriptions);
   });
 
   it("continues monitoring when local storage is unavailable and surfaces the failure", () => {

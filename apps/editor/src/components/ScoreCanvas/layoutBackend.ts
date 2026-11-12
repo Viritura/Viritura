@@ -93,6 +93,8 @@ export interface LayoutBackend {
 }
 
 const LAYOUT_WORKER_FLAG_KEY = "viritura.layoutWorker";
+/** Matches the memory diagnostics sampling interval. */
+const WORKER_MEMORY_POLL_MS = 10_000;
 
 /**
  * Whether to run layout in a Web Worker. Defaults ON; set
@@ -147,27 +149,38 @@ function makeWorkerBackend(service: LayoutService): LayoutBackend {
     (window as typeof window & { __VIRITURA_LAYOUT_METRICS__?: LayoutMetrics }).__VIRITURA_LAYOUT_METRICS__ = metrics;
   };
 
-  // Fetch cache stats in the background after a layout so the perf overlay can
-  // show them without blocking paint. A monotonic guard keeps the latest win.
-  const refreshStats = (): void => {
-    const seq = ++statsSeq;
-    void Promise.all([
-      engine.cacheStats(),
-      engine.layoutMetrics(),
-      timingEnabled ? engine.takeTimings() : Promise.resolve(null),
-      // Memory diagnostics are optional and must not suppress layout stats or
-      // throw synchronously from the layout path.
-      Promise.resolve()
-        .then(() => service.getWasmMemoryBytes())
-        .catch(() => null),
-    ])
-      .then(([nextStats, nextMetrics, timings, wasmBytes]) => {
-        if (disposed || seq !== statsSeq) return;
+  // Worker WASM capacity for memory diagnostics. It is polled as well as read
+  // after layouts so an idle editor does not report a stale reading. Optional
+  // and must never throw synchronously into the layout path.
+  let memorySeq = 0;
+  const refreshMemory = (): void => {
+    const seq = ++memorySeq;
+    void Promise.resolve()
+      .then(() => service.getWasmMemoryBytes())
+      .catch(() => null)
+      .then((bytes) => {
+        if (disposed || seq !== memorySeq) return;
         (
           window as typeof window & {
             __VIRITURA_LAYOUT_MEMORY__?: { bytes: number | null; sampledAt: number } | null;
           }
-        ).__VIRITURA_LAYOUT_MEMORY__ = { bytes: wasmBytes, sampledAt: Date.now() };
+        ).__VIRITURA_LAYOUT_MEMORY__ = { bytes, sampledAt: Date.now() };
+      });
+  };
+  const memoryTimer = setInterval(refreshMemory, WORKER_MEMORY_POLL_MS);
+
+  // Fetch cache stats in the background after a layout so the perf overlay can
+  // show them without blocking paint. A monotonic guard keeps the latest win.
+  const refreshStats = (): void => {
+    const seq = ++statsSeq;
+    refreshMemory();
+    void Promise.all([
+      engine.cacheStats(),
+      engine.layoutMetrics(),
+      timingEnabled ? engine.takeTimings() : Promise.resolve(null),
+    ])
+      .then(([nextStats, nextMetrics, timings]) => {
+        if (disposed || seq !== statsSeq) return;
         stats = nextStats;
         metrics = nextMetrics;
         publishMetrics();
@@ -224,6 +237,7 @@ function makeWorkerBackend(service: LayoutService): LayoutBackend {
     },
     dispose: () => {
       disposed = true;
+      clearInterval(memoryTimer);
       (window as typeof window & { __VIRITURA_LAYOUT_MEMORY__?: unknown }).__VIRITURA_LAYOUT_MEMORY__ = null;
       service.dispose();
     },

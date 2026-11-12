@@ -44,20 +44,28 @@ describe("memory snapshot collection", () => {
     document.body.appendChild(canvas);
     const tracker = getGlobalPerfTracker();
     const previousTileBytes = tracker.retainedTileBytes;
+    const previousZoom = tracker.zoom;
     tracker.retainedTileBytes = 8192;
+    tracker.zoom = 1.25;
     try {
       const snapshot = readMemorySample(createDocumentStore().getState());
       expect(snapshot).toMatchObject({
         heapUsedBytes: 12345,
         heapLimitBytes: 99999,
         workerWasmBytes: 65536,
+        liveSynths: 0,
+        soundBankBytes: 0,
+        playbackStatus: "stopped",
+        zoom: 1.25,
         canvasCount: 1,
         canvasPixelBytes: 80000,
         retainedTileBytes: 8192,
       });
       expect(snapshot.workerSampleAgeMs).toBeGreaterThanOrEqual(15000);
+      expect(snapshot.uptimeMs).toBeGreaterThan(0);
     } finally {
       tracker.retainedTileBytes = previousTileBytes;
+      tracker.zoom = previousZoom;
     }
   });
 });

@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import type { MemoryReport } from "./recorder";
+import { isIncidentReason, type MemoryReport } from "./recorder";
 
 const CHECKPOINT_KEY = "viritura.memoryCheckpoint";
 const INCIDENT_KEY = "viritura.memoryIncident";
@@ -19,7 +19,7 @@ export function saveMemoryReport(report: MemoryReport): void {
     const text = JSON.stringify(report);
     if (text.length > MAX_REPORT_CHARACTERS) throw new Error("Memory report exceeded the local storage limit");
     localStorage.setItem(CHECKPOINT_KEY, text);
-    if (report.reason === "high-memory" || report.reason === "rapid-growth") {
+    if (isIncidentReason(report.reason)) {
       localStorage.setItem(INCIDENT_KEY, text);
     }
   } catch (error) {
