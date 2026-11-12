@@ -61,7 +61,6 @@ jobs:
         with:
           persist-credentials: false
       - name: Restore editor SoundFont for PWA cache revision
-        if: matrix.target == 'editor'
         run: git lfs pull --include="packages/audio/assets/sounds/Shan-SGM-Pro-15.sf2"
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:

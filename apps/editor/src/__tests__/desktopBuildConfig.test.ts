@@ -122,11 +122,10 @@ describe("desktop frontend build orchestration", () => {
 });
 
 describe("editor soundfont output", () => {
-  it("restores only the editor SoundFont before Pages builds its PWA", () => {
+  it("restores the editor SoundFont before both Pages targets build", () => {
     const workflow = readFileSync(resolve(root, ".github", "workflows", "deploy-pages.yml"), "utf8");
     const restoreStep =
       "      - name: Restore editor SoundFont for PWA cache revision\n" +
-      "        if: matrix.target == 'editor'\n" +
       '        run: git lfs pull --include="packages/audio/assets/sounds/Shan-SGM-Pro-15.sf2"';
     const restore = workflow.indexOf(restoreStep);
     expect(restore).toBeGreaterThan(-1);
