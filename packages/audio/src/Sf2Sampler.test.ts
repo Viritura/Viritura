@@ -1,6 +1,34 @@
-import { describe, expect, it, vi } from "vitest";
-import { Sf2Sampler } from "./Sf2Sampler";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getSf2MemoryStats, Sf2Sampler, Sf2Synth } from "./Sf2Sampler";
 import { createSamplerWorkletHarness } from "./sf2Scheduling/workletHarness.spec";
+
+vi.mock("spessasynth_lib", () => ({
+  WorkletSynthesizer: class {
+    isReady = Promise.resolve();
+    presetList = [];
+    connect = vi.fn();
+    destroy = vi.fn();
+    soundBankManager = {
+      // The real worklet transfer detaches the copy it is given.
+      addSoundBank: async (buffer: ArrayBuffer) => void structuredClone(buffer, { transfer: [buffer] }),
+    };
+    constructor(
+      context: AudioContext,
+      options: { audioNodeCreators: { worklet(context: AudioContext, name: string, options: object): unknown } },
+    ) {
+      options.audioNodeCreators.worklet(context, "viritura-sf2", {});
+    }
+  },
+}));
+vi.mock("./sf2Scheduling", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./sf2Scheduling")>()),
+  registerSchedulingWorklet: async () => {},
+}));
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 function createMockSf2Synth(currentTime = 10) {
   const synth = {
@@ -28,6 +56,34 @@ function createMockSf2Synth(currentTime = 10) {
     >[0],
   };
 }
+
+describe("Sf2Synth memory accounting", () => {
+  it("counts each live synth's SoundFont copy once until it is destroyed", async () => {
+    vi.stubGlobal(
+      "AudioWorkletNode",
+      class {
+        port = new MessageChannel().port1;
+      },
+    );
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const context = { createGain: () => ({}) } as unknown as AudioContext;
+    const before = getSf2MemoryStats();
+    const first = await Sf2Synth.create(context, new ArrayBuffer(1024));
+    const second = await Sf2Synth.create(context, new ArrayBuffer(1024));
+    expect(getSf2MemoryStats()).toEqual({
+      liveSynths: before.liveSynths + 2,
+      soundBankBytes: before.soundBankBytes + 2048,
+    });
+    first.destroy();
+    first.destroy();
+    expect(getSf2MemoryStats()).toEqual({
+      liveSynths: before.liveSynths + 1,
+      soundBankBytes: before.soundBankBytes + 1024,
+    });
+    second.destroy();
+    expect(getSf2MemoryStats()).toEqual(before);
+  });
+});
 
 describe("Sf2Sampler", () => {
   it("schedules 14-bit pitch bends and restores neutral pitch on panic", () => {

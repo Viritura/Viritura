@@ -75,6 +75,24 @@ describe("layout worker memory diagnostics", () => {
     backend.dispose();
   });
 
+  it("polls worker capacity while idle and stops polling on disposal", async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.memory.mockReset();
+      mocks.memory.mockResolvedValue(65536);
+      const backend = await createLayoutBackend(false);
+      expect(mocks.memory).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(Reflect.get(window, "__VIRITURA_LAYOUT_MEMORY__")).toEqual({ bytes: 65536, sampledAt: Date.now() });
+      backend.dispose();
+      mocks.memory.mockClear();
+      await vi.advanceTimersByTimeAsync(30000);
+      expect(mocks.memory).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not republish a late diagnostic response after disposal", async () => {
     let resolveMemory: (bytes: number) => void = () => {
       throw new Error("Missing memory request");

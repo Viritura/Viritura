@@ -117,3 +117,13 @@ export function getPlaybackSnapshot(): { state: PlaybackState; actions: Playback
   const store = usePlaybackStore.getState();
   return { state: store.state, actions: store.actions };
 }
+
+/**
+ * Observe transport status transitions without subscribing to playhead updates.
+ * Returns an unsubscribe function.
+ */
+export function subscribePlaybackStatus(listener: (status: PlaybackState["status"]) => void): () => void {
+  return usePlaybackStore.subscribe((next, previous) => {
+    if (next.state.status !== previous.state.status) listener(next.state.status);
+  });
+}

@@ -125,6 +125,8 @@ export class PerfTracker {
   tilesRendered = 0;
   retainedTileBytes = 0;
   renderCommandCount = 0;
+  /** Viewport zoom of the last painted frame. */
+  zoom = 1;
   /** Whether the paint used tiles or direct render. */
   usedTiles = false;
   /** Whether the tile cache is globally disabled (disableTileCache()). Distinct

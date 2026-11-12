@@ -1,3 +1,5 @@
+import { getSf2MemoryStats } from "@viritura/audio";
+import { getPlaybackSnapshot } from "@viritura/playback";
 import { getGlobalPerfTracker, getWasmMemoryBytes } from "@viritura/renderer";
 import type { DocumentStoreState } from "../store/documentStore";
 import type { MemorySample } from "./recorder";
@@ -21,13 +23,19 @@ export function readMemorySample(state: DocumentStoreState): MemorySample {
   let canvasPixelBytes = 0;
   for (const canvas of canvases) canvasPixelBytes += canvas.width * canvas.height * 4;
   const perf = getGlobalPerfTracker();
+  const audio = getSf2MemoryStats();
   return {
     timestamp,
+    uptimeMs: Math.round(performance.now()),
     heapUsedBytes: validBytes(memory?.usedJSHeapSize),
     heapLimitBytes: validBytes(memory?.jsHeapSizeLimit),
     mainWasmBytes: getWasmMemoryBytes(),
     workerWasmBytes: worker?.bytes ?? null,
     workerSampleAgeMs: worker ? Math.max(0, timestamp - worker.sampledAt) : null,
+    liveSynths: audio.liveSynths,
+    soundBankBytes: audio.soundBankBytes,
+    playbackStatus: getPlaybackSnapshot().state.status,
+    zoom: perf.zoom,
     canvasCount: canvases.length,
     canvasPixelBytes,
     parts: state.score?.parts.length ?? 0,

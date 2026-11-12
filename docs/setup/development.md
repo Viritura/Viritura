@@ -117,11 +117,14 @@ an alternate `CARGO_TARGET_DIR`.
 ### Browser memory diagnostics
 
 The editor samples memory estimates and numeric editor counters every 10 seconds,
-retaining at most 60 samples (roughly ten minutes). Three consecutive samples at
-512 MiB of JS heap or engraving WASM linear memory, or 80% of the reported JS heap
-limit, trigger a warning. Growth of at least 128 MiB and 50% over two minutes in
-the same document also triggers a warning. Warnings have a five-minute cooldown;
-they indicate pressure, not proof of a leak.
+retaining at most 60 samples (roughly ten minutes). Large scores normally use
+about 0.5 GiB of JS heap and worker WASM, so absolute warnings require three
+consecutive samples at 1.5 GiB of JS heap or engraving WASM linear memory, or 80%
+of the reported JS heap limit. Growth rules are the primary signal for the same
+document: at least 128 MiB and 50% over two minutes (rapid growth), or a JS heap
+512 MiB above the lowest reading taken after the document's first two minutes for
+three consecutive samples (sustained growth). Warnings have a five-minute
+cooldown; they indicate pressure, not proof of a leak.
 
 Use **Settings > Rendering > Download diagnostics** for the current history, or
 **Download saved report** for the last warning (otherwise the latest checkpoint).
@@ -131,19 +134,26 @@ erase it. Reports survive reloads when browser local storage is available.
 A crash can still lose the time since the last checkpoint. Downloads and local
 storage failures are reported in the UI and console.
 
-Reports contain build asset identifiers, timestamps, numeric score size and
-rendering counters, memory estimates, and dirty/visibility flags. They do not
+Reports contain build asset identifiers, the page-load time, timestamps and page
+uptime, numeric score size and rendering counters, zoom, playback status, live
+SF2 synth counts with their SoundFont copy sizes, memory estimates, and
+dirty/visibility flags. Up to 40 event markers record playback status changes,
+document switches, zoom changes, and tab visibility changes with numeric values
+only. Reports do not
 include filenames, score contents, URLs with query strings, account details,
 console messages, or automatic uploads. Only the latest checkpoint and warning
 are stored; each is limited to 128 KiB of text.
 
 Chromium/Edge's nonstandard `performance.memory` is approximate and may be
 unavailable; missing readings are `null`, not zero. Main-thread WASM bytes are
-sampled directly; layout-worker WASM bytes are cached after layouts and include
-the reading's age. WASM linear memory is allocated capacity, not live usage, and
+sampled directly; layout-worker WASM bytes are polled every 10 seconds and after
+layouts and include the reading's age. Worker readings older than two minutes are
+excluded from warnings. WASM linear memory is allocated capacity, not live usage, and
 does not shrink after objects are freed. Attached canvas RGBA estimates exclude
 offscreen tiles; the score tile cache reports its own retained RGBA estimate.
-Neither estimate covers GPU copies, audio buffers, or other native allocations. These
+SoundFont copy sizes count the bytes handed to each synth worklet, not the
+worklet's decoded samples. None of these estimates covers GPU copies or other
+native allocations. These
 overlapping measurements must not be summed into total tab memory; use Edge's
 Memory/Performance tools and heap snapshots for allocation ownership.
 
