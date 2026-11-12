@@ -17,6 +17,7 @@
  */
 
 export type {
+  AddMeasureExpressionPatch,
   AddNoteToEventPatch,
   AddPartPatch,
   ArpeggioMarkKind,
@@ -41,6 +42,7 @@ export type {
   SetGlobalMeasureFieldPatch,
   SetMeasureArpeggioPatch,
   SetMeasureDynamicGroupPatch,
+  SetMeasureExpressionPatch,
   SetNoteFieldPatch,
   SetNoteMarkingPatch,
   SetNotePitchPatch,

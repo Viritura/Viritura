@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Score, ScorePatch } from "@viritura/core";
+import { patch, type Score, type ScorePatch } from "@viritura/core";
 import { parseMnx } from "@viritura/format";
 import { createDocumentStore } from "../store/documentStore";
 import { dispatchMcpTool } from "./toolDispatch";
 import { useMcpSessionStore } from "./sessionStore";
 import { clearPatchBatches } from "./patchBatches";
+import { clearIdempotentRequests } from "./idempotentRequests";
 
 function makeScore(): Score {
   return {
@@ -44,6 +45,7 @@ describe("MCP editor tool dispatch", () => {
   beforeEach(() => {
     useMcpSessionStore.setState(useMcpSessionStore.getInitialState());
     clearPatchBatches();
+    clearIdempotentRequests();
   });
 
   afterEach(() => {
@@ -58,6 +60,293 @@ describe("MCP editor tool dispatch", () => {
   };
   const pitchNote4 = { kind: "setNotePitch", locator: pianoLocator, noteId: "note-4", pitch: { step: "A", octave: 4 } };
   const pitchNote1 = { kind: "setNotePitch", locator: pianoLocator, noteId: "note-1", pitch: { step: "D", octave: 4 } };
+
+  it("round-trips raw MNX content and note extensions through validation and acceptance", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    const patches = [
+      {
+        kind: "setSequenceContent",
+        sequencePath: pianoLocator.sequencePath,
+        content: [
+          {
+            id: "raw-event",
+            duration: { base: "whole" },
+            notes: [{ id: "raw-note", pitch: { step: "D", octave: 4 }, _x: { viritura: { notehead: "diamond" } } }],
+          },
+        ],
+      },
+    ];
+    const validation = await dispatchMcpTool(store, "score.validate", { patches });
+    expect(validation.structuredContent).toMatchObject({ valid: true, repairs: [] });
+    const result = await dispatchMcpTool(store, "preview.propose_patches", { patches });
+    expect(result.structuredContent).toMatchObject({ status: "accepted" });
+    expect(store.getState().workingScore!.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+      type: "event",
+      notes: [{ id: "raw-note", notehead: "diamond" }],
+    });
+    expect(store.getState().mnxJson).toContain('"notehead":"diamond"');
+  });
+
+  it("accepts raw MNX notes and preserves valid internal notes with nested vendor data", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    const raw = await dispatchMcpTool(store, "preview.propose_patches", {
+      patches: [
+        {
+          kind: "addNoteToEvent",
+          locator: pianoLocator,
+          note: { id: "raw-note", pitch: { step: "D", octave: 4 }, _x: { viritura: { notehead: "diamond" } } },
+        },
+      ],
+    });
+    expect(raw.structuredContent).toMatchObject({ status: "accepted" });
+    const internal = await dispatchMcpTool(store, "preview.propose_patches", {
+      patches: [
+        {
+          kind: "addNoteToEvent",
+          locator: pianoLocator,
+          note: {
+            id: "model-note",
+            pitch: { step: "F", octave: 4 },
+            notehead: "diamond",
+            markings: { _x: { anotherVendor: { retained: true } } },
+          },
+        },
+      ],
+    });
+    expect(internal.structuredContent).toMatchObject({ status: "accepted" });
+    expect(store.getState().workingScore!.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+      notes: expect.arrayContaining([
+        expect.objectContaining({ id: "raw-note", notehead: "diamond" }),
+        expect.objectContaining({ id: "model-note", markings: { _x: { anotherVendor: { retained: true } } } }),
+      ]),
+    });
+  });
+
+  it("accepts typed lyric dictionaries in internal sequence content", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    const result = await dispatchMcpTool(store, "preview.propose_patches", {
+      patches: [
+        {
+          kind: "setSequenceContent",
+          sequencePath: pianoLocator.sequencePath,
+          content: [
+            {
+              type: "event",
+              id: "sung",
+              duration: { base: "whole" },
+              notes: [{ pitch: { step: "C", octave: 4 }, notehead: "diamond" }],
+              lyrics: { lines: { "1": { text: "Hello" }, "2": { text: "Again" } } },
+            },
+          ],
+        },
+      ],
+    });
+    expect(result.structuredContent).toMatchObject({ status: "pending" });
+    const invalid = await dispatchMcpTool(store, "preview.propose_patches", {
+      patches: [
+        {
+          kind: "setSequenceContent",
+          sequencePath: pianoLocator.sequencePath,
+          content: [
+            {
+              type: "event",
+              duration: { base: "whole" },
+              notes: [{ pitch: { step: "C", octave: 4 }, notehead: "diamond" }],
+              lyrics: { lines: { "1": { text: 17 } } },
+            },
+          ],
+        },
+      ],
+    });
+    expect(invalid.structuredContent).toMatchObject({ code: "invalid_patches" });
+  });
+
+  it("rejects unknown patch kinds and MNX fields that would be discarded", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    for (const candidate of [
+      { kind: "unknownPatch" },
+      {
+        kind: "setSequenceContent",
+        sequencePath: pianoLocator.sequencePath,
+        content: [{ duration: { base: "whole" }, rest: {}, _x: { anotherVendor: { important: true } } }],
+      },
+    ]) {
+      const result = await dispatchMcpTool(store, "preview.propose_patches", { patches: [candidate] });
+      expect(result.structuredContent).toMatchObject({ code: "invalid_patches" });
+    }
+    expect(useMcpSessionStore.getState().proposals).toEqual({});
+  });
+
+  it("previews padding and commits the exact reviewed rest IDs", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    const patches = [
+      {
+        kind: "setSequenceContent",
+        sequencePath: pianoLocator.sequencePath,
+        content: [{ id: "short", duration: { base: "quarter" }, rest: {} }],
+      },
+    ];
+    const validation = await dispatchMcpTool(store, "score.validate", { patches });
+    expect(validation.structuredContent).toMatchObject({
+      valid: true,
+      requiresRhythmTruncationApproval: false,
+      repairs: [{ action: "pad", actualBeats: 1, expectedBeats: 4, repairedBeats: 4 }],
+    });
+    const result = await dispatchMcpTool(store, "preview.propose_patches", { patches });
+    expect(result.structuredContent).toMatchObject({ status: "accepted", repairs: [{ action: "pad" }] });
+    const proposal = Object.values(useMcpSessionStore.getState().proposals)[0]!;
+    expect(JSON.parse(proposal.proposedMnx!)).toEqual(JSON.parse(store.getState().mnxJson));
+  });
+
+  it("shows splice effects and requires explicit approval before truncating notes", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    const patches = [
+      {
+        kind: "spliceSequenceContent",
+        sequencePath: pianoLocator.sequencePath,
+        removeFromEventId: "event-1",
+        removeToEventId: "event-1",
+        insert: [
+          { id: "kept", duration: { base: "whole" }, notes: [{ pitch: { step: "C", octave: 4 } }] },
+          { id: "removed", duration: { base: "quarter" }, notes: [{ pitch: { step: "D", octave: 4 } }] },
+        ],
+      },
+    ];
+    const validation = await dispatchMcpTool(store, "score.validate", { patches });
+    expect(validation.structuredContent).toMatchObject({
+      valid: true,
+      requiresRhythmTruncationApproval: true,
+      repairs: [{ action: "truncate", actualBeats: 5, expectedBeats: 4, removedEventIds: ["removed"] }],
+      splicePreviews: [{ before: [{ id: "event-1" }], after: [{ id: "kept" }] }],
+    });
+    const blocked = await dispatchMcpTool(store, "preview.propose_patches", { patches });
+    expect(blocked.structuredContent).toMatchObject({ code: "rhythm_truncation_requires_confirmation" });
+    expect(useMcpSessionStore.getState().proposals).toEqual({});
+    const accepted = await dispatchMcpTool(store, "preview.propose_patches", { patches, allowRhythmTruncation: true });
+    expect(accepted.structuredContent).toMatchObject({ status: "accepted" });
+    const proposal = Object.values(useMcpSessionStore.getState().proposals)[0]!;
+    expect(JSON.parse(proposal.proposedMnx!)).toEqual(JSON.parse(store.getState().mnxJson));
+  });
+
+  it("replays an accepted request without applying it twice, even after its base revision changes", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    const baseRevision = store.getState().scoreRevision;
+    const args = { patches: [addNote4], requestId: "add-chord-note", baseRevision };
+    const first = await dispatchMcpTool(store, "preview.propose_patches", args);
+    const retry = await dispatchMcpTool(store, "preview.propose_patches", args);
+    expect(first.structuredContent).toMatchObject({ status: "accepted" });
+    expect(retry.structuredContent).toMatchObject({
+      proposalId: (first.structuredContent as { proposalId: string }).proposalId,
+      status: "accepted",
+      replayed: true,
+    });
+    expect(Object.keys(useMcpSessionStore.getState().proposals)).toHaveLength(1);
+    expect(store.getState().workingScore!.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes).toHaveLength(4);
+    const conflict = await dispatchMcpTool(store, "preview.propose_patches", { ...args, patches: [pitchNote1] });
+    expect(conflict.structuredContent).toMatchObject({ code: "idempotency_conflict" });
+  });
+
+  it("reports the current proposal status in both replayed text and structured output", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    const args = { patches: [pitchNote1], requestId: "pending-proposal" };
+    const first = await dispatchMcpTool(store, "preview.propose_patches", args);
+    const proposalId = (first.structuredContent as { proposalId: string }).proposalId;
+    useMcpSessionStore.getState().setProposalStatus(proposalId, "rejected");
+    const retry = await dispatchMcpTool(store, "preview.propose_patches", args);
+    expect(retry.structuredContent).toMatchObject({ proposalId, status: "rejected", replayed: true });
+    expect(retry.content[0]?.text).toContain("rejected");
+    expect(retry.content[0]?.text).not.toContain("awaiting review");
+  });
+
+  it("reports revision conflicts and marks pending proposals stale", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    const baseRevision = store.getState().scoreRevision;
+    const proposal = await dispatchMcpTool(store, "preview.propose_patches", { patches: [pitchNote1], baseRevision });
+    const proposalId = (proposal.structuredContent as { proposalId: string }).proposalId;
+    store
+      .getState()
+      .commitPatches([patch.addNoteToEvent(pianoLocator, { id: "note-4", pitch: { step: "B", octave: 4 } })]);
+    const conflict = await dispatchMcpTool(store, "preview.propose_patches", { patches: [pitchNote1], baseRevision });
+    expect(conflict.structuredContent).toMatchObject({
+      code: "revision_conflict",
+      baseRevision,
+      currentRevision: store.getState().scoreRevision,
+    });
+    const status = await dispatchMcpTool(store, "preview.get_status", { proposalId });
+    expect(status.structuredContent).toMatchObject({ status: "stale", baseRevision });
+  });
+
+  it("makes batch chunks retry-safe and supports inspection and cancellation", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    const baseRevision = store.getState().scoreRevision;
+    const chunk = { batchId: "batch", patches: [addNote4], final: false, requestId: "chunk-1", baseRevision };
+    expect((await dispatchMcpTool(store, "preview.propose_patches", chunk)).structuredContent).toMatchObject({
+      status: "batching",
+      patchCount: 1,
+    });
+    expect((await dispatchMcpTool(store, "preview.propose_patches", chunk)).structuredContent).toMatchObject({
+      status: "batching",
+      patchCount: 1,
+      replayed: true,
+    });
+    expect((await dispatchMcpTool(store, "preview.get_batch", { batchId: "batch" })).structuredContent).toMatchObject({
+      status: "batching",
+      baseRevision,
+      patchCount: 1,
+      chunkCount: 1,
+    });
+    expect(
+      (await dispatchMcpTool(store, "preview.cancel_batch", { batchId: "batch" })).structuredContent,
+    ).toMatchObject({
+      status: "cancelled",
+    });
+    expect((await dispatchMcpTool(store, "preview.get_batch", { batchId: "batch" })).structuredContent).toMatchObject({
+      code: "batch_not_found",
+    });
+  });
+
+  it("does not append a failed final chunk to the open batch", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    await dispatchMcpTool(store, "preview.propose_patches", { batchId: "batch", patches: [addNote4], final: false });
+    const last = {
+      kind: "spliceSequenceContent",
+      sequencePath: pianoLocator.sequencePath,
+      removeFromEventId: "event-1",
+      removeToEventId: "event-1",
+      insert: [
+        { id: "whole", duration: { base: "whole" }, rest: {} },
+        { id: "extra", duration: { base: "quarter" }, rest: {} },
+      ],
+    };
+    const blocked = await dispatchMcpTool(store, "preview.propose_patches", { batchId: "batch", patches: [last] });
+    expect(blocked.structuredContent).toMatchObject({ code: "rhythm_truncation_requires_confirmation" });
+    expect((await dispatchMcpTool(store, "preview.get_batch", { batchId: "batch" })).structuredContent).toMatchObject({
+      patchCount: 1,
+      chunkCount: 1,
+    });
+    const final = await dispatchMcpTool(store, "preview.propose_patches", {
+      batchId: "batch",
+      patches: [last],
+      allowRhythmTruncation: true,
+    });
+    expect(final.structuredContent).toMatchObject({ status: "pending" });
+  });
 
   it.each([false, true])("removes staff text through a patch proposal (auto-accept: %s)", async (autoAccept) => {
     const score = makeScore();
@@ -118,7 +407,9 @@ describe("MCP editor tool dispatch", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(result.structuredContent).toMatchObject({ code: "tool_failed" });
+      expect(result.structuredContent).toMatchObject({
+        code: expressionIndex === 1 ? "tool_failed" : "invalid_patches",
+      });
       expect(store.getState().mnxJson).toBe(before);
       expect(useMcpSessionStore.getState().proposals).toEqual({});
     },
@@ -163,7 +454,7 @@ describe("MCP editor tool dispatch", () => {
       patches: [addNote4],
     });
     expect(first.isError).not.toBe(true);
-    expect(first.structuredContent).toEqual({ batchId: "orchestration", status: "batching", patchCount: 1 });
+    expect(first.structuredContent).toMatchObject({ batchId: "orchestration", status: "batching", patchCount: 1 });
     expect(useMcpSessionStore.getState().proposals).toEqual({});
     expect(store.getState().mnxJson).toBe(before);
 
@@ -685,6 +976,122 @@ describe("MCP editor tool dispatch", () => {
       instrumentId: "wind.flutes.flute",
       outOfRange: true,
       belowRange: 1,
+      violations: [{ measureIndex: 0, voice: 0, eventId: "e1", noteId: "n1", soundingMidi: 48, direction: "below" }],
+    });
+    const filtered = await dispatchMcpTool(store, "score.get_instruments", { partIds: [] });
+    expect(filtered.content[0]?.text).toBe("Returned 0 instruments (0 out of range).");
+    expect(filtered.structuredContent).toMatchObject({ instruments: [], outOfRangeCount: 0 });
+  });
+
+  it("checks transposing instruments against concert pitch and locates out-of-range notes", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    const part = score.parts[0]!;
+    part._x = { viritura: { instrumentId: "wind.reed.clarinet.bflat" } };
+    part.transposition = { interval: { halfSteps: 2, staffDistance: 1 } };
+    score.global.measures[0]!.number = 0;
+    score.global.measures[0]!.id = "pickup";
+    part.measures[0]!.sequences[0]!.content = [
+      {
+        type: "event",
+        id: "clarinet-event",
+        duration: { base: "whole" },
+        notes: [
+          { id: "lowest", pitch: { step: "D", octave: 3 } },
+          { id: "too-low", pitch: { step: "C", octave: 3 } },
+        ],
+      },
+    ];
+    store.getState().loadScore(score, "clarinet.mnx");
+    const result = await dispatchMcpTool(store, "score.get_instruments", {});
+    expect(result.structuredContent).toMatchObject({
+      instruments: [
+        {
+          soundingRange: { low: 48, high: 50 },
+          belowRange: 1,
+          violations: [{ measureIndex: 0, measureNumber: 0, measureId: "pickup", noteId: "too-low", soundingMidi: 48 }],
+        },
+      ],
+    });
+  });
+
+  it("paginates every located range violation", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    score.parts[0]!._x = { viritura: { instrumentId: "wind.flutes.flute" } };
+    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type !== "event") throw new Error("Expected an event.");
+    event.notes = Array.from({ length: 105 }, (_, index) => ({
+      id: `out-${String(index)}`,
+      pitch: { step: "C", octave: 3 },
+    }));
+    store.getState().loadScore(score, "flute.mnx");
+    const first = await dispatchMcpTool(store, "score.get_instruments", {
+      partIds: ["keyboard.piano"],
+      violationLimit: 100,
+    });
+    expect(first.structuredContent).toMatchObject({
+      instruments: [{ belowRange: 105, violationsTruncated: true, violationOffset: 0, nextViolationOffset: 100 }],
+    });
+    const last = await dispatchMcpTool(store, "score.get_instruments", {
+      partIds: ["keyboard.piano"],
+      violationOffset: 100,
+      violationLimit: 100,
+    });
+    expect(last.structuredContent).toMatchObject({
+      instruments: [
+        {
+          belowRange: 105,
+          violationOffset: 100,
+          nextViolationOffset: null,
+          violations: [
+            { noteId: "out-100" },
+            { noteId: "out-101" },
+            { noteId: "out-102" },
+            { noteId: "out-103" },
+            { noteId: "out-104" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("discovers instruments, blocks unsafe changes and preserves music in safe proposals", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    score.parts[0]!._x = { viritura: { instrumentId: "wind.flutes.flute" } };
+    store.getState().loadScore(score, "flute.mnx");
+    const before = store.getState().mnxJson;
+    const catalog = await dispatchMcpTool(store, "score.get_instrument_catalog", { query: "wind.reed.oboe" });
+    expect(catalog.structuredContent).toMatchObject({ instruments: [{ id: "wind.reed.oboe" }] });
+    const unsafe = await dispatchMcpTool(store, "preview.change_instrument", {
+      partId: "keyboard.piano",
+      instrumentId: "drum.snare-drum",
+    });
+    expect(unsafe.structuredContent).toMatchObject({ code: "instrument_change_unsafe" });
+    expect(useMcpSessionStore.getState().proposals).toEqual({});
+
+    const pending = await dispatchMcpTool(store, "preview.change_instrument", {
+      partId: "keyboard.piano",
+      instrumentId: "keyboard.piano",
+    });
+    expect(pending.structuredContent).toMatchObject({
+      status: "pending",
+      instrumentChange: { warning: expect.stringContaining("staff 1") },
+      summary: expect.stringContaining("staff 1"),
+    });
+    expect(store.getState().mnxJson).toBe(before);
+
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    const accepted = await dispatchMcpTool(store, "preview.change_instrument", {
+      partId: "keyboard.piano",
+      instrumentId: "wind.reed.oboe",
+    });
+    expect(accepted.structuredContent).toMatchObject({ status: "accepted" });
+    expect(store.getState().workingScore!.parts[0]!._x?.viritura?.instrumentId).toBe("wind.reed.oboe");
+    expect(store.getState().workingScore!.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+      id: "event-1",
+      notes: [{ id: "note-1" }, { id: "note-2" }, { id: "note-3" }],
     });
   });
 
@@ -713,9 +1120,13 @@ describe("MCP editor tool dispatch", () => {
     store.getState().loadScore(makeTritschScore(), "tritsch.mnx");
     const before = store.getState().mnxJson;
 
-    const result = await dispatchMcpTool(store, "preview.normalize_tritsch_instruments", {});
+    const warning = await dispatchMcpTool(store, "preview.normalize_tritsch_instruments", {});
+    expect(warning.structuredContent).toMatchObject({ code: "rhythm_truncation_requires_confirmation" });
+    const result = await dispatchMcpTool(store, "preview.normalize_tritsch_instruments", {
+      allowRhythmTruncation: true,
+    });
 
-    expect(result.isError).not.toBe(true);
+    expect(result.isError, JSON.stringify(result.structuredContent)).not.toBe(true);
     expect(store.getState().mnxJson).toBe(before);
     const proposal = Object.values(useMcpSessionStore.getState().proposals)[0];
     expect(proposal).toMatchObject({

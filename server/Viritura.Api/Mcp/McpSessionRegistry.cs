@@ -29,6 +29,7 @@ internal sealed class McpSessionRegistry : IDisposable
 {
     private static readonly TimeSpan RegistrationLifetime = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromHours(1);
+    private static readonly TimeSpan ReconnectLifetime = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan ToolTimeout = TimeSpan.FromMinutes(2);
     private const int MaxRegistrations = 512;
     private const int MaxRegistrationsPerUser = 16;
@@ -39,9 +40,11 @@ internal sealed class McpSessionRegistry : IDisposable
     private readonly ConcurrentDictionary<string, Session> _sessions = new(StringComparer.Ordinal);
     private readonly object _capacityLock = new();
     private readonly Timer _sweeper;
+    private readonly TimeProvider _clock;
 
-    public McpSessionRegistry()
+    public McpSessionRegistry(TimeProvider? clock = null)
     {
+        _clock = clock ?? TimeProvider.System;
         _sweeper = new Timer(_ => SweepExpired(), null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(2));
     }
 
@@ -49,7 +52,7 @@ internal sealed class McpSessionRegistry : IDisposable
     {
         lock (_capacityLock)
         {
-            SweepExpiredCore(DateTimeOffset.UtcNow);
+            SweepExpiredCore(_clock.GetUtcNow());
             var userKey = userId ?? DevelopmentUserKey;
             if (_sessions.Count >= MaxRegistrations
                 || _sessions.Values.Count(session => session.UserKey == userKey) >= MaxRegistrationsPerUser)
@@ -66,7 +69,7 @@ internal sealed class McpSessionRegistry : IDisposable
                     id,
                     hostToken,
                     userId,
-                    DateTimeOffset.UtcNow.Add(RegistrationLifetime));
+                    _clock.GetUtcNow().Add(RegistrationLifetime));
                 if (_sessions.TryAdd(id, session))
                 {
                     registration = new McpSessionRegistration(
@@ -80,11 +83,16 @@ internal sealed class McpSessionRegistry : IDisposable
     }
 
     public bool Exists(string sessionId) =>
-        _sessions.TryGetValue(sessionId, out var session) && session.ExpiresAt > DateTimeOffset.UtcNow;
+        _sessions.TryGetValue(sessionId, out var session) && session.ExpiresAt > _clock.GetUtcNow();
+
+    public bool CanResumeHost(string sessionId, string? hostToken) =>
+        _sessions.TryGetValue(sessionId, out var session)
+        && session.ExpiresAt > _clock.GetUtcNow()
+        && FixedTimeEquals(session.HostToken, hostToken);
 
     public bool CanAuthorizeOAuth(string sessionId, string? userId, bool isDevelopment) =>
         _sessions.TryGetValue(sessionId, out var session)
-        && session.ExpiresAt > DateTimeOffset.UtcNow
+        && session.ExpiresAt > _clock.GetUtcNow()
         && (string.Equals(session.UserId, userId, StringComparison.Ordinal)
             || (isDevelopment && session.UserId is null));
 
@@ -100,7 +108,7 @@ internal sealed class McpSessionRegistry : IDisposable
         }
 
         var sessions = _sessions.Values
-            .Where(session => session.ExpiresAt > DateTimeOffset.UtcNow
+            .Where(session => session.ExpiresAt > _clock.GetUtcNow()
                 && session.IsHostConnected
                 && string.Equals(session.UserKey, userKey, StringComparison.Ordinal))
             .OrderByDescending(session => session.HostAttachedAt)
@@ -130,7 +138,7 @@ internal sealed class McpSessionRegistry : IDisposable
         out string sessionId)
     {
         var userKey = UserKey(userId, isDevelopment);
-        if (userKey is not null && IsConnectedSessionForUser(requestedSessionId, userKey))
+        if (userKey is not null && IsOwnedSession(requestedSessionId, userKey))
         {
             sessionId = requestedSessionId;
             return true;
@@ -145,7 +153,7 @@ internal sealed class McpSessionRegistry : IDisposable
         WebSocket socket,
         CancellationToken cancellationToken)
     {
-        if (!_sessions.TryGetValue(sessionId, out var session) || session.ExpiresAt <= DateTimeOffset.UtcNow)
+        if (!_sessions.TryGetValue(sessionId, out var session) || session.ExpiresAt <= _clock.GetUtcNow())
         {
             return false;
         }
@@ -166,20 +174,27 @@ internal sealed class McpSessionRegistry : IDisposable
         {
             var connectedForUser = _sessions.Values.Count(candidate =>
                 candidate.IsHostConnected && candidate.UserKey == session.UserKey);
-            if (connectedForUser >= MaxConnectedSessionsPerUser || !session.TryAttach(socket))
+            if (!_sessions.TryGetValue(sessionId, out var current)
+                || !ReferenceEquals(current, session)
+                || session.ExpiresAt <= _clock.GetUtcNow()
+                || (connectedForUser >= MaxConnectedSessionsPerUser && !session.IsHostConnected))
             {
                 session = null;
+            }
+            else
+            {
+                session.Attach(socket, _clock.GetUtcNow());
             }
         }
         if (session is null)
         {
-            await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "The connected-session limit was reached.", cancellationToken);
+            await socket.CloseAsync(WebSocketCloseStatus.PolicyViolation, "The relay registration is unavailable or the connected-session limit was reached.", cancellationToken);
             return true;
         }
 
-        await session.SendAsync(new { type = "ready" }, cancellationToken);
         try
         {
+            await session.SendAsync(new { type = "ready" }, socket, cancellationToken);
             while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
             {
                 var message = await ReceiveJsonAsync(socket, MaxHostResultBytes, cancellationToken);
@@ -188,8 +203,22 @@ internal sealed class McpSessionRegistry : IDisposable
                     break;
                 }
 
-                session.UpdateMetadata(message.Value);
-                session.HandleHostMessage(message.Value);
+                lock (_capacityLock)
+                {
+                    if (!_sessions.TryGetValue(sessionId, out var current)
+                        || !ReferenceEquals(current, session)
+                        || session.ExpiresAt <= _clock.GetUtcNow()
+                        || !session.Renew(socket, _clock.GetUtcNow()))
+                    {
+                        break;
+                    }
+                    session.UpdateMetadata(message.Value);
+                    session.HandleHostMessage(message.Value);
+                }
+                if (message.Value.TryGetProperty("type", out var messageType) && messageType.GetString() == "heartbeat")
+                {
+                    await session.SendAsync(new { type = "heartbeat_ack" }, socket, cancellationToken);
+                }
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -204,9 +233,16 @@ internal sealed class McpSessionRegistry : IDisposable
         {
             // TestServer and some reverse proxies surface abrupt closes as IO failures.
         }
+        catch (McpRelayException error) when (error.Code == "editor_offline")
+        {
+            // A newer authenticated host replaced this socket before it could send.
+        }
         finally
         {
-            session.Detach(socket);
+            lock (_capacityLock)
+            {
+                session.Detach(socket, _clock.GetUtcNow());
+            }
         }
 
         return true;
@@ -218,9 +254,9 @@ internal sealed class McpSessionRegistry : IDisposable
         JsonElement arguments,
         CancellationToken cancellationToken)
     {
-        if (!_sessions.TryGetValue(sessionId, out var session) || session.ExpiresAt <= DateTimeOffset.UtcNow)
+        if (!_sessions.TryGetValue(sessionId, out var session) || session.ExpiresAt <= _clock.GetUtcNow())
         {
-            throw new McpRelayException("session_not_found", "This MCP session has expired or was disconnected.");
+            throw new McpRelayException("session_not_found", "The editor relay registration expired. Reconnect the editor; OAuth authorization may still be valid.");
         }
 
         if (!McpToolCatalog.Contains(name))
@@ -233,23 +269,26 @@ internal sealed class McpSessionRegistry : IDisposable
 
     public bool Stop(string sessionId, string? hostToken = null)
     {
-        if (!_sessions.TryGetValue(sessionId, out var existing))
+        lock (_capacityLock)
         {
-            return false;
-        }
+            if (!_sessions.TryGetValue(sessionId, out var existing))
+            {
+                return false;
+            }
 
-        if (hostToken is not null && !FixedTimeEquals(existing.HostToken, hostToken))
-        {
-            return false;
-        }
+            if (hostToken is not null && !FixedTimeEquals(existing.HostToken, hostToken))
+            {
+                return false;
+            }
 
-        if (!_sessions.TryRemove(sessionId, out var removed))
-        {
-            return false;
-        }
+            if (!_sessions.TryRemove(sessionId, out var removed))
+            {
+                return false;
+            }
 
-        removed.Dispose();
-        return true;
+            removed.Dispose();
+            return true;
+        }
     }
 
     public async Task NotifyHostAsync(string sessionId, string type, JsonElement? detail, CancellationToken cancellationToken)
@@ -274,7 +313,7 @@ internal sealed class McpSessionRegistry : IDisposable
         }
 
         var sessions = _sessions.Values
-            .Where(session => session.ExpiresAt > DateTimeOffset.UtcNow
+            .Where(session => session.ExpiresAt > _clock.GetUtcNow()
                 && session.IsHostConnected
                 && string.Equals(session.UserKey, userKey, StringComparison.Ordinal))
             .ToArray();
@@ -294,7 +333,7 @@ internal sealed class McpSessionRegistry : IDisposable
     {
         lock (_capacityLock)
         {
-            SweepExpiredCore(DateTimeOffset.UtcNow);
+            SweepExpiredCore(_clock.GetUtcNow());
         }
     }
 
@@ -309,10 +348,9 @@ internal sealed class McpSessionRegistry : IDisposable
         }
     }
 
-    private bool IsConnectedSessionForUser(string sessionId, string userKey) =>
+    private bool IsOwnedSession(string sessionId, string userKey) =>
         _sessions.TryGetValue(sessionId, out var session)
-        && session.ExpiresAt > DateTimeOffset.UtcNow
-        && session.IsHostConnected
+        && session.ExpiresAt > _clock.GetUtcNow()
         && string.Equals(session.UserKey, userKey, StringComparison.Ordinal);
 
     private static string? UserKey(string? userId, bool isDevelopment) =>
@@ -380,9 +418,13 @@ internal sealed class McpSessionRegistry : IDisposable
     {
         private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonElement>> _pending = new();
         private readonly SemaphoreSlim _sendLock = new(1, 1);
+        private readonly object _hostLock = new();
         private WebSocket? _host;
         private long _hostAttachedAt;
+        private long _expiresAtTicks;
         private int _activeToolCalls;
+        private int _senders;
+        private bool _disposed;
         private SessionMetadata _metadata = new(null, null, null, false);
 
         internal Session(
@@ -394,34 +436,61 @@ internal sealed class McpSessionRegistry : IDisposable
             Id = id;
             HostToken = hostToken;
             UserId = userId;
-            ExpiresAt = expiresAt;
+            _expiresAtTicks = expiresAt.UtcTicks;
         }
 
         internal string Id { get; }
         internal string HostToken { get; }
         internal string? UserId { get; }
         internal string UserKey => UserId ?? DevelopmentUserKey;
-        internal DateTimeOffset ExpiresAt { get; private set; }
+        internal DateTimeOffset ExpiresAt => new(Interlocked.Read(ref _expiresAtTicks), TimeSpan.Zero);
         internal bool IsHostConnected => Volatile.Read(ref _host)?.State == WebSocketState.Open;
         internal long HostAttachedAt => Interlocked.Read(ref _hostAttachedAt);
         internal SessionMetadata Metadata => Volatile.Read(ref _metadata);
 
-        internal bool TryAttach(WebSocket socket)
+        internal void Attach(WebSocket socket, DateTimeOffset now)
         {
-            if (Interlocked.CompareExchange(ref _host, socket, null) is not null)
+            WebSocket? previous;
+            lock (_hostLock)
+            {
+                previous = _host;
+                if (previous is not null)
+                {
+                    FailPending("editor_offline", "The editor relay reconnected; retry interrupted calls with the same requestId when one was supplied.");
+                }
+                Volatile.Write(ref _host, socket);
+                Interlocked.Exchange(ref _hostAttachedAt, now.UtcTicks);
+                Interlocked.Exchange(ref _expiresAtTicks, now.Add(SessionLifetime).UtcTicks);
+            }
+            previous?.Abort();
+        }
+
+        internal bool Renew(WebSocket socket, DateTimeOffset now)
+        {
+            if (!ReferenceEquals(Volatile.Read(ref _host), socket))
             {
                 return false;
             }
 
-            Interlocked.Exchange(ref _hostAttachedAt, DateTimeOffset.UtcNow.UtcTicks);
-            ExpiresAt = DateTimeOffset.UtcNow.Add(SessionLifetime);
+            Interlocked.Exchange(ref _expiresAtTicks, now.Add(SessionLifetime).UtcTicks);
             return true;
         }
 
-        internal void Detach(WebSocket socket)
+        internal void Detach(WebSocket socket, DateTimeOffset now)
         {
-            Interlocked.CompareExchange(ref _host, null, socket);
-            FailPending("editor_offline", "The Viritura editor tab disconnected.");
+            lock (_hostLock)
+            {
+                if (!ReferenceEquals(_host, socket))
+                {
+                    return;
+                }
+                Volatile.Write(ref _host, null);
+                if (ExpiresAt > now)
+                {
+                    Interlocked.Exchange(ref _expiresAtTicks, now.Add(ReconnectLifetime).UtcTicks);
+                }
+                FailPending("editor_offline", "The Viritura editor tab disconnected; its relay may reconnect without OAuth.");
+            }
         }
 
         internal void UpdateMetadata(JsonElement message)
@@ -449,36 +518,45 @@ internal sealed class McpSessionRegistry : IDisposable
             TimeSpan timeout,
             CancellationToken cancellationToken)
         {
-            if (!IsHostConnected)
-            {
-                throw new McpRelayException("editor_offline", "The Viritura editor tab is not connected.");
-            }
-            if (Interlocked.Increment(ref _activeToolCalls) > MaxConcurrentToolsPerSession)
-            {
-                Interlocked.Decrement(ref _activeToolCalls);
-                throw new McpRelayException("session_busy", "This Viritura session already has too many tool calls in progress.");
-            }
-
             var requestId = Guid.NewGuid().ToString("N");
             var completion = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
-            if (!_pending.TryAdd(requestId, completion))
+            WebSocket socket;
+            lock (_hostLock)
             {
-                Interlocked.Decrement(ref _activeToolCalls);
-                throw new McpRelayException("relay_error", "Unable to allocate a tool request.");
+                if (_host?.State != WebSocketState.Open)
+                {
+                    throw new McpRelayException("editor_offline", "The Viritura editor tab is not connected.");
+                }
+                socket = _host;
+                if (Interlocked.Increment(ref _activeToolCalls) > MaxConcurrentToolsPerSession)
+                {
+                    Interlocked.Decrement(ref _activeToolCalls);
+                    throw new McpRelayException("session_busy", "This Viritura session already has too many tool calls in progress.");
+                }
+                if (!_pending.TryAdd(requestId, completion))
+                {
+                    Interlocked.Decrement(ref _activeToolCalls);
+                    throw new McpRelayException("relay_error", "Unable to allocate a tool request.");
+                }
             }
 
             try
             {
-                await SendAsync(new { type = "tool_call", requestId, name, arguments }, cancellationToken);
+                await SendAsync(new { type = "tool_call", requestId, name, arguments }, socket, cancellationToken);
                 return await completion.Task.WaitAsync(timeout, cancellationToken);
             }
             catch (TimeoutException)
             {
                 throw new McpRelayException("tool_timeout", "The editor did not complete the tool call in time.");
             }
+            catch (Exception error) when (error is WebSocketException or IOException or ObjectDisposedException)
+            {
+                throw new McpRelayException("editor_offline", "The editor connection closed while forwarding the tool call.");
+            }
             finally
             {
                 _pending.TryRemove(requestId, out _);
+                if (completion.Task.IsFaulted) _ = completion.Task.Exception;
                 Interlocked.Decrement(ref _activeToolCalls);
             }
         }
@@ -503,40 +581,72 @@ internal sealed class McpSessionRegistry : IDisposable
             completion.TrySetResult(result.Clone());
         }
 
-        internal async Task SendAsync(object value, CancellationToken cancellationToken)
+        internal Task SendAsync(object value, CancellationToken cancellationToken) =>
+            SendAsync(value, Volatile.Read(ref _host), cancellationToken);
+
+        internal async Task SendAsync(object value, WebSocket? socket, CancellationToken cancellationToken)
         {
-            var socket = Volatile.Read(ref _host);
             if (socket?.State != WebSocketState.Open)
             {
                 throw new McpRelayException("editor_offline", "The Viritura editor tab is not connected.");
             }
 
             var bytes = JsonSerializer.SerializeToUtf8Bytes(value);
-            await _sendLock.WaitAsync(cancellationToken);
+            lock (_hostLock)
+            {
+                if (_disposed || !ReferenceEquals(_host, socket))
+                {
+                    throw new McpRelayException("editor_offline", "The Viritura editor tab is not connected.");
+                }
+                _senders++;
+            }
             try
             {
-                await socket.SendAsync(bytes, WebSocketMessageType.Text, true, cancellationToken);
+                await _sendLock.WaitAsync(cancellationToken);
+                try
+                {
+                    Task send;
+                    lock (_hostLock)
+                    {
+                        if (!ReferenceEquals(_host, socket) || socket.State != WebSocketState.Open)
+                        {
+                            throw new McpRelayException("editor_offline", "The Viritura editor tab is not connected.");
+                        }
+                        send = socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken);
+                    }
+                    await send;
+                }
+                finally
+                {
+                    _sendLock.Release();
+                }
             }
             finally
             {
-                _sendLock.Release();
-            }
-        }
-
-        internal void Stop()
-        {
-            FailPending("session_stopped", "The MCP session was stopped.");
-            var socket = Interlocked.Exchange(ref _host, null);
-            if (socket?.State == WebSocketState.Open)
-            {
-                _ = socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Session stopped.", CancellationToken.None);
+                lock (_hostLock)
+                {
+                    _senders--;
+                    if (_disposed && _senders == 0) _sendLock.Dispose();
+                }
             }
         }
 
         public void Dispose()
         {
-            Stop();
-            _sendLock.Dispose();
+            WebSocket? socket;
+            lock (_hostLock)
+            {
+                if (_disposed) return;
+                _disposed = true;
+                socket = _host;
+                Volatile.Write(ref _host, null);
+                FailPending("session_stopped", "The MCP session was stopped.");
+                if (_senders == 0) _sendLock.Dispose();
+            }
+            if (socket?.State == WebSocketState.Open)
+            {
+                _ = socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Session stopped.", CancellationToken.None);
+            }
         }
 
         private void FailPending(string code, string message)

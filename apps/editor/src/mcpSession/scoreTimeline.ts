@@ -9,13 +9,15 @@
  * expose `buildTempoModel`. Payload size is bounded by a global-measure range.
  */
 
-import type { Score } from "@viritura/core";
-import { expandMeasureOrder, generateTimeline } from "@viritura/midi";
+import { plainTextContent, type Score } from "@viritura/core";
+import { generateTimeline } from "@viritura/midi";
+import { measureReference, resolveMeasureRange, type MeasureReference } from "./measureReferences";
+import { pagination } from "./queryFilters";
 
 /** Largest measure window a single `get_timeline` call may return. */
 const MAX_TIMELINE_MEASURES = 512;
 
-interface TimelineMeasureEntry {
+interface TimelineMeasureEntry extends MeasureReference {
   /** 1-based global measure number. */
   measure: number;
   /** 0-based play-through ordinal; > 0 for a repeated measure. */
@@ -38,18 +40,12 @@ interface TimelineTempoChange {
 }
 
 export function getScoreTimeline(score: Score, args: unknown): Record<string, unknown> {
-  const globalCount = score.global.measures.length;
-  if (globalCount === 0) throw new Error("The score has no measures.");
   const input = isObject(args) ? args : {};
-  const startMeasure = readMeasureNumber(input.startMeasure, 1, globalCount);
-  const endMeasure = readMeasureNumber(input.endMeasure, globalCount, globalCount);
-  if (endMeasure < startMeasure) throw new Error("endMeasure must be greater than or equal to startMeasure.");
-  if (endMeasure - startMeasure + 1 > MAX_TIMELINE_MEASURES) {
-    throw new Error(`A get_timeline call may span at most ${MAX_TIMELINE_MEASURES} measures.`);
-  }
+  const globalCount = score.global.measures.length;
+  const { startMeasure, endMeasure } = resolveMeasureRange(score, input, globalCount, MAX_TIMELINE_MEASURES);
 
   const timeline = generateTimeline(score);
-  const measureOrder = expandMeasureOrder(score.global.measures);
+  const measureOrder = timeline.expandedMeasureToOriginal;
   const playthroughByGlobal = new Map<number, number>();
   const inRange = (globalIdx: number): boolean => globalIdx + 1 >= startMeasure && globalIdx + 1 <= endMeasure;
 
@@ -64,6 +60,7 @@ export function getScoreTimeline(score: Score, args: unknown): Record<string, un
       i + 1 < timeline.measureStartTimes.length ? timeline.measureStartTimes[i + 1]! : timeline.duration;
     measures.push({
       measure: globalIdx + 1,
+      ...measureReference(score, globalIdx),
       playthrough,
       startSeconds,
       endSeconds,
@@ -100,6 +97,85 @@ export function getScoreVideoSync(score: Score): Record<string, unknown> {
   return { videoSync: score.videoSync ?? null };
 }
 
+interface Section {
+  name: string | null;
+  startMeasure: number;
+  endMeasure: number;
+}
+
+export function getSectionTimings(score: Score, args: unknown): Record<string, unknown> {
+  const input = isObject(args) ? args : {};
+  if (score.global.measures.length === 0) throw new Error("The score has no measures.");
+  const sections = readSections(score, input.sections);
+  const { offset, limit } = pagination(input.offset, input.limit, 100);
+  const timeline = generateTimeline(score);
+  return {
+    totalDurationSeconds: timeline.duration,
+    totalSections: sections.length,
+    offset,
+    nextOffset: offset + limit < sections.length ? offset + limit : null,
+    sections: sections.slice(offset, offset + limit).map((section) => {
+      const occurrences: { startSeconds: number; endSeconds: number }[] = [];
+      let previous = -2;
+      timeline.expandedMeasureToOriginal.forEach((index, expandedIndex) => {
+        const inRange = index + 1 >= section.startMeasure && index + 1 <= section.endMeasure;
+        if (!inRange) {
+          previous = -2;
+          return;
+        }
+        const startSeconds = timeline.measureStartTimes[expandedIndex]!;
+        const endSeconds = timeline.measureStartTimes[expandedIndex + 1] ?? timeline.duration;
+        const last = occurrences.at(-1);
+        if (last && index === previous + 1) last.endSeconds = endSeconds;
+        else occurrences.push({ startSeconds, endSeconds });
+        previous = index;
+      });
+      return {
+        name: section.name,
+        start: measureReference(score, section.startMeasure - 1),
+        end: measureReference(score, section.endMeasure - 1),
+        performedDurationSeconds: occurrences.reduce((total, span) => total + span.endSeconds - span.startSeconds, 0),
+        occurrenceCount: occurrences.length,
+        occurrences: occurrences.slice(0, 32),
+        occurrencesTruncated: occurrences.length > 32,
+      };
+    }),
+  };
+}
+
+function readSections(score: Score, value: unknown): Section[] {
+  if (value === undefined) {
+    const starts = score.global.measures.flatMap((measure, index) =>
+      index === 0 || measure.rehearsalMark
+        ? [{ index, name: measure.rehearsalMark ? plainTextContent(measure.rehearsalMark.text) : null }]
+        : [],
+    );
+    return starts.map((start, index) => ({
+      name: start.name,
+      startMeasure: start.index + 1,
+      endMeasure: starts[index + 1]?.index ?? score.global.measures.length,
+    }));
+  }
+  if (!Array.isArray(value) || value.length === 0 || value.length > 100) {
+    throw new Error("sections must contain 1 to 100 measure ranges.");
+  }
+  return value.map((section: unknown) => {
+    if (!isObject(section)) throw new Error("Each section must be an object.");
+    if (section.name !== undefined && typeof section.name !== "string")
+      throw new Error("Section name must be a string.");
+    if (
+      (section.startMeasure === undefined && section.startMeasureId === undefined) ||
+      (section.endMeasure === undefined && section.endMeasureId === undefined)
+    ) {
+      throw new Error("Each section requires start and end measure boundaries.");
+    }
+    return {
+      name: typeof section.name === "string" ? section.name : null,
+      ...resolveMeasureRange(score, section, score.global.measures.length),
+    };
+  });
+}
+
 /** Count how many earlier expanded slots map to the same global measure. */
 function playthroughForExpanded(measureOrder: readonly number[], expandedIdx: number): number {
   const globalIdx = measureOrder[expandedIdx];
@@ -108,14 +184,6 @@ function playthroughForExpanded(measureOrder: readonly number[], expandedIdx: nu
     if (measureOrder[i] === globalIdx) count++;
   }
   return count;
-}
-
-function readMeasureNumber(value: unknown, fallback: number, maximum: number): number {
-  if (value === undefined) return fallback;
-  if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > maximum) {
-    throw new Error(`Measure numbers must be integers from 1 to ${maximum}.`);
-  }
-  return value as number;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

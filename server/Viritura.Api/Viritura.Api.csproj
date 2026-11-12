@@ -6,6 +6,7 @@
     <UserSecretsId>44e93cab-cc78-4aea-947f-fbfb001aee30</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Mcp\score-patches.schema.json" />
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>Viritura.Api.Tests</_Parameter1>
     </AssemblyAttribute>

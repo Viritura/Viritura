@@ -114,6 +114,21 @@ describe("structural patches — insert / remove measures", () => {
 });
 
 describe("structural patches — part measures and sequences", () => {
+  it("adds and replaces expressions without changing siblings", () => {
+    const score = makeScore();
+    const path = { partId: "p1", measureIndex: 0 };
+    const first = { position: { fraction: [0, 1] as [number, number] }, text: [{ text: "dolce" }] };
+    const second = { position: { fraction: [1, 4] as [number, number] }, text: [{ text: "pizz." }] };
+    const replacement = { ...first, text: [{ text: "espressivo" }] };
+    const additions = [patch.addMeasureExpression(path, first), patch.addMeasureExpression(path, second, 0)];
+    const next = applyPatchesToScore(score, [...additions, patch.setMeasureExpression(path, 1, replacement)]);
+    expect(next.parts[0]!.measures[0]!.expressions).toEqual([second, replacement]);
+    expect(score.parts[0]!.measures[0]!.expressions).toBeUndefined();
+    expect(patchAffectedMeasures(additions)).toEqual({ start: 0, end: 0 });
+    expect(() => applyPatchesToScore(next, [patch.addMeasureExpression(path, first, 3)])).toThrow(PatchTargetMissing);
+    expect(() => applyPatchesToScore(next, [patch.setMeasureExpression(path, -1, first)])).toThrow(PatchTargetMissing);
+  });
+
   it("removes only the selected expression and clears the array after the final removal", () => {
     const score = makeScore();
     const measure = score.parts[0]!.measures[0]!;

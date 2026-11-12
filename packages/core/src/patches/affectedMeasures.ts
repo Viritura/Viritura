@@ -35,6 +35,7 @@ export function patchAffectedMeasures(patches: readonly ScorePatch[]): { start: 
  * structural (insert/remove measures, add/remove part, score-level edits) and
  * therefore can't be expressed as a bounded measure range.
  */
+// eslint-disable-next-line complexity -- Each variant of the closed patch union has an explicit measure mapping.
 function patchMeasureIndex(p: ScorePatch): number | null {
   switch (p.kind) {
     case "setNotePitch":
@@ -53,6 +54,8 @@ function patchMeasureIndex(p: ScorePatch): number | null {
     case "setEventMarking":
       return p.locator.sequencePath.measureIndex;
     case "setMeasureDynamicGroup":
+    case "addMeasureExpression":
+    case "setMeasureExpression":
     case "removeMeasureExpression":
     case "setMeasureArpeggio":
     case "setPartMeasureField":

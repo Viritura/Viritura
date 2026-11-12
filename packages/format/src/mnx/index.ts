@@ -7,6 +7,7 @@
  */
 
 export { parseMnx, parseMnxUnvalidated, parseMnxWithDiagnostics } from "./parser";
+export { parseRawSequenceContent } from "./parseContent";
 export type { ParseMnxOptions, ParseMnxResult } from "./parser";
 export { promote, promoteUnknown, promoteWithDiagnostics } from "./promote";
 export type { RawScore, PromoteOptions, PromoteResult } from "./promote";

@@ -169,14 +169,19 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Contains("editor.get_selected_music", names);
         Assert.Contains("score.analyze_chords", names);
         Assert.Contains("score.get_timeline", names);
+        Assert.Contains("score.get_section_timings", names);
+        Assert.Contains("score.search_annotations", names);
+        Assert.Contains("score.get_notes", names);
         Assert.Contains("score.validate", names);
         Assert.Contains("score.get_video_sync", names);
         Assert.Contains("score.get_instruments", names);
+        Assert.Contains("score.get_instrument_catalog", names);
         Assert.Contains("preview.propose_patches", names);
         Assert.Contains("preview.propose_mnx", names);
         Assert.Contains("preview.split_orchestral_staves", names);
         Assert.Contains("preview.normalize_tritsch_instruments", names);
         Assert.Contains("preview.propose_chord_notes", names);
+        Assert.Contains("preview.change_instrument", names);
         Assert.Contains("editor.list_sessions", names);
         foreach (var tool in tools.GetProperty("result").GetProperty("tools").EnumerateArray())
         {
@@ -189,6 +194,18 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
                 var properties = tool.GetProperty("inputSchema").GetProperty("properties");
                 Assert.True(properties.TryGetProperty("batchId", out _));
                 Assert.True(properties.TryGetProperty("final", out _));
+            }
+            if (tool.GetProperty("name").GetString() is "score.validate" or "preview.propose_patches")
+            {
+                var schema = tool.GetProperty("inputSchema");
+                var variants = schema.GetProperty("properties").GetProperty("patches")
+                    .GetProperty("items").GetProperty("anyOf").EnumerateArray().ToArray();
+                var definitions = schema.GetProperty("definitions");
+                Assert.True(variants.Length >= 24);
+                Assert.Equal("setNotePitch", definitions.GetProperty("SetNotePitchPatch")
+                    .GetProperty("properties").GetProperty("kind").GetProperty("const").GetString());
+                Assert.True(definitions.TryGetProperty("AddMeasureExpressionPatch", out _));
+                Assert.True(definitions.TryGetProperty("mnx_sequence-content", out _));
             }
         }
 
@@ -208,6 +225,11 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
     [InlineData("score.validate", "score:read")]
     [InlineData("score.get_video_sync", "score:read")]
     [InlineData("score.get_instruments", "score:read")]
+    [InlineData("score.get_instrument_catalog", "score:read")]
+    [InlineData("score.get_section_timings", "score:read")]
+    [InlineData("score.search_annotations", "score:read")]
+    [InlineData("score.get_notes", "score:read")]
+    [InlineData("preview.change_instrument", "score:propose")]
     [InlineData("preview.propose_mnx", "score:propose")]
     [InlineData("preview.split_orchestral_staves", "score:propose")]
     [InlineData("preview.normalize_tritsch_instruments", "score:propose")]
@@ -699,6 +721,14 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
         var unauthorized = await client.DeleteAsync($"/mcp/sessions/{sessionId}/host");
         Assert.Equal(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
 
+        var hidden = await client.GetAsync($"/mcp/sessions/{sessionId}/host/status");
+        Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+        using var status = new HttpRequestMessage(HttpMethod.Get, $"/mcp/sessions/{sessionId}/host/status");
+        status.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+            "Bearer",
+            registration.GetProperty("hostToken").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, (await client.SendAsync(status)).StatusCode);
+
         using var request = new HttpRequestMessage(HttpMethod.Delete, $"/mcp/sessions/{sessionId}/host");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
             "Bearer",
@@ -731,7 +761,18 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
             grant.AccessToken,
             new { jsonrpc = "2.0", id = 1, method = "ping" });
         var revoked = await client.SendAsync(afterStop);
-        Assert.Equal(HttpStatusCode.Unauthorized, revoked.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, revoked.StatusCode);
+        var body = await revoked.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("session_not_found", body.GetProperty("error").GetProperty("data").GetProperty("code").GetString());
+        Assert.False(revoked.Headers.Contains("WWW-Authenticate"));
+
+        using var anonymous = CreateAuthorizedRequest(
+            endpoint,
+            grant.AccessToken,
+            new { jsonrpc = "2.0", id = 1, method = "ping" });
+        anonymous.Headers.Authorization = null;
+        var unauthorizedAfterStop = await client.SendAsync(anonymous);
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthorizedAfterStop.StatusCode);
     }
 
     private HttpClient CreateClient() =>
@@ -923,7 +964,7 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
         var result = await socket.ReceiveAsync(buffer, cancellationToken);
         Assert.Equal(WebSocketMessageType.Text, result.MessageType);
         Assert.True(result.EndOfMessage);
-        return JsonDocument.Parse(Encoding.UTF8.GetString(buffer, 0, result.Count)).RootElement.Clone();
+        return JsonElement.Parse(Encoding.UTF8.GetString(buffer, 0, result.Count));
     }
 
     private static async Task<JsonElement> ReceiveSocketMessageOfTypeAsync(

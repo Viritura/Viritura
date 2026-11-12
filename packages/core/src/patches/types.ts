@@ -41,6 +41,7 @@ import type {
   RepeatStart,
   RhythmicPosition,
   Tempo,
+  TextExpression,
   PositionedStaffConfig,
 } from "../model/measure";
 import type { PositionedClef } from "../model/clef";
@@ -208,6 +209,22 @@ export interface SetMeasureDynamicGroupPatch {
   groupId: string;
   /** Complete replacement group, or `undefined` to remove the group. */
   value: DynamicGroup | undefined;
+}
+
+/** Add a staff text expression, optionally at a zero-based array index. */
+export interface AddMeasureExpressionPatch {
+  kind: "addMeasureExpression";
+  measurePath: MeasurePath;
+  value: TextExpression;
+  expressionIndex?: number;
+}
+
+/** Replace one staff text expression without changing its siblings. */
+export interface SetMeasureExpressionPatch {
+  kind: "setMeasureExpression";
+  measurePath: MeasurePath;
+  expressionIndex: number;
+  value: TextExpression;
 }
 
 /** Remove one staff text expression without replacing its measure or siblings. */
@@ -452,6 +469,8 @@ export type ScorePatch =
   | SetEventFieldPatch
   | SetEventMarkingPatch
   | SetMeasureDynamicGroupPatch
+  | AddMeasureExpressionPatch
+  | SetMeasureExpressionPatch
   | RemoveMeasureExpressionPatch
   | SetMeasureArpeggioPatch
   | SpliceSequenceContentPatch

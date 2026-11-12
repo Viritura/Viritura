@@ -9,13 +9,19 @@
  */
 
 import type { Part, Pitch, Score } from "@viritura/core";
-import { pitchToMidi } from "@viritura/core";
-import { getCatalogInstrument, type CatalogInstrument } from "../score/InstrumentCatalog";
+import { pitchToMidi, walkSequenceEvents } from "@viritura/core";
+import { getCatalogInstrument, INSTRUMENT_CATALOG, type CatalogInstrument } from "../score/InstrumentCatalog";
+import { measureReference, type MeasureReference } from "./measureReferences";
+import { pagination, selectParts } from "./queryFilters";
 
-interface PitchWalkNode {
-  readonly type?: string;
-  readonly notes?: readonly { readonly pitch?: Pitch }[];
-  readonly content?: readonly PitchWalkNode[];
+interface RangeViolation extends MeasureReference {
+  voice: number;
+  eventId: string | null;
+  eventPath: number[];
+  noteId: string | null;
+  pitch: Pitch;
+  soundingMidi: number;
+  direction: "below" | "above";
 }
 
 interface InstrumentReport {
@@ -36,26 +42,55 @@ interface InstrumentReport {
   belowRange: number;
   aboveRange: number;
   outOfRange: boolean;
+  violations: RangeViolation[];
+  violationsTruncated: boolean;
+  violationOffset: number;
+  nextViolationOffset: number | null;
 }
 
-export function getScoreInstruments(score: Score): Record<string, unknown> {
-  const instruments = score.parts.map((part, index) => describePart(part, index));
+export function getScoreInstruments(score: Score, args: unknown) {
+  const input = isObject(args) ? args : {};
+  const { offset, limit } = pagination(input.violationOffset, input.violationLimit, 100);
+  const instruments = selectParts(score, input.partIds).map((part) =>
+    describePart(score, part, score.parts.indexOf(part), offset, limit),
+  );
   return {
     instruments,
     outOfRangeCount: instruments.filter((i) => i.outOfRange).length,
   };
 }
 
-function describePart(part: Part, index: number): InstrumentReport {
+export function searchInstrumentCatalog(args: unknown): Record<string, unknown> {
+  const input = isObject(args) ? args : {};
+  if (input.query !== undefined && typeof input.query !== "string") throw new Error("query must be a string.");
+  const query = typeof input.query === "string" ? input.query.toLowerCase() : "";
+  const { offset, limit } = pagination(input.offset, input.limit, 100);
+  const matches = INSTRUMENT_CATALOG.filter((item) =>
+    `${item.id} ${item.name} ${item.family}`.toLowerCase().includes(query),
+  );
+  return {
+    offset,
+    total: matches.length,
+    nextOffset: offset + limit < matches.length ? offset + limit : null,
+    instruments: matches.slice(offset, offset + limit).map((item) => ({
+      id: item.id,
+      name: item.name,
+      family: item.family,
+      staves: item.staves,
+      transpositionHalfSteps: item.transposition?.halfSteps ?? 0,
+      catalogRange: { low: item.rangeLow, high: item.rangeHigh },
+    })),
+  };
+}
+
+function describePart(score: Score, part: Part, index: number, offset: number, limit: number): InstrumentReport {
   const instrumentId = part._x?.viritura?.instrumentId ?? null;
   const catalog = instrumentId ? (getCatalogInstrument(instrumentId) ?? null) : null;
   const transpositionHalfSteps = part.transposition?.interval.halfSteps ?? 0;
 
-  const soundingMidis = collectPartSoundingMidis(part, transpositionHalfSteps);
-  const soundingRange =
-    soundingMidis.length > 0 ? { low: Math.min(...soundingMidis), high: Math.max(...soundingMidis) } : null;
   const catalogRange = catalog ? { low: catalog.rangeLow, high: catalog.rangeHigh } : null;
-  const { belowRange, aboveRange } = countOutOfRange(soundingMidis, catalogRange);
+  const notes = collectPartNotes(score, part, catalogRange, offset, limit);
+  const total = notes.belowRange + notes.aboveRange;
 
   return {
     partId: part.id ?? null,
@@ -67,36 +102,68 @@ function describePart(part: Part, index: number): InstrumentReport {
     transpositionHalfSteps,
     catalogRange,
     clefs: catalogClefs(catalog),
-    soundingRange,
-    noteCount: soundingMidis.length,
-    belowRange,
-    aboveRange,
-    outOfRange: belowRange > 0 || aboveRange > 0,
+    ...notes,
+    outOfRange: notes.belowRange > 0 || notes.aboveRange > 0,
+    violationOffset: offset,
+    violationsTruncated: offset > 0 || total > offset + notes.violations.length,
+    nextViolationOffset: total > offset + notes.violations.length ? offset + notes.violations.length : null,
   };
 }
 
-function collectPartSoundingMidis(part: Part, transpositionHalfSteps: number): number[] {
-  const soundingMidis: number[] = [];
-  for (const measure of part.measures) {
-    for (const seq of measure.sequences) {
-      collectSoundingMidis(seq.content, transpositionHalfSteps, soundingMidis);
+function collectPartNotes(
+  score: Score,
+  part: Part,
+  catalogRange: { low: number; high: number } | null,
+  offset: number,
+  limit: number,
+): Pick<InstrumentReport, "soundingRange" | "noteCount" | "belowRange" | "aboveRange" | "violations"> {
+  const result: Pick<InstrumentReport, "soundingRange" | "noteCount" | "belowRange" | "aboveRange" | "violations"> = {
+    soundingRange: null,
+    noteCount: 0,
+    belowRange: 0,
+    aboveRange: 0,
+    violations: [],
+  };
+  for (const [measureIndex, measure] of part.measures.entries()) {
+    for (const [voice, sequence] of measure.sequences.entries()) {
+      for (const { event, path } of walkSequenceEvents(sequence.content)) {
+        for (const note of event.notes ?? []) {
+          const soundingMidi = pitchToMidi(note.pitch);
+          result.noteCount++;
+          if (result.soundingRange) {
+            result.soundingRange.low = Math.min(result.soundingRange.low, soundingMidi);
+            result.soundingRange.high = Math.max(result.soundingRange.high, soundingMidi);
+          } else {
+            result.soundingRange = { low: soundingMidi, high: soundingMidi };
+          }
+          const direction = catalogRange
+            ? soundingMidi < catalogRange.low
+              ? "below"
+              : soundingMidi > catalogRange.high
+                ? "above"
+                : null
+            : null;
+          if (!direction) continue;
+          if (direction === "below") result.belowRange++;
+          else result.aboveRange++;
+          const violationIndex = result.belowRange + result.aboveRange - 1;
+          if (violationIndex >= offset && result.violations.length < limit) {
+            result.violations.push({
+              ...measureReference(score, measureIndex),
+              voice,
+              eventId: event.id ?? null,
+              eventPath: path,
+              noteId: note.id ?? null,
+              pitch: note.pitch,
+              soundingMidi,
+              direction,
+            });
+          }
+        }
+      }
     }
   }
-  return soundingMidis;
-}
-
-function countOutOfRange(
-  soundingMidis: readonly number[],
-  catalogRange: { low: number; high: number } | null,
-): { belowRange: number; aboveRange: number } {
-  if (!catalogRange) return { belowRange: 0, aboveRange: 0 };
-  let belowRange = 0;
-  let aboveRange = 0;
-  for (const midi of soundingMidis) {
-    if (midi < catalogRange.low) belowRange++;
-    else if (midi > catalogRange.high) aboveRange++;
-  }
-  return { belowRange, aboveRange };
+  return result;
 }
 
 function catalogClefs(catalog: CatalogInstrument | null): { sign: string; staffPosition: number }[] {
@@ -104,14 +171,6 @@ function catalogClefs(catalog: CatalogInstrument | null): { sign: string; staffP
   return Object.values(catalog.clefs).map((clef) => ({ sign: clef.sign, staffPosition: clef.staffPosition }));
 }
 
-/** Recursively collect sounding MIDI numbers (written pitch minus transposition). */
-function collectSoundingMidis(content: readonly PitchWalkNode[], transpositionHalfSteps: number, out: number[]): void {
-  for (const node of content) {
-    if (node.notes) {
-      for (const note of node.notes) {
-        if (note.pitch) out.push(pitchToMidi(note.pitch) - transpositionHalfSteps);
-      }
-    }
-    if (node.content) collectSoundingMidis(node.content, transpositionHalfSteps, out);
-  }
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }

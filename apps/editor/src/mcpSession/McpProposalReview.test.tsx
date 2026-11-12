@@ -29,6 +29,7 @@ function stage(mode: "diff" | "patch" | "document") {
     id: "proposal-1",
     summary: "Test change",
     originalMnx: documentStore.getState().mnxJson,
+    originalRevision: documentStore.getState().scoreRevision,
     proposedMnx: mode === "diff" ? PROPOSED : null,
     patches: [],
     status: "pending",
@@ -77,7 +78,7 @@ describe.each(["diff", "patch", "document"] as const)("%s MCP proposal review", 
   it("refuses stale proposals without committing", async () => {
     const user = userEvent.setup();
     stage(mode);
-    documentStore.setState({ mnxJson: PROPOSED });
+    documentStore.getState().commitDocument(PROPOSED);
     const commit = vi.spyOn(documentStore.getState(), mode === "document" ? "commitDocument" : "commitPatches");
     render(<McpProposalReview />);
 

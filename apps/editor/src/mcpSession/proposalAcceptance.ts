@@ -3,11 +3,13 @@ import { useMcpSessionStore, type McpProposal } from "./sessionStore";
 
 export function acceptMcpProposal(documentStore: DocumentStore, proposal: McpProposal): void {
   try {
-    if (documentStore.getState().mnxJson !== proposal.originalMnx) {
+    if (documentStore.getState().scoreRevision !== proposal.originalRevision) {
       throw new Error("The score changed after this proposal was created. Ask the MCP client to propose it again.");
     }
     if (proposal.document) {
       documentStore.getState().commitDocument(proposal.document.proposedMnx);
+    } else if (proposal.repairMnx) {
+      documentStore.getState().commitDocument(proposal.repairMnx);
     } else {
       documentStore.getState().commitPatches(structuredClone(proposal.patches));
     }

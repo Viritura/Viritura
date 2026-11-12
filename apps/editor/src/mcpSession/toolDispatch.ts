@@ -1,4 +1,4 @@
-import { applyPatchesToScore, walkSequenceEvents, type Pitch, type ScorePatch } from "@viritura/core";
+import { walkSequenceEvents, type Pitch, type ScorePatch } from "@viritura/core";
 import { parseMnx, serializeMnx } from "@viritura/format";
 import { toast } from "sonner";
 import { generateNoteId } from "../commands/noteCommands";
@@ -7,19 +7,25 @@ import { useSelectionStore } from "../store/selectionStore";
 import { analyzeChords } from "./chordAnalysis";
 import { diffDocuments } from "./documentSummary";
 import { validateScoreInput } from "./dryRunValidate";
-import { getScoreInstruments } from "./instrumentRanges";
+import { getScoreInstruments, searchInstrumentCatalog } from "./instrumentRanges";
+import { analyzeInstrumentChange, changeInstrumentInScore } from "../score/changeInstrument";
 import { splitOrchestralParts } from "../orchestralStaffSplit";
 import { normalizeTritschInstrumentIdentities } from "../instrumentIdentityNormalization";
 import { normalizeWindPlayerVoices } from "../windVoiceNormalization";
 import { getMeasureSlice, getSelectionContext } from "./scoreQueries";
-import { getScoreTimeline, getScoreVideoSync } from "./scoreTimeline";
+import { getScoreTimeline, getScoreVideoSync, getSectionTimings } from "./scoreTimeline";
+import { searchAnnotations } from "./annotationSearch";
+import { getNoteTable } from "./noteTable";
 import { useMcpSessionStore, type McpProposal } from "./sessionStore";
 import { acceptMcpProposal } from "./proposalAcceptance";
-import { appendPatchBatch, discardPatchBatch } from "./patchBatches";
+import { appendPatchBatch, discardPatchBatch, getPatchBatch } from "./patchBatches";
+import { readScorePatches } from "./scorePatches";
+import { previewPatches, previewRepairs } from "./patchPreview";
+import { executeIdempotentRequest } from "./idempotentRequests";
 
 const MAX_WHOLE_DOCUMENT_PREVIEW_BYTES = 512 * 1024;
 
-interface McpToolResult {
+export interface McpToolResult {
   readonly content: readonly { readonly type: "text"; readonly text: string }[];
   readonly structuredContent?: object;
   readonly isError?: boolean;
@@ -30,47 +36,118 @@ export async function dispatchMcpTool(
   name: string,
   args: unknown,
 ): Promise<McpToolResult> {
-  try {
-    switch (name) {
-      case "score.overview":
-        return readScoreOverview(documentStore);
-      case "score.get_mnx":
-        return readMnx(documentStore);
-      case "score.get_measures":
-        return readMeasures(documentStore, args);
-      case "editor.get_selection":
-        return success(useSelectionStore.getState().selection, "Returned the active editor selection.");
-      case "editor.get_selected_music":
-        return readSelectedMusic(documentStore);
-      case "score.analyze_chords":
-        return readChordAnalysis(documentStore, args);
-      case "score.get_timeline":
-        return readTimeline(documentStore, args);
-      case "score.validate":
-        return readValidation(documentStore, args);
-      case "score.get_video_sync":
-        return readVideoSync(documentStore);
-      case "score.get_instruments":
-        return readInstruments(documentStore);
-      case "preview.propose_patches":
-        return proposePatches(documentStore, args);
-      case "preview.propose_mnx":
-        return proposeMnx(documentStore, args);
-      case "preview.reset_stem_directions":
-        return proposeAutomaticStemDirections(documentStore);
-      case "preview.split_orchestral_staves":
-        return proposeOrchestralStaffSplit(documentStore);
-      case "preview.normalize_tritsch_instruments":
-        return proposeTritschInstrumentNormalization(documentStore);
-      case "preview.propose_chord_notes":
-        return proposeChordNotes(documentStore, args);
-      case "preview.get_status":
-        return getProposalStatus(args);
-      default:
-        return failure("tool_not_found", `Unknown tool: ${name}`);
+  const execute = (): McpToolResult => {
+    try {
+      const input = isObject(args) ? args : {};
+      if (name.startsWith("preview.") && name !== "preview.get_status" && name !== "preview.get_batch") {
+        const conflict = checkBaseRevision(documentStore, input);
+        if (conflict) return conflict;
+      }
+      return dispatch(documentStore, name, args);
+    } catch (error) {
+      return failure("tool_failed", error instanceof Error ? error.message : String(error));
     }
-  } catch (error) {
-    return failure("tool_failed", error instanceof Error ? error.message : String(error));
+  };
+  const idempotent = name.startsWith("preview.") && name !== "preview.get_status" && name !== "preview.get_batch";
+  const { result, replayed } =
+    idempotent && isObject(args)
+      ? executeIdempotentRequest(name, args, execute)
+      : { result: execute(), replayed: false };
+  const content = result.structuredContent;
+  if (!content || result.isError) return result;
+  const output: Record<string, unknown> = { ...content };
+  if (replayed) {
+    output.replayed = true;
+    if (typeof output.proposalId === "string") {
+      let proposal = useMcpSessionStore.getState().proposals[output.proposalId];
+      if (proposal?.status === "pending" && proposal.originalRevision !== documentStore.getState().scoreRevision) {
+        useMcpSessionStore.getState().setProposalStatus(proposal.id, "stale");
+        proposal = useMcpSessionStore.getState().proposals[proposal.id];
+      }
+      if (proposal) {
+        output.status = proposal.status;
+        return {
+          ...result,
+          content: [{ type: "text", text: `Proposal ${proposal.id} is ${proposal.status} (replayed request).` }],
+          structuredContent: {
+            ...output,
+            ...(documentStore.getState().workingScore ? { revision: documentStore.getState().scoreRevision } : {}),
+          },
+        };
+      }
+    }
+  }
+  if (documentStore.getState().workingScore) output.revision = documentStore.getState().scoreRevision;
+  return { ...result, structuredContent: output };
+}
+
+function checkBaseRevision(documentStore: DocumentStore, input: Record<string, unknown>): McpToolResult | null {
+  if (input.baseRevision === undefined) return null;
+  if (typeof input.baseRevision !== "string" || input.baseRevision.length === 0) {
+    return failure("invalid_revision", "baseRevision must be a non-empty revision string.");
+  }
+  const currentRevision = documentStore.getState().scoreRevision;
+  if (input.baseRevision !== currentRevision) {
+    return failure("revision_conflict", "The score changed since the requested base revision.", {
+      baseRevision: input.baseRevision,
+      currentRevision,
+    });
+  }
+  return null;
+}
+
+function dispatch(documentStore: DocumentStore, name: string, args: unknown): McpToolResult {
+  switch (name) {
+    case "score.overview":
+      return readScoreOverview(documentStore);
+    case "score.get_mnx":
+      return readMnx(documentStore);
+    case "score.get_measures":
+      return readMeasures(documentStore, args);
+    case "editor.get_selection":
+      return success(useSelectionStore.getState().selection, "Returned the active editor selection.");
+    case "editor.get_selected_music":
+      return readSelectedMusic(documentStore);
+    case "score.analyze_chords":
+      return readChordAnalysis(documentStore, args);
+    case "score.get_timeline":
+      return readTimeline(documentStore, args);
+    case "score.get_section_timings":
+      return readSectionTimings(documentStore, args);
+    case "score.search_annotations":
+      return readAnnotations(documentStore, args);
+    case "score.get_notes":
+      return readNotes(documentStore, args);
+    case "score.validate":
+      return readValidation(documentStore, args);
+    case "score.get_video_sync":
+      return readVideoSync(documentStore);
+    case "score.get_instruments":
+      return readInstruments(documentStore, args);
+    case "score.get_instrument_catalog":
+      return success(searchInstrumentCatalog(args), "Returned matching instrument catalog entries.");
+    case "preview.propose_patches":
+      return proposePatches(documentStore, args);
+    case "preview.propose_mnx":
+      return proposeMnx(documentStore, args);
+    case "preview.reset_stem_directions":
+      return proposeAutomaticStemDirections(documentStore, args);
+    case "preview.split_orchestral_staves":
+      return proposeOrchestralStaffSplit(documentStore, args);
+    case "preview.normalize_tritsch_instruments":
+      return proposeTritschInstrumentNormalization(documentStore, args);
+    case "preview.propose_chord_notes":
+      return proposeChordNotes(documentStore, args);
+    case "preview.change_instrument":
+      return proposeInstrumentChange(documentStore, args);
+    case "preview.get_status":
+      return getProposalStatus(documentStore, args);
+    case "preview.get_batch":
+      return readPatchBatch(documentStore, args);
+    case "preview.cancel_batch":
+      return cancelPatchBatch(args);
+    default:
+      return failure("tool_not_found", `Unknown tool: ${name}`);
   }
 }
 
@@ -108,6 +185,24 @@ function readTimeline(documentStore: DocumentStore, args: unknown): McpToolResul
   );
 }
 
+function readSectionTimings(documentStore: DocumentStore, args: unknown): McpToolResult {
+  const score = documentStore.getState().workingScore;
+  if (!score) return failure("no_document", "No score is open in Viritura.");
+  return success(getSectionTimings(score, args), "Returned performed section timing summaries.");
+}
+
+function readAnnotations(documentStore: DocumentStore, args: unknown): McpToolResult {
+  const score = documentStore.getState().workingScore;
+  if (!score) return failure("no_document", "No score is open in Viritura.");
+  return success(searchAnnotations(score, args), "Returned matching score annotations.");
+}
+
+function readNotes(documentStore: DocumentStore, args: unknown): McpToolResult {
+  const score = documentStore.getState().workingScore;
+  if (!score) return failure("no_document", "No score is open in Viritura.");
+  return success(getNoteTable(score, args), "Returned a paginated table of notated events.");
+}
+
 function readValidation(documentStore: DocumentStore, args: unknown): McpToolResult {
   const score = documentStore.getState().workingScore;
   if (!score) return failure("no_document", "No score is open in Viritura.");
@@ -125,14 +220,55 @@ function readVideoSync(documentStore: DocumentStore): McpToolResult {
   return success(result, result.videoSync ? "Returned the persisted video-sync settings." : "No video sync is set.");
 }
 
-function readInstruments(documentStore: DocumentStore): McpToolResult {
+function readInstruments(documentStore: DocumentStore, args: unknown): McpToolResult {
   const score = documentStore.getState().workingScore;
   if (!score) return failure("no_document", "No score is open in Viritura.");
-  const result = getScoreInstruments(score);
+  const result = getScoreInstruments(score, args);
   return success(
     result,
-    `Returned ${String(score.parts.length)} instruments (${String(result.outOfRangeCount)} out of range).`,
+    `Returned ${String(result.instruments.length)} instruments (${String(result.outOfRangeCount)} out of range).`,
   );
+}
+
+function proposeInstrumentChange(documentStore: DocumentStore, args: unknown): McpToolResult {
+  const score = documentStore.getState().workingScore;
+  if (!score) return failure("no_document", "No score is open in Viritura.");
+  const input = asObject(args);
+  if (
+    typeof input.partId !== "string" ||
+    !input.partId ||
+    typeof input.instrumentId !== "string" ||
+    !input.instrumentId
+  ) {
+    return failure("invalid_instrument_change", "partId and instrumentId must be non-empty strings.");
+  }
+  const analysis = analyzeInstrumentChange(score, input.partId, input.instrumentId);
+  if (!analysis.allowed) {
+    return failure("instrument_change_unsafe", analysis.reason ?? "The instrument change is not safe.", { analysis });
+  }
+  const proposed = changeInstrumentInScore(score, input.partId, input.instrumentId);
+  if (!proposed) return failure("instrument_change_failed", "The instrument change could not be prepared.");
+  const oldPart = score.parts.find((part) => part.id === input.partId)!;
+  const newPart = proposed.parts.find((part) => part.id === input.partId)!;
+  const summary = `Change ${oldPart.name} to ${newPart.name}.${analysis.warning ? ` ${analysis.warning}` : ""}`;
+  const result = proposeMnx(documentStore, {
+    mnx: serializeMnx(proposed),
+    summary,
+    allowRhythmTruncation: input.allowRhythmTruncation,
+  });
+  if (result.isError) return result;
+  return {
+    ...result,
+    structuredContent: {
+      ...result.structuredContent,
+      instrumentChange: {
+        partId: input.partId,
+        fromInstrumentId: oldPart._x?.viritura?.instrumentId ?? null,
+        toInstrumentId: input.instrumentId,
+        warning: analysis.warning ?? null,
+      },
+    },
+  };
 }
 
 function readScoreOverview(documentStore: DocumentStore): McpToolResult {
@@ -155,12 +291,9 @@ function readScoreOverview(documentStore: DocumentStore): McpToolResult {
 }
 
 function readMnx(documentStore: DocumentStore): McpToolResult {
-  const mnxJson = documentStore.getState().mnxJson;
-  if (!mnxJson) return failure("no_document", "No score is open in Viritura.");
-  return success(
-    { mnx: JSON.parse(mnxJson) as Record<string, unknown> },
-    "Returned the complete MNX document in structuredContent.mnx.",
-  );
+  const score = documentStore.getState().workingScore;
+  if (!score) return failure("no_document", "No score is open in Viritura.");
+  return success({ mnx: serializeMnx(score) }, "Returned the complete MNX document in structuredContent.mnx.");
 }
 
 function proposePatches(documentStore: DocumentStore, args: unknown): McpToolResult {
@@ -169,24 +302,34 @@ function proposePatches(documentStore: DocumentStore, args: unknown): McpToolRes
   if (!Array.isArray(rawPatches) || rawPatches.length === 0 || rawPatches.length > 256) {
     return failure("invalid_patches", "patches must be an array containing 1 to 256 ScorePatch objects.");
   }
-  if (!rawPatches.every((patch) => isObject(patch) && typeof patch.kind === "string")) {
-    return failure("invalid_patches", "Every patch must be an object with a kind discriminator.");
-  }
-  const { batchId, final } = input;
+  const { batchId, final, allowRhythmTruncation } = input;
   if (batchId !== undefined && (typeof batchId !== "string" || batchId.length === 0 || batchId.length > 64)) {
     return failure("invalid_batch", "batchId must be a string of 1 to 64 characters.");
   }
   if (final !== undefined && typeof final !== "boolean") {
     return failure("invalid_batch", "final must be a boolean.");
   }
+  if (allowRhythmTruncation !== undefined && typeof allowRhythmTruncation !== "boolean") {
+    return failure("invalid_patches", "allowRhythmTruncation must be a boolean.");
+  }
 
-  const patches = structuredClone(rawPatches) as ScorePatch[];
+  let patches: ScorePatch[];
+  try {
+    patches = readScorePatches(rawPatches);
+  } catch (error) {
+    return failure("invalid_patches", error instanceof Error ? error.message : String(error));
+  }
   const summary = typeof input.summary === "string" ? input.summary.slice(0, 240) : undefined;
   if (batchId === undefined) {
     if (final === false) return failure("invalid_batch", "final: false requires a batchId.");
-    return stageProposal(documentStore, patches, summary ?? `${patches.length} score patches`);
+    return stageProposal(
+      documentStore,
+      patches,
+      summary ?? `${patches.length} score patches`,
+      allowRhythmTruncation === true,
+    );
   }
-  return proposePatchBatch(documentStore, batchId, patches, final !== false, summary);
+  return proposePatchBatch(documentStore, batchId, patches, final !== false, summary, allowRhythmTruncation === true);
 }
 
 function proposePatchBatch(
@@ -195,11 +338,12 @@ function proposePatchBatch(
   patches: readonly ScorePatch[],
   final: boolean,
   summary: string | undefined,
+  allowRhythmTruncation: boolean,
 ): McpToolResult {
   const state = documentStore.getState();
   if (!state.workingScore || !state.mnxJson) return failure("no_document", "No score is open in Viritura.");
 
-  const result = appendPatchBatch(batchId, state.workingScore, state.mnxJson, patches);
+  const result = appendPatchBatch(batchId, state.workingScore, state.scoreRevision, patches, !final);
   if (!result.ok) return failure(result.code, result.message);
   const patchCount = result.patches.length;
   if (!final) {
@@ -209,8 +353,14 @@ function proposePatchBatch(
     );
   }
 
-  discardPatchBatch(batchId);
-  return stageProposal(documentStore, result.patches, summary ?? `${String(patchCount)} score patches`);
+  const proposal = stageProposal(
+    documentStore,
+    result.patches,
+    summary ?? `${String(patchCount)} score patches`,
+    allowRhythmTruncation,
+  );
+  if (!proposal.isError) discardPatchBatch(batchId);
+  return proposal;
 }
 
 function proposeMnx(documentStore: DocumentStore, args: unknown): McpToolResult {
@@ -222,15 +372,20 @@ function proposeMnx(documentStore: DocumentStore, args: unknown): McpToolResult 
   if (input.mnx === undefined) {
     return failure("invalid_mnx", "mnx must be a complete MNX document (object or JSON string).");
   }
+  if (input.allowRhythmTruncation !== undefined && typeof input.allowRhythmTruncation !== "boolean") {
+    return failure("invalid_mnx", "allowRhythmTruncation must be a boolean.");
+  }
 
-  let proposedScore;
+  let preview;
   try {
     const document = typeof input.mnx === "string" ? (JSON.parse(input.mnx) as unknown) : structuredClone(input.mnx);
-    // parseMnx runs the schema assertion and throws on any violation.
-    proposedScore = parseMnx(document);
+    preview = previewRepairs(parseMnx(document));
   } catch (error) {
     return failure("invalid_mnx", error instanceof Error ? error.message : String(error));
   }
+  const repairFailure = rejectUnsafeRepairs(preview, input.allowRhythmTruncation === true);
+  if (repairFailure) return repairFailure;
+  const proposedScore = preview.score;
 
   const diff = diffDocuments(currentScore, proposedScore);
   const canonicalMnx = JSON.stringify(serializeMnx(proposedScore));
@@ -240,19 +395,20 @@ function proposeMnx(documentStore: DocumentStore, args: unknown): McpToolResult 
     id: crypto.randomUUID(),
     summary,
     patches: [],
-    originalMnx: state.mnxJson,
+    originalMnx: JSON.stringify(serializeMnx(currentScore)),
+    originalRevision: state.scoreRevision,
     proposedMnx: null,
     document: { proposedMnx: canonicalMnx, diff },
     status: "pending",
   };
   const status = registerProposal(documentStore, proposal);
   return success(
-    { proposalId: proposal.id, status, summary: proposal.summary, diff },
+    { proposalId: proposal.id, status, summary: proposal.summary, diff, repairs: preview.repairs },
     proposalResultText(proposal.id, status),
   );
 }
 
-function proposeAutomaticStemDirections(documentStore: DocumentStore): McpToolResult {
+function proposeAutomaticStemDirections(documentStore: DocumentStore, args: unknown): McpToolResult {
   const score = documentStore.getState().workingScore;
   if (!score) return failure("no_document", "No score is open in Viritura.");
 
@@ -277,20 +433,22 @@ function proposeAutomaticStemDirections(documentStore: DocumentStore): McpToolRe
   return proposeMnx(documentStore, {
     mnx: serializeMnx(proposedScore),
     summary: `Reset ${String(cleared)} note stem directions to automatic`,
+    allowRhythmTruncation: asObject(args).allowRhythmTruncation,
   });
 }
 
-function proposeOrchestralStaffSplit(documentStore: DocumentStore): McpToolResult {
+function proposeOrchestralStaffSplit(documentStore: DocumentStore, args: unknown): McpToolResult {
   const score = documentStore.getState().workingScore;
   if (!score) return failure("no_document", "No score is open in Viritura.");
   const proposedScore = splitOrchestralParts(score);
   return proposeMnx(documentStore, {
     mnx: serializeMnx(proposedScore),
     summary: "Split combined oboe, clarinet, bassoon, horn, trumpet, and trombone Parts and create a Condensed Score",
+    allowRhythmTruncation: asObject(args).allowRhythmTruncation,
   });
 }
 
-function proposeTritschInstrumentNormalization(documentStore: DocumentStore): McpToolResult {
+function proposeTritschInstrumentNormalization(documentStore: DocumentStore, args: unknown): McpToolResult {
   const score = documentStore.getState().workingScore;
   if (!score) return failure("no_document", "No score is open in Viritura.");
   const identities = normalizeTritschInstrumentIdentities(score);
@@ -298,6 +456,7 @@ function proposeTritschInstrumentNormalization(documentStore: DocumentStore): Mc
   return proposeMnx(documentStore, {
     mnx: serializeMnx(proposedScore),
     summary: "Normalize Tritsch instruments, wind voices and stems, sound profile, and percussion routing",
+    allowRhythmTruncation: asObject(args).allowRhythmTruncation,
   });
 }
 
@@ -316,6 +475,9 @@ function signed(value: number): string {
 
 function proposeChordNotes(documentStore: DocumentStore, args: unknown): McpToolResult {
   const input = asObject(args);
+  if (input.allowRhythmTruncation !== undefined && typeof input.allowRhythmTruncation !== "boolean") {
+    return failure("invalid_changes", "allowRhythmTruncation must be a boolean.");
+  }
   if (!Array.isArray(input.changes) || input.changes.length === 0 || input.changes.length > 64) {
     return failure("invalid_changes", "changes must contain 1 to 64 event chord changes.");
   }
@@ -358,34 +520,65 @@ function proposeChordNotes(documentStore: DocumentStore, args: unknown): McpTool
     documentStore,
     patches,
     typeof input.summary === "string" ? input.summary.slice(0, 240) : `Add ${patches.length} chord notes`,
+    input.allowRhythmTruncation === true,
   );
 }
 
-function stageProposal(documentStore: DocumentStore, patches: readonly ScorePatch[], summary: string): McpToolResult {
+function stageProposal(
+  documentStore: DocumentStore,
+  patches: readonly ScorePatch[],
+  summary: string,
+  allowRhythmTruncation = false,
+): McpToolResult {
   const state = documentStore.getState();
   const score = state.workingScore;
   if (!score || !state.mnxJson) return failure("no_document", "No score is open in Viritura.");
 
-  // The patch interpreter verifies targets and the MNX round-trip verifies the
-  // resulting value shapes before anything is offered to the user. The clone
-  // keeps the proposal's patches intact when later patches edit inserted objects.
-  const proposedScore = applyPatchesToScore(score, structuredClone(patches));
-  const proposedDocument = serializeMnx(proposedScore);
-  parseMnx(structuredClone(proposedDocument));
+  const preview = previewPatches(score, patches);
+  const repairFailure = rejectUnsafeRepairs(preview, allowRhythmTruncation);
+  if (repairFailure) return repairFailure;
+  const proposedDocument = serializeMnx(preview.score);
+  const proposedJson = JSON.stringify(proposedDocument);
   const proposal: McpProposal = {
     id: crypto.randomUUID(),
     summary,
-    patches,
-    originalMnx: state.mnxJson,
+    patches: preview.effectivePatches,
+    originalMnx: JSON.stringify(serializeMnx(score)),
+    originalRevision: state.scoreRevision,
     proposedMnx:
       state.mnxJson.length <= MAX_WHOLE_DOCUMENT_PREVIEW_BYTES ? JSON.stringify(proposedDocument, null, 2) : null,
+    ...(preview.needsDocumentCommit ? { repairMnx: proposedJson } : {}),
     status: "pending",
   };
   const status = registerProposal(documentStore, proposal);
   return success(
-    { proposalId: proposal.id, status, summary: proposal.summary },
+    {
+      proposalId: proposal.id,
+      status,
+      summary: proposal.summary,
+      repairs: preview.repairs,
+      splicePreviews: preview.splicePreviews,
+      splicePreviewsTruncated: preview.splicePreviewsTruncated,
+    },
     proposalResultText(proposal.id, status),
   );
+}
+
+function rejectUnsafeRepairs(
+  preview: ReturnType<typeof previewRepairs>,
+  allowRhythmTruncation: boolean,
+): McpToolResult | null {
+  if (preview.remainingIssues.length > 0) {
+    return failure("rhythm_unrepairable", "Some rhythmic issues could not be repaired.", { repairs: preview.repairs });
+  }
+  if (!allowRhythmTruncation && preview.repairs.some((repair) => repair.action === "truncate")) {
+    return failure(
+      "rhythm_truncation_requires_confirmation",
+      "The editor would truncate overfull content. Review the repairs and retry with allowRhythmTruncation: true.",
+      { repairs: preview.repairs },
+    );
+  }
+  return null;
 }
 
 function registerProposal(documentStore: DocumentStore, proposal: McpProposal): "pending" | "accepted" {
@@ -426,27 +619,55 @@ function readPitch(value: unknown): Pitch {
   };
 }
 
-function getProposalStatus(args: unknown): McpToolResult {
+function getProposalStatus(documentStore: DocumentStore, args: unknown): McpToolResult {
   const input = asObject(args);
   if (typeof input.proposalId !== "string") {
     return failure("invalid_proposal_id", "proposalId must be a string.");
   }
-  const proposal = useMcpSessionStore.getState().proposals[input.proposalId];
+  let proposal = useMcpSessionStore.getState().proposals[input.proposalId];
   if (!proposal) return failure("proposal_not_found", "No proposal with that id exists in this editor session.");
+  if (proposal.status === "pending" && proposal.originalRevision !== documentStore.getState().scoreRevision) {
+    useMcpSessionStore.getState().setProposalStatus(proposal.id, "stale");
+    proposal = useMcpSessionStore.getState().proposals[input.proposalId]!;
+  }
   return success(
-    { proposalId: proposal.id, status: proposal.status, summary: proposal.summary },
+    {
+      proposalId: proposal.id,
+      status: proposal.status,
+      summary: proposal.summary,
+      baseRevision: proposal.originalRevision,
+    },
     `Proposal ${proposal.id} is ${proposal.status}.`,
   );
+}
+
+function readPatchBatch(documentStore: DocumentStore, args: unknown): McpToolResult {
+  const input = asObject(args);
+  if (typeof input.batchId !== "string" || input.batchId.length === 0) {
+    return failure("invalid_batch", "batchId must be a non-empty string.");
+  }
+  const batch = getPatchBatch(input.batchId, documentStore.getState().scoreRevision);
+  if (!batch) return failure("batch_not_found", "No open batch with that id exists in this editor session.");
+  return success(batch, `Batch ${batch.batchId} is ${batch.status}.`);
+}
+
+function cancelPatchBatch(args: unknown): McpToolResult {
+  const input = asObject(args);
+  if (typeof input.batchId !== "string" || input.batchId.length === 0) {
+    return failure("invalid_batch", "batchId must be a non-empty string.");
+  }
+  if (!discardPatchBatch(input.batchId)) return failure("batch_not_found", "No open batch with that id exists.");
+  return success({ batchId: input.batchId, status: "cancelled" }, `Batch ${input.batchId} was cancelled.`);
 }
 
 function success(value: object, text: string): McpToolResult {
   return { content: [{ type: "text", text }], structuredContent: value };
 }
 
-function failure(code: string, message: string): McpToolResult {
+function failure(code: string, message: string, details?: object): McpToolResult {
   return {
     content: [{ type: "text", text: message }],
-    structuredContent: { code, message },
+    structuredContent: { code, message, ...details },
     isError: true,
   };
 }

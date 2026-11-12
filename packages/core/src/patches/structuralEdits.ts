@@ -15,6 +15,7 @@ import type { Part } from "../model/part";
 import { PatchTargetMissing } from "./locate";
 import { removeGlobalMeasures } from "../operations/measureDeletion";
 import type {
+  AddMeasureExpressionPatch,
   GlobalMeasureField,
   InsertMeasuresPatch,
   MeasurePath,
@@ -23,6 +24,7 @@ import type {
   RemoveMeasuresPatch,
   SequencePath,
   SetGlobalMeasureFieldPatch,
+  SetMeasureExpressionPatch,
   SetPartMeasureFieldPatch,
   SetSequenceContentPatch,
 } from "./types";
@@ -100,6 +102,26 @@ export function applyRemoveMeasures(draft: Draft<Score>, p: RemoveMeasuresPatch)
 export function applySetPartMeasureField(draft: Draft<Score>, p: SetPartMeasureFieldPatch): void {
   const measure = resolvePartMeasure(draft as Score, p.measurePath);
   writePartMeasureField(measure, p.update);
+}
+
+export function applyAddMeasureExpression(draft: Draft<Score>, p: AddMeasureExpressionPatch): void {
+  const measure = resolvePartMeasure(draft as Score, p.measurePath);
+  const expressions = measure.expressions ?? [];
+  const index = p.expressionIndex ?? expressions.length;
+  if (!Number.isInteger(index) || index < 0 || index > expressions.length) {
+    throw new PatchTargetMissing(`addMeasureExpression: expressionIndex ${index} is out of range`);
+  }
+  expressions.splice(index, 0, p.value);
+  measure.expressions = expressions;
+}
+
+export function applySetMeasureExpression(draft: Draft<Score>, p: SetMeasureExpressionPatch): void {
+  const measure = resolvePartMeasure(draft as Score, p.measurePath);
+  const { expressionIndex } = p;
+  if (!Number.isInteger(expressionIndex) || expressionIndex < 0 || !measure.expressions?.at(expressionIndex)) {
+    throw new PatchTargetMissing(`Expression ${expressionIndex} not found in measure ${p.measurePath.measureIndex}`);
+  }
+  measure.expressions.splice(expressionIndex, 1, p.value);
 }
 
 export function applyRemoveMeasureExpression(draft: Draft<Score>, p: RemoveMeasureExpressionPatch): void {
