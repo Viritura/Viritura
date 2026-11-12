@@ -19,6 +19,7 @@ import type {
   InsertMeasuresPatch,
   MeasurePath,
   PartMeasureField,
+  RemoveMeasureExpressionPatch,
   RemoveMeasuresPatch,
   SequencePath,
   SetGlobalMeasureFieldPatch,
@@ -99,6 +100,19 @@ export function applyRemoveMeasures(draft: Draft<Score>, p: RemoveMeasuresPatch)
 export function applySetPartMeasureField(draft: Draft<Score>, p: SetPartMeasureFieldPatch): void {
   const measure = resolvePartMeasure(draft as Score, p.measurePath);
   writePartMeasureField(measure, p.update);
+}
+
+export function applyRemoveMeasureExpression(draft: Draft<Score>, p: RemoveMeasureExpressionPatch): void {
+  const { expressionIndex } = p;
+  if (!Number.isInteger(expressionIndex) || expressionIndex < 0) {
+    throw new PatchTargetMissing("removeMeasureExpression: expressionIndex must be a non-negative integer");
+  }
+  const measure = resolvePartMeasure(draft as Score, p.measurePath);
+  if (!measure.expressions?.at(expressionIndex)) {
+    throw new PatchTargetMissing(`Expression ${expressionIndex} not found in measure ${p.measurePath.measureIndex}`);
+  }
+  measure.expressions.splice(expressionIndex, 1);
+  if (measure.expressions.length === 0) delete measure.expressions;
 }
 
 function writePartMeasureField(measure: PartMeasure, update: PartMeasureField): void {

@@ -24,6 +24,7 @@ import type {
   NoteScalarField,
   PartField,
   PartMeasureField,
+  RemoveMeasureExpressionPatch,
   RemoveMeasuresPatch,
   RemoveNoteFromEventPatch,
   RemovePartPatch,
@@ -104,6 +105,10 @@ export const patch = {
     mark: ArpeggioMarkKind | undefined,
   ): SetMeasureArpeggioPatch {
     return { kind: "setMeasureArpeggio", measurePath, position, span, mark };
+  },
+
+  removeMeasureExpression(measurePath: MeasurePath, expressionIndex: number): RemoveMeasureExpressionPatch {
+    return { kind: "removeMeasureExpression", measurePath, expressionIndex };
   },
 
   spliceSequenceContent(args: {

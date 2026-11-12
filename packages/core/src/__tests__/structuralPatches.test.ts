@@ -114,6 +114,35 @@ describe("structural patches — insert / remove measures", () => {
 });
 
 describe("structural patches — part measures and sequences", () => {
+  it("removes only the selected expression and clears the array after the final removal", () => {
+    const score = makeScore();
+    const measure = score.parts[0]!.measures[0]!;
+    measure.expressions = [
+      { position: { fraction: [0, 1] }, text: [{ text: "dolce" }], staff: 1 },
+      { position: { fraction: [0, 1] }, text: [{ text: "<copilot>done</copilot>" }], staff: 2 },
+    ];
+    const path = { partId: "p1", measureIndex: 0 };
+    const removal = patch.removeMeasureExpression(path, 1);
+    const next = applyPatchesToScore(score, [removal]);
+
+    expect(next.parts[0]!.measures[0]).toEqual({ ...measure, expressions: [measure.expressions[0]] });
+    expect(measure.expressions).toHaveLength(2);
+    expect(patchAffectedMeasures([removal])).toEqual({ start: 0, end: 0 });
+
+    const cleared = applyPatchesToScore(next, [patch.removeMeasureExpression(path, 0)]);
+    expect(cleared.parts[0]!.measures[0]).toEqual({ sequences: measure.sequences });
+  });
+
+  it("rejects missing expression targets without modifying the input", () => {
+    const score = makeScore();
+    const path = { partId: "p1", measureIndex: 0 };
+    const before = structuredClone(score);
+    for (const target of [path, { ...path, partId: "missing" }, { ...path, measureIndex: 5 }]) {
+      expect(() => applyPatchesToScore(score, [patch.removeMeasureExpression(target, 0)])).toThrow(PatchTargetMissing);
+    }
+    expect(score).toEqual(before);
+  });
+
   it("setPartMeasureField sets clefs", () => {
     const score = makeScore();
     const next = applyPatchesToScore(score, [

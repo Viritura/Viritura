@@ -28,6 +28,7 @@ export type {
   NoteScalarField,
   PartField,
   PartMeasureField,
+  RemoveMeasureExpressionPatch,
   RemoveMeasuresPatch,
   RemoveNoteFromEventPatch,
   RemovePartPatch,

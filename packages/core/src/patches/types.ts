@@ -210,6 +210,14 @@ export interface SetMeasureDynamicGroupPatch {
   value: DynamicGroup | undefined;
 }
 
+/** Remove one staff text expression without replacing its measure or siblings. */
+export interface RemoveMeasureExpressionPatch {
+  kind: "removeMeasureExpression";
+  measurePath: MeasurePath;
+  /** Zero-based index in the current measure's expressions array. */
+  expressionIndex: number;
+}
+
 /**
  * The kind of arpeggio mark at (position, span):
  *   - "up" / "down": arpeggio with arrow in that direction
@@ -444,6 +452,7 @@ export type ScorePatch =
   | SetEventFieldPatch
   | SetEventMarkingPatch
   | SetMeasureDynamicGroupPatch
+  | RemoveMeasureExpressionPatch
   | SetMeasureArpeggioPatch
   | SpliceSequenceContentPatch
   | SetGlobalMeasureFieldPatch
