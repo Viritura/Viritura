@@ -62,6 +62,51 @@ describe("MnxYjsBridge", () => {
     expect(updateCount).toBe(0);
   });
 
+  it("persists expression removal to peers and restores it with undo", () => {
+    const a = new MnxYjsBridge();
+    const b = new MnxYjsBridge();
+    a.doc.on("update", (update: Uint8Array) => Y.applyUpdate(b.doc, update, "from-network"));
+    const score = parseMnx({
+      mnx: { version: 1 },
+      global: { measures: [{}] },
+      parts: [
+        {
+          id: "flute",
+          measures: [
+            {
+              sequences: [],
+              _x: {
+                viritura: {
+                  expressions: [
+                    { position: { fraction: [0, 1] }, text: [{ text: "dolce" }] },
+                    { position: { fraction: [0, 1] }, text: [{ text: "<copilot>done</copilot>" }] },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    });
+    a.setMnxJson(JSON.stringify(serializeMnx(score)));
+    const undo = new Y.UndoManager(a.doc.getMap("score"), { trackedOrigins: new Set([LOCAL_WRITE_ORIGIN]) });
+    const patches = [patch.removeMeasureExpression({ partId: "flute", measureIndex: 0 }, 1)];
+    const edited = applyPatchesToScore(score, patches);
+    a.applyPatches(patches, edited, JSON.stringify(serializeMnx(edited)));
+    expect(parseMnx(JSON.parse(b.getMnxJson()))).toEqual(edited);
+
+    const reopened = new MnxYjsBridge();
+    Y.applyUpdate(reopened.doc, Y.encodeStateAsUpdate(a.doc));
+    expect(parseMnx(JSON.parse(reopened.getMnxJson()))).toEqual(edited);
+    undo.undo();
+    expect(parseMnx(JSON.parse(a.getMnxJson()))).toEqual(score);
+    expect(parseMnx(JSON.parse(b.getMnxJson()))).toEqual(score);
+    undo.destroy();
+    a.doc.destroy();
+    b.doc.destroy();
+    reopened.doc.destroy();
+  });
+
   it("does not fire onRemoteUpdate for local writes", () => {
     const bridge = new MnxYjsBridge();
     const received: string[] = [];

@@ -19,6 +19,7 @@ import type {
   InsertMeasuresPatch,
   MeasurePath,
   PartMeasureField,
+  RemoveMeasureExpressionPatch,
   RemoveMeasuresPatch,
   SequencePath,
   SetGlobalMeasureFieldPatch,
@@ -101,6 +102,19 @@ export function applySetPartMeasureField(draft: Draft<Score>, p: SetPartMeasureF
   writePartMeasureField(measure, p.update);
 }
 
+export function applyRemoveMeasureExpression(draft: Draft<Score>, p: RemoveMeasureExpressionPatch): void {
+  const { expressionIndex } = p;
+  if (!Number.isInteger(expressionIndex) || expressionIndex < 0) {
+    throw new PatchTargetMissing("removeMeasureExpression: expressionIndex must be a non-negative integer");
+  }
+  const measure = resolvePartMeasure(draft as Score, p.measurePath);
+  if (!measure.expressions?.at(expressionIndex)) {
+    throw new PatchTargetMissing(`Expression ${expressionIndex} not found in measure ${p.measurePath.measureIndex}`);
+  }
+  measure.expressions.splice(expressionIndex, 1);
+  if (measure.expressions.length === 0) delete measure.expressions;
+}
+
 function writePartMeasureField(measure: PartMeasure, update: PartMeasureField): void {
   const target = measure as unknown as Record<string, unknown>;
   switch (update.field) {
@@ -135,10 +149,15 @@ export function applySetSequenceContent(draft: Draft<Score>, p: SetSequenceConte
 }
 
 function resolvePartMeasure(score: Score, path: MeasurePath | SequencePath): PartMeasure {
+  const { measureIndex } = path;
+  if (!Number.isInteger(measureIndex) || measureIndex < 0) {
+    throw new PatchTargetMissing("measureIndex must be a non-negative integer");
+  }
   const part = score.parts.find((pt) => pt.id === path.partId);
   if (!part) throw new PatchTargetMissing(`Part "${path.partId}" not found`);
-  const measure = part.measures[path.measureIndex];
-  if (!measure) throw new PatchTargetMissing(`Measure ${path.measureIndex} not found in part "${path.partId}"`);
+  // Avoid property-key lookup on the untrusted index.
+  const measure = part.measures.at(measureIndex);
+  if (!measure) throw new PatchTargetMissing(`Measure ${measureIndex} not found in part "${path.partId}"`);
   return measure;
 }
 

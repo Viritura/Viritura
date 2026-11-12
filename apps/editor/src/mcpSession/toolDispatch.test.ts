@@ -59,6 +59,97 @@ describe("MCP editor tool dispatch", () => {
   const pitchNote4 = { kind: "setNotePitch", locator: pianoLocator, noteId: "note-4", pitch: { step: "A", octave: 4 } };
   const pitchNote1 = { kind: "setNotePitch", locator: pianoLocator, noteId: "note-1", pitch: { step: "D", octave: 4 } };
 
+  it.each([false, true])("removes staff text through a patch proposal (auto-accept: %s)", async (autoAccept) => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.expressions = [
+      { position: { fraction: [0, 1] }, text: [{ text: "dolce" }] },
+      { position: { fraction: [0, 1] }, text: [{ text: "<copilot>done" }] },
+      { position: { fraction: [1, 2] }, text: [{ text: "</copilot>" }] },
+    ];
+    const store = createDocumentStore();
+    store.getState().loadScore(score, "test.mnx");
+    const before = store.getState().mnxJson;
+    const originalMeasure = structuredClone(store.getState().workingScore!.parts[0]!.measures[0]!);
+    useMcpSessionStore.getState().start({ autoAccept });
+    const patches: ScorePatch[] = [2, 1].map((expressionIndex) => ({
+      kind: "removeMeasureExpression",
+      measurePath: { partId: "keyboard.piano", measureIndex: 0 },
+      expressionIndex,
+    }));
+
+    const validation = await dispatchMcpTool(store, "score.validate", { patches });
+    expect(validation.structuredContent).toMatchObject({ valid: true });
+    expect(store.getState().mnxJson).toBe(before);
+
+    const result = await dispatchMcpTool(store, "preview.propose_patches", { patches });
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ status: autoAccept ? "accepted" : "pending" });
+    const proposal = Object.values(useMcpSessionStore.getState().proposals)[0]!;
+    const expectedMeasure = { ...originalMeasure, expressions: [originalMeasure.expressions![0]] };
+    expect(parseMnx(JSON.parse(proposal.proposedMnx!)).parts[0]!.measures[0]).toEqual(expectedMeasure);
+    if (autoAccept) {
+      expect(store.getState().workingScore!.parts[0]!.measures[0]).toEqual(expectedMeasure);
+      expect(parseMnx(JSON.parse(store.getState().mnxJson)).parts[0]!.measures[0]).toEqual(expectedMeasure);
+      expect(store.getState().lastCommittedPatches).toEqual(patches);
+      expect(store.getState().dirty).toBe(true);
+    } else {
+      expect(store.getState().mnxJson).toBe(before);
+    }
+  });
+
+  it.each([-1, 0.5, 1, "0", "splice", null, undefined])(
+    "rejects an invalid or missing expression index (%s) before staging",
+    async (expressionIndex) => {
+      const score = makeScore();
+      score.parts[0]!.measures[0]!.expressions = [{ position: { fraction: [0, 1] }, text: [{ text: "keep me" }] }];
+      const store = createDocumentStore();
+      store.getState().loadScore(score, "test.mnx");
+      const before = store.getState().mnxJson;
+      useMcpSessionStore.getState().start({ autoAccept: true });
+
+      const result = await dispatchMcpTool(store, "preview.propose_patches", {
+        patches: [
+          {
+            kind: "removeMeasureExpression",
+            measurePath: { partId: "keyboard.piano", measureIndex: 0 },
+            expressionIndex,
+          },
+        ],
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.structuredContent).toMatchObject({ code: "tool_failed" });
+      expect(store.getState().mnxJson).toBe(before);
+      expect(useMcpSessionStore.getState().proposals).toEqual({});
+    },
+  );
+
+  it.each(["0", "__proto__", -1, 0.5, null])(
+    "rejects an invalid measure index (%s) during validation and proposal",
+    async (measureIndex) => {
+      const score = makeScore();
+      score.parts[0]!.measures[0]!.expressions = [{ position: { fraction: [0, 1] }, text: [{ text: "keep me" }] }];
+      const store = createDocumentStore();
+      store.getState().loadScore(score, "test.mnx");
+      const before = store.getState().mnxJson;
+      useMcpSessionStore.getState().start({ autoAccept: true });
+      const patches = [
+        {
+          kind: "removeMeasureExpression",
+          measurePath: { partId: "keyboard.piano", measureIndex },
+          expressionIndex: 0,
+        },
+      ];
+
+      const validation = await dispatchMcpTool(store, "score.validate", { patches });
+      expect(validation.structuredContent).toMatchObject({ valid: false });
+      const result = await dispatchMcpTool(store, "preview.propose_patches", { patches });
+      expect(result.isError).toBe(true);
+      expect(store.getState().mnxJson).toBe(before);
+      expect(useMcpSessionStore.getState().proposals).toEqual({});
+    },
+  );
+
   it.each([false, true])("combines batched patch calls into one proposal (auto-accept: %s)", async (autoAccept) => {
     const store = createDocumentStore();
     store.getState().loadScore(makeScore(), "test.mnx");

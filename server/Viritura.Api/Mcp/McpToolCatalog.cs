@@ -122,7 +122,7 @@ internal static class McpToolCatalog
         new
         {
             name = "preview.propose_patches",
-            description = "Validate ScorePatch objects against the current score and propose edits. Show an in-app diff for approval, or apply immediately if the user enabled session auto-accept. Check the returned proposal status. For more than 256 patches (up to 4096), send the batches sequentially with the same batchId: earlier calls use final: false and return status \"batching\"; the call with final: true creates ONE proposal containing every batch, approved and undone as a single edit. A batch is discarded if the score changes before it is final.",
+            description = "Validate ScorePatch objects against the current score and propose edits. To remove staff text annotations, use {kind: \"removeMeasureExpression\", measurePath: {partId, measureIndex}, expressionIndex}; both indices are zero-based. Read the current expressions from score.get_measures at parts[].measures[]._x.viritura.expressions; remove multiple entries in one measure in descending index order. Show an in-app diff for approval, or apply immediately if the user enabled session auto-accept. Check the returned proposal status. For more than 256 patches (up to 4096), send the batches sequentially with the same batchId: earlier calls use final: false and return status \"batching\"; the call with final: true creates ONE proposal containing every batch, approved and undone as a single edit. A batch is discarded if the score changes before it is final.",
             inputSchema = Schema("""
                 {
                   "type": "object",

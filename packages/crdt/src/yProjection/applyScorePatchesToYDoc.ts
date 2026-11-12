@@ -152,6 +152,7 @@ function applyOnePatch(patch: ScorePatch, newScore: Score, root: Y.Map<unknown>)
     case "insertMeasures":
     case "removeMeasures":
     case "setPartMeasureField":
+    case "removeMeasureExpression":
     case "setSequenceContent":
     case "addPart":
     case "removePart":

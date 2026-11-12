@@ -53,6 +53,7 @@ function patchMeasureIndex(p: ScorePatch): number | null {
     case "setEventMarking":
       return p.locator.sequencePath.measureIndex;
     case "setMeasureDynamicGroup":
+    case "removeMeasureExpression":
     case "setMeasureArpeggio":
     case "setPartMeasureField":
       return p.measurePath.measureIndex;

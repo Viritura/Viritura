@@ -15,6 +15,7 @@ import { findEvent, findNoteIndex, findOwningContentArray } from "./locate";
 import { PatchTargetMissing } from "./locate";
 import {
   applyInsertMeasures,
+  applyRemoveMeasureExpression,
   applyRemoveMeasures,
   applySetGlobalMeasureField,
   applySetPartMeasureField,
@@ -195,6 +196,9 @@ function applyOnePatch(draft: Draft<Score>, p: ScorePatch): void {
       installArpeggio(partMeasure, p.position, p.span, p.mark);
       return;
     }
+    case "removeMeasureExpression":
+      applyRemoveMeasureExpression(draft, p);
+      return;
     case "spliceSequenceContent": {
       // Identify the owning content array via the `from` anchor; the `to`
       // anchor must live in the same array.
