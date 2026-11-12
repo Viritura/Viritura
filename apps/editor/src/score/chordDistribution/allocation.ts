@@ -82,7 +82,7 @@ export function createDistributionAllocator(
 }
 
 /** Order a pool highest-sounding first, which is the order `allocateTopDown` consumes. */
-export function sortByPitchDescending<T extends { pitch: Pitch }>(pool: readonly T[]): T[] {
+function sortByPitchDescending<T extends { pitch: Pitch }>(pool: readonly T[]): T[] {
   return [...pool].sort((left, right) => pitchToMidi(right.pitch) - pitchToMidi(left.pitch));
 }
 
