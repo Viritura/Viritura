@@ -41,6 +41,7 @@ export {
   initWasm,
   isWasmReady,
   getWasmInitError,
+  getWasmMemoryBytes,
   getEngineVersion,
   computeLayout as wasmComputeLayout,
   computeFullScoreLayout as wasmComputeFullScoreLayout,

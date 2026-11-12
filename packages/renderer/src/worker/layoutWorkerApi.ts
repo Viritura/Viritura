@@ -28,6 +28,7 @@ export interface LayoutWorkerApi {
 
   /** True once {@link init} has successfully loaded WASM + engine. */
   isReady(): boolean;
+  getWasmMemoryBytes(): number | null;
 
   /** Toggle the layout-debug sidecar on subsequent layouts. */
   setEmitLayoutDebug(enabled: boolean): void;

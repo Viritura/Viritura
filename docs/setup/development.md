@@ -114,6 +114,39 @@ suite exits instead of competing for Cargo artifacts or process-global test
 state. Use this command for full and focused engine tests rather than creating
 an alternate `CARGO_TARGET_DIR`.
 
+### Browser memory diagnostics
+
+The editor samples memory estimates and numeric editor counters every 10 seconds,
+retaining at most 60 samples (roughly ten minutes). Three consecutive samples at
+512 MiB of JS heap or engraving WASM linear memory, or 80% of the reported JS heap
+limit, trigger a warning. Growth of at least 128 MiB and 50% over two minutes in
+the same document also triggers a warning. Warnings have a five-minute cooldown;
+they indicate pressure, not proof of a leak.
+
+Use **Settings > Rendering > Download diagnostics** for the current history, or
+**Download saved report** for the last warning (otherwise the latest checkpoint).
+A bounded checkpoint is saved locally every minute and on page visibility/exit
+events; the latest warning is saved separately so subsequent checkpoints cannot
+erase it. Reports survive reloads when browser local storage is available.
+A crash can still lose the time since the last checkpoint. Downloads and local
+storage failures are reported in the UI and console.
+
+Reports contain build asset identifiers, timestamps, numeric score size and
+rendering counters, memory estimates, and dirty/visibility flags. They do not
+include filenames, score contents, URLs with query strings, account details,
+console messages, or automatic uploads. Only the latest checkpoint and warning
+are stored; each is limited to 128 KiB of text.
+
+Chromium/Edge's nonstandard `performance.memory` is approximate and may be
+unavailable; missing readings are `null`, not zero. Main-thread WASM bytes are
+sampled directly; layout-worker WASM bytes are cached after layouts and include
+the reading's age. WASM linear memory is allocated capacity, not live usage, and
+does not shrink after objects are freed. Attached canvas RGBA estimates exclude
+offscreen tiles; the score tile cache reports its own retained RGBA estimate.
+Neither estimate covers GPU copies, audio buffers, or other native allocations. These
+overlapping measurements must not be summed into total tab memory; use Edge's
+Memory/Performance tools and heap snapshots for allocation ownership.
+
 ### Editor PWA
 
 Production browser builds emit `manifest.webmanifest`, `sw.js`, and generated

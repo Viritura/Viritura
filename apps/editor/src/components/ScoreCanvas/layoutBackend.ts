@@ -139,6 +139,7 @@ function makeWorkerBackend(service: LayoutService): LayoutBackend {
   let stats: [number, number] = [0, 0];
   let metrics: LayoutMetrics = { ...EMPTY_LAYOUT_METRICS };
   let statsSeq = 0;
+  let disposed = false;
   const timingEnabled = new URLSearchParams(window.location.search).has("layoutTiming");
   if (timingEnabled) void engine.setTiming(true);
 
@@ -154,20 +155,30 @@ function makeWorkerBackend(service: LayoutService): LayoutBackend {
       engine.cacheStats(),
       engine.layoutMetrics(),
       timingEnabled ? engine.takeTimings() : Promise.resolve(null),
-    ]).then(([nextStats, nextMetrics, timings]) => {
-      if (seq !== statsSeq) return;
-      stats = nextStats;
-      metrics = nextMetrics;
-      publishMetrics();
-      if (timings) {
-        try {
-          (window as typeof window & { __VIRITURA_LAYOUT_TIMINGS__?: unknown }).__VIRITURA_LAYOUT_TIMINGS__ =
-            JSON.parse(timings);
-        } catch {
-          /* malformed optional diagnostics must never affect layout */
+      service.getWasmMemoryBytes(),
+    ])
+      .then(([nextStats, nextMetrics, timings, wasmBytes]) => {
+        if (disposed || seq !== statsSeq) return;
+        (
+          window as typeof window & {
+            __VIRITURA_LAYOUT_MEMORY__?: { bytes: number | null; sampledAt: number } | null;
+          }
+        ).__VIRITURA_LAYOUT_MEMORY__ = { bytes: wasmBytes, sampledAt: Date.now() };
+        stats = nextStats;
+        metrics = nextMetrics;
+        publishMetrics();
+        if (timings) {
+          try {
+            (window as typeof window & { __VIRITURA_LAYOUT_TIMINGS__?: unknown }).__VIRITURA_LAYOUT_TIMINGS__ =
+              JSON.parse(timings);
+          } catch {
+            /* malformed optional diagnostics must never affect layout */
+          }
         }
-      }
-    });
+      })
+      .catch((error: unknown) => {
+        if (!disposed) console.warn("[LayoutBackend] Could not read layout diagnostics:", error);
+      });
   };
   const afterLayout = <T>(dl: T): T => {
     retained = true;
@@ -189,7 +200,10 @@ function makeWorkerBackend(service: LayoutService): LayoutBackend {
     computeFullScoreLayout: (json, sp, pw, pageSetupJson, scoreIndex) =>
       engine.computeFullScoreLayout(json, sp, pw, pageSetupJson, scoreIndex).then(afterLayout),
     relayoutRetainedScore: (sp, pw, pageSetupJson, scoreIndex) =>
-      engine.relayoutRetainedScore(sp, pw, pageSetupJson, scoreIndex),
+      engine.relayoutRetainedScore(sp, pw, pageSetupJson, scoreIndex).then((dl) => {
+        if (dl) refreshStats();
+        return dl;
+      }),
     applyPatchAndLayout: (patchJson, sp, pw, pageSetupJson, scoreIndex) =>
       engine.applyPatchAndLayout(patchJson, sp, pw, pageSetupJson, scoreIndex).then(afterLayout),
     fullLayout: (json, sp, pw, pageSetupJson, scoreIndex) =>
@@ -204,7 +218,11 @@ function makeWorkerBackend(service: LayoutService): LayoutBackend {
     setEmitLayoutDebug: (enabled) => {
       void service.setEmitLayoutDebug(enabled);
     },
-    dispose: () => service.dispose(),
+    dispose: () => {
+      disposed = true;
+      (window as typeof window & { __VIRITURA_LAYOUT_MEMORY__?: unknown }).__VIRITURA_LAYOUT_MEMORY__ = null;
+      service.dispose();
+    },
   };
 }
 

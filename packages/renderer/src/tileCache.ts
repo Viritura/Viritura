@@ -289,6 +289,13 @@ export class TileCache {
     return this.tiles.size;
   }
 
+  /** RGBA backing-store estimate, excluding browser/GPU overhead and copies. */
+  get cachedPixelBytes(): number {
+    let bytes = 0;
+    for (const tile of this.tiles.values()) bytes += tile.width * tile.height * 4;
+    return bytes;
+  }
+
   /** Avoid raster caching when the viewport alone would exceed its memory budget. */
   canCacheViewport(
     canvas: HTMLCanvasElement,

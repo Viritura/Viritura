@@ -86,6 +86,12 @@ let wasmModule: {
 
 let initPromise: Promise<void> | null = null;
 let lastInitError: unknown = null;
+let wasmMemory: WebAssembly.Memory | null = null;
+
+/** Allocated linear memory, not live Rust allocations; WASM does not shrink it. */
+export function getWasmMemoryBytes(): number | null {
+  return wasmMemory?.buffer.byteLength ?? null;
+}
 
 /** The error from the most recent failed {@link initWasm} attempt, or null. */
 export function getWasmInitError(): unknown {
@@ -125,7 +131,8 @@ export async function initWasm(): Promise<void> {
 
       // Step 3: Initialize with the binary bytes (avoids a second WASM fetch).
       const wasmModule_ = new WebAssembly.Module(wasmBytes);
-      glue.initSync({ module: wasmModule_ });
+      const exports = glue.initSync({ module: wasmModule_ });
+      wasmMemory = exports.memory instanceof WebAssembly.Memory ? exports.memory : null;
 
       wasmModule = glue;
       lastInitError = null;
@@ -133,6 +140,7 @@ export async function initWasm(): Promise<void> {
       console.log(`Viritura WASM engine v${glue.engine_version()} loaded`);
     } catch (e) {
       lastInitError = e;
+      wasmMemory = null;
       console.warn("WASM engine failed to load:", e);
       if (e instanceof Error) {
         console.warn("Error details:", e.message);

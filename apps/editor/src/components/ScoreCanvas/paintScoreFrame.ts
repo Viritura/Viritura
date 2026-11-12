@@ -725,6 +725,8 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
     perfTracker.tileCacheDisabled = isTileCacheDisabled();
     perfTracker.tilesCached = tileCache.tilesCached;
     perfTracker.tilesRendered = tileCache.tilesRendered;
+    perfTracker.retainedTileBytes = tileCache.cachedPixelBytes;
+    perfTracker.renderCommandCount = dl.commands.length;
   }
 
   if (performanceOverlayEnabled && ctx) {
