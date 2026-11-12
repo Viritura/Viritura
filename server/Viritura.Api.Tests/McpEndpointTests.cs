@@ -964,7 +964,7 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
         var result = await socket.ReceiveAsync(buffer, cancellationToken);
         Assert.Equal(WebSocketMessageType.Text, result.MessageType);
         Assert.True(result.EndOfMessage);
-        return JsonDocument.Parse(Encoding.UTF8.GetString(buffer, 0, result.Count)).RootElement.Clone();
+        return JsonElement.Parse(Encoding.UTF8.GetString(buffer, 0, result.Count));
     }
 
     private static async Task<JsonElement> ReceiveSocketMessageOfTypeAsync(
