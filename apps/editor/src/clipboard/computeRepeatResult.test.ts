@@ -89,6 +89,32 @@ function expectTiesResolve(score: Score): void {
 }
 
 describe("computeRepeatResult", () => {
+  it("keeps glissandos within each pasted pair across consecutive repeats", () => {
+    let score = staffScore([1]);
+    const source = note("source");
+    source.glissandos = [{ target: "target", style: "straight", text: "gliss." }];
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [source, note("target"), rest("rest", { base: "half" })];
+    let selection = buildClipboardSelection(score, {
+      kind: "range",
+      startElementId: "p0/m0/s0/source",
+      endElementId: "p0/m0/s0/target",
+    })!;
+
+    for (let repeat = 0; repeat < 2; repeat++) {
+      const snapshot = structuredClone(score);
+      const result = computeRepeatResult(score, selection)!;
+      const [copiedSource, copiedTarget] = selectedEvents(result);
+
+      expect(copiedSource!.glissandos).toEqual([{ target: copiedTarget!.id, style: "straight", text: "gliss." }]);
+      expect(scoreIds(score)).not.toContain(copiedSource!.id);
+      expect(scoreIds(score)).not.toContain(copiedTarget!.id);
+      expect(content(result.newScore).slice(0, 2)).toEqual([source, note("target")]);
+      expect(score).toEqual(snapshot);
+      score = result.newScore;
+      selection = reselect(result);
+    }
+  });
+
   it.each([
     { label: "two staves", staves: [1, 2] },
     { label: "two voices", staves: [1, 1] },

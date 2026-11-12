@@ -101,6 +101,58 @@ describe("SpatialIndex", () => {
   });
 
   describe("fromDisplayList", () => {
+    it.each([false, true])(
+      "hits the centered glissando label on each staff (engine bboxes: %s)",
+      (withEngineBboxes) => {
+        const dl: DisplayList = {
+          commands: [0, 160].flatMap((offset) => [
+            {
+              type: "DrawLine" as const,
+              x1: 180,
+              y1: 120 + offset,
+              x2: 260,
+              y2: 80 + offset,
+              width: 1.5,
+              color: "#000",
+            },
+            {
+              type: "DrawText" as const,
+              x: 220,
+              y: 80 + offset,
+              text: "gliss.",
+              font: "serif italic",
+              size: 32,
+              color: "#000",
+              align: "center" as const,
+              baseline: "bottom" as const,
+            },
+          ]),
+          elementIds: ["gliss/a/b", "gliss/a/b", "gliss/c/d", "gliss/c/d"],
+          ...(withEngineBboxes
+            ? {
+                elementBboxes: [
+                  { elementId: "p0/m0/s0/a", bbox: { x: 160, y: 80, width: 12, height: 48 } },
+                  { elementId: "p0/m0/s1/c", bbox: { x: 160, y: 240, width: 12, height: 48 } },
+                ],
+              }
+            : {}),
+          width: 500,
+          height: 400,
+        };
+        const index = SpatialIndex.fromDisplayList(dl);
+
+        for (const [offset, id] of [
+          [0, "gliss/a/b"],
+          [160, "gliss/c/d"],
+        ] as const) {
+          expect(index.hitTest(165, 60 + offset)).toBe(id);
+          expect(index.hitTest(220, 36 + offset)).toBe(id);
+          expect(index.hitTest(220, 100 + offset)).toBe(id);
+          expect(index.hitTest(320, 60 + offset)).toBeNull();
+        }
+      },
+    );
+
     it("builds index from glyph and ellipse commands", () => {
       const dl: DisplayList = {
         commands: [

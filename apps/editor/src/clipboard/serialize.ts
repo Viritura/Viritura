@@ -72,7 +72,7 @@ export function serializeFragment(
 
 /**
  * Deep-clone a SequenceContent item. Event/note IDs are preserved so that
- * slur and tie target references can be remapped by assignFreshIds on paste.
+ * slur, tie, and glissando target references can be remapped by assignFreshIds on paste.
  * All IDs will be replaced with fresh ones during paste.
  */
 function stripInternalIds(item: SequenceContent): SequenceContent {
