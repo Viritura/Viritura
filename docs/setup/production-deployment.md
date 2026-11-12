@@ -45,6 +45,9 @@ Storybook embedded in the website artifact, and
 `docs/spec/keyboard-shortcuts.md` feeds both public documentation and the editor
 Help dialog, so include the website target for those changes when applicable.
 
+Both targets build the editor and restore its Git LFS SoundFont to generate the
+PWA cache revision, even though production serves that asset from R2.
+
 Each target job:
 
 1. builds only its target artifact;
