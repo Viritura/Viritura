@@ -21,6 +21,7 @@ flowchart LR
 - `editor.list_sessions` returns only the signed-in user's connected sessions. A `sessionId` is required when more than one session is available.
 - The API relays calls to the authoritative tab and does not store score content.
 - Capacity is bounded per user, per session, and globally. Sessions reconnect automatically but remain ephemeral and tab-scoped.
+- Browser relay session IDs exist only in server memory. Every 30 minutes the API prunes expired or invalid OAuth tokens created over 14 days ago and orphaned ad-hoc authorizations of the same age, followed by stale dynamic client registrations. Live refresh tokens and their authorizations are retained.
 - There is no direct-write scope or tool. Every mutation is first validated against a shadow score. Manual approval is the default; users may explicitly enable auto-accept before connecting a trusted client. This tab-local option survives relay reconnects but resets on disconnect or reload, and cannot be enabled by an MCP tool.
 - Manual review dialogs ignore outside clicks. Accept, Reject, and Escape remain explicit decisions.
 

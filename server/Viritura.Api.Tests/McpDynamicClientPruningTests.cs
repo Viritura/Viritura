@@ -11,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using OpenIddict.Abstractions;
+using OpenIddict.EntityFrameworkCore.Models;
 
 using Viritura.Api.Mcp;
 using Viritura.Infrastructure;
@@ -123,6 +124,143 @@ public sealed class McpDynamicClientPruningTests : IDisposable
         await using var scope = _factory.Services.CreateAsyncScope();
         var manager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
         Assert.NotNull(await manager.FindByClientIdAsync(clientId));
+    }
+
+    [Fact]
+    public async Task Prune_RemovesExpiredTokensBeforeTheirAuthorizationAndClient()
+    {
+        using var client = CreateHttpClient();
+        var grant = await AuthorizeOAuthAsync(client, "https://localhost/mcp", SingleRedirectUri, offlineAccess: true);
+        await BackdateLifecycleAsync(grant.ClientId, TimeSpan.FromDays(60));
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<VirituraDbContext>();
+            var tokens = await db.Set<OpenIddictEntityFrameworkCoreToken>()
+                .Where(token => token.Application!.ClientId == grant.ClientId).ToListAsync();
+            var authorizations = await db.Set<OpenIddictEntityFrameworkCoreAuthorization>()
+                .Where(authorization => authorization.Application!.ClientId == grant.ClientId).ToListAsync();
+            Assert.NotEmpty(tokens);
+            Assert.NotEmpty(authorizations);
+            foreach (var token in tokens)
+            {
+                token.CreationDate = DateTime.UtcNow.AddDays(-60);
+                token.ExpirationDate = DateTime.UtcNow.AddDays(-31);
+            }
+            foreach (var authorization in authorizations)
+            {
+                authorization.CreationDate = DateTime.UtcNow.AddDays(-60);
+            }
+            await db.SaveChangesAsync();
+        }
+
+        await RunPrunerAsync();
+
+        await using var verify = _factory.Services.CreateAsyncScope();
+        var verifyDb = verify.ServiceProvider.GetRequiredService<VirituraDbContext>();
+        var manager = verify.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+        Assert.Null(await manager.FindByClientIdAsync(grant.ClientId));
+        Assert.Empty(await verifyDb.Set<OpenIddictEntityFrameworkCoreToken>().ToListAsync());
+        Assert.Empty(await verifyDb.Set<OpenIddictEntityFrameworkCoreAuthorization>().ToListAsync());
+        Assert.Null(await verifyDb.McpDynamicClients.FindAsync(grant.ClientId));
+    }
+
+    [Fact]
+    public async Task Prune_PreservesAnOldLiveRefreshGrant()
+    {
+        using var client = CreateHttpClient();
+        var grant = await AuthorizeOAuthAsync(client, "https://localhost/mcp", SingleRedirectUri, offlineAccess: true);
+        Assert.NotNull(grant.RefreshToken);
+        await BackdateLifecycleAsync(grant.ClientId, TimeSpan.FromDays(60));
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<VirituraDbContext>();
+            var tokens = await db.Set<OpenIddictEntityFrameworkCoreToken>()
+                .Where(token => token.Application!.ClientId == grant.ClientId).ToListAsync();
+            foreach (var token in tokens)
+            {
+                token.CreationDate = DateTime.UtcNow.AddDays(-20);
+                if (token.Type == OpenIddictConstants.TokenTypeHints.AccessToken)
+                {
+                    token.ExpirationDate = DateTime.UtcNow.AddDays(-1);
+                }
+            }
+            var authorization = await db.Set<OpenIddictEntityFrameworkCoreAuthorization>()
+                .SingleAsync(item => item.Application!.ClientId == grant.ClientId);
+            authorization.CreationDate = DateTime.UtcNow.AddDays(-20);
+            await db.SaveChangesAsync();
+        }
+
+        await RunPrunerAsync();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/oauth/token")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["client_id"] = grant.ClientId,
+                ["refresh_token"] = grant.RefreshToken!
+            })
+        };
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Prune_PreservesAnUnactivatedClientWithALiveToken(bool withoutExpiry)
+    {
+        using var client = CreateHttpClient();
+        var registration = await OAuthRegisterAsync(client, SingleRedirectUri);
+        var clientId = registration.GetProperty("client_id").GetString()!;
+        await BackdateLifecycleAsync(clientId, TimeSpan.FromDays(60));
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<VirituraDbContext>();
+            var application = await db.Set<OpenIddictEntityFrameworkCoreApplication>()
+                .SingleAsync(item => item.ClientId == clientId);
+            db.Set<OpenIddictEntityFrameworkCoreToken>().Add(new OpenIddictEntityFrameworkCoreToken
+            {
+                Application = application,
+                CreationDate = DateTime.UtcNow.AddDays(-20),
+                ExpirationDate = withoutExpiry ? null : DateTime.UtcNow.AddDays(10),
+                Status = OpenIddictConstants.Statuses.Valid,
+                Type = OpenIddictConstants.TokenTypeHints.RefreshToken
+            });
+            await db.SaveChangesAsync();
+        }
+
+        await RunPrunerAsync();
+
+        await using var verify = _factory.Services.CreateAsyncScope();
+        var manager = verify.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+        Assert.NotNull(await manager.FindByClientIdAsync(clientId));
+    }
+
+    [Fact]
+    public async Task Prune_RetainsRecentlyCreatedExpiredTokens()
+    {
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<VirituraDbContext>();
+            db.Set<OpenIddictEntityFrameworkCoreToken>().Add(new OpenIddictEntityFrameworkCoreToken
+            {
+                CreationDate = DateTime.UtcNow.AddDays(-13),
+                ExpirationDate = DateTime.UtcNow.AddDays(-1),
+                Status = OpenIddictConstants.Statuses.Valid,
+                Type = OpenIddictConstants.TokenTypeHints.AccessToken
+            });
+            await db.SaveChangesAsync();
+        }
+
+        await RunPrunerAsync();
+
+        await using var verify = _factory.Services.CreateAsyncScope();
+        var dbAfter = verify.ServiceProvider.GetRequiredService<VirituraDbContext>();
+        Assert.Single(await dbAfter.Set<OpenIddictEntityFrameworkCoreToken>().ToListAsync());
     }
 
     // -------------------------------------------------------------------------
@@ -295,7 +433,8 @@ public sealed class McpDynamicClientPruningTests : IDisposable
     private static async Task<OAuthGrant> AuthorizeOAuthAsync(
         HttpClient client,
         string resource,
-        string[] redirectUris)
+        string[] redirectUris,
+        bool offlineAccess = false)
     {
         var redirectUri = redirectUris[0];
         var clientReg = await client.PostAsJsonAsync("/oauth/register", new
@@ -317,7 +456,7 @@ public sealed class McpDynamicClientPruningTests : IDisposable
             ["response_type"] = "code",
             ["client_id"] = clientId,
             ["redirect_uri"] = redirectUri,
-            ["scope"] = "score:read",
+            ["scope"] = offlineAccess ? "score:read offline_access" : "score:read",
             ["state"] = state,
             ["code_challenge"] = challenge,
             ["code_challenge_method"] = "S256",
@@ -354,7 +493,10 @@ public sealed class McpDynamicClientPruningTests : IDisposable
         var tokenResp = await client.SendAsync(tokenReq);
         tokenResp.EnsureSuccessStatusCode();
         var token = await tokenResp.Content.ReadFromJsonAsync<JsonElement>();
-        return new OAuthGrant(clientId, token.GetProperty("access_token").GetString()!);
+        return new OAuthGrant(
+            clientId,
+            token.GetProperty("access_token").GetString()!,
+            token.TryGetProperty("refresh_token", out var refreshToken) ? refreshToken.GetString() : null);
     }
 
     private static Dictionary<string, string> ParseHiddenInputs(string html)
@@ -383,7 +525,7 @@ public sealed class McpDynamicClientPruningTests : IDisposable
     private static string Base64Url(byte[] value) =>
         Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
-    private sealed record OAuthGrant(string ClientId, string AccessToken);
+    private sealed record OAuthGrant(string ClientId, string AccessToken, string? RefreshToken);
 
     private sealed class PruningTestFactory(string dbFile) : WebApplicationFactory<Program>
     {
