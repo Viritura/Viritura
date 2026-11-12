@@ -217,6 +217,63 @@ describe("PlaybackEngine", () => {
     }
   });
 
+  it("does not chase an early-humanized onset twice when starting on a pitch-bend part", () => {
+    const engine = new PlaybackEngine(audioCtx);
+    const sampler = createMockSampler();
+    const events: MidiEvent[] = [
+      { type: "pitchBend", time: 0.1, midiNote: 0, velocity: 0, partIndex: 0, channel: 0, value: 8192 },
+      { type: "noteOn", time: 0.495, nominalTime: 0.5, midiNote: 60, velocity: 80, partIndex: 0, channel: 0 },
+      { type: "noteOff", time: 1, onsetNominalTime: 0.5, midiNote: 60, velocity: 0, partIndex: 0, channel: 0 },
+    ];
+    engine.loadTimeline({ events, duration: 2, tempoMap: [], measureStartTimes: [0] }, new Map([[0, sampler]]));
+
+    engine.play(0.5);
+
+    expect(sampler.noteOnCalls).toHaveLength(1);
+
+    engine.stop();
+  });
+
+  it("anchors the first audible part when another starting part is filtered out", () => {
+    const engine = new PlaybackEngine(audioCtx);
+    const hiddenSampler = createMockSampler();
+    const visibleSampler = createMockSampler();
+    const events: MidiEvent[] = [
+      { type: "noteOn", time: 0.485, nominalTime: 0.5, midiNote: 60, velocity: 80, partIndex: 0, channel: 0 },
+      { type: "noteOn", time: 0.515, nominalTime: 0.5, midiNote: 62, velocity: 80, partIndex: 1, channel: 1 },
+    ];
+    engine.loadTimeline(
+      { events, duration: 2, tempoMap: [], measureStartTimes: [0] },
+      new Map([
+        [0, hiddenSampler],
+        [1, visibleSampler],
+      ]),
+    );
+    engine.setViewPartFilter(new Set([1]));
+
+    engine.play(0.5);
+
+    expect(hiddenSampler.noteOnCalls).toHaveLength(0);
+    expect(visibleSampler.noteOnCalls[0]!.time).toBe(0.12);
+
+    engine.stop();
+  });
+
+  it("anchors the score downbeat after a negative count-in start", () => {
+    const engine = new PlaybackEngine(audioCtx, { leadInTime: 0.1 });
+    const sampler = createMockSampler();
+    const events: MidiEvent[] = [
+      { type: "noteOn", time: 0.008, nominalTime: 0, midiNote: 60, velocity: 80, partIndex: 0, channel: 0 },
+    ];
+    engine.loadTimeline({ events, duration: 2, tempoMap: [], measureStartTimes: [0] }, new Map([[0, sampler]]));
+
+    engine.play(-0.2);
+
+    expect(sampler.noteOnCalls[0]!.time).toBeCloseTo(0.3);
+
+    engine.stop();
+  });
+
   describe("initial state", () => {
     it("should start in stopped state", () => {
       const engine = new PlaybackEngine(audioCtx);

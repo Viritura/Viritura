@@ -109,6 +109,133 @@ describe("Scheduler", () => {
     scheduler.stop();
   });
 
+  it("should include early-humanized attacks at the start while preserving their relative timing", () => {
+    const events: MidiEvent[] = [
+      { ...makeEvent(0.49), nominalTime: 0.48 },
+      { ...makeEvent(0.495), nominalTime: 0.5 },
+      { ...makeEvent(0.51, "noteOn", 62), nominalTime: 0.5 },
+      { ...makeEvent(0.6), nominalTime: 0.6 },
+      { ...makeEvent(0.795, "noteOff"), onsetNominalTime: 0.5 },
+      { ...makeEvent(0.81, "noteOff", 62), onsetNominalTime: 0.5 },
+    ];
+    const scheduled: Array<{ event: MidiEvent; audioTime: number }> = [];
+    const scheduler = new Scheduler(
+      events,
+      { scheduleAheadTime: 1, tickIntervalMs: 25 },
+      (event, at) => scheduled.push({ event, audioTime: at }),
+      getAudioTime,
+    );
+
+    audioTime = 10;
+    scheduler.start(0.5);
+
+    expect(scheduled.map(({ event }) => event.time)).toEqual([0.495, 0.51, 0.6, 0.795, 0.81]);
+    expect(scheduled[0]!.audioTime).toBe(10);
+    expect(scheduled[1]!.audioTime).toBeCloseTo(10.015);
+    expect(scheduled[2]!.audioTime).toBeCloseTo(10.1);
+    expect(scheduled[3]!.audioTime - scheduled[0]!.audioTime).toBeCloseTo(0.3);
+    expect(scheduled[4]!.audioTime - scheduled[1]!.audioTime).toBeCloseTo(0.3);
+
+    scheduler.stop();
+  });
+
+  it("should anchor an entirely late randomized starting group at playback start", () => {
+    const events: MidiEvent[] = [
+      { ...makeEvent(0.506), nominalTime: 0.5 },
+      { ...makeEvent(0.515, "noteOn", 62), nominalTime: 0.5 },
+    ];
+    const scheduled: Array<{ event: MidiEvent; audioTime: number }> = [];
+    const scheduler = new Scheduler(
+      events,
+      { scheduleAheadTime: 1, tickIntervalMs: 25 },
+      (event, at) => scheduled.push({ event, audioTime: at }),
+      getAudioTime,
+    );
+
+    audioTime = 10;
+    scheduler.start(0.5);
+
+    expect(scheduled[0]!.audioTime).toBe(10);
+    expect(scheduled[1]!.audioTime).toBeCloseTo(10.009);
+
+    scheduler.stop();
+  });
+
+  it("includes early upcoming attacks and excludes late attacks from before the seek", () => {
+    const events: MidiEvent[] = [
+      { ...makeEvent(0.495), nominalTime: 0.5 },
+      { ...makeEvent(0.505, "noteOn", 62), nominalTime: 0.49 },
+      { ...makeEvent(1.5, "noteOff", 62), onsetNominalTime: 0.49 },
+    ];
+    const scheduled: MidiEvent[] = [];
+    const scheduler = new Scheduler(
+      events,
+      { scheduleAheadTime: 2, tickIntervalMs: 25 },
+      (event) => scheduled.push(event),
+      getAudioTime,
+    );
+
+    audioTime = 10;
+    scheduler.start(0.498);
+
+    expect(scheduled.map((event) => event.midiNote)).toEqual([60]);
+
+    scheduler.stop();
+  });
+
+  it("chooses the earliest playable attack as the start-group anchor", () => {
+    const events: MidiEvent[] = [
+      { ...makeEvent(0.485), nominalTime: 0.5, partIndex: 0 },
+      { ...makeEvent(0.515, "noteOn", 62), nominalTime: 0.5, partIndex: 1 },
+    ];
+    const scheduled: Array<{ event: MidiEvent; audioTime: number }> = [];
+    const scheduler = new Scheduler(
+      events,
+      { scheduleAheadTime: 1, tickIntervalMs: 25 },
+      (event, at) => {
+        if (event.partIndex === 1) scheduled.push({ event, audioTime: at });
+      },
+      getAudioTime,
+      undefined,
+      { isPlayableOnset: (event) => event.partIndex === 1 },
+    );
+
+    audioTime = 10;
+    scheduler.start(0.5);
+
+    expect(scheduled).toHaveLength(1);
+    expect(scheduled[0]!.audioTime).toBe(10);
+
+    scheduler.stop();
+  });
+
+  it("anchors the music downbeat without moving count-in clicks", () => {
+    const events: MidiEvent[] = [{ ...makeEvent(0.008), nominalTime: 0 }];
+    const scheduled: Array<{ event: MidiEvent; audioTime: number }> = [];
+    const clicks: number[] = [];
+    const scheduler = new Scheduler(
+      events,
+      { scheduleAheadTime: 5, tickIntervalMs: 25, leadInTime: 0.1 },
+      (event, at) => scheduled.push({ event, audioTime: at }),
+      getAudioTime,
+      {
+        events: [
+          { time: -1, accented: false },
+          { time: 0, accented: true },
+        ],
+        onClick: (at) => clicks.push(at),
+      },
+    );
+
+    audioTime = 10;
+    scheduler.start(-1, 1, 0);
+
+    expect(scheduled[0]!.audioTime).toBeCloseTo(11.1);
+    expect(clicks).toEqual([10.1, 11.1]);
+
+    scheduler.stop();
+  });
+
   it("should stop scheduling when stop() is called", () => {
     const events = makeEvents([0, 1.0, 3.0, 7.0]);
     let callCount = 0;

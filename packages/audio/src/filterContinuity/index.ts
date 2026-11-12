@@ -134,7 +134,7 @@ export class FilterContinuity {
       if (!parts.has(on.partIndex) || (end && end.time <= scoreTime)) continue;
       const scheduledOn = this.scheduled.get(on);
       // Unvisited future attacks remain the scheduler's responsibility.
-      if (on.time >= scoreTime && scheduledOn === undefined) continue;
+      if ((on.nominalTime ?? on.time) >= scoreTime && scheduledOn === undefined) continue;
       const deliveredOn = this.deliveredAttacks.get(on);
       if (deliveredOn !== undefined && deliveredOn > audioTime) continue;
 

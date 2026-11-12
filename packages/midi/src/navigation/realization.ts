@@ -15,7 +15,16 @@ function releaseUncontinuedNotes(
   const continued = new Set(continuations.map(navigationNoteKey));
   for (const [key, pending] of activeNotes) {
     if (continued.has(key)) continue;
-    for (const onset of pending) out.push({ ...onset, type: "noteOff", velocity: 0, time });
+    for (const onset of pending) {
+      const { nominalTime, ...note } = onset;
+      out.push({
+        ...note,
+        type: "noteOff",
+        velocity: 0,
+        time,
+        ...(nominalTime === undefined ? {} : { onsetNominalTime: nominalTime }),
+      });
+    }
     pending.length = 0;
   }
 }
@@ -69,6 +78,26 @@ function spanTempoMap(
   return entries;
 }
 
+function translatedNominalTimes(
+  event: MidiEvent,
+  translate: (time: number) => number,
+): Pick<MidiEvent, "nominalTime" | "onsetNominalTime"> {
+  const times: Pick<MidiEvent, "nominalTime" | "onsetNominalTime"> = {};
+  if (event.nominalTime !== undefined) times.nominalTime = translate(event.nominalTime);
+  if (event.onsetNominalTime !== undefined) times.onsetNominalTime = translate(event.onsetNominalTime);
+  return times;
+}
+
+function pairedOnsetTime(
+  event: MidiEvent,
+  onset: MidiEvent,
+  translate: (time: number) => number,
+): Pick<MidiEvent, "onsetNominalTime"> {
+  if (onset.nominalTime !== undefined) return { onsetNominalTime: onset.nominalTime };
+  if (event.onsetNominalTime !== undefined) return { onsetNominalTime: translate(event.onsetNominalTime) };
+  return {};
+}
+
 export function realizeNavigation(
   timeline: MidiTimeline,
   spans: readonly PlayedMeasureSpan[],
@@ -113,6 +142,7 @@ export function realizeNavigation(
         const output = {
           ...event,
           time: translate(event.time),
+          ...translatedNominalTimes(event, translate),
           scoreBeat: outputBeat + beat - source.startBeat,
           scoreDurationBeats:
             event.scoreDurationBeats === undefined
@@ -130,8 +160,12 @@ export function realizeNavigation(
       } else if (event.type === "noteOff") {
         const pending = activeNotes.get(navigationNoteKey(event));
         if (!pending?.length) continue;
-        pending.shift();
-        events.push({ ...event, time: translate(event.time) });
+        const onset = pending.shift()!;
+        events.push({
+          ...event,
+          time: translate(event.time),
+          ...pairedOnsetTime(event, onset, translate),
+        });
       } else if (event.time < endTime - 1e-9) {
         events.push({ ...event, time: translate(event.time) });
       }

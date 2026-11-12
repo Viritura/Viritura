@@ -15,6 +15,10 @@ export interface MidiEvent {
   type: "noteOn" | "noteOff" | "programChange" | "controlChange" | "pitchBend";
   /** Absolute time in seconds from the start of the score */
   time: number;
+  /** Unhumanized onset time for noteOn events whose `time` includes timing jitter. */
+  nominalTime?: number;
+  /** Nominal attack time for a noteOff paired with a humanized noteOn. */
+  onsetNominalTime?: number;
   /** MIDI note number (0–127) */
   midiNote: number;
   /** Velocity (0–127). noteOff events use 0. */
