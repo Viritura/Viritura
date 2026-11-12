@@ -11,7 +11,7 @@ import {
 import { createRest, decomposeDuration, decomposeRestsAtPosition, generateEventId } from "../../commands/noteCommands";
 import type { CapturedDynamic, ClipboardFragment, ClipboardTrack } from "../../clipboard/ClipboardFragment";
 import type { PasteResult } from "../../commands/clipboardCommands";
-import { allocateTopDown, pitchKey, sortByPitchDescending } from "./allocation";
+import { createDistributionAllocator, pitchKey } from "./allocation";
 import { meteredRhythm, type RhythmContext, type SoundingNote } from "./beatGrid";
 import { cloneNoteForChord } from "./chordMerge";
 import { FragmentDistributionError } from "./distributionError";
@@ -29,6 +29,7 @@ type DistributedTargets = Map<string, Map<number, string>>;
 interface DistributionTrace {
   events: DistributedTargets;
   notes: SourceNoteRenderings;
+  allocate: ReturnType<typeof createDistributionAllocator>;
 }
 
 function leadInBeats(track: ClipboardTrack): number {
@@ -119,7 +120,7 @@ function writePlainSegment(
   trace: DistributionTrace,
 ): void {
   for (const slot of segment.grid.slots) {
-    const allocations = allocateTopDown(sortByPitchDescending(slot.notes), targetCount);
+    const allocations = trace.allocate(slot.notes);
     for (let targetIndex = 0; targetIndex < targetCount; targetIndex++) {
       const assigned = allocations[targetIndex]!;
       if (assigned.length === 0) {
@@ -190,7 +191,11 @@ function writeTracks(
   timeSignature: TimeSignature,
   fragmentDynamics: readonly CapturedDynamic[] | undefined,
 ): ClipboardTrack[] {
-  const trace: DistributionTrace = { events: new Map(), notes: new Map() };
+  const trace: DistributionTrace = {
+    events: new Map(),
+    notes: new Map(),
+    allocate: createDistributionAllocator(segments, targetCount),
+  };
   const content = writeSegments(segments, targetCount, meteredRhythm(timeSignature), trace);
   relinkSourceTies(trace.notes);
   const targetRemap = new Map<string, string>();

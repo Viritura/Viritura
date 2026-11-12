@@ -236,7 +236,7 @@ describe("clipboard fragment distribution", () => {
     expect(tail.notes?.[0]!.ties).toEqual([{ lv: true }]);
   });
 
-  it("drops a copied tie whose two notes explode onto different staves", () => {
+  it("keeps a tied line on its staff when its pitch rank changes, then releases the staff", () => {
     const first: NoteEvent = {
       type: "event",
       id: "first",
@@ -256,12 +256,74 @@ describe("clipboard fragment distribution", () => {
       ],
     };
 
-    const result = explodeFragment(fragment([track([first, second], 0)]));
-    const ties = result.tracks!.flatMap((target) =>
-      (target.content as NoteEvent[]).flatMap((event) => (event.notes ?? []).flatMap((note) => note.ties ?? [])),
-    );
+    const third = structuredClone(second);
+    third.id = "third";
+    third.notes = third.notes!.map((note) => ({ ...note, id: `third-${note.pitch.step}` }));
+    const source = fragment([track([first, second, third], 0)]);
+    const snapshot = structuredClone(source);
+    const result = explodeFragment(source);
+    const top = result.tracks![0]!.content as NoteEvent[];
+    const bottom = result.tracks![1]!.content as NoteEvent[];
 
-    expect(ties).toEqual([]);
+    expect(eventPitches(top)).toEqual([["G0/4"], ["G0/4"], ["B0/4"]]);
+    expect(eventPitches(bottom)).toEqual([["C0/4"], ["B0/4"], ["G0/4"]]);
+    expect(top[0]!.notes![0]!.ties).toEqual([{ target: top[1]!.notes![0]!.id }]);
+    expect(top[1]!.notes![0]!.ties).toBeUndefined();
+    expect(source).toEqual(snapshot);
+  });
+
+  it("keeps a sustained note on its staff across union-grid splits without tying repeated attacks", () => {
+    const source = fragment([
+      track([noteEvent("held", "G", 4, "half")], 0),
+      track([noteEvent("low", "C", 4), noteEvent("high", "B", 4)], 1),
+    ]);
+
+    const result = explodeFragment(source, 2);
+    const top = result.tracks![0]!.content as NoteEvent[];
+    expect(eventPitches(top)).toEqual([["G0/4"], ["G0/4"]]);
+    expect(eventPitches(result.tracks![1]!.content)).toEqual([["C0/4"], ["B0/4"]]);
+    expect(top[0]!.notes![0]!.ties).toEqual([{ target: top[1]!.notes![0]!.id }]);
+
+    const repeated = explodeFragment(
+      fragment([track([noteEvent("repeat1", "G", 4), noteEvent("repeat2", "G", 4)], 0)]),
+    );
+    for (const event of repeated.tracks![0]!.content as NoteEvent[]) {
+      expect(event.notes![0]!.ties).toBeUndefined();
+    }
+  });
+
+  it("keeps an entire tie chain on its initial staff through tuplets and stacks new overflow elsewhere", () => {
+    function chord(id: string, steps: Note["pitch"]["step"][], next?: string): NoteEvent {
+      return {
+        type: "event",
+        id,
+        duration: { base: "eighth" },
+        notes: steps.map((step) => ({
+          id: `${id}-${step}`,
+          pitch: { step, octave: 4 },
+          ...(step === "G" && next ? { ties: [{ target: `${next}-G` }] } : {}),
+        })),
+      };
+    }
+    const tuplet: Tuplet = {
+      type: "tuplet",
+      inner: { multiple: 3, duration: { base: "eighth" } },
+      outer: { multiple: 2, duration: { base: "eighth" } },
+      content: [chord("t1", ["C", "G"], "t2"), chord("t2", ["B", "G", "E"], "t3"), chord("t3", ["B", "G"], "after")],
+    };
+    const source = fragment([track([chord("before", ["B", "G"], "t1"), tuplet, chord("after", ["C", "G"])], 0)]);
+
+    const result = explodeFragment(source, 2);
+    const lines = result.tracks!.map((target) =>
+      target.content.flatMap((item) => (item.type === "tuplet" ? (item.content as NoteEvent[]) : [item as NoteEvent])),
+    );
+    expect(eventPitches(lines[0]!)).toEqual([["B0/4"], ["C0/4"], ["B0/4"], ["B0/4"], ["C0/4"]]);
+    expect(eventPitches(lines[1]!)).toEqual([["G0/4"], ["G0/4"], ["E0/4", "G0/4"], ["G0/4"], ["G0/4"]]);
+    const held = lines[1]!.map((event) => event.notes!.find((note) => note.pitch.step === "G")!);
+    for (let index = 0; index < held.length - 1; index++) {
+      expect(held[index]!.ties).toEqual([{ target: held[index + 1]!.id }]);
+    }
+    expect(held.at(-1)!.ties).toBeUndefined();
   });
 
   it("refuses fragments containing a secondary voice", () => {

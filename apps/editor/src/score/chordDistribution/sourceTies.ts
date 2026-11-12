@@ -4,10 +4,8 @@
  * Distribution mints fresh note ids, so a source tie's target id would dangle.
  * Every destination note is traced back to the source note it renders, and a
  * source tie is re-drawn from the last destination piece of its start note to
- * the first piece of its end note on the same destination staff. Standard
- * engraving practice keeps a tie on the line that sustains the pitch; when the
- * two notes land on different staves there is no line to tie, so the tie is
- * dropped rather than drawn between staves.
+ * the first piece of its end note on the same destination staff. Allocation
+ * keeps each tie chain on one staff, even when its pitch rank changes.
  */
 
 import type { Note, Tie } from "@viritura/core";
