@@ -42,19 +42,37 @@ describe("layout worker memory diagnostics", () => {
     mocks.memory.mockResolvedValue(65536);
     const backend = await createLayoutBackend(false);
     await backend.computeFullScoreLayout("{}", 10);
-    await Promise.resolve();
-    expect(Reflect.get(window, "__VIRITURA_LAYOUT_MEMORY__")).toEqual({
-      bytes: 65536,
-      sampledAt: expect.any(Number),
+    await vi.waitFor(() => {
+      expect(Reflect.get(window, "__VIRITURA_LAYOUT_MEMORY__")).toEqual({
+        bytes: 65536,
+        sampledAt: expect.any(Number),
+      });
     });
     expect(backend.layoutMetrics()).toEqual(EMPTY_LAYOUT_METRICS);
     mocks.memory.mockResolvedValue(131072);
     await backend.relayoutRetainedScore(10);
-    await Promise.resolve();
-    expect(Reflect.get(window, "__VIRITURA_LAYOUT_MEMORY__")).toHaveProperty("bytes", 131072);
+    await vi.waitFor(() => {
+      expect(Reflect.get(window, "__VIRITURA_LAYOUT_MEMORY__")).toHaveProperty("bytes", 131072);
+    });
     backend.dispose();
     expect(Reflect.get(window, "__VIRITURA_LAYOUT_MEMORY__")).toBeNull();
     expect(mocks.dispose).toHaveBeenCalled();
+  });
+
+  it("keeps layout and cache stats working when the memory probe throws", async () => {
+    mocks.memory.mockImplementation(() => {
+      throw new TypeError("getWasmMemoryBytes is not a function");
+    });
+    const backend = await createLayoutBackend(false);
+    await expect(backend.computeFullScoreLayout("{}", 10)).resolves.toMatchObject({ width: 10 });
+    await vi.waitFor(() => {
+      expect(backend.cacheStats()).toEqual([2, 1]);
+    });
+    expect(Reflect.get(window, "__VIRITURA_LAYOUT_MEMORY__")).toEqual({
+      bytes: null,
+      sampledAt: expect.any(Number),
+    });
+    backend.dispose();
   });
 
   it("does not republish a late diagnostic response after disposal", async () => {

@@ -155,7 +155,11 @@ function makeWorkerBackend(service: LayoutService): LayoutBackend {
       engine.cacheStats(),
       engine.layoutMetrics(),
       timingEnabled ? engine.takeTimings() : Promise.resolve(null),
-      service.getWasmMemoryBytes(),
+      // Memory diagnostics are optional and must not suppress layout stats or
+      // throw synchronously from the layout path.
+      Promise.resolve()
+        .then(() => service.getWasmMemoryBytes())
+        .catch(() => null),
     ])
       .then(([nextStats, nextMetrics, timings, wasmBytes]) => {
         if (disposed || seq !== statsSeq) return;
