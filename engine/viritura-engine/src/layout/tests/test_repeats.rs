@@ -5,7 +5,9 @@ use super::test_helpers::*;
 use crate::layout::config::LayoutConfig;
 use crate::layout::measure::*;
 use crate::layout::resolve::*;
-use crate::layout::{layout_full_score, layout_score, layout_with_mnx_scores};
+use crate::layout::{
+    layout_full_score, layout_score, layout_with_mnx_scores, layout_with_mnx_scores_cached,
+};
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
@@ -66,6 +68,324 @@ fn volta_commands(display: &DisplayList) -> Vec<&RenderCommand> {
             (owner.as_deref() == Some(id.as_str())).then_some(&display.commands[index])
         })
         .collect()
+}
+
+fn volta_scope_score(start: usize, duration: usize, marked_measure: usize) -> crate::model::Score {
+    let rest = serde_json::json!({
+        "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]
+    });
+    let mut global = (0..12)
+        .map(|index| serde_json::json!({"id": format!("m{index}")}))
+        .collect::<Vec<_>>();
+    global[0]["time"] = serde_json::json!({"count": 4, "unit": 4});
+    global[start]["ending"] = serde_json::json!({"duration": duration, "numbers": [1]});
+    let parts = (0..4)
+        .map(|part| {
+            let mut measures = vec![rest.clone(); 12];
+            measures[0]["clefs"] =
+                serde_json::json!([{"clef": {"sign": "G", "staffPosition": -2}}]);
+            if part == 0 {
+                measures[marked_measure]["sequences"] = serde_json::json!([{"content": [
+                    {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "C", "octave": 6}}],
+                     "markings": {"accent": {}}},
+                    {"duration": {"base": "half", "dots": 1}, "rest": {}}
+                ]}]);
+            }
+            serde_json::json!({"id": format!("p{part}"), "measures": measures})
+        })
+        .collect::<Vec<_>>();
+    let staff =
+        |part| serde_json::json!({"type": "staff", "sources": [{"part": format!("p{part}")}]});
+    let json = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": global},
+        "parts": parts,
+        "layouts": [{"id": "full", "content": [
+            {"type": "group", "symbol": "bracket", "content": [staff(0), staff(1)]},
+            {"type": "group", "symbol": "bracket", "content": [staff(2), staff(3)]}
+        ]}],
+        "scores": [{"name": "Score", "layout": "full"}]
+    });
+    let mut score = parse_mnx(&json.to_string()).unwrap();
+    crate::reconcile::reconcile_score(&mut score);
+    score
+}
+
+fn assert_default_volta_placement(
+    display: &DisplayList,
+    measure: usize,
+    staff_indices: &[usize],
+    sp: f64,
+) {
+    let id = crate::layout::element_id::volta(measure);
+    let brackets: Vec<_> = display
+        .element_bboxes
+        .iter()
+        .filter(|bbox| bbox.element_id == id)
+        .collect();
+    assert_eq!(brackets.len(), staff_indices.len());
+    for &staff_index in staff_indices {
+        let staff = display
+            .measure_bounds
+            .iter()
+            .find(|bound| bound.index == measure && bound.staff_index == staff_index)
+            .unwrap();
+        let expected_y = staff.y - 1.88 * sp;
+        assert!(
+            brackets
+                .iter()
+                .any(|bracket| (bracket.bbox.y - expected_y).abs() < 1e-6),
+            "ending for measure {measure} must remain above staff {staff_index} at {expected_y}; got {:?}",
+            brackets.iter().map(|bracket| bracket.bbox.y).collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
+fn test_volta_does_not_follow_articulations_from_earlier_systems() {
+    let mut score = volta_scope_score(8, 1, 0);
+    let config = LayoutConfig {
+        sp: 10.0,
+        page_width: Some(400.0),
+        page_height: 45.0,
+        page_margin_top: 4.0,
+        page_margin_bottom: 4.0,
+        ..LayoutConfig::default()
+    };
+    assert_default_volta_placement(&layout_score(&score, 0, &config), 8, &[0], config.sp);
+    let mut grand_staff_score = score.clone();
+    grand_staff_score.parts[0].staves = 2;
+    assert_default_volta_placement(
+        &layout_score(&grand_staff_score, 0, &config),
+        8,
+        &[0],
+        config.sp,
+    );
+    assert_default_volta_placement(&layout_full_score(&score, &config), 8, &[0], config.sp);
+    assert_default_volta_placement(
+        &layout_with_mnx_scores(&score, &config, 0),
+        8,
+        &[0, 2],
+        config.sp,
+    );
+
+    score.scores[0].pages = vec![crate::model::layout::PageDefinition {
+        systems: [0, 4, 8]
+            .into_iter()
+            .map(|index| crate::model::layout::SystemDefinition {
+                measure: score.global.measures[index].id.clone().unwrap(),
+                layout: None,
+                layout_changes: Vec::new(),
+            })
+            .collect(),
+    }];
+    assert_default_volta_placement(
+        &layout_with_mnx_scores(&score, &config, 0),
+        8,
+        &[0, 2],
+        config.sp,
+    );
+}
+
+#[test]
+fn test_volta_horizon_clearance_is_scoped_to_its_staff() {
+    let score = volta_scope_score(1, 8, 2);
+    for horizon_chunk_width in [None, Some(200.0)] {
+        let config = LayoutConfig {
+            sp: 10.0,
+            horizon_chunk_width,
+            ..LayoutConfig::default()
+        };
+        let display = layout_with_mnx_scores(&score, &config, 0);
+        let id = crate::layout::element_id::volta(1);
+        let brackets: Vec<_> = display
+            .element_bboxes
+            .iter()
+            .filter(|bbox| bbox.element_id == id)
+            .collect();
+        assert_eq!(brackets.len(), 2);
+        let lower_staff = display
+            .measure_bounds
+            .iter()
+            .find(|bound| bound.index == 1 && bound.staff_index == 2)
+            .unwrap();
+        assert!(
+            brackets
+                .iter()
+                .any(|bracket| (bracket.bbox.y - (lower_staff.y - 1.88 * config.sp)).abs() < 1e-6),
+            "the lower staff's ending must not follow the upper staff's articulation"
+        );
+        let articulation = display
+            .element_shapes
+            .iter()
+            .find(|shape| {
+                shape.kind == ElementKind::Articulation && shape.element_id.starts_with("p0/m2/")
+            })
+            .and_then(|shape| shape.bbox(&display.commands))
+            .unwrap();
+        assert!(
+            brackets
+                .iter()
+                .any(|bracket| bracket.bbox.y + 2.8 * config.sp <= articulation.y + 1e-6),
+            "the upper staff's ending at {:?} must clear its articulation at {}",
+            brackets
+                .iter()
+                .map(|bracket| bracket.bbox.y)
+                .collect::<Vec<_>>(),
+            articulation.y
+        );
+    }
+}
+
+#[test]
+fn test_volta_clears_cross_staff_articulations_on_the_top_staff() {
+    let mut score = volta_scope_score(8, 1, 8);
+    score.parts[0].staves = 2;
+    let sequence = &mut score.parts[0].measures[8].sequences[0];
+    sequence.staff = Some(2);
+    let crate::model::SequenceContent::Event(event) = &mut sequence.content[0] else {
+        panic!("fixture contains a note event");
+    };
+    event.staff = Some(1);
+    let config = LayoutConfig {
+        sp: 10.0,
+        page_width: Some(400.0),
+        page_height: 45.0,
+        page_margin_top: 4.0,
+        page_margin_bottom: 4.0,
+        ..LayoutConfig::default()
+    };
+    for display in [
+        layout_score(&score, 0, &config),
+        layout_full_score(&score, &config),
+    ] {
+        let bracket = display
+            .element_bboxes
+            .iter()
+            .find(|bbox| bbox.element_id == crate::layout::element_id::volta(8))
+            .unwrap();
+        let articulation = display
+            .element_shapes
+            .iter()
+            .find(|shape| {
+                shape.kind == ElementKind::Articulation && shape.element_id.starts_with("p0/m8/")
+            })
+            .and_then(|shape| shape.bbox(&display.commands))
+            .unwrap();
+        assert!(
+            bracket.bbox.y + 2.8 * config.sp <= articulation.y + 1e-6,
+            "ending at {} must clear the cross-staff articulation at {}",
+            bracket.bbox.y,
+            articulation.y
+        );
+    }
+}
+
+#[test]
+fn test_volta_horizon_clears_cross_staff_articulations() {
+    let mut score = volta_test_score();
+    let marked_score = volta_scope_score(1, 8, 2);
+    let mut marked = marked_score.parts[0].measures[2].sequences[0].content[0].clone();
+    let crate::model::SequenceContent::Event(event) = &mut marked else {
+        panic!("fixture contains a note event");
+    };
+    event.staff = Some(1);
+    event.notes.as_mut().unwrap()[0].pitch.octave = 7;
+    score.parts[0].measures[2].sequences[1].content[0] = marked;
+    let config = LayoutConfig {
+        sp: 10.0,
+        horizon_chunk_width: Some(200.0),
+        ..LayoutConfig::default()
+    };
+    let display = layout_with_mnx_scores(&score, &config, 0);
+    let bracket = display
+        .element_bboxes
+        .iter()
+        .find(|bbox| bbox.element_id == crate::layout::element_id::volta(1))
+        .unwrap();
+    let articulation = display
+        .element_shapes
+        .iter()
+        .find(|shape| {
+            shape.kind == ElementKind::Articulation && shape.element_id.starts_with("p0/m2/")
+        })
+        .and_then(|shape| shape.bbox(&display.commands))
+        .unwrap();
+    assert!(
+        bracket.bbox.y + 2.8 * config.sp <= articulation.y + 1e-6,
+        "ending at {} must clear the cross-staff articulation at {}",
+        bracket.bbox.y,
+        articulation.y
+    );
+}
+
+#[test]
+fn test_volta_horizon_patch_keeps_clearance_from_retained_chunks() {
+    let mut score = volta_scope_score(1, 8, 2);
+    let config = LayoutConfig {
+        sp: 10.0,
+        horizon_chunk_width: Some(200.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    cache.set_patch_frame_enabled(true);
+    let _ = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let seed = cache.take_pending_patch().expect("seed emits a patch");
+    let (_, segments) = super::test_patch_frame::reconstruct(&seed, &[]);
+    let marked_chunk = segments
+        .iter()
+        .position(|segment| {
+            segment
+                .measure_bounds
+                .iter()
+                .any(|bound| bound.index == 2 && bound.staff_index == 0)
+        })
+        .expect("one chunk contains the marked measure");
+
+    let crate::model::SequenceContent::Event(event) =
+        &mut score.parts[3].measures[11].sequences[0].content[0]
+    else {
+        panic!("fixture contains a rest event");
+    };
+    event.rest.as_mut().unwrap().staff_position = Some(1);
+    cache.set_pending_dirty_region(Some(
+        crate::layout::cache::DirtyRegion::local_part_measures(
+            11,
+            11,
+            vec![false, false, false, true],
+        ),
+    ));
+    let expected = layout_with_mnx_scores_cached(&score, &config, 0, None);
+    let _ = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let patch = cache.take_pending_patch().expect("edit emits a patch");
+    assert!(
+        patch.placements.iter().any(|placement| matches!(
+            placement,
+            crate::layout::cache::SystemPlacement::Reuse { prev_index, .. }
+                if *prev_index == marked_chunk
+        )),
+        "the chunk with the articulation must be retained"
+    );
+    let (actual, _) = super::test_patch_frame::reconstruct(&patch, &segments);
+    let id = crate::layout::element_id::volta(1);
+    let brackets = |display: &DisplayList| {
+        display
+            .element_bboxes
+            .iter()
+            .filter(|bbox| bbox.element_id == id)
+            .map(|bbox| bbox.bbox.y)
+            .collect::<Vec<_>>()
+    };
+    let expected_y = brackets(&expected);
+    let actual_y = brackets(&actual);
+    assert_eq!(expected_y.len(), 2);
+    assert_eq!(actual_y.len(), expected_y.len());
+    for (actual, expected) in actual_y.iter().zip(&expected_y) {
+        assert!(
+            (actual - expected).abs() < 1e-6,
+            "patch ending is at {actual}, but a fresh layout places it at {expected}"
+        );
+    }
 }
 
 #[test]

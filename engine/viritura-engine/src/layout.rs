@@ -991,7 +991,15 @@ fn render_system_contents(
         staff_lyric_line_order.as_deref(),
         lyric_staff_number,
     );
-    render_volta_brackets(dl, measure_layouts, staff_y, config, score);
+    let staff_shape_end = dl.element_shapes.len();
+    render_volta_brackets(
+        dl,
+        measure_layouts,
+        staff_y,
+        config,
+        score,
+        staff_shape_start..staff_shape_end,
+    );
     volta::render_ottavas_for_view(dl, measure_layouts, staff_y, config, score, staff_sources);
     render_hairpins(
         dl,

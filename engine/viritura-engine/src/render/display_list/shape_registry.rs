@@ -162,14 +162,32 @@ impl DisplayList {
         x_min: f64,
         x_max: f64,
         y_ref: f64,
+        include: impl FnMut(ElementKind) -> bool,
+    ) -> Option<f64> {
+        Self::skyline_top_in(
+            &self.element_shapes,
+            &self.commands,
+            x_min,
+            x_max,
+            y_ref,
+            include,
+        )
+    }
+
+    pub(crate) fn skyline_top_in(
+        shapes: &[ElementShape],
+        commands: &[RenderCommand],
+        x_min: f64,
+        x_max: f64,
+        y_ref: f64,
         mut include: impl FnMut(ElementKind) -> bool,
     ) -> Option<f64> {
         let mut best: Option<f64> = None;
-        for shape in &self.element_shapes {
+        for shape in shapes {
             if !include(shape.kind) {
                 continue;
             }
-            let Some((top, _)) = shape.span_extent(&self.commands, x_min, x_max) else {
+            let Some((top, _)) = shape.span_extent(commands, x_min, x_max) else {
                 continue;
             };
             if top < y_ref {

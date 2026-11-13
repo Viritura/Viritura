@@ -730,6 +730,9 @@ pub(super) fn layout_auto_flow_mnx_score(
     let clef_change_hash = clef_change_hash(&clef_change_measures);
     let mut staff_content_reuses = 0usize;
     let mut staff_content_reuse_runs = 0usize;
+    let mut volta_skylines: Vec<_> = (0..flat_staves.len())
+        .map(|_| super::super::volta::VoltaSkyline::default())
+        .collect();
 
     render_auto_flow_systems(SystemRenderContext {
         dl: &mut dl,
@@ -759,6 +762,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         global_slur_events: &mut global_slur_events,
         global_tie_notes: &mut global_tie_notes,
         slur_bounds: &mut slur_bounds,
+        volta_skylines: &mut volta_skylines,
         old_retained: &mut old_retained,
         new_retained: &mut new_retained,
         prev_order: &prev_order,
@@ -891,6 +895,7 @@ pub(super) fn layout_auto_flow_mnx_score(
                 placement,
                 sp,
                 score,
+                &volta_skylines,
             );
         }
         super::super::cross_system::render_layout_staff_spanner_continuations(

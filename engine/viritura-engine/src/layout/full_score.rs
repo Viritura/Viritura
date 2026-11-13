@@ -309,6 +309,7 @@ pub fn layout_full_score_cached(
         // Fix note positions for cross-staff events: recompute using the target staff's clef
         fix_cross_staff_note_positions(&mut all_sys_layouts, &visual_staves, sp, config);
 
+        let system_shape_start = dl.element_shapes.len();
         for (vi, measure_layouts) in all_sys_layouts.iter().enumerate() {
             render_one_staff_for_system(
                 &mut dl,
@@ -343,7 +344,15 @@ pub fn layout_full_score_cached(
         render_trill_lines_for_system(&mut dl, &all_sys_layouts, &staff_y_offsets, sp, config);
 
         if let Some(first_layouts) = all_sys_layouts.first() {
-            render_volta_brackets(&mut dl, first_layouts, staff_y_offsets[0], config, score);
+            let system_shape_end = dl.element_shapes.len();
+            render_volta_brackets(
+                &mut dl,
+                first_layouts,
+                staff_y_offsets[0],
+                config,
+                score,
+                system_shape_start..system_shape_end,
+            );
         }
 
         render_system_chrome(

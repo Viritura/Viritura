@@ -778,6 +778,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         }
 
         // Draw staff lines and render each staff's contents
+        let system_shape_start = dl.element_shapes.len();
         render_grand_staff_system_staves(
             &mut dl,
             &all_sys_layouts,
@@ -798,7 +799,15 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
 
         // Volta brackets on the top staff only
         if let Some(top_layouts) = all_sys_layouts.first() {
-            render_volta_brackets(&mut dl, top_layouts, staff_y_offsets[0], config, score);
+            let system_shape_end = dl.element_shapes.len();
+            render_volta_brackets(
+                &mut dl,
+                top_layouts,
+                staff_y_offsets[0],
+                config,
+                score,
+                system_shape_start..system_shape_end,
+            );
         }
 
         render_grand_staff_system_connectors(

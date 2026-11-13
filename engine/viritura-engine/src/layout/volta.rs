@@ -10,6 +10,7 @@ use std::borrow::Borrow;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::ops::Range;
 
 mod paged_ottavas;
 pub(crate) use paged_ottavas::{
@@ -20,6 +21,72 @@ pub(crate) use paged_ottavas::{
 // Volta brackets (alternate endings)
 // ═══════════════════════════════════════════
 
+fn is_volta_obstacle(kind: ElementKind) -> bool {
+    matches!(
+        kind,
+        ElementKind::Articulation
+            | ElementKind::Fermata
+            | ElementKind::Ornament
+            | ElementKind::Tremolo
+    )
+}
+
+/// Collision geometry from both fresh and retained chunks for one staff.
+#[derive(Default)]
+pub(crate) struct VoltaSkyline {
+    shapes: Vec<ElementShape>,
+}
+
+impl VoltaSkyline {
+    pub(crate) fn capture(
+        &mut self,
+        display: &DisplayList,
+        shape_range: Range<usize>,
+        staff_y: f64,
+        dx: f64,
+        dy: f64,
+    ) {
+        for shape in &display.element_shapes[shape_range] {
+            if !is_volta_obstacle(shape.kind) {
+                continue;
+            }
+            let mut shape = shape.clone();
+            match &mut shape.geom {
+                ShapeGeom::Cmd { cmd_idx } => {
+                    let Some(mut command) = display.commands.get(*cmd_idx as usize).cloned() else {
+                        continue;
+                    };
+                    if dx != 0.0 || dy != 0.0 {
+                        command.translate_in_place(dx, dy);
+                    }
+                    let Some(bbox) = command.bbox() else {
+                        continue;
+                    };
+                    shape.geom = ShapeGeom::Rect { bbox };
+                }
+                ShapeGeom::Rect { bbox } => {
+                    bbox.x += dx;
+                    bbox.y += dy;
+                }
+                ShapeGeom::Band { samples } => {
+                    for (x, top, bottom) in samples {
+                        *x += dx;
+                        *top += dy;
+                        *bottom += dy;
+                    }
+                }
+            }
+            if shape.bbox(&[]).is_some_and(|bbox| bbox.y < staff_y) {
+                self.shapes.push(shape);
+            }
+        }
+    }
+
+    fn top(&self, x_min: f64, x_max: f64, staff_y: f64) -> Option<f64> {
+        DisplayList::skyline_top_in(&self.shapes, &[], x_min, x_max, staff_y, is_volta_obstacle)
+    }
+}
+
 /// Render volta brackets above the staff for measures with `ending` fields.
 /// Each ending defines a bracket spanning `duration` measures, with number labels
 /// like "1.", "2.", or "1, 2.". Open endings have no right hook; closed ones do.
@@ -29,6 +96,7 @@ pub(crate) fn render_volta_brackets(
     staff_y: f64,
     config: &LayoutConfig,
     score: &Score,
+    obstacle_shapes: Range<usize>,
 ) {
     let chunked =
         config.page_width.is_none() && config.horizon_chunk_width.is_some_and(|width| width > 0.0);
@@ -39,6 +107,16 @@ pub(crate) fn render_volta_brackets(
         config.sp,
         score,
         |_, _, starts_here, ends_here| !chunked || (starts_here && ends_here),
+        |display, x_min, x_max, y_ref| {
+            DisplayList::skyline_top_in(
+                &display.element_shapes[obstacle_shapes.clone()],
+                &display.commands,
+                x_min,
+                x_max,
+                y_ref,
+                is_volta_obstacle,
+            )
+        },
     );
 }
 
@@ -48,14 +126,21 @@ pub(crate) fn render_volta_brackets_across_chunks(
     staff_y: f64,
     sp: f64,
     score: &Score,
+    skyline: &VoltaSkyline,
 ) {
     let measures: Vec<_> = chunked_measures
         .iter()
         .map(|(_, measure)| *measure)
         .collect();
-    render_volta_brackets_filtered(dl, &measures, staff_y, sp, score, |start, end, _, _| {
-        chunked_measures[start].0 != chunked_measures[end].0
-    });
+    render_volta_brackets_filtered(
+        dl,
+        &measures,
+        staff_y,
+        sp,
+        score,
+        |start, end, _, _| chunked_measures[start].0 != chunked_measures[end].0,
+        |_, x_min, x_max, y_ref| skyline.top(x_min, x_max, y_ref),
+    );
 }
 
 pub(crate) fn ending_dependency_hash(score: &Score, context_hash: u64) -> u64 {
@@ -84,6 +169,7 @@ fn render_volta_brackets_filtered<M: Borrow<MeasureLayout>>(
     sp: f64,
     score: &Score,
     should_render: impl Fn(usize, usize, bool, bool) -> bool,
+    skyline_top: impl Fn(&DisplayList, f64, f64, f64) -> Option<f64>,
 ) {
     // Alternate-ending brackets are system furniture: draw once on the same
     // top-level staff that owns tempo and rehearsal marks.
@@ -185,15 +271,7 @@ fn render_volta_brackets_filtered<M: Borrow<MeasureLayout>>(
             // Also clear articulations/fermatas/ornaments/tremolos already
             // registered on this staff (e.g. a staccato dot above a note)
             // — the manual note/stem scan above doesn't know their glyph extent.
-            if let Some(sky_top) = dl.skyline_top(x_left, natural_x_right, staff_y, |kind| {
-                matches!(
-                    kind,
-                    ElementKind::Articulation
-                        | ElementKind::Fermata
-                        | ElementKind::Ornament
-                        | ElementKind::Tremolo
-                )
-            }) {
+            if let Some(sky_top) = skyline_top(dl, x_left, natural_x_right, staff_y) {
                 highest_y = highest_y.min(sky_top);
             }
 
