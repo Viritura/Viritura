@@ -159,21 +159,7 @@ pub(super) fn render_system_chrome(
         if let Some(last_ml) = first_layouts.last() {
             let end_x = last_ml.x + last_ml.width;
 
-            let barline_kind = if last_ml.resolved.global.repeat_end.is_some() {
-                BarlineKind::RepeatEnd
-            } else if is_last_system {
-                BarlineKind::from(
-                    last_ml
-                        .resolved
-                        .global
-                        .barline
-                        .as_ref()
-                        .map(|b| b.barline_type)
-                        .unwrap_or(BarlineType::Final),
-                )
-            } else {
-                BarlineKind::Regular
-            };
+            let barline_kind = system_end_barline_kind(&last_ml.resolved, is_last_system);
 
             let barline_tag = element_id::barline(last_ml.resolved.index + 1);
             let cmd_idx = dl.commands.len();

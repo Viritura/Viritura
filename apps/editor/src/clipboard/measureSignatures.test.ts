@@ -132,6 +132,8 @@ describe("whole-bar clipboard signatures", () => {
     const result = applyPaste(destination, paste, 0, 1, 0, 0);
     expect(result.global.measures[1]!.key).toEqual({ fifths: -2 });
     expect(result.global.measures[2]!.key).toEqual({ fifths: 3 });
+    expect(result.global.measures[0]!.barline).toEqual({ type: "double" });
+    expect(result.global.measures[1]!.barline).toEqual({ type: "double" });
     expect(result.parts[0]!.measures[1]!.clefs).toEqual([]);
     expect(getActiveClef(result, 0, 1, 1)).toEqual(treble);
     expect(result.parts[0]!.measures[2]!.clefs).toContainEqual({
@@ -142,6 +144,20 @@ describe("whole-bar clipboard signatures", () => {
     expect(result.parts[0]!.measures[2]!.clefs).toContainEqual(before.parts[0]!.measures[2]!.clefs![0]);
     expect(destination).toEqual(before);
     expect(source).toEqual(sourceBefore);
+  });
+
+  it("preserves explicit barlines and repeats when pasting key changes", () => {
+    const { paste } = roundTrip(score(), bars());
+    const destination = score();
+    destination.global.measures[0]!.key = { fifths: 0 };
+    destination.global.measures[0]!.barline = { type: "regular" };
+    destination.global.measures[1]!.repeatEnd = {};
+
+    const result = applyPaste(destination, paste, 0, 1, 0, 0);
+
+    expect(result.global.measures[0]!.barline).toEqual({ type: "regular" });
+    expect(result.global.measures[1]!.repeatEnd).toEqual({});
+    expect(result.global.measures[1]!.barline).toBeUndefined();
   });
 
   it("preserves the destination starting clef and copies mid-bar changes", () => {

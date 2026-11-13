@@ -171,6 +171,8 @@ export function setTimeSignature(score: Score, index: number, time: TimeSignatur
 /**
  * Set the key signature at a given measure index.
  * Pass `null` to remove an explicit key signature (inherit from previous).
+ * A new key change adds an editable double barline at the preceding boundary
+ * unless that boundary already has an explicit barline or a repeat.
  * Throws if index is out of range.
  */
 export function setKeySignature(score: Score, index: number, key: KeySignature | null): Score {
@@ -189,11 +191,26 @@ export function setKeySignature(score: Score, index: number, key: KeySignature |
     newMeasure.key = key;
   }
 
-  const newGlobalMeasures = [
-    ...score.global.measures.slice(0, index),
-    newMeasure,
-    ...score.global.measures.slice(index + 1),
-  ];
+  const newGlobalMeasures = [...score.global.measures];
+  newGlobalMeasures[index] = newMeasure;
+
+  const previousMeasure = score.global.measures[index - 1];
+  if (key && previousMeasure && !previousMeasure.barline && !previousMeasure.repeatEnd && !newMeasure.repeatStart) {
+    let previousKey: KeySignature = { fifths: 0 };
+    for (let i = index - 1; i >= 0; i--) {
+      const inheritedKey = score.global.measures[i]?.key;
+      if (inheritedKey) {
+        previousKey = inheritedKey;
+        break;
+      }
+    }
+
+    const wasOpen = previousKey.atonal === true;
+    const isOpen = key.atonal === true;
+    if (wasOpen !== isOpen || (!isOpen && key.fifths !== previousKey.fifths)) {
+      newGlobalMeasures[index - 1] = { ...previousMeasure, barline: { type: "double" } };
+    }
+  }
 
   return {
     ...score,

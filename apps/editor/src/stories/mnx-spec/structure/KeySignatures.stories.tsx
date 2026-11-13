@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { setKeySignature } from "@viritura/core";
+import { parseMnx, serializeMnx } from "@viritura/format";
 import { ScorePreview } from "../../storyFixtures/ScorePreview";
 import { buildMnx } from "../../storyFixtures/buildMnx";
 
@@ -90,4 +92,22 @@ export const KeyChange: StoryObj = {
     return <ScorePreview mnxJson={mnx} />;
   },
   name: "Change from E major to A-flat major",
+};
+
+export const AutomaticDoubleBarline: StoryObj = {
+  name: "Automatic double barline at a key change",
+  render: () => {
+    const mnx = buildMnx({
+      measures: [
+        {
+          time: { count: 4, unit: 4 },
+          key: { fifths: 0 },
+          voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
+        },
+        { voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]] },
+      ],
+    });
+    const score = setKeySignature(parseMnx(JSON.parse(mnx)), 1, { fifths: 2 });
+    return <ScorePreview mnxJson={JSON.stringify(serializeMnx(score))} />;
+  },
 };

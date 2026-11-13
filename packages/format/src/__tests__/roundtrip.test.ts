@@ -7,6 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { setKeySignature } from "@viritura/core";
 import { parseMnx, parseMnxWithDiagnostics } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
 import * as fs from "node:fs";
@@ -21,6 +22,20 @@ const mnxFiles = fs
   .sort();
 
 describe("MNX round-trip (parse → serialize → parse)", () => {
+  it("preserves the automatically added barline when a key change is saved", () => {
+    const score = parseMnx({
+      mnx: { version: 1 },
+      global: { measures: [{ key: { fifths: 0 } }, {}] },
+      parts: [{ measures: [{ sequences: [] }, { sequences: [] }] }],
+    });
+    const edited = setKeySignature(score, 1, { fifths: -2 });
+
+    const saved = serializeMnx(edited);
+
+    expect(saved.global.measures[0]!.barline).toEqual({ type: "double" });
+    expect(parseMnx(saved).global.measures[0]!.barline).toEqual({ type: "double" });
+  });
+
   it("omits a redundant explicit directionHint of auto", () => {
     // `auto` is the documented default (w3c-cg/mnx#553), so serializing it
     // would only add noise.

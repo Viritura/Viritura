@@ -448,6 +448,45 @@ describe("PalettePanel", () => {
   });
 
   it.each([
+    {
+      name: "measure",
+      selection: {
+        kind: "measure",
+        startPartIndex: 0,
+        endPartIndex: 0,
+        startStaffIndex: 0,
+        endStaffIndex: 0,
+        startMeasure: 1,
+        endMeasure: 1,
+      },
+    },
+    { name: "barline", selection: { kind: "single", elementId: "m1/barline", elementType: "barline" } },
+    { name: "note", selection: { kind: "single", elementId: "p0/m1/s0/first-note", elementType: "event" } },
+  ] satisfies { name: string; selection: Selection }[])(
+    "adds a key change and double barline for a selected $name",
+    async ({ selection }) => {
+      useSelectionStore.setState({ selection });
+      const user = userEvent.setup();
+      render(
+        <TooltipPrimitives.Provider delayDuration={0}>
+          <DocumentProvider>
+            <WithScore initialScore={structuredClone(SCORE)}>
+              <PalettePanel />
+            </WithScore>
+          </DocumentProvider>
+        </TooltipPrimitives.Provider>,
+      );
+
+      await user.click(await screen.findByRole("button", { name: "G major / E minor (1♯)" }));
+
+      const updated = JSON.parse(screen.getByTestId("score").textContent ?? "{}") as Score;
+      expect(updated.global.measures[0]!.barline).toEqual({ type: "double" });
+      expect(updated.global.measures[0]!.key).toBeUndefined();
+      expect(updated.global.measures[1]!.key).toEqual({ fifths: 1 });
+    },
+  );
+
+  it.each([
     ["Open meter", "senzaMisura"],
     ["Note-value denominator", "note"],
   ] as const)("authors %s from the palette", async (label, display) => {

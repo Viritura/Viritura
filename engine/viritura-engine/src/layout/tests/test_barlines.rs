@@ -1,9 +1,9 @@
 // Tests for heavy, dotted, heavyLight, and heavyHeavy barline types
 
 use crate::layout::config::LayoutConfig;
-use crate::layout::layout_score;
 use crate::layout::render_barlines::*;
 use crate::layout::types::MeasureLayout;
+use crate::layout::{layout_full_score, layout_score, layout_with_mnx_scores};
 use crate::model::*;
 use crate::parse::parse_mnx;
 use crate::render::*;
@@ -810,6 +810,181 @@ fn test_barline_tagging_double_barline() {
         "Double barline should tag at least 2 commands, got {}",
         tagged_count
     );
+}
+
+#[test]
+fn system_end_barline_respects_explicit_styles_and_repeats() {
+    let score = parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{}]},
+            "parts": [{"measures": [{"sequences": [{"content": []}]}]}]
+        }"#,
+    )
+    .unwrap();
+    let mut resolved = crate::layout::resolve::resolve_measures(&score, 0).remove(0);
+    assert_eq!(
+        system_end_barline_kind(&resolved, false),
+        BarlineKind::Regular
+    );
+    assert_eq!(system_end_barline_kind(&resolved, true), BarlineKind::Final);
+
+    resolved.global.barline = Some(Barline {
+        barline_type: BarlineType::Double,
+    });
+    resolved.next_has_repeat_start = true;
+    assert_eq!(
+        system_end_barline_kind(&resolved, false),
+        BarlineKind::Double
+    );
+    assert_eq!(
+        system_end_barline_kind(&resolved, true),
+        BarlineKind::Double
+    );
+
+    resolved.global.repeat_end = Some(RepeatEnd { times: None });
+    assert_eq!(
+        system_end_barline_kind(&resolved, false),
+        BarlineKind::RepeatEnd
+    );
+    assert_eq!(
+        system_end_barline_kind(&resolved, true),
+        BarlineKind::RepeatEnd
+    );
+
+    resolved.global.repeat_end = None;
+    resolved.global.barline = Some(Barline {
+        barline_type: BarlineType::NoBarline,
+    });
+    assert_eq!(
+        system_end_barline_kind(&resolved, false),
+        BarlineKind::NoBarline
+    );
+}
+
+#[test]
+fn key_change_double_barline_survives_system_breaks() {
+    let mut value = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "first", "time": {"count": 4, "unit": 4}, "key": {"fifths": 0},
+             "barline": {"type": "double"}},
+            {"id": "second", "key": {"fifths": 2}}
+        ]},
+        "parts": [
+            {"id": "piano", "staves": 2, "measures": [
+                {"clefs": [
+                    {"staff": 1, "clef": {"sign": "G", "staffPosition": -2}},
+                    {"staff": 2, "clef": {"sign": "F", "staffPosition": 2}}
+                ], "sequences": [
+                    {"staff": 1, "content": [{"duration": {"base": "whole"}, "rest": {}}]},
+                    {"staff": 2, "content": [{"duration": {"base": "whole"}, "rest": {}}]}
+                ]},
+                {"sequences": [
+                    {"staff": 1, "content": [{"duration": {"base": "whole"}, "rest": {}}]},
+                    {"staff": 2, "content": [{"duration": {"base": "whole"}, "rest": {}}]}
+                ]}
+            ]},
+            {"id": "flute", "measures": [
+                {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+                {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+            ]}
+        ],
+        "layouts": [{"id": "full", "content": [
+            {"type": "group", "symbol": "brace", "content": [
+                {"type": "staff", "sources": [{"part": "piano", "staff": 1}]},
+                {"type": "staff", "sources": [{"part": "piano", "staff": 2}]}
+            ]},
+            {"type": "staff", "sources": [{"part": "flute"}]}
+        ]}],
+        "scores": [{"name": "Full", "layout": "full"}]
+    });
+    let config = LayoutConfig {
+        page_width: Some(360.0),
+        ..LayoutConfig::default()
+    };
+    let score = parse_mnx(&value.to_string()).unwrap();
+    value["scores"][0]["pages"] = serde_json::json!([{"systems": [
+        {"measure": "first", "layout": "full"},
+        {"measure": "second", "layout": "full"}
+    ]}]);
+    let explicit = parse_mnx(&value.to_string()).unwrap();
+
+    for (name, display, staff_count) in [
+        ("single", layout_score(&score, 1, &config), 1),
+        ("grand staff", layout_score(&score, 0, &config), 2),
+        ("full score", layout_full_score(&score, &config), 3),
+        ("MNX auto", layout_with_mnx_scores(&score, &config, 0), 3),
+        (
+            "MNX explicit",
+            layout_with_mnx_scores(&explicit, &config, 0),
+            3,
+        ),
+    ] {
+        let mut first: Vec<_> = display
+            .measure_bounds
+            .iter()
+            .filter(|bounds| bounds.index == 0)
+            .collect();
+        first.sort_by(|left, right| left.y.total_cmp(&right.y));
+        assert_eq!(first.len(), staff_count, "{name}");
+        let next_system = display
+            .measure_bounds
+            .iter()
+            .find(|bounds| bounds.index == 1)
+            .unwrap()
+            .system_index;
+        assert_ne!(
+            first[0].system_index, next_system,
+            "{name}: expected a system break"
+        );
+
+        let tagged_lines: Vec<_> = display
+            .commands
+            .iter()
+            .zip(&display.element_ids)
+            .filter_map(|(command, id)| match command {
+                RenderCommand::DrawLine { x1, y1, x2, y2, .. }
+                    if id.as_deref() == Some("m1/barline") && (x1 - x2).abs() < 1e-6 =>
+                {
+                    Some((*x1, *y1, *y2))
+                }
+                _ => None,
+            })
+            .collect();
+        let half_separation = (0.4 + config.barline_width) * config.sp * 0.5;
+        for bounds in &first {
+            let mut strokes: Vec<_> = tagged_lines
+                .iter()
+                .filter(|(_, top, bottom)| {
+                    (top - bounds.y).abs() < 1e-6
+                        && (bottom - bounds.y - bounds.height).abs() < 1e-6
+                })
+                .map(|(x, _, _)| *x)
+                .collect();
+            strokes.sort_by(f64::total_cmp);
+            assert_eq!(strokes.len(), 2, "{name}: {strokes:?}");
+            let anchor = bounds.x + bounds.width;
+            assert!(
+                (strokes[0] - (anchor - half_separation)).abs() < 1e-6,
+                "{name}"
+            );
+            assert!(
+                (strokes[1] - (anchor + half_separation)).abs() < 1e-6,
+                "{name}"
+            );
+        }
+        if first.len() >= 2 {
+            let connectors = tagged_lines
+                .iter()
+                .filter(|(_, top, bottom)| {
+                    (top - first[0].y - first[0].height).abs() < 1e-6
+                        && (bottom - first[1].y).abs() < 1e-6
+                })
+                .count();
+            assert_eq!(connectors, 2, "{name}: both barline strokes must connect");
+        }
+    }
 }
 
 #[test]
