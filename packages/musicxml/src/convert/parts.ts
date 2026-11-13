@@ -25,29 +25,42 @@ import type { Interval, TextContent } from "@viritura/core";
 import type { ImportedHarmonySource } from "./harmonyConsolidation";
 import type { OpenLyricExtender } from "./lyricExtenders";
 
-// Parse `<transpose>` from a part's first measure.
+function readTransposeInterval(transpose: Element | null): TransposeInterval | undefined {
+  if (!transpose) return undefined;
+  const chrom = childText(transpose, "chromatic");
+  if (!chrom) throw new Error(`MusicXML ${transpose.tagName} requires a chromatic interval.`);
+  const halfSteps = parseInt(chrom, 10);
+  const staffDistance = parseInt(childText(transpose, "diatonic") ?? "0", 10);
+  const octaveChange = parseInt(childText(transpose, "octave-change") ?? "0", 10);
+  if (![halfSteps, staffDistance, octaveChange].every(Number.isFinite)) {
+    throw new Error(`MusicXML ${transpose.tagName} contains an invalid transposition interval.`);
+  }
+  return { halfSteps, staffDistance, octaveChange };
+}
+
+// Parse source and written-part intervals from a part's first measure.
 //
 // MusicXML stores WRITTEN pitches and `<transpose>` defines the
 // (written → sounding) interval. MNX stores SOUNDING pitches and
 // `part.transposition.interval` is the (sounding → written) interval — i.e.
-// the negation. We return both the original MusicXML interval (for transposing
-// each pitch written → sounding) and the inverted MNX `transposition` object.
-function parsePartTransposition(partEl: Element): {
+// the negation. In a `<concert-score>`, `<for-part>/<part-transpose>` describes
+// the extracted written part, NOT a shift to apply to the source notes.
+function parsePartTransposition(
+  partEl: Element,
+  concertScore: boolean,
+): {
   partTranspose?: TransposeInterval;
   transposition?: MnxPart["transposition"];
 } {
   const m1 = findChild(partEl, "measure");
   const a = m1 ? findChild(m1, "attributes") : null;
-  const transpose = a ? findChild(a, "transpose") : null;
-  if (!transpose) return {};
-  const chrom = childText(transpose, "chromatic");
-  if (!chrom) return {};
-  const halfSteps = parseInt(chrom, 10);
-  const dia = childText(transpose, "diatonic");
-  const oct = childText(transpose, "octave-change");
-  const staffDistance = dia ? parseInt(dia, 10) : 0;
-  const octaveChange = oct ? parseInt(oct, 10) : 0;
-  if (halfSteps === 0 && staffDistance === 0 && octaveChange === 0) return {};
+  const partTranspose = readTransposeInterval(a ? findChild(a, "transpose") : null);
+  const forPart = concertScore && a ? findChild(a, "for-part") : null;
+  const writtenTranspose =
+    readTransposeInterval(forPart ? findChild(forPart, "part-transpose") : null) ?? partTranspose;
+  if (!writtenTranspose) return {};
+  const { halfSteps, staffDistance, octaveChange } = writtenTranspose;
+  if (halfSteps === 0 && staffDistance === 0 && octaveChange === 0) return { partTranspose };
   // Pure-octave transposers (piccolo +8va, double bass / contrabass -8va,
   // glockenspiel, etc.) are conventionally notated at written pitch even in a
   // concert-pitch score — writing them at sounding pitch would bury them in
@@ -62,7 +75,7 @@ function parsePartTransposition(partEl: Element): {
   };
   if (isPureOctave) transposition.prefersWrittenPitches = true;
   return {
-    partTranspose: { halfSteps, staffDistance, octaveChange },
+    partTranspose,
     transposition,
   };
 }
@@ -200,6 +213,8 @@ export function buildParts(
   harmonySources: ImportedHarmonySource[];
 } {
   const mnxParts: MnxPart[] = [];
+  const defaults = findChild(root, "defaults");
+  const concertScore = defaults !== null && findChild(defaults, "concert-score") !== null;
   const harmonySources: ImportedHarmonySource[] = [];
   const lyricLineIds = new Set<string>();
   const lyricMetadataCandidates = new Map<string, LyricMetadataCandidates>();
@@ -228,8 +243,11 @@ export function buildParts(
     const mnxPart: MnxPart = { id: info.id, measures: [] };
     if (info.name) mnxPart.name = info.name;
     if (info.abbreviation) mnxPart.shortName = info.abbreviation;
+    if (vendorExt && info.instrumentSound) {
+      mnxPart._x = { viritura: { instrumentId: info.instrumentSound } };
+    }
 
-    const { partTranspose, transposition } = parsePartTransposition(partEl);
+    const { partTranspose, transposition } = parsePartTransposition(partEl, concertScore);
     if (transposition) mnxPart.transposition = transposition;
 
     // Multi-staff detection from the first measure's attributes.

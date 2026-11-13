@@ -510,6 +510,7 @@ export function expandTemplate(templateId: string): Player[] {
 /**
  * Mutate a parsed score in place, filling in `_x.viritura.instrumentId` /
  * `midiProgram` / `family` on every part that doesn't already have them.
+ * Returns the number of parts whose metadata changed.
  *
  * Match strategy:
  *   1. Existing `_x.viritura.instrumentId` — never overwritten.
@@ -535,16 +536,16 @@ export function enrichInstrumentIdentities<
   let filled = 0;
   for (const part of score.parts) {
     const ext = part._x?.viritura ?? {};
-    if (ext.instrumentId) continue;
     const key = ext.initialInstrument;
     const initial =
       key !== undefined && ext.instruments && Object.hasOwn(ext.instruments, key) ? ext.instruments[key] : undefined;
-    const inst = initial
-      ? getCatalogInstrument(initial.instrumentId)
+    const explicitId = ext.instrumentId ?? initial?.instrumentId;
+    const inst = explicitId
+      ? getCatalogInstrument(explicitId)
       : (getCatalogInstrumentByName(part.name) ??
         // Fallback: name-or-baseName + transposition + staves
         INSTRUMENT_CATALOG.find((i) => {
-          const partHs = part.transposition?.interval?.halfSteps;
+          const partHs = part.transposition?.interval.halfSteps;
           const partSt = part.staves ?? 1;
           const matchesT = partHs === undefined ? !i.transposition : i.transposition?.halfSteps === partHs;
           const matchesS = i.staves === partSt;
@@ -553,13 +554,21 @@ export function enrichInstrumentIdentities<
             (i.baseName && i.baseName.toLowerCase() === part.name.toLowerCase());
           return matchesT && matchesS && matchesN;
         }));
-    const instrumentId = initial?.instrumentId ?? inst?.id;
+    const instrumentId = explicitId ?? inst?.id;
     if (instrumentId === undefined) continue;
-    ext.instrumentId = instrumentId;
-    const midiProgram = initial?.midiProgram ?? inst?.midiProgram;
-    if (ext.midiProgram === undefined && midiProgram !== undefined) ext.midiProgram = midiProgram;
-    if (ext.family === undefined && inst) ext.family = inst.family;
-    part._x = { viritura: ext };
+    const enriched = {
+      ...ext,
+      instrumentId,
+      midiProgram: ext.midiProgram ?? initial?.midiProgram ?? inst?.midiProgram,
+      family: ext.family ?? inst?.family,
+    };
+    if (
+      ext.instrumentId === enriched.instrumentId &&
+      ext.midiProgram === enriched.midiProgram &&
+      ext.family === enriched.family
+    )
+      continue;
+    part._x = { viritura: enriched };
     filled++;
   }
   return filled;
