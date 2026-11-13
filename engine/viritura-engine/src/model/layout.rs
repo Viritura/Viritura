@@ -92,7 +92,15 @@ pub struct LayoutSource {
 impl LayoutStaff {
     /// A staff is in condensing mode when it has multiple source parts.
     pub fn is_condensing(&self) -> bool {
-        self.sources.len() > 1
+        self.sources
+            .iter()
+            .enumerate()
+            .skip(1)
+            .any(|(index, source)| {
+                self.sources[..index]
+                    .iter()
+                    .any(|previous| previous.part != source.part)
+            })
     }
 }
 
