@@ -30,7 +30,7 @@ import {
   applyOrnament,
   applyBreathFermata,
 } from "../radialMenu/radialMenuActions";
-import { resolveInsertMeasureIndex, timeSignatureMeasureIndexFromSelection } from "../commands/signatureCommands";
+import { resolveInsertMeasureIndex, signatureMeasureIndexFromSelection } from "../commands/signatureCommands";
 import { createPickupBar, parsePickupDuration } from "../commands/pickupBar";
 import { openPickupDurationPrompt } from "../store/modalFlowStore";
 import { toggleMeasureRepeatForSelection } from "../commands/measureRepeatCommands";
@@ -277,7 +277,7 @@ function applyTimeSignatureExpression(
     setTimeSignature(result.time);
     return;
   }
-  if ((timeSignatureMeasureIndexFromSelection(selection, score) ?? 0) !== 0) {
+  if ((signatureMeasureIndexFromSelection(selection, score) ?? 0) !== 0) {
     toast.warning("A pickup duration can only be entered at the opening meter.");
     return;
   }

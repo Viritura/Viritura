@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { toast } from "sonner";
 import type {
   Barline,
   Clef,
@@ -25,7 +26,7 @@ import type { MeasureRange } from "../store/selectionUtils";
 import { resolveCapabilityTargets, SCOPE_ACTION } from "../store/selectionCapabilities";
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
-import { timeSignatureMeasureIndexFromSelection } from "../commands/signatureCommands";
+import { signatureMeasureIndexFromSelection } from "../commands/signatureCommands";
 
 function gcd(a: number, b: number): number {
   let x = Math.abs(a);
@@ -106,7 +107,7 @@ export function useSignatureActions(deps: SignatureActionsDeps): SignatureAction
     (time: TimeSignature) => {
       const { score } = store.getState();
       if (!score) return;
-      const idx = timeSignatureMeasureIndexFromSelection(selection, score) ?? 0;
+      const idx = signatureMeasureIndexFromSelection(selection, score) ?? 0;
       updateScore(setTimeSignature(score, idx, time));
     },
     [store, selection, updateScore],
@@ -116,10 +117,14 @@ export function useSignatureActions(deps: SignatureActionsDeps): SignatureAction
     (key: KeySignature) => {
       const { score } = store.getState();
       if (!score) return;
-      const idx = selectedScope()?.startMeasure ?? 0;
-      updateScore(setKeySignature(score, idx, key));
+      const idx = signatureMeasureIndexFromSelection(selection, score);
+      if (idx === null && selection.kind !== "none") {
+        toast.warning("Select a measure before adding a key signature.");
+        return;
+      }
+      updateScore(setKeySignature(score, idx ?? 0, key));
     },
-    [store, selectedScope, updateScore],
+    [store, selection, updateScore],
   );
 
   const handleSetBarline = useCallback(

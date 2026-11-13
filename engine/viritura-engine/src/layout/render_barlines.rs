@@ -145,6 +145,23 @@ pub(crate) fn leading_barline_kind(rm: &ResolvedMeasure) -> BarlineKind {
     )
 }
 
+pub(crate) fn system_end_barline_kind(rm: &ResolvedMeasure, is_last_system: bool) -> BarlineKind {
+    let fallback = if is_last_system {
+        BarlineType::Final
+    } else {
+        BarlineType::Regular
+    };
+    BarlineKind::at_boundary(
+        rm.global.repeat_end.is_some(),
+        false,
+        rm.global
+            .barline
+            .as_ref()
+            .map(|barline| &barline.barline_type),
+        fallback,
+    )
+}
+
 /// Standard engraving practice: signatures clear the barline's visible ink.
 pub(crate) fn leading_barline_advance(
     rm: &ResolvedMeasure,

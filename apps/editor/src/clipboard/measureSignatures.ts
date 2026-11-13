@@ -1,4 +1,5 @@
 import type { PositionedClef, Score, Space } from "@viritura/core";
+import { setKeySignature } from "@viritura/core";
 import type { CapturedMeasureSignatures, ClipboardTrack } from "./ClipboardFragment";
 import { addWholeFractions, compareWholeFractions } from "./clipboardTrackPlacement";
 import { resolveActiveTimeKey } from "./sourceContext";
@@ -120,7 +121,13 @@ export function applyMeasureSignatures(
         !measure.key &&
         JSON.stringify(resolveActiveTimeKey(score, target.measureIndex).key) ===
           JSON.stringify(signaturesAtMeasure.key);
-      if (!unchangedContext) measure.key = structuredClone(signaturesAtMeasure.key);
+      if (!unchangedContext) {
+        score.global.measures = setKeySignature(
+          score,
+          target.measureIndex,
+          structuredClone(signaturesAtMeasure.key),
+        ).global.measures;
+      }
     }
     for (const entry of signaturesAtMeasure.clefs ?? []) {
       // The initial source clef is context, not a change within the passage.

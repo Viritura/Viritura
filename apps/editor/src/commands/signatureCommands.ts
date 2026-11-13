@@ -100,11 +100,11 @@ export function measureRangeFromElementId(
 }
 
 /**
- * Measure where a time-signature change starts for the current selection.
+ * Measure where a signature change starts for the current selection.
  * A selected barline `mN/barline` is the boundary that starts measure N,
  * unlike editing that barline itself, which belongs to measure N-1.
  */
-export function timeSignatureMeasureIndexFromSelection(selection: Selection, score: Score): number | null {
+export function signatureMeasureIndexFromSelection(selection: Selection, score: Score): number | null {
   if (selection.kind === "single") {
     const barlineMatch = selection.elementId.match(/^m(\d+)\/barline$/);
     if (barlineMatch) {

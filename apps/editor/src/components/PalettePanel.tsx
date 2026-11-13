@@ -117,7 +117,7 @@ import {
   measureRangeFromElementId,
   partIndexFromElementId,
   resolveInsertMeasureIndex,
-  timeSignatureMeasureIndexFromSelection,
+  signatureMeasureIndexFromSelection,
   ENDING_PRESETS,
 } from "../commands/signatureCommands";
 import { produce } from "../score/scoreClone";
@@ -471,7 +471,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       const score = store.getState().score;
       if (!score) return;
       const selection = useSelectionStore.getState().selection;
-      const measureIndex = timeSignatureMeasureIndexFromSelection(selection, score) ?? 0;
+      const measureIndex = signatureMeasureIndexFromSelection(selection, score) ?? 0;
       updateScore(setTimeSignature(score, measureIndex, time));
     },
     [store, updateScore],
@@ -481,7 +481,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     const score = store.getState().score;
     if (!score) return;
     const selection = useSelectionStore.getState().selection;
-    const targetMeasureIndex = timeSignatureMeasureIndexFromSelection(selection, score) ?? 0;
+    const targetMeasureIndex = signatureMeasureIndexFromSelection(selection, score) ?? 0;
     setPromptState({
       open: true,
       title: "Custom time signature",
@@ -503,12 +503,17 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
 
   const handleSetKeySignature = useCallback(
     (key: { fifths: number }) => {
-      const es = getEditorState();
-      if (!es) return;
-      const idx = measureIndexFromElementId(es.elementId, es.score) ?? 0;
-      updateScore(setKeySignature(es.score, idx, key));
+      const score = store.getState().score;
+      if (!score) return;
+      const selection = useSelectionStore.getState().selection;
+      const idx = signatureMeasureIndexFromSelection(selection, score);
+      if (idx === null && selection.kind !== "none") {
+        toast.warning("Select a measure before adding a key signature.");
+        return;
+      }
+      updateScore(setKeySignature(score, idx ?? 0, key));
     },
-    [getEditorState, updateScore],
+    [store, updateScore],
   );
 
   const handleSetBarline = useCallback(
@@ -842,7 +847,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     const score = store.getState().score;
     const sel = useSelectionStore.getState().selection;
     if (!score) return;
-    const measureIndex = timeSignatureMeasureIndexFromSelection(sel, score);
+    const measureIndex = signatureMeasureIndexFromSelection(sel, score);
     if (measureIndex === null) return;
     const current = (score.global.measures[measureIndex] as Record<string, unknown>)?.rehearsalMark as
       { text?: TextContent } | undefined;

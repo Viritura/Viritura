@@ -1017,20 +1017,7 @@ fn render_system_contents(
             render_change_clef(dl, courtesy_x, staff_y, sp, clef);
         }
 
-        let barline_kind = if last.resolved.global.repeat_end.is_some() {
-            BarlineKind::RepeatEnd
-        } else if is_last_system {
-            BarlineKind::from(
-                last.resolved
-                    .global
-                    .barline
-                    .as_ref()
-                    .map(|b| b.barline_type)
-                    .unwrap_or(BarlineType::Final),
-            )
-        } else {
-            BarlineKind::Regular
-        };
+        let barline_kind = system_end_barline_kind(&last.resolved, is_last_system);
 
         let barline_tag = element_id::barline(last.resolved.index + 1);
         let cmd_idx = dl.commands.len();

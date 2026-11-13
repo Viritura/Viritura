@@ -12,6 +12,7 @@ import { parseMnx } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
 import { DeltaSerializer } from "../mnx/deltaSerializer";
 import type { Score, NoteEvent } from "@viritura/core";
+import { setKeySignature } from "@viritura/core";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -62,6 +63,25 @@ function recolorFirstNote(score: Score, partIndex: number, measureIndex: number,
 }
 
 describe("DeltaSerializer incremental assembly", () => {
+  it("includes the automatic barline and key change in the same incremental patch", () => {
+    const score = parseMnx({
+      mnx: { version: 1 },
+      global: { measures: [{ key: { fifths: 0 } }, {}] },
+      parts: [{ measures: [{ sequences: [] }, { sequences: [] }] }],
+    });
+    const delta = new DeltaSerializer();
+    delta.serialize(score);
+
+    const result = delta.serialize(setKeySignature(score, 1, { fifths: 2 }));
+    const patch = JSON.parse(delta.buildPatch(result.changedGlobalMeasures, result.changedPartMeasures));
+
+    expect(result.changedGlobalMeasures).toEqual([0, 1]);
+    expect(patch.globalMeasures).toMatchObject({
+      "0": { barline: { type: "double" } },
+      "1": { key: { fifths: 2 } },
+    });
+  });
+
   for (const file of mnxFiles) {
     it(`assembles byte-identical full JSON for ${file}`, () => {
       const raw = fs.readFileSync(path.join(scoresDir, file), "utf-8");

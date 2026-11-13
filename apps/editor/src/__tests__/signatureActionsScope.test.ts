@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
+import { toast } from "sonner";
 import type { Score, NoteEvent, Step, Octave } from "@viritura/core";
 import { setTimeSignature, setKeySignature, setEnding } from "@viritura/core";
 import { useSignatureActions } from "../app/useSignatureActions";
@@ -144,6 +145,37 @@ describe("useSignatureActions — scope derivation via resolveSelectionScope", (
     const { actions, updateScore } = setup(score, sel);
     actions.handleSetKeySignature({ fifths: 2 });
     expect(updateScore).toHaveBeenCalledWith(setKeySignature(score, 1, { fifths: 2 }));
+  });
+
+  it("adds a key change and double barline at a selected boundary", () => {
+    const score = makeScore();
+    const { actions, updateScore } = setup(score, {
+      kind: "single",
+      elementId: "m2/barline",
+      elementType: "barline",
+    });
+
+    actions.handleSetKeySignature({ fifths: 2 });
+
+    const updated = updateScore.mock.calls[0]![0] as Score;
+    expect(updated.global.measures[2]!.key).toEqual({ fifths: 2 });
+    expect(updated.global.measures[1]!.barline).toEqual({ type: "double" });
+    expect(updated.global.measures[0]!.barline).toBeUndefined();
+  });
+
+  it("warns instead of changing the opening key at the final barline", () => {
+    const warning = vi.spyOn(toast, "warning").mockReturnValue(0);
+    const { actions, updateScore } = setup(makeScore(), {
+      kind: "single",
+      elementId: "m3/barline",
+      elementType: "barline",
+    });
+
+    actions.handleSetKeySignature({ fifths: 2 });
+
+    expect(updateScore).not.toHaveBeenCalled();
+    expect(warning).toHaveBeenCalledWith("Select a measure before adding a key signature.");
+    warning.mockRestore();
   });
 
   it("spans an ending across the full measure range of the selection", () => {

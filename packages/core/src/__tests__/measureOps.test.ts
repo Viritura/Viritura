@@ -412,6 +412,60 @@ describe("setKeySignature", () => {
     const result = setKeySignature(score, 1, { fifths: 3 });
 
     expect(result.global.measures[1]!.key).toEqual({ fifths: 3 });
+    expect(result.global.measures[0]!.barline).toEqual({ type: "double" });
+    expect(score.global.measures[0]!.barline).toBeUndefined();
+  });
+
+  it("compares the new signature with the inherited key", () => {
+    const score = twoMeasureScore();
+    score.global.measures = [{ key: { fifths: 2 } }, {}, {}];
+
+    const unchanged = setKeySignature(score, 2, { fifths: 2, color: "#ff0000" });
+    expect(unchanged.global.measures[1]!.barline).toBeUndefined();
+
+    const changed = setKeySignature(score, 2, { fifths: 0 });
+    expect(changed.global.measures[1]!.barline).toEqual({ type: "double" });
+    expect(changed.global.measures[0]!.barline).toBeUndefined();
+  });
+
+  it("recognizes changes to and from an open key", () => {
+    const score = twoMeasureScore();
+    score.global.measures[0]!.key = { fifths: 0, atonal: true };
+
+    expect(setKeySignature(score, 1, { fifths: 3, atonal: true }).global.measures[0]!.barline).toBeUndefined();
+    expect(setKeySignature(score, 1, { fifths: 0 }).global.measures[0]!.barline).toEqual({ type: "double" });
+    score.global.measures[0]!.key = { fifths: 0 };
+    expect(setKeySignature(score, 1, { fifths: 0, atonal: true }).global.measures[0]!.barline).toEqual({
+      type: "double",
+    });
+  });
+
+  it.each(["regular", "double", "final", "noBarline"] as const)("does not replace an existing %s barline", (type) => {
+    const score = twoMeasureScore();
+    score.global.measures[0]!.barline = { type };
+
+    expect(setKeySignature(score, 1, { fifths: 2 }).global.measures[0]!.barline).toEqual({ type });
+  });
+
+  it.each(["repeatEnd", "repeatStart", "both"] as const)("does not add a double barline at a %s boundary", (repeat) => {
+    const score = twoMeasureScore();
+    if (repeat !== "repeatStart") score.global.measures[0]!.repeatEnd = {};
+    if (repeat !== "repeatEnd") score.global.measures[1]!.repeatStart = {};
+
+    const result = setKeySignature(score, 1, { fifths: 2 });
+    expect(result.global.measures[0]!.barline).toBeUndefined();
+    expect(result.global.measures[0]!.repeatEnd).toEqual(score.global.measures[0]!.repeatEnd);
+    expect(result.global.measures[1]!.repeatStart).toEqual(score.global.measures[1]!.repeatStart);
+  });
+
+  it("does not add a barline for an opening key or when removing a key", () => {
+    const score = twoMeasureScore();
+    expect(setKeySignature(score, 0, { fifths: 3 }).global.measures[0]!.barline).toBeUndefined();
+
+    score.global.measures[1]!.key = { fifths: 2 };
+    score.global.measures[0]!.barline = { type: "double" };
+    const result = setKeySignature(score, 1, null);
+    expect(result.global.measures[0]!.barline).toEqual({ type: "double" });
   });
 
   it("overwrites an existing key signature", () => {

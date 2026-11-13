@@ -142,6 +142,11 @@ Choose an item from a radial menu to apply it to the current selection. The
 same commands remain available from the palettes when you prefer a persistent
 visual list.
 
+Applying a different key signature after the first bar adds a double barline
+before the new key, unless that boundary already has an explicit barline or a
+repeat. The barline is an independent item: you can change it in the inspector,
+and deleting the key signature does not remove it.
+
 The time-signature menu accepts an optional beat grouping after the meter.
 Enter `5/8 32`, `5/8 3+2`, or `5/8 3,2` for 5/8 grouped 3+2. Compact
 groupings use one digit per group; use `+` or `,` when a group has more than

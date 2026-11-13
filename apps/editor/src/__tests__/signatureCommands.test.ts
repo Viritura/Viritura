@@ -5,7 +5,7 @@ import {
   partIndexFromElementId,
   measureRangeFromElementId,
   resolveInsertMeasureIndex,
-  timeSignatureMeasureIndexFromSelection,
+  signatureMeasureIndexFromSelection,
   deleteKeySignatureByElementId,
   ENDING_PRESETS,
 } from "../commands/signatureCommands";
@@ -133,10 +133,10 @@ describe("resolveInsertMeasureIndex", () => {
     expect(resolveInsertMeasureIndex("m2/barline", makeScore())).toBe(2);
   });
 
-  describe("timeSignatureMeasureIndexFromSelection", () => {
+  describe("signatureMeasureIndexFromSelection", () => {
     it("uses the measure after a selected barline boundary", () => {
       expect(
-        timeSignatureMeasureIndexFromSelection(
+        signatureMeasureIndexFromSelection(
           { kind: "single", elementId: "m2/barline", elementType: "barline" },
           makeScore(),
         ),
@@ -145,7 +145,7 @@ describe("resolveInsertMeasureIndex", () => {
 
     it("resolves a selected global time-signature element", () => {
       expect(
-        timeSignatureMeasureIndexFromSelection(
+        signatureMeasureIndexFromSelection(
           { kind: "single", elementId: "m1/time", elementType: "time-signature" },
           makeScore(),
         ),

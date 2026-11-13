@@ -9,7 +9,9 @@
 use super::super::config::LayoutConfig;
 use super::super::element_id;
 use super::super::full_score::GroupRange;
-use super::super::render_barlines::{render_tagged_barline_connector, BarlineGap, BarlineKind};
+use super::super::render_barlines::{
+    render_tagged_barline_connector, system_end_barline_kind, BarlineGap, BarlineKind,
+};
 use super::super::types::MeasureLayout;
 use super::staff_grouping::staves_share_group;
 use crate::model::BarlineType;
@@ -98,24 +100,7 @@ pub(super) fn render_inter_staff_barlines(
     let Some(last_ml) = first_layouts.last() else {
         return;
     };
-    let end_bt = if last_ml.resolved.global.repeat_end.is_some() {
-        BarlineKind::RepeatEnd
-    } else {
-        let fallback = if is_last_system {
-            BarlineType::Final
-        } else {
-            BarlineType::Regular
-        };
-        BarlineKind::from(
-            last_ml
-                .resolved
-                .global
-                .barline
-                .as_ref()
-                .map(|b| b.barline_type)
-                .unwrap_or(fallback),
-        )
-    };
+    let end_bt = system_end_barline_kind(&last_ml.resolved, is_last_system);
     connect_gaps(
         dl,
         GapRun {
