@@ -8,8 +8,14 @@ import { EngraveLeftPanel } from "../components/modes/engrave/EngraveLeftPanel";
 import { PageSetupDialog } from "../components/PageSetupDialog";
 import { DocumentProvider, useDocumentStore } from "../store/DocumentContext";
 import { resetSelectionStore, useSelectionStore } from "../store/selectionStore";
+import { getGlobalPerfTracker } from "@viritura/renderer";
+import { useDocumentStoreApi } from "../store/DocumentContext";
+import type { DocumentStore } from "../store/documentStore";
+import { AutoHideEmptyStavesControl } from "../components/modes/engrave/EngraveLeftPanel/AutoHideEmptyStavesControl";
+import { useAutoHideEmptyParts, useEngraveContextRefs } from "../components/modes/engrave/hooks";
 
 afterEach(() => {
+  getGlobalPerfTracker().fastLayoutCallback = null;
   cleanup();
   resetSelectionStore();
 });
@@ -57,6 +63,16 @@ function WithScore({ children }: { readonly children: ReactNode }) {
   return loaded ? children : null;
 }
 
+function LiveAutoHideControl({ scoreIndex, onStore }: { scoreIndex: number; onStore: (store: DocumentStore) => void }) {
+  const store = useDocumentStoreApi();
+  const score = useDocumentStore((state) => state.score);
+  const updateScore = useDocumentStore((state) => state.updateScore);
+  const refs = useEngraveContextRefs(score, scoreIndex, updateScore);
+  const onChange = useAutoHideEmptyParts(refs);
+  useEffect(() => onStore(store), [onStore, store]);
+  return score ? <AutoHideEmptyStavesControl score={score} scoreIndex={scoreIndex} onChange={onChange} /> : null;
+}
+
 function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onInstrumentNameDisplayChange = vi.fn()) {
   const onRemoveSelectedBreak = vi.fn();
   const onResetAll = vi.fn();
@@ -93,6 +109,79 @@ function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onI
 }
 
 describe("EngraveLeftPanel", () => {
+  it("updates and coalesces rapid checkbox toggles before a pending layout finishes", async () => {
+    const user = userEvent.setup();
+    let store: DocumentStore | undefined;
+    const onStore = (value: DocumentStore) => {
+      store = value;
+    };
+    render(
+      <DocumentProvider>
+        <WithScore>
+          <LiveAutoHideControl scoreIndex={0} onStore={onStore} />
+        </WithScore>
+      </DocumentProvider>,
+    );
+    const oboe = await screen.findByRole("checkbox", { name: "Auto-hide empty staves: Oboe" });
+    const flute = screen.getByRole("checkbox", { name: "Auto-hide empty staves: Flute" });
+    const layouts: string[] = [];
+    const completions: Array<() => void> = [];
+    const layout = vi.fn((json: string) => {
+      layouts.push(json);
+      return new Promise<void>((resolve) => completions.push(resolve));
+    });
+    getGlobalPerfTracker().fastLayoutCallback = layout;
+    const paintedScore = store?.getState().score;
+
+    await user.click(oboe);
+    await user.click(flute);
+    await user.click(oboe);
+    expect((oboe as HTMLInputElement).checked).toBe(false);
+    expect((flute as HTMLInputElement).checked).toBe(true);
+    expect(store?.getState().workingScore?.scores?.[0]?.autoHideEmptyParts).toEqual(["p1"]);
+    expect(store?.getState().score).toBe(paintedScore);
+    expect(layout).toHaveBeenCalledTimes(1);
+
+    await act(async () => completions.shift()?.());
+    expect(layout).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(layouts[1]!).scores[0]._x.viritura.autoHideEmptyParts).toEqual(["p1"]);
+    await act(async () => completions.shift()?.());
+    expect(store?.getState().score?.scores?.[0]?.autoHideEmptyParts).toEqual(["p1"]);
+    expect(store?.getState().score?.scores?.[1]?.autoHideEmptyParts).toBeUndefined();
+  });
+
+  it("keeps selections scoped to the active score while layout is pending", async () => {
+    const user = userEvent.setup();
+    let store: DocumentStore | undefined;
+    const onStore = (value: DocumentStore) => {
+      store = value;
+    };
+    const panel = (scoreIndex: number) => (
+      <DocumentProvider>
+        <WithScore>
+          <LiveAutoHideControl scoreIndex={scoreIndex} onStore={onStore} />
+        </WithScore>
+      </DocumentProvider>
+    );
+    const { rerender } = render(panel(0));
+    const oboe = await screen.findByRole("checkbox", { name: "Auto-hide empty staves: Oboe" });
+    const completions: Array<() => void> = [];
+    getGlobalPerfTracker().fastLayoutCallback = () => new Promise<void>((resolve) => completions.push(resolve));
+    await user.click(oboe);
+    rerender(panel(1));
+    const flute = screen.getByRole("checkbox", { name: "Auto-hide empty staves: Flute" });
+    expect((flute as HTMLInputElement).checked).toBe(false);
+    await user.click(flute);
+    expect(store?.getState().workingScore?.scores?.[0]?.autoHideEmptyParts).toEqual(["p2"]);
+    expect(store?.getState().workingScore?.scores?.[1]?.autoHideEmptyParts).toEqual(["p1"]);
+    rerender(panel(0));
+    expect((screen.getByRole("checkbox", { name: "Auto-hide empty staves: Oboe" }) as HTMLInputElement).checked).toBe(
+      true,
+    );
+    await act(async () => completions.shift()?.());
+    await act(async () => completions.shift()?.());
+  });
+
   it("lets the active score opt individual instruments into empty-staff hiding", async () => {
     const user = userEvent.setup();
     const { onAutoHideEmptyPartsChange } = renderPanel();

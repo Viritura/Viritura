@@ -18,6 +18,7 @@ import {
   reanchorSlurInScore,
 } from "../../../score/ScoreMutations";
 import { defaultSystemStarts } from "./defaultSystemStarts";
+import { useDocumentStoreApi } from "../../../store/DocumentContext";
 
 /** Live refs for the current score / active score index / updateScore.
  *  Allows other engrave hooks to read the latest values from inside
@@ -43,9 +44,10 @@ export function useEngraveContextRefs(
 }
 
 export function useAutoHideEmptyParts(refs: EngraveContextRefs) {
+  const documentStore = useDocumentStoreApi();
   return useCallback(
     (partIds: string[]) => {
-      const current = refs.scoreRef.current;
+      const current = documentStore.getState().workingScore;
       const index = refs.activeScoreIndexRef.current;
       if (!current?.scores?.[index]) return;
       refs.updateScoreRef.current(
@@ -54,7 +56,7 @@ export function useAutoHideEmptyParts(refs: EngraveContextRefs) {
         }),
       );
     },
-    [refs],
+    [documentStore, refs],
   );
 }
 

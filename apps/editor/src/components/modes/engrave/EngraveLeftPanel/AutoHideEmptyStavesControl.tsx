@@ -3,6 +3,7 @@ import { Checkbox, SectionLabel } from "@viritura/ui";
 import { resolvePartDisplayNames, type Score } from "@viritura/core";
 import { collectPartIdsInLayout } from "../../../../score/ScoreMutations";
 import { instrumentNameDisplayLayoutIds } from "../../../parts/instrumentNameDisplay";
+import { useDocumentStore } from "../../../../store/DocumentContext";
 
 const ROOT_STYLE: CSSProperties = { display: "grid", gap: "var(--space-2)" };
 const HELP_STYLE: CSSProperties = {
@@ -18,6 +19,7 @@ interface AutoHideEmptyStavesControlProps {
 }
 
 export function AutoHideEmptyStavesControl({ score, scoreIndex, onChange }: AutoHideEmptyStavesControlProps) {
+  const workingSelection = useDocumentStore((state) => state.workingScore?.scores?.[scoreIndex]?.autoHideEmptyParts);
   const definition = score.scores?.[scoreIndex];
   if (!definition) return null;
   const layoutIds = instrumentNameDisplayLayoutIds(definition);
@@ -27,7 +29,7 @@ export function AutoHideEmptyStavesControl({ score, scoreIndex, onChange }: Auto
       .flatMap((layout) => [...collectPartIdsInLayout(layout.content)]),
   );
   const names = resolvePartDisplayNames(score.parts);
-  const selected = definition.autoHideEmptyParts ?? [];
+  const selected = workingSelection ?? definition.autoHideEmptyParts ?? [];
   return (
     <div style={ROOT_STYLE} onClick={(event) => event.stopPropagation()}>
       <SectionLabel label="Auto-hide empty staves" />

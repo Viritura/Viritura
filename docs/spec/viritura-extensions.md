@@ -597,6 +597,8 @@ same policy directly: full-then-short, short-only, or hidden.
 
 Lists the part IDs eligible for automatic empty-staff hiding in this score
 view. Configure the list in **Engrave > Layouts > Auto-hide empty staves**.
+Checkboxes update immediately while layout runs in the background; rapid
+changes are coalesced into the latest selection.
 The setting is saved on the score definition, so a full score, condensed
 score, and individual part can have independent choices even if they share
 an MNX system layout.
