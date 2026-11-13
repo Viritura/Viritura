@@ -685,8 +685,27 @@ fn instrument_changes_incompatible_sources_get_independent_written_staves() {
         json!({"viritura":{"instrumentChanges":[{"instrument":"flute"}]}});
     let score = parse(&value);
     let display = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
-    // Both C4 voices must remain: source 1 displays D4; source 2 displays C4.
-    assert_eq!(glyph_count(&display, smufl::NOTEHEAD_WHOLE), 8);
+    // The opening clarinets share one notehead. After the change both voices
+    // remain: source 1 displays D4; source 2 displays C4.
+    assert_eq!(glyph_count(&display, smufl::NOTEHEAD_WHOLE), 7);
+    assert_eq!(
+        display
+            .measure_bounds
+            .iter()
+            .filter(|bounds| bounds.index == 0)
+            .count(),
+        1
+    );
+    for index in 1..4 {
+        assert_eq!(
+            display
+                .measure_bounds
+                .iter()
+                .filter(|bounds| bounds.index == index)
+                .count(),
+            2
+        );
+    }
     assert!(texts(&display).contains(&"Fl. in C"));
 }
 

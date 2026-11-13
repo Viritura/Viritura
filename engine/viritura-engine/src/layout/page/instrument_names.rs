@@ -104,9 +104,20 @@ fn resolve_names(
             half_steps,
         )
     };
-    // Group key = (name, transposition key or "")
+    // Number active instruments independently of their derived tuning labels.
     let group_key = |p: &Part| -> (String, String) {
         let (name, _, hs) = active_names(p);
+        if !include_required {
+            let state = crate::model::ActiveInstrument::at(p, measure_index, (0, 1));
+            let name = state
+                .definition
+                .and_then(|d| d.name.as_deref())
+                .unwrap_or(&p.name);
+            let interval = state.transposition.map_or((0, 0), |t| {
+                (t.interval.half_steps, t.interval.staff_distance)
+            });
+            return (name.to_string(), format!("{interval:?}"));
+        }
         let key = hs.and_then(transposition_key_name).unwrap_or("");
         (name, key.to_string())
     };

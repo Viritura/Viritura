@@ -54,6 +54,120 @@ fn default_config() -> LayoutConfig {
 }
 
 #[test]
+fn doubling_oboes_condense_split_for_english_horn_and_rejoin() {
+    use serde_json::json;
+
+    let measure = json!({"sequences":[{"content":[{
+        "duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":5}}]
+    }]}]});
+    let mut document = json!({
+        "mnx":{"version":1},
+        "global":{"measures":[
+            {"id":"m1","time":{"count":4,"unit":4},"key":{"fifths":0}},
+            {"id":"m2"},{"id":"m3"},{"id":"m4"}
+        ]},
+        "parts":[
+            {"id":"ob1","name":"Oboe","_x":{"viritura":{"instrumentId":"wind.reed.oboe"}},
+             "measures":[measure.clone(),measure.clone(),measure.clone(),measure.clone()]},
+            {"id":"ob2","name":"Oboe","_x":{"viritura":{
+                "initialInstrument":"ob",
+                "instruments":{
+                    "ob":{"instrumentId":"wind.reed.oboe","name":"Oboe","shortName":"Ob.","midiProgram":68,
+                        "transposition":{"interval":{"halfSteps":0,"staffDistance":0}}},
+                    "eh":{"instrumentId":"wind.reed.english-horn","name":"English Horn","shortName":"E.H.",
+                        "transposition":{"interval":{"halfSteps":7,"staffDistance":4}}}
+                }
+            }},"measures":[measure.clone(),measure.clone(),measure.clone(),measure]}
+        ],
+        "layouts":[{"id":"condensed","content":[{
+            "type":"group","symbol":"bracket","content":[
+                {"type":"staff","sources":[{"part":"ob1"},{"part":"ob2"}],"labelref":"name"}
+            ]
+        }]}],
+        "scores":[{"name":"Condensed","layout":"condensed"}]
+    });
+    document["parts"][1]["measures"][1]["_x"] =
+        json!({"viritura":{"instrumentChanges":[{"instrument":"eh"}]}});
+    document["parts"][1]["measures"][3]["_x"] =
+        json!({"viritura":{"instrumentChanges":[{"instrument":"ob"}]}});
+    for authored in [false, true] {
+        document["scores"][0]["pages"] = if authored {
+            json!([{"systems":[{"measure":"m1"},{"measure":"m2"},{"measure":"m4"}]}])
+        } else {
+            json!([])
+        };
+        for written in [false, true] {
+            document["scores"][0]["useWritten"] = json!(written);
+            let score = parse_mnx(&document.to_string()).unwrap();
+            let mut cache = LayoutCache::new();
+            for display in [
+                layout_with_mnx_scores(&score, &default_config(), 0),
+                layout_with_mnx_scores_cached(&score, &default_config(), 0, Some(&mut cache)),
+                layout_with_mnx_scores_cached(&score, &default_config(), 0, Some(&mut cache)),
+            ] {
+                for (index, expected) in [(0, 1), (1, 2), (2, 2), (3, 1)] {
+                    let bounds: Vec<_> = display
+                        .measure_bounds
+                        .iter()
+                        .filter(|bounds| bounds.index == index)
+                        .collect();
+                    assert_eq!(
+                        bounds.len(),
+                        expected,
+                        "measure {index}, authored={authored}, written={written}"
+                    );
+                    if expected == 1 {
+                        assert_eq!(bounds[0].source_part_indices, vec![0, 1]);
+                    } else {
+                        assert!(bounds
+                            .iter()
+                            .all(|bounds| bounds.source_part_indices.is_empty()));
+                        assert_ne!(bounds[0].part_index, bounds[1].part_index);
+                    }
+                }
+            }
+            let mut edited = score.clone();
+            edited.parts[1].measures[1].instrument_changes = None;
+            edited.parts[1].measures[3].instrument_changes = None;
+            let fresh = layout_with_mnx_scores(&edited, &default_config(), 0);
+            let cached =
+                layout_with_mnx_scores_cached(&edited, &default_config(), 0, Some(&mut cache));
+            assert_eq!(cached.measure_bounds.len(), 4);
+            assert!(cached
+                .measure_bounds
+                .iter()
+                .all(|bounds| bounds.source_part_indices == vec![0, 1]));
+            assert_eq!(cached.to_binary(), fresh.to_binary());
+        }
+    }
+    document["scores"][0]["pages"] = json!([{"systems":[{"measure":"m1"}]}]);
+    let score = parse_mnx(&document.to_string()).unwrap();
+    let display = layout_with_mnx_scores(&score, &default_config(), 0);
+    for index in 0..4 {
+        assert_eq!(
+            display
+                .measure_bounds
+                .iter()
+                .filter(|bounds| bounds.index == index)
+                .count(),
+            2
+        );
+    }
+    document["scores"][0]["pages"] = json!([]);
+    document["parts"][0].as_object_mut().unwrap().remove("_x");
+    document["parts"][0]["name"] = json!("Oboe 1");
+    let score = parse_mnx(&document.to_string()).unwrap();
+    let display = layout_with_mnx_scores(&score, &default_config(), 0);
+    assert_eq!(display.measure_bounds.len(), 6);
+    for index in [0, 3] {
+        assert!(display
+            .measure_bounds
+            .iter()
+            .any(|bounds| bounds.index == index && bounds.source_part_indices == vec![0, 1]));
+    }
+}
+
+#[test]
 fn condensed_note_slides_preserve_conflicting_sources() {
     use crate::layout::condensing::{analyze_merge_mode, MergeMode};
 

@@ -201,11 +201,32 @@ fn derived_instruction(part: &Part, measure_index: usize, change: &InstrumentCha
     let state = ActiveInstrument::at(part, measure_index, change.fraction());
     super::page::instrument_tuning_name(part, state)
 }
+
+fn source_instrument_name<'a>(part: &'a Part, state: ActiveInstrument<'a>) -> &'a str {
+    let name = state
+        .definition
+        .and_then(|d| d.name.as_deref())
+        .unwrap_or(&part.name)
+        .trim();
+    name.rsplit_once(' ').map_or(name, |(base, suffix)| {
+        if suffix.parse::<u32>().is_ok()
+            || suffix
+                .chars()
+                .all(|c| matches!(c, 'I' | 'V' | 'X' | 'i' | 'v' | 'x'))
+        {
+            base.trim_end()
+        } else {
+            name
+        }
+    })
+}
+
 /// A common staff must have a common written signature and interval.
 /// Separate incompatible sources instead of transposing all of them as source 1.
 pub(super) fn sources_need_separate_staves(
     staff: &super::full_score::FlatStaff,
     score: &Score,
+    measures: std::ops::Range<usize>,
 ) -> bool {
     let Some(first) = staff.sources.first() else {
         return false;
@@ -230,12 +251,40 @@ pub(super) fn sources_need_separate_staves(
     if !has_instrument_state {
         return false;
     }
-    let count = score.global.measures.len();
-    (0..count).any(|index| {
-        let first = ActiveInstrument::at(&score.parts[first.part_index], index, (0, 1));
+    measures.into_iter().any(|index| {
+        let first_part = &score.parts[first.part_index];
+        let first = ActiveInstrument::at(first_part, index, (0, 1));
         staff.sources.iter().skip(1).any(|source| {
-            let other = ActiveInstrument::at(&score.parts[source.part_index], index, (0, 1));
-            first.transposition != other.transposition || first.definition != other.definition
+            let other_part = &score.parts[source.part_index];
+            let other = ActiveInstrument::at(other_part, index, (0, 1));
+            let identity = |part: &Part, state: ActiveInstrument<'_>| {
+                state
+                    .definition
+                    .map(|definition| definition.instrument_id.clone())
+                    .or_else(|| part.instrument_extensions.instrument_id.clone())
+            };
+            let same_identity = match (identity(first_part, first), identity(other_part, other)) {
+                (Some(a), Some(b)) => a == b,
+                _ => {
+                    source_instrument_name(first_part, first)
+                        == source_instrument_name(other_part, other)
+                }
+            };
+            let interval = |state: ActiveInstrument<'_>| {
+                state.transposition.map_or((0, 0), |t| {
+                    (t.interval.staff_distance, t.interval.half_steps)
+                })
+            };
+            !same_identity
+                || interval(first) != interval(other)
+                || first.transposition.and_then(|t| t.key_fifths_flip_at)
+                    != other.transposition.and_then(|t| t.key_fifths_flip_at)
+                || first
+                    .transposition
+                    .is_some_and(|t| t.prefers_written_pitches == Some(true))
+                    != other
+                        .transposition
+                        .is_some_and(|t| t.prefers_written_pitches == Some(true))
         })
     })
 }

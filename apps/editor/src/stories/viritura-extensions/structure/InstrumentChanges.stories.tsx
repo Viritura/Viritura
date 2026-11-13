@@ -67,6 +67,51 @@ export const HiddenChangeInstruction: StoryObj = {
   render: () => <ScorePreview mnxJson={doublingScore(true, true)} />,
 };
 
+function condensedDoublingScore(): string {
+  const score = JSON.parse(doublingScore(true)) as {
+    parts: {
+      id: string;
+      name: string;
+      shortName: string;
+      _x?: unknown;
+      measures: {
+        sequences: unknown[];
+        clefs?: unknown[];
+        _x?: unknown;
+      }[];
+    }[];
+    layouts?: unknown[];
+    scores: { name: string; layout: string; useWritten: boolean }[];
+  };
+  const doubling = score.parts[0]!;
+  doubling.id = "ob2";
+  score.parts.unshift({
+    id: "ob1",
+    name: "Oboe",
+    shortName: "Ob.",
+    _x: { viritura: { instrumentId: "wind.reed.oboe" } },
+    measures: doubling.measures.map(({ sequences, clefs }) => ({ sequences, clefs })),
+  });
+  score.layouts = [
+    {
+      id: "condensed",
+      content: [
+        {
+          type: "group",
+          symbol: "bracket",
+          content: [{ type: "staff", labelref: "name", sources: [{ part: "ob1" }, { part: "ob2" }] }],
+        },
+      ],
+    },
+  ];
+  score.scores = [{ name: "Condensed oboes with English horn doubling", layout: "condensed", useWritten: true }];
+  return JSON.stringify(score);
+}
+
+export const CondensedOboesWithEnglishHornDoubling: StoryObj = {
+  render: () => <ScorePreview mnxJson={condensedDoublingScore()} />,
+};
+
 function reminderScore(instructionHidden: boolean, reminderHidden = false): string {
   const score = JSON.parse(doublingScore(true)) as {
     parts: {

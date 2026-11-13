@@ -1,10 +1,11 @@
 import type { LayoutContent, LayoutStaff, LayoutGroup, LayoutSource, LayoutDefinition, Part } from "@viritura/core";
+import { resolveActiveInstrument } from "@viritura/core";
 
 // ─── Condensed layout auto-generation ──────────────
 
 /**
  * Build a condensed layout from a full-score layout.
- * Pairs instruments by matching part names (e.g., "Flute 1" + "Flute 2" → one staff).
+ * Pairs initial instruments by catalog identity, falling back to part names.
  * Solo instruments and multi-staff instruments keep their own staves.
  */
 export function buildCondensedLayoutContent(fullContent: LayoutContent[], parts: Part[]): LayoutContent[] {
@@ -31,6 +32,25 @@ export function buildCondensedLayoutContent(fullContent: LayoutContent[], parts:
 /** Strip trailing numbers and whitespace to get the instrument base name. */
 function instrumentBaseName(name: string): string {
   return name.replace(/\s*(?:\d+|[IVX]+)\s*$/i, "").trim();
+}
+
+function matchingInstruments(first: Part | undefined, second: Part | undefined): boolean {
+  if (!first || !second) return false;
+  const a = resolveActiveInstrument(first, 0);
+  const b = resolveActiveInstrument(second, 0);
+  const aId = a.instrument?.instrumentId ?? first._x?.viritura?.instrumentId;
+  const bId = b.instrument?.instrumentId ?? second._x?.viritura?.instrumentId;
+  const sameIdentity =
+    aId && bId
+      ? aId === bId
+      : instrumentBaseName(a.instrument?.name ?? first.name) === instrumentBaseName(b.instrument?.name ?? second.name);
+  const aInterval = a.transposition?.interval ?? { halfSteps: 0, staffDistance: 0 };
+  const bInterval = b.transposition?.interval ?? { halfSteps: 0, staffDistance: 0 };
+  return (
+    Boolean(sameIdentity) &&
+    aInterval.halfSteps === bInterval.halfSteps &&
+    aInterval.staffDistance === bInterval.staffDistance
+  );
 }
 
 /** Instruments that should not be condensed (each section keeps its own staff). */
@@ -130,7 +150,7 @@ function condenseGroupContent(group: LayoutGroup, partMap: Map<string, Part>): L
     }
   }
 
-  // Pair staves by base name (skip string instruments which keep separate staves)
+  // Pair initial instruments (skip string instruments which keep separate staves)
   const paired = new Set<number>();
   for (let i = 0; i < staves.length; i++) {
     if (paired.has(i)) continue;
@@ -139,10 +159,10 @@ function condenseGroupContent(group: LayoutGroup, partMap: Map<string, Part>): L
       newContent.push(current.node);
       continue;
     }
-    // Find the next unpaired staff with the same base name
+    // Find the next unpaired staff with the same initial instrument
     let pairIndex = -1;
     for (let j = i + 1; j < staves.length; j++) {
-      if (!paired.has(j) && staves[j]!.baseName === current.baseName) {
+      if (!paired.has(j) && matchingInstruments(partMap.get(current.partId), partMap.get(staves[j]!.partId))) {
         pairIndex = j;
         break;
       }

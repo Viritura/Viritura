@@ -468,6 +468,24 @@ fn instrument_names_native_static_labels_are_unchanged() {
 }
 
 #[test]
+fn instrument_names_number_plain_and_doubling_catalog_instruments_together() {
+    let mut value = document();
+    change(&mut value, 1, json!({"instrument":"fl"}));
+    let mut plain = value["parts"][0].clone();
+    plain["id"] = json!("p2");
+    plain["_x"] = json!({"viritura":{"instrumentId":"wind.reed.clarinet"}});
+    plain["measures"][1].as_object_mut().unwrap().remove("_x");
+    value["parts"][1] = plain;
+    let score = parse(&value);
+    let names = resolve_part_display_names_at(&score.parts, 0);
+    assert_eq!(names[0].number, Some(1));
+    assert_eq!(names[1].number, Some(2));
+    let names = resolve_part_display_names_at(&score.parts, 1);
+    assert_eq!(names[0].number, None);
+    assert_eq!(names[1].number, None);
+}
+
+#[test]
 fn instrument_names_new_identity_gets_its_own_abbreviation_and_player_number() {
     let mut value = document();
     value["parts"][0]["_x"]["viritura"]["instruments"]["fl"]
