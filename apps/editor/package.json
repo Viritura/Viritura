@@ -47,7 +47,7 @@
     "@viritura/ui": "workspace:^",
     "@viritura/video-sync": "workspace:*",
     "buffer": "^6.0.3",
-    "immer": "^11.1.21",
+    "immer": "^11.2.9",
     "isomorphic-git": "^1.44.3",
     "jszip": "^3.10.2",
     "lucide-react": "^1.48.0",
