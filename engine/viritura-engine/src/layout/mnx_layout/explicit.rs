@@ -508,8 +508,26 @@ pub fn layout_with_mnx_scores_cached(
         }
     }
 
-    // When no explicit pages/systems, auto-flow using the score definition's layout
-    if all_systems.is_empty() {
+    let instrument_regions = all_systems
+        .is_empty()
+        .then(|| {
+            score_def
+                .layout
+                .as_ref()
+                .and_then(|id| layout_map.get(id))
+                .and_then(|layout| {
+                    super::instrument_regions::automatic_instrument_regions(
+                        &layout.content,
+                        score,
+                        score_def,
+                        &part_id_map,
+                        &measure_id_map,
+                    )
+                })
+        })
+        .flatten();
+    // When no explicit pages/systems or staff-count changes, retain auto-flow.
+    if all_systems.is_empty() && instrument_regions.is_none() {
         let Some(layout_id) = score_def.layout.as_deref() else {
             let mut dl = DisplayList::new(0.0, 0.0);
             dl.set_parts(score, 0..score.parts.len());
@@ -586,15 +604,21 @@ pub fn layout_with_mnx_scores_cached(
     // Resolve system measure ranges + per-system flat staves + layout-change maps.
     let measure_count = score.global.measures.len();
     let (mut system_measure_ranges, mut system_flat_staves, mut system_layout_changes) =
-        resolve_explicit_systems_and_layouts(
-            score,
-            score_def,
-            &all_systems,
-            &measure_id_map,
-            &part_id_map,
-            &layout_map,
-            measure_count,
-        );
+        if let Some(regions) = instrument_regions {
+            forced_page_starts = regions.page_starts;
+            let changes = vec![HashMap::new(); regions.ranges.len()];
+            (regions.ranges, regions.staves, changes)
+        } else {
+            resolve_explicit_systems_and_layouts(
+                score,
+                score_def,
+                &all_systems,
+                &measure_id_map,
+                &part_id_map,
+                &layout_map,
+                measure_count,
+            )
+        };
 
     let label_style = config
         .text_styles

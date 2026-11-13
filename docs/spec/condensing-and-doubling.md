@@ -185,6 +185,15 @@ graph TB
 
 **Layer 1 — auto.** For each system, the engine examines each instrument group, checks whether they can share a staff (same rhythm? same notes? independent?), and selects or generates a layout definition.
 
+Automatic layout generation pairs the initial instruments by catalog identity
+and transposition, falling back to names for legacy parts. Display labels such
+as "Oboe" and "Oboe in C" do not prevent pairing. For continuous player parts
+using instrument changes, the engine separates incompatible active instruments
+and rejoins compatible ones: Oboe 1 + Oboe 2 share a staff, split while player 2
+plays English horn, then share again on returning to oboe. Automatic flow adds
+system breaks at these staff-count transitions; authored systems retain separate
+staves if any measure within that system requires the split.
+
 **Layer 2 — manual override.** Right-click a barline → "Insert Condensing Change". Opens the condensing popover ([§5](#5-the-condensing-popover-routing--changes)).
 
 **Layer 3 — Parts Panel.** When a system is selected on the canvas, the Parts Panel shows the active layout for that system with toggle affordances.

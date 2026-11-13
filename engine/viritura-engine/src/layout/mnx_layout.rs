@@ -33,6 +33,7 @@ mod explicit_system_breaks;
 mod explicit_system_layouts;
 mod explicit_widths;
 mod instrument_labels;
+mod instrument_regions;
 mod inter_staff_barlines;
 mod shared;
 mod slur_tie_collection;

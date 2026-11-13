@@ -59,6 +59,15 @@ pub(super) fn flatten_layout(
     part_id_map: &HashMap<String, usize>,
     score: &Score,
 ) -> (Vec<FlatStaff>, Vec<GroupRange>) {
+    flatten_layout_for_measures(content, part_id_map, score, 0..score.global.measures.len())
+}
+
+pub(super) fn flatten_layout_for_measures(
+    content: &[LayoutContent],
+    part_id_map: &HashMap<String, usize>,
+    score: &Score,
+    measures: std::ops::Range<usize>,
+) -> (Vec<FlatStaff>, Vec<GroupRange>) {
     let display_names = resolve_part_display_names(&score.parts);
     let mut staves = Vec::new();
     let mut groups = Vec::new();
@@ -70,6 +79,7 @@ pub(super) fn flatten_layout(
         &mut staves,
         &mut groups,
         0,
+        &measures,
     );
     resolve_chord_symbol_sources(&mut staves, score);
     (staves, groups)
@@ -83,6 +93,7 @@ fn flatten_content_recursive(
     staves: &mut Vec<FlatStaff>,
     groups: &mut Vec<GroupRange>,
     bracket_depth: usize,
+    measures: &std::ops::Range<usize>,
 ) {
     for item in content {
         match item {
@@ -101,6 +112,7 @@ fn flatten_content_recursive(
                     staves,
                     groups,
                     child_depth,
+                    measures,
                 );
                 if staves.len() == first_staff {
                     continue;
@@ -148,6 +160,7 @@ fn flatten_content_recursive(
                     || super::super::instrument_changes::sources_need_separate_staves(
                         &flat_staff,
                         score,
+                        measures.clone(),
                     )
                 {
                     for (source_index, source) in flat_staff.sources.iter().cloned().enumerate() {

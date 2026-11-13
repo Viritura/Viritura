@@ -3,7 +3,7 @@
 use super::super::full_score::{FlatSource, FlatStaff, GroupRange};
 use super::super::page::resolve_part_display_names;
 use super::explicit_system_breaks::SystemLayoutChanges;
-use super::structure_flattening::flatten_layout;
+use super::structure_flattening::{flatten_layout, flatten_layout_for_measures};
 use crate::model::{LayoutBreakKind, LayoutDefinition, Score, ScoreDefinition, SystemDefinition};
 use std::collections::{HashMap, HashSet};
 
@@ -91,7 +91,7 @@ pub(super) fn resolve_explicit_systems_and_layouts(
     let mut system_flat_staves = Vec::new();
     let mut system_layout_changes = Vec::new();
     let mut inherited_layout_id = None;
-    for system in all_systems {
+    for (index, system) in all_systems.iter().enumerate() {
         if let Some(layout_id) = system.layout.as_deref() {
             inherited_layout_id = Some(layout_id);
         }
@@ -100,7 +100,14 @@ pub(super) fn resolve_explicit_systems_and_layouts(
             .as_deref()
             .or(inherited_layout_id)
             .or(score_def.layout.as_deref());
-        system_flat_staves.push(resolve_layout(layout_id, score, part_id_map, layout_map));
+        let (start, end) = system_measure_ranges[index];
+        system_flat_staves.push(resolve_layout(
+            layout_id,
+            score,
+            part_id_map,
+            layout_map,
+            start..end,
+        ));
 
         let mut changes = HashMap::new();
         for change in &system.layout_changes {
@@ -129,10 +136,11 @@ fn resolve_layout(
     score: &Score,
     part_id_map: &HashMap<String, usize>,
     layout_map: &HashMap<String, &LayoutDefinition>,
+    measures: std::ops::Range<usize>,
 ) -> StaffGroupLayout {
     layout_id.and_then(|id| layout_map.get(id)).map_or_else(
         || default_flat_staves(score),
-        |layout| flatten_layout(&layout.content, part_id_map, score),
+        |layout| flatten_layout_for_measures(&layout.content, part_id_map, score, measures),
     )
 }
 
