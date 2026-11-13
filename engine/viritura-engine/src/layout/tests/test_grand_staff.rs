@@ -1505,9 +1505,9 @@ fn test_condensed_harmony_deduplicates_source_mappings_per_rendered_staff() {
     }
     let score = parse_mnx(&value.to_string()).unwrap();
     let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
-    assert_harmony_copies(&dl, 2);
+    assert_harmony_copies(&dl, 3);
     let lines = harmony_staff_lines(&dl);
-    assert_eq!(lines.len(), 10);
+    assert_eq!(lines.len(), 20);
     let mut ys: Vec<_> = harmony_text_runs(&dl, "m0/chord0")
         .iter()
         .map(|(_, y)| *y)
@@ -1515,6 +1515,7 @@ fn test_condensed_harmony_deduplicates_source_mappings_per_rendered_staff() {
     ys.sort_by(f64::total_cmp);
     assert!(ys[0] < lines[0]);
     assert!(ys[1] > lines[4] && ys[1] < lines[5]);
+    assert!(ys[2] > lines[14] && ys[2] < lines[15]);
 }
 
 #[test]
