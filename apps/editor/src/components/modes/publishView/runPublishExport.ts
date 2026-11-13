@@ -40,6 +40,9 @@ export async function runPublishExport({
   exportFolder,
   onProgress,
 }: RunExportArgs): Promise<RunExportResult> {
+  if (bundleMode === "separate" && !exportFolder) {
+    throw new Error("Choose a folder for separate PDFs, or download a ZIP archive or single PDF.");
+  }
   const pdfs = await exportScoresToPdf(score, { scoreIndices, embedMnx, onProgress });
   const title = score.metadata?.title;
   const named = pdfs.map((p) => ({

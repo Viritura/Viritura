@@ -245,7 +245,7 @@ export function triggerDownload(bytes: Uint8Array, filename: string, mime: strin
 // with `isDirectoryPickerSupported()` and fall back to `triggerDownload`.
 
 interface FsWritable {
-  write(data: Uint8Array | Blob): Promise<void>;
+  write(data: Uint8Array<ArrayBuffer> | Blob): Promise<void>;
   close(): Promise<void>;
 }
 interface FsFileHandle {
@@ -289,7 +289,7 @@ export async function pickExportDirectory(): Promise<FsDirectoryHandle | null> {
 export async function writeFileToDirectory(dir: FsDirectoryHandle, filename: string, bytes: Uint8Array): Promise<void> {
   const handle = await dir.getFileHandle(filename, { create: true });
   const writable = await handle.createWritable();
-  await writable.write(bytes);
+  await writable.write(new Uint8Array(bytes));
   await writable.close();
 }
 

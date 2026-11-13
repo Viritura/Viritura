@@ -39,6 +39,8 @@ export interface ReviewSelection {
 
 export interface ProjectState {
   adapter: ProjectAdapter | null;
+  /** User-approved local project root, absent for standalone or browser-only storage. */
+  projectFolder: FileSystemDirectoryHandle | null;
   status: ProjectStatus | null;
   /** Commit log, newest first. Empty array in standalone mode. */
   log: CommitInfo[];
@@ -50,7 +52,7 @@ export interface ProjectState {
   // ── Actions ──
 
   /** Replace the active adapter and refresh derived state. */
-  setAdapter(adapter: ProjectAdapter | null): Promise<void>;
+  setAdapter(adapter: ProjectAdapter | null, projectFolder?: FileSystemDirectoryHandle): Promise<void>;
 
   /** Re-read status + log (typically after a commit or external change). */
   refresh(): Promise<void>;
@@ -79,13 +81,20 @@ export interface ProjectState {
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
   adapter: null,
+  projectFolder: null,
   status: null,
   log: [],
   selection: { from: null, to: WORKING_TREE_SHA },
   committing: false,
 
-  async setAdapter(adapter) {
-    set({ adapter, log: [], status: null, selection: { from: null, to: WORKING_TREE_SHA } });
+  async setAdapter(adapter, projectFolder) {
+    set({
+      adapter,
+      projectFolder: adapter ? (projectFolder ?? null) : null,
+      log: [],
+      status: null,
+      selection: { from: null, to: WORKING_TREE_SHA },
+    });
     if (adapter) await get().refresh();
   },
 
@@ -262,7 +271,7 @@ export async function bootProjectFromHandle(opts: {
       scorePath: opts.scorePath,
     });
   }
-  await useProjectStore.getState().setAdapter(adapter);
+  await useProjectStore.getState().setAdapter(adapter, opts.rootHandle);
   // Persist this project as a recent score so it shows up in the Start
   // Center / Open Recent menu. We resolve the file handle for the score so
   // the entry is fully self-contained even if the user later opens this

@@ -25,6 +25,7 @@ import { isDirectoryPickerSupported, type FsDirectoryHandle } from "../publish/b
 import { useStoredWidth } from "../hooks/useStoredWidth";
 import { usePanelState } from "@viritura/ui";
 import { openDialog } from "../store/dialogStore";
+import { useProjectStore } from "../store/projectStore";
 
 interface UsePublishModeArgs {
   score: Score | null;
@@ -71,6 +72,8 @@ export interface PublishMode {
   onBundleModeChange: (m: BundleMode) => void;
   folderSupported: boolean;
   exportFolder: FsDirectoryHandle | null;
+  projectFolder: FsDirectoryHandle | null;
+  onUseProjectFolder: () => void;
   onPickFolder: () => void;
   onClearFolder: () => void;
   filenamePattern: string;
@@ -155,13 +158,19 @@ export function usePublishMode({
   }, [canvasRef]);
 
   // ─── Format / bundle / filename ───────────────────────────────
-  const [bundleMode, setBundleMode] = useState<BundleMode>("separate");
+  const [bundleMode, setBundleMode] = useState<BundleMode>("zip");
   const [filenamePattern, setFilenamePattern] = useState<string>("%TITLE% — %PART%");
   const [embedMnx, setEmbedMnx] = useState<boolean>(false);
 
   // ─── Destination ──────────────────────────────────────────────
   const folderSupported = useMemo(() => isDirectoryPickerSupported(), []);
+  const projectFolder = useProjectStore((state) => state.projectFolder);
   const [exportFolder, setExportFolder] = useState<FsDirectoryHandle | null>(null);
+
+  useEffect(() => {
+    setExportFolder(null);
+    setBundleMode("zip");
+  }, [projectFolder]);
 
   // ─── Export progress ──────────────────────────────────────────
   const [exporting, setExporting] = useState<boolean>(false);
@@ -172,13 +181,24 @@ export function usePublishMode({
     try {
       const { pickExportDirectory } = await import("../publish/batchRender");
       const dir = await pickExportDirectory();
-      if (dir) setExportFolder(dir);
+      if (dir) {
+        setExportFolder(dir);
+        setBundleMode("separate");
+      }
     } catch (err) {
       console.error("Folder pick failed:", err);
       setStatusMessage({ kind: "err", text: err instanceof Error ? err.message : String(err) });
     }
   }, []);
-  const handleClearFolder = useCallback(() => setExportFolder(null), []);
+  const handleClearFolder = useCallback(() => {
+    setExportFolder(null);
+    setBundleMode((mode) => (mode === "separate" ? "zip" : mode));
+  }, []);
+  const handleUseProjectFolder = useCallback(() => {
+    if (!projectFolder) return;
+    setExportFolder(projectFolder);
+    setBundleMode("separate");
+  }, [projectFolder]);
 
   const handleExport = useCallback(async () => {
     if (!score || orderedSelected.length === 0) return;
@@ -239,6 +259,8 @@ export function usePublishMode({
     onBundleModeChange: setBundleMode,
     folderSupported,
     exportFolder,
+    projectFolder,
+    onUseProjectFolder: handleUseProjectFolder,
     onPickFolder,
     onClearFolder: handleClearFolder,
     filenamePattern,

@@ -60,6 +60,8 @@ export function buildPublishMode(args: BuildPublishModeArgs): WorkspaceMode {
       onBundleModeChange={publish.onBundleModeChange}
       folderSupported={publish.folderSupported}
       exportFolder={publish.exportFolder}
+      projectFolder={publish.projectFolder}
+      onUseProjectFolder={publish.onUseProjectFolder}
       onPickFolder={publish.onPickFolder}
       onClearFolder={publish.onClearFolder}
       filenamePattern={publish.filenamePattern}

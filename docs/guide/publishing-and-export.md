@@ -24,9 +24,11 @@ the focused output. Configure page format in
 
 PDF is the currently available export format. Choose a bundle mode:
 
-- **Separate files** downloads or writes one PDF per layout.
+- **ZIP archive** is the default and packages separate PDFs into one download.
 - **Single PDF** concatenates the selected layouts.
-- **ZIP archive** packages separate PDFs into one download.
+- **Separate files** writes one PDF per layout directly to a selected folder.
+  This option is only available with a folder destination: browsers can block
+  batches of separate downloads.
 
 MusicXML, MNX, MIDI, and audio export entries are visible as coming-soon formats
 and cannot currently be selected.
@@ -39,8 +41,14 @@ and cannot currently be selected.
 > Direct folder export requires directory access. Other browsers use normal
 > downloads instead.
 
-When available, **Choose folder…** writes the rendered files directly to a
-folder you approve.
+When available, **Choose folder** selects a folder you approve. If a local
+project folder is open, **Use project folder** selects its root without asking
+you to pick it again. Selecting either folder destination switches to
+**Separate files**, so **Export** saves the PDFs directly to disk without
+browser downloads. Files with matching names are replaced.
+
+Use **Clear** to return to browser downloads; separate-file output switches
+back to ZIP automatically.
 
 The filename pattern supports:
 
