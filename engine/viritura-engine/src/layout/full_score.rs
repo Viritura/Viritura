@@ -831,7 +831,11 @@ impl FlatStaff {
     /// and none of them specify explicit stem directions. Explicit stems
     /// indicate a manual divisi layout (not auto-condensing).
     pub(crate) fn is_condensing(&self) -> bool {
-        self.sources.len() > 1 && self.sources.iter().all(|s| s.stem_direction.is_none())
+        self.sources.iter().enumerate().any(|(index, source)| {
+            self.sources[..index]
+                .iter()
+                .any(|previous| previous.part_index != source.part_index)
+        }) && self.sources.iter().all(|s| s.stem_direction.is_none())
     }
 }
 

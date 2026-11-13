@@ -110,6 +110,40 @@ fn load_condensing_test() -> crate::model::Score {
     parse_mnx(json).unwrap()
 }
 
+#[test]
+fn condensing_layout_keeps_piano_staves_separate() {
+    let mut value: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../packages/format/fixtures/mnx/condensing-test.mnx"
+    ))
+    .unwrap();
+    let part_id = value["parts"][0]["id"].as_str().unwrap().to_owned();
+    value["parts"][0]["name"] = serde_json::json!("Piano");
+    value["parts"][0]["staves"] = serde_json::json!(2);
+    let sequence = value["parts"][0]["measures"][0]["sequences"][0].clone();
+    let mut upper = sequence.clone();
+    upper["staff"] = serde_json::json!(1);
+    let mut lower = sequence;
+    lower["staff"] = serde_json::json!(2);
+    value["parts"][0]["measures"][0]["sequences"] = serde_json::json!([upper, lower]);
+    value["layouts"][0]["content"] = serde_json::json!([{
+        "type": "staff",
+        "sources": [
+            {"part": part_id, "staff": 1},
+            {"part": part_id, "staff": 2}
+        ]
+    }]);
+    let score = parse_mnx(&value.to_string()).unwrap();
+
+    let display = layout_with_mnx_scores(&score, &default_config(), 0);
+    let staff_indices: std::collections::HashSet<_> = display
+        .measure_bounds
+        .iter()
+        .map(|bounds| bounds.staff_index)
+        .collect();
+
+    assert_eq!(staff_indices, [0, 1].into_iter().collect());
+}
+
 fn count_noteheads(dl: &DisplayList) -> usize {
     dl.commands
         .iter()

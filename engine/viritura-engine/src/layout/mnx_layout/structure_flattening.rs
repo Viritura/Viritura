@@ -144,7 +144,8 @@ fn flatten_content_recursive(
                     chord_symbol_source: None,
                     chord_symbol_transposition: None,
                 };
-                if super::resolve_condensing::has_incompatible_staff_meters(&flat_staff, score)
+                if sources_cover_distinct_staves_of_one_part(&flat_staff)
+                    || super::resolve_condensing::has_incompatible_staff_meters(&flat_staff, score)
                     || super::super::instrument_changes::sources_need_separate_staves(
                         &flat_staff,
                         score,
@@ -190,6 +191,15 @@ fn flatten_content_recursive(
             }
         }
     }
+}
+
+fn sources_cover_distinct_staves_of_one_part(staff: &FlatStaff) -> bool {
+    staff.sources.iter().enumerate().any(|(index, source)| {
+        staff.sources[..index].iter().any(|previous| {
+            previous.part_index == source.part_index
+                && previous.staff_number.unwrap_or(1) != source.staff_number.unwrap_or(1)
+        })
+    })
 }
 
 pub(super) fn resolve_chord_symbol_sources(staves: &mut [FlatStaff], score: &Score) {
