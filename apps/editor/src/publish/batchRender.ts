@@ -212,11 +212,16 @@ export async function exportScoresToPdf(score: Score, options: BatchExportOption
 
 /**
  * Substitute simple tokens in a filename pattern. Supported:
- *   %TITLE% — score document title (or "score" if missing)
- *   %PART%  — per-score display name (e.g. "Violin I", "Full Score")
+ *   %TITLE%       — score document title (or "score" if missing)
+ *   %PART%        — per-score display name (e.g. "Violin I", "Full Score")
+ *   %PART_NUMBER% — padded output position, or "All" for a bundle
  */
-export function formatFilename(pattern: string, ctx: { title: string | undefined; part: string }): string {
+export function formatFilename(
+  pattern: string,
+  ctx: { title: string | undefined; part: string; partNumber: string },
+): string {
   return pattern
+    .replace(/%PART_NUMBER%/g, ctx.partNumber)
     .replace(/%TITLE%/g, ctx.title ?? "score")
     .replace(/%PART%/g, ctx.part)
     .replace(/[<>:"/\\|?*]/g, "-");
@@ -245,7 +250,7 @@ export function triggerDownload(bytes: Uint8Array, filename: string, mime: strin
 // with `isDirectoryPickerSupported()` and fall back to `triggerDownload`.
 
 interface FsWritable {
-  write(data: Uint8Array | Blob): Promise<void>;
+  write(data: Uint8Array<ArrayBuffer> | Blob): Promise<void>;
   close(): Promise<void>;
 }
 interface FsFileHandle {
@@ -289,7 +294,7 @@ export async function pickExportDirectory(): Promise<FsDirectoryHandle | null> {
 export async function writeFileToDirectory(dir: FsDirectoryHandle, filename: string, bytes: Uint8Array): Promise<void> {
   const handle = await dir.getFileHandle(filename, { create: true });
   const writable = await handle.createWritable();
-  await writable.write(bytes);
+  await writable.write(new Uint8Array(bytes));
   await writable.close();
 }
 

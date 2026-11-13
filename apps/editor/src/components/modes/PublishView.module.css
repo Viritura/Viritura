@@ -485,7 +485,7 @@
 /* Destination row — info card with action button (solid for contrast) */
 .destinationRow {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-3);
@@ -512,7 +512,8 @@
   line-height: 1.4;
 }
 .destinationBtns {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
 }
 

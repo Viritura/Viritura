@@ -11,12 +11,13 @@
  */
 import React, { useRef, useState } from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
 import { TooltipPrimitives, type WriteViewMode as ViewMode } from "@viritura/ui";
 import type { Score } from "@viritura/core";
 import { DEFAULT_PAGE_SETUP } from "@viritura/core";
 import { setCssPxPerMm, getLifeSizeZoom } from "../zoomScale";
 import { useDialogStore } from "../store/dialogStore";
+import { useProjectStore } from "../store/projectStore";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 
 // Bare-bones provider so primitives that route their `tooltip` prop through
@@ -60,6 +61,7 @@ vi.mock("../components/ScoreCanvas", () => {
 import { WorkspaceCanvas } from "../app/WorkspaceCanvas";
 import { usePublishMode } from "../app/usePublishMode";
 import { buildPublishMode } from "../app/buildPublishMode";
+import * as publishExport from "../components/modes/publishView/runPublishExport";
 
 /**
  * Mirrors how AppInner wires the publish branch around the shared canvas:
@@ -86,6 +88,7 @@ function PublishHarness({ score }: { score: Score | null }) {
         onLayoutsChange={() => {}}
         canvasProps={mode.canvasProps}
       />
+      {mode.panels}
       {mode.statusBar}
     </>
   );
@@ -117,6 +120,78 @@ afterEach(() => {
   setZoomSpy.mockClear();
   setCssPxPerMm(null);
   useDialogStore.getState().closeDialog("calibration");
+  useProjectStore.setState({ projectFolder: null });
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+describe("Publish destinations", () => {
+  it("advertises the score-order number token and passes a custom pattern to export", async () => {
+    const runExport = vi.spyOn(publishExport, "runPublishExport").mockResolvedValue({ kind: "ok", text: "Exported." });
+    renderWithTooltips(<PublishHarness score={sampleScore} />);
+    expect(screen.getByText("%PART_NUMBER%")).toBeTruthy();
+
+    fireEvent.change(screen.getByDisplayValue("%TITLE% — %PART%"), {
+      target: { value: "%PART_NUMBER% - %PART%" },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Export 2 layouts" }));
+    });
+    expect(runExport).toHaveBeenCalledWith(expect.objectContaining({ filenamePattern: "%PART_NUMBER% - %PART%" }));
+  });
+
+  it("defaults to a single ZIP download and does not offer separate downloads", () => {
+    renderWithTooltips(<PublishHarness score={sampleScore} />);
+    expect(screen.getByRole<HTMLInputElement>("radio", { name: /ZIP archive/ }).checked).toBe(true);
+    expect(screen.queryByRole("radio", { name: /Separate files/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Use project folder" })).toBeNull();
+  });
+
+  it("offers direct project-folder PDFs and returns to ZIP when cleared", () => {
+    useProjectStore.setState({ projectFolder: { name: "Quartet project" } as FileSystemDirectoryHandle });
+    renderWithTooltips(<PublishHarness score={sampleScore} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Use project folder" }));
+    expect(screen.getByRole<HTMLInputElement>("radio", { name: /Separate files/ }).checked).toBe(true);
+    expect(screen.getByRole("button", { name: 'Export 2 layouts to "Quartet project"' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.getByRole<HTMLInputElement>("radio", { name: /ZIP archive/ }).checked).toBe(true);
+    expect(screen.queryByRole("radio", { name: /Separate files/ })).toBeNull();
+  });
+
+  it("does not keep writing to a previous project's folder after switching projects", () => {
+    useProjectStore.setState({ projectFolder: { name: "First project" } as FileSystemDirectoryHandle });
+    renderWithTooltips(<PublishHarness score={sampleScore} />);
+    fireEvent.click(screen.getByRole("button", { name: "Use project folder" }));
+
+    act(() => {
+      useProjectStore.setState({ projectFolder: { name: "Second project" } as FileSystemDirectoryHandle });
+    });
+    expect(screen.getByRole<HTMLInputElement>("radio", { name: /ZIP archive/ }).checked).toBe(true);
+    expect(screen.getByRole("button", { name: "Export 2 layouts" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Use project folder" }));
+    expect(screen.getByRole("button", { name: 'Export 2 layouts to "Second project"' })).toBeTruthy();
+  });
+
+  it("switches a user-picked folder to direct PDFs without changing destination when the picker is cancelled", async () => {
+    const showDirectoryPicker = vi.fn().mockResolvedValue({ name: "PDFs" });
+    vi.stubGlobal("showDirectoryPicker", showDirectoryPicker);
+    renderWithTooltips(<PublishHarness score={sampleScore} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Choose folder" }));
+    });
+    expect(showDirectoryPicker).toHaveBeenCalledWith({ mode: "readwrite" });
+    expect(screen.getByRole<HTMLInputElement>("radio", { name: /Separate files/ }).checked).toBe(true);
+
+    showDirectoryPicker.mockRejectedValueOnce(new DOMException("Cancelled", "AbortError"));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    });
+    expect(screen.getByRole("button", { name: 'Export 2 layouts to "PDFs"' })).toBeTruthy();
+  });
 });
 
 describe("Publish mode preview wiring", () => {

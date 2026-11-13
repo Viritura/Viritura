@@ -243,29 +243,38 @@ describe("exportScoresToPdf layout routing", () => {
 describe("publish/batchRender helpers", () => {
   describe("formatFilename", () => {
     it("substitutes %TITLE% and %PART%", () => {
-      const out = formatFilename("%TITLE% — %PART%", { title: "Sonata", part: "Violin I" });
+      const out = formatFilename("%TITLE% — %PART%", { title: "Sonata", part: "Violin I", partNumber: "" });
       expect(out).toBe("Sonata — Violin I");
     });
 
     it("falls back to 'score' when title is undefined", () => {
-      const out = formatFilename("%TITLE% — %PART%", { title: undefined, part: "Cello" });
+      const out = formatFilename("%TITLE% — %PART%", { title: undefined, part: "Cello", partNumber: "" });
       expect(out).toBe("score — Cello");
     });
 
     it("strips OS-illegal characters", () => {
-      const out = formatFilename("%TITLE%/%PART%:bad?", { title: "A<B>C", part: "1|2" });
+      const out = formatFilename("%TITLE%/%PART%:bad?", { title: "A<B>C", part: "1|2", partNumber: "" });
       // Every reserved char becomes "-"
       expect(out).not.toMatch(/[<>:"/\\|?*]/);
       expect(out).toContain("A-B-C");
     });
 
     it("supports patterns with no tokens", () => {
-      expect(formatFilename("export", { title: "X", part: "Y" })).toBe("export");
+      expect(formatFilename("export", { title: "X", part: "Y", partNumber: "" })).toBe("export");
     });
 
     it("substitutes repeated tokens", () => {
-      const out = formatFilename("%PART%-%PART%", { title: "T", part: "Vn" });
+      const out = formatFilename("%PART%-%PART%", { title: "T", part: "Vn", partNumber: "" });
       expect(out).toBe("Vn-Vn");
+    });
+
+    it("substitutes repeated part numbers without changing token-like text in names", () => {
+      const out = formatFilename("%PART_NUMBER%-%PART%-%PART_NUMBER%", {
+        title: "T",
+        part: "Part %PART_NUMBER%",
+        partNumber: "03",
+      });
+      expect(out).toBe("03-Part %PART_NUMBER%-03");
     });
   });
 

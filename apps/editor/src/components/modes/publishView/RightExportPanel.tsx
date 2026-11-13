@@ -34,6 +34,8 @@ interface RightExportPanelProps {
 
   folderSupported: boolean;
   exportFolder: FsDirectoryHandle | null;
+  projectFolder: FsDirectoryHandle | null;
+  onUseProjectFolder: () => void;
   onPickFolder: () => void;
   onClearFolder: () => void;
 
@@ -62,6 +64,8 @@ export function RightExportPanel(props: RightExportPanelProps) {
     onBundleModeChange,
     folderSupported,
     exportFolder,
+    projectFolder,
+    onUseProjectFolder,
     onPickFolder,
     onClearFolder,
     filenamePattern,
@@ -91,22 +95,40 @@ export function RightExportPanel(props: RightExportPanelProps) {
       </Section>
 
       <Section label="Bundle">
-        <RadioGroup value={bundleMode} onChange={(v) => onBundleModeChange(v as typeof bundleMode)}>
-          <Radio value="separate" variant="card" label="Separate files" description="One download per layout" />
+        <RadioGroup
+          value={bundleMode}
+          onChange={(v) => onBundleModeChange(v as typeof bundleMode)}
+          disabled={exporting}
+        >
+          <Radio value="zip" variant="card" label="ZIP archive" description="One ZIP containing all PDFs" />
+          {exportFolder && (
+            <Radio
+              value="separate"
+              variant="card"
+              label="Separate files"
+              description="One PDF per layout, saved directly to the folder"
+            />
+          )}
           <Radio
             value="single-pdf"
             variant="card"
             label="Single PDF"
             description="Concatenate every layout into one PDF"
           />
-          <Radio value="zip" variant="card" label="ZIP archive" description="One ZIP containing all PDFs" />
         </RadioGroup>
+        {!exportFolder && (
+          <div className={styles.fieldHint}>
+            Downloads use one ZIP or PDF to avoid browser limits on multiple downloads.
+          </div>
+        )}
       </Section>
 
       <Section label="Destination">
         <DestinationRow
           folderSupported={folderSupported}
           exportFolder={exportFolder}
+          projectFolder={projectFolder}
+          onUseProjectFolder={onUseProjectFolder}
           exporting={exporting}
           onPickFolder={onPickFolder}
           onClearFolder={onClearFolder}
@@ -121,8 +143,9 @@ export function RightExportPanel(props: RightExportPanelProps) {
           disabled={exporting}
         />
         <div className={styles.fieldHint}>
-          Tokens: <code>%TITLE%</code> (document title), <code>%PART%</code> (layout name). Extension is added
-          automatically.
+          Tokens: <code>%TITLE%</code> (document title), <code>%PART%</code> (layout name), <code>%PART_NUMBER%</code>{" "}
+          (padded score-order position). Scores are numbered first; unselected layouts still count. ZIP and combined PDF
+          filenames use “All” for the number. The extension is added automatically.
         </div>
       </Section>
 
@@ -164,6 +187,8 @@ export function RightExportPanel(props: RightExportPanelProps) {
 interface DestinationRowProps {
   folderSupported: boolean;
   exportFolder: FsDirectoryHandle | null;
+  projectFolder: FsDirectoryHandle | null;
+  onUseProjectFolder: () => void;
   exporting: boolean;
   onPickFolder: () => void;
   onClearFolder: () => void;
@@ -172,11 +197,13 @@ interface DestinationRowProps {
 function DestinationRow({
   folderSupported,
   exportFolder,
+  projectFolder,
+  onUseProjectFolder,
   exporting,
   onPickFolder,
   onClearFolder,
 }: DestinationRowProps) {
-  if (!folderSupported) {
+  if (!folderSupported && !projectFolder && !exportFolder) {
     return (
       <div className={styles.destinationRow}>
         <div style={DEST_COL_STYLE}>
@@ -191,10 +218,15 @@ function DestinationRow({
       <div className={styles.destinationRow}>
         <div style={DEST_COL_STYLE}>
           <span className={styles.destinationName}>{exportFolder.name}</span>
-          <span className={styles.destinationHint}>Files will be written here.</span>
+          <span className={styles.destinationHint}>
+            Files will be written here. Existing files with the same names will be replaced.
+          </span>
         </div>
         <div className={styles.destinationBtns}>
-          <Button size="sm" onClick={onPickFolder} disabled={exporting} label="Change" />
+          {projectFolder && exportFolder !== projectFolder && (
+            <Button size="sm" onClick={onUseProjectFolder} disabled={exporting} label="Use project folder" />
+          )}
+          {folderSupported && <Button size="sm" onClick={onPickFolder} disabled={exporting} label="Change" />}
           <Button size="sm" onClick={onClearFolder} disabled={exporting} label="Clear" />
         </div>
       </div>
@@ -204,10 +236,17 @@ function DestinationRow({
     <div className={styles.destinationRow}>
       <div style={DEST_COL_STYLE}>
         <span className={styles.destinationName}>Browser downloads</span>
-        <span className={styles.destinationHint}>Pick a folder to write files directly without download prompts.</span>
+        <span className={styles.destinationHint}>
+          {projectFolder
+            ? `Save directly to "${projectFolder.name}", or choose another folder.`
+            : "Pick a folder to write files directly without download prompts."}
+        </span>
       </div>
       <div className={styles.destinationBtns}>
-        <Button size="sm" onClick={onPickFolder} disabled={exporting} label="Choose folder" />
+        {projectFolder && (
+          <Button size="sm" onClick={onUseProjectFolder} disabled={exporting} label="Use project folder" />
+        )}
+        {folderSupported && <Button size="sm" onClick={onPickFolder} disabled={exporting} label="Choose folder" />}
       </div>
     </div>
   );
