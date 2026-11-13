@@ -143,8 +143,9 @@ export function RightExportPanel(props: RightExportPanelProps) {
           disabled={exporting}
         />
         <div className={styles.fieldHint}>
-          Tokens: <code>%TITLE%</code> (document title), <code>%PART%</code> (layout name). Extension is added
-          automatically.
+          Tokens: <code>%TITLE%</code> (document title), <code>%PART%</code> (layout name), <code>%PART_NUMBER%</code>{" "}
+          (padded score-order position). Scores are numbered first; unselected layouts still count. ZIP and combined PDF
+          filenames use “All” for the number. The extension is added automatically.
         </div>
       </Section>
 

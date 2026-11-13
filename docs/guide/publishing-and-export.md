@@ -53,9 +53,23 @@ back to ZIP automatically.
 The filename pattern supports:
 
 - `%TITLE%` — document title;
-- `%PART%` — score or instrumental-part layout name.
+- `%PART%` — score or instrumental-part layout name;
+- `%PART_NUMBER%` — zero-padded output number in score order, starting at `01`.
 
-The correct extension is added automatically.
+Numbering puts scores first, followed by instrumental parts in the full score's
+top-to-bottom instrument order. It counts every layout, including those not
+selected for this export, so numbers remain consistent across partial exports.
+Multi-instrument layouts count as scores. If there is no usable layout named
+“Full score”, the first score containing the most instruments determines the order.
+If no full score can be identified, the instrument list supplies the order.
+Parts absent from the full score follow the instrument list; other layouts
+without identifiable instruments come last.
+
+For example, `%PART_NUMBER% — %TITLE% — %PART%` sorts exported PDFs by score
+order when sorted by filename. ZIP entries and direct folder writes are also
+produced in that order. In the name of a ZIP or combined PDF, `%PART_NUMBER%`
+becomes `All`; a combined PDF keeps the Publish layout-list order. The correct
+extension is added automatically.
 
 ## Embed the source
 

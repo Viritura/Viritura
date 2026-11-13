@@ -212,11 +212,16 @@ export async function exportScoresToPdf(score: Score, options: BatchExportOption
 
 /**
  * Substitute simple tokens in a filename pattern. Supported:
- *   %TITLE% — score document title (or "score" if missing)
- *   %PART%  — per-score display name (e.g. "Violin I", "Full Score")
+ *   %TITLE%       — score document title (or "score" if missing)
+ *   %PART%        — per-score display name (e.g. "Violin I", "Full Score")
+ *   %PART_NUMBER% — padded output position, or "All" for a bundle
  */
-export function formatFilename(pattern: string, ctx: { title: string | undefined; part: string }): string {
+export function formatFilename(
+  pattern: string,
+  ctx: { title: string | undefined; part: string; partNumber: string },
+): string {
   return pattern
+    .replace(/%PART_NUMBER%/g, ctx.partNumber)
     .replace(/%TITLE%/g, ctx.title ?? "score")
     .replace(/%PART%/g, ctx.part)
     .replace(/[<>:"/\\|?*]/g, "-");

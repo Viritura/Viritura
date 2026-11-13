@@ -61,6 +61,7 @@ vi.mock("../components/ScoreCanvas", () => {
 import { WorkspaceCanvas } from "../app/WorkspaceCanvas";
 import { usePublishMode } from "../app/usePublishMode";
 import { buildPublishMode } from "../app/buildPublishMode";
+import * as publishExport from "../components/modes/publishView/runPublishExport";
 
 /**
  * Mirrors how AppInner wires the publish branch around the shared canvas:
@@ -121,9 +122,24 @@ afterEach(() => {
   useDialogStore.getState().closeDialog("calibration");
   useProjectStore.setState({ projectFolder: null });
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("Publish destinations", () => {
+  it("advertises the score-order number token and passes a custom pattern to export", async () => {
+    const runExport = vi.spyOn(publishExport, "runPublishExport").mockResolvedValue({ kind: "ok", text: "Exported." });
+    renderWithTooltips(<PublishHarness score={sampleScore} />);
+    expect(screen.getByText("%PART_NUMBER%")).toBeTruthy();
+
+    fireEvent.change(screen.getByDisplayValue("%TITLE% — %PART%"), {
+      target: { value: "%PART_NUMBER% - %PART%" },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Export 2 layouts" }));
+    });
+    expect(runExport).toHaveBeenCalledWith(expect.objectContaining({ filenamePattern: "%PART_NUMBER% - %PART%" }));
+  });
+
   it("defaults to a single ZIP download and does not offer separate downloads", () => {
     renderWithTooltips(<PublishHarness score={sampleScore} />);
     expect(screen.getByRole<HTMLInputElement>("radio", { name: /ZIP archive/ }).checked).toBe(true);
