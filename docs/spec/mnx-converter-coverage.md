@@ -89,6 +89,9 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
   Concert-score exports preserve `<for-part>/<part-transpose>` as the written-part
   interval without applying it to already-sounding source notes. Ordinary
   `<transpose>` still converts source notes to sounding pitch.
+  Detection uses the presence of `<defaults>/<concert-score/>`; the element has
+  no on/off value. Its absence selects written-pitch handling. Plain MusicXML
+  and compressed `.mxl` imports use the same conversion path.
 - Dynamics, barlines (final, double, repeat, dotted, dashed, tick, short), repeat markers
 - Tuplets (`<time-modification>` + `<tuplet>`; `<tuplet show-number/show-type>` → `showNumber/showValue`; nested tuplets)
 - Slurs (start/stop with overlapping `number`, `side` up/down, target ids)
