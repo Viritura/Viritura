@@ -556,10 +556,11 @@ export function enrichInstrumentIdentities<
         }));
     const instrumentId = explicitId ?? inst?.id;
     if (instrumentId === undefined) continue;
+    const initialMidiProgram = initial?.instrumentId === instrumentId ? initial.midiProgram : undefined;
     const enriched = {
       ...ext,
       instrumentId,
-      midiProgram: ext.midiProgram ?? initial?.midiProgram ?? inst?.midiProgram,
+      midiProgram: ext.midiProgram ?? initialMidiProgram ?? inst?.midiProgram,
       family: ext.family ?? inst?.family,
     };
     if (

@@ -16,6 +16,17 @@ describe("instrument identity enrichment", () => {
           _x: { viritura: { instrumentId: "keyboard.piano", midiProgram: 5, family: "custom" } },
         },
         { name: "Piano", measures: [], _x: { viritura: { instrumentId: "custom.zither" } } },
+        {
+          name: "Piano",
+          measures: [],
+          _x: {
+            viritura: {
+              instrumentId: "custom.zither",
+              initialInstrument: "guitar",
+              instruments: { guitar: { instrumentId: "pluck.guitar", midiProgram: 24 } },
+            },
+          },
+        },
       ],
     };
     const original = structuredClone(score);
