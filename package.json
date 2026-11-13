@@ -101,7 +101,7 @@
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.72.1",
     "typescript-json-schema": "0.68.0",
-    "wrangler": "4.151.0"
+    "wrangler": "4.159.0"
   },
   "engines": {
     "node": ">=24.0.0",
