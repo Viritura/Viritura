@@ -471,6 +471,8 @@ export interface ScoreDefinition {
   pageSetup?: PageSetup;
   /** Independent instrument-name policies for the first and later systems. */
   instrumentNameDisplay?: InstrumentNameDisplaySettings;
+  /** Parts eligible for rest-only system hiding in paged views, including the first system. */
+  autoHideEmptyParts?: string[];
   /** Forced starts consumed by automatic system and page flow. */
   layoutBreaks?: LayoutBreak[];
   /** Free text frames owned by this score view, not by staffs or systems. */

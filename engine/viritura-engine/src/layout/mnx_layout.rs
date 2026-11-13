@@ -26,6 +26,7 @@ mod system_rendering;
 mod authored_systems;
 mod cache_hashing;
 mod chord_symbols;
+mod empty_staves;
 mod explicit;
 mod explicit_pagination;
 mod explicit_staff_retention;

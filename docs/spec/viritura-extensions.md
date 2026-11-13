@@ -14,7 +14,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | MNX Object                                   | JSON Path                                       | Extensions                                                                                                                   |
 | -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks, textFrames                                                                   |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, autoHideEmptyParts, layoutBreaks, textFrames                                               |
 | [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                            |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                      |
 | [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                      |
@@ -588,6 +588,39 @@ same policy directly: full-then-short, short-only, or hidden.
         "firstSystem": "hidden",
         "subsequentSystems": "short"
       }
+    }
+  }
+}
+```
+
+### `autoHideEmptyParts`
+
+Lists the part IDs eligible for automatic empty-staff hiding in this score
+view. Configure the list in **Engrave > Layouts > Auto-hide empty staves**.
+The setting is saved on the score definition, so a full score, condensed
+score, and individual part can have independent choices even if they share
+an MNX system layout.
+
+In paged views, an opted-in instrument is hidden on systems containing only
+unmarked rests or spaces, including the first system. All of a multi-staff
+instrument's staves must be empty. Notes, staff-specific text, dynamics,
+fermatas, other markings, and continuing hairpins, pedals, ottavas, slurs,
+or glissandos keep the instrument visible. Shared staves remain visible if
+any source is unselected or nonempty. At least one whole instrument remains on a silent
+system. Horizon views and score content are unchanged.
+
+Visibility is computed after system breaking and before pagination; it is
+not saved as a destructive removal or a manual system-layout override.
+Adding music automatically restores the instrument. Existing manually
+omitted staves remain omitted.
+
+```json
+{
+  "name": "Full Score",
+  "layout": "full-score",
+  "_x": {
+    "viritura": {
+      "autoHideEmptyParts": ["flute", "piano"]
     }
   }
 }

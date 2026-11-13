@@ -7820,6 +7820,15 @@ impl ::std::default::Default for RootExtensionsInstrumentChangeStyle {
 ///  "description": "Viritura extensions on a standard MNX score definition.",
 ///  "type": "object",
 ///  "properties": {
+///    "autoHideEmptyParts": {
+///      "description": "Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.",
+///      "type": "array",
+///      "items": {
+///        "type": "string",
+///        "minLength": 1
+///      },
+///      "uniqueItems": true
+///    },
 ///    "instrumentNameDisplay": {
 ///      "$ref": "#/$defs/instrument-name-display"
 ///    },
@@ -7847,6 +7856,15 @@ impl ::std::default::Default for RootExtensionsInstrumentChangeStyle {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ScoreExtensions {
+    ///Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.
+    #[serde(
+        rename = "autoHideEmptyParts",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub auto_hide_empty_parts: ::std::option::Option<
+        Vec<ScoreExtensionsAutoHideEmptyPartsItem>,
+    >,
     #[serde(
         rename = "instrumentNameDisplay",
         default,
@@ -7881,11 +7899,93 @@ impl ::std::convert::From<&ScoreExtensions> for ScoreExtensions {
 impl ::std::default::Default for ScoreExtensions {
     fn default() -> Self {
         Self {
+            auto_hide_empty_parts: Default::default(),
             instrument_name_display: Default::default(),
             layout_breaks: Default::default(),
             page_setup: Default::default(),
             text_frames: Default::default(),
         }
+    }
+}
+///`ScoreExtensionsAutoHideEmptyPartsItem`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct ScoreExtensionsAutoHideEmptyPartsItem(::std::string::String);
+impl ::std::ops::Deref for ScoreExtensionsAutoHideEmptyPartsItem {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<ScoreExtensionsAutoHideEmptyPartsItem>
+for ::std::string::String {
+    fn from(value: ScoreExtensionsAutoHideEmptyPartsItem) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&ScoreExtensionsAutoHideEmptyPartsItem>
+for ScoreExtensionsAutoHideEmptyPartsItem {
+    fn from(value: &ScoreExtensionsAutoHideEmptyPartsItem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for ScoreExtensionsAutoHideEmptyPartsItem {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for ScoreExtensionsAutoHideEmptyPartsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for ScoreExtensionsAutoHideEmptyPartsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for ScoreExtensionsAutoHideEmptyPartsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for ScoreExtensionsAutoHideEmptyPartsItem {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
     }
 }
 ///Score-level bibliographic metadata. Stored at `_x.viritura.metadata` on the score root. The engine consumes `title`/`subtitle`/`composer`/`arranger`/`copyright`; the remaining fields are preserved verbatim from MusicXML import (`work-title`, `movement-title`, etc.) for round-tripping.

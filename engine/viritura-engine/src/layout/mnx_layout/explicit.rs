@@ -522,6 +522,7 @@ pub fn layout_with_mnx_scores_cached(
                         score_def,
                         &part_id_map,
                         &measure_id_map,
+                        config.page_width.is_some() && !score_def.auto_hide_empty_parts.is_empty(),
                     )
                 })
         })
@@ -741,6 +742,16 @@ pub fn layout_with_mnx_scores_cached(
     }
 
     let inter_system_gap = 10.0 * sp;
+    if config.page_width.is_some() && !score_def.auto_hide_empty_parts.is_empty() {
+        let policy = super::empty_staves::EmptyStaves::new(score, &score_def.auto_hide_empty_parts);
+        for (index, &(start, end)) in system_measure_ranges.iter().enumerate() {
+            let (staves, groups) = &mut system_flat_staves[index];
+            policy.prune(staves, groups, start..end);
+            for (staves, groups) in system_layout_changes[index].values_mut() {
+                policy.prune(staves, groups, start..end);
+            }
+        }
+    }
     let shown: HashSet<usize> = system_flat_staves
         .iter()
         .flat_map(|(staves, _)| {

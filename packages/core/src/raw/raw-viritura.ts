@@ -630,6 +630,8 @@ export interface components {
         "score-extensions": {
             pageSetup?: components["schemas"]["page-setup"];
             instrumentNameDisplay?: components["schemas"]["instrument-name-display"];
+            /** @description Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged. */
+            autoHideEmptyParts?: string[];
             /** @description Free text frames owned by this score view. A page locator uses a zero-based index into the final rendered page array; measure and event locators follow their target onto its rendered page. Event IDs are scoped by the required part ID. Placement is relative to an edge or corner of the printable page area, with offsets in staff spaces (+x right, +y down). Frames have automatic height and do not participate in collision avoidance. */
             textFrames?: components["schemas"]["text-frame"][];
             layoutBreaks?: components["schemas"]["layout-break"][];

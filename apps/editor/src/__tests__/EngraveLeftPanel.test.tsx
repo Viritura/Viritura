@@ -60,6 +60,7 @@ function WithScore({ children }: { readonly children: ReactNode }) {
 function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onInstrumentNameDisplayChange = vi.fn()) {
   const onRemoveSelectedBreak = vi.fn();
   const onResetAll = vi.fn();
+  const onAutoHideEmptyPartsChange = vi.fn();
   return {
     ...render(
       <TooltipPrimitives.Provider delayDuration={0}>
@@ -71,6 +72,7 @@ function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onI
               onApplyPageSetup={onApplyPageSetup}
               onResetPageSetup={onResetPageSetup}
               onInstrumentNameDisplayChange={onInstrumentNameDisplayChange}
+              onAutoHideEmptyPartsChange={onAutoHideEmptyPartsChange}
               selectedBreakKind="page"
               selectedAfterMeasureNumber={12}
               hasLayoutOverrides
@@ -84,12 +86,24 @@ function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onI
     onApplyPageSetup,
     onResetPageSetup,
     onInstrumentNameDisplayChange,
+    onAutoHideEmptyPartsChange,
     onRemoveSelectedBreak,
     onResetAll,
   };
 }
 
 describe("EngraveLeftPanel", () => {
+  it("lets the active score opt individual instruments into empty-staff hiding", async () => {
+    const user = userEvent.setup();
+    const { onAutoHideEmptyPartsChange } = renderPanel();
+    await user.click(await screen.findByRole("tab", { name: "Layouts" }));
+    await user.click(screen.getByRole("checkbox", { name: "Auto-hide empty staves: Oboe" }));
+    expect(onAutoHideEmptyPartsChange).toHaveBeenCalledWith(["p2"]);
+    expect((screen.getByRole("checkbox", { name: "Auto-hide empty staves: Flute" }) as HTMLInputElement).checked).toBe(
+      false,
+    );
+  });
+
   it("opens existing frame properties on canvas selection without a Text tab or creation actions", async () => {
     renderPanel();
     await screen.findByRole("tab", { name: "Properties" });

@@ -81,6 +81,9 @@ export function serializeScoreDefinition(sd: ScoreDefinition): Obj {
   if (sd.instrumentNameDisplay) {
     viritura["instrumentNameDisplay"] = { ...sd.instrumentNameDisplay };
   }
+  if (sd.autoHideEmptyParts !== undefined) {
+    viritura["autoHideEmptyParts"] = [...sd.autoHideEmptyParts];
+  }
   if (sd.layoutBreaks && sd.layoutBreaks.length > 0) {
     viritura["layoutBreaks"] = sd.layoutBreaks.map((entry) => ({ ...entry }));
   }

@@ -42,6 +42,22 @@ export function useEngraveContextRefs(
   return { scoreRef, activeScoreIndexRef, updateScoreRef };
 }
 
+export function useAutoHideEmptyParts(refs: EngraveContextRefs) {
+  return useCallback(
+    (partIds: string[]) => {
+      const current = refs.scoreRef.current;
+      const index = refs.activeScoreIndexRef.current;
+      if (!current?.scores?.[index]) return;
+      refs.updateScoreRef.current(
+        produce(current, (draft) => {
+          draft.scores![index]!.autoHideEmptyParts = partIds;
+        }),
+      );
+    },
+    [refs],
+  );
+}
+
 /** Tracks the currently selected engrave break marker and wires up the
  *  Delete/Backspace shortcut to clear it. Selection is cleared whenever
  *  the user switches to a different score. */
