@@ -85,7 +85,13 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 - Multiple voices, ties (with IDs and `side`; `<tied placement>` → `tie.side`; `<tied type="let-ring">` → `tie.lv`), articulations (full SMuFL-aware mapping table)
 - Fermatas, bow directions, and single-note and multi-note tremolos
 - Non-arpeggiate chord brackets
-- Time / key signatures, clefs, transposing instruments (`_x.viritura.transpose`)
+- Time / key signatures, clefs, transposing instruments (`part.transposition`).
+  Concert-score exports preserve `<for-part>/<part-transpose>` as the written-part
+  interval without applying it to already-sounding source notes. Ordinary
+  `<transpose>` still converts source notes to sounding pitch.
+  Detection uses the presence of `<defaults>/<concert-score/>`; the element has
+  no on/off value. Its absence selects written-pitch handling. Plain MusicXML
+  and compressed `.mxl` imports use the same conversion path.
 - Dynamics, barlines (final, double, repeat, dotted, dashed, tick, short), repeat markers
 - Tuplets (`<time-modification>` + `<tuplet>`; `<tuplet show-number/show-type>` → `showNumber/showValue`; nested tuplets)
 - Slurs (start/stop with overlapping `number`, `side` up/down, target ids)
@@ -104,6 +110,16 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 - Rehearsal marks, text `<words>` directions, and pedal markings
 - Score metadata (title, creators, work, and movement details)
 - Glissando/slide spans and common chord symbols
+- `<instrument-sound>` as the part's instrument identity, so catalog matching
+  does not depend on exporter-specific spellings such as `Bb` versus `B♭`.
+  The editor fills missing MIDI program and family metadata for known identities.
+
+Concert-score clefs are preserved as exported. In particular, a baritone saxophone
+exported in bass clef remains in bass clef; this does not imply a failed instrument
+match. Separate written-part clefs (`<for-part>/<part-clef>`) are not yet imported,
+and no written clef is inferred when the exporter omits one. Exporting a
+written-pitch score preserves its authored written clefs through the existing
+`<clef>` path.
 
 **Diagnostics:**
 

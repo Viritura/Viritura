@@ -374,8 +374,8 @@ export interface PartInfo {
   name: string;
   abbreviation: string;
   staves: number;
-  /** MusicXML `<instrument-sound>` standard-sound id (e.g. `wood.wood-block`),
-   *  used to route unpitched percussion to a General MIDI drum sound. */
+  /** MusicXML `<instrument-sound>` standard-sound id, preserved as the vendor
+   *  instrument identity and used to route unpitched percussion to GM drums. */
   instrumentSound?: string;
 }
 

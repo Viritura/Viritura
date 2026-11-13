@@ -191,8 +191,7 @@ export function createDocumentStore() {
       // is already in the post-repair shape, so the first user edit yields a
       // diff that contains only the user's actual change.
       const repairs = repairBeatCounts(newScore);
-      // Backfill instrument identity from the catalog (idempotent — parts
-      // that already have `_x.viritura.instrumentId` are left alone).
+      // Backfill catalog metadata without replacing existing identities (idempotent).
       const enriched = enrichInstrumentIdentities(newScore);
       // Repairs, enrichment, or mixer cleanup make the caller's preSerializedJson stale.
       const json =
