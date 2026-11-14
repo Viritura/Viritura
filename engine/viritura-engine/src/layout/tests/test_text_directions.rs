@@ -222,6 +222,53 @@ fn system_text_vertical_reservation_accounts_for_stacking() {
 }
 
 #[test]
+fn system_instruction_renders_framed_text_and_optional_metronome_together() {
+    use crate::render::smufl::smufl::{MET_AUGMENTATION_DOT, MET_NOTE_QUARTER_UP};
+    for (show_text, show_metronome) in [(true, true), (true, false), (false, true)] {
+        for placement in ["above", "below"] {
+            let source = json!({
+                "mnx": { "version": 1 },
+                "global": { "measures": [{
+                    "time": { "count": 4, "unit": 4 },
+                    "_x": { "viritura": { "systemText": [{
+                        "id": "shared", "text": [{ "text": "Broadly" }],
+                        "position": { "fraction": [0, 1] }, "placement": placement,
+                        "showText": show_text,
+                        "frame": { "border": "solid", "padding": 0.5,
+                            "width": { "unit": "staffSpaces", "value": 24 } },
+                        "tempo": { "bpm": 84, "value": { "base": "quarter", "dots": 1 },
+                            "showMetronomeMark": show_metronome }
+                    }] } }
+                }] },
+                "parts": [{ "measures": [{ "sequences": [{ "content": [{
+                    "duration": { "base": "whole" },
+                    "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                }] }] }] }]
+            });
+            let score = parse_mnx(&source.to_string()).unwrap();
+            let display = layout_score(&score, 0, &LayoutConfig::default());
+            assert_eq!(
+                display
+                    .element_bboxes
+                    .iter()
+                    .filter(|bbox| bbox.element_id == "m0/systemText/shared")
+                    .count(),
+                1
+            );
+            let has_words = display.commands.iter().any(|command| {
+                    matches!(command, RenderCommand::DrawText { text, .. } if text.contains("Broadly"))
+                });
+            assert_eq!(has_words, show_text);
+            for expected in [MET_NOTE_QUARTER_UP, MET_AUGMENTATION_DOT] {
+                let count = display.commands.iter().filter(|command| {
+                        matches!(command, RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == expected)
+                    }).count();
+                assert_eq!(count, usize::from(show_metronome));
+            }
+        }
+    }
+}
+#[test]
 fn test_chord_symbols_render_text() {
     let json = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),

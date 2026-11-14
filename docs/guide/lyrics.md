@@ -1,18 +1,18 @@
 # Lyrics
 
 Enter lyrics from the **Write** activity. Lyric entry moves through notes
-syllable by syllable, while the lyric controls in **Palettes → Text** manage
+syllable by syllable, while the Lyrics section in **Properties** manages
 verses, translations, labels, languages, and their display order.
 
 ## Start lyric entry
 
 1. Select the note or chord where the first syllable belongs.
-2. Open **Palettes → Text**, then find **Lyrics** below the text tools.
-3. Choose the lyric line you want to enter.
-4. Select **Start entry**.
+2. Choose **Lyrics** in **Palettes → Text & tempo**.
+3. Type into the inline entry field. Properties opens automatically with the
+   active line and lyric settings; choose another line there when needed.
 
 You can also select a note and use the **Lyrics** toolbar button or press
-`Shift+W`. Both commands open the Text palette and its Lyrics controls, then
+`Shift+W`. Both commands open Properties and its Lyrics controls, then
 start entry for the active line. If the selection is not a note or chord,
 Viritura asks you to select one instead of changing the document.
 
@@ -58,8 +58,8 @@ Standard clipboard commands follow the selection:
 ## Paste and distribute a verse
 
 Select a contiguous passage in one voice, then choose **Paste verse** in the
-Lyrics controls. Enter or paste the complete text and review the token-to-event
-preview before applying it.
+Lyrics section of Properties. Enter or paste the complete text and review the
+token-to-event preview before applying it.
 
 - Spaces end words.
 - Hyphens divide authored syllables and are never rewritten. Pasted ASCII,
@@ -114,7 +114,7 @@ The repair panel offers explicit choices:
 
 ## Manage lyric lines
 
-The Lyrics controls in the Text palette list every lyric line used by the
+The Lyrics section in Properties lists every lyric line used by the
 document.
 
 - Select a line card to make it active for entry.

@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- palette is the single UI surface for ~30 input-mode property toggles (tie, slur, lv, dynamics, articulations, ornaments, tuplets, grace, dots, accidentals, voice, ...). Each toggle owns a small handler that reads selection + dispatches a score mutation; splitting into per-section files would force re-importing the same selection/score plumbing in every file with no shared sub-concept to extract. */
-import { useCallback, useEffect, useEffectEvent, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { toast } from "sonner";
-import { FormInput, IconButton, PaletteButton, PromptDialog, Tooltip } from "@viritura/ui";
+import { CenteredGlyph, FormInput, IconButton, PaletteButton, PromptDialog, Tooltip } from "@viritura/ui";
 import { X, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import {
   DndContext,
@@ -23,6 +23,8 @@ import { writeToLane } from "../voiceLanes";
 import { useSelection, useSelectionStore, type SelectionState } from "../store/selectionStore";
 import { keyboardRegistry } from "../keyboard/KeyboardRegistry";
 import { useDocumentStoreApi, useDocumentStore } from "../store/DocumentContext";
+import { beatPositionToFraction, eventBeatPosition } from "../app/timedAnnotationPosition";
+import { SystemInstructionPopover, saveSystemInstruction } from "../systemInstructions";
 import {
   resolveEventLocation,
   resolveEventFromSubElement,
@@ -36,6 +38,7 @@ import {
   resolveCondensedEventTargets,
   resolveCondensedFullMeasureRestTargets,
   resolveCondensedSelectionEvents,
+  resolveCondensedSelectionNotes,
 } from "../score/condensedWriteback";
 import { useViewStateStore } from "../store/viewStateStore";
 import { toggleMeasureRepeatForSelection } from "../commands/measureRepeatCommands";
@@ -59,7 +62,6 @@ import {
   applyOrnamentToSelection,
   applyTrillToSelection,
   applyTremoloToSelection,
-  removeTremolosFromSelection,
 } from "../radialMenu/applyToSelection";
 import { applyNoteMarkingToSelection, type NoteMarkingChange } from "../radialMenu/noteMarkingSelection";
 import {
@@ -99,6 +101,7 @@ import type {
   PartMeasure,
   TimeSignature,
   BowDirection,
+  SystemText,
 } from "@viritura/core";
 import {
   setTimeSignature,
@@ -110,6 +113,7 @@ import {
   setEnding,
   textContentFromPlain,
   plainTextContent,
+  generateId,
   type TextContent,
 } from "@viritura/core";
 import {
@@ -139,6 +143,10 @@ import {
   TwoNoteTremoloIcon,
   resolveTwoNoteTremoloSelection,
   NonArpeggioIcon,
+  TieIcon,
+  SlurIcon,
+  LaissezVibrerIcon,
+  GlissandoIcon,
   BarlineGlyph,
   ClefGlyph,
   TimeSigGlyph,
@@ -150,8 +158,7 @@ import {
   wideGridStyle,
   ATONAL_LABEL_STYLE,
   CUSTOM_TIME_SIGNATURE_STYLE,
-  TEMPO_LABEL_STYLE,
-  TEMPO_GLYPH_STYLE,
+  TIME_SIGNATURE_SYMBOL_STYLE,
   CHORD_SYMBOL_LABEL_STYLE,
   EXPRESSION_LABEL_STYLE,
   REHEARSAL_BOX_STYLE,
@@ -164,18 +171,26 @@ import {
   type SpannerTarget,
   SortablePaletteSection,
 } from "./palette";
-import { LyricsPanel } from "./lyrics/LyricsPanel";
-import { TextFramePalette } from "./textFrames";
+import { LyricsButton } from "./lyrics/LyricsPanel";
+import { PageTextFrameButton } from "./textFrames";
 import { setChordSymbolPopover } from "../store/overlayStore";
 import { resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
 import { useDebugSettingsStore } from "../store/debugSettingsStore";
 
 interface PalettePanelProps {
   openSectionRequest?: { id: string; requestId: number } | null;
+  getCurrentPageIndex?: () => number;
+  onTextFrameCreated?: () => void;
+  onOpenLyricsProperties?: () => void;
 }
 
 // eslint-disable-next-line max-lines-per-function, max-statements -- component body holds prompt-dialog state, ~30 handler useCallback declarations (one per palette toggle), derived selection state, and JSX layout for sortable sections. Sub-handlers and sortable section primitives are already extracted to ./palette/*; the remaining body is one-line handler wrappers + JSX wiring.
-export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
+export function PalettePanel({
+  openSectionRequest,
+  getCurrentPageIndex,
+  onTextFrameCreated,
+  onOpenLyricsProperties,
+}: PalettePanelProps = {}) {
   // Subscribe ONLY to the note-input slices that affect what this panel
   // renders (the active-mode flag and the tie/slur button highlight state).
   // The high-frequency slices (cursorPosition, lastPitch, currentDuration,
@@ -195,7 +210,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
 
   // ── Prompt dialog state ──
   // Single shared dialog used in place of `window.prompt()` for every
-  // prompt-style action in the palette (tempo, rehearsal mark, expression).
+  // prompt-style action in the palette (rehearsal mark, expression).
   // `onSubmit` is captured at the time the dialog is opened so the
   // closure has the correct selection / event location.
   const [promptState, setPromptState] = useState<{
@@ -214,6 +229,11 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     onSubmit: () => {},
   });
   const closePrompt = useCallback(() => setPromptState((p) => ({ ...p, open: false })), []);
+  const [instructionEntry, setInstructionEntry] = useState<{
+    measureIndex: number;
+    instruction: SystemText;
+    position: { x: number; y: number };
+  } | null>(null);
 
   // â”€â”€ Derived state â”€â”€
 
@@ -242,9 +262,10 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     if (!loc) return { tieActive: false, slurActive: false, lvActive: false };
     const ev = getEventAtLocation(docScore, loc);
     if (!ev || ev.type !== "event") return { tieActive: false, slurActive: false, lvActive: false };
-    const hasTie = !!(ev.notes && ev.notes.some((n) => n.ties && n.ties.length > 0));
+    const notes = loc.noteIndex === undefined ? ev.notes : ev.notes?.slice(loc.noteIndex, loc.noteIndex + 1);
+    const hasTie = !!notes?.some((note) => note.ties?.some((tie) => !tie.lv));
     const hasSlur = !!(ev.slurs && ev.slurs.length > 0);
-    const hasLv = !!(ev.notes && ev.notes.some((n) => n.ties?.some((t) => t.lv === true)));
+    const hasLv = !!notes?.some((note) => note.ties?.some((tie) => tie.lv === true));
     return { tieActive: hasTie, slurActive: hasSlur, lvActive: hasLv };
   }, [active, inputTieActive, inputSlurActive, selection, docScore]);
 
@@ -259,7 +280,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     // A bar (measure) or multi/range selection ties every covered note as a
     // group, exactly as if each note were selected individually. Toggle as a
     // group: if any covered note is untied, add ties to all; otherwise remove.
-    const events = resolveCondensedSelectionEvents(score, sel, selectedScoreIndex);
+    const events = resolveCondensedSelectionNotes(score, sel, selectedScoreIndex);
     if (events.length === 0) return;
     if (useDebugSettingsStore.getState().hitboxOverlay) {
       console.log(
@@ -300,7 +321,8 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
         const ev = getEventAtLocation(draft, loc);
         if (ev?.type !== "event" || !ev.notes?.length) continue;
         tieables.push(loc);
-        if (!ev.notes.some((n) => n.ties && n.ties.length > 0)) anyUntied = true;
+        const notes = loc.noteIndex === undefined ? ev.notes : ev.notes.slice(loc.noteIndex, loc.noteIndex + 1);
+        if (notes.some((note) => !note.ties?.some((tie) => !tie.lv))) anyUntied = true;
       }
       if (tieables.length === 0) return;
       for (const loc of tieables) {
@@ -310,6 +332,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
           sequenceIndex: loc.sequenceIndex,
           eventIndex: loc.eventIndex,
           tupletIndex: loc.tupletIndex,
+          noteIndex: loc.noteIndex,
         };
         if (anyUntied) {
           addTie(draft, tieArgs);
@@ -419,14 +442,17 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
   const handleLvTie = useCallback(() => {
     const sel = useSelectionStore.getState().selection;
     const score = store.getState().score;
-    if (!score || sel.kind !== "single") return;
-    const loc = resolveEventLocation(sel.elementId, score);
-    if (!loc) return;
+    if (!score) return;
+    const targets = resolveCondensedSelectionNotes(score, sel, selectedScoreIndex);
+    if (targets.length === 0) return;
     const newScore = produce(score, (draft) => {
-      const ev = getEventAtLocation(draft, loc);
-      if (!ev || ev.type !== "event" || !ev.notes?.length) return;
-      const hasLv = ev.notes.some((n) => n.ties?.some((t) => t.lv === true));
-      for (const note of ev.notes) {
+      const notes = targets.flatMap((loc) => {
+        const event = getEventAtLocation(draft, loc);
+        if (event?.type !== "event" || !event.notes) return [];
+        return loc.noteIndex === undefined ? event.notes : event.notes.slice(loc.noteIndex, loc.noteIndex + 1);
+      });
+      const hasLv = notes.every((note) => note.ties?.some((tie) => tie.lv));
+      for (const note of notes) {
         if (hasLv) {
           // Remove L.V. ties
           if (note.ties) {
@@ -434,14 +460,12 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
             if (note.ties.length === 0) delete note.ties;
           }
         } else {
-          // Add L.V. tie
-          if (!note.ties) note.ties = [];
-          note.ties.push({ lv: true });
+          note.ties = [{ lv: true }];
         }
       }
     });
     if (newScore !== score) updateScore(newScore);
-  }, [store, updateScore]);
+  }, [selectedScoreIndex, store, updateScore]);
 
   const handleAddChordSymbol = useCallback(() => {
     const state = store.getState();
@@ -812,36 +836,39 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     if (newScore) updateScore(newScore);
   }, [store, updateScore, selectedScoreIndex]);
 
-  const handleSetTempo = useCallback(() => {
-    const score = store.getState().score;
-    const sel = useSelectionStore.getState().selection;
-    if (!score || sel.kind !== "single") return;
-    const loc = resolveEventLocation(sel.elementId, score);
-    if (!loc) return;
-    const current = score.global.measures[loc.measureIndex]?.tempos?.[0]?.bpm?.toString() ?? "";
-    setPromptState({
-      open: true,
-      title: "Tempo (BPM)",
-      initialValue: current,
-      type: "number",
-      allowEmpty: true,
-      onSubmit: (input) => {
-        const newScore = produce(score, (draft) => {
-          const gm = draft.global.measures[loc.measureIndex];
-          if (!gm) return;
-          if (!input.trim()) {
-            gm.tempos = [];
-          } else {
-            const bpm = Number(input);
-            if (isNaN(bpm) || bpm <= 0) return;
-            const existing = gm.tempos?.[0];
-            gm.tempos = [{ bpm, value: existing?.value ?? { base: "quarter" } }];
-          }
-        });
-        if (newScore !== score) updateScore(newScore);
-      },
-    });
-  }, [store, updateScore]);
+  const handleAddSystemInstruction = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      const score = store.getState().score;
+      const sel = useSelectionStore.getState().selection;
+      if (!score) return;
+      const measureIndex = signatureMeasureIndexFromSelection(sel, score);
+      if (measureIndex === null || !score.global.measures[measureIndex]) {
+        toast.warning("Select a note, rest, or bar before adding system text.");
+        return;
+      }
+      const loc = sel.kind === "single" ? resolveEventLocation(sel.elementId, score) : null;
+      const fraction: [number, number] = loc
+        ? beatPositionToFraction(
+            eventBeatPosition(
+              score.parts[loc.partIndex]!.measures[loc.measureIndex]!.sequences[loc.sequenceIndex]!,
+              loc,
+            ),
+          )
+        : [0, 1];
+      const bounds = event.currentTarget.getBoundingClientRect();
+      setInstructionEntry({
+        measureIndex,
+        position: { x: bounds.left + bounds.width / 2, y: bounds.bottom + 8 },
+        instruction: {
+          id: generateId(),
+          text: [{ text: "" }],
+          position: { fraction },
+          placement: "above",
+        },
+      });
+    },
+    [store],
+  );
 
   const handleSetRehearsalMark = useCallback(() => {
     const score = store.getState().score;
@@ -1036,18 +1063,6 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     },
     [active, store, updateScore],
   );
-
-  const handleRemoveTremolo = useCallback(() => {
-    const sel = useSelectionStore.getState().selection;
-    const score = store.getState().score;
-    if (!score || active) return;
-    const newScore = removeTremolosFromSelection(score, sel, selectedScoreIndex);
-    if (!newScore) {
-      toast.warning("Select one or more tremolos to remove them");
-      return;
-    }
-    updateScore(newScore);
-  }, [active, selectedScoreIndex, store, updateScore]);
 
   const handleFermata = useCallback(
     (shape: FermataSymbol) => () =>
@@ -1337,20 +1352,24 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
   // Check if any items in a section match
   const articulationsMatch = ARTICULATION_ITEMS.some(matchesSearch);
   const bowDirectionsMatch = BOW_DIRECTION_PALETTE_ITEMS.some(matchesSearch);
+  const noteMarkingsMatch =
+    !searchQuery || "scoop plop falloff doit notehead markings note markings".includes(searchLower);
   const dynamicsMatch = DYNAMIC_ITEMS.some(matchesSearch);
   const breathMatch = !searchQuery || "breath comma tick caesura fermata".includes(searchLower);
   const tupletsMatch = TUPLET_ITEMS.some(matchesSearch);
   const ornamentsMatch = !searchQuery || "trill turn mordent inverted delayed schleifer ornament".includes(searchLower);
   const tremMatch = !searchQuery || "tremolo slash single".includes(searchLower);
   const arpMatch = !searchQuery || "arpeggio up down plain no arrow".includes(searchLower);
-  const tempoMatch = !searchQuery || "tempo bpm".includes(searchLower);
   const textMatch =
     !searchQuery ||
-    "chord symbol harmony rehearsal mark expression text frame page measure event lyrics lyric words syllables verses language translation".includes(
+    "tempo bpm chord symbol harmony rehearsal mark staff system expression text frame page measure event lyrics lyric words syllables verses language translation".includes(
       searchLower,
     );
   const linesMatch =
-    !searchQuery || "ottava 8va 8vb 15ma 15mb 22ma 22mb pedal sustain sostenuto una corda lines".includes(searchLower);
+    !searchQuery ||
+    "octaves ottava 8va 8vb 15ma 15mb 22ma 22mb pedals sustain sostenuto una corda lines".includes(searchLower);
+  const connectionsMatch =
+    !searchQuery || "connections ties slurs laissez vibrer glissando portamento".includes(searchLower);
   const repeatsNavigationMatch =
     MEASURE_REPEAT_PALETTE_ITEMS.some(matchesSearch) ||
     !searchQuery ||
@@ -1391,7 +1410,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     },
     {
       id: "keysig",
-      title: "Key Signature",
+      title: "Key signature",
       shortcut: "Shift+5",
       show: !searchQuery,
       render: () => (
@@ -1417,7 +1436,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     },
     {
       id: "timesig",
-      title: "Time Signature",
+      title: "Time signature",
       shortcut: "Shift+4",
       show: !searchQuery,
       render: () => (
@@ -1433,29 +1452,42 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
                     : null;
             if (symbolicGlyph !== null) {
               return (
-                <PaletteButton
-                  shape="tall"
-                  key={p.id}
-                  title={p.label}
-                  useBravura
-                  label={symbolicGlyph}
-                  onClick={() => handleSetTimeSignature(p.time)}
-                />
+                <PaletteButton shape="tall" key={p.id} title={p.label} onClick={() => handleSetTimeSignature(p.time)}>
+                  <span style={TIME_SIGNATURE_SYMBOL_STYLE}>
+                    <CenteredGlyph>{symbolicGlyph}</CenteredGlyph>
+                  </span>
+                </PaletteButton>
               );
             }
             return (
               <PaletteButton shape="tall" key={p.id} title={p.label} onClick={() => handleSetTimeSignature(p.time)}>
-                <TimeSigGlyph
-                  count={p.time.count}
-                  unit={p.time.unit}
-                  {...(p.time.display === "note" ? { numeralStyle: "noteValue" as const } : {})}
-                />
+                <TimeSigGlyph count={p.time.count} unit={p.time.unit} />
               </PaletteButton>
             );
           })}
           <PaletteButton shape="tall" title="Custom time signature" onClick={handleCustomTimeSignature}>
             <span style={CUSTOM_TIME_SIGNATURE_STYLE}>n/d</span>
           </PaletteButton>
+        </div>
+      ),
+    },
+    {
+      id: "tuplets",
+      title: "Tuplets",
+      shortcut: "Shift+3",
+      show: tupletsMatch,
+      render: () => (
+        <div style={gridStyle}>
+          {TUPLET_ITEMS.filter(matchesSearch).map((item) => (
+            <PaletteButton
+              key={item.id}
+              label={item.label}
+              title={item.title}
+              shortcut={item.shortcut}
+              onClick={handleTuplet(item.tupletNumber, item.outerMultiple)}
+            />
+          ))}
+          {!searchQuery && <PaletteButton label="N:M" title="Custom tuplet ratio" onClick={handleCustomTuplet} />}
         </div>
       ),
     },
@@ -1471,7 +1503,98 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
               <BarlineGlyph glyph={p.glyph} />
             </PaletteButton>
           ))}
-          <PaletteButton shape="wide" label="Add bars" title="Insert bars at the selection" onClick={handleAddBars} />
+          <PaletteButton shape="wide" label="Add bars" title="Add bars" onClick={handleAddBars} />
+        </div>
+      ),
+    },
+    {
+      id: "tremolos",
+      title: "Tremolos",
+      shortcut: "Shift+R",
+      show: tremMatch,
+      render: () => (
+        <div style={gridStyle}>
+          <PaletteButton title="Single-note tremolo, 1 slash" onClick={handleTremolo(1)}>
+            <SingleNoteTremoloIcon glyph={SMUFL.tremoloSingle1} />
+          </PaletteButton>
+          <PaletteButton title="Single-note tremolo, 2 slashes" onClick={handleTremolo(2)}>
+            <SingleNoteTremoloIcon glyph={SMUFL.tremoloSingle2} />
+          </PaletteButton>
+          <PaletteButton title="Single-note tremolo, 3 slashes" onClick={handleTremolo(3)}>
+            <SingleNoteTremoloIcon glyph={SMUFL.tremoloSingle3} />
+          </PaletteButton>
+          <PaletteButton label="" title="Two-note tremolo, 1 slash" onClick={handleMultiNoteTremolo(1)}>
+            <TwoNoteTremoloIcon slashes={1} />
+          </PaletteButton>
+          <PaletteButton label="" title="Two-note tremolo, 2 slashes" onClick={handleMultiNoteTremolo(2)}>
+            <TwoNoteTremoloIcon slashes={2} />
+          </PaletteButton>
+          <PaletteButton label="" title="Two-note tremolo, 3 slashes" onClick={handleMultiNoteTremolo(3)}>
+            <TwoNoteTremoloIcon slashes={3} />
+          </PaletteButton>
+        </div>
+      ),
+    },
+    {
+      id: "repeats-navigation",
+      title: "Repeats & navigation",
+      shortcut: "Shift+R",
+      show: repeatsNavigationMatch,
+      render: () => (
+        <div style={gridStyle}>
+          <PaletteButton
+            label={SMUFL.repeatLeft}
+            title="Repeat start"
+            useBravura
+            onClick={() => handleSetRepeatStart({})}
+          />
+          <PaletteButton
+            label={SMUFL.repeatRight}
+            title="Repeat end"
+            useBravura
+            onClick={() => handleSetRepeatEnd({})}
+          />
+          <PaletteButton label={SMUFL.repeatRightLeft} title="Repeat both" useBravura onClick={handleSetRepeatBoth} />
+          {MEASURE_REPEAT_PALETTE_ITEMS.filter(matchesSearch).map((item) => (
+            <PaletteButton
+              key={item.id}
+              label={item.label}
+              title={item.title}
+              useBravura
+              onClick={() => handleToggleMeasureRepeat(item.number)}
+            />
+          ))}
+          <PaletteButton
+            label={SMUFL.segno}
+            title="Segno"
+            useBravura
+            onClick={handleNavigationMarker({ kind: "segno" })}
+          />
+          <PaletteButton
+            label={SMUFL.coda}
+            title="Coda"
+            useBravura
+            onClick={handleNavigationMarker({ kind: "coda" })}
+          />
+          <PaletteButton shape="wide" label="Fine" title="Fine" onClick={handleNavigationMarker({ kind: "fine" })} />
+          {(Object.keys(JUMP_LABELS) as Array<keyof typeof JUMP_LABELS>).map((type) => (
+            <PaletteButton
+              key={type}
+              shape="wide"
+              label={JUMP_LABELS[type]}
+              title={JUMP_LABELS[type]}
+              onClick={handleNavigationMarker({ kind: "jump", type })}
+            />
+          ))}
+          {ENDING_PRESETS.map((p) => (
+            <PaletteButton
+              shape="wide"
+              key={p.label}
+              label={p.label}
+              title={p.label}
+              onClick={() => handleSetEnding(p.ending)}
+            />
+          ))}
         </div>
       ),
     },
@@ -1479,7 +1602,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       id: "articulations",
       title: "Articulations",
       shortcut: "Shift+A",
-      show: articulationsMatch,
+      show: articulationsMatch || bowDirectionsMatch,
       render: () => (
         <div style={gridStyle}>
           {ARTICULATION_ITEMS.filter(matchesSearch).map((item) => (
@@ -1493,52 +1616,6 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
               onClick={handleArticulation(item.articulation)}
             />
           ))}
-        </div>
-      ),
-    },
-    {
-      id: "note-markings",
-      title: "Note markings",
-      show: !searchQuery || "scoop plop falloff doit note markings".includes(searchLower),
-      render: () => (
-        <div style={gridStyle}>
-          <PaletteButton
-            label={SMUFL.brassScoop}
-            title="Scoop — slide into the note from below"
-            useBravura
-            active={selectedNoteMarkings?.slideIn?.type === "scoop"}
-            onClick={handleNoteMarking({ key: "slideIn", type: "scoop" })}
-          />
-          <PaletteButton
-            label={SMUFL.brassPlop}
-            title="Plop — slide into the note from above"
-            useBravura
-            active={selectedNoteMarkings?.slideIn?.type === "plop"}
-            onClick={handleNoteMarking({ key: "slideIn", type: "plop" })}
-          />
-          <PaletteButton
-            label={SMUFL.brassFallLipShort}
-            title="Falloff — slide down from the note"
-            useBravura
-            active={selectedNoteMarkings?.slideOut?.type === "falloff"}
-            onClick={handleNoteMarking({ key: "slideOut", type: "falloff" })}
-          />
-          <PaletteButton
-            label={SMUFL.brassDoitShort}
-            title="Doit — slide up from the note"
-            useBravura
-            active={selectedNoteMarkings?.slideOut?.type === "doit"}
-            onClick={handleNoteMarking({ key: "slideOut", type: "doit" })}
-          />
-        </div>
-      ),
-    },
-    {
-      id: "bow-directions",
-      title: "Bowing",
-      show: bowDirectionsMatch,
-      render: () => (
-        <div style={gridStyle}>
           {BOW_DIRECTION_PALETTE_ITEMS.filter(matchesSearch).map((item) => (
             <PaletteButton
               key={item.id}
@@ -1549,6 +1626,184 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
               onClick={handleBowDirection(item.direction)}
             />
           ))}
+        </div>
+      ),
+    },
+    {
+      id: "note-markings",
+      title: "Notehead markings",
+      show: noteMarkingsMatch,
+      render: () => (
+        <div style={gridStyle}>
+          <PaletteButton
+            label={SMUFL.brassScoop}
+            title="Scoop"
+            useBravura
+            active={selectedNoteMarkings?.slideIn?.type === "scoop"}
+            onClick={handleNoteMarking({ key: "slideIn", type: "scoop" })}
+          />
+          <PaletteButton
+            label={SMUFL.brassPlop}
+            title="Plop"
+            useBravura
+            active={selectedNoteMarkings?.slideIn?.type === "plop"}
+            onClick={handleNoteMarking({ key: "slideIn", type: "plop" })}
+          />
+          <PaletteButton
+            label={SMUFL.brassFallLipShort}
+            title="Falloff"
+            useBravura
+            active={selectedNoteMarkings?.slideOut?.type === "falloff"}
+            onClick={handleNoteMarking({ key: "slideOut", type: "falloff" })}
+          />
+          <PaletteButton
+            label={SMUFL.brassDoitShort}
+            title="Doit"
+            useBravura
+            active={selectedNoteMarkings?.slideOut?.type === "doit"}
+            onClick={handleNoteMarking({ key: "slideOut", type: "doit" })}
+          />
+        </div>
+      ),
+    },
+    {
+      id: "ties-slurs",
+      title: "Connections",
+      show: connectionsMatch,
+      render: () => (
+        <div style={gridStyle}>
+          <PaletteButton title="Tie" shortcut="T" active={tieActive} onClick={handleTieClick}>
+            <TieIcon />
+          </PaletteButton>
+          <PaletteButton title="Slur" shortcut="S" active={slurActive} onClick={handleSlurClick}>
+            <SlurIcon />
+          </PaletteButton>
+          <PaletteButton title="Laissez vibrer tie" shortcut="T" active={lvActive} onClick={handleLvTie}>
+            <LaissezVibrerIcon />
+          </PaletteButton>
+          <PaletteButton title="Glissando" onClick={() => handleGlissandoClick("glissando")}>
+            <GlissandoIcon wavy />
+          </PaletteButton>
+          <PaletteButton title="Portamento" onClick={() => handleGlissandoClick("portamento")}>
+            <GlissandoIcon />
+          </PaletteButton>
+        </div>
+      ),
+    },
+    {
+      id: "ornaments",
+      title: "Ornaments & arpeggios",
+      shortcut: "Shift+E",
+      show: ornamentsMatch || arpMatch,
+      render: () => (
+        <div style={gridStyle}>
+          {ornamentsMatch &&
+            ORNAMENT_PALETTE_ITEMS.map((p) => (
+              <PaletteButton
+                key={p.id}
+                label={p.glyph}
+                title={p.label}
+                useBravura
+                onClick={p.kind === "trill" ? handleToggleTrill : handleOrnament(p.ornament!)}
+              />
+            ))}
+          {arpMatch && (
+            <>
+              <PaletteButton
+                label={SMUFL.arpeggioUp}
+                title="Upward arpeggio"
+                useBravura
+                onClick={handleArpeggio("up")}
+              />
+              <PaletteButton
+                label={SMUFL.arpeggioDown}
+                title="Downward arpeggio"
+                useBravura
+                onClick={handleArpeggio("down")}
+              />
+              <PaletteButton
+                label={SMUFL.arpeggio}
+                title="Arpeggio without arrow"
+                useBravura
+                onClick={handleArpeggio("plain")}
+              />
+              <PaletteButton label="" title="Non-arpeggio bracket" onClick={handleArpeggio("nonArpeggio")}>
+                <NonArpeggioIcon />
+              </PaletteButton>
+            </>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "breath-fermata",
+      title: "Breath & fermata",
+      shortcut: "Shift+H",
+      show: breathMatch,
+      render: () => (
+        <div style={gridStyle}>
+          <PaletteButton
+            label={SMUFL.breathMarkComma}
+            title="Comma breath mark"
+            useBravura
+            active={!!selectedEventMarkings?.breath}
+            onClick={handleBreathMark("comma")}
+          />
+          <PaletteButton
+            label={SMUFL.breathMarkTick}
+            title="Tick breath mark"
+            useBravura
+            onClick={handleBreathMark("tick")}
+          />
+          <PaletteButton
+            label={SMUFL.breathMarkUpbow}
+            title="Upbow breath mark"
+            useBravura
+            onClick={handleBreathMark("upbow")}
+          />
+          <PaletteButton
+            label={SMUFL.breathMarkSalzedo}
+            title="Salzedo breath mark"
+            useBravura
+            onClick={handleBreathMark("salzedo")}
+          />
+          <PaletteButton
+            label={SMUFL.fermataAbove}
+            title="Normal fermata"
+            useBravura
+            onClick={handleFermata("normal")}
+          />
+          <PaletteButton
+            label={SMUFL.fermataVeryShortAbove}
+            title="Very short fermata"
+            useBravura
+            onClick={handleFermata("doubleAngled")}
+          />
+          <PaletteButton
+            label={SMUFL.fermataShortAbove}
+            title="Short fermata"
+            useBravura
+            onClick={handleFermata("angled")}
+          />
+          <PaletteButton
+            label={SMUFL.fermataLongAbove}
+            title="Long fermata"
+            useBravura
+            onClick={handleFermata("square")}
+          />
+          <PaletteButton
+            label={SMUFL.fermataVeryLongAbove}
+            title="Very long fermata"
+            useBravura
+            onClick={handleFermata("doubleSquare")}
+          />
+          <PaletteButton
+            label={SMUFL.fermataLongHenzeAbove}
+            title="Long Henze fermata"
+            useBravura
+            onClick={handleFermata("doubleDot")}
+          />
+          <PaletteButton label={SMUFL.caesura} title="Caesura" useBravura onClick={handleSetCaesura} />
         </div>
       ),
     },
@@ -1584,98 +1839,19 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       ),
     },
     {
-      id: "ornaments",
-      title: "Ornaments",
-      shortcut: "Shift+E",
-      show: ornamentsMatch,
-      render: () => (
-        <div style={gridStyle}>
-          {ORNAMENT_PALETTE_ITEMS.map((p) => (
-            <PaletteButton
-              key={p.id}
-              label={p.glyph}
-              title={p.label}
-              useBravura
-              onClick={p.kind === "trill" ? handleToggleTrill : handleOrnament(p.ornament!)}
-            />
-          ))}
-        </div>
-      ),
-    },
-    {
-      id: "tremolos",
-      title: "Tremolos",
-      shortcut: "Shift+R",
-      show: tremMatch,
-      render: () => (
-        <div style={gridStyle}>
-          <PaletteButton title="Single tremolo (1 slash)" onClick={handleTremolo(1)}>
-            <SingleNoteTremoloIcon glyph={SMUFL.tremoloSingle1} />
-          </PaletteButton>
-          <PaletteButton title="Single tremolo (2 slashes)" onClick={handleTremolo(2)}>
-            <SingleNoteTremoloIcon glyph={SMUFL.tremoloSingle2} />
-          </PaletteButton>
-          <PaletteButton title="Single tremolo (3 slashes)" onClick={handleTremolo(3)}>
-            <SingleNoteTremoloIcon glyph={SMUFL.tremoloSingle3} />
-          </PaletteButton>
-          <PaletteButton label="" title="Two-note tremolo (1 slash)" onClick={handleMultiNoteTremolo(1)}>
-            <TwoNoteTremoloIcon slashes={1} />
-          </PaletteButton>
-          <PaletteButton label="" title="Two-note tremolo (2 slashes)" onClick={handleMultiNoteTremolo(2)}>
-            <TwoNoteTremoloIcon slashes={2} />
-          </PaletteButton>
-          <PaletteButton label="" title="Two-note tremolo (3 slashes)" onClick={handleMultiNoteTremolo(3)}>
-            <TwoNoteTremoloIcon slashes={3} />
-          </PaletteButton>
-          <PaletteButton title="Remove tremolo" onClick={handleRemoveTremolo}>
-            <X size={18} />
-          </PaletteButton>
-        </div>
-      ),
-    },
-    {
-      id: "arpeggios",
-      title: "Arpeggios",
-      show: arpMatch,
-      render: () => (
-        <div style={gridStyle}>
-          <PaletteButton label={SMUFL.arpeggioUp} title="Arpeggio up" useBravura onClick={handleArpeggio("up")} />
-          <PaletteButton label={SMUFL.arpeggioDown} title="Arpeggio down" useBravura onClick={handleArpeggio("down")} />
-          <PaletteButton
-            label={SMUFL.arpeggio}
-            title="Arpeggio (no arrow)"
-            useBravura
-            onClick={handleArpeggio("plain")}
-          />
-          <PaletteButton label="" title="Non-arpeggio bracket" onClick={handleArpeggio("nonArpeggio")}>
-            <NonArpeggioIcon />
-          </PaletteButton>
-        </div>
-      ),
-    },
-    {
-      id: "tempo",
-      title: "Tempo",
-      shortcut: "Shift+T",
-      show: tempoMatch,
-      render: () => (
-        <div style={gridStyle}>
-          <PaletteButton shape="wide" title="Set tempo (BPM)" onClick={handleSetTempo}>
-            <span style={TEMPO_LABEL_STYLE}>
-              <span style={TEMPO_GLYPH_STYLE}>{"\uECA5"}</span>
-              {"=120"}
-            </span>
-          </PaletteButton>
-        </div>
-      ),
-    },
-    {
       id: "text",
-      title: "Text",
+      title: "Text & tempo",
       show: textMatch,
       render: () => (
         <>
           <div style={gridStyle}>
+            <PaletteButton
+              shape="wide"
+              label="System text / tempo"
+              title="System text / tempo"
+              shortcut="Shift+T"
+              onClick={handleAddSystemInstruction}
+            />
             <PaletteButton
               shape="wide"
               label="Staff text"
@@ -1683,188 +1859,19 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
               shortcut="Shift+X"
               onClick={handleAddStaffText}
             />
+            <PaletteButton shape="wide" title="Expression text" shortcut="Shift+D" onClick={handleAddExpression}>
+              <span style={EXPRESSION_LABEL_STYLE}>espress.</span>
+            </PaletteButton>
             <PaletteButton shape="wide" title="Chord symbol" shortcut="Shift+K" onClick={handleAddChordSymbol}>
               <span style={CHORD_SYMBOL_LABEL_STYLE}>CΔ⁷</span>
-            </PaletteButton>
-            <PaletteButton shape="wide" title="Expression text" onClick={handleAddExpression}>
-              <span style={EXPRESSION_LABEL_STYLE}>espress.</span>
             </PaletteButton>
             <PaletteButton title="Rehearsal mark" onClick={handleSetRehearsalMark}>
               <span style={REHEARSAL_BOX_STYLE}>A</span>
             </PaletteButton>
+            <PageTextFrameButton getCurrentPageIndex={getCurrentPageIndex} onCreated={onTextFrameCreated} />
+            <LyricsButton onOpenProperties={() => onOpenLyricsProperties?.()} />
           </div>
-          <TextFramePalette />
-          <LyricsPanel embedded />
         </>
-      ),
-    },
-    {
-      id: "tuplets",
-      title: "Tuplets",
-      shortcut: "Shift+3",
-      show: tupletsMatch,
-      render: () => (
-        <div style={gridStyle}>
-          {TUPLET_ITEMS.filter(matchesSearch).map((item) => (
-            <PaletteButton
-              key={item.id}
-              label={item.label}
-              title={item.title}
-              shortcut={item.shortcut}
-              onClick={handleTuplet(item.tupletNumber, item.outerMultiple)}
-            />
-          ))}
-          {!searchQuery && <PaletteButton label="N:M" title="Custom tuplet ratio" onClick={handleCustomTuplet} />}
-        </div>
-      ),
-    },
-    {
-      id: "ties-slurs",
-      title: "Ties & Slurs",
-      show: !searchQuery,
-      render: () => (
-        <div style={gridStyle}>
-          <PaletteButton label="⌢" title="Tie (T)" shortcut="T" active={tieActive} onClick={handleTieClick} />
-          <PaletteButton label="⌒" title="Slur (S)" shortcut="S" active={slurActive} onClick={handleSlurClick} />
-          <PaletteButton label="l.v." title="Laissez vibrer tie" active={lvActive} onClick={handleLvTie} />
-          <PaletteButton label="gliss." title="Glissando" onClick={() => handleGlissandoClick("glissando")} />
-          <PaletteButton label="port." title="Portamento" onClick={() => handleGlissandoClick("portamento")} />
-        </div>
-      ),
-    },
-    {
-      id: "breath-fermata",
-      title: "Breath & Fermata",
-      shortcut: "Shift+H",
-      show: breathMatch,
-      render: () => (
-        <div style={gridStyle}>
-          <PaletteButton
-            label={SMUFL.breathMarkComma}
-            title="Breath mark (comma)"
-            useBravura
-            active={!!selectedEventMarkings?.breath}
-            onClick={handleBreathMark("comma")}
-          />
-          <PaletteButton
-            label={SMUFL.breathMarkTick}
-            title="Breath mark (tick)"
-            useBravura
-            onClick={handleBreathMark("tick")}
-          />
-          <PaletteButton
-            label={SMUFL.breathMarkUpbow}
-            title="Breath mark (upbow)"
-            useBravura
-            onClick={handleBreathMark("upbow")}
-          />
-          <PaletteButton
-            label={SMUFL.breathMarkSalzedo}
-            title="Breath mark (Salzedo)"
-            useBravura
-            onClick={handleBreathMark("salzedo")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataAbove}
-            title="Fermata (normal)"
-            useBravura
-            onClick={handleFermata("normal")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataVeryShortAbove}
-            title="Fermata (very short)"
-            useBravura
-            onClick={handleFermata("doubleAngled")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataShortAbove}
-            title="Fermata (short)"
-            useBravura
-            onClick={handleFermata("angled")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataLongAbove}
-            title="Fermata (long)"
-            useBravura
-            onClick={handleFermata("square")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataVeryLongAbove}
-            title="Fermata (very long)"
-            useBravura
-            onClick={handleFermata("doubleSquare")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataLongHenzeAbove}
-            title="Fermata (long, Henze)"
-            useBravura
-            onClick={handleFermata("doubleDot")}
-          />
-          <PaletteButton label={SMUFL.caesura} title="Caesura" useBravura onClick={handleSetCaesura} />
-        </div>
-      ),
-    },
-    {
-      id: "repeats-navigation",
-      title: "Repeats & Navigation",
-      shortcut: "Shift+R",
-      show: repeatsNavigationMatch,
-      render: () => (
-        <div style={gridStyle}>
-          <PaletteButton
-            label={SMUFL.repeatLeft}
-            title="Repeat Start"
-            useBravura
-            onClick={() => handleSetRepeatStart({})}
-          />
-          <PaletteButton
-            label={SMUFL.repeatRight}
-            title="Repeat End"
-            useBravura
-            onClick={() => handleSetRepeatEnd({})}
-          />
-          <PaletteButton label={SMUFL.repeatRightLeft} title="Repeat Both" useBravura onClick={handleSetRepeatBoth} />
-          {MEASURE_REPEAT_PALETTE_ITEMS.filter(matchesSearch).map((item) => (
-            <PaletteButton
-              key={item.id}
-              label={item.label}
-              title={item.title}
-              useBravura
-              onClick={() => handleToggleMeasureRepeat(item.number)}
-            />
-          ))}
-          <PaletteButton
-            label={SMUFL.segno}
-            title="Segno"
-            useBravura
-            onClick={handleNavigationMarker({ kind: "segno" })}
-          />
-          <PaletteButton
-            label={SMUFL.coda}
-            title="Coda"
-            useBravura
-            onClick={handleNavigationMarker({ kind: "coda" })}
-          />
-          <PaletteButton label="Fine" title="Fine" onClick={handleNavigationMarker({ kind: "fine" })} />
-          {(Object.keys(JUMP_LABELS) as Array<keyof typeof JUMP_LABELS>).map((type) => (
-            <PaletteButton
-              key={type}
-              shape="wide"
-              label={JUMP_LABELS[type]}
-              title={JUMP_LABELS[type]}
-              onClick={handleNavigationMarker({ kind: "jump", type })}
-            />
-          ))}
-          {ENDING_PRESETS.map((p) => (
-            <PaletteButton
-              shape="wide"
-              key={p.label}
-              label={p.label}
-              title={p.label}
-              onClick={() => handleSetEnding(p.ending)}
-            />
-          ))}
-        </div>
       ),
     },
     {
@@ -1874,7 +1881,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       show: !searchQuery,
       render: () => (
         <div style={gridStyle}>
-          <PaletteButton label="0" title="Fingering 0 (thumb)" onClick={handleFingering(0)} />
+          <PaletteButton label="0" title="Fingering 0" onClick={handleFingering(0)} />
           <PaletteButton label="1" title="Fingering 1" onClick={handleFingering(1)} />
           <PaletteButton label="2" title="Fingering 2" onClick={handleFingering(2)} />
           <PaletteButton label="3" title="Fingering 3" onClick={handleFingering(3)} />
@@ -1885,31 +1892,16 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     },
     {
       id: "lines",
-      title: "Lines",
+      title: "Octaves & pedals",
       show: linesMatch,
       render: () => (
         <div style={gridStyle}>
-          <PaletteButton label={SMUFL.ottavaAlta} title="Ottava 8va (up)" useBravura onClick={handleAddOttava(1)} />
-          <PaletteButton
-            label={SMUFL.ottavaBassaVb}
-            title="Ottava 8vb (down)"
-            useBravura
-            onClick={handleAddOttava(-1)}
-          />
-          <PaletteButton label={SMUFL.quindicesima} title="Ottava 15ma (up)" useBravura onClick={handleAddOttava(2)} />
-          <PaletteButton
-            label={SMUFL.quindicesimaBassMb}
-            title="Ottava 15mb (down)"
-            useBravura
-            onClick={handleAddOttava(-2)}
-          />
-          <PaletteButton label={SMUFL.ventiduesima} title="Ottava 22ma (up)" useBravura onClick={handleAddOttava(3)} />
-          <PaletteButton
-            label={SMUFL.ventiduesimaBassMb}
-            title="Ottava 22mb (down)"
-            useBravura
-            onClick={handleAddOttava(-3)}
-          />
+          <PaletteButton label={SMUFL.ottavaAlta} title="8va above" useBravura onClick={handleAddOttava(1)} />
+          <PaletteButton label={SMUFL.ottavaBassaVb} title="8vb below" useBravura onClick={handleAddOttava(-1)} />
+          <PaletteButton label={SMUFL.quindicesima} title="15ma above" useBravura onClick={handleAddOttava(2)} />
+          <PaletteButton label={SMUFL.quindicesimaBassMb} title="15mb below" useBravura onClick={handleAddOttava(-2)} />
+          <PaletteButton label={SMUFL.ventiduesima} title="22ma above" useBravura onClick={handleAddOttava(3)} />
+          <PaletteButton label={SMUFL.ventiduesimaBassMb} title="22mb below" useBravura onClick={handleAddOttava(-3)} />
           <PaletteButton label={SMUFL.pedalPed} title="Sustain pedal" useBravura onClick={handleAddPedal("sustain")} />
           <PaletteButton
             label={SMUFL.pedalSost}
@@ -2014,6 +2006,17 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
           </SortableContext>
         </DndContext>
       </div>
+      {instructionEntry && (
+        <SystemInstructionPopover
+          instruction={instructionEntry.instruction}
+          position={instructionEntry.position}
+          onClose={() => setInstructionEntry(null)}
+          onSubmit={(instruction) => {
+            const score = store.getState().score;
+            if (score) updateScore(saveSystemInstruction(score, instructionEntry.measureIndex, instruction));
+          }}
+        />
+      )}
       <PromptDialog
         open={promptState.open}
         onClose={closePrompt}

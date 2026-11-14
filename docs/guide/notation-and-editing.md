@@ -34,7 +34,7 @@ The fastest commands act directly on the selection:
 | Key       | Action                                        |
 | --------- | --------------------------------------------- |
 | `S`       | Toggle a slur                                 |
-| `T`       | Toggle a tie to the next note                 |
+| `T`       | Toggle a tie or laissez vibrer                |
 | `F`       | Flip direction or above/below placement       |
 | `R`       | Repeat the selection immediately after itself |
 | `.`       | Toggle an augmentation dot                    |
@@ -53,6 +53,45 @@ modes:
 
 Use **Edit → Transpose Selection** when you need a named interval or more
 control than the direct arrow-key transposition commands.
+
+## Staff and system text
+
+Select a note, rest, or bar and choose **System text / tempo** in the **Text & tempo** palette
+to add an instruction shared by the full score and instrumental parts. It
+appears above the visible system at that musical position. Choose **Staff
+text** instead for text attached to one staff.
+
+The palette tile and **Shift+T** open the same lightweight text-only popover.
+Selecting an instruction exposes advanced controls in Properties. Use
+**Set tempo** there to enable or remove BPM, beat unit and dots; rhythm settings can
+also explicitly request swing or straight playback. With Set tempo off and
+rhythm set to **Inherit**, the instruction is purely visual: words such as
+“Allegro” do not infer a speed or interrupt an existing tempo ramp.
+
+Properties also provide rich text, placement, offsets and optional borders. Page
+text frames remain separate: they attach to a page rather than a musical
+position and never change playback. Choose **Page text frame** in the same
+palette to create and select a frame on the current page; Properties opens
+automatically for text, formatting, page attachment, size and position.
+In Horizon, which has no pages, new page frames start on page 1 and can be
+edited in Properties even though they are not drawn there.
+
+In the popover, enter `Freely` or `Allegro` for plain system text,
+`q=180` for a metronome marking, or `Allegro q=180` for both. Dotted units
+such as `q.=90` and a bare BPM such as `180` are also supported. Explicit
+tempo syntax can appear anywhere in the input, including `words here (q=180)`.
+The tempo token and any parentheses enclosing only that token are removed
+from the printed words; the metronome marking is rendered separately.
+Use only one tempo marking per instruction. Press
+Enter to apply or Escape to cancel; use Properties for advanced formatting.
+Replacing tempo syntax with words alone removes playback settings.
+Editing the words of a BPM-free Swing or Straight instruction preserves its
+rhythm setting; choose Inherit in Properties to clear it.
+
+The **Lyrics** tile (**Shift+W**) starts inline syllable entry on the selected
+note and opens Properties. Active-line selection, adding and reordering lines,
+labels, language, Paste verse/Reflow and extender settings live in the Lyrics
+section of Properties rather than the palette.
 
 ## Spread chords across staves
 
@@ -154,7 +193,7 @@ one digit. Beat groups must add up to the meter numerator. Entering only `5/8`
 uses the document's automatic grouping, and entering the current conventional
 grouping also normalizes back to Automatic.
 
-The **Text** palette also contains chord-symbol entry and lyric-line controls.
+The **Text & tempo** palette also contains chord-symbol and lyric-entry tiles.
 See [Chord Symbols](/docs/chord-symbols) for entering harmony and
 [Lyrics](/docs/lyrics) for syllable entry, melismas, labels, languages, and
 line ordering.

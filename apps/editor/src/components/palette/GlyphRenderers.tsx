@@ -194,6 +194,7 @@ interface TimeSignatureStaffPreviewProps {
   signatureX?: number;
   staffStart?: number;
   staffEnd?: number;
+  showStaff?: boolean;
   showBracket?: boolean;
   className?: string;
 }
@@ -249,6 +250,7 @@ export function TimeSignatureStaffPreview({
   signatureX,
   staffStart = 0,
   staffEnd,
+  showStaff = true,
   showBracket = false,
   className,
 }: TimeSignatureStaffPreviewProps) {
@@ -327,22 +329,23 @@ export function TimeSignatureStaffPreview({
       className={className}
       aria-hidden="true"
     >
-      {Array.from({ length: staffCount }, (_, staffIndex) =>
-        [0, 1, 2, 3, 4].map((line) => {
-          const y = staffIndex * staffStride + line * sp;
-          return (
-            <line
-              key={`${staffIndex}-${line}`}
-              x1={staffStart}
-              y1={y}
-              x2={lineEnd}
-              y2={y}
-              stroke="currentColor"
-              strokeWidth={0.5}
-            />
-          );
-        }),
-      )}
+      {showStaff &&
+        Array.from({ length: staffCount }, (_, staffIndex) =>
+          [0, 1, 2, 3, 4].map((line) => {
+            const y = staffIndex * staffStride + line * sp;
+            return (
+              <line
+                key={`${staffIndex}-${line}`}
+                x1={staffStart}
+                y1={y}
+                x2={lineEnd}
+                y2={y}
+                stroke="currentColor"
+                strokeWidth={0.5}
+              />
+            );
+          }),
+        )}
       {showBracket && staffCount > 1 && (
         <path
           d={`M${staffStart - sp * 0.6} 0h${-sp * 0.8}v${groupBottom}h${sp * 0.8}`}
@@ -395,7 +398,9 @@ export function TimeSigGlyph({
   unit: number;
   numeralStyle?: TimeSignatureRenderStyle;
 }) {
-  return <TimeSignatureStaffPreview count={count} unit={unit} numeralStyle={numeralStyle} />;
+  return (
+    <TimeSignatureStaffPreview count={count} unit={unit} numeralStyle={numeralStyle} scale={1.5} showStaff={false} />
+  );
 }
 
 const KEY_SIG_SHARP_POSITIONS = [0.0, 3.0, -0.5, 2.5, 5.5, 1.5, 4.5];

@@ -42,7 +42,8 @@ import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { NoteInputState } from "../store/noteInputStore";
 
-import { applyTempoEdit, applyStaffTextEdit } from "./popoverHandlers";
+import { applyStaffTextEdit } from "./popoverHandlers";
+import { SystemInstructionPopover, saveSystemInstruction } from "../systemInstructions";
 import { ChordSymbolEntryPopover } from "./chordSymbolEntry";
 import { CondensingPopoverOverlay } from "./CondensingPopoverOverlay";
 import {
@@ -145,21 +146,21 @@ function ScoreTextEntryPopovers({
 }) {
   return (
     <>
-      <TextPopover
-        open={tempoPopover !== null}
-        onClose={() => setTempoPopover(null)}
-        onSubmit={(value) => {
-          const { score } = store.getState();
-          if (!score || !tempoPopover) return;
-          const newScore = applyTempoEdit(score, tempoPopover, value);
-          if (newScore !== score) updateScore(newScore);
-        }}
-        position={tempoPopover?.position ?? { x: 0, y: 0 }}
-        title="Tempo"
-        placeholder="Allegro q=120"
-        initialValue={tempoPopover?.initialValue ?? ""}
-        allowEmpty
-      />
+      {tempoPopover && (
+        <SystemInstructionPopover
+          key={tempoPopover.instruction.id}
+          instruction={tempoPopover.instruction}
+          position={tempoPopover.position}
+          onClose={() => setTempoPopover(null)}
+          onSubmit={(instruction) => {
+            const { score } = store.getState();
+            if (!score) return;
+            updateScore(
+              saveSystemInstruction(score, tempoPopover.measureIndex, instruction, tempoPopover.legacyTempoIndex),
+            );
+          }}
+        />
+      )}
       <TextPopover
         open={staffTextPopover !== null}
         onClose={() => setStaffTextPopover(null)}

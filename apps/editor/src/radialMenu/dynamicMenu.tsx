@@ -47,7 +47,7 @@ export const DYNAMIC_ITEMS: RadialMenuItem[] = PALETTE_DYNAMIC_ITEMS.map((p) => 
   return {
     id: p.id,
     icon: p.label, // SMuFL glyph string
-    label: p.title.replace(/\s*\(.*\)/, ""), // strip parenthetical
+    label: p.title,
     // Include the dynamic ID itself as an exact search key (e.g. "pp")
     // so it exact-matches before prefix-matching longer variants
     searchKeys: [p.id, ...baseKeys],

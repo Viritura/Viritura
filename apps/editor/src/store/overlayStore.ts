@@ -16,7 +16,7 @@ import { create } from "zustand";
 import { type RadialMenuCategory } from "../radialMenu";
 import { type LyricInputState } from "../components/LyricInput";
 import type { SelectionState } from "./selectionStore";
-import type { RhythmicPosition } from "@viritura/core";
+import type { RhythmicPosition, SystemText } from "@viritura/core";
 
 export interface RadialMenuState {
   category: RadialMenuCategory;
@@ -27,11 +27,9 @@ export interface RadialMenuState {
 
 export interface TempoPopoverState {
   position: { x: number; y: number };
-  initialValue: string;
   measureIndex: number;
-  base: import("@viritura/core").NoteValueBase;
-  dots: number;
-  location?: { fraction: [number, number] };
+  instruction: SystemText;
+  legacyTempoIndex?: number;
 }
 
 export interface StaffTextPopoverState {

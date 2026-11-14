@@ -84,6 +84,7 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
           onActiveTabChange={args.setWriteLeftTab}
           paletteSectionRequest={args.paletteSectionRequest}
           horizonTextFrames={args.viewMode === "horizon"}
+          getCurrentPageIndex={() => args.canvasRef.current?.getCurrentPageIndex() ?? 0}
         />
       </Panel>,
     );

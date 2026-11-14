@@ -1,15 +1,16 @@
 import { useEffect, type ReactNode } from "react";
 import { act, cleanup, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { textContentFromPlain, type Score, type TextFrame } from "@viritura/core";
 import { TooltipPrimitives } from "@viritura/ui";
 import { DocumentProvider, useDocumentStore, useDocumentStoreApi } from "../../store/DocumentContext";
 import { resetSelectionStore, useSelectionStore } from "../../store/selectionStore";
 import { useViewStateStore } from "../../store/viewStateStore";
 import { HorizonTextFrames } from "./HorizonTextFrames";
-import { TextFramePalette } from "./TextFramePalette";
-import { PalettePanel } from "../PalettePanel";
+import { PageTextFrameButton } from "./PageTextFrameButton";
+import { LeftPanel } from "../LeftPanel";
+import { HistoryProvider } from "../../store/HistoryContext";
 import { TextFramesPanel } from "./TextFramesPanel";
 import { effectiveHorizontalAlignment, textFrameElementId, textFrameIdFromElementId } from "./textFrameContext";
 import { usePublishRenderedPageCount, useRenderedPagesStore } from "./renderedPages";
@@ -87,70 +88,88 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("TextFramePalette", () => {
-  it("creates a page frame from Write's Text palette, selects it, and edits its text", async () => {
-    const user = userEvent.setup();
-    renderWithDocument(<PalettePanel openSectionRequest={{ id: "text", requestId: 1 }} />);
-    await user.click(await screen.findByRole("button", { name: "Add page frame" }));
+describe("Page text frame palette entry", () => {
+  it.each([
+    { horizonTextFrames: false, pageIndex: 2 },
+    { horizonTextFrames: true, pageIndex: 0 },
+  ])(
+    "creates and selects a frame and opens Properties (Horizon: $horizonTextFrames)",
+    async ({ horizonTextFrames, pageIndex }) => {
+      const user = userEvent.setup();
+      renderWithDocument(
+        <HistoryProvider initialMnxJson="{}">
+          <LeftPanel
+            paletteSectionRequest={{ id: "text", requestId: 1 }}
+            getCurrentPageIndex={() => pageIndex}
+            horizonTextFrames={horizonTextFrames}
+          />
+        </HistoryProvider>,
+      );
+      expect(screen.queryByTestId("text-frame-editor")).toBeNull();
+      expect(screen.queryByLabelText("Page number for new frame")).toBeNull();
+      await user.click(await screen.findByRole("button", { name: "Page text frame", exact: true }));
 
-    const created = frames().at(-1)!;
-    expect(created.locator).toEqual({ type: "page", pageIndex: 0 });
-    const editor = screen.getByTestId("text-frame-editor");
-    const text = within(editor).getByLabelText("Text");
-    text.innerHTML = "<span>Line one<br>Line two</span>";
-    fireEvent.input(text);
-    fireEvent.blur(text);
-    expect(frames().at(-1)!.content).toEqual([{ text: "Line one\nLine two" }]);
-  });
-
-  it("creates a frame on the entered page and disables musical creation without selection", async () => {
-    const user = userEvent.setup();
-    renderWithDocument(<TextFramePalette />);
-    const page = await screen.findByLabelText("Page number for new frame");
-    expect(screen.getByRole("button", { name: "Add frame at selection" })).toHaveProperty("disabled", true);
-    await user.clear(page);
-    await user.type(page, "3");
-    fireEvent.blur(page);
-    await user.click(screen.getByRole("button", { name: "Add page frame" }));
-    expect(frames().at(-1)!.locator).toEqual({ type: "page", pageIndex: 2 });
-  });
-
-  it("creates a music-linked page frame from a selected measure", async () => {
-    const user = userEvent.setup();
-    renderWithDocument(<TextFramePalette />);
-    await screen.findByRole("button", { name: "Add page frame" });
-    act(() => {
-      useSelectionStore.setState({
-        selection: {
-          kind: "measure",
-          startPartIndex: 0,
-          endPartIndex: 0,
-          startStaffIndex: 0,
-          endStaffIndex: 0,
-          startMeasure: 1,
-          endMeasure: 1,
-        },
+      const created = frames().at(-1)!;
+      expect(frames()).toHaveLength(6);
+      expect(created.locator).toEqual({ type: "page", pageIndex });
+      expect(useSelectionStore.getState().selection).toMatchObject({
+        kind: "single",
+        elementId: textFrameElementId(created.id),
+        elementType: "text-frame",
       });
-    });
-    await user.click(screen.getByRole("button", { name: "Add frame at measure 2" }));
-    expect(frames().at(-1)!.locator).toEqual({ type: "globalMeasure", measureId: "m2" });
+      expect(screen.getByRole("tab", { name: "Properties" }).getAttribute("aria-selected")).toBe("true");
+      expect(screen.queryByText("No current selection")).toBeNull();
+      const editor = screen.getByTestId("text-frame-editor");
+      const text = within(editor).getByLabelText("Text");
+      text.innerHTML = "<span>Line one<br>Line two</span>";
+      fireEvent.input(text);
+      fireEvent.blur(text);
+      expect(frames().at(-1)!.content).toEqual([{ text: "Line one\nLine two" }]);
+      await user.click(screen.getByRole("tab", { name: "Palettes" }));
+      expect(screen.queryByTestId("text-frame-editor")).toBeNull();
+      expect(screen.queryByLabelText("Page number for new frame")).toBeNull();
+    },
+  );
+
+  it("defaults to the first page without a viewport and keeps editing controls out of the palette", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<PageTextFrameButton />);
+    await user.click(await screen.findByRole("button", { name: "Page text frame", exact: true }));
+    expect(frames().at(-1)!.locator).toEqual({ type: "page", pageIndex: 0 });
+    expect(screen.queryByTestId("text-frame-editor")).toBeNull();
   });
 
-  it("creates an event-located page frame from a selected event", async () => {
+  it("disables creation when there is no active score definition", async () => {
     const user = userEvent.setup();
-    renderWithDocument(<TextFramePalette />);
-    await screen.findByRole("button", { name: "Add page frame" });
+    const onCreated = vi.fn();
+    renderWithDocument(<PageTextFrameButton onCreated={onCreated} />);
+    const button = await screen.findByRole("button", { name: "Page text frame", exact: true });
+    act(() => useViewStateStore.setState({ selectedScoreIndex: 9 }));
+    expect(button).toHaveProperty("disabled", true);
+    await user.click(button);
+    expect(frames()).toHaveLength(5);
+    expect(onCreated).not.toHaveBeenCalled();
+  });
+});
+
+describe("TextFramesPanel", () => {
+  it("attaches an existing page frame to the selected event through Properties", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramesPanel />);
+    await screen.findByTestId("text-frame-row-title");
     act(() => {
       useSelectionStore.setState({
         selection: { kind: "single", elementId: "p0/m0/s0/e1", elementType: "note" },
       });
     });
-    await user.click(screen.getByRole("button", { name: "Add frame at selected event" }));
-    expect(frames().at(-1)!.locator).toEqual({ type: "event", partId: "P1", eventId: "e1" });
+    await user.click(screen.getByTestId("text-frame-row-title"));
+    await user.click(screen.getByRole("combobox", { name: "Page selection" }));
+    await user.click(screen.getByRole("option", { name: "Follow measure / event" }));
+    await user.click(screen.getByRole("button", { name: "Follow selected event" }));
+    expect(frames()).toHaveLength(5);
+    expect(frames()[0]!.locator).toEqual({ type: "event", partId: "P1", eventId: "e1" });
   });
-});
 
-describe("TextFramesPanel", () => {
   it("requires a selected destination for a new page frame, then moves it without duplication", async () => {
     const user = userEvent.setup();
     renderWithDocument(<TextFramesPanel />);

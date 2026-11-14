@@ -1,4 +1,13 @@
-import { memo, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import {
+  memo,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEventHandler,
+  type ReactNode,
+} from "react";
 import styles from "./PaletteButton.module.css";
 import { withTooltip } from "../Tooltip/withTooltip";
 
@@ -85,7 +94,7 @@ export interface PaletteButtonProps {
   /** Selection semantics: toggle/pressed button (default) or one option in a radio group. */
   selectionMode?: PaletteButtonSelectionMode;
   /** Click handler */
-  onClick?: () => void;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
   /** Arbitrary content; overrides `label` */
   children?: ReactNode;
   /** Optional className for further customization */
@@ -175,7 +184,7 @@ function PaletteButtonImpl({
       onKeyDown={handleRadioKey}
       onClick={(e) => {
         e.preventDefault();
-        if (!disabled && onClick) onClick();
+        if (!disabled && onClick) onClick(e);
       }}
     >
       {content}

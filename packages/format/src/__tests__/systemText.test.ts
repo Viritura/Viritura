@@ -40,6 +40,23 @@ const TEXT = {
 
 describe("shared system-text persistence", () => {
   it.each([
+    { bpm: 84.5, value: { base: "quarter", dots: 1 }, showMetronomeMark: false },
+    { swing: { mode: "swing", subdivision: "eighth", ratio: [2, 1] } },
+    { bpm: 72, value: { base: "half" }, swing: { mode: "straight" } },
+  ])("round-trips optional playback without changing music attachment %j", (tempo) => {
+    const source = { ...TEXT, tempo, showText: false, frame: { border: "solid", padding: 1 } };
+    const restored = parseMnx(serializeMnx(parseMnx(document([source]))));
+    expect(restored.global.measures[0].systemText).toEqual([source]);
+    expect(restored.global.measures[0].tempos).toBeUndefined();
+    expect(restored.parts[0].measures[0].expressions).toHaveLength(1);
+  });
+
+  it("supports a metronome-only instruction without placeholder printed text", () => {
+    const source = { ...TEXT, text: [{ text: "" }], tempo: { bpm: 96, value: { base: "quarter" } } };
+    expect(parseMnx(serializeMnx(parseMnx(document([source])))).global.measures[0].systemText).toEqual([source]);
+  });
+
+  it.each([
     undefined,
     {},
     { width: { unit: "staffSpaces", value: 16 }, padding: 0.5, border: "solid", eraseBackground: true },
@@ -72,6 +89,13 @@ describe("shared system-text persistence", () => {
     [{ ...TEXT, manualOffset: [NaN, 0] }],
     [{ ...TEXT, manualOffset: [1] }],
     [{ ...TEXT, text: [] }],
+    [{ ...TEXT, tempo: {} }],
+    [{ ...TEXT, tempo: { bpm: 0, value: { base: "quarter" } } }],
+    [{ ...TEXT, tempo: { bpm: Infinity, value: { base: "quarter" } } }],
+    [{ ...TEXT, tempo: { bpm: NaN, value: { base: "quarter" } } }],
+    [{ ...TEXT, tempo: { bpm: 100 } }],
+    [{ ...TEXT, tempo: { value: { base: "quarter" }, swing: { mode: "straight" } } }],
+    [{ ...TEXT, tempo: { swing: { mode: "straight" }, showMetronomeMark: false } }],
     [{ ...TEXT, frame: { width: { unit: "textColumnFraction", value: 0.5 } } }],
     [{ ...TEXT, frame: { padding: -1 } }],
     [{ ...TEXT, frame: { width: { unit: "staffSpaces", value: Infinity } } }],

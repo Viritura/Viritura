@@ -99,7 +99,7 @@ interface UseInteractionHandlersParams {
   // lyric state
   lyricMode: boolean;
   lyricState: LyricStateRef | null;
-  onOpenLyricsPalette: () => void;
+  onOpenLyricsProperties: () => void;
   // radial menu state
   radialMenu: RadialMenuState | null;
   // drag-and-drop
@@ -185,7 +185,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     setLyricState,
     lyricMode,
     lyricState,
-    onOpenLyricsPalette,
+    onOpenLyricsProperties,
     radialMenu,
     openFolderHandle,
     setIsDragOver,
@@ -203,7 +203,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     lyricMode,
     setLyricMode,
     setLyricState,
-    onOpenLyricsPalette,
+    onOpenLyricsProperties,
     enabled: lyricEntryEnabled,
   });
 

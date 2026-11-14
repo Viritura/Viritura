@@ -205,9 +205,13 @@ earlier ink rather than painting a white rectangle, leaving the actual paper
 color, texture, or transparency intact. Later frames remain above earlier ones.
 This does not change collision avoidance or reserve musical space.
 
-Create frames in **Write > Palettes > Text**: choose a page number and
-**Add page frame**, or select music and add a frame following that measure/event's
-page. The palette opens the new frame's text and presentation editor immediately.
+Create frames with **Write > Palettes > Text & tempo > Page text frame**.
+The tile creates and selects a frame on the current viewport page and opens
+Properties automatically. Horizon has no pages, so creation there starts on
+page 1 and the frame remains editable in Properties while hidden on the canvas.
+All text, formatting, page attachment, placement, size and layer controls live
+in Properties rather than the palette. **Page selection** can change the fixed
+page or make the frame follow a measure/event.
 **Engrave > Properties** edits existing frames; there is no dedicated text-frame
 tab or creation action in Engrave. Selecting a painted frame opens its Properties.
 The existing-frame list also exposes frames whose targets are unplaced.
@@ -531,12 +535,29 @@ already-authored non-preset ratio. Preset provenance is available through
 contextual help rather than a permanent warning. Printed text and visibility
 remain accessible together under Appearance.
 
-Changing a BPM-free marking to Inherit retains its cosmetic text as a
-`TextOnlyTempo`, with neither a BPM nor a groove reset. Clearing the last text
-from such an otherwise empty anchor removes it. BPM-bearing markings, printed
-text, and metronome units remain independent of swing editing. Existing score
-history and MNX save/load preserve these edits. No unsupported scope controls
-are exposed.
+The Text & tempo palette combines Tempo and System text into one
+System text / tempo tile, using the same lightweight popover as Shift+T.
+Shared Properties controls provide advanced editing. Set tempo explicitly enables BPM, beat unit and dots;
+turning it off removes the BPM without discarding text or framing. With no
+BPM and rhythm set to Inherit, the instruction has no timing effect and does
+not interrupt tempo ramps. New instructions use `systemText.tempo`; legacy
+native and extension `Tempo[]` remain readable. Editing a legacy tempo migrates
+only that selected marking, retaining rich text, visibility, offset, collision
+intent and explicit text-role styling. Other tempo anchors are untouched.
+
+Normal-mode Shift+T retains lightweight text-only popover entry. Explicit
+syntax such as `q=180`, `q.=90`, or `Allegro q=180` supplies playback semantics;
+words alone create ordinary system text and remove prior metronomic playback
+semantics. BPM-free Swing/Straight settings are preserved when editing their
+words, because the inline field does not expose those rhythm settings; set
+rhythm to Inherit in Properties to remove them.
+Explicit tempo tokens are recognized anywhere in the input, including within
+parentheses (`words here (q=180)`). Extraction preserves the surrounding words
+and removes parentheses enclosing only the token; the metronome mark is composed
+separately. Multiple explicit tempo tokens are rejected as ambiguous.
+Bare numeric BPM input remains supported. The popover does not infer a BPM
+from tempo words or default plain text to 120. Advanced controls remain in
+Properties rather than a separate palette insertion dialog.
 
 BPM-free Swing/Straight markings without authored text receive a generated
 selectable label. This engraving label does not alter the saved payload or
@@ -1190,11 +1211,21 @@ duplicating independent copies into parts.
 | `manualOffset`    | `[dx, dy]`                   | No       | Staff spaces: +x right, +y up.                                                                                       |
 | `avoidCollisions` | boolean                      | No       | Existing dependent-placement intent; omission/true permits automatic outward placement.                              |
 | `frame`           | `StaffTextFramePresentation` | No       | Shared natural/fixed staff-space width, automatic height, padding, border, alignment, justification and ink erasure. |
+| `tempo`           | `SystemTempo`                | No       | Optional playback: positive finite `bpm` and `value`, optionally `swing` and `showMetronomeMark`; or `swing` alone.  |
+| `showText`        | boolean                      | No       | Omission/true prints the authored text; false hides it independently of metronome visibility.                        |
 
 Staff/voice identifiers, page locators and page-column widths are invalid here.
 Plain text omits `frame`; advanced instruction boxes do not create a second
-formatting model. Specialized tempo, dynamics, rehearsal and navigation markings
-retain their semantic owners.
+formatting model. Tempo semantics are optional on this bounded musical
+instruction, not on page text frames. Dynamics, rehearsal and navigation
+markings retain their separate semantic owners.
+
+The Text palette's **System text** button creates an above-system instruction
+at the selected note or rest's rhythmic position, or at the start of a selected
+bar. **Tempo** opens the same editor with Set tempo enabled; **System text**
+opens it without playback. Text alone never infers BPM. Metronome-only
+instructions use an empty text run (`[{ "text": "" }]`), not placeholder prose.
+**Staff text** remains the separate staff-scoped action.
 
 Rendering emits one occurrence above the top visible staff or below the bottom
 visible staff in every score/part view, including Horizon. Hidden or condensed
@@ -1203,6 +1234,9 @@ rhythmic position; an always-at-system-start option is deferred. The Properties
 inspector exposes system/staff scope conversion, shared text/frame editing,
 manual placement, selection, navigation and deletion. Legacy staff expressions
 and page frames retain their existing ownership and behavior.
+Conversion to staff text is rejected while playback settings or hidden text
+would be lost. Switching BPM on/off preserves rich text, framing, placement,
+manual offset and collision settings.
 
 MusicXML `<direction system="only-top">` words map to global system text only
 when their placement is above or omitted. `system="none"` and directions with
