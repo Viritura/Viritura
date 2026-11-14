@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { decodeXmlText, renderSvgToPdf } from "../pdfPainter";
 import { PDFDocument, StandardFonts } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+import { readFileSync } from "node:fs";
 
 describe("decodeXmlText", () => {
   it("does not decode an entity exposed by decoding an ampersand", () => {
@@ -114,10 +116,63 @@ describe("decodeXmlText", () => {
     const size = (5 * 72) / 25.4;
     expect(draw.mock.calls[0]![1]!.x).toBeCloseTo((40 * 72) / 25.4 - sans[3]!.widthOfTextAtSize("Test", size));
     expect(() =>
-      renderSvgToPdf(page, '<svg><text font-family="Arial, sans-serif">♯</text></svg>', 200, fonts),
-    ).toThrow();
+      renderSvgToPdf(page, '<svg><text font-family="Arial, sans-serif">漢</text></svg>', 200, fonts),
+    ).toThrow(/no font supports U\+6F22/);
     expect(() => renderSvgToPdf(page, '<svg><text font-family="Unknown">Test</text></svg>', 200, fonts)).toThrow(
       /unsupported text font family/,
     );
+  });
+
+  it("falls back per glyph to bundled serif and aligns using the mixed run widths", async () => {
+    const doc = await PDFDocument.create();
+    doc.registerFontkit(fontkit);
+    const serif = await doc.embedFont(
+      readFileSync(new URL("../../../../assets/fonts/LibertinusSerif-Regular.otf", import.meta.url)),
+    );
+    const bold = await doc.embedFont(
+      readFileSync(new URL("../../../../assets/fonts/LibertinusSerif-Bold.otf", import.meta.url)),
+    );
+    const helvetica = await doc.embedFont(StandardFonts.HelveticaBold);
+    const page = doc.addPage([200, 200]);
+    const draw = vi.spyOn(page, "drawText");
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const fonts = {
+        serifFont: serif,
+        serifBoldFont: bold,
+        serifItalicFont: serif,
+        serifBoldItalicFont: serif,
+        sans: [helvetica, helvetica, helvetica, helvetica],
+      };
+      renderSvgToPdf(
+        page,
+        '<svg><text x="40" y="20" font-size="5" font-family="Arial, sans-serif" font-weight="bold" text-anchor="end">B♭Привет</text></svg>',
+        200,
+        fonts,
+      );
+      expect(draw.mock.calls.map(([text]) => text)).toEqual(["B", "♭", "Привет"]);
+      expect(draw.mock.calls[0]![1]!.font).toBe(helvetica);
+      expect(draw.mock.calls[1]![1]!.font).toBe(serif);
+      expect(draw.mock.calls[2]![1]!.font).toBe(bold);
+      const size = (5 * 72) / 25.4;
+      const width =
+        helvetica.widthOfTextAtSize("B", size) +
+        serif.widthOfTextAtSize("♭", size) +
+        bold.widthOfTextAtSize("Привет", size);
+      expect(draw.mock.calls[0]![1]!.x).toBeCloseTo((40 * 72) / 25.4 - width);
+      expect(draw.mock.calls[2]![1]!.x).toBeCloseTo((40 * 72) / 25.4 - bold.widthOfTextAtSize("Привет", size));
+      expect(warning).toHaveBeenCalledOnce();
+      draw.mockClear();
+      renderSvgToPdf(
+        page,
+        '<svg><text x="40" y="20" font-size="5" font-family="Arial, sans-serif">A\nB</text></svg>',
+        200,
+        fonts,
+      );
+      expect(draw.mock.calls.map(([text]) => text)).toEqual(["A B"]);
+      expect((await doc.save()).length).toBeGreaterThan(0);
+    } finally {
+      warning.mockRestore();
+    }
   });
 });

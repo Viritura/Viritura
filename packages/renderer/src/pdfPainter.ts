@@ -255,6 +255,40 @@ interface PdfFonts {
   serifBoldItalicFont: import("pdf-lib").PDFFont;
   sans?: import("pdf-lib").PDFFont[];
   mono?: import("pdf-lib").PDFFont[];
+  warnedGlyphFallback?: boolean;
+}
+
+interface PdfTextRun {
+  text: string;
+  font: import("pdf-lib").PDFFont;
+}
+
+const fontCharacterSets = new WeakMap<import("pdf-lib").PDFFont, Set<number>>();
+
+function supportsCharacter(font: import("pdf-lib").PDFFont, codepoint: number): boolean {
+  let characters = fontCharacterSets.get(font);
+  if (!characters) {
+    characters = new Set(font.getCharacterSet());
+    fontCharacterSets.set(font, characters);
+  }
+  return characters.has(codepoint);
+}
+
+function textRuns(
+  text: string,
+  primary: import("pdf-lib").PDFFont,
+  fallbacks: import("pdf-lib").PDFFont[],
+): PdfTextRun[] {
+  const runs: PdfTextRun[] = [];
+  for (const character of text) {
+    const codepoint = character.codePointAt(0)!;
+    const font = [primary, ...fallbacks].find((candidate) => supportsCharacter(candidate, codepoint));
+    if (!font) throw new Error(`PDF: no font supports U+${codepoint.toString(16).toUpperCase()}`);
+    const last = runs.at(-1);
+    if (last?.font === font) last.text += character;
+    else runs.push({ text: character, font });
+  }
+  return runs;
 }
 
 export function renderSvgToPdf(
@@ -501,7 +535,7 @@ function drawSvgText(
 ): void {
   if (!textContent) return;
 
-  const text = decodeXmlText(textContent);
+  const text = decodeXmlText(textContent).replace(/[\t\r\n\f]/g, " ");
 
   const xMm = numAttr(attrs, "x");
   const yMm = numAttr(attrs, "y");
@@ -526,13 +560,21 @@ function drawSvgText(
   if (!pdfFont) throw new Error(`PDF: unsupported text font family "${family}"`);
 
   const sizePt = sizeMm * MM_TO_PT;
+  const styledSerif = [fonts.serifFont, fonts.serifBoldFont, fonts.serifItalicFont, fonts.serifBoldItalicFont][
+    styleIndex
+  ]!;
+  const runs = textRuns(text, pdfFont, [styledSerif, fonts.serifFont]);
+  if (runs.some((run) => run.font !== pdfFont) && !fonts.warnedGlyphFallback) {
+    console.warn("PDF export uses serif fallback for characters missing from the requested font.");
+    fonts.warnedGlyphFallback = true;
+  }
   let pdfX = xPt(xMm);
   let pdfY = yPt(yMm, pageH);
 
   // Handle text-anchor (alignment)
   const anchor = attr(attrs, "text-anchor");
   if (anchor === "middle" || anchor === "end") {
-    const textWidth = pdfFont.widthOfTextAtSize(text, sizePt);
+    const textWidth = runs.reduce((width, run) => width + run.font.widthOfTextAtSize(run.text, sizePt), 0);
     if (anchor === "middle") pdfX -= textWidth / 2;
     else pdfX -= textWidth;
   }
@@ -543,12 +585,15 @@ function drawSvgText(
   else if (baseline === "central") pdfY -= (ascent - descent) / 2;
   else if (baseline === "text-after-edge") pdfY += descent;
 
-  page.drawText(text, {
-    x: pdfX,
-    y: pdfY,
-    size: sizePt,
-    font: pdfFont,
-    color: rgb(r, g, b),
-    opacity,
-  });
+  for (const run of runs) {
+    page.drawText(run.text, {
+      x: pdfX,
+      y: pdfY,
+      size: sizePt,
+      font: run.font,
+      color: rgb(r, g, b),
+      opacity,
+    });
+    pdfX += run.font.widthOfTextAtSize(run.text, sizePt);
+  }
 }

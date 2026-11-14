@@ -14,15 +14,22 @@ static FACES: LazyLock<[Face<'static>; 4]> = LazyLock::new(|| {
         .map(|data| Face::parse(data, 0).expect("bundled Libertinus face must be valid"))
 });
 
-/// Resolve canonical serif command fonts; other families have no bundled face.
+/// Resolve the family independently of the position of style tokens.
+pub(super) fn family(font: &str) -> &str {
+    font.split_whitespace()
+        .find(|part| !matches!(*part, "bold" | "italic"))
+        .unwrap_or("serif")
+}
+
+/// Resolve serif command fonts; other families have no bundled face.
 pub(crate) fn face(font: &str) -> Option<&'static Face<'static>> {
-    let mut parts = font.split_whitespace();
-    if parts.next()? != "serif" {
+    if family(font) != "serif" {
         return None;
     }
     let (mut bold, mut italic) = (false, false);
-    for part in parts {
+    for part in font.split_whitespace() {
         match part {
+            "serif" => {}
             "bold" => bold = true,
             "italic" => italic = true,
             _ => return None,

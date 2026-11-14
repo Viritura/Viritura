@@ -9,6 +9,9 @@ use crate::render::text_fonts;
 use crate::render::{DisplayList, PageLayout, RenderCommand, TextAlign, TextBaseline};
 use std::fmt::Write;
 
+mod text;
+use text::{text_advance_mm, text_to_path};
+
 // ─── Public types ──────────────────────────────────────────────────
 
 /// Configuration for SVG export.
@@ -114,40 +117,6 @@ fn glyph_to_path(
     let mut b = PathBuilder::new(x_mm, y_mm, scale);
     face.outline_glyph(gid, &mut b)?;
     Some(b.d)
-}
-
-/// Total advance width of a string, in mm.
-fn text_advance_mm(face: &ttf_parser::Face<'_>, text: &str, size_mm: f64) -> f64 {
-    let scale = size_mm / face.units_per_em() as f64;
-    text.chars()
-        .filter_map(|c| {
-            let gid = face.glyph_index(c)?;
-            Some(face.glyph_hor_advance(gid)? as f64 * scale)
-        })
-        .sum()
-}
-
-/// Render a string to SVG path data (character by character).
-fn text_to_path(
-    face: &ttf_parser::Face<'_>,
-    text: &str,
-    x_mm: f64,
-    y_mm: f64,
-    size_mm: f64,
-) -> String {
-    let scale = size_mm / face.units_per_em() as f64;
-    let mut full = String::with_capacity(text.len() * 128);
-    let mut cx = x_mm;
-    for c in text.chars() {
-        if let Some(gid) = face.glyph_index(c) {
-            let mut b = PathBuilder::new(cx, y_mm, scale);
-            if face.outline_glyph(gid, &mut b).is_some() {
-                full.push_str(&b.d);
-            }
-            cx += face.glyph_hor_advance(gid).unwrap_or(0) as f64 * scale;
-        }
-    }
-    full
 }
 
 // ─── Page splitting ────────────────────────────────────────────────
@@ -490,13 +459,18 @@ fn render_cmd(
                 Some(bravura)
             } else if bundled_text {
                 text_fonts::face(font)
-            } else if font.split_whitespace().next() == Some("serif") {
+            } else if text_fonts::family(font) == "serif" {
                 text_face
             } else {
                 None
             };
 
             if let Some(face) = face {
+                let fallback = if bundled_text && text_fonts::family(font) == "serif" {
+                    text_fonts::face("serif")
+                } else {
+                    None
+                };
                 let sz = c.mm(*size);
                 let upem = face.units_per_em() as f64;
                 let asc = face.ascender() as f64;
@@ -504,7 +478,11 @@ fn render_cmd(
                 // Adjust x for alignment (in engine px, before mm conversion).
                 let mut xa = *x;
                 if !matches!(align, TextAlign::Left) {
-                    let adv_mm = text_advance_mm(face, text, sz);
+                    let Some(adv_mm) = text_advance_mm(face, fallback, text, sz) else {
+                        return render_text_fallback(
+                            *x, *y, text, font, *size, color, align, baseline, &c, &op,
+                        );
+                    };
                     let adv_px = adv_mm / (cfg.spatium_mm / cfg.sp_pixels);
                     match align {
                         TextAlign::Center => xa -= adv_px / 2.0,
@@ -521,8 +499,9 @@ fn render_cmd(
                     TextBaseline::Bottom | TextBaseline::Alphabetic => {}
                 }
 
-                let d = text_to_path(face, text, c.x(xa), c.y(ya), sz);
-                if !d.is_empty() {
+                if let Some(d) = text_to_path(face, fallback, text, c.x(xa), c.y(ya), sz)
+                    .filter(|d| !d.is_empty())
+                {
                     return Some(format!("<path d=\"{d}\" fill=\"{}\"{op}/>", esc(color)));
                 }
             }
@@ -719,8 +698,7 @@ fn render_text_fallback(
         TextBaseline::Bottom => "text-after-edge",
         TextBaseline::Alphabetic => "alphabetic",
     };
-    let mut parts = font.split_whitespace();
-    let family = parts.next().unwrap_or("serif");
+    let family = text_fonts::family(font);
     let family = if family == "sans-serif" {
         "Arial, sans-serif"
     } else {
@@ -794,8 +772,8 @@ mod tests {
             });
             let page = display_list_to_svg_pages(&dl, bravura, Some(regular), &cfg).unwrap();
             let selected = ttf_parser::Face::parse(bytes, 0).unwrap();
-            let x = 50.0 - text_advance_mm(&selected, "Allegro", 10.0) / 2.0;
-            let expected = text_to_path(&selected, "Allegro", x, 30.0, 10.0);
+            let x = 50.0 - text_advance_mm(&selected, None, "Allegro", 10.0).unwrap() / 2.0;
+            let expected = text_to_path(&selected, None, "Allegro", x, 30.0, 10.0).unwrap();
             assert!(page[0]
                 .svg
                 .contains(&format!("<path d=\"{expected}\" fill=\"#123456\"")));
@@ -806,6 +784,87 @@ mod tests {
                 assert_ne!(path, other);
             }
         }
+    }
+
+    #[test]
+    fn styled_serif_uses_regular_glyph_fallback_with_matching_alignment() {
+        let bravura = include_bytes!("../../../../assets/fonts/Bravura.otf");
+        let regular = include_bytes!("../../../../assets/fonts/LibertinusSerif-Regular.otf");
+        let regular_face = ttf_parser::Face::parse(regular, 0).unwrap();
+        let cfg = SvgExportConfig {
+            spatium_mm: 1.0,
+            sp_pixels: 1.0,
+            page_width_mm: 100.0,
+            page_height_mm: 100.0,
+        };
+        for font in ["serif bold", "serif italic", "serif bold italic"] {
+            let selected = text_fonts::face(font).unwrap();
+            let mut dl = DisplayList::new(100.0, 100.0);
+            dl.push(RenderCommand::DrawText {
+                x: 50.0,
+                y: 30.0,
+                text: "B♭C".into(),
+                font: font.into(),
+                size: 10.0,
+                color: "#123456".into(),
+                align: TextAlign::Center,
+                baseline: TextBaseline::Alphabetic,
+            });
+            let b_width = text_advance_mm(selected, None, "B", 10.0).unwrap();
+            let flat_width = text_advance_mm(&regular_face, None, "♭", 10.0).unwrap();
+            let c_width = text_advance_mm(selected, None, "C", 10.0).unwrap();
+            let x = 50.0 - (b_width + flat_width + c_width) / 2.0;
+            let expected = format!(
+                "{}{}{}",
+                glyph_to_path(selected, 'B' as u32, x, 30.0, 10.0).unwrap(),
+                glyph_to_path(&regular_face, '♭' as u32, x + b_width, 30.0, 10.0).unwrap(),
+                glyph_to_path(selected, 'C' as u32, x + b_width + flat_width, 30.0, 10.0).unwrap(),
+            );
+            let svg = &display_list_to_svg_pages(&dl, bravura, Some(regular), &cfg).unwrap()[0].svg;
+            assert!(svg.contains(&format!("<path d=\"{expected}\"")));
+            dl.commands[0] = RenderCommand::DrawText {
+                x: 50.0,
+                y: 30.0,
+                text: "A漢".into(),
+                font: font.into(),
+                size: 10.0,
+                color: "#123456".into(),
+                align: TextAlign::Left,
+                baseline: TextBaseline::Alphabetic,
+            };
+            let svg = &display_list_to_svg_pages(&dl, bravura, Some(regular), &cfg).unwrap()[0].svg;
+            assert!(svg.contains(">A漢</text>"));
+        }
+    }
+
+    #[test]
+    fn legacy_style_first_font_uses_the_same_italic_outline() {
+        let bravura = include_bytes!("../../../../assets/fonts/Bravura.otf");
+        let regular = include_bytes!("../../../../assets/fonts/LibertinusSerif-Regular.otf");
+        let cfg = SvgExportConfig {
+            spatium_mm: 1.0,
+            sp_pixels: 1.0,
+            page_width_mm: 100.0,
+            page_height_mm: 100.0,
+        };
+        let mut dl = DisplayList::new(100.0, 100.0);
+        dl.push(RenderCommand::DrawText {
+            x: 10.0,
+            y: 20.0,
+            text: "una corda".into(),
+            font: "italic serif".into(),
+            size: 10.0,
+            color: "#000000".into(),
+            align: TextAlign::Left,
+            baseline: TextBaseline::Alphabetic,
+        });
+        let legacy = display_list_to_svg_pages(&dl, bravura, Some(regular), &cfg).unwrap();
+        if let RenderCommand::DrawText { font, .. } = &mut dl.commands[0] {
+            *font = "serif italic".into();
+        }
+        let canonical = display_list_to_svg_pages(&dl, bravura, Some(regular), &cfg).unwrap();
+        assert_eq!(legacy[0].svg, canonical[0].svg);
+        assert!(legacy[0].svg.contains("<path"));
     }
 
     #[test]
@@ -861,7 +920,7 @@ mod tests {
             baseline: TextBaseline::Alphabetic,
         });
         let face = ttf_parser::Face::parse(custom, 0).unwrap();
-        let expected = text_to_path(&face, "Allegro", 10.0, 20.0, 10.0);
+        let expected = text_to_path(&face, None, "Allegro", 10.0, 20.0, 10.0).unwrap();
         let outlined = &display_list_to_svg_pages(&dl, bravura, Some(custom), &cfg).unwrap()[0].svg;
         assert!(outlined.contains(&format!("<path d=\"{expected}\"")));
         let fallback = &display_list_to_svg_pages(&dl, bravura, None, &cfg).unwrap()[0].svg;

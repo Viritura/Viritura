@@ -745,11 +745,13 @@ Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, 
 | `align`  | `left` \| `center` \| `right`          | Horizontal alignment relative to anchor           |
 
 Canvas uses bundled Libertinus Serif for `serif` and the `Arial, sans-serif`
-stack for `sans-serif`. SVG export outlines bundled serif styles, but keeps
-unbundled sans-serif and monospace as text, dependent on the viewer's fonts.
+stack for `sans-serif`. SVG export outlines bundled serif styles where the
+bundled faces cover the text, but keeps unbundled sans-serif and monospace
+as text, dependent on the viewer's fonts.
 PDF export substitutes the standard Helvetica and Courier families for these
-unbundled families; their metrics and glyphs may differ from Canvas, and
-unsupported characters cause export to fail rather than disappear.
+unbundled families; their metrics and glyphs may differ from Canvas. Characters
+missing from a selected face use an available Libertinus serif face; PDF
+export fails explicitly if no supplied face supports a character.
 
 ```json
 {
