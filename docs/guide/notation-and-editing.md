@@ -56,24 +56,24 @@ control than the direct arrow-key transposition commands.
 
 ## Staff and system text
 
-Select a note, rest, or bar and choose **System text** in the **Text** palette
+Select a note, rest, or bar and choose **System text / tempo** in the **Text & tempo** palette
 to add an instruction shared by the full score and instrumental parts. It
 appears above the visible system at that musical position. Choose **Staff
 text** instead for text attached to one staff.
 
-**Tempo** and **System text** open the same system-instruction editor. Use
-**Set tempo** to enable or remove BPM, beat unit and dots; rhythm settings can
+The palette tile and **Shift+T** open the same lightweight text-only popover.
+Selecting an instruction exposes advanced controls in Properties. Use
+**Set tempo** there to enable or remove BPM, beat unit and dots; rhythm settings can
 also explicitly request swing or straight playback. With Set tempo off and
 rhythm set to **Inherit**, the instruction is purely visual: words such as
 “Allegro” do not infer a speed or interrupt an existing tempo ramp.
 
-Both entry points share rich text, placement, offsets and optional borders.
-Selecting an instruction exposes those same controls in Properties. Page
+Properties also provide rich text, placement, offsets and optional borders. Page
 text frames remain separate: they attach to a page rather than a musical
-position and never change playback.
+position and never change playback. Lyrics and page text frame controls remain
+separate groups below the notation text tiles.
 
-For quick entry, **Shift+T** opens a small text-only popover, not the
-structured dialog. Enter `Freely` or `Allegro` for plain system text,
+In the popover, enter `Freely` or `Allegro` for plain system text,
 `q=180` for a metronome marking, or `Allegro q=180` for both. Dotted units
 such as `q.=90` and a bare BPM such as `180` are also supported. Explicit
 tempo syntax can appear anywhere in the input, including `words here (q=180)`.

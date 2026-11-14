@@ -124,25 +124,29 @@ function WithScore({
 }
 
 describe("PalettePanel", () => {
-  it.each(["Tie (T)", "Laissez vibrer tie (T)", "Slur (S)", "Expression text (Shift+D)", "Mezzo forte"])(
-    "shows the concise hover label %s without duplicate shortcuts",
-    async (name) => {
-      const user = userEvent.setup();
-      render(
-        <TooltipPrimitives.Provider delayDuration={0}>
-          <DocumentProvider>
-            <WithScore>
-              <PalettePanel />
-            </WithScore>
-          </DocumentProvider>
-        </TooltipPrimitives.Provider>,
-      );
+  it.each([
+    "Tie (T)",
+    "Laissez vibrer tie (T)",
+    "Slur (S)",
+    "Expression text (Shift+D)",
+    "System text / tempo (Shift+T)",
+    "Mezzo forte",
+  ])("shows the concise hover label %s without duplicate shortcuts", async (name) => {
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
 
-      await user.hover(await screen.findByRole("button", { name, exact: true }));
+    await user.hover(await screen.findByRole("button", { name, exact: true }));
 
-      expect((await screen.findByRole("tooltip")).textContent).toBe(name);
-    },
-  );
+    expect((await screen.findByRole("tooltip")).textContent).toBe(name);
+  });
 
   it("uses the grouped default section order", async () => {
     render(
@@ -172,8 +176,7 @@ describe("PalettePanel", () => {
       "Ornaments & arpeggios",
       "Breath & fermata",
       "Dynamics",
-      "Tempo",
-      "Text",
+      "Text & tempo",
       "Fingering",
       "Octaves & pedals",
     ]);
@@ -182,7 +185,16 @@ describe("PalettePanel", () => {
   it("preserves custom ordering while dropping merged section IDs", async () => {
     localStorage.setItem(
       "viritura.palettes.order.v1",
-      JSON.stringify(["text", "arpeggios", "ornaments", "note-markings", "articulations", "lines", "ties-slurs"]),
+      JSON.stringify([
+        "text",
+        "tempo",
+        "arpeggios",
+        "ornaments",
+        "note-markings",
+        "articulations",
+        "lines",
+        "ties-slurs",
+      ]),
     );
     render(
       <TooltipPrimitives.Provider delayDuration={0}>
@@ -194,11 +206,11 @@ describe("PalettePanel", () => {
       </TooltipPrimitives.Provider>,
     );
 
-    await screen.findByRole("button", { name: "Text", expanded: true });
+    await screen.findByRole("button", { name: "Text & tempo", expanded: true });
     const headings = screen.getAllByRole("button", { expanded: true });
-    expect(headings).toHaveLength(17);
+    expect(headings).toHaveLength(16);
     expect(headings.slice(0, 6).map((button) => button.textContent?.replace(/Shift\+\w+$/, ""))).toEqual([
-      "Text",
+      "Text & tempo",
       "Ornaments & arpeggios",
       "Notehead markings",
       "Articulations",
@@ -396,10 +408,12 @@ describe("PalettePanel", () => {
         </TooltipPrimitives.Provider>,
       );
 
-      await user.click(await screen.findByRole("button", { name: "System text", exact: true }));
+      await user.click(await screen.findByRole("button", { name: "System text / tempo (Shift+T)", exact: true }));
+      const input = screen.getByPlaceholderText("Freely, Allegro q=180, or q=180");
+      expect(document.activeElement).toBe(input);
+      expect(screen.queryByRole("dialog")).toBeNull();
       act(() => useSelectionStore.setState({ selection: { kind: "none" } }));
-      await user.type(screen.getByRole("textbox", { name: "Printed text" }), "Freely");
-      await user.click(screen.getByRole("button", { name: "OK" }));
+      await user.type(input, "Freely{Enter}");
 
       const updated = JSON.parse(screen.getByTestId("score").textContent ?? "{}") as Score;
       expect(updated.global.measures[1]!.systemText).toEqual([
@@ -418,6 +432,58 @@ describe("PalettePanel", () => {
     },
   );
 
+  it.each([
+    { input: "q=180", text: "", tempo: { bpm: 180, value: { base: "quarter" } } },
+    { input: "Allegro (q.=90)", text: "Allegro", tempo: { bpm: 90, value: { base: "quarter", dots: 1 } } },
+  ])("creates playback from $input through the merged palette entry", async ({ input, text, tempo }) => {
+    useSelectionStore.setState({
+      selection: { kind: "single", elementId: "p0/m1/s0/second-note", elementType: "event" },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "System text / tempo (Shift+T)", exact: true }));
+    const textbox = screen.getByPlaceholderText("Freely, Allegro q=180, or q=180");
+    expect(textbox).toHaveProperty("value", "");
+    await user.type(textbox, `${input}{Enter}`);
+
+    const updated = JSON.parse(screen.getByTestId("score").textContent ?? "{}") as Score;
+    expect(updated.global.measures[1]!.systemText).toEqual([
+      { id: expect.any(String), text: [{ text }], tempo, position: { fraction: [1, 2] }, placement: "above" },
+    ]);
+    expect(updated.parts).toEqual(SCORE.parts);
+    expect(screen.queryByPlaceholderText("Freely, Allegro q=180, or q=180")).toBeNull();
+  });
+
+  it("cancels the merged palette popover without creating an instruction", async () => {
+    useSelectionStore.setState({
+      selection: { kind: "single", elementId: "p0/m1", elementType: "measure" },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "System text / tempo (Shift+T)", exact: true }));
+    await user.keyboard("Allegro q=180{Escape}");
+    expect(screen.queryByPlaceholderText("Freely, Allegro q=180, or q=180")).toBeNull();
+    expect(JSON.parse(screen.getByTestId("score").textContent ?? "{}")).toEqual(SCORE);
+  });
+
   it("reports a missing system-text selection without creating text", async () => {
     const warning = vi.spyOn(toast, "warning").mockImplementation(() => "warning");
     const user = userEvent.setup();
@@ -431,10 +497,10 @@ describe("PalettePanel", () => {
       </TooltipPrimitives.Provider>,
     );
 
-    await user.click(await screen.findByRole("button", { name: "System text", exact: true }));
+    await user.click(await screen.findByRole("button", { name: "System text / tempo (Shift+T)", exact: true }));
 
     expect(warning).toHaveBeenCalledWith("Select a note, rest, or bar before adding system text.");
-    expect(screen.queryByRole("dialog", { name: "System instruction" })).toBeNull();
+    expect(screen.queryByPlaceholderText("Freely, Allegro q=180, or q=180")).toBeNull();
     expect(JSON.parse(screen.getByTestId("score").textContent ?? "{}")).toEqual(SCORE);
   });
 
@@ -769,8 +835,10 @@ describe("PalettePanel", () => {
     ["arpeggio", "Ornaments & arpeggios Shift+E", "Upward arpeggio"],
     ["glissando", "Connections", "Glissando"],
     ["octaves", "Octaves & pedals", "8va above"],
-    ["system", "Text", "System text"],
-    ["staff", "Text", "Staff text (Shift+X)"],
+    ["system", "Text & tempo", "System text / tempo (Shift+T)"],
+    ["tempo", "Text & tempo", "System text / tempo (Shift+T)"],
+    ["bpm", "Text & tempo", "System text / tempo (Shift+T)"],
+    ["staff", "Text & tempo", "Staff text (Shift+X)"],
   ])("finds %s in its regrouped section", async (query, section, label) => {
     render(
       <TooltipPrimitives.Provider delayDuration={0}>

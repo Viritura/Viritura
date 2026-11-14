@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- palette is the single UI surface for ~30 input-mode property toggles (tie, slur, lv, dynamics, articulations, ornaments, tuplets, grace, dots, accidentals, voice, ...). Each toggle owns a small handler that reads selection + dispatches a score mutation; splitting into per-section files would force re-importing the same selection/score plumbing in every file with no shared sub-concept to extract. */
-import { useCallback, useEffect, useEffectEvent, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 import { CenteredGlyph, FormInput, IconButton, PaletteButton, PromptDialog, Tooltip } from "@viritura/ui";
 import { X, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
@@ -24,7 +24,7 @@ import { useSelection, useSelectionStore, type SelectionState } from "../store/s
 import { keyboardRegistry } from "../keyboard/KeyboardRegistry";
 import { useDocumentStoreApi, useDocumentStore } from "../store/DocumentContext";
 import { beatPositionToFraction, eventBeatPosition } from "../app/timedAnnotationPosition";
-import { SystemInstructionDialog, resolveInstructionSwing, saveSystemInstruction } from "../systemInstructions";
+import { SystemInstructionPopover, saveSystemInstruction } from "../systemInstructions";
 import {
   resolveEventLocation,
   resolveEventFromSubElement,
@@ -159,8 +159,6 @@ import {
   ATONAL_LABEL_STYLE,
   CUSTOM_TIME_SIGNATURE_STYLE,
   TIME_SIGNATURE_SYMBOL_STYLE,
-  TEMPO_LABEL_STYLE,
-  TEMPO_GLYPH_STYLE,
   CHORD_SYMBOL_LABEL_STYLE,
   EXPRESSION_LABEL_STYLE,
   REHEARSAL_BOX_STYLE,
@@ -204,7 +202,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
 
   // ── Prompt dialog state ──
   // Single shared dialog used in place of `window.prompt()` for every
-  // prompt-style action in the palette (tempo, rehearsal mark, expression).
+  // prompt-style action in the palette (rehearsal mark, expression).
   // `onSubmit` is captured at the time the dialog is opened so the
   // closure has the correct selection / event location.
   const [promptState, setPromptState] = useState<{
@@ -223,9 +221,11 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     onSubmit: () => {},
   });
   const closePrompt = useCallback(() => setPromptState((p) => ({ ...p, open: false })), []);
-  const [instructionEntry, setInstructionEntry] = useState<{ measureIndex: number; instruction: SystemText } | null>(
-    null,
-  );
+  const [instructionEntry, setInstructionEntry] = useState<{
+    measureIndex: number;
+    instruction: SystemText;
+    position: { x: number; y: number };
+  } | null>(null);
 
   // â”€â”€ Derived state â”€â”€
 
@@ -829,7 +829,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
   }, [store, updateScore, selectedScoreIndex]);
 
   const handleAddSystemInstruction = useCallback(
-    (preset: "tempo" | "text") => {
+    (event: MouseEvent<HTMLButtonElement>) => {
       const score = store.getState().score;
       const sel = useSelectionStore.getState().selection;
       if (!score) return;
@@ -847,14 +847,15 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
             ),
           )
         : [0, 1];
+      const bounds = event.currentTarget.getBoundingClientRect();
       setInstructionEntry({
         measureIndex,
+        position: { x: bounds.left + bounds.width / 2, y: bounds.bottom + 8 },
         instruction: {
           id: generateId(),
           text: [{ text: "" }],
           position: { fraction },
           placement: "above",
-          ...(preset === "tempo" ? { tempo: { bpm: 120, value: { base: "quarter" as const } } } : {}),
         },
       });
     },
@@ -1351,10 +1352,9 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
   const ornamentsMatch = !searchQuery || "trill turn mordent inverted delayed schleifer ornament".includes(searchLower);
   const tremMatch = !searchQuery || "tremolo slash single".includes(searchLower);
   const arpMatch = !searchQuery || "arpeggio up down plain no arrow".includes(searchLower);
-  const tempoMatch = !searchQuery || "tempo bpm".includes(searchLower);
   const textMatch =
     !searchQuery ||
-    "chord symbol harmony rehearsal mark staff system expression text frame page measure event lyrics lyric words syllables verses language translation".includes(
+    "tempo bpm chord symbol harmony rehearsal mark staff system expression text frame page measure event lyrics lyric words syllables verses language translation".includes(
       searchLower,
     );
   const linesMatch =
@@ -1831,28 +1831,19 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       ),
     },
     {
-      id: "tempo",
-      title: "Tempo",
-      shortcut: "Shift+T",
-      show: tempoMatch,
-      render: () => (
-        <div style={gridStyle}>
-          <PaletteButton shape="wide" title="Tempo" onClick={() => handleAddSystemInstruction("tempo")}>
-            <span style={TEMPO_LABEL_STYLE}>
-              <span style={TEMPO_GLYPH_STYLE}>{"\uECA5"}</span>
-              {"=120"}
-            </span>
-          </PaletteButton>
-        </div>
-      ),
-    },
-    {
       id: "text",
-      title: "Text",
+      title: "Text & tempo",
       show: textMatch,
       render: () => (
         <>
           <div style={gridStyle}>
+            <PaletteButton
+              shape="wide"
+              label="System text / tempo"
+              title="System text / tempo"
+              shortcut="Shift+T"
+              onClick={handleAddSystemInstruction}
+            />
             <PaletteButton
               shape="wide"
               label="Staff text"
@@ -1860,17 +1851,11 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
               shortcut="Shift+X"
               onClick={handleAddStaffText}
             />
-            <PaletteButton
-              shape="wide"
-              label="System text"
-              title="System text"
-              onClick={() => handleAddSystemInstruction("text")}
-            />
-            <PaletteButton shape="wide" title="Chord symbol" shortcut="Shift+K" onClick={handleAddChordSymbol}>
-              <span style={CHORD_SYMBOL_LABEL_STYLE}>CΔ⁷</span>
-            </PaletteButton>
             <PaletteButton shape="wide" title="Expression text" shortcut="Shift+D" onClick={handleAddExpression}>
               <span style={EXPRESSION_LABEL_STYLE}>espress.</span>
+            </PaletteButton>
+            <PaletteButton shape="wide" title="Chord symbol" shortcut="Shift+K" onClick={handleAddChordSymbol}>
+              <span style={CHORD_SYMBOL_LABEL_STYLE}>CΔ⁷</span>
             </PaletteButton>
             <PaletteButton title="Rehearsal mark" onClick={handleSetRehearsalMark}>
               <span style={REHEARSAL_BOX_STYLE}>A</span>
@@ -2014,12 +1999,9 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
         </DndContext>
       </div>
       {instructionEntry && (
-        <SystemInstructionDialog
-          initialInstruction={instructionEntry.instruction}
-          resolveSwing={(instruction) => {
-            const score = store.getState().score;
-            return score ? resolveInstructionSwing(score, instructionEntry.measureIndex, instruction) : undefined;
-          }}
+        <SystemInstructionPopover
+          instruction={instructionEntry.instruction}
+          position={instructionEntry.position}
           onClose={() => setInstructionEntry(null)}
           onSubmit={(instruction) => {
             const score = store.getState().score;

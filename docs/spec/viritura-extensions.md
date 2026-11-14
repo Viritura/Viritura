@@ -531,8 +531,9 @@ already-authored non-preset ratio. Preset provenance is available through
 contextual help rather than a permanent warning. Printed text and visibility
 remain accessible together under Appearance.
 
-Tempo and System text now share a bounded music-anchored instruction editor
-and Properties controls. Set tempo explicitly enables BPM, beat unit and dots;
+The Text & tempo palette combines Tempo and System text into one
+System text / tempo tile, using the same lightweight popover as Shift+T.
+Shared Properties controls provide advanced editing. Set tempo explicitly enables BPM, beat unit and dots;
 turning it off removes the BPM without discarding text or framing. With no
 BPM and rhythm set to Inherit, the instruction has no timing effect and does
 not interrupt tempo ramps. New instructions use `systemText.tempo`; legacy
@@ -549,7 +550,7 @@ and removes parentheses enclosing only the token; the metronome mark is composed
 separately. Multiple explicit tempo tokens are rejected as ambiguous.
 Bare numeric BPM input remains supported. The popover does not infer a BPM
 from tempo words or default plain text to 120. Advanced controls remain in
-Properties and the palette's structured editor.
+Properties rather than a separate palette insertion dialog.
 
 BPM-free Swing/Straight markings without authored text receive a generated
 selectable label. This engraving label does not alter the saved payload or

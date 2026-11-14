@@ -1,4 +1,3 @@
-export { instructionFromTempo, resolveInstructionSwing, saveSystemInstruction } from "./editing";
-export { SystemInstructionDialog } from "./SystemInstructionDialog";
+export { instructionFromTempo, saveSystemInstruction } from "./editing";
 export { SystemInstructionProperties } from "./SystemInstructionProperties";
 export { SystemInstructionPopover } from "./SystemInstructionPopover";
