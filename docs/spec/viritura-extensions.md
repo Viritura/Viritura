@@ -205,9 +205,13 @@ earlier ink rather than painting a white rectangle, leaving the actual paper
 color, texture, or transparency intact. Later frames remain above earlier ones.
 This does not change collision avoidance or reserve musical space.
 
-Create frames in **Write > Palettes > Text**: choose a page number and
-**Add page frame**, or select music and add a frame following that measure/event's
-page. The palette opens the new frame's text and presentation editor immediately.
+Create frames with **Write > Palettes > Text & tempo > Page text frame**.
+The tile creates and selects a frame on the current viewport page and opens
+Properties automatically. Horizon has no pages, so creation there starts on
+page 1 and the frame remains editable in Properties while hidden on the canvas.
+All text, formatting, page attachment, placement, size and layer controls live
+in Properties rather than the palette. **Page selection** can change the fixed
+page or make the frame follow a measure/event.
 **Engrave > Properties** edits existing frames; there is no dedicated text-frame
 tab or creation action in Engrave. Selecting a painted frame opens its Properties.
 The existing-frame list also exposes frames whose targets are unplaced.

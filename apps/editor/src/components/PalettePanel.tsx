@@ -172,17 +172,19 @@ import {
   SortablePaletteSection,
 } from "./palette";
 import { LyricsPanel } from "./lyrics/LyricsPanel";
-import { TextFramePalette } from "./textFrames";
+import { PageTextFrameButton } from "./textFrames";
 import { setChordSymbolPopover } from "../store/overlayStore";
 import { resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
 import { useDebugSettingsStore } from "../store/debugSettingsStore";
 
 interface PalettePanelProps {
   openSectionRequest?: { id: string; requestId: number } | null;
+  getCurrentPageIndex?: () => number;
+  onTextFrameCreated?: () => void;
 }
 
 // eslint-disable-next-line max-lines-per-function, max-statements -- component body holds prompt-dialog state, ~30 handler useCallback declarations (one per palette toggle), derived selection state, and JSX layout for sortable sections. Sub-handlers and sortable section primitives are already extracted to ./palette/*; the remaining body is one-line handler wrappers + JSX wiring.
-export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
+export function PalettePanel({ openSectionRequest, getCurrentPageIndex, onTextFrameCreated }: PalettePanelProps = {}) {
   // Subscribe ONLY to the note-input slices that affect what this panel
   // renders (the active-mode flag and the tie/slur button highlight state).
   // The high-frequency slices (cursorPosition, lastPitch, currentDuration,
@@ -1860,8 +1862,8 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
             <PaletteButton title="Rehearsal mark" onClick={handleSetRehearsalMark}>
               <span style={REHEARSAL_BOX_STYLE}>A</span>
             </PaletteButton>
+            <PageTextFrameButton getCurrentPageIndex={getCurrentPageIndex} onCreated={onTextFrameCreated} />
           </div>
-          <TextFramePalette />
           <LyricsPanel embedded />
         </>
       ),

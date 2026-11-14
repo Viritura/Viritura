@@ -70,8 +70,12 @@ rhythm set to **Inherit**, the instruction is purely visual: words such as
 
 Properties also provide rich text, placement, offsets and optional borders. Page
 text frames remain separate: they attach to a page rather than a musical
-position and never change playback. Lyrics and page text frame controls remain
-separate groups below the notation text tiles.
+position and never change playback. Choose **Page text frame** in the same
+palette to create and select a frame on the current page; Properties opens
+automatically for text, formatting, page attachment, size and position.
+In Horizon, which has no pages, new page frames start on page 1 and can be
+edited in Properties even though they are not drawn there. Lyrics remain a
+separate group below the text tiles.
 
 In the popover, enter `Freely` or `Allegro` for plain system text,
 `q=180` for a metronome marking, or `Allegro q=180` for both. Dotted units

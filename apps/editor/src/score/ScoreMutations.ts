@@ -71,7 +71,6 @@ export {
   addTextFrameInScore,
   buildTextFrame,
   deleteTextFrameInScore,
-  measureLocatorAt,
   moveTextFrameInScore,
   nextTextFrameId,
   reorderTextFrameInScore,

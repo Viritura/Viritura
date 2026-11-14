@@ -55,18 +55,26 @@ interface NotationInspectorProps {
   horizonTextFrames?: boolean;
 }
 
-function NotationInspectorEmptyState({ horizonTextFrames }: { horizonTextFrames?: boolean }) {
+function NotationInspectorEmptyState({
+  horizonTextFrames,
+  frameSelected,
+}: {
+  horizonTextFrames?: boolean;
+  frameSelected: boolean;
+}) {
   return (
     <aside style={panelStyle} data-testid="notation-inspector">
       <PanelHeader title="Notation Properties" />
       <div className="viritura-scroll" style={bodyStyle}>
-        <div style={emptyStateStyle}>
-          <MousePointer2 size={24} strokeWidth={1.5} aria-hidden="true" />
-          <strong style={emptyTitleStyle}>No current selection</strong>
-          <p style={emptyDescriptionStyle}>
-            Select a note, marking, barline, or other score element to view and edit its notation details here.
-          </p>
-        </div>
+        {!frameSelected && (
+          <div style={emptyStateStyle}>
+            <MousePointer2 size={24} strokeWidth={1.5} aria-hidden="true" />
+            <strong style={emptyTitleStyle}>No current selection</strong>
+            <p style={emptyDescriptionStyle}>
+              Select a note, marking, barline, or other score element to view and edit its notation details here.
+            </p>
+          </div>
+        )}
         {horizonTextFrames ? <HorizonTextFrames /> : <TextFramesPanel />}
       </div>
     </aside>
@@ -196,7 +204,12 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     selection.kind !== "measure" &&
     selection.kind !== "range"
   ) {
-    return <NotationInspectorEmptyState horizonTextFrames={_props.horizonTextFrames} />;
+    return (
+      <NotationInspectorEmptyState
+        horizonTextFrames={_props.horizonTextFrames}
+        frameSelected={selectedElementType === "text-frame"}
+      />
+    );
   }
 
   const selectionSubtitle = target

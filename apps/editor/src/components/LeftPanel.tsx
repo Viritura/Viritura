@@ -22,6 +22,7 @@ interface LeftPanelProps {
   paletteSectionRequest?: { id: string; requestId: number } | null;
   /** Show the Horizon text-frame lists in the Properties tab. */
   horizonTextFrames?: boolean;
+  getCurrentPageIndex?: () => number;
 }
 
 export function LeftPanel({
@@ -30,6 +31,7 @@ export function LeftPanel({
   onActiveTabChange,
   paletteSectionRequest,
   horizonTextFrames,
+  getCurrentPageIndex,
 }: LeftPanelProps = {}) {
   const [localTab, setLocalTab] = useState<WriteLeftTab>("palettes");
   const activeTab = controlledTab ?? localTab;
@@ -65,7 +67,13 @@ export function LeftPanel({
         onTabHover={handleTabHover}
         variant="panel"
       >
-        {activeTab === "palettes" && <PalettePanel openSectionRequest={paletteSectionRequest} />}
+        {activeTab === "palettes" && (
+          <PalettePanel
+            openSectionRequest={paletteSectionRequest}
+            getCurrentPageIndex={getCurrentPageIndex}
+            onTextFrameCreated={() => handleTabChange("properties")}
+          />
+        )}
         {activeTab === "clipboard" && <ClipboardHistoryPanel />}
         {activeTab === "properties" && (
           <NotationInspector preferredSection={preferredInspectorSection} horizonTextFrames={horizonTextFrames} />
