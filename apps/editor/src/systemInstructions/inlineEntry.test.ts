@@ -17,6 +17,13 @@ describe("inline system text and tempo entry", () => {
     ["Freely", "Freely", undefined],
     ["Allegro", "Allegro", undefined],
     ["Allegro q=180", "Allegro", { bpm: 180, value: { base: "quarter" } }],
+    ["words here (q=180)", "words here", { bpm: 180, value: { base: "quarter" } }],
+    ["(q=180)", "", { bpm: 180, value: { base: "quarter" } }],
+    ["words ( q. = 90.5 ) here", "words here", { bpm: 90.5, value: { base: "quarter", dots: 1 } }],
+    ["q=180 words here", "words here", { bpm: 180, value: { base: "quarter" } }],
+    ["words q=180 here", "words here", { bpm: 180, value: { base: "quarter" } }],
+    ["words (q=180), with feeling", "words, with feeling", { bpm: 180, value: { base: "quarter" } }],
+    ["words (freely q=180)", "words (freely)", { bpm: 180, value: { base: "quarter" } }],
     ["q=180", "", { bpm: 180, value: { base: "quarter" } }],
     [" q. = 90.5 ", "", { bpm: 90.5, value: { base: "quarter", dots: 1 } }],
     ["e140", "", { bpm: 140, value: { base: "eighth" } }],
@@ -26,13 +33,20 @@ describe("inline system text and tempo entry", () => {
     expect(parseInlineInstruction(input)).toEqual({ ok: true, instruction: { text, ...(tempo ? { tempo } : {}) } });
   });
 
-  it.each(["q=0", "q=-10", "q=NaN", "q=Infinity", "q=", "q=0x10", "q=1e9999"])(
+  it.each(["q=0", "q=-10", "q=NaN", "q=Infinity", "q=", "q=0x10", "q=1e9999", "words (q=0)", "(q=)", "(q=180oops)"])(
     "rejects malformed tempo syntax %s explicitly",
     (input) => {
       expect(parseInlineInstruction(input)).toMatchObject({ ok: false, error: expect.stringContaining("BPM") });
       expect(() => applyInlineInstruction(instruction, input)).toThrow(/BPM/);
     },
   );
+
+  it("rejects ambiguous instructions containing multiple tempo markings", () => {
+    expect(parseInlineInstruction("q=180 words (e=90)")).toEqual({
+      ok: false,
+      error: "Enter only one BPM marking per instruction.",
+    });
+  });
 
   it("adds and removes playback while retaining rich text and musical presentation", () => {
     const tempo = applyInlineInstruction(instruction, "Allegro q=180");

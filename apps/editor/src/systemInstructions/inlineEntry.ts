@@ -19,7 +19,7 @@ const NOTE_PREFIXES: Record<string, NoteValueBase> = {
 const NOTE_TOKENS = [...Object.keys(DURATION_BEATS), ...Object.keys(NOTE_PREFIXES)].join("|");
 const NUMBER = "(?:\\d+(?:\\.\\d*)?|\\.\\d+)";
 const BPM_NUMBER = new RegExp(`^${NUMBER}$`);
-const EXPLICIT_TEMPO = new RegExp(`^(.*?)\\b(${NOTE_TOKENS})(\\.*)\\s*=\\s*(.*?)$`, "i");
+const EXPLICIT_TEMPO = new RegExp(`^(.*?)\\b(${NOTE_TOKENS})(\\.*)\\s*=\\s*([^\\s()]*)(.*)$`, "is");
 const SHORT_TEMPO = new RegExp(`^(.*?)\\b([bwhqest])(\\.*)\\s*(${NUMBER})$`, "i");
 
 interface ParsedInstruction {
@@ -33,6 +33,17 @@ function isNoteValue(value: string): value is NoteValueBase {
   return Object.hasOwn(DURATION_BEATS, value);
 }
 
+function remainingInstructionText(before: string, after: string): string {
+  let prefix = before.trimEnd();
+  let suffix = after.trimStart();
+  if (prefix.endsWith("(") && suffix.startsWith(")")) {
+    prefix = prefix.slice(0, -1).trimEnd();
+    suffix = suffix.slice(1).trimStart();
+  }
+  const separator = prefix && suffix && !prefix.endsWith("(") && !/^[,.;:!?)]/.test(suffix) ? " " : "";
+  return `${prefix}${separator}${suffix}`.trim();
+}
+
 export function parseInlineInstruction(input: string): InlineInstructionResult {
   const trimmed = input.trim();
   const match = EXPLICIT_TEMPO.exec(trimmed) ?? SHORT_TEMPO.exec(trimmed);
@@ -44,6 +55,10 @@ export function parseInlineInstruction(input: string): InlineInstructionResult {
   if (!BPM_NUMBER.test(rawBpm) || !Number.isFinite(bpm) || bpm <= 0) {
     return { ok: false, error: "Enter a BPM greater than zero, for example q=180." };
   }
+  const after = match?.[5] ?? "";
+  if (EXPLICIT_TEMPO.test(after)) {
+    return { ok: false, error: "Enter only one BPM marking per instruction." };
+  }
   const token = match?.[2]?.toLowerCase() ?? "q";
   const base = NOTE_PREFIXES[token] ?? (isNoteValue(token) ? token : undefined);
   if (!base) return { ok: false, error: "Use a supported tempo beat unit, for example q=180." };
@@ -51,7 +66,7 @@ export function parseInlineInstruction(input: string): InlineInstructionResult {
   return {
     ok: true,
     instruction: {
-      text: match?.[1]?.trim() ?? "",
+      text: remainingInstructionText(match?.[1] ?? "", after),
       tempo: { bpm, value: { base, ...(dots ? { dots } : {}) } },
     },
   };

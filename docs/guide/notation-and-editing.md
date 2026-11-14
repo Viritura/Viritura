@@ -75,7 +75,11 @@ position and never change playback.
 For quick entry, **Shift+T** opens a small text-only popover, not the
 structured dialog. Enter `Freely` or `Allegro` for plain system text,
 `q=180` for a metronome marking, or `Allegro q=180` for both. Dotted units
-such as `q.=90` and a bare BPM such as `180` are also supported. Press
+such as `q.=90` and a bare BPM such as `180` are also supported. Explicit
+tempo syntax can appear anywhere in the input, including `words here (q=180)`.
+The tempo token and any parentheses enclosing only that token are removed
+from the printed words; the metronome marking is rendered separately.
+Use only one tempo marking per instruction. Press
 Enter to apply or Escape to cancel; use Properties for advanced formatting.
 Replacing tempo syntax with words alone removes playback settings.
 

@@ -9,6 +9,7 @@ afterEach(cleanup);
 it.each([
   { input: "Freely", text: "Freely", tempo: undefined },
   { input: "Allegro q=180", text: "Allegro", tempo: { bpm: 180, value: { base: "quarter" } } },
+  { input: "words here (q=180)", text: "words here", tempo: { bpm: 180, value: { base: "quarter" } } },
 ])("submits $input from a focused text-only popover", async ({ input, text, tempo }) => {
   const user = userEvent.setup();
   const submit = vi.fn();
