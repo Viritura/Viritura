@@ -1,11 +1,9 @@
 /**
  * Text-font family resolution for render commands.
  *
- * The engine emits `DrawText { font: "serif" }` (optionally followed by style
- * words such as `"serif italic"`). Libertinus Serif is registered under a
- * private family name so embedding pages keep their own generic `serif`
- * font; the generic family remains the fallback when the private face is not
- * loaded (for example when a host opts out of font loading).
+ * Engine families (optionally followed by style words) map bundled Libertinus
+ * Serif to a private family name. Sans-serif uses
+ * installed Arial or the platform fallback, without a bundled sans face.
  */
 
 /** Private FontFace family under which Libertinus Serif is registered. */
@@ -15,6 +13,7 @@ const SERIF_STACK = `"${TEXT_FONT_FAMILY}", serif`;
 
 /** Map a render-command family name to a CSS font-family list. */
 export function canvasFontFamily(family: string): string {
+  if (family === "sans-serif") return "Arial, sans-serif";
   return family === "serif" ? SERIF_STACK : family;
 }
 

@@ -20,7 +20,7 @@ interface KeyRun {
   glyphs: DrawGlyph[];
 }
 
-type KeyClefSign = "G" | "F" | "C";
+type KeyClefSign = "G" | "F" | "C" | "P";
 
 export interface StickyClefContext {
   x: number;
@@ -157,10 +157,10 @@ export function extractStickyClefContexts(
       matching.length === 0
         ? bound.x
         : matching.reduce((best, x) => (Math.abs(x - bound.x) < Math.abs(best - bound.x) ? x : best));
-    const sign = bound.clefSign === "P" ? "G" : bound.clefSign;
+    const sign = bound.clefSign;
     result[index]!.push({ x: clefX, sign });
     for (const change of bound.clefChanges ?? []) {
-      result[index]!.push({ x: change.x, sign: change.sign === "P" ? "G" : change.sign });
+      result[index]!.push({ x: change.x, sign: change.sign });
     }
   }
   for (const contexts of result) contexts.sort((a, b) => a.x - b.x);
@@ -209,6 +209,7 @@ export function stickyKeyWidth(
 }
 
 export function clefSignFromGlyph(codepoint: number): KeyClefSign {
+  if (codepoint === 0xe069 || codepoint === 0xe06a) return "P";
   if (codepoint >= 0xe05c && codepoint <= 0xe061) return "C";
   if (codepoint >= 0xe062 && codepoint <= 0xe068) return "F";
   return "G";
@@ -217,6 +218,7 @@ export function clefSignFromGlyph(codepoint: number): KeyClefSign {
 const keyPositions = new Map<string, readonly number[]>();
 
 function positionsForClef(signature: StickyKeySignature, sign: KeyClefSign): readonly number[] {
+  if (sign === "P") return [];
   const count = signature.glyphs.length;
   const fifths = signature.glyphs[0]!.codepoint === SHARP ? count : -count;
   const cacheKey = `${sign}:${fifths}`;
@@ -239,7 +241,7 @@ export function paintStickyKeySignature(
   snapContentPoint?: (x: number, y: number) => { x: number; y: number },
 ): void {
   const first = signature?.glyphs[0];
-  if (!signature || !first) return;
+  if (!signature || !first || sign === "P") return;
   const positions = sign === sourceSign ? undefined : positionsForClef(signature, sign);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";

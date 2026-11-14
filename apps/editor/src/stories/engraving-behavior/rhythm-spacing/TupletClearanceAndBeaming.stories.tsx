@@ -13,8 +13,7 @@ export const AdjacentTripletsBreakBeam: StoryObj = {
     // Half note followed by two separate eighth-note triplets (Rhapsody m20
     // string pattern). Both triplets sit in the second half-measure, where
     // plain eighths would normally beam together. Standard engraving practice
-    // beams each tuplet independently, so the two triplets must break the beam
-    // between them rather than sharing one beam across the bracket boundary.
+    // separates these triplets at their intervening quarter-note beat.
     const triplet = (steps: string[]) => ({
       type: "tuplet",
       inner: { multiple: 3, duration: { base: "eighth" } },
@@ -53,6 +52,45 @@ export const AdjacentTripletsBreakBeam: StoryObj = {
     return <ScorePreview mnxJson={mnx} />;
   },
   name: "Adjacent triplets break the beam",
+};
+
+export const SixteenthTripletsShareBeat: StoryObj = {
+  name: "Sixteenth triplets share a quarter-note beam",
+  render: () => {
+    const triplet = (steps: (string | null)[]) => ({
+      type: "tuplet",
+      inner: { multiple: 3, duration: { base: "16th" } },
+      outer: { multiple: 2, duration: { base: "16th" } },
+      content: steps.map((step) => ({
+        duration: { base: "16th" },
+        ...(step ? { notes: [{ pitch: { step, octave: 5 } }] } : { rest: {} }),
+      })),
+    });
+    const mnx = JSON.stringify({
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    { duration: { base: "half" }, rest: {} },
+                    triplet([null, "G", "A"]),
+                    triplet(["B", "C", "D"]),
+                    triplet(["E", "F", "G"]),
+                    { duration: { base: "eighth" }, notes: [{ pitch: { step: "A", octave: 5 } }] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    return <ScorePreview mnxJson={mnx} />;
+  },
 };
 
 export const TripletBracketClearsArticulations: StoryObj = {

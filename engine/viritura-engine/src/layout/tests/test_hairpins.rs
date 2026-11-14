@@ -7,6 +7,328 @@ use crate::layout::{layout_score, layout_with_mnx_scores_cached};
 use crate::render::*;
 use std::collections::HashSet;
 
+fn tuplet_dynamic_lane_document(above: bool, bracket: bool, avoid: bool) -> serde_json::Value {
+    let tuplets: Vec<_> =
+        (0..2)
+            .map(|group| {
+                let notes: Vec<_> = ["C", "D", "E", "F", "G"]
+                .iter()
+                .map(|step| serde_json::json!({
+                    "duration": {"base": "16th"},
+                    "notes": [{"pitch": {"step": step, "octave": if above { 4 } else { 5 }}}]
+                }))
+                .collect();
+                serde_json::json!({
+                    "type": "tuplet",
+                    "inner": {"multiple": 5, "duration": {"base": "16th"}},
+                    "outer": {"multiple": 4, "duration": {"base": "16th"}},
+                    "placement": if (group == 1) == above { "above" } else { "below" },
+                    "bracket": if bracket { "yes" } else { "no" },
+                    "content": notes
+                })
+            })
+            .chain(std::iter::once(serde_json::json!({
+                "duration": {"base": "quarter"},
+                "notes": [{"pitch": {"step": "A", "octave": if above { 4 } else { 5 }}}]
+            })))
+            .collect();
+    let placement = if above { "above" } else { "below" };
+    serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{"id": "m0", "time": {"count": 3, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "sequences": [{"content": tuplets}],
+            "dynamics": [
+                {"id": "quiet", "type": "immediate", "value": "p",
+                 "position": {"fraction": [0, 1]}, "placement": placement},
+                {"id": "grow", "type": "gradual", "wedgeType": "increasing",
+                 "position": {"fraction": [0, 1]},
+                 "end": {"measure": "m0", "position": {"fraction": [1, 2]}},
+                 "placement": placement, "_x": {"viritura": {"avoidCollisions": avoid}}},
+                {"id": "loud", "type": "immediate", "value": "f",
+                 "position": {"fraction": [1, 2]}, "placement": placement}
+            ]
+        }]}]
+    })
+}
+
+fn tuplet_dynamic_lane_score(above: bool, bracket: bool, avoid: bool) -> crate::model::Score {
+    crate::parse::parse_mnx(&tuplet_dynamic_lane_document(above, bracket, avoid).to_string())
+        .unwrap()
+}
+
+#[test]
+fn dynamics_lane_clears_tuplet_numbers_and_brackets() {
+    let config = LayoutConfig {
+        sp: 10.0,
+        ..LayoutConfig::default()
+    };
+    for (above, bracket, octave) in [
+        (false, false, 5),
+        (false, true, 5),
+        (true, false, 4),
+        (true, true, 4),
+        (false, true, 3),
+        (true, true, 6),
+    ] {
+        let mut document = tuplet_dynamic_lane_document(above, bracket, true);
+        document["parts"][0]["measures"][0]["sequences"][0]["content"][2]["notes"][0]["pitch"]
+            ["octave"] = serde_json::json!(octave);
+        let score = crate::parse::parse_mnx(&document.to_string()).unwrap();
+        let mut cache = LayoutCache::new();
+        let display = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let warm = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        assert_eq!(
+            serde_json::to_value(&display).unwrap(),
+            serde_json::to_value(&warm).unwrap()
+        );
+        let tuplets: Vec<_> = display
+            .element_shapes
+            .iter()
+            .filter(|shape| shape.kind == ElementKind::Tuplet)
+            .filter_map(|shape| shape.bbox(&display.commands))
+            .collect();
+        assert!(!tuplets.is_empty());
+        let wedge = display
+            .element_bboxes
+            .iter()
+            .find(|element| element.element_id.ends_with("/hairpingrow"))
+            .unwrap();
+        let gap = 0.5 * config.sp;
+        for tuplet in &tuplets {
+            if above {
+                assert!(
+                    wedge.bbox.y + wedge.bbox.height <= tuplet.y - gap + 0.01,
+                    "above hairpin must clear tuplet ink: {:?} vs {tuplet:?}",
+                    wedge.bbox
+                );
+            } else {
+                assert!(
+                    wedge.bbox.y >= tuplet.y + tuplet.height + gap - 0.01,
+                    "below hairpin must clear tuplet ink: {:?} vs {tuplet:?}",
+                    wedge.bbox
+                );
+            }
+        }
+        let spine = display
+            .commands
+            .iter()
+            .zip(&display.element_ids)
+            .find_map(|(command, id)| match command {
+                RenderCommand::DrawLine { y1, .. }
+                    if id.as_ref().is_some_and(|id| id.ends_with("/hairpingrow")) =>
+                {
+                    Some(*y1)
+                }
+                _ => None,
+            })
+            .unwrap();
+        for suffix in ["/dynquiet", "/dynloud"] {
+            let baseline = display
+                .commands
+                .iter()
+                .zip(&display.element_ids)
+                .find_map(|(command, id)| match command {
+                    RenderCommand::DrawGlyph { y, .. }
+                        if id.as_ref().is_some_and(|id| id.ends_with(suffix)) =>
+                    {
+                        Some(*y)
+                    }
+                    _ => None,
+                })
+                .unwrap();
+            assert!(
+                (baseline - 0.5 * config.sp - spine).abs() < 0.01,
+                "endpoint dynamics must move with the hairpin"
+            );
+        }
+    }
+}
+
+#[test]
+fn tuplet_clearance_keeps_chained_hairpins_aligned() {
+    let mut document = tuplet_dynamic_lane_document(false, true, true);
+    let content = document["parts"][0]["measures"][0]["sequences"][0]["content"]
+        .as_array_mut()
+        .unwrap();
+    let third = content[1].clone();
+    content[1]["placement"] = serde_json::json!("above");
+    content[2] = third;
+    let dynamics = document["parts"][0]["measures"][0]["dynamics"]
+        .as_array_mut()
+        .unwrap();
+    dynamics[1]["end"]["position"]["fraction"] = serde_json::json!([1, 4]);
+    dynamics[2]["position"]["fraction"] = serde_json::json!([1, 4]);
+    dynamics.push(serde_json::json!({
+        "id": "fade", "type": "gradual", "wedgeType": "decreasing",
+        "position": {"fraction": [1, 4]},
+        "end": {"measure": "m0", "position": {"fraction": [3, 4]}},
+        "placement": "below"
+    }));
+    dynamics.push(serde_json::json!({
+        "id": "end", "type": "immediate", "value": "pp",
+        "position": {"fraction": [3, 4]}, "placement": "below"
+    }));
+    let score = crate::parse::parse_mnx(&document.to_string()).unwrap();
+    let config = LayoutConfig {
+        sp: 10.0,
+        ..LayoutConfig::default()
+    };
+    let display = layout_score(&score, 0, &config);
+    let spines: Vec<_> = display
+        .commands
+        .iter()
+        .zip(&display.element_ids)
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawLine { y1, .. }
+                if id.as_ref().is_some_and(|id| id.ends_with("/hairpingrow")) =>
+            {
+                Some(*y1)
+            }
+            RenderCommand::DrawLine { y2, .. }
+                if id.as_ref().is_some_and(|id| id.ends_with("/hairpinfade")) =>
+            {
+                Some(*y2)
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(spines.len(), 4);
+    for pair in spines.windows(2) {
+        assert!(
+            (pair[0] - pair[1]).abs() < 0.01,
+            "chained hairpins must share their dynamics line: {spines:?}"
+        );
+    }
+}
+
+#[test]
+fn tuplet_dynamic_lanes_preserve_manual_positioning() {
+    let config = LayoutConfig {
+        sp: 10.0,
+        ..LayoutConfig::default()
+    };
+    let disabled = layout_score(&tuplet_dynamic_lane_score(false, true, false), 0, &config);
+    let mut manual_score = tuplet_dynamic_lane_score(false, true, true);
+    manual_score.parts[0].measures[0].dynamics.as_mut().unwrap()[1].manual_offset =
+        Some([0.0, 2.0]);
+    let manual = layout_score(&manual_score, 0, &config);
+    let automatic = layout_score(&tuplet_dynamic_lane_score(false, true, true), 0, &config);
+    let bounds = |display: &DisplayList, id: &str| {
+        display
+            .element_bboxes
+            .iter()
+            .find(|bbox| bbox.element_id.ends_with(id))
+            .unwrap()
+            .bbox
+            .clone()
+    };
+    assert!(bounds(&automatic, "/hairpingrow").y > bounds(&disabled, "/hairpingrow").y + config.sp);
+    for id in ["/dynquiet", "/dynloud"] {
+        assert_eq!(bounds(&manual, id), bounds(&disabled, id));
+        assert!(bounds(&automatic, id).y > bounds(&disabled, id).y);
+    }
+
+    let mut pinned_endpoint = tuplet_dynamic_lane_score(false, true, true);
+    pinned_endpoint.parts[0].measures[0]
+        .dynamics
+        .as_mut()
+        .unwrap()[0]
+        .avoid_collisions = Some(false);
+    let mut pinned_disabled = pinned_endpoint.clone();
+    pinned_disabled.parts[0].measures[0]
+        .dynamics
+        .as_mut()
+        .unwrap()[1]
+        .avoid_collisions = Some(false);
+    let pinned_disabled = layout_score(&pinned_disabled, 0, &config);
+    let pinned = layout_score(&pinned_endpoint, 0, &config);
+    for id in ["/dynquiet", "/dynloud"] {
+        assert_eq!(bounds(&pinned, id), bounds(&pinned_disabled, id));
+    }
+}
+
+#[test]
+fn paged_tuplet_dynamic_lane_stays_inside_printable_margins() {
+    let mut document = tuplet_dynamic_lane_document(false, true, true);
+    let sounding = document["parts"][0].clone();
+    let mut parts: Vec<_> = (0..7)
+        .map(|index| {
+            serde_json::json!({
+                "id": format!("rest-{index}"),
+                "measures": [{"sequences": [{"content": [{
+                    "duration": {"base": "half", "dots": 1}, "rest": {}
+                }]}]}]
+            })
+        })
+        .collect();
+    let mut sounding = sounding;
+    sounding["id"] = serde_json::json!("tuplet");
+    parts.push(sounding);
+    document["parts"] = serde_json::json!(parts);
+    let content: Vec<_> = (0..7)
+        .map(|index| {
+            serde_json::json!({
+                "type": "staff", "sources": [{"part": format!("rest-{index}")}]
+            })
+        })
+        .chain(std::iter::once(serde_json::json!({
+            "type": "staff", "sources": [{"part": "tuplet"}]
+        })))
+        .collect();
+    document["layouts"] = serde_json::json!([{"id": "L", "content": content}]);
+    document["scores"] = serde_json::json!([{"name": "Score", "layout": "L",
+        "pages": [{"systems": [{"measure": "m0"}]}]}]);
+    let score = crate::parse::parse_mnx(&document.to_string()).unwrap();
+    let config = LayoutConfig {
+        sp: 10.0,
+        page_width: Some(1000.0),
+        page_height: 130.0,
+        page_margin_top: 5.0,
+        page_margin_bottom: 5.0,
+        ..LayoutConfig::default()
+    };
+    let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    let bottom = (config.page_height - config.page_margin_bottom) * config.sp;
+    for element in &display.element_bboxes {
+        assert!(
+            element.bbox.y + element.bbox.height <= bottom + 0.01,
+            "{} crosses printable bottom: {:?}",
+            element.element_id,
+            element.bbox
+        );
+    }
+
+    document["layouts"][0]["content"]
+        .as_array_mut()
+        .unwrap()
+        .swap(0, 7);
+    let score = crate::parse::parse_mnx(&document.to_string()).unwrap();
+    let config = LayoutConfig {
+        page_height: 95.0,
+        ..config
+    };
+    let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    let next_staff = display
+        .measure_bounds
+        .iter()
+        .find(|bounds| bounds.staff_index == 1)
+        .unwrap();
+    for element in display.element_bboxes.iter().filter(|element| {
+        element.element_id.starts_with("p7/")
+            && (element.element_id.contains("/dyn") || element.element_id.contains("/hairpin"))
+    }) {
+        assert!(
+            next_staff.y - element.bbox.y - element.bbox.height
+                >= config.min_intra_staff_clearance * config.sp - 0.01,
+            "{} must retain interstaff clearance: {:?} vs next staff {}",
+            element.element_id,
+            element.bbox,
+            next_staff.y
+        );
+    }
+}
+
 #[test]
 fn test_hairpin_crescendo_render() {
     // Load hairpins.mnx: crescendo in m1, decrescendo in m2

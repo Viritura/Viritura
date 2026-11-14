@@ -1758,7 +1758,7 @@ fn test_rehearsal_mark_clears_multimeasure_rest_number() {
             .iter()
             .find_map(|c| match c {
                 RenderCommand::DrawText { y, text, font, .. }
-                    if text == "REHEARSAL" && font == "serif bold" =>
+                    if text == "REHEARSAL" && font == "sans-serif bold" =>
                 {
                     Some(*y)
                 }

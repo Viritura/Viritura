@@ -31,6 +31,92 @@ pub(super) struct SystemBreakPlan {
     pub(super) inter_system_gap: f64,
 }
 
+pub(super) fn forced_page_starts(
+    breaks: &[LayoutBreak],
+    measure_index_by_id: &HashMap<&str, usize>,
+    plan: &SystemBreakPlan,
+    mmr: &MmrPlan,
+) -> Vec<usize> {
+    breaks
+        .iter()
+        .filter(|entry| entry.kind == LayoutBreakKind::Page)
+        .filter_map(|entry| measure_index_by_id.get(entry.measure.as_str()))
+        .filter_map(|measure_index| {
+            plan.systems.iter().position(|system| {
+                system
+                    .first()
+                    .is_some_and(|&vi| mmr.visible_indices[vi] == *measure_index)
+            })
+        })
+        .collect()
+}
+
+pub(super) fn fit_tempo_system_breaks(
+    plan: &mut SystemBreakPlan,
+    resolved: &[super::resolve_condensing::ResolvedStaffSnapshot],
+    budget: &MeasureWidthBudget,
+    mmr: &MmrPlan,
+    forced_starts: &[usize],
+    config: &LayoutConfig,
+) {
+    let Some(first_width) = plan.content_width_first else {
+        return;
+    };
+    let Some(staff) = resolved.first() else {
+        return;
+    };
+    let demands: Vec<_> = mmr
+        .visible_indices
+        .iter()
+        .enumerate()
+        .map(|(vi, &mi)| {
+            render_annotations::measure_tempo_fit_width(
+                &staff[mi],
+                budget.natural_widths[vi],
+                config,
+                config.sp,
+            )
+        })
+        .collect();
+    loop {
+        let overflow = plan.systems.iter().enumerate().find_map(|(si, measures)| {
+            let available = if si == 0 {
+                first_width
+            } else {
+                plan.content_width_subseq.unwrap_or(first_width)
+            };
+            let fitted = system::enforce_tempo_system_breaks(
+                vec![measures.clone()],
+                &budget.natural_widths,
+                &demands,
+                available,
+            );
+            (fitted.len() > 1).then(|| (si, fitted[0].len()))
+        });
+        let Some((si, offset)) = overflow else { break };
+        let start = plan.systems[si][offset];
+        plan.systems.truncate(si + 1);
+        plan.systems[si].truncate(offset);
+        let local_forced: Vec<_> = forced_starts
+            .iter()
+            .filter_map(|&index| index.checked_sub(start))
+            .collect();
+        let available = plan.content_width_subseq.unwrap_or(first_width);
+        // Recast the suffix rather than stranding the tempo's bar on its own
+        // system before the next, already-cast line.
+        plan.systems.extend(
+            break_into_systems_with_forced_starts(
+                &budget.natural_widths[start..],
+                available,
+                available,
+                &local_forced,
+            )
+            .into_iter()
+            .map(|system| system.into_iter().map(|index| start + index).collect()),
+        );
+    }
+}
+
 /// Deterministic stitched-horizon partition sized by accumulated **natural**
 /// measure widths. Chunk seams are suppressed downstream, so their only job is
 /// bounding retention/transfer work.

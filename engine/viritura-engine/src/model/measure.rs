@@ -1,7 +1,7 @@
 use super::barline::Barline;
 use super::beam::Beam;
 use super::chord_symbol::ChordSymbol;
-use super::clef::{PositionedClef, RhythmicPosition};
+use super::clef::{Clef, ClefSign, PositionedClef, RhythmicPosition};
 use super::direction::{
     Coda, DynamicGroup, Fine, Jump, MarkerTexts, MultiStaffPlacement, Ottava, Pedal, RehearsalMark,
     Segno, Tempo, TextExpression,
@@ -42,6 +42,9 @@ pub struct GlobalMeasureExtensions {
     pub chord_symbols: Option<Vec<ChordSymbol>>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "systemText")]
     pub system_text: Option<Vec<super::system_text::SystemText>>,
+    /// Playback metadata retained unchanged to identify its printed label.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "gradualTempo")]
+    pub gradual_tempo: Option<serde_json::Value>,
 }
 
 /// A global measure — score-wide properties (MNX global.measures[n]).
@@ -109,6 +112,17 @@ pub struct GlobalCaesura {
 // patch flow). See `docs/spec/data-model-pipeline.md`.
 
 impl GlobalMeasure {
+    pub fn tempo_ramp_text_id(&self) -> Option<&str> {
+        self.extensions
+            .as_ref()?
+            .viritura
+            .as_ref()?
+            .gradual_tempo
+            .as_ref()?
+            .get("systemTextId")?
+            .as_str()
+    }
+
     pub fn system_text(&self) -> Option<&[super::system_text::SystemText]> {
         self.extensions
             .as_ref()?
@@ -322,6 +336,9 @@ pub struct ResolvedMeasure {
     /// accidentals (e.g. a change to an open/atonal key must show the previous
     /// signature being cancelled). Equals `active_key` when no change occurs.
     pub prev_key: KeySignature,
+    /// Courtesy signatures after the system-end barline. Derived only for the
+    /// outgoing measure at a true system break.
+    pub(crate) system_end: SystemEndCourtesy,
     /// IDs of notes tied into this measure from an earlier measure. These
     /// continuations suppress automatic accidental spacing unless the renderer
     /// elects to show a courtesy accidental at a system start.
@@ -352,6 +369,30 @@ pub struct ResolvedMeasure {
     /// resolution leaves this `None` since a single `PartMeasure` can carry
     /// several staves with different effective meters.
     pub effective_staff_meter: Option<crate::model::staff_meter::EffectiveStaffMeter>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct CourtesyKeySignature {
+    pub(crate) key: KeySignature,
+    pub(crate) clef_sign: ClefSign,
+}
+
+/// Courtesy furniture at a system break: a clef before the system-end barline,
+/// and key and time signatures after it on staff lines that extend past it.
+/// The slot widths are shared by every staff of the system, including staves
+/// that show nothing, so barlines, beat columns, and courtesy meters align.
+#[derive(Debug, Clone, Default, Serialize)]
+pub(crate) struct SystemEndCourtesy {
+    pub(crate) clef: Option<Clef>,
+    /// Widest courtesy clef plus barline clearance on any staff, in staff
+    /// spaces, reserved inside the outgoing measure before its barline.
+    pub(crate) clef_slot_sp: f64,
+    pub(crate) key: Option<CourtesyKeySignature>,
+    pub(crate) time: Option<TimeSignature>,
+    /// Widest courtesy key on any staff of the system, in staff spaces.
+    pub(crate) key_slot_sp: f64,
+    /// Staff-line extension beyond the barline, in staff spaces.
+    pub(crate) suffix_sp: f64,
 }
 
 impl ResolvedMeasure {

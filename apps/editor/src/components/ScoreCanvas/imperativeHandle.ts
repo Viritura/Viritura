@@ -64,6 +64,7 @@ export function buildScoreCanvasHandle(args: ImperativeHandleArgs): ScoreCanvasH
         selectedScoreIndex,
         docScoreRef.current?.layouts,
         docScoreRef.current?.parts?.length,
+        docScoreRef.current?.pageSetupDefaults,
       );
       return {
         ...defaults,

@@ -9,8 +9,10 @@ use crate::render::*;
 mod chord_symbols;
 #[path = "render_annotations/curve_clearance.rs"]
 mod curve_clearance;
+mod dynamic_lane;
 #[path = "render_annotations/dynamics.rs"]
 mod dynamics;
+pub(super) use dynamic_lane::{clear_tuplet_lane, placed_dynamic_midline, DynamicLane};
 #[path = "render_annotations/expressions.rs"]
 mod expressions;
 mod global_caesuras;
@@ -72,8 +74,9 @@ pub(crate) use text_content::{content_width, emit_content};
 
 #[allow(unused_imports)] // Preserve the annotation barrel API for geometry and test consumers.
 pub(crate) use tempo::{
-    global_tempo_widths, measure_tempo_width, render_tempo_markings, resolve_tempo_placement,
-    resolved_tempo_widths, tempo_marking_width, tempo_metronome_runs, TempoRun,
+    global_tempo_widths, measure_tempo_fit_width, measure_tempo_width, render_tempo_markings,
+    resolve_tempo_placement, resolved_tempo_widths, tempo_marking_width, tempo_metronome_runs,
+    TempoRun,
 };
 
 /// Lift above-staff performance directions (expression text such as "arco",
@@ -277,10 +280,9 @@ fn clear_below_ceiling(bottom: f64, ceiling: Option<f64>, clearance: f64) -> f64
 ///   a third stops well short of the midpoint, where attachment turns
 ///   ambiguous. With only rests on a side (no neighbouring note to confuse it
 ///   with) the cap relaxes to the note-area start / measure edge.
-/// * **Tempo** (`is_tempo == true`) applies to the whole bar (rests included),
-///   so it ignores note anchoring entirely and may slide anywhere within the
-///   bar's horizontal padding — from the downbeat (note-area start) to the
-///   barline (measure right edge).
+/// * **Tempo** (`is_tempo == true`) may consume bar whitespace. When the source
+///   tempo is known, `tempo_marking_envelope` additionally bounds cumulative
+///   movement relative to its original beat anchor.
 ///
 /// Substrate is frozen by the time this runs, so the envelope only *consumes*
 /// existing gaps; it never creates space (that is the separate, pre-freeze
@@ -330,9 +332,7 @@ pub(crate) fn neutral_x_envelope(
     let barline = ml.x + ml.width;
 
     if is_tempo {
-        // A tempo change governs the whole bar — including its rests — so it is
-        // never anchored to a single note and may slide freely within the bar's
-        // horizontal padding, from the downbeat to the barline.
+        // Fallback for callers without source-tempo metadata.
         let min_left = tempo_note_area_start.min(left);
         let max_left = (barline - width).max(left);
         return (min_left, max_left);
@@ -727,7 +727,10 @@ pub(crate) fn flow_above_staff_dependents(
         // trigger (a) of the slide spec: "runs into the right page margin."
         if !m.eid.ends_with("/caesura") && system_right.is_finite() && right > system_right + 1e-6 {
             let (min_left, _max_left) =
-                neutral_x_envelope(measure_layouts, left, right, sp, m.rank == tempo_rank);
+                tempo::tempo_marking_envelope(measure_layouts, &m.eid, left, right, sp)
+                    .unwrap_or_else(|| {
+                        neutral_x_envelope(measure_layouts, left, right, sp, m.rank == tempo_rank)
+                    });
             let overflow = right - system_right;
             let dx = (min_left - left).max(-overflow);
             if dx < -1e-6 {
@@ -747,7 +750,10 @@ pub(crate) fn flow_above_staff_dependents(
             );
             if dy_slur > 0.0 {
                 let (min_left, max_left) =
-                    neutral_x_envelope(measure_layouts, left, right, sp, true);
+                    tempo::tempo_marking_envelope(measure_layouts, &m.eid, left, right, sp)
+                        .unwrap_or_else(|| {
+                            neutral_x_envelope(measure_layouts, left, right, sp, true)
+                        });
                 if let Some(dx) = horizontal_dodge_clear(
                     &slurs,
                     left,
@@ -781,7 +787,9 @@ pub(crate) fn flow_above_staff_dependents(
         // dodge is taken ONLY when it fully clears (otherwise Stage B lifts as
         // before), so it never worsens placement.
         if m.eid.contains("/tempo") && !rehearsal_boxes.is_empty() {
-            let (min_left, max_left) = neutral_x_envelope(measure_layouts, left, right, sp, true);
+            let (min_left, max_left) =
+                tempo::tempo_marking_envelope(measure_layouts, &m.eid, left, right, sp)
+                    .unwrap_or_else(|| neutral_x_envelope(measure_layouts, left, right, sp, true));
             let side_gap = 0.3 * sp;
             if let Some(dx) = horizontal_dodge_clear_boxes(
                 &rehearsal_boxes,

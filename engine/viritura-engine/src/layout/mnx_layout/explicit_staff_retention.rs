@@ -177,6 +177,7 @@ pub(super) fn render_system_staves_and_contents(
             let hash = staff_content_render_hash(
                 &all_staff_layouts[staff_idx],
                 &content_hashes,
+                &score.global.measures,
                 staff_y_offsets,
                 next_sys_clef_per_staff[staff_idx],
                 margin_left,
@@ -204,7 +205,6 @@ pub(super) fn render_system_staves_and_contents(
             flat_staves,
             measure_staves.get(staff_idx),
             staff_y_offsets,
-            next_sys_clef_per_staff,
             score,
             lyric_line_order,
             sp,

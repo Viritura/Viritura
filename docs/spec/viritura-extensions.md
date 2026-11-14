@@ -11,21 +11,21 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                       | Extensions                                                                                                                   |
-| -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks, textFrames                                                                   |
-| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                            |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                      |
-| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                      |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                            |
-| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                        |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                 |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                                   |
-| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                         |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                        |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                     |
+| MNX Object                                   | JSON Path                                       | Extensions                                                                                                                                      |
+| -------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, pageSetupDefaults, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, pageSetupRole, instrumentNameDisplay, autoHideEmptyParts, layoutBreaks, textFrames                                                   |
+| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                                               |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                                         |
+| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                                         |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                                               |
+| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                                           |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                                   |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                                    |
+| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                                                      |
+| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                                            |
+| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                                           |
+| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                                        |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -359,6 +359,8 @@ owning measure. The editor creates, moves and removes that owned label with
 the ramp while preserving other system text. Printed wording has no implicit
 playback effect: rit., rall., accel., stringendo and custom text use the same
 explicit target and curve controls. An empty label creates a playback-only ramp.
+Ramp-owned labels inherit the tempo text weight (bold by default); explicit
+rich-text weights override that default. Unrelated system text is unchanged.
 Deleting the owned printed label also removes its tempo ramp, so playback does
 not retain the deleted instruction. Unrelated system text and explicit tempo
 markings are preserved.
@@ -614,6 +616,41 @@ same policy directly: full-then-short, short-only, or hidden.
 }
 ```
 
+### `autoHideEmptyParts`
+
+Lists the part IDs eligible for automatic empty-staff hiding in this score
+view. Configure the list in **Engrave > Layouts > Auto-hide empty staves**.
+Checkboxes update immediately while layout runs in the background; rapid
+changes are coalesced into the latest selection.
+The setting is saved on the score definition, so a full score, condensed
+score, and individual part can have independent choices even if they share
+an MNX system layout.
+
+In paged views, an opted-in instrument is hidden on systems containing only
+unmarked rests or spaces, including the first system. All of a multi-staff
+instrument's staves must be empty. Notes, staff-specific text, dynamics,
+fermatas, other markings, and continuing hairpins, pedals, ottavas, slurs,
+or glissandos keep the instrument visible. Shared staves remain visible if
+any source is unselected or nonempty. At least one whole instrument remains on a silent
+system. Horizon views and score content are unchanged.
+
+Visibility is computed after system breaking and before pagination; it is
+not saved as a destructive removal or a manual system-layout override.
+Adding music automatically restores the instrument. Existing manually
+omitted staves remain omitted.
+
+```json
+{
+  "name": "Full Score",
+  "layout": "full-score",
+  "_x": {
+    "viritura": {
+      "autoHideEmptyParts": ["flute", "piano"]
+    }
+  }
+}
+```
+
 ## Source Part Extensions
 
 `_x.viritura` on an MNX source part (`parts[]`). Schema def: `part-extensions`.
@@ -731,6 +768,30 @@ layout staff. Chord events also have no `displayStaff` property.
 
 `_x.viritura` on the top-level score object. Schema def: `root-extensions`.
 
+### `pageSetupDefaults`
+
+Independent project page profiles keyed by `score` and `part`. Each profile uses
+the same shape as `scores[]._x.viritura.pageSetup`: width/height in millimetres,
+orientation, margins, `spatiumMm`, and optional page-turn settings.
+
+Settings > Page Defaults stores separate user profiles locally on this device.
+They are copied into new documents, not applied live to existing documents.
+Engrave > Layouts > Page setup for edits either project profile or the current
+layout's override. Project profiles apply to inheriting layouts, including newly
+created layouts. Custom layouts keep their effective settings unless the user
+explicitly selects **Replace custom layouts** when applying to all scores/parts.
+These changes are document edits and participate in saving, collaboration, and undo.
+
+Per-layout `pageSetup` values override the project profile. Resetting a layout
+removes that override. Explicit values are preserved on serialization even when
+equal to application defaults, so an A4 override over Letter stays A4 after reopening.
+
+The optional score-definition `pageSetupRole` (`score` or `part`) disambiguates
+solo-player extracts and section scores. New editor-created layouts record their
+role. Older documents retain layout-membership inference: a layout referencing
+fewer parts than the document total uses part defaults; otherwise score defaults.
+Missing project profiles retain the built-in A4 defaults.
+
 ### `metadata`
 
 Score-level bibliographic metadata (`score-metadata`). The engine consumes `title`, `subtitle`, `composer`, `arranger`, and `copyright`; the remaining fields are preserved verbatim from MusicXML import for round-tripping.
@@ -752,7 +813,12 @@ Score-level bibliographic metadata (`score-metadata`). The engine consumes `titl
 
 Per-document text style overrides (`text-styles`), keyed by role. Each entry is a partial [`text-style`](#text-style) merged over the engine's built-in stylesheet at layout time — a document only stores the properties it changes, so adding style properties never requires a model migration.
 
-Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, `tempo`, `pedalText`.
+Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, `tempo`, `rehearsalMark`, `pedalText`, `copyright`.
+
+`rehearsalMark` defaults to 2.8sp bold sans-serif. Sans-serif text uses
+`Arial, sans-serif` in the browser without bundling a sans-serif font.
+Per-mark rich-text formatting overrides the house style. Boxed and circled marks
+center their labels within the frame independently of the text alignment setting.
 
 #### `text-style`
 

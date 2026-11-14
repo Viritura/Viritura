@@ -41,6 +41,8 @@ export interface ProjectState {
   adapter: ProjectAdapter | null;
   /** User-approved local project root, absent for standalone or browser-only storage. */
   projectFolder: FileSystemDirectoryHandle | null;
+  /** Exact disk contents loaded or last saved for the active project. */
+  projectDiskBaseline: string | null;
   status: ProjectStatus | null;
   /** Commit log, newest first. Empty array in standalone mode. */
   log: CommitInfo[];
@@ -53,6 +55,7 @@ export interface ProjectState {
 
   /** Replace the active adapter and refresh derived state. */
   setAdapter(adapter: ProjectAdapter | null, projectFolder?: FileSystemDirectoryHandle): Promise<void>;
+  setProjectDiskBaseline(adapter: ProjectAdapter, json: string): void;
 
   /** Re-read status + log (typically after a commit or external change). */
   refresh(): Promise<void>;
@@ -82,6 +85,7 @@ export interface ProjectState {
 export const useProjectStore = create<ProjectState>((set, get) => ({
   adapter: null,
   projectFolder: null,
+  projectDiskBaseline: null,
   status: null,
   log: [],
   selection: { from: null, to: WORKING_TREE_SHA },
@@ -91,11 +95,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set({
       adapter,
       projectFolder: adapter ? (projectFolder ?? null) : null,
+      projectDiskBaseline: null,
       log: [],
       status: null,
       selection: { from: null, to: WORKING_TREE_SHA },
     });
     if (adapter) await get().refresh();
+  },
+
+  setProjectDiskBaseline(adapter, json) {
+    if (get().adapter === adapter) set({ projectDiskBaseline: json });
   },
 
   async refresh() {
@@ -271,7 +280,9 @@ export async function bootProjectFromHandle(opts: {
       scorePath: opts.scorePath,
     });
   }
+  const baseline = await adapter.readScore();
   await useProjectStore.getState().setAdapter(adapter, opts.rootHandle);
+  useProjectStore.getState().setProjectDiskBaseline(adapter, baseline);
   // Persist this project as a recent score so it shows up in the Start
   // Center / Open Recent menu. We resolve the file handle for the score so
   // the entry is fully self-contained even if the user later opens this

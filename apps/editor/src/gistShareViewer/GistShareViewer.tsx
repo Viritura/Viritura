@@ -180,7 +180,10 @@ const STAFF_SIZE_OPTIONS: readonly ScoreViewerStaffSizeOption[] = RASTRAL_SPATIU
 }));
 
 function defaultStaffSizeForScore(score: Score, scoreIndex: number): number {
-  return defaultPageSetupForScore(score.scores, scoreIndex, score.layouts, score.parts.length).spatiumMm * PAGE_SCALE;
+  return (
+    defaultPageSetupForScore(score.scores, scoreIndex, score.layouts, score.parts.length, score.pageSetupDefaults)
+      .spatiumMm * PAGE_SCALE
+  );
 }
 
 function collectPartIds(content: readonly LayoutContent[], result: Set<string>): void {

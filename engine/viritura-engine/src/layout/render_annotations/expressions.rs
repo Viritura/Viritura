@@ -103,7 +103,7 @@ pub(crate) fn render_text_expressions(
             let is_above = matches!(text.placement, Some(ExpressionPlacement::Above));
             if (is_above && ml.is_first_staff) || (!is_above && ml.is_last_staff) {
                 expressions.push((
-                    system_text_expression(text),
+                    system_text_expression(text, ml, config),
                     element_id::system_text(mi, &text.id),
                 ));
             }
@@ -610,9 +610,33 @@ fn expression_block(
     ))
 }
 
-fn system_text_expression(text: &SystemText) -> TextExpression {
+fn system_text_expression(
+    text: &SystemText,
+    ml: &MeasureLayout,
+    config: &LayoutConfig,
+) -> TextExpression {
+    let mut content = super::system_instruction::display_content(text);
+    if ml.resolved.global.tempo_ramp_text_id() == Some(text.id.as_str()) {
+        use crate::model::{TextContentChunk, TextWeight, TextWeightName};
+        let bold = config
+            .text_styles
+            .resolve(super::super::text_styles::TextRole::Tempo)
+            .bold;
+        for chunk in &mut content.0 {
+            if let TextContentChunk::Text(run) = chunk {
+                run.style
+                    .get_or_insert_with(Default::default)
+                    .weight
+                    .get_or_insert(TextWeight::Named(if bold {
+                        TextWeightName::Bold
+                    } else {
+                        TextWeightName::Normal
+                    }));
+            }
+        }
+    }
     TextExpression {
-        text: super::system_instruction::display_content(text),
+        text: content,
         frame: text.frame.clone(),
         position: text.position.clone(),
         placement: text.placement,
@@ -653,7 +677,7 @@ pub(crate) fn system_text_vertical_extras(
     let side_bearing = metrics.padding.horizontal * sp;
 
     for text in texts {
-        let expression = system_text_expression(text);
+        let expression = system_text_expression(text, ml, config);
         let is_above = matches!(text.placement, Some(ExpressionPlacement::Above));
         let block = expression_block(&expression, font_size, sp);
         let text_width = block.as_ref().map_or_else(

@@ -778,6 +778,102 @@ fn test_barline_tagging_heavy_barline() {
 }
 
 #[test]
+fn double_barline_after_collapsed_rests_keeps_both_strokes() {
+    let score = parse_mnx(r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}},
+            {"id": "m1", "barline": {"type": "double"}}, {"id": "m2"}
+        ]},
+        "parts": [{"id": "P1", "measures": [
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}]}]}
+        ]}],
+        "layouts": [{"id": "part", "content": [{"type": "staff", "sources": [{"part": "P1"}]}]}],
+        "scores": [{"name": "Part", "layout": "part"}]
+    }"#).unwrap();
+    let stroke_count = |dl: &DisplayList, id: &str| {
+        let mut xs: Vec<_> = dl
+            .commands
+            .iter()
+            .enumerate()
+            .filter_map(|(index, command)| {
+                if dl.element_ids[index].as_deref() != Some(id) {
+                    return None;
+                }
+                match command {
+                    RenderCommand::DrawLine { x1, x2, .. } if (x1 - x2).abs() < 1e-6 => Some(*x1),
+                    _ => None,
+                }
+            })
+            .collect();
+        xs.sort_by(f64::total_cmp);
+        xs.dedup_by(|left, right| (*left - *right).abs() < 1e-6);
+        xs.len()
+    };
+    for page_width in [None, Some(900.0)] {
+        let config = LayoutConfig {
+            multimeasure_rests: true,
+            page_width,
+            ..LayoutConfig::default()
+        };
+        for (path, dl) in [
+            ("part", layout_score(&score, 0, &config)),
+            ("logical part", layout_with_mnx_scores(&score, &config, 0)),
+        ] {
+            assert!(
+                dl.element_bboxes
+                    .iter()
+                    .any(|entry| entry.element_id == "m0/mmrcount"),
+                "{path} must actually collapse the two rests"
+            );
+            assert_eq!(
+                stroke_count(&dl, "m2/barline"),
+                2,
+                "{path}, page_width={page_width:?}: double barline must survive the collapsed rest"
+            );
+        }
+    }
+    let mut split = score;
+    split.scores[0].multimeasure_rests = vec![MultimeasureRestRange {
+        start: "m0".into(),
+        duration: 2,
+        label: None,
+    }];
+    split.scores[0].pages = serde_json::from_value(serde_json::json!([{"systems": [
+        {"measure": "m0", "layout": "part"}, {"measure": "m2", "layout": "part"}
+    ]}]))
+    .unwrap();
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        page_width: Some(900.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = crate::layout::cache::LayoutCache::default();
+    for (kind, expected_strokes) in [
+        (BarlineType::Regular, 1),
+        (BarlineType::Double, 2),
+        (BarlineType::Double, 2),
+    ] {
+        split.global.measures[1].barline = Some(Barline { barline_type: kind });
+        let dl = crate::layout::layout_with_mnx_scores_cached(&split, &config, 0, Some(&mut cache));
+        assert!(dl
+            .element_bboxes
+            .iter()
+            .any(|entry| entry.element_id == "m0/mmrcount"));
+        assert_eq!(stroke_count(&dl, "m2/barline"), expected_strokes,
+            "a collapsed rest's system-end boundary must retain the real measure ID and update on a warm cache");
+        assert!(
+            !dl.element_ids
+                .iter()
+                .any(|id| id.as_deref() == Some("m1/barline")),
+            "a hidden interior boundary must not receive the visible barline's selection ID"
+        );
+    }
+}
+
+#[test]
 fn test_barline_tagging_double_barline() {
     // Double barline produces 2 DrawLine commands; both should be tagged
     let json = r#"{

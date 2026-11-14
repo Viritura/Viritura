@@ -165,7 +165,7 @@ fn compute_page_breaks_full(
 
         // Page 1 has less usable space due to title block
         let usable_height = if pages.is_empty() {
-            base_usable_height - title_height_px
+            base_usable_height - title_height_px - config.first_page_footer_height
         } else {
             base_usable_height
         };
@@ -223,7 +223,7 @@ fn compute_page_breaks_full(
             system_heights,
             &gap_cost,
             base_usable_height,
-            title_height_px,
+            title_height_px + config.first_page_footer_height,
         );
     }
 

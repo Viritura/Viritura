@@ -277,6 +277,7 @@ pub(crate) fn resolve_measures_for_staff(
                 active_time: rm.active_time,
                 active_key: rm.active_key,
                 prev_key: rm.prev_key,
+                system_end: Default::default(),
                 active_staff_lines: measure_staff_lines,
                 transposition: None,
                 written_diatonic_adjustment: 0,

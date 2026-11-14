@@ -41,6 +41,63 @@ describe("paintDisplayList", () => {
     ctx = createMockCtx();
   });
 
+  it("rotates glissando lettering about its anchor and restores the transform", () => {
+    paintDisplayList(ctx, {
+      width: 200,
+      height: 100,
+      commands: [
+        {
+          type: "DrawRotatedText",
+          x: 80,
+          y: 40,
+          text: "gliss.",
+          font: "serif italic",
+          size: 20,
+          color: "#000000",
+          align: "center",
+          baseline: "alphabetic",
+          rotation: -0.3,
+        },
+        {
+          type: "DrawText",
+          x: 100,
+          y: 80,
+          text: "normal",
+          font: "serif",
+          size: 20,
+          color: "#000000",
+          align: "left",
+          baseline: "alphabetic",
+        },
+      ],
+    });
+    expect(ctx.translate).toHaveBeenCalledWith(80, 40);
+    expect(ctx.rotate).toHaveBeenCalledExactlyOnceWith(-0.3);
+    expect(ctx.fillText).toHaveBeenNthCalledWith(1, "gliss.", 0, 0);
+    expect(ctx.restore).toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenNthCalledWith(2, "normal", 100, 80);
+  });
+
+  it("uses the Arial stack for sans-serif while retaining bundled serif text", () => {
+    const fonts: string[] = [];
+    ctx.fillText = () => {
+      fonts.push(ctx.font);
+    };
+    const commands: RenderCommand[] = ["sans-serif bold", "serif bold"].map((font) => ({
+      type: "DrawText",
+      x: 50,
+      y: 50,
+      text: "J",
+      font,
+      size: 28,
+      color: "#000000",
+      align: "center",
+      baseline: "alphabetic",
+    }));
+    paintDisplayList(ctx, { commands, width: 100, height: 100 });
+    expect(fonts).toEqual(["bold 28px Arial, sans-serif", 'bold 28px "Viritura Serif", serif']);
+  });
+
   it("should clear the canvas and fill white background", () => {
     const displayList: DisplayList = {
       commands: [],

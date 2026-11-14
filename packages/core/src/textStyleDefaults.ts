@@ -20,7 +20,7 @@ export interface ResolvedTextStyle {
  * source of truth (`textStyleDefaults.json`) — the Rust layout engine embeds
  * the same file (see `layout::text_styles::TextStylesheet::default`), so the
  * editor and the engine never drift. Roles: title, subtitle, composer,
- * lyricist, arranger, staffLabel, pageNumber, tempo, pedalText, copyright.
+ * lyricist, arranger, staffLabel, pageNumber, tempo, rehearsalMark, pedalText, copyright.
  */
 export const DEFAULT_TEXT_STYLES: Record<string, ResolvedTextStyle> = defaults as Record<string, ResolvedTextStyle>;
 

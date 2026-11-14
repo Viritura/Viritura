@@ -7,6 +7,192 @@ use crate::layout::page::*;
 use crate::parse::parse_mnx;
 use crate::render::*;
 
+fn explicit_score_spacing_fixture() -> crate::model::Score {
+    let mut parts: Vec<_> = (0..8)
+        .map(|index| {
+            serde_json::json!({
+                "id": format!("wind-{index}"), "name": format!("Wind {index}"),
+                "measures": [{"sequences": [{"content": [{
+                    "duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "B", "octave": 4}}]
+                }]}]}]
+            })
+        })
+        .collect();
+    parts.push(serde_json::json!({
+        "id": "piano", "name": "Piano", "staves": 2,
+        "measures": [{
+            "clefs": [{"staff": 2, "clef": {"sign": "F", "staffPosition": 2}}],
+            "dynamics": [{
+                "type": "immediate", "value": "ff", "staff": 2, "placement": "below",
+                "position": {"fraction": [0, 1]}
+            }],
+            "sequences": [
+                {"staff": 1, "content": [{
+                    "duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "C", "octave": 7}}]
+                }]},
+                {"staff": 2, "content": [{
+                    "duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "C", "octave": 2}}]
+                }]}
+            ]
+        }]
+    }));
+    let mut content: Vec<_> = (0..8)
+        .map(|index| {
+            serde_json::json!({
+                "type": "staff", "sources": [{"part": format!("wind-{index}")}]
+            })
+        })
+        .collect();
+    content.push(serde_json::json!({
+        "type": "group", "symbol": "brace", "content": [
+            {"type": "staff", "sources": [{"part": "piano", "staff": 1}]},
+            {"type": "staff", "sources": [{"part": "piano", "staff": 2}]}
+        ]
+    }));
+    parse_mnx(
+        &serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [{
+                "id": "m0", "time": {"count": 4, "unit": 4},
+                "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "A"}]}}}
+            }]},
+            "parts": parts, "layouts": [{"id": "L", "content": content}],
+            "scores": [{"name": "Score", "layout": "L", "pages": [
+                {"systems": [{"measure": "m0"}]}
+            ]}]
+        })
+        .to_string(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn test_explicit_score_page_fit_preserves_notation_clearance_and_outer_extents() {
+    let score = explicit_score_spacing_fixture();
+    for page_height in [105.0, 160.0] {
+        let config = LayoutConfig {
+            sp: 10.0,
+            page_width: Some(1000.0),
+            page_height,
+            page_margin_top: 5.0,
+            page_margin_bottom: 5.0,
+            emit_layout_debug: true,
+            ..LayoutConfig::default()
+        };
+        let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+        assert_eq!(display.pages.len(), 1);
+        let system = &display.layout_debug.as_ref().unwrap().systems[0];
+        let top = config.page_margin_top * config.sp;
+        let bottom = (page_height - config.page_margin_bottom) * config.sp;
+        assert!(
+            system.bbox_top_y >= top - 0.01,
+            "above-staff ink stays inside the margin"
+        );
+        assert!(
+            system.bbox_bottom_y <= bottom + 0.01,
+            "page {page_height}: below-staff ink {} exceeds {bottom}",
+            system.bbox_bottom_y
+        );
+        assert!(
+            system
+                .staff_pairs
+                .iter()
+                .all(|pair| pair.actual_gap + 0.01 >= pair.content_gap),
+            "page fitting must not clamp away content clearance"
+        );
+        assert!(display
+            .measure_bounds
+            .iter()
+            .all(|bound| (bound.height - 40.0).abs() < 0.01));
+        for element in &display.element_bboxes {
+            assert!(
+                element.bbox.y >= top - 0.01
+                    && element.bbox.y + element.bbox.height <= bottom + 0.01,
+                "page {page_height}: {} extends outside the printable area: {:?}",
+                element.element_id,
+                element.bbox
+            );
+        }
+    }
+}
+
+#[test]
+fn test_explicit_score_multiple_systems_preserve_page_breaks_and_insets() {
+    let mut score = explicit_score_spacing_fixture();
+    for index in 1..3 {
+        let mut global = score.global.measures[0].clone();
+        global.id = Some(format!("m{index}"));
+        score.global.measures.push(global);
+        for part in &mut score.parts {
+            part.measures.push(part.measures[0].clone());
+        }
+    }
+    let mut second = score.scores[0].pages[0].systems[0].clone();
+    second.measure = "m1".into();
+    score.scores[0].pages[0].systems.push(second);
+    let mut next_page = score.scores[0].pages[0].clone();
+    next_page.systems.truncate(1);
+    next_page.systems[0].measure = "m2".into();
+    score.scores[0].pages.push(next_page);
+    let config = LayoutConfig {
+        sp: 10.0,
+        page_width: Some(1000.0),
+        page_height: 350.0,
+        page_margin_top: 5.0,
+        page_margin_bottom: 5.0,
+        page_inset_top: crate::layout::config::PageInset::Manual(12.0),
+        page_inset_bottom: crate::layout::config::PageInset::Manual(12.0),
+        emit_layout_debug: true,
+        ..LayoutConfig::default()
+    };
+    let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    assert_eq!(display.pages.len(), 2);
+    assert_eq!(display.pages[0].system_indices, vec![0, 1]);
+    assert_eq!(display.pages[1].system_indices, vec![2]);
+    let systems = &display.layout_debug.as_ref().unwrap().systems;
+    assert!(systems[1].bbox_top_y >= systems[0].bbox_bottom_y + config.sp - 0.01);
+    for page in &display.pages {
+        let first = &systems[page.system_indices[0]];
+        let last = &systems[*page.system_indices.last().unwrap()];
+        let top = page.y_offset + config.page_margin_top * config.sp;
+        let bottom = page.y_offset + page.height - config.page_margin_bottom * config.sp;
+        assert!(first.staff_top_y >= top + 12.0 * config.sp - 0.01);
+        assert!(last.staff_bottom_y <= bottom - 12.0 * config.sp + 0.01);
+        for bound in display.measure_bounds.iter().filter(|bound| {
+            bound.y >= first.staff_top_y - 0.01 && bound.y <= last.staff_bottom_y + 0.01
+        }) {
+            assert!((bound.height - 40.0).abs() < 0.01);
+        }
+    }
+}
+
+#[test]
+fn test_explicit_score_cached_page_geometry_matches_fresh_layout() {
+    let score = explicit_score_spacing_fixture();
+    let config = LayoutConfig {
+        sp: 10.0,
+        page_width: Some(1000.0),
+        page_height: 105.0,
+        page_margin_top: 5.0,
+        page_margin_bottom: 5.0,
+        ..LayoutConfig::default()
+    };
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    let first = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let cached = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    assert_eq!(
+        serde_json::to_value(&first.measure_bounds).unwrap(),
+        serde_json::to_value(&cached.measure_bounds).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(&first.element_bboxes).unwrap(),
+        serde_json::to_value(&cached.element_bboxes).unwrap()
+    );
+}
+
 // ═══════════════════════════════════════════
 // lowest_point_in_measure / highest_point_in_measure
 // ═══════════════════════════════════════════

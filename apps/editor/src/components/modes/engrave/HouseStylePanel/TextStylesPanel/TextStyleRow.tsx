@@ -78,6 +78,7 @@ export function TextStyleRow({
             onChange={onChange}
             onReset={onReset}
             canReset={overridden}
+            fixedAlignment={role === "rehearsalMark"}
           />
         </div>
       )}

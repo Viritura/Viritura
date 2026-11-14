@@ -1576,7 +1576,145 @@ fn test_mixed_stems_defaults_above() {
 }
 
 #[test]
-fn test_mixed_stem_endpoint_does_not_tilt_against_pitch_direction() {
+fn test_mixed_stem_slur_clears_its_beamed_source() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 2, "unit": 4}}, {}
+        ]},
+        "parts": [{"measures": [{
+            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+            "sequences": [{"content": [
+                {"duration": {"base": "quarter"}, "rest": {}},
+                {"id": "src", "duration": {"base": "eighth"}, "stemDirection": "up",
+                 "notes": [{"pitch": {"step": "G", "octave": 4}}], "slurs": [{"target": "tgt", "side": "up"}]},
+                {"id": "inner", "duration": {"base": "eighth"}, "stemDirection": "up",
+                 "notes": [{"pitch": {"step": "B", "octave": 4}}]}
+            ]}]
+        }, {
+            "sequences": [{"content": [
+                {"id": "tgt", "duration": {"base": "quarter", "dots": 1}, "stemDirection": "down",
+                 "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+            ]}]
+        }]}]
+    }"#;
+    let below = json
+        .replace("\"side\": \"up\"", "\"side\": \"down\"")
+        .replace("\"stemDirection\": \"up\"", "\"stemDirection\": \"UP\"")
+        .replace("\"stemDirection\": \"down\"", "\"stemDirection\": \"up\"")
+        .replace("\"stemDirection\": \"UP\"", "\"stemDirection\": \"down\"")
+        .replace(
+            "\"step\": \"G\", \"octave\": 4",
+            "\"step\": \"F\", \"octave\": 5",
+        )
+        .replace(
+            "\"step\": \"B\", \"octave\": 4",
+            "\"step\": \"D\", \"octave\": 5",
+        );
+    let auto_above = json.replace(
+        "\"target\": \"tgt\", \"side\": \"up\"",
+        "\"target\": \"tgt\"",
+    );
+    for (json, dir) in [
+        (json, -1.0),
+        (auto_above.as_str(), -1.0),
+        (below.as_str(), 1.0),
+    ] {
+        let config = LayoutConfig::default();
+        let dl = layout_score(&parse_mnx(json).unwrap(), 0, &config);
+        let slur = dl
+            .commands
+            .iter()
+            .enumerate()
+            .find_map(|(i, command)| {
+                (dl.element_ids[i].as_deref() == Some("slur/src/tgt")
+                    && matches!(command, RenderCommand::DrawFilledBezier { .. }))
+                .then_some(command)
+            })
+            .expect("mixed-stem slur");
+        let mut stems: Vec<_> = dl
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawLine {
+                    x1,
+                    x2,
+                    y1,
+                    y2,
+                    width,
+                    ..
+                } if (x1 - x2).abs() < 1e-6
+                    && (y1 - y2).abs() > config.sp
+                    && (*width - config.stem_width * config.sp).abs() < 1e-6 =>
+                {
+                    Some((*x1, if dir < 0.0 { y1.min(*y2) } else { y1.max(*y2) }))
+                }
+                _ => None,
+            })
+            .collect();
+        stems.sort_by(|a, b| a.0.total_cmp(&b.0));
+        assert_eq!(
+            stems.len(),
+            3,
+            "expected the two beamed stems and target stem"
+        );
+        let RenderCommand::DrawFilledBezier { y1, .. } = slur else {
+            unreachable!()
+        };
+        assert!(
+            (y1 - stems[0].1) * dir >= -0.1 * config.sp,
+            "source tip must not drop inside the beam: slur={slur:?}, stems={stems:?}"
+        );
+        let inner_y = bezier_inner_y_at_x(slur, stems[1].0);
+        assert!(
+            (inner_y - stems[1].1) * dir >= 0.0,
+            "slur must clear the interior stem: slur={slur:?}, stems={stems:?}"
+        );
+        let beam = dl
+            .element_shapes
+            .iter()
+            .find(|shape| matches!(shape.kind, ElementKind::Beam))
+            .and_then(|shape| match shape.geom {
+                ShapeGeom::Cmd { cmd_idx } => dl.commands.get(cmd_idx as usize),
+                _ => None,
+            })
+            .expect("beam");
+        let RenderCommand::DrawPolygon { points, .. } = beam else {
+            panic!("expected beam polygon")
+        };
+        let RenderCommand::DrawFilledBezier { x1, x2, .. } = slur else {
+            unreachable!()
+        };
+        for sample in 1..10 {
+            let x = x1.max(stems[0].0)
+                + (stems[1].0.min(*x2) - x1.max(stems[0].0)) * f64::from(sample) / 10.0;
+            let mut ys = Vec::new();
+            for index in 0..points.len() {
+                let (ax, ay) = points[index];
+                let (bx, by) = points[(index + 1) % points.len()];
+                if (bx - ax).abs() > 1e-9 && x >= ax.min(bx) && x <= ax.max(bx) {
+                    ys.push(ay + (by - ay) * (x - ax) / (bx - ax));
+                }
+            }
+            if ys.is_empty() {
+                continue;
+            }
+            let beam_edge = if dir < 0.0 {
+                ys.into_iter().fold(f64::INFINITY, f64::min)
+            } else {
+                ys.into_iter().fold(f64::NEG_INFINITY, f64::max)
+            };
+            let slur_y = bezier_inner_y_at_x(slur, x);
+            assert!(
+                (slur_y - beam_edge) * dir >= 0.0,
+                "slur must clear the beam at x={x}: slur={slur:?}, beam={beam:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_mixed_stem_target_stays_near_stem_tip_when_contour_conflicts() {
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [{"time": {"count": 2, "unit": 4}}]},
@@ -1597,16 +1735,11 @@ fn test_mixed_stem_endpoint_does_not_tilt_against_pitch_direction() {
         .iter()
         .find(|command| is_draw_bezier(command))
         .expect("mixed-stem slur");
-    let (y1, y2) = super::test_helpers::bezier_endpoints_y(slur);
-
-    assert!(
-        y2 >= y1 - 1.0e-9,
-        "descending outer notes must not produce a rising slur chord: y1={y1}, y2={y2}"
-    );
+    assert_mixed_stem_tip_near_stem(&dl, slur, false);
 }
 
 #[test]
-fn test_mixed_stem_source_endpoint_does_not_tilt_against_pitch_direction() {
+fn test_mixed_stem_source_stays_near_stem_tip_when_contour_conflicts() {
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [{"time": {"count": 2, "unit": 4}}]},
@@ -1627,11 +1760,42 @@ fn test_mixed_stem_source_endpoint_does_not_tilt_against_pitch_direction() {
         .iter()
         .find(|command| is_draw_bezier(command))
         .expect("mixed-stem slur");
-    let (y1, y2) = super::test_helpers::bezier_endpoints_y(slur);
+    assert_mixed_stem_tip_near_stem(&dl, slur, true);
+}
 
+fn assert_mixed_stem_tip_near_stem(dl: &DisplayList, slur: &RenderCommand, source: bool) {
+    let config = LayoutConfig::default();
+    let mut stems: Vec<_> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawLine {
+                x1,
+                x2,
+                y1,
+                y2,
+                width,
+                ..
+            } if (x1 - x2).abs() < 1e-6
+                && (y1 - y2).abs() > config.sp
+                && (*width - config.stem_width * config.sp).abs() < 1e-6 =>
+            {
+                Some((*x1, y1.min(*y2)))
+            }
+            _ => None,
+        })
+        .collect();
+    stems.sort_by(|a, b| a.0.total_cmp(&b.0));
+    assert_eq!(stems.len(), 2);
+    let (y1, y2) = bezier_endpoints_y(slur);
+    let (tip_y, stem_y) = if source {
+        (y1, stems[0].1)
+    } else {
+        (y2, stems[1].1)
+    };
     assert!(
-        y2 <= y1 + 1.0e-9,
-        "ascending outer notes must not produce a descending slur chord: y1={y1}, y2={y2}"
+        (tip_y - stem_y).abs() <= 1.5 * config.sp,
+        "stem-side slur tip must remain near the stem tip: slur={slur:?}, stems={stems:?}"
     );
 }
 
@@ -3134,6 +3298,105 @@ fn test_accidental_does_not_lift_slur_apex() {
 }
 
 #[test]
+fn test_ascending_short_slur_encloses_tie_at_its_target() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+            "sequences": [{"content": [
+                {"duration":{"base":"16th"},"notes":[{"pitch":{"step":"G","octave":5}}]},
+                {"duration":{"base":"eighth"},"notes":[{"pitch":{"step":"A","octave":5}}]},
+                {"duration":{"base":"16th"},"notes":[{"pitch":{"step":"G","octave":5}}]},
+                {"duration":{"base":"eighth"},"notes":[{"pitch":{"step":"A","octave":5}}]},
+                {"id":"src","duration":{"base":"16th"},"notes":[{"pitch":{"step":"G","octave":5}}],"slurs":[{"target":"tied"}]},
+                {"id":"tied","duration":{"base":"16th"},"notes":[{"id":"n1","pitch":{"step":"D","octave":6},"ties":[{"target":"n2"}]}]},
+                {"id":"continuation","duration":{"base":"16th"},"notes":[{"id":"n2","pitch":{"step":"D","octave":6}}]},
+                {"duration":{"base":"16th"},"notes":[{"pitch":{"step":"G","octave":5}}]},
+                {"duration":{"base":"16th"},"notes":[{"pitch":{"step":"A","octave":5}}]},
+                {"duration":{"base":"16th"},"notes":[{"pitch":{"step":"B","octave":5}}]},
+                {"duration":{"base":"eighth"},"notes":[{"pitch":{"step":"A","octave":5}}]},
+                {"duration":{"base":"16th"},"notes":[{"pitch":{"step":"G","octave":5}}]},
+                {"duration":{"base":"16th"},"notes":[{"pitch":{"step":"G","octave":5}}]}
+            ]}]
+        }]}]
+    }"#;
+    let below = json
+        .replace("\"octave\":5", "\"octave\":3")
+        .replace("\"octave\":6", "\"octave\":4")
+        .replace(
+            "\"target\":\"tied\"",
+            "\"target\":\"tied\",\"side\":\"down\"",
+        )
+        .replace("\"target\":\"n2\"", "\"target\":\"n2\",\"side\":\"down\"");
+    for (json, curve_dir) in [(json, -1.0), (below.as_str(), 1.0)] {
+        let config = LayoutConfig::default();
+        let dl = layout_score(&parse_mnx(json).unwrap(), 0, &config);
+        let curve = |id: &str| {
+            dl.commands
+                .iter()
+                .enumerate()
+                .find_map(|(i, command)| {
+                    (dl.element_ids[i].as_deref() == Some(id)
+                        && matches!(command, RenderCommand::DrawFilledBezier { .. }))
+                    .then_some(command)
+                })
+                .unwrap_or_else(|| panic!("missing {id}"))
+        };
+        let slur = curve("slur/src/tied");
+        let tie = curve("tie/n1/n2");
+        let source_head = dl
+            .element_bboxes
+            .iter()
+            .find(|entry| entry.element_id == "p0/m0/s0/src/n0")
+            .expect("expected source notehead");
+        let target_head = dl
+            .element_bboxes
+            .iter()
+            .find(|entry| entry.element_id == "p0/m0/s0/continuation/n0")
+            .expect("expected tied continuation notehead");
+        let RenderCommand::DrawFilledBezier { y1, y2, .. } = slur else {
+            unreachable!();
+        };
+        let source_center = source_head.bbox.y + source_head.bbox.height * 0.5;
+        let target_center = target_head.bbox.y + target_head.bbox.height * 0.5;
+        assert!(
+            (y1 - source_center).abs() < 2.0 * config.sp,
+            "slur source must remain attached to its note: y1={y1}, note={source_center}"
+        );
+        assert!(
+            (y2 - target_center).abs() < 2.0 * config.sp,
+            "slur target must remain attached to its note: y2={y2}, note={target_center}"
+        );
+        let geometry = dl
+            .slur_geometries
+            .iter()
+            .find(|g| g.element_id == "slur/src/tied")
+            .unwrap();
+        assert!(
+            (geometry.p2_y - geometry.p3_y) * curve_dir > 0.0,
+            "slur should turn back toward its target: {geometry:?}"
+        );
+        let (left, right) = bezier_endpoints_x(tie);
+        let (slur_left, slur_right) = bezier_endpoints_x(slur);
+        assert!(
+            slur_left <= left && slur_right >= right,
+            "slur must enclose the tie: {slur:?} {tie:?}"
+        );
+        for sample in 1..20 {
+            let fraction = f64::from(sample) / 20.0;
+            let x = left + (right - left) * fraction;
+            let slur_y = bezier_inner_y_at_x(slur, x);
+            let tie_y = bezier_outer_y_at_x(tie, x);
+            assert!(
+                (slur_y - tie_y) * curve_dir >= 0.1 * config.sp,
+                "slur must clear tie at {fraction}: slur={slur_y} tie={tie_y}; {slur:?} {tie:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn test_outer_slur_clears_inner_tie_across_curve() {
     let json = r#"{
         "mnx": {"version": 1},
@@ -4139,6 +4402,211 @@ fn test_slur_end_anchors_at_notehead_not_augmentation_dot() {
         x2 >= target_nh_x - 0.5,
         "slur end x2={x2} should anchor at the target notehead x={target_nh_x}, not retreat from it"
     );
+}
+
+#[test]
+fn test_broken_slur_clears_the_sharps_in_an_ascending_run() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m45", "time": {"count": 4, "unit": 4}, "key": {"fifths": -3}},
+            {"id": "m46"}
+        ]},
+        "parts": [{"id": "P1", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "half"}, "rest": {}},
+                {"duration": {"base": "16th"}, "rest": {}},
+                {"id": "run-0", "duration": {"base": "16th"}, "notes": [{"pitch": {"step": "A", "octave": 5}}],
+                 "slurs": [{"target": "target"}]},
+                {"id": "run-1", "duration": {"base": "16th"}, "notes": [{"pitch": {"step": "B", "octave": 5, "alter": -1}}]},
+                {"id": "run-2", "duration": {"base": "16th"}, "notes": [{"pitch": {"step": "C", "octave": 6, "alter": 1}}]},
+                {"id": "run-3", "duration": {"base": "16th"}, "notes": [{"pitch": {"step": "D", "octave": 6}}]},
+                {"id": "run-4", "duration": {"base": "16th"}, "notes": [{"pitch": {"step": "E", "octave": 6}}]},
+                {"id": "run-5", "duration": {"base": "16th"}, "notes": [{"pitch": {"step": "F", "octave": 6, "alter": 1}}]},
+                {"id": "run-6", "duration": {"base": "16th"}, "notes": [{"pitch": {"step": "G", "octave": 6, "alter": 1}}]}
+            ]}]},
+            {"sequences": [{"content": [
+                {"id": "target", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "A", "octave": 6}}]}
+            ]}]}
+        ]}],
+        "layouts": [{"id": "flute", "content": [{"type": "staff", "sources": [{"part": "P1"}]}]}],
+        "scores": [{"name": "Flute", "pages": [{"systems": [
+            {"measure": "m45", "layout": "flute"}, {"measure": "m46", "layout": "flute"}
+        ]}]}]
+    }"#;
+    let config = LayoutConfig {
+        sp: 1.625 * 96.0 / 25.4,
+        page_width: Some(215.9 * 96.0 / 25.4),
+        ..LayoutConfig::default()
+    };
+    let dl = layout_with_mnx_scores(&parse_mnx(json).unwrap(), &config, 0);
+    let outgoing = dl
+        .commands
+        .iter()
+        .enumerate()
+        .find(|(index, _)| dl.element_ids[*index].as_deref() == Some("slur/run-0/target/lh"))
+        .map(|(_, command)| command)
+        .expect("outgoing slur half");
+    let RenderCommand::DrawFilledBezier { x1, x2, y1, y2, .. } = outgoing else {
+        panic!("expected a filled slur");
+    };
+    let mut checked = 0;
+    for shape in dl
+        .element_shapes
+        .iter()
+        .filter(|shape| matches!(shape.kind, ElementKind::Accidental))
+    {
+        let bbox = shape.bbox(&dl.commands).unwrap();
+        if bbox.x <= *x1
+            || bbox.x + bbox.width >= *x2
+            || bbox.y > *y1
+            || bbox.y < *y2 - 6.0 * config.sp
+        {
+            continue;
+        }
+        for sample in 0..=12 {
+            let x = bbox.x + bbox.width * f64::from(sample) / 12.0;
+            let inner_y = bezier_outer_y_at_x(outgoing, x) + config.slur_thickness * config.sp;
+            assert!(
+                inner_y < bbox.y,
+                "slur must clear {}: curve_y={inner_y}, bbox={bbox:?}",
+                shape.element_id
+            );
+        }
+        checked += 1;
+    }
+    assert!(checked >= 3, "the source run's sharps must be checked");
+}
+
+#[test]
+fn test_broken_slur_projects_the_next_note_and_clears_a_steep_run() {
+    use crate::layout::slurs::participation::endpoint_snapshot;
+    use crate::layout::slurs::{render_cross_system_slurs, GlobalSlurEvent, SystemSlurBounds};
+    use crate::model::event::Slur;
+    use std::collections::HashMap;
+    use std::rc::Rc;
+
+    let config = LayoutConfig::default();
+    let sp = config.sp;
+    let bounds = HashMap::from([
+        (
+            (0, 0, 0),
+            SystemSlurBounds {
+                left_x: 20.0,
+                right_x: 320.0,
+            },
+        ),
+        (
+            (1, 0, 0),
+            SystemSlurBounds {
+                left_x: 20.0,
+                right_x: 320.0,
+            },
+        ),
+    ]);
+    for direction in [-1.0, 1.0] {
+        let start_pos = if direction < 0.0 { -2.0 } else { 10.0 };
+        let mut reference_endpoints = Vec::new();
+        for target_staff_y in [400.0, 900.0] {
+            let mut contour_endpoints = Vec::new();
+            for target_steps in [7.0, 14.0] {
+                let make = |id: &str, x, pos, staff_y, system_idx| GlobalSlurEvent {
+                    event_id: Rc::from(id),
+                    endpoint: endpoint_snapshot(
+                        x,
+                        pos,
+                        pos,
+                        direction > 0.0,
+                        true,
+                        1.18 * sp,
+                        1,
+                        staff_y,
+                        1,
+                        1,
+                        0,
+                        1.0,
+                        false,
+                        true,
+                        None,
+                    ),
+                    system_idx,
+                    part_index: 0,
+                    staff_idx: 0,
+                    slurs: Vec::new(),
+                    note_positions: Vec::new(),
+                    tie_links: Vec::new(),
+                };
+                let mut events: Vec<_> = (0..7)
+                    .map(|index| {
+                        make(
+                            &format!("run-{index}"),
+                            80.0 + f64::from(index) * 36.0,
+                            start_pos + direction * f64::from(index),
+                            200.0,
+                            0,
+                        )
+                    })
+                    .collect();
+                events[0].slurs.push(Slur {
+                    target: "target".into(),
+                    side: None,
+                    side_end: None,
+                    line_type: None,
+                    start_note: None,
+                    end_note: None,
+                    shape: None,
+                });
+                events.push(make(
+                    "target",
+                    100.0,
+                    start_pos + direction * target_steps,
+                    target_staff_y,
+                    1,
+                ));
+                let mut dl = DisplayList::new(400.0, 1100.0);
+                render_cross_system_slurs(&mut dl, &events, &bounds, sp, &config, false);
+                let outgoing = dl
+                    .commands
+                    .iter()
+                    .enumerate()
+                    .find(|(index, _)| {
+                        dl.element_ids[*index].as_deref() == Some("slur/run-0/target/lh")
+                    })
+                    .map(|(_, command)| command)
+                    .expect("outgoing slur half");
+                let RenderCommand::DrawFilledBezier { y2, .. } = outgoing else {
+                    panic!("expected a filled slur");
+                };
+                contour_endpoints.push(*y2);
+                for event in events.iter().take(7).skip(1) {
+                    let curve_y = bezier_outer_y_at_x(outgoing, event.x + event.notehead_w * 0.5);
+                    let note_y = event.eff_staff_y + event.y_pos * sp * 0.5;
+                    let clearance = direction * (curve_y - note_y)
+                        - config.notehead_ry * sp
+                        - config.slur_thickness * sp;
+                    assert!(
+                        clearance >= 0.1 * sp,
+                        "broken slur must clear {}: clearance={}sp, direction={direction}, curve={outgoing:?}",
+                        event.event_id, clearance / sp,
+                    );
+                }
+            }
+            assert!(
+                direction * (contour_endpoints[1] - contour_endpoints[0]) > 0.5 * sp,
+                "the known next note must influence the projected continuation height",
+            );
+            if reference_endpoints.is_empty() {
+                reference_endpoints = contour_endpoints;
+            } else {
+                for (expected, actual) in reference_endpoints.iter().zip(contour_endpoints) {
+                    assert!(
+                        (expected - actual).abs() < 1e-6,
+                        "page/staff translation must not change the contour"
+                    );
+                }
+            }
+        }
+    }
 }
 
 #[test]

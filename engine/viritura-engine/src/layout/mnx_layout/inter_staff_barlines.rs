@@ -10,11 +10,12 @@ use super::super::config::LayoutConfig;
 use super::super::element_id;
 use super::super::full_score::GroupRange;
 use super::super::render_barlines::{
-    render_tagged_barline_connector, system_end_barline_kind, BarlineGap, BarlineKind,
+    leading_barline_kind, render_tagged_barline_connector, trailing_barline_index,
+    trailing_barline_kind, BarlineGap, BarlineKind,
 };
 use super::super::types::MeasureLayout;
 use super::staff_grouping::staves_share_group;
-use crate::model::BarlineType;
+use crate::model::GlobalMeasure;
 use crate::render::DisplayList;
 
 /// Render barline connectors between adjacent staves in a multi-staff system:
@@ -29,6 +30,7 @@ pub(super) fn render_inter_staff_barlines(
     staff_height: f64,
     sp: f64,
     config: &LayoutConfig,
+    globals: &[GlobalMeasure],
     is_last_system: bool,
     clef_change_measures: &std::collections::HashSet<usize>,
     // Stitched-horizon seam: this chunk is followed by another, so its END
@@ -39,7 +41,7 @@ pub(super) fn render_inter_staff_barlines(
     // barline. Mirrors the per-staff `suppress_final_barline`.
     suppress_end_connector: bool,
 ) {
-    for (mi_idx, ml) in first_layouts.iter().enumerate() {
+    for ml in first_layouts {
         // Skip only a TRUE system start (the left margin has no connector). A
         // stitched-horizon seam continuation has `is_first_on_system == false`
         // even at `mi_idx == 0`; it MUST draw its boundary connector so it lines
@@ -49,26 +51,7 @@ pub(super) fn render_inter_staff_barlines(
         if ml.is_first_on_system {
             continue;
         }
-        let has_repeat_start = ml.resolved.global.repeat_start.is_some();
-        let connector_bt = if mi_idx == 0 {
-            // Seam continuation: no previous measure in THIS chunk. Match the
-            // per-staff render, which defaults the boundary to Regular (its
-            // `prev_barline_type` is None for the chunk's first measure).
-            BarlineKind::at_boundary(false, has_repeat_start, None, BarlineType::Regular)
-        } else {
-            let prev_ml = &first_layouts[mi_idx - 1];
-            BarlineKind::at_boundary(
-                prev_ml.resolved.global.repeat_end.is_some(),
-                has_repeat_start,
-                prev_ml
-                    .resolved
-                    .global
-                    .barline
-                    .as_ref()
-                    .map(|b| &b.barline_type),
-                BarlineType::Regular,
-            )
-        };
+        let connector_bt = leading_barline_kind(&ml.resolved);
         // Mid-system clef-change measures shift their start barline right by the
         // leading clef gap (see `render_measure_prefix`). The inter-staff
         // connector must shift by the SAME amount or it splits away from the
@@ -100,7 +83,7 @@ pub(super) fn render_inter_staff_barlines(
     let Some(last_ml) = first_layouts.last() else {
         return;
     };
-    let end_bt = system_end_barline_kind(&last_ml.resolved, is_last_system);
+    let end_bt = trailing_barline_kind(last_ml, globals, is_last_system);
     connect_gaps(
         dl,
         GapRun {
@@ -112,7 +95,7 @@ pub(super) fn render_inter_staff_barlines(
         sp,
         config,
         &end_bt,
-        &element_id::barline(last_ml.resolved.index + 1),
+        &element_id::barline(trailing_barline_index(last_ml)),
     );
 }
 

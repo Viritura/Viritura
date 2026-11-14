@@ -23,8 +23,9 @@ import type {
   LyricWorkflow,
   LyricWorkflowSource,
   LyricWorkflowToken,
+  PageSetupDefaults,
 } from "@viritura/core";
-import { generateId } from "@viritura/core";
+import { generateId, DEFAULT_PAGE_SETUP, DEFAULT_PART_PAGE_SETUP } from "@viritura/core";
 import { resolveLyricExtenders } from "@viritura/core";
 
 import type { SequenceContent } from "@viritura/core";
@@ -538,6 +539,21 @@ function parseMnxInternal(json: unknown, diagnostics: DiagnosticCollector): Scor
  * budget one root extension at a time.
  */
 function applyRootExtensions(score: Score, rootX: Obj | undefined): void {
+  const pageSetupDefaults = (rootX?.["viritura"] as Obj | undefined)?.["pageSetupDefaults"];
+  if (pageSetupDefaults) {
+    const stored = pageSetupDefaults as PageSetupDefaults;
+    score.pageSetupDefaults = {};
+    for (const role of ["score", "part"] as const) {
+      const setup = stored[role];
+      if (!setup) continue;
+      const defaults = role === "score" ? DEFAULT_PAGE_SETUP : DEFAULT_PART_PAGE_SETUP;
+      score.pageSetupDefaults[role] = {
+        ...defaults,
+        ...setup,
+        margins: { ...defaults.margins, ...setup.margins },
+      };
+    }
+  }
   const metadata = parseRootMetadata(rootX);
   if (metadata) score.metadata = metadata;
 

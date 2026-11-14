@@ -62,7 +62,7 @@ export function buildLayouts(players: Player[], partIds: string[]): LayoutDefini
  */
 export function buildScoreDefinitions(players: Player[], partIds: string[]): ScoreDefinition[] {
   const scores: ScoreDefinition[] = [];
-  scores.push({ name: "Full score", layout: "FullScore" });
+  scores.push({ name: "Full score", layout: "FullScore", pageSetupRole: "score" });
 
   for (let idx = 0; idx < players.length; idx++) {
     const player = players[idx]!;
@@ -70,6 +70,7 @@ export function buildScoreDefinitions(players: Player[], partIds: string[]): Sco
     const sd: ScoreDefinition = {
       name: player.displayName,
       layout: `L-${partIds[idx]}`,
+      pageSetupRole: "part",
     };
     if (inst?.transposition) sd.useWritten = true;
     scores.push(sd);

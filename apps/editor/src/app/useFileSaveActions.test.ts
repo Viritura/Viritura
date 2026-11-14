@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useFileSaveActions } from "./useFileSaveActions";
 import { CHORDS_PART_ID } from "@viritura/core";
 import { parseMnx } from "@viritura/format";
-import { createDocumentStore } from "../store/documentStore";
+import { getGlobalPerfTracker } from "@viritura/renderer";
+import { createDocumentStore, hasUnsavedChanges } from "../store/documentStore";
+import { changeDuration } from "../commands/changeDurationCommand";
 import { bindMixerDocument } from "../store/mixerPersistence";
 import { useMixerActions } from "../store/mixerStore";
 
@@ -25,8 +27,17 @@ const projectState: {
     readScore: () => Promise<string>;
     writeScore: (json: string) => Promise<void>;
   };
+  projectDiskBaseline: string | null;
+  setProjectDiskBaseline: (adapter: NonNullable<typeof projectState.adapter>, json: string) => void;
   commitCurrent: typeof commitCurrent;
-} = { adapter: null, commitCurrent };
+} = {
+  adapter: null,
+  projectDiskBaseline: null,
+  setProjectDiskBaseline: (adapter, json) => {
+    if (projectState.adapter === adapter) projectState.projectDiskBaseline = json;
+  },
+  commitCurrent,
+};
 
 vi.mock("../store/modalFlowStore", () => ({
   openExternalChangeConfirm: (...args: unknown[]) => openExternalChangeConfirm(...args),
@@ -58,7 +69,7 @@ const EXTERNAL_JSON = JSON.stringify({
   layouts: [],
 });
 
-function createHarness(diskJson = DISK_JSON, hasFileHandle = true) {
+function createHarness(diskJson = DISK_JSON, hasFileHandle = true, hasOpenedFile = true) {
   const write = vi.fn().mockResolvedValue(undefined);
   const close = vi.fn().mockResolvedValue(undefined);
   const getFile = vi.fn().mockImplementation(async () => new File([diskJson], "score.mnx"));
@@ -84,7 +95,7 @@ function createHarness(diskJson = DISK_JSON, hasFileHandle = true) {
       store,
       fileHandle: hasFileHandle ? fileHandle : null,
       setFileHandle,
-      openedFile,
+      openedFile: hasOpenedFile ? openedFile : null,
       resetHistory,
     }),
   );
@@ -98,6 +109,7 @@ describe("useFileSaveActions external changes", () => {
     commitCurrent.mockResolvedValue("commit-sha");
     toastError.mockClear();
     projectState.adapter = null;
+    projectState.projectDiskBaseline = DISK_JSON;
     fileSaveAs.mockReset();
     fileDownload.mockReset();
     isFileSystemAccessSupported.mockReturnValue(true);
@@ -163,6 +175,102 @@ describe("useFileSaveActions external changes", () => {
     },
   );
 
+  it.each([
+    ["handleSave", false],
+    ["handleSave", true],
+    ["handleSaveAs", false],
+    ["handleDownload", false],
+  ] as const)("%s (versioned=%s) saves the latest rest edit while layout is pending", async (action, versioned) => {
+    const store = createDocumentStore();
+    store.getState().loadScore(
+      {
+        mnx: { version: 1 },
+        global: { measures: [{ time: { count: 4, unit: 4 } }] },
+        parts: [
+          {
+            name: "Piccolo",
+            measures: [
+              {
+                sequences: [
+                  {
+                    content: [
+                      { type: "event", duration: { base: "eighth" }, notes: [{ pitch: { step: "A", octave: 6 } }] },
+                      { type: "event", id: "rest", duration: { base: "half", dots: 2 }, rest: {} },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      "score.mnx",
+    );
+    const baseline = store.getState().mnxJson;
+    const { fileHandle, getFile, write } = createHarness();
+    const writeScore = vi.fn().mockResolvedValue(undefined);
+    if (versioned) {
+      projectState.projectDiskBaseline = baseline;
+      projectState.adapter = {
+        isVersioned: () => true,
+        readScore: vi.fn().mockResolvedValue(baseline),
+        writeScore,
+      };
+    }
+    getFile.mockResolvedValueOnce(new File([baseline], "score.mnx"));
+    fileSaveAs.mockResolvedValueOnce(fileHandle);
+    const { result } = renderHook(() =>
+      useFileSaveActions({
+        store,
+        fileHandle,
+        setFileHandle: vi.fn(),
+        openedFile: { filename: "score.mnx", mnxJson: baseline, fileHandle },
+        resetHistory: vi.fn(),
+      }),
+    );
+    const perf = getGlobalPerfTracker();
+    const previousCallback = perf.fastLayoutCallback;
+    let finishLayout: (() => void) | undefined;
+    perf.fastLayoutCallback = () =>
+      new Promise<void>((resolve) => {
+        finishLayout = resolve;
+      });
+    try {
+      const edited = structuredClone(store.getState().workingScore!);
+      changeDuration(edited, {
+        partIndex: 0,
+        measureIndex: 0,
+        voice: 0,
+        eventIndex: 1,
+        newDuration: { base: "eighth" },
+      });
+      act(() => store.getState().updateScore(edited, { start: 0, end: 0 }));
+      expect(store.getState().mnxJson).toBe(baseline);
+      await act(async () => {
+        await result.current[action]();
+      });
+      const written = versioned
+        ? writeScore.mock.calls[0]?.[0]
+        : action === "handleSave"
+          ? write.mock.calls[0]?.[0]
+          : action === "handleSaveAs"
+            ? fileSaveAs.mock.calls[0]?.[0]
+            : fileDownload.mock.calls[0]?.[0];
+      const reopened = parseMnx(JSON.parse(written));
+      const rest = reopened.parts[0]!.measures[0]!.sequences[0]!.content[1]!;
+      expect(rest.type === "event" && rest.duration).toEqual({ base: "eighth" });
+      await act(async () => {
+        finishLayout?.();
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(store.getState().score).toBe(store.getState().workingScore));
+      expect(hasUnsavedChanges(store.getState())).toBe(false);
+    } finally {
+      finishLayout?.();
+      perf.fastLayoutCallback = previousCallback;
+    }
+  });
+
   it("cancels without writing when external changes are detected", async () => {
     openExternalChangeConfirm.mockResolvedValue(null);
     const { result, write, markSaved } = createHarness(EXTERNAL_JSON);
@@ -209,6 +317,26 @@ describe("useFileSaveActions external changes", () => {
     expect(writeScore).toHaveBeenCalledWith(EDITOR_JSON);
     expect(commitCurrent).toHaveBeenCalledWith(EDITOR_JSON, { auto: false });
     expect(markSaved).toHaveBeenCalledWith(EDITOR_JSON, 1);
+  });
+
+  it("detects an external project change on the first save without an opened file", async () => {
+    const writeScore = vi.fn().mockResolvedValue(undefined);
+    projectState.adapter = { isVersioned: () => true, readScore: vi.fn().mockResolvedValue(EXTERNAL_JSON), writeScore };
+    openExternalChangeConfirm.mockResolvedValue(null);
+    const { result } = createHarness(DISK_JSON, false, false);
+    await act(() => result.current.handleSave());
+    expect(openExternalChangeConfirm).toHaveBeenCalledWith("score.mnx");
+    expect(writeScore).not.toHaveBeenCalled();
+  });
+
+  it("refuses a project save if its disk baseline is missing", async () => {
+    const writeScore = vi.fn();
+    projectState.adapter = { isVersioned: () => true, readScore: vi.fn().mockResolvedValue(DISK_JSON), writeScore };
+    projectState.projectDiskBaseline = null;
+    const { result } = createHarness(DISK_JSON, false, false);
+    await act(() => result.current.handleSave());
+    expect(writeScore).not.toHaveBeenCalled();
+    expect(toastError).toHaveBeenCalledWith("Could not verify the project file's original contents");
   });
 
   it("reports when the file saves but the background commit fails", async () => {

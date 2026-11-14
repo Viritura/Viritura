@@ -8,7 +8,7 @@ use super::direction::*;
 use super::endpoint_spring::{
     apply_beam_tip_clearance, correct_mixed_tilt, endpoint_note_position,
     grace_source_needs_stem_escape, level_note_targeted_stem_pair, notehead_y_offset,
-    stem_contained_x, uses_stem_side, uses_stem_side_x,
+    snap_tip_off_staff_line, stem_contained_x, uses_stem_side, uses_stem_side_x,
 };
 use super::obstacle_shapes::collect_shape_obstacles;
 use super::participation::*;
@@ -763,7 +763,13 @@ pub(super) fn emit_slur_bezier(
     }
     let pitch_slope = tgt_eff_y - src_eff_y + (tgt_y_pos - src_y_pos) * sp * 0.5;
     let mixed_stems = src.stem_up != tgt.stem_up;
-    let tilt_context = (pitch_slope, src_stem_side, tgt_stem_side, mixed_stems);
+    let tilt_context = (
+        pitch_slope,
+        curve_dir,
+        src_stem_side,
+        tgt_stem_side,
+        mixed_stems,
+    );
     (y1, y2) = correct_mixed_tilt(y1, y2, tilt_context);
     // notehead — standard engraving practice ends a slur at the notehead,
     // NOT at a trailing augmentation dot (the dot sits clear of the curve
@@ -790,21 +796,10 @@ pub(super) fn emit_slur_bezier(
     // of a staff line (positions 0,2,4,6,8 in half-spaces from top), nudge it
     // away by ~0.4 sp in curve_dir so the tip sits in a space, not on a line.
     // Standard engraving practice: the tip must never sit on a staff line.
-    let snap_off_line = |y: f64, eff_y: f64| -> f64 {
-        let half_spaces = (y - eff_y) / (sp * 0.5);
-        let nearest = half_spaces.round();
-        // Only snap if we're on or near a staff line (positions 0..=8) and
-        // within ~0.15 sp of it.
-        if (0.0..=8.0).contains(&nearest)
-            && (nearest as i32) % 2 == 0
-            && (half_spaces - nearest).abs() < 0.30
-        {
-            y + curve_dir * tuning::STAFF_LINE_NUDGE_SP * sp
-        } else {
-            y
-        }
-    };
-    (y1, y2) = (snap_off_line(y1, src_eff_y), snap_off_line(y2, tgt_eff_y));
+    (y1, y2) = (
+        snap_tip_off_staff_line(y1, src_eff_y, curve_dir, sp),
+        snap_tip_off_staff_line(y2, tgt_eff_y, curve_dir, sp),
+    );
 
     // ── Default shoulder shape ────────────────────────────────────
     // Length-dependent CP indent (standard engraving practice schedule). CP indent
@@ -990,6 +985,14 @@ pub(super) fn emit_slur_bezier(
     let eid = element_id::slur(authored_src_event_id, &slur.target);
     let thickness = config.slur_thickness * sp;
     let endpoint_thickness = (config.slur_endpoint_thickness * sp).clamp(0.001, thickness);
+    let handles = super::tie_clearance::tie_shape_handles(
+        &shape_input,
+        needed_shoulder,
+        apex_shift_frac,
+        thickness,
+        endpoint_thickness,
+        slur.shape.as_ref(),
+    );
     // Apply engrave-mode endpoint deltas (p0, p3) to the input endpoints so
     // both the bezier and the published SlurGeometry stay consistent.
     let shape = slur.shape.as_ref();
@@ -1016,14 +1019,7 @@ pub(super) fn emit_slur_bezier(
         thickness,
         endpoint_thickness,
         line_style,
-        shape.map(|s| {
-            (
-                None,
-                s.p1.map(|p| (p[0] * sp, p[1] * sp)),
-                s.p2.map(|p| (p[0] * sp, p[1] * sp)),
-                None,
-            )
-        }),
+        handles,
     );
     dl.slur_geometries.push(crate::render::SlurGeometry {
         element_id: eid.clone(),

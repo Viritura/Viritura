@@ -304,6 +304,7 @@ mod render;
 mod scorer;
 mod slant_reduction;
 mod tie_chains;
+mod tie_clearance;
 mod tie_lanes;
 mod tuplet_clearance;
 mod voice_span;

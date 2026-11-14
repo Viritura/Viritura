@@ -7,6 +7,14 @@
   "staffLabel": { "size": 1.8, "family": "serif", "bold": false, "italic": false, "color": "#000000", "align": "left" },
   "pageNumber": { "size": 2.0, "family": "serif", "bold": false, "italic": false, "color": "#000000", "align": "left" },
   "tempo": { "size": 2.4, "family": "serif", "bold": true, "italic": false, "color": "#000000", "align": "left" },
+  "rehearsalMark": {
+    "size": 2.8,
+    "family": "sans-serif",
+    "bold": true,
+    "italic": false,
+    "color": "#000000",
+    "align": "center"
+  },
   "pedalText": { "size": 2.0, "family": "serif", "bold": false, "italic": true, "color": "#000000", "align": "left" },
   "copyright": { "size": 1.5, "family": "serif", "bold": false, "italic": false, "color": "#000000", "align": "center" }
 }

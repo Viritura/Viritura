@@ -10,6 +10,7 @@ use crate::layout::config::LayoutConfig;
 use crate::layout::full_score::GroupRange;
 use crate::layout::time_signatures::spanning;
 use crate::layout::types::MeasureLayout;
+use crate::model::GlobalMeasure;
 use crate::render::{DisplayList, RenderCommand};
 use std::collections::HashSet;
 
@@ -37,11 +38,12 @@ pub(super) fn render_system_start_barline(
 
 /// Where a system sits within its score, plus the geometry its connectors are
 /// measured against.
-pub(super) struct SystemConnectorPlacement {
+pub(super) struct SystemConnectorPlacement<'a> {
     pub sys_idx: usize,
     pub system_count: usize,
     pub staff_height: f64,
     pub sp: f64,
+    pub globals: &'a [GlobalMeasure],
 }
 
 /// Draw one system's connectors: inter-staff barlines, then group meters.
@@ -52,7 +54,7 @@ pub(super) fn render_system_connectors(
     group_ranges: &[GroupRange],
     staff_y_offsets: &[f64],
     clef_change_measures: &HashSet<usize>,
-    placement: SystemConnectorPlacement,
+    placement: SystemConnectorPlacement<'_>,
 ) {
     if let Some(first_layouts) = all_staff_layouts.first() {
         render_inter_staff_barlines(
@@ -63,6 +65,7 @@ pub(super) fn render_system_connectors(
             placement.staff_height,
             placement.sp,
             config,
+            placement.globals,
             placement.sys_idx == placement.system_count - 1,
             clef_change_measures,
             false,

@@ -1,6 +1,6 @@
 use super::global_endpoints::{GlobalSlurEvent, SystemSlurBounds};
-use super::obstacle_shapes::collect_seam_span_tie_obstacles;
-use super::participation::SlurObstacle;
+use super::obstacle_shapes::{collect_seam_span_tie_obstacles, collect_shape_obstacles};
+use super::participation::{EventRenderInfo, SlurObstacle};
 use super::render::{compute_shoulder_and_apex, compute_slur_bezier, HandleDeltas};
 use super::scorer::{select_slur_candidate, SlurShapeInput};
 use super::tie_lanes::tie_endpoint_lane;
@@ -29,6 +29,22 @@ pub(super) struct ShapedBrokenSegment {
     pub(super) spine: (f64, f64, f64, f64),
     pub(super) p0: (f64, f64),
     pub(super) p3: (f64, f64),
+}
+
+pub(super) fn project_continuation_y(
+    outer: (f64, f64),
+    virtual_opposite: (f64, f64),
+    edge_x: f64,
+    clearance_y: f64,
+    curve_dir: f64,
+) -> f64 {
+    let fraction = ((edge_x - outer.0) / (virtual_opposite.0 - outer.0)).clamp(0.0, 1.0);
+    let projected_y = outer.1 + (virtual_opposite.1 - outer.1) * fraction;
+    if curve_dir < 0.0 {
+        projected_y.min(clearance_y)
+    } else {
+        projected_y.max(clearance_y)
+    }
 }
 
 pub(super) fn plan_broken_segments(
@@ -88,7 +104,7 @@ pub(super) fn shape_note_bound_segment(
 ) -> ShapedBrokenSegment {
     let first = &events[piece.first_event_idx];
     let last = &events[piece.last_event_idx];
-    let mut obstacles = middle_obstacles(events, piece, x1, x2, sp, config);
+    let mut obstacles = middle_obstacles(dl, events, piece, x1, x2, sp, config);
     let (start_tips, end_tips) = collect_seam_span_tie_obstacles(
         dl,
         &mut obstacles,
@@ -209,7 +225,7 @@ pub(super) fn emit_middle_segments(
         let chord_len = (x2 - x1).hypot(y2 - y1).max(0.01);
         let default_shoulder = default_shoulder_for_chord(chord_len, sp, config);
         let cp_indent = default_cp_indent_for_chord(chord_len, sp, config);
-        let mut obstacles = middle_obstacles(events, piece, x1, x2, sp, config);
+        let mut obstacles = middle_obstacles(dl, events, piece, x1, x2, sp, config);
         collect_seam_span_tie_obstacles(
             dl,
             &mut obstacles,
@@ -304,6 +320,7 @@ pub(super) fn emit_middle_segments(
 }
 
 fn middle_obstacles(
+    dl: &DisplayList,
     events: &[GlobalSlurEvent],
     piece: &BrokenSegment,
     x1: f64,
@@ -313,6 +330,7 @@ fn middle_obstacles(
 ) -> Vec<SlurObstacle> {
     let half_height = config.notehead_ry * sp;
     let mut obstacles = Vec::new();
+    let mut event_map = HashMap::new();
     for event in events.iter().filter(|event| {
         event.system_idx == piece.system_idx
             && event.part_index == events[piece.first_event_idx].part_index
@@ -320,6 +338,12 @@ fn middle_obstacles(
             && event.x >= x1
             && event.x <= x2
     }) {
+        event_map.insert(
+            event.event_id.to_string(),
+            EventRenderInfo {
+                endpoint: event.endpoint.clone(),
+            },
+        );
         let note_top = event.eff_staff_y + event.y_pos * sp * 0.5 - half_height;
         let note_bottom = event.eff_staff_y + event.y_pos_bottom * sp * 0.5 + half_height;
         let (mut top, mut bottom) = if event.stem_up {
@@ -366,6 +390,14 @@ fn middle_obstacles(
             });
         }
     }
+    collect_shape_obstacles(
+        dl,
+        &mut event_map,
+        &mut obstacles,
+        0,
+        events[piece.first_event_idx].eff_staff_y,
+        sp,
+    );
     obstacles.sort_by(|left, right| left.x.total_cmp(&right.x));
     obstacles
 }

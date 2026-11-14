@@ -10,6 +10,80 @@ use crate::layout::config::LayoutConfig;
 use crate::layout::mnx_layout::layout_with_mnx_scores;
 use crate::parse::parse_mnx;
 use std::path::PathBuf;
+
+#[test]
+#[ignore = "requires VIRITURA_PAGE_TURN_SCORE pointing to a local MNX score"]
+fn local_score_page_turn_regression() {
+    let path = std::env::var("VIRITURA_PAGE_TURN_SCORE").expect("local MNX path");
+    let json = std::fs::read_to_string(path).expect("read local MNX");
+    let mut raw: serde_json::Value = serde_json::from_str(&json).expect("MNX JSON");
+    for definition in raw["scores"].as_array_mut().expect("score definitions") {
+        if let Some(ext) = definition
+            .get_mut("_x")
+            .and_then(|ext| ext.get_mut("viritura"))
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            ext.remove("layoutBreaks");
+        }
+    }
+    let score = parse_mnx(&raw.to_string()).expect("parse local MNX");
+    let mut checked = 0;
+    for index in 2..score.scores.len() {
+        let definition = &raw["scores"][index];
+        let setup = &definition["_x"]["viritura"]["pageSetup"];
+        if setup["pageTurns"]["enabled"] != false {
+            continue;
+        }
+        let spatium = setup["spatiumMm"].as_f64().unwrap_or(1.625);
+        let mut config = LayoutConfig {
+            sp: spatium * 12.0,
+            page_width: Some(setup["width"].as_f64().unwrap_or(210.0) * 12.0),
+            page_height: setup["height"].as_f64().unwrap_or(297.0) / spatium,
+            page_margin_top: 15.0 / spatium,
+            page_margin_bottom: 15.0 / spatium,
+            page_margin_left: 15.0 / spatium,
+            page_margin_right: 15.0 / spatium,
+            ..LayoutConfig::default()
+        };
+        let greedy = layout_with_mnx_scores(&score, &config, index);
+        config.page_turns.enabled = true;
+        let planned = layout_with_mnx_scores(&score, &config, index);
+        eprintln!(
+            "{}: off {:?}, on {:?}",
+            definition["name"],
+            greedy
+                .pages
+                .iter()
+                .map(|p| p.system_indices.len())
+                .collect::<Vec<_>>(),
+            planned
+                .pages
+                .iter()
+                .map(|p| p.system_indices.len())
+                .collect::<Vec<_>>(),
+        );
+        assert_eq!(system_count(&planned), system_count(&greedy));
+        for page in planned
+            .pages
+            .iter()
+            .take(planned.pages.len().saturating_sub(1))
+        {
+            assert_ne!(
+                page.system_indices.len(),
+                1,
+                "{}: optimization stranded a system on page {}",
+                definition["name"],
+                page.page_number + 1
+            );
+        }
+        checked += 1;
+    }
+    assert!(
+        checked > 0,
+        "score must contain parts with optimization disabled"
+    );
+}
+
 fn scores_dir() -> PathBuf {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest

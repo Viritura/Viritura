@@ -1,4 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
+import { DEFAULT_PAGE_SETUP, DEFAULT_PART_PAGE_SETUP, resolveScorePageSetup } from "@viritura/core";
+import { parseMnx } from "@viritura/format";
+import { usePageDefaultsStore } from "../pageSetup";
 import { buildBlankScore, DEFAULT_NEW_SCORE_SETTINGS, type NewScoreSettings } from "../score/ScoreBuilder";
 import {
   createPlayer,
@@ -14,6 +17,35 @@ function makePlayers(...ids: string[]) {
 }
 
 describe("buildBlankScore", () => {
+  afterEach(() => {
+    usePageDefaultsStore.setState({ defaults: {} });
+  });
+
+  it("copies separate user defaults into a new project, including a solo player's part", () => {
+    const defaults = {
+      score: {
+        ...DEFAULT_PAGE_SETUP,
+        width: 228.6,
+        height: 304.8,
+        margins: { top: 20, right: 18, bottom: 20, left: 18 },
+      },
+      part: { ...DEFAULT_PART_PAGE_SETUP, width: 215.9, height: 279.4, spatiumMm: 1.75 },
+    };
+    usePageDefaultsStore.setState({ defaults });
+    const score = parseMnx(
+      JSON.parse(
+        buildBlankScore({
+          ...DEFAULT_NEW_SCORE_SETTINGS,
+          players: makePlayers("strings.violin"),
+        }),
+      ),
+    );
+    expect(resolveScorePageSetup(score, 0)).toEqual(defaults.score);
+    expect(resolveScorePageSetup(score, 1)).toEqual(defaults.part);
+    usePageDefaultsStore.setState({ defaults: {} });
+    expect(resolveScorePageSetup(score, 1)).toEqual(defaults.part);
+  });
+
   it("creates a valid MNX JSON string with default settings (empty players)", () => {
     const json = buildBlankScore(DEFAULT_NEW_SCORE_SETTINGS);
     const parsed = JSON.parse(json);

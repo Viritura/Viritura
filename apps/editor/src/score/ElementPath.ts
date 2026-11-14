@@ -258,6 +258,43 @@ interface EventBase {
   sequenceIndex: number;
 }
 
+export interface TupletSelectionLocation {
+  partIndex: number;
+  measureIndex: number;
+  sequenceIndex: number;
+  tupletIndex: number;
+}
+
+/** Resolve a rendered tuplet ID, whose final number is a tuplet ordinal. */
+export function resolveTupletSelectionLocation(score: Score, elementId: string): TupletSelectionLocation | null {
+  const match = /^p(\d+)\/m(\d+)\/s(\d+)\/tuplet(\d+)$/.exec(elementId);
+  if (!match) return null;
+  const partIndex = Number(match[1]);
+  const measureIndex = Number(match[2]);
+  const sequenceIndex = Number(match[3]);
+  const ordinal = Number(match[4]);
+  const content = score.parts[partIndex]?.measures[measureIndex]?.sequences[sequenceIndex]?.content;
+  if (!content) return null;
+  // Layout assigns ordinals in postorder and skips tuplets with no rendered events.
+  // Nested tuplets cannot yet be targeted by the top-level mutation paths.
+  let seen = 0;
+  let tupletIndex: number | null = null;
+  function visit(items: SequenceContent[], topLevel: boolean): boolean {
+    let hasEvents = false;
+    items.forEach((item, index) => {
+      if (item.type === "event" || (item.type === "tremolo" && item.content.length > 0)) {
+        hasEvents = true;
+      } else if (item.type === "tuplet" && visit(item.content, false)) {
+        hasEvents = true;
+        if (seen++ === ordinal && topLevel) tupletIndex = index;
+      }
+    });
+    return hasEvents;
+  }
+  visit(content, true);
+  return tupletIndex === null ? null : { partIndex, measureIndex, sequenceIndex, tupletIndex };
+}
+
 function parseEventPathSegments(elementId: string): { base: EventBase; evSuffix: string } | null {
   const segments = elementId.split("/");
   if (segments.length < 4) return null;

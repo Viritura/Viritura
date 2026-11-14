@@ -27,6 +27,7 @@ function makeScore(): Score {
                     content: [
                       {
                         type: "event",
+                        id: "tuplet-event",
                         duration: { base: "eighth" },
                         rest: {},
                       },
@@ -58,7 +59,7 @@ describe("layoutCommands", () => {
   });
 
   it("applies and clears tuplet overrides", () => {
-    const applied = applyLayoutOverrides(makeScore(), "p0/m0/s0/e1", {
+    const applied = applyLayoutOverrides(makeScore(), "p0/m0/s0/tuplet0", {
       tuplet: {
         placement: "above",
         bracket: "yes",
@@ -76,7 +77,7 @@ describe("layoutCommands", () => {
       expect(tuplet.showValue).toBe("inner");
     }
 
-    const cleared = applyLayoutOverrides(applied, "p0/m0/s0/e1", {
+    const cleared = applyLayoutOverrides(applied, "p0/m0/s0/tuplet0", {
       tuplet: {
         placement: null,
         bracket: null,
@@ -93,5 +94,29 @@ describe("layoutCommands", () => {
       expect(clearedTuplet.showNumber).toBeUndefined();
       expect(clearedTuplet.showValue).toBeUndefined();
     }
+  });
+
+  it("applies tuplet overrides when a contained event is targeted", () => {
+    const updated = applyLayoutOverrides(makeScore(), "p0/m0/s0/tuplet-event", {
+      tuplet: { placement: "below" },
+    });
+    const tuplet = updated.parts[0]!.measures[0]!.sequences[0]!.content[1];
+    expect(tuplet?.type === "tuplet" && tuplet.placement).toBe("below");
+  });
+
+  it("does not mistake nested rendered tuplet ordinals for a different top-level tuplet", () => {
+    const score = makeScore();
+    const content = score.parts[0]!.measures[0]!.sequences[0]!.content;
+    const first = content[1]!;
+    if (first.type !== "tuplet") throw new Error("Expected tuplet");
+    first.content.push(structuredClone(first));
+    content.push(structuredClone(first));
+    const nested = applyLayoutOverrides(score, "p0/m0/s0/tuplet0", { tuplet: { placement: "above" } });
+    expect(nested).toBe(score);
+    const updated = applyLayoutOverrides(score, "p0/m0/s0/tuplet1", { tuplet: { placement: "below" } });
+    const outer = updated.parts[0]!.measures[0]!.sequences[0]!.content[1]!;
+    const other = updated.parts[0]!.measures[0]!.sequences[0]!.content[2]!;
+    expect(outer.type === "tuplet" && outer.placement).toBe("below");
+    expect(other.type === "tuplet" && other.placement).toBeUndefined();
   });
 });

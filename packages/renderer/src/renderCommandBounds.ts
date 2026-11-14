@@ -30,6 +30,11 @@ export function renderCommandBounds(cmd: RenderCommand): RenderBounds | null {
       // A stretched glyph is only ever narrowed, so the proportional box still
       // contains it; its height is the one dimension `size` speaks for.
       return { x: cmd.x - cmd.size, y: cmd.y - cmd.size, x2: cmd.x + cmd.size * 2, y2: cmd.y + cmd.size };
+    case "DrawRotatedText": {
+      const halfWidth = cmd.text.length * cmd.size * 0.5 + cmd.size * 0.25;
+      const radius = Math.hypot(halfWidth, cmd.size * 1.3);
+      return { x: cmd.x - radius, y: cmd.y - radius, x2: cmd.x + radius, y2: cmd.y + radius };
+    }
     case "DrawText": {
       const charCount = cmd.text?.length ?? 1;
       const estimatedWidth = charCount * cmd.size * 0.6;

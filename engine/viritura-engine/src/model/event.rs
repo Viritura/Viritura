@@ -318,19 +318,6 @@ pub use crate::raw::Placement;
 /// position (MNX `direction-hint`).
 pub use crate::raw::DirectionHint;
 
-impl Placement {
-    /// Map an explicit placement to a forced stem direction.
-    /// `Above` → `Some(true)` (stems up), `Below` → `Some(false)` (stems down),
-    /// `Auto` → `None` (defer to default placement rules).
-    pub fn force_stem_up(self) -> Option<bool> {
-        match self {
-            Placement::Above => Some(true),
-            Placement::Below => Some(false),
-            Placement::Auto => None,
-        }
-    }
-}
-
 /// Up/down/auto direction (MNX `up-down-auto`) — leaf enum aliased from codegen.
 pub use crate::raw::UpDownAuto;
 

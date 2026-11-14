@@ -161,7 +161,7 @@ export function createSectionScore(
   const layoutId = `layout-section-${Date.now()}`;
   const content = buildSectionContent(score, chosen);
   const newLayouts = [...(score.layouts ?? []), { id: layoutId, content }];
-  const newScore: ScoreDefinition = { name: name?.trim() || "Section Score", layout: layoutId };
+  const newScore: ScoreDefinition = { name: name?.trim() || "Section Score", layout: layoutId, pageSetupRole: "score" };
   const newScores = [...(score.scores ?? []).map((sd) => ({ ...sd })), newScore];
   return { score: { ...score, layouts: newLayouts, scores: newScores }, selectedIndex: newScores.length - 1 };
 }
