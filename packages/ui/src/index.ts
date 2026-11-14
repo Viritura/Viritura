@@ -39,6 +39,7 @@ export { WorkspaceShell, type WorkspaceShellProps, type WorkspaceInsets } from "
 export { Tabs, type TabsProps, type TabDef } from "./Tabs/Tabs";
 export { Collapsible, type CollapsibleProps } from "./Collapsible/Collapsible";
 export { PanelHeader, PanelActionButton, type PanelHeaderProps } from "./PanelHeader/PanelHeader";
+export { PanelSearchHeader, type PanelSearchHeaderProps } from "./PanelSearchHeader";
 export { SectionLabel, type SectionLabelProps } from "./SectionLabel/SectionLabel";
 export { GlassCard, type GlassCardProps } from "./GlassCard/GlassCard";
 export { Paper, type PaperProps } from "./Paper/Paper";

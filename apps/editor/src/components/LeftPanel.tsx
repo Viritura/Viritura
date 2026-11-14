@@ -4,7 +4,6 @@ import { ClipboardHistoryPanel } from "./ClipboardHistoryPanel";
 import { NotationInspector } from "./NotationInspector";
 import { LayoutGrid, ClipboardList, SlidersHorizontal } from "lucide-react";
 import { Tabs, type TabDef } from "@viritura/ui";
-import { useHistoryStore } from "../store/historyStore";
 import styles from "./LeftPanel.module.css";
 
 export type WriteLeftTab = "palettes" | "clipboard" | "properties";
@@ -35,20 +34,6 @@ export function LeftPanel({
 }: LeftPanelProps = {}) {
   const [localTab, setLocalTab] = useState<WriteLeftTab>("palettes");
   const activeTab = controlledTab ?? localTab;
-  const preloadDescriptions = useHistoryStore((s) => s.preloadDescriptions);
-
-  // Hover-preload undo descriptions when the user is about to open the Clips
-  // tab (Next.js-style link prefetch). By the time they click, descriptions
-  // are computed and the panel renders without shimmer.
-  const handleTabHover = useCallback(
-    (id: string) => {
-      if (id === "clipboard") {
-        // Defer to a microtask so we don't block hover paint.
-        queueMicrotask(() => preloadDescriptions());
-      }
-    },
-    [preloadDescriptions],
-  );
   const handleTabChange = useCallback(
     (id: string) => {
       const tab = id as WriteLeftTab;
@@ -60,13 +45,7 @@ export function LeftPanel({
 
   return (
     <div className={styles.container}>
-      <Tabs
-        tabs={TAB_DEFS}
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        onTabHover={handleTabHover}
-        variant="panel"
-      >
+      <Tabs tabs={TAB_DEFS} activeTab={activeTab} onTabChange={handleTabChange} variant="panel">
         {activeTab === "palettes" && (
           <PalettePanel
             openSectionRequest={paletteSectionRequest}

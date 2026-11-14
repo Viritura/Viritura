@@ -68,7 +68,7 @@ describe("HistoryContext lazy description integration", () => {
     // Description not yet resolved (microtask hasn't run yet inside act)
   });
 
-  it("microtask description resolution does not throw on valid MNX", async () => {
+  it("defers semantic description resolution until requested", async () => {
     const { result } = renderHook(
       () => ({
         push: useHistoryStore((s: HistoryStoreState) => s.pushState),
@@ -81,19 +81,19 @@ describe("HistoryContext lazy description integration", () => {
       result.current.push(minimalMnx("D"), "Edit", null);
     });
 
-    // Wait for microtask
+    // Let the history push microtask run.
     await Promise.resolve();
     await Promise.resolve();
 
     expect(result.current.entries).toHaveLength(2);
-    expect(result.current.entries[1]?.descriptionResolved).toBe(true);
+    expect(result.current.entries[1]?.descriptionResolved).toBe(false);
   });
 
-  it("preloadDescriptions resolves all pending entries and bumps array reference", async () => {
+  it("resolves one pending description and bumps the entries reference", async () => {
     const { result } = renderHook(
       () => ({
         push: useHistoryStore((s: HistoryStoreState) => s.pushState),
-        preload: useHistoryStore((s: HistoryStoreState) => s.preloadDescriptions),
+        resolve: useHistoryStore((s: HistoryStoreState) => s.resolveDescription),
         entries: useHistoryStore((s: HistoryStoreState) => s.entries),
       }),
       { wrapper: wrapper(minimalMnx("C")) },
@@ -108,13 +108,13 @@ describe("HistoryContext lazy description integration", () => {
     const beforeRef = result.current.entries;
 
     act(() => {
-      result.current.preload();
+      result.current.resolve(2);
     });
 
-    expect(result.current.entries).not.toBe(beforeRef); // reference bumped
-    for (const entry of result.current.entries) {
-      expect(entry.descriptionResolved).toBe(true);
-    }
+    expect(result.current.entries).not.toBe(beforeRef);
+    expect(result.current.entries[1]?.descriptionResolved).toBe(false);
+    expect(result.current.entries[2]?.descriptionResolved).toBe(true);
+    expect(result.current.entries[3]?.descriptionResolved).toBe(false);
   });
 
   it("jumpTo moves currentIndex and triggers onRestore", async () => {
@@ -173,12 +173,11 @@ describe("HistoryContext lazy description integration", () => {
 
     expect(result.current.entries).toHaveLength(6);
 
-    // Drain microtasks
+    // Drain push microtasks.
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
 
-    // All but the initial entry should now have resolved descriptions
-    expect(result.current.entries[5]?.descriptionResolved).toBe(true);
+    expect(result.current.entries[5]?.descriptionResolved).toBe(false);
   });
 });

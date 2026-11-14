@@ -5,18 +5,19 @@ document open in your browser.
 
 ## Connect an MCP client
 
-Choose the MCP button in the Activity Bar. Leave **Auto-accept proposed edits for
-this session** unchecked to review each proposal, or enable it for a trusted
-client before selecting **Connect MCP client**.
+Choose the MCP button in the Activity Bar, then select **Connect this tab**.
+**Auto-accept proposed edits** is off by default; you can turn it on or off at
+any time while the tab is connected. Only enable it for a trusted client.
 When the secure session is ready:
 
 1. Select **Copy setup prompt** and paste it into Copilot CLI or another
-   Streamable HTTP MCP client, or copy the URL for manual setup.
-2. Complete the OAuth flow in your browser.
+   Streamable HTTP MCP client, or copy the URL for manual setup. The URL is
+   the same for every tab, so this is a one-time step per client.
+2. Sign in through your browser when the client asks.
 3. Keep the Viritura document tab open while the client works.
 
-No access token is copied into the setup prompt. Connecting is tab-specific:
-other open documents are not exposed unless you explicitly connect them too.
+Connecting is tab-specific: other open documents are not exposed unless you
+explicitly connect them too.
 
 ## Review MCP changes
 
@@ -26,7 +27,8 @@ corresponding Viritura tab. Clicking outside a review dialog does not dismiss or
 reject the proposal; use **Accept** or **Reject** to decide.
 
 With auto-accept enabled, validated proposals apply immediately without opening
-a review dialog. The connected panel shows whether auto-accept is enabled.
+a review dialog. The panel shows the current setting, and turning it on does not
+apply proposals already awaiting review.
 Changes still use the normal validation, undo, and collaboration paths. This
 option applies only to the current connection in this tab, survives automatic
 reconnections, and resets when you disconnect or reload the tab.

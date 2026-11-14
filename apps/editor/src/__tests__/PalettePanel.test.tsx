@@ -829,6 +829,14 @@ describe("PalettePanel", () => {
     expect(screen.getByRole("button", { name: /^Articulations/, expanded: true })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Down-bow" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Up-bow" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(screen.getByRole("textbox", { name: "Search palettes" })).toHaveProperty("value", "");
+    expect(screen.getByRole("button", { name: "Up-bow" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Collapse all palette sections" }));
+    expect(screen.getByRole("button", { name: /^Articulations/, expanded: false })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Expand all palette sections" }));
+    expect(screen.getByRole("button", { name: /^Articulations/, expanded: true })).toBeTruthy();
   });
 
   it.each([

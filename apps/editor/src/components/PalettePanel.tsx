@@ -1,8 +1,7 @@
 /* eslint-disable max-lines -- palette is the single UI surface for ~30 input-mode property toggles (tie, slur, lv, dynamics, articulations, ornaments, tuplets, grace, dots, accidentals, voice, ...). Each toggle owns a small handler that reads selection + dispatches a score mutation; splitting into per-section files would force re-importing the same selection/score plumbing in every file with no shared sub-concept to extract. */
 import { useCallback, useEffect, useEffectEvent, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { toast } from "sonner";
-import { CenteredGlyph, FormInput, IconButton, PaletteButton, PromptDialog, Tooltip } from "@viritura/ui";
-import { X, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { CenteredGlyph, PaletteButton, PanelSearchHeader, PromptDialog } from "@viritura/ui";
 import {
   DndContext,
   PointerSensor,
@@ -162,9 +161,6 @@ import {
   CHORD_SYMBOL_LABEL_STYLE,
   EXPRESSION_LABEL_STYLE,
   REHEARSAL_BOX_STYLE,
-  SEARCH_ROW_STYLE,
-  SEARCH_INPUT_WRAP_STYLE,
-  SEARCH_INPUT_STYLE,
   eventPositionFraction,
   resolveSpannerPositions,
   withSpannerStaff,
@@ -1945,35 +1941,15 @@ export function PalettePanel({
 
   return (
     <div style={panelStyle}>
-      {/* Search box + collapse-all toggle. The "Palettes" title that used
-          to live above this row was redundant with the parent panel chrome
-          (the tab itself is already labelled "Palettes"). */}
-      <div style={SEARCH_ROW_STYLE}>
-        <div style={SEARCH_INPUT_WRAP_STYLE}>
-          <FormInput
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search palettes..."
-            aria-label="Search palettes"
-            style={SEARCH_INPUT_STYLE}
-          />
-          {searchQuery && (
-            <IconButton size="sm" onClick={() => setSearchQuery("")} tooltip="Clear search">
-              <X size={12} />
-            </IconButton>
-          )}
-        </div>
-        <Tooltip content={anyOpen ? "Collapse all" : "Expand all"}>
-          <IconButton
-            size="md"
-            onClick={handleToggleAll}
-            tooltip={anyOpen ? "Collapse all palette sections" : "Expand all palette sections"}
-          >
-            {anyOpen ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
-          </IconButton>
-        </Tooltip>
-      </div>
+      <PanelSearchHeader
+        value={searchQuery}
+        onValueChange={setSearchQuery}
+        placeholder="Search palettes..."
+        searchLabel="Search palettes"
+        anyOpen={anyOpen}
+        onToggleAll={handleToggleAll}
+        toggleLabel={anyOpen ? "Collapse all palette sections" : "Expand all palette sections"}
+      />
       <div className="viritura-scroll" style={panelScrollStyle}>
         <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>

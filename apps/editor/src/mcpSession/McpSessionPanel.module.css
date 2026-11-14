@@ -1,17 +1,19 @@
 .root {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   padding: var(--space-3);
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised));
+  color: var(--text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-lh);
 }
 
 .heading {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  color: var(--text);
 }
 
 .heading svg {
@@ -20,29 +22,34 @@
   color: var(--accent);
 }
 
-.heading strong {
+.title {
   display: block;
-  font-size: var(--type-small-size);
+  font-weight: 600;
 }
 
-.heading p,
-.warning {
-  margin: 2px 0 0;
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hint {
+  margin: 0;
   color: var(--text-muted);
   font-size: var(--type-eyebrow-size);
-  line-height: 1.4;
+  line-height: var(--type-small-lh);
 }
 
 .status {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--type-small-size);
 }
 
 .statusDot {
   width: 8px;
   height: 8px;
+  flex: 0 0 auto;
   border-radius: 50%;
   background: var(--text-muted);
 }
@@ -63,19 +70,14 @@
 
 .urlRow {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--space-2);
   align-items: center;
 }
 
 .urlRow input {
   min-width: 0;
   flex: 1;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text);
-  font-family: monospace;
+  font-family: var(--font-mono, monospace);
   font-size: var(--type-eyebrow-size);
 }
 
@@ -85,10 +87,4 @@
   background: color-mix(in srgb, var(--error) 10%, transparent);
   color: var(--error);
   font-size: var(--type-eyebrow-size);
-}
-
-.authSummary {
-  color: var(--text-muted);
-  font-size: var(--type-eyebrow-size);
-  line-height: 1.4;
 }

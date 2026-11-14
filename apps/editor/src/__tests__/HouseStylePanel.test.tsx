@@ -106,6 +106,16 @@ describe("HouseStylePanel", () => {
     expect(screen.queryByRole("button", { name: /Time Signatures/ })).toBeNull();
     expect(screen.getByRole("button", { name: /Text Styles/ }).getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText(/Sizes are in staff spaces/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Collapse all House Style sections" })).toHaveProperty("disabled", true);
+
+    await user.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(screen.getByLabelText("Search house style")).toHaveProperty("value", "");
+    const collapse = screen.getByRole("button", { name: "Collapse all House Style sections" });
+    expect(collapse).toHaveProperty("disabled", false);
+    await user.click(collapse);
+    expect(screen.getByRole("button", { name: /Time Signatures/ }).getAttribute("aria-expanded")).toBe("false");
+    await user.click(screen.getByRole("button", { name: "Expand all House Style sections" }));
+    expect(screen.getByRole("button", { name: /Time Signatures/ }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("edits and resets the rehearsal-mark house style with the score font preview", async () => {

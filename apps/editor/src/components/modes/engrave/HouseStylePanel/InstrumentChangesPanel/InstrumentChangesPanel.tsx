@@ -2,6 +2,7 @@ import type { InstrumentChangeStyle } from "@viritura/core";
 import { Checkbox } from "@viritura/ui";
 import { toast } from "sonner";
 import { useDocumentStore, useDocumentStoreApi } from "../../../../../store/DocumentContext";
+import styles from "./InstrumentChangesPanel.module.css";
 
 export function InstrumentChangesPanel() {
   const style = useDocumentStore((state) => state.score?.instrumentChangeStyle);
@@ -19,7 +20,7 @@ export function InstrumentChangesPanel() {
     });
   }
   return (
-    <>
+    <div className={styles.root}>
       <Checkbox
         label="Show label at change"
         checked={style?.showChangeLabel ?? true}
@@ -30,7 +31,9 @@ export function InstrumentChangesPanel() {
         checked={style?.showAdvanceReminder ?? true}
         onChange={(event) => update("showAdvanceReminder", event.target.checked)}
       />
-      <p>Applies throughout this document. Individual changes can override visibility and printed text.</p>
-    </>
+      <p className={styles.description}>
+        Applies throughout this document. Individual changes can override visibility and printed text.
+      </p>
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { Score } from "@viritura/core";
+import { patch, type Score } from "@viritura/core";
 import { getGlobalPerfTracker } from "@viritura/renderer";
 import { parseMnx } from "@viritura/format";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -57,7 +57,23 @@ describe("useMnxChangeReporter", () => {
     });
 
     await waitFor(() => {
-      expect(pushState).toHaveBeenCalledWith(expect.any(String), "Edit", before, after);
+      expect(pushState).toHaveBeenCalledWith(expect.any(String), "Edit · m. 1", before, after);
+    });
+  });
+
+  it("uses the previous measure number when recording a removed measure", async () => {
+    const score = makeScore("C");
+    score.global.measures = [{ number: 0, time: { count: 4, unit: 4 } }, { number: 12 }];
+    score.parts[0]!.measures.push({ sequences: [] });
+    const store = createDocumentStore();
+    store.getState().loadScore(score);
+    const pushState = vi.fn();
+    renderHook(() => useMnxChangeReporter({ store, pushState }));
+
+    act(() => store.getState().commitPatches([patch.removeMeasures(0, 1)]));
+
+    await waitFor(() => {
+      expect(pushState).toHaveBeenCalledWith(expect.any(String), "Remove measures · m. 0", null, null);
     });
   });
 

@@ -18,6 +18,7 @@ import { produce } from "../score/scoreClone";
 import { LayoutCoalescer } from "./layoutCoalescer";
 import { useNoteInputStore, type CursorPosition } from "./noteInputStore";
 import { reconcileScoreMixer } from "./mixerRoster";
+import { invalidateLyricPresence } from "../lyrics";
 
 export interface DocumentStoreState {
   // ── State ──
@@ -191,6 +192,7 @@ export function createDocumentStore() {
       // is already in the post-repair shape, so the first user edit yields a
       // diff that contains only the user's actual change.
       const repairs = repairBeatCounts(newScore);
+      invalidateLyricPresence(newScore);
       // Backfill catalog metadata without replacing existing identities (idempotent).
       const enriched = enrichInstrumentIdentities(newScore);
       // Repairs, enrichment, or mixer cleanup make the caller's preSerializedJson stale.
@@ -267,7 +269,8 @@ export function createDocumentStore() {
       // back to the range derived from the patch list so we don't silently
       // run an O(score) repair scan after every edit on a long score.
       const repairRange = affectedMeasures ?? (patches ? (patchAffectedMeasures(patches) ?? undefined) : undefined);
-      repairBeatCounts(newScore, repairRange);
+      const repaired = repairBeatCounts(newScore, repairRange);
+      if (repaired > 0) invalidateLyricPresence(newScore, repairRange);
       const repairMs = performance.now() - repairT0;
       if (repairMs > 0.5) {
         console.debug(`[Viritura] Beat count repair: ${repairMs.toFixed(1)}ms`);

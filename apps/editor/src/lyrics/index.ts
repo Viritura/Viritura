@@ -3,7 +3,9 @@ export {
   getLyricLineDisplay,
   getLyricLineIds,
   getNextLyricLineId,
+  invalidateLyricPresence,
   isValidLanguageTag,
+  scoreHasLyrics,
 } from "./lineMetadata";
 export { useLyricEntryCommand } from "./useLyricEntryCommand";
 export {

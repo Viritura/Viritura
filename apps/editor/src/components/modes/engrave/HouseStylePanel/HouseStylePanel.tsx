@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { ChevronsDownUp, ChevronsUpDown, X } from "lucide-react";
-import { Collapsible, FormInput, IconButton, Tooltip } from "@viritura/ui";
+import { Collapsible, PanelSearchHeader } from "@viritura/ui";
 
 import { TextStylesPanel } from "./TextStylesPanel";
 import { TimeSignatureAppearance } from "./TimeSignatureAppearance";
@@ -89,32 +88,16 @@ export function HouseStylePanel() {
 
   return (
     <aside className={styles.root} data-testid="house-style-panel">
-      <div className={styles.searchRow}>
-        <div className={styles.searchInputWrap}>
-          <FormInput
-            type="text"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.currentTarget.value)}
-            placeholder="Search house style..."
-            aria-label="Search house style"
-          />
-          {searchQuery && (
-            <IconButton size="sm" onClick={() => setSearchQuery("")} tooltip="Clear search">
-              <X size={12} />
-            </IconButton>
-          )}
-        </div>
-        <Tooltip content={anyOpen ? "Collapse all" : "Expand all"}>
-          <IconButton
-            size="md"
-            disabled={searching || visibleCategories.length === 0}
-            onClick={handleToggleAll}
-            tooltip={anyOpen ? "Collapse all House Style sections" : "Expand all House Style sections"}
-          >
-            {anyOpen ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
-          </IconButton>
-        </Tooltip>
-      </div>
+      <PanelSearchHeader
+        value={searchQuery}
+        onValueChange={setSearchQuery}
+        placeholder="Search house style..."
+        searchLabel="Search house style"
+        anyOpen={anyOpen}
+        onToggleAll={handleToggleAll}
+        toggleLabel={anyOpen ? "Collapse all House Style sections" : "Expand all House Style sections"}
+        toggleDisabled={searching || visibleCategories.length === 0}
+      />
       <div className={`viritura-scroll ${styles.body}`}>
         {visibleCategories.map((category) => (
           <Collapsible
