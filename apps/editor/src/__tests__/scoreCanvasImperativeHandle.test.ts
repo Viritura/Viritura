@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { DisplayList, MeasureBounds } from "@viritura/renderer";
 
-import { centeredScrollPosition, measureVisualPosition } from "../components/ScoreCanvas/imperativeHandle";
+import {
+  buildScoreCanvasHandle,
+  centeredScrollPosition,
+  measureVisualPosition,
+} from "../components/ScoreCanvas/imperativeHandle";
 
 function measure(index: number, x: number, y: number): MeasureBounds {
   return {
@@ -28,6 +32,33 @@ const displayList: DisplayList = {
   ],
   measureBounds: [measure(124, 150, 1100)],
 };
+
+describe("current viewport page", () => {
+  it.each([
+    { viewMode: "page" as const, scrollX: 0, scrollY: 1100, expected: 1 },
+    { viewMode: "spread" as const, scrollX: 0, scrollY: 900, expected: 1 },
+    { viewMode: "spread-h" as const, scrollX: 1320, scrollY: 0, expected: 1 },
+    { viewMode: "horizon" as const, scrollX: 1320, scrollY: 1100, expected: 0 },
+  ])("uses the displayed page geometry in $viewMode", ({ viewMode, scrollX, scrollY, expected }) => {
+    const container = document.createElement("div");
+    Object.defineProperties(container, { clientWidth: { value: 400 }, clientHeight: { value: 200 } });
+    const handle = buildScoreCanvasHandle({
+      setZoom: () => {},
+      setScroll: () => {},
+      resetViewport: () => {},
+      scoreDefinitions: [],
+      selectedScoreIndex: 0,
+      viewport: { zoom: 2, scrollX, scrollY },
+      displayListRef: { current: displayList },
+      spatialIndexRef: { current: null },
+      canvasRef: { current: null },
+      containerRef: { current: container },
+      docScoreRef: { current: null },
+      viewMode,
+    });
+    expect(handle.getCurrentPageIndex()).toBe(expected);
+  });
+});
 
 describe("measureVisualPosition", () => {
   it("uses engine coordinates in Horizon view", () => {

@@ -529,6 +529,26 @@
       "additionalProperties": false
     },
 
+    "system-tempo": {
+      "type": "object",
+      "description": "Optional playback instruction on system text. No timing or swing change is implied when absent.",
+      "properties": {
+        "bpm": { "type": "number", "exclusiveMinimum": 0 },
+        "value": { "$ref": "#/$defs/tempo-instruction/properties/value" },
+        "swing": { "$ref": "#/$defs/swing" },
+        "showMetronomeMark": { "type": "boolean" }
+      },
+      "oneOf": [
+        { "required": ["bpm", "value"] },
+        {
+          "required": ["swing"],
+          "not": {
+            "anyOf": [{ "required": ["bpm"] }, { "required": ["value"] }, { "required": ["showMetronomeMark"] }]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
     "system-text": {
       "type": "object",
       "description": "One globally owned music-relative instruction displayed once above or below the visible system in every score/part view. No staff/voice or page coordinates.",
@@ -536,6 +556,8 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "text": { "$ref": "#/$defs/text-content" },
+        "tempo": { "$ref": "#/$defs/system-tempo" },
+        "showText": { "type": "boolean" },
         "frame": { "$ref": "#/$defs/staff-text-frame-presentation" },
         "position": {
           "allOf": [

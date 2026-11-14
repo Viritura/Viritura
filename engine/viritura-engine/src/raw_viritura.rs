@@ -9699,6 +9699,375 @@ impl ::std::default::Default for SystemLayoutExtensions {
         }
     }
 }
+///Optional playback instruction on system text. No timing or swing change is implied when absent.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Optional playback instruction on system text. No timing or swing change is implied when absent.",
+///  "type": "object",
+///  "oneOf": [
+///    {
+///      "required": [
+///        "bpm",
+///        "value"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "anyOf": [
+///          {
+///            "required": [
+///              "bpm"
+///            ]
+///          },
+///          {
+///            "required": [
+///              "value"
+///            ]
+///          },
+///          {
+///            "required": [
+///              "showMetronomeMark"
+///            ]
+///          }
+///        ]
+///      },
+///      "required": [
+///        "swing"
+///      ]
+///    }
+///  ],
+///  "properties": {
+///    "bpm": {
+///      "type": "number"
+///    },
+///    "showMetronomeMark": {
+///      "type": "boolean"
+///    },
+///    "swing": {
+///      "$ref": "#/$defs/swing"
+///    },
+///    "value": {
+///      "$ref": "#/$defs/tempo-instruction/properties/value"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum SystemTempo {
+    Variant0(SystemTempoVariant0),
+    Variant1 { swing: Swing },
+}
+impl ::std::convert::From<&Self> for SystemTempo {
+    fn from(value: &SystemTempo) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<SystemTempoVariant0> for SystemTempo {
+    fn from(value: SystemTempoVariant0) -> Self {
+        Self::Variant0(value)
+    }
+}
+///`SystemTempoVariant0`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "allOf": [
+///    {
+///      "type": "object",
+///      "properties": {
+///        "bpm": {
+///          "type": "number"
+///        },
+///        "showMetronomeMark": {
+///          "type": "boolean"
+///        },
+///        "swing": {
+///          "$ref": "#/$defs/swing"
+///        },
+///        "value": {
+///          "$ref": "#/$defs/tempo-instruction/properties/value"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "required": [
+///        "bpm",
+///        "value"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "not": {
+///          "anyOf": [
+///            {
+///              "required": [
+///                "bpm"
+///              ]
+///            },
+///            {
+///              "required": [
+///                "value"
+///              ]
+///            },
+///            {
+///              "required": [
+///                "showMetronomeMark"
+///              ]
+///            }
+///          ]
+///        },
+///        "required": [
+///          "swing"
+///        ]
+///      }
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum SystemTempoVariant0 {
+    Variant0(SystemTempoVariant0Variant0),
+    Variant1(SystemTempoVariant0Variant1),
+    Variant2(SystemTempoVariant0Variant2),
+}
+impl ::std::convert::From<&Self> for SystemTempoVariant0 {
+    fn from(value: &SystemTempoVariant0) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<SystemTempoVariant0Variant0> for SystemTempoVariant0 {
+    fn from(value: SystemTempoVariant0Variant0) -> Self {
+        Self::Variant0(value)
+    }
+}
+impl ::std::convert::From<SystemTempoVariant0Variant1> for SystemTempoVariant0 {
+    fn from(value: SystemTempoVariant0Variant1) -> Self {
+        Self::Variant1(value)
+    }
+}
+impl ::std::convert::From<SystemTempoVariant0Variant2> for SystemTempoVariant0 {
+    fn from(value: SystemTempoVariant0Variant2) -> Self {
+        Self::Variant2(value)
+    }
+}
+///`SystemTempoVariant0Variant0`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "allOf": [
+///    {
+///      "type": "object",
+///      "required": [
+///        "bpm",
+///        "value"
+///      ],
+///      "properties": {
+///        "bpm": {
+///          "type": "number"
+///        },
+///        "showMetronomeMark": {
+///          "type": "boolean"
+///        },
+///        "swing": false,
+///        "value": {
+///          "$ref": "#/$defs/tempo-instruction/properties/value"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "required": [
+///        "bpm"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "value"
+///        ]
+///      }
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "showMetronomeMark"
+///        ]
+///      }
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+#[serde(deny_unknown_fields)]
+pub enum SystemTempoVariant0Variant0 {}
+impl ::std::convert::From<&Self> for SystemTempoVariant0Variant0 {
+    fn from(value: &SystemTempoVariant0Variant0) -> Self {
+        value.clone()
+    }
+}
+///`SystemTempoVariant0Variant1`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "allOf": [
+///    {
+///      "type": "object",
+///      "required": [
+///        "bpm",
+///        "value"
+///      ],
+///      "properties": {
+///        "bpm": {
+///          "type": "number"
+///        },
+///        "showMetronomeMark": {
+///          "type": "boolean"
+///        },
+///        "swing": false,
+///        "value": {
+///          "$ref": "#/$defs/tempo-instruction/properties/value"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "required": [
+///        "value"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "bpm"
+///        ]
+///      }
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "showMetronomeMark"
+///        ]
+///      }
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+#[serde(deny_unknown_fields)]
+pub enum SystemTempoVariant0Variant1 {}
+impl ::std::convert::From<&Self> for SystemTempoVariant0Variant1 {
+    fn from(value: &SystemTempoVariant0Variant1) -> Self {
+        value.clone()
+    }
+}
+///`SystemTempoVariant0Variant2`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "allOf": [
+///    {
+///      "type": "object",
+///      "required": [
+///        "bpm",
+///        "value"
+///      ],
+///      "properties": {
+///        "bpm": {
+///          "type": "number"
+///        },
+///        "showMetronomeMark": {
+///          "type": "boolean"
+///        },
+///        "swing": false,
+///        "value": {
+///          "$ref": "#/$defs/tempo-instruction/properties/value"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "required": [
+///        "showMetronomeMark"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "bpm"
+///        ]
+///      }
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "value"
+///        ]
+///      }
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+#[serde(deny_unknown_fields)]
+pub enum SystemTempoVariant0Variant2 {}
+impl ::std::convert::From<&Self> for SystemTempoVariant0Variant2 {
+    fn from(value: &SystemTempoVariant0Variant2) -> Self {
+        value.clone()
+    }
+}
 ///One globally owned music-relative instruction displayed once above or below the visible system in every score/part view. No staff/voice or page coordinates.
 ///
 /// <details><summary>JSON schema</summary>
@@ -9750,6 +10119,12 @@ impl ::std::default::Default for SystemLayoutExtensions {
 ///        }
 ///      ]
 ///    },
+///    "showText": {
+///      "type": "boolean"
+///    },
+///    "tempo": {
+///      "$ref": "#/$defs/system-tempo"
+///    },
 ///    "text": {
 ///      "$ref": "#/$defs/text-content"
 ///    }
@@ -9779,6 +10154,14 @@ pub struct SystemText {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub placement: ::std::option::Option<ExpressionPlacement>,
     pub position: RhythmicPosition,
+    #[serde(
+        rename = "showText",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub show_text: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub tempo: ::std::option::Option<SystemTempo>,
     pub text: TextContent,
 }
 impl ::std::convert::From<&SystemText> for SystemText {
@@ -15415,6 +15798,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "system-layout-extensions": {
 ///      "$ref": "#/$defs/system-layout-extensions"
 ///    },
+///    "system-tempo": {
+///      "$ref": "#/$defs/system-tempo"
+///    },
 ///    "system-text": {
 ///      "$ref": "#/$defs/system-text"
 ///    },
@@ -15948,6 +16334,12 @@ pub struct VirituraExtensionsRoot {
     )]
     pub system_layout_extensions: ::std::option::Option<SystemLayoutExtensions>,
     #[serde(
+        rename = "system-tempo",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub system_tempo: ::std::option::Option<SystemTempo>,
+    #[serde(
         rename = "system-text",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -16220,6 +16612,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             stage_position: Default::default(),
             swing: Default::default(),
             system_layout_extensions: Default::default(),
+            system_tempo: Default::default(),
             system_text: Default::default(),
             tempo_extensions: Default::default(),
             tempo_instruction: Default::default(),

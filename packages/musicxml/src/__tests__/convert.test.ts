@@ -1830,6 +1830,65 @@ describe("convertMusicXmlToMnx — multimeasure rests", () => {
 });
 
 describe("convertMusicXmlToMnx — transposition", () => {
+  it.each([
+    ["Clarinet in Bb 1", "wind.reed.clarinet.bflat", -1, -2, 0, "G"],
+    ["Trumpet in Bb 1", "brass.trumpet.bflat", -1, -2, 0, "G"],
+    ["Horn in F 1 &amp; 3", "brass.french-horn", -4, -7, 0, "G"],
+    ["Baritone Saxophone", "wind.reed.saxophone.baritone", -5, -9, -1, "F"],
+  ])(
+    "imports concert-score %s without transposing sounding notes twice",
+    (name, sound, diatonic, chromatic, octave, sign) => {
+      const xml = `<score-partwise version="4.0">
+      <defaults><concert-score/></defaults>
+      <part-list><score-part id="P1"><part-name>${name}</part-name>
+        <score-instrument id="I1"><instrument-name>Instrument</instrument-name>
+          <instrument-sound>${sound}</instrument-sound></score-instrument>
+      </score-part></part-list>
+      <part id="P1"><measure number="1"><attributes>
+        <divisions>1</divisions><key><fifths>-4</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>${sign}</sign><line>${sign === "F" ? 4 : 2}</line></clef>
+        <for-part><part-transpose><diatonic>${diatonic}</diatonic><chromatic>${chromatic}</chromatic>
+          <octave-change>${octave}</octave-change></part-transpose></for-part>
+      </attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+      </measure></part>
+    </score-partwise>`;
+      const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+      expect(result.parts[0]!.transposition).toEqual({
+        interval: { halfSteps: -(chromatic + 12 * octave), staffDistance: -(diatonic + 7 * octave) },
+      });
+      expect(result.parts[0]!._x?.viritura["instrumentId"]).toBe(sound);
+      expect(result.parts[0]!.measures[0]!.sequences![0]!.content[0]).toMatchObject({
+        notes: [{ pitch: { step: "C", octave: 4 } }],
+      });
+      expect(result.parts[0]!.measures[0]!.clefs![0]!.clef.sign).toBe(sign);
+      expect(result.global.measures[0]!.key).toEqual({ fifths: -4 });
+      expect(result.scores![0]!.useWritten).toBeUndefined();
+      expect(convertMusicXmlToMnx(xml).parts[0]!._x).toBeUndefined();
+    },
+  );
+
+  it("keeps source octave transposition separate from concert-score part transposition", () => {
+    const xml = `<score-partwise version="4.0">
+      <defaults><concert-score/></defaults>
+      <part-list><score-part id="P1"><part-name>Bass Clarinet</part-name></score-part></part-list>
+      <part id="P1"><measure number="1"><attributes>
+        <divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>
+        <transpose><diatonic>0</diatonic><chromatic>0</chromatic><octave-change>-1</octave-change></transpose>
+        <for-part><part-transpose><diatonic>-1</diatonic><chromatic>-2</chromatic>
+          <octave-change>-1</octave-change></part-transpose></for-part>
+      </attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+      </measure></part>
+    </score-partwise>`;
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.parts[0]!.transposition).toEqual({ interval: { halfSteps: 14, staffDistance: 8 } });
+    expect(result.parts[0]!.measures[0]!.sequences![0]!.content[0]).toMatchObject({
+      notes: [{ pitch: { step: "C", octave: 3 } }],
+    });
+  });
+
   it("converts Bb clarinet: flips interval sign and stores sounding pitch", () => {
     // Bb clarinet: MusicXML transpose chromatic=-2, diatonic=-1 means
     // (written → sounding) is down a major 2nd. Written D4 sounds as C4.

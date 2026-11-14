@@ -615,7 +615,7 @@ fn system_text_expression(
     ml: &MeasureLayout,
     config: &LayoutConfig,
 ) -> TextExpression {
-    let mut content = text.text.clone();
+    let mut content = super::system_instruction::display_content(text);
     if ml.resolved.global.tempo_ramp_text_id() == Some(text.id.as_str()) {
         use crate::model::{TextContentChunk, TextWeight, TextWeightName};
         let bold = config

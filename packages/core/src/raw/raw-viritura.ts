@@ -249,10 +249,19 @@ export interface components {
             /** @description Whether automatic collision avoidance may re-flow this expression outward to clear other directions. Default (and when unset): true. Set false when the user manually places the expression (e.g. by dragging) so it stays exactly where put and others flow around it. */
             avoidCollisions?: boolean;
         };
+        /** @description Optional playback instruction on system text. No timing or swing change is implied when absent. */
+        "system-tempo": {
+            bpm?: number;
+            value?: components["schemas"]["tempo-instruction"]["value"];
+            swing?: components["schemas"]["swing"];
+            showMetronomeMark?: boolean;
+        } & (unknown | unknown);
         /** @description One globally owned music-relative instruction displayed once above or below the visible system in every score/part view. No staff/voice or page coordinates. */
         "system-text": {
             id: string;
             text: components["schemas"]["text-content"];
+            tempo?: components["schemas"]["system-tempo"];
+            showText?: boolean;
             frame?: components["schemas"]["staff-text-frame-presentation"];
             position: components["schemas"]["rhythmic-position"] & {
                 fraction?: unknown;
@@ -1100,6 +1109,7 @@ export type ChordSymbol = components["schemas"]["chord-symbol"];
 export type ChordSymbolStyle = components["schemas"]["chord-symbol-style"];
 export type ExpressionPlacement = components["schemas"]["expression-placement"];
 export type TextExpression = components["schemas"]["text-expression"];
+export type SystemTempo = components["schemas"]["system-tempo"];
 export type SystemText = components["schemas"]["system-text"];
 export type TrillExtension = components["schemas"]["trill-extension"];
 export type Trill = components["schemas"]["trill"];

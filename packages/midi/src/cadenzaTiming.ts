@@ -1,5 +1,6 @@
 import {
   DURATION_BEATS,
+  measureTempoInstructions,
   type GlobalMeasure,
   type Score,
   type SequenceContent,
@@ -70,7 +71,7 @@ export function playbackGlobalMeasures(score: Score, measureOrder: readonly numb
       time: { ...activeTime },
       tempos: original.tempos,
     };
-    const metronomicTempos = original.tempos?.filter((tempo) => tempo.bpm !== undefined);
+    const metronomicTempos = measureTempoInstructions(original).filter((tempo) => tempo.bpm !== undefined);
     if (metronomicTempos?.length)
       activeTempo = [...metronomicTempos]
         .sort(
@@ -112,7 +113,9 @@ export function playbackGlobalMeasures(score: Score, measureOrder: readonly numb
     // active ramps, including at otherwise BPM-free swing anchors.
     if (expandedIndex === 0 || index === measureOrder[expandedIndex - 1]! + 1) return measure;
     if (
-      measure.tempos?.some((tempo) => tempo.bpm !== undefined && (!tempo.location || tempo.location.fraction[0] === 0))
+      measureTempoInstructions(measure).some(
+        (tempo) => tempo.bpm !== undefined && (!tempo.location || tempo.location.fraction[0] === 0),
+      )
     )
       return measure;
     return {

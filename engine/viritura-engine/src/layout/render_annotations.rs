@@ -16,6 +16,7 @@ pub(super) use dynamic_lane::{clear_tuplet_lane, placed_dynamic_midline, Dynamic
 #[path = "render_annotations/expressions.rs"]
 mod expressions;
 mod global_caesuras;
+mod system_instruction;
 pub(crate) use global_caesuras::global_caesura_top;
 #[path = "render_annotations/jump_markers.rs"]
 mod jump_markers;

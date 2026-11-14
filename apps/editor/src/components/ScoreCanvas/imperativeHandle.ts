@@ -79,7 +79,7 @@ export function buildScoreCanvasHandle(args: ImperativeHandleArgs): ScoreCanvasH
     scrollToPage: (index: number) => scrollToPage(index, displayListRef, setScroll),
     scrollToMeasure: (measureIndex: number) =>
       scrollToMeasure(measureIndex, displayListRef, containerRef, viewport, viewMode, setScroll),
-    getCurrentPageIndex: () => currentPageIndex(displayListRef, containerRef, viewport),
+    getCurrentPageIndex: () => currentPageIndex(displayListRef, containerRef, viewport, viewMode),
     fitPage: () => fitPageImpl(displayListRef, containerRef, setZoom),
     fitWidth: () => fitWidthImpl(displayListRef, containerRef, setZoom),
   };
@@ -155,19 +155,24 @@ function scrollToPage(
 function currentPageIndex(
   displayListRef: { current: DisplayList | null },
   containerRef: { current: HTMLElement | null },
-  viewport: { zoom: number; scrollY: number },
+  viewport: { zoom: number; scrollX: number; scrollY: number },
+  viewMode: ImperativeHandleArgs["viewMode"],
 ): number {
-  const pages = displayListRef.current?.pages;
-  if (!pages || pages.length === 0) return 0;
+  const displayList = displayListRef.current;
+  if (!displayList) return 0;
   const el = containerRef.current;
-  const vhWorld = el ? el.clientHeight / viewport.zoom : 0;
-  const centerY = viewport.scrollY + vhWorld / 2;
+  const centerX = viewport.scrollX + (el ? el.clientWidth / viewport.zoom / 2 : 0);
+  const centerY = viewport.scrollY + (el ? el.clientHeight / viewport.zoom / 2 : 0);
   let best = 0;
-  for (let i = 0; i < pages.length; i++) {
-    const p = pages[i]!;
-    const bandTop = p.yOffset + i * PAGE_STACK_GAP;
-    if (centerY >= bandTop && centerY < bandTop + p.height) return i;
-    if (bandTop <= centerY) best = i;
+  let bestDistance = Infinity;
+  for (const page of computePagePlacements(displayList, viewMode)) {
+    const dx = Math.max(page.x - centerX, 0, centerX - page.x - page.width);
+    const dy = Math.max(page.y - centerY, 0, centerY - page.y - page.height);
+    const distance = dx * dx + dy * dy;
+    if (distance < bestDistance) {
+      best = page.pageIndex;
+      bestDistance = distance;
+    }
   }
   return best;
 }

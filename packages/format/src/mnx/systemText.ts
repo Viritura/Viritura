@@ -10,6 +10,9 @@ export function parseSystemText(raw: unknown): SystemText[] {
     const error = (reason: string) => new Error(`MNX: systemText[${index}]: ${reason}`);
     if (!validateSystemText(value)) throw error("invalid system text");
     const text = value as SystemText;
+    if (text.tempo?.bpm !== undefined && (!Number.isFinite(text.tempo.bpm) || text.tempo.bpm <= 0)) {
+      throw error("tempo BPM must be finite and greater than zero");
+    }
     if (ids.has(text.id)) throw error(`duplicate id "${text.id}"`);
     ids.add(text.id);
     if (
