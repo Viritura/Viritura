@@ -72,11 +72,16 @@ export function LeftPanel({
             openSectionRequest={paletteSectionRequest}
             getCurrentPageIndex={getCurrentPageIndex}
             onTextFrameCreated={() => handleTabChange("properties")}
+            onOpenLyricsProperties={() => handleTabChange("properties")}
           />
         )}
         {activeTab === "clipboard" && <ClipboardHistoryPanel />}
         {activeTab === "properties" && (
-          <NotationInspector preferredSection={preferredInspectorSection} horizonTextFrames={horizonTextFrames} />
+          <NotationInspector
+            preferredSection={preferredInspectorSection}
+            horizonTextFrames={horizonTextFrames}
+            showLyricLineControls
+          />
         )}
       </Tabs>
     </div>

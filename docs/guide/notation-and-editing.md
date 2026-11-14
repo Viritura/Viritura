@@ -74,8 +74,7 @@ position and never change playback. Choose **Page text frame** in the same
 palette to create and select a frame on the current page; Properties opens
 automatically for text, formatting, page attachment, size and position.
 In Horizon, which has no pages, new page frames start on page 1 and can be
-edited in Properties even though they are not drawn there. Lyrics remain a
-separate group below the text tiles.
+edited in Properties even though they are not drawn there.
 
 In the popover, enter `Freely` or `Allegro` for plain system text,
 `q=180` for a metronome marking, or `Allegro q=180` for both. Dotted units
@@ -86,6 +85,11 @@ from the printed words; the metronome marking is rendered separately.
 Use only one tempo marking per instruction. Press
 Enter to apply or Escape to cancel; use Properties for advanced formatting.
 Replacing tempo syntax with words alone removes playback settings.
+
+The **Lyrics** tile (**Shift+W**) starts inline syllable entry on the selected
+note and opens Properties. Active-line selection, adding and reordering lines,
+labels, language, Paste verse/Reflow and extender settings live in the Lyrics
+section of Properties rather than the palette.
 
 ## Spread chords across staves
 
@@ -187,7 +191,7 @@ one digit. Beat groups must add up to the meter numerator. Entering only `5/8`
 uses the document's automatic grouping, and entering the current conventional
 grouping also normalizes back to Automatic.
 
-The **Text** palette also contains chord-symbol entry and lyric-line controls.
+The **Text & tempo** palette also contains chord-symbol and lyric-entry tiles.
 See [Chord Symbols](/docs/chord-symbols) for entering harmony and
 [Lyrics](/docs/lyrics) for syllable entry, melismas, labels, languages, and
 line ordering.

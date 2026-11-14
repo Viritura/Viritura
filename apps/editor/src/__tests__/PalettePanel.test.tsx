@@ -130,6 +130,7 @@ describe("PalettePanel", () => {
     "Slur (S)",
     "Expression text (Shift+D)",
     "System text / tempo (Shift+T)",
+    "Lyrics (Shift+W)",
     "Mezzo forte",
   ])("shows the concise hover label %s without duplicate shortcuts", async (name) => {
     const user = userEvent.setup();
@@ -838,6 +839,7 @@ describe("PalettePanel", () => {
     ["system", "Text & tempo", "System text / tempo (Shift+T)"],
     ["tempo", "Text & tempo", "System text / tempo (Shift+T)"],
     ["bpm", "Text & tempo", "System text / tempo (Shift+T)"],
+    ["lyrics", "Text & tempo", "Lyrics (Shift+W)"],
     ["staff", "Text & tempo", "Staff text (Shift+X)"],
   ])("finds %s in its regrouped section", async (query, section, label) => {
     render(

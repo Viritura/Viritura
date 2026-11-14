@@ -46,6 +46,7 @@ import { BeamSection } from "./inspector/BeamSection";
 import { useBeamInspector } from "./inspector/useBeamInspector";
 
 import { HorizonTextFrames, TextFramesPanel } from "./textFrames";
+import { LyricsPanel } from "./lyrics/LyricsPanel";
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
 
@@ -53,14 +54,17 @@ interface NotationInspectorProps {
   preferredSection?: InspectorSection | null;
   /** Horizon view hides page-placed text frames; list and edit them alongside the selection. */
   horizonTextFrames?: boolean;
+  showLyricLineControls?: boolean;
 }
 
 function NotationInspectorEmptyState({
   horizonTextFrames,
   frameSelected,
+  showLyricLineControls,
 }: {
   horizonTextFrames?: boolean;
   frameSelected: boolean;
+  showLyricLineControls?: boolean;
 }) {
   return (
     <aside style={panelStyle} data-testid="notation-inspector">
@@ -76,6 +80,7 @@ function NotationInspectorEmptyState({
           </div>
         )}
         {horizonTextFrames ? <HorizonTextFrames /> : <TextFramesPanel />}
+        {showLyricLineControls && <LyricsPanel embedded />}
       </div>
     </aside>
   );
@@ -208,6 +213,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
       <NotationInspectorEmptyState
         horizonTextFrames={_props.horizonTextFrames}
         frameSelected={selectedElementType === "text-frame"}
+        showLyricLineControls={_props.showLyricLineControls}
       />
     );
   }
@@ -450,6 +456,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         )}
 
         {_props.horizonTextFrames ? <HorizonTextFrames /> : <TextFramesPanel />}
+        {_props.showLyricLineControls && <LyricsPanel embedded />}
       </div>
     </aside>
   );
