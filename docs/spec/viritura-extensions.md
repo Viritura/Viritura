@@ -547,7 +547,10 @@ intent and explicit text-role styling. Other tempo anchors are untouched.
 
 Normal-mode Shift+T retains lightweight text-only popover entry. Explicit
 syntax such as `q=180`, `q.=90`, or `Allegro q=180` supplies playback semantics;
-words alone create ordinary system text and remove prior playback semantics.
+words alone create ordinary system text and remove prior metronomic playback
+semantics. BPM-free Swing/Straight settings are preserved when editing their
+words, because the inline field does not expose those rhythm settings; set
+rhythm to Inherit in Properties to remove them.
 Explicit tempo tokens are recognized anywhere in the input, including within
 parentheses (`words here (q=180)`). Extraction preserves the surrounding words
 and removes parentheses enclosing only the token; the metronome mark is composed

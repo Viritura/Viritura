@@ -85,6 +85,8 @@ from the printed words; the metronome marking is rendered separately.
 Use only one tempo marking per instruction. Press
 Enter to apply or Escape to cancel; use Properties for advanced formatting.
 Replacing tempo syntax with words alone removes playback settings.
+Editing the words of a BPM-free Swing or Straight instruction preserves its
+rhythm setting; choose Inherit in Properties to clear it.
 
 The **Lyrics** tile (**Shift+W**) starts inline syllable entry on the selected
 note and opens Properties. Active-line selection, adding and reordering lines,

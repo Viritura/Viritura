@@ -68,4 +68,16 @@ describe("inline system text and tempo entry", () => {
     const tempo: SystemText = { ...instruction, tempo: { bpm: 84.5, value: { base: "64th", dots: 2 } } };
     expect(applyInlineInstruction(tempo, inlineInstructionValue(tempo))).toEqual(tempo);
   });
+
+  it.each<NonNullable<SystemText["tempo"]>>([
+    { swing: { mode: "swing", subdivision: "eighth", ratio: [2, 1] } },
+    { swing: { mode: "straight" } },
+  ])("preserves BPM-free rhythm settings when editing their words: %j", (tempo) => {
+    const original = { ...instruction, tempo };
+    expect(applyInlineInstruction(original, inlineInstructionValue(original))).toEqual(original);
+    expect(applyInlineInstruction(original, "Freely")).toEqual({
+      ...original,
+      text: [{ text: "Freely" }],
+    });
+  });
 });

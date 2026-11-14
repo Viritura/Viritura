@@ -85,9 +85,14 @@ export function applyInlineInstruction(instruction: SystemText, input: string): 
   if (!parsed.ok) throw new Error(parsed.error);
   const { tempo: _tempo, ...textInstruction } = instruction;
   const { text, tempo } = parsed.instruction;
+  const nextTempo = tempo
+    ? { ...instruction.tempo, ...tempo }
+    : instruction.tempo?.bpm === undefined
+      ? instruction.tempo
+      : undefined;
   return {
     ...textInstruction,
     text: text === plainTextContent(instruction.text) ? instruction.text : textContentFromPlain(text),
-    ...(tempo ? { tempo: { ...instruction.tempo, ...tempo } } : {}),
+    ...(nextTempo ? { tempo: nextTempo } : {}),
   };
 }
