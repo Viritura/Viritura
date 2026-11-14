@@ -106,6 +106,7 @@ export function applyScoreDefChanges(score: Score, edits: ScoreDefEdit[]): Score
       ...(existing?.pages ? { pages: existing.pages } : {}),
       ...(existing?.layoutBreaks ? { layoutBreaks: existing.layoutBreaks } : {}),
       ...(existing?.pageSetup ? { pageSetup: existing.pageSetup } : {}),
+      ...(existing?.pageSetupRole ? { pageSetupRole: existing.pageSetupRole } : {}),
       ...(existing?.multimeasureRests ? { multimeasureRests: existing.multimeasureRests } : {}),
       ...(existing?.textFrames ? { textFrames: existing.textFrames } : {}),
     };

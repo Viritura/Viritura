@@ -629,6 +629,8 @@ export interface components {
         /** @description Viritura extensions on a standard MNX score definition. */
         "score-extensions": {
             pageSetup?: components["schemas"]["page-setup"];
+            /** @enum {unknown} */
+            pageSetupRole?: "score" | "part";
             instrumentNameDisplay?: components["schemas"]["instrument-name-display"];
             /** @description Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged. */
             autoHideEmptyParts?: string[];
@@ -1031,6 +1033,11 @@ export interface components {
         "root-extensions": {
             /** @description Score-level bibliographic metadata. */
             metadata?: components["schemas"]["score-metadata"];
+            /** @description Independent project defaults for score and part page geometry. Per-score pageSetup values override these. */
+            pageSetupDefaults?: {
+                score?: components["schemas"]["page-setup"];
+                part?: components["schemas"]["page-setup"];
+            };
             /** @description Per-document text style overrides. */
             textStyles?: components["schemas"]["text-styles"];
             /** @description Per-document placement (clearance) overrides keyed by dependent kind. */

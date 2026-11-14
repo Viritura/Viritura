@@ -306,9 +306,10 @@ export function useSlurEditState(refs: EngraveContextRefs, score: Score | null) 
 
 /** Persist page setup edits for the score selected in the global header switcher. */
 export function usePageSetupEditor(refs: EngraveContextRefs) {
+  const documentStore = useDocumentStoreApi();
   const handleApplyPageSetup = useCallback(
     (setup: PageSetup) => {
-      const sc = refs.scoreRef.current;
+      const sc = documentStore.getState().workingScore;
       if (!sc) return;
       const index = refs.activeScoreIndexRef.current;
       const updated = produce(sc, (draft) => {
@@ -318,11 +319,11 @@ export function usePageSetupEditor(refs: EngraveContextRefs) {
       });
       refs.updateScoreRef.current(updated);
     },
-    [refs],
+    [documentStore, refs],
   );
 
   const handleResetPageSetup = useCallback(() => {
-    const sc = refs.scoreRef.current;
+    const sc = documentStore.getState().workingScore;
     if (!sc) return;
     const index = refs.activeScoreIndexRef.current;
     const updated = produce(sc, (draft) => {
@@ -331,7 +332,7 @@ export function usePageSetupEditor(refs: EngraveContextRefs) {
       }
     });
     refs.updateScoreRef.current(updated);
-  }, [refs]);
+  }, [documentStore, refs]);
 
   return {
     handleApplyPageSetup,

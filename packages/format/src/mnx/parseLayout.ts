@@ -150,6 +150,8 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
     });
   }
   const psRaw = viritura?.["pageSetup"] as Record<string, unknown> | undefined;
+  const role = viritura?.["pageSetupRole"];
+  if (role === "score" || role === "part") sd.pageSetupRole = role;
   if (psRaw) {
     const pageSetup: Partial<PageSetup> = {};
     if (psRaw["width"] !== undefined) pageSetup.width = psRaw["width"] as number;

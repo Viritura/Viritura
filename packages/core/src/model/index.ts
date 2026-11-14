@@ -26,6 +26,7 @@ export * from "./time";
 export * from "./staffMeter";
 export * from "./barline";
 export * from "./layout";
+export * from "./pageSetup";
 export * from "./pagination";
 export * from "./derivedLayouts";
 export * from "./kit";

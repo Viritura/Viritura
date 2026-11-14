@@ -30,7 +30,7 @@ export function useScoreEditingActions({
 }: UseScoreEditingActionsOptions) {
   const handleApplyPageSetup = useCallback(
     (setup: PageSetup) => {
-      const { score } = store.getState();
+      const { workingScore: score } = store.getState();
       if (!score) return;
       const updated = produce(score, (draft) => {
         const scoreIdx = pageSetupTargetIndex ?? selectedScoreIndex;
@@ -44,7 +44,7 @@ export function useScoreEditingActions({
   );
 
   const handleResetPageSetup = useCallback(() => {
-    const { score } = store.getState();
+    const { workingScore: score } = store.getState();
     if (!score) return;
     const updated = produce(score, (draft) => {
       const scoreIdx = pageSetupTargetIndex ?? selectedScoreIndex;

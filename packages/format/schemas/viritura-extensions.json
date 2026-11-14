@@ -1286,6 +1286,7 @@
       "description": "Viritura extensions on a standard MNX score definition.",
       "properties": {
         "pageSetup": { "$ref": "#/$defs/page-setup" },
+        "pageSetupRole": { "enum": ["score", "part"] },
         "instrumentNameDisplay": { "$ref": "#/$defs/instrument-name-display" },
         "autoHideEmptyParts": {
           "type": "array",
@@ -2036,6 +2037,15 @@
         "metadata": {
           "$ref": "#/$defs/score-metadata",
           "description": "Score-level bibliographic metadata."
+        },
+        "pageSetupDefaults": {
+          "type": "object",
+          "description": "Independent project defaults for score and part page geometry. Per-score pageSetup values override these.",
+          "properties": {
+            "score": { "$ref": "#/$defs/page-setup" },
+            "part": { "$ref": "#/$defs/page-setup" }
+          },
+          "additionalProperties": false
         },
         "textStyles": {
           "$ref": "#/$defs/text-styles",

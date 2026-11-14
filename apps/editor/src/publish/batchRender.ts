@@ -11,7 +11,7 @@
  */
 
 import type { Score, PageSetup } from "@viritura/core";
-import { defaultPageSetupForScore, pageTurnConfigForLayout } from "@viritura/core";
+import { resolveScorePageSetup, pageTurnConfigForLayout } from "@viritura/core";
 import {
   exportPdf,
   type PdfExportOptions,
@@ -36,13 +36,7 @@ const PX_PER_MM = 12;
  * the same layered defaults the canvas uses.
  */
 export function resolvePageSetupForScore(score: Score, scoreIndex: number): PageSetup {
-  const sd = score.scores?.[scoreIndex];
-  const defaults = defaultPageSetupForScore(score.scores, scoreIndex, score.layouts, score.parts?.length);
-  return {
-    ...defaults,
-    ...sd?.pageSetup,
-    margins: { ...defaults.margins, ...sd?.pageSetup?.margins },
-  };
+  return resolveScorePageSetup(score, scoreIndex);
 }
 
 /**

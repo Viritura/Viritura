@@ -62,7 +62,13 @@ import type { LyricStateRef } from "./useLyricHandlers";
  * layered on top, so the dialog reflects what actually gets laid out.
  */
 function resolveDialogPageSetup(score: Score | null | undefined, idx: number): PageSetup {
-  const defaults = defaultPageSetupForScore(score?.scores, idx, score?.layouts, score?.parts?.length);
+  const defaults = defaultPageSetupForScore(
+    score?.scores,
+    idx,
+    score?.layouts,
+    score?.parts?.length,
+    score?.pageSetupDefaults,
+  );
   const stored = score?.scores?.[idx]?.pageSetup;
   return stored ? { ...defaults, ...stored, margins: { ...defaults.margins, ...stored.margins } } : defaults;
 }
@@ -384,6 +390,16 @@ export function AppOverlays(props: AppOverlaysProps) {
         }}
         onApply={handleApplyPageSetup}
         onResetToDefault={handleResetPageSetup}
+        resetSetup={(() => {
+          const current = store.getState().score;
+          return defaultPageSetupForScore(
+            current?.scores,
+            pageSetupTargetIndex ?? selectedScoreIndex,
+            current?.layouts,
+            current?.parts.length,
+            current?.pageSetupDefaults,
+          );
+        })()}
         scopeName={(() => {
           const idx = pageSetupTargetIndex ?? selectedScoreIndex;
           const sd = store.getState().score?.scores?.[idx];

@@ -11,21 +11,21 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                       | Extensions                                                                                                                   |
-| -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, autoHideEmptyParts, layoutBreaks, textFrames                                               |
-| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                            |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                      |
-| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                      |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                            |
-| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                        |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                 |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                                   |
-| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                         |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                        |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                     |
+| MNX Object                                   | JSON Path                                       | Extensions                                                                                                                                      |
+| -------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, pageSetupDefaults, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, pageSetupRole, instrumentNameDisplay, autoHideEmptyParts, layoutBreaks, textFrames                                                   |
+| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                                               |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                                         |
+| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                                         |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                                               |
+| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                                           |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                                   |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                                    |
+| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                                                      |
+| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                                            |
+| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                                           |
+| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                                        |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -744,6 +744,30 @@ layout staff. Chord events also have no `displayStaff` property.
 ## Score Root Extensions
 
 `_x.viritura` on the top-level score object. Schema def: `root-extensions`.
+
+### `pageSetupDefaults`
+
+Independent project page profiles keyed by `score` and `part`. Each profile uses
+the same shape as `scores[]._x.viritura.pageSetup`: width/height in millimetres,
+orientation, margins, `spatiumMm`, and optional page-turn settings.
+
+Settings > Page Defaults stores separate user profiles locally on this device.
+They are copied into new documents, not applied live to existing documents.
+Engrave > Layouts > Page setup for edits either project profile or the current
+layout's override. Project profiles apply to inheriting layouts, including newly
+created layouts. Custom layouts keep their effective settings unless the user
+explicitly selects **Replace custom layouts** when applying to all scores/parts.
+These changes are document edits and participate in saving, collaboration, and undo.
+
+Per-layout `pageSetup` values override the project profile. Resetting a layout
+removes that override. Explicit values are preserved on serialization even when
+equal to application defaults, so an A4 override over Letter stays A4 after reopening.
+
+The optional score-definition `pageSetupRole` (`score` or `part`) disambiguates
+solo-player extracts and section scores. New editor-created layouts record their
+role. Older documents retain layout-membership inference: a layout referencing
+fewer parts than the document total uses part defaults; otherwise score defaults.
+Missing project profiles retain the built-in A4 defaults.
 
 ### `metadata`
 

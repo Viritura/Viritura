@@ -168,6 +168,9 @@ interface PageSetupDialogProps {
    * external action.
    */
   onResetToDefault?: () => void;
+  resetSetup?: PageSetup;
+  resetLabel?: string;
+  applyLabel?: string;
 }
 
 function EmbeddedPageSetup({
@@ -175,11 +178,15 @@ function EmbeddedPageSetup({
   preamble,
   onReset,
   onApply,
+  resetLabel,
+  applyLabel,
 }: {
   children: React.ReactNode;
   preamble?: React.ReactNode;
   onReset: () => void;
   onApply: () => void;
+  resetLabel: string;
+  applyLabel: string;
 }) {
   return (
     <div className={css.embedded}>
@@ -189,10 +196,10 @@ function EmbeddedPageSetup({
       </div>
       <PanelFooter className={css.embeddedActions}>
         <Button variant="ghost" size="sm" onClick={onReset}>
-          Reset to document default
+          {resetLabel}
         </Button>
         <Button variant="primary" size="sm" onClick={onApply}>
-          Apply
+          {applyLabel}
         </Button>
       </PanelFooter>
     </div>
@@ -210,6 +217,19 @@ interface PageSetupStateSetters {
   spatiumMm: (value: number) => void;
   pageTurnsEnabled: (value: boolean) => void;
   pageTurnsPreset: (value: "relaxed" | "professional") => void;
+}
+
+function setPageSetupFields(setup: PageSetup, setters: PageSetupStateSetters) {
+  setters.width(setup.width);
+  setters.height(setup.height);
+  setters.orientation(setup.orientation);
+  setters.marginTop(setup.margins.top);
+  setters.marginRight(setup.margins.right);
+  setters.marginBottom(setup.margins.bottom);
+  setters.marginLeft(setup.margins.left);
+  setters.spatiumMm(setup.spatiumMm);
+  setters.pageTurnsEnabled(setup.pageTurns?.enabled ?? false);
+  setters.pageTurnsPreset(setup.pageTurns?.preset ?? "relaxed");
 }
 
 function usePageSetupStateSync(initialSetup: PageSetup, active: boolean, setters: PageSetupStateSetters) {
@@ -285,6 +305,9 @@ export function PageSetupDialog({
   embeddedPreamble,
   scopeName,
   onResetToDefault,
+  resetSetup = DEFAULT_PAGE_SETUP,
+  resetLabel = "Reset to document default",
+  applyLabel = "Apply",
 }: PageSetupDialogProps) {
   const [width, setWidth] = useState(initialSetup.width);
   const [height, setHeight] = useState(initialSetup.height);
@@ -299,7 +322,7 @@ export function PageSetupDialog({
     initialSetup.pageTurns?.preset ?? "relaxed",
   );
 
-  usePageSetupStateSync(initialSetup, Boolean(open || embedded), {
+  const setters: PageSetupStateSetters = {
     width: setWidth,
     height: setHeight,
     orientation: setOrientation,
@@ -310,7 +333,8 @@ export function PageSetupDialog({
     spatiumMm: setSpatiumMm,
     pageTurnsEnabled: setPageTurnsEnabled,
     pageTurnsPreset: setPageTurnsPreset,
-  });
+  };
+  usePageSetupStateSync(initialSetup, Boolean(open || embedded), setters);
 
   const pageSizeName = findPageSizeName(width, height);
   const rastralIdx = findRastralIndex(spatiumMm);
@@ -403,14 +427,7 @@ export function PageSetupDialog({
   const matchingPreset = findMatchingPreset(currentSetup);
   const presetSelectValue = matchingPreset?.id ?? "custom";
   const resetToDefault = () => {
-    setWidth(DEFAULT_PAGE_SETUP.width);
-    setHeight(DEFAULT_PAGE_SETUP.height);
-    setOrientation(DEFAULT_PAGE_SETUP.orientation);
-    setMarginTop(DEFAULT_PAGE_SETUP.margins.top);
-    setMarginRight(DEFAULT_PAGE_SETUP.margins.right);
-    setMarginBottom(DEFAULT_PAGE_SETUP.margins.bottom);
-    setMarginLeft(DEFAULT_PAGE_SETUP.margins.left);
-    setSpatiumMm(DEFAULT_PAGE_SETUP.spatiumMm);
+    setPageSetupFields(resetSetup, setters);
     onResetToDefault?.();
   };
   const formFields = (
@@ -453,7 +470,13 @@ export function PageSetupDialog({
 
   if (embedded) {
     return (
-      <EmbeddedPageSetup preamble={embeddedPreamble} onReset={resetToDefault} onApply={handleApply}>
+      <EmbeddedPageSetup
+        preamble={embeddedPreamble}
+        onReset={resetToDefault}
+        onApply={handleApply}
+        resetLabel={resetLabel}
+        applyLabel={applyLabel}
+      >
         {formFields}
       </EmbeddedPageSetup>
     );
@@ -479,7 +502,7 @@ export function PageSetupDialog({
       </DialogBody>
       <DialogActions>
         <Button variant="ghost" size="sm" onClick={resetToDefault}>
-          {onResetToDefault ? "Reset to document default" : "Reset Defaults"}
+          {onResetToDefault ? resetLabel : "Reset Defaults"}
         </Button>
         <div style={PAGE_SETUP_SPACER_STYLE} />
         <DialogCancelButton />

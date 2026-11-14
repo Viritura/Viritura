@@ -1,6 +1,6 @@
 import type { DisplayList, PatchInfo, PerfTracker, ScoreInfo } from "@viritura/renderer";
 import type { PageSetup, Score } from "@viritura/core";
-import { defaultPageSetupForScore, pageTurnConfigForLayout } from "@viritura/core";
+import { resolveScorePageSetup, pageTurnConfigForLayout } from "@viritura/core";
 import type { LayoutBackend } from "./layoutBackend";
 import { injectExpandedStaves, injectSyntheticLayout } from "./layoutHelpers";
 import { runLayoutEnginePath } from "./layoutEnginePath";
@@ -51,16 +51,7 @@ function resolvePageSetup(
   viewMode: ViewMode,
   pageSetupRef: { current: PageSetup },
 ): { sp: number; pageWidthPx: number; pageSetupJson: string } {
-  const activeScoreDef = score?.scores?.[scoreIdx];
-  const defaults = defaultPageSetupForScore(score?.scores, scoreIdx, score?.layouts, score?.parts?.length);
-  const ps: PageSetup = {
-    ...defaults,
-    ...activeScoreDef?.pageSetup,
-    margins: {
-      ...defaults.margins,
-      ...activeScoreDef?.pageSetup?.margins,
-    },
-  };
+  const ps = resolveScorePageSetup(score, scoreIdx);
   pageSetupRef.current = ps;
 
   const sp = ps.spatiumMm * PX_PER_MM;
