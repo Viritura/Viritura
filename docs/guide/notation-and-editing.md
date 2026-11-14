@@ -72,6 +72,13 @@ Selecting an instruction exposes those same controls in Properties. Page
 text frames remain separate: they attach to a page rather than a musical
 position and never change playback.
 
+For quick entry, **Shift+T** opens a small text-only popover, not the
+structured dialog. Enter `Freely` or `Allegro` for plain system text,
+`q=180` for a metronome marking, or `Allegro q=180` for both. Dotted units
+such as `q.=90` and a bare BPM such as `180` are also supported. Press
+Enter to apply or Escape to cancel; use Properties for advanced formatting.
+Replacing tempo syntax with words alone removes playback settings.
+
 ## Spread chords across staves
 
 Explode and reduce redistribute copied music at a destination without changing

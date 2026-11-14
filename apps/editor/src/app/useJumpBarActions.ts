@@ -197,14 +197,13 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
             const { score } = store.getState();
             if (!score?.global.measures[idx]) return;
             const measure = score.global.measures[idx]!;
-            const shared = measure.systemText?.find((text) => text.tempo && text.position.fraction[0] === 0);
+            const shared = measure.systemText?.find((text) => text.position.fraction[0] === 0);
             const existing = measure.tempos?.[0];
             setTempoPopover({
               position: { ...mousePositionRef.current },
               measureIndex: idx,
               instruction:
-                shared ??
-                instructionFromTempo(existing ?? { bpm: 120, value: { base: "quarter" } }, undefined, score.textStyles),
+                shared ?? instructionFromTempo(existing ?? { text: [{ text: "" }] }, undefined, score.textStyles),
               legacyTempoIndex: !shared && existing ? 0 : undefined,
             });
           },

@@ -392,7 +392,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
       const [n, d] = position?.fraction ?? [0, 1];
       return n * fraction[1] === fraction[0] * d;
     };
-    const existingInstruction = measure.systemText?.find((text) => text.tempo && atPosition(text.position));
+    const existingInstruction = measure.systemText?.find((text) => atPosition(text.position));
     const legacyTempoIndex = measure.tempos?.findIndex((tempo) => atPosition(tempo.location)) ?? -1;
     const legacy = legacyTempoIndex < 0 ? undefined : measure.tempos?.[legacyTempoIndex];
     setTempoPopover({
@@ -407,7 +407,6 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
               text: [{ text: "" }],
               position: { fraction },
               placement: "above",
-              tempo: { bpm: 120, value: { base: "quarter" } },
             }),
       legacyTempoIndex: !existingInstruction && legacy ? legacyTempoIndex : undefined,
     });

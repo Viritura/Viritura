@@ -540,6 +540,13 @@ native and extension `Tempo[]` remain readable. Editing a legacy tempo migrates
 only that selected marking, retaining rich text, visibility, offset, collision
 intent and explicit text-role styling. Other tempo anchors are untouched.
 
+Normal-mode Shift+T retains lightweight text-only popover entry. Explicit
+syntax such as `q=180`, `q.=90`, or `Allegro q=180` supplies playback semantics;
+words alone create ordinary system text and remove prior playback semantics.
+Bare numeric BPM input remains supported. The popover does not infer a BPM
+from tempo words or default plain text to 120. Advanced controls remain in
+Properties and the palette's structured editor.
+
 BPM-free Swing/Straight markings without authored text receive a generated
 selectable label. This engraving label does not alter the saved payload or
 infer a source ratio.

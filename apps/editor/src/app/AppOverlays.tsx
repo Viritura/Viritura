@@ -43,7 +43,7 @@ import type { SelectionState } from "../store/selectionStore";
 import type { NoteInputState } from "../store/noteInputStore";
 
 import { applyStaffTextEdit } from "./popoverHandlers";
-import { SystemInstructionDialog, resolveInstructionSwing, saveSystemInstruction } from "../systemInstructions";
+import { SystemInstructionPopover, saveSystemInstruction } from "../systemInstructions";
 import { ChordSymbolEntryPopover } from "./chordSymbolEntry";
 import { CondensingPopoverOverlay } from "./CondensingPopoverOverlay";
 import {
@@ -147,15 +147,10 @@ function ScoreTextEntryPopovers({
   return (
     <>
       {tempoPopover && (
-        <SystemInstructionDialog
+        <SystemInstructionPopover
           key={tempoPopover.instruction.id}
-          initialInstruction={tempoPopover.instruction}
-          resolveSwing={(instruction) => {
-            const score = store.getState().score;
-            return score
-              ? resolveInstructionSwing(score, tempoPopover.measureIndex, instruction, tempoPopover.legacyTempoIndex)
-              : undefined;
-          }}
+          instruction={tempoPopover.instruction}
+          position={tempoPopover.position}
           onClose={() => setTempoPopover(null)}
           onSubmit={(instruction) => {
             const { score } = store.getState();
