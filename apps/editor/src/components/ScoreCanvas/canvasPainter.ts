@@ -1,4 +1,10 @@
-import { canvasTextFont, paintInkCommands, type DisplayList, type GlyphAtlas } from "@viritura/renderer";
+import {
+  canvasTextFont,
+  paintCommand as paintRendererCommand,
+  paintInkCommands,
+  type DisplayList,
+  type GlyphAtlas,
+} from "@viritura/renderer";
 
 /** Paint a single render command onto a canvas 2D context. */
 export function paintCommand(ctx: CanvasRenderingContext2D, cmd: DisplayList["commands"][number]): void {
@@ -39,6 +45,9 @@ export function paintCommand(ctx: CanvasRenderingContext2D, cmd: DisplayList["co
       ctx.beginPath();
       ctx.arc(cmd.cx, cmd.cy, cmd.r, 0, Math.PI * 2);
       ctx.fill();
+      break;
+    case "DrawRotatedText":
+      paintRendererCommand(ctx, cmd);
       break;
     case "DrawText": {
       ctx.fillStyle = cmd.color;

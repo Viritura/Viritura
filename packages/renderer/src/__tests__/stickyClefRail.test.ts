@@ -166,6 +166,27 @@ describe("sticky key signatures", () => {
     expect(accidentals(paint(dl, 205).texts).map((text) => text.y)).toEqual([110, 125]);
   });
 
+  it("hides inherited keys and their rail space while a percussion clef is active", () => {
+    for (const semantic of [false, true]) {
+      const { dl, add } = fixture();
+      if (semantic) {
+        dl.measureBounds![0]!.clefSign = "G";
+        dl.measureBounds![0]!.clefChanges = [
+          { x: 150, sign: "P" },
+          { x: 180, sign: "G" },
+        ];
+      } else {
+        add(glyph(150, 120, 0xe069), "p0/m0/clef");
+        add(glyph(180, 130, TREBLE), "p0/m0/clef");
+      }
+      expect(accidentals(paint(dl, 149).texts)).toHaveLength(2);
+      const percussion = paint(dl, 160);
+      expect(accidentals(percussion.texts)).toEqual([]);
+      expect(stickyClefRailWidth([staff], percussion.info, 160)).toBe(35);
+      expect(accidentals(paint(dl, 190).texts)).toHaveLength(2);
+    }
+  });
+
   it("falls back to visible clefs before the first semantic context", () => {
     const { dl, add } = fixture();
     dl.measureBounds![1]!.clefSign = "G";

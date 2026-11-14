@@ -20,6 +20,7 @@ import {
 import { serializeMnx } from "@viritura/format";
 import { createCatalogPart, persistedPartNames } from "./catalogPart";
 import { buildLayouts } from "./layoutBuilder";
+import { usePageDefaultsStore } from "../pageSetup";
 
 /** Settings for creating a new blank score. */
 export interface NewScoreSettings {
@@ -101,7 +102,8 @@ export function buildBlankScore(settings: NewScoreSettings): string {
     },
     parts,
     layouts,
-    scores: scores as unknown as ScoreDefinition[],
+    scores,
+    pageSetupDefaults: structuredClone(usePageDefaultsStore.getState().defaults),
     ...(title ? { metadata: { title } } : {}),
   };
   return JSON.stringify(serializeMnx(score));
@@ -131,34 +133,23 @@ function buildGlobalMeasures(
   return globalMeasures;
 }
 
-function buildScores(parts: Part[]): Record<string, unknown>[] {
-  const scores: Record<string, unknown>[] = [];
+function buildScores(parts: Part[]): ScoreDefinition[] {
+  const scores: ScoreDefinition[] = [];
 
-  const fullScoreObj: Record<string, unknown> = {
+  const fullScoreObj: ScoreDefinition = {
     name: "Full score",
     layout: "FullScore",
+    pageSetupRole: "score",
   };
-  if (parts.length >= 4) {
-    // Orchestral: A3 portrait, Rastral 3 (condensed full score)
-    fullScoreObj["_x"] = {
-      viritura: {
-        pageSetup: {
-          width: 297,
-          height: 420,
-          orientation: "portrait",
-          spatiumMm: 1.625,
-        },
-      },
-    };
-  }
   scores.push(fullScoreObj);
 
   const displayNames = resolvePartDisplayNames(parts);
   for (let idx = 0; idx < parts.length; idx++) {
     const part = parts[idx]!;
-    const scoreObj: Record<string, unknown> = {
+    const scoreObj: ScoreDefinition = {
       name: displayNames[idx]!.displayName,
       layout: `L-${part.id}`,
+      pageSetupRole: "part",
     };
     if (part.transposition) scoreObj["useWritten"] = true;
     scores.push(scoreObj);

@@ -331,6 +331,28 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     expect(serializeMnx(parseMnx(source)).scores).toEqual(source.scores);
   });
 
+  it("preserves per-score empty-staff opt-ins without changing another view", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [] },
+      parts: [],
+      layouts: [],
+      scores: [
+        { name: "Conductor", _x: { viritura: { autoHideEmptyParts: ["flute", "piano"] } } },
+        { name: "Part", _x: { viritura: { autoHideEmptyParts: [] } } },
+      ],
+    };
+    expect(serializeMnx(parseMnx(source)).scores).toEqual(source.scores);
+    for (const invalid of [["piano", "piano"], [1], [""]]) {
+      expect(() =>
+        parseMnx({
+          ...source,
+          scores: [{ name: "Invalid", _x: { viritura: { autoHideEmptyParts: invalid } } }],
+        }),
+      ).toThrow(/autoHideEmptyParts/);
+    }
+  });
+
   it("preserves an explicit empty beam list that suppresses auto-beaming", () => {
     const source = {
       mnx: { version: 1 },

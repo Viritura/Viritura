@@ -111,3 +111,79 @@ export const AutomaticDoubleBarline: StoryObj = {
     return <ScorePreview mnxJson={JSON.stringify(serializeMnx(score))} />;
   },
 };
+
+export const CourtesyKeyChanges: StoryObj = {
+  name: "System-end courtesy clefs, keys, meters, and unpitched staves",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Clef, key, and meter changes are announced at the preceding system end: the courtesy clef before the barline, then the courtesy key (with cancellation naturals) and meter after it on extended staff lines. The unpitched staff has no key signatures.",
+      },
+    },
+  },
+  render: () => {
+    const meters = [4, 3, 3];
+    const measures = [2, -3, 0].map((fifths, index) => ({
+      id: `m${index}`,
+      ...(index < 2 ? { time: { count: meters[index], unit: 4 } } : {}),
+      key: { fifths },
+    }));
+    const mnx = JSON.stringify({
+      mnx: { version: 1 },
+      global: { measures },
+      parts: [
+        {
+          id: "pitched",
+          name: "Cello",
+          measures: measures.map((_, index) => ({
+            ...(index === 0 ? { clefs: [{ clef: { sign: "G", staffPosition: -2 } }] } : {}),
+            ...(index === 2 ? { clefs: [{ clef: { sign: "F", staffPosition: 2 } }] } : {}),
+            sequences: [
+              {
+                content: ["C", "D", "E", "G"].slice(0, meters[index]).map((step) => ({
+                  duration: { base: "quarter" },
+                  notes: [{ pitch: { step, octave: index === 2 ? 3 : 5 } }],
+                })),
+              },
+            ],
+          })),
+        },
+        {
+          id: "unpitched",
+          name: "Percussion",
+          measures: measures.map((_, index) => ({
+            ...(index === 0 ? { clefs: [{ clef: { sign: "P", staffPosition: 0 } }] } : {}),
+            sequences: [
+              {
+                content: [
+                  {
+                    duration: index === 0 ? { base: "whole" } : { base: "half", dots: 1 },
+                    rest: {},
+                  },
+                ],
+              },
+            ],
+          })),
+        },
+      ],
+      layouts: [
+        {
+          id: "L",
+          content: [
+            { type: "staff", sources: [{ part: "pitched" }] },
+            { type: "staff", sources: [{ part: "unpitched" }] },
+          ],
+        },
+      ],
+      scores: [
+        {
+          name: "Score",
+          layout: "L",
+          pages: [{ systems: measures.map((measure) => ({ measure: measure.id })) }],
+        },
+      ],
+    });
+    return <ScorePreview mnxJson={mnx} viewMode="page" />;
+  },
+};

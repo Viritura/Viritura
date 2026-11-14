@@ -403,6 +403,38 @@ describe("paintBinaryDisplayList", () => {
     ctx = createMockCtx();
   });
 
+  it("decodes and paints rotated text without shifting the following command", () => {
+    const text = [..."gliss."].map((c) => c.codePointAt(0)!);
+    const data = buildBinaryBuffer(200, 100, [
+      [14, 80, 40, 20, encodeColor("#000000"), 1, 3, 3, text.length, ...text, -0.3],
+      [11, 0.5],
+    ]);
+    const dl = decodeBinaryDisplayList(data);
+    expect(dl.commands[0]).toMatchObject({
+      type: "DrawRotatedText",
+      text: "gliss.",
+      font: "serif italic",
+      x: 80,
+      y: 40,
+      align: "center",
+      baseline: "alphabetic",
+    });
+    expect(dl.commands[1]).toEqual({ type: "SetOpacity", opacity: 0.5 });
+    paintBinaryDisplayList(ctx, data);
+    expect(ctx.translate).toHaveBeenCalledWith(80, 40);
+    expect(ctx.rotate).toHaveBeenCalledWith(expect.closeTo(-0.3, 5));
+    expect(ctx.fillText).toHaveBeenCalledWith("gliss.", 0, 0);
+    expect(ctx.restore).toHaveBeenCalled();
+    expect(ctx.globalAlpha).toBe(0.5);
+  });
+
+  it("retains the sans-serif rehearsal family in packed text commands", () => {
+    const data = buildBinaryBuffer(100, 100, [[10, 20, 30, 28, encodeColor("#000000"), 1, 3, 6, 1, 74]]);
+    expect(decodeBinaryDisplayList(data).commands[0]).toMatchObject({ font: "sans-serif bold", text: "J" });
+    paintBinaryDisplayList(ctx, data);
+    expect(ctx.font).toBe("bold 28px Arial, sans-serif");
+  });
+
   it("should clear canvas and fill white background", () => {
     const data = buildBinaryBuffer(800, 600, []);
     paintBinaryDisplayList(ctx, data);

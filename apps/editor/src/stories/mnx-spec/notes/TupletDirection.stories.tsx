@@ -74,7 +74,7 @@ export const AllPlacements: StoryObj = {
     ]);
     return <ScorePreview mnxJson={mnx} />;
   },
-  name: "Above and below tuplet placement",
+  name: "Tuplet placement independent of stems",
 };
 
 type InteractiveArgs = {

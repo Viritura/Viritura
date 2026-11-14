@@ -638,7 +638,11 @@ export interface components {
         /** @description Viritura extensions on a standard MNX score definition. */
         "score-extensions": {
             pageSetup?: components["schemas"]["page-setup"];
+            /** @enum {unknown} */
+            pageSetupRole?: "score" | "part";
             instrumentNameDisplay?: components["schemas"]["instrument-name-display"];
+            /** @description Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged. */
+            autoHideEmptyParts?: string[];
             /** @description Free text frames owned by this score view. A page locator uses a zero-based index into the final rendered page array; measure and event locators follow their target onto its rendered page. Event IDs are scoped by the required part ID. Placement is relative to an edge or corner of the printable page area, with offsets in staff spaces (+x right, +y down). Frames have automatic height and do not participate in collision avoidance. */
             textFrames?: components["schemas"]["text-frame"][];
             layoutBreaks?: components["schemas"]["layout-break"][];
@@ -799,6 +803,7 @@ export interface components {
             staffLabel?: components["schemas"]["text-style"];
             pageNumber?: components["schemas"]["text-style"];
             tempo?: components["schemas"]["text-style"];
+            rehearsalMark?: components["schemas"]["text-style"];
             pedalText?: components["schemas"]["text-style"];
             copyright?: components["schemas"]["text-style"];
         };
@@ -1038,6 +1043,11 @@ export interface components {
         "root-extensions": {
             /** @description Score-level bibliographic metadata. */
             metadata?: components["schemas"]["score-metadata"];
+            /** @description Independent project defaults for score and part page geometry. Per-score pageSetup values override these. */
+            pageSetupDefaults?: {
+                score?: components["schemas"]["page-setup"];
+                part?: components["schemas"]["page-setup"];
+            };
             /** @description Per-document text style overrides. */
             textStyles?: components["schemas"]["text-styles"];
             /** @description Per-document placement (clearance) overrides keyed by dependent kind. */

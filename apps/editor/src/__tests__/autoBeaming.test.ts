@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { parseMnx } from "@viritura/format";
 import { describe, expect, it } from "vitest";
 import { resolveAutomaticBeamGroups } from "../commands/autoBeaming";
+import { breakBeamAfterSelection } from "../commands/beamCommands";
 
 interface AutoBeamingCase {
   name: string;
@@ -48,6 +49,21 @@ describe("automatic beaming conformance", () => {
       expect(groups.map((beam) => beam.events)).toEqual(testCase.expected);
     });
   }
+
+  it("materializes and splits an automatic beam spanning adjacent tuplets", () => {
+    const example = fixture.cases.find((testCase) =>
+      testCase.name.startsWith("sixteenth triplets and following eighth"),
+    )!;
+    const score = parseMnx(example.score);
+    expect(breakBeamAfterSelection(score, { kind: "single", elementId: "p0/m0/s0/a3", elementType: "event" })).toBe(
+      true,
+    );
+    expect(score.parts[0]!.measures[0]!.beams?.map((beam) => beam.events)).toEqual([
+      ["a2", "a3"],
+      ["b1", "b2", "b3"],
+      ["c1", "c2", "c3", "d"],
+    ]);
+  });
 });
 
 describe("irregular meter automatic beaming", () => {

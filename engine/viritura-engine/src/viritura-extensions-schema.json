@@ -1308,7 +1308,14 @@
       "description": "Viritura extensions on a standard MNX score definition.",
       "properties": {
         "pageSetup": { "$ref": "#/$defs/page-setup" },
+        "pageSetupRole": { "enum": ["score", "part"] },
         "instrumentNameDisplay": { "$ref": "#/$defs/instrument-name-display" },
+        "autoHideEmptyParts": {
+          "type": "array",
+          "description": "Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
         "textFrames": {
           "type": "array",
           "description": "Free text frames owned by this score view. A page locator uses a zero-based index into the final rendered page array; measure and event locators follow their target onto its rendered page. Event IDs are scoped by the required part ID. Placement is relative to an edge or corner of the printable page area, with offsets in staff spaces (+x right, +y down). Frames have automatic height and do not participate in collision avoidance.",
@@ -1609,6 +1616,7 @@
         "staffLabel": { "$ref": "#/$defs/text-style" },
         "pageNumber": { "$ref": "#/$defs/text-style" },
         "tempo": { "$ref": "#/$defs/text-style" },
+        "rehearsalMark": { "$ref": "#/$defs/text-style" },
         "pedalText": { "$ref": "#/$defs/text-style" },
         "copyright": { "$ref": "#/$defs/text-style" }
       },
@@ -2052,6 +2060,15 @@
         "metadata": {
           "$ref": "#/$defs/score-metadata",
           "description": "Score-level bibliographic metadata."
+        },
+        "pageSetupDefaults": {
+          "type": "object",
+          "description": "Independent project defaults for score and part page geometry. Per-score pageSetup values override these.",
+          "properties": {
+            "score": { "$ref": "#/$defs/page-setup" },
+            "part": { "$ref": "#/$defs/page-setup" }
+          },
+          "additionalProperties": false
         },
         "textStyles": {
           "$ref": "#/$defs/text-styles",

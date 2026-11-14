@@ -196,6 +196,37 @@ pub(super) fn precompute_system_layouts(
             .iter()
             .map(|&vi| mmr.visible_indices[vi])
             .collect();
+        let next_mi = (!chunked)
+            .then(|| {
+                plan.systems
+                    .get(sys_idx + 1)
+                    .and_then(|system| system.first())
+            })
+            .flatten()
+            .map(|&vi| mmr.visible_indices[vi]);
+        let mut end_courtesies: Vec<ResolvedMeasure> = sys_measure_indices
+            .last()
+            .map(|&mi| {
+                all_staff_resolved
+                    .iter()
+                    .map(|staff| {
+                        let mut rm = staff[mi].clone();
+                        if let Some(next) = next_mi {
+                            rm.system_end =
+                                crate::layout::courtesy_signatures::courtesy_for_boundary(
+                                    &rm,
+                                    &staff[next],
+                                    config,
+                                );
+                        }
+                        rm
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let courtesy_reserve =
+            crate::layout::courtesy_signatures::share_system_end(&mut end_courtesies, config) * sp;
+        let system_ends: Vec<_> = end_courtesies.into_iter().map(|rm| rm.system_end).collect();
 
         // Membership has reconverged and no measure in this system belongs to
         // the dirty island. Config changes invalidate the store before this
@@ -385,19 +416,14 @@ pub(super) fn precompute_system_layouts(
         // then hand the reserved width back to the first measure. Standard
         // engraving practice: clef/key "furniture" is fixed, not stretchable.
         let first_extra_prefix = match sys_measure_indices.first() {
-            Some(&first_mi) => {
-                let sys_start_prefix = sys_prefix_widths.first().copied().unwrap_or_default().width;
-                let natural_prefix = compute_max_prefix_width(
-                    all_staff_resolved
-                        .iter()
-                        .filter_map(|resolved| resolved.get(first_mi)),
-                    sp,
-                    false,
-                    config,
-                )
-                .width;
-                (sys_start_prefix - natural_prefix).max(0.0)
-            }
+            Some(&first_mi) => compute_system_start_prefix_extra(
+                all_staff_resolved
+                    .iter()
+                    .filter_map(|resolved| resolved.get(first_mi)),
+                sys_prefix_widths.first().copied().unwrap_or_default(),
+                sp,
+                config,
+            ),
             None => 0.0,
         };
 
@@ -409,7 +435,7 @@ pub(super) fn precompute_system_layouts(
             ) {
                 1.0
             } else {
-                (avail_w - first_extra_prefix).max(1.0) / natural_total
+                (avail_w - first_extra_prefix - courtesy_reserve).max(1.0) / natural_total
             }
         } else {
             1.0
@@ -431,6 +457,9 @@ pub(super) fn precompute_system_layouts(
             sys_signature.hash(&mut h);
             scale.to_bits().hash(&mut h);
             first_extra_prefix.to_bits().hash(&mut h);
+            serde_json::to_string(&system_ends)
+                .expect("serializable system-end courtesies")
+                .hash(&mut h);
             seam_continuation.hash(&mut h);
             system_count.hash(&mut h);
             h.finish()
@@ -516,14 +545,25 @@ pub(super) fn precompute_system_layouts(
                 Vec::with_capacity(sys_measure_indices.len());
 
             for (si, &mi) in sys_measure_indices.iter().enumerate() {
-                let rm = &all_staff_resolved[staff_idx][mi];
+                let end_resolved;
+                let rm = if si + 1 == sys_measure_indices.len() {
+                    end_resolved = {
+                        let mut rm = all_staff_resolved[staff_idx][mi].clone();
+                        rm.system_end = system_ends[staff_idx].clone();
+                        rm
+                    };
+                    &end_resolved
+                } else {
+                    &all_staff_resolved[staff_idx][mi]
+                };
                 let forced_width = budget.max_widths.get(mi).copied().unwrap_or(10.0) * scale
                     + if si == 0 { first_extra_prefix } else { 0.0 }
                     + if start_clef_change_measures.contains(&mi) {
                         1.2 * sp
                     } else {
                         0.0
-                    };
+                    }
+                    + crate::layout::courtesy_signatures::clef_slot_width(rm, sp);
                 let fw = Some(forced_width);
                 let fp = sys_prefix_widths.get(si).copied();
                 let _t_hash = now_ms!();
@@ -543,6 +583,17 @@ pub(super) fn precompute_system_layouts(
                     config.time_signature_settings,
                 );
                 let content_hash = ottava_aware_hash(content_hash, staff_ottavas, mi);
+                let content_hash =
+                    if rm.system_end.suffix_sp > 0.0 || rm.system_end.clef_slot_sp > 0.0 {
+                        let mut h = DefaultHasher::new();
+                        content_hash.hash(&mut h);
+                        serde_json::to_string(&rm.system_end)
+                            .expect("serializable system-end courtesy")
+                            .hash(&mut h);
+                        h.finish()
+                    } else {
+                        content_hash
+                    };
                 let prefix = fp.unwrap_or_default();
                 let empty_beats: Vec<f64> = Vec::new();
                 let pmcb = sys_clef_beats.get(&mi).map_or(&empty_beats[..], |v| &v[..]);

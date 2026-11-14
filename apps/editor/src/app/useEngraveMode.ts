@@ -39,6 +39,7 @@ import {
   useStaffVisibility,
   useSlurEditState,
   usePageSetupEditor,
+  useAutoHideEmptyParts,
 } from "../components/modes/engrave/hooks";
 import {
   setScoreInstrumentNameDisplay,
@@ -104,6 +105,7 @@ export interface EngraveMode {
   // ── Embedded page setup editor ───────────────────────────────
   pageSetup: ReturnType<typeof usePageSetupEditor>;
   handleInstrumentNameDisplayChange: (settings: InstrumentNameDisplaySettings) => void;
+  handleAutoHideEmptyPartsChange: (partIds: string[]) => void;
 }
 
 function scoreHasLayoutOverrides(score: Score | null, scoreIndex: number): boolean {
@@ -127,6 +129,7 @@ export function useEngraveMode({
   const staffVis = useStaffVisibility(refs, score, selectedScoreIndex, canvasRef);
   const slur = useSlurEditState(refs, score);
   const pageSetup = usePageSetupEditor(refs);
+  const handleAutoHideEmptyPartsChange = useAutoHideEmptyParts(refs);
 
   const { clearSelection } = useSelectionActions();
 
@@ -337,5 +340,6 @@ export function useEngraveMode({
 
     pageSetup,
     handleInstrumentNameDisplayChange,
+    handleAutoHideEmptyPartsChange,
   };
 }

@@ -38,6 +38,12 @@ const UP_DOWN_OPTIONS: SelectOption[] = [
 ];
 const UP_DOWN_PILL_OPTIONS: ButtonGroupOption[] = UP_DOWN_OPTIONS;
 
+const TUPLET_PLACEMENT_OPTIONS: SelectOption[] = [
+  { value: "", label: "Auto" },
+  { value: "above", label: "Above" },
+  { value: "below", label: "Below" },
+];
+
 const DIRECTION_HINT_OPTIONS: ButtonGroupOption[] = [
   { value: "", label: "Auto" },
   { value: "upper", label: "Up" },
@@ -238,7 +244,7 @@ function TupletOverrideControls({
           data-testid="notation-layout-tuplet-placement"
           value={placement}
           onValueChange={onPlacementChange}
-          options={UP_DOWN_OPTIONS}
+          options={TUPLET_PLACEMENT_OPTIONS}
         />
       </label>
       <label style={labelStyle}>

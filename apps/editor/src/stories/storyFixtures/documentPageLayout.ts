@@ -1,4 +1,4 @@
-import { defaultPageSetupForScore, type PageSetup } from "@viritura/core";
+import { resolveScorePageSetup } from "@viritura/core";
 import { parseMnxWithDiagnostics } from "@viritura/format";
 import type { ScorePageMargins } from "@viritura/score-viewer-react";
 
@@ -25,9 +25,7 @@ export function documentPageLayout(mnxJson: string): DocumentPageLayout | null {
   } catch {
     return null;
   }
-  const defaults = defaultPageSetupForScore(score.scores, 0, score.layouts, score.parts.length);
-  const own = score.scores?.[0]?.pageSetup;
-  const setup: PageSetup = { ...defaults, ...own, margins: { ...defaults.margins, ...own?.margins } };
+  const setup = resolveScorePageSetup(score, 0);
   return {
     spatium: setup.spatiumMm * PX_PER_MM,
     pageWidth: Math.round(setup.width * PX_PER_MM),

@@ -42,8 +42,23 @@ pub(super) fn automatic_instrument_regions(
     definition: &ScoreDefinition,
     part_id_map: &HashMap<String, usize>,
     measure_id_map: &HashMap<String, usize>,
+    varying_empty_staves: bool,
 ) -> Option<InstrumentRegions> {
     let count = score.global.measures.len();
+    let varying_empty_staves = varying_empty_staves && {
+        let (staves, _) = flatten_layout_for_measures(content, part_id_map, score, 0..count);
+        let parts: HashSet<_> = staves
+            .iter()
+            .flat_map(|staff| staff.sources.iter().map(|source| source.part_index))
+            .collect();
+        parts.len() > 1
+            && parts.iter().any(|&index| {
+                score.parts[index]
+                    .id
+                    .as_ref()
+                    .is_some_and(|id| definition.auto_hide_empty_parts.contains(id))
+            })
+    };
     let mut parts = HashSet::new();
     shared_parts(content, &mut parts);
     let mut boundaries = vec![0];
@@ -63,7 +78,7 @@ pub(super) fn automatic_instrument_regions(
     }
     boundaries.sort_unstable();
     boundaries.dedup();
-    if boundaries.len() < 2 {
+    if boundaries.len() < 2 && !varying_empty_staves {
         return None;
     }
     let mut regions = InstrumentRegions {
@@ -86,7 +101,7 @@ pub(super) fn automatic_instrument_regions(
         regions.ranges.push((start, count));
         regions.staves.push(layout);
     }
-    if regions.ranges.len() < 2 {
+    if regions.ranges.len() < 2 && !varying_empty_staves {
         return None;
     }
     // Staff-count changes require real system breaks; authored page/system locks

@@ -1,5 +1,5 @@
 import type { TupletBracket, TupletDisplaySetting, Placement, Score } from "@viritura/core";
-import { resolveEventLocation } from "../score/ElementPath";
+import { resolveEventLocation, resolveTupletSelectionLocation, type EventLocation } from "../score/ElementPath";
 import { cloneScore } from "../score/scoreClone";
 import { setSequenceDirectionHint } from "../voiceLanes";
 
@@ -37,7 +37,16 @@ function setOrDelete<T extends object, K extends keyof T>(target: T, key: K, val
  * original score unchanged if the target cannot be resolved.
  */
 export function applyLayoutOverrides(score: Score, elementId: string, params: LayoutOverrideParams): Score {
-  const location = resolveEventLocation(elementId, score);
+  const tupletLocation = params.tuplet ? resolveTupletSelectionLocation(score, elementId) : null;
+  if (params.tuplet && /\/tuplet\d+$/.test(elementId) && !tupletLocation) return score;
+  const location: EventLocation | null = tupletLocation
+    ? {
+        partIndex: tupletLocation.partIndex,
+        measureIndex: tupletLocation.measureIndex,
+        sequenceIndex: tupletLocation.sequenceIndex,
+        eventIndex: tupletLocation.tupletIndex,
+      }
+    : resolveEventLocation(elementId, score);
   if (!location) {
     return score;
   }

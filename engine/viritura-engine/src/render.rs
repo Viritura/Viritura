@@ -6,6 +6,7 @@
 pub mod binary;
 pub mod smufl;
 pub mod svg;
+pub(crate) mod text_fonts;
 
 mod command;
 mod debug;

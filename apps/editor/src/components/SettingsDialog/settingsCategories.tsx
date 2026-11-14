@@ -4,6 +4,7 @@ import {
   ChartNoAxesGantt,
   CircleUserRound,
   FileInput,
+  FileText,
   Gauge,
   KeyboardMusic,
   Music,
@@ -26,6 +27,7 @@ import { AccountPanel } from "./panels/AccountPanel";
 import { MidiInputPanel } from "./panels/MidiInputPanel";
 import { PlaybackPanel } from "./panels/PlaybackPanel";
 import { ChordTrackPanel } from "./panels/ChordTrackPanel";
+import { PageDefaultsPanel } from "../../pageSetup";
 
 /** Rail groups, in display order. */
 export const SETTINGS_GROUPS = ["General", "Audio", "Files", "Advanced"] as const;
@@ -71,6 +73,15 @@ const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     description: "Identity, connected accounts, sign-in security, and account management.",
     keywords: ["profile", "email", "password", "github", "google", "two-factor", "2fa", "sign out"],
     Panel: AccountPanel,
+  },
+  {
+    id: "page-defaults",
+    label: "Page Defaults",
+    group: "General",
+    icon: <FileText size={14} />,
+    description: "Independent page size, margins, and staff size defaults for new scores and parts.",
+    keywords: ["paper", "letter", "a4", "9x12", "portrait", "landscape", "rastral", "layout"],
+    Panel: PageDefaultsPanel,
   },
   {
     id: "appearance",

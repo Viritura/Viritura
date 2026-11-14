@@ -39,6 +39,7 @@ pub(super) fn cross_system_overlay_hash(
 pub(super) fn system_render_hash(
     all_staff_layouts: &[Vec<MeasureLayout>],
     staff_content_hashes: &[Vec<u64>],
+    globals: &[GlobalMeasure],
     staff_y_offsets: &[f64],
     next_sys_clef_per_staff: &[Option<&Clef>],
     margin_left: f64,
@@ -64,6 +65,9 @@ pub(super) fn system_render_hash(
     // reused from Pass 1; geometry and render flags are hashed directly.
     all_staff_layouts.len().hash(&mut h);
     for (staff_idx, layouts) in all_staff_layouts.iter().enumerate() {
+        if let Some(last) = layouts.last() {
+            trailing_barline_kind(last, globals, is_last_system).hash(&mut h);
+        }
         layouts.len().hash(&mut h);
         for (mi, ml) in layouts.iter().enumerate() {
             staff_content_hashes
@@ -101,6 +105,7 @@ pub(super) fn system_render_hash(
 pub(super) fn staff_content_render_hash(
     measure_layouts: &[MeasureLayout],
     content_hashes: &[u64],
+    globals: &[GlobalMeasure],
     staff_y_offsets: &[f64],
     next_system_clef: Option<&Clef>,
     margin_left: f64,
@@ -117,6 +122,9 @@ pub(super) fn staff_content_render_hash(
     is_last_system.hash(&mut h);
     clef_change_hash.hash(&mut h);
     margin_left.to_bits().hash(&mut h);
+    if let Some(last) = measure_layouts.last() {
+        trailing_barline_kind(last, globals, is_last_system).hash(&mut h);
+    }
 
     let base = staff_y_offsets.first().copied().unwrap_or(0.0);
     staff_y_offsets.len().hash(&mut h);

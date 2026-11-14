@@ -1902,6 +1902,7 @@ describe("parseMnx _x.viritura extensions", () => {
         viritura: {
           textStyles: {
             tempo: { size: 3, italic: true, family: "sans-serif" },
+            rehearsalMark: { size: 3.2, family: "serif", color: "#123456" },
             title: { color: "#FF0000" },
           },
         },
@@ -1910,6 +1911,7 @@ describe("parseMnx _x.viritura extensions", () => {
     const score = parseMnx(mnx);
     expect(score.textStyles).toEqual({
       tempo: { size: 3, italic: true, family: "sans-serif" },
+      rehearsalMark: { size: 3.2, family: "serif", color: "#123456" },
       title: { color: "#FF0000" },
     });
     const out = serializeMnx(score) as { _x?: { viritura?: { textStyles?: unknown } } };

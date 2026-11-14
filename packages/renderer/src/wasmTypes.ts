@@ -260,6 +260,7 @@ export type RenderCommand =
   | EraseRect
   | DrawCircle
   | DrawText
+  | DrawRotatedText
   | DrawGlyph
   | DrawStretchedGlyph
   | DrawFilledBezier
@@ -360,6 +361,12 @@ export interface DrawGlyph {
   size: number;
   color: string;
   /** Rotation in radians (clockwise). 0 = no rotation. Used for rotated arpeggio segment glyphs. */
+  rotation: number;
+}
+
+export interface DrawRotatedText extends Omit<DrawText, "type"> {
+  type: "DrawRotatedText";
+  /** Clockwise radians about the text alignment/baseline anchor. */
   rotation: number;
 }
 

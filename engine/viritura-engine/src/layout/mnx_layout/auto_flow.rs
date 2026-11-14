@@ -255,6 +255,14 @@ pub(super) fn layout_auto_flow_mnx_score(
     if let Some(global_plan) = &natural_part_plan {
         plan.systems.clone_from(&global_plan.systems);
     }
+    fit_tempo_system_breaks(
+        &mut plan,
+        &all_staff_resolved,
+        &budget,
+        &mmr,
+        &forced_system_starts,
+        config,
+    );
     tick!("  plan_system_breaks");
 
     // Stitched-horizon: un-paged view with a chunk width set. The galley is
@@ -270,18 +278,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     let max_widths = &budget.max_widths;
     let natural_widths = &budget.natural_widths;
     let systems = &plan.systems;
-    let forced_page_starts: Vec<usize> = layout_breaks
-        .iter()
-        .filter(|entry| entry.kind == LayoutBreakKind::Page)
-        .filter_map(|entry| measure_index_by_id.get(entry.measure.as_str()))
-        .filter_map(|measure_index| {
-            systems.iter().position(|system| {
-                system
-                    .first()
-                    .is_some_and(|&visible_index| visible_indices[visible_index] == *measure_index)
-            })
-        })
-        .collect();
+    let forced_page_starts = forced_page_starts(layout_breaks, &measure_index_by_id, &plan, &mmr);
     let margin_left_first = plan.margin_left_first;
     let margin_top = plan.margin_top;
     let galley_offset_y = margin_top;
@@ -297,8 +294,14 @@ pub(super) fn layout_auto_flow_mnx_score(
         .iter()
         .enumerate()
         .map(|(system_index, system)| {
+            // System-end courtesy furniture announces the next system's
+            // opening measure, so an edit there dirties this system too.
+            let next_opening = systems
+                .get(system_index + 1)
+                .and_then(|next| next.first())
+                .copied();
             let clean = dirty_range.is_some()
-                && !system.iter().any(|&visible_index| {
+                && !system.iter().copied().chain(next_opening).any(|visible_index| {
                     let measure_index = visible_indices[visible_index];
                     matches!(dirty_range, Some((start, end)) if measure_index >= start && measure_index <= end)
                 });
@@ -730,6 +733,9 @@ pub(super) fn layout_auto_flow_mnx_score(
     let clef_change_hash = clef_change_hash(&clef_change_measures);
     let mut staff_content_reuses = 0usize;
     let mut staff_content_reuse_runs = 0usize;
+    let mut volta_skylines: Vec<_> = (0..flat_staves.len())
+        .map(|_| super::super::volta::VoltaSkyline::default())
+        .collect();
 
     render_auto_flow_systems(SystemRenderContext {
         dl: &mut dl,
@@ -759,6 +765,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         global_slur_events: &mut global_slur_events,
         global_tie_notes: &mut global_tie_notes,
         slur_bounds: &mut slur_bounds,
+        volta_skylines: &mut volta_skylines,
         old_retained: &mut old_retained,
         new_retained: &mut new_retained,
         prev_order: &prev_order,
@@ -891,6 +898,7 @@ pub(super) fn layout_auto_flow_mnx_score(
                 placement,
                 sp,
                 score,
+                &volta_skylines,
             );
         }
         super::super::cross_system::render_layout_staff_spanner_continuations(

@@ -78,6 +78,7 @@ export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
           onApplyPageSetup={engrave.pageSetup.handleApplyPageSetup}
           onResetPageSetup={engrave.pageSetup.handleResetPageSetup}
           onInstrumentNameDisplayChange={engrave.handleInstrumentNameDisplayChange}
+          onAutoHideEmptyPartsChange={engrave.handleAutoHideEmptyPartsChange}
           selectedBreakKind={engrave.selectedBreakKind}
           selectedAfterMeasureNumber={engrave.selectedBreakAfterMeasureNumber}
           hasLayoutOverrides={engrave.hasLayoutOverrides}

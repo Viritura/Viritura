@@ -348,7 +348,13 @@ export function PageTurnsPanel() {
   const store = useDocumentStoreApi();
   const scoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
   const scoreDefinition = score?.scores?.[scoreIndex];
-  const defaults = defaultPageSetupForScore(score?.scores, scoreIndex, score?.layouts, score?.parts?.length);
+  const defaults = defaultPageSetupForScore(
+    score?.scores,
+    scoreIndex,
+    score?.layouts,
+    score?.parts?.length,
+    score?.pageSetupDefaults,
+  );
   const effectiveSetup: PageSetup = {
     ...defaults,
     ...scoreDefinition?.pageSetup,
@@ -369,6 +375,7 @@ export function PageTurnsPanel() {
         scoreIndex,
         currentScore.layouts,
         currentScore.parts.length,
+        currentScore.pageSetupDefaults,
       );
       const currentSetup: PageSetup = {
         ...currentDefaults,

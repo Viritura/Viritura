@@ -521,6 +521,7 @@ export function addInstrumentToScore(score: Score, instrumentId: string, targetL
   const newScoreDef: ScoreDefinition = {
     name: names.displayName,
     layout: `L-${newPartId}`,
+    pageSetupRole: "part",
     ...(inst.transposition ? { useWritten: true } : {}),
   };
   const newScores = synchronizePartScoreDefinitions(newParts, [...(score.scores ?? []), newScoreDef]);

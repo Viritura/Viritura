@@ -12,11 +12,10 @@
 //!
 //! ## Fonts
 //!
-//! Only the three CSS generic families are supported (`serif`, `sans-serif`,
-//! `monospace`). They need no font files — the browser already has them — and
-//! the engine ships approximate per-family advance-width metrics (see
-//! [`text_width`]) so layout can position proportional text without a real
-//! rasterizer. Arbitrary user font names are intentionally out of scope for v1
+//! Authored styles support the three CSS generic families (`serif`,
+//! `sans-serif`, `monospace`). Sans-serif text uses `Arial, sans-serif` on the
+//! canvas without bundling a sans-serif font. Generic faces use approximate
+//! per-family advances. Arbitrary user font names are out of scope for v1
 //! (they would require a measure-and-reflow pass through the browser).
 
 use crate::render::TextAlign;
@@ -27,7 +26,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum FontFamily {
-    /// Times-like serif (the default for all score text).
+    /// Times-like serif (the default for most score text).
     #[default]
     Serif,
     /// Helvetica/Arial-like sans-serif.
@@ -140,6 +139,8 @@ pub enum TextRole {
     PageNumber,
     /// Tempo marking (e.g. "Allegro ♩ = 120").
     Tempo,
+    /// Rehearsal labels, independently of their frame style.
+    RehearsalMark,
     /// Pedal text markings ("Ped.", etc.).
     PedalText,
     /// Copyright notice (small, centered at the foot of the title page).
@@ -162,6 +163,7 @@ pub struct TextStylesheet {
     pub staff_label: TextStyle,
     pub page_number: TextStyle,
     pub tempo: TextStyle,
+    pub rehearsal_mark: TextStyle,
     pub pedal_text: TextStyle,
     pub copyright: TextStyle,
 }
@@ -195,6 +197,7 @@ impl TextStylesheet {
             TextRole::StaffLabel => &self.staff_label,
             TextRole::PageNumber => &self.page_number,
             TextRole::Tempo => &self.tempo,
+            TextRole::RehearsalMark => &self.rehearsal_mark,
             TextRole::PedalText => &self.pedal_text,
             TextRole::Copyright => &self.copyright,
         }
@@ -228,6 +231,7 @@ impl TextStylesheet {
             "staffLabel" => Some(&mut self.staff_label),
             "pageNumber" => Some(&mut self.page_number),
             "tempo" => Some(&mut self.tempo),
+            "rehearsalMark" => Some(&mut self.rehearsal_mark),
             "pedalText" => Some(&mut self.pedal_text),
             "copyright" => Some(&mut self.copyright),
             _ => None,

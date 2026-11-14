@@ -40,6 +40,7 @@ pub(super) struct SystemRenderContext<'a> {
     pub global_slur_events: &'a mut Vec<super::super::slurs::GlobalSlurEvent>,
     pub global_tie_notes: &'a mut Vec<super::super::ties::GlobalTieNote>,
     pub slur_bounds: &'a mut HashMap<(usize, usize, usize), super::super::slurs::SystemSlurBounds>,
+    pub volta_skylines: &'a mut [super::super::volta::VoltaSkyline],
     pub old_retained: &'a mut HashMap<u64, cache::RetainedSegment>,
     pub new_retained: &'a mut HashMap<u64, cache::RetainedSegment>,
     pub prev_order: &'a [u64],
@@ -67,6 +68,34 @@ pub(super) struct SystemRenderContext<'a> {
     pub render_hash_skips: &'a mut usize,
     pub staff_content_reuses: &'a mut usize,
     pub staff_content_reuse_runs: &'a mut usize,
+}
+
+fn capture_volta_skylines(
+    skylines: &mut [super::super::volta::VoltaSkyline],
+    display: &DisplayList,
+    staff_layers: &[cache::RetainedStaffContentLayer],
+    staff_layouts: &[Vec<MeasureLayout>],
+    staff_y_offsets: &[f64],
+    dx: f64,
+    dy: f64,
+) {
+    for (index, layouts) in staff_layouts.iter().enumerate() {
+        if layouts
+            .first()
+            .is_some_and(|layout| layout.show_system_objects)
+        {
+            // Lower layers can place cross-staff markings above this staff.
+            for layer in &staff_layers[index..] {
+                skylines[index].capture(
+                    display,
+                    layer.start.element_shapes..layer.end.element_shapes,
+                    staff_y_offsets[index],
+                    dx,
+                    dy,
+                );
+            }
+        }
+    }
 }
 
 pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
@@ -98,6 +127,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
         global_slur_events,
         global_tie_notes,
         slur_bounds,
+        volta_skylines,
         old_retained,
         new_retained,
         prev_order,
@@ -130,6 +160,12 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
     // the score-wide lyric dependency into retained identities conservatively
     // so endpoint edits and inference-boundary changes cannot reuse stale ink.
     let render_salt = render_salt ^ super::super::lyric_extenders::cache_dependency_hash(score);
+    let capture_volta_skyline = chunked
+        && score
+            .global
+            .measures
+            .iter()
+            .any(|measure| measure.ending.is_some());
     for (sys_idx, _sys_vis_indices) in systems.iter().enumerate() {
         let margin_left = precomp_margins[sys_idx];
         let sys_y_base = system_y_positions[sys_idx];
@@ -288,6 +324,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                 Some(system_render_hash(
                     all_staff_layouts,
                     &precomp_content_hashes[sys_idx],
+                    &score.global.measures,
                     &staff_y_offsets,
                     &next_sys_clef_per_staff,
                     margin_left,
@@ -305,6 +342,20 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                 *_ret_hits += 1;
                 let dx = current_x0 - retained.rendered_x0;
                 let dy = staff_y_offsets[0] - retained.rendered_y0;
+                if capture_volta_skyline {
+                    capture_volta_skylines(
+                        volta_skylines,
+                        &retained.segment,
+                        retained
+                            .staff_content_layers
+                            .as_deref()
+                            .expect("retained horizon segment has staff content layers"),
+                        all_staff_layouts,
+                        &staff_y_offsets,
+                        dx,
+                        dy,
+                    );
+                }
 
                 // Phase M: prefer the cached slur/tie collection output over
                 // re-running `collect_system_slur_data`. Saves ~5-15 µs per
@@ -431,6 +482,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                 staff_content_render_hash(
                     &all_staff_layouts[staff_idx],
                     &precomp_content_hashes[sys_idx][staff_idx],
+                    &score.global.measures,
                     &staff_y_offsets,
                     next_sys_clef_per_staff[staff_idx],
                     margin_left,
@@ -544,7 +596,6 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                 flat_staves,
                 None,
                 &staff_y_offsets,
-                &next_sys_clef_per_staff,
                 score,
                 lyric_line_order,
                 sp,
@@ -568,6 +619,17 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                 accidental_obstacles: accidental_obstacles[obstacle_start..].to_vec(),
             });
             staff_idx += 1;
+        }
+        if capture_volta_skyline {
+            capture_volta_skylines(
+                volta_skylines,
+                &seg,
+                &fresh_staff_layers,
+                all_staff_layouts,
+                &staff_y_offsets,
+                0.0,
+                0.0,
+            );
         }
 
         // System-wide pass: a harp/keyboard gliss can join two staves of one
@@ -639,6 +701,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                     staff_height,
                     sp,
                     config,
+                    &score.global.measures,
                     sys_idx == system_count - 1,
                     clef_change_measures,
                     chunked && sys_idx < system_count - 1,

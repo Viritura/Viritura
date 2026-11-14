@@ -4,8 +4,6 @@ pub(in crate::layout) fn render_systems_pass2(
     dl: &mut DisplayList,
     precomp_sys_layouts: &[Vec<MeasureLayout>],
     system_y_positions: &[f64],
-    systems: &[Vec<usize>],
-    visible_resolved: &[&ResolvedMeasure],
     margin_left: f64,
     sp: f64,
     config: &LayoutConfig,
@@ -39,19 +37,6 @@ pub(in crate::layout) fn render_systems_pass2(
             config.staff_line_width * sp,
         );
 
-        let next_sys_clef: Option<&Clef> = systems
-            .get(sys_idx + 1)
-            .and_then(|next_sys| next_sys.first())
-            .and_then(|&next_mi| {
-                let next_rm = visible_resolved[next_mi];
-                next_rm
-                    .part
-                    .clefs
-                    .as_ref()
-                    .and_then(|clefs| clefs.iter().find(|c| c.position.is_none()))
-                    .map(|pc| &pc.clef)
-            });
-
         render_system_contents(
             dl,
             sys_measure_layouts,
@@ -65,7 +50,6 @@ pub(in crate::layout) fn render_systems_pass2(
             part_index,
             None,
             None,
-            next_sys_clef,
             None,
             sys_idx,
             false,

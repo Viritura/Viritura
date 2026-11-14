@@ -53,6 +53,21 @@ pub(crate) fn promote_score_definition(
         })
         .unwrap_or_default();
     let text_frames = promote_text_frames(viritura.and_then(|ext| ext.get("textFrames")))?;
+    let auto_hide_empty_parts: Vec<String> = viritura
+        .and_then(|ext| ext.get("autoHideEmptyParts"))
+        .map(|value| serde_json::from_value(value.clone()))
+        .transpose()
+        .map_err(|error| PromoteError::InvalidAutoHideEmptyParts(error.to_string()))?
+        .unwrap_or_default();
+    let mut seen = std::collections::HashSet::new();
+    if auto_hide_empty_parts
+        .iter()
+        .any(|id| id.is_empty() || !seen.insert(id))
+    {
+        return Err(PromoteError::InvalidAutoHideEmptyParts(
+            "expected unique, nonempty part IDs".into(),
+        ));
+    }
     Ok(ModelScoreDefinition {
         name: Some(r.name.0),
         layout: r.layout.map(String::from),
@@ -64,6 +79,7 @@ pub(crate) fn promote_score_definition(
         use_written: r.use_written,
         pages: r.pages.into_iter().map(promote_page).collect(),
         instrument_name_display,
+        auto_hide_empty_parts,
         layout_breaks,
         text_frames,
     })

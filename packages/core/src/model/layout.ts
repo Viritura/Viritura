@@ -17,7 +17,7 @@ export interface PageDimensions {
 
 /**
  * Page setup configuration — lives on each ScoreDefinition.
- * Only written to MNX _x.viritura when values differ from defaults.
+ * Explicit overrides are preserved in MNX _x.viritura, including default-valued fields.
  */
 export interface PageSetup {
   /** Page width in mm (default 210 = A4) */
@@ -39,6 +39,14 @@ export interface PageSetup {
    * page density against page-turn comfort when choosing page breaks. Absent
    * or `enabled: false` leaves the default greedy pagination untouched. */
   pageTurns?: PageTurnSettings;
+}
+
+export type PageSetupRole = "score" | "part";
+
+/** Project defaults, independent of each score definition's page-setup override. */
+export interface PageSetupDefaults {
+  score?: PageSetup;
+  part?: PageSetup;
 }
 
 /** Editor-facing auto page-turn settings, mirrored into the engine's
@@ -226,21 +234,34 @@ export function defaultPageSetupForScore(
   scoreIndex: number,
   layouts?: LayoutDefinition[],
   totalPartCount?: number,
+  defaults?: PageSetupDefaults,
 ): PageSetup {
+  return pageSetupRoleForScore(scores, scoreIndex, layouts, totalPartCount) === "part"
+    ? (defaults?.part ?? DEFAULT_PART_PAGE_SETUP)
+    : (defaults?.score ?? DEFAULT_PAGE_SETUP);
+}
+
+export function pageSetupRoleForScore(
+  scores: ScoreDefinition[] | undefined,
+  scoreIndex: number,
+  layouts?: LayoutDefinition[],
+  totalPartCount?: number,
+): PageSetupRole {
   const scoreDef = scores?.[scoreIndex];
-  if (!scoreDef || !layouts || layouts.length === 0) return DEFAULT_PAGE_SETUP;
+  if (scoreDef?.pageSetupRole) return scoreDef.pageSetupRole;
+  if (!scoreDef || !layouts || layouts.length === 0) return "score";
 
   const layoutId = scoreDef.layout;
-  if (!layoutId) return DEFAULT_PAGE_SETUP;
+  if (!layoutId) return "score";
 
   const layout = layouts.find((l) => l.id === layoutId);
-  if (!layout) return DEFAULT_PAGE_SETUP;
+  if (!layout) return "score";
 
   const layoutPartCount = collectLayoutParts(layout.content).size;
   const total = totalPartCount ?? layoutPartCount;
 
   // A layout showing fewer parts than the document total is a part score
-  return layoutPartCount < total ? DEFAULT_PART_PAGE_SETUP : DEFAULT_PAGE_SETUP;
+  return layoutPartCount < total ? "part" : "score";
 }
 
 /** Rastral size table: index 0–8 → spatium in mm. */
@@ -469,8 +490,12 @@ export interface ScoreDefinition {
   pages?: PageDefinition[];
   /** Per-score page setup (page size, margins, staff size). */
   pageSetup?: PageSetup;
+  /** Explicit role when layout membership alone is ambiguous (e.g. a solo part). */
+  pageSetupRole?: PageSetupRole;
   /** Independent instrument-name policies for the first and later systems. */
   instrumentNameDisplay?: InstrumentNameDisplaySettings;
+  /** Parts eligible for rest-only system hiding in paged views, including the first system. */
+  autoHideEmptyParts?: string[];
   /** Forced starts consumed by automatic system and page flow. */
   layoutBreaks?: LayoutBreak[];
   /** Free text frames owned by this score view, not by staffs or systems. */

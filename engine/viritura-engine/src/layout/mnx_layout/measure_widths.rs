@@ -258,8 +258,9 @@ pub(super) fn compute_natural_measure_widths(
                 // can't overhang into the next bar. A co-located tempo is NOT
                 // reserved here — it may overhang following bars and is kept
                 // inside the right page margin by a render-time left-nudge.
-                let label_w =
-                    super::super::render_annotations::measure_above_label_reserved_width(rm, sp);
+                let label_w = super::super::render_annotations::measure_above_label_reserved_width(
+                    rm, sp, config,
+                );
                 if label_w > 0.0 {
                     max_widths[rm.index] = max_widths[rm.index].max(label_w);
                 }
@@ -294,19 +295,6 @@ pub(super) fn compute_natural_measure_widths(
             if measures.len() < 2 {
                 continue;
             }
-            let total_beats = all_staff_resolved
-                .iter()
-                .filter_map(|staff| staff.get(mi))
-                .map(crate::layout::measure::layout_total_beats)
-                .reduce(f64::max)
-                .unwrap_or(4.0);
-            let merged = build_merged_log_spacing_for_resolved_measures(
-                &measures,
-                total_beats,
-                common_shortest_beats,
-                config,
-                true,
-            );
             // Preserve the rhythmic width already budgeted behind the largest
             // staff-local prefix when independently aligned prefix regions
             // make the shared prefix wider than every local prefix.
@@ -323,20 +311,14 @@ pub(super) fn compute_natural_measure_widths(
             );
             max_widths[mi] =
                 natural_width_with_aligned_prefix(max_widths[mi], included_prefix, aligned_prefix);
-            // `layout_measure_inner` subtracts the fixed trailing padding and
-            // structural barline overhead. The events still need content_width
-            // >= merged.total_width * sp to avoid elastic collapse.
-            let trailing_barline_extra = all_staff_resolved
-                .iter()
-                .filter_map(|staff| staff.get(mi))
-                .map(|rm| {
-                    crate::layout::render_barlines::trailing_barline_extra_width(rm, config, sp)
-                })
-                .fold(0.0f64, f64::max);
-            let needed = aligned_prefix.width
-                + merged.total_width * sp
-                + MEASURE_TRAILING_PADDING_SP * sp
-                + trailing_barline_extra;
+            let needed = merged_measure_natural_width(
+                &measures,
+                aligned_prefix,
+                sp,
+                common_shortest_beats,
+                config,
+                true,
+            );
             max_widths[mi] = max_widths[mi].max(needed);
         }
     }
@@ -364,6 +346,39 @@ pub(super) fn compute_natural_measure_widths(
         natural_widths,
         common_shortest_beats,
     }
+}
+
+/// Natural shared rhythmic width, including fixed prefix and barline space.
+pub(super) fn merged_measure_natural_width(
+    measures: &[&ResolvedMeasure],
+    prefix: AlignedPrefix,
+    sp: f64,
+    common_shortest_beats: f64,
+    config: &LayoutConfig,
+    is_system_start: bool,
+) -> f64 {
+    let total_beats = measures
+        .iter()
+        .map(|measure| crate::layout::measure::layout_total_beats(measure))
+        .reduce(f64::max)
+        .unwrap_or(4.0);
+    let merged = build_merged_log_spacing_for_resolved_measures(
+        measures,
+        total_beats,
+        common_shortest_beats,
+        config,
+        is_system_start,
+    );
+    let trailing_barline_extra = measures
+        .iter()
+        .map(|measure| {
+            crate::layout::render_barlines::trailing_barline_extra_width(measure, config, sp)
+        })
+        .fold(0.0_f64, f64::max);
+    prefix.width
+        + merged.total_width * sp
+        + MEASURE_TRAILING_PADDING_SP * sp
+        + trailing_barline_extra
 }
 
 #[cfg(test)]

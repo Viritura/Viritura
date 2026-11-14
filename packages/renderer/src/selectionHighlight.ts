@@ -144,7 +144,7 @@ export function filledBeziersIn(commands: readonly RenderCommand[]): FilledBezie
  *   their own `…/hairpin{group}` ids, so they keep the ink treatment.
  */
 export function drawsLetterforms(elementId: string, commands: readonly RenderCommand[]): boolean {
-  if (commands.some((c) => c.type === "DrawText")) return true;
+  if (commands.some((c) => c.type === "DrawText" || c.type === "DrawRotatedText")) return true;
   return elementId.slice(elementId.lastIndexOf("/") + 1).startsWith("dyn");
 }
 
@@ -197,6 +197,7 @@ function paintHalo(ctx: CanvasRenderingContext2D, cmd: RenderCommand, haloColor:
       haloGlyph(ctx, cmd, haloWidth);
       break;
     case "DrawText":
+    case "DrawRotatedText":
       haloText(ctx, cmd, haloWidth);
       break;
     case "DrawLine":
@@ -262,13 +263,25 @@ function haloGlyph(ctx: CanvasRenderingContext2D, cmd: Extract<RenderCommand, { 
   }
 }
 
-function haloText(ctx: CanvasRenderingContext2D, cmd: Extract<RenderCommand, { type: "DrawText" }>, w: number): void {
+function haloText(
+  ctx: CanvasRenderingContext2D,
+  cmd: Extract<RenderCommand, { type: "DrawText" | "DrawRotatedText" }>,
+  w: number,
+): void {
   // Font-string assembly mirrors paintText so the outline traces the same run.
   ctx.font = canvasTextFont(cmd.font, cmd.size);
   ctx.textAlign = cmd.align;
   ctx.textBaseline = cmd.baseline;
   ctx.lineWidth = w;
-  ctx.strokeText(cmd.text, cmd.x, cmd.y);
+  if (cmd.type === "DrawRotatedText") {
+    ctx.save();
+    ctx.translate(cmd.x, cmd.y);
+    ctx.rotate(cmd.rotation);
+    ctx.strokeText(cmd.text, 0, 0);
+    ctx.restore();
+  } else {
+    ctx.strokeText(cmd.text, cmd.x, cmd.y);
+  }
 }
 
 function haloEllipse(
@@ -392,6 +405,34 @@ function union(a: Bounds, b: Bounds): Bounds {
 
 function measureCommand(ctx: CanvasRenderingContext2D, cmd: RenderCommand): Bounds | null {
   switch (cmd.type) {
+    case "DrawRotatedText": {
+      const bounds = measureRun(
+        ctx,
+        cmd.text,
+        cmd.x,
+        cmd.y,
+        cmd.size,
+        canvasTextFont(cmd.font, cmd.size),
+        cmd.align,
+        cmd.baseline,
+      );
+      const [sin, cos] = [Math.sin(cmd.rotation), Math.cos(cmd.rotation)];
+      const corners = [
+        { x: bounds.minX, y: bounds.minY },
+        { x: bounds.maxX, y: bounds.minY },
+        { x: bounds.minX, y: bounds.maxY },
+        { x: bounds.maxX, y: bounds.maxY },
+      ].map(({ x, y }) => ({
+        x: cmd.x + (x - cmd.x) * cos - (y - cmd.y) * sin,
+        y: cmd.y + (x - cmd.x) * sin + (y - cmd.y) * cos,
+      }));
+      return {
+        minX: Math.min(...corners.map((p) => p.x)),
+        maxX: Math.max(...corners.map((p) => p.x)),
+        minY: Math.min(...corners.map((p) => p.y)),
+        maxY: Math.max(...corners.map((p) => p.y)),
+      };
+    }
     case "DrawText":
       return measureRun(ctx, cmd.text, cmd.x, cmd.y, cmd.size, textFont(cmd), cmd.align, cmd.baseline);
     case "DrawGlyph":

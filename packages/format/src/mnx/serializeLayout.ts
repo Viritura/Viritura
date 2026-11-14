@@ -4,7 +4,6 @@
  */
 
 import type { LayoutDefinition, LayoutContent, LayoutGroup, LayoutStaff, ScoreDefinition } from "@viritura/core";
-import { DEFAULT_PAGE_SETUP } from "@viritura/core";
 
 type Obj = Record<string, unknown>;
 
@@ -78,8 +77,12 @@ export function serializeScoreDefinition(sd: ScoreDefinition): Obj {
   if (sd.useWritten !== undefined) obj["useWritten"] = sd.useWritten;
 
   const viritura: Obj = {};
+  if (sd.pageSetupRole) viritura["pageSetupRole"] = sd.pageSetupRole;
   if (sd.instrumentNameDisplay) {
     viritura["instrumentNameDisplay"] = { ...sd.instrumentNameDisplay };
+  }
+  if (sd.autoHideEmptyParts !== undefined) {
+    viritura["autoHideEmptyParts"] = [...sd.autoHideEmptyParts];
   }
   if (sd.layoutBreaks && sd.layoutBreaks.length > 0) {
     viritura["layoutBreaks"] = sd.layoutBreaks.map((entry) => ({ ...entry }));
@@ -88,7 +91,8 @@ export function serializeScoreDefinition(sd: ScoreDefinition): Obj {
     viritura["textFrames"] = sd.textFrames.map(serializeTextFrame);
   }
 
-  // Vendor extension: _x.viritura.pageSetup — only write non-default values
+  // Explicit values must survive even when equal to built-in defaults:
+  // they may override a different project default.
   if (sd.pageSetup) {
     const psObj = serializePageSetup(sd.pageSetup);
     if (Object.keys(psObj).length > 0) {
@@ -142,19 +146,12 @@ function serializeSystem(s: NonNullable<ScoreDefinition["pages"]>[number]["syste
 }
 
 function serializePageSetup(ps: NonNullable<ScoreDefinition["pageSetup"]>): Obj {
-  const d = DEFAULT_PAGE_SETUP;
   const psObj: Obj = {};
-  if (ps.width !== d.width) psObj["width"] = ps.width;
-  if (ps.height !== d.height) psObj["height"] = ps.height;
-  if (ps.orientation !== d.orientation) psObj["orientation"] = ps.orientation;
-  if (ps.spatiumMm !== d.spatiumMm) psObj["spatiumMm"] = ps.spatiumMm;
-  if (
-    ps.margins &&
-    (ps.margins.top !== d.margins.top ||
-      ps.margins.right !== d.margins.right ||
-      ps.margins.bottom !== d.margins.bottom ||
-      ps.margins.left !== d.margins.left)
-  ) {
+  if (ps.width !== undefined) psObj["width"] = ps.width;
+  if (ps.height !== undefined) psObj["height"] = ps.height;
+  if (ps.orientation !== undefined) psObj["orientation"] = ps.orientation;
+  if (ps.spatiumMm !== undefined) psObj["spatiumMm"] = ps.spatiumMm;
+  if (ps.margins) {
     psObj["margins"] = {
       top: ps.margins.top,
       right: ps.margins.right,

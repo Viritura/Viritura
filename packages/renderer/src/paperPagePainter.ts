@@ -95,7 +95,10 @@ function inkBounds(displayList: DisplayList): InkBounds | null {
     const hasPreciseBounds = elementId != null && preciseElementIds.has(elementId);
     if (
       hasPreciseBounds &&
-      (command.type === "DrawGlyph" || command.type === "DrawStretchedGlyph" || command.type === "DrawText")
+      (command.type === "DrawGlyph" ||
+        command.type === "DrawStretchedGlyph" ||
+        command.type === "DrawText" ||
+        command.type === "DrawRotatedText")
     ) {
       continue;
     }

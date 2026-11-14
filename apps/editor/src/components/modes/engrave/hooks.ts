@@ -18,6 +18,7 @@ import {
   reanchorSlurInScore,
 } from "../../../score/ScoreMutations";
 import { defaultSystemStarts } from "./defaultSystemStarts";
+import { useDocumentStoreApi } from "../../../store/DocumentContext";
 
 /** Live refs for the current score / active score index / updateScore.
  *  Allows other engrave hooks to read the latest values from inside
@@ -40,6 +41,23 @@ export function useEngraveContextRefs(
   const updateScoreRef = useRef(updateScore);
   updateScoreRef.current = updateScore;
   return { scoreRef, activeScoreIndexRef, updateScoreRef };
+}
+
+export function useAutoHideEmptyParts(refs: EngraveContextRefs) {
+  const documentStore = useDocumentStoreApi();
+  return useCallback(
+    (partIds: string[]) => {
+      const current = documentStore.getState().workingScore;
+      const index = refs.activeScoreIndexRef.current;
+      if (!current?.scores?.[index]) return;
+      refs.updateScoreRef.current(
+        produce(current, (draft) => {
+          draft.scores![index]!.autoHideEmptyParts = partIds;
+        }),
+      );
+    },
+    [documentStore, refs],
+  );
 }
 
 /** Tracks the currently selected engrave break marker and wires up the
@@ -288,9 +306,10 @@ export function useSlurEditState(refs: EngraveContextRefs, score: Score | null) 
 
 /** Persist page setup edits for the score selected in the global header switcher. */
 export function usePageSetupEditor(refs: EngraveContextRefs) {
+  const documentStore = useDocumentStoreApi();
   const handleApplyPageSetup = useCallback(
     (setup: PageSetup) => {
-      const sc = refs.scoreRef.current;
+      const sc = documentStore.getState().workingScore;
       if (!sc) return;
       const index = refs.activeScoreIndexRef.current;
       const updated = produce(sc, (draft) => {
@@ -300,11 +319,11 @@ export function usePageSetupEditor(refs: EngraveContextRefs) {
       });
       refs.updateScoreRef.current(updated);
     },
-    [refs],
+    [documentStore, refs],
   );
 
   const handleResetPageSetup = useCallback(() => {
-    const sc = refs.scoreRef.current;
+    const sc = documentStore.getState().workingScore;
     if (!sc) return;
     const index = refs.activeScoreIndexRef.current;
     const updated = produce(sc, (draft) => {
@@ -313,7 +332,7 @@ export function usePageSetupEditor(refs: EngraveContextRefs) {
       }
     });
     refs.updateScoreRef.current(updated);
-  }, [refs]);
+  }, [documentStore, refs]);
 
   return {
     handleApplyPageSetup,

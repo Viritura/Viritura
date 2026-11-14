@@ -1,6 +1,228 @@
 {
   "cases": [
     {
+      "name": "a tuplet that straddles a beat breaks at the crossing",
+      "score": {
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+        "parts": [
+          {
+            "measures": [
+              {
+                "sequences": [
+                  {
+                    "content": [
+                      {
+                        "id": "a",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 5 } }]
+                      },
+                      {
+                        "type": "tuplet",
+                        "inner": { "multiple": 3, "duration": { "base": "eighth" } },
+                        "outer": { "multiple": 2, "duration": { "base": "eighth" } },
+                        "content": [
+                          {
+                            "id": "b",
+                            "duration": { "base": "eighth" },
+                            "notes": [{ "pitch": { "step": "D", "octave": 5 } }]
+                          },
+                          {
+                            "id": "c",
+                            "duration": { "base": "eighth" },
+                            "notes": [{ "pitch": { "step": "E", "octave": 5 } }]
+                          },
+                          {
+                            "id": "d",
+                            "duration": { "base": "eighth" },
+                            "notes": [{ "pitch": { "step": "F", "octave": 5 } }]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "e",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "G", "octave": 5 } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "excludedEventIds": [],
+      "expected": [
+        ["a", "b", "c"],
+        ["d", "e"]
+      ]
+    },
+    {
+      "name": "sixteenth triplets and following eighth share their quarter beat",
+      "score": {
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+        "parts": [
+          {
+            "measures": [
+              {
+                "sequences": [
+                  {
+                    "content": [
+                      { "duration": { "base": "half" }, "rest": {} },
+                      {
+                        "type": "tuplet",
+                        "inner": { "multiple": 3, "duration": { "base": "16th" } },
+                        "outer": { "multiple": 2, "duration": { "base": "16th" } },
+                        "content": [
+                          { "duration": { "base": "16th" }, "rest": {} },
+                          {
+                            "id": "a2",
+                            "duration": { "base": "16th" },
+                            "notes": [{ "pitch": { "step": "G", "octave": 5 } }]
+                          },
+                          {
+                            "id": "a3",
+                            "duration": { "base": "16th" },
+                            "notes": [{ "pitch": { "step": "A", "octave": 5 } }]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "tuplet",
+                        "inner": { "multiple": 3, "duration": { "base": "16th" } },
+                        "outer": { "multiple": 2, "duration": { "base": "16th" } },
+                        "content": [
+                          {
+                            "id": "b1",
+                            "duration": { "base": "16th" },
+                            "notes": [{ "pitch": { "step": "B", "octave": 5 } }]
+                          },
+                          {
+                            "id": "b2",
+                            "duration": { "base": "16th" },
+                            "notes": [{ "pitch": { "step": "C", "octave": 6 } }]
+                          },
+                          {
+                            "id": "b3",
+                            "duration": { "base": "16th" },
+                            "notes": [{ "pitch": { "step": "D", "octave": 6 } }]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "tuplet",
+                        "inner": { "multiple": 3, "duration": { "base": "16th" } },
+                        "outer": { "multiple": 2, "duration": { "base": "16th" } },
+                        "content": [
+                          {
+                            "id": "c1",
+                            "duration": { "base": "16th" },
+                            "notes": [{ "pitch": { "step": "E", "octave": 6 } }]
+                          },
+                          {
+                            "id": "c2",
+                            "duration": { "base": "16th" },
+                            "notes": [{ "pitch": { "step": "F", "octave": 6 } }]
+                          },
+                          {
+                            "id": "c3",
+                            "duration": { "base": "16th" },
+                            "notes": [{ "pitch": { "step": "G", "octave": 6 } }]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "d",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "A", "octave": 6 } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "excludedEventIds": [],
+      "expected": [
+        ["a2", "a3", "b1", "b2", "b3"],
+        ["c1", "c2", "c3", "d"]
+      ]
+    },
+    {
+      "name": "adjacent eighth triplets retain quarter beat boundaries",
+      "score": {
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+        "parts": [
+          {
+            "measures": [
+              {
+                "sequences": [
+                  {
+                    "content": [
+                      {
+                        "type": "tuplet",
+                        "inner": { "multiple": 3, "duration": { "base": "eighth" } },
+                        "outer": { "multiple": 2, "duration": { "base": "eighth" } },
+                        "content": [
+                          {
+                            "id": "a1",
+                            "duration": { "base": "eighth" },
+                            "notes": [{ "pitch": { "step": "C", "octave": 5 } }]
+                          },
+                          {
+                            "id": "a2",
+                            "duration": { "base": "eighth" },
+                            "notes": [{ "pitch": { "step": "D", "octave": 5 } }]
+                          },
+                          {
+                            "id": "a3",
+                            "duration": { "base": "eighth" },
+                            "notes": [{ "pitch": { "step": "E", "octave": 5 } }]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "tuplet",
+                        "inner": { "multiple": 3, "duration": { "base": "eighth" } },
+                        "outer": { "multiple": 2, "duration": { "base": "eighth" } },
+                        "content": [
+                          {
+                            "id": "b1",
+                            "duration": { "base": "eighth" },
+                            "notes": [{ "pitch": { "step": "F", "octave": 5 } }]
+                          },
+                          {
+                            "id": "b2",
+                            "duration": { "base": "eighth" },
+                            "notes": [{ "pitch": { "step": "G", "octave": 5 } }]
+                          },
+                          {
+                            "id": "b3",
+                            "duration": { "base": "eighth" },
+                            "notes": [{ "pitch": { "step": "A", "octave": 5 } }]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "excludedEventIds": [],
+      "expected": [
+        ["a1", "a2", "a3"],
+        ["b1", "b2", "b3"]
+      ]
+    },
+    {
       "name": "pure eighths in 4/4 group by half measure",
       "score": {
         "mnx": { "version": 1 },

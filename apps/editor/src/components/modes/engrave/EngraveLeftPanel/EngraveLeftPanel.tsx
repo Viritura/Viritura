@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { LayoutPanelTop, Palette, SlidersHorizontal } from "lucide-react";
 import { Tabs } from "@viritura/ui";
-import { defaultPageSetupForScore, type PageSetup, type Score } from "@viritura/core";
-import { PageSetupDialog } from "../../../PageSetupDialog";
+import { type PageSetup, type Score } from "@viritura/core";
+import { ProjectPageSetup } from "../../../../pageSetup";
 import { HouseStylePanel } from "../HouseStylePanel";
 import { NotationInspector } from "../../../NotationInspector";
 import { useSelection } from "../../../../store/selectionStore";
@@ -14,6 +14,7 @@ import {
 } from "../../../parts/instrumentNameDisplay";
 import styles from "./EngraveLeftPanel.module.css";
 import { BreakManagement } from "./BreakManagement";
+import { AutoHideEmptyStavesControl } from "./AutoHideEmptyStavesControl";
 
 interface EngraveLeftPanelProps {
   score: Score | null;
@@ -21,6 +22,7 @@ interface EngraveLeftPanelProps {
   onApplyPageSetup: (setup: PageSetup) => void;
   onResetPageSetup: () => void;
   onInstrumentNameDisplayChange: (settings: InstrumentNameDisplaySettings) => void;
+  onAutoHideEmptyPartsChange: (partIds: string[]) => void;
   selectedBreakKind: "system" | "page" | null;
   selectedAfterMeasureNumber?: number;
   hasLayoutOverrides: boolean;
@@ -40,6 +42,7 @@ export function EngraveLeftPanel({
   onApplyPageSetup,
   onResetPageSetup,
   onInstrumentNameDisplayChange,
+  onAutoHideEmptyPartsChange,
   selectedBreakKind,
   selectedAfterMeasureNumber,
   hasLayoutOverrides,
@@ -51,8 +54,6 @@ export function EngraveLeftPanel({
     id: "house-style",
     selection: null,
   });
-  const defaults = defaultPageSetupForScore(score?.scores, activeScoreIndex, score?.layouts, score?.parts?.length);
-  const stored = score?.scores?.[activeScoreIndex]?.pageSetup;
   const selectedScore = score?.scores?.[activeScoreIndex];
   const frameSelected =
     selection.kind === "single" &&
@@ -60,10 +61,6 @@ export function EngraveLeftPanel({
   const activeTab = frameSelected && tabChoice.selection !== selection ? "properties" : tabChoice.id;
   const selectedLayoutIds = selectedScore ? instrumentNameDisplayLayoutIds(selectedScore) : new Set<string>();
   const selectedLayout = score?.layouts?.find((layout) => selectedLayoutIds.has(layout.id));
-  const pageSetup = useMemo(
-    () => (stored ? { ...defaults, ...stored, margins: { ...defaults.margins, ...stored.margins } } : defaults),
-    [defaults, stored],
-  );
 
   return (
     <aside className={styles.root} data-testid="engrave-left-panel">
@@ -72,12 +69,13 @@ export function EngraveLeftPanel({
           <HouseStylePanel />
         ) : activeTab === "layouts" ? (
           <div className={`viritura-scroll ${styles.layouts}`}>
-            {selectedScore && pageSetup && (
+            {selectedScore && score && (
               <section className={styles.selection}>
-                <PageSetupDialog
+                <ProjectPageSetup
                   key={activeScoreIndex}
-                  embedded
-                  embeddedPreamble={
+                  score={score}
+                  scoreIndex={activeScoreIndex}
+                  preamble={
                     <>
                       <BreakManagement
                         selectedBreakKind={selectedBreakKind}
@@ -93,11 +91,17 @@ export function EngraveLeftPanel({
                           onChange={onInstrumentNameDisplayChange}
                         />
                       )}
+                      {score && (
+                        <AutoHideEmptyStavesControl
+                          score={score}
+                          scoreIndex={activeScoreIndex}
+                          onChange={onAutoHideEmptyPartsChange}
+                        />
+                      )}
                     </>
                   }
-                  initialSetup={pageSetup}
                   onApply={onApplyPageSetup}
-                  onResetToDefault={onResetPageSetup}
+                  onReset={onResetPageSetup}
                 />
               </section>
             )}

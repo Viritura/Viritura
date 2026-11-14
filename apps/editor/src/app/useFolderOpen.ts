@@ -103,6 +103,7 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
           });
           const headJson = await adapter.readScore();
           const parsed = parseMnx(JSON.parse(headJson));
+          useProjectStore.getState().setProjectDiskBaseline(adapter, headJson);
           setSelectedScoreIndex(0);
           loadScore(parsed, handle.name);
           resetHistory(store.getState().mnxJson || headJson);
