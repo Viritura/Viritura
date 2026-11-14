@@ -4,9 +4,8 @@ import { useSelection, useSelectedElementType } from "../store/selectionStore";
 import { resolveNotationSelectionTarget } from "../commands/notationInspectorCommands";
 
 import { LayoutSection } from "./inspector/LayoutSection";
-import { TempoSection } from "./inspector/TempoSection";
+import { SystemInstructionProperties } from "../systemInstructions";
 import { TempoRampInspector } from "../tempoRamps";
-import { inheritedStyleForRole } from "./inspector/TextContentEditor";
 import { DirectionTextSections } from "./inspector/DirectionTextSections";
 import { TieSection, SlurSection } from "./inspector/TieSlurSections";
 import { GlissandoSection } from "./inspector/GlissandoSection";
@@ -28,7 +27,6 @@ import { useStaffMeterInspector } from "./inspector/useStaffMeterInspector";
 import { type InspectorSection } from "./inspector/notationInspectorMeta";
 import { useInspectorAutoScroll, useTieSlurHandlers, useColorHandlers } from "./inspector/useNotationInspectorHooks";
 import {
-  useTempoHandlers,
   useBarlineHandlers,
   useClefHandlers,
   useAccidentalAndTrillHandlers,
@@ -106,7 +104,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     isEvent,
   } = useNotationInspectorSelection(selection, score, target);
 
-  const tempo = useTempoHandlers({ score, target, updateScore });
   const staffConfig = useStaffConfigInspector({ score, selection, commitPatches });
   const lyric = useLyricInspector({ score, selection, updateScore });
   const isLyricSelected = lyric.selected !== null;
@@ -203,7 +200,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   }
 
   const selectionSubtitle = target
-    ? tempo.isTempoSelected
+    ? /^tempo\d+$/.test(target.elementType)
       ? `Selected: tempo in bar ${target.measureIndex + 1}`
       : `Selected: ${selectedElementType ?? target.elementType} (${target.elementId})`
     : staffConfig.target
@@ -221,29 +218,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         <BeamSection state={beam} />
         {score && <TempoRampInspector score={score} selection={selection} updateScore={updateScore} />}
 
-        {target && tempo.isTempoSelected && tempo.selectedTempo && (
-          <TempoSection
-            key={target.elementId}
-            tempo={tempo.selectedTempo}
-            effectiveSwing={tempo.effectiveSwing ?? undefined}
-            onSwingChange={tempo.handleTempoSwingChange}
-            onBpmChange={tempo.handleTempoBpmChange}
-            onValueBaseChange={tempo.handleTempoValueBaseChange}
-            onDotsChange={tempo.handleTempoDotsChange}
-            onTextChange={tempo.handleTempoTextChange}
-            onShowTextChange={tempo.handleTempoShowTextChange}
-            onShowMetronomeChange={tempo.handleTempoShowMetronomeChange}
-            inheritedStyle={inheritedStyleForRole("tempo", score?.textStyles)}
-            offset={{
-              value: tempo.selectedTempo.manualOffset ?? [0, 0],
-              onChange: tempo.handleTempoOffsetChange,
-              onReset: tempo.handleTempoOffsetReset,
-              avoidCollisions: {
-                value: tempo.selectedTempo.avoidCollisions ?? true,
-                onChange: tempo.handleTempoAvoidCollisionsChange,
-              },
-            }}
-          />
+        {score && target && (target.elementType === "system-text" || /^tempo\d+$/.test(target.elementType)) && (
+          <SystemInstructionProperties key={target.elementId} score={score} target={target} updateScore={updateScore} />
         )}
 
         {(target || selection.kind === "measure") && (

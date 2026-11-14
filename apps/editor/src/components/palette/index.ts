@@ -12,7 +12,15 @@ export {
   TIME_SIG_PALETTE_ITEMS,
   ORNAMENT_PALETTE_ITEMS,
 } from "./paletteItems";
-export { SingleNoteTremoloIcon, TwoNoteTremoloIcon, NonArpeggioIcon } from "./paletteIcons";
+export {
+  SingleNoteTremoloIcon,
+  TwoNoteTremoloIcon,
+  NonArpeggioIcon,
+  TieIcon,
+  SlurIcon,
+  LaissezVibrerIcon,
+  GlissandoIcon,
+} from "./paletteIcons";
 export { resolveTwoNoteTremoloSelection } from "./tremoloSelection";
 export { BarlineGlyph, ClefGlyph, KeySigGlyph, TimeSigGlyph, TimeSignatureStaffPreview } from "./GlyphRenderers";
 export { parseTimeSignatureInput, parseTimeSignatureInputWithError, TIME_SIGNATURE_UNITS } from "./timeSignatureInput";
@@ -26,6 +34,7 @@ export {
   wideGridStyle,
   ATONAL_LABEL_STYLE,
   CUSTOM_TIME_SIGNATURE_STYLE,
+  TIME_SIGNATURE_SYMBOL_STYLE,
   TEMPO_LABEL_STYLE,
   TEMPO_GLYPH_STYLE,
   CHORD_SYMBOL_LABEL_STYLE,

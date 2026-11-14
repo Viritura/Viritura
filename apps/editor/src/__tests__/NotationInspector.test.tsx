@@ -138,19 +138,27 @@ function buildScore(): Score {
   };
 }
 
-function Harness({ elementId, staves = 2 }: { elementId?: string; staves?: number }) {
+function Harness({
+  elementId,
+  staves = 2,
+  initialScore,
+}: {
+  elementId?: string;
+  staves?: number;
+  initialScore?: Score;
+}) {
   const { loadScore } = useDocumentActions();
   const { score, mnxJson } = useDocument();
   const { selectElement } = useSelectionActions();
 
   useEffect(() => {
-    const initial = buildScore();
+    const initial = initialScore ? structuredClone(initialScore) : buildScore();
     initial.parts[0]!.staves = staves;
     loadScore(initial, "test.mnx");
     if (elementId) {
       selectElement(elementId);
     }
-  }, [loadScore, selectElement, elementId, staves]);
+  }, [loadScore, selectElement, elementId, staves, initialScore]);
 
   return (
     <>
@@ -160,6 +168,59 @@ function Harness({ elementId, staves = 2 }: { elementId?: string; staves?: numbe
     </>
   );
 }
+
+describe("shared system instruction Properties", () => {
+  afterEach(() => {
+    cleanup();
+    resetSelectionStore();
+  });
+
+  it.each(["system text", "legacy tempo"])(
+    "edits %s through one shared section without losing other anchors",
+    async (kind) => {
+      const initialScore = buildScore();
+      const measure = initialScore.global.measures[0]!;
+      const marking = { bpm: 90, value: { base: "quarter" as const }, text: [{ text: "Broadly" }] };
+      const other = { bpm: 60, value: { base: "half" as const }, location: { fraction: [3, 4] as [number, number] } };
+      const frame = { border: "solid" as const, padding: 0.5 };
+      measure.tempos = kind === "legacy tempo" ? [marking, other] : [other];
+      if (kind === "system text")
+        measure.systemText = [
+          {
+            id: "shared",
+            text: marking.text,
+            position: { fraction: [0, 1] },
+            placement: "below",
+            frame,
+            tempo: { bpm: marking.bpm, value: marking.value },
+          },
+        ];
+      render(
+        withProviders(
+          <Harness
+            initialScore={initialScore}
+            elementId={kind === "system text" ? "m0/systemText/shared" : "m0/tempo0"}
+          />,
+        ),
+      );
+      const toggle = await screen.findByRole("checkbox", { name: "Set tempo", exact: true });
+      expect(screen.getAllByRole("textbox", { name: "Printed text", exact: true })).toHaveLength(1);
+      fireEvent.click(toggle);
+      await waitFor(() => expect(screen.queryByRole("spinbutton", { name: "BPM", exact: true })).toBeNull());
+      const snapshot = () =>
+        (JSON.parse(screen.getByTestId("score-snapshot").textContent!) as Score).global.measures[0]!;
+      expect(snapshot().tempos).toEqual([other]);
+      expect(snapshot().systemText).toHaveLength(1);
+      expect(snapshot().systemText![0]!.tempo).toBeUndefined();
+      expect(snapshot().systemText![0]!.text[0]).toMatchObject({ text: "Broadly" });
+      if (kind === "system text") expect(snapshot().systemText![0]).toMatchObject({ frame, placement: "below" });
+      fireEvent.click(screen.getByRole("checkbox", { name: "Set tempo", exact: true }));
+      expect(snapshot().systemText![0]!.tempo?.bpm).toBe(120);
+      const persisted = parseMnx(JSON.parse(screen.getByTestId("mnx-snapshot").textContent!));
+      expect(persisted.global.measures[0]!.systemText).toEqual(snapshot().systemText);
+    },
+  );
+});
 
 describe("staff text frame Properties", () => {
   afterEach(() => {

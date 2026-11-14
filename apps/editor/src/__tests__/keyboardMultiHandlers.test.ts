@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { Score, NoteEvent, Step, Octave } from "@viritura/core";
+import type { Score, NoteEvent, SequenceContent, Step, Octave } from "@viritura/core";
 import type { Selection } from "../store/selectionStore";
 import type { KeyboardHandlerContext } from "../keyboard/types";
 import {
@@ -228,6 +228,157 @@ describe("keyboard edit handlers — multi-aware", () => {
     expect(source!.notes![0]!.ties).toEqual([{ target: target!.notes![0]!.id }]);
     expect(source!.notes![1]!.ties).toBeUndefined();
     expect(source!.notes![2]!.ties).toBeUndefined();
+  });
+
+  it("chooses tie or l.v. independently for the pitches in a selected chord", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [chord("ev0"), note("ev1")];
+    const { ctx, latest } = makeCtx(score, { kind: "single", elementId: "p0/m0/s0/ev0" });
+
+    handleTieKey(noopEvent, ctx);
+
+    expect(contentAt(latest(), 0).notes!.map((note) => note.ties)).toEqual([
+      [{ target: contentAt(latest(), 1).notes![0]!.id }],
+      [{ lv: true }],
+      [{ lv: true }],
+    ]);
+    expect(contentAt(score, 0).notes!.every((note) => note.ties === undefined)).toBe(true);
+
+    handleTieKey(noopEvent, ctx);
+    expect(contentAt(latest(), 0).notes!.every((note) => note.ties === undefined)).toBe(true);
+  });
+
+  it.each<{ name: string; following: SequenceContent[] }>([
+    { name: "a different pitch before a later match", following: [note("different", "D"), note("later")] },
+    {
+      name: "a rest before a later match",
+      following: [{ type: "event", duration: { base: "quarter" }, rest: {} }, note("later")],
+    },
+    { name: "a rhythmic space before a later match", following: [{ type: "space", duration: [1, 4] }, note("later")] },
+    { name: "the end of the voice", following: [] },
+  ])("toggles l.v. instead of tying across $name", ({ following }) => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [chord("ev0"), ...following];
+    const { ctx, latest } = makeCtx(score, {
+      kind: "single",
+      elementId: "p0/m0/s0/ev0/n0",
+      elementType: "note",
+    });
+
+    handleTieKey(noopEvent, ctx);
+    expect(contentAt(latest(), 0).notes![0]!.ties).toEqual([{ lv: true }]);
+    expect(contentAt(latest(), 0).notes![1]!.ties).toBeUndefined();
+    expect(contentAt(latest(), 0).notes![2]!.ties).toBeUndefined();
+
+    handleTieKey(noopEvent, ctx);
+    expect(contentAt(latest(), 0).notes![0]!.ties).toBeUndefined();
+  });
+
+  it("uses l.v. for an adjacent note with a different accidental", () => {
+    const score = makeScore();
+    const target = note("ev1");
+    target.notes![0]!.pitch.alter = 1;
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [note("ev0"), target];
+    const { ctx, latest } = makeCtx(score, { kind: "single", elementId: "p0/m0/s0/ev0" });
+
+    handleTieKey(noopEvent, ctx);
+
+    expect(contentAt(latest(), 0).notes![0]!.ties).toEqual([{ lv: true }]);
+  });
+
+  it.each(["empty bar", "absent voice"] as const)("does not search beyond an %s for a tie target", (gap) => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [note("ev0")];
+    score.parts[0]!.measures[0]!.sequences[0]!.voice = "up";
+    score.global.measures.push({}, {});
+    score.parts[0]!.measures.push(
+      {
+        sequences: [
+          { voice: gap === "empty bar" ? "up" : "down", content: gap === "empty bar" ? [] : [note("other-voice")] },
+        ],
+      },
+      { sequences: [{ voice: "up", content: [note("later")] }] },
+    );
+    const { ctx, latest } = makeCtx(score, { kind: "single", elementId: "p0/m0/s0/ev0" });
+
+    handleTieKey(noopEvent, ctx);
+
+    expect(contentAt(latest(), 0).notes![0]!.ties).toEqual([{ lv: true }]);
+  });
+
+  it("follows the same voice across a barline when sequence indices change", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences = [{ staff: 2, voice: "bass", content: [note("ev0")] }];
+    const target = note("bass-target");
+    score.global.measures.push({});
+    score.parts[0]!.measures.push({
+      sequences: [
+        { staff: 1, voice: "treble", content: [note("treble-target")] },
+        { staff: 2, voice: "bass", content: [target] },
+      ],
+    });
+    const { ctx, latest } = makeCtx(score, { kind: "single", elementId: "p0/m0/s0/ev0" });
+
+    handleTieKey(noopEvent, ctx);
+
+    const destination = latest().parts[0]!.measures[1]!.sequences[1]!.content[0] as NoteEvent;
+    expect(contentAt(latest(), 0).notes![0]!.ties).toEqual([{ target: destination.notes![0]!.id }]);
+  });
+
+  it("ties out of a tuplet to an adjacent matching note", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [
+      {
+        type: "tuplet",
+        inner: { duration: { base: "quarter" }, multiple: 3 },
+        outer: { duration: { base: "quarter" }, multiple: 2 },
+        content: [note("ev0")],
+      },
+      note("target"),
+    ];
+    const { ctx, latest } = makeCtx(score, { kind: "single", elementId: "p0/m0/s0/ev0/n0", elementType: "note" });
+
+    handleTieKey(noopEvent, ctx);
+
+    const tuplet = latest().parts[0]!.measures[0]!.sequences[0]!.content[0];
+    expect(tuplet?.type).toBe("tuplet");
+    if (tuplet?.type !== "tuplet") throw new Error("Expected a tuplet");
+    expect((tuplet.content[0] as NoteEvent).notes![0]!.ties).toEqual([
+      { target: contentAt(latest(), 1).notes![0]!.id },
+    ]);
+  });
+
+  it("toggles mixed tie and l.v. connections inside a range without changing its final event", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [note("ev0"), note("ev1", "D"), note("ev2", "D")];
+    const { ctx, latest } = makeCtx(score, {
+      kind: "range",
+      startElementId: "p0/m0/s0/ev0",
+      endElementId: "p0/m0/s0/ev2",
+    });
+
+    handleTieKey(noopEvent, ctx);
+    expect(contentAt(latest(), 0).notes![0]!.ties).toEqual([{ lv: true }]);
+    expect(contentAt(latest(), 1).notes![0]!.ties).toEqual([{ target: contentAt(latest(), 2).notes![0]!.id }]);
+    expect(contentAt(latest(), 2).notes![0]!.ties).toBeUndefined();
+
+    handleTieKey(noopEvent, ctx);
+    expect([0, 1, 2].every((index) => contentAt(latest(), index).notes![0]!.ties === undefined)).toBe(true);
+  });
+
+  it("preserves notehead scope when a multi-selection spans several chords", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [chord("ev0"), chord("ev1")];
+    const { ctx, latest } = makeCtx(score, {
+      kind: "multi",
+      elementIds: ["p0/m0/s0/ev0/n0", "p0/m0/s0/ev1/n0"],
+    });
+
+    handleTieKey(noopEvent, ctx);
+
+    expect(contentAt(latest(), 0).notes![0]!.ties).toEqual([{ target: contentAt(latest(), 1).notes![0]!.id }]);
+    expect(contentAt(latest(), 0).notes![1]!.ties).toBeUndefined();
+    expect(contentAt(latest(), 0).notes![2]!.ties).toBeUndefined();
   });
 
   it("changes duration of a selected note-event chord", () => {

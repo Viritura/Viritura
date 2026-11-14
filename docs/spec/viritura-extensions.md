@@ -531,12 +531,14 @@ already-authored non-preset ratio. Preset provenance is available through
 contextual help rather than a permanent warning. Printed text and visibility
 remain accessible together under Appearance.
 
-Changing a BPM-free marking to Inherit retains its cosmetic text as a
-`TextOnlyTempo`, with neither a BPM nor a groove reset. Clearing the last text
-from such an otherwise empty anchor removes it. BPM-bearing markings, printed
-text, and metronome units remain independent of swing editing. Existing score
-history and MNX save/load preserve these edits. No unsupported scope controls
-are exposed.
+Tempo and System text now share a bounded music-anchored instruction editor
+and Properties controls. Set tempo explicitly enables BPM, beat unit and dots;
+turning it off removes the BPM without discarding text or framing. With no
+BPM and rhythm set to Inherit, the instruction has no timing effect and does
+not interrupt tempo ramps. New instructions use `systemText.tempo`; legacy
+native and extension `Tempo[]` remain readable. Editing a legacy tempo migrates
+only that selected marking, retaining rich text, visibility, offset, collision
+intent and explicit text-role styling. Other tempo anchors are untouched.
 
 BPM-free Swing/Straight markings without authored text receive a generated
 selectable label. This engraving label does not alter the saved payload or
@@ -1190,11 +1192,21 @@ duplicating independent copies into parts.
 | `manualOffset`    | `[dx, dy]`                   | No       | Staff spaces: +x right, +y up.                                                                                       |
 | `avoidCollisions` | boolean                      | No       | Existing dependent-placement intent; omission/true permits automatic outward placement.                              |
 | `frame`           | `StaffTextFramePresentation` | No       | Shared natural/fixed staff-space width, automatic height, padding, border, alignment, justification and ink erasure. |
+| `tempo`           | `SystemTempo`                | No       | Optional playback: positive finite `bpm` and `value`, optionally `swing` and `showMetronomeMark`; or `swing` alone.  |
+| `showText`        | boolean                      | No       | Omission/true prints the authored text; false hides it independently of metronome visibility.                        |
 
 Staff/voice identifiers, page locators and page-column widths are invalid here.
 Plain text omits `frame`; advanced instruction boxes do not create a second
-formatting model. Specialized tempo, dynamics, rehearsal and navigation markings
-retain their semantic owners.
+formatting model. Tempo semantics are optional on this bounded musical
+instruction, not on page text frames. Dynamics, rehearsal and navigation
+markings retain their separate semantic owners.
+
+The Text palette's **System text** button creates an above-system instruction
+at the selected note or rest's rhythmic position, or at the start of a selected
+bar. **Tempo** opens the same editor with Set tempo enabled; **System text**
+opens it without playback. Text alone never infers BPM. Metronome-only
+instructions use an empty text run (`[{ "text": "" }]`), not placeholder prose.
+**Staff text** remains the separate staff-scoped action.
 
 Rendering emits one occurrence above the top visible staff or below the bottom
 visible staff in every score/part view, including Horizon. Hidden or condensed
@@ -1203,6 +1215,9 @@ rhythmic position; an always-at-system-start option is deferred. The Properties
 inspector exposes system/staff scope conversion, shared text/frame editing,
 manual placement, selection, navigation and deletion. Legacy staff expressions
 and page frames retain their existing ownership and behavior.
+Conversion to staff text is rejected while playback settings or hidden text
+would be lost. Switching BPM on/off preserves rich text, framing, placement,
+manual offset and collision settings.
 
 MusicXML `<direction system="only-top">` words map to global system text only
 when their placement is above or omitted. `system="none"` and directions with

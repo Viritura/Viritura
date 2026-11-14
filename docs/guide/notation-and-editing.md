@@ -34,7 +34,7 @@ The fastest commands act directly on the selection:
 | Key       | Action                                        |
 | --------- | --------------------------------------------- |
 | `S`       | Toggle a slur                                 |
-| `T`       | Toggle a tie to the next note                 |
+| `T`       | Toggle a tie or laissez vibrer                |
 | `F`       | Flip direction or above/below placement       |
 | `R`       | Repeat the selection immediately after itself |
 | `.`       | Toggle an augmentation dot                    |
@@ -53,6 +53,24 @@ modes:
 
 Use **Edit → Transpose Selection** when you need a named interval or more
 control than the direct arrow-key transposition commands.
+
+## Staff and system text
+
+Select a note, rest, or bar and choose **System text** in the **Text** palette
+to add an instruction shared by the full score and instrumental parts. It
+appears above the visible system at that musical position. Choose **Staff
+text** instead for text attached to one staff.
+
+**Tempo** and **System text** open the same system-instruction editor. Use
+**Set tempo** to enable or remove BPM, beat unit and dots; rhythm settings can
+also explicitly request swing or straight playback. With Set tempo off and
+rhythm set to **Inherit**, the instruction is purely visual: words such as
+“Allegro” do not infer a speed or interrupt an existing tempo ramp.
+
+Both entry points share rich text, placement, offsets and optional borders.
+Selecting an instruction exposes those same controls in Properties. Page
+text frames remain separate: they attach to a page rather than a musical
+position and never change playback.
 
 ## Spread chords across staves
 

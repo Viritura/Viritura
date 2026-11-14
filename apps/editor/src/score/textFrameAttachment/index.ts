@@ -211,6 +211,11 @@ export function systemTextToStaff(
   if (!part || !measure || !globalMeasure || !systemText) {
     throw new TextAttachmentError("The selected system text or destination measure no longer exists.");
   }
+  if (systemText.tempo || systemText.showText === false) {
+    throw new TextAttachmentError(
+      "Remove playback settings and show the text before converting this instruction to staff text.",
+    );
+  }
   if (!Number.isInteger(staff) || staff < 1 || staff > (part.staves ?? 1)) {
     throw new TextAttachmentError("Select a staff that exists in the destination part.");
   }

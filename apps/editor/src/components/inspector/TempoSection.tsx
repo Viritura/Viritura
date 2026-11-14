@@ -40,6 +40,8 @@ export interface TempoSectionProps {
   offset?: ManualOffsetControl;
   /** Weight and slant of the score's tempo text style, applied to unstyled runs. */
   inheritedStyle?: InheritedTextStyle;
+  title?: string;
+  onTempoEnabledChange?: (enabled: boolean) => void;
 }
 
 export function TempoSection({
@@ -54,6 +56,8 @@ export function TempoSection({
   onShowMetronomeChange,
   offset,
   inheritedStyle,
+  title = "Tempo",
+  onTempoEnabledChange,
 }: TempoSectionProps) {
   const bpmInput = useDebouncedInput(tempo.bpm === undefined ? "" : String(tempo.bpm), (value) => {
     const bpm = Number(value);
@@ -76,7 +80,14 @@ export function TempoSection({
 
   return (
     <fieldset style={sectionStyle}>
-      <legend className={styles.title}>Tempo</legend>
+      <legend className={styles.title}>{title}</legend>
+      {onTempoEnabledChange && (
+        <Checkbox
+          label="Set tempo"
+          checked={tempo.bpm !== undefined}
+          onChange={(event) => onTempoEnabledChange(event.target.checked)}
+        />
+      )}
       {tempo.bpm !== undefined && tempo.value !== undefined && (
         <div className={styles.metronomeFields}>
           <FormField label="BPM" className={styles.field}>
@@ -119,6 +130,7 @@ export function TempoSection({
             onChange={textInput.onChange}
             onBlur={textInput.onBlur}
             inheritedStyle={inheritedStyle}
+            multiline
           />
         </div>
         <div className={styles.visibility}>

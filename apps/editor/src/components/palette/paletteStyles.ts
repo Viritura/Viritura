@@ -47,6 +47,7 @@ export const CUSTOM_TIME_SIGNATURE_STYLE: CSSProperties = {
   fontFamily: "var(--font-mono, monospace)",
   fontSize: 16,
 };
+export const TIME_SIGNATURE_SYMBOL_STYLE: CSSProperties = { fontFamily: "Bravura", fontSize: 42 };
 export const TEMPO_LABEL_STYLE: CSSProperties = {
   display: "inline-flex",
   alignItems: "baseline",

@@ -133,8 +133,11 @@ for that pitch in the current measure.
 
 ## Ties, slurs, and grace notes
 
-- `T` ties the current note to the next (note input) / to the next note
-  (normal).
+- In normal mode, `T` ties each selected notehead to an adjacent same-pitch
+  note, or adds an open-ended laissez vibrer (l.v.) tie when there is no match.
+  Press it again to remove the connection. The separate **Tie** and
+  **Laissez vibrer tie** palette buttons let you choose explicitly.
+- In note input, `T` toggles a pending tie for note entry.
 - `S` begins a slur to the next note.
 - `/` toggles **grace‑note** entry in note input — the next note(s) you enter
   become grace notes attached to the following main note.

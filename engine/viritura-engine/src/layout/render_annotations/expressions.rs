@@ -612,7 +612,7 @@ fn expression_block(
 
 fn system_text_expression(text: &SystemText) -> TextExpression {
     TextExpression {
-        text: text.text.clone(),
+        text: super::system_instruction::display_content(text),
         frame: text.frame.clone(),
         position: text.position.clone(),
         placement: text.placement,
@@ -657,7 +657,14 @@ pub(crate) fn system_text_vertical_extras(
         let is_above = matches!(text.placement, Some(ExpressionPlacement::Above));
         let block = expression_block(&expression, font_size, sp);
         let text_width = block.as_ref().map_or_else(
-            || super::text_content::content_width(&text.text, font_size, FontFamily::Serif, false),
+            || {
+                super::text_content::content_width(
+                    &expression.text,
+                    font_size,
+                    FontFamily::Serif,
+                    false,
+                )
+            },
             |block| block.width,
         );
         let beat = text.position.beats();
