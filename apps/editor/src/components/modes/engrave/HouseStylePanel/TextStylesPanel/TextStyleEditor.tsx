@@ -27,6 +27,7 @@ export interface TextStyleEditorProps {
   onReset: () => void;
   /** Disables reset when the role is already at its defaults. */
   canReset: boolean;
+  fixedAlignment?: boolean;
 }
 
 /**
@@ -34,7 +35,14 @@ export interface TextStyleEditorProps {
  * shape people already know from a word processor: family, size, bold/italic,
  * alignment, colour.
  */
-export function TextStyleEditor({ style, changed, onChange, onReset, canReset }: TextStyleEditorProps) {
+export function TextStyleEditor({
+  style,
+  changed,
+  onChange,
+  onReset,
+  canReset,
+  fixedAlignment = false,
+}: TextStyleEditorProps) {
   const isChanged = (field: StyleField) => changed.includes(field);
 
   return (
@@ -78,12 +86,16 @@ export function TextStyleEditor({ style, changed, onChange, onReset, canReset }:
         </Field>
 
         <Field label="Alignment" changed={isChanged("align")}>
-          <ButtonGroup
-            options={ALIGN_OPTIONS}
-            value={style.align}
-            onChange={(value) => onChange("align", value)}
-            ariaLabel="Alignment"
-          />
+          {fixedAlignment ? (
+            <span>Centered in frame</span>
+          ) : (
+            <ButtonGroup
+              options={ALIGN_OPTIONS}
+              value={style.align}
+              onChange={(value) => onChange("align", value)}
+              ariaLabel="Alignment"
+            />
+          )}
         </Field>
       </div>
 

@@ -171,15 +171,12 @@ fn render_measure_prefix(
     staff_y: f64,
     sp: f64,
     config: &LayoutConfig,
-    prev_has_repeat_end: bool,
-    prev_barline_type: Option<&BarlineType>,
     clef_change_measures: &HashSet<usize>,
 ) -> f64 {
     let rm = &ml.resolved;
     let is_first = rm.index == 0;
     let staff_height = 4.0 * sp;
     let mut x_cursor = ml.x;
-    let has_repeat_start = rm.global.repeat_start.is_some();
     let measure_leading_gap = measure_leading_clef_gap(ml, sp, clef_change_measures);
     let prefix = prefix_layout(
         rm,
@@ -240,12 +237,7 @@ fn render_measure_prefix(
     // still reserved at the end of the prefix region.
     let defer_repeat_start = prefix.defer_repeat_start;
     if !is_first && !ml.is_first_on_system {
-        let start_bt = BarlineKind::at_boundary(
-            prev_has_repeat_end,
-            has_repeat_start,
-            prev_barline_type,
-            BarlineType::Regular,
-        );
+        let start_bt = leading_barline_kind(rm);
         // Mid-system clef change: draw the change clef (only on the staff that
         // actually changes clef) in the leading gap BEFORE the barline, then
         // advance the cursor past the gap uniformly so the barline lands at the
@@ -325,8 +317,7 @@ fn render_measure_prefix(
     } else {
         0
     };
-    let needs_key_render = (is_key_change || is_first || ml.is_first_on_system)
-        && (rm.active_key.accidental_count() != 0 || cancel_count > 0);
+    let needs_key_render = super::render_signatures::key_signature_is_rendered(ml);
     if needs_key_render {
         let clef_sign = rm
             .part
@@ -478,8 +469,6 @@ pub(crate) fn render_measure(
     staff_y: f64,
     sp: f64,
     config: &LayoutConfig,
-    prev_has_repeat_end: bool,
-    prev_barline_type: Option<&BarlineType>,
     global_beamed_ids: &HashSet<String>,
     explicit_beamed_ids: &HashSet<String>,
     lyric_line_order: Option<&[String]>,
@@ -519,7 +508,6 @@ pub(crate) fn render_measure(
             sp,
             config,
             count,
-            prev_has_repeat_end,
             shared_lane.is_top,
             shared_lane.center_y,
         );
@@ -555,16 +543,8 @@ pub(crate) fn render_measure(
 
     // Render barline + start/change clef + key sig + time sig.
     // The returned x cursor sits just to the right of the prefix region.
-    let _x_cursor_after_prefix = render_measure_prefix(
-        dl,
-        ml,
-        staff_y,
-        sp,
-        config,
-        prev_has_repeat_end,
-        prev_barline_type,
-        clef_change_measures,
-    );
+    let _x_cursor_after_prefix =
+        render_measure_prefix(dl, ml, staff_y, sp, config, clef_change_measures);
     let rm = &ml.resolved;
 
     // The simile sign replaces the bar's notated content; MNX still permits

@@ -366,9 +366,10 @@ function binaryHasEraseRect(data: Float32Array): boolean {
     if (tag === 9) {
       const points = r.f32();
       r.skip(points * 2 + 1);
-    } else if (tag === 10) {
+    } else if (tag === 10 || tag === 14) {
       r.skip(7);
       r.skip(r.f32());
+      if (tag === 14) r.skip(1);
     } else {
       const count = FIXED_COMMAND_SIZES[tag];
       if (count === undefined) throw new Error(`Unknown binary command tag: ${tag}`);

@@ -107,6 +107,92 @@ map in [`engine/viritura-engine/src/layout/mnx_layout/explicit.rs`](../../engine
 a system's effective `layout` may carry a different (smaller) staff count than
 the score's base layout.
 
+Authored and varying-staff paged layouts measure each system before pagination,
+using the same content-aware staff placement as rendering. Page fitting reserves
+notation above the first staff and below the last staff, and budgets brace-group
+gaps consistently with their rendered positions. Vertical justification uses
+the measured content floors; compression preserves notation clearance and the
+configured legibility floor rather than forcing notes to overlap. Staff size and
+authored system/page starts remain unchanged.
+
+Automatic page-turn planning initially estimates system heights. If measured
+engraving overflows those page assignments, pagination is re-optimized using
+the actual system heights and skyline gaps, keeping the selected systems and
+cover-page choice. An overflow break must not leave the old estimated break
+immediately afterward and strand a line on its own page. Fitting plans and
+authored page breaks retain their selected boundaries.
+
+Copyright is centered at the foot of the cover page when one is present;
+otherwise it appears only in the first music page's footer. Pagination and
+vertical justification reserve the copyright text height plus a one-spatium
+clearance above it, raising the first page's music-frame bottom as needed.
+Later pages and unpaged Horizon layout do not reserve this footer band.
+
+Horizontal justification reserves system-start clef and key restatements as fixed
+overhead before distributing bar widths. The first bar retains its rhythmic
+spacing instead of paying for that extra furniture out of its note area.
+Bar-width budgets use the shared rhythmic columns of all displayed parts, not
+just the widest individual part, so cross-staff accidental and onset clearance
+does not consume the elastic spacing of a busy bar.
+
+Automatic hairpins and their endpoint dynamics move outward together to clear
+tuplet numbers and brackets on the same side of the staff. Manual offsets and
+collision-avoidance opt-outs retain their authored positions.
+
+Repeat-ending brackets clear multimeasure-rest count numbers by at least 1sp.
+A closed repeat ending stops 0.5sp before an adjoining ending, leaving their
+hooks and horizontal strokes visibly separated. System continuations remain
+open and continuous.
+
+Tempo text is separated from a following parenthesized metronome mark by an
+automatic space. Unformatted text and the opening parenthesis share a text run
+so font shaping preserves that space; authored rich-text formatting is retained.
+The metronome note clears the preceding parenthesis ink by at least 0.2sp,
+using the bundled face's actual bounds, including bold and italic variants.
+
+Automatic primary beams may join adjacent tuplets and ordinary notes within a
+beat; secondary beams still separate at tuplet boundaries. Beat boundaries and
+explicit beam choices remain authoritative.
+Tuplet placement controls the bracket and number independently of the notes'
+stem directions; selecting a tuplet and pressing `F` flips its placement.
+
+Glissando labels follow the angle of straight or wavy lines, including descending
+connections. Their lettering stays upright and its descenders clear the line's
+ink by 0.4sp measured perpendicular to the line. Canvas, SVG and PDF preserve the
+same rotation and placement.
+
+Rehearsal marks default to bold `Arial, sans-serif` at 2.8sp, configurable in
+House Styles > Text Styles > Rehearsal marks. The sans-serif stack is not bundled;
+the browser chooses its sans-serif fallback when Arial is unavailable.
+Boxed and circled marks center the measured label bounds and
+reserve padding around descenders and side overhangs rather than assuming a
+cap-height rectangle. Rich-text font, weight, slant, size and color overrides
+take precedence over the house style. Rehearsal labels stay centered in their
+frames rather than exposing the paragraph-alignment controls used by other roles.
+System-font appearance can vary by platform; SVG/PDF font resolution is a
+separate export concern and is not guaranteed to match installed Arial.
+
+Automatic tempo placement keeps the marking's left edge inside its source bar
+and limits horizontal displacement from its beat anchor to two thirds of that
+bar's width, including subsequent collision dodges. Automatic part casting
+breaks before a tempo-bearing bar when the remaining line cannot accommodate
+the marking, then recasts the following music rather than stranding the bar on
+an extra line. Page-turn pagination is updated for the resulting systems.
+Authored system starts and manual offsets remain authoritative. If locked
+systems or text wider than the frame make a fit impossible, the marking
+overhangs to the right instead of moving into an earlier bar.
+
+Slurs broken across systems project their known opposite endpoint onto the
+current staff and retain the phrase's contour. Continuation tips clear the
+boundary notes instead of imposing a fixed vertical-rise cap, and broken
+segments use the shared exact-shape obstacle collector to clear accidentals.
+
+Barline styles use the actual preceding measure's resolved boundary, including
+after a collapsed multimeasure rest or across a stitched-horizon chunk seam.
+Staff strokes and their inter-staff connectors use the same boundary style.
+A collapsed rest at a system end uses the last covered measure's boundary
+style and selection ID; changing that style invalidates retained rendering.
+
 ## Canvas interaction model
 
 Engrave-mode interactions ride on `ScoreCanvas` event hooks rather than the

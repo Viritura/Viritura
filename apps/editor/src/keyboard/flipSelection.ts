@@ -9,13 +9,13 @@ import {
   type Placement,
   type Score,
   type Sequence,
-  type Tuplet,
 } from "@viritura/core";
 
 import { resolveNotationSelectionTarget, type NotationSelectionTarget } from "../commands/notationInspectorCommands";
 import {
   getEventAtLocation,
   resolveAnnotationLocation,
+  resolveTupletSelectionLocation,
   type AnnotationLocation,
   type EventLocation,
 } from "../score/ElementPath";
@@ -239,17 +239,12 @@ function flipTie(score: Score, elementId: string): boolean {
 }
 
 function flipTuplet(score: Score, elementId: string): boolean {
-  const match = elementId.match(/^p(\d+)\/m(\d+)\/s(\d+)\/tuplet(\d+)$/);
-  if (!match) return false;
-  const partIndex = Number.parseInt(match[1]!, 10);
-  const measureIndex = Number.parseInt(match[2]!, 10);
-  const sequenceIndex = Number.parseInt(match[3]!, 10);
-  const tupletOrdinal = Number.parseInt(match[4]!, 10);
+  const location = resolveTupletSelectionLocation(score, elementId);
+  if (!location) return false;
+  const { partIndex, measureIndex, sequenceIndex, tupletIndex } = location;
   const sequence = score.parts[partIndex]?.measures[measureIndex]?.sequences[sequenceIndex];
-  const content = sequence?.content.filter((item): item is Tuplet => item.type === "tuplet")[tupletOrdinal];
-  if (!content) return false;
-
-  const tuplet = content as Tuplet;
+  const tuplet = sequence?.content[tupletIndex];
+  if (tuplet?.type !== "tuplet") return false;
   const stemsUp = tuplet.content
     .filter((event): event is NoteEvent => event.type === "event")
     .filter((event) => computeEffectiveStemUp(score, partIndex, measureIndex, sequenceIndex, event)).length;

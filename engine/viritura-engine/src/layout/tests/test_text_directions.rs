@@ -172,6 +172,73 @@ fn system_text_renders_once_at_each_visible_system_boundary() {
 }
 
 #[test]
+fn tempo_ramp_labels_inherit_tempo_weight_and_preserve_explicit_formatting() {
+    use crate::layout::cache::LayoutCache;
+    use crate::layout::layout_with_mnx_scores_cached;
+
+    let mut document = json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "id": "m0", "time": {"count": 4, "unit": 4},
+            "tempos": [{"bpm": 120, "value": {"base": "quarter"}}],
+            "_x": {"viritura": {
+                "gradualTempo": {
+                    "position": {"fraction": [0, 1]},
+                    "end": {"measure": "m0", "position": {"fraction": [1, 1]}},
+                    "endRatio": 0.8, "systemTextId": "ramp"
+                },
+                "systemText": [
+                    {"id": "ramp", "position": {"fraction": [1, 4]}, "placement": "above",
+                     "text": [{"text": "rall."}, {"text": " normal", "style": {"weight": "normal"}}]},
+                    {"id": "other", "position": {"fraction": [1, 2]}, "placement": "above",
+                     "text": [{"text": "accel."}]}
+                ]
+            }}
+        }]},
+        "parts": [{"measures": [{"sequences": [{"content": [
+            {"duration": {"base": "whole"}, "rest": {}}
+        ]}]}]}]
+    });
+    for bold in [true, false] {
+        let mut config = LayoutConfig::default();
+        config.text_styles.tempo.bold = bold;
+        let mut cache = LayoutCache::new();
+        for owner in ["ramp", "other"] {
+            document["global"]["measures"][0]["_x"]["viritura"]["gradualTempo"]["systemTextId"] =
+                json!(owner);
+            let score = parse_mnx(&document.to_string()).unwrap();
+            for _ in 0..2 {
+                let display = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+                let font = |label: &str| {
+                    display
+                        .commands
+                        .iter()
+                        .find_map(|command| match command {
+                            RenderCommand::DrawText { text, font, .. } if text == label => {
+                                Some(font.as_str())
+                            }
+                            _ => None,
+                        })
+                        .unwrap()
+                };
+                for (id, label) in [("ramp", "rall."), ("other", "accel.")] {
+                    assert_eq!(
+                        font(label),
+                        if id == owner { font(" = 120") } else { "serif" },
+                        "only the ramp-owned text should inherit tempo weight"
+                    );
+                }
+                assert_eq!(
+                    font(" normal"),
+                    "serif",
+                    "authored weights must remain unchanged"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn system_text_vertical_reservation_accounts_for_stacking() {
     use crate::layout::layout_measure;
     use crate::layout::render_annotations::system_text_vertical_extras;

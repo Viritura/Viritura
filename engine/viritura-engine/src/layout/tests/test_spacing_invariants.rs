@@ -34,6 +34,222 @@ fn spacing(content: &str) -> LogSpacing {
 }
 
 #[test]
+fn explicit_terminal_bar_preserves_merged_staff_clearance() {
+    let parts: Vec<_> = (0..2)
+        .map(|part_index| {
+            let notes: Vec<_> = ["C", "D", "E", "F", "G", "A", "B", "C"]
+                .iter()
+                .enumerate()
+                .map(|(index, step)| {
+                    serde_json::json!({
+                        "id": format!("p{part_index}-tail-{index}"),
+                        "duration": {"base": "eighth"},
+                        "notes": [{"pitch": {
+                            "step": step, "octave": 4 + index / 7,
+                            "alter": if index % 2 == part_index { 1 } else { 0 }
+                        }}]
+                    })
+                })
+                .collect();
+            serde_json::json!({
+                "id": format!("P{part_index}"),
+                "measures": [
+                    {"sequences": [{"content": [{
+                        "duration": {"base": "whole"},
+                        "notes": [{"pitch": {"step": "B", "octave": 4}}]
+                    }]}]},
+                    {"sequences": [{"content": notes}]}
+                ]
+            })
+        })
+        .collect();
+    let score = parse_mnx(
+        &serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [
+                {"id": "m0", "time": {"count": 4, "unit": 4}},
+                {"id": "m1"}
+            ]},
+            "parts": parts,
+            "layouts": [{"id": "L", "content": [
+                {"type": "staff", "sources": [{"part": "P0"}]},
+                {"type": "staff", "sources": [{"part": "P1"}]}
+            ]}],
+            "scores": [{"name": "Score", "layout": "L", "pages": [
+                {"systems": [{"measure": "m0"}]}
+            ]}]
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let config = LayoutConfig {
+        sp: 10.0,
+        page_width: Some(2000.0),
+        ..LayoutConfig::default()
+    };
+    let mut automatic_score = score.clone();
+    automatic_score.scores[0].pages.clear();
+    let automatic = crate::layout::layout_with_mnx_scores(&automatic_score, &config, 0);
+    let automatic_tail = automatic
+        .measure_bounds
+        .iter()
+        .find(|bound| bound.index == 1 && bound.staff_index == 0)
+        .unwrap();
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    for _ in 0..2 {
+        let display =
+            crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let tail = display
+            .measure_bounds
+            .iter()
+            .find(|bound| bound.index == 1 && bound.staff_index == 0)
+            .unwrap();
+        assert!(
+            tail.width >= automatic_tail.width - 0.01,
+            "authored terminal bar needs the same merged rhythmic budget as automatic flow: {} < {}",
+            tail.width,
+            automatic_tail.width
+        );
+        for part_index in 0..2 {
+            let xs: Vec<_> = (0..8)
+                .map(|index| {
+                    let suffix = format!("/p{part_index}-tail-{index}/n0");
+                    display
+                        .commands
+                        .iter()
+                        .zip(&display.element_ids)
+                        .find_map(|(command, id)| match command {
+                            RenderCommand::DrawGlyph { x, .. }
+                                if is_notehead_glyph(command)
+                                    && id.as_ref().is_some_and(|id| id.ends_with(&suffix)) =>
+                            {
+                                Some(*x)
+                            }
+                            _ => None,
+                        })
+                        .unwrap()
+                })
+                .collect();
+            for pair in xs.windows(2) {
+                let minimum = (2.0 * config.notehead_rx + 0.5) * config.sp;
+                assert!(
+                    pair[1] - pair[0] >= minimum - 0.01,
+                    "terminal bar staff {part_index}: gap {} must retain {minimum}px clearance",
+                    pair[1] - pair[0]
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn explicit_system_start_furniture_preserves_rhythmic_spacing() {
+    let parts: Vec<_> = ["flute-1", "flute-2", "bass", "silent"]
+        .iter()
+        .enumerate()
+        .map(|(part_index, id)| {
+            let measures: Vec<_> = (0..12)
+                .map(|measure_index| {
+                    let content = if part_index == 3 {
+                        vec![serde_json::json!({"duration": {"base": "whole"}, "rest": {}})]
+                    } else {
+                        (0..8)
+                            .map(|event_index| serde_json::json!({
+                                "id": format!("p{part_index}-m{measure_index}-e{event_index}"),
+                                "duration": {"base": "eighth"},
+                                "notes": [{"pitch": {"step": "E", "octave": if part_index == 2 { 3 } else { 5 }}}]
+                            }))
+                            .collect()
+                    };
+                    let mut measure = serde_json::json!({"sequences": [{"content": content}]});
+                    if measure_index == 0 {
+                        measure["clefs"] = serde_json::json!([{"clef": {
+                            "sign": if part_index == 2 { "F" } else { "G" },
+                            "staffPosition": if part_index == 2 { 2 } else { -2 }
+                        }}]);
+                    }
+                    measure
+                })
+                .collect();
+            serde_json::json!({"id": id, "name": id, "measures": measures})
+        })
+        .collect();
+    let mut global: Vec<_> = (0..12)
+        .map(|index| serde_json::json!({"id": format!("m{index}")}))
+        .collect();
+    global[0]["time"] = serde_json::json!({"count": 4, "unit": 4});
+    global[0]["key"] = serde_json::json!({"fifths": 3});
+    let score = parse_mnx(
+        &serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": global},
+            "parts": parts,
+            "layouts": [{"id": "L", "content": [
+                {"type": "staff", "sources": [{"part": "flute-1"}, {"part": "flute-2"}]},
+                {"type": "staff", "sources": [{"part": "bass"}]},
+                {"type": "staff", "sources": [{"part": "silent"}]}
+            ]}],
+            "scores": [{"name": "Condensed", "layout": "L", "pages": [
+                {"systems": [{"measure": "m0"}]},
+                {"systems": [{"measure": "m4"}]},
+                {"systems": [{"measure": "m8"}]}
+            ], "_x": {"viritura": {"autoHideEmptyParts": ["silent"]}}}]
+        })
+        .to_string(),
+    )
+    .unwrap();
+    for page_width in [1400.0, 2500.0] {
+        let config = LayoutConfig {
+            sp: 10.0,
+            page_width: Some(page_width),
+            page_margin_left: 5.0,
+            page_margin_right: 5.0,
+            ..LayoutConfig::default()
+        };
+        let mut cache = crate::layout::cache::LayoutCache::new();
+        for _ in 0..2 {
+            let display =
+                crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+            assert_eq!(display.pages.len(), 3);
+            for start in [4, 8] {
+                for staff_index in [0, 1] {
+                    let find = |index| {
+                        display
+                            .measure_bounds
+                            .iter()
+                            .find(|bound| bound.index == index && bound.staff_index == staff_index)
+                            .unwrap()
+                    };
+                    let first = find(start);
+                    let middle = find(start + 1);
+                    assert_eq!(first.system_index, middle.system_index);
+                    assert_eq!(first.beat_anchors.len(), middle.beat_anchors.len());
+                    for (head, mid) in first
+                        .beat_anchors
+                        .windows(2)
+                        .zip(middle.beat_anchors.windows(2))
+                    {
+                        let head_gap = head[1].1 - head[0].1;
+                        let mid_gap = mid[1].1 - mid[0].1;
+                        assert!(
+                            (head_gap - mid_gap).abs() < 0.01,
+                            "bar {start}, staff {staff_index}: system-start gap {head_gap} differs from identical middle-bar gap {mid_gap}"
+                        );
+                    }
+                }
+            }
+            let second_system_end = display
+                .measure_bounds
+                .iter()
+                .filter(|bound| bound.system_index == 1)
+                .map(|bound| bound.x + bound.width)
+                .fold(0.0_f64, f64::max);
+            assert!((second_system_end - (page_width - 50.0)).abs() < 0.01);
+        }
+    }
+}
+
+#[test]
 fn transposed_chromatic_accidentals_keep_distinct_ink() {
     let json = r#"{
         "mnx": {"version": 1},

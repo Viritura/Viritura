@@ -3,7 +3,7 @@
 use super::config::LayoutConfig;
 use super::element_id;
 use super::types::*;
-use crate::model::Score;
+use crate::model::{Ending, Score};
 use crate::render::smufl::smufl;
 use crate::render::*;
 use std::borrow::Borrow;
@@ -31,10 +31,23 @@ fn is_volta_obstacle(kind: ElementKind) -> bool {
     )
 }
 
+fn ending_label(ending: &Ending) -> String {
+    format!(
+        "{}.",
+        ending
+            .numbers
+            .iter()
+            .map(|number| number.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
 /// Collision geometry from both fresh and retained chunks for one staff.
 #[derive(Default)]
 pub(crate) struct VoltaSkyline {
     shapes: Vec<ElementShape>,
+    rest_counts: Vec<ElementShape>,
 }
 
 impl VoltaSkyline {
@@ -47,7 +60,8 @@ impl VoltaSkyline {
         dy: f64,
     ) {
         for shape in &display.element_shapes[shape_range] {
-            if !is_volta_obstacle(shape.kind) {
+            let is_rest_count = shape.element_id.ends_with("/mmrcount");
+            if !is_volta_obstacle(shape.kind) && !is_rest_count {
                 continue;
             }
             let mut shape = shape.clone();
@@ -77,13 +91,27 @@ impl VoltaSkyline {
                 }
             }
             if shape.bbox(&[]).is_some_and(|bbox| bbox.y < staff_y) {
-                self.shapes.push(shape);
+                if is_rest_count {
+                    self.rest_counts.push(shape);
+                } else {
+                    self.shapes.push(shape);
+                }
             }
         }
     }
 
-    fn top(&self, x_min: f64, x_max: f64, staff_y: f64) -> Option<f64> {
-        DisplayList::skyline_top_in(&self.shapes, &[], x_min, x_max, staff_y, is_volta_obstacle)
+    fn top(&self, x_min: f64, x_max: f64, staff_y: f64) -> (Option<f64>, Option<f64>) {
+        (
+            DisplayList::skyline_top_in(
+                &self.shapes,
+                &[],
+                x_min,
+                x_max,
+                staff_y,
+                is_volta_obstacle,
+            ),
+            DisplayList::skyline_top_in(&self.rest_counts, &[], x_min, x_max, staff_y, |_| true),
+        )
     }
 }
 
@@ -100,6 +128,8 @@ pub(crate) fn render_volta_brackets(
 ) {
     let chunked =
         config.page_width.is_none() && config.horizon_chunk_width.is_some_and(|width| width > 0.0);
+    let mut skyline = VoltaSkyline::default();
+    skyline.capture(dl, obstacle_shapes, staff_y, 0.0, 0.0);
     render_volta_brackets_filtered(
         dl,
         measure_layouts,
@@ -107,16 +137,7 @@ pub(crate) fn render_volta_brackets(
         config.sp,
         score,
         |_, _, starts_here, ends_here| !chunked || (starts_here && ends_here),
-        |display, x_min, x_max, y_ref| {
-            DisplayList::skyline_top_in(
-                &display.element_shapes[obstacle_shapes.clone()],
-                &display.commands,
-                x_min,
-                x_max,
-                y_ref,
-                is_volta_obstacle,
-            )
-        },
+        |_, x_min, x_max, y_ref| skyline.top(x_min, x_max, y_ref),
     );
 }
 
@@ -169,7 +190,7 @@ fn render_volta_brackets_filtered<M: Borrow<MeasureLayout>>(
     sp: f64,
     score: &Score,
     should_render: impl Fn(usize, usize, bool, bool) -> bool,
-    skyline_top: impl Fn(&DisplayList, f64, f64, f64) -> Option<f64>,
+    skyline_top: impl Fn(&DisplayList, f64, f64, f64) -> (Option<f64>, Option<f64>),
 ) {
     // Alternate-ending brackets are system furniture: draw once on the same
     // top-level staff that owns tempo and rehearsal marks.
@@ -187,8 +208,7 @@ fn render_volta_brackets_filtered<M: Borrow<MeasureLayout>>(
     let text_y_offset = 0.3 * sp; // text below bracket line
     let stem_length = 3.5 * sp;
     let min_clearance = 1.0 * sp;
-    // Gap left before a closed ending's right hook so it doesn't run into the
-    // next ending's left hook/label at the shared barline.
+    // Closed endings without a repeat barline retain a full-space setback.
     let closed_end_gap = 1.0 * sp;
 
     struct VoltaSpan {
@@ -233,8 +253,15 @@ fn render_volta_brackets_filtered<M: Borrow<MeasureLayout>>(
             let is_open = ending.open.unwrap_or(false) || !ends_here;
             let closes_at_repeat = score.global.measures[end_measure - 1].repeat_end.is_some();
             let natural_x_right = last_ml.x + last_ml.width;
-            // A first ending closes at its repeat barline, never at a system seam.
-            let x_right = if is_open || closes_at_repeat {
+            let adjoining_ending = score
+                .global
+                .measures
+                .get(end_measure)
+                .is_some_and(|measure| measure.ending.is_some());
+            // Separate adjoining endings without breaking system continuations.
+            let x_right = if !is_open && closes_at_repeat && adjoining_ending {
+                (natural_x_right - 0.5 * sp).max(x_left)
+            } else if is_open || closes_at_repeat {
                 natural_x_right
             } else {
                 (natural_x_right - closed_end_gap).max(x_left + closed_end_gap)
@@ -271,26 +298,38 @@ fn render_volta_brackets_filtered<M: Borrow<MeasureLayout>>(
             // Also clear articulations/fermatas/ornaments/tremolos already
             // registered on this staff (e.g. a staccato dot above a note)
             // — the manual note/stem scan above doesn't know their glyph extent.
-            if let Some(sky_top) = skyline_top(dl, x_left, natural_x_right, staff_y) {
+            let (sky_top, count_top) = skyline_top(dl, x_left, natural_x_right, staff_y);
+            if let Some(sky_top) = sky_top {
                 highest_y = highest_y.min(sky_top);
             }
 
             let label_depth = text_y_offset + text_size;
-            let local_bracket_y = if highest_y.is_finite() {
+            let mut local_bracket_y = if highest_y.is_finite() {
                 default_bracket_y.min(highest_y - min_clearance - label_depth)
             } else {
                 default_bracket_y
             };
 
-            let label = format!(
-                "{}.",
-                ending
-                    .numbers
-                    .iter()
-                    .map(|n| n.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
+            let label = ending_label(ending);
+            if let Some(count_top) = count_top {
+                // Standard engraving practice: leave one staff space of ink
+                // clearance between the count and the bracket's lower edge.
+                local_bracket_y = local_bracket_y.min(count_top - min_clearance - line_width * 0.5);
+                if starts_here {
+                    let label_left = x_left + text_x_offset;
+                    let label_width = super::text_styles::text_width(
+                        &label,
+                        text_size,
+                        super::text_styles::FontFamily::Serif,
+                        true,
+                    );
+                    if let (_, Some(top)) =
+                        skyline_top(dl, label_left, label_left + label_width, staff_y)
+                    {
+                        local_bracket_y = local_bracket_y.min(top - min_clearance - label_depth);
+                    }
+                }
+            }
 
             spans.push(VoltaSpan {
                 x_left,

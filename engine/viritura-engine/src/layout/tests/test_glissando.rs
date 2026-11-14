@@ -164,7 +164,7 @@ fn test_glissando_with_text_produces_draw_text() {
         .commands
         .iter()
         .filter(|c| {
-            if let RenderCommand::DrawText { text, .. } = c {
+            if let RenderCommand::DrawRotatedText { text, .. } = c {
                 text == "gliss."
             } else {
                 false
@@ -195,10 +195,95 @@ fn test_glissando_hidden_text_omits_draw_text() {
 
     let score = parse_mnx(json).unwrap();
     let dl = layout_score(&score, 0, &LayoutConfig::default());
-    assert!(!dl
-        .commands
-        .iter()
-        .any(|command| matches!(command, RenderCommand::DrawText { text, .. } if text == "port.")));
+    assert!(!dl.commands.iter().any(|command| matches!(command,
+            RenderCommand::DrawText { text, .. } | RenderCommand::DrawRotatedText { text, .. }
+            if text == "port.")));
+}
+
+#[test]
+fn glissando_labels_follow_both_slopes_and_clear_straight_and_wavy_ink() {
+    let data = include_bytes!("../../../../../assets/fonts/LibertinusSerif-Italic.otf");
+    let face = ttf_parser::Face::parse(data, 0).unwrap();
+    for style in ["straight", "wavy"] {
+        for (start, end) in [("C", "A"), ("A", "C"), ("C", "C")] {
+            let json = serde_json::json!({
+                "mnx": {"version": 1},
+                "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+                "parts": [{"measures": [{"sequences": [{"content": [
+                    {"id": "a", "duration": {"base": "half"},
+                     "notes": [{"pitch": {"step": start, "octave": 5}}],
+                     "_x": {"viritura": {"glissandos": [{"target": "b", "style": style, "text": "gliss."}]}}},
+                    {"id": "b", "duration": {"base": "half"},
+                     "notes": [{"pitch": {"step": end, "octave": 5}}]}
+                ]}]}]}]
+            });
+            let score = parse_mnx(&json.to_string()).unwrap();
+            let config = LayoutConfig::default();
+            let dl = layout_score(&score, 0, &config);
+            let commands: Vec<_> = dl
+                .commands
+                .iter()
+                .zip(&dl.element_ids)
+                .filter_map(|(command, id)| (id.as_deref() == Some("gliss/a/b")).then_some(command))
+                .collect();
+            let label = commands
+                .iter()
+                .find(|c| matches!(c, RenderCommand::DrawRotatedText { .. }))
+                .unwrap();
+            let RenderCommand::DrawRotatedText {
+                x,
+                y,
+                size,
+                rotation,
+                text,
+                ..
+            } = label
+            else {
+                unreachable!()
+            };
+            let (line_x, line_y, angle, half_ink) = match commands[0] {
+                RenderCommand::DrawLine {
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    width,
+                    ..
+                } => (*x1, *y1, (y2 - y1).atan2(x2 - x1), width * 0.5),
+                RenderCommand::DrawGlyph { x, y, rotation, .. } => {
+                    let half =
+                        crate::render::smufl::smufl::WIGGLE_GLISSANDO_HEIGHT * config.sp * 0.5;
+                    (
+                        x + rotation.sin() * half,
+                        y - rotation.cos() * half,
+                        *rotation,
+                        half,
+                    )
+                }
+                _ => panic!("glissando line must precede its label"),
+            };
+            assert!(
+                (rotation - angle).abs() < 1e-9,
+                "{style} {start}-{end}: label must follow line"
+            );
+            let descent = text
+                .chars()
+                .map(|ch| {
+                    let glyph = face.glyph_index(ch).unwrap();
+                    -f64::from(face.glyph_bounding_box(glyph).unwrap().y_min) * size
+                        / f64::from(face.units_per_em())
+                })
+                .fold(f64::NEG_INFINITY, f64::max);
+            let bottom = -(x - line_x) * angle.sin() + (y - line_y) * angle.cos() + descent;
+            assert!(
+                bottom <= -half_ink - 0.4 * config.sp + 1e-6,
+                "{style} {start}-{end}: label descenders must clear line ink"
+            );
+            let bounds = label.bbox().expect("rotated label must expose bounds");
+            let moved = (*label).clone().offset_y(30.0);
+            assert!((moved.bbox().unwrap().y - bounds.y - 30.0).abs() < 1e-6);
+        }
+    }
 }
 
 #[test]

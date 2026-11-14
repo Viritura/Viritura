@@ -39,8 +39,10 @@ use super::explicit_pagination::{paginate_explicit_pages, ExplicitPagination};
 use super::explicit_staff_retention::{render_system_staves_and_contents, ExplicitStaffRetention};
 use super::explicit_system_breaks::{expand_oversized_systems_explicit, SystemLayoutChanges};
 use super::explicit_system_layouts::{
-    build_explicit_system_layouts, ExplicitSystemCtx, ExplicitSystemLayouts, PersistentStaffState,
+    explicit_system_horizontal_geometry, prepare_explicit_system, ExplicitSystemCtx,
+    ExplicitSystemLayouts, PersistentStaffState,
 };
+use super::explicit_system_sizing::ExplicitSystemSize;
 use super::explicit_widths::compute_explicit_max_widths;
 use super::instrument_labels::{explicit_label_margins, policy_for_system, render_staff_labels};
 use super::page_turn_planning::single_source_part_index;
@@ -87,6 +89,11 @@ fn render_explicit_chrome(
     }
 
     render_page_numbers(dl, pages, config, page_w);
+    dl.commands.extend(render_first_page_copyright(
+        score.metadata(),
+        config,
+        page_w,
+    ));
 }
 
 /// Capture one system's layout-debug snapshot for the explicit-pages path.
@@ -105,6 +112,7 @@ fn build_explicit_system_debug(
     staff_height: f64,
     sp: f64,
     config: &LayoutConfig,
+    size: &ExplicitSystemSize,
 ) -> crate::render::SystemDebug {
     use super::super::debug;
     let top_staff = all_staff_layouts
@@ -117,12 +125,8 @@ fn build_explicit_system_debug(
         .unwrap_or(&[]);
     let above_b = debug::above_breakdown(top_staff, sp, config.stem_length);
     let below_b = debug::below_breakdown(bottom_staff, sp, config.stem_length);
-    let above_extra = above_b.stem_extra + above_b.annotation_extra;
-    let below_extra = below_b
-        .protrusion
-        .max(below_b.dynamics)
-        .max(below_b.lyrics)
-        .max(below_b.pedals);
+    let above_extra = size.above;
+    let below_extra = size.below;
     let staff_top_y = staff_y_offsets[0];
     let bottom_staff_y = *staff_y_offsets.last().unwrap_or(&staff_top_y);
     let staff_bottom_y = bottom_staff_y + staff_height;
@@ -148,28 +152,6 @@ fn build_explicit_system_debug(
     }
 }
 
-fn explicit_system_horizontal_geometry(
-    ctx: &ExplicitSystemCtx<'_>,
-    system_index: usize,
-) -> (f64, Option<f64>, f64) {
-    let indent = if system_index == 0 {
-        ctx.first_system_indent
-    } else {
-        0.0
-    };
-    let label_margin = if system_index == 0 {
-        ctx.first_label_margin
-    } else {
-        ctx.subsequent_label_margin
-    };
-    let margin_left = ctx.base_margin_l + label_margin + indent;
-    let content_width = ctx
-        .config
-        .page_width
-        .map(|width| (width - margin_left - ctx.base_margin_r).max(0.0));
-    (margin_left, content_width, label_margin)
-}
-
 /// Render one system for the explicit-pages path: empty-system fallback,
 /// Phase 1 measure layout build, Phase 2 content-aware staff Y placement,
 /// debug capture, Phase 3 staff lines + contents + slur capture, inter-staff
@@ -187,12 +169,13 @@ fn render_explicit_system(
     j_gap: f64,
     min_clearance: f64,
     lc_map: &HashMap<usize, (Vec<FlatStaff>, Vec<GroupRange>)>,
-    persistent_state: &mut PersistentStaffState,
+    prepared: ExplicitSystemLayouts<'_>,
+    size: &ExplicitSystemSize,
+    persistent_state: &PersistentStaffState,
     dbg_systems: &mut Vec<crate::render::SystemDebug>,
     slur_bounds: &mut HashMap<(usize, usize, usize), super::super::slurs::SystemSlurBounds>,
     global_slur_events: &mut Vec<super::super::slurs::GlobalSlurEvent>,
     global_tie_notes: &mut Vec<super::super::ties::GlobalTieNote>,
-    cache: Option<&mut cache::LayoutCache>,
     retention: Option<&mut ExplicitStaffRetention>,
 ) {
     let sp = ctx.sp;
@@ -234,47 +217,10 @@ fn render_explicit_system(
             m_start,
         );
     } else {
-        // Compute justified widths
-        let natural_total: f64 = sys_measure_indices
-            .iter()
-            .map(|&mi| ctx.max_widths.get(mi).copied().unwrap_or(0.0))
-            .sum();
-        let avail_w = content_width.unwrap_or(natural_total);
-        let scale = if natural_total > 0.0 && ctx.config.page_width.is_some() && avail_w > 0.0 {
-            let is_last = sys_idx == system_count - 1;
-            if should_preserve_natural_final_width(natural_total, avail_w, is_last) {
-                1.0
-            } else {
-                avail_w / natural_total
-            }
-        } else {
-            1.0
-        };
-
-        // ΓöÇΓöÇ Phase 1: Build measure layouts for all staves ΓöÇΓöÇ
         let ExplicitSystemLayouts {
             layouts: all_staff_layouts,
             measure_staves,
-        } = build_explicit_system_layouts(
-            ctx.score,
-            ctx.score_def,
-            ctx.config,
-            sp,
-            flat_staves,
-            group_ranges,
-            &sys_measure_indices,
-            m_start,
-            lc_map,
-            ctx.all_resolved,
-            ctx.max_widths,
-            scale,
-            margin_left,
-            ctx.common_shortest_beats,
-            ctx.mmr_start_map,
-            ctx.mmr_label_map,
-            persistent_state,
-            cache,
-        );
+        } = prepared;
 
         // Clef-change set scoped to the staves shown in THIS system (not the
         // whole score), so an individual-part layout never reserves a leading-
@@ -287,11 +233,6 @@ fn render_explicit_system(
         // Re-assigns the staff_y_offsets so brackets/labels (which run in
         // the outer scope) match the actual staff-line positions.
         //
-        // SQUISH regime (`j_gap < 7sp`): the page cannot fit the system at
-        // default spacing, so we honour the squished j_gap as a HARD CEILING
-        // and accept note-protrusion collisions in exchange for legible page
-        // boundaries ΓÇö matching standard practice on overfull systems.
-        let squish_active = j_gap < 7.0 * sp - 1e-6;
         let staff_layout_view: Vec<Vec<&MeasureLayout>> = all_staff_layouts
             .iter()
             .map(|measures| measures.iter().collect())
@@ -309,7 +250,7 @@ fn render_explicit_system(
             sp,
             staff_height,
             ctx.config,
-            squish_active,
+            false,
         );
         staff_y_offsets = new_offsets;
 
@@ -325,6 +266,7 @@ fn render_explicit_system(
                 staff_height,
                 sp,
                 ctx.config,
+                size,
             ));
         }
 
@@ -336,12 +278,18 @@ fn render_explicit_system(
             flat_staves
                 .iter()
                 .map(|fs| {
-                    fs.sources
-                        .first()
-                        .and_then(|src| ctx.score.parts.get(src.part_index))
+                    let source = fs.sources.first()?;
+                    ctx.score
+                        .parts
+                        .get(source.part_index)
                         .and_then(|part| part.measures.get(m_end))
                         .and_then(|pm| pm.clefs.as_ref())
-                        .and_then(|clefs| clefs.iter().find(|c| c.position.is_none()))
+                        .and_then(|clefs| {
+                            clefs.iter().find(|c| {
+                                c.position.is_none()
+                                    && c.staff.unwrap_or(1) == source.staff_number.unwrap_or(1)
+                            })
+                        })
                         .map(|pc| &pc.clef)
                 })
                 .collect()
@@ -385,6 +333,7 @@ fn render_explicit_system(
                 system_count,
                 staff_height,
                 sp,
+                globals: &ctx.score.global.measures,
             },
         );
     }
@@ -765,74 +714,12 @@ pub fn layout_with_mnx_scores_cached(
         &score.parts,
         &shown.into_iter().collect::<Vec<_>>(),
     );
-    let ExplicitPagination {
-        page_w,
-        total_height,
-        pages,
-        system_y_positions,
-        justified_gaps,
-        intra_clearances,
-    } = paginate_explicit_pages(
-        score,
-        config,
-        sp,
-        staff_height,
-        margin_top,
-        max_margin_left,
-        base_margin_r_sp,
-        inter_group_gap,
-        inter_staff_gap,
-        inter_system_gap,
-        &system_measure_ranges,
-        &system_flat_staves,
-        &max_widths,
-        &forced_page_starts,
-        part_score_name.as_deref(),
-    );
     let system_count = system_measure_ranges.len();
-
-    let mut dl = DisplayList::new(page_w, total_height);
-    dl.set_parts(score, 0..score.parts.len());
-
-    render_explicit_chrome(
-        &mut dl,
-        score,
-        part_score_name.as_deref(),
-        config,
-        sp,
-        page_w,
-        &pages,
-    );
-
     let lyric_line_order = score
         .global
         .lyrics
         .as_ref()
-        .and_then(|gl| gl.line_order.as_deref());
-
-    // Debug capture for the explicit-pages/systems path. Each entry is built
-    // inside the system loop (where we have access to per-system content) and
-    // assembled into `LayoutDebugInfo` after the loop.
-    let mut dbg_systems: Vec<crate::render::SystemDebug> = Vec::new();
-
-    // Persistent per-physical-staff state that carries across system
-    // boundaries (clef/key/time/condensing-mode inheritance). See doc on
-    // `PersistentStaffState` for the rationale.
-    let mut persistent_state = PersistentStaffState::default();
-    let mut staff_retention = if config.emit_layout_debug {
-        None
-    } else {
-        cache
-            .as_deref_mut()
-            .map(|cache| ExplicitStaffRetention::new(cache, score))
-    };
-
-    // Accumulators for the cross-system slur post-pass (explicit-pages path).
-    let mut global_slur_events: Vec<super::super::slurs::GlobalSlurEvent> = Vec::new();
-    let mut global_tie_notes: Vec<super::super::ties::GlobalTieNote> = Vec::new();
-    let mut slur_bounds: HashMap<(usize, usize, usize), super::super::slurs::SystemSlurBounds> =
-        HashMap::new();
-
+        .and_then(|lyrics| lyrics.line_order.as_deref());
     let sys_ctx = ExplicitSystemCtx {
         score,
         score_def,
@@ -853,13 +740,111 @@ pub fn layout_with_mnx_scores_cached(
         mmr_start_map: &mmr_start_map,
         mmr_skip_measures: &skip_measures,
         mmr_label_map: &mmr_label_map,
-        pages: &pages,
+        pages: &[],
+    };
+    let mut persistent_state = PersistentStaffState::default();
+    let mut prepared_systems = Vec::with_capacity(system_count);
+    let mut system_sizes = Vec::with_capacity(system_count);
+    let use_beams = score
+        .mnx
+        .support
+        .as_ref()
+        .and_then(|support| support.use_beams)
+        .unwrap_or(false);
+    for (index, ((staves, groups), &(start, end))) in system_flat_staves
+        .iter()
+        .zip(&system_measure_ranges)
+        .enumerate()
+    {
+        let prepared = prepare_explicit_system(
+            &sys_ctx,
+            index,
+            staves,
+            groups,
+            start,
+            end,
+            &system_layout_changes[index],
+            &mut persistent_state,
+            cache.as_deref_mut(),
+        );
+        system_sizes.push(ExplicitSystemSize::measure(
+            &prepared.layouts,
+            staves,
+            groups,
+            config,
+            use_beams,
+        ));
+        prepared_systems.push((prepared, persistent_state.clone()));
+    }
+    let ExplicitPagination {
+        page_w,
+        total_height,
+        pages,
+        system_y_positions,
+        justified_gaps,
+        intra_clearances,
+    } = paginate_explicit_pages(
+        score,
+        config,
+        sp,
+        staff_height,
+        margin_top,
+        max_margin_left,
+        base_margin_r_sp,
+        inter_group_gap,
+        inter_staff_gap,
+        inter_system_gap,
+        &system_measure_ranges,
+        &system_flat_staves,
+        &system_sizes,
+        &max_widths,
+        &forced_page_starts,
+        part_score_name.as_deref(),
+    );
+
+    let mut dl = DisplayList::new(page_w, total_height);
+    dl.set_parts(score, 0..score.parts.len());
+
+    render_explicit_chrome(
+        &mut dl,
+        score,
+        part_score_name.as_deref(),
+        config,
+        sp,
+        page_w,
+        &pages,
+    );
+
+    // Debug capture for the explicit-pages/systems path. Each entry is built
+    // inside the system loop (where we have access to per-system content) and
+    // assembled into `LayoutDebugInfo` after the loop.
+    let mut dbg_systems: Vec<crate::render::SystemDebug> = Vec::new();
+
+    let mut staff_retention = if config.emit_layout_debug {
+        None
+    } else {
+        cache
+            .as_deref_mut()
+            .map(|cache| ExplicitStaffRetention::new(cache, score))
     };
 
-    for (sys_idx, ((flat_staves, group_ranges), &(m_start, m_end))) in system_flat_staves
-        .iter()
-        .zip(system_measure_ranges.iter())
-        .enumerate()
+    // Accumulators for the cross-system slur post-pass (explicit-pages path).
+    let mut global_slur_events: Vec<super::super::slurs::GlobalSlurEvent> = Vec::new();
+    let mut global_tie_notes: Vec<super::super::ties::GlobalTieNote> = Vec::new();
+    let mut slur_bounds: HashMap<(usize, usize, usize), super::super::slurs::SystemSlurBounds> =
+        HashMap::new();
+
+    let sys_ctx = ExplicitSystemCtx {
+        pages: &pages,
+        ..sys_ctx
+    };
+
+    for (sys_idx, (((flat_staves, group_ranges), &(m_start, m_end)), (prepared, state))) in
+        system_flat_staves
+            .iter()
+            .zip(system_measure_ranges.iter())
+            .zip(prepared_systems)
+            .enumerate()
     {
         render_explicit_system(
             &mut dl,
@@ -873,12 +858,13 @@ pub fn layout_with_mnx_scores_cached(
             justified_gaps[sys_idx],
             intra_clearances[sys_idx],
             &system_layout_changes[sys_idx],
-            &mut persistent_state,
+            prepared,
+            &system_sizes[sys_idx],
+            &state,
             &mut dbg_systems,
             &mut slur_bounds,
             &mut global_slur_events,
             &mut global_tie_notes,
-            cache.as_deref_mut(),
             staff_retention.as_mut(),
         );
     }

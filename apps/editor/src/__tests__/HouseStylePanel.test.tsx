@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
@@ -25,10 +25,14 @@ function WithScore({ children }: { readonly children: ReactNode }) {
   const pageTurns = useDocumentStore((state) => state.score?.scores?.[0]?.pageSetup?.pageTurns);
   const chordSymbols = useDocumentStore((state) => state.score?.chordSymbolStyle);
   const instrumentChanges = useDocumentStore((state) => state.score?.instrumentChangeStyle);
+  const textStyles = useDocumentStore((state) => state.score?.textStyles);
   useEffect(() => loadScore(SCORE, "house-style-test.mnx"), [loadScore]);
   return loaded ? (
     <>
       {children}
+      <output hidden data-testid="stored-text-styles">
+        {JSON.stringify(textStyles)}
+      </output>
       <output hidden data-testid="stored-instrument-changes">
         {JSON.stringify(instrumentChanges)}
       </output>
@@ -102,6 +106,33 @@ describe("HouseStylePanel", () => {
     expect(screen.queryByRole("button", { name: /Time Signatures/ })).toBeNull();
     expect(screen.getByRole("button", { name: /Text Styles/ }).getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText(/Sizes are in staff spaces/)).toBeTruthy();
+  });
+
+  it("edits and resets the rehearsal-mark house style with the score font preview", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(await screen.findByRole("button", { name: /Text Styles/ }));
+    const row = screen.getByRole("button", { name: /Rehearsal marks/ });
+    expect(within(row).getByText("Rehearsal marks", { selector: "span[aria-hidden]" }).style.fontFamily).toBe(
+      "Arial, sans-serif",
+    );
+    await user.click(row);
+    expect(screen.getByText("Centered in frame")).toBeTruthy();
+    expect(screen.queryByRole("radiogroup", { name: "Alignment" })).toBeNull();
+    const size = screen.getByRole("spinbutton", { name: "Size in staff spaces" });
+    expect(size).toHaveProperty("value", "2.8");
+    await user.clear(size);
+    await user.type(size, "3.5");
+    await user.tab();
+    expect(screen.getByTestId("stored-text-styles").textContent).toContain('"rehearsalMark":{"size":3.5}');
+    await user.click(screen.getByRole("combobox", { name: "Font family" }));
+    await user.click(screen.getByRole("option", { name: "Libertinus Serif" }));
+    expect(screen.getByTestId("stored-text-styles").textContent).toContain('"family":"serif"');
+    expect(within(row).getByText("Rehearsal marks", { selector: "span[aria-hidden]" }).style.fontFamily).toContain(
+      "Viritura Serif",
+    );
+    await user.click(screen.getByRole("button", { name: "Restore engine defaults" }));
+    expect(screen.getByTestId("stored-text-styles").textContent).toBe("{}");
   });
 
   it("persists chord-symbol house style choices", async () => {

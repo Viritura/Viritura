@@ -70,6 +70,19 @@ fn volta_commands(display: &DisplayList) -> Vec<&RenderCommand> {
         .collect()
 }
 
+fn resting_volta_test_score() -> crate::model::Score {
+    let mut score = volta_test_score();
+    let rest = minimal_spacing_score(
+        r#"[{"measures":[{"sequences":[{"content":[{"duration":{"base":"whole"},"rest":{}}]}]}]}]"#,
+    );
+    for measure in &mut score.parts[0].measures {
+        for sequence in &mut measure.sequences {
+            sequence.content = rest.parts[0].measures[0].sequences[0].content.clone();
+        }
+    }
+    score
+}
+
 fn volta_scope_score(start: usize, duration: usize, marked_measure: usize) -> crate::model::Score {
     let rest = serde_json::json!({
         "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]
@@ -389,7 +402,7 @@ fn test_volta_horizon_patch_keeps_clearance_from_retained_chunks() {
 }
 
 #[test]
-fn test_volta_paged_ending_closes_only_at_its_repeat_barline() {
+fn test_volta_paged_ending_closes_only_in_its_final_measure() {
     let score = volta_test_score();
     let config = LayoutConfig {
         page_width: Some(500.0),
@@ -451,8 +464,8 @@ fn test_volta_paged_ending_closes_only_at_its_repeat_barline() {
             .find(|bound| bound.index == 12 && bound.staff_index == 0)
             .unwrap();
         assert!(
-            (hooks[1] - closing_bar.x - closing_bar.width).abs() < 1e-9,
-            "the closing hook must align with the repeat barline"
+            (hooks[1] - closing_bar.x - closing_bar.width + 0.5 * config.sp).abs() < 1e-9,
+            "the closing hook must leave half a space before the next ending"
         );
     }
 }
@@ -493,9 +506,9 @@ fn test_volta_horizon_chunks_keep_one_continuous_bracket() {
         commands.iter().any(|command| matches!(command,
             RenderCommand::DrawLine { x1, x2, y1, y2, .. }
                 if (x1 - x2).abs() < 1e-9 && (y1 - y2).abs() > 1e-9
-                && (x1 - closing_bar.x - closing_bar.width).abs() < 1e-9
+                && (x1 - closing_bar.x - closing_bar.width + 0.5 * config.sp).abs() < 1e-9
         )),
-        "the continuous bracket must reach its closing repeat"
+        "the continuous bracket must stop half a space before the adjoining ending"
     );
 }
 
@@ -552,16 +565,8 @@ fn test_volta_authored_galley_systems_keep_ending_continuations() {
 }
 
 #[test]
-fn test_volta_collapsed_rest_ending_reaches_repeat_barline() {
-    let mut score = volta_test_score();
-    let rest = minimal_spacing_score(
-        r#"[{"measures":[{"sequences":[{"content":[{"duration":{"base":"whole"},"rest":{}}]}]}]}]"#,
-    );
-    for measure in &mut score.parts[0].measures {
-        for sequence in &mut measure.sequences {
-            sequence.content = rest.parts[0].measures[0].sequences[0].content.clone();
-        }
-    }
+fn test_volta_collapsed_rest_ending_stops_before_adjoining_ending() {
+    let score = resting_volta_test_score();
     let config = LayoutConfig {
         page_width: Some(500.0),
         multimeasure_rests: true,
@@ -579,10 +584,129 @@ fn test_volta_collapsed_rest_ending_reaches_repeat_barline() {
             .any(|command| matches!(command,
                 RenderCommand::DrawLine { x1, x2, y1, y2, .. }
                     if (x1 - x2).abs() < 1e-9 && (y1 - y2).abs() > 1e-9
-                    && (x1 - closing_rest.x - closing_rest.width).abs() < 1e-9
+                    && (x1 - closing_rest.x - closing_rest.width + 0.5 * config.sp).abs() < 1e-9
             )),
-        "a collapsed ending must still close at its final repeat barline"
+        "a collapsed ending must close half a space before the adjoining ending"
     );
+}
+
+#[test]
+fn test_volta_leaves_one_space_above_multimeasure_rest_counts() {
+    use crate::layout::cache::LayoutCache;
+    for count in [7, 12] {
+        let mut score = resting_volta_test_score();
+        let repeat_end = score.global.measures[12].repeat_end.take();
+        let second_ending = score.global.measures[13].ending.take();
+        score.global.measures[1].ending.as_mut().unwrap().duration = count;
+        score.global.measures[count as usize].repeat_end = repeat_end;
+        score.global.measures[count as usize + 1].ending = second_ending;
+        for page_width in [None, Some(800.0)] {
+            let config = LayoutConfig {
+                sp: 10.0,
+                page_width,
+                multimeasure_rests: true,
+                horizon_chunk_width: Some(300.0),
+                ..LayoutConfig::default()
+            };
+            let mut cache = LayoutCache::new();
+            for _ in 0..2 {
+                let display = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+                let number = display
+                    .element_bboxes
+                    .iter()
+                    .find(|bbox| {
+                        bbox.element_id == crate::layout::element_id::multimeasure_count(1)
+                    })
+                    .expect("fixture must collapse the first ending into an MMR");
+                let bottom = volta_commands(&display)
+                    .iter()
+                    .find_map(|command| match command {
+                        RenderCommand::DrawLine { y1, y2, width, .. } if (y1 - y2).abs() < 1e-9 => {
+                            Some(y1 + width * 0.5)
+                        }
+                        _ => None,
+                    })
+                    .unwrap();
+                assert!(
+                    number.bbox.y - bottom >= config.sp - 0.01,
+                    "MMR count must clear the volta stroke by 1sp: {:?} vs {bottom}",
+                    number.bbox
+                );
+                let count_ink: Vec<_> = display
+                    .commands
+                    .iter()
+                    .filter_map(|command| {
+                        if let RenderCommand::DrawGlyph {
+                            codepoint, x, y, ..
+                        } = command
+                        {
+                            if (smufl::time_sig_digit(0)..=smufl::time_sig_digit(9))
+                                .contains(codepoint)
+                                && *x >= number.bbox.x - 0.01
+                                && *x < number.bbox.x + number.bbox.width
+                                && *y >= number.bbox.y
+                                && *y <= number.bbox.y + number.bbox.height
+                            {
+                                return command.bbox();
+                            }
+                        }
+                        None
+                    })
+                    .collect();
+                assert!(
+                    !count_ink.is_empty(),
+                    "the count must be drawn as SMuFL digits"
+                );
+                for ink in count_ink {
+                    assert!(
+                        ink.y - bottom >= config.sp - 0.01,
+                        "the actual MMR digit ink must clear the bracket by 1sp: {ink:?} vs {bottom}"
+                    );
+                }
+                let second_id = crate::layout::element_id::volta(count as usize + 1);
+                let first = display
+                    .element_bboxes
+                    .iter()
+                    .find(|bbox| bbox.element_id == crate::layout::element_id::volta(1))
+                    .unwrap();
+                let second = display
+                    .element_bboxes
+                    .iter()
+                    .find(|bbox| bbox.element_id == second_id)
+                    .unwrap();
+                if page_width.is_some() {
+                    assert!(
+                        first.bbox.y >= config.page_margin_top * config.sp - 0.01,
+                        "MMR clearance must remain inside the printable top margin: {:?}",
+                        first.bbox
+                    );
+                }
+                if (first.bbox.y - second.bbox.y).abs() < 0.01 {
+                    assert!(
+                        second.bbox.x > first.bbox.x + first.bbox.width,
+                        "adjoining ending brackets must have a visible gap"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn test_volta_without_adjoining_ending_keeps_repeat_barline_alignment() {
+    let mut score = volta_test_score();
+    score.global.measures[13].ending = None;
+    let config = LayoutConfig::default();
+    let display = layout_score(&score, 0, &config);
+    let closing = display
+        .measure_bounds
+        .iter()
+        .find(|bound| bound.index == 12)
+        .unwrap();
+    assert!(volta_commands(&display).iter().any(|command| matches!(command,
+        RenderCommand::DrawLine { x1, x2, y1, y2, .. } if (x1-x2).abs() < 1e-9 && (y1-y2).abs() > 1e-9
+        && (x1-closing.x-closing.width).abs() < 1e-9
+    )));
 }
 
 #[test]

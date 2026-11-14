@@ -105,3 +105,43 @@ export const TimeCasePage: StoryObj = {
   render: () => <EditorScorePreview mnxJson={mnxJson} viewMode="page" height={620} />,
   name: "Courtesy hint (page)",
 };
+
+function copyrightScore(cover: boolean) {
+  const score = buildScore();
+  const firstScore = score.scores[0];
+  if (!firstScore) throw new Error("The page-turn fixture must contain a score");
+  const setup = firstScore._x.viritura.pageSetup;
+  return JSON.stringify({
+    ...score,
+    _x: {
+      viritura: {
+        metadata: { copyright: "Copyright 2026 - Footer clearance example" },
+        textStyles: { copyright: { size: 3 } },
+      },
+    },
+    scores: [
+      {
+        ...firstScore,
+        _x: {
+          viritura: {
+            pageSetup: {
+              ...setup,
+              height: 85,
+              pageTurns: { enabled: cover, titlePage: cover ? "always" : "never" },
+            },
+          },
+        },
+      },
+    ],
+  });
+}
+
+export const CopyrightWithoutCover: StoryObj = {
+  render: () => <EditorScorePreview mnxJson={copyrightScore(false)} viewMode="spread" height={620} />,
+  name: "Copyright (first-page footer)",
+};
+
+export const CopyrightOnCover: StoryObj = {
+  render: () => <EditorScorePreview mnxJson={copyrightScore(true)} viewMode="spread" height={620} />,
+  name: "Copyright (cover only)",
+};

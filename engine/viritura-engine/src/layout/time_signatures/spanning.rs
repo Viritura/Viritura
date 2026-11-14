@@ -45,6 +45,19 @@ pub(crate) fn render_span_meters(
             dl.tag_command(ci, element_id::time_sig(ml.resolved.index));
         }
     }
+    // A courtesy meter announcing the next system spans the same group.
+    if let Some(last) = measure_layouts.last() {
+        let barline_x = last.x + last.width;
+        if let Some((x, ts)) = crate::layout::courtesy_signatures::courtesy_time_x(
+            &last.resolved,
+            barline_x,
+            config,
+            sp,
+        ) {
+            let layout = super::time_signature_layout(settings, ts, x, top_y, bottom_y, sp, None);
+            super::render_time_signature_layout(dl, &layout);
+        }
+    }
 }
 
 /// Engrave one meter per top-level bracket group, plus one for every staff

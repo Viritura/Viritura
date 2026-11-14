@@ -78,6 +78,18 @@ pub enum RenderCommand {
         align: TextAlign,
         baseline: TextBaseline,
     },
+    /// Draw text rotated clockwise about its alignment/baseline anchor.
+    DrawRotatedText {
+        x: f64,
+        y: f64,
+        text: String,
+        font: String,
+        size: f64,
+        color: String,
+        align: TextAlign,
+        baseline: TextBaseline,
+        rotation: f64,
+    },
     /// Draw a SMuFL glyph by codepoint (for real music font rendering).
     DrawGlyph {
         x: f64,
@@ -333,6 +345,38 @@ impl RenderCommand {
                     bh * s,
                 ))
             }
+            RenderCommand::DrawRotatedText {
+                x,
+                y,
+                text,
+                font,
+                size,
+                align,
+                rotation,
+                ..
+            } => {
+                let bounds = super::text_fonts::ink_bounds(text, font, *size, align)?;
+                let (sin, cos) = rotation.sin_cos();
+                let corners = [
+                    (bounds.x, bounds.y),
+                    (bounds.x + bounds.width, bounds.y),
+                    (bounds.x, bounds.y + bounds.height),
+                    (bounds.x + bounds.width, bounds.y + bounds.height),
+                ];
+                let mut left = f64::INFINITY;
+                let mut right = f64::NEG_INFINITY;
+                let mut top = f64::INFINITY;
+                let mut bottom = f64::NEG_INFINITY;
+                for (px, py) in corners {
+                    let rx = x + px * cos - py * sin;
+                    let ry = y + px * sin + py * cos;
+                    left = left.min(rx);
+                    right = right.max(rx);
+                    top = top.min(ry);
+                    bottom = bottom.max(ry);
+                }
+                Some(BoundingBox::new(left, top, right - left, bottom - top))
+            }
             RenderCommand::DrawText { .. } => None,
             RenderCommand::SetOpacity { .. } => None,
         }
@@ -399,7 +443,7 @@ impl RenderCommand {
                 *cx += dx;
                 *cy += dy;
             }
-            RenderCommand::DrawText { x, y, .. } => {
+            RenderCommand::DrawText { x, y, .. } | RenderCommand::DrawRotatedText { x, y, .. } => {
                 *x += dx;
                 *y += dy;
             }
@@ -566,6 +610,10 @@ impl RenderCommand {
                 align,
                 baseline,
             },
+            mut command @ RenderCommand::DrawRotatedText { .. } => {
+                command.translate_in_place(0.0, dy);
+                command
+            }
             RenderCommand::DrawGlyph {
                 x,
                 y,
@@ -657,6 +705,7 @@ impl RenderCommand {
             | RenderCommand::DrawRect { color, .. }
             | RenderCommand::DrawCircle { color, .. }
             | RenderCommand::DrawText { color, .. }
+            | RenderCommand::DrawRotatedText { color, .. }
             | RenderCommand::DrawGlyph { color, .. }
             | RenderCommand::DrawStretchedGlyph { color, .. }
             | RenderCommand::DrawPolygon { color, .. }

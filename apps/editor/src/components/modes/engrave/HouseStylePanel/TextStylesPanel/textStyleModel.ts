@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { canvasFontFamily } from "@viritura/renderer";
 import {
   DEFAULT_TEXT_STYLES,
   TEXT_STYLE_ROLES,
@@ -19,6 +20,7 @@ const TEXT_STYLE_ROLE_LABELS: Readonly<Record<string, string>> = {
   staffLabel: "Staff label",
   pageNumber: "Page number",
   tempo: "Tempo",
+  rehearsalMark: "Rehearsal marks",
   pedalText: "Pedal text",
   copyright: "Copyright",
 };
@@ -111,8 +113,8 @@ export function resetRole(styles: TextStyles | undefined, role: string): TextSty
 }
 
 const FAMILY_LABELS: Readonly<Record<string, string>> = {
-  serif: "Serif",
-  "sans-serif": "Sans-serif",
+  serif: "Libertinus Serif",
+  "sans-serif": "Arial / sans-serif",
   monospace: "Monospace",
 };
 
@@ -152,7 +154,7 @@ function previewFontSizePx(sizeInStaffSpaces: number): number {
  *  is why it can't live in the stylesheet. */
 export function previewStyleFor(style: ResolvedTextStyle): CSSProperties {
   return {
-    fontFamily: style.family,
+    fontFamily: canvasFontFamily(style.family),
     fontSize: `${previewFontSizePx(style.size)}px`,
     fontWeight: style.bold ? 700 : 400,
     fontStyle: style.italic ? "italic" : "normal",
@@ -166,8 +168,8 @@ export function swatchStyleFor(color: string): CSSProperties {
 }
 
 export const FONT_FAMILY_OPTIONS = [
-  { value: "serif", label: "Serif" },
-  { value: "sans-serif", label: "Sans-serif" },
+  { value: "serif", label: "Libertinus Serif" },
+  { value: "sans-serif", label: "Arial / sans-serif" },
   { value: "monospace", label: "Monospace" },
 ] as const;
 

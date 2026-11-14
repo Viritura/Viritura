@@ -123,6 +123,7 @@ function translateCommandInPlace(cmd: RenderCommand, dx: number, dy: number): vo
       cmd.y += dy;
       break;
     case "DrawText":
+    case "DrawRotatedText":
     case "DrawGlyph":
     case "DrawStretchedGlyph":
       cmd.x += dx;

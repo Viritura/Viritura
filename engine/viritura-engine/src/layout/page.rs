@@ -5,10 +5,14 @@ use super::text_styles::TextRole;
 use crate::model::score::ScoreMetadata;
 use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
 
+mod copyright;
 mod instrument_names;
 mod packing;
 mod part_score_name;
 mod turn_sequence;
+pub(crate) use copyright::{
+    copyright_footer_height, render_copyright_footer, render_first_page_copyright,
+};
 pub(crate) use instrument_names::{
     initial_instrument_instruction, instrument_tuning_name, resolve_part_display_names,
     resolve_part_display_names_at, resolve_required_part_display_names, PartDisplayInfo,
@@ -339,7 +343,12 @@ pub fn compute_system_y_positions_with_ragged_pages(
         // boundary — the packer never grows it). The usable band is what
         // remains after the top/bottom margins and any title block; content
         // is force-squished to fit within it.
-        let usable_full = page.height - margin_top - margin_bottom - extra;
+        let footer = if page.page_number == 0 {
+            config.first_page_footer_height
+        } else {
+            0.0
+        };
+        let usable_full = page.height - margin_top - margin_bottom - extra - footer;
 
         // Frame model (`docs/plans/page-margin-bands.md`): resolve the top/bottom
         // `inset` for this page, then derive the frame pads that pull the first
@@ -903,10 +912,16 @@ pub fn render_title_page(
     page_height: f64,
     page_width: f64,
 ) -> Vec<RenderCommand> {
-    if !metadata_has_credits(metadata) {
+    if !metadata_has_credits(metadata)
+        && !metadata.is_some_and(|meta| {
+            meta.copyright
+                .as_deref()
+                .is_some_and(|text| !text.trim().is_empty())
+        })
+    {
         return Vec::new();
     }
-    let meta = metadata.expect("metadata_has_credits guarantees Some");
+    let meta = metadata.expect("credits or copyright guarantee metadata");
     let sp = config.sp;
     let center_x = page_width / 2.0;
     let styles = &config.text_styles;
@@ -1000,23 +1015,13 @@ pub fn render_title_page(
         });
     }
 
-    // Copyright notice: small, centered, seated just above the bottom margin in
-    // the foot of the cover page — the conventional place for a copyright line.
-    if let Some(copyright) = &meta.copyright {
-        let style = styles.resolve(TextRole::Copyright);
-        let size = style.size_px(sp);
-        let foot_y = page_top + page_height - config.page_margin_bottom * sp;
-        commands.push(RenderCommand::DrawText {
-            x: center_x,
-            y: foot_y,
-            text: copyright.clone(),
-            font: style.font_string(),
-            size,
-            color: style.color.clone(),
-            align: TextAlign::Center,
-            baseline: TextBaseline::Alphabetic,
-        });
-    }
+    commands.extend(render_copyright_footer(
+        metadata,
+        config,
+        page_top,
+        page_height,
+        page_width,
+    ));
 
     commands
 }

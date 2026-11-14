@@ -355,6 +355,8 @@ owning measure. The editor creates, moves and removes that owned label with
 the ramp while preserving other system text. Printed wording has no implicit
 playback effect: rit., rall., accel., stringendo and custom text use the same
 explicit target and curve controls. An empty label creates a playback-only ramp.
+Ramp-owned labels inherit the tempo text weight (bold by default); explicit
+rich-text weights override that default. Unrelated system text is unchanged.
 Deleting the owned printed label also removes its tempo ramp, so playback does
 not retain the deleted instruction. Unrelated system text and explicit tempo
 markings are preserved.
@@ -790,7 +792,12 @@ Score-level bibliographic metadata (`score-metadata`). The engine consumes `titl
 
 Per-document text style overrides (`text-styles`), keyed by role. Each entry is a partial [`text-style`](#text-style) merged over the engine's built-in stylesheet at layout time — a document only stores the properties it changes, so adding style properties never requires a model migration.
 
-Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, `tempo`, `pedalText`.
+Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, `tempo`, `rehearsalMark`, `pedalText`, `copyright`.
+
+`rehearsalMark` defaults to 2.8sp bold sans-serif. Sans-serif text uses
+`Arial, sans-serif` in the browser without bundling a sans-serif font.
+Per-mark rich-text formatting overrides the house style. Boxed and circled marks
+center their labels within the frame independently of the text alignment setting.
 
 #### `text-style`
 

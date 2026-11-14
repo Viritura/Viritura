@@ -13,7 +13,7 @@ use crate::render::*;
 /// objects. This is a layout-internal type — the data model preserves the
 /// wire shape (see `crate::model::barline::BarlineType` and the per-measure
 /// repeat fields); the renderer takes the combined view.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum BarlineKind {
     Regular,
     Dotted,
@@ -146,20 +146,36 @@ pub(crate) fn leading_barline_kind(rm: &ResolvedMeasure) -> BarlineKind {
 }
 
 pub(crate) fn system_end_barline_kind(rm: &ResolvedMeasure, is_last_system: bool) -> BarlineKind {
+    end_barline_kind(&rm.global, is_last_system)
+}
+
+fn end_barline_kind(global: &GlobalMeasure, is_last_system: bool) -> BarlineKind {
     let fallback = if is_last_system {
         BarlineType::Final
     } else {
         BarlineType::Regular
     };
     BarlineKind::at_boundary(
-        rm.global.repeat_end.is_some(),
+        global.repeat_end.is_some(),
         false,
-        rm.global
-            .barline
-            .as_ref()
-            .map(|barline| &barline.barline_type),
+        global.barline.as_ref().map(|barline| &barline.barline_type),
         fallback,
     )
+}
+
+pub(crate) fn trailing_barline_index(ml: &MeasureLayout) -> usize {
+    ml.resolved.index + ml.multimeasure_rest_count.unwrap_or(1) as usize
+}
+
+pub(crate) fn trailing_barline_kind(
+    ml: &MeasureLayout,
+    globals: &[GlobalMeasure],
+    is_last_system: bool,
+) -> BarlineKind {
+    let global = globals
+        .get(trailing_barline_index(ml) - 1)
+        .unwrap_or(&ml.resolved.global);
+    end_barline_kind(global, is_last_system)
 }
 
 /// Standard engraving practice: signatures clear the barline's visible ink.
@@ -176,7 +192,8 @@ pub(crate) fn leading_barline_advance(
     barline_right_extent(&kind, config, sp) + 0.5 * sp
 }
 
-/// Width beyond a regular stroke reserved at this measure's trailing boundary.
+/// Width beyond a regular stroke reserved at this measure's trailing boundary,
+/// including a system-end courtesy clef slot.
 pub(crate) fn trailing_barline_extra_width(
     rm: &ResolvedMeasure,
     config: &LayoutConfig,
@@ -193,6 +210,7 @@ pub(crate) fn trailing_barline_extra_width(
     );
     let regular_width = barline_ink_width(&BarlineKind::Regular, config, sp);
     (barline_ink_width(&kind, config, sp) - regular_width).max(0.0)
+        + super::courtesy_signatures::clef_slot_width(rm, sp)
 }
 
 /// Space already present between the rhythmic content boundary and the

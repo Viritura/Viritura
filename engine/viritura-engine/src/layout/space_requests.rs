@@ -113,7 +113,7 @@ pub(crate) fn measure_min_width_requests(
     sp: f64,
 ) -> Vec<MeasureWidthConstraint> {
     let mut reqs = Vec::new();
-    let label_w = render_annotations::measure_above_label_reserved_width(rm, sp);
+    let label_w = render_annotations::measure_above_label_reserved_width(rm, sp, config);
     if label_w > 0.0 {
         reqs.push(MeasureWidthConstraint {
             measure: measure_idx,

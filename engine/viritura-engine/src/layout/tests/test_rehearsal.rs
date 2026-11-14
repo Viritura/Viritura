@@ -11,6 +11,69 @@ use crate::render::*;
 // Rehearsal marks
 // ================================================
 #[test]
+fn rehearsal_house_style_resizes_frames_and_preserves_run_overrides() {
+    let mut previous_width = 0.0;
+    for size in [2.8, 4.0] {
+        let score = parse_mnx(
+            &serde_json::json!({
+                "mnx": {"version": 1},
+                "_x": {"viritura": {"textStyles": {"rehearsalMark": {
+                    "family": "serif", "size": size, "bold": false,
+                    "italic": true, "color": "#123456"
+                }}}},
+                "global": {"measures": [
+                    {"time": {"count": 4, "unit": 4},
+                     "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "I"}]}}}},
+                    {"_x": {"viritura": {"rehearsalMark": {"text": [{"text": "J", "style": {
+                        "font": "sans-serif", "weight": "bold", "fontStyle": "normal",
+                        "size": 0.75, "color": "#654321"
+                    }}]}}}}
+                ]},
+                "parts": [{"measures": [
+                    {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+                    {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+                ]}]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let config = LayoutConfig::default();
+        let dl = layout_score(&score, 0, &config);
+        for (label, expected_font, multiplier, expected_color) in [
+            ("I", "serif italic", 1.0, "#123456"),
+            ("J", "sans-serif bold", 0.75, "#654321"),
+        ] {
+            let (font, rendered_size, color) = dl
+                .commands
+                .iter()
+                .find_map(|command| match command {
+                    RenderCommand::DrawText {
+                        text,
+                        font,
+                        size,
+                        color,
+                        ..
+                    } if text == label => Some((font.as_str(), *size, color.as_str())),
+                    _ => None,
+                })
+                .unwrap();
+            assert_eq!(font, expected_font);
+            assert_eq!(color, expected_color);
+            assert!((rendered_size - size * config.sp * multiplier).abs() < 1e-6);
+        }
+        let width = dl
+            .element_bboxes
+            .iter()
+            .find(|element| element.element_id == "m0/rehearsal")
+            .unwrap()
+            .bbox
+            .width;
+        assert!(width > previous_width);
+        previous_width = width;
+    }
+}
+
+#[test]
 fn test_rehearsal_marks_parse_and_render() {
     let json = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -58,7 +121,7 @@ fn test_rehearsal_marks_parse_and_render() {
         .iter()
         .filter(|cmd| {
             matches!(cmd, RenderCommand::DrawText { font, text, .. }
-            if font == "serif bold" && ["A", "B", "C", "D"].contains(&text.as_str()))
+            if font == "sans-serif bold" && ["A", "B", "C", "D"].contains(&text.as_str()))
         })
         .collect();
     assert_eq!(
@@ -90,13 +153,13 @@ fn test_rehearsal_mark_boxed_has_border() {
     let sp = config.sp;
     let staff_y = config.margin_top * sp;
 
-    // Check for "A" text in serif bold
+    // Check for "A" text in the default rehearsal face.
     let a_texts: Vec<_> = dl
         .commands
         .iter()
         .filter(|cmd| {
             matches!(cmd, RenderCommand::DrawText { text, font, .. }
-            if text == "A" && font == "serif bold")
+            if text == "A" && font == "sans-serif bold")
         })
         .collect();
     assert_eq!(a_texts.len(), 1, "Expected 1 rehearsal mark 'A' text");
@@ -158,7 +221,7 @@ fn test_rehearsal_mark_above_staff() {
         .iter()
         .filter(|cmd| {
             matches!(cmd, RenderCommand::DrawText { text, font, .. }
-            if text == "1" && font == "serif bold")
+            if text == "1" && font == "sans-serif bold")
         })
         .collect();
     assert_eq!(mark_texts.len(), 1, "Expected 1 rehearsal mark '1' text");
@@ -209,7 +272,9 @@ fn test_rehearsal_mark_styles_parse() {
     let bold_texts: Vec<_> = dl
         .commands
         .iter()
-        .filter(|cmd| matches!(cmd, RenderCommand::DrawText { font, .. } if font == "serif bold"))
+        .filter(
+            |cmd| matches!(cmd, RenderCommand::DrawText { font, .. } if font == "sans-serif bold"),
+        )
         .collect();
     assert_eq!(
         bold_texts.len(),
@@ -627,6 +692,178 @@ fn test_rehearsal_mark_text_centered_in_box() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // checks actual glyph outlines against frames and hit areas across fonts and sizes
+fn rehearsal_geometry_clears_and_centers_i_j_ink_in_bundled_serif_faces() {
+    for (family, weight, font_style, file, expected_font) in [
+        (
+            Some("serif"),
+            None,
+            None,
+            "LibertinusSerif-Bold.otf",
+            "serif bold",
+        ),
+        (
+            Some("serif"),
+            Some("normal"),
+            None,
+            "LibertinusSerif-Regular.otf",
+            "serif",
+        ),
+        (
+            Some("serif"),
+            None,
+            Some("italic"),
+            "LibertinusSerif-BoldItalic.otf",
+            "serif bold italic",
+        ),
+        (
+            Some("serif"),
+            Some("normal"),
+            Some("italic"),
+            "LibertinusSerif-Italic.otf",
+            "serif italic",
+        ),
+    ] {
+        for letter in ["I", "J"] {
+            for multiplier in [1.0, 1.8] {
+                let styles: &[&str] = &["boxed", "circled", "plain"];
+                for &style in styles {
+                    let mut run_style = serde_json::json!({"size": multiplier});
+                    if let Some(family) = family {
+                        run_style["font"] = serde_json::json!(family);
+                    }
+                    if let Some(weight) = weight {
+                        run_style["weight"] = serde_json::json!(weight);
+                    }
+                    if let Some(font_style) = font_style {
+                        run_style["fontStyle"] = serde_json::json!(font_style);
+                    }
+                    let score = parse_mnx(
+                        &serde_json::json!({
+                            "mnx": {"version": 1},
+                            "global": {"measures": [{"time": {"count": 4, "unit": 4},
+                                "_x": {"viritura": {"rehearsalMark": {
+                                    "text": [{"text": letter, "style": run_style}], "style": style
+                                }}}}]},
+                            "parts": [{"measures": [{"sequences": [{"content": [
+                                {"duration": {"base": "whole"}, "rest": {}}
+                            ]}]}]}]
+                        })
+                        .to_string(),
+                    )
+                    .unwrap();
+                    let config = LayoutConfig::default();
+                    let dl = layout_score(&score, 0, &config);
+                    let (x, y, font, size) = dl
+                        .commands
+                        .iter()
+                        .find_map(|command| match command {
+                            RenderCommand::DrawText {
+                                x,
+                                y,
+                                text,
+                                font,
+                                size,
+                                ..
+                            } if text == letter => Some((*x, *y, font.as_str(), *size)),
+                            _ => None,
+                        })
+                        .unwrap();
+                    assert_eq!(font, expected_font);
+                    let data = std::fs::read(format!(
+                        "{}/../../assets/fonts/{file}",
+                        env!("CARGO_MANIFEST_DIR")
+                    ))
+                    .unwrap();
+                    let face = ttf_parser::Face::parse(&data, 0).unwrap();
+                    let glyph = face.glyph_index(letter.chars().next().unwrap()).unwrap();
+                    let rect = face.glyph_bounding_box(glyph).unwrap();
+                    let scale = size / f64::from(face.units_per_em());
+                    let origin =
+                        x - f64::from(face.glyph_hor_advance(glyph).unwrap()) * scale * 0.5;
+                    let ink = (
+                        origin + f64::from(rect.x_min) * scale,
+                        origin + f64::from(rect.x_max) * scale,
+                        y - f64::from(rect.y_max) * scale,
+                        y - f64::from(rect.y_min) * scale,
+                    );
+                    if style == "plain" {
+                        let bounds = &dl
+                            .element_bboxes
+                            .iter()
+                            .find(|element| element.element_id == "m0/rehearsal")
+                            .unwrap()
+                            .bbox;
+                        assert!(
+                            bounds.x <= ink.0 + 1e-6
+                                && bounds.x + bounds.width >= ink.1 - 1e-6
+                                && bounds.y <= ink.2 + 1e-6
+                                && bounds.y + bounds.height >= ink.3 - 1e-6,
+                            "plain rehearsal hit area must contain the full {letter} outline"
+                        );
+                        continue;
+                    }
+                    let mut left = f64::INFINITY;
+                    let mut right = f64::NEG_INFINITY;
+                    let mut top = f64::INFINITY;
+                    let mut bottom = f64::NEG_INFINITY;
+                    let mut half_stroke = 0.0;
+                    for (i, command) in dl.commands.iter().enumerate() {
+                        if dl.element_ids[i].as_deref() != Some("m0/rehearsal") {
+                            continue;
+                        }
+                        match command {
+                            RenderCommand::DrawLine {
+                                x1,
+                                y1,
+                                x2,
+                                y2,
+                                width,
+                                ..
+                            } if style == "boxed" => {
+                                if (x1 - x2).abs() < 1e-6 {
+                                    left = left.min(*x1);
+                                    right = right.max(*x1);
+                                } else {
+                                    top = top.min(y1.min(*y2));
+                                    bottom = bottom.max(y1.max(*y2));
+                                }
+                                half_stroke = *width * 0.5;
+                            }
+                            RenderCommand::DrawEllipse { cx, cy, rx, .. } => {
+                                for ix in [ink.0, ink.1] {
+                                    for iy in [ink.2, ink.3] {
+                                        assert!(
+                                            rx - (ix - cx).hypot(iy - cy) >= 0.3 * config.sp,
+                                            "{letter} ink must clear the circle"
+                                        );
+                                    }
+                                }
+                                left = cx - rx;
+                                right = cx + rx;
+                                top = cy - rx;
+                                bottom = cy + rx;
+                            }
+                            _ => {}
+                        }
+                    }
+                    if style == "boxed" {
+                        for gap in [ink.0 - left, right - ink.1, ink.2 - top, bottom - ink.3] {
+                            assert!(
+                                gap - half_stroke >= 0.3 * config.sp,
+                                "{font} {letter} ink must clear every inside border; gap={gap}"
+                            );
+                        }
+                    }
+                    assert!(((ink.0 + ink.1 - left - right) * 0.5).abs() < 1e-6);
+                    assert!(((ink.2 + ink.3 - top - bottom) * 0.5).abs() < 1e-6);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn test_rehearsal_mark_clears_system_start_measure_number() {
     // The measure number is drawn BELOW the staff and the rehearsal mark ABOVE
     // it, so the two never compete for the same slot even when both anchor to
@@ -795,13 +1032,10 @@ fn test_rehearsal_mark_dodges_left_over_direction() {
         "dodged box centre x={box_center_x:.1} should sit left of the barline x={barline_x:.1}"
     );
 
-    // Not lifted: the box's vertical centre stays at the default height
-    // instead of rising over the obstacles. The default centre is the cap-height
-    // midpoint of a baseline anchored `attach_gap` (2sp) above the staff:
-    // `center = staff - 2sp - cap_height/2`, with `cap_height = 0.7*2.8sp`.
+    // The host-provided sans face reserves its full ascender/descender band.
     let mark_y = (box_top_y + box_bottom_y) * 0.5;
-    let cap_height = 0.7 * 2.8 * sp;
-    let default_mark_y = staff_y - 2.0 * sp - cap_height * 0.5;
+    let ink_height = 1.3 * 2.8 * sp;
+    let default_mark_y = staff_y - 2.0 * sp - ink_height * 0.5;
     assert!(
         (mark_y - default_mark_y).abs() < 0.2 * sp,
         "dodged box should stay at its default height: mark_y={mark_y:.1}, default={default_mark_y:.1}"

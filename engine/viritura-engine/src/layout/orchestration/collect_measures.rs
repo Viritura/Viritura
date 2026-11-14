@@ -19,6 +19,8 @@ pub(in crate::layout) fn config_with_document_overrides(
         && pj.is_none()
         && time_signature_settings == config.time_signature_settings
         && chord_symbol_style == config.chord_symbol_style
+        && super::super::page::copyright_footer_height(score.metadata(), config)
+            == config.first_page_footer_height
     {
         return None;
     }
@@ -31,6 +33,7 @@ pub(in crate::layout) fn config_with_document_overrides(
     }
     c.time_signature_settings = time_signature_settings;
     c.chord_symbol_style = chord_symbol_style;
+    c.first_page_footer_height = super::super::page::copyright_footer_height(score.metadata(), &c);
     Some(c)
 }
 

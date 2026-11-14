@@ -30,6 +30,7 @@
 //! | 11  | SetOpacity       | 2      |
 //! | 12  | DrawStretchedGlyph | 8    |
 //! | 13  | EraseRect        | 5      |
+//! | 14  | DrawRotatedText  | 10+len |
 
 use super::{DisplayList, RenderCommand, TextAlign, TextBaseline};
 
@@ -47,6 +48,7 @@ const TAG_DRAW_TEXT: f32 = 10.0;
 const TAG_SET_OPACITY: f32 = 11.0;
 const TAG_DRAW_STRETCHED_GLYPH: f32 = 12.0;
 const TAG_ERASE_RECT: f32 = 13.0;
+const TAG_DRAW_ROTATED_TEXT: f32 = 14.0;
 
 // Font IDs.
 //
@@ -587,8 +589,28 @@ fn encode_command(buf: &mut Vec<f32>, cmd: &RenderCommand) {
             color,
             align,
             baseline,
+        }
+        | RenderCommand::DrawRotatedText {
+            x,
+            y,
+            text,
+            font,
+            size,
+            color,
+            align,
+            baseline,
+            ..
         } => {
-            buf.push(TAG_DRAW_TEXT);
+            let rotation = if let RenderCommand::DrawRotatedText { rotation, .. } = cmd {
+                Some(*rotation)
+            } else {
+                None
+            };
+            buf.push(if rotation.is_some() {
+                TAG_DRAW_ROTATED_TEXT
+            } else {
+                TAG_DRAW_TEXT
+            });
             buf.push(*x as f32);
             buf.push(*y as f32);
             buf.push(*size as f32);
@@ -601,6 +623,9 @@ fn encode_command(buf: &mut Vec<f32>, cmd: &RenderCommand) {
             buf.push(codepoints.len() as f32);
             for cp in codepoints {
                 buf.push(cp as f32);
+            }
+            if let Some(rotation) = rotation {
+                buf.push(rotation as f32);
             }
         }
         RenderCommand::SetOpacity { opacity } => {
@@ -884,6 +909,29 @@ mod tests {
         assert_eq!(buf[17], '.' as u32 as f32);
         assert_eq!(buf[18], 'S' as u32 as f32);
         assert_eq!(buf[19], '.' as u32 as f32);
+    }
+
+    #[test]
+    fn test_rotated_text_encoding_retains_angle_and_following_command() {
+        let mut dl = DisplayList::new(100.0, 50.0);
+        dl.push(RenderCommand::DrawRotatedText {
+            x: 10.0,
+            y: 20.0,
+            text: "gliss.".into(),
+            font: "serif italic".into(),
+            size: 12.0,
+            color: "#000000".into(),
+            align: TextAlign::Center,
+            baseline: TextBaseline::Alphabetic,
+            rotation: -0.3,
+        });
+        dl.push(RenderCommand::SetOpacity { opacity: 0.5 });
+        let buf = dl.to_binary();
+        assert_eq!(buf[7], TAG_DRAW_ROTATED_TEXT);
+        assert_eq!(buf[15], 6.0);
+        assert_eq!(buf[22], -0.3_f32);
+        assert_eq!(buf[23], TAG_SET_OPACITY);
+        assert_eq!(buf[24], 0.5);
     }
 
     #[test]

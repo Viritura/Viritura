@@ -2,7 +2,7 @@ use super::super::config::LayoutConfig;
 use super::super::element_id;
 use super::broken_segments::{
     default_cp_indent_for_chord, default_shoulder_for_chord, emit_middle_segments,
-    plan_broken_segments, shape_note_bound_segment,
+    plan_broken_segments, project_continuation_y, shape_note_bound_segment,
 };
 use super::continuation_dependents::resolve_cross_system_slur_dependents;
 use super::global_endpoints::{GlobalSlurEvent, SystemSlurBounds};
@@ -368,10 +368,9 @@ fn publish_cross_system_segment(
 ///     as the in-system path);
 ///   • **inner endpoint X** is just inside the system edge (past the final
 ///     barline / before the clef);
-///   • **inner endpoint Y** follows the *extremal note column on that
-///     system*, offset 0.5sp away from the music in the slur direction
-///     (standard engraving practice) and capped to ±2.5sp from the outer
-///     endpoint so a continuation does not acquire an extreme slope;
+///   • **inner endpoint Y** projects the opposite endpoint onto the same staff
+///     as if the systems were joined, and clears the boundary note column by
+///     another 0.5sp in the slur direction;
 ///   • **shoulder height + CP indent** are computed from the half's own
 ///     chord length using the same schedule as full in-system slurs, so each
 ///     half arcs naturally instead of running flat.
@@ -591,18 +590,13 @@ pub(super) fn emit_cross_system_slur(
         .min(first_target_event_x - 0.5 * sp)
         .max(tgt_piece.bounds.left_x + 0.5 * sp);
 
-    // ── Inner endpoint Y — extremal-column Y on that half's system ─────
-    // For each half, find the rightmost / leftmost event on the half's own
-    // (system, part, staff) and use ITS curve-side note Y as the inner
-    // endpoint, blended toward the opposite endpoint's notehead Y. The inner endpoint
-    // then sits above the *last* chord on the source system (for the source
-    // half) and above the *first* chord on the target system (for the
-    // target half), so each half arcs over the music rather than running
-    // flat to the margin.
-    //
-    // Cap |inner_y - outer_y| to 2.5sp (standard engraving practice)
-    // so a steep cross-page jump doesn't produce a wildly tilted half.
-    const MAX_HALF_SLOPE: f64 = 2.5;
+    // Standard engraving practice: broken slurs retain the phrase's contour.
+    // Unwrap system X coordinates and rebase pitch onto the receiving staff;
+    // page/staff separation must not become part of the musical slope.
+    let system_x_shift: f64 = pieces
+        .windows(2)
+        .map(|pair| pair[0].bounds.right_x - pair[1].bounds.left_x)
+        .sum();
     const INNER_EDGE_OFFSET_SP: f64 = 0.5;
     let src_inner_y = {
         let extremal = &all_events[src_piece.last_event_idx];
@@ -615,9 +609,13 @@ pub(super) fn emit_cross_system_slur(
             + y_pos * sp * 0.5
             + curve_dir * notehead_side_offset
             + curve_dir * INNER_EDGE_OFFSET_SP * sp;
-        let dy = raw - src_y;
-        let cap = MAX_HALF_SLOPE * sp;
-        src_y + dy.clamp(-cap, cap)
+        project_continuation_y(
+            (src_x, src_y),
+            (tgt_x + system_x_shift, src_eff_y + tgt_y - tgt_eff_y),
+            src_end_x,
+            raw,
+            curve_dir,
+        )
     };
 
     let tgt_inner_y = {
@@ -631,9 +629,13 @@ pub(super) fn emit_cross_system_slur(
             + y_pos * sp * 0.5
             + curve_dir * notehead_side_offset
             + curve_dir * INNER_EDGE_OFFSET_SP * sp;
-        let dy = raw - tgt_y;
-        let cap = MAX_HALF_SLOPE * sp;
-        tgt_y + dy.clamp(-cap, cap)
+        project_continuation_y(
+            (tgt_x, tgt_y),
+            (src_x - system_x_shift, tgt_eff_y + src_y - src_eff_y),
+            tgt_start_x,
+            raw,
+            curve_dir,
+        )
     };
 
     let thickness = config.slur_thickness * sp;

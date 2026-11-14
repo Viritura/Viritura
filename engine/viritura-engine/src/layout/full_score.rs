@@ -4,6 +4,7 @@ pub use super::config::LayoutConfig;
 use super::page::render_title_block;
 
 use super::beams::*;
+use super::courtesy_signatures;
 use super::element_id;
 use super::glissando::*;
 use super::hairpins::*;
@@ -236,6 +237,11 @@ pub fn layout_full_score_cached(
         for cmd in title_cmds {
             dl.commands.push(cmd);
         }
+        dl.commands.extend(super::page::render_first_page_copyright(
+            score.metadata(),
+            config,
+            page_w,
+        ));
     }
 
     let lyric_line_order = score
@@ -293,6 +299,10 @@ pub fn layout_full_score_cached(
             &all_resolved,
             &all_resolved_ottavas,
             sys_measures,
+            systems
+                .get(sys_idx + 1)
+                .and_then(|system| system.first())
+                .copied(),
             &visual_staves,
             &max_widths,
             &content_hash_grid,
@@ -413,6 +423,7 @@ fn build_system_measure_layouts(
     all_resolved: &[Vec<ResolvedMeasure>],
     all_resolved_ottavas: &[Vec<ResolvedOttavaRange>],
     sys_measures: &[usize],
+    next_measure_index: Option<usize>,
     visual_staves: &[(usize, u32)],
     max_widths: &[f64],
     content_hash_grid: &[Vec<u64>],
@@ -425,6 +436,14 @@ fn build_system_measure_layouts(
     config: &LayoutConfig,
     mut cache: Option<&mut super::cache::LayoutCache>,
 ) -> Vec<Vec<MeasureLayout>> {
+    let end_measures = courtesy_signatures::system_end_measures(
+        all_resolved.iter().map(Vec::as_slice),
+        sys_measures.last().copied(),
+        next_measure_index,
+        config,
+    );
+    let natural_total: f64 = sys_measures.iter().map(|&mi| max_widths[mi]).sum();
+    let scale = courtesy_signatures::scale_with_suffix(scale, natural_total, &end_measures, sp);
     let mut all_sys_layouts: Vec<Vec<MeasureLayout>> = Vec::new();
     for (vi, resolved) in all_resolved.iter().enumerate() {
         let mut sys_x = margin_left;
@@ -433,9 +452,18 @@ fn build_system_measure_layouts(
             if mi >= resolved.len() {
                 continue;
             }
-            let rm = &resolved[mi];
-            let fw = max_widths[mi] * scale;
-            let content_hash = content_hash_grid[vi][mi];
+            let is_last = si + 1 == sys_measures.len();
+            let rm = if is_last {
+                end_measures[vi].as_ref().expect("resolved system end")
+            } else {
+                &resolved[mi]
+            };
+            let fw = max_widths[mi] * scale + courtesy_signatures::clef_slot_width(rm, sp);
+            let content_hash = if is_last {
+                super::cache::measure_content_hash(rm)
+            } else {
+                content_hash_grid[vi][mi]
+            };
             // Use offset key space to avoid collision with single-part cache
             let cache_key = 1_000_000 + mi * 1000 + vi;
             let compound_hash = compound_layout_hash(
@@ -611,21 +639,6 @@ fn render_one_staff_for_system(
     let mut acc_obstacles: Vec<AccidentalObstacle> = Vec::new();
 
     for (i, ml) in measure_layouts.iter().enumerate() {
-        let prev_has_repeat_end = if i > 0 {
-            measure_layouts[i - 1].resolved.global.repeat_end.is_some()
-        } else {
-            false
-        };
-        let prev_barline_type = if i > 0 {
-            measure_layouts[i - 1]
-                .resolved
-                .global
-                .barline
-                .as_ref()
-                .map(|b| &b.barline_type)
-        } else {
-            None
-        };
         render_measure(
             dl,
             ml,
@@ -633,8 +646,6 @@ fn render_one_staff_for_system(
             staff_y,
             sp,
             config,
-            prev_has_repeat_end,
-            prev_barline_type,
             &global_beamed_ids,
             &explicit_beamed_ids,
             staff_lyric_line_order.as_deref(),

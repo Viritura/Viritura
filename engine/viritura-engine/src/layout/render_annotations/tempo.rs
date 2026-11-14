@@ -2,7 +2,7 @@
 
 use super::super::config::LayoutConfig;
 use super::super::element_id;
-use super::super::text_styles::{self, FontFamily, TextRole};
+use super::super::text_styles::{self, TextRole};
 use super::super::types::*;
 use super::rehearsal_marks::{
     rehearsal_mark_baseline_y, rehearsal_mark_reserved_width, rehearsal_mark_x_extent,
@@ -13,6 +13,8 @@ use crate::model::{
 };
 use crate::render::smufl::smufl;
 use crate::render::*;
+
+const MAX_TEMPO_SHIFT_FRACTION: f64 = 2.0 / 3.0;
 
 /// One positioned piece of a metronome-style tempo marking, laid out left to
 /// right from the marking's origin (`dx = 0`).
@@ -35,9 +37,9 @@ pub(crate) fn tempo_metronome_runs(
     show_text: bool,
     text_size: f64,
     sp: f64,
-    family: FontFamily,
-    bold: bool,
+    font: &str,
 ) -> (Vec<TempoRun>, f64) {
+    let (family, bold, _) = super::text_content::font_parts(font);
     let glyph_size = 3.0 * sp;
     let glyph_scale = glyph_size / 4.0;
     let (Some(bpm), Some(value)) = (tempo.bpm, tempo.value.as_ref()) else {
@@ -45,15 +47,19 @@ pub(crate) fn tempo_metronome_runs(
     };
     let bpm = format_bpm(bpm);
 
+    let note_cp = smufl::metronome_note_glyph(&value.base);
     let mut runs: Vec<TempoRun> = Vec::new();
     let mut dx = 0.0;
     if show_text {
         let content = append_plain_text(tempo.text.clone().unwrap_or_default(), " (");
-        dx += super::text_content::content_width(&content, text_size, family, bold);
+        let advance = super::text_content::content_width(&content, text_size, family, bold);
+        let ink =
+            super::text_content::content_ink_bounds(&content, text_size, font, TextAlign::Left);
+        let note_left = smufl::glyph_bbox(note_cp).0 * glyph_scale;
+        dx = advance.max(ink.x + ink.width + 0.2 * sp - note_left);
         runs.push(TempoRun::Content { dx: 0.0, content });
     }
 
-    let note_cp = smufl::metronome_note_glyph(&value.base);
     runs.push(TempoRun::Glyph {
         dx,
         codepoint: note_cp,
@@ -92,14 +98,8 @@ pub(crate) fn tempo_marking_width(tempo: &Tempo, config: &LayoutConfig, sp: f64)
     let show_metronome = tempo.bpm.is_some() && tempo.show_metronome_mark.unwrap_or(true);
     let show_text = has_text && tempo.show_text.unwrap_or(true);
     if show_metronome {
-        let (_runs, w) = tempo_metronome_runs(
-            tempo,
-            show_text,
-            text_size,
-            sp,
-            tempo_style.family,
-            tempo_style.bold,
-        );
+        let (_runs, w) =
+            tempo_metronome_runs(tempo, show_text, text_size, sp, &tempo_style.font_string());
         w
     } else if show_text {
         display_text
@@ -118,9 +118,13 @@ pub(crate) fn tempo_marking_width(tempo: &Tempo, config: &LayoutConfig, sp: f64)
     }
 }
 
-fn rehearsal_mark_flow_clearance(mark: Option<&RehearsalMark>, sp: f64) -> f64 {
+fn rehearsal_mark_flow_clearance(
+    mark: Option<&RehearsalMark>,
+    sp: f64,
+    config: &LayoutConfig,
+) -> f64 {
     match mark {
-        Some(m) => rehearsal_mark_reserved_width(m, sp) + 0.5 * sp,
+        Some(m) => rehearsal_mark_reserved_width(m, sp, config) + 0.5 * sp,
         None => 0.0,
     }
 }
@@ -139,7 +143,7 @@ pub(crate) fn measure_tempo_width(rm: &ResolvedMeasure, config: &LayoutConfig, s
     if tempo_w <= 0.0 {
         return 0.0;
     }
-    tempo_w + rehearsal_mark_flow_clearance(rm.global.rehearsal_mark(), sp)
+    tempo_w + rehearsal_mark_flow_clearance(rm.global.rehearsal_mark(), sp, config)
 }
 
 pub(crate) fn resolved_tempo_widths(
@@ -151,6 +155,79 @@ pub(crate) fn resolved_tempo_widths(
         .iter()
         .map(|rm| measure_tempo_width(rm, config, sp))
         .collect()
+}
+
+pub(crate) fn measure_tempo_fit_width(
+    rm: &ResolvedMeasure,
+    measure_width: f64,
+    config: &LayoutConfig,
+    sp: f64,
+) -> f64 {
+    rm.global.tempos.as_ref().map_or(0.0, |tempos| {
+        tempos
+            .iter()
+            .map(|tempo| {
+                let width = tempo_marking_width(tempo, config, sp);
+                if width <= 0.0 {
+                    return 0.0;
+                }
+                let fraction = tempo.location.as_ref().map_or(0.0, |loc| loc.beats())
+                    / rm.active_time.measure_beats();
+                width
+                    + (fraction - MAX_TEMPO_SHIFT_FRACTION).max(0.0) * measure_width
+                    + rehearsal_mark_flow_clearance(rm.global.rehearsal_mark(), sp, config)
+            })
+            .fold(0.0, f64::max)
+    })
+}
+
+fn tempo_anchor_x(ml: &MeasureLayout, tempo: &Tempo, sp: f64) -> f64 {
+    let beat = tempo.location.as_ref().map_or(0.0, |loc| loc.beats());
+    let x_origin = ml.x + ml.prefix_width;
+    if beat == 0.0 {
+        return x_origin;
+    }
+    ml.voice_layouts
+        .iter()
+        .find_map(|vl| {
+            (0..vl.events.len())
+                .find(|&i| (vl.events.beat_position(i) - beat).abs() < 0.01)
+                .map(|i| vl.events.x(i))
+        })
+        .unwrap_or_else(|| {
+            x_origin
+                + beat / ml.resolved.active_time.measure_beats()
+                    * super::super::render_barlines::rhythmic_content_width(ml, sp)
+                + 1.18 * sp * 0.5
+        })
+}
+
+fn tempo_x_envelope(ml: &MeasureLayout, anchor: f64) -> (f64, f64) {
+    let shift = ml.width * MAX_TEMPO_SHIFT_FRACTION;
+    let right = ml.x + ml.width;
+    (
+        (anchor - shift).clamp(ml.x, right),
+        (anchor + shift).clamp(ml.x, right),
+    )
+}
+
+pub(super) fn tempo_marking_envelope(
+    measures: &[MeasureLayout],
+    eid: &str,
+    left: f64,
+    right: f64,
+    sp: f64,
+) -> Option<(f64, f64)> {
+    let (measure, index) = eid.rsplit_once("/tempo")?;
+    let index: usize = index.parse().ok()?;
+    let measure: usize = measure.strip_prefix('m')?.parse().ok()?;
+    let ml = measures.iter().find(|ml| ml.resolved.index == measure)?;
+    let tempo = ml.resolved.global.tempos.as_ref()?.get(index)?;
+    if tempo.manual_offset.is_some() || !tempo.avoid_collisions.unwrap_or(true) {
+        return Some((left, left));
+    }
+    let (min, max) = tempo_x_envelope(ml, tempo_anchor_x(ml, tempo, sp));
+    Some((min, max.min((ml.x + ml.width - (right - left)).max(left))))
 }
 
 pub(crate) fn global_tempo_widths(
@@ -176,7 +253,7 @@ pub(crate) fn global_tempo_widths(
                     if tempo_w <= 0.0 {
                         0.0
                     } else {
-                        tempo_w + rehearsal_mark_flow_clearance(gm.rehearsal_mark(), sp)
+                        tempo_w + rehearsal_mark_flow_clearance(gm.rehearsal_mark(), sp, config)
                     }
                 })
                 .unwrap_or(0.0)
@@ -222,6 +299,7 @@ pub(crate) fn resolve_tempo_placement(
         min_tempo_y = min_tempo_y.min(mark_baseline - baseline_offset);
     }
 
+    let (min_x, max_x) = tempo_x_envelope(ml, tempo_x);
     let right_limit = config
         .page_width
         .map(|pw| pw - config.page_margin_right * sp);
@@ -230,15 +308,17 @@ pub(crate) fn resolve_tempo_placement(
             .page_width
             .map(|_| config.page_margin_left * sp)
             .unwrap_or(0.0);
-        match rehearsal_mark_x_extent(ml, sp) {
-            Some((_, mark_right)) => page_floor.max(mark_right + 0.5 * sp),
-            None => page_floor,
-        }
+        page_floor.max(min_x).min(max_x)
+    };
+    let tempo_x = match rehearsal_mark_x_extent(ml, sp, config) {
+        Some((_, mark_right)) => tempo_x.max(mark_right + 0.5 * sp),
+        None => tempo_x,
     };
     let tempo_x = match right_limit {
         Some(limit) if tempo_x + width > limit => (limit - width).max(left_floor),
         _ => tempo_x,
-    };
+    }
+    .clamp(min_x, max_x);
 
     let scan_pad = 0.5 * sp;
     let lift_threshold = min_tempo_y + clearance + baseline_offset;
@@ -260,10 +340,11 @@ pub(crate) fn resolve_tempo_placement(
     let mut place_x = tempo_x;
     let mut highest = compute_highest(place_x - scan_pad, place_x + width + scan_pad);
     if ml.is_first_on_system && beat == 0.0 && highest < lift_threshold {
-        let dodge_floor = match rehearsal_mark_x_extent(ml, sp) {
+        let dodge_floor = match rehearsal_mark_x_extent(ml, sp, config) {
             Some((_, mark_right)) => (mark_right + 0.5 * sp).max(ml.x),
             None => ml.x,
-        };
+        }
+        .clamp(min_x, max_x);
         if let Some(obstacle_left) = leftmost_obstacle_left(
             above_glyph_boxes,
             place_x - scan_pad,
@@ -352,10 +433,6 @@ pub(crate) fn render_tempo_markings(
         .vertical
         * sp;
 
-    let total_beats = ml.resolved.active_time.measure_beats();
-    let content_width = super::super::render_barlines::rhythmic_content_width(ml, sp);
-    let x_origin = ml.x + ml.prefix_width;
-    let notehead_w = 1.18 * sp;
     let mi = ml.resolved.index;
 
     for (i, tempo) in tempos.iter().enumerate() {
@@ -365,34 +442,11 @@ pub(crate) fn render_tempo_markings(
         let has_text = display_text.as_ref().is_some_and(|t| !t.is_empty());
         let show_text = has_text && tempo.show_text.unwrap_or(true);
         let beat = tempo.location.as_ref().map_or(0.0, |loc| loc.beats());
-        let event_x = if beat == 0.0 {
-            None
-        } else {
-            ml.voice_layouts.iter().find_map(|vl| {
-                (0..vl.events.len())
-                    .find(|&i| (vl.events.beat_position(i) - beat).abs() < 0.01)
-                    .map(|i| vl.events.x(i))
-            })
-        };
-        let tempo_x = match event_x {
-            Some(ex) => ex,
-            None => {
-                if beat == 0.0 {
-                    x_origin
-                } else {
-                    let beat_pos = beat / total_beats;
-                    x_origin + beat_pos * content_width + notehead_w * 0.5
-                }
-            }
-        };
-        let tempo_x = match rehearsal_mark_x_extent(ml, sp) {
-            Some((_, mark_right)) if tempo_x < mark_right + 0.5 * sp => mark_right + 0.5 * sp,
-            _ => tempo_x,
-        };
+        let tempo_x = tempo_anchor_x(ml, tempo, sp);
 
         if show_metronome {
             let (runs, total_w) =
-                tempo_metronome_runs(tempo, show_text, text_size, sp, tempo_family, tempo_bold);
+                tempo_metronome_runs(tempo, show_text, text_size, sp, &tempo_font);
             let (place_x, line_y) = resolve_tempo_with_manual(
                 tempo,
                 ml,
@@ -498,20 +552,24 @@ pub(crate) fn render_tempo_markings(
 }
 
 fn append_plain_text(mut content: TextContent, suffix: &str) -> TextContent {
-    content.0.push(TextContentChunk::Text(TextRun {
-        text: suffix.to_owned(),
-        style: None,
-    }));
+    match content.0.last_mut() {
+        // Shape the separating space with the word, not at an approximate text advance.
+        Some(TextContentChunk::Text(run)) if run.style.is_none() => run.text.push_str(suffix),
+        _ => content.0.push(TextContentChunk::Text(TextRun {
+            text: suffix.to_owned(),
+            style: None,
+        })),
+    }
     content
 }
 
 #[cfg(test)]
 mod tests {
     use super::{format_bpm, tempo_metronome_runs, TempoRun};
-    use crate::layout::text_styles::FontFamily;
     use crate::model::{
         NoteValueBase, Tempo, TempoNoteValue, TextContent, TextContentChunk, TextRun, TextRunStyle,
     };
+    use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
 
     #[test]
     fn formats_integer_and_fractional_bpm() {
@@ -521,8 +579,37 @@ mod tests {
     }
 
     #[test]
-    fn measures_rich_tempo_text_before_the_metronome_glyph() {
-        let tempo = Tempo {
+    fn keeps_the_space_before_the_metronome_parenthesis_in_the_plain_text_run() {
+        let tempo = quarter_tempo(TextContent(vec![TextContentChunk::Text(TextRun {
+            text: "Blue".into(),
+            style: None,
+        })]));
+        let (runs, _) = tempo_metronome_runs(&tempo, true, 20.0, 10.0, "serif bold");
+        let mut dl = DisplayList::new(400.0, 100.0);
+        for run in runs {
+            if let TempoRun::Content { dx, content } = run {
+                super::super::text_content::emit_content(
+                    &mut dl,
+                    &content,
+                    dx,
+                    0.0,
+                    20.0,
+                    "serif bold",
+                    "#000000",
+                    TextAlign::Left,
+                    TextBaseline::Alphabetic,
+                );
+            }
+        }
+        assert!(
+            matches!(dl.commands.as_slice(), [RenderCommand::DrawText { text, .. }] if text == "Blue ("),
+            "The word and separating space must be shaped together: {:?}",
+            dl.commands,
+        );
+    }
+
+    fn quarter_tempo(text: TextContent) -> Tempo {
+        Tempo {
             bpm: Some(120.0),
             value: Some(TempoNoteValue {
                 base: NoteValueBase::Quarter,
@@ -530,21 +617,25 @@ mod tests {
             }),
             swing: None,
             location: None,
-            text: Some(TextContent(vec![TextContentChunk::Text(TextRun {
-                text: "Allegro".into(),
-                style: Some(TextRunStyle {
-                    font_style: Some(crate::model::TextFontStyle::Italic),
-                    ..TextRunStyle::default()
-                }),
-            })])),
+            text: Some(text),
             show_metronome_mark: None,
             show_text: None,
             manual_offset: None,
             avoid_collisions: None,
-        };
+        }
+    }
 
-        let (runs, width) =
-            tempo_metronome_runs(&tempo, true, 20.0, 10.0, FontFamily::Serif, false);
+    #[test]
+    fn measures_rich_tempo_text_before_the_metronome_glyph() {
+        let tempo = quarter_tempo(TextContent(vec![TextContentChunk::Text(TextRun {
+            text: "Allegro".into(),
+            style: Some(TextRunStyle {
+                font_style: Some(crate::model::TextFontStyle::Italic),
+                ..TextRunStyle::default()
+            }),
+        })]));
+
+        let (runs, width) = tempo_metronome_runs(&tempo, true, 20.0, 10.0, "serif");
 
         assert!(width > 0.0);
         assert!(matches!(
@@ -554,5 +645,94 @@ mod tests {
                 ..
             }) if chunks.len() == 2
         ));
+    }
+
+    #[test]
+    fn metronome_note_clears_the_actual_parenthesis_ink() {
+        for font in ["serif", "serif bold", "serif italic", "serif bold italic"] {
+            for style in [
+                None,
+                Some(TextRunStyle {
+                    size: Some(1.4),
+                    font_style: Some(crate::model::TextFontStyle::Italic),
+                    ..TextRunStyle::default()
+                }),
+            ] {
+                let tempo = quarter_tempo(TextContent(vec![TextContentChunk::Text(TextRun {
+                    text: "Monster".into(),
+                    style,
+                })]));
+                let (runs, _) = tempo_metronome_runs(&tempo, true, 20.0, 10.0, font);
+                let mut prefix = DisplayList::new(0.0, 0.0);
+                let mut note_x = None;
+                for run in runs {
+                    match run {
+                        TempoRun::Content { dx, content } => {
+                            super::super::text_content::emit_content(
+                                &mut prefix,
+                                &content,
+                                dx,
+                                0.0,
+                                20.0,
+                                font,
+                                "#000000",
+                                TextAlign::Left,
+                                TextBaseline::Alphabetic,
+                            );
+                        }
+                        TempoRun::Glyph { dx, .. } if note_x.is_none() => note_x = Some(dx),
+                        _ => {}
+                    }
+                }
+                let ink_right = prefix
+                    .commands
+                    .iter()
+                    .filter_map(|command| {
+                        let RenderCommand::DrawText {
+                            x,
+                            text,
+                            font,
+                            size,
+                            ..
+                        } = command
+                        else {
+                            return None;
+                        };
+                        let data: &[u8] = match (font.contains("bold"), font.contains("italic")) {
+                            (true, true) => include_bytes!(
+                                "../../../../../assets/fonts/LibertinusSerif-BoldItalic.otf"
+                            ),
+                            (true, false) => include_bytes!(
+                                "../../../../../assets/fonts/LibertinusSerif-Bold.otf"
+                            ),
+                            (false, true) => include_bytes!(
+                                "../../../../../assets/fonts/LibertinusSerif-Italic.otf"
+                            ),
+                            (false, false) => include_bytes!(
+                                "../../../../../assets/fonts/LibertinusSerif-Regular.otf"
+                            ),
+                        };
+                        let face = ttf_parser::Face::parse(data, 0).unwrap();
+                        let scale = size / f64::from(face.units_per_em());
+                        let mut cursor = *x;
+                        let mut right = *x;
+                        for ch in text.chars() {
+                            let glyph = face.glyph_index(ch).unwrap();
+                            if let Some(bounds) = face.glyph_bounding_box(glyph) {
+                                right = right.max(cursor + f64::from(bounds.x_max) * scale);
+                            }
+                            cursor += f64::from(face.glyph_hor_advance(glyph).unwrap()) * scale;
+                        }
+                        Some(right)
+                    })
+                    .reduce(f64::max)
+                    .unwrap();
+                let gap = note_x.unwrap() - ink_right;
+                assert!(
+                    gap >= 2.0 - 1e-6,
+                    "font={font}: parenthesis-to-note gap {gap}"
+                );
+            }
+        }
     }
 }

@@ -138,7 +138,7 @@ function buildScore(): Score {
   };
 }
 
-function Harness({ elementId, staves = 2 }: { elementId?: string; staves?: number }) {
+function Harness({ elementId, staves = 2, tuplet = false }: { elementId?: string; staves?: number; tuplet?: boolean }) {
   const { loadScore } = useDocumentActions();
   const { score, mnxJson } = useDocument();
   const { selectElement } = useSelectionActions();
@@ -146,11 +146,23 @@ function Harness({ elementId, staves = 2 }: { elementId?: string; staves?: numbe
   useEffect(() => {
     const initial = buildScore();
     initial.parts[0]!.staves = staves;
+    if (tuplet) {
+      initial.parts[0]!.measures[0]!.sequences[0]!.content.push({
+        type: "tuplet",
+        inner: { multiple: 3, duration: { base: "eighth" } },
+        outer: { multiple: 2, duration: { base: "eighth" } },
+        content: [
+          { type: "event", duration: { base: "eighth" }, notes: [{ pitch: { step: "C", octave: 4 } }] },
+          { type: "event", duration: { base: "eighth" }, notes: [{ pitch: { step: "D", octave: 4 } }] },
+          { type: "event", duration: { base: "eighth" }, notes: [{ pitch: { step: "E", octave: 4 } }] },
+        ],
+      });
+    }
     loadScore(initial, "test.mnx");
     if (elementId) {
       selectElement(elementId);
     }
-  }, [loadScore, selectElement, elementId, staves]);
+  }, [loadScore, selectElement, elementId, staves, tuplet]);
 
   return (
     <>
@@ -1241,6 +1253,31 @@ describe("NotationInspector", () => {
     await screen.findByTestId("notation-layout-stem");
     expect(screen.queryByText("Tuplet Overrides")).toBeNull();
     expect(screen.queryByTestId("notation-layout-tuplet-placement")).toBeNull();
+  });
+
+  it("edits and clears valid MNX placement on the selected tuplet", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="p0/m0/s0/tuplet0" tuplet />));
+    const picker = await screen.findByTestId("notation-layout-tuplet-placement");
+    const getTuplet = () => currentScore().parts[0]!.measures[0]!.sequences[0]!.content[3]!;
+    await user.click(picker);
+    await user.click(screen.getByRole("option", { name: "Below" }));
+    const below = getTuplet();
+    expect(below.type === "tuplet" && below.placement).toBe("below");
+    expect(below.type === "tuplet" && below.content.every((item) => item.type !== "event" || !item.stemDirection)).toBe(
+      true,
+    );
+    const serialized = serializeMnx(currentScore());
+    const roundtrip = parseMnx(serialized).parts[0]!.measures[0]!.sequences[0]!.content[3]!;
+    expect(roundtrip.type === "tuplet" && roundtrip.placement).toBe("below");
+    await user.click(screen.getByTestId("notation-layout-tuplet-placement"));
+    await user.click(screen.getByRole("option", { name: "Above" }));
+    const above = getTuplet();
+    expect(above.type === "tuplet" && above.placement).toBe("above");
+    await user.click(screen.getByTestId("notation-layout-tuplet-placement"));
+    await user.click(screen.getByRole("option", { name: "Auto" }));
+    const reset = getTuplet();
+    expect(reset.type === "tuplet" && reset.placement).toBeUndefined();
   });
 
   it("explains the stem direction control and groups cross-staff after it", async () => {

@@ -1,5 +1,5 @@
 use super::super::measure::StemContext;
-use crate::model::{Event, Placement, Sequence, SequenceContent};
+use crate::model::{Event, Sequence, SequenceContent};
 use std::collections::HashMap;
 
 const BEAT_KEY_SCALE: f64 = 1_000_000.0;
@@ -117,18 +117,11 @@ fn walk_content<'a>(
                 let inner = tuplet.inner.duration.total_beats() * f64::from(tuplet.inner.multiple);
                 let outer = tuplet.outer.duration.total_beats() * f64::from(tuplet.outer.multiple);
                 let scale = if inner > 0.0 { outer / inner } else { 1.0 };
-                let tuplet_stem = StemContext {
-                    forced_stem_up: tuplet
-                        .placement
-                        .and_then(Placement::force_stem_up)
-                        .or(stem.forced_stem_up),
-                    ..stem
-                };
                 walk_content(
                     &tuplet.content,
                     beat,
                     duration_scale * scale,
-                    tuplet_stem,
+                    stem,
                     sequence_index,
                     sequence_staff,
                     pending_graces,

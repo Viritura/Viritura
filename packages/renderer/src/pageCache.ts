@@ -9,8 +9,8 @@
 
 import type { DisplayList, PageLayout, RenderCommand } from "./wasm";
 import type { GlyphAtlas } from "./glyphAtlas";
-import { traceFilledBezier } from "./displayListPainter";
-import { canvasTextFont } from "./textFont";
+import { paintText, traceFilledBezier } from "./displayListPainter";
+import { renderCommandBounds } from "./renderCommandBounds";
 import { paintInkCommands } from "./inkMask";
 
 /** Sliding window size: current page ± 2. */
@@ -95,6 +95,10 @@ function getCommandYRange(cmd: RenderCommand): [number, number] {
       return [cmd.cy - cmd.ry, cmd.cy + cmd.ry];
     case "DrawText":
       return [cmd.y, cmd.y];
+    case "DrawRotatedText": {
+      const bounds = renderCommandBounds(cmd);
+      return bounds ? [bounds.y, bounds.y2] : [cmd.y, cmd.y];
+    }
     case "DrawGlyph":
       return [cmd.y, cmd.y];
     case "DrawStretchedGlyph":
@@ -371,12 +375,9 @@ function paintSingleCommand(
       ctx.fill();
       break;
 
+    case "DrawRotatedText":
     case "DrawText":
-      ctx.fillStyle = cmd.color;
-      ctx.font = canvasTextFont(cmd.font, cmd.size);
-      ctx.textAlign = cmd.align;
-      ctx.textBaseline = cmd.baseline;
-      ctx.fillText(cmd.text, cmd.x, cmd.y);
+      paintText(ctx, cmd);
       break;
 
     case "DrawGlyph":

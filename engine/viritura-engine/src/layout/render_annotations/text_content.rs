@@ -1,7 +1,80 @@
 use crate::layout::text_styles::{self, FontFamily};
 use crate::model::{TextContent, TextContentChunk, TextDecoration, TextRunStyle, TextWeight};
 use crate::render::smufl::smufl;
-use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
+use crate::render::{BoundingBox, DisplayList, RenderCommand, TextAlign, TextBaseline};
+
+pub(super) fn content_ink_bounds(
+    content: &TextContent,
+    base_size: f64,
+    default_font: &str,
+    align: TextAlign,
+) -> BoundingBox {
+    let mut text = DisplayList::new(0.0, 0.0);
+    emit_content(
+        &mut text,
+        content,
+        0.0,
+        0.0,
+        base_size,
+        default_font,
+        "#000000",
+        align,
+        TextBaseline::Alphabetic,
+    );
+    text.commands
+        .iter()
+        .filter_map(|command| {
+            if let RenderCommand::DrawText {
+                x,
+                y,
+                text,
+                font,
+                size,
+                align,
+                ..
+            } = command
+            {
+                if let Some(mut bounds) =
+                    crate::render::text_fonts::ink_bounds(text, font, *size, align)
+                {
+                    bounds.x += x;
+                    bounds.y += y;
+                    return Some(bounds);
+                }
+                // Host-provided faces have no bundled outlines. Include their
+                // ascender/descender band and possible italic overhang.
+                let advance = text_styles::text_width(
+                    text,
+                    *size,
+                    if font.contains("mono") {
+                        FontFamily::Monospace
+                    } else {
+                        FontFamily::SansSerif
+                    },
+                    font.contains("bold"),
+                );
+                let left = match align {
+                    TextAlign::Left => *x,
+                    TextAlign::Center => x - advance * 0.5,
+                    TextAlign::Right => x - advance,
+                };
+                return Some(BoundingBox {
+                    x: left - size * 0.25,
+                    y: y - size,
+                    width: advance + size * 0.5,
+                    height: size * 1.3,
+                });
+            }
+            command.bbox()
+        })
+        .reduce(|a, b| a.union(&b))
+        .unwrap_or(BoundingBox {
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
+        })
+}
 
 pub(crate) fn content_width(
     content: &TextContent,
@@ -62,10 +135,7 @@ pub(crate) fn emit_content(
         match chunk {
             TextContentChunk::Text(run) => {
                 let style = run.style.as_ref();
-                let family = style
-                    .and_then(|style| style.font.as_deref())
-                    .map(font_family)
-                    .unwrap_or(default_family);
+                let family = run_family(style, default_family);
                 let bold =
                     style
                         .and_then(|style| style.weight.as_ref())
@@ -169,10 +239,7 @@ fn chunk_width(
     match chunk {
         TextContentChunk::Text(run) => {
             let style = run.style.as_ref();
-            let family = style
-                .and_then(|style| style.font.as_deref())
-                .map(font_family)
-                .unwrap_or(default_family);
+            let family = run_family(style, default_family);
             let bold =
                 style
                     .and_then(|style| style.weight.as_ref())
@@ -323,7 +390,14 @@ fn merge_styles(
     Some(merged)
 }
 
-fn font_parts(font: &str) -> (FontFamily, bool, bool) {
+fn run_family(style: Option<&TextRunStyle>, default: FontFamily) -> FontFamily {
+    style
+        .and_then(|style| style.font.as_deref())
+        .map(font_family)
+        .unwrap_or(default)
+}
+
+pub(super) fn font_parts(font: &str) -> (FontFamily, bool, bool) {
     (
         font_family(font),
         font.contains("bold"),

@@ -169,6 +169,7 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
           });
           const json = await adapter.readScore();
           const parsed = parseMnx(JSON.parse(json));
+          useProjectStore.getState().setProjectDiskBaseline(adapter, json);
           setSelectedScoreIndex(0);
           loadScore(parsed, entry.vcs.rootName);
           resetHistory(store.getState().mnxJson || json);

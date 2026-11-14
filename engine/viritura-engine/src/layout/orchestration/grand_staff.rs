@@ -3,6 +3,7 @@ use super::super::*;
 use crate::layout::volta::render_source_ottavas;
 
 mod measure_bounds;
+mod page_geometry;
 use crate::layout::staff_brace::brace_geometry;
 mod spanner_endpoints;
 use measure_bounds::push_grand_staff_measure_bounds;
@@ -72,6 +73,7 @@ pub(in crate::layout) fn layout_grand_staff_system_measures(
     all_resolved: &[Vec<ResolvedMeasure>],
     all_resolved_ottavas: &[Vec<ResolvedOttavaRange>],
     sys_measures: &[usize],
+    next_measure_index: Option<usize>,
     max_widths: &[f64],
     gs_content_hash_grid: &[Vec<u64>],
     merged_spacings: &[crate::layout::spacing::LogSpacing],
@@ -84,6 +86,14 @@ pub(in crate::layout) fn layout_grand_staff_system_measures(
     part_index: usize,
     mut cache: Option<&mut cache::LayoutCache>,
 ) -> Vec<Vec<MeasureLayout>> {
+    let end_measures = courtesy_signatures::system_end_measures(
+        all_resolved.iter().map(Vec::as_slice),
+        sys_measures.last().copied(),
+        next_measure_index,
+        config,
+    );
+    let natural_total: f64 = sys_measures.iter().map(|&mi| max_widths[mi]).sum();
+    let scale = courtesy_signatures::scale_with_suffix(scale, natural_total, &end_measures, sp);
     let mut all_sys_layouts: Vec<Vec<MeasureLayout>> = Vec::new();
     for (si, resolved) in all_resolved.iter().enumerate() {
         let mut sys_x = margin_left;
@@ -92,9 +102,18 @@ pub(in crate::layout) fn layout_grand_staff_system_measures(
             if mi >= resolved.len() {
                 continue;
             }
-            let rm = &resolved[mi];
-            let fw = max_widths[mi] * scale;
-            let content_hash = gs_content_hash_grid[si][mi];
+            let is_last = smi + 1 == sys_measures.len();
+            let rm = if is_last {
+                end_measures[si].as_ref().expect("resolved system end")
+            } else {
+                &resolved[mi]
+            };
+            let fw = max_widths[mi] * scale + courtesy_signatures::clef_slot_width(rm, sp);
+            let content_hash = if is_last {
+                measure_content_hash(rm)
+            } else {
+                gs_content_hash_grid[si][mi]
+            };
             // Grand-staff cache key: offset to avoid collision with other caches
             let cache_key = 2_000_000 + mi * 100 + si;
             let compound_hash = {
@@ -277,21 +296,6 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
             }))
             .collect();
         for (i, ml) in layouts.iter().enumerate() {
-            let prev_has_repeat_end = if i > 0 {
-                layouts[i - 1].resolved.global.repeat_end.is_some()
-            } else {
-                false
-            };
-            let prev_barline_type = if i > 0 {
-                layouts[i - 1]
-                    .resolved
-                    .global
-                    .barline
-                    .as_ref()
-                    .map(|b| &b.barline_type)
-            } else {
-                None
-            };
             render_measure(
                 dl,
                 ml,
@@ -299,8 +303,6 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
                 staff_y,
                 sp,
                 config,
-                prev_has_repeat_end,
-                prev_barline_type,
                 &global_beamed_ids,
                 &explicit_beamed_ids,
                 lyric_line_order,
@@ -469,20 +471,7 @@ pub(in crate::layout) fn render_grand_staff_system_connectors(
     // Inter-staff barlines at each measure boundary
     for (mi, ml) in top_layouts.iter().enumerate() {
         if mi > 0 {
-            let prev_ml = &top_layouts[mi - 1];
-            let prev_has_repeat_end = prev_ml.resolved.global.repeat_end.is_some();
-            let has_repeat_start = ml.resolved.global.repeat_start.is_some();
-            let connector_bt = BarlineKind::at_boundary(
-                prev_has_repeat_end,
-                has_repeat_start,
-                prev_ml
-                    .resolved
-                    .global
-                    .barline
-                    .as_ref()
-                    .map(|b| &b.barline_type),
-                BarlineType::Regular,
-            );
+            let connector_bt = leading_barline_kind(&ml.resolved);
             let barline_tag = element_id::barline(ml.resolved.index);
             for gap_idx in 0..(num_staves - 1) {
                 render_tagged_barline_connector(
@@ -507,8 +496,20 @@ pub(in crate::layout) fn render_grand_staff_system_connectors(
         let end_x = last_ml.x + last_ml.width;
 
         let barline_kind = system_end_barline_kind(&last_ml.resolved, is_last_system);
+        for (layouts, &staff_y) in all_sys_layouts.iter().zip(staff_y_offsets) {
+            if let Some(last) = layouts.last() {
+                courtesy_signatures::render_system_end_courtesy(
+                    dl,
+                    &last.resolved,
+                    end_x,
+                    staff_y,
+                    sp,
+                    config,
+                );
+            }
+        }
 
-        let barline_tag = element_id::barline(last_ml.resolved.index + 1);
+        let barline_tag = element_id::barline(trailing_barline_index(last_ml));
         let cmd_idx = dl.commands.len();
         for &staff_y in staff_y_offsets {
             render_barline(dl, end_x, staff_y, staff_height, sp, config, &barline_kind);
@@ -666,7 +667,6 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         config.margin_right * sp
     };
     let margin_left = base_margin_l + brace_margin;
-    let margin_top = config.margin_top * sp;
 
     // System breaks
     let content_width = config.page_width.map(|pw| pw - margin_left - base_margin_r);
@@ -690,9 +690,6 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
     };
 
     let system_count = systems.len();
-    let inter_system_gap = 10.0 * sp;
-    let single_system_height =
-        num_staves as f64 * staff_height + (num_staves - 1) as f64 * inter_staff_gap;
 
     let page_w = if let Some(pw) = config.page_width {
         pw
@@ -700,16 +697,28 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         let natural_total: f64 = max_widths.iter().sum();
         margin_left + natural_total + config.margin_right * sp
     };
-    let total_height = margin_top * 2.0
-        + system_count as f64 * single_system_height
-        + if system_count > 1 {
-            (system_count - 1) as f64 * inter_system_gap
-        } else {
-            0.0
-        };
+    let page_geometry::GrandStaffPages {
+        pages,
+        positions,
+        gaps,
+        total_height,
+    } = page_geometry::position_grand_staff_pages(
+        config,
+        &systems,
+        &all_resolved,
+        &all_resolved_ottavas,
+        common_shortest_beats,
+        staff_height,
+        inter_staff_gap,
+    );
 
     let mut dl = DisplayList::new(page_w, total_height);
     dl.set_parts(score, [part_index]);
+    dl.commands.extend(page::render_first_page_copyright(
+        score.metadata(),
+        config,
+        page_w,
+    ));
     let barline_w = config.barline_width * sp;
     let lyric_line_order = score
         .global
@@ -725,8 +734,6 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         std::collections::HashMap::new();
 
     for (sys_idx, sys_measures) in systems.iter().enumerate() {
-        let system_y_base = margin_top + sys_idx as f64 * (single_system_height + inter_system_gap);
-
         let natural_total: f64 = sys_measures.iter().map(|&mi| max_widths[mi]).sum();
         let avail_w = content_width.unwrap_or(natural_total);
         let scale = if natural_total > 0.0 && config.page_width.is_some() {
@@ -740,7 +747,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         };
 
         let staff_y_offsets: Vec<f64> = (0..num_staves)
-            .map(|i| system_y_base + i as f64 * (staff_height + inter_staff_gap))
+            .map(|i| positions[sys_idx] + i as f64 * (staff_height + gaps[sys_idx]))
             .collect();
 
         // Layout measures for each staff
@@ -757,6 +764,10 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
             &all_resolved,
             &all_resolved_ottavas,
             sys_measures,
+            systems
+                .get(sys_idx + 1)
+                .and_then(|system| system.first())
+                .copied(),
             &max_widths,
             &gs_content_hash_grid,
             &merged_spacings,
@@ -853,8 +864,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         );
     }
 
-    let system_heights: Vec<f64> = vec![single_system_height; system_count];
-    dl.pages = compute_page_breaks(&system_heights, config, 0.0);
+    dl.pages = pages;
 
     dl.with_raised_text_frames()
 }

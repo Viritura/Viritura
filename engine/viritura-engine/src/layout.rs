@@ -13,6 +13,7 @@ mod beat_anchors;
 pub mod cache;
 mod condensing;
 pub mod config;
+mod courtesy_signatures;
 mod cross_system;
 mod curves;
 mod debug;
@@ -99,7 +100,6 @@ use volta::*;
 use pedals::*;
 use render_barlines::*;
 use render_geometry::*;
-use render_signatures::render_change_clef;
 
 /// Clone `config` with the document's `_x.viritura` layout overrides merged over
 /// the defaults, or `None` when the document has no overrides (so the common
@@ -395,6 +395,11 @@ pub fn layout_score_cached(
 
     let mut dl = DisplayList::new(total_width, total_height);
     dl.set_parts(score, [part_index]);
+    dl.commands.extend(page::render_first_page_copyright(
+        score.metadata(),
+        config,
+        total_width,
+    ));
 
     let lyric_line_order = score
         .global
@@ -409,8 +414,6 @@ pub fn layout_score_cached(
         &mut dl,
         &precomp_sys_layouts,
         &system_y_positions,
-        &systems,
-        &visible_resolved,
         margin_left,
         sp,
         config,
@@ -799,8 +802,7 @@ pub(crate) fn compute_above_staff_extra(
 }
 
 /// Render the contents of a single system (staff lines already drawn by caller).
-/// `next_system_clef` is the explicit start clef of the next system's first measure, if any.
-/// When provided, a small courtesy clef is drawn at the end of this system before the barline.
+/// System-end courtesy furniture comes from the last measure's derived state.
 fn render_system_contents(
     dl: &mut DisplayList,
     measure_layouts: &[MeasureLayout],
@@ -814,7 +816,6 @@ fn render_system_contents(
     part_idx: usize,
     staff_y_offsets: Option<&[f64]>,
     shared_lane_staff_y_offsets: Option<&[f64]>,
-    next_system_clef: Option<&Clef>,
     staff_idx: Option<usize>,
     system_index: usize,
     is_expansion: bool,
@@ -870,12 +871,6 @@ fn render_system_contents(
         render_measure::should_render_ordinary_measure_number(&shared_lane, staff_idx);
 
     for (i, ml) in measure_layouts.iter().enumerate() {
-        let previous_measure = i.checked_sub(1).map(|index| &measure_layouts[index]);
-        let prev_has_repeat_end =
-            previous_measure.is_some_and(|measure| measure.resolved.global.repeat_end.is_some());
-        let prev_barline_type = previous_measure
-            .and_then(|measure| measure.resolved.global.barline.as_ref())
-            .map(|barline| &barline.barline_type);
         render_measure(
             dl,
             ml,
@@ -883,8 +878,6 @@ fn render_system_contents(
             staff_y,
             sp,
             config,
-            prev_has_repeat_end,
-            prev_barline_type,
             &global_beamed_ids,
             &explicit_beamed_ids,
             staff_lyric_line_order.as_deref(),
@@ -1017,17 +1010,18 @@ fn render_system_contents(
     // Final barline for this system
     if let Some(last) = measure_layouts.last().filter(|_| !suppress_final_barline) {
         let end_x = last.x + last.width;
+        let barline_kind = trailing_barline_kind(last, &score.global.measures, is_last_system);
 
-        // Courtesy clef: draw a small 2/3-size clef before the system-end
-        // barline when the next system starts with a different clef.
-        if let Some(clef) = next_system_clef {
-            let courtesy_x = end_x - 1.7 * sp;
-            render_change_clef(dl, courtesy_x, staff_y, sp, clef);
-        }
+        courtesy_signatures::render_system_end_courtesy(
+            dl,
+            &last.resolved,
+            end_x,
+            staff_y,
+            sp,
+            config,
+        );
 
-        let barline_kind = system_end_barline_kind(&last.resolved, is_last_system);
-
-        let barline_tag = element_id::barline(last.resolved.index + 1);
+        let barline_tag = element_id::barline(trailing_barline_index(last));
         let cmd_idx = dl.commands.len();
         render_barline(dl, end_x, staff_y, 4.0 * sp, sp, config, &barline_kind);
         for ci in cmd_idx..dl.commands.len() {

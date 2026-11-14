@@ -308,6 +308,19 @@ root `Y.Map("score")` key.
 | Jump             | `global.measures[n].jump`                   | `Jump`             | `Y.Map`                       |
 | Segno/Fine       | `global.measures[n].segno/fine`             | `Segno/Fine`       | `Y.Map`                       |
 
+Global keys remain part of the document even for unpitched parts, but
+percussion-clef and drum-kit staves engrave neither key signatures nor their
+prefix spacing. When a displayed clef, key, or meter changes at a system start,
+the preceding system announces it, following standard engraving practice: the
+2/3-size courtesy clef sits before the end barline in a slot reserved inside
+the outgoing measure (shared by every staff so beats stay aligned), while the
+courtesy key
+(including cancellation naturals) and courtesy meter follow the barline on
+staff lines extended past it, with no closing barline. These courtesy
+signatures are derived layout furniture, not extra MNX declarations; keys use
+the staff's displayed (written, when transposed) key, and group-distributed
+meters are engraved once across the group.
+
 For the performance-side of the CRDT bridge (patch IR, delta packing, snapshot
 cadence) see [collaboration-system.md](./collaboration-system.md) and
 [performance-architecture.md](./performance-architecture.md).

@@ -1,16 +1,20 @@
 use super::super::config::LayoutConfig;
 use super::super::element_id;
+use super::super::text_styles::TextRole;
 use super::super::types::*;
 use super::substrate_obstacles::{above_glyph_top_in_range, highest_point_in_range, AboveGlyphBox};
-use crate::layout::text_styles::FontFamily;
 use crate::model::{RehearsalMark, RehearsalMarkStyle, ResolvedMeasure};
 use crate::render::*;
 
 /// Horizontal extent (left edge, right edge) of the rehearsal mark a measure
 /// would draw at its start, or `None` if the measure has no rehearsal mark.
-pub(crate) fn rehearsal_mark_x_extent(ml: &MeasureLayout, sp: f64) -> Option<(f64, f64)> {
+pub(crate) fn rehearsal_mark_x_extent(
+    ml: &MeasureLayout,
+    sp: f64,
+    config: &LayoutConfig,
+) -> Option<(f64, f64)> {
     let _ = ml.resolved.global.rehearsal_mark()?;
-    let box_w = rehearsal_box_width(ml, sp)?;
+    let box_w = rehearsal_box_width(ml, sp, config)?;
     let left = if ml.is_first_on_system {
         ml.x
     } else {
@@ -19,17 +23,21 @@ pub(crate) fn rehearsal_mark_x_extent(ml: &MeasureLayout, sp: f64) -> Option<(f6
     Some((left, left + box_w))
 }
 
-fn rehearsal_box_width(ml: &MeasureLayout, sp: f64) -> Option<f64> {
+fn rehearsal_box_width(ml: &MeasureLayout, sp: f64, config: &LayoutConfig) -> Option<f64> {
     let mark = ml.resolved.global.rehearsal_mark()?;
-    Some(rehearsal_box_width_for_mark(mark, sp))
+    Some(rehearsal_box_width_for_mark(mark, sp, config))
 }
 
-fn rehearsal_box_width_for_mark(mark: &RehearsalMark, sp: f64) -> f64 {
-    rehearsal_frame(mark, sp, 0.0, 0.0).width
+fn rehearsal_box_width_for_mark(mark: &RehearsalMark, sp: f64, config: &LayoutConfig) -> f64 {
+    rehearsal_frame(mark, sp, config, 0.0, 0.0).width
 }
 
-pub(super) fn rehearsal_mark_reserved_width(mark: &RehearsalMark, sp: f64) -> f64 {
-    rehearsal_box_width_for_mark(mark, sp)
+pub(super) fn rehearsal_mark_reserved_width(
+    mark: &RehearsalMark,
+    sp: f64,
+    config: &LayoutConfig,
+) -> f64 {
+    rehearsal_box_width_for_mark(mark, sp, config)
 }
 
 struct RehearsalFrame {
@@ -37,57 +45,81 @@ struct RehearsalFrame {
     pub top: f64,
     pub width: f64,
     pub height: f64,
-    pub text_center_x: f64,
+    pub text_x: f64,
     pub baseline_y: f64,
 }
 
-fn rehearsal_frame(mark: &RehearsalMark, sp: f64, left: f64, center_y: f64) -> RehearsalFrame {
-    let font_size = 2.8 * sp;
+fn rehearsal_text_bounds(mark: &RehearsalMark, sp: f64, config: &LayoutConfig) -> BoundingBox {
+    let style = config.text_styles.resolve(TextRole::RehearsalMark);
+    super::text_content::content_ink_bounds(
+        &mark.text,
+        style.size_px(sp),
+        &style.font_string(),
+        TextAlign::Center,
+    )
+}
+
+fn rehearsal_frame(
+    mark: &RehearsalMark,
+    sp: f64,
+    config: &LayoutConfig,
+    left: f64,
+    center_y: f64,
+) -> RehearsalFrame {
+    let font_size = config
+        .text_styles
+        .resolve(TextRole::RehearsalMark)
+        .size_px(sp);
     let padding_x = 0.4 * sp;
     let padding_y = 0.4 * sp;
-    let cap_height = 0.7 * font_size;
-    let text_width =
-        super::text_content::content_width(&mark.text, font_size, FontFamily::Serif, true);
-    let baseline_y = center_y + cap_height * 0.5;
+    let ink = rehearsal_text_bounds(mark, sp, config);
+    let baseline_y = center_y - ink.y - ink.height * 0.5;
+    let text_offset_x = -ink.x - ink.width * 0.5;
     let style = mark.style.as_ref().unwrap_or(&RehearsalMarkStyle::Boxed);
     match style {
         RehearsalMarkStyle::Boxed => {
-            let width = text_width + padding_x * 2.0;
-            let height = cap_height + padding_y * 2.0;
+            let width = ink.width + padding_x * 2.0;
+            let height = ink.height + padding_y * 2.0;
             RehearsalFrame {
                 left,
                 top: center_y - height * 0.5,
                 width,
                 height,
-                text_center_x: left + width * 0.5,
+                text_x: left + width * 0.5 + text_offset_x,
                 baseline_y,
             }
         }
         RehearsalMarkStyle::Circled => {
-            let radius = (text_width.max(font_size) * 0.5 + padding_x).max(font_size * 0.8);
+            let radius = (ink.width * 0.5 + padding_x)
+                .hypot(ink.height * 0.5 + padding_y)
+                .max(font_size * 0.8);
             RehearsalFrame {
                 left,
                 top: center_y - radius,
                 width: radius * 2.0,
                 height: radius * 2.0,
-                text_center_x: left + radius,
+                text_x: left + radius + text_offset_x,
                 baseline_y,
             }
         }
         RehearsalMarkStyle::Plain => RehearsalFrame {
             left,
-            top: center_y - cap_height * 0.5,
-            width: text_width,
-            height: cap_height,
-            text_center_x: left + text_width * 0.5,
+            top: center_y - ink.height * 0.5,
+            width: ink.width,
+            height: ink.height,
+            text_x: left + ink.width * 0.5 + text_offset_x,
             baseline_y,
         },
     }
 }
 
-pub(crate) fn measure_above_label_reserved_width(rm: &ResolvedMeasure, sp: f64) -> f64 {
+pub(crate) fn measure_above_label_reserved_width(
+    rm: &ResolvedMeasure,
+    sp: f64,
+    config: &LayoutConfig,
+) -> f64 {
     match rm.global.rehearsal_mark() {
-        Some(mark) => rehearsal_box_width_for_mark(mark, sp),
+        Some(mark) => rehearsal_box_width_for_mark(mark, sp, config),
         None => 0.0,
     }
 }
@@ -106,15 +138,15 @@ fn rehearsal_mark_placement(
     above_glyph_boxes: &[AboveGlyphBox],
     leading_clef_gap: f64,
 ) -> Option<RehearsalPlacement> {
-    let box_w = rehearsal_box_width(ml, sp)?;
-    let font_size = 2.8 * sp;
-    let padding_y = 0.4 * sp;
+    let mark = ml.resolved.global.rehearsal_mark()?;
+    let frame = rehearsal_frame(mark, sp, config, 0.0, 0.0);
+    let box_w = frame.width;
     let rehearsal_metrics = config.placement.resolve(ElementKind::RehearsalMark);
     let clearance = rehearsal_metrics.padding.vertical * sp;
-    let cap_height = 0.7 * font_size;
-    let half_below = cap_height * 0.5 + padding_y;
+    let half_below = frame.height * 0.5;
     let barline_x = ml.x + leading_clef_gap;
-    let min_mark_y = staff_y - rehearsal_metrics.attach_gap * sp - cap_height * 0.5;
+    let ink_height = rehearsal_text_bounds(mark, sp, config).height;
+    let min_mark_y = staff_y - rehearsal_metrics.attach_gap * sp - ink_height * 0.5;
     let ideal_left = if ml.is_first_on_system {
         barline_x
     } else {
@@ -159,13 +191,13 @@ fn rehearsal_mark_placement(
         Some(RehearsalPlacement {
             left: ideal_left - horizontal_movement,
             center_y: min_mark_y,
-            baseline_y: min_mark_y + cap_height * 0.5,
+            baseline_y: min_mark_y + frame.baseline_y,
         })
     } else {
         Some(RehearsalPlacement {
             left: ideal_left,
             center_y: center_y_vertical,
-            baseline_y: center_y_vertical + cap_height * 0.5,
+            baseline_y: center_y_vertical + frame.baseline_y,
         })
     }
 }
@@ -250,7 +282,8 @@ pub(crate) fn render_rehearsal_marks(
     };
     let mark_left = mark_left + off_x_sp * sp;
     let mark_y = mark_y - off_y_sp * sp;
-    let frame = rehearsal_frame(mark, sp, mark_left, mark_y);
+    let frame = rehearsal_frame(mark, sp, config, mark_left, mark_y);
+    let text_style = config.text_styles.resolve(TextRole::RehearsalMark);
 
     match style {
         RehearsalMarkStyle::Boxed => {
@@ -293,7 +326,7 @@ pub(crate) fn render_rehearsal_marks(
         RehearsalMarkStyle::Circled => {
             let radius = frame.width * 0.5;
             dl.push(RenderCommand::DrawEllipse {
-                cx: frame.text_center_x,
+                cx: frame.left + radius,
                 cy: mark_y,
                 rx: radius,
                 ry: radius,
@@ -310,11 +343,11 @@ pub(crate) fn render_rehearsal_marks(
     super::text_content::emit_content(
         dl,
         &mark.text,
-        frame.text_center_x,
+        frame.text_x,
         frame.baseline_y,
-        2.8 * sp,
-        "serif bold",
-        "#000000",
+        text_style.size_px(sp),
+        &text_style.font_string(),
+        &text_style.color,
         TextAlign::Center,
         TextBaseline::Alphabetic,
     );
@@ -325,5 +358,15 @@ pub(crate) fn render_rehearsal_marks(
     for ci in cmd_idx..cmd_end {
         dl.tag_command(ci, eid.clone());
     }
-    super::publish_marking_geometry(dl, cmd_idx, &eid, ElementKind::RehearsalMark);
+    if matches!(style, RehearsalMarkStyle::Plain) {
+        dl.push_element_bbox_with_shape(ElementBBox {
+            element_id: eid,
+            bbox: BoundingBox::new(frame.left, frame.top, frame.width, frame.height),
+        });
+        if let Some(shape) = dl.element_shapes.last_mut() {
+            shape.authored_bounds = true;
+        }
+    } else {
+        super::publish_marking_geometry(dl, cmd_idx, &eid, ElementKind::RehearsalMark);
+    }
 }

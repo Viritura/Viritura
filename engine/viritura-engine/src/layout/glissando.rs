@@ -143,17 +143,35 @@ fn emit_glissando(
 
     // Render optional text label (e.g. "gliss.") along the line
     if let Some(ref text) = gliss.text {
-        let mid_x = (x1 + x2) * 0.5;
-        let mid_y = (y1 + y2) * 0.5 - 0.6 * sp;
-        dl.push(RenderCommand::DrawText {
-            x: mid_x,
-            y: mid_y,
+        let mut angle = (y2 - y1).atan2(x2 - x1);
+        // Keep lettering upright even when a cross-staff connection points left.
+        if angle > std::f64::consts::FRAC_PI_2 {
+            angle -= std::f64::consts::PI;
+        } else if angle < -std::f64::consts::FRAC_PI_2 {
+            angle += std::f64::consts::PI;
+        }
+        let (sin, cos) = angle.sin_cos();
+        let size = 3.2 * sp;
+        let font = "serif italic";
+        let ink = crate::render::text_fonts::ink_bounds(text, font, size, &TextAlign::Center)
+            .expect("bundled glissando label font must have metrics");
+        let line_half_height = match gliss.style {
+            GlissandoStyle::Straight => line_width * 0.5,
+            GlissandoStyle::Wavy => smufl::WIGGLE_GLISSANDO_HEIGHT * sp * 0.5,
+        };
+        let clearance = line_half_height + 0.4 * sp;
+        let normal_offset = clearance + ink.y + ink.height;
+        let along_offset = -ink.x - ink.width * 0.5;
+        dl.push(RenderCommand::DrawRotatedText {
+            x: (x1 + x2) * 0.5 + cos * along_offset + sin * normal_offset,
+            y: (y1 + y2) * 0.5 + sin * along_offset - cos * normal_offset,
             text: text.clone(),
-            font: "serif italic".to_string(),
-            size: 0.8 * sp * 4.0,
+            font: font.to_string(),
+            size,
             color: "#000000".to_string(),
             align: TextAlign::Center,
-            baseline: TextBaseline::Bottom,
+            baseline: TextBaseline::Alphabetic,
+            rotation: angle,
         });
     }
 }

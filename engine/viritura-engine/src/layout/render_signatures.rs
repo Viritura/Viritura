@@ -176,6 +176,13 @@ pub(crate) fn key_signature_layout(
     clef_sign: &ClefSign,
     cancel_prev: Option<&KeySignature>,
 ) -> KeySignatureLayout {
+    if *clef_sign == ClefSign::P {
+        return KeySignatureLayout {
+            glyphs: Vec::new(),
+            advance: x,
+            glyph_size: 4.0 * sp,
+        };
+    }
     let count = key.accidental_count();
     let codepoint = if key.is_sharps() {
         smufl::ACCIDENTAL_SHARP
@@ -294,6 +301,9 @@ pub fn compute_key_signature_positions(fifths: i32, clef_sign: ClefSign) -> Vec<
 /// start of every system.
 pub(crate) fn key_signature_is_rendered(ml: &MeasureLayout) -> bool {
     let rm = &ml.resolved;
+    if !staff_has_key_signature(rm) {
+        return false;
+    }
     let is_key_change = rm.key_signature_changed();
     let cancel_count = if is_key_change {
         rm.prev_key.cancellation_count(&rm.active_key)
@@ -302,6 +312,15 @@ pub(crate) fn key_signature_is_rendered(ml: &MeasureLayout) -> bool {
     };
     (is_key_change || rm.index == 0 || ml.is_first_on_system)
         && (rm.active_key.accidental_count() != 0 || cancel_count > 0)
+}
+
+pub(crate) fn staff_has_key_signature(rm: &ResolvedMeasure) -> bool {
+    rm.kit.is_none()
+        && rm
+            .part
+            .clefs
+            .as_ref()
+            .is_none_or(|clefs| clefs.first().is_none_or(|pc| pc.clef.sign != ClefSign::P))
 }
 
 /// X where this measure's key signature starts — the prefix cursor after the

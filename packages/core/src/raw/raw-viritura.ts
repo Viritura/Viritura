@@ -794,6 +794,7 @@ export interface components {
             staffLabel?: components["schemas"]["text-style"];
             pageNumber?: components["schemas"]["text-style"];
             tempo?: components["schemas"]["text-style"];
+            rehearsalMark?: components["schemas"]["text-style"];
             pedalText?: components["schemas"]["text-style"];
             copyright?: components["schemas"]["text-style"];
         };

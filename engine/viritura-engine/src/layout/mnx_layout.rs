@@ -32,6 +32,7 @@ mod explicit_pagination;
 mod explicit_staff_retention;
 mod explicit_system_breaks;
 mod explicit_system_layouts;
+mod explicit_system_sizing;
 mod explicit_widths;
 mod instrument_labels;
 mod instrument_regions;

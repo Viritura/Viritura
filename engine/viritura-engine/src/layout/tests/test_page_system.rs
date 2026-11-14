@@ -5,6 +5,230 @@ use crate::layout::config::LayoutConfig;
 use crate::layout::page::*;
 use crate::layout::system::*;
 
+fn copyright_document(authored: bool, copyright: &str) -> crate::model::Score {
+    use serde_json::json;
+    let measures: Vec<_> = (0..24)
+        .map(|index| {
+            if index == 0 {
+                json!({"id":"m1","time":{"count":4,"unit":4}})
+            } else {
+                json!({"id":format!("m{}", index + 1)})
+            }
+        })
+        .collect();
+    let part_measure = json!({"sequences":[{"content":[
+        {"duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":4}}]}
+    ]}]});
+    let mut value = json!({
+        "mnx":{"version":1},
+        "global":{"measures":measures},
+        "parts":[{"id":"p1","name":"Flute","measures":vec![part_measure;24]}],
+        "layouts":[{"id":"L","content":[{"type":"staff","sources":[{"part":"p1"}]}]}],
+        "scores":[{"name":"Flute","layout":"L"}],
+        "_x":{"viritura":{
+            "metadata":{"copyright":copyright},
+            "textStyles":{"copyright":{"size":4.0}}
+        }}
+    });
+    if authored {
+        value["scores"][0]["pages"] = json!([{"systems":(0..24)
+            .map(|index| json!({"measure":format!("m{}",index+1)}))
+            .collect::<Vec<_>>()}]);
+    }
+    crate::parse::parse_mnx(&value.to_string()).unwrap()
+}
+
+#[test]
+fn test_copyright_footer_appears_once_and_clears_music_without_cover() {
+    use crate::layout::layout_with_mnx_scores;
+    use crate::render::{RenderCommand, TextAlign};
+    for authored in [false, true] {
+        let score = copyright_document(authored, "Copyright test");
+        let config = LayoutConfig {
+            page_width: Some(360.0),
+            page_height: 80.0,
+            emit_layout_debug: true,
+            ..LayoutConfig::default()
+        };
+        let display = layout_with_mnx_scores(&score, &config, 0);
+        assert!(display.pages.len() > 1);
+        let footers: Vec<_> = display
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawText {
+                    x,
+                    y,
+                    size,
+                    text,
+                    align,
+                    ..
+                } if text == "Copyright test" => Some((*x, *y, *size, align)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(footers.len(), 1, "authored={authored}");
+        let (x, y, size, align) = footers[0];
+        assert!((x - 180.0).abs() < 0.01);
+        assert!(matches!(align, TextAlign::Center));
+        assert!((y - (config.page_height - config.page_margin_bottom) * config.sp).abs() < 0.01);
+        assert!((size - 4.0 * config.sp).abs() < 0.01);
+        let debug = display.layout_debug.as_ref().unwrap();
+        for system in debug.systems.iter().filter(|system| system.page_index == 0) {
+            assert!(
+                system.bbox_bottom_y <= y - size - config.sp + 0.01,
+                "music overlaps footer: authored={authored}, bottom={}, footer={y}",
+                system.bbox_bottom_y
+            );
+        }
+    }
+}
+
+#[test]
+fn test_copyright_stays_on_cover_including_without_other_credits() {
+    use crate::layout::{layout_with_mnx_scores, page_turn::TitlePagePolicy};
+    use crate::render::RenderCommand;
+    let score = copyright_document(false, "Cover copyright");
+    let mut config = LayoutConfig {
+        page_width: Some(360.0),
+        page_height: 80.0,
+        ..LayoutConfig::default()
+    };
+    config.page_turns.enabled = true;
+    config.page_turns.title_page = TitlePagePolicy::Always;
+    let display = layout_with_mnx_scores(&score, &config, 0);
+    assert!(
+        display.pages[0].system_indices.is_empty(),
+        "dedicated cover"
+    );
+    let footers: Vec<_> = display
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawText { y, text, .. } if text == "Cover copyright" => Some(*y),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(footers.len(), 1);
+    assert!(footers[0] < config.page_height * config.sp);
+    let without_notice = layout_with_mnx_scores(&copyright_document(false, ""), &config, 0);
+    assert_eq!(
+        serde_json::to_value(&display.pages).unwrap(),
+        serde_json::to_value(&without_notice.pages).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(&display.element_bboxes).unwrap(),
+        serde_json::to_value(&without_notice.element_bboxes).unwrap()
+    );
+}
+
+#[test]
+fn test_copyright_footer_does_not_change_empty_or_unpaged_layout() {
+    use crate::layout::layout_with_mnx_scores;
+    use crate::render::RenderCommand;
+    for copyright in ["", "  ", "Copyright test"] {
+        let score = copyright_document(false, copyright);
+        let mut config = LayoutConfig::default();
+        if copyright.trim().is_empty() {
+            config.page_width = Some(360.0);
+        }
+        let display = layout_with_mnx_scores(&score, &config, 0);
+        assert!(!display.commands.iter().any(|command| matches!(command,
+            RenderCommand::DrawText { text, .. } if text == copyright)));
+    }
+}
+
+#[test]
+fn test_copyright_reserve_moves_only_first_page_music_bottom() {
+    let mut config = LayoutConfig {
+        sp: 1.0,
+        page_width: Some(100.0),
+        page_height: 100.0,
+        page_margin_top: 10.0,
+        page_margin_bottom: 10.0,
+        ..LayoutConfig::default()
+    };
+    let heights = [30.0; 4];
+    let pages = compute_page_breaks_with_forced(&heights, &config, 0.0, &[2]);
+    let (baseline, _, _) = compute_system_y_positions(
+        &[1; 4],
+        4.0,
+        &pages,
+        &config,
+        0.0,
+        Some(&heights),
+        None,
+        None,
+    );
+    config.first_page_footer_height = 10.0;
+    let (positions, _, _) = compute_system_y_positions(
+        &[1; 4],
+        4.0,
+        &pages,
+        &config,
+        0.0,
+        Some(&heights),
+        None,
+        None,
+    );
+    assert!((baseline[1] - positions[1] - 10.0).abs() < 0.01);
+    assert_eq!(baseline[0], positions[0], "top of music remains anchored");
+    assert_eq!(&baseline[2..], &positions[2..], "later pages unchanged");
+
+    config.first_page_footer_height = 20.0;
+    let packed = compute_page_breaks_with_forced(&[31.0; 5], &config, 0.0, &[]);
+    assert_eq!(packed[0].system_indices, vec![0]);
+    assert_eq!(packed[1].system_indices, vec![1, 2]);
+}
+
+#[test]
+fn test_copyright_footer_in_layouts_without_score_definitions() {
+    use crate::layout::layout_with_mnx_scores;
+    use crate::render::RenderCommand;
+    for (parts, staves) in [(1, 1), (1, 2), (2, 1)] {
+        let mut score = copyright_document(false, "Fallback copyright");
+        score.scores.clear();
+        score.layouts.clear();
+        score.parts[0].staves = staves;
+        if parts == 2 {
+            let mut second = score.parts[0].clone();
+            second.id = Some("p2".into());
+            score.parts.push(second);
+        }
+        let config = LayoutConfig {
+            page_width: Some(360.0),
+            page_height: 80.0,
+            ..LayoutConfig::default()
+        };
+        let display = layout_with_mnx_scores(&score, &config, 0);
+        let footers: Vec<_> = display
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawText { y, size, text, .. } if text == "Fallback copyright" => {
+                    Some((*y, *size))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(footers.len(), 1, "parts={parts}, staves={staves}");
+        let (y, size) = footers[0];
+        let page_height = config.page_height * config.sp;
+        for element in display
+            .element_bboxes
+            .iter()
+            .filter(|element| element.bbox.y < page_height)
+        {
+            assert!(
+                element.bbox.y + element.bbox.height <= y - size - config.sp + 0.01,
+                "fallback music overlaps footer: parts={parts}, staves={staves}, {:?}",
+                element.bbox
+            );
+        }
+        assert!(display.height >= page_height);
+    }
+}
+
 // ═══════════════════════════════════════════
 // Page breaking tests
 // ═══════════════════════════════════════════
@@ -398,6 +622,7 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
                 senza_misura: None,
                 chord_symbols: None,
                 system_text: None,
+                gradual_tempo: None,
             }),
         }),
     };

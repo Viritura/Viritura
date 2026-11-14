@@ -13380,6 +13380,9 @@ impl<'de> ::serde::Deserialize<'de> for TextStyleColor {
 ///    "pedalText": {
 ///      "$ref": "#/$defs/text-style"
 ///    },
+///    "rehearsalMark": {
+///      "$ref": "#/$defs/text-style"
+///    },
 ///    "staffLabel": {
 ///      "$ref": "#/$defs/text-style"
 ///    },
@@ -13419,6 +13422,12 @@ pub struct TextStyles {
     )]
     pub pedal_text: ::std::option::Option<TextStyle>,
     #[serde(
+        rename = "rehearsalMark",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub rehearsal_mark: ::std::option::Option<TextStyle>,
+    #[serde(
         rename = "staffLabel",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -13444,6 +13453,7 @@ impl ::std::default::Default for TextStyles {
             copyright: Default::default(),
             page_number: Default::default(),
             pedal_text: Default::default(),
+            rehearsal_mark: Default::default(),
             staff_label: Default::default(),
             subtitle: Default::default(),
             tempo: Default::default(),

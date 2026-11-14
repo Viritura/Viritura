@@ -324,6 +324,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                 Some(system_render_hash(
                     all_staff_layouts,
                     &precomp_content_hashes[sys_idx],
+                    &score.global.measures,
                     &staff_y_offsets,
                     &next_sys_clef_per_staff,
                     margin_left,
@@ -481,6 +482,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                 staff_content_render_hash(
                     &all_staff_layouts[staff_idx],
                     &precomp_content_hashes[sys_idx][staff_idx],
+                    &score.global.measures,
                     &staff_y_offsets,
                     next_sys_clef_per_staff[staff_idx],
                     margin_left,
@@ -594,7 +596,6 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                 flat_staves,
                 None,
                 &staff_y_offsets,
-                &next_sys_clef_per_staff,
                 score,
                 lyric_line_order,
                 sp,
@@ -700,6 +701,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                     staff_height,
                     sp,
                     config,
+                    &score.global.measures,
                     sys_idx == system_count - 1,
                     clef_change_measures,
                     chunked && sys_idx < system_count - 1,

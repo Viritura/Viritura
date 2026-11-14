@@ -3,8 +3,9 @@
 use super::super::config::LayoutConfig;
 use super::super::full_score::{FlatStaff, GroupRange};
 use super::super::page::{
-    compute_page_breaks_with_forced, compute_system_y_positions, title_block_height,
+    compute_page_breaks_with_extras, compute_system_y_positions, title_block_height,
 };
+use super::explicit_system_sizing::{fit_explicit_staff_spacing, ExplicitSystemSize};
 use crate::model::Score;
 use crate::render::PageLayout;
 
@@ -32,6 +33,7 @@ pub(super) fn paginate_explicit_pages(
     inter_system_gap: f64,
     system_measure_ranges: &[(usize, usize)],
     system_flat_staves: &[(Vec<FlatStaff>, Vec<GroupRange>)],
+    system_sizes: &[ExplicitSystemSize],
     max_widths: &[f64],
     forced_page_starts: &[usize],
     part_score_name: Option<&str>,
@@ -57,7 +59,14 @@ pub(super) fn paginate_explicit_pages(
     let system_count = system_measure_ranges.len();
     let system_heights: Vec<f64> = system_flat_staves
         .iter()
-        .map(|(staves, groups)| compute_system_height(staves, groups))
+        .enumerate()
+        .map(|(index, (staves, groups))| {
+            if config.page_width.is_some() {
+                system_sizes[index].height(7.0 * sp, config.default_intra_staff_clearance * sp)
+            } else {
+                compute_system_height(staves, groups)
+            }
+        })
         .collect();
     let page_w = config.page_width.unwrap_or_else(|| {
         let max_total = system_measure_ranges
@@ -74,8 +83,13 @@ pub(super) fn paginate_explicit_pages(
     let title_height_px = title_block_height(score.metadata(), config).max(
         super::super::page::part_score_name_height(part_score_name, config),
     );
-    let pages = compute_page_breaks_with_forced(
+    let extras: Vec<_> = system_sizes
+        .iter()
+        .map(|size| (size.above, size.below))
+        .collect();
+    let pages = compute_page_breaks_with_extras(
         &system_heights,
+        config.page_width.map(|_| extras.as_slice()),
         config,
         title_height_px,
         forced_page_starts,
@@ -85,16 +99,25 @@ pub(super) fn paginate_explicit_pages(
         .map(|(staves, _)| staves.len())
         .collect();
     let (system_y_positions, justified_gaps, intra_clearances) = if config.page_width.is_some() {
-        compute_system_y_positions(
+        let (mut positions, mut gaps, mut clearances) = compute_system_y_positions(
             &staves_per_system,
             staff_height,
             &pages,
             config,
             title_height_px,
             Some(&system_heights),
+            Some(&extras),
             None,
-            None,
-        )
+        );
+        fit_explicit_staff_spacing(
+            system_sizes,
+            &pages,
+            config,
+            &mut positions,
+            &mut gaps,
+            &mut clearances,
+        );
+        (positions, gaps, clearances)
     } else {
         (
             (0..system_count)

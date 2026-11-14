@@ -158,7 +158,7 @@ fn cmd_y(cmd: &RenderCommand) -> f64 {
         RenderCommand::DrawRect { y, .. } | RenderCommand::EraseRect { y, .. } => *y,
         RenderCommand::DrawCircle { cy, .. } => *cy,
         RenderCommand::DrawEllipse { cy, .. } => *cy,
-        RenderCommand::DrawText { y, .. } => *y,
+        RenderCommand::DrawText { y, .. } | RenderCommand::DrawRotatedText { y, .. } => *y,
         RenderCommand::DrawGlyph { y, .. } | RenderCommand::DrawStretchedGlyph { y, .. } => *y,
         RenderCommand::DrawBezier { y1, y2, .. } => y1.min(*y2),
         RenderCommand::DrawQuadratic { y1, y2, .. } => y1.min(*y2),
@@ -462,6 +462,47 @@ fn render_cmd(
             ))
         }
 
+        RenderCommand::DrawRotatedText {
+            x,
+            y,
+            text,
+            font,
+            size,
+            color,
+            align,
+            baseline,
+            rotation,
+        } => {
+            let local = RenderCommand::DrawText {
+                x: 0.0,
+                y: pg.y_offset,
+                text: text.clone(),
+                font: font.clone(),
+                size: *size,
+                color: color.clone(),
+                align: align.clone(),
+                baseline: baseline.clone(),
+            };
+            let rendered = render_cmd(
+                &local,
+                pg,
+                cfg,
+                bravura,
+                crate::render::text_fonts::face(font).or(text_face),
+                opacity,
+            )?;
+            Some(rendered.replacen(
+                ' ',
+                &format!(
+                    " transform=\"translate({:.6},{:.6}) rotate({:.6})\" ",
+                    c.x(*x),
+                    c.y(*y),
+                    rotation.to_degrees()
+                ),
+                1,
+            ))
+        }
+
         // ── Text (→ path when font available, else <text>) ─
         RenderCommand::DrawText {
             x,
@@ -745,6 +786,53 @@ mod tests {
         let dl = DisplayList::new(100.0, 200.0);
         assert!(dl.pages.is_empty());
         assert_eq!(dl.commands.len(), 0);
+    }
+
+    #[test]
+    fn rotated_text_outlines_use_the_label_font_and_page_relative_anchor() {
+        let command = RenderCommand::DrawRotatedText {
+            x: 20.0,
+            y: 50.0,
+            text: "gliss.".into(),
+            font: "serif italic".into(),
+            size: 12.0,
+            color: "#000000".into(),
+            align: TextAlign::Center,
+            baseline: TextBaseline::Alphabetic,
+            rotation: std::f64::consts::FRAC_PI_6,
+        };
+        let page = PageLayout {
+            page_number: 1,
+            system_indices: vec![],
+            y_offset: 40.0,
+            height: 100.0,
+        };
+        let config = SvgExportConfig {
+            spatium_mm: 1.0,
+            sp_pixels: 1.0,
+            page_width_mm: 100.0,
+            page_height_mm: 100.0,
+        };
+        let svg = render_cmd(
+            &command,
+            &page,
+            &config,
+            crate::render::text_fonts::face("serif").unwrap(),
+            None,
+            1.0,
+        )
+        .unwrap();
+        let face = crate::render::text_fonts::face("serif italic").unwrap();
+        let path = text_to_path(
+            face,
+            "gliss.",
+            -text_advance_mm(face, "gliss.", 12.0) * 0.5,
+            0.0,
+            12.0,
+        );
+        assert!(svg.contains(&format!("d=\"{path}\"")));
+        assert!(svg.contains("transform=\"translate(20.000000,10.000000) rotate(30.000000)\""));
+        assert!(!svg.contains("<text"));
     }
 
     #[test]
