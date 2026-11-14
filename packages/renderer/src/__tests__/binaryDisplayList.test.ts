@@ -9,6 +9,8 @@ import {
 import { SpatialIndex } from "../hitTest";
 import { decodeFrame, PatchReconstructor } from "../patchFrame";
 import type { DisplayList } from "../wasm";
+import { paintDisplayList } from "../displayListPainter";
+import { canvasTextFont } from "../textFont";
 
 /**
  * Helper: encode a color string "#RRGGBB" into a u32, then pack as f32 bits.
@@ -397,6 +399,21 @@ describe("decodeBinaryDisplayList", () => {
 });
 
 describe("paintBinaryDisplayList", () => {
+  it("normalizes the legacy style-first font like the binary transport", () => {
+    expect(canvasTextFont("italic serif", 14)).toBe(canvasTextFont("serif italic", 14));
+  });
+  it("uses the same font for binary and JSON text across families and styles", () => {
+    for (let fontId = 1; fontId <= 12; fontId++) {
+      const data = buildBinaryBuffer(100, 100, [[10, 10, 20, 14, encodeColor("#123456"), 1, 3, fontId, 1, 65]]);
+      const decoded = decodeBinaryDisplayList(data);
+      const binary = createMockCtx();
+      const json = createMockCtx();
+      paintBinaryDisplayList(binary, data);
+      paintDisplayList(json, decoded);
+      expect(binary.font).toBe(json.font);
+      if (fontId >= 5 && fontId <= 8) expect(binary.font).toContain("Arial, sans-serif");
+    }
+  });
   let ctx: CanvasRenderingContext2D;
 
   beforeEach(() => {

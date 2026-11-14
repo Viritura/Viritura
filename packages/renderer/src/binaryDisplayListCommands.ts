@@ -7,7 +7,7 @@
  */
 
 import type { DrawText, RenderCommand } from "./wasm";
-import { canvasFontFamily } from "./textFont";
+import { canvasFontFamily, canvasTextFont } from "./textFont";
 
 // ───────────────────────────────────────────────
 // Tag and table constants (must match Rust binary.rs)
@@ -46,21 +46,6 @@ const FONT_TABLE = [
   "monospace",
   "monospace",
   "monospace",
-] as const;
-const FONT_STYLE_TABLE = [
-  "",
-  "",
-  "bold ",
-  "italic ",
-  "bold italic ",
-  "",
-  "bold ",
-  "italic ",
-  "bold italic ",
-  "",
-  "bold ",
-  "italic ",
-  "bold italic ",
 ] as const;
 const FONT_DECODE_TABLE = [
   "Bravura",
@@ -606,7 +591,7 @@ function paintDrawText(ctx: CanvasRenderingContext2D, r: BinaryReader, rotated =
   for (let i = 0; i < textLen; i++) {
     text += String.fromCodePoint(r.f32());
   }
-  ctx.font = `${FONT_STYLE_TABLE[fontId] ?? ""}${size}px ${canvasFontFamily(FONT_TABLE[fontId] ?? "serif")}`;
+  ctx.font = canvasTextFont(FONT_DECODE_TABLE[fontId] ?? "serif", size);
   ctx.textAlign = ALIGN_TABLE[alignIdx] ?? "left";
   ctx.textBaseline = BASELINE_TABLE[baselineIdx] ?? "alphabetic";
   if (rotated) {

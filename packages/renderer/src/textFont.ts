@@ -13,8 +13,9 @@ const SERIF_STACK = `"${TEXT_FONT_FAMILY}", serif`;
 
 /** Map a render-command family name to a CSS font-family list. */
 export function canvasFontFamily(family: string): string {
+  if (family === "serif") return SERIF_STACK;
   if (family === "sans-serif") return "Arial, sans-serif";
-  return family === "serif" ? SERIF_STACK : family;
+  return family;
 }
 
 /**
@@ -23,7 +24,10 @@ export function canvasFontFamily(family: string): string {
  */
 export function canvasTextFont(font: string, size: number): string {
   const parts = font.split(" ");
-  const family = canvasFontFamily(parts[0] || "serif");
-  const style = parts.slice(1).join(" ");
+  const familyIndex =
+    parts[0] === "bold" || parts[0] === "italic" ? parts.findIndex((part) => part !== "bold" && part !== "italic") : 0;
+  const index = familyIndex < 0 ? 0 : familyIndex;
+  const family = canvasFontFamily(parts[index] || "serif");
+  const style = [...parts.slice(0, index), ...parts.slice(index + 1)].join(" ");
   return style ? `${style} ${size}px ${family}` : `${size}px ${family}`;
 }
