@@ -419,6 +419,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             active_time: active_time.clone(),
             active_key: display_key.clone(),
             prev_key: prev_display_key.clone(),
+            system_end: Default::default(),
             tie_continuation_ids: incoming_ties,
             active_staff_lines: measure_staff_lines,
             transposition,

@@ -8,7 +8,7 @@
  */
 
 import type { GlobalMeasure, TimeSignature } from "@viritura/core";
-import { DURATION_BEATS } from "@viritura/core";
+import { DURATION_BEATS, measureTempoInstructions } from "@viritura/core";
 import type { TempoMapEntry } from "./types";
 import type { HoldSchedule } from "./holds";
 import { TempoModel, type TempoRegion, type TempoInsertion } from "./tempoModel";
@@ -85,7 +85,7 @@ export function tempoMapEntries(globalMeasures: readonly GlobalMeasure[], timing
   const { model, measureStartBeats } = timing;
   const tempoMap: TempoMapEntry[] = [];
   globalMeasures.forEach((measure, measureIndex) => {
-    for (const tempo of [...(measure.tempos ?? [])].sort((a, b) => tempoBeat(a) - tempoBeat(b))) {
+    for (const tempo of measureTempoInstructions(measure).sort((a, b) => tempoBeat(a) - tempoBeat(b))) {
       if (tempo.bpm === undefined) continue;
       const beatInMeasure = tempoBeat(tempo);
       const beat = measureStartBeats[measureIndex]! + beatInMeasure;
@@ -160,8 +160,9 @@ export function buildTempoModel(globalMeasures: readonly GlobalMeasure[], holds?
     const mBeats = measureBeatsFromTime(gm.time ?? currentTime);
     measureStartBeats.push(cumBeats);
 
-    if (gm.tempos && gm.tempos.length > 0) {
-      const sorted = [...gm.tempos].sort((a, b) => tempoBeat(a) - tempoBeat(b));
+    const instructions = measureTempoInstructions(gm);
+    if (instructions.length > 0) {
+      const sorted = instructions.sort((a, b) => tempoBeat(a) - tempoBeat(b));
       for (const tempo of sorted) {
         if (tempo.bpm === undefined) continue;
         const startBeat = cumBeats + tempoBeat(tempo);

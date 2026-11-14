@@ -114,7 +114,7 @@ function currentScore(): Score {
   return JSON.parse(screen.getByTestId("score").textContent ?? "null") as Score;
 }
 
-describe("Lyrics palette controls", () => {
+describe("Lyrics Properties controls", () => {
   it("starts lyric entry on the selected note", async () => {
     const user = userEvent.setup();
     renderPanel();
@@ -128,7 +128,7 @@ describe("Lyrics palette controls", () => {
     });
   });
 
-  it("turns off note input when entry starts from the palette", async () => {
+  it("turns off note input when entry starts from Properties", async () => {
     const user = userEvent.setup();
     renderPanel();
     toggleNoteInputMode();

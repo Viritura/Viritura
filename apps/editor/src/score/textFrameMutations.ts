@@ -203,16 +203,6 @@ export function textFrameLocatorMeasureIndex(score: Score, locator: TextFrameLoc
 }
 
 /**
- * Global-measure locator for a zero-based measure index. Null when the measure
- * has no authored ID: frames follow stable MNX IDs, never positional ones that
- * would silently retarget when measures are inserted.
- */
-export function measureLocatorAt(score: Score, measureIndex: number): TextFrameLocator | null {
-  const measureId = score.global.measures[measureIndex]?.id;
-  return measureId ? { type: "globalMeasure", measureId } : null;
-}
-
-/**
  * Whether a musical locator targets music present in this score view. Page
  * locators always resolve here; whether the page exists is a pagination fact.
  * Unresolved frames stay authored but are not drawn, so the UI must surface them.

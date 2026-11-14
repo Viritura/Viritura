@@ -172,6 +172,83 @@ fn system_text_renders_once_at_each_visible_system_boundary() {
 }
 
 #[test]
+fn tempo_ramp_labels_inherit_tempo_weight_and_preserve_explicit_formatting() {
+    use crate::layout::cache::LayoutCache;
+    use crate::layout::layout_with_mnx_scores_cached;
+
+    let mut document = json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "id": "m0", "time": {"count": 4, "unit": 4},
+            "tempos": [{"bpm": 120, "value": {"base": "quarter"}}],
+            "_x": {"viritura": {
+                "gradualTempo": {
+                    "position": {"fraction": [0, 1]},
+                    "end": {"measure": "m0", "position": {"fraction": [1, 1]}},
+                    "endRatio": 0.8, "systemTextId": "ramp"
+                },
+                "systemText": [
+                    {"id": "ramp", "position": {"fraction": [1, 4]}, "placement": "above",
+                     "text": [{"text": "rall."}, {"text": " normal", "style": {"weight": "normal"}}],
+                     "tempo": {"bpm": 84, "value": {"base": "quarter"}}},
+                    {"id": "other", "position": {"fraction": [1, 2]}, "placement": "above",
+                     "text": [{"text": "accel."}]}
+                ]
+            }}
+        }]},
+        "parts": [{"measures": [{"sequences": [{"content": [
+            {"duration": {"base": "whole"}, "rest": {}}
+        ]}]}]}]
+    });
+    for bold in [true, false] {
+        let mut config = LayoutConfig::default();
+        config.text_styles.tempo.bold = bold;
+        let mut cache = LayoutCache::new();
+        for owner in ["ramp", "other"] {
+            document["global"]["measures"][0]["_x"]["viritura"]["gradualTempo"]["systemTextId"] =
+                json!(owner);
+            let score = parse_mnx(&document.to_string()).unwrap();
+            for _ in 0..2 {
+                let display = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+                let font = |label: &str| {
+                    display
+                        .commands
+                        .iter()
+                        .find_map(|command| match command {
+                            RenderCommand::DrawText { text, font, .. } if text == label => {
+                                Some(font.as_str())
+                            }
+                            _ => None,
+                        })
+                        .unwrap()
+                };
+                for (id, label) in [("ramp", "rall."), ("other", "accel.")] {
+                    assert_eq!(
+                        font(label),
+                        if id == owner { font(" = 120") } else { "serif" },
+                        "only the ramp-owned text should inherit tempo weight"
+                    );
+                }
+                assert_eq!(
+                    font(" normal"),
+                    "serif",
+                    "authored weights must remain unchanged"
+                );
+                assert_eq!(
+                    font(" = 84)"),
+                    if owner == "ramp" {
+                        font(" = 120")
+                    } else {
+                        "serif"
+                    },
+                    "the system instruction's metronome must render with its inherited weight"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn system_text_vertical_reservation_accounts_for_stacking() {
     use crate::layout::layout_measure;
     use crate::layout::render_annotations::system_text_vertical_extras;
@@ -221,6 +298,53 @@ fn system_text_vertical_reservation_accounts_for_stacking() {
     }
 }
 
+#[test]
+fn system_instruction_renders_framed_text_and_optional_metronome_together() {
+    use crate::render::smufl::smufl::{MET_AUGMENTATION_DOT, MET_NOTE_QUARTER_UP};
+    for (show_text, show_metronome) in [(true, true), (true, false), (false, true)] {
+        for placement in ["above", "below"] {
+            let source = json!({
+                "mnx": { "version": 1 },
+                "global": { "measures": [{
+                    "time": { "count": 4, "unit": 4 },
+                    "_x": { "viritura": { "systemText": [{
+                        "id": "shared", "text": [{ "text": "Broadly" }],
+                        "position": { "fraction": [0, 1] }, "placement": placement,
+                        "showText": show_text,
+                        "frame": { "border": "solid", "padding": 0.5,
+                            "width": { "unit": "staffSpaces", "value": 24 } },
+                        "tempo": { "bpm": 84, "value": { "base": "quarter", "dots": 1 },
+                            "showMetronomeMark": show_metronome }
+                    }] } }
+                }] },
+                "parts": [{ "measures": [{ "sequences": [{ "content": [{
+                    "duration": { "base": "whole" },
+                    "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                }] }] }] }]
+            });
+            let score = parse_mnx(&source.to_string()).unwrap();
+            let display = layout_score(&score, 0, &LayoutConfig::default());
+            assert_eq!(
+                display
+                    .element_bboxes
+                    .iter()
+                    .filter(|bbox| bbox.element_id == "m0/systemText/shared")
+                    .count(),
+                1
+            );
+            let has_words = display.commands.iter().any(|command| {
+                    matches!(command, RenderCommand::DrawText { text, .. } if text.contains("Broadly"))
+                });
+            assert_eq!(has_words, show_text);
+            for expected in [MET_NOTE_QUARTER_UP, MET_AUGMENTATION_DOT] {
+                let count = display.commands.iter().filter(|command| {
+                        matches!(command, RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == expected)
+                    }).count();
+                assert_eq!(count, usize::from(show_metronome));
+            }
+        }
+    }
+}
 #[test]
 fn test_chord_symbols_render_text() {
     let json = std::fs::read_to_string(concat!(

@@ -782,7 +782,6 @@ pub(super) fn render_system_staff_content(
     flat_staves: &[FlatStaff],
     measure_staves: Option<&HashMap<usize, &FlatStaff>>,
     staff_y_offsets: &[f64],
-    next_sys_clef_per_staff: &[Option<&Clef>],
     score: &Score,
     lyric_line_order: Option<&[String]>,
     sp: f64,
@@ -811,7 +810,6 @@ pub(super) fn render_system_staff_content(
     );
     let is_expansion = flat_staves.get(staff_idx).is_some_and(|fs| fs.expansion);
     let recolor_start = dl.commands.len();
-    let next_sys_clef = next_sys_clef_per_staff.get(staff_idx).copied().flatten();
     let tie_override = tie_maps_per_staff.and_then(|maps| maps.get(staff_idx));
     let bounds_start = dl.measure_bounds.len();
     render_system_contents(
@@ -827,7 +825,6 @@ pub(super) fn render_system_staff_content(
         staff_part_idx,
         Some(staff_y_offsets),
         Some(&shared_lane_staff_y_offsets),
-        next_sys_clef,
         Some(staff_idx),
         logical_system_index,
         is_expansion,

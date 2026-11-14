@@ -7658,6 +7658,19 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 ///      "description": "Score-scoped channel, group, and master mixer settings.",
 ///      "$ref": "#/$defs/score-mixer-settings"
 ///    },
+///    "pageSetupDefaults": {
+///      "description": "Independent project defaults for score and part page geometry. Per-score pageSetup values override these.",
+///      "type": "object",
+///      "properties": {
+///        "part": {
+///          "$ref": "#/$defs/page-setup"
+///        },
+///        "score": {
+///          "$ref": "#/$defs/page-setup"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
 ///    "placement": {
 ///      "description": "Per-document placement (clearance) overrides keyed by dependent kind.",
 ///      "$ref": "#/$defs/placement"
@@ -7714,6 +7727,12 @@ pub struct RootExtensions {
     ///Score-scoped channel, group, and master mixer settings.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub mixer: ::std::option::Option<ScoreMixerSettings>,
+    #[serde(
+        rename = "pageSetupDefaults",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub page_setup_defaults: ::std::option::Option<RootExtensionsPageSetupDefaults>,
     ///Per-document placement (clearance) overrides keyed by dependent kind.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub placement: ::std::option::Option<Placement>,
@@ -7759,6 +7778,7 @@ impl ::std::default::Default for RootExtensions {
             lyric_workflow: Default::default(),
             metadata: Default::default(),
             mixer: Default::default(),
+            page_setup_defaults: Default::default(),
             placement: Default::default(),
             sound_profile: Default::default(),
             text_styles: Default::default(),
@@ -7811,6 +7831,48 @@ impl ::std::default::Default for RootExtensionsInstrumentChangeStyle {
         }
     }
 }
+///Independent project defaults for score and part page geometry. Per-score pageSetup values override these.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Independent project defaults for score and part page geometry. Per-score pageSetup values override these.",
+///  "type": "object",
+///  "properties": {
+///    "part": {
+///      "$ref": "#/$defs/page-setup"
+///    },
+///    "score": {
+///      "$ref": "#/$defs/page-setup"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct RootExtensionsPageSetupDefaults {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub part: ::std::option::Option<PageSetup>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub score: ::std::option::Option<PageSetup>,
+}
+impl ::std::convert::From<&RootExtensionsPageSetupDefaults>
+for RootExtensionsPageSetupDefaults {
+    fn from(value: &RootExtensionsPageSetupDefaults) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for RootExtensionsPageSetupDefaults {
+    fn default() -> Self {
+        Self {
+            part: Default::default(),
+            score: Default::default(),
+        }
+    }
+}
 ///Viritura extensions on a standard MNX score definition.
 ///
 /// <details><summary>JSON schema</summary>
@@ -7820,6 +7882,15 @@ impl ::std::default::Default for RootExtensionsInstrumentChangeStyle {
 ///  "description": "Viritura extensions on a standard MNX score definition.",
 ///  "type": "object",
 ///  "properties": {
+///    "autoHideEmptyParts": {
+///      "description": "Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.",
+///      "type": "array",
+///      "items": {
+///        "type": "string",
+///        "minLength": 1
+///      },
+///      "uniqueItems": true
+///    },
 ///    "instrumentNameDisplay": {
 ///      "$ref": "#/$defs/instrument-name-display"
 ///    },
@@ -7831,6 +7902,12 @@ impl ::std::default::Default for RootExtensionsInstrumentChangeStyle {
 ///    },
 ///    "pageSetup": {
 ///      "$ref": "#/$defs/page-setup"
+///    },
+///    "pageSetupRole": {
+///      "enum": [
+///        "score",
+///        "part"
+///      ]
 ///    },
 ///    "textFrames": {
 ///      "description": "Free text frames owned by this score view. A page locator uses a zero-based index into the final rendered page array; measure and event locators follow their target onto its rendered page. Event IDs are scoped by the required part ID. Placement is relative to an edge or corner of the printable page area, with offsets in staff spaces (+x right, +y down). Frames have automatic height and do not participate in collision avoidance.",
@@ -7847,6 +7924,15 @@ impl ::std::default::Default for RootExtensionsInstrumentChangeStyle {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ScoreExtensions {
+    ///Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.
+    #[serde(
+        rename = "autoHideEmptyParts",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub auto_hide_empty_parts: ::std::option::Option<
+        Vec<ScoreExtensionsAutoHideEmptyPartsItem>,
+    >,
     #[serde(
         rename = "instrumentNameDisplay",
         default,
@@ -7865,6 +7951,12 @@ pub struct ScoreExtensions {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub page_setup: ::std::option::Option<PageSetup>,
+    #[serde(
+        rename = "pageSetupRole",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub page_setup_role: ::std::option::Option<ScoreExtensionsPageSetupRole>,
     ///Free text frames owned by this score view. A page locator uses a zero-based index into the final rendered page array; measure and event locators follow their target onto its rendered page. Event IDs are scoped by the required part ID. Placement is relative to an edge or corner of the printable page area, with offsets in staff spaces (+x right, +y down). Frames have automatic height and do not participate in collision avoidance.
     #[serde(
         rename = "textFrames",
@@ -7881,11 +7973,174 @@ impl ::std::convert::From<&ScoreExtensions> for ScoreExtensions {
 impl ::std::default::Default for ScoreExtensions {
     fn default() -> Self {
         Self {
+            auto_hide_empty_parts: Default::default(),
             instrument_name_display: Default::default(),
             layout_breaks: Default::default(),
             page_setup: Default::default(),
+            page_setup_role: Default::default(),
             text_frames: Default::default(),
         }
+    }
+}
+///`ScoreExtensionsAutoHideEmptyPartsItem`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct ScoreExtensionsAutoHideEmptyPartsItem(::std::string::String);
+impl ::std::ops::Deref for ScoreExtensionsAutoHideEmptyPartsItem {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<ScoreExtensionsAutoHideEmptyPartsItem>
+for ::std::string::String {
+    fn from(value: ScoreExtensionsAutoHideEmptyPartsItem) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&ScoreExtensionsAutoHideEmptyPartsItem>
+for ScoreExtensionsAutoHideEmptyPartsItem {
+    fn from(value: &ScoreExtensionsAutoHideEmptyPartsItem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for ScoreExtensionsAutoHideEmptyPartsItem {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for ScoreExtensionsAutoHideEmptyPartsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for ScoreExtensionsAutoHideEmptyPartsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for ScoreExtensionsAutoHideEmptyPartsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for ScoreExtensionsAutoHideEmptyPartsItem {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`ScoreExtensionsPageSetupRole`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "enum": [
+///    "score",
+///    "part"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum ScoreExtensionsPageSetupRole {
+    #[serde(rename = "score")]
+    Score,
+    #[serde(rename = "part")]
+    Part,
+}
+impl ::std::convert::From<&Self> for ScoreExtensionsPageSetupRole {
+    fn from(value: &ScoreExtensionsPageSetupRole) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for ScoreExtensionsPageSetupRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Score => f.write_str("score"),
+            Self::Part => f.write_str("part"),
+        }
+    }
+}
+impl ::std::str::FromStr for ScoreExtensionsPageSetupRole {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "score" => Ok(Self::Score),
+            "part" => Ok(Self::Part),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ScoreExtensionsPageSetupRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for ScoreExtensionsPageSetupRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ScoreExtensionsPageSetupRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///Score-level bibliographic metadata. Stored at `_x.viritura.metadata` on the score root. The engine consumes `title`/`subtitle`/`composer`/`arranger`/`copyright`; the remaining fields are preserved verbatim from MusicXML import (`work-title`, `movement-title`, etc.) for round-tripping.
@@ -9444,6 +9699,375 @@ impl ::std::default::Default for SystemLayoutExtensions {
         }
     }
 }
+///Optional playback instruction on system text. No timing or swing change is implied when absent.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Optional playback instruction on system text. No timing or swing change is implied when absent.",
+///  "type": "object",
+///  "oneOf": [
+///    {
+///      "required": [
+///        "bpm",
+///        "value"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "anyOf": [
+///          {
+///            "required": [
+///              "bpm"
+///            ]
+///          },
+///          {
+///            "required": [
+///              "value"
+///            ]
+///          },
+///          {
+///            "required": [
+///              "showMetronomeMark"
+///            ]
+///          }
+///        ]
+///      },
+///      "required": [
+///        "swing"
+///      ]
+///    }
+///  ],
+///  "properties": {
+///    "bpm": {
+///      "type": "number"
+///    },
+///    "showMetronomeMark": {
+///      "type": "boolean"
+///    },
+///    "swing": {
+///      "$ref": "#/$defs/swing"
+///    },
+///    "value": {
+///      "$ref": "#/$defs/tempo-instruction/properties/value"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum SystemTempo {
+    Variant0(SystemTempoVariant0),
+    Variant1 { swing: Swing },
+}
+impl ::std::convert::From<&Self> for SystemTempo {
+    fn from(value: &SystemTempo) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<SystemTempoVariant0> for SystemTempo {
+    fn from(value: SystemTempoVariant0) -> Self {
+        Self::Variant0(value)
+    }
+}
+///`SystemTempoVariant0`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "allOf": [
+///    {
+///      "type": "object",
+///      "properties": {
+///        "bpm": {
+///          "type": "number"
+///        },
+///        "showMetronomeMark": {
+///          "type": "boolean"
+///        },
+///        "swing": {
+///          "$ref": "#/$defs/swing"
+///        },
+///        "value": {
+///          "$ref": "#/$defs/tempo-instruction/properties/value"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "required": [
+///        "bpm",
+///        "value"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "not": {
+///          "anyOf": [
+///            {
+///              "required": [
+///                "bpm"
+///              ]
+///            },
+///            {
+///              "required": [
+///                "value"
+///              ]
+///            },
+///            {
+///              "required": [
+///                "showMetronomeMark"
+///              ]
+///            }
+///          ]
+///        },
+///        "required": [
+///          "swing"
+///        ]
+///      }
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum SystemTempoVariant0 {
+    Variant0(SystemTempoVariant0Variant0),
+    Variant1(SystemTempoVariant0Variant1),
+    Variant2(SystemTempoVariant0Variant2),
+}
+impl ::std::convert::From<&Self> for SystemTempoVariant0 {
+    fn from(value: &SystemTempoVariant0) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<SystemTempoVariant0Variant0> for SystemTempoVariant0 {
+    fn from(value: SystemTempoVariant0Variant0) -> Self {
+        Self::Variant0(value)
+    }
+}
+impl ::std::convert::From<SystemTempoVariant0Variant1> for SystemTempoVariant0 {
+    fn from(value: SystemTempoVariant0Variant1) -> Self {
+        Self::Variant1(value)
+    }
+}
+impl ::std::convert::From<SystemTempoVariant0Variant2> for SystemTempoVariant0 {
+    fn from(value: SystemTempoVariant0Variant2) -> Self {
+        Self::Variant2(value)
+    }
+}
+///`SystemTempoVariant0Variant0`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "allOf": [
+///    {
+///      "type": "object",
+///      "required": [
+///        "bpm",
+///        "value"
+///      ],
+///      "properties": {
+///        "bpm": {
+///          "type": "number"
+///        },
+///        "showMetronomeMark": {
+///          "type": "boolean"
+///        },
+///        "swing": false,
+///        "value": {
+///          "$ref": "#/$defs/tempo-instruction/properties/value"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "required": [
+///        "bpm"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "value"
+///        ]
+///      }
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "showMetronomeMark"
+///        ]
+///      }
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+#[serde(deny_unknown_fields)]
+pub enum SystemTempoVariant0Variant0 {}
+impl ::std::convert::From<&Self> for SystemTempoVariant0Variant0 {
+    fn from(value: &SystemTempoVariant0Variant0) -> Self {
+        value.clone()
+    }
+}
+///`SystemTempoVariant0Variant1`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "allOf": [
+///    {
+///      "type": "object",
+///      "required": [
+///        "bpm",
+///        "value"
+///      ],
+///      "properties": {
+///        "bpm": {
+///          "type": "number"
+///        },
+///        "showMetronomeMark": {
+///          "type": "boolean"
+///        },
+///        "swing": false,
+///        "value": {
+///          "$ref": "#/$defs/tempo-instruction/properties/value"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "required": [
+///        "value"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "bpm"
+///        ]
+///      }
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "showMetronomeMark"
+///        ]
+///      }
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+#[serde(deny_unknown_fields)]
+pub enum SystemTempoVariant0Variant1 {}
+impl ::std::convert::From<&Self> for SystemTempoVariant0Variant1 {
+    fn from(value: &SystemTempoVariant0Variant1) -> Self {
+        value.clone()
+    }
+}
+///`SystemTempoVariant0Variant2`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "allOf": [
+///    {
+///      "type": "object",
+///      "required": [
+///        "bpm",
+///        "value"
+///      ],
+///      "properties": {
+///        "bpm": {
+///          "type": "number"
+///        },
+///        "showMetronomeMark": {
+///          "type": "boolean"
+///        },
+///        "swing": false,
+///        "value": {
+///          "$ref": "#/$defs/tempo-instruction/properties/value"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    {
+///      "required": [
+///        "showMetronomeMark"
+///      ]
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "bpm"
+///        ]
+///      }
+///    },
+///    {
+///      "not": {
+///        "required": [
+///          "value"
+///        ]
+///      }
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+#[serde(deny_unknown_fields)]
+pub enum SystemTempoVariant0Variant2 {}
+impl ::std::convert::From<&Self> for SystemTempoVariant0Variant2 {
+    fn from(value: &SystemTempoVariant0Variant2) -> Self {
+        value.clone()
+    }
+}
 ///One globally owned music-relative instruction displayed once above or below the visible system in every score/part view. No staff/voice or page coordinates.
 ///
 /// <details><summary>JSON schema</summary>
@@ -9495,6 +10119,12 @@ impl ::std::default::Default for SystemLayoutExtensions {
 ///        }
 ///      ]
 ///    },
+///    "showText": {
+///      "type": "boolean"
+///    },
+///    "tempo": {
+///      "$ref": "#/$defs/system-tempo"
+///    },
 ///    "text": {
 ///      "$ref": "#/$defs/text-content"
 ///    }
@@ -9524,6 +10154,14 @@ pub struct SystemText {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub placement: ::std::option::Option<ExpressionPlacement>,
     pub position: RhythmicPosition,
+    #[serde(
+        rename = "showText",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub show_text: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub tempo: ::std::option::Option<SystemTempo>,
     pub text: TextContent,
 }
 impl ::std::convert::From<&SystemText> for SystemText {
@@ -13125,6 +13763,9 @@ impl<'de> ::serde::Deserialize<'de> for TextStyleColor {
 ///    "pedalText": {
 ///      "$ref": "#/$defs/text-style"
 ///    },
+///    "rehearsalMark": {
+///      "$ref": "#/$defs/text-style"
+///    },
 ///    "staffLabel": {
 ///      "$ref": "#/$defs/text-style"
 ///    },
@@ -13164,6 +13805,12 @@ pub struct TextStyles {
     )]
     pub pedal_text: ::std::option::Option<TextStyle>,
     #[serde(
+        rename = "rehearsalMark",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub rehearsal_mark: ::std::option::Option<TextStyle>,
+    #[serde(
         rename = "staffLabel",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -13189,6 +13836,7 @@ impl ::std::default::Default for TextStyles {
             copyright: Default::default(),
             page_number: Default::default(),
             pedal_text: Default::default(),
+            rehearsal_mark: Default::default(),
             staff_label: Default::default(),
             subtitle: Default::default(),
             tempo: Default::default(),
@@ -15150,6 +15798,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "system-layout-extensions": {
 ///      "$ref": "#/$defs/system-layout-extensions"
 ///    },
+///    "system-tempo": {
+///      "$ref": "#/$defs/system-tempo"
+///    },
 ///    "system-text": {
 ///      "$ref": "#/$defs/system-text"
 ///    },
@@ -15683,6 +16334,12 @@ pub struct VirituraExtensionsRoot {
     )]
     pub system_layout_extensions: ::std::option::Option<SystemLayoutExtensions>,
     #[serde(
+        rename = "system-tempo",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub system_tempo: ::std::option::Option<SystemTempo>,
+    #[serde(
         rename = "system-text",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -15955,6 +16612,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             stage_position: Default::default(),
             swing: Default::default(),
             system_layout_extensions: Default::default(),
+            system_tempo: Default::default(),
             system_text: Default::default(),
             tempo_extensions: Default::default(),
             tempo_instruction: Default::default(),

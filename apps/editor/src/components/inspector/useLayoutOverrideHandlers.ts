@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { Score, TupletBracket, TupletDisplaySetting } from "@viritura/core";
+import type { Placement, Score, TupletBracket, TupletDisplaySetting } from "@viritura/core";
 import {
   setLayoutOverridesProperties,
   type LayoutOverridesInspectorPatch,
@@ -52,7 +52,7 @@ export function useLayoutOverrideHandlers({ score, target, updateScore }: UseLay
       ),
     handleTupletPlacementChange: (value: string) =>
       applyOverride(
-        { tuplet: { placement: value === "" ? null : (value as "up" | "down") } },
+        { tuplet: { placement: value === "" ? null : (value as Placement) } },
         "Unable to update tuplet placement.",
       ),
     handleTupletBracketChange: (value: string) =>

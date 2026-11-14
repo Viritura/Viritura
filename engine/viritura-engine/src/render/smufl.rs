@@ -2004,6 +2004,15 @@ pub mod smufl {
     /// Reference: https://w3c.github.io/smufl/latest/tables/dynamics.html
     pub fn smufl_name_to_codepoint(name: &str) -> Option<u32> {
         match name {
+            "metNoteDoubleWhole" => Some(MET_NOTE_DOUBLE_WHOLE),
+            "metNoteWhole" => Some(MET_NOTE_WHOLE),
+            "metNoteHalfUp" => Some(MET_NOTE_HALF_UP),
+            "metNoteQuarterUp" => Some(MET_NOTE_QUARTER_UP),
+            "metNote8thUp" => Some(MET_NOTE_8TH_UP),
+            "metNote16thUp" => Some(MET_NOTE_16TH_UP),
+            "metNote32ndUp" => Some(MET_NOTE_32ND_UP),
+            "metNote64thUp" => Some(MET_NOTE_64TH_UP),
+            "metAugmentationDot" => Some(MET_AUGMENTATION_DOT),
             "segno" => Some(SEGNO),
             "coda" => Some(CODA),
             "codaSquare" => Some(CODA_SQUARE),

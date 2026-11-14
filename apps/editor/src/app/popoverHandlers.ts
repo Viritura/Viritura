@@ -8,77 +8,13 @@ import {
   upsertGlobalChordSymbol,
   textContentFromPlain,
   type Score,
-  type NoteValueBase,
-  type Tempo,
 } from "@viritura/core";
-import type { ChordSymbolPopoverState, TempoPopoverState, StaffTextPopoverState } from "../store/overlayStore";
+import type { ChordSymbolPopoverState, StaffTextPopoverState } from "../store/overlayStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { NoteInputState } from "../store/noteInputStore";
 import type { CondensingMode } from "../components/CondensingPopover";
 import { beatPositionToFraction, eventBeatPosition } from "./timedAnnotationPosition";
 import { resolveDisplayTransposition } from "../pitchContext";
-
-// ─── Tempo parsing ────────────────────────────────────────────────
-// Supports "120", "q=120", "q.=120", "e140", "Allegro q=120", "Andante".
-const TEMPO_PREFIX_MAP: Record<string, NoteValueBase> = {
-  b: "breve",
-  w: "whole",
-  h: "half",
-  q: "quarter",
-  e: "eighth",
-  s: "16th",
-  t: "32nd",
-};
-
-interface ParsedTempo {
-  base?: NoteValueBase;
-  dots: number;
-  bpm: string;
-  text?: string;
-}
-
-function parseTempoInput(input: string): ParsedTempo {
-  const trimmed = input.trim();
-  const numericBpm = "(?:\\d+(?:\\.\\d*)?|\\.\\d+)";
-  const m = new RegExp(`^(.*?)\\b([bwhqest])(\\.?)=?\\s*(${numericBpm})$`, "i").exec(trimmed);
-  if (m) {
-    const text = m[1]!.trim() || undefined;
-    const base = TEMPO_PREFIX_MAP[m[2]!.toLowerCase()];
-    const dots = m[3] === "." ? 1 : 0;
-    return { base, dots, bpm: m[4]!, text };
-  }
-  if (new RegExp(`^${numericBpm}$`).test(trimmed)) {
-    return { dots: 0, bpm: trimmed };
-  }
-  return { dots: 0, bpm: "", text: trimmed || undefined };
-}
-
-export function applyTempoEdit(score: Score, popover: TempoPopoverState, rawValue: string): Score {
-  const parsed = parseTempoInput(rawValue);
-  const base = parsed.base ?? popover.base;
-  const dots = parsed.base ? parsed.dots : popover.dots;
-  return produce(score, (draft) => {
-    const gm = draft.global.measures[popover.measureIndex];
-    if (!gm) return;
-    if (!parsed.bpm.trim() && !parsed.text) {
-      gm.tempos = [];
-      return;
-    }
-    const existing = gm.tempos?.[0];
-    const bpm = parsed.bpm.trim() ? Number(parsed.bpm) : (existing?.bpm ?? 120);
-    if (parsed.bpm.trim() && (isNaN(bpm) || bpm <= 0)) return;
-    const tempo: Tempo = {
-      bpm,
-      value: { base, ...(dots > 0 ? { dots } : {}) },
-      ...(popover.location ? { location: popover.location } : {}),
-    };
-    if (parsed.text) tempo.text = textContentFromPlain(parsed.text);
-    if (parsed.text && !parsed.bpm.trim()) {
-      tempo.showMetronomeMark = false;
-    }
-    gm.tempos = [tempo];
-  });
-}
 
 // ─── Staff text ──────────────────────────────────────────────────
 export function applyStaffTextEdit(score: Score, popover: StaffTextPopoverState, rawValue: string): Score {

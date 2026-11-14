@@ -5,7 +5,7 @@
  * compatibility — external callers should keep importing from noteCommands.
  */
 
-import type { NoteEvent, Score, Sequence, SequenceContent } from "@viritura/core";
+import type { Note, NoteEvent, Score, Sequence, SequenceContent, Space } from "@viritura/core";
 import { walkSequenceEvents } from "@viritura/core";
 import { iterAllEvents } from "../keyboard/normalModeDeleteHelpers";
 import type { EventLocation } from "../score/ElementPath";
@@ -150,6 +150,8 @@ export interface AddTieParams {
   noteIndex?: number;
   /** If the event is a grace note, the index of its grace container in seq.content. */
   graceContainerIndex?: number;
+  /** Use only the adjacent rhythmic event, with an l.v. tie for each unmatched pitch. */
+  autoLaissezVibrer?: boolean;
 }
 
 /** Find the first note-bearing event in a SequenceContent array starting at idx. */
@@ -171,12 +173,14 @@ function matchingSequenceIndex(
   sequences: { staff?: number; voice?: string }[],
   sourceSequences: { staff?: number; voice?: string }[],
   sourceIndex: number,
+  strict = false,
 ): number {
   const source = sourceSequences[sourceIndex];
   if (!source) return sourceIndex;
   if (source.voice !== undefined) {
     const exact = sequences.findIndex((sequence) => sequence.voice === source.voice && sequence.staff === source.staff);
     if (exact >= 0) return exact;
+    if (strict) return -1;
   }
   if (source.staff !== undefined) {
     const sourceStaffOrdinal =
@@ -185,6 +189,7 @@ function matchingSequenceIndex(
       .map((sequence, index) => ({ sequence, index }))
       .filter(({ sequence }) => sequence.staff === source.staff);
     if (sameStaff[sourceStaffOrdinal]) return sameStaff[sourceStaffOrdinal]!.index;
+    if (strict) return -1;
   }
   return sourceIndex;
 }
@@ -212,8 +217,62 @@ function selectedTieNotes(notes: NonNullable<NoteEvent["notes"]>, noteIndex: num
   return note ? [note] : [];
 }
 
+function firstRhythmicItemFrom(content: SequenceContent[], startIndex: number): NoteEvent | Space | null {
+  for (const item of content.slice(startIndex)) {
+    if (item.type === "event" || item.type === "space") return item;
+    if (item.type === "grace") continue;
+    const first = firstRhythmicItemFrom(item.content, 0);
+    if (first) return first;
+  }
+  return null;
+}
+
+function adjacentTieTarget(score: Score, params: AddTieParams, sourceContainer: SequenceContent[]): NoteEvent | null {
+  const { partIndex, measureIndex, sequenceIndex, eventIndex, tupletIndex } = params;
+  const measures = score.parts[partIndex]!.measures;
+  const sequences = measures[measureIndex]!.sequences;
+  let next = firstRhythmicItemFrom(sourceContainer, eventIndex + 1);
+  if (!next && tupletIndex !== undefined) {
+    next = firstRhythmicItemFrom(sequences[sequenceIndex]!.content, tupletIndex + 1);
+  }
+  if (!next) {
+    const nextSequences = measures[measureIndex + 1]?.sequences;
+    const nextSequence = nextSequences?.[matchingSequenceIndex(nextSequences, sequences, sequenceIndex, true)];
+    if (nextSequence) next = firstRhythmicItemFrom(nextSequence.content, 0);
+  }
+  return next?.type === "event" ? next : null;
+}
+
+function connectTieNotes(sourceNotes: Note[], targetNotes: Note[], autoLaissezVibrer: boolean): boolean {
+  for (const note of sourceNotes) {
+    if (!note.id) note.id = generateNoteId();
+  }
+  for (const note of targetNotes) {
+    if (!note.id) note.id = generateNoteId();
+  }
+
+  let anyTied = false;
+  for (const srcNote of sourceNotes) {
+    const matchingTarget = targetNotes.find(
+      (target) =>
+        target.pitch.step === srcNote.pitch.step &&
+        target.pitch.octave === srcNote.pitch.octave &&
+        (target.pitch.alter ?? 0) === (srcNote.pitch.alter ?? 0),
+    );
+    if (matchingTarget?.id) {
+      srcNote.ties = [{ target: matchingTarget.id }];
+      anyTied = true;
+    } else if (autoLaissezVibrer) {
+      srcNote.ties = [{ lv: true }];
+      anyTied = true;
+    }
+  }
+  return anyTied;
+}
+
 /**
  * Add ties from the source event's notes to the next note event's notes.
+ * With autoLaissezVibrer, use the adjacent event only and let unmatched notes ring.
  * Returns the mutated score, or null if no valid target found.
  */
 export function addTie(score: Score, params: AddTieParams): Score | null {
@@ -240,11 +299,13 @@ export function addTie(score: Score, params: AddTieParams): Score | null {
   }
 
   // Find next note event: same container → following top-level in parent seq → following measures.
-  let targetEv: NoteEvent | null = firstNoteEventFrom(sourceContainer, eventIndex + 1);
-  if (!targetEv && tupletIndex !== undefined) {
+  let targetEv = params.autoLaissezVibrer
+    ? adjacentTieTarget(score, params, sourceContainer)
+    : firstNoteEventFrom(sourceContainer, eventIndex + 1);
+  if (!params.autoLaissezVibrer && !targetEv && tupletIndex !== undefined) {
     targetEv = firstNoteEventFrom(seq.content, tupletIndex + 1);
   }
-  if (!targetEv) {
+  if (!params.autoLaissezVibrer && !targetEv) {
     targetEv = firstNoteEventInFollowingMeasures(
       part.measures,
       measureIndex + 1,
@@ -252,34 +313,12 @@ export function addTie(score: Score, params: AddTieParams): Score | null {
       part.measures[measureIndex]!.sequences,
     );
   }
-  if (!targetEv || !targetEv.notes) return null;
+  if (!params.autoLaissezVibrer && !targetEv?.notes) return null;
 
   const sourceNotes = selectedTieNotes(sourceEv.notes, params.noteIndex);
   if (sourceNotes.length === 0) return null;
 
-  for (const note of sourceNotes) {
-    if (!note.id) note.id = generateNoteId();
-  }
-  for (const note of targetEv.notes) {
-    if (!note.id) note.id = generateNoteId();
-  }
-
-  let anyTied = false;
-  for (const srcNote of sourceNotes) {
-    const matchingTarget = targetEv.notes.find(
-      (t) =>
-        t.pitch.step === srcNote.pitch.step &&
-        t.pitch.octave === srcNote.pitch.octave &&
-        (t.pitch.alter ?? 0) === (srcNote.pitch.alter ?? 0),
-    );
-    if (matchingTarget?.id) {
-      srcNote.ties = [{ target: matchingTarget.id }];
-      anyTied = true;
-    }
-  }
-
-  if (!anyTied) return null;
-  return score;
+  return connectTieNotes(sourceNotes, targetEv?.notes ?? [], params.autoLaissezVibrer ?? false) ? score : null;
 }
 
 /**

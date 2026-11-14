@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Score, TextFrame } from "@viritura/core";
-import { FormField, Select } from "@viritura/ui";
+import { Button, FormField, Select } from "@viritura/ui";
+import { useSelection } from "../../store/selectionStore";
+import { selectionMusicalContext } from "./textFrameContext";
 import type { TextFrameEditing } from "./useTextFrameEditing";
 import { textFrameLocatorMeasureIndex } from "../../score/textFrameMutations";
 import { CommitNumberField } from "./CommitNumberField";
@@ -16,6 +18,8 @@ export function PageLocatorFields({
   actions: Pick<TextFrameEditing, "setLocator" | "followMeasure">;
 }) {
   const [choosingMeasure, setChoosingMeasure] = useState(false);
+  const context = selectionMusicalContext(useSelection(), score);
+  const eventLocator = context?.eventLocator;
   const musical = choosingMeasure || frame.locator.type !== "page";
   const measureIndex = textFrameLocatorMeasureIndex(score, frame.locator);
   return (
@@ -59,6 +63,17 @@ export function PageLocatorFields({
               }}
             />
           </FormField>
+          <Button
+            size="sm"
+            disabled={!eventLocator}
+            onClick={() => {
+              if (!eventLocator) return;
+              actions.setLocator(frame.id, eventLocator);
+              setChoosingMeasure(false);
+            }}
+          >
+            Follow selected event
+          </Button>
           <p className={styles.help}>
             {frame.locator.type === "event"
               ? "Follows the event's page. Choosing a measure replaces the event locator."

@@ -1,5 +1,6 @@
 import {
   DURATION_BEATS,
+  measureTempoInstructions,
   type Duration,
   type NoteEvent,
   type Score,
@@ -121,7 +122,7 @@ export function compileRhythmProgram(score: Score): RhythmProgram {
   let inherited: Swing = { mode: "straight" };
   const anchorsByMeasure = score.global.measures.map((measure) => {
     const anchors: SwingAnchor[] = [{ beat: -Infinity, swing: inherited }];
-    const ordered = (measure.tempos ?? [])
+    const ordered = measureTempoInstructions(measure)
       .map((tempo, index) => ({
         tempo,
         index,

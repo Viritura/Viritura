@@ -31,6 +31,38 @@ placeholders, truncation, or literal musical dot notation.
 </Button>
 ```
 
+## Capitalization and palette hover text
+
+Use **sentence case** for UI headings, palette sections, control labels, and
+tooltips: capitalize the first word, proper names, and musical pitch letters.
+Keep established notation and shortcut casing intact (`D.C.`, `8va`, `Ctrl+3`).
+For example, use **Key signature**, **Repeat start**, and **Long Henze fermata**,
+not title case throughout.
+
+Palette hover text is a short name, not a description or instruction sentence.
+Use **Scoop**, not **Scoop — slide into the note from below**. Name meaningful
+variants directly: **Long fermata**, **Comma breath mark**, **8va above**.
+Do not repeat the visible glyph as a parenthetical abbreviation or add redundant
+details such as clef letters and key-signature accidental counts.
+
+- Use parentheses only for a keyboard shortcut, appended once: **Tie (T)**,
+  **Slur (S)**, **Staccato (Z)**, **Triplet (Ctrl+3)**.
+- Keep a shared section shortcut in the palette heading; do not repeat it on
+  every button. The **Dynamics** heading shows **Shift+D**, while its buttons
+  use names such as **Piano** and **Mezzo forte**.
+- Keep distinct per-button shortcuts, including single keys. A cross-section
+  entry may show the shared shortcut when its own heading does not:
+  **Expression text (Shift+D)** under **Text**.
+- Suppress hover text that only repeats a visible text label with no shortcut,
+  such as **Fine** or **D.C.**. Keep the accessible name.
+- Pass the name and shortcut separately to `PaletteButton`; never include the
+  shortcut in both `title` and `shortcut`. Do not add explanatory prose after it.
+
+```tsx
+<PaletteButton label="⌢" title="Tie" shortcut="T" />
+<PaletteButton label="Fine" title="Fine" shape="wide" />
+```
+
 ## UI font stack
 
 ```css
@@ -203,7 +235,7 @@ code`, etc.) and accepts a `tone` override for color shifts.
 ```tsx
 import { Text } from "@viritura/ui";
 
-<Text variant="title">Page Setup</Text>
+<Text variant="title">Page setup</Text>
 <Text variant="body">Choose a paper size for the score.</Text>
 <Text variant="small" tone="muted">Custom sizes will use the closest preset.</Text>
 <Text variant="eyebrow">Layout</Text>

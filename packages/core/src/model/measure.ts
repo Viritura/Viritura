@@ -269,6 +269,33 @@ export interface TextExpression extends MusicText {
 /** One globally owned instruction, displayed once on each score/part view's visible system. */
 export interface SystemText extends MusicText {
   id: string;
+  /** Optional playback semantics; omission leaves the current tempo and swing unchanged. */
+  tempo?: SystemTempo;
+  showText?: boolean;
+}
+
+/** Playback properties of a music-anchored system instruction, never a page frame. */
+export type SystemTempo =
+  | {
+      bpm: number;
+      value: TempoNoteValue;
+      swing?: Swing;
+      showMetronomeMark?: boolean;
+    }
+  | {
+      bpm?: never;
+      value?: never;
+      swing: Swing;
+      showMetronomeMark?: never;
+    };
+
+/** Tempo instructions from both legacy tempo markings and shared system instructions. */
+export function measureTempoInstructions(measure: GlobalMeasure): Tempo[] {
+  const instructions: Tempo[] = [...(measure.tempos ?? [])];
+  for (const text of measure.systemText ?? []) {
+    if (text.tempo) instructions.push({ ...text.tempo, text: text.text, location: text.position });
+  }
+  return instructions;
 }
 
 /** Where authored marker text sits relative to the marker's generated glyph or label. */

@@ -11,6 +11,687 @@ use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
 
+fn key_boundary_document(explicit: bool, fifths: i32) -> serde_json::Value {
+    let mut document = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}, "key": {"fifths": 2}},
+            {"id": "m1", "key": {"fifths": fifths}}
+        ]},
+        "parts": [{"id": "p", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+             "sequences": [{"content": [
+                 {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]},
+                 {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "D", "octave": 5}}]},
+                 {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "E", "octave": 5}}]},
+                 {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "G", "octave": 5}}]}
+             ]}]},
+            {"sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+            ]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [
+            {"type": "staff", "sources": [{"part": "p"}]}
+        ]}],
+        "scores": [{"name": "Score", "layout": "L", "_x": {"viritura": {
+            "layoutBreaks": [{"measure": "m1", "kind": "system"}]
+        }}}]
+    });
+    if explicit {
+        document["scores"][0].as_object_mut().unwrap().remove("_x");
+        document["scores"][0]["pages"] = serde_json::json!([{"systems": [
+            {"measure": "m0"}, {"measure": "m1"}
+        ]}]);
+    }
+    document
+}
+
+fn outgoing_key_glyphs(dl: &DisplayList, sp: f64) -> Vec<(u32, f64, f64)> {
+    let first = dl
+        .measure_bounds
+        .iter()
+        .find(|bound| bound.index == 0)
+        .unwrap();
+    let barline_x = first.x + first.width;
+    let staff_end = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawLine { x2, y1, y2, .. }
+                if (*y1 - first.y).abs() < 0.01 && (*y2 - first.y).abs() < 0.01 =>
+            {
+                Some(*x2)
+            }
+            _ => None,
+        })
+        .fold(f64::NEG_INFINITY, f64::max);
+    dl.commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawGlyph {
+                x, y, codepoint, ..
+            } if matches!(
+                *codepoint,
+                smufl::ACCIDENTAL_SHARP | smufl::ACCIDENTAL_FLAT | smufl::ACCIDENTAL_NATURAL
+            ) && *y >= first.y - sp
+                && *y <= first.y + 5.0 * sp
+                && *x > barline_x =>
+            {
+                let (left, _, width, _) = smufl::glyph_bbox(*codepoint);
+                assert!(
+                    *x + left * sp >= barline_x + 0.4 * sp,
+                    "courtesy key must follow the system-end barline"
+                );
+                assert!(
+                    *x + (left + width) * sp <= staff_end - 0.4 * sp,
+                    "staff lines must extend past the courtesy key"
+                );
+                Some((*codepoint, *x, *y))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn courtesy_keys_clear_music_and_barlines_in_auto_and_authored_systems() {
+    use crate::layout::layout_with_mnx_scores_cached;
+    let bits = |dl: &DisplayList| {
+        dl.to_binary()
+            .iter()
+            .map(|f| f.to_bits())
+            .collect::<Vec<_>>()
+    };
+    for explicit in [false, true] {
+        for (fifths, naturals, flats) in [(-3, 0, 3), (0, 2, 0), (2, 0, 0)] {
+            let document = key_boundary_document(explicit, fifths);
+            let mut score = parse_mnx(&document.to_string()).unwrap();
+            let config = LayoutConfig {
+                page_width: Some(700.0),
+                ..Default::default()
+            };
+            let mut cache = crate::layout::cache::LayoutCache::new();
+            let cold = layout_with_mnx_scores_cached(&score, &config, 0, None);
+            assert!(cold
+                .measure_bounds
+                .iter()
+                .any(|bound| bound.index == 1 && bound.system_index == 1));
+            let glyphs = outgoing_key_glyphs(&cold, config.sp);
+            assert_eq!(
+                glyphs
+                    .iter()
+                    .filter(|g| g.0 == smufl::ACCIDENTAL_NATURAL)
+                    .count(),
+                naturals
+            );
+            assert_eq!(
+                glyphs
+                    .iter()
+                    .filter(|g| g.0 == smufl::ACCIDENTAL_FLAT)
+                    .count(),
+                flats
+            );
+            let first = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+            let warm = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+            assert_eq!(bits(&cold), bits(&first));
+            assert_eq!(bits(&cold), bits(&warm));
+            score.global.measures[1].key.as_mut().unwrap().fifths = -1;
+            let edited = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+            let edited_cold = layout_with_mnx_scores_cached(&score, &config, 0, None);
+            assert_eq!(bits(&edited), bits(&edited_cold));
+            assert_eq!(outgoing_key_glyphs(&edited, config.sp).len(), 1);
+        }
+    }
+}
+
+#[test]
+fn percussion_keys_have_no_glyphs_hitboxes_or_prefix_reserve() {
+    for explicit in [false, true] {
+        let mut document = key_boundary_document(explicit, -3);
+        document["parts"][0]["measures"][0]["clefs"][0]["clef"] =
+            serde_json::json!({"sign": "P", "staffPosition": 0});
+        for measure in document["parts"][0]["measures"].as_array_mut().unwrap() {
+            measure["sequences"][0]["content"] = serde_json::json!([
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]);
+        }
+        let score = parse_mnx(&document.to_string()).unwrap();
+        let config = LayoutConfig {
+            page_width: Some(700.0),
+            ..Default::default()
+        };
+        let resolved = resolve_measures(&score, 0);
+        let mut without_key = resolved[0].clone();
+        without_key.active_key = KeySignature::default();
+        without_key.prev_key = KeySignature::default();
+        without_key.global.key = None;
+        assert_eq!(
+            layout_measure(&resolved[0], config.sp, 0.0, &config, None, &[], 1.0).prefix_width,
+            layout_measure(&without_key, config.sp, 0.0, &config, None, &[], 1.0).prefix_width,
+        );
+        for dl in [
+            layout_score(&score, 0, &config),
+            layout_full_score(&score, &config),
+            crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, None),
+        ] {
+            assert!(!dl
+                .element_bboxes
+                .iter()
+                .any(|bbox| bbox.element_id.ends_with("/key")));
+            assert!(!dl.commands.iter().any(|command| matches!(command,
+                RenderCommand::DrawGlyph { codepoint, .. }
+                    if matches!(*codepoint, smufl::ACCIDENTAL_SHARP | smufl::ACCIDENTAL_FLAT | smufl::ACCIDENTAL_NATURAL)
+            )));
+        }
+    }
+    assert!(compute_key_signature_positions(7, ClefSign::P).is_empty());
+}
+
+#[test]
+fn courtesy_keys_follow_written_keys_and_clear_a_simultaneous_clef_change() {
+    for explicit in [false, true] {
+        let mut document = key_boundary_document(explicit, -3);
+        document["parts"][0]["transposition"] = serde_json::json!({
+            "interval": {"halfSteps": 2, "staffDistance": 1}
+        });
+        document["scores"][0]["useWritten"] = serde_json::json!(true);
+        document["parts"][0]["measures"][1]["clefs"] = serde_json::json!([
+            {"clef": {"sign": "F", "staffPosition": 2}}
+        ]);
+        let score = parse_mnx(&document.to_string()).unwrap();
+        let config = LayoutConfig {
+            page_width: Some(700.0),
+            ..Default::default()
+        };
+        let dl = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, None);
+        let glyphs = outgoing_key_glyphs(&dl, config.sp);
+        assert_eq!(
+            glyphs
+                .iter()
+                .filter(|g| g.0 == smufl::ACCIDENTAL_NATURAL)
+                .count(),
+            0
+        );
+        assert_eq!(
+            glyphs
+                .iter()
+                .filter(|g| g.0 == smufl::ACCIDENTAL_FLAT)
+                .count(),
+            1
+        );
+        let first = dl
+            .measure_bounds
+            .iter()
+            .find(|bound| bound.index == 0)
+            .unwrap();
+        let key_left = glyphs
+            .iter()
+            .map(|glyph| glyph.1 + smufl::glyph_bbox(glyph.0).0 * config.sp)
+            .fold(f64::INFINITY, f64::min);
+        let clef_right = dl
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                RenderCommand::DrawGlyph {
+                    x,
+                    y,
+                    codepoint,
+                    size,
+                    ..
+                } if *codepoint == smufl::F_CLEF && *y < first.y + 5.0 * config.sp => {
+                    let (left, _, width, _) = smufl::glyph_bbox(*codepoint);
+                    Some(*x + (left + width) * size / 4.0)
+                }
+                _ => None,
+            })
+            .expect("courtesy clef before the system-end barline");
+        assert!(clef_right <= first.x + first.width);
+        assert!(key_left > first.x + first.width);
+        let expected_y = key_signature_layout(
+            0.0,
+            first.y,
+            config.sp,
+            &KeySignature {
+                fifths: -1,
+                ..Default::default()
+            },
+            &ClefSign::F,
+            Some(&KeySignature {
+                fifths: 4,
+                ..Default::default()
+            }),
+        );
+        assert_eq!(
+            glyphs.iter().map(|glyph| glyph.2).collect::<Vec<_>>(),
+            expected_y
+                .glyphs
+                .iter()
+                .map(|glyph| glyph.y)
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
+fn courtesy_keys_render_in_legacy_part_grand_staff_and_full_score_layouts() {
+    for staves in [1, 2] {
+        let mut document = key_boundary_document(false, -3);
+        if staves == 2 {
+            document["parts"][0]["staves"] = serde_json::json!(2);
+            for measure in document["parts"][0]["measures"].as_array_mut().unwrap() {
+                let mut lower = measure["sequences"][0].clone();
+                lower["staff"] = serde_json::json!(2);
+                measure["sequences"].as_array_mut().unwrap().push(lower);
+            }
+
+            document["parts"][0]["measures"][0]["clefs"]
+                .as_array_mut()
+                .unwrap()
+                .push(serde_json::json!({"staff": 2, "clef": {"sign": "F", "staffPosition": 2}}));
+        }
+        let score = parse_mnx(&document.to_string()).unwrap();
+        let config = LayoutConfig {
+            page_width: Some(300.0),
+            page_margin_left: 0.0,
+            page_margin_right: 0.0,
+            ..Default::default()
+        };
+        for dl in [
+            layout_score(&score, 0, &config),
+            layout_full_score(&score, &config),
+        ] {
+            assert!(dl
+                .measure_bounds
+                .iter()
+                .any(|bound| bound.index == 1 && bound.system_index == 1));
+            let glyphs = outgoing_key_glyphs(&dl, config.sp);
+            assert_eq!(
+                glyphs
+                    .iter()
+                    .filter(|g| g.0 == smufl::ACCIDENTAL_NATURAL)
+                    .count(),
+                0
+            );
+            assert_eq!(
+                glyphs
+                    .iter()
+                    .filter(|g| g.0 == smufl::ACCIDENTAL_FLAT)
+                    .count(),
+                3
+            );
+        }
+    }
+}
+
+#[test]
+fn courtesy_key_suffix_keeps_pitched_and_unpitched_beats_aligned() {
+    for explicit in [false, true] {
+        let mut document = key_boundary_document(explicit, -3);
+        let mut percussion = document["parts"][0].clone();
+        percussion["id"] = serde_json::json!("drums");
+        percussion["measures"][0]["clefs"][0]["clef"] =
+            serde_json::json!({"sign": "P", "staffPosition": 0});
+        document["parts"].as_array_mut().unwrap().push(percussion);
+        document["layouts"][0]["content"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"type": "staff", "sources": [{"part": "drums"}]}));
+        let score = parse_mnx(&document.to_string()).unwrap();
+        let config = LayoutConfig {
+            page_width: Some(700.0),
+            ..Default::default()
+        };
+        let dl = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, None);
+        let bounds: Vec<_> = dl
+            .measure_bounds
+            .iter()
+            .filter(|bound| bound.index == 0)
+            .collect();
+        assert_eq!(bounds.len(), 2);
+        for (pitched, unpitched) in bounds[0].beat_anchors.iter().zip(&bounds[1].beat_anchors) {
+            assert!(
+                (pitched.1 - unpitched.1).abs() < 0.01,
+                "courtesy key must reserve the same rhythmic columns on every staff"
+            );
+        }
+        assert_eq!(bounds[0].beat_anchors.len(), bounds[1].beat_anchors.len());
+    }
+}
+
+/// A dense outgoing measure followed by a system that opens with a bass clef.
+fn clef_boundary_document(explicit: bool, staves: u32) -> serde_json::Value {
+    let mut document = key_boundary_document(explicit, 2);
+    let sixteenths: Vec<_> = (0..16)
+        .map(|_| {
+            serde_json::json!({"duration": {"base": "16th"},
+                "notes": [{"pitch": {"step": "B", "octave": 4}}]})
+        })
+        .collect();
+    document["parts"][0]["measures"][0]["sequences"][0]["content"] = sixteenths.into();
+    document["parts"][0]["measures"][1]["clefs"] =
+        serde_json::json!([{"clef": {"sign": "F", "staffPosition": 2}}]);
+    if staves == 2 {
+        document["parts"][0]["staves"] = serde_json::json!(2);
+        for measure in document["parts"][0]["measures"].as_array_mut().unwrap() {
+            let mut lower = measure["sequences"][0].clone();
+            lower["staff"] = serde_json::json!(2);
+            measure["sequences"].as_array_mut().unwrap().push(lower);
+        }
+        document["parts"][0]["measures"][0]["clefs"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"staff": 2, "clef": {"sign": "F", "staffPosition": 2}}));
+    }
+    document
+}
+
+/// Left ink edge of the courtesy bass clef before the first system's end
+/// barline, and the right ink edge of that staff's outgoing noteheads.
+fn courtesy_clef_and_music_edges(dl: &DisplayList, sp: f64) -> (f64, f64) {
+    let first = dl
+        .measure_bounds
+        .iter()
+        .find(|bound| bound.index == 0)
+        .unwrap();
+    let barline_x = first.x + first.width;
+    let on_staff = |y: f64| y >= first.y - sp && y <= first.y + 5.0 * sp;
+    let ink = |x: f64, codepoint: u32, size: f64| {
+        let (left, _, width, _) = smufl::glyph_bbox(codepoint);
+        (x + left * size / 4.0, x + (left + width) * size / 4.0)
+    };
+    let clef = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawGlyph {
+                x,
+                y,
+                codepoint,
+                size,
+                ..
+            } if *codepoint == smufl::F_CLEF
+                && on_staff(*y)
+                && *x > first.x + first.width / 2.0
+                && *x < barline_x =>
+            {
+                Some(ink(*x, *codepoint, *size))
+            }
+            _ => None,
+        })
+        .expect("courtesy clef before the system-end barline");
+    assert!(clef.1 <= barline_x, "courtesy clef precedes the barline");
+    let music_right = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawGlyph {
+                x,
+                y,
+                codepoint,
+                size,
+                ..
+            } if *codepoint == smufl::NOTEHEAD_BLACK && on_staff(*y) && *x < barline_x => {
+                Some(ink(*x, *codepoint, *size).1)
+            }
+            _ => None,
+        })
+        .fold(f64::NEG_INFINITY, f64::max);
+    (clef.0, music_right)
+}
+
+#[test]
+fn courtesy_clefs_reserve_space_before_the_barline_in_every_layout_path() {
+    let mnx_config = LayoutConfig {
+        page_width: Some(700.0),
+        ..Default::default()
+    };
+    let legacy_config = LayoutConfig {
+        page_width: Some(300.0),
+        page_margin_left: 0.0,
+        page_margin_right: 0.0,
+        ..Default::default()
+    };
+    let mut cases = Vec::new();
+    for explicit in [false, true] {
+        let score = parse_mnx(&clef_boundary_document(explicit, 1).to_string()).unwrap();
+        cases.push((
+            1,
+            crate::layout::layout_with_mnx_scores_cached(&score, &mnx_config, 0, None),
+        ));
+    }
+    for staves in [1, 2] {
+        let score = parse_mnx(&clef_boundary_document(false, staves).to_string()).unwrap();
+        cases.push((staves, layout_score(&score, 0, &legacy_config)));
+        cases.push((staves, layout_full_score(&score, &legacy_config)));
+    }
+    let sp = mnx_config.sp;
+    for (staves, dl) in cases {
+        assert!(dl
+            .measure_bounds
+            .iter()
+            .any(|bound| bound.index == 1 && bound.system_index == 1));
+        let (clef_left, music_right) = courtesy_clef_and_music_edges(&dl, sp);
+        assert!(
+            music_right <= clef_left - 0.25 * sp,
+            "outgoing music ({music_right}) must clear the courtesy clef ({clef_left})"
+        );
+        let bounds: Vec<_> = dl
+            .measure_bounds
+            .iter()
+            .filter(|bound| bound.index == 0)
+            .collect();
+        assert_eq!(bounds.len(), staves as usize);
+        if let [upper, lower] = bounds.as_slice() {
+            assert_eq!(upper.beat_anchors.len(), lower.beat_anchors.len());
+            for (upper, lower) in upper.beat_anchors.iter().zip(&lower.beat_anchors) {
+                assert!(
+                    (upper.1 - lower.1).abs() < 0.01,
+                    "the clef slot is shared by every staff"
+                );
+            }
+        }
+    }
+}
+
+fn meter_boundary_document(explicit: bool, fifths: i32, count: u32) -> serde_json::Value {
+    let mut document = key_boundary_document(explicit, fifths);
+    document["global"]["measures"][1]["time"] = serde_json::json!({"count": count, "unit": 4});
+    if count == 3 {
+        document["parts"][0]["measures"][1]["sequences"][0]["content"] = serde_json::json!([
+            {"duration": {"base": "half", "dots": 1}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+        ]);
+    }
+    document
+}
+
+/// Meter digits engraved after the first system's end barline.
+fn courtesy_meter_glyphs(dl: &DisplayList, sp: f64) -> Vec<(u32, f64)> {
+    let first = dl
+        .measure_bounds
+        .iter()
+        .find(|bound| bound.index == 0)
+        .unwrap();
+    let barline_x = first.x + first.width;
+    dl.commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawGlyph {
+                x, y, codepoint, ..
+            } if (smufl::TIME_SIG_0..=smufl::TIME_SIG_9).contains(codepoint)
+                && *y >= first.y - sp
+                && *y <= first.y + 5.0 * sp
+                && *x > barline_x =>
+            {
+                Some((*codepoint, *x))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn staff_end_x(dl: &DisplayList, staff_y: f64) -> f64 {
+    dl.commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawLine { x2, y1, y2, .. }
+                if (*y1 - staff_y).abs() < 0.01 && (*y2 - staff_y).abs() < 0.01 =>
+            {
+                Some(*x2)
+            }
+            _ => None,
+        })
+        .fold(f64::NEG_INFINITY, f64::max)
+}
+
+#[test]
+fn courtesy_meters_follow_the_barline_and_courtesy_key_in_every_layout_path() {
+    use crate::layout::layout_with_mnx_scores_cached;
+    let bits = |dl: &DisplayList| {
+        dl.to_binary()
+            .iter()
+            .map(|f| f.to_bits())
+            .collect::<Vec<_>>()
+    };
+    let mnx_config = LayoutConfig {
+        page_width: Some(700.0),
+        ..Default::default()
+    };
+    let legacy_config = LayoutConfig {
+        page_width: Some(300.0),
+        page_margin_left: 0.0,
+        page_margin_right: 0.0,
+        ..Default::default()
+    };
+    let mut cases = Vec::new();
+    for explicit in [false, true] {
+        let score = parse_mnx(&meter_boundary_document(explicit, -3, 3).to_string()).unwrap();
+        let mut cache = crate::layout::cache::LayoutCache::new();
+        let cold = layout_with_mnx_scores_cached(&score, &mnx_config, 0, None);
+        let first = layout_with_mnx_scores_cached(&score, &mnx_config, 0, Some(&mut cache));
+        let warm = layout_with_mnx_scores_cached(&score, &mnx_config, 0, Some(&mut cache));
+        assert_eq!(bits(&cold), bits(&first));
+        assert_eq!(bits(&cold), bits(&warm));
+        cases.push(cold);
+    }
+    let score = parse_mnx(&meter_boundary_document(false, -3, 3).to_string()).unwrap();
+    cases.push(layout_score(&score, 0, &legacy_config));
+    cases.push(layout_full_score(&score, &legacy_config));
+
+    for dl in cases {
+        assert!(dl
+            .measure_bounds
+            .iter()
+            .any(|bound| bound.index == 1 && bound.system_index == 1));
+        let sp = mnx_config.sp;
+        let meter = courtesy_meter_glyphs(&dl, sp);
+        let mut digits: Vec<_> = meter.iter().map(|glyph| glyph.0).collect();
+        digits.sort_unstable();
+        assert_eq!(digits, vec![smufl::TIME_SIG_3, smufl::TIME_SIG_4]);
+        let key = outgoing_key_glyphs(&dl, sp);
+        assert_eq!(key.len(), 3, "courtesy key precedes the courtesy meter");
+        let key_right = key
+            .iter()
+            .map(|glyph| {
+                let (left, _, width, _) = smufl::glyph_bbox(glyph.0);
+                glyph.1 + (left + width) * sp
+            })
+            .fold(f64::NEG_INFINITY, f64::max);
+        let meter_left = meter
+            .iter()
+            .map(|glyph| glyph.1)
+            .fold(f64::INFINITY, f64::min);
+        let meter_right = meter
+            .iter()
+            .map(|glyph| {
+                let (left, _, width, _) = smufl::glyph_bbox(glyph.0);
+                glyph.1 + (left + width) * sp
+            })
+            .fold(f64::NEG_INFINITY, f64::max);
+        assert!(meter_left >= key_right + 0.5 * sp);
+        let first = dl
+            .measure_bounds
+            .iter()
+            .find(|bound| bound.index == 0)
+            .unwrap();
+        assert!(meter_right <= staff_end_x(&dl, first.y) - 0.4 * sp);
+    }
+}
+
+#[test]
+fn courtesy_meters_appear_only_for_a_new_meter() {
+    let config = LayoutConfig {
+        page_width: Some(700.0),
+        ..Default::default()
+    };
+    for explicit in [false, true] {
+        let restated = parse_mnx(&meter_boundary_document(explicit, 2, 4).to_string()).unwrap();
+        let dl = crate::layout::layout_with_mnx_scores_cached(&restated, &config, 0, None);
+        assert!(courtesy_meter_glyphs(&dl, config.sp).is_empty());
+        let first = dl
+            .measure_bounds
+            .iter()
+            .find(|bound| bound.index == 0)
+            .unwrap();
+        assert!(
+            (staff_end_x(&dl, first.y) - (first.x + first.width)).abs() < 0.5 * config.sp,
+            "staff lines end at the barline when nothing is announced"
+        );
+
+        let changed = parse_mnx(&meter_boundary_document(explicit, 2, 3).to_string()).unwrap();
+        let dl = crate::layout::layout_with_mnx_scores_cached(&changed, &config, 0, None);
+        let first = dl
+            .measure_bounds
+            .iter()
+            .find(|bound| bound.index == 0)
+            .unwrap();
+        let meter = courtesy_meter_glyphs(&dl, config.sp);
+        assert_eq!(meter.len(), 2);
+        assert!(outgoing_key_glyphs(&dl, config.sp).is_empty());
+        for glyph in meter {
+            assert!(glyph.1 >= first.x + first.width + 0.4 * config.sp);
+        }
+    }
+}
+
+#[test]
+fn group_distributed_courtesy_meter_is_engraved_once_per_group() {
+    let mut document = meter_boundary_document(false, 2, 3);
+    document["parts"][0]["staves"] = serde_json::json!(2);
+    for measure in document["parts"][0]["measures"].as_array_mut().unwrap() {
+        let mut lower = measure["sequences"][0].clone();
+        lower["staff"] = serde_json::json!(2);
+        measure["sequences"].as_array_mut().unwrap().push(lower);
+    }
+    document["parts"][0]["measures"][0]["clefs"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({"staff": 2, "clef": {"sign": "F", "staffPosition": 2}}));
+    let score = parse_mnx(&document.to_string()).unwrap();
+    let mut config = LayoutConfig {
+        page_width: Some(700.0),
+        ..Default::default()
+    };
+    config.time_signature_settings.distribution = TimeSignatureDistribution::PerGroup;
+    let dl = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, None);
+    let first = dl
+        .measure_bounds
+        .iter()
+        .find(|bound| bound.index == 0)
+        .unwrap();
+    let barline_x = first.x + first.width;
+    let courtesy_digits = dl
+        .commands
+        .iter()
+        .filter(|command| {
+            matches!(command, RenderCommand::DrawGlyph { x, codepoint, .. }
+                if (smufl::TIME_SIG_0..=smufl::TIME_SIG_9).contains(codepoint)
+                    && *x > barline_x
+                    && *x < barline_x + 6.0 * config.sp)
+        })
+        .count();
+    assert_eq!(courtesy_digits, 2);
+}
+
 #[test]
 fn test_key_signature_advance_is_relative_to_origin() {
     let key = KeySignature {

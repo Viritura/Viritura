@@ -125,6 +125,47 @@ export const FramedStaffText: StoryObj = {
   name: "Staff text with wrapping and frame",
 };
 
+export const SystemInstructionWithTempo: StoryObj = {
+  name: "System instruction with optional tempo",
+  render: () => (
+    <ScorePreview
+      mnxJson={buildMnx({
+        measures: [
+          {
+            time: { count: 4, unit: 4 },
+            voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
+            virituraGlobal: {
+              systemText: [
+                {
+                  id: "shared-tempo",
+                  text: [{ text: "Broadly", style: { weight: "bold" } }],
+                  position: { fraction: [0, 1] },
+                  placement: "above",
+                  tempo: { bpm: 84, value: { base: "quarter", dots: 1 } },
+                  frame: { border: "solid", padding: 0.5 },
+                },
+              ],
+            },
+          },
+          {
+            voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
+            virituraGlobal: {
+              systemText: [
+                {
+                  id: "shared-prose",
+                  text: [{ text: "Keep the same pulse" }],
+                  position: { fraction: [0, 1] },
+                  placement: "below",
+                },
+              ],
+            },
+          },
+        ],
+      })}
+    />
+  ),
+};
+
 export const EraseBackground: StoryObj = {
   render: () => <ScorePreview mnxJson={ERASING_STAFF_TEXT_MNX} />,
   name: "Erase background over staff ink",

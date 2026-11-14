@@ -14,11 +14,11 @@ interface UseLyricEntryCommandOptions {
   lyricMode: boolean;
   setLyricMode: (active: boolean) => void;
   setLyricState: (state: LyricInputState | null) => void;
-  onOpenLyricsPalette: () => void;
+  onOpenLyricsProperties: () => void;
   enabled: boolean;
 }
 
-/** Shared entry command used by the toolbar, keyboard shortcut, and Jump Bar. */
+/** Shared entry command used by the palette, toolbar, keyboard shortcut, and Jump Bar. */
 export function useLyricEntryCommand({
   store,
   selection,
@@ -26,7 +26,7 @@ export function useLyricEntryCommand({
   lyricMode,
   setLyricMode,
   setLyricState,
-  onOpenLyricsPalette,
+  onOpenLyricsProperties,
   enabled,
 }: UseLyricEntryCommandOptions): () => void {
   useEffect(() => {
@@ -40,7 +40,7 @@ export function useLyricEntryCommand({
       toast.info("Switch to Write mode before entering lyrics.");
       return;
     }
-    onOpenLyricsPalette();
+    onOpenLyricsProperties();
     const { score } = store.getState();
     if (!score) {
       toast.error("Open a score before entering lyrics.");
@@ -63,5 +63,5 @@ export function useLyricEntryCommand({
     setActiveLyricLineId(lineId);
     setLyricState(next);
     setLyricMode(true);
-  }, [enabled, lyricMode, noteInputActive, onOpenLyricsPalette, selection, setLyricMode, setLyricState, store]);
+  }, [enabled, lyricMode, noteInputActive, onOpenLyricsProperties, selection, setLyricMode, setLyricState, store]);
 }

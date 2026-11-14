@@ -6,6 +6,16 @@
 
 Slurs are connectors in the layout collision model. Noteheads, stems, beams, accidentals, augmentation dots, ledger lines, ties, articulations, and fermatas form the substrate against which slur geometry is resolved. Once shaped, every slur publishes an editable spine and a sampled connector band before dependent annotations are placed.
 
+In-system automatic slurs enclosing ties check the final rendered curve against
+tie ink, including on steep, short spans. They adjust the curve's shoulders
+while retaining the notehead attachments. Explicitly edited slur shapes remain
+under the author's control. Clearance is best-effort when tightly constrained
+endpoints do not leave enough room for full separation.
+
+For mixed stem directions, automatic contour correction must not pull a
+stem-side slur tip inward through the stem or its beam. When attachment and
+contour conflict, the stem-side attachment takes priority.
+
 The implementation lives in [`engine/viritura-engine/src/layout/slurs/`](../../engine/viritura-engine/src/layout/slurs). Local and cross-system layout use the same endpoint snapshot semantics:
 
 - Main and grace events can be endpoints.

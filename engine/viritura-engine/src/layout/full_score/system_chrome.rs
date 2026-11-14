@@ -123,20 +123,7 @@ pub(super) fn render_system_chrome(
     if let Some(first_layouts) = all_sys_layouts.first() {
         for (mi, ml) in first_layouts.iter().enumerate() {
             if mi > 0 {
-                let prev_ml = &first_layouts[mi - 1];
-                let prev_has_repeat_end = prev_ml.resolved.global.repeat_end.is_some();
-                let has_repeat_start = ml.resolved.global.repeat_start.is_some();
-                let connector_bt = BarlineKind::at_boundary(
-                    prev_has_repeat_end,
-                    has_repeat_start,
-                    prev_ml
-                        .resolved
-                        .global
-                        .barline
-                        .as_ref()
-                        .map(|b| &b.barline_type),
-                    BarlineType::Regular,
-                );
+                let connector_bt = leading_barline_kind(&ml.resolved);
                 let barline_tag = element_id::barline(ml.resolved.index);
                 for gap_idx in 0..(visual_staff_count - 1) {
                     render_tagged_barline_connector(
@@ -159,9 +146,22 @@ pub(super) fn render_system_chrome(
         if let Some(last_ml) = first_layouts.last() {
             let end_x = last_ml.x + last_ml.width;
 
-            let barline_kind = system_end_barline_kind(&last_ml.resolved, is_last_system);
+            let barline_kind =
+                trailing_barline_kind(last_ml, &score.global.measures, is_last_system);
+            for (layouts, &staff_y) in all_sys_layouts.iter().zip(staff_y_offsets) {
+                if let Some(last) = layouts.last() {
+                    super::super::courtesy_signatures::render_system_end_courtesy(
+                        dl,
+                        &last.resolved,
+                        end_x,
+                        staff_y,
+                        sp,
+                        config,
+                    );
+                }
+            }
 
-            let barline_tag = element_id::barline(last_ml.resolved.index + 1);
+            let barline_tag = element_id::barline(trailing_barline_index(last_ml));
             let cmd_idx = dl.commands.len();
             for &staff_y in staff_y_offsets {
                 render_barline(dl, end_x, staff_y, staff_height, sp, config, &barline_kind);

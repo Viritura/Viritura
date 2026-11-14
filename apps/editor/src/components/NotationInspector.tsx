@@ -4,9 +4,8 @@ import { useSelection, useSelectedElementType } from "../store/selectionStore";
 import { resolveNotationSelectionTarget } from "../commands/notationInspectorCommands";
 
 import { LayoutSection } from "./inspector/LayoutSection";
-import { TempoSection } from "./inspector/TempoSection";
+import { SystemInstructionProperties } from "../systemInstructions";
 import { TempoRampInspector } from "../tempoRamps";
-import { inheritedStyleForRole } from "./inspector/TextContentEditor";
 import { DirectionTextSections } from "./inspector/DirectionTextSections";
 import { TieSection, SlurSection } from "./inspector/TieSlurSections";
 import { GlissandoSection } from "./inspector/GlissandoSection";
@@ -28,7 +27,6 @@ import { useStaffMeterInspector } from "./inspector/useStaffMeterInspector";
 import { type InspectorSection } from "./inspector/notationInspectorMeta";
 import { useInspectorAutoScroll, useTieSlurHandlers, useColorHandlers } from "./inspector/useNotationInspectorHooks";
 import {
-  useTempoHandlers,
   useBarlineHandlers,
   useClefHandlers,
   useAccidentalAndTrillHandlers,
@@ -48,6 +46,7 @@ import { BeamSection } from "./inspector/BeamSection";
 import { useBeamInspector } from "./inspector/useBeamInspector";
 
 import { HorizonTextFrames, TextFramesPanel } from "./textFrames";
+import { LyricsPanel } from "./lyrics/LyricsPanel";
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
 
@@ -55,21 +54,33 @@ interface NotationInspectorProps {
   preferredSection?: InspectorSection | null;
   /** Horizon view hides page-placed text frames; list and edit them alongside the selection. */
   horizonTextFrames?: boolean;
+  showLyricLineControls?: boolean;
 }
 
-function NotationInspectorEmptyState({ horizonTextFrames }: { horizonTextFrames?: boolean }) {
+function NotationInspectorEmptyState({
+  horizonTextFrames,
+  frameSelected,
+  showLyricLineControls,
+}: {
+  horizonTextFrames?: boolean;
+  frameSelected: boolean;
+  showLyricLineControls?: boolean;
+}) {
   return (
     <aside style={panelStyle} data-testid="notation-inspector">
       <PanelHeader title="Notation Properties" />
       <div className="viritura-scroll" style={bodyStyle}>
-        <div style={emptyStateStyle}>
-          <MousePointer2 size={24} strokeWidth={1.5} aria-hidden="true" />
-          <strong style={emptyTitleStyle}>No current selection</strong>
-          <p style={emptyDescriptionStyle}>
-            Select a note, marking, barline, or other score element to view and edit its notation details here.
-          </p>
-        </div>
+        {!frameSelected && (
+          <div style={emptyStateStyle}>
+            <MousePointer2 size={24} strokeWidth={1.5} aria-hidden="true" />
+            <strong style={emptyTitleStyle}>No current selection</strong>
+            <p style={emptyDescriptionStyle}>
+              Select a note, marking, barline, or other score element to view and edit its notation details here.
+            </p>
+          </div>
+        )}
         {horizonTextFrames ? <HorizonTextFrames /> : <TextFramesPanel />}
+        {showLyricLineControls && <LyricsPanel embedded />}
       </div>
     </aside>
   );
@@ -106,7 +117,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     isEvent,
   } = useNotationInspectorSelection(selection, score, target);
 
-  const tempo = useTempoHandlers({ score, target, updateScore });
   const staffConfig = useStaffConfigInspector({ score, selection, commitPatches });
   const lyric = useLyricInspector({ score, selection, updateScore });
   const isLyricSelected = lyric.selected !== null;
@@ -199,11 +209,17 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     selection.kind !== "measure" &&
     selection.kind !== "range"
   ) {
-    return <NotationInspectorEmptyState horizonTextFrames={_props.horizonTextFrames} />;
+    return (
+      <NotationInspectorEmptyState
+        horizonTextFrames={_props.horizonTextFrames}
+        frameSelected={selectedElementType === "text-frame"}
+        showLyricLineControls={_props.showLyricLineControls}
+      />
+    );
   }
 
   const selectionSubtitle = target
-    ? tempo.isTempoSelected
+    ? /^tempo\d+$/.test(target.elementType)
       ? `Selected: tempo in bar ${target.measureIndex + 1}`
       : `Selected: ${selectedElementType ?? target.elementType} (${target.elementId})`
     : staffConfig.target
@@ -221,29 +237,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         <BeamSection state={beam} />
         {score && <TempoRampInspector score={score} selection={selection} updateScore={updateScore} />}
 
-        {target && tempo.isTempoSelected && tempo.selectedTempo && (
-          <TempoSection
-            key={target.elementId}
-            tempo={tempo.selectedTempo}
-            effectiveSwing={tempo.effectiveSwing ?? undefined}
-            onSwingChange={tempo.handleTempoSwingChange}
-            onBpmChange={tempo.handleTempoBpmChange}
-            onValueBaseChange={tempo.handleTempoValueBaseChange}
-            onDotsChange={tempo.handleTempoDotsChange}
-            onTextChange={tempo.handleTempoTextChange}
-            onShowTextChange={tempo.handleTempoShowTextChange}
-            onShowMetronomeChange={tempo.handleTempoShowMetronomeChange}
-            inheritedStyle={inheritedStyleForRole("tempo", score?.textStyles)}
-            offset={{
-              value: tempo.selectedTempo.manualOffset ?? [0, 0],
-              onChange: tempo.handleTempoOffsetChange,
-              onReset: tempo.handleTempoOffsetReset,
-              avoidCollisions: {
-                value: tempo.selectedTempo.avoidCollisions ?? true,
-                onChange: tempo.handleTempoAvoidCollisionsChange,
-              },
-            }}
-          />
+        {score && target && (target.elementType === "system-text" || /^tempo\d+$/.test(target.elementType)) && (
+          <SystemInstructionProperties key={target.elementId} score={score} target={target} updateScore={updateScore} />
         )}
 
         {(target || selection.kind === "measure") && (
@@ -461,6 +456,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         )}
 
         {_props.horizonTextFrames ? <HorizonTextFrames /> : <TextFramesPanel />}
+        {_props.showLyricLineControls && <LyricsPanel embedded />}
       </div>
     </aside>
   );

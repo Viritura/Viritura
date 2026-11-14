@@ -258,16 +258,6 @@ pub(crate) fn layout_sequence_content(
                 // Record first event index before recursing
                 let first_idx = events.len();
 
-                // Tuplet placement overrides the sequence-level force for
-                // events within the tuplet.
-                let tuplet_stem = StemContext {
-                    forced_stem_up: tuplet
-                        .placement
-                        .and_then(|o| o.force_stem_up())
-                        .or(stem.forced_stem_up),
-                    ..stem
-                };
-
                 // Recurse into tuplet content with compounded scale
                 layout_sequence_content(
                     &tuplet.content,
@@ -286,7 +276,7 @@ pub(crate) fn layout_sequence_content(
                     measure_index,
                     resolved_ottavas,
                     log_spacing,
-                    tuplet_stem,
+                    stem,
                     sequence_staff,
                     transposition,
                     kit,

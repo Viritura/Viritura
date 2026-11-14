@@ -151,6 +151,23 @@ describe("context-sensitive F flip", () => {
 
     const tuplet = latest().parts[0]!.measures[0]!.sequences[0]!.content[2] as Tuplet;
     expect(tuplet.placement).toBe("below");
+    expect(tuplet.content.every((item) => item.type !== "event" || item.stemDirection === undefined)).toBe(true);
+  });
+
+  it("flips a tuplet twice without changing explicit stem directions", () => {
+    const score = makeScore();
+    const tuplet = score.parts[0]!.measures[0]!.sequences[0]!.content[2] as Tuplet;
+    (tuplet.content[0] as NoteEvent).stemDirection = "down";
+    const { ctx, latest } = makeContext(score, single("p0/m0/s0/tuplet0"));
+    expect(handleFlip(ctx)).toBe(true);
+    expect(handleFlip(ctx)).toBe(true);
+    const flipped = latest().parts[0]!.measures[0]!.sequences[0]!.content[2] as Tuplet;
+    expect(flipped.placement).toBe("above");
+    expect(flipped.content.map((item) => (item.type === "event" ? item.stemDirection : undefined))).toEqual([
+      "down",
+      undefined,
+      undefined,
+    ]);
   });
 
   it("flips a selected articulation without flipping its note stem", () => {

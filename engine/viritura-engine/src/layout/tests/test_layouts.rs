@@ -10,6 +10,196 @@ use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
 
+fn auto_hide_fixture() -> serde_json::Value {
+    let rest = serde_json::json!({"duration": {"base": "whole"}, "rest": {}});
+    let note = serde_json::json!({"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]});
+    serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}}, {"id": "m1"}, {"id": "m2"}, {"id": "m3"}
+        ]},
+        "parts": [
+            {"id": "keeper", "name": "Flute", "measures": (0..4).map(|_| serde_json::json!({
+                "sequences": [{"content": [note.clone()]}]
+            })).collect::<Vec<_>>()},
+            {"id": "piano", "name": "Piano", "staves": 2, "measures": (0..4).map(|index| serde_json::json!({
+                "sequences": [
+                    {"staff": 1, "content": [rest.clone()]},
+                    {"staff": 2, "content": [if index == 2 { note.clone() } else { rest.clone() }]}
+                ]
+            })).collect::<Vec<_>>()}
+        ],
+        "layouts": [{"id": "L", "content": [
+            {"type": "staff", "sources": [{"part": "keeper"}]},
+            {"type": "group", "symbol": "brace", "content": [
+                {"type": "staff", "sources": [{"part": "piano", "staff": 1}]},
+                {"type": "staff", "sources": [{"part": "piano", "staff": 2}]}
+            ]}
+        ]}],
+        "scores": [
+            {"name": "Auto", "layout": "L", "_x": {"viritura": {
+                "autoHideEmptyParts": ["piano"], "layoutBreaks": [{"measure": "m2", "kind": "system"}]
+            }}},
+            {"name": "Unchanged", "layout": "L"}
+        ]
+    })
+}
+
+fn auto_hide_config() -> LayoutConfig {
+    LayoutConfig {
+        sp: 10.0,
+        page_width: Some(1000.0),
+        ..LayoutConfig::default()
+    }
+}
+
+#[test]
+fn test_auto_hide_empty_parts_are_per_score_and_restore_whole_instruments() {
+    let source = auto_hide_fixture();
+    let score = parse_mnx(&source.to_string()).unwrap();
+    let display = layout_with_mnx_scores(&score, &auto_hide_config(), 0);
+    assert!(!display
+        .measure_bounds
+        .iter()
+        .any(|bound| bound.part_index == 1 && bound.index < 2));
+    let piano_bounds: Vec<_> = display
+        .measure_bounds
+        .iter()
+        .filter(|bound| bound.part_index == 1 && bound.index == 2)
+        .collect();
+    assert_eq!(
+        piano_bounds.len(),
+        2,
+        "one sounding piano staff keeps both visible"
+    );
+    let other = layout_with_mnx_scores(&score, &auto_hide_config(), 1);
+    assert!(other
+        .measure_bounds
+        .iter()
+        .any(|bound| bound.part_index == 1 && bound.index == 0));
+    let horizon = LayoutConfig {
+        page_width: None,
+        ..auto_hide_config()
+    };
+    let horizon_display = layout_with_mnx_scores(&score, &horizon, 0);
+    assert!(horizon_display
+        .measure_bounds
+        .iter()
+        .any(|bound| bound.part_index == 1 && bound.index == 0));
+}
+
+#[test]
+fn test_auto_hide_keeps_rest_markings_and_spanner_continuations() {
+    let mut fixtures = Vec::new();
+    let mut fermata = auto_hide_fixture();
+    fermata["parts"][1]["measures"][0]["sequences"][0]["content"][0]["fermata"] =
+        serde_json::json!({});
+    fixtures.push(fermata);
+    let mut expression = auto_hide_fixture();
+    expression["parts"][1]["measures"][0]["_x"] = serde_json::json!({"viritura": {
+        "expressions": [{"text": [{"text": "tacet"}], "position": {"fraction": [0, 1]}}]
+    }});
+    fixtures.push(expression);
+    let mut hairpin = auto_hide_fixture();
+    hairpin["parts"][1]["measures"][0]["dynamics"] = serde_json::json!([{
+        "id": "crescendo", "type": "gradual", "wedgeType": "increasing",
+        "position": {"fraction": [0, 1]}, "end": {"measure": "m3", "position": {"fraction": [1, 1]}}
+    }]);
+    hairpin["scores"][0]["_x"]["viritura"]["layoutBreaks"] = serde_json::json!([
+        {"measure": "m1", "kind": "system"}, {"measure": "m2", "kind": "system"}
+    ]);
+    fixtures.push(hairpin);
+    for (index, fixture) in fixtures.iter().enumerate() {
+        let score = parse_mnx(&fixture.to_string()).unwrap();
+        let display = layout_with_mnx_scores(&score, &auto_hide_config(), 0);
+        assert!(
+            display
+                .measure_bounds
+                .iter()
+                .any(|bound| bound.part_index == 1 && bound.index == 0),
+            "fixture {index}"
+        );
+        if index == 2 {
+            assert!(
+                display
+                    .measure_bounds
+                    .iter()
+                    .any(|bound| bound.part_index == 1 && bound.index == 1),
+                "a continuing hairpin keeps a rest-only system visible"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_auto_hide_keeps_slurs_and_glissandos_across_rest_only_systems() {
+    for glissando in [false, true] {
+        let mut fixture = auto_hide_fixture();
+        let note = fixture["parts"][0]["measures"][0]["sequences"][0]["content"][0].clone();
+        fixture["parts"][1]["measures"][0]["sequences"][0]["content"][0] = note.clone();
+        fixture["parts"][1]["measures"][3]["sequences"][0]["content"][0] = note;
+        fixture["parts"][1]["measures"][3]["sequences"][0]["content"][0]["id"] =
+            serde_json::json!("span-end");
+        let start = &mut fixture["parts"][1]["measures"][0]["sequences"][0]["content"][0];
+        if glissando {
+            start["_x"] = serde_json::json!({"viritura": {
+                "glissandos": [{"target": "span-end", "style": "straight"}]
+            }});
+        } else {
+            start["slurs"] = serde_json::json!([{"target": "span-end"}]);
+        }
+        fixture["scores"][0]["_x"]["viritura"]["layoutBreaks"] = serde_json::json!([
+            {"measure": "m1", "kind": "system"}, {"measure": "m2", "kind": "system"}
+        ]);
+        let score = parse_mnx(&fixture.to_string()).unwrap();
+        let display = layout_with_mnx_scores(&score, &auto_hide_config(), 0);
+        assert!(
+            display
+                .measure_bounds
+                .iter()
+                .any(|bound| bound.part_index == 1 && bound.index == 1),
+            "a continuing {} keeps the rest-only system visible",
+            if glissando { "glissando" } else { "slur" }
+        );
+    }
+}
+
+#[test]
+fn test_auto_hide_keeps_an_instrument_on_fully_silent_systems() {
+    let mut fixture = auto_hide_fixture();
+    fixture["parts"][0]["measures"] = fixture["parts"][1]["measures"].clone();
+    fixture["scores"][0]["_x"]["viritura"]["autoHideEmptyParts"] =
+        serde_json::json!(["keeper", "piano"]);
+    let score = parse_mnx(&fixture.to_string()).unwrap();
+    let display = layout_with_mnx_scores(&score, &auto_hide_config(), 0);
+    assert!(display.measure_bounds.iter().any(|bound| bound.index == 0));
+}
+
+#[test]
+fn test_auto_hide_cached_layout_restores_an_instrument_after_a_note_edit() {
+    let mut score = parse_mnx(&auto_hide_fixture().to_string()).unwrap();
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    let config = auto_hide_config();
+    let initial =
+        crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    assert!(!initial
+        .measure_bounds
+        .iter()
+        .any(|bound| bound.part_index == 1 && bound.index == 0));
+    score.parts[1].measures[0].sequences[1].content =
+        score.parts[1].measures[2].sequences[1].content.clone();
+    let actual = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let expected = layout_with_mnx_scores(&score, &config, 0);
+    assert_eq!(
+        serde_json::to_value(&actual.measure_bounds).unwrap(),
+        serde_json::to_value(&expected.measure_bounds).unwrap()
+    );
+    assert!(actual
+        .measure_bounds
+        .iter()
+        .any(|bound| bound.part_index == 1 && bound.index == 0));
+}
+
 #[test]
 fn test_tier5_system_layouts_parse() {
     let json = include_str!("../../../../../packages/format/fixtures/mnx/system-layouts.mnx");

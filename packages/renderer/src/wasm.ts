@@ -129,7 +129,7 @@ export async function initWasm(): Promise<void> {
         /* @vite-ignore */ /* webpackIgnore: true */ `${basePath}wasm/viritura_wasm${assetHash}.js`
       );
 
-      // Step 3: Initialize asynchronously so large binaries load on the main thread.
+      // Initialize asynchronously: Chromium limits synchronous WASM to 8 MB.
       const exports = await glue.default({ module_or_path: wasmBytes });
       wasmMemory = exports.memory instanceof WebAssembly.Memory ? exports.memory : null;
 

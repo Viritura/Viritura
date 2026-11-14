@@ -73,6 +73,26 @@ function verifyNotes(score: Score, expected: { id: string; start: number; beats:
 }
 
 describe("shared synthetic swing realization", () => {
+  it("realizes optional playback on system text in both native and browser generators", () => {
+    const score = fixture();
+    const measure = score.global.measures[0]!;
+    const tempo = measure.tempos![0]!;
+    if (tempo.bpm === undefined) throw new Error("Missing metronomic fixture");
+    measure.systemText = [
+      {
+        id: "shared",
+        text: [{ text: "Swing" }],
+        position: { fraction: [0, 1] },
+        tempo: { bpm: tempo.bpm, value: tempo.value, swing: tempo.swing },
+      },
+    ];
+    delete measure.tempos;
+    verifyNotes(score, [
+      { id: "a", start: 0, beats: 0.3 },
+      { id: "b", start: 0.3, beats: 0.2 },
+    ]);
+  });
+
   it.each([
     { ratio: [1, 1] as const, first: 1 / 6, second: 1 / 6 },
     { ratio: [3, 2] as const, first: 0.2, second: 2 / 15 },

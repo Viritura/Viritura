@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus } from "lucide-react";
 import type { LyricLineMetadataEntry, Score } from "@viritura/core";
 import { Button, Collapsible, FormField, FormInput, IconButton, Select } from "@viritura/ui";
@@ -96,7 +96,15 @@ interface LyricsPanelProps {
   readonly embedded?: boolean;
 }
 
-/** Lyric entry and score-level lyric-line controls for the Write palettes. */
+function useLyricEntryScroll(lyricMode: boolean) {
+  const panelRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (lyricMode) panelRef.current?.scrollIntoView?.({ block: "start" });
+  }, [lyricMode]);
+  return panelRef;
+}
+
+/** Lyric entry and score-level lyric-line controls in Properties. */
 export function LyricsPanel({ embedded = false }: LyricsPanelProps) {
   const score = useDocumentStore((state) => state.score);
   const updateScore = useDocumentStore((state) => state.updateScore);
@@ -108,6 +116,7 @@ export function LyricsPanel({ embedded = false }: LyricsPanelProps) {
   const lineIds = useMemo(() => (score ? getLyricLineIds(score) : []), [score]);
   const activeMetadata = score?.global.lyrics?.lineMetadata?.[activeLyricLineId];
   const activeLineIndex = lineIds.indexOf(activeLyricLineId);
+  const panelRef = useLyricEntryScroll(lyricMode);
 
   useEffect(() => {
     if (lineIds.length > 0 && !lineIds.includes(activeLyricLineId)) setActiveLyricLineId(lineIds[0]!);
@@ -172,7 +181,11 @@ export function LyricsPanel({ embedded = false }: LyricsPanelProps) {
   if (!score) return <p className={styles.status}>Open a score to work with lyrics.</p>;
 
   return (
-    <section className={`${embedded ? styles.embeddedRoot : `viritura-scroll ${styles.root}`}`} aria-label="Lyrics">
+    <section
+      ref={panelRef}
+      className={`${embedded ? styles.embeddedRoot : `viritura-scroll ${styles.root}`}`}
+      aria-label="Lyrics"
+    >
       <div className={styles.header}>
         <div>{embedded ? <h3 className={styles.lineTitle}>Lyrics</h3> : <h2 className={styles.title}>Lyrics</h2>}</div>
         <Button

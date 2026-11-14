@@ -45,7 +45,6 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
     handleDynamicStaffEndChange,
     handleDynamicVisuallyContinuesChange,
     handleDynamicVoiceChange,
-    isExpressionSelected,
     isSystemTextSelected,
     selectedExpression,
     handleExpressionTextChange,
@@ -94,10 +93,10 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
         />
       )}
 
-      {isExpressionSelected && selectedExpression && (
+      {!isSystemTextSelected && selectedExpression && (
         <>
           <DirectionTextSection
-            title={expressionSectionTitle(isSystemTextSelected)}
+            title="Expression"
             multiline
             label="Text"
             value={selectedExpression.text}
@@ -164,8 +163,4 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
       <OttavaInspector score={score} target={target} updateScore={updateScore} />
     </>
   );
-}
-
-function expressionSectionTitle(isSystemTextSelected: boolean): string {
-  return isSystemTextSelected ? "System Text" : "Expression";
 }

@@ -183,7 +183,9 @@ pub(crate) fn prefix_layout(
         PrefixContext::Alignment => is_first || is_system_start,
         PrefixContext::MeasureLayout => is_first,
     };
-    if rm.key_signature_changed() || (restates_key && rm.active_key.accidental_count() != 0) {
+    if crate::layout::render_signatures::staff_has_key_signature(rm)
+        && (rm.key_signature_changed() || (restates_key && rm.active_key.accidental_count() != 0))
+    {
         let cancel_count = if rm.key_signature_changed() {
             rm.prev_key.cancellation_count(&rm.active_key)
         } else {
@@ -323,6 +325,17 @@ pub(crate) fn compute_max_prefix_width<'a>(
         first_onset_padding,
         time_signature_reserve,
     }
+}
+
+/// Fixed system-start furniture beyond the prefix in the natural measure budget.
+pub(crate) fn compute_system_start_prefix_extra<'a>(
+    measures: impl IntoIterator<Item = &'a ResolvedMeasure>,
+    system_prefix: AlignedPrefix,
+    sp: f64,
+    config: &LayoutConfig,
+) -> f64 {
+    let natural_prefix = compute_max_prefix_width(measures, sp, false, config);
+    (system_prefix.width - natural_prefix.width).max(0.0)
 }
 
 /// Preserve rhythmic width when independently aligned prefix regions make the

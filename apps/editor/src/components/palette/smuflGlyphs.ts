@@ -3,6 +3,7 @@
 export const SMUFL = {
   // Noteheads
   noteheadHalf: String.fromCodePoint(0xe0a3),
+  noteheadBlack: String.fromCodePoint(0xe0a4),
   // Articulations
   articStaccatoAbove: String.fromCodePoint(0xe4a2),
   articStaccatissimoAbove: String.fromCodePoint(0xe4a6),
@@ -52,6 +53,7 @@ export const SMUFL = {
   // Lines / Hairpins
   hairpinCrescendo: String.fromCodePoint(0xe53e),
   hairpinDecrescendo: String.fromCodePoint(0xe53f),
+  wiggleGlissando: String.fromCodePoint(0xeaaf),
   // Repeats & Markers
   segno: String.fromCodePoint(0xe047),
   coda: String.fromCodePoint(0xe048),

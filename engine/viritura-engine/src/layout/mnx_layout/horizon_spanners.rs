@@ -1,6 +1,8 @@
 use super::super::full_score::FlatStaff;
 use super::super::types::MeasureLayout;
-use super::super::volta::{render_ottavas_across_chunks, render_volta_brackets_across_chunks};
+use super::super::volta::{
+    render_ottavas_across_chunks, render_volta_brackets_across_chunks, VoltaSkyline,
+};
 use super::staff_placement::StaffYPlacement;
 use crate::model::Score;
 use crate::render::DisplayList;
@@ -12,6 +14,7 @@ pub(super) fn render(
     placement: &StaffYPlacement,
     sp: f64,
     score: &Score,
+    volta_skylines: &[VoltaSkyline],
 ) {
     for (staff_index, staff) in flat_staves.iter().enumerate() {
         let measures: Vec<_> = chunks
@@ -42,6 +45,7 @@ pub(super) fn render(
             placement.offsets[staff_index],
             sp,
             score,
+            &volta_skylines[staff_index],
         );
     }
 }

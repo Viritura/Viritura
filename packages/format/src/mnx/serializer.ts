@@ -94,6 +94,7 @@ export function serializeMnx(score: Score): unknown {
  */
 function serializeRootExtensions(score: Score): Obj {
   const virituraExt: Obj = {};
+  if (score.pageSetupDefaults) virituraExt["pageSetupDefaults"] = score.pageSetupDefaults;
 
   if (score.metadata) {
     const metaObj: Obj = {};

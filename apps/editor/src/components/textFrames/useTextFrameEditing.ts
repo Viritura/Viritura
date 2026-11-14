@@ -21,7 +21,7 @@ import {
   updateTextFrameInScore,
   type TextFrameLayerCommand,
 } from "../../score/textFrameMutations";
-import { selectedStaffDestination, textFrameIdFromElementId } from "./textFrameContext";
+import { selectedStaffDestination, textFrameElementId, textFrameIdFromElementId } from "./textFrameContext";
 import { pageTextToStaff } from "../../score/textFrameAttachment";
 import { produce } from "../../score/scoreClone";
 import { ensureMeasureId } from "../../score/spanUtils";
@@ -102,8 +102,9 @@ export function useTextFrameEditing(): TextFrameEditing {
       const frame = buildTextFrame(score, { locator });
       commit((current) => addTextFrameInScore(current, scoreIndex, frame));
       selectFrame(frame.id);
+      selectElement(textFrameElementId(frame.id));
     },
-    [score, scoreIndex, commit, selectFrame],
+    [score, scoreIndex, commit, selectFrame, selectElement],
   );
 
   const setPresentation = useCallback(

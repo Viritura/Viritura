@@ -585,14 +585,26 @@ function drawSvgText(
   else if (baseline === "central") pdfY -= (ascent - descent) / 2;
   else if (baseline === "text-after-edge") pdfY += descent;
 
+  const transform = attr(attrs, "transform");
+  const rotation = transform.match(/^translate\(([-\d.]+)\s*,\s*([-\d.]+)\)\s+rotate\(([-\d.]+)\)$/);
+  if (transform && !rotation) throw new Error(`PDF: unsupported text transform "${transform}"`);
+  const angle = rotation ? -Number(rotation[3]) : 0;
+  const radians = (angle * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const originX = rotation ? xPt(Number(rotation[1])) : 0;
+  const originY = rotation ? yPt(Number(rotation[2]), pageH) : pageH;
+
   for (const run of runs) {
+    const localY = pdfY - pageH;
     page.drawText(run.text, {
-      x: pdfX,
-      y: pdfY,
+      x: originX + pdfX * cos - localY * sin,
+      y: originY + pdfX * sin + localY * cos,
       size: sizePt,
       font: run.font,
       color: rgb(r, g, b),
       opacity,
+      rotate: degrees(angle),
     });
     pdfX += run.font.widthOfTextAtSize(run.text, sizePt);
   }

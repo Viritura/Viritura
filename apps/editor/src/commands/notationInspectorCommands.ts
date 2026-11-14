@@ -7,6 +7,7 @@ import type {
   SequenceContent,
   TupletBracket,
   TupletDisplaySetting,
+  Placement,
 } from "@viritura/core";
 import type { NoteValueBase, Octave, StemDirection, Step } from "@viritura/core";
 import { walkSequenceEvents } from "@viritura/core";
@@ -16,13 +17,14 @@ import {
   resolveEventFromSubElement,
   resolveGraceLocation,
   resolveFullMeasureRestLocation,
+  resolveTupletSelectionLocation,
 } from "../score/ElementPath";
 import { parseElementType } from "../score/elementTypes";
 import { setSlurProperties, setTieProperties } from "./noteCommands";
 import { setGlissandoProperties } from "./glissandoCommands";
 import { parseClefElementId } from "../score/clefElementId";
 
-import { applyLayoutOverrides, type LayoutOverrideParams } from "./layoutCommands";
+import { applyLayoutOverrides } from "./layoutCommands";
 import { produce } from "../score/scoreClone";
 import { resolveCondensedEventTargets } from "../score/condensedWriteback";
 
@@ -71,6 +73,19 @@ function resolveSingleSelectionTarget(
   score: Score,
 ): NotationSelectionTarget | null {
   const { elementId } = selection;
+  if (/\/tuplet\d+$/.test(elementId)) {
+    const location = resolveTupletSelectionLocation(score, elementId);
+    return location
+      ? {
+          elementId,
+          elementType: "tuplet",
+          partIndex: location.partIndex,
+          measureIndex: location.measureIndex,
+          sequenceIndex: location.sequenceIndex,
+          eventIndex: location.tupletIndex,
+        }
+      : null;
+  }
   const specialTarget = resolveSpecialNotationSelectionTarget(selection, score);
   if (specialTarget !== undefined) return specialTarget;
 
@@ -663,7 +678,7 @@ export interface LayoutOverridesInspectorPatch {
     directionHint?: "upper" | "lower" | null;
   };
   tuplet?: {
-    placement?: "up" | "down" | null;
+    placement?: Placement | null;
     bracket?: TupletBracket | null;
     showNumber?: TupletDisplaySetting | null;
     showValue?: TupletDisplaySetting | null;
@@ -679,6 +694,6 @@ export function setLayoutOverridesProperties(
     return { ok: false, error: "No element selected." };
   }
 
-  const nextScore = applyLayoutOverrides(score, target.elementId, patch as LayoutOverrideParams);
+  const nextScore = applyLayoutOverrides(score, target.elementId, patch);
   return { ok: true, score: nextScore };
 }

@@ -70,9 +70,9 @@ pub(super) fn render_staff_lines(
     let Some(first) = measure_layouts.first() else {
         return;
     };
-    let x_end = measure_layouts
-        .last()
-        .map_or(margin_left, |layout| layout.x + layout.width);
+    let x_end = measure_layouts.last().map_or(margin_left, |layout| {
+        super::courtesy_signatures::staff_end_x(layout, sp)
+    });
     let mut runs = Vec::new();
     let mut active_lines = first.resolved.active_staff_lines;
     let mut run_start = margin_left;

@@ -121,6 +121,17 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
   // (vendor dicts are untyped in the schema; narrow-cast the known shape.)
   const viritura = raw._x?.["viritura"] as Record<string, unknown> | undefined;
   if (viritura && "textFrames" in viritura) sd.textFrames = parseTextFrames(viritura["textFrames"]);
+  if (viritura && "autoHideEmptyParts" in viritura) {
+    const parts = viritura["autoHideEmptyParts"];
+    if (
+      !Array.isArray(parts) ||
+      !parts.every((part): part is string => typeof part === "string" && part.length > 0) ||
+      new Set(parts).size !== parts.length
+    ) {
+      throw new Error("Viritura autoHideEmptyParts must be an array of unique, nonempty part IDs.");
+    }
+    sd.autoHideEmptyParts = [...parts];
+  }
   const labelsRaw = viritura?.["instrumentNameDisplay"] as Record<string, unknown> | undefined;
   if (labelsRaw) {
     sd.instrumentNameDisplay = {
@@ -139,6 +150,8 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
     });
   }
   const psRaw = viritura?.["pageSetup"] as Record<string, unknown> | undefined;
+  const role = viritura?.["pageSetupRole"];
+  if (role === "score" || role === "part") sd.pageSetupRole = role;
   if (psRaw) {
     const pageSetup: Partial<PageSetup> = {};
     if (psRaw["width"] !== undefined) pageSetup.width = psRaw["width"] as number;

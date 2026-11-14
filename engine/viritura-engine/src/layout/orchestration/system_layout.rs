@@ -159,6 +159,19 @@ pub(in crate::layout) fn precompute_system_layouts(
     let mut precomp_sys_layouts: Vec<Vec<MeasureLayout>> = Vec::with_capacity(system_count);
 
     for (sys_idx, sys_measures) in systems.iter().enumerate() {
+        let mut last_resolved =
+            visible_resolved[*sys_measures.last().expect("nonempty system")].clone();
+        if let Some(&next_mi) = systems.get(sys_idx + 1).and_then(|system| system.first()) {
+            last_resolved.system_end = crate::layout::courtesy_signatures::courtesy_for_boundary(
+                &last_resolved,
+                visible_resolved[next_mi],
+                config,
+            );
+        }
+        let courtesy_reserve = crate::layout::courtesy_signatures::share_system_end(
+            std::iter::once(&mut last_resolved),
+            config,
+        ) * sp;
         let natural_total: f64 = sys_measures.iter().map(|&mi| natural_widths[mi]).sum();
         let avail_w = content_width.unwrap_or(natural_total);
         let natural_sys_widths: Vec<f64> =
@@ -176,7 +189,7 @@ pub(in crate::layout) fn precompute_system_layouts(
             .collect();
         let forced_sys_widths = compute_justified_system_widths(
             &natural_sys_widths,
-            avail_w,
+            (avail_w - courtesy_reserve).max(1.0),
             config.page_width.is_some(),
             sys_idx == system_count - 1,
             &lock_from_stretch,
@@ -186,11 +199,17 @@ pub(in crate::layout) fn precompute_system_layouts(
         let mut sys_x = margin_left;
         let mut sys_measure_layouts: Vec<MeasureLayout> = Vec::new();
         for (local_idx, &mi) in sys_measures.iter().enumerate() {
-            let rm = visible_resolved[mi];
-            let forced_w = forced_sys_widths[local_idx];
+            let rm = if local_idx + 1 == sys_measures.len() {
+                &last_resolved
+            } else {
+                visible_resolved[mi]
+            };
+            let forced_w = forced_sys_widths[local_idx]
+                + crate::layout::courtesy_signatures::clef_slot_width(rm, sp);
             let compound_hash = {
                 let mut hasher = DefaultHasher::new();
                 content_hashes[mi].hash(&mut hasher);
+                measure_content_hash(rm).hash(&mut hasher);
                 forced_w.to_bits().hash(&mut hasher);
                 hasher.finish()
             };

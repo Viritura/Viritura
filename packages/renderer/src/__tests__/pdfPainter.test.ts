@@ -165,6 +165,18 @@ describe("decodeXmlText", () => {
       draw.mockClear();
       renderSvgToPdf(
         page,
+        '<svg><text transform="translate(40.000000,20.000000) rotate(90.000000)" x="0" y="0" font-size="5" font-family="Arial, sans-serif" font-weight="bold" text-anchor="end">B♭Привет</text></svg>',
+        200,
+        fonts,
+      );
+      const originY = 200 - (20 * 72) / 25.4;
+      expect(draw.mock.calls[0]![1]!.x).toBeCloseTo((40 * 72) / 25.4);
+      expect(draw.mock.calls[0]![1]!.y).toBeCloseTo(originY + width);
+      expect(draw.mock.calls[2]![1]!.y).toBeCloseTo(originY + bold.widthOfTextAtSize("Привет", size));
+      expect(draw.mock.calls[0]![1]!.rotate).toEqual({ type: "degrees", angle: -90 });
+      draw.mockClear();
+      renderSvgToPdf(
+        page,
         '<svg><text x="40" y="20" font-size="5" font-family="Arial, sans-serif">A\nB</text></svg>',
         200,
         fonts,

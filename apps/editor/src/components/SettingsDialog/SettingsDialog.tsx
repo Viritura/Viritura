@@ -30,7 +30,8 @@ export interface SettingsDialogProps {
  * entry. Only the active panel is mounted, keeping unavailable host-specific
  * preferences off the critical path.
  *
- * All preferences apply instantly; there is deliberately no OK/Cancel.
+ * Most preferences apply instantly. Page defaults have an explicit Save action.
+ * There is no dialog-wide OK/Cancel.
  */
 export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const activeCategoryId = useSettingsCategoryStore((s) => s.activeCategoryId);

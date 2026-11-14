@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef } from "react";
-import { parseMnx } from "@viritura/format";
+import { parseMnx, serializeMnx } from "@viritura/format";
 import { fileSaveAs, fileDownload, isFileSystemAccessSupported } from "../commands/fileCommands";
 import type { OpenFileResult } from "../commands/fileCommands";
 import { useProjectStore } from "../store/projectStore";
 import { openExternalChangeConfirm } from "../store/modalFlowStore";
 import { toast } from "sonner";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
+import type { ProjectAdapter } from "../git";
 
 interface UseFileSaveActionsArgs {
   store: ReturnType<typeof useDocumentStoreApi>;
@@ -19,6 +20,64 @@ export interface FileSaveActions {
   handleSave: () => Promise<void>;
   handleSaveAs: () => Promise<void>;
   handleDownload: () => void;
+}
+
+function getSaveSnapshot(store: UseFileSaveActionsArgs["store"]) {
+  const { mnxJson, workingScore, score, fileName, documentGeneration } = store.getState();
+  return {
+    json: workingScore && workingScore !== score ? JSON.stringify(serializeMnx(workingScore)) : mnxJson,
+    fileName,
+    documentGeneration,
+  };
+}
+
+async function saveVersionedProject(adapter: ProjectAdapter, json: string, recordSaved: () => void): Promise<void> {
+  try {
+    await adapter.writeScore(json);
+    useProjectStore.getState().setProjectDiskBaseline(adapter, json);
+    recordSaved();
+    toast.success("Saved");
+    void useProjectStore
+      .getState()
+      .commitCurrent(json, { auto: false })
+      .catch((err) => {
+        console.error("Background commit failed:", err);
+        toast.error("Saved, but version history could not be updated");
+      });
+  } catch (err) {
+    console.error("Save failed:", err);
+    toast.error("Save failed");
+  }
+}
+
+async function confirmExternalChange(
+  store: UseFileSaveActionsArgs["store"],
+  name: string,
+  diskJson: string | null,
+  baseline: string | null,
+  projectAdapter: ProjectAdapter | null,
+  resetHistory: (json: string) => void,
+  recordBaseline: (json: string) => void,
+): Promise<boolean> {
+  if (projectAdapter?.isVersioned() && baseline === null) {
+    toast.error("Could not verify the project file's original contents");
+    return false;
+  }
+  if (diskJson === null || baseline === null || diskJson === baseline) return true;
+  const choice = await openExternalChangeConfirm(name || "score.mnx");
+  if (choice !== "reload") return choice !== null;
+  try {
+    const parsed = parseMnx(JSON.parse(diskJson));
+    store.getState().loadScore(parsed, name, diskJson);
+    resetHistory(store.getState().mnxJson || diskJson);
+    recordBaseline(diskJson);
+    if (projectAdapter?.isVersioned()) useProjectStore.getState().setProjectDiskBaseline(projectAdapter, diskJson);
+    toast.success("Reloaded external changes");
+  } catch (err) {
+    console.error("External file reload failed:", err);
+    toast.error("The external file is not valid MNX");
+  }
+  return false;
 }
 
 export function useFileSaveActions({
@@ -43,7 +102,7 @@ export function useFileSaveActions({
   );
 
   const handleSave = useCallback(async () => {
-    const { mnxJson: json, fileName: name, documentGeneration } = store.getState();
+    const { json, fileName: name, documentGeneration } = getSaveSnapshot(store);
     if (!json) return;
     const projectAdapter = useProjectStore.getState().adapter;
     let diskJson: string | null = null;
@@ -59,41 +118,17 @@ export function useFileSaveActions({
       return;
     }
 
-    const baseline = diskBaselineRef.current;
-    if (diskJson !== null && baseline !== null && diskJson !== baseline) {
-      const choice = await openExternalChangeConfirm(name || "score.mnx");
-      if (choice === null) return;
-      if (choice === "reload") {
-        try {
-          const parsed = parseMnx(JSON.parse(diskJson));
-          store.getState().loadScore(parsed, name, diskJson);
-          resetHistory(store.getState().mnxJson || diskJson);
-          diskBaselineRef.current = diskJson;
-          toast.success("Reloaded external changes");
-        } catch (err) {
-          console.error("External file reload failed:", err);
-          toast.error("The external file is not valid MNX");
-        }
-        return;
-      }
-    }
+    const baseline = projectAdapter?.isVersioned()
+      ? useProjectStore.getState().projectDiskBaseline
+      : diskBaselineRef.current;
+    if (
+      !(await confirmExternalChange(store, name, diskJson, baseline, projectAdapter, resetHistory, (value) => {
+        diskBaselineRef.current = value;
+      }))
+    )
+      return;
     if (projectAdapter && projectAdapter.isVersioned()) {
-      try {
-        await projectAdapter.writeScore(json);
-        recordSavedSnapshot(json, documentGeneration);
-        toast.success("Saved");
-        // Background commit — don't block UI.
-        void useProjectStore
-          .getState()
-          .commitCurrent(json, { auto: false })
-          .catch((err) => {
-            console.error("Background commit failed:", err);
-            toast.error("Saved, but version history could not be updated");
-          });
-      } catch (err) {
-        console.error("Save failed:", err);
-        toast.error("Save failed");
-      }
+      await saveVersionedProject(projectAdapter, json, () => recordSavedSnapshot(json, documentGeneration));
       return;
     }
     try {
@@ -120,7 +155,7 @@ export function useFileSaveActions({
   }, [store, fileHandle, setFileHandle, resetHistory, recordSavedSnapshot]);
 
   const handleSaveAs = useCallback(async () => {
-    const { mnxJson: json, fileName: name, documentGeneration } = store.getState();
+    const { json, fileName: name, documentGeneration } = getSaveSnapshot(store);
     if (!json) return;
     try {
       const downloadFallback = !isFileSystemAccessSupported();
@@ -138,7 +173,7 @@ export function useFileSaveActions({
   }, [store, setFileHandle]);
 
   const handleDownload = useCallback(() => {
-    const { mnxJson: json, fileName: name, documentGeneration } = store.getState();
+    const { json, fileName: name, documentGeneration } = getSaveSnapshot(store);
     if (!json) return;
     fileDownload(json, name || "score.mnx");
     store.getState().markSaved(json, documentGeneration);

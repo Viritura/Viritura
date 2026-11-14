@@ -138,19 +138,41 @@ function buildScore(): Score {
   };
 }
 
-function Harness({ elementId, staves = 2 }: { elementId?: string; staves?: number }) {
+function Harness({
+  elementId,
+  staves = 2,
+  initialScore,
+  tuplet = false,
+}: {
+  elementId?: string;
+  staves?: number;
+  initialScore?: Score;
+  tuplet?: boolean;
+}) {
   const { loadScore } = useDocumentActions();
   const { score, mnxJson } = useDocument();
   const { selectElement } = useSelectionActions();
 
   useEffect(() => {
-    const initial = buildScore();
+    const initial = initialScore ? structuredClone(initialScore) : buildScore();
     initial.parts[0]!.staves = staves;
+    if (tuplet) {
+      initial.parts[0]!.measures[0]!.sequences[0]!.content.push({
+        type: "tuplet",
+        inner: { multiple: 3, duration: { base: "eighth" } },
+        outer: { multiple: 2, duration: { base: "eighth" } },
+        content: [
+          { type: "event", duration: { base: "eighth" }, notes: [{ pitch: { step: "C", octave: 4 } }] },
+          { type: "event", duration: { base: "eighth" }, notes: [{ pitch: { step: "D", octave: 4 } }] },
+          { type: "event", duration: { base: "eighth" }, notes: [{ pitch: { step: "E", octave: 4 } }] },
+        ],
+      });
+    }
     loadScore(initial, "test.mnx");
     if (elementId) {
       selectElement(elementId);
     }
-  }, [loadScore, selectElement, elementId, staves]);
+  }, [loadScore, selectElement, elementId, staves, initialScore, tuplet]);
 
   return (
     <>
@@ -160,6 +182,59 @@ function Harness({ elementId, staves = 2 }: { elementId?: string; staves?: numbe
     </>
   );
 }
+
+describe("shared system instruction Properties", () => {
+  afterEach(() => {
+    cleanup();
+    resetSelectionStore();
+  });
+
+  it.each(["system text", "legacy tempo"])(
+    "edits %s through one shared section without losing other anchors",
+    async (kind) => {
+      const initialScore = buildScore();
+      const measure = initialScore.global.measures[0]!;
+      const marking = { bpm: 90, value: { base: "quarter" as const }, text: [{ text: "Broadly" }] };
+      const other = { bpm: 60, value: { base: "half" as const }, location: { fraction: [3, 4] as [number, number] } };
+      const frame = { border: "solid" as const, padding: 0.5 };
+      measure.tempos = kind === "legacy tempo" ? [marking, other] : [other];
+      if (kind === "system text")
+        measure.systemText = [
+          {
+            id: "shared",
+            text: marking.text,
+            position: { fraction: [0, 1] },
+            placement: "below",
+            frame,
+            tempo: { bpm: marking.bpm, value: marking.value },
+          },
+        ];
+      render(
+        withProviders(
+          <Harness
+            initialScore={initialScore}
+            elementId={kind === "system text" ? "m0/systemText/shared" : "m0/tempo0"}
+          />,
+        ),
+      );
+      const toggle = await screen.findByRole("checkbox", { name: "Set tempo", exact: true });
+      expect(screen.getAllByRole("textbox", { name: "Printed text", exact: true })).toHaveLength(1);
+      fireEvent.click(toggle);
+      await waitFor(() => expect(screen.queryByRole("spinbutton", { name: "BPM", exact: true })).toBeNull());
+      const snapshot = () =>
+        (JSON.parse(screen.getByTestId("score-snapshot").textContent!) as Score).global.measures[0]!;
+      expect(snapshot().tempos).toEqual([other]);
+      expect(snapshot().systemText).toHaveLength(1);
+      expect(snapshot().systemText![0]!.tempo).toBeUndefined();
+      expect(snapshot().systemText![0]!.text[0]).toMatchObject({ text: "Broadly" });
+      if (kind === "system text") expect(snapshot().systemText![0]).toMatchObject({ frame, placement: "below" });
+      fireEvent.click(screen.getByRole("checkbox", { name: "Set tempo", exact: true }));
+      expect(snapshot().systemText![0]!.tempo?.bpm).toBe(120);
+      const persisted = parseMnx(JSON.parse(screen.getByTestId("mnx-snapshot").textContent!));
+      expect(persisted.global.measures[0]!.systemText).toEqual(snapshot().systemText);
+    },
+  );
+});
 
 describe("staff text frame Properties", () => {
   afterEach(() => {
@@ -1241,6 +1316,31 @@ describe("NotationInspector", () => {
     await screen.findByTestId("notation-layout-stem");
     expect(screen.queryByText("Tuplet Overrides")).toBeNull();
     expect(screen.queryByTestId("notation-layout-tuplet-placement")).toBeNull();
+  });
+
+  it("edits and clears valid MNX placement on the selected tuplet", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="p0/m0/s0/tuplet0" tuplet />));
+    const picker = await screen.findByTestId("notation-layout-tuplet-placement");
+    const getTuplet = () => currentScore().parts[0]!.measures[0]!.sequences[0]!.content[3]!;
+    await user.click(picker);
+    await user.click(screen.getByRole("option", { name: "Below" }));
+    const below = getTuplet();
+    expect(below.type === "tuplet" && below.placement).toBe("below");
+    expect(below.type === "tuplet" && below.content.every((item) => item.type !== "event" || !item.stemDirection)).toBe(
+      true,
+    );
+    const serialized = serializeMnx(currentScore());
+    const roundtrip = parseMnx(serialized).parts[0]!.measures[0]!.sequences[0]!.content[3]!;
+    expect(roundtrip.type === "tuplet" && roundtrip.placement).toBe("below");
+    await user.click(screen.getByTestId("notation-layout-tuplet-placement"));
+    await user.click(screen.getByRole("option", { name: "Above" }));
+    const above = getTuplet();
+    expect(above.type === "tuplet" && above.placement).toBe("above");
+    await user.click(screen.getByTestId("notation-layout-tuplet-placement"));
+    await user.click(screen.getByRole("option", { name: "Auto" }));
+    const reset = getTuplet();
+    expect(reset.type === "tuplet" && reset.placement).toBeUndefined();
   });
 
   it("explains the stem direction control and groups cross-staff after it", async () => {

@@ -19,9 +19,9 @@ export interface FontLoadResult {
 /** Options for {@link loadMusicFont}. */
 export interface LoadMusicFontOptions {
   /**
-   * Also load the bundled Libertinus Serif text face as `Viritura Serif`.
-   * Default true. When false, text falls back to the page's generic `serif`
-   * (or a `Viritura Serif` face the host registers itself).
+   * Also load bundled Libertinus Serif text faces.
+   * Default true. When false, text uses generic fallbacks or private faces
+   * that the host registers itself.
    */
   readonly textFont?: boolean;
 }
@@ -47,18 +47,20 @@ const MUSIC_FACES: readonly FaceSpec[] = [
 // Libertinus Serif — OFL-licensed text font with ♭♯♮ support. Registered
 // under a private family (see textFont.ts) so embedding pages keep their
 // own generic `serif`; the engine's DrawText { font: "serif" } maps to it.
-const TEXT_FACES: readonly FaceSpec[] = (
-  [
-    ["Libertinus Serif", "Regular", {}],
-    ["Libertinus Serif Bold", "Bold", { weight: "bold" }],
-    ["Libertinus Serif Italic", "Italic", { style: "italic" }],
-    ["Libertinus Serif Bold Italic", "BoldItalic", { weight: "bold", style: "italic" }],
-  ] as const
-).map(([name, file, descriptors]) => ({
-  name,
-  create: (basePath: string) =>
-    new FontFace(TEXT_FONT_FAMILY, `url(${basePath}fonts/LibertinusSerif-${file}.otf)`, descriptors),
-}));
+const TEXT_FACES: readonly FaceSpec[] = [
+  ...(
+    [
+      ["Libertinus Serif", "Regular", {}],
+      ["Libertinus Serif Bold", "Bold", { weight: "bold" }],
+      ["Libertinus Serif Italic", "Italic", { style: "italic" }],
+      ["Libertinus Serif Bold Italic", "BoldItalic", { weight: "bold", style: "italic" }],
+    ] as const
+  ).map(([name, file, descriptors]) => ({
+    name,
+    create: (basePath: string) =>
+      new FontFace(TEXT_FONT_FAMILY, `url(${basePath}fonts/LibertinusSerif-${file}.otf)`, descriptors),
+  })),
+];
 
 /**
  * Loads a set of faces once. A result is cached only when the required face
@@ -104,7 +106,7 @@ const loadTextFaces = faceGroupLoader(TEXT_FACES, null);
 
 /**
  * Load the Bravura SMuFL font (always — layout metrics are Bravura's) and, by
- * default, the Libertinus Serif text font so Canvas can use them.
+ * default, the bundled text and rehearsal fonts so Canvas can use them.
  */
 export async function loadMusicFont(opts: LoadMusicFontOptions = {}): Promise<FontLoadResult> {
   const groups = opts.textFont === false ? [loadMusicFaces()] : [loadMusicFaces(), loadTextFaces()];
@@ -167,12 +169,23 @@ function paintEllipse(ctx: CanvasRenderingContext2D, cmd: CmdOfType<"DrawEllipse
   ctx.restore();
 }
 
-function paintText(ctx: CanvasRenderingContext2D, cmd: CmdOfType<"DrawText">): void {
+export function paintText(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  cmd: CmdOfType<"DrawText" | "DrawRotatedText">,
+): void {
   ctx.fillStyle = cmd.color;
   ctx.font = canvasTextFont(cmd.font, cmd.size);
   ctx.textAlign = cmd.align;
   ctx.textBaseline = cmd.baseline;
-  ctx.fillText(cmd.text, cmd.x, cmd.y);
+  if (cmd.type === "DrawRotatedText") {
+    ctx.save();
+    ctx.translate(cmd.x, cmd.y);
+    ctx.rotate(cmd.rotation);
+    ctx.fillText(cmd.text, 0, 0);
+    ctx.restore();
+  } else {
+    ctx.fillText(cmd.text, cmd.x, cmd.y);
+  }
 }
 
 function paintGlyph(ctx: CanvasRenderingContext2D, cmd: CmdOfType<"DrawGlyph">): void {
@@ -355,6 +368,7 @@ export function paintCommand(ctx: CanvasRenderingContext2D, cmd: RenderCommand):
       ctx.fill();
       break;
     case "DrawText":
+    case "DrawRotatedText":
       paintText(ctx, cmd);
       break;
     case "DrawGlyph":

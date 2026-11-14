@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { useEffect, type ReactNode } from "react";
 import type { Score } from "@viritura/core";
 import { TooltipPrimitives } from "@viritura/ui";
-import { TimeSigGlyph } from "../components/palette";
+import { TimeSignatureStaffPreview } from "../components/palette";
 import { DocumentProvider, useDocumentStore } from "../store/DocumentContext";
 import {
   presetFor,
@@ -133,9 +133,9 @@ describe("time signature settings model", () => {
   });
 });
 
-describe("shared palette staff geometry", () => {
+describe("shared time signature staff geometry", () => {
   it("places 4/4 at one and three spaces on a five-line staff", () => {
-    const { container } = render(<TimeSigGlyph count={4} unit={4} />);
+    const { container } = render(<TimeSignatureStaffPreview count={4} unit={4} />);
     expect(container.querySelectorAll("line")).toHaveLength(5);
     expect(Array.from(container.querySelectorAll("text")).map((text) => text.getAttribute("y"))).toEqual(["5", "15"]);
   });

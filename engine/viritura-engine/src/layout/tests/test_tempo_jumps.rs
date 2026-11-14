@@ -8,6 +8,305 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 
 #[test]
+fn automatic_tempo_fits_margin_without_leaving_its_bar() {
+    let note = serde_json::json!({
+        "duration": {"base": "eighth"},
+        "notes": [{"pitch": {"step": "G", "octave": 5}}]
+    });
+    let mut globals = vec![serde_json::json!({}); 8];
+    for (index, global) in globals.iter_mut().enumerate() {
+        global["id"] = serde_json::json!(format!("m{index}"));
+    }
+    globals[0]["time"] = serde_json::json!({"count": 4, "unit": 4});
+    globals[6]["key"] = serde_json::json!({"fifths": 2});
+    globals[6]["tempos"] = serde_json::json!([{
+        "bpm": 135, "value": {"base": "quarter"},
+        "_x": {"viritura": {"showMetronomeMark": false,
+            "text": [{"text": "Brisk and lively"}]}}
+    }]);
+    let measures = vec![
+        serde_json::json!({
+            "sequences": [{"content": vec![note; 8]}]
+        });
+        8
+    ];
+    let mut score = crate::parse::parse_mnx(&serde_json::json!({
+        "mnx": {"version": 1}, "global": {"measures": globals},
+        "parts": [{"id": "P1", "measures": measures}],
+        "layouts": [{"id": "part", "content": [{"type": "staff", "sources": [{"part": "P1"}]}]}],
+        "scores": [{"name": "Part", "layout": "part"}]
+    }).to_string()).unwrap();
+
+    let mut nudged = false;
+    let mut reflowed = false;
+    for fraction in [[0, 1], [3, 4]] {
+        score.global.measures[6].tempos.as_mut().unwrap()[0].location =
+            Some(serde_json::from_value(serde_json::json!({"fraction": fraction})).unwrap());
+        for width in (350..=850).step_by(25) {
+            let config = LayoutConfig {
+                sp: 6.0,
+                page_width: Some(f64::from(width)),
+                ..Default::default()
+            };
+            let dl = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+            let bar = dl.measure_bounds.iter().find(|m| m.index == 6).unwrap();
+            let tempo = &dl
+                .element_bboxes
+                .iter()
+                .find(|b| b.element_id == "m6/tempo0")
+                .unwrap()
+                .bbox;
+            let anchor = bar
+                .beat_anchors
+                .iter()
+                .find(|(beat, _)| {
+                    (*beat - f64::from(fraction[0]) / f64::from(fraction[1]) * 4.0).abs() < 1e-6
+                })
+                .unwrap()
+                .1;
+            let limit = f64::from(width) - config.page_margin_right * config.sp;
+            assert!(
+                tempo.x >= bar.x - 1e-6,
+                "width {width}: tempo left {} before bar {}",
+                tempo.x,
+                bar.x
+            );
+            assert!(
+                (tempo.x - anchor).abs() <= bar.width * 2.0 / 3.0 + 1e-6,
+                "width {width}: tempo {} anchor {anchor} bar {bar:?}",
+                tempo.x
+            );
+            assert!(
+                tempo.x + tempo.width <= limit + 1e-6,
+                "width {width}: tempo right {} past margin {limit}; bar {bar:?}",
+                tempo.x + tempo.width
+            );
+            nudged |= tempo.x < anchor - 1e-6
+                && dl
+                    .measure_bounds
+                    .iter()
+                    .any(|m| m.index < 6 && m.system_index == bar.system_index);
+            reflowed |= dl
+                .measure_bounds
+                .iter()
+                .all(|m| m.index >= 6 || m.system_index != bar.system_index);
+        }
+    }
+    assert!(nudged, "expected a tempo to fit by nudging within its bar");
+    assert!(reflowed, "expected a tempo to move onto a fresh system");
+}
+
+fn late_tempo_before_key_change() -> Score {
+    let quarter = serde_json::json!({
+        "duration": {"base": "quarter"},
+        "notes": [{"pitch": {"step": "C", "octave": 5}}]
+    });
+    let mut globals = vec![serde_json::json!({}); 10];
+    for (index, global) in globals.iter_mut().enumerate() {
+        global["id"] = serde_json::json!(format!("m{index}"));
+    }
+    globals[0]["time"] = serde_json::json!({"count": 4, "unit": 4});
+    globals[8]["tempos"] = serde_json::json!([{
+        "bpm": 100, "value": {"base": "quarter"}, "location": {"fraction": [3, 4]},
+        "_x": {"viritura": {"text": [{"text": "Love Letter"}]}}
+    }]);
+    globals[9]["key"] = serde_json::json!({"fifths": 2});
+    let mut measures = vec![
+        serde_json::json!({
+            "sequences": [{"content": vec![quarter.clone(); 4]}]
+        });
+        10
+    ];
+    for measure in &mut measures[6..8] {
+        *measure = serde_json::json!({
+            "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]
+        });
+    }
+    measures[8] = serde_json::json!({"sequences": [{"content": [
+        {"duration": {"base": "half", "dots": 1}, "rest": {}}, quarter
+    ]}]});
+    crate::parse::parse_mnx(&serde_json::json!({
+        "mnx": {"version": 1}, "global": {"measures": globals},
+        "parts": [{"id": "P1", "measures": measures}],
+        "layouts": [{"id": "part", "content": [{"type": "staff", "sources": [{"part": "P1"}]}]}],
+        "scores": [{"name": "Flute 2", "layout": "part",
+            "multimeasureRests": [{"start": "m6", "duration": 2}]}]
+    }).to_string()).unwrap()
+}
+
+fn assert_late_tempo_attachment(dl: &DisplayList) {
+    let bar = dl.measure_bounds.iter().find(|m| m.index == 8).unwrap();
+    let left = dl
+        .commands
+        .iter()
+        .enumerate()
+        .find_map(|(i, command)| match command {
+            RenderCommand::DrawText { x, text, .. }
+                if dl.element_ids[i].as_deref() == Some("m8/tempo0")
+                    && text.starts_with("Love Letter") =>
+            {
+                Some(*x)
+            }
+            _ => None,
+        })
+        .unwrap();
+    let anchor = bar
+        .beat_anchors
+        .iter()
+        .find(|(beat, _)| (*beat - 3.0).abs() < 1e-6)
+        .unwrap()
+        .1;
+    assert!(
+        left >= bar.x - 1e-6,
+        "tempo left {left} must stay in its bar, starting at {}",
+        bar.x
+    );
+    assert!(
+        (left - anchor).abs() <= bar.width * 2.0 / 3.0 + 1e-6,
+        "tempo displacement {} exceeds two thirds of its {}px bar",
+        left - anchor,
+        bar.width
+    );
+}
+
+#[test]
+fn late_tempo_stays_in_its_bar_when_authored_system_cannot_fit_it() {
+    let mut score = late_tempo_before_key_change();
+    score.scores[0].pages = serde_json::from_value(serde_json::json!([{"systems": [
+        {"measure": "m0", "layout": "part"}, {"measure": "m9", "layout": "part"}
+    ]}]))
+    .unwrap();
+    let config = LayoutConfig {
+        sp: 4.0,
+        page_width: Some(700.0),
+        ..Default::default()
+    };
+    for text in ["Love Letter".to_owned(), "Love Letter ".repeat(30)] {
+        score.global.measures[8].tempos.as_mut().unwrap()[0].text =
+            Some(TextContent(vec![TextContentChunk::Text(TextRun {
+                text,
+                style: None,
+            })]));
+        let dl = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+        assert_late_tempo_attachment(&dl);
+        assert_eq!(
+            dl.measure_bounds
+                .iter()
+                .find(|m| m.index == 8)
+                .unwrap()
+                .system_index,
+            0,
+            "authored system membership must not be overridden"
+        );
+    }
+    let tempo_left = |dl: &DisplayList| {
+        dl.element_bboxes
+            .iter()
+            .find(|b| b.element_id == "m8/tempo0")
+            .unwrap()
+            .bbox
+            .x
+    };
+    let automatic = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    score.global.measures[8].tempos.as_mut().unwrap()[0].manual_offset = Some([-3.0, 0.0]);
+    let manual = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    assert!(
+        (tempo_left(&manual) - tempo_left(&automatic) + 3.0 * config.sp).abs() < 1e-6,
+        "authored offsets remain authoritative"
+    );
+    let tempo = &mut score.global.measures[8].tempos.as_mut().unwrap()[0];
+    tempo.manual_offset = None;
+    tempo.avoid_collisions = Some(false);
+    let unadjusted = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    let bar = unadjusted
+        .measure_bounds
+        .iter()
+        .find(|m| m.index == 8)
+        .unwrap();
+    let anchor = bar
+        .beat_anchors
+        .iter()
+        .find(|(beat, _)| (*beat - 3.0).abs() < 1e-6)
+        .unwrap()
+        .1;
+    assert!((tempo_left(&unadjusted) - anchor).abs() < 1e-6);
+}
+
+#[test]
+fn late_tempo_after_multimeasure_rest_reflows_instead_of_crossing_bars() {
+    let mut score = late_tempo_before_key_change();
+    score.scores[0].layout_breaks = vec![LayoutBreak {
+        measure: "m9".into(),
+        kind: LayoutBreakKind::System,
+    }];
+    for (width, page_turns) in [
+        (650.0, false),
+        (750.0, false),
+        (850.0, false),
+        (750.0, true),
+    ] {
+        let mut config = LayoutConfig {
+            sp: 4.0,
+            page_width: Some(width),
+            ..Default::default()
+        };
+        config.page_turns.enabled = page_turns;
+        let mut cache = crate::layout::cache::LayoutCache::default();
+        for _ in 0..2 {
+            let dl =
+                crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+            assert_late_tempo_attachment(&dl);
+            let bar = dl.measure_bounds.iter().find(|m| m.index == 8).unwrap();
+            assert!(dl
+                .element_bboxes
+                .iter()
+                .any(|b| b.element_id == "m6/mmrcount"));
+            assert!(
+                !dl.measure_bounds
+                    .iter()
+                    .any(|m| m.system_index == bar.system_index && m.index < 8),
+                "late tempo should start a fresh system at width {width}"
+            );
+            let bbox = &dl
+                .element_bboxes
+                .iter()
+                .find(|b| b.element_id == "m8/tempo0")
+                .unwrap()
+                .bbox;
+            assert!(bbox.x + bbox.width <= width - config.page_margin_right * config.sp + 1e-6);
+        }
+    }
+    score.scores[0].layout_breaks.clear();
+    for (width, page_turns) in [
+        (650.0, false),
+        (750.0, false),
+        (850.0, false),
+        (750.0, true),
+    ] {
+        let mut config = LayoutConfig {
+            sp: 4.0,
+            page_width: Some(width),
+            ..Default::default()
+        };
+        config.page_turns.enabled = page_turns;
+        let dl = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+        assert_late_tempo_attachment(&dl);
+        let system = |index| {
+            dl.measure_bounds
+                .iter()
+                .find(|m| m.index == index)
+                .unwrap()
+                .system_index
+        };
+        assert_eq!(
+            system(8),
+            system(9),
+            "reflow should make use of the following system's space"
+        );
+    }
+}
+
+#[test]
 fn swing_only_tempo_without_authored_text_has_selectable_generated_label() {
     let json = r#"{
         "mnx": {"version": 1},

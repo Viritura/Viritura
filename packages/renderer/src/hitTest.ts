@@ -6,6 +6,7 @@
 
 import type { DisplayList, RenderCommand } from "./wasm";
 import { paintBeatRuler, type RulerTick } from "./beatRuler";
+import { renderCommandBounds } from "./renderCommandBounds";
 
 // ── Element type classification ──────────────────────────────────────
 
@@ -393,6 +394,10 @@ function commandBBox(cmd: RenderCommand): { x: number; y: number; width: number;
         width: cmd.rx * 2,
         height: cmd.ry * 2,
       };
+    case "DrawRotatedText": {
+      const bounds = renderCommandBounds(cmd);
+      return bounds ? { x: bounds.x, y: bounds.y, width: bounds.x2 - bounds.x, height: bounds.y2 - bounds.y } : null;
+    }
     case "DrawText": {
       const approxWidth = cmd.text.length * cmd.size * 0.6;
       const height = cmd.size * 1.5;

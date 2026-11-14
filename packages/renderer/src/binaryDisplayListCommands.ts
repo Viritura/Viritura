@@ -6,7 +6,7 @@
  * within complexity and length budgets — see eslint config.
  */
 
-import type { RenderCommand } from "./wasm";
+import type { DrawText, RenderCommand } from "./wasm";
 import { canvasFontFamily, canvasTextFont } from "./textFont";
 
 // ───────────────────────────────────────────────
@@ -26,6 +26,7 @@ const TAG_DRAW_TEXT = 10;
 const TAG_SET_OPACITY = 11;
 const TAG_DRAW_STRETCHED_GLYPH = 12;
 const TAG_ERASE_RECT = 13;
+const TAG_DRAW_ROTATED_TEXT = 14;
 
 // Font IDs match the engine's binary protocol (render/binary.rs):
 // 0 = Bravura (music), then text fonts packed as 1 + family*4 + style where
@@ -261,7 +262,7 @@ function decodeDrawPolygon(r: BinaryReader): RenderCommand {
   return { type: "DrawPolygon", points, color: r.color() };
 }
 
-function decodeDrawText(r: BinaryReader): RenderCommand {
+function decodeDrawText(r: BinaryReader): DrawText {
   const x = r.f32(),
     y = r.f32();
   const size = r.f32();
@@ -304,6 +305,7 @@ export const DECODERS: Record<number, Decoder> = {
   [TAG_DRAW_FILLED_BEZIER]: decodeDrawFilledBezier,
   [TAG_DRAW_POLYGON]: decodeDrawPolygon,
   [TAG_DRAW_TEXT]: decodeDrawText,
+  [TAG_DRAW_ROTATED_TEXT]: (r) => ({ ...decodeDrawText(r), type: "DrawRotatedText", rotation: r.f32() }),
   [TAG_SET_OPACITY]: decodeSetOpacity,
 };
 
@@ -576,7 +578,7 @@ function paintDrawPolygon(ctx: CanvasRenderingContext2D, r: BinaryReader): void 
   }
 }
 
-function paintDrawText(ctx: CanvasRenderingContext2D, r: BinaryReader): void {
+function paintDrawText(ctx: CanvasRenderingContext2D, r: BinaryReader, rotated = false): void {
   const x = r.f32(),
     y = r.f32();
   const size = r.f32();
@@ -592,7 +594,16 @@ function paintDrawText(ctx: CanvasRenderingContext2D, r: BinaryReader): void {
   ctx.font = canvasTextFont(FONT_DECODE_TABLE[fontId] ?? "serif", size);
   ctx.textAlign = ALIGN_TABLE[alignIdx] ?? "left";
   ctx.textBaseline = BASELINE_TABLE[baselineIdx] ?? "alphabetic";
-  ctx.fillText(text, x, y);
+  if (rotated) {
+    const rotation = r.f32();
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
+  } else {
+    ctx.fillText(text, x, y);
+  }
 }
 
 function paintSetOpacity(ctx: CanvasRenderingContext2D, r: BinaryReader): void {
@@ -611,5 +622,6 @@ export const PAINTERS: Record<number, Painter> = {
   [TAG_DRAW_FILLED_BEZIER]: paintDrawFilledBezier,
   [TAG_DRAW_POLYGON]: paintDrawPolygon,
   [TAG_DRAW_TEXT]: paintDrawText,
+  [TAG_DRAW_ROTATED_TEXT]: (ctx, r) => paintDrawText(ctx, r, true),
   [TAG_SET_OPACITY]: paintSetOpacity,
 };

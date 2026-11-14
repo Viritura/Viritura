@@ -5,7 +5,8 @@ use super::super::condensing::{label_for_mode_styled, LabelStyle, MergeMode};
 use super::super::config::LayoutConfig;
 use super::super::full_score::{compute_system_object_staves, FlatStaff, GroupRange};
 use super::super::measure::{
-    compute_system_spacing, fix_cross_staff_note_positions, layout_measure_with_shared_spacing,
+    compute_system_spacing, compute_system_start_prefix_extra, fix_cross_staff_note_positions,
+    layout_measure_with_shared_spacing,
 };
 use super::super::resolve::resolve_all_ottavas;
 use super::super::types::MeasureLayout;
@@ -49,13 +50,74 @@ pub(super) struct ExplicitSystemLayouts<'a> {
 }
 
 /// Per-physical-staff state carried across explicit system boundaries.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(super) struct PersistentStaffState {
     last_clef: HashMap<StaffKey, PositionedClef>,
     active_time: HashMap<StaffKey, TimeSignature>,
     active_key: HashMap<StaffKey, KeySignature>,
     prev_condensing: HashMap<StaffKey, MergeMode>,
     active_staff_lines: HashMap<StaffKey, u32>,
+}
+
+pub(super) fn explicit_system_horizontal_geometry(
+    ctx: &ExplicitSystemCtx<'_>,
+    system_index: usize,
+) -> (f64, Option<f64>, f64) {
+    let indent = if system_index == 0 {
+        ctx.first_system_indent
+    } else {
+        0.0
+    };
+    let label_margin = if system_index == 0 {
+        ctx.first_label_margin
+    } else {
+        ctx.subsequent_label_margin
+    };
+    let margin_left = ctx.base_margin_l + label_margin + indent;
+    let content_width = ctx
+        .config
+        .page_width
+        .map(|width| (width - margin_left - ctx.base_margin_r).max(0.0));
+    (margin_left, content_width, label_margin)
+}
+
+#[allow(clippy::too_many_arguments)] // Authored system geometry and carry state.
+pub(super) fn prepare_explicit_system<'a>(
+    ctx: &ExplicitSystemCtx<'_>,
+    system_index: usize,
+    staves: &'a [FlatStaff],
+    groups: &[GroupRange],
+    start: usize,
+    end: usize,
+    changes: &'a HashMap<usize, (Vec<FlatStaff>, Vec<GroupRange>)>,
+    state: &mut PersistentStaffState,
+    cache: Option<&mut LayoutCache>,
+) -> ExplicitSystemLayouts<'a> {
+    let measures: Vec<_> = (start..end)
+        .filter(|index| !ctx.mmr_skip_measures.contains(index))
+        .collect();
+    let (margin_left, content_width, _) = explicit_system_horizontal_geometry(ctx, system_index);
+    build_explicit_system_layouts(
+        ctx.score,
+        ctx.score_def,
+        ctx.config,
+        ctx.sp,
+        staves,
+        groups,
+        &measures,
+        start,
+        changes,
+        ctx.all_resolved,
+        ctx.max_widths,
+        content_width,
+        system_index + 1 == ctx.system_count,
+        margin_left,
+        ctx.common_shortest_beats,
+        ctx.mmr_start_map,
+        ctx.mmr_label_map,
+        state,
+        cache,
+    )
 }
 
 impl PersistentStaffState {
@@ -133,7 +195,8 @@ pub(super) fn build_explicit_system_layouts<'a>(
     lc_map: &'a HashMap<usize, (Vec<FlatStaff>, Vec<GroupRange>)>,
     all_resolved: &[Vec<ResolvedMeasure>],
     max_widths: &[f64],
-    scale: f64,
+    content_width: Option<f64>,
+    is_last_system: bool,
     margin_left: f64,
     common_shortest_beats: f64,
     mmr_start_map: &HashMap<usize, u32>,
@@ -157,6 +220,95 @@ pub(super) fn build_explicit_system_layouts<'a>(
         config,
         Some(&shown_parts),
     );
+    let mut system_ends: Vec<_> = flat_staves
+        .iter()
+        .map(|staff| {
+            let source = staff.sources.first()?;
+            let &last_index = sys_measure_indices.last()?;
+            let next_index =
+                last_index + mmr_start_map.get(&last_index).copied().unwrap_or(1) as usize;
+            let resolved = all_resolved.get(source.part_index)?;
+            let mut current = resolved.get(last_index)?.clone();
+            let mut next = resolved.get(next_index)?.clone();
+            let staff_number = source.staff_number.unwrap_or(1);
+            for (index, at_start, measure) in [
+                (last_index, false, &mut current),
+                (next_index, true, &mut next),
+            ] {
+                let clef = score.parts[source.part_index]
+                    .measures
+                    .iter()
+                    .take(index + 1)
+                    .enumerate()
+                    .rev()
+                    .find_map(|(mi, pm)| {
+                        pm.clefs.as_ref().and_then(|clefs| {
+                            clefs
+                                .iter()
+                                .rev()
+                                .find(|pc| {
+                                    pc.staff.unwrap_or(1) == staff_number
+                                        && (!at_start
+                                            || mi != index
+                                            || pc
+                                                .position
+                                                .as_ref()
+                                                .is_none_or(|position| position.fraction.0 == 0))
+                                })
+                                .map(|pc| {
+                                    let mut clef = pc.clone();
+                                    if mi != index {
+                                        clef.position = Some(RhythmicPosition { fraction: (0, 1) });
+                                    }
+                                    clef
+                                })
+                        })
+                    })
+                    .unwrap_or_else(|| {
+                        let mut clef = crate::layout::resolve::default_clef_for_staff(staff_number);
+                        clef.position = Some(RhythmicPosition { fraction: (0, 1) });
+                        clef
+                    });
+                measure.part.clefs = Some(vec![clef]);
+            }
+            current.system_end =
+                crate::layout::courtesy_signatures::courtesy_for_boundary(&current, &next, config);
+            Some(current)
+        })
+        .collect();
+    let courtesy_reserve = crate::layout::courtesy_signatures::share_system_end(
+        system_ends.iter_mut().flatten(),
+        config,
+    ) * sp;
+    let first_extra_prefix = sys_measure_indices.first().map_or(0.0, |&first_index| {
+        compute_system_start_prefix_extra(
+            all_resolved
+                .iter()
+                .enumerate()
+                .filter(|(part_index, _)| shown_parts.contains(part_index))
+                .filter_map(|(_, resolved)| resolved.get(first_index)),
+            max_prefixes.first().copied().unwrap_or_default(),
+            sp,
+            config,
+        )
+    });
+    let natural_total: f64 = sys_measure_indices
+        .iter()
+        .map(|&mi| max_widths.get(mi).copied().unwrap_or(10.0))
+        .sum();
+    let available = content_width.unwrap_or(natural_total);
+    let staff_scale = if natural_total > 0.0
+        && content_width.is_some()
+        && available > 0.0
+        && !super::super::system::should_preserve_natural_final_width(
+            natural_total,
+            available,
+            is_last_system,
+        ) {
+        (available - first_extra_prefix - courtesy_reserve).max(1.0) / natural_total
+    } else {
+        1.0
+    };
 
     for (staff_index, flat_staff) in flat_staves.iter().enumerate() {
         let use_written = score_def.use_written.unwrap_or(false);
@@ -384,6 +536,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                     measure_index,
                 );
             virtual_resolved.push(ResolvedMeasure {
+                system_end: Default::default(),
                 index: measure_index,
                 chord_symbols: super::chord_symbols::visible_global_chord_symbols(
                     score,
@@ -429,6 +582,11 @@ pub(super) fn build_explicit_system_layouts<'a>(
             previous_display_key = display_key;
         }
 
+        if let Some(last) = virtual_resolved.last_mut() {
+            if let Some(end) = system_ends[staff_index].as_ref() {
+                last.system_end = end.system_end.clone();
+            }
+        }
         let staff_ottavas = resolve_all_ottavas(&virtual_resolved);
         let mut system_x = margin_left;
         let mut measure_layouts = Vec::new();
@@ -446,7 +604,13 @@ pub(super) fn build_explicit_system_layouts<'a>(
 
         for (local_index, measure) in virtual_resolved.iter().enumerate() {
             let measure_index = sys_measure_indices[local_index];
-            let forced_width = max_widths.get(measure_index).copied().unwrap_or(10.0) * scale;
+            let forced_width = max_widths.get(measure_index).copied().unwrap_or(10.0) * staff_scale
+                + if local_index == 0 {
+                    first_extra_prefix
+                } else {
+                    0.0
+                }
+                + crate::layout::courtesy_signatures::clef_slot_width(measure, sp);
             let forced_prefix = max_prefixes.get(local_index).copied();
             let retention_key = cache.as_ref().and_then(|_| {
                 (flat_staff.sources.len() == 1

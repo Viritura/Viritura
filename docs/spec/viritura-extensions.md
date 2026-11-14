@@ -11,21 +11,21 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                       | Extensions                                                                                                                   |
-| -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks, textFrames                                                                   |
-| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                            |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                      |
-| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                      |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                            |
-| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                        |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                 |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                                   |
-| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                         |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                        |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                     |
+| MNX Object                                   | JSON Path                                       | Extensions                                                                                                                                      |
+| -------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, pageSetupDefaults, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, pageSetupRole, instrumentNameDisplay, autoHideEmptyParts, layoutBreaks, textFrames                                                   |
+| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                                               |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                                         |
+| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                                         |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                                               |
+| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                                           |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                                   |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                                    |
+| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                                                      |
+| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                                            |
+| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                                           |
+| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                                        |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -205,9 +205,13 @@ earlier ink rather than painting a white rectangle, leaving the actual paper
 color, texture, or transparency intact. Later frames remain above earlier ones.
 This does not change collision avoidance or reserve musical space.
 
-Create frames in **Write > Palettes > Text**: choose a page number and
-**Add page frame**, or select music and add a frame following that measure/event's
-page. The palette opens the new frame's text and presentation editor immediately.
+Create frames with **Write > Palettes > Text & tempo > Page text frame**.
+The tile creates and selects a frame on the current viewport page and opens
+Properties automatically. Horizon has no pages, so creation there starts on
+page 1 and the frame remains editable in Properties while hidden on the canvas.
+All text, formatting, page attachment, placement, size and layer controls live
+in Properties rather than the palette. **Page selection** can change the fixed
+page or make the frame follow a measure/event.
 **Engrave > Properties** edits existing frames; there is no dedicated text-frame
 tab or creation action in Engrave. Selecting a painted frame opens its Properties.
 The existing-frame list also exposes frames whose targets are unplaced.
@@ -355,6 +359,8 @@ owning measure. The editor creates, moves and removes that owned label with
 the ramp while preserving other system text. Printed wording has no implicit
 playback effect: rit., rall., accel., stringendo and custom text use the same
 explicit target and curve controls. An empty label creates a playback-only ramp.
+Ramp-owned labels inherit the tempo text weight (bold by default); explicit
+rich-text weights override that default. Unrelated system text is unchanged.
 Deleting the owned printed label also removes its tempo ramp, so playback does
 not retain the deleted instruction. Unrelated system text and explicit tempo
 markings are preserved.
@@ -531,12 +537,29 @@ already-authored non-preset ratio. Preset provenance is available through
 contextual help rather than a permanent warning. Printed text and visibility
 remain accessible together under Appearance.
 
-Changing a BPM-free marking to Inherit retains its cosmetic text as a
-`TextOnlyTempo`, with neither a BPM nor a groove reset. Clearing the last text
-from such an otherwise empty anchor removes it. BPM-bearing markings, printed
-text, and metronome units remain independent of swing editing. Existing score
-history and MNX save/load preserve these edits. No unsupported scope controls
-are exposed.
+The Text & tempo palette combines Tempo and System text into one
+System text / tempo tile, using the same lightweight popover as Shift+T.
+Shared Properties controls provide advanced editing. Set tempo explicitly enables BPM, beat unit and dots;
+turning it off removes the BPM without discarding text or framing. With no
+BPM and rhythm set to Inherit, the instruction has no timing effect and does
+not interrupt tempo ramps. New instructions use `systemText.tempo`; legacy
+native and extension `Tempo[]` remain readable. Editing a legacy tempo migrates
+only that selected marking, retaining rich text, visibility, offset, collision
+intent and explicit text-role styling. Other tempo anchors are untouched.
+
+Normal-mode Shift+T retains lightweight text-only popover entry. Explicit
+syntax such as `q=180`, `q.=90`, or `Allegro q=180` supplies playback semantics;
+words alone create ordinary system text and remove prior metronomic playback
+semantics. BPM-free Swing/Straight settings are preserved when editing their
+words, because the inline field does not expose those rhythm settings; set
+rhythm to Inherit in Properties to remove them.
+Explicit tempo tokens are recognized anywhere in the input, including within
+parentheses (`words here (q=180)`). Extraction preserves the surrounding words
+and removes parentheses enclosing only the token; the metronome mark is composed
+separately. Multiple explicit tempo tokens are rejected as ambiguous.
+Bare numeric BPM input remains supported. The popover does not infer a BPM
+from tempo words or default plain text to 120. Advanced controls remain in
+Properties rather than a separate palette insertion dialog.
 
 BPM-free Swing/Straight markings without authored text receive a generated
 selectable label. This engraving label does not alter the saved payload or
@@ -588,6 +611,41 @@ same policy directly: full-then-short, short-only, or hidden.
         "firstSystem": "hidden",
         "subsequentSystems": "short"
       }
+    }
+  }
+}
+```
+
+### `autoHideEmptyParts`
+
+Lists the part IDs eligible for automatic empty-staff hiding in this score
+view. Configure the list in **Engrave > Layouts > Auto-hide empty staves**.
+Checkboxes update immediately while layout runs in the background; rapid
+changes are coalesced into the latest selection.
+The setting is saved on the score definition, so a full score, condensed
+score, and individual part can have independent choices even if they share
+an MNX system layout.
+
+In paged views, an opted-in instrument is hidden on systems containing only
+unmarked rests or spaces, including the first system. All of a multi-staff
+instrument's staves must be empty. Notes, staff-specific text, dynamics,
+fermatas, other markings, and continuing hairpins, pedals, ottavas, slurs,
+or glissandos keep the instrument visible. Shared staves remain visible if
+any source is unselected or nonempty. At least one whole instrument remains on a silent
+system. Horizon views and score content are unchanged.
+
+Visibility is computed after system breaking and before pagination; it is
+not saved as a destructive removal or a manual system-layout override.
+Adding music automatically restores the instrument. Existing manually
+omitted staves remain omitted.
+
+```json
+{
+  "name": "Full Score",
+  "layout": "full-score",
+  "_x": {
+    "viritura": {
+      "autoHideEmptyParts": ["flute", "piano"]
     }
   }
 }
@@ -710,6 +768,30 @@ layout staff. Chord events also have no `displayStaff` property.
 
 `_x.viritura` on the top-level score object. Schema def: `root-extensions`.
 
+### `pageSetupDefaults`
+
+Independent project page profiles keyed by `score` and `part`. Each profile uses
+the same shape as `scores[]._x.viritura.pageSetup`: width/height in millimetres,
+orientation, margins, `spatiumMm`, and optional page-turn settings.
+
+Settings > Page Defaults stores separate user profiles locally on this device.
+They are copied into new documents, not applied live to existing documents.
+Engrave > Layouts > Page setup for edits either project profile or the current
+layout's override. Project profiles apply to inheriting layouts, including newly
+created layouts. Custom layouts keep their effective settings unless the user
+explicitly selects **Replace custom layouts** when applying to all scores/parts.
+These changes are document edits and participate in saving, collaboration, and undo.
+
+Per-layout `pageSetup` values override the project profile. Resetting a layout
+removes that override. Explicit values are preserved on serialization even when
+equal to application defaults, so an A4 override over Letter stays A4 after reopening.
+
+The optional score-definition `pageSetupRole` (`score` or `part`) disambiguates
+solo-player extracts and section scores. New editor-created layouts record their
+role. Older documents retain layout-membership inference: a layout referencing
+fewer parts than the document total uses part defaults; otherwise score defaults.
+Missing project profiles retain the built-in A4 defaults.
+
 ### `metadata`
 
 Score-level bibliographic metadata (`score-metadata`). The engine consumes `title`, `subtitle`, `composer`, `arranger`, and `copyright`; the remaining fields are preserved verbatim from MusicXML import for round-tripping.
@@ -731,7 +813,12 @@ Score-level bibliographic metadata (`score-metadata`). The engine consumes `titl
 
 Per-document text style overrides (`text-styles`), keyed by role. Each entry is a partial [`text-style`](#text-style) merged over the engine's built-in stylesheet at layout time — a document only stores the properties it changes, so adding style properties never requires a model migration.
 
-Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, `tempo`, `pedalText`.
+Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, `tempo`, `rehearsalMark`, `pedalText`, `copyright`.
+
+`rehearsalMark` defaults to 2.8sp bold sans-serif. Sans-serif text uses
+`Arial, sans-serif` in the browser without bundling a sans-serif font.
+Per-mark rich-text formatting overrides the house style. Boxed and circled marks
+center their labels within the frame independently of the text alignment setting.
 
 #### `text-style`
 
@@ -1199,11 +1286,21 @@ duplicating independent copies into parts.
 | `manualOffset`    | `[dx, dy]`                   | No       | Staff spaces: +x right, +y up.                                                                                       |
 | `avoidCollisions` | boolean                      | No       | Existing dependent-placement intent; omission/true permits automatic outward placement.                              |
 | `frame`           | `StaffTextFramePresentation` | No       | Shared natural/fixed staff-space width, automatic height, padding, border, alignment, justification and ink erasure. |
+| `tempo`           | `SystemTempo`                | No       | Optional playback: positive finite `bpm` and `value`, optionally `swing` and `showMetronomeMark`; or `swing` alone.  |
+| `showText`        | boolean                      | No       | Omission/true prints the authored text; false hides it independently of metronome visibility.                        |
 
 Staff/voice identifiers, page locators and page-column widths are invalid here.
 Plain text omits `frame`; advanced instruction boxes do not create a second
-formatting model. Specialized tempo, dynamics, rehearsal and navigation markings
-retain their semantic owners.
+formatting model. Tempo semantics are optional on this bounded musical
+instruction, not on page text frames. Dynamics, rehearsal and navigation
+markings retain their separate semantic owners.
+
+The Text palette's **System text** button creates an above-system instruction
+at the selected note or rest's rhythmic position, or at the start of a selected
+bar. **Tempo** opens the same editor with Set tempo enabled; **System text**
+opens it without playback. Text alone never infers BPM. Metronome-only
+instructions use an empty text run (`[{ "text": "" }]`), not placeholder prose.
+**Staff text** remains the separate staff-scoped action.
 
 Rendering emits one occurrence above the top visible staff or below the bottom
 visible staff in every score/part view, including Horizon. Hidden or condensed
@@ -1212,6 +1309,9 @@ rhythmic position; an always-at-system-start option is deferred. The Properties
 inspector exposes system/staff scope conversion, shared text/frame editing,
 manual placement, selection, navigation and deletion. Legacy staff expressions
 and page frames retain their existing ownership and behavior.
+Conversion to staff text is rejected while playback settings or hidden text
+would be lost. Switching BPM on/off preserves rich text, framing, placement,
+manual offset and collision settings.
 
 MusicXML `<direction system="only-top">` words map to global system text only
 when their placement is above or omitted. `system="none"` and directions with

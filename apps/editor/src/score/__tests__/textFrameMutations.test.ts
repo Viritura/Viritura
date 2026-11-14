@@ -5,7 +5,6 @@ import {
   applyScoreDefChanges,
   buildTextFrame,
   deleteTextFrameInScore,
-  measureLocatorAt,
   moveTextFrameInScore,
   nextTextFrameId,
   reorderTextFrameInScore,
@@ -134,9 +133,6 @@ describe("text frame mutations", () => {
     expect(textFrameLocatorMeasureIndex(score, { type: "event", partId: "P1", eventId: "e2" })).toBe(1);
     expect(textFrameLocatorMeasureIndex(score, { type: "event", partId: "P1", eventId: "gone" })).toBeNull();
     expect(textFrameLocatorMeasureIndex(score, { type: "page", pageIndex: 0 })).toBeNull();
-    expect(measureLocatorAt(score, 0)).toEqual({ type: "globalMeasure", measureId: "m1" });
-    expect(measureLocatorAt(score, 2)).toBeNull();
-    expect(measureLocatorAt(score, 9)).toBeNull();
   });
 
   it("treats targets missing from a score view as unresolved", () => {

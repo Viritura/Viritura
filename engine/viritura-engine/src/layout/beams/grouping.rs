@@ -51,12 +51,6 @@ fn boundary_index(beat_position: f64, boundaries: &[f64]) -> usize {
     boundaries.len().saturating_sub(2)
 }
 
-fn is_at_group_boundary(beat_position: f64, boundaries: &[f64]) -> bool {
-    boundaries
-        .iter()
-        .any(|boundary| (beat_position - boundary).abs() < 0.01)
-}
-
 /// Whether an event carries a caesura marking. A caesura forces a beam break
 /// after the event (a beam never spans a grand pause).
 fn event_has_caesura(event: &crate::model::Event) -> bool {
@@ -82,21 +76,15 @@ pub(crate) fn auto_beam_groups(
     for vl in voice_layouts {
         let event_count = vl.events.len();
         let mut current_group: Vec<String> = Vec::new();
-        // Map each event index to the tuplet group it belongs to (if any).
-        // Standard engraving practice: separate tuplet groups are beamed
-        // independently — two adjacent triplets each carry their own beam (and
-        // bracket) rather than sharing a single beam. A beam therefore breaks at
-        // every tuplet boundary, on top of the usual meter-implied breaks.
-        let mut event_tuplet: Vec<Option<usize>> = vec![None; event_count];
-        for (ti, tg) in vl.tuplet_groups.iter().enumerate() {
+        let mut event_tuplet = vec![false; event_count];
+        for tg in &vl.tuplet_groups {
             for e in tg.first_event_idx..=tg.last_event_idx {
                 if e < event_tuplet.len() {
-                    event_tuplet[e] = Some(ti);
+                    event_tuplet[e] = true;
                 }
             }
         }
-        // Tuplet membership of the last note added to the current beam group.
-        let mut current_tuplet: Option<usize> = None;
+        let mut current_tuplet = false;
         // Duration sensitivity follows authored beat groups. Without an
         // authored structure, even meters use independent half-measure regions
         // so short values in one half do not affect the other half.
@@ -124,6 +112,7 @@ pub(crate) fn auto_beam_groups(
             region_max_flags.get(&region).copied().unwrap_or(0)
         };
         let mut group_max_flags: u32 = 0;
+        let mut last_note_beat = 0.0;
         // Track whether a rest was skipped since the last beamed note.
         // When true, the next note enforces beat-level boundary checking to
         // ensure beam-over-rest only applies within the same beat.
@@ -164,16 +153,18 @@ pub(crate) fn auto_beam_groups(
                         let beam_boundaries = automatic_beam_boundaries(&meter, effective_flags);
                         // If a rest was skipped, also check beat-level boundary.
                         // Beam-over-rest only applies within the same beat.
-                        let at_group_boundary = is_at_group_boundary(beat_cursor, &beam_boundaries);
+                        let at_group_boundary = boundary_index(last_note_beat, &beam_boundaries)
+                            != boundary_index(beat_cursor, &beam_boundaries);
                         let at_beat_after_rest = has_pending_rest
-                            && is_at_group_boundary(beat_cursor, &meter.beat_boundaries);
-                        // Break when crossing into a different tuplet group (or
-                        // between a tuplet and a non-tuplet run): each tuplet is
-                        // beamed independently.
-                        let at_tuplet_boundary =
-                            !current_group.is_empty() && event_tuplet[event_idx] != current_tuplet;
+                            && boundary_index(last_note_beat, &meter.beat_boundaries)
+                                != boundary_index(beat_cursor, &meter.beat_boundaries);
+                        // Tuplets share primary beams within a beat, while
+                        // eighth-note triplets still separate at beat boundaries.
+                        let at_tuplet_beat = (current_tuplet || event_tuplet[event_idx])
+                            && boundary_index(last_note_beat, &meter.beat_boundaries)
+                                != boundary_index(beat_cursor, &meter.beat_boundaries);
                         if !current_group.is_empty()
-                            && (at_group_boundary || at_beat_after_rest || at_tuplet_boundary)
+                            && (at_group_boundary || at_beat_after_rest || at_tuplet_beat)
                         {
                             if current_group.len() >= 2 {
                                 beams.push(Beam {
@@ -188,6 +179,7 @@ pub(crate) fn auto_beam_groups(
                         current_group.push(id.to_string());
                         group_max_flags = group_max_flags.max(flag_count);
                         current_tuplet = event_tuplet[event_idx];
+                        last_note_beat = beat_cursor;
                         has_pending_rest = false;
                         // A caesura marks a complete break in the music (grand
                         // pause). Standard engraving practice: a beam never
@@ -212,7 +204,8 @@ pub(crate) fn auto_beam_groups(
                 // wider grouping (e.g. half-measure for 8ths in 4/4).
                 // Ref: standard engraving practice — beam over rest applies within a single beat.
                 if !current_group.is_empty()
-                    && is_at_group_boundary(beat_cursor, &meter.beat_boundaries)
+                    && boundary_index(last_note_beat, &meter.beat_boundaries)
+                        != boundary_index(beat_cursor, &meter.beat_boundaries)
                 {
                     if current_group.len() >= 2 {
                         beams.push(Beam {

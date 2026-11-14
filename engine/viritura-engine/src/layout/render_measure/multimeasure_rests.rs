@@ -165,25 +165,19 @@ pub(crate) fn render_multimeasure_rest(
     sp: f64,
     config: &LayoutConfig,
     count: u32,
-    prev_has_repeat_end: bool,
     render_count: bool,
     count_y_override: Option<f64>,
 ) {
     let staff_height = 4.0 * sp;
     let is_first = ml.resolved.index == 0;
+    let prev_has_repeat_end = !ml.is_first_on_system && ml.resolved.prev_has_repeat_end;
 
     // A repeat-start opening a system is deferred until after the repeated
     // clef/key/time prefix. Other non-system-start boundaries render normally.
     let defer_repeat_start = ml.resolved.global.repeat_start.is_some()
         && (is_first || ml.is_first_on_system || ml.resolved.key_signature_changed());
     if !is_first && !ml.is_first_on_system {
-        let has_repeat_start = ml.resolved.global.repeat_start.is_some();
-        let start_bt = BarlineKind::at_boundary(
-            prev_has_repeat_end,
-            has_repeat_start,
-            ml.resolved.prev_barline_type.as_ref(),
-            BarlineType::Regular,
-        );
+        let start_bt = leading_barline_kind(&ml.resolved);
         let cmd_idx = dl.commands.len();
         render_barline(dl, ml.x, staff_y, staff_height, sp, config, &start_bt);
         for ci in cmd_idx..dl.commands.len() {

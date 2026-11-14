@@ -8,6 +8,9 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 use std::collections::HashMap;
 
+mod tuplet_lane;
+pub(crate) use tuplet_lane::render_hairpins;
+
 /// Render hairpin dynamics (crescendo/decrescendo wedges) below the staff.
 ///
 /// Hairpins span from a rhythmic position in one measure to a rhythmic position
@@ -19,7 +22,7 @@ use std::collections::HashMap;
 /// same rhythmic position are given priority — the hairpin is offset to avoid
 /// overlapping with dynamic glyph extents.
 #[allow(clippy::too_many_lines)] // One ordered placement/render pass shares endpoint, skyline, and bbox state.
-pub(crate) fn render_hairpins(
+fn render_hairpins_pass(
     dl: &mut DisplayList,
     measure_layouts: &[MeasureLayout],
     staff_y: f64,
@@ -31,7 +34,9 @@ pub(crate) fn render_hairpins(
     // Absolute y of every staff in this part, indexed by staff number - 1. Only
     // needed for `staffEnd` (diagonal cross-staff wedges); `None` disables it.
     staff_y_offsets: Option<&[f64]>,
-) {
+    emit: bool,
+) -> bool {
+    let mut dynamics_moved = false;
     let line_width = 0.16 * sp; // Bravura engravingDefaults.hairpinThickness
     let opening = 0.625 * sp; // half-opening at the wide end (~1.25sp total aperture)
     let staff_bottom = staff_y + 4.0 * sp;
@@ -121,6 +126,8 @@ pub(crate) fn render_hairpins(
             let mut hp_end_x = end_x;
             let mut start_dyn_mid: Option<f64> = None;
             let mut end_dyn_mid: Option<f64> = None;
+            let mut linked_dynamic_midlines = HashMap::new();
+            let mut linked_dynamics_movable = true;
 
             // Check for dynamic at hairpin start position
             if let Some(ref dynamics) = ml.resolved.part.dynamics {
@@ -143,15 +150,34 @@ pub(crate) fn render_hairpins(
                             dyn_left,
                             dyn_right,
                         );
-                        start_dyn_mid = Some(super::render_annotations::dynamic_optical_midline_y(
-                            ml,
-                            dyn_mark,
-                            staff_y,
+                        let dynamic_id = element_id::dynamic(
+                            dyn_mark.source_part_index.unwrap_or(ml.part_index),
+                            ml.resolved.index,
+                            &dyn_mark.id,
+                        );
+                        let midline = super::render_annotations::placed_dynamic_midline(
+                            dl,
+                            curve_cmd_start,
+                            &dynamic_id,
                             sp,
-                            config,
-                            &[],
-                            slur_edge,
-                        ));
+                        )
+                        .unwrap_or_else(|| {
+                            super::render_annotations::dynamic_optical_midline_y(
+                                ml,
+                                dyn_mark,
+                                staff_y,
+                                sp,
+                                config,
+                                &[],
+                                slur_edge,
+                            )
+                        });
+                        start_dyn_mid = Some(midline);
+                        linked_dynamic_midlines.insert(dynamic_id, midline);
+                        linked_dynamics_movable &= dyn_mark.avoid_collisions != Some(false)
+                            && dyn_mark
+                                .manual_offset
+                                .is_none_or(|offset| offset == [0.0, 0.0]);
                         break;
                     }
                 }
@@ -179,15 +205,34 @@ pub(crate) fn render_hairpins(
                             dyn_left,
                             dyn_right,
                         );
-                        end_dyn_mid = Some(super::render_annotations::dynamic_optical_midline_y(
-                            end_ml,
-                            dyn_mark,
-                            staff_y,
+                        let dynamic_id = element_id::dynamic(
+                            dyn_mark.source_part_index.unwrap_or(end_ml.part_index),
+                            end_ml.resolved.index,
+                            &dyn_mark.id,
+                        );
+                        let midline = super::render_annotations::placed_dynamic_midline(
+                            dl,
+                            curve_cmd_start,
+                            &dynamic_id,
                             sp,
-                            config,
-                            &[],
-                            slur_edge,
-                        ));
+                        )
+                        .unwrap_or_else(|| {
+                            super::render_annotations::dynamic_optical_midline_y(
+                                end_ml,
+                                dyn_mark,
+                                staff_y,
+                                sp,
+                                config,
+                                &[],
+                                slur_edge,
+                            )
+                        });
+                        end_dyn_mid = Some(midline);
+                        linked_dynamic_midlines.insert(dynamic_id, midline);
+                        linked_dynamics_movable &= dyn_mark.avoid_collisions != Some(false)
+                            && dyn_mark
+                                .manual_offset
+                                .is_none_or(|offset| offset == [0.0, 0.0]);
                         break;
                     }
                 }
@@ -348,8 +393,35 @@ pub(crate) fn render_hairpins(
             } else {
                 bare_y
             };
-            let hairpin_y = resolved_y - off_y_sp * sp;
+            let mut hairpin_y = resolved_y - off_y_sp * sp;
+            if avoid
+                && linked_dynamics_movable
+                && !continued_is_explicit
+                && grand_staff_center.is_none()
+                && hp.staff_end.is_none()
+                && hp.manual_offset.is_none_or(|offset| offset == [0.0, 0.0])
+            {
+                let (y, moved) = super::render_annotations::clear_tuplet_lane(
+                    dl,
+                    curve_cmd_start,
+                    super::render_annotations::DynamicLane {
+                        left: hp_start_x,
+                        right: hp_end_x,
+                        y: hairpin_y,
+                        opening: opening + line_width * 0.5,
+                        above: is_above,
+                        staff_y,
+                        dynamics: &linked_dynamic_midlines,
+                    },
+                    config,
+                );
+                hairpin_y = y;
+                dynamics_moved |= moved;
+            }
             placed_group_y.insert(hp.id.clone(), hairpin_y);
+            if !emit {
+                continue;
+            }
             // `staffEnd` angles the wedge down (or up) to a different staff of the
             // same part. Without a staff-y table the marking degrades to a level
             // wedge on its own staff.
@@ -443,6 +515,7 @@ pub(crate) fn render_hairpins(
             dl.push_shape_band(band, shape_id, ElementKind::Hairpin, None, None);
         }
     }
+    dynamics_moved
 }
 
 fn dynamic_ink_x_bounds(

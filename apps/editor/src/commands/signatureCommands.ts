@@ -136,7 +136,7 @@ export function resolveInsertMeasureIndex(elementId: string | null, score: Score
 
 /** Ending (volta) presets surfaced in the palette. */
 export const ENDING_PRESETS: { label: string; ending: Ending }[] = [
-  { label: "1st Ending", ending: { duration: 1, numbers: [1] } },
-  { label: "2nd Ending", ending: { duration: 1, numbers: [2], open: true } },
-  { label: "1st+2nd Ending", ending: { duration: 1, numbers: [1, 2] } },
+  { label: "1st ending", ending: { duration: 1, numbers: [1] } },
+  { label: "2nd ending", ending: { duration: 1, numbers: [2], open: true } },
+  { label: "1st+2nd ending", ending: { duration: 1, numbers: [1, 2] } },
 ];

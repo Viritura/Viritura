@@ -14,12 +14,15 @@ describe("structural palette and radial menu items", () => {
     expect(resolveBarline(id)).toEqual({ type: id });
   });
 
-  it.each([
-    ["senza-misura", "senzaMisura"],
-    ["note-denominator", "note"],
-  ] as const)("authors the %s time-signature display", (id, display) => {
-    expect(TIME_SIG_PALETTE_ITEMS).toContainEqual(expect.objectContaining({ id }));
-    expect(TIME_SIGNATURE_ITEMS).toContainEqual(expect.objectContaining({ id }));
-    expect(resolveTimeSignature(id)).toEqual({ count: 4, unit: 4, display });
+  it("offers open meter in both time-signature surfaces", () => {
+    expect(TIME_SIG_PALETTE_ITEMS).toContainEqual(expect.objectContaining({ id: "senza-misura" }));
+    expect(TIME_SIGNATURE_ITEMS).toContainEqual(expect.objectContaining({ id: "senza-misura" }));
+    expect(resolveTimeSignature("senza-misura")).toEqual({ count: 4, unit: 4, display: "senzaMisura" });
+  });
+
+  it("omits the note-value engraving preference from time-signature choices", () => {
+    expect(TIME_SIG_PALETTE_ITEMS).not.toContainEqual(expect.objectContaining({ id: "note-denominator" }));
+    expect(TIME_SIGNATURE_ITEMS).not.toContainEqual(expect.objectContaining({ id: "note-denominator" }));
+    expect(resolveTimeSignature("note-denominator")).toBeNull();
   });
 });

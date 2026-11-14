@@ -239,6 +239,7 @@ function commandY(cmd: RenderCommand): number | null {
   switch (cmd.type) {
     case "DrawGlyph":
     case "DrawText":
+    case "DrawRotatedText":
       return cmd.y;
     case "DrawLine":
     case "DrawBezier":

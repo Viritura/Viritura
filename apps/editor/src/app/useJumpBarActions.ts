@@ -20,6 +20,7 @@ import {
 } from "./useAppKeyboardWiring";
 import { useJumpBarDestinations } from "./useJumpBarDestinations";
 import { radialMenuJumpBarCallbacks } from "./radialMenuJumpBarCallbacks";
+import { instructionFromTempo } from "../systemInstructions";
 
 const BAR_CHANGE_DIALOG_ACTIONS = {
   changeBarInstrument: () => openDialog("barInstrumentChange"),
@@ -194,13 +195,16 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
           setTempo: () => {
             const idx = getSelectedMeasureIndex() ?? 0;
             const { score } = store.getState();
-            const existing = score?.global.measures[idx]?.tempos?.[0];
+            if (!score?.global.measures[idx]) return;
+            const measure = score.global.measures[idx]!;
+            const shared = measure.systemText?.find((text) => text.position.fraction[0] === 0);
+            const existing = measure.tempos?.[0];
             setTempoPopover({
               position: { ...mousePositionRef.current },
-              initialValue: existing?.bpm?.toString() ?? "",
               measureIndex: idx,
-              base: existing?.value?.base ?? "quarter",
-              dots: existing?.value?.dots ?? 0,
+              instruction:
+                shared ?? instructionFromTempo(existing ?? { text: [{ text: "" }] }, undefined, score.textStyles),
+              legacyTempoIndex: !shared && existing ? 0 : undefined,
             });
           },
           addStaffText: () => {

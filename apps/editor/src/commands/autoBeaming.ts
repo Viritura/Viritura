@@ -12,6 +12,7 @@ import { primaryMetricBoundaries } from "./metricGrouping";
 interface BeamEvent {
   event: NoteEvent;
   beat: number;
+  inTuplet: boolean;
 }
 
 export function beamFlagCount(event: NoteEvent): number {
@@ -63,10 +64,6 @@ function boundaryIndex(beat: number, boundaries: readonly number[]): number {
   return Math.max(0, boundaries.length - 2);
 }
 
-function isBoundary(beat: number, boundaries: readonly number[]): boolean {
-  return boundaries.some((boundary) => Math.abs(beat - boundary) < 0.01);
-}
-
 function flush(group: string[], beams: Beam[]): void {
   if (group.length >= 2) beams.push({ events: [...group] });
   group.length = 0;
@@ -82,6 +79,8 @@ function autoBeamRun(
   const group: string[] = [];
   let groupMaxFlags = 0;
   let pendingRest = false;
+  let currentTuplet = false;
+  let lastNoteBeat = 0;
 
   for (const item of events) {
     const event = item.event;
@@ -101,14 +100,20 @@ function autoBeamRun(
         groupMaxFlags,
         flags,
       );
-      const atGroupBoundary = isBoundary(item.beat, automaticBeamBoundaries(meter, effectiveFlags));
-      const atBeatAfterRest = pendingRest && isBoundary(item.beat, meter.beatBoundaries);
-      if (group.length > 0 && (atGroupBoundary || atBeatAfterRest)) {
+      const beamBoundaries = automaticBeamBoundaries(meter, effectiveFlags);
+      const atGroupBoundary = boundaryIndex(lastNoteBeat, beamBoundaries) !== boundaryIndex(item.beat, beamBoundaries);
+      const crossedBeat =
+        boundaryIndex(lastNoteBeat, meter.beatBoundaries) !== boundaryIndex(item.beat, meter.beatBoundaries);
+      const atBeatAfterRest = pendingRest && crossedBeat;
+      const atTupletBeat = (currentTuplet || item.inTuplet) && crossedBeat;
+      if (group.length > 0 && (atGroupBoundary || atBeatAfterRest || atTupletBeat)) {
         flush(group, beams);
         groupMaxFlags = 0;
       }
       group.push(eventId);
       groupMaxFlags = Math.max(groupMaxFlags, flags);
+      currentTuplet = item.inTuplet;
+      lastNoteBeat = item.beat;
       pendingRest = false;
       if (event.markings?.caesura) {
         flush(group, beams);
@@ -118,7 +123,10 @@ function autoBeamRun(
     }
 
     if (flags > 0 && isRest) {
-      if (group.length > 0 && isBoundary(item.beat, meter.beatBoundaries)) {
+      if (
+        group.length > 0 &&
+        boundaryIndex(lastNoteBeat, meter.beatBoundaries) !== boundaryIndex(item.beat, meter.beatBoundaries)
+      ) {
         flush(group, beams);
         groupMaxFlags = 0;
       }
@@ -136,18 +144,24 @@ function autoBeamRun(
   return beams;
 }
 
-function collectTimedEvents(content: SequenceContent[], startBeat: number, scale: number, output: BeamEvent[]): void {
+function collectTimedEvents(
+  content: SequenceContent[],
+  startBeat: number,
+  scale: number,
+  output: BeamEvent[],
+  inTuplet = false,
+): void {
   let beat = startBeat;
   for (const item of content) {
     if (item.type === "event") {
-      output.push({ event: item, beat });
+      output.push({ event: item, beat, inTuplet });
       beat += sequenceContentBeats(item) * scale;
       continue;
     }
     if (item.type === "tuplet") {
       const innerBeats = item.content.reduce((sum, child) => sum + sequenceContentBeats(child), 0);
       const outerBeats = sequenceContentBeats(item);
-      collectTimedEvents(item.content, beat, innerBeats > 0 ? (scale * outerBeats) / innerBeats : scale, output);
+      collectTimedEvents(item.content, beat, innerBeats > 0 ? (scale * outerBeats) / innerBeats : scale, output, true);
     }
     beat += sequenceContentBeats(item) * scale;
   }
@@ -184,17 +198,16 @@ export function resolveAutomaticBeamGroups(
 
   for (const item of content) {
     if (item.type === "event") {
-      run.push({ event: item, beat });
+      run.push({ event: item, beat, inTuplet: false });
       beat += sequenceContentBeats(item);
       continue;
     }
-    flushRun();
     if (item.type === "tuplet") {
-      const tupletEvents: BeamEvent[] = [];
       const innerBeats = item.content.reduce((sum, child) => sum + sequenceContentBeats(child), 0);
       const outerBeats = sequenceContentBeats(item);
-      collectTimedEvents(item.content, beat, innerBeats > 0 ? outerBeats / innerBeats : 1, tupletEvents);
-      beams.push(...autoBeamRun(tupletEvents, meter, regionMaxFlags, excludeIds));
+      collectTimedEvents(item.content, beat, innerBeats > 0 ? outerBeats / innerBeats : 1, run, true);
+    } else {
+      flushRun();
     }
     beat += sequenceContentBeats(item);
   }

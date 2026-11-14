@@ -69,6 +69,46 @@ fn automatic_beaming_matches_shared_editor_contract() {
 }
 
 #[test]
+fn adjacent_sixteenth_tuplets_render_one_primary_beam_per_beat() {
+    let fixture: AutoBeamingFixture = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../test-fixtures/auto-beaming.json"
+    )))
+    .unwrap();
+    let case = fixture
+        .cases
+        .iter()
+        .find(|case| {
+            case.name == "sixteenth triplets and following eighth share their quarter beat"
+        })
+        .unwrap();
+    let score = parse_mnx(&case.score.to_string()).unwrap();
+    let dl = crate::layout::layout_score(&score, 0, &LayoutConfig::default());
+    let groups: Vec<_> = dl
+        .selection_groups
+        .iter()
+        .filter(|group| group.element_id.contains("/beam"))
+        .collect();
+    assert_eq!(groups.len(), 2);
+    for (group, expected) in groups.iter().zip(&case.expected) {
+        let ids: Vec<_> = expected.iter().map(|id| format!("p0/m0/s0/{id}")).collect();
+        assert_eq!(group.member_ids, ids);
+    }
+    let beam_polygons = |id: &str| {
+        dl.commands
+            .iter()
+            .zip(&dl.element_ids)
+            .filter(|(command, element_id)| {
+                element_id.as_deref() == Some(id)
+                    && matches!(command, crate::render::RenderCommand::DrawPolygon { .. })
+            })
+            .count()
+    };
+    assert_eq!(beam_polygons(&groups[0].element_id), 3);
+    assert_eq!(beam_polygons(&groups[1].element_id), 2);
+}
+
+#[test]
 fn irregular_meter_beaming_matches_shared_editor_contract() {
     let fixture: IrregularAutoBeamingFixture = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),

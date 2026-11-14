@@ -1,12 +1,49 @@
 import { describe, expect, it } from "vitest";
 import {
   createDynamicGroup,
+  measureTempoInstructions,
   textContentFromPlain,
   type GlobalMeasure,
   type NoteEvent,
   type Score,
 } from "@viritura/core";
 import { generatePerformanceEvents, generateTimeline } from "../index";
+import { playbackGlobalMeasures } from "../cadenzaTiming";
+
+it("inherits system-instruction tempo across discontinuous navigation without duplicating mid-bar anchors", () => {
+  const score: Score = {
+    mnx: { version: 1 },
+    parts: [],
+    global: {
+      measures: [
+        {
+          systemText: [
+            {
+              id: "start",
+              text: [{ text: "" }],
+              position: { fraction: [0, 1] },
+              tempo: { bpm: 84, value: { base: "quarter" } },
+            },
+          ],
+        },
+        {
+          systemText: [
+            {
+              id: "middle",
+              text: [{ text: "" }],
+              position: { fraction: [1, 2] },
+              tempo: { bpm: 72, value: { base: "quarter" } },
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const expanded = playbackGlobalMeasures(score, [0, 1, 1]);
+  expect(expanded[1]!.tempos).toBeUndefined();
+  expect(measureTempoInstructions(expanded[2]!).map((tempo) => tempo.bpm)).toEqual([84, 72]);
+  expect(score.global.measures[1]!.tempos).toBeUndefined();
+});
 
 interface TimingCase {
   name: string;

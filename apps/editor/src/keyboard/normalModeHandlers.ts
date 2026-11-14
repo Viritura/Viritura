@@ -691,26 +691,39 @@ export function handleSlurKey(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
   }
 }
 
-/** T key: toggle tie on selected note(s). */
-function tieSelectedEvents(currentScore: Score, events: EventLocation[]): Score | null {
+/** T key: tie adjacent matching pitches, otherwise let the selected notes ring. */
+function tieSelectedEvents(currentScore: Score, events: EventLocation[], noteTargets: EventLocation[]): Score | null {
+  const groups = groupEventsByVoice(events);
+  const sourceKeys = new Set(groups.flatMap((group) => group.slice(0, -1)).map(locationKey));
+  const sources = noteTargets.filter((target) => sourceKeys.has(locationKey(target)));
+  if (sources.length > 0 && eventsHaveTies(currentScore, sources)) {
+    return toggleTiesAtEvents(currentScore, sources);
+  }
   let newScore = cloneScore(currentScore);
   let changed = false;
-  for (const group of groupEventsByVoice(events)) {
+  for (const group of groups) {
     for (let index = 0; index < group.length - 1; index++) {
       const source = group[index];
       const selectedTarget = group[index + 1];
       if (!source || !selectedTarget) continue;
-      const candidate = cloneScore(newScore);
-      if (!addTie(candidate, source)) continue;
-      const sourceEvent = getEventAtLocation(candidate, source);
-      const targetEvent = getEventAtLocation(candidate, selectedTarget);
-      const targetNoteIds = new Set(targetEvent?.type === "event" ? targetEvent.notes?.map((note) => note.id) : []);
-      const reachesSelectedTarget =
-        sourceEvent?.type === "event" &&
-        sourceEvent.notes?.some((note) => note.ties?.some((tie) => targetNoteIds.has(tie.target)));
-      if (!reachesSelectedTarget) continue;
-      newScore = candidate;
-      changed = true;
+      for (const target of sources.filter((location) => locationKey(location) === locationKey(source))) {
+        const candidate = cloneScore(newScore);
+        if (!addTie(candidate, { ...target, autoLaissezVibrer: true })) continue;
+        const sourceEvent = getEventAtLocation(candidate, source);
+        const targetEvent = getEventAtLocation(candidate, selectedTarget);
+        const targetNoteIds = new Set(targetEvent?.type === "event" ? targetEvent.notes?.map((note) => note.id) : []);
+        if (sourceEvent?.type !== "event") continue;
+        const notes =
+          target.noteIndex === undefined
+            ? sourceEvent.notes
+            : sourceEvent.notes?.slice(target.noteIndex, target.noteIndex + 1);
+        const reachesSelectedTarget = notes?.every((note) =>
+          note.ties?.every((tie) => tie.lv || targetNoteIds.has(tie.target)),
+        );
+        if (!reachesSelectedTarget) continue;
+        newScore = candidate;
+        changed = true;
+      }
     }
   }
   return changed ? newScore : null;
@@ -727,18 +740,22 @@ function resolveSameEventSelection(
   return ancestors.length === 1 ? resolveEventLocation(ancestors[0]!, score) : null;
 }
 
-function toggleTiesAtEvents(currentScore: Score, events: readonly EventLocation[]): Score | null {
-  const hasTies = events.every((target) => {
+function eventsHaveTies(currentScore: Score, events: readonly EventLocation[]): boolean {
+  return events.every((target) => {
     const targetEvent = getEventAtLocation(currentScore, target);
     if (targetEvent?.type !== "event" || !targetEvent.notes) return false;
     return target.noteIndex === undefined
       ? targetEvent.notes.some((note) => note.ties?.length)
       : !!targetEvent.notes[target.noteIndex]?.ties?.length;
   });
+}
+
+function toggleTiesAtEvents(currentScore: Score, events: readonly EventLocation[]): Score | null {
+  const hasTies = eventsHaveTies(currentScore, events);
   const newScore = cloneScore(currentScore);
   let changed = false;
   for (const target of events) {
-    const result = hasTies ? removeTies(newScore, target) : addTie(newScore, target);
+    const result = hasTies ? removeTies(newScore, target) : addTie(newScore, { ...target, autoLaissezVibrer: true });
     changed = result !== null || changed;
   }
   return changed ? newScore : null;
@@ -764,7 +781,8 @@ export function handleTieKey(e: KeyboardEvent, ctx: KeyboardHandlerContext): voi
     const events = resolveCondensedSelectionEvents(currentScore, sel, ctx.getConfig?.().selectedScoreIndex ?? 0);
     if (events.length < 2) return;
     e.preventDefault();
-    const newScore = tieSelectedEvents(currentScore, events);
+    const targets = resolveCondensedSelectionNotes(currentScore, sel, ctx.getConfig?.().selectedScoreIndex ?? 0);
+    const newScore = tieSelectedEvents(currentScore, events, targets);
     if (newScore) ctx.updateScore(newScore);
     return;
   }

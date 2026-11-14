@@ -2,6 +2,19 @@ use super::participation::EventRenderInfo;
 use super::tuning;
 use std::collections::HashMap;
 
+pub(super) fn snap_tip_off_staff_line(y: f64, eff_y: f64, curve_dir: f64, sp: f64) -> f64 {
+    let half_spaces = (y - eff_y) / (sp * 0.5);
+    let nearest = half_spaces.round();
+    if (0.0..=8.0).contains(&nearest)
+        && (nearest as i32) % 2 == 0
+        && (half_spaces - nearest).abs() < 0.30
+    {
+        y + curve_dir * tuning::STAFF_LINE_NUDGE_SP * sp
+    } else {
+        y
+    }
+}
+
 pub(super) fn endpoint_note_position(
     authored_note_id: Option<&str>,
     note_map: &HashMap<String, (f64, f64)>,
@@ -128,8 +141,12 @@ pub(super) fn level_note_targeted_stem_pair(
     }
 }
 
-pub(super) fn correct_mixed_tilt(y1: f64, y2: f64, context: (f64, bool, bool, bool)) -> (f64, f64) {
-    let (pitch_slope, src_stem_side, tgt_stem_side, mixed_stems) = context;
+pub(super) fn correct_mixed_tilt(
+    y1: f64,
+    y2: f64,
+    context: (f64, f64, bool, bool, bool),
+) -> (f64, f64) {
+    let (pitch_slope, curve_dir, src_stem_side, tgt_stem_side, mixed_stems) = context;
     if !mixed_stems || src_stem_side == tgt_stem_side {
         return (y1, y2);
     }
@@ -138,7 +155,11 @@ pub(super) fn correct_mixed_tilt(y1: f64, y2: f64, context: (f64, bool, bool, bo
         return (y1, y2);
     }
 
-    if src_stem_side {
+    // Contour must not pull a stem-side tip inward through the stem or beam.
+    let stem_move = if src_stem_side { y2 - y1 } else { y1 - y2 };
+    if stem_move * curve_dir < 0.0 {
+        (y1, y2)
+    } else if src_stem_side {
         (y2, y2)
     } else {
         (y1, y1)
@@ -177,5 +198,30 @@ pub(super) fn apply_beam_tip_clearance(
         endpoint
             .beam_bottom_y
             .map_or(y, |beam_bottom| y.max(beam_bottom + clearance))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::correct_mixed_tilt;
+
+    #[test]
+    fn mixed_tilt_flattens_outward_but_never_inward() {
+        assert_eq!(
+            correct_mixed_tilt(10.0, 9.0, (1.0, -1.0, true, false, true)),
+            (9.0, 9.0)
+        );
+        assert_eq!(
+            correct_mixed_tilt(9.0, 10.0, (-1.0, -1.0, true, false, true)),
+            (9.0, 10.0)
+        );
+        assert_eq!(
+            correct_mixed_tilt(10.0, 9.0, (1.0, 1.0, false, true, true)),
+            (10.0, 10.0)
+        );
+        assert_eq!(
+            correct_mixed_tilt(9.0, 10.0, (-1.0, 1.0, false, true, true)),
+            (9.0, 10.0)
+        );
     }
 }

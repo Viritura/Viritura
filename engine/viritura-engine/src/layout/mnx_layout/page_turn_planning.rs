@@ -88,7 +88,7 @@ pub(super) fn globally_plan_part_systems(
         (config.page_height - config.page_margin_top - config.page_margin_bottom) * sp;
     let geometry = page_turn::PageGeometry {
         usable_height,
-        title_height: title_height_px,
+        title_height: title_height_px + config.first_page_footer_height,
         inter_system_spacing: sp,
     };
     page_turn::optimize_natural_part(
@@ -106,9 +106,25 @@ pub(super) fn globally_plan_part_systems(
     )
 }
 
-/// Describe warnings and hints for page membership already chosen by the
-/// natural system planner. Exact packing may add safety breaks for overflow,
-/// but this stage never searches for a more favorable pagination.
+fn system_measure_ranges(
+    systems: &[Vec<usize>],
+    visible_indices: &[usize],
+    total_measures: usize,
+) -> Vec<(usize, usize)> {
+    systems
+        .iter()
+        .filter_map(|system| {
+            page_turn::system_measure_range(
+                *system.first()?,
+                *system.last()?,
+                total_measures,
+                |position| visible_indices.get(position).copied(),
+            )
+        })
+        .collect()
+}
+
+/// Describe warnings and hints for the final measured page membership.
 #[allow(clippy::too_many_arguments)] // pipeline boundary for selected pagination metadata
 fn describe_auto_flow_pagination(
     score: &Score,
@@ -137,20 +153,8 @@ fn describe_auto_flow_pagination(
     let Some(part) = score.parts.get(part_index) else {
         return empty();
     };
-    let system_ranges: Vec<(usize, usize)> = systems
-        .iter()
-        .filter_map(|sys| {
-            // The last visible block on a system may be a collapsed
-            // multimeasure rest spanning several underlying measures; the turn
-            // boundary sits after its LAST bar (see `system_measure_range`).
-            page_turn::system_measure_range(
-                *sys.first()?,
-                *sys.last()?,
-                score.global.measures.len(),
-                |p| visible_indices.get(p).copied(),
-            )
-        })
-        .collect();
+    let system_ranges =
+        system_measure_ranges(systems, visible_indices, score.global.measures.len());
     page_turn::describe_selected_pagination(
         &score.global.measures,
         &part.measures,
@@ -176,6 +180,62 @@ pub(super) struct AutoFlowPages {
     pub(super) intra_clearances: Vec<f64>,
 }
 
+fn repaginate_measured_part(
+    score: &Score,
+    config: &LayoutConfig,
+    flat_staves: &[FlatStaff],
+    systems: &[Vec<usize>],
+    visible_indices: &[usize],
+    system_heights: &[f64],
+    protrusion_extras: &[(f64, f64)],
+    title_height: f64,
+    title_page: bool,
+) -> Option<page_turn::TurnPlan> {
+    let part = score.parts.get(single_source_part_index(flat_staves)?)?;
+    let windows = page_turn::analyze_turn_windows_for_visible_blocks(
+        &score.global.measures,
+        &part.measures,
+        visible_indices,
+        &config.page_turns,
+    );
+    let ranges = system_measure_ranges(systems, visible_indices, score.global.measures.len());
+    let gaps: Vec<_> = (0..system_heights.len())
+        .map(|system| {
+            if system == 0 {
+                0.0
+            } else {
+                super::super::page::effective_system_gap(
+                    protrusion_extras
+                        .get(system - 1)
+                        .map_or(0.0, |extra| extra.1),
+                    protrusion_extras.get(system).map_or(0.0, |extra| extra.0),
+                    config.sp,
+                )
+            }
+        })
+        .collect();
+    let mut page_turns = config.page_turns.clone();
+    page_turns.title_page = if title_page {
+        page_turn::TitlePagePolicy::Always
+    } else {
+        page_turn::TitlePagePolicy::Never
+    };
+    let geometry = page_turn::PageGeometry {
+        usable_height: (config.page_height - config.page_margin_top - config.page_margin_bottom)
+            * config.sp,
+        title_height: title_height + config.first_page_footer_height,
+        inter_system_spacing: config.sp,
+    };
+    page_turn::optimize(
+        system_heights,
+        &gaps,
+        &geometry,
+        &page_turns,
+        &ranges,
+        &windows,
+    )
+}
+
 /// Position automatic-flow pages. The exact page-turn additions are gated to a
 /// single part; full scores retain the established packing and positioning.
 #[allow(clippy::too_many_arguments)] // exact positioning consumes all engraved system geometry
@@ -198,12 +258,18 @@ pub(super) fn position_auto_flow_pages(
         .unwrap_or_else(|| forced_page_starts.to_vec());
     let title_page = natural_plan.is_some_and(|plan| plan.title_page);
     let dedicated_title_page = title_page && config.page_width.is_some() && !chunked;
+    let music_config = dedicated_title_page.then(|| {
+        let mut config = config.clone();
+        config.first_page_footer_height = 0.0;
+        config
+    });
+    let config = music_config.as_ref().unwrap_or(config);
     let break_title_height = if dedicated_title_page {
         0.0
     } else {
         title_height
     };
-    let packed_pages = if natural_plan.is_some() {
+    let mut packed_pages = if natural_plan.is_some() {
         super::super::page::compute_page_breaks_preserving_membership(
             system_heights,
             Some(protrusion_extras),
@@ -220,20 +286,44 @@ pub(super) fn position_auto_flow_pages(
             &page_starts,
         )
     };
-    let packed_page_starts = packed_pages
+    let mut packed_page_starts = packed_pages
         .iter()
         .filter_map(|page| page.system_indices.first().copied())
         .collect();
-    let membership_changed = packed_page_starts != page_starts;
-    let metadata_plan = natural_plan.map(|plan| {
-        if membership_changed {
-            let mut plan = plan.clone();
-            plan.blank_pages_before.clear();
-            plan
-        } else {
-            plan.clone()
+    let membership_changed = packed_page_starts != page_starts
+        || natural_plan.is_some_and(|plan| plan.systems != systems);
+    let mut metadata_plan = natural_plan.cloned();
+    if let Some(plan) = metadata_plan.as_mut().filter(|_| membership_changed) {
+        // An overflow invalidates the estimated page fits. Keeping the old
+        // break immediately after a safety break can strand a single line.
+        // Re-plan pages, not systems, using the packer's measured geometry.
+        plan.blank_pages_before.clear();
+        if let Some(refined) = repaginate_measured_part(
+            score,
+            config,
+            flat_staves,
+            systems,
+            visible_indices,
+            system_heights,
+            protrusion_extras,
+            break_title_height,
+            title_page,
+        ) {
+            plan.page_starts = refined.page_starts;
+            plan.blank_pages_before = refined.blank_pages_before;
+            packed_pages = super::super::page::compute_page_breaks_preserving_membership(
+                system_heights,
+                Some(protrusion_extras),
+                config,
+                break_title_height,
+                &plan.page_starts,
+            );
+            packed_page_starts = packed_pages
+                .iter()
+                .filter_map(|page| page.system_indices.first().copied())
+                .collect();
         }
-    });
+    }
     let page_turn::ForcedPagination {
         warnings,
         hints,
@@ -391,6 +481,11 @@ fn sparse_turn_pages(
                 content += system_heights[system];
             }
             let page_capacity = capacity
+                - if page.page_number == 0 {
+                    config.first_page_footer_height
+                } else {
+                    0.0
+                }
                 - if page.system_indices.first() == Some(&0) {
                     title_height
                 } else {
@@ -409,4 +504,102 @@ fn sparse_turn_pages(
                 .then_some(page_index)
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn measured_pagination_repairs_overflow_without_recasting_fitting_pages() {
+        let mut global = vec![serde_json::json!({}); 20];
+        global[0] = serde_json::json!({"time": {"count": 4, "unit": 4}});
+        let measure = serde_json::json!({
+            "sequences": [{"content": [{
+                "duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "C", "octave": 4}}]
+            }]}]
+        });
+        let score = crate::parse::parse_mnx(
+            &serde_json::json!({
+                "mnx": {"version": 1},
+                "global": {"measures": global},
+                "parts": [{"id": "p1", "measures": vec![measure; 20]}]
+            })
+            .to_string(),
+        )
+        .expect("synthetic score parses");
+        let flat_staves = vec![FlatStaff {
+            sources: vec![FlatSource::whole_part(0)],
+            label: None,
+            short_label: None,
+            resolved_full_label: None,
+            resolved_short_label: None,
+            expansion: false,
+            condensed_numbers: Vec::new(),
+            chord_symbol_source: None,
+            chord_symbol_transposition: None,
+        }];
+        let mut config = LayoutConfig {
+            sp: 1.0,
+            page_width: Some(100.0),
+            page_height: 100.0,
+            page_margin_top: 0.0,
+            page_margin_bottom: 0.0,
+            ..LayoutConfig::default()
+        };
+        config.page_turns.enabled = true;
+        config.page_turns.allow_intentional_blanks = false;
+        let visible: Vec<_> = (0..20).collect();
+        let systems: Vec<_> = visible.iter().map(|&measure| vec![measure]).collect();
+        for title_page in [false, true] {
+            for overflow in [false, true] {
+                let plan = page_turn::NaturalPartPlan {
+                    systems: systems.clone(),
+                    page_starts: if overflow {
+                        vec![0, 6, 12, 18]
+                    } else {
+                        vec![0, 4, 8, 12, 16]
+                    },
+                    blank_pages_before: Vec::new(),
+                    title_page,
+                    first_page_recto: true,
+                    cost: 0.0,
+                };
+                let result = position_auto_flow_pages(
+                    &score,
+                    &config,
+                    &flat_staves,
+                    &systems,
+                    &visible,
+                    &[13.0; 20],
+                    &[(0.0, 0.0); 20],
+                    0.0,
+                    false,
+                    Some(&plan),
+                    &[],
+                );
+                let music: Vec<_> = result
+                    .pages
+                    .iter()
+                    .filter(|page| !page.system_indices.is_empty())
+                    .collect();
+                let counts: Vec<_> = music.iter().map(|page| page.system_indices.len()).collect();
+                assert_eq!(
+                    counts,
+                    if overflow { vec![5; 4] } else { vec![4; 5] },
+                    "cover={title_page}, overflow={overflow}"
+                );
+                assert_eq!(
+                    music
+                        .iter()
+                        .flat_map(|page| page.system_indices.iter().copied())
+                        .collect::<Vec<_>>(),
+                    visible,
+                    "measured pagination must keep every system in order"
+                );
+                assert_eq!(result.dedicated_title_page, title_page);
+            }
+        }
+    }
 }

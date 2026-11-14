@@ -3,6 +3,48 @@ import { TempoModel } from "../tempoModel";
 import { buildTempoMap, buildTempoModel } from "../tempoMap";
 import type { GlobalMeasure } from "@viritura/core";
 
+it("uses the BPM, beat unit and rhythmic position of a shared system instruction", () => {
+  const measures: GlobalMeasure[] = [
+    {
+      tempos: [{ bpm: 90, value: { base: "quarter" } }],
+      systemText: [
+        {
+          id: "new-tempo",
+          text: [{ text: "Broadly" }],
+          position: { fraction: [1, 2] },
+          tempo: { bpm: 60, value: { base: "half", dots: 1 } },
+        },
+      ],
+    },
+  ];
+  const { model } = buildTempoModel(measures);
+  expect(model.bpmAtBeat(1)).toBeCloseTo(90);
+  expect(model.bpmAtBeat(2)).toBeCloseTo(180);
+  expect(buildTempoMap(measures).tempoMap.map((entry) => entry.bpm)).toEqual([90, 180]);
+});
+
+it.each([undefined, { swing: { mode: "straight" as const } }])(
+  "does not reset BPM or interrupt a ramp at a BPM-free system instruction %j",
+  (tempo) => {
+    const measures: GlobalMeasure[] = [
+      {
+        id: "m1",
+        tempos: [{ bpm: 90, value: { base: "quarter" } }],
+        systemText: [{ id: "plain", text: [{ text: "Allegro" }], position: { fraction: [1, 2] }, tempo }],
+        gradualTempo: {
+          position: { fraction: [0, 1] },
+          end: { measure: "m1", position: { fraction: [1, 1] } },
+          endBpm: 60,
+        },
+      },
+    ];
+    const { model } = buildTempoModel(measures);
+    expect(model.bpmAtBeat(2)).toBeCloseTo(75);
+    expect(model.bpmAtBeat(3)).toBeCloseTo(67.5);
+    expect(buildTempoMap(measures).tempoMap).toHaveLength(1);
+  },
+);
+
 it("does not reset BPM or interrupt a ramp at a swing-only tempo anchor", () => {
   const measures: GlobalMeasure[] = [
     {

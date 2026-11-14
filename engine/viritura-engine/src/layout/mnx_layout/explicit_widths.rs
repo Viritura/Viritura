@@ -9,6 +9,7 @@ use super::super::measure::{
 use super::super::render_annotations::measure_above_label_reserved_width;
 use super::super::render_measure::multimeasure_rest_natural_width;
 use super::super::types::ResolvedOttavaRange;
+use super::measure_widths::merged_measure_natural_width;
 use crate::model::ResolvedMeasure;
 use std::collections::{HashMap, HashSet};
 
@@ -83,7 +84,7 @@ pub(super) fn compute_explicit_max_widths(
             };
             if measure.index < measure_count {
                 max_widths[measure.index] = max_widths[measure.index].max(width);
-                let label_width = measure_above_label_reserved_width(measure, sp);
+                let label_width = measure_above_label_reserved_width(measure, sp, config);
                 if label_width > 0.0 {
                     max_widths[measure.index] = max_widths[measure.index].max(label_width);
                 }
@@ -108,6 +109,17 @@ pub(super) fn compute_explicit_max_widths(
         let aligned_prefix = compute_max_prefix_width(shown_measures(), sp, false, config);
         *natural_width =
             natural_width_with_aligned_prefix(*natural_width, included_prefix, aligned_prefix);
+        let measures: Vec<_> = shown_measures().collect();
+        if measures.len() > 1 && !mmr_start_map.contains_key(&measure_index) {
+            *natural_width = natural_width.max(merged_measure_natural_width(
+                &measures,
+                aligned_prefix,
+                sp,
+                common_shortest_beats,
+                config,
+                false,
+            ));
+        }
     }
     max_widths
 }

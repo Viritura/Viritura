@@ -8,12 +8,13 @@ interface StaffTextFrameFieldsProps {
   id: string;
   value: StaffTextFramePresentation | undefined;
   onChange: (value: StaffTextFramePresentation | undefined) => void;
+  label?: string;
 }
 
-export function StaffTextFrameFields({ id, value, onChange }: StaffTextFrameFieldsProps) {
+export function StaffTextFrameFields({ id, value, onChange, label = "Staff text frame" }: StaffTextFrameFieldsProps) {
   const frame = value ?? {};
   return (
-    <section className={styles.group} aria-label="Staff text frame">
+    <section className={styles.group} aria-label={label}>
       <p className={styles.groupTitle}>Frame</p>
       <FormField
         label="Fixed width (sp)"

@@ -603,6 +603,9 @@ export function stickyClefRailWidth(
     const firstClef = staffInfo?.clefs[0];
     if (!staffInfo || !firstClef || contentX < firstClef.x + staff.spatium * STICKY_CLEF_THRESHOLD_SPATIA) continue;
     active = true;
+    const clef = pickActiveClef(staffInfo.clefs, contentX);
+    const sign = activeStickyClefContext(staffInfo.clefContexts, contentX) ?? clefSignFromGlyph(clef.codepoint);
+    if (sign === "P") continue;
     const signature = activeStickyKey(staffInfo.keySignatures, contentX);
     maxKeyWidth = Math.max(maxKeyWidth, stickyKeyWidth(signature, staff, railSpatium));
   }

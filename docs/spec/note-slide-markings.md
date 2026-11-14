@@ -11,10 +11,12 @@ chord; they are not event articulations and are not glissando/portamento spans.
 
 Viritura retains the nested global attributes (`id`, `_c`, and `_x`) and
 serializes the markings natively, independently of vendor-extension settings.
-The separate **Note markings** palette follows **Articulations**. The palette
+The **Notehead markings** palette follows **Articulations** and contains scoop,
+plop, falloff, and doit. It is separate because these markings apply to individual
+noteheads, while articulations and bowings apply to the event or chord. The palette
 and inspector update the selected noteheads only, so editing one chord member
-does not change its neighbors. Slide-in and slide-out values can coexist and
-can be removed independently.
+does not change its neighbors. Slide-in and slide-out values can coexist and can
+be removed independently.
 Selecting a rendered marking and pressing Delete or Backspace removes only
 that slide-in or slide-out marking, leaving its note and other markings intact.
 Automatic condensing keeps separate voices when same-pitch source notes have

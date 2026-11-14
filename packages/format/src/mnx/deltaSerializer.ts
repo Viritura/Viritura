@@ -67,6 +67,7 @@ export class DeltaSerializer {
   // Structural reference caches
   private layoutsRef: unknown = undefined;
   private scoresRef: unknown = undefined;
+  private pageSetupDefaultsRef: unknown = undefined;
   private metadataRef: unknown = undefined;
   private textStylesRef: unknown = undefined;
   private timeSignaturesRef: unknown = undefined;
@@ -81,6 +82,7 @@ export class DeltaSerializer {
   private partsHeaderCache: string[] = [];
   private layoutsCache = "";
   private scoresCache = "";
+  private pageSetupDefaultsCache = "";
   private metadataCache = "";
   private textStylesCache = "";
   private timeSignaturesCache = "";
@@ -235,6 +237,11 @@ export class DeltaSerializer {
   private checkStructuralFields(score: Score): boolean {
     let structuralChange = false;
     const slots = [
+      {
+        value: score.pageSetupDefaults,
+        refKey: "pageSetupDefaultsRef" as const,
+        cacheKey: "pageSetupDefaultsCache" as const,
+      },
       {
         value: score.mnx,
         refKey: "mnxRef" as const,
@@ -406,6 +413,8 @@ export class DeltaSerializer {
     this.layoutsRef = undefined;
     this.scoresCache = "";
     this.scoresRef = undefined;
+    this.pageSetupDefaultsCache = "";
+    this.pageSetupDefaultsRef = undefined;
     this.metadataCache = "";
     this.metadataRef = undefined;
     this.textStylesCache = "";

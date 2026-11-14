@@ -66,6 +66,31 @@ mod tests {
     }
 
     #[test]
+    fn preserves_tempo_ramp_label_ownership_and_playback_metadata() {
+        let ramp = json!({
+            "position": {"fraction": [0, 1]},
+            "end": {"measure": "m2", "position": {"fraction": [1, 4]}},
+            "startBpm": 120, "endRatio": 0.8, "curve": "smooth",
+            "systemTextId": "ramp-label"
+        });
+        let measure = json!({"_x": {"viritura": {
+            "gradualTempo": ramp,
+            "systemText": [{"id": "ramp-label", "text": [{"text": "rall."}],
+                            "position": {"fraction": [0, 1]}, "placement": "above"}]
+        }}});
+        let promoted = promote_global_measure_json(&measure).unwrap();
+        assert_eq!(promoted.tempo_ramp_text_id(), Some("ramp-label"));
+        let saved = serde_json::to_value(&promoted).unwrap();
+        assert_eq!(saved["_x"]["viritura"]["gradualTempo"], ramp);
+        assert_eq!(
+            promote_global_measure_json(&saved)
+                .unwrap()
+                .tempo_ramp_text_id(),
+            Some("ramp-label")
+        );
+    }
+
+    #[test]
     fn rejects_invalid_system_text_on_patch_paths() {
         let valid = json!({"id": "system-1", "text": "Together", "position": {"fraction": [0, 1]}});
         let mut values = vec![

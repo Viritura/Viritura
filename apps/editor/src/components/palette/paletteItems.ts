@@ -23,10 +23,10 @@ export interface ClefPaletteItem {
 }
 
 export const CLEF_PALETTE_ITEMS: ClefPaletteItem[] = [
-  { id: "treble", label: "Treble (G)", shortLabel: "Treble", clef: { sign: "G", staffPosition: -2 } },
-  { id: "alto", label: "Alto (C)", shortLabel: "Alto", clef: { sign: "C", staffPosition: 0 } },
-  { id: "tenor", label: "Tenor (C)", shortLabel: "Tenor", clef: { sign: "C", staffPosition: 2 } },
-  { id: "bass", label: "Bass (F)", shortLabel: "Bass", clef: { sign: "F", staffPosition: 2 } },
+  { id: "treble", label: "Treble", shortLabel: "Treble", clef: { sign: "G", staffPosition: -2 } },
+  { id: "alto", label: "Alto", shortLabel: "Alto", clef: { sign: "C", staffPosition: 0 } },
+  { id: "tenor", label: "Tenor", shortLabel: "Tenor", clef: { sign: "C", staffPosition: 2 } },
+  { id: "bass", label: "Bass", shortLabel: "Bass", clef: { sign: "F", staffPosition: 2 } },
   {
     id: "percussion",
     label: "Percussion",
@@ -77,21 +77,21 @@ export const MEASURE_REPEAT_PALETTE_ITEMS: (PaletteItem & { number: 1 | 2 | 4 })
     id: "measure-repeat-1",
     number: 1,
     label: SMUFL.repeat1Bar,
-    title: "1-bar measure repeat",
+    title: "1-bar repeat",
     useBravura: true,
   },
   {
     id: "measure-repeat-2",
     number: 2,
     label: SMUFL.repeat2Bars,
-    title: "2-bar measure repeat",
+    title: "2-bar repeat",
     useBravura: true,
   },
   {
     id: "measure-repeat-4",
     number: 4,
     label: SMUFL.repeat4Bars,
-    title: "4-bar measure repeat",
+    title: "4-bar repeat",
     useBravura: true,
   },
 ];
@@ -105,43 +105,43 @@ export interface KeySigPaletteItem {
 
 export const KEY_SIG_PALETTE_ITEMS: KeySigPaletteItem[] = [
   { id: "0", label: "C major / A minor", shortLabel: "C maj / a min", keySig: { fifths: 0 } },
-  { id: "atonal", label: "Atonal (open/keyless)", shortLabel: "Atonal", keySig: { fifths: 0, atonal: true } },
-  { id: "1", label: "G major / E minor (1\u266F)", shortLabel: "G maj / e min", keySig: { fifths: 1 } },
-  { id: "2", label: "D major / B minor (2\u266F)", shortLabel: "D maj / b min", keySig: { fifths: 2 } },
-  { id: "3", label: "A major / F\u266F minor (3\u266F)", shortLabel: "A maj / f\u266F min", keySig: { fifths: 3 } },
-  { id: "4", label: "E major / C\u266F minor (4\u266F)", shortLabel: "E maj / c\u266F min", keySig: { fifths: 4 } },
-  { id: "5", label: "B major / G\u266F minor (5\u266F)", shortLabel: "B maj / g\u266F min", keySig: { fifths: 5 } },
+  { id: "atonal", label: "Atonal", shortLabel: "Atonal", keySig: { fifths: 0, atonal: true } },
+  { id: "1", label: "G major / E minor", shortLabel: "G maj / e min", keySig: { fifths: 1 } },
+  { id: "2", label: "D major / B minor", shortLabel: "D maj / b min", keySig: { fifths: 2 } },
+  { id: "3", label: "A major / F\u266F minor", shortLabel: "A maj / f\u266F min", keySig: { fifths: 3 } },
+  { id: "4", label: "E major / C\u266F minor", shortLabel: "E maj / c\u266F min", keySig: { fifths: 4 } },
+  { id: "5", label: "B major / G\u266F minor", shortLabel: "B maj / g\u266F min", keySig: { fifths: 5 } },
   {
     id: "6",
-    label: "F\u266F major / D\u266F minor (6\u266F)",
+    label: "F\u266F major / D\u266F minor",
     shortLabel: "F\u266F maj / d\u266F min",
     keySig: { fifths: 6 },
   },
   {
     id: "7",
-    label: "C\u266F major / A\u266F minor (7\u266F)",
+    label: "C\u266F major / A\u266F minor",
     shortLabel: "C\u266F maj / a\u266F min",
     keySig: { fifths: 7 },
   },
-  { id: "-1", label: "F major / D minor (1\u266D)", shortLabel: "F maj / d min", keySig: { fifths: -1 } },
-  { id: "-2", label: "B\u266D major / G minor (2\u266D)", shortLabel: "B\u266D maj / g min", keySig: { fifths: -2 } },
-  { id: "-3", label: "E\u266D major / C minor (3\u266D)", shortLabel: "E\u266D maj / c min", keySig: { fifths: -3 } },
-  { id: "-4", label: "A\u266D major / F minor (4\u266D)", shortLabel: "A\u266D maj / f min", keySig: { fifths: -4 } },
+  { id: "-1", label: "F major / D minor", shortLabel: "F maj / d min", keySig: { fifths: -1 } },
+  { id: "-2", label: "B\u266D major / G minor", shortLabel: "B\u266D maj / g min", keySig: { fifths: -2 } },
+  { id: "-3", label: "E\u266D major / C minor", shortLabel: "E\u266D maj / c min", keySig: { fifths: -3 } },
+  { id: "-4", label: "A\u266D major / F minor", shortLabel: "A\u266D maj / f min", keySig: { fifths: -4 } },
   {
     id: "-5",
-    label: "D\u266D major / B\u266D minor (5\u266D)",
+    label: "D\u266D major / B\u266D minor",
     shortLabel: "D\u266D maj / b\u266D min",
     keySig: { fifths: -5 },
   },
   {
     id: "-6",
-    label: "G\u266D major / E\u266D minor (6\u266D)",
+    label: "G\u266D major / E\u266D minor",
     shortLabel: "G\u266D maj / e\u266D min",
     keySig: { fifths: -6 },
   },
   {
     id: "-7",
-    label: "C\u266D major / A\u266D minor (7\u266D)",
+    label: "C\u266D major / A\u266D minor",
     shortLabel: "C\u266D maj / a\u266D min",
     keySig: { fifths: -7 },
   },
@@ -150,7 +150,7 @@ export const KEY_SIG_PALETTE_ITEMS: KeySigPaletteItem[] = [
 export interface TimeSigPaletteItem {
   id: string;
   label: string;
-  time: { count: number; unit: number; display?: "common" | "cut" | "senzaMisura" | "note" };
+  time: { count: number; unit: number; display?: "common" | "cut" | "senzaMisura" };
 }
 
 export const TIME_SIG_PALETTE_ITEMS: TimeSigPaletteItem[] = [
@@ -162,10 +162,9 @@ export const TIME_SIG_PALETTE_ITEMS: TimeSigPaletteItem[] = [
   { id: "6/8", label: "6/8", time: { count: 6, unit: 8 } },
   { id: "9/8", label: "9/8", time: { count: 9, unit: 8 } },
   { id: "12/8", label: "12/8", time: { count: 12, unit: 8 } },
-  { id: "common", label: "Common (C)", time: { count: 4, unit: 4, display: "common" } },
-  { id: "cut", label: "Cut (\u20B5)", time: { count: 2, unit: 2, display: "cut" } },
+  { id: "common", label: "Common time", time: { count: 4, unit: 4, display: "common" } },
+  { id: "cut", label: "Cut time", time: { count: 2, unit: 2, display: "cut" } },
   { id: "senza-misura", label: "Open meter", time: { count: 4, unit: 4, display: "senzaMisura" } },
-  { id: "note-denominator", label: "Note-value denominator", time: { count: 4, unit: 4, display: "note" } },
 ];
 
 export interface OrnamentPaletteItem {
@@ -256,14 +255,14 @@ export const ARTICULATION_ITEMS: (PaletteItem & { articulation: ArticulationType
     id: "staccatissimo-wedge",
     articulation: "staccatissimoWedge",
     label: SMUFL.articStaccatissimoWedgeAbove,
-    title: "Staccatissimo Wedge",
+    title: "Staccatissimo wedge",
     useBravura: true,
   },
   {
     id: "staccatissimo-stroke",
     articulation: "spiccato",
     label: SMUFL.articStaccatissimoStrokeAbove,
-    title: "Staccatissimo Stroke",
+    title: "Staccatissimo stroke",
     useBravura: true,
   },
   { id: "stress", articulation: "stress", label: SMUFL.articStressAbove, title: "Stress", useBravura: true },
@@ -288,19 +287,19 @@ export const BOW_DIRECTION_PALETTE_ITEMS: (PaletteItem & { direction: BowDirecti
 ];
 
 export const DYNAMIC_ITEMS: (PaletteItem & { value: DynamicValue })[] = [
-  { id: "ppp", value: "ppp", label: SMUFL.dynamicPPP, title: "Pianissimo (ppp)", useBravura: true },
-  { id: "pp", value: "pp", label: SMUFL.dynamicPP, title: "Pianissimo (pp)", useBravura: true },
-  { id: "p", value: "p", label: SMUFL.dynamicP, title: "Piano (p)", useBravura: true },
-  { id: "mp", value: "mp", label: SMUFL.dynamicMP, title: "Mezzo piano (mp)", useBravura: true },
-  { id: "mf", value: "mf", label: SMUFL.dynamicMF, title: "Mezzo forte (mf)", useBravura: true },
-  { id: "f", value: "f", label: SMUFL.dynamicF, title: "Forte (f)", useBravura: true },
-  { id: "ff", value: "ff", label: SMUFL.dynamicFF, title: "Fortissimo (ff)", useBravura: true },
-  { id: "fff", value: "fff", label: SMUFL.dynamicFFF, title: "Fortissimo (fff)", useBravura: true },
-  { id: "fp", value: "fp", label: SMUFL.dynamicFP, title: "Forte-piano (fp)", useBravura: true },
-  { id: "pf", value: "pf", label: SMUFL.dynamicPF, title: "Piano-forte (pf)", useBravura: true },
-  { id: "sfz", value: "sfz", label: SMUFL.dynamicSfz, title: "Sforzando (sfz)", useBravura: true },
-  { id: "rfz", value: "rfz", label: SMUFL.dynamicRfz, title: "Rinforzando (rfz)", useBravura: true },
-  { id: "n", value: "n", label: SMUFL.dynamicNiente, title: "Niente (n)", useBravura: true },
+  { id: "ppp", value: "ppp", label: SMUFL.dynamicPPP, title: "Pianississimo", useBravura: true },
+  { id: "pp", value: "pp", label: SMUFL.dynamicPP, title: "Pianissimo", useBravura: true },
+  { id: "p", value: "p", label: SMUFL.dynamicP, title: "Piano", useBravura: true },
+  { id: "mp", value: "mp", label: SMUFL.dynamicMP, title: "Mezzo piano", useBravura: true },
+  { id: "mf", value: "mf", label: SMUFL.dynamicMF, title: "Mezzo forte", useBravura: true },
+  { id: "f", value: "f", label: SMUFL.dynamicF, title: "Forte", useBravura: true },
+  { id: "ff", value: "ff", label: SMUFL.dynamicFF, title: "Fortissimo", useBravura: true },
+  { id: "fff", value: "fff", label: SMUFL.dynamicFFF, title: "Fortississimo", useBravura: true },
+  { id: "fp", value: "fp", label: SMUFL.dynamicFP, title: "Forte-piano", useBravura: true },
+  { id: "pf", value: "pf", label: SMUFL.dynamicPF, title: "Piano-forte", useBravura: true },
+  { id: "sfz", value: "sfz", label: SMUFL.dynamicSfz, title: "Sforzando", useBravura: true },
+  { id: "rfz", value: "rfz", label: SMUFL.dynamicRfz, title: "Rinforzando", useBravura: true },
+  { id: "n", value: "n", label: SMUFL.dynamicNiente, title: "Niente", useBravura: true },
 ];
 
 export const TUPLET_ITEMS: (PaletteItem & { tupletNumber: number; outerMultiple: number })[] = [

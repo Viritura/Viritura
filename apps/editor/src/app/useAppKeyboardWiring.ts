@@ -1,5 +1,12 @@
 import { useCallback, type RefObject, type MutableRefObject } from "react";
-import { partShowsChordSymbols, type Barline, type Clef, type LayoutSource, type Score } from "@viritura/core";
+import {
+  generateId,
+  partShowsChordSymbols,
+  type Barline,
+  type Clef,
+  type LayoutSource,
+  type Score,
+} from "@viritura/core";
 import { type PanelImperativeHandle } from "react-resizable-panels";
 import { useEditorKeyboard, type EditorKeyboardActions } from "../keyboard/useEditorKeyboard";
 import { requestPanelToggle } from "../keyboard/panelToggle";
@@ -12,7 +19,8 @@ import {
   type SelectionState,
 } from "../store/selectionStore";
 import type { RadialMenuCategory } from "../radialMenu";
-import { sequenceContentBeats } from "../commands/noteCommands";
+import { instructionFromTempo } from "../systemInstructions";
+import { beatPositionToFraction, eventBeatPosition } from "./timedAnnotationPosition";
 import {
   getEventAncestorId,
   resolveEventFromSubElement,
@@ -22,20 +30,11 @@ import {
 import { resolveCondensedFullMeasureRestTargets } from "../score/condensedWriteback";
 import { chordViewSources, anchoredChordSources } from "../score/chordSourceContext";
 import { openDialog, toggleDialog } from "../store/dialogStore";
-import type { ChordSymbolPopoverState, RadialMenuState } from "../store/overlayStore";
-export type { ChordSymbolPopoverState } from "../store/overlayStore";
+import type { ChordSymbolPopoverState, RadialMenuState, TempoPopoverState } from "../store/overlayStore";
+export type { ChordSymbolPopoverState, TempoPopoverState } from "../store/overlayStore";
 import { buildNavigationIndex } from "../navigation";
 import { useViewStateStore } from "../store/viewStateStore";
 import { measureAttributeShortcuts } from "./measureAttributeShortcuts";
-
-export interface TempoPopoverState {
-  position: { x: number; y: number };
-  initialValue: string;
-  measureIndex: number;
-  base: import("@viritura/core").NoteValueBase;
-  dots: number;
-  location?: { fraction: [number, number] };
-}
 
 export interface StaffTextPopoverState {
   position: { x: number; y: number };
@@ -377,35 +376,39 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     const { score } = store.getState();
     if (!score) return;
     const idx = getSelectedMeasureIndex() ?? 0;
-    const existing = score.global.measures[idx]?.tempos?.[0];
-    const current = existing?.bpm?.toString() ?? "";
-    const base = existing?.value?.base ?? "quarter";
-    const dots = existing?.value?.dots ?? 0;
-    let location: { fraction: [number, number] } | undefined;
+    const measure = score.global.measures[idx];
+    if (!measure) return;
+    let fraction: [number, number] = [0, 1];
     if (selection.kind === "single") {
       const loc = resolveEventLocation(selection.elementId, score);
       if (loc && loc.measureIndex === idx) {
         const seq = score.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex];
         if (seq) {
-          let beatSum = 0;
-          for (let i = 0; i < loc.eventIndex && i < seq.content.length; i++) {
-            beatSum += sequenceContentBeats(seq.content[i]!);
-          }
-          const num = Math.round(beatSum * 256);
-          const den = 1024;
-          const g = (a: number, b: number): number => (b === 0 ? a : g(b, a % b));
-          const d = g(num, den);
-          location = { fraction: [num / d, den / d] };
+          fraction = beatPositionToFraction(eventBeatPosition(seq, loc));
         }
       }
     }
+    const atPosition = (position: { fraction: [number, number] } | undefined) => {
+      const [n, d] = position?.fraction ?? [0, 1];
+      return n * fraction[1] === fraction[0] * d;
+    };
+    const existingInstruction = measure.systemText?.find((text) => atPosition(text.position));
+    const legacyTempoIndex = measure.tempos?.findIndex((tempo) => atPosition(tempo.location)) ?? -1;
+    const legacy = legacyTempoIndex < 0 ? undefined : measure.tempos?.[legacyTempoIndex];
     setTempoPopover({
       position: { ...mousePositionRef.current },
-      initialValue: current,
       measureIndex: idx,
-      base,
-      dots,
-      location,
+      instruction:
+        existingInstruction ??
+        (legacy
+          ? instructionFromTempo(legacy, undefined, score.textStyles)
+          : {
+              id: generateId(),
+              text: [{ text: "" }],
+              position: { fraction },
+              placement: "above",
+            }),
+      legacyTempoIndex: !existingInstruction && legacy ? legacyTempoIndex : undefined,
     });
   }, [store, getSelectedMeasureIndex, selection, mousePositionRef, setTempoPopover]);
 

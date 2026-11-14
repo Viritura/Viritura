@@ -236,7 +236,6 @@ function AppInner({
     writeLeftTab,
     setWriteLeftTab,
     paletteSectionRequest,
-    setPaletteSectionRequest,
   } = useAppLocalState();
   const dropRef = useRef<HTMLDivElement>(null);
   const githubAccount = useGitHubAccount();
@@ -544,12 +543,8 @@ function AppInner({
     setLyricState,
     lyricMode,
     lyricState,
-    onOpenLyricsPalette: () => {
-      setWriteLeftTab("palettes");
-      setPaletteSectionRequest((current) => ({
-        id: "text",
-        requestId: (current?.requestId ?? 0) + 1,
-      }));
+    onOpenLyricsProperties: () => {
+      setWriteLeftTab("properties");
       leftFloat.setCollapsed(false);
     },
     radialMenu,

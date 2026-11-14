@@ -9,6 +9,7 @@
  */
 
 import type { Score } from "@viritura/core";
+import { measureTempoInstructions } from "@viritura/core";
 
 interface PitchWalkNode {
   readonly type?: string;
@@ -57,7 +58,7 @@ function summarizeDocument(score: Score): DocumentStats {
   let timeSignatures = 0;
   let keyChanges = 0;
   for (const measure of score.global.measures) {
-    tempos += measure.tempos?.length ?? 0;
+    tempos += measureTempoInstructions(measure).length;
     if (measure.time) timeSignatures++;
     if (measure.key) keyChanges++;
   }

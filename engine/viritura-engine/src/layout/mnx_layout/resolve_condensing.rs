@@ -610,6 +610,7 @@ pub(super) fn resolve_one_measure_phase1(
     let (prev_barline_type, prev_has_repeat_end, next_has_repeat_start) =
         measure_barline_context(&score.global.measures, mi);
     let rm = ResolvedMeasure {
+        system_end: Default::default(),
         index: mi,
         chord_symbols: {
             let mut chord_staff = flat_staff.clone();

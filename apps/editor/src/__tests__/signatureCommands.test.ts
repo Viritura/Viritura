@@ -122,8 +122,8 @@ describe("measureRangeFromElementId", () => {
 
 describe("ENDING_PRESETS", () => {
   it("includes the expected presets", () => {
-    expect(ENDING_PRESETS.map((p) => p.label)).toContain("1st Ending");
-    expect(ENDING_PRESETS.map((p) => p.label)).toContain("2nd Ending");
+    expect(ENDING_PRESETS.map((p) => p.label)).toContain("1st ending");
+    expect(ENDING_PRESETS.map((p) => p.label)).toContain("2nd ending");
   });
 });
 

@@ -171,7 +171,7 @@ unmodified deletion key. Text inputs keep their normal editing behavior.
 | Key       | Action                                                                         |
 | --------- | ------------------------------------------------------------------------------ |
 | `S`       | Toggle slur from selection                                                     |
-| `T`       | Toggle tie to next note                                                        |
+| `T`       | Toggle tie to an adjacent matching pitch, otherwise laissez vibrer             |
 | `F`       | Flip the selected item's direction or above/below placement                    |
 | `R`       | Repeat selection (copy and paste immediately after)                            |
 | `Q`       | Enter note input with chord-mode lock (A–G adds to chord instead of advancing) |
@@ -183,6 +183,14 @@ unmodified deletion key. Text inputs keep their normal editing behavior.
 `R` repeats chord-track symbols only when those symbols are explicitly selected.
 Repeating notes or rests alone leaves the chord track unchanged, including on
 successive repeats. Normal copy and paste still include accompanying chord symbols.
+
+`T` chooses separately for each selected notehead: a tie to the immediately
+following same-pitch note in its voice, or an open-ended laissez vibrer (l.v.) tie
+when no match exists. Rests, rhythmic spaces, and empty bars break adjacency.
+Press `T` again to remove the connection. For a selection spanning several
+events, connections stay within the selection; the final event in each voice is
+left unchanged. The separate **Tie** and **Laissez vibrer tie** palette buttons
+remain explicit choices. In note input, `T` retains its pending tie toggle.
 
 ### Chord symbol input
 

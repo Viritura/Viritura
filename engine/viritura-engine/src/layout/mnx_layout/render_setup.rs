@@ -37,6 +37,14 @@ pub(super) fn render_head(
         )
     };
     dl.commands.extend(commands);
+    if !dedicated_title_page {
+        dl.commands
+            .extend(super::super::page::render_first_page_copyright(
+                score.metadata(),
+                config,
+                page_width,
+            ));
+    }
     super::super::page::render_page_numbers_excluding(
         dl,
         pages,

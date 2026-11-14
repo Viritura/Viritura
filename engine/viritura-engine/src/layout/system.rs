@@ -168,8 +168,8 @@ pub(crate) fn break_into_systems_dual_width(
 /// stored in `systems`. Measures with `tempo_widths == 0` (the overwhelming
 /// majority) never trigger a break, so ordinary scores are untouched. A tempo
 /// wider than a whole system can't be helped by breaking, so the measure is
-/// left in place (its first-on-system position) and the renderer's wrap path
-/// handles the unavoidable overflow.
+/// left in place. The renderer preserves its bar-relative anchor and lets
+/// unavoidable ink overhang to the right.
 pub(crate) fn enforce_tempo_system_breaks(
     systems: Vec<Vec<usize>>,
     widths: &[f64],
@@ -243,8 +243,8 @@ pub(crate) fn enforce_tempo_system_breaks(
 ///
 /// Base case (no infinite reflow): a marking on the *first* bar of a system is
 /// already as far left as possible; if its text is wider than a whole system it
-/// simply overhangs and the renderer's right-margin clamp handles it — the bar
-/// is never pushed onward again.
+/// simply overhangs to the right without leaving its bar-relative anchor — the
+/// bar is never pushed onward again.
 ///
 /// `widths` and `text_demands` are indexed by the measure indices stored in
 /// `systems` (`text_demands[mi]` = rightward reach of the widest left-anchored

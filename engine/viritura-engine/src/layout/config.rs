@@ -60,6 +60,8 @@ pub struct LayoutConfig {
     pub page_margin_top: f64,
     /// Bottom margin of each page in spatium (≈ 15mm on A4).
     pub page_margin_bottom: f64,
+    /// Derived first-page footer reserve in pixels; set from document metadata.
+    pub first_page_footer_height: f64,
     /// Left margin of each page in spatium (≈ 15mm on A4).
     pub page_margin_left: f64,
     /// Right margin of each page in spatium (≈ 10mm on A4).
@@ -306,6 +308,7 @@ impl Default for LayoutConfig {
             // 15mm margins top/bottom, 15mm left, 10mm right
             page_margin_top: 15.0,
             page_margin_bottom: 15.0,
+            first_page_footer_height: 0.0,
             page_margin_left: 15.0,
             page_margin_right: 10.0,
             // Auto frame inset: fit to protrusions per spread (reproduces the
