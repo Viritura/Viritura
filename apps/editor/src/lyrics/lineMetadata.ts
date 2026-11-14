@@ -1,4 +1,4 @@
-import type { Score, SequenceContent } from "@viritura/core";
+import type { Part, PartMeasure, Score, SequenceContent } from "@viritura/core";
 import type { LyricInputState } from "../components/LyricInput";
 import { getEventAncestorId, getEventAtLocation, resolveEventFromSubElement } from "../score/ElementPath";
 import type { SelectionState } from "../store/selectionStore";
@@ -11,6 +11,55 @@ function collectContentLineIds(content: readonly SequenceContent[], ids: Set<str
       collectContentLineIds(item.content, ids);
     }
   }
+}
+
+function contentHasLyrics(content: readonly SequenceContent[]): boolean {
+  return content.some((item) => {
+    if (item.type === "event") return Object.keys(item.lyrics?.lines ?? {}).length > 0;
+    if (item.type === "tuplet" || item.type === "grace" || item.type === "tremolo") {
+      return contentHasLyrics(item.content);
+    }
+    return false;
+  });
+}
+
+const partLyricPresence = new WeakMap<Part, boolean>();
+const measureLyricPresence = new WeakMap<PartMeasure, boolean>();
+
+function measureHasLyrics(measure: PartMeasure): boolean {
+  const cached = measureLyricPresence.get(measure);
+  if (cached !== undefined) return cached;
+  const hasLyrics = measure.sequences.some((sequence) => contentHasLyrics(sequence.content));
+  measureLyricPresence.set(measure, hasLyrics);
+  return hasLyrics;
+}
+
+function partHasLyrics(part: Part): boolean {
+  const cached = partLyricPresence.get(part);
+  if (cached !== undefined) return cached;
+  const hasLyrics = part.measures.some(measureHasLyrics);
+  partLyricPresence.set(part, hasLyrics);
+  return hasLyrics;
+}
+
+/** Invalidate measures that may have been mutated in place by beat repair. */
+export function invalidateLyricPresence(score: Score, range?: { start: number; end: number }): void {
+  for (const part of score.parts) {
+    partLyricPresence.delete(part);
+    const start = Math.max(0, range?.start ?? 0);
+    const end = Math.min(part.measures.length - 1, range?.end ?? part.measures.length - 1);
+    for (let index = start; index <= end; index++) {
+      const measure = part.measures[index];
+      if (measure) measureLyricPresence.delete(measure);
+    }
+  }
+}
+
+/** Whether the score configures lyric lines or carries any lyric syllables. */
+export function scoreHasLyrics(score: Score): boolean {
+  const lyrics = score.global.lyrics;
+  if ((lyrics?.lineOrder?.length ?? 0) > 0 || Object.keys(lyrics?.lineMetadata ?? {}).length > 0) return true;
+  return score.parts.some(partHasLyrics);
 }
 
 /** All lyric lines in configured order, followed by any lines found in score content. */

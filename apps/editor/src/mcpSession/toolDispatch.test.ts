@@ -638,6 +638,34 @@ describe("MCP editor tool dispatch", () => {
     expect(store.getState().mnxJson).toBe(before);
   });
 
+  it("applies the current auto-accept choice only to new proposals", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore(), "test.mnx");
+    const session = useMcpSessionStore.getState();
+    session.start();
+
+    const first = await dispatchMcpTool(store, "preview.propose_patches", { patches: [pitchNote1] });
+    expect(first.structuredContent).toMatchObject({ status: "pending" });
+    const pending = Object.values(useMcpSessionStore.getState().proposals)[0]!;
+
+    session.setAutoAccept(true);
+    expect(useMcpSessionStore.getState().proposals[pending.id]?.status).toBe("pending");
+    const accepted = await dispatchMcpTool(store, "preview.propose_patches", {
+      patches: [{ ...pitchNote1, noteId: "note-2" }],
+    });
+    expect(accepted.structuredContent).toMatchObject({ status: "accepted" });
+    expect(useMcpSessionStore.getState().proposals[pending.id]?.status).toBe("pending");
+
+    session.setAutoAccept(false);
+    const next = await dispatchMcpTool(store, "preview.propose_patches", {
+      patches: [{ ...pitchNote1, noteId: "note-3" }],
+    });
+    expect(next.structuredContent).toMatchObject({ status: "pending" });
+    session.stop();
+    session.setAutoAccept(true);
+    expect(useMcpSessionStore.getState().autoAccept).toBe(false);
+  });
+
   it("returns a compact overview without exposing the whole score", async () => {
     const store = createDocumentStore();
     store.getState().loadScore(makeScore(), "test.mnx");

@@ -15,12 +15,6 @@ export const panelStyle: CSSProperties = {
   fontSize: "12px",
 };
 
-const searchContainerStyle: CSSProperties = {
-  padding: "8px 10px",
-  flexShrink: 0,
-  position: "relative",
-};
-
 export const panelScrollStyle: CSSProperties = {
   flex: 1,
   overflowY: "auto",
@@ -68,17 +62,6 @@ export const REHEARSAL_BOX_STYLE: CSSProperties = {
   fontSize: 14,
   lineHeight: 1,
 };
-export const SEARCH_ROW_STYLE: CSSProperties = {
-  ...searchContainerStyle,
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-};
-export const SEARCH_INPUT_WRAP_STYLE: CSSProperties = { position: "relative", flex: 1 };
-export const SEARCH_INPUT_STYLE: CSSProperties = {
-  width: "100%",
-};
-
 // ── Button-level styles ──
 // The PaletteButton primitive itself lives in @viritura/ui — its paper
 // substrate, hover lift, and active-tint recipe are encapsulated there.

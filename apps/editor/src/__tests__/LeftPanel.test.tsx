@@ -46,14 +46,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function WithSelectedNote({ children }: { readonly children: ReactNode }) {
+function WithSelectedNote({ children, score = SCORE }: { readonly children: ReactNode; readonly score?: Score }) {
   const loadScore = useDocumentStore((state) => state.loadScore);
   const loaded = useDocumentStore((state) => state.score !== null);
   const { selectElement } = useSelectionActions();
   useEffect(() => {
-    loadScore(SCORE, "left-panel-test.mnx");
+    loadScore(score, "left-panel-test.mnx");
     selectElement("p0/m0/s0/event-1/n0");
-  }, [loadScore, selectElement]);
+  }, [loadScore, score, selectElement]);
   return loaded ? children : null;
 }
 
@@ -97,7 +97,7 @@ describe("LeftPanel", () => {
     },
   );
 
-  it("opens lyric settings but reports an invalid entry selection without entering lyric mode", async () => {
+  it("keeps lyric settings hidden when entry cannot start and the score has no lyrics", async () => {
     const info = vi.spyOn(toast, "info").mockImplementation(() => "info");
     const user = userEvent.setup();
     render(
@@ -118,7 +118,7 @@ describe("LeftPanel", () => {
     expect(useOverlayStore.getState().lyricMode).toBe(false);
     expect(useOverlayStore.getState().lyricState).toBeNull();
     expect(screen.getByRole("tab", { name: "Properties" }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByRole("button", { name: "Add lyric line" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add lyric line" })).toBeNull();
   });
 
   it("renders notation properties as a left-panel tab", async () => {
@@ -139,5 +139,28 @@ describe("LeftPanel", () => {
 
     expect(await screen.findByTestId("notation-inspector")).toBeTruthy();
     expect(screen.getByText("Notation Properties")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Start lyric entry" })).toBeNull();
+  });
+
+  it("shows lyric settings in Properties when the score already has lyrics", async () => {
+    const user = userEvent.setup();
+    const lyricScore = structuredClone(SCORE);
+    const event = lyricScore.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type === "event") event.lyrics = { lines: { "1": { text: "la" } } };
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <HistoryProvider initialMnxJson="{}">
+          <DocumentProvider>
+            <WithSelectedNote score={lyricScore}>
+              <LeftPanel />
+            </WithSelectedNote>
+          </DocumentProvider>
+        </HistoryProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Properties" }));
+
+    expect(await screen.findByRole("button", { name: "Start lyric entry" })).toBeTruthy();
   });
 });

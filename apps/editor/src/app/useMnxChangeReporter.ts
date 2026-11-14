@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { CursorPosition } from "../store/noteInputStore";
 import { useNoteInputStore } from "../store/noteInputStore";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
+import { describeHistoryChange } from "../store/historyDescription";
 
 type DocumentStoreApi = ReturnType<typeof useDocumentStoreApi>;
 type PushState = (
@@ -44,6 +45,7 @@ export function useMnxChangeReporter(params: UseMnxChangeReporterParams): void {
     let firstLoadDone = false;
     let prevMnx = store.getState().mnxJson;
     let prevDocumentGeneration = store.getState().documentGeneration;
+    let prevMeasures = (store.getState().workingScore ?? store.getState().score)?.global.measures;
 
     if (prevMnx) {
       onMnxChangeRef.current?.(prevMnx);
@@ -60,10 +62,20 @@ export function useMnxChangeReporter(params: UseMnxChangeReporterParams): void {
       }
       if (!currentMnx || currentMnx === prevMnx) return;
 
+      const measures = (state.workingScore ?? state.score)?.global.measures;
+      const previousMeasures = prevMeasures;
+      prevMeasures = measures;
       if (!openedNewDocument && currentDirty) {
         const cursorBefore = state.lastEditCursorBefore;
+        const patches = state.lastCommittedPatches;
         queueMicrotask(() => {
-          pushStateRef.current(currentMnx, "Edit", cursorBefore, useNoteInputStore.getState().cursorPosition);
+          const cursorAfter = useNoteInputStore.getState().cursorPosition;
+          pushStateRef.current(
+            currentMnx,
+            describeHistoryChange(patches, cursorBefore, cursorAfter, measures, previousMeasures),
+            cursorBefore,
+            cursorAfter,
+          );
         });
       }
 

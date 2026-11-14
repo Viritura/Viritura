@@ -49,6 +49,8 @@ interface McpSessionState {
   proposals: Record<string, McpProposal>;
   start: (options?: { autoAccept?: boolean }) => void;
   stop: () => void;
+  /** User-only toggle for the active session; MCP tools never call this. */
+  setAutoAccept: (autoAccept: boolean) => void;
   setRegistering: (clearRegistration?: boolean) => void;
   setRegistration: (registration: McpRegistration) => void;
   setReady: () => void;
@@ -74,6 +76,7 @@ export const useMcpSessionStore = create<McpSessionState>((set) => ({
     clearIdempotentRequests();
     set({ desired: false, autoAccept: false });
   },
+  setAutoAccept: (autoAccept) => set((state) => (state.desired ? { autoAccept } : state)),
   setRegistering: (clearRegistration = false) =>
     set({ status: "registering", ...(clearRegistration ? { registration: null } : {}), clientName: null, error: null }),
   setRegistration: (registration) => set({ registration, status: "waiting", error: null }),

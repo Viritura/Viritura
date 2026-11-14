@@ -47,6 +47,8 @@ import { useBeamInspector } from "./inspector/useBeamInspector";
 
 import { HorizonTextFrames, TextFramesPanel } from "./textFrames";
 import { LyricsPanel } from "./lyrics/LyricsPanel";
+import { scoreHasLyrics } from "../lyrics";
+import { useOverlayStore } from "../store/overlayStore";
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
 
@@ -120,6 +122,10 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   const staffConfig = useStaffConfigInspector({ score, selection, commitPatches });
   const lyric = useLyricInspector({ score, selection, updateScore });
   const isLyricSelected = lyric.selected !== null;
+  const lyricMode = useOverlayStore((state) => state.lyricMode);
+  const hasLyrics = useMemo(() => (score ? scoreHasLyrics(score) : false), [score]);
+  // Lyric line settings are noise until the score has lyrics or the user is entering/editing them.
+  const showLyricsPanel = Boolean(_props.showLyricLineControls) && (lyricMode || isLyricSelected || hasLyrics);
   const groupingDisplay = useGroupingDisplayInspector({ score, target, selection, updateScore });
   const staffMeter = useStaffMeterInspector({ score, target, selection, updateScore });
   const measureNumber = useMeasureNumberInspector({ score, target, selection, updateScore });
@@ -213,7 +219,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
       <NotationInspectorEmptyState
         horizonTextFrames={_props.horizonTextFrames}
         frameSelected={selectedElementType === "text-frame"}
-        showLyricLineControls={_props.showLyricLineControls}
+        showLyricLineControls={showLyricsPanel}
       />
     );
   }
@@ -456,7 +462,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         )}
 
         {_props.horizonTextFrames ? <HorizonTextFrames /> : <TextFramesPanel />}
-        {_props.showLyricLineControls && <LyricsPanel embedded />}
+        {showLyricsPanel && <LyricsPanel embedded />}
       </div>
     </aside>
   );

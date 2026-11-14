@@ -3,7 +3,7 @@ import { createStore } from "zustand";
 import { useStore } from "zustand";
 import type { CursorPosition } from "./noteInputStore";
 import { synthesizeCommitMessage } from "../git/commitMessage";
-import { PieceText, applyTextEdit, diffText, revertTextEdit, type TextEdit } from "./historyTextEdit";
+import { PieceText, diffText, revertTextEdit, type TextEdit } from "./historyTextEdit";
 
 /**
  * Maximum number of history entries to retain. Only the current entry holds a
@@ -38,9 +38,8 @@ interface HistoryEntry {
   /** Wall-clock time when the edit was recorded. */
   timestamp: number;
   /**
-   * Human-readable description of what changed (vs the previous entry).
-   * Computed lazily — populated either eagerly for the most recent entry
-   * (during pushState) or on-demand by the Clips tab.
+   * Human-readable description of the edit, with semantic diff used lazily
+   * only when the caller can provide no more specific label.
    */
   description: string;
   /** True once `description` has been replaced with a synthesized value. */
@@ -62,8 +61,8 @@ interface EntryContent {
 /**
  * Skip semanticDiff for documents above this size — cost grows roughly with
  * the parsed JSON's element count and we don't want to block on big pastes.
- * The placeholder "Edit" text is shown instead; this is only for the Clips
- * tab description, never for correctness.
+ * The placeholder "Edit" text is shown instead; this is only for the history
+ * label, never for correctness.
  */
 const MAX_DIFF_INPUT_CHARS = 250_000;
 
@@ -127,8 +126,6 @@ interface HistoryActions {
   getEntryMnxJson: (index: number) => string | undefined;
   /** Reconstruct the MNX for the entry with stable `id`; undefined once evicted. */
   getEntryMnxJsonById: (id: number) => string | undefined;
-  /** Resolve descriptions for all entries whose description is still pending. */
-  preloadDescriptions: () => void;
   /** Force-resolve a single entry's description (used on render). */
   resolveDescription: (index: number) => void;
   reset: (mnxJson: string) => void;
@@ -257,25 +254,7 @@ export function createHistoryStore(
         };
         if (trimmed.length > 0 && previousMnxJson !== undefined) {
           contents.set(newEntry, { length: mnxJson.length, edit: diffText(previousMnxJson, mnxJson) });
-          // Eagerly compute the description for the freshly-pushed entry in a
-          // microtask, so menu labels like "Undo: Edit pitch C4 → D4" stay
-          // accurate without blocking the dispatch. Both texts are in hand
-          // here, so no reconstruction is needed.
-          queueMicrotask(() => {
-            if (newEntry.descriptionResolved) return;
-            resolveEntryDescription(newEntry, previousMnxJson.length, mnxJson.length, () => ({
-              before: previousMnxJson,
-              after: mnxJson,
-            }));
-            // Bump entries reference so subscribers (selectors keyed on
-            // `entries`) re-render. We mutated newEntry in place; this clones
-            // the array but keeps entry object identities.
-            const cur = get();
-            if (cur.entries[cur.entries.length - 1] === newEntry) {
-              const nextEntries = cur.entries.slice();
-              set({ entries: nextEntries, ...computeDerived(nextEntries, cur.currentIndex, cur.currentMnxJson) });
-            }
-          });
+          newEntry.descriptionResolved = description !== "Edit";
         } else {
           contents.set(newEntry, { length: mnxJson.length });
           newEntry.descriptionResolved = true;
@@ -316,40 +295,6 @@ export function createHistoryStore(
       getEntryMnxJsonById: (id: number) => {
         const index = get().entries.findIndex((entry) => entry.id === id);
         return index < 0 ? undefined : materialize(index);
-      },
-
-      preloadDescriptions: () => {
-        const { entries, currentIndex, currentMnxJson } = get();
-        let mutated = false;
-        // Sweep oldest → newest, carrying the previous entry's text forward
-        // so each step costs one edit instead of a full reconstruction.
-        let carried: { index: number; text: string } | undefined;
-        for (let index = 0; index < entries.length; index++) {
-          const entry = entries[index];
-          if (!entry || entry.descriptionResolved) continue;
-          const afterLength = lengthOf(entry) ?? 0;
-          resolveEntryDescription(entry, beforeLengthOf(entries, index), afterLength, () => {
-            const edit = editOf(entry);
-            let before: string | undefined;
-            let after: string | undefined;
-            if (carried?.index === index - 1) {
-              before = carried.text;
-              after = applyTextEdit(before, edit);
-            } else {
-              after = materialize(index);
-              if (after !== undefined) before = revertTextEdit(after, edit);
-            }
-            if (after === undefined || before === undefined) return undefined;
-            carried = { index, text: after };
-            return { before, after };
-          });
-          mutated = true;
-        }
-        if (mutated) {
-          // Bump entries reference so selectors re-render.
-          const nextEntries = entries.slice();
-          set({ entries: nextEntries, ...computeDerived(nextEntries, currentIndex, currentMnxJson) });
-        }
       },
 
       resolveDescription: (index: number) => {

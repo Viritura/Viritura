@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
-import { useHistoryStore, type HistoryEntry } from "../store/historyStore";
+import { memo, useCallback, useEffect, useMemo, type CSSProperties } from "react";
+import { useHistoryStore, useHistoryStoreInstance, type HistoryEntry } from "../store/historyStore";
 import { Undo2, Redo2 } from "lucide-react";
 import { ListRow } from "@viritura/ui";
 
@@ -14,36 +14,33 @@ export function UndoHistorySection() {
   const entries = useHistoryStore((s) => s.entries);
   const currentIndex = useHistoryStore((s) => s.currentIndex);
   const jumpTo = useHistoryStore((s) => s.jumpTo);
-  const resolveDescription = useHistoryStore((s) => s.resolveDescription);
+  const store = useHistoryStoreInstance();
+  const onJump = useCallback(
+    (id: number) => {
+      const index = store.getState().entries.findIndex((entry) => entry.id === id);
+      if (index >= 0) jumpTo(index);
+    },
+    [jumpTo, store],
+  );
 
-  // Render newest first, but keep the original index for jump dispatch.
+  // Render newest first. Stable entry ids let rows retain identity as the
+  // bounded history drops its oldest entry.
   const reversed = useMemo(() => {
     return entries.map((entry, index) => ({ entry, index })).reverse();
   }, [entries]);
 
-  // Resolve any visible-but-pending entries on mount / when entries change.
-  // Spread across microtasks to avoid blocking initial paint when the panel
-  // first opens after a long editing session.
+  // Resolve newest first, yielding between entries so the browser can paint
+  // and handle input even when a full stack needs semantic descriptions.
   useEffect(() => {
-    const pending: number[] = [];
-    for (let i = 0; i < entries.length; i++) {
-      if (!entries[i]?.descriptionResolved) pending.push(i);
-    }
-    if (pending.length === 0) return;
-    let cancelled = false;
-    const tick = (offset: number) => {
-      if (cancelled) return;
-      const batch = pending.slice(offset, offset + 4);
-      for (const idx of batch) resolveDescription(idx);
-      if (offset + 4 < pending.length) {
-        queueMicrotask(() => tick(offset + 4));
-      }
-    };
-    tick(0);
-    return () => {
-      cancelled = true;
-    };
-  }, [entries, resolveDescription]);
+    const pending = entries.findLast((entry) => !entry.descriptionResolved);
+    if (!pending) return;
+    const timer = window.setTimeout(() => {
+      const state = store.getState();
+      const index = state.entries.findIndex((entry) => entry.id === pending.id);
+      if (index >= 0) state.resolveDescription(index);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [entries, store]);
 
   if (entries.length === 0) {
     return <div style={emptyStyle}>No history yet.</div>;
@@ -53,12 +50,14 @@ export function UndoHistorySection() {
     <div style={listStyle}>
       {reversed.map(({ entry, index }) => (
         <HistoryRow
-          key={index}
-          entry={entry}
-          index={index}
+          key={entry.id}
+          id={entry.id}
+          description={entry.description}
+          descriptionResolved={entry.descriptionResolved}
+          timeLabel={formatHistoryTime(entry.timestamp)}
           isCurrent={index === currentIndex}
           isFuture={index > currentIndex}
-          onJump={() => jumpTo(index)}
+          onJump={onJump}
         />
       ))}
     </div>
@@ -66,27 +65,36 @@ export function UndoHistorySection() {
 }
 
 interface HistoryRowProps {
-  entry: HistoryEntry;
-  index: number;
+  id: HistoryEntry["id"];
+  description: HistoryEntry["description"];
+  descriptionResolved: HistoryEntry["descriptionResolved"];
+  timeLabel: string;
   isCurrent: boolean;
   isFuture: boolean;
-  onJump: () => void;
+  onJump: (id: number) => void;
 }
 
-function HistoryRow({ entry, index, isCurrent, isFuture, onJump }: HistoryRowProps) {
+const HistoryRow = memo(function HistoryRow({
+  id,
+  description,
+  descriptionResolved,
+  timeLabel,
+  isCurrent,
+  isFuture,
+  onJump,
+}: HistoryRowProps) {
   const handleClick = useCallback(() => {
-    if (!isCurrent) onJump();
-  }, [isCurrent, onJump]);
+    if (!isCurrent) onJump(id);
+  }, [id, isCurrent, onJump]);
 
-  const labelText = entry.descriptionResolved ? cleanDescription(entry.description) : null;
-  const timeLabel = formatHistoryTime(entry.timestamp);
+  const labelText = descriptionResolved ? cleanDescription(description) : null;
 
   return (
     <ListRow
       density="compact"
       selected={isCurrent}
       onClick={handleClick}
-      tooltip={isCurrent ? "Current state" : isFuture ? `Redo to step ${index}` : `Undo to step ${index}`}
+      tooltip={isCurrent ? "Current state" : isFuture ? "Redo to this state" : "Undo to this state"}
       style={isFuture ? rowFutureStyle : undefined}
       leading={
         <span aria-hidden="true" style={iconStyle}>
@@ -107,7 +115,7 @@ function HistoryRow({ entry, index, isCurrent, isFuture, onJump }: HistoryRowPro
       )}
     </ListRow>
   );
-}
+});
 
 function formatHistoryTime(timestamp: number): string {
   const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
