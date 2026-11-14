@@ -446,7 +446,8 @@ export interface WasmSvgPage {
  *
  * @param displayListJson - Serialised DisplayList (from any compute_* function).
  * @param bravuraData - Raw bytes of Bravura.otf (SMuFL music font).
- * @param textFontData - Raw bytes of a text font (e.g. BravuraText.otf). Pass empty for fallback.
+ * @param textFontData - Serif font bytes. Bundled Libertinus regular enables its four styled faces;
+ * empty bytes retain text fallback. Other bytes retain the legacy single-face behavior.
  * @returns Array of per-page SVG results.
  */
 export function wasmExportSvg(

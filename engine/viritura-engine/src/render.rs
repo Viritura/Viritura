@@ -10,6 +10,7 @@ pub mod svg;
 mod command;
 mod debug;
 mod display_list;
+pub(crate) mod text_fonts;
 mod types;
 
 pub use command::*;

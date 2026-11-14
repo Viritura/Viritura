@@ -55,4 +55,69 @@ describe("decodeXmlText", () => {
   it("decodes supported XML entities", () => {
     expect(decodeXmlText("&amp; &lt; &gt; &quot; &apos;")).toBe("& < > \" '");
   });
+
+  it("preserves distinct SVG outline geometry in PDF paths", async () => {
+    const doc = await PDFDocument.create();
+    const page = doc.addPage([200, 200]);
+    const font = await doc.embedFont(StandardFonts.TimesRoman);
+    const draw = vi.spyOn(page, "drawSvgPath");
+    renderSvgToPdf(page, '<svg><path d="M1 2L3 4Z" fill="#123456"/><path d="M1 2L5 6Z" fill="#123456"/></svg>', 200, {
+      serifFont: font,
+      serifBoldFont: font,
+      serifItalicFont: font,
+      serifBoldItalicFont: font,
+    });
+    expect(draw).toHaveBeenCalledTimes(2);
+    expect(draw.mock.calls[0]![0]).not.toBe(draw.mock.calls[1]![0]);
+  });
+
+  it("uses explicit sans and monospace PDF fallback faces and selected-face alignment", async () => {
+    const doc = await PDFDocument.create();
+    const page = doc.addPage([200, 200]);
+    const serif = await doc.embedFont(StandardFonts.TimesRoman);
+    const sans = await Promise.all(
+      [
+        StandardFonts.Helvetica,
+        StandardFonts.HelveticaBold,
+        StandardFonts.HelveticaOblique,
+        StandardFonts.HelveticaBoldOblique,
+      ].map((font) => doc.embedFont(font)),
+    );
+    const mono = await Promise.all(
+      [
+        StandardFonts.Courier,
+        StandardFonts.CourierBold,
+        StandardFonts.CourierOblique,
+        StandardFonts.CourierBoldOblique,
+      ].map((font) => doc.embedFont(font)),
+    );
+    const draw = vi.spyOn(page, "drawText");
+    const fonts = {
+      serifFont: serif,
+      serifBoldFont: serif,
+      serifItalicFont: serif,
+      serifBoldItalicFont: serif,
+      sans,
+      mono,
+    };
+    renderSvgToPdf(
+      page,
+      `<svg>
+      <text x="40" y="20" font-size="5" font-family="Arial, sans-serif" font-style="italic" font-weight="bold" text-anchor="end" dominant-baseline="alphabetic">Test</text>
+      <text x="40" y="30" font-size="5" font-family="monospace" font-style="normal" font-weight="normal">Test</text>
+    </svg>`,
+      200,
+      fonts,
+    );
+    expect(draw.mock.calls[0]![1]!.font).toBe(sans[3]);
+    expect(draw.mock.calls[1]![1]!.font).toBe(mono[0]);
+    const size = (5 * 72) / 25.4;
+    expect(draw.mock.calls[0]![1]!.x).toBeCloseTo((40 * 72) / 25.4 - sans[3]!.widthOfTextAtSize("Test", size));
+    expect(() =>
+      renderSvgToPdf(page, '<svg><text font-family="Arial, sans-serif">♯</text></svg>', 200, fonts),
+    ).toThrow();
+    expect(() => renderSvgToPdf(page, '<svg><text font-family="Unknown">Test</text></svg>', 200, fonts)).toThrow(
+      /unsupported text font family/,
+    );
+  });
 });

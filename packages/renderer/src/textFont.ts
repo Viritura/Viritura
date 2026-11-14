@@ -15,7 +15,9 @@ const SERIF_STACK = `"${TEXT_FONT_FAMILY}", serif`;
 
 /** Map a render-command family name to a CSS font-family list. */
 export function canvasFontFamily(family: string): string {
-  return family === "serif" ? SERIF_STACK : family;
+  if (family === "serif") return SERIF_STACK;
+  if (family === "sans-serif") return "Arial, sans-serif";
+  return family;
 }
 
 /**

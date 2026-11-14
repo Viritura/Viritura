@@ -1,10 +1,11 @@
 //! SVG renderer — converts a DisplayList into per-page SVG strings.
 //!
 //! Music glyphs (DrawGlyph) and text (DrawText) are expanded to vector
-//! path outlines using `ttf-parser`, producing standalone SVGs with no
-//! external font dependencies. Every coordinate comes from the layout
-//! engine, so there are no coordinate-system mismatches.
+//! path outlines using `ttf-parser` when matching font data is available.
+//! Unbundled text families remain SVG text and require viewer fonts.
+//! Every coordinate comes from the layout engine.
 
+use crate::render::text_fonts;
 use crate::render::{DisplayList, PageLayout, RenderCommand, TextAlign, TextBaseline};
 use std::fmt::Write;
 
@@ -184,8 +185,10 @@ fn esc(s: &str) -> String {
 /// Convert a `DisplayList` into one SVG string per page.
 ///
 /// `bravura_data` — raw bytes of Bravura.otf (SMuFL music font).
-/// `text_font_data` — optional raw bytes of a text font (e.g. BravuraText.otf).
-///   When `None`, text is rendered as SVG `<text>` elements instead of paths.
+/// `text_font_data` — optional raw bytes of a text font. Bundled Libertinus
+/// regular selects the corresponding bundled face for each serif style.
+/// Other supplied fonts retain the legacy single-face behavior. Without font
+/// data, or for unbundled families, text uses SVG `<text>` elements.
 pub fn display_list_to_svg_pages(
     dl: &DisplayList,
     bravura_data: &[u8],
@@ -204,6 +207,7 @@ pub fn display_list_to_svg_pages(
         .map(|d| ttf_parser::Face::parse(d, 0))
         .transpose()
         .map_err(|e| format!("Failed to parse text font: {e:?}"))?;
+    let bundled_text = text_font_data.is_some_and(text_fonts::is_bundled_regular);
 
     // Build page list (single page fallback when no page info).
     let pages: Vec<PageLayout> = if dl.pages.is_empty() {
@@ -256,7 +260,15 @@ pub fn display_list_to_svg_pages(
                 elems.push("</g>".into());
                 continue;
             }
-            if let Some(el) = render_cmd(cmd, pg, cfg, &bravura, text_face.as_ref(), opacity) {
+            if let Some(el) = render_cmd(
+                cmd,
+                pg,
+                cfg,
+                &bravura,
+                text_face.as_ref(),
+                bundled_text,
+                opacity,
+            ) {
                 elems.push(el);
             }
             if let RenderCommand::SetOpacity { opacity: op } = cmd {
@@ -327,6 +339,7 @@ fn render_cmd(
     cfg: &SvgExportConfig,
     bravura: &ttf_parser::Face<'_>,
     text_face: Option<&ttf_parser::Face<'_>>,
+    bundled_text: bool,
     opacity: f64,
 ) -> Option<String> {
     let c = Ctx {
@@ -475,8 +488,12 @@ fn render_cmd(
         } => {
             let face = if font == "Bravura" {
                 Some(bravura)
-            } else {
+            } else if bundled_text {
+                text_fonts::face(font)
+            } else if font.split_whitespace().next() == Some("serif") {
                 text_face
+            } else {
+                None
             };
 
             if let Some(face) = face {
@@ -702,22 +719,30 @@ fn render_text_fallback(
         TextBaseline::Bottom => "text-after-edge",
         TextBaseline::Alphabetic => "alphabetic",
     };
-    let style = if font.contains("italic") {
+    let mut parts = font.split_whitespace();
+    let family = parts.next().unwrap_or("serif");
+    let family = if family == "sans-serif" {
+        "Arial, sans-serif"
+    } else {
+        family
+    };
+    let style = if font.split_whitespace().any(|part| part == "italic") {
         "italic"
     } else {
         "normal"
     };
-    let weight = if font.contains("bold") {
+    let weight = if font.split_whitespace().any(|part| part == "bold") {
         "bold"
     } else {
         "normal"
     };
     Some(format!(
-        "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"serif\" font-size=\"{:.3}\" \
+        "<text x=\"{:.3}\" y=\"{:.3}\" font-family=\"{}\" font-size=\"{:.3}\" \
          font-style=\"{style}\" font-weight=\"{weight}\" fill=\"{}\" \
          text-anchor=\"{anchor}\" dominant-baseline=\"{dom_bl}\"{op}>{}</text>",
         c.x(x),
         c.y(y),
+        esc(family),
         c.mm(size),
         esc(color),
         esc(text),
@@ -728,6 +753,121 @@ fn render_text_fallback(
 mod tests {
     use super::*;
     use ttf_parser::OutlineBuilder;
+
+    #[test]
+    fn bundled_serif_styles_use_their_own_outlines_and_alignment() {
+        let bravura = include_bytes!("../../../../assets/fonts/Bravura.otf");
+        let regular = include_bytes!("../../../../assets/fonts/LibertinusSerif-Regular.otf");
+        let cfg = SvgExportConfig {
+            spatium_mm: 1.0,
+            sp_pixels: 1.0,
+            page_width_mm: 100.0,
+            page_height_mm: 100.0,
+        };
+        let mut paths = Vec::new();
+        let fonts: [(&str, &[u8]); 4] = [
+            ("serif", regular),
+            (
+                "serif bold",
+                include_bytes!("../../../../assets/fonts/LibertinusSerif-Bold.otf"),
+            ),
+            (
+                "serif italic",
+                include_bytes!("../../../../assets/fonts/LibertinusSerif-Italic.otf"),
+            ),
+            (
+                "serif bold italic",
+                include_bytes!("../../../../assets/fonts/LibertinusSerif-BoldItalic.otf"),
+            ),
+        ];
+        for (font, bytes) in fonts {
+            let mut dl = DisplayList::new(100.0, 100.0);
+            dl.push(RenderCommand::DrawText {
+                x: 50.0,
+                y: 30.0,
+                text: "Allegro".into(),
+                font: font.into(),
+                size: 10.0,
+                color: "#123456".into(),
+                align: TextAlign::Center,
+                baseline: TextBaseline::Alphabetic,
+            });
+            let page = display_list_to_svg_pages(&dl, bravura, Some(regular), &cfg).unwrap();
+            let selected = ttf_parser::Face::parse(bytes, 0).unwrap();
+            let x = 50.0 - text_advance_mm(&selected, "Allegro", 10.0) / 2.0;
+            let expected = text_to_path(&selected, "Allegro", x, 30.0, 10.0);
+            assert!(page[0]
+                .svg
+                .contains(&format!("<path d=\"{expected}\" fill=\"#123456\"")));
+            paths.push(expected);
+        }
+        for (index, path) in paths.iter().enumerate() {
+            for other in &paths[index + 1..] {
+                assert_ne!(path, other);
+            }
+        }
+    }
+
+    #[test]
+    fn unbundled_families_use_explicit_svg_text_fallback() {
+        let bravura = include_bytes!("../../../../assets/fonts/Bravura.otf");
+        let regular = include_bytes!("../../../../assets/fonts/LibertinusSerif-Regular.otf");
+        let cfg = SvgExportConfig {
+            spatium_mm: 1.0,
+            sp_pixels: 1.0,
+            page_width_mm: 100.0,
+            page_height_mm: 100.0,
+        };
+        let mut dl = DisplayList::new(100.0, 100.0);
+        for font in ["sans-serif bold italic", "monospace"] {
+            dl.push(RenderCommand::DrawText {
+                x: 10.0,
+                y: 20.0,
+                text: "Test".into(),
+                font: font.into(),
+                size: 10.0,
+                color: "#123456".into(),
+                align: TextAlign::Right,
+                baseline: TextBaseline::Top,
+            });
+        }
+        let svg = &display_list_to_svg_pages(&dl, bravura, Some(regular), &cfg).unwrap()[0].svg;
+        assert!(svg.contains("font-family=\"Arial, sans-serif\""));
+        assert!(svg.contains("font-family=\"monospace\""));
+        assert!(svg.contains("font-style=\"italic\" font-weight=\"bold\""));
+        assert!(svg.contains("text-anchor=\"end\" dominant-baseline=\"text-before-edge\""));
+        assert!(!svg.contains("<path"));
+    }
+
+    #[test]
+    fn custom_and_missing_text_font_keep_legacy_behavior() {
+        let bravura = include_bytes!("../../../../assets/fonts/Bravura.otf");
+        let custom = include_bytes!("../../../../assets/fonts/LibertinusSerif-Italic.otf");
+        let cfg = SvgExportConfig {
+            spatium_mm: 1.0,
+            sp_pixels: 1.0,
+            page_width_mm: 100.0,
+            page_height_mm: 100.0,
+        };
+        let mut dl = DisplayList::new(100.0, 100.0);
+        dl.push(RenderCommand::DrawText {
+            x: 10.0,
+            y: 20.0,
+            text: "Allegro".into(),
+            font: "serif bold".into(),
+            size: 10.0,
+            color: "#123456".into(),
+            align: TextAlign::Left,
+            baseline: TextBaseline::Alphabetic,
+        });
+        let face = ttf_parser::Face::parse(custom, 0).unwrap();
+        let expected = text_to_path(&face, "Allegro", 10.0, 20.0, 10.0);
+        let outlined = &display_list_to_svg_pages(&dl, bravura, Some(custom), &cfg).unwrap()[0].svg;
+        assert!(outlined.contains(&format!("<path d=\"{expected}\"")));
+        let fallback = &display_list_to_svg_pages(&dl, bravura, None, &cfg).unwrap()[0].svg;
+        assert!(fallback.contains("font-family=\"serif\""));
+        assert!(fallback.contains("font-weight=\"bold\""));
+    }
 
     #[test]
     fn path_builder_produces_valid_svg_path() {
