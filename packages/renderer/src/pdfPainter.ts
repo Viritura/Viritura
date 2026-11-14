@@ -11,6 +11,7 @@
 
 import {
   PDFDocument,
+  StandardFonts,
   rgb,
   AFRelationship,
   degrees,
@@ -39,7 +40,7 @@ export interface PdfExportOptions {
   spPixels: number;
   /** URL or ArrayBuffer for the Bravura OTF font. */
   bravuraFont: string | ArrayBuffer;
-  /** URL or ArrayBuffer for the serif text font (used by WASM SVG export). */
+  /** Serif font bytes; bundled Libertinus regular enables all four SVG outline styles, other fonts use one face. */
   serifFont?: string | ArrayBuffer;
   /** URL or ArrayBuffer for the PDF text font (regular). */
   pdfTextFont: string | ArrayBuffer;
@@ -189,7 +190,32 @@ export async function exportPdf(displayList: DisplayList, options: PdfExportOpti
   const serifBoldFont = await pdfDoc.embedFont(textBoldBytes);
   const serifItalicFont = await pdfDoc.embedFont(textItalicBytes);
   const serifBoldItalicFont = await pdfDoc.embedFont(textBoldItalicBytes);
-  const pdfFonts = { serifFont, serifBoldFont, serifItalicFont, serifBoldItalicFont };
+  const needsSans = svgPages.some((p) => p.svg.includes('font-family="Arial, sans-serif"'));
+  const needsMono = svgPages.some((p) => p.svg.includes('font-family="monospace"'));
+  if (needsSans || needsMono) {
+    console.warn(
+      "PDF export uses Helvetica for sans-serif and Courier for monospace; these may differ from Canvas fonts.",
+    );
+  }
+  const embedFamily = async (names: readonly [StandardFonts, StandardFonts, StandardFonts, StandardFonts]) =>
+    Promise.all(names.map((name) => pdfDoc.embedFont(name)));
+  const sans = needsSans
+    ? await embedFamily([
+        StandardFonts.Helvetica,
+        StandardFonts.HelveticaBold,
+        StandardFonts.HelveticaOblique,
+        StandardFonts.HelveticaBoldOblique,
+      ])
+    : undefined;
+  const mono = needsMono
+    ? await embedFamily([
+        StandardFonts.Courier,
+        StandardFonts.CourierBold,
+        StandardFonts.CourierOblique,
+        StandardFonts.CourierBoldOblique,
+      ])
+    : undefined;
+  const pdfFonts = { serifFont, serifBoldFont, serifItalicFont, serifBoldItalicFont, sans, mono };
 
   // 3. Convert each SVG page to a PDF page
   for (const svgPage of svgPages) {
@@ -227,6 +253,42 @@ interface PdfFonts {
   serifBoldFont: import("pdf-lib").PDFFont;
   serifItalicFont: import("pdf-lib").PDFFont;
   serifBoldItalicFont: import("pdf-lib").PDFFont;
+  sans?: import("pdf-lib").PDFFont[];
+  mono?: import("pdf-lib").PDFFont[];
+  warnedGlyphFallback?: boolean;
+}
+
+interface PdfTextRun {
+  text: string;
+  font: import("pdf-lib").PDFFont;
+}
+
+const fontCharacterSets = new WeakMap<import("pdf-lib").PDFFont, Set<number>>();
+
+function supportsCharacter(font: import("pdf-lib").PDFFont, codepoint: number): boolean {
+  let characters = fontCharacterSets.get(font);
+  if (!characters) {
+    characters = new Set(font.getCharacterSet());
+    fontCharacterSets.set(font, characters);
+  }
+  return characters.has(codepoint);
+}
+
+function textRuns(
+  text: string,
+  primary: import("pdf-lib").PDFFont,
+  fallbacks: import("pdf-lib").PDFFont[],
+): PdfTextRun[] {
+  const runs: PdfTextRun[] = [];
+  for (const character of text) {
+    const codepoint = character.codePointAt(0)!;
+    const font = [primary, ...fallbacks].find((candidate) => supportsCharacter(candidate, codepoint));
+    if (!font) throw new Error(`PDF: no font supports U+${codepoint.toString(16).toUpperCase()}`);
+    const last = runs.at(-1);
+    if (last?.font === font) last.text += character;
+    else runs.push({ text: character, font });
+  }
+  return runs;
 }
 
 export function renderSvgToPdf(
@@ -258,6 +320,10 @@ export function renderSvgToPdf(
     const textContent = match[3];
     const opacity = numAttr(attrs, "opacity") || 1.0;
 
+    if (tag === "text") {
+      drawSvgText(page, attrs, textContent ?? "", pageHeightPt, opacity, fonts);
+      continue;
+    }
     try {
       switch (tag) {
         case "line":
@@ -277,9 +343,6 @@ export function renderSvgToPdf(
           break;
         case "polygon":
           drawSvgPolygon(page, attrs, pageHeightPt, opacity);
-          break;
-        case "text":
-          drawSvgText(page, attrs, textContent ?? "", pageHeightPt, opacity, fonts);
           break;
       }
     } catch (e) {
@@ -472,7 +535,7 @@ function drawSvgText(
 ): void {
   if (!textContent) return;
 
-  const text = decodeXmlText(textContent);
+  const text = decodeXmlText(textContent).replace(/[\t\r\n\f]/g, " ");
 
   const xMm = numAttr(attrs, "x");
   const yMm = numAttr(attrs, "y");
@@ -484,30 +547,53 @@ function drawSvgText(
   const fontWeight = attr(attrs, "font-weight");
   const isBold = fontWeight === "bold";
   const isItalic = fontStyle === "italic";
-  let pdfFont: import("pdf-lib").PDFFont;
-  if (isBold && isItalic) pdfFont = fonts.serifBoldItalicFont;
-  else if (isBold) pdfFont = fonts.serifBoldFont;
-  else if (isItalic) pdfFont = fonts.serifItalicFont;
-  else pdfFont = fonts.serifFont;
+  const family = attr(attrs, "font-family");
+  const styleIndex = Number(isBold) + 2 * Number(isItalic);
+  const pdfFont =
+    family === "serif"
+      ? [fonts.serifFont, fonts.serifBoldFont, fonts.serifItalicFont, fonts.serifBoldItalicFont][styleIndex]
+      : family === "Arial, sans-serif"
+        ? fonts.sans?.[styleIndex]
+        : family === "monospace"
+          ? fonts.mono?.[styleIndex]
+          : undefined;
+  if (!pdfFont) throw new Error(`PDF: unsupported text font family "${family}"`);
 
   const sizePt = sizeMm * MM_TO_PT;
+  const styledSerif = [fonts.serifFont, fonts.serifBoldFont, fonts.serifItalicFont, fonts.serifBoldItalicFont][
+    styleIndex
+  ]!;
+  const runs = textRuns(text, pdfFont, [styledSerif, fonts.serifFont]);
+  if (runs.some((run) => run.font !== pdfFont) && !fonts.warnedGlyphFallback) {
+    console.warn("PDF export uses serif fallback for characters missing from the requested font.");
+    fonts.warnedGlyphFallback = true;
+  }
   let pdfX = xPt(xMm);
-  const pdfY = yPt(yMm, pageH);
+  let pdfY = yPt(yMm, pageH);
 
   // Handle text-anchor (alignment)
   const anchor = attr(attrs, "text-anchor");
   if (anchor === "middle" || anchor === "end") {
-    const textWidth = pdfFont.widthOfTextAtSize(text, sizePt);
+    const textWidth = runs.reduce((width, run) => width + run.font.widthOfTextAtSize(run.text, sizePt), 0);
     if (anchor === "middle") pdfX -= textWidth / 2;
     else pdfX -= textWidth;
   }
+  const ascent = pdfFont.heightAtSize(sizePt, { descender: false });
+  const descent = pdfFont.heightAtSize(sizePt) - ascent;
+  const baseline = attr(attrs, "dominant-baseline");
+  if (baseline === "text-before-edge") pdfY -= ascent;
+  else if (baseline === "central") pdfY -= (ascent - descent) / 2;
+  else if (baseline === "text-after-edge") pdfY += descent;
 
-  page.drawText(text, {
-    x: pdfX,
-    y: pdfY,
-    size: sizePt,
-    font: pdfFont,
-    color: rgb(r, g, b),
-    opacity,
-  });
+  for (const run of runs) {
+    page.drawText(run.text, {
+      x: pdfX,
+      y: pdfY,
+      size: sizePt,
+      font: run.font,
+      color: rgb(r, g, b),
+      opacity,
+    });
+    pdfX += run.font.widthOfTextAtSize(run.text, sizePt);
+  }
 }

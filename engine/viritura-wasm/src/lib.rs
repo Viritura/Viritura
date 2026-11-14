@@ -1161,7 +1161,8 @@ pub fn compute_mnx_score_layout_binary(
 ///
 /// * `display_list_json` — serialized DisplayList from any `compute_*` function.
 /// * `bravura_data` — raw bytes of Bravura.otf (SMuFL music font).
-/// * `text_font_data` — raw bytes of a text font (e.g. BravuraText.otf). Pass empty for fallback.
+/// * `text_font_data` — serif font bytes; bundled Libertinus regular enables its
+///   styled faces, other fonts retain single-face behavior. Pass empty for fallback.
 /// * `spatium_mm`, `sp_pixels` — coordinate conversion factors.
 /// * `page_width_mm`, `page_height_mm` — output page dimensions.
 #[wasm_bindgen]

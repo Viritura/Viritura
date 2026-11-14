@@ -2,8 +2,9 @@
  * SVG Painter — converts a DisplayList into standalone SVG strings.
  *
  * Delegates glyph/text → path conversion to the Rust/WASM engine via
- * `ttf-parser`, producing self-contained SVGs with no external font
- * dependencies. Coordinates come directly from the layout engine,
+ * `ttf-parser`, producing self-contained paths for bundled faces. Unbundled
+ * families remain SVG text and depend on fonts installed by the viewer.
+ * Coordinates come directly from the layout engine,
  * eliminating the y-flip issues that plagued the JS opentype.js approach.
  */
 
@@ -23,7 +24,7 @@ export interface SvgExportOptions {
   spPixels: number;
   /** URL or ArrayBuffer for the Bravura OTF font. */
   bravuraFont: string | ArrayBuffer;
-  /** URL or ArrayBuffer for the serif text font. */
+  /** Serif font bytes. Bundled Libertinus regular enables all four styles; other fonts use one face. */
   serifFont?: string | ArrayBuffer;
 }
 
