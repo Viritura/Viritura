@@ -3710,6 +3710,88 @@ impl ::std::convert::From<&Fine> for Fine {
         value.clone()
     }
 }
+///`FormattedText`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "array",
+///  "items": {
+///    "anyOf": [
+///      {
+///        "$ref": "#/$defs/text-chunk-text"
+///      },
+///      {
+///        "$ref": "#/$defs/text-chunk-smufl"
+///      }
+///    ]
+///  },
+///  "minItems": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct FormattedText(pub ::std::vec::Vec<FormattedTextItem>);
+impl ::std::ops::Deref for FormattedText {
+    type Target = ::std::vec::Vec<FormattedTextItem>;
+    fn deref(&self) -> &::std::vec::Vec<FormattedTextItem> {
+        &self.0
+    }
+}
+impl ::std::convert::From<FormattedText> for ::std::vec::Vec<FormattedTextItem> {
+    fn from(value: FormattedText) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&FormattedText> for FormattedText {
+    fn from(value: &FormattedText) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<::std::vec::Vec<FormattedTextItem>> for FormattedText {
+    fn from(value: ::std::vec::Vec<FormattedTextItem>) -> Self {
+        Self(value)
+    }
+}
+///`FormattedTextItem`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "$ref": "#/$defs/text-chunk-text"
+///    },
+///    {
+///      "$ref": "#/$defs/text-chunk-smufl"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct FormattedTextItem {
+    #[serde(flatten, default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub subtype_0: ::std::option::Option<TextChunkText>,
+    #[serde(flatten, default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub subtype_1: ::std::option::Option<TextChunkSmufl>,
+}
+impl ::std::convert::From<&FormattedTextItem> for FormattedTextItem {
+    fn from(value: &FormattedTextItem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for FormattedTextItem {
+    fn default() -> Self {
+        Self {
+            subtype_0: Default::default(),
+            subtype_1: Default::default(),
+        }
+    }
+}
 ///`Fraction`
 ///
 /// <details><summary>JSON schema</summary>
@@ -4659,6 +4741,9 @@ impl ::std::convert::From<::std::collections::HashMap<KitKey, KitComponent>> for
 ///    "name": {
 ///      "$ref": "#/$defs/string"
 ///    },
+///    "notehead": {
+///      "$ref": "#/$defs/notehead"
+///    },
 ///    "sound": {
 ///      "$ref": "#/$defs/id"
 ///    },
@@ -4682,6 +4767,8 @@ pub struct KitComponent {
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub name: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub notehead: ::std::option::Option<Notehead>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub sound: ::std::option::Option<Id>,
     #[serde(rename = "staffPosition")]
@@ -4796,6 +4883,9 @@ impl<'de> ::serde::Deserialize<'de> for KitKey {
 ///    "kitComponent": {
 ///      "$ref": "#/$defs/id"
 ///    },
+///    "notehead": {
+///      "$ref": "#/$defs/notehead"
+///    },
 ///    "perform": {
 ///      "$ref": "#/$defs/perform-options"
 ///    },
@@ -4822,6 +4912,8 @@ pub struct KitNote {
     pub id: ::std::option::Option<Id>,
     #[serde(rename = "kitComponent")]
     pub kit_component: Id,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub notehead: ::std::option::Option<Notehead>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub perform: ::std::option::Option<PerformOptions>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -6092,7 +6184,7 @@ impl ::std::convert::From<&Mnx> for Mnx {
 ///
 /// ```json
 ///{
-///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/46",
+///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/52",
 ///  "title": "MNX document",
 ///  "description": "An encoding of Common Western Music Notation.",
 ///  "$ref": "#/$defs/root"
@@ -6421,6 +6513,9 @@ impl ::std::convert::From<&NonArpeggio> for NonArpeggio {
 ///    "markings": {
 ///      "$ref": "#/$defs/note-markings"
 ///    },
+///    "notehead": {
+///      "$ref": "#/$defs/notehead"
+///    },
 ///    "perform": {
 ///      "$ref": "#/$defs/perform-options"
 ///    },
@@ -6459,6 +6554,8 @@ pub struct Note {
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub markings: ::std::option::Option<NoteMarkings>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub notehead: ::std::option::Option<Notehead>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub perform: ::std::option::Option<PerformOptions>,
     pub pitch: Pitch,
@@ -6807,6 +6904,215 @@ pub struct NoteValueQuantity {
 impl ::std::convert::From<&NoteValueQuantity> for NoteValueQuantity {
     fn from(value: &NoteValueQuantity) -> Self {
         value.clone()
+    }
+}
+///`Notehead`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "properties": {
+///    "glyph": {
+///      "$ref": "#/$defs/smufl-glyph"
+///    },
+///    "shape": {
+///      "default": "default",
+///      "$ref": "#/$defs/notehead-shape"
+///    }
+///  },
+///  "dependentRequired": {
+///    "glyph": [
+///      "shape"
+///    ]
+///  },
+///  "dependentSchemas": {
+///    "shape": {
+///      "if": {
+///        "properties": {
+///          "shape": {
+///            "const": "custom"
+///          }
+///        }
+///      },
+///      "then": {
+///        "required": [
+///          "glyph"
+///        ]
+///      }
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct Notehead {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub glyph: ::std::option::Option<SmuflGlyph>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(default = "defaults::notehead_shape")]
+    pub shape: NoteheadShape,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&Notehead> for Notehead {
+    fn from(value: &Notehead) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for Notehead {
+    fn default() -> Self {
+        Self {
+            c: Default::default(),
+            glyph: Default::default(),
+            id: Default::default(),
+            shape: defaults::notehead_shape(),
+            x: Default::default(),
+        }
+    }
+}
+///`NoteheadShape`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "default",
+///    "oval",
+///    "x",
+///    "diamond",
+///    "triangle",
+///    "triangleDown",
+///    "slash",
+///    "plus",
+///    "circleX",
+///    "square",
+///    "custom"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum NoteheadShape {
+    #[serde(rename = "default")]
+    Default,
+    #[serde(rename = "oval")]
+    Oval,
+    #[serde(rename = "x")]
+    X,
+    #[serde(rename = "diamond")]
+    Diamond,
+    #[serde(rename = "triangle")]
+    Triangle,
+    #[serde(rename = "triangleDown")]
+    TriangleDown,
+    #[serde(rename = "slash")]
+    Slash,
+    #[serde(rename = "plus")]
+    Plus,
+    #[serde(rename = "circleX")]
+    CircleX,
+    #[serde(rename = "square")]
+    Square,
+    #[serde(rename = "custom")]
+    Custom,
+}
+impl ::std::convert::From<&Self> for NoteheadShape {
+    fn from(value: &NoteheadShape) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for NoteheadShape {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Default => f.write_str("default"),
+            Self::Oval => f.write_str("oval"),
+            Self::X => f.write_str("x"),
+            Self::Diamond => f.write_str("diamond"),
+            Self::Triangle => f.write_str("triangle"),
+            Self::TriangleDown => f.write_str("triangleDown"),
+            Self::Slash => f.write_str("slash"),
+            Self::Plus => f.write_str("plus"),
+            Self::CircleX => f.write_str("circleX"),
+            Self::Square => f.write_str("square"),
+            Self::Custom => f.write_str("custom"),
+        }
+    }
+}
+impl ::std::str::FromStr for NoteheadShape {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "default" => Ok(Self::Default),
+            "oval" => Ok(Self::Oval),
+            "x" => Ok(Self::X),
+            "diamond" => Ok(Self::Diamond),
+            "triangle" => Ok(Self::Triangle),
+            "triangleDown" => Ok(Self::TriangleDown),
+            "slash" => Ok(Self::Slash),
+            "plus" => Ok(Self::Plus),
+            "circleX" => Ok(Self::CircleX),
+            "square" => Ok(Self::Square),
+            "custom" => Ok(Self::Custom),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for NoteheadShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for NoteheadShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for NoteheadShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///`Octave`
@@ -7264,6 +7570,12 @@ impl ::std::convert::From<&Part> for Part {
 ///      "items": {
 ///        "$ref": "#/$defs/positioned-staff-config"
 ///      }
+///    },
+///    "text": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/positioned-text"
+///      }
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -7309,6 +7621,8 @@ pub struct PartMeasure {
         skip_serializing_if = "::std::vec::Vec::is_empty"
     )]
     pub staff_configs: ::std::vec::Vec<PositionedStaffConfig>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub text: ::std::vec::Vec<PositionedText>,
     #[serde(
         rename = "_x",
         default,
@@ -7790,6 +8104,82 @@ pub struct PositionedStaffConfig {
 }
 impl ::std::convert::From<&PositionedStaffConfig> for PositionedStaffConfig {
     fn from(value: &PositionedStaffConfig) -> Self {
+        value.clone()
+    }
+}
+///`PositionedText`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "required": [
+///    "text"
+///  ],
+///  "properties": {
+///    "placement": {
+///      "$ref": "#/$defs/placement"
+///    },
+///    "position": {
+///      "$ref": "#/$defs/rhythmic-position"
+///    },
+///    "staff": {
+///      "$ref": "#/$defs/staff-number"
+///    },
+///    "text": {
+///      "$ref": "#/$defs/formatted-text"
+///    },
+///    "type": {
+///      "$ref": "#/$defs/text-type"
+///    },
+///    "voice": {
+///      "$ref": "#/$defs/voice-name"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct PositionedText {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub placement: ::std::option::Option<Placement>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub position: ::std::option::Option<RhythmicPosition>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub staff: ::std::option::Option<StaffNumber>,
+    pub text: FormattedText,
+    #[serde(
+        rename = "type",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<TextType>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub voice: ::std::option::Option<VoiceName>,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&PositionedText> for PositionedText {
+    fn from(value: &PositionedText) -> Self {
         value.clone()
     }
 }
@@ -10440,6 +10830,7 @@ impl ::std::convert::From<&StaffSource> for StaffSource {
 ///  "type": "string",
 ///  "enum": [
 ///    "bracket",
+///    "square",
 ///    "brace",
 ///    "noSymbol"
 ///  ]
@@ -10461,6 +10852,8 @@ impl ::std::convert::From<&StaffSource> for StaffSource {
 pub enum StaffSymbol {
     #[serde(rename = "bracket")]
     Bracket,
+    #[serde(rename = "square")]
+    Square,
     #[serde(rename = "brace")]
     Brace,
     #[serde(rename = "noSymbol")]
@@ -10475,6 +10868,7 @@ impl ::std::fmt::Display for StaffSymbol {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::Bracket => f.write_str("bracket"),
+            Self::Square => f.write_str("square"),
             Self::Brace => f.write_str("brace"),
             Self::NoSymbol => f.write_str("noSymbol"),
         }
@@ -10487,6 +10881,7 @@ impl ::std::str::FromStr for StaffSymbol {
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
             "bracket" => Ok(Self::Bracket),
+            "square" => Ok(Self::Square),
             "brace" => Ok(Self::Brace),
             "noSymbol" => Ok(Self::NoSymbol),
             _ => Err("invalid value".into()),
@@ -11251,6 +11646,202 @@ impl ::std::default::Default for Tenuto {
             placement: Default::default(),
             x: Default::default(),
         }
+    }
+}
+///`TextChunkSmufl`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "required": [
+///    "glyphs",
+///    "type"
+///  ],
+///  "properties": {
+///    "glyphs": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/smufl-glyph"
+///      },
+///      "minItems": 1
+///    },
+///    "type": {
+///      "type": "string",
+///      "const": "smufl"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct TextChunkSmufl {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    pub glyphs: ::std::vec::Vec<SmuflGlyph>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(rename = "type")]
+    pub type_: ::std::string::String,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&TextChunkSmufl> for TextChunkSmufl {
+    fn from(value: &TextChunkSmufl) -> Self {
+        value.clone()
+    }
+}
+///`TextChunkText`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "required": [
+///    "text"
+///  ],
+///  "properties": {
+///    "text": {
+///      "$ref": "#/$defs/string"
+///    },
+///    "type": {
+///      "type": "string",
+///      "const": "text"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct TextChunkText {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    pub text: String,
+    #[serde(
+        rename = "type",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<::std::string::String>,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&TextChunkText> for TextChunkText {
+    fn from(value: &TextChunkText) -> Self {
+        value.clone()
+    }
+}
+///`TextType`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "general",
+///    "expression"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum TextType {
+    #[serde(rename = "general")]
+    General,
+    #[serde(rename = "expression")]
+    Expression,
+}
+impl ::std::convert::From<&Self> for TextType {
+    fn from(value: &TextType) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for TextType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::General => f.write_str("general"),
+            Self::Expression => f.write_str("expression"),
+        }
+    }
+}
+impl ::std::str::FromStr for TextType {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "general" => Ok(Self::General),
+            "expression" => Ok(Self::Expression),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TextType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TextType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///`Tie`
@@ -12620,5 +13211,11 @@ impl ::std::convert::TryFrom<::std::string::String> for YesNoAuto {
         value: ::std::string::String,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
+    }
+}
+/// Generation of default values for serde.
+pub mod defaults {
+    pub(super) fn notehead_shape() -> super::NoteheadShape {
+        super::NoteheadShape::Default
     }
 }

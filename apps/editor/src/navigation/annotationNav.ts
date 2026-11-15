@@ -310,7 +310,7 @@ function extractGlobalAnnotations(
     annotations.push({
       elementId: systemTextId(measureIndex, text.id),
       type: "system-text",
-      position: text.placement ?? "below",
+      position: text.placement === "above" ? "above" : "below",
       parentEventId,
     });
   }
@@ -503,7 +503,7 @@ function annotationPosition(score: Score, annotationId: string): AnnotationPosit
     const text = score.global.measures[location.measureIndex]?.systemText?.find(
       (candidate) => candidate.id === location.annotationId,
     );
-    return text?.placement ?? "below";
+    return text?.placement === "above" ? "above" : "below";
   }
   return classifyAnnotationPosition(getAnnotationType(annotationId));
 }

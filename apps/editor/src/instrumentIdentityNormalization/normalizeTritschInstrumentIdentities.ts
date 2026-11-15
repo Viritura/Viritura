@@ -1,4 +1,11 @@
-import { walkSequenceEvents, type LayoutContent, type Part, type Score, type Sound } from "@viritura/core";
+import {
+  legacyNotehead,
+  walkSequenceEvents,
+  type LayoutContent,
+  type Part,
+  type Score,
+  type Sound,
+} from "@viritura/core";
 import { VIRITURA_SOUNDS_PROFILE_ID, virituraSoundsSourceId } from "@viritura/sound-profiles";
 
 interface InstrumentPolicy {
@@ -172,7 +179,7 @@ function normalizePercussion(score: Score): void {
         ...component,
         name: percussion.componentName,
         sound: soundId,
-        notehead: percussion.notehead,
+        notehead: legacyNotehead(percussion.notehead),
       },
     };
   }

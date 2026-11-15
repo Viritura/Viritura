@@ -118,7 +118,7 @@ export const BracketsAndBraces: StoryObj = {
 
 // ---------------------------------------------------------------------------
 // Story 2: Nested Sub-Groups
-//   Woodwinds outer bracket → inner thin-line brackets per instrument family
+//   Woodwinds outer bracket → inner square sub-brackets per instrument family
 //   (Flutes, Oboes, Clarinets) — same pattern as a real orchestral score.
 // ---------------------------------------------------------------------------
 
@@ -214,9 +214,9 @@ const nestedGroupsMnx = JSON.stringify(
             barlineStyle: "unified",
             content: [
               {
-                // Inner bracket at depth 1 → rendered as a thin line bracket
+                // Inner square sub-bracket, drawn outside the family bracket
                 type: "group",
-                symbol: "bracket",
+                symbol: "square",
                 content: [
                   { type: "staff", labelref: "name", sources: [{ part: "fl1" }] },
                   { type: "staff", labelref: "name", sources: [{ part: "fl2" }] },
@@ -224,7 +224,7 @@ const nestedGroupsMnx = JSON.stringify(
               },
               {
                 type: "group",
-                symbol: "bracket",
+                symbol: "square",
                 content: [
                   { type: "staff", labelref: "name", sources: [{ part: "ob1" }] },
                   { type: "staff", labelref: "name", sources: [{ part: "ob2" }] },
@@ -232,7 +232,7 @@ const nestedGroupsMnx = JSON.stringify(
               },
               {
                 type: "group",
-                symbol: "bracket",
+                symbol: "square",
                 content: [
                   { type: "staff", labelref: "name", sources: [{ part: "cl1" }] },
                   { type: "staff", labelref: "name", sources: [{ part: "cl2" }] },
@@ -250,13 +250,22 @@ const nestedGroupsMnx = JSON.stringify(
 );
 
 /**
- * Orchestral sub-group pattern: outer square bracket labels the whole family
- * ("Woodwinds"); inner nested brackets at depth 1 render as thin line brackets
- * to visually group each instrument pair (Flutes, Oboes, Clarinets).
+ * Orchestral sub-group pattern: the outer bracket labels the whole family
+ * ("Woodwinds"); inner MNX `square` sub-brackets sit outside it and group each
+ * instrument pair (Flutes, Oboes, Clarinets).
  */
 export const NestedSubGroups: StoryObj = {
   render: () => <ScorePreview mnxJson={nestedGroupsMnx} />,
   name: "Nested orchestral groups",
+};
+
+/**
+ * Nested MNX `bracket` groups draw as full brackets: the innermost brackets
+ * stay beside the staff and the enclosing bracket steps outward.
+ */
+export const NestedFullBrackets: StoryObj = {
+  render: () => <ScorePreview mnxJson={nestedGroupsMnx.replaceAll('"symbol": "square"', '"symbol": "bracket"')} />,
+  name: "Nested full brackets",
 };
 
 // ---------------------------------------------------------------------------

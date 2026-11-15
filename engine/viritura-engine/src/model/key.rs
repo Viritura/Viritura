@@ -31,7 +31,7 @@ impl KeySignature {
         if self.is_open() {
             return 0;
         }
-        self.fifths.unsigned_abs()
+        self.fifths.unsigned_abs().min(7)
     }
 
     /// Whether this key has sharps (true) or flats (false).
@@ -48,28 +48,18 @@ impl KeySignature {
     pub fn alteration_for_step(&self, step: &str) -> i32 {
         if self.is_open() {
             0
-        } else if self.fifths > 0 {
-            // Sharps: F C G D A E B
-            let sharp_steps = ["F", "C", "G", "D", "A", "E", "B"];
-            let count = self.fifths.min(7) as usize;
-            for s in &sharp_steps[..count] {
-                if *s == step {
-                    return 1;
-                }
-            }
-            0
-        } else if self.fifths < 0 {
-            // Flats: B E A D G C F
-            let flat_steps = ["B", "E", "A", "D", "G", "C", "F"];
-            let count = (-self.fifths).min(7) as usize;
-            for s in &flat_steps[..count] {
-                if *s == step {
-                    return -1;
-                }
-            }
-            0
         } else {
-            0
+            let steps = if self.fifths > 0 {
+                ["F", "C", "G", "D", "A", "E", "B"]
+            } else {
+                ["B", "E", "A", "D", "G", "C", "F"]
+            };
+            let Some(index) = steps.iter().position(|s| *s == step) else {
+                return 0;
+            };
+            let count = self.fifths.unsigned_abs();
+            let alteration = count / 7 + u32::from((index as u32) < count % 7);
+            (alteration as i32) * self.fifths.signum()
         }
     }
 
@@ -100,11 +90,15 @@ impl KeySignature {
         }
     }
 
-    /// Transpose key signature by a chromatic interval.
-    /// Maps half_steps to circle-of-fifths offset, applying keyFifthsFlipAt if needed.
+    /// Transpose key signature by a spelled interval.
     /// Enharmonic spelling follows the configured fifths flip threshold.
-    pub fn transpose(&self, half_steps: i32, key_fifths_flip_at: Option<i32>) -> KeySignature {
-        self.transpose_with_diatonic_adjustment(half_steps, key_fifths_flip_at)
+    pub fn transpose(
+        &self,
+        staff_distance: i32,
+        half_steps: i32,
+        key_fifths_flip_at: Option<i32>,
+    ) -> KeySignature {
+        self.transpose_with_diatonic_adjustment(staff_distance, half_steps, key_fifths_flip_at)
             .0
     }
 
@@ -116,13 +110,11 @@ impl KeySignature {
     /// one step (C-sharp becomes D-flat); the reverse lowers it by one step.
     pub fn transpose_with_diatonic_adjustment(
         &self,
+        staff_distance: i32,
         half_steps: i32,
         key_fifths_flip_at: Option<i32>,
     ) -> (KeySignature, i32) {
-        // Map chromatic half steps to fifths offset:
-        // Each semitone up = +7 fifths mod 12, but we use a lookup for clarity.
-        // Going up N semitones in circle of fifths: (N * 7) mod 12, adjusted to [-6..6].
-        let fifths_delta = ((half_steps * 7) % 12 + 18) % 12 - 6;
+        let fifths_delta = 7 * half_steps - 12 * staff_distance;
         let mut new_fifths = self.fifths + fifths_delta;
         let mut diatonic_adjustment = 0;
 
@@ -136,9 +128,6 @@ impl KeySignature {
                 diatonic_adjustment = -1;
             }
         }
-
-        // Clamp to reasonable range
-        new_fifths = new_fifths.clamp(-7, 7);
 
         (
             KeySignature {
@@ -201,7 +190,7 @@ mod tests {
             fifths: 0,
             ..Default::default()
         };
-        let transposed = c_major.transpose(2, None);
+        let transposed = c_major.transpose(1, 2, None);
         assert_eq!(transposed.fifths, 2);
     }
 
@@ -212,7 +201,7 @@ mod tests {
             fifths: 0,
             ..Default::default()
         };
-        let transposed = c_major.transpose(7, None);
+        let transposed = c_major.transpose(4, 7, None);
         assert_eq!(transposed.fifths, 1);
     }
 
@@ -223,7 +212,7 @@ mod tests {
             fifths: -3,
             ..Default::default()
         };
-        let transposed = eb_major.transpose(2, None);
+        let transposed = eb_major.transpose(1, 2, None);
         assert_eq!(transposed.fifths, -1);
     }
 
@@ -235,7 +224,7 @@ mod tests {
             fifths: 5,
             ..Default::default()
         };
-        let transposed = b_major.transpose(2, Some(7));
+        let transposed = b_major.transpose(1, 2, Some(7));
         assert_eq!(transposed.fifths, -5);
     }
 
@@ -245,7 +234,7 @@ mod tests {
         // Written note letters move up one staff step: C-sharp/F-sharp become
         // D-flat/G-flat while preserving their sounding pitches.
         let a_major = key(3);
-        let (transposed, adjustment) = a_major.transpose_with_diatonic_adjustment(21, Some(6));
+        let (transposed, adjustment) = a_major.transpose_with_diatonic_adjustment(12, 21, Some(6));
         assert_eq!(transposed.fifths, -6);
         assert_eq!(adjustment, 1);
     }
@@ -255,19 +244,23 @@ mod tests {
         // E-flat major transposed up a minor third reaches six flats, then
         // flips to six sharps. Written note letters move down one staff step.
         let eb_major = key(-3);
-        let (transposed, adjustment) = eb_major.transpose_with_diatonic_adjustment(3, Some(-6));
+        let (transposed, adjustment) = eb_major.transpose_with_diatonic_adjustment(2, 3, Some(-6));
         assert_eq!(transposed.fifths, 6);
         assert_eq!(adjustment, -1);
     }
 
     #[test]
-    fn test_key_transpose_clamp() {
-        // Extreme case that would exceed 7 → clamped
-        let key = KeySignature {
-            fifths: 6,
-            ..Default::default()
-        };
-        let transposed = key.transpose(5, None);
-        assert!(transposed.fifths >= -7 && transposed.fifths <= 7);
+    fn test_unflipped_key_uses_spelled_interval_and_double_accidentals() {
+        let transposed = key(7).transpose(1, 2, None);
+        assert_eq!(transposed.fifths, 9);
+        assert_eq!(transposed.accidental_count(), 7);
+        assert_eq!(transposed.alteration_for_step("F"), 2);
+        assert_eq!(transposed.alteration_for_step("C"), 2);
+        assert_eq!(transposed.alteration_for_step("G"), 1);
+        assert_eq!(key(0).transpose(3, 6, None).fifths, 6);
+        assert_eq!(key(0).transpose(4, 6, None).fifths, -6);
+        assert_eq!(key(-9).alteration_for_step("B"), -2);
+        assert_eq!(key(-9).alteration_for_step("E"), -2);
+        assert_eq!(key(-9).alteration_for_step("A"), -1);
     }
 }

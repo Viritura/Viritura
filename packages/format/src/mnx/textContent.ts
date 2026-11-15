@@ -1,5 +1,5 @@
 /**
- * Shared decoding for the `text-content` vendor value.
+ * Shared decoding for native and vendor text content.
  *
  * Owners whose vendor payload is covered by `viritura-extensions.json` get
  * chunk validation from the schema. Owners outside it (currently `tempo`)
@@ -63,7 +63,8 @@ function parseStyle(raw: unknown): TextRunStyle | undefined {
 function parseChunk(raw: unknown): TextContentChunk | undefined {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const value = raw as Obj;
-  const style = parseStyle(value["style"]);
+  const vendor = (value["_x"] as Obj | undefined)?.["viritura"] as Obj | undefined;
+  const style = parseStyle(vendor?.["style"] ?? value["style"]);
 
   if (typeof value["text"] === "string") {
     const run: TextRun = { text: value["text"] };
@@ -75,7 +76,7 @@ function parseChunk(raw: unknown): TextContentChunk | undefined {
   if (Array.isArray(glyphs) && glyphs.every((name) => typeof name === "string")) {
     const run: GlyphRun = { glyphs: glyphs as string[] };
     if (style) run.style = style;
-    const smuflStyle = parseStyle(value["smuflStyle"]);
+    const smuflStyle = parseStyle(vendor?.["smuflStyle"] ?? value["smuflStyle"]);
     if (smuflStyle) run.smuflStyle = smuflStyle;
     return run;
   }

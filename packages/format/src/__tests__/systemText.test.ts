@@ -20,7 +20,7 @@ function document(systemText: unknown) {
         measures: [
           {
             sequences: [{ content: [] }],
-            _x: { viritura: { expressions: [{ text: "Staff only", position: { fraction: [0, 1] }, staff: 1 }] } },
+            text: [{ type: "expression", text: [{ text: "Staff only" }], position: { fraction: [0, 1] }, staff: 1 }],
           },
         ],
       },

@@ -761,6 +761,57 @@ fn sticky_key_positions_match_scaled_signature_engraving() {
 }
 
 #[test]
+fn extended_key_signatures_render_double_and_triple_accidentals() {
+    let sharp_nine = key_signature_layout(
+        0.0,
+        0.0,
+        2.0,
+        &KeySignature {
+            fifths: 9,
+            ..Default::default()
+        },
+        &ClefSign::G,
+        None,
+    );
+    assert_eq!(sharp_nine.glyphs.len(), 7);
+    assert_eq!(
+        sharp_nine
+            .glyphs
+            .iter()
+            .map(|glyph| glyph.codepoint)
+            .collect::<Vec<_>>(),
+        vec![
+            smufl::ACCIDENTAL_DOUBLE_SHARP,
+            smufl::ACCIDENTAL_DOUBLE_SHARP,
+            smufl::ACCIDENTAL_SHARP,
+            smufl::ACCIDENTAL_SHARP,
+            smufl::ACCIDENTAL_SHARP,
+            smufl::ACCIDENTAL_SHARP,
+            smufl::ACCIDENTAL_SHARP,
+        ]
+    );
+
+    let sharp_fifteen = key_signature_layout(
+        0.0,
+        0.0,
+        2.0,
+        &KeySignature {
+            fifths: 15,
+            ..Default::default()
+        },
+        &ClefSign::G,
+        None,
+    );
+    assert_eq!(
+        sharp_fifteen.glyphs[0].codepoint,
+        smufl::ACCIDENTAL_TRIPLE_SHARP
+    );
+    assert!(sharp_fifteen.glyphs[1..]
+        .iter()
+        .all(|glyph| glyph.codepoint == smufl::ACCIDENTAL_DOUBLE_SHARP));
+}
+
+#[test]
 fn test_time_signature_changes() {
     // Three measures: 4/4, inherit 4/4, then change to 2/4
     let json = r#"{

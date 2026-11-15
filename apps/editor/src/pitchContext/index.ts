@@ -19,11 +19,10 @@ export function resolveDisplayKeyFifths(concertFifths: number, transposition: Tr
   if (!transposition) return concertFifths;
   const { halfSteps, staffDistance } = transposition.interval;
   let fifths = concertFifths + 7 * halfSteps - 12 * staffDistance;
-  while (fifths > 7) fifths -= 12;
-  while (fifths < -7) fifths += 12;
   const flipAt = transposition.keyFifthsFlipAt;
-  if (flipAt !== undefined && Math.abs(fifths) > Math.abs(flipAt)) {
-    fifths += fifths > 0 ? -12 : 12;
+  if (flipAt !== undefined) {
+    if (flipAt >= 0 && fifths >= flipAt) fifths -= 12;
+    else if (flipAt < 0 && fifths <= flipAt) fifths += 12;
   }
   return fifths;
 }

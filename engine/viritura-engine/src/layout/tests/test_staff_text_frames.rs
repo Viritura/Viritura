@@ -14,15 +14,16 @@ fn document(frame: Value, placement: &str) -> Value {
                 "id": "e1", "duration": { "base": "whole" },
                 "notes": [{ "pitch": { "step": "C", "octave": 5 } }]
             }] }],
-            "_x": { "viritura": { "expressions": [{
+            "text": [{
+                "type": "expression",
                 "text": [
-                    { "text": "Play freely\n", "style": { "weight": "bold" } },
+                    { "text": "Play freely\n", "_x": { "viritura": { "style": { "weight": "bold" } } } },
                     { "text": "Then resume the pulse without a break" }
                 ],
                 "position": { "fraction": [0, 1] },
                 "placement": placement,
-                "frame": frame
-            }] } }
+                "_x": { "viritura": { "frame": frame } }
+            }]
         }] }]
     })
 }
@@ -125,7 +126,7 @@ fn staff_frame_alignment_and_pinned_offsets_keep_the_musical_anchor() {
         }),
         "above",
     );
-    let expr = "/parts/0/measures/0/_x/viritura/expressions/0";
+    let expr = "/parts/0/measures/0/text/0/_x/viritura";
     doc.pointer_mut(expr).unwrap()["avoidCollisions"] = json!(false);
     let left = layout_score(&parse_mnx(&doc.to_string()).unwrap(), 0, &config);
     let left_box = expression_bbox(&left);
@@ -156,7 +157,7 @@ fn unframed_staff_text_keeps_authored_newlines_without_enabling_wrapping() {
     for page_width in [None, Some(800.0)] {
         let mut doc = document(json!({}), "above");
         let expression = doc
-            .pointer_mut("/parts/0/measures/0/_x/viritura/expressions/0")
+            .pointer_mut("/parts/0/measures/0/text/0/_x/viritura")
             .unwrap();
         expression.as_object_mut().unwrap().remove("frame");
         let score = parse_mnx(&doc.to_string()).unwrap();

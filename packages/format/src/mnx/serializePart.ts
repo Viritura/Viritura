@@ -117,10 +117,10 @@ function serializeKit(kit: NonNullable<Part["kit"]>): Obj {
     const co: Obj = { staffPosition: c.staffPosition };
     if (c.name !== undefined) co["name"] = c.name;
     if (c.sound !== undefined) co["sound"] = c.sound;
-    if (c.notehead !== undefined || c.drumKit !== undefined) {
+    if (c.notehead !== undefined) co["notehead"] = c.notehead;
+    if (c.drumKit !== undefined) {
       const viritura: Obj = {};
-      if (c.notehead !== undefined) viritura["notehead"] = c.notehead;
-      if (c.drumKit !== undefined) viritura["drumKit"] = c.drumKit;
+      viritura["drumKit"] = c.drumKit;
       co["_x"] = { viritura };
     }
     kitObj[id] = co;
@@ -140,10 +140,11 @@ export function serializePartMeasure(pm: PartMeasure, helpers: PartSerializerHel
     mObj["staffConfigs"] = pm.staffConfigs.map(serializePositionedStaffConfig);
   }
   if (pm.dynamics && pm.dynamics.length > 0) mObj["dynamics"] = pm.dynamics.map(serializeDynamicGroup);
+  if (pm.expressions && pm.expressions.length > 0) mObj["text"] = pm.expressions.map(helpers.serializeTextExpression);
   if (pm.ottavas && pm.ottavas.length > 0) mObj["ottavas"] = pm.ottavas.map(serializeOttava);
   if (pm.measureRepeat) mObj["measureRepeat"] = serializeMeasureRepeat(pm.measureRepeat);
 
-  const pmViritura = collectPartMeasureVendorExt(pm, helpers);
+  const pmViritura = collectPartMeasureVendorExt(pm);
   if (Object.keys(pmViritura).length > 0) {
     mObj["_x"] = { viritura: pmViritura };
   }
@@ -248,12 +249,9 @@ function serializePedal(p: Pedal): Obj {
   return out;
 }
 
-function collectPartMeasureVendorExt(pm: PartMeasure, helpers: PartSerializerHelpers): Obj {
+function collectPartMeasureVendorExt(pm: PartMeasure): Obj {
   const ext: Obj = {};
   if (pm.pedals && pm.pedals.length > 0) ext["pedals"] = pm.pedals.map(serializePedal);
-  if (pm.expressions && pm.expressions.length > 0) {
-    ext["expressions"] = pm.expressions.map(helpers.serializeTextExpression);
-  }
   if (pm.condensingOverride) ext["condensingOverride"] = pm.condensingOverride;
   if (pm.groupingDisplayOverrides && pm.groupingDisplayOverrides.length > 0) {
     ext["groupingDisplayOverrides"] = pm.groupingDisplayOverrides.map((override) => ({

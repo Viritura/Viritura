@@ -78,7 +78,7 @@ export function buildOrchestralLayoutGroups(entries: readonly OrchestralLayoutEn
         continue;
       }
       activeSubGroup = entry.subGroup;
-      activeSubGroupNode = { type: "group", symbol: "bracket", content: [entry.node] };
+      activeSubGroupNode = { type: "group", symbol: "square", content: [entry.node] };
       content.push(activeSubGroupNode);
     }
     result.push({

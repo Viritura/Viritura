@@ -201,7 +201,7 @@ describe("InputCursor selected rhythm", () => {
     useNoteInputStore.setState({ currentDuration: "eighth", currentAccidental: "sharp" });
     mountHoveredCursor({
       ...score,
-      parts: [{ ...score.parts[0]!, kit: { cymbal: { staffPosition: 5, notehead: "x" } } }],
+      parts: [{ ...score.parts[0]!, kit: { cymbal: { staffPosition: 5, notehead: { shape: "x" } } } }],
     });
     expect(lastGhost()).toMatchObject({ y: 94, notehead: "x", accidental: null, duration: "eighth" });
   });

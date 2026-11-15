@@ -3764,7 +3764,7 @@ impl ::std::default::Default for KeyExtensions {
 ///      "type": "integer"
 ///    },
 ///    "notehead": {
-///      "description": "Notehead shape rendered for hits on this kit component (e.g. 'x' for cymbals/hi-hat). Default: 'normal'.",
+///      "description": "Legacy notehead shape for hits on this kit component. New documents use the native MNX notehead object.",
 ///      "$ref": "#/$defs/notehead-shape"
 ///    }
 ///  },
@@ -3782,7 +3782,7 @@ pub struct KitComponentExtensions {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub drum_kit: ::std::option::Option<i64>,
-    ///Notehead shape rendered for hits on this kit component (e.g. 'x' for cymbals/hi-hat). Default: 'normal'.
+    ///Legacy notehead shape for hits on this kit component. New documents use the native MNX notehead object.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub notehead: ::std::option::Option<NoteheadShape>,
 }
@@ -5322,7 +5322,7 @@ impl ::std::convert::TryFrom<::std::string::String> for MixerChannelSettingsSpat
 ///  "type": "object",
 ///  "properties": {
 ///    "notehead": {
-///      "description": "Notehead-shape override for this single pitched note, overriding the default notehead for the note's duration (e.g. a diamond harmonic among normal noteheads in a chord). MNX has no notehead field on note (W3C MNX issue #249); Viritura tracks it as a per-note vendor extension. Default: inherit from duration.",
+///      "description": "Legacy notehead-shape override for this pitched note. New documents use the native MNX notehead object.",
 ///      "$ref": "#/$defs/notehead-shape"
 ///    }
 ///  },
@@ -5333,7 +5333,7 @@ impl ::std::convert::TryFrom<::std::string::String> for MixerChannelSettingsSpat
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct NoteExtensions {
-    ///Notehead-shape override for this single pitched note, overriding the default notehead for the note's duration (e.g. a diamond harmonic among normal noteheads in a chord). MNX has no notehead field on note (W3C MNX issue #249); Viritura tracks it as a per-note vendor extension. Default: inherit from duration.
+    ///Legacy notehead-shape override for this pitched note. New documents use the native MNX notehead object.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub notehead: ::std::option::Option<NoteheadShape>,
 }
@@ -5349,13 +5349,13 @@ impl ::std::default::Default for NoteExtensions {
         }
     }
 }
-///A notehead shape. MNX has no notehead field on note, kit-note or kit-component (W3C MNX issue #249); Viritura tracks it as a vendor extension on the kit-component (per-instrument) and optionally on a pitched note (per-note override).
+///Legacy Viritura notehead shape accepted on kit components and pitched notes. New documents use the native MNX notehead object.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "A notehead shape. MNX has no notehead field on note, kit-note or kit-component (W3C MNX issue #249); Viritura tracks it as a vendor extension on the kit-component (per-instrument) and optionally on a pitched note (per-note override).",
+///  "description": "Legacy Viritura notehead shape accepted on kit components and pitched notes. New documents use the native MNX notehead object.",
 ///  "type": "string",
 ///  "enum": [
 ///    "normal",
@@ -6473,13 +6473,6 @@ impl<'de> ::serde::Deserialize<'de> for PartExtensionsInitialInstrument {
 ///        "divisi"
 ///      ]
 ///    },
-///    "expressions": {
-///      "description": "Text expressions and performance directions.",
-///      "type": "array",
-///      "items": {
-///        "$ref": "#/$defs/text-expression"
-///      }
-///    },
 ///    "groupingDisplayOverrides": {
 ///      "description": "Per-staff grouping-display occurrence overrides, presentation-only and taking precedence over the time signature's own occurrence override and the document house style.",
 ///      "type": "array",
@@ -6525,9 +6518,6 @@ pub struct PartMeasureExtensions {
     pub condensing_override: ::std::option::Option<
         PartMeasureExtensionsCondensingOverride,
     >,
-    ///Text expressions and performance directions.
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub expressions: ::std::vec::Vec<TextExpression>,
     ///Per-staff grouping-display occurrence overrides, presentation-only and taking precedence over the time signature's own occurrence override and the document house style.
     #[serde(
         rename = "groupingDisplayOverrides",
@@ -6562,7 +6552,6 @@ impl ::std::default::Default for PartMeasureExtensions {
     fn default() -> Self {
         Self {
             condensing_override: Default::default(),
-            expressions: Default::default(),
             grouping_display_overrides: Default::default(),
             instrument_changes: Default::default(),
             pedals: Default::default(),
@@ -7427,6 +7416,71 @@ impl ::std::default::Default for PositionedStaffConfigExtensions {
     fn default() -> Self {
         Self {
             staff_line_range_restore: Default::default(),
+        }
+    }
+}
+///Viritura presentation metadata on native MNX positioned text.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Viritura presentation metadata on native MNX positioned text.",
+///  "type": "object",
+///  "properties": {
+///    "avoidCollisions": {
+///      "type": "boolean"
+///    },
+///    "frame": {
+///      "$ref": "#/$defs/staff-text-frame-presentation"
+///    },
+///    "manualOffset": {
+///      "$ref": "#/$defs/sp-delta"
+///    },
+///    "pagePosition": {
+///      "$ref": "#/$defs/text-frame-page-position"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct PositionedTextExtensions {
+    #[serde(
+        rename = "avoidCollisions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub avoid_collisions: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub frame: ::std::option::Option<StaffTextFramePresentation>,
+    #[serde(
+        rename = "manualOffset",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub manual_offset: ::std::option::Option<SpDelta>,
+    #[serde(
+        rename = "pagePosition",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub page_position: ::std::option::Option<TextFramePagePosition>,
+}
+impl ::std::convert::From<&PositionedTextExtensions> for PositionedTextExtensions {
+    fn from(value: &PositionedTextExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for PositionedTextExtensions {
+    fn default() -> Self {
+        Self {
+            avoid_collisions: Default::default(),
+            frame: Default::default(),
+            manual_offset: Default::default(),
+            page_position: Default::default(),
         }
     }
 }
@@ -11026,6 +11080,51 @@ impl ::std::convert::TryFrom<::std::string::String> for TextAlignment {
         value.parse()
     }
 }
+///Viritura inline formatting on native MNX formatted-text chunks.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Viritura inline formatting on native MNX formatted-text chunks.",
+///  "type": "object",
+///  "properties": {
+///    "smuflStyle": {
+///      "$ref": "#/$defs/text-run-style"
+///    },
+///    "style": {
+///      "$ref": "#/$defs/text-run-style"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TextChunkExtensions {
+    #[serde(
+        rename = "smuflStyle",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub smufl_style: ::std::option::Option<TextRunStyle>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub style: ::std::option::Option<TextRunStyle>,
+}
+impl ::std::convert::From<&TextChunkExtensions> for TextChunkExtensions {
+    fn from(value: &TextChunkExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for TextChunkExtensions {
+    fn default() -> Self {
+        Self {
+            smufl_style: Default::default(),
+            style: Default::default(),
+        }
+    }
+}
 ///Ordered text and SMuFL glyph runs. Always an array: a bare string is not valid, so consumers never branch on representation. Legacy documents storing a plain string are widened to a single text run on read.
 ///
 /// <details><summary>JSON schema</summary>
@@ -11107,98 +11206,6 @@ impl ::std::convert::From<TextRun> for TextContentItem {
 impl ::std::convert::From<GlyphRun> for TextContentItem {
     fn from(value: GlyphRun) -> Self {
         Self::GlyphRun(value)
-    }
-}
-///A text expression or direction at a rhythmic position (e.g. 'dolce', 'rit.', 'a tempo'). Rendered in italic serif font.
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "description": "A text expression or direction at a rhythmic position (e.g. 'dolce', 'rit.', 'a tempo'). Rendered in italic serif font.",
-///  "type": "object",
-///  "required": [
-///    "position",
-///    "text"
-///  ],
-///  "properties": {
-///    "avoidCollisions": {
-///      "description": "Whether automatic collision avoidance may re-flow this expression outward to clear other directions. Default (and when unset): true. Set false when the user manually places the expression (e.g. by dragging) so it stays exactly where put and others flow around it.",
-///      "type": "boolean"
-///    },
-///    "frame": {
-///      "$ref": "#/$defs/staff-text-frame-presentation"
-///    },
-///    "manualOffset": {
-///      "description": "Manual [dx, dy] offset in spatia (sp), applied after automatic placement.",
-///      "$ref": "#/$defs/sp-delta"
-///    },
-///    "pagePosition": {
-///      "$ref": "#/$defs/text-frame-page-position"
-///    },
-///    "placement": {
-///      "$ref": "#/$defs/expression-placement"
-///    },
-///    "position": {
-///      "description": "Rhythmic position within the measure.",
-///      "$ref": "#/$defs/rhythmic-position"
-///    },
-///    "staff": {
-///      "description": "Staff number (1-based).",
-///      "type": "integer"
-///    },
-///    "text": {
-///      "$ref": "#/$defs/text-content"
-///    },
-///    "voice": {
-///      "description": "Voice name.",
-///      "type": "string"
-///    }
-///  },
-///  "additionalProperties": false
-///}
-/// ```
-/// </details>
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct TextExpression {
-    ///Whether automatic collision avoidance may re-flow this expression outward to clear other directions. Default (and when unset): true. Set false when the user manually places the expression (e.g. by dragging) so it stays exactly where put and others flow around it.
-    #[serde(
-        rename = "avoidCollisions",
-        default,
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub avoid_collisions: ::std::option::Option<bool>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub frame: ::std::option::Option<StaffTextFramePresentation>,
-    ///Manual [dx, dy] offset in spatia (sp), applied after automatic placement.
-    #[serde(
-        rename = "manualOffset",
-        default,
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub manual_offset: ::std::option::Option<SpDelta>,
-    #[serde(
-        rename = "pagePosition",
-        default,
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub page_position: ::std::option::Option<TextFramePagePosition>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub placement: ::std::option::Option<ExpressionPlacement>,
-    ///Rhythmic position within the measure.
-    pub position: RhythmicPosition,
-    ///Staff number (1-based).
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub staff: ::std::option::Option<i64>,
-    pub text: TextContent,
-    ///Voice name.
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub voice: ::std::option::Option<::std::string::String>,
-}
-impl ::std::convert::From<&TextExpression> for TextExpression {
-    fn from(value: &TextExpression) -> Self {
-        value.clone()
     }
 }
 ///`TextFrame`
@@ -12475,6 +12482,10 @@ impl<'de> ::serde::Deserialize<'de> for TextFrameSourceReferenceUnit {
 ///        "avoidCollisions": {
 ///          "type": "boolean"
 ///        },
+///        "id": {
+///          "type": "string",
+///          "minLength": 1
+///        },
 ///        "manualOffset": {
 ///          "$ref": "#/$defs/sp-delta"
 ///        },
@@ -12486,6 +12497,13 @@ impl<'de> ::serde::Deserialize<'de> for TextFrameSourceReferenceUnit {
 ///        },
 ///        "staff": {
 ///          "type": "integer"
+///        },
+///        "type": {
+///          "type": "string",
+///          "enum": [
+///            "general",
+///            "expression"
+///          ]
 ///        },
 ///        "voice": {
 ///          "type": "string"
@@ -12552,6 +12570,10 @@ impl ::std::convert::From<&TextFrameStaffAttachment> for TextFrameStaffAttachmen
 ///    "avoidCollisions": {
 ///      "type": "boolean"
 ///    },
+///    "id": {
+///      "type": "string",
+///      "minLength": 1
+///    },
 ///    "manualOffset": {
 ///      "$ref": "#/$defs/sp-delta"
 ///    },
@@ -12563,6 +12585,13 @@ impl ::std::convert::From<&TextFrameStaffAttachment> for TextFrameStaffAttachmen
 ///    },
 ///    "staff": {
 ///      "type": "integer"
+///    },
+///    "type": {
+///      "type": "string",
+///      "enum": [
+///        "general",
+///        "expression"
+///      ]
 ///    },
 ///    "voice": {
 ///      "type": "string"
@@ -12581,6 +12610,8 @@ pub struct TextFrameStaffAttachmentExpression {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub avoid_collisions: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<TextFrameStaffAttachmentExpressionId>,
     #[serde(
         rename = "manualOffset",
         default,
@@ -12592,6 +12623,12 @@ pub struct TextFrameStaffAttachmentExpression {
     pub position: RhythmicPosition,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub staff: ::std::option::Option<i64>,
+    #[serde(
+        rename = "type",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<TextFrameStaffAttachmentExpressionType>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub voice: ::std::option::Option<::std::string::String>,
 }
@@ -12599,6 +12636,170 @@ impl ::std::convert::From<&TextFrameStaffAttachmentExpression>
 for TextFrameStaffAttachmentExpression {
     fn from(value: &TextFrameStaffAttachmentExpression) -> Self {
         value.clone()
+    }
+}
+///`TextFrameStaffAttachmentExpressionId`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct TextFrameStaffAttachmentExpressionId(::std::string::String);
+impl ::std::ops::Deref for TextFrameStaffAttachmentExpressionId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<TextFrameStaffAttachmentExpressionId>
+for ::std::string::String {
+    fn from(value: TextFrameStaffAttachmentExpressionId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&TextFrameStaffAttachmentExpressionId>
+for TextFrameStaffAttachmentExpressionId {
+    fn from(value: &TextFrameStaffAttachmentExpressionId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for TextFrameStaffAttachmentExpressionId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextFrameStaffAttachmentExpressionId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for TextFrameStaffAttachmentExpressionId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for TextFrameStaffAttachmentExpressionId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TextFrameStaffAttachmentExpressionId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`TextFrameStaffAttachmentExpressionType`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "general",
+///    "expression"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum TextFrameStaffAttachmentExpressionType {
+    #[serde(rename = "general")]
+    General,
+    #[serde(rename = "expression")]
+    Expression,
+}
+impl ::std::convert::From<&Self> for TextFrameStaffAttachmentExpressionType {
+    fn from(value: &TextFrameStaffAttachmentExpressionType) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for TextFrameStaffAttachmentExpressionType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::General => f.write_str("general"),
+            Self::Expression => f.write_str("expression"),
+        }
+    }
+}
+impl ::std::str::FromStr for TextFrameStaffAttachmentExpressionType {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "general" => Ok(Self::General),
+            "expression" => Ok(Self::Expression),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextFrameStaffAttachmentExpressionType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for TextFrameStaffAttachmentExpressionType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for TextFrameStaffAttachmentExpressionType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///`TextFrameStaffAttachmentMeasureId`
@@ -15735,6 +15936,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "positioned-staff-config-extensions": {
 ///      "$ref": "#/$defs/positioned-staff-config-extensions"
 ///    },
+///    "positioned-text-extensions": {
+///      "$ref": "#/$defs/positioned-text-extensions"
+///    },
 ///    "rehearsal-mark": {
 ///      "$ref": "#/$defs/rehearsal-mark"
 ///    },
@@ -15813,11 +16017,11 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "text-alignment": {
 ///      "$ref": "#/$defs/text-alignment"
 ///    },
+///    "text-chunk-extensions": {
+///      "$ref": "#/$defs/text-chunk-extensions"
+///    },
 ///    "text-content": {
 ///      "$ref": "#/$defs/text-content"
-///    },
-///    "text-expression": {
-///      "$ref": "#/$defs/text-expression"
 ///    },
 ///    "text-frame": {
 ///      "$ref": "#/$defs/text-frame"
@@ -16210,6 +16414,12 @@ pub struct VirituraExtensionsRoot {
         PositionedStaffConfigExtensions,
     >,
     #[serde(
+        rename = "positioned-text-extensions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub positioned_text_extensions: ::std::option::Option<PositionedTextExtensions>,
+    #[serde(
         rename = "rehearsal-mark",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -16364,17 +16574,17 @@ pub struct VirituraExtensionsRoot {
     )]
     pub text_alignment: ::std::option::Option<TextAlignment>,
     #[serde(
+        rename = "text-chunk-extensions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub text_chunk_extensions: ::std::option::Option<TextChunkExtensions>,
+    #[serde(
         rename = "text-content",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub text_content: ::std::option::Option<TextContent>,
-    #[serde(
-        rename = "text-expression",
-        default,
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub text_expression: ::std::option::Option<TextExpression>,
     #[serde(
         rename = "text-frame",
         default,
@@ -16591,6 +16801,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             placement: Default::default(),
             placement_metrics: Default::default(),
             positioned_staff_config_extensions: Default::default(),
+            positioned_text_extensions: Default::default(),
             rehearsal_mark: Default::default(),
             rhythmic_position: Default::default(),
             root_extensions: Default::default(),
@@ -16617,8 +16828,8 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             tempo_extensions: Default::default(),
             tempo_instruction: Default::default(),
             text_alignment: Default::default(),
+            text_chunk_extensions: Default::default(),
             text_content: Default::default(),
-            text_expression: Default::default(),
             text_frame: Default::default(),
             text_frame_locator: Default::default(),
             text_frame_page_position: Default::default(),

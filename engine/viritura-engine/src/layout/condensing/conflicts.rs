@@ -768,6 +768,8 @@ mod tests {
     fn make_expression(text: &str) -> TextExpression {
         TextExpression {
             text: text.to_string().into(),
+            id: None,
+            text_type: crate::model::PositionedTextType::Expression,
             frame: None,
             position: RhythmicPosition { fraction: (0, 1) },
             placement: None,

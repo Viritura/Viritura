@@ -51,7 +51,24 @@ describe("buildLayout — part-group ordering", () => {
       <part-group type="stop" number="1"/>
     </part-list></score-partwise>`;
     const { parts, groups } = getPartsInfo(parse(xml));
-    expect(staffOrder(buildLayout(parts, groups))).toEqual(["P1", "P2", "P3", "P4", "P5"]);
+    const layout = buildLayout(parts, groups);
+    expect(staffOrder(layout)).toEqual(["P1", "P2", "P3", "P4", "P5"]);
+    expect(layout[0]).toMatchObject({
+      type: "group",
+      symbol: "bracket",
+      content: [{ type: "staff" }, { type: "staff" }, { type: "group", symbol: "square" }, { type: "staff" }],
+    });
+  });
+
+  it("imports thin line group symbols as square sub-brackets", () => {
+    const xml = `<score-partwise><part-list>
+      <part-group type="start" number="1"><group-symbol>line</group-symbol></part-group>
+      <score-part id="P1"><part-name>A</part-name></score-part>
+      <score-part id="P2"><part-name>B</part-name></score-part>
+      <part-group type="stop" number="1"/>
+    </part-list></score-partwise>`;
+    const { parts, groups } = getPartsInfo(parse(xml));
+    expect(buildLayout(parts, groups)[0]).toMatchObject({ type: "group", symbol: "square" });
   });
 
   it("tolerates reused part-group numbers for sequential sibling groups", () => {

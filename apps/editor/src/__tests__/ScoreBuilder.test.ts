@@ -279,7 +279,7 @@ describe("buildBlankScore", () => {
     expect(parsed.parts[0].kit.hit.staffPosition).toBe(0);
     expect(parsed.parts[0].measures[0].staffConfigs).toEqual([{ config: { lines: 1 } }]);
     expect(parsed.global.sounds[parsed.parts[0].kit.hit.sound].midiNumber).toBe(midiNumber);
-    expect(parsed.parts[0].kit.hit._x?.viritura.notehead ?? "normal").toBe(notehead);
+    expect(parsed.parts[0].kit.hit.notehead?.shape ?? "normal").toBe(notehead);
   });
 
   it("uses a customized percussion map supplied by the wizard", () => {
@@ -290,7 +290,8 @@ describe("buildBlankScore", () => {
     const parsed = JSON.parse(buildBlankScore({ ...DEFAULT_NEW_SCORE_SETTINGS, players: [player!], measureCount: 1 }));
 
     expect(Object.keys(parsed.parts[0].kit)).toEqual(["custom"]);
-    expect(parsed.parts[0].kit.custom._x.viritura).toEqual({ notehead: "diamond", drumKit: 49 });
+    expect(parsed.parts[0].kit.custom.notehead).toEqual({ shape: "diamond" });
+    expect(parsed.parts[0].kit.custom._x.viritura).toEqual({ drumKit: 49 });
     expect(parsed.global.sounds[parsed.parts[0].kit.custom.sound].midiNumber).toBe(45);
   });
 
@@ -340,13 +341,13 @@ describe("buildBlankScore", () => {
     const wwGroup = fullLayout.content[0];
     expect(wwGroup.type).toBe("group");
     expect(wwGroup.symbol).toBe("bracket");
-    // Inner: two nested bracket subgroups (flutes, oboes)
+    // Inner: two nested square sub-bracket groups (flutes, oboes)
     expect(wwGroup.content).toHaveLength(2);
     expect(wwGroup.content[0].type).toBe("group");
-    expect(wwGroup.content[0].symbol).toBe("bracket");
+    expect(wwGroup.content[0].symbol).toBe("square");
     expect(wwGroup.content[0].content).toHaveLength(2); // 2 flutes
     expect(wwGroup.content[1].type).toBe("group");
-    expect(wwGroup.content[1].symbol).toBe("bracket");
+    expect(wwGroup.content[1].symbol).toBe("square");
     expect(wwGroup.content[1].content).toHaveLength(2); // 2 oboes
   });
 
@@ -370,7 +371,7 @@ describe("buildBlankScore", () => {
     expect(wwGroup.symbol).toBe("bracket");
     expect(wwGroup.content).toHaveLength(1);
     expect(wwGroup.content[0].type).toBe("group");
-    expect(wwGroup.content[0].symbol).toBe("bracket");
+    expect(wwGroup.content[0].symbol).toBe("square");
     expect(wwGroup.content[0].content).toHaveLength(2);
   });
 });
@@ -422,18 +423,18 @@ describe("ENSEMBLE_TEMPLATES", () => {
           group: "Woodwinds",
           symbol: "bracket",
           content: [
-            { symbol: "bracket", content: ["wind.flutes.flute", "wind.flutes.flute"] },
-            { symbol: "bracket", content: ["wind.reed.oboe", "wind.reed.oboe"] },
-            { symbol: "bracket", content: ["wind.reed.clarinet.bflat", "wind.reed.clarinet.bflat"] },
-            { symbol: "bracket", content: ["wind.reed.bassoon", "wind.reed.bassoon"] },
+            { symbol: "square", content: ["wind.flutes.flute", "wind.flutes.flute"] },
+            { symbol: "square", content: ["wind.reed.oboe", "wind.reed.oboe"] },
+            { symbol: "square", content: ["wind.reed.clarinet.bflat", "wind.reed.clarinet.bflat"] },
+            { symbol: "square", content: ["wind.reed.bassoon", "wind.reed.bassoon"] },
           ],
         },
         {
           group: "Brass",
           symbol: "bracket",
           content: [
-            { symbol: "bracket", content: ["brass.french-horn", "brass.french-horn"] },
-            { symbol: "bracket", content: ["brass.trumpet.bflat", "brass.trumpet.bflat"] },
+            { symbol: "square", content: ["brass.french-horn", "brass.french-horn"] },
+            { symbol: "square", content: ["brass.trumpet.bflat", "brass.trumpet.bflat"] },
           ],
         },
         "drum.timpani",
@@ -441,7 +442,7 @@ describe("ENSEMBLE_TEMPLATES", () => {
           group: "Strings",
           symbol: "bracket",
           content: [
-            { symbol: "bracket", content: ["strings.violin", "strings.violin"] },
+            { symbol: "square", content: ["strings.violin", "strings.violin"] },
             "strings.viola",
             "strings.cello",
             "strings.contrabass",
@@ -453,13 +454,13 @@ describe("ENSEMBLE_TEMPLATES", () => {
           group: "Woodwinds",
           symbol: "bracket",
           content: [
-            { symbol: "bracket", content: ["wind.flutes.flute.piccolo", "wind.flutes.flute", "wind.flutes.flute"] },
-            { symbol: "bracket", content: ["wind.reed.oboe", "wind.reed.oboe", "wind.reed.english-horn"] },
+            { symbol: "square", content: ["wind.flutes.flute.piccolo", "wind.flutes.flute", "wind.flutes.flute"] },
+            { symbol: "square", content: ["wind.reed.oboe", "wind.reed.oboe", "wind.reed.english-horn"] },
             {
-              symbol: "bracket",
+              symbol: "square",
               content: ["wind.reed.clarinet.bflat", "wind.reed.clarinet.bflat", "wind.reed.clarinet.bass"],
             },
-            { symbol: "bracket", content: ["wind.reed.bassoon", "wind.reed.bassoon", "wind.reed.contrabassoon"] },
+            { symbol: "square", content: ["wind.reed.bassoon", "wind.reed.bassoon", "wind.reed.contrabassoon"] },
           ],
         },
         {
@@ -467,11 +468,11 @@ describe("ENSEMBLE_TEMPLATES", () => {
           symbol: "bracket",
           content: [
             {
-              symbol: "bracket",
+              symbol: "square",
               content: ["brass.french-horn", "brass.french-horn", "brass.french-horn", "brass.french-horn"],
             },
-            { symbol: "bracket", content: ["brass.trumpet.bflat", "brass.trumpet.bflat", "brass.trumpet.bflat"] },
-            { symbol: "bracket", content: ["brass.trombone", "brass.trombone", "brass.trombone"] },
+            { symbol: "square", content: ["brass.trumpet.bflat", "brass.trumpet.bflat", "brass.trumpet.bflat"] },
+            { symbol: "square", content: ["brass.trombone", "brass.trombone", "brass.trombone"] },
             "brass.tuba",
           ],
         },
@@ -485,7 +486,7 @@ describe("ENSEMBLE_TEMPLATES", () => {
           group: "Strings",
           symbol: "bracket",
           content: [
-            { symbol: "bracket", content: ["strings.violin", "strings.violin"] },
+            { symbol: "square", content: ["strings.violin", "strings.violin"] },
             "strings.viola",
             "strings.cello",
             "strings.contrabass",

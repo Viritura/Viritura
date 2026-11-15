@@ -97,25 +97,22 @@
               ]
             }
           ],
-          "_x": {
-            "viritura": {
-              "expressions": [
+          "text": [
+            {
+              "type": "expression",
+              "text": [
                 {
-                  "text": [
-                    {
-                      "text": "dolce"
-                    }
-                  ],
-                  "position": {
-                    "fraction": [
-                      0,
-                      1
-                    ]
-                  }
+                  "text": "dolce"
                 }
-              ]
+              ],
+              "position": {
+                "fraction": [
+                  0,
+                  1
+                ]
+              }
             }
-          }
+          ]
         },
         {
           "sequences": [
@@ -163,25 +160,22 @@
               ]
             }
           ],
-          "_x": {
-            "viritura": {
-              "expressions": [
+          "text": [
+            {
+              "type": "expression",
+              "text": [
                 {
-                  "text": [
-                    {
-                      "text": "espressivo"
-                    }
-                  ],
-                  "position": {
-                    "fraction": [
-                      0,
-                      1
-                    ]
-                  }
+                  "text": "espressivo"
                 }
-              ]
+              ],
+              "position": {
+                "fraction": [
+                  0,
+                  1
+                ]
+              }
             }
-          }
+          ]
         },
         {
           "sequences": [
@@ -216,39 +210,37 @@
               ]
             }
           ],
-          "_x": {
-            "viritura": {
-              "expressions": [
+          "text": [
+            {
+              "type": "expression",
+              "text": [
                 {
-                  "text": [
-                    {
-                      "text": "rit."
-                    }
-                  ],
-                  "position": {
-                    "fraction": [
-                      1,
-                      2
-                    ]
-                  }
-                },
-                {
-                  "text": [
-                    {
-                      "text": "a tempo"
-                    }
-                  ],
-                  "position": {
-                    "fraction": [
-                      0,
-                      1
-                    ]
-                  },
-                  "placement": "above"
+                  "text": "rit."
                 }
-              ]
+              ],
+              "position": {
+                "fraction": [
+                  1,
+                  2
+                ]
+              }
+            },
+            {
+              "type": "expression",
+              "text": [
+                {
+                  "text": "a tempo"
+                }
+              ],
+              "position": {
+                "fraction": [
+                  0,
+                  1
+                ]
+              },
+              "placement": "above"
             }
-          }
+          ]
         }
       ],
       "name": "Piano"

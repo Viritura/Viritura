@@ -412,18 +412,33 @@ function serializeTempoNoteValue(v: { base: string; dots?: number }): Obj {
 }
 
 function serializeTextExpression(expr: TextExpression): Obj {
-  const obj: Obj = {
-    text: expr.text,
-    position: expr.position,
-  };
+  const obj: Obj = { text: serializePositionedTextContent(expr.text) };
+  if (expr.id) obj["id"] = expr.id;
+  if (expr.position) obj["position"] = expr.position;
+  obj["type"] = expr.type ?? "expression";
   if (expr.placement) obj["placement"] = expr.placement;
   if (expr.staff !== undefined) obj["staff"] = expr.staff;
   if (expr.voice) obj["voice"] = expr.voice;
-  if (expr.manualOffset) obj["manualOffset"] = expr.manualOffset;
-  if (expr.avoidCollisions === false) obj["avoidCollisions"] = false;
-  if (expr.frame !== undefined) obj["frame"] = expr.frame;
-  if (expr.pagePosition !== undefined) obj["pagePosition"] = expr.pagePosition;
+  const vendor: Obj = {};
+  if (expr.manualOffset) vendor["manualOffset"] = expr.manualOffset;
+  if (expr.avoidCollisions === false) vendor["avoidCollisions"] = false;
+  if (expr.frame !== undefined) vendor["frame"] = expr.frame;
+  if (expr.pagePosition !== undefined) vendor["pagePosition"] = expr.pagePosition;
+  if (Object.keys(vendor).length > 0) obj["_x"] = { viritura: vendor };
   return obj;
+}
+
+function serializePositionedTextContent(chunks: TextExpression["text"]): Obj[] {
+  return chunks.map((chunk) => {
+    const obj: Obj = "text" in chunk ? { text: chunk.text } : { type: "smufl", glyphs: chunk.glyphs };
+    const style = chunk.style;
+    const smuflStyle = "glyphs" in chunk ? chunk.smuflStyle : undefined;
+    const vendor: Obj = {};
+    if (style) vendor["style"] = style;
+    if (smuflStyle) vendor["smuflStyle"] = smuflStyle;
+    if (Object.keys(vendor).length > 0) obj["_x"] = { viritura: vendor };
+    return obj;
+  });
 }
 
 // ═══════════════════════════════════════════
@@ -784,10 +799,7 @@ function serializeNote(n: Note): Obj {
     if (n.markings.slideOut) markings["slideOut"] = serializeNoteSlide(n.markings.slideOut);
     if (Object.keys(markings).length > 0) nObj["markings"] = markings;
   }
-  // _x.viritura.notehead: per-note notehead-shape override (MNX issue #249).
-  if (n.notehead !== undefined) {
-    nObj["_x"] = { viritura: { notehead: n.notehead } };
-  }
+  if (n.notehead !== undefined) nObj["notehead"] = n.notehead;
   return nObj;
 }
 
@@ -803,6 +815,7 @@ function serializeKitNote(kn: KitNote): Obj {
   const obj: Obj = { kitComponent: kn.kitComponent };
   if (kn.id) obj["id"] = kn.id;
   if (kn.staff !== undefined) obj["staff"] = kn.staff;
+  if (kn.notehead !== undefined) obj["notehead"] = kn.notehead;
   if (kn.ties && kn.ties.length > 0) {
     obj["ties"] = kn.ties.map(serializeTie);
   }

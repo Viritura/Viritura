@@ -75,14 +75,10 @@ describe("MnxYjsBridge", () => {
           measures: [
             {
               sequences: [],
-              _x: {
-                viritura: {
-                  expressions: [
-                    { position: { fraction: [0, 1] }, text: [{ text: "dolce" }] },
-                    { position: { fraction: [0, 1] }, text: [{ text: "<copilot>done</copilot>" }] },
-                  ],
-                },
-              },
+              text: [
+                { type: "expression", position: { fraction: [0, 1] }, text: [{ text: "dolce" }] },
+                { type: "expression", position: { fraction: [0, 1] }, text: [{ text: "<copilot>done</copilot>" }] },
+              ],
             },
           ],
         },
@@ -118,7 +114,11 @@ describe("MnxYjsBridge", () => {
     });
     a.setMnxJson(JSON.stringify(serializeMnx(score)));
     const path = { partId: "flute", measureIndex: 0 };
-    const expression = { position: { fraction: [0, 1] as [number, number] }, text: [{ text: "pizz." }] };
+    const expression = {
+      type: "expression" as const,
+      position: { fraction: [0, 1] as [number, number] },
+      text: [{ text: "pizz." }],
+    };
     const patches = [
       patch.addMeasureExpression(path, expression),
       patch.setMeasureExpression(path, 0, { ...expression, text: [{ text: "arco" }] }),

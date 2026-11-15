@@ -9,7 +9,14 @@ import {
   type SpatialIndex,
   type GhostNoteOptions,
 } from "@viritura/renderer";
-import type { AccidentalType, Part, Score, NoteValueBase, SequenceContent } from "@viritura/core";
+import {
+  noteheadEditorShape,
+  type AccidentalType,
+  type Part,
+  type Score,
+  type NoteValueBase,
+  type SequenceContent,
+} from "@viritura/core";
 import { durationToBeats, sequenceContentBeats } from "../commands/noteCommands";
 import type { DotCount, GraceType } from "../store/noteInputStore";
 import { kitComponentFromStaffPosition, mnxStaffPositionFromPosFromTop } from "../score/kitInput";
@@ -575,7 +582,7 @@ function ghostPitch(
   if (!component) return { y, accidental };
   return {
     y: staff.y + ((4 - (component.staffPosition ?? 0)) * staff.spatium) / 2,
-    notehead: component.notehead,
+    notehead: noteheadEditorShape(component.notehead),
     accidental: null,
   };
 }

@@ -73,7 +73,7 @@ describe("MCP editor tool dispatch", () => {
           {
             id: "raw-event",
             duration: { base: "whole" },
-            notes: [{ id: "raw-note", pitch: { step: "D", octave: 4 }, _x: { viritura: { notehead: "diamond" } } }],
+            notes: [{ id: "raw-note", pitch: { step: "D", octave: 4 }, notehead: { shape: "diamond" } }],
           },
         ],
       },
@@ -84,9 +84,9 @@ describe("MCP editor tool dispatch", () => {
     expect(result.structuredContent).toMatchObject({ status: "accepted" });
     expect(store.getState().workingScore!.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
       type: "event",
-      notes: [{ id: "raw-note", notehead: "diamond" }],
+      notes: [{ id: "raw-note", notehead: { shape: "diamond" } }],
     });
-    expect(store.getState().mnxJson).toContain('"notehead":"diamond"');
+    expect(store.getState().mnxJson).toContain('"notehead":{"shape":"diamond"}');
   });
 
   it("accepts raw MNX notes and preserves valid internal notes with nested vendor data", async () => {
@@ -98,7 +98,7 @@ describe("MCP editor tool dispatch", () => {
         {
           kind: "addNoteToEvent",
           locator: pianoLocator,
-          note: { id: "raw-note", pitch: { step: "D", octave: 4 }, _x: { viritura: { notehead: "diamond" } } },
+          note: { id: "raw-note", pitch: { step: "D", octave: 4 }, notehead: { shape: "diamond" } },
         },
       ],
     });
@@ -111,7 +111,7 @@ describe("MCP editor tool dispatch", () => {
           note: {
             id: "model-note",
             pitch: { step: "F", octave: 4 },
-            notehead: "diamond",
+            notehead: { shape: "diamond" },
             markings: { _x: { anotherVendor: { retained: true } } },
           },
         },
@@ -120,7 +120,7 @@ describe("MCP editor tool dispatch", () => {
     expect(internal.structuredContent).toMatchObject({ status: "accepted" });
     expect(store.getState().workingScore!.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
       notes: expect.arrayContaining([
-        expect.objectContaining({ id: "raw-note", notehead: "diamond" }),
+        expect.objectContaining({ id: "raw-note", notehead: { shape: "diamond" } }),
         expect.objectContaining({ id: "model-note", markings: { _x: { anotherVendor: { retained: true } } } }),
       ]),
     });
@@ -139,7 +139,7 @@ describe("MCP editor tool dispatch", () => {
               type: "event",
               id: "sung",
               duration: { base: "whole" },
-              notes: [{ pitch: { step: "C", octave: 4 }, notehead: "diamond" }],
+              notes: [{ pitch: { step: "C", octave: 4 }, notehead: { shape: "diamond" } }],
               lyrics: { lines: { "1": { text: "Hello" }, "2": { text: "Again" } } },
             },
           ],
@@ -156,7 +156,7 @@ describe("MCP editor tool dispatch", () => {
             {
               type: "event",
               duration: { base: "whole" },
-              notes: [{ pitch: { step: "C", octave: 4 }, notehead: "diamond" }],
+              notes: [{ pitch: { step: "C", octave: 4 }, notehead: { shape: "diamond" } }],
               lyrics: { lines: { "1": { text: 17 } } },
             },
           ],
@@ -351,9 +351,9 @@ describe("MCP editor tool dispatch", () => {
   it.each([false, true])("removes staff text through a patch proposal (auto-accept: %s)", async (autoAccept) => {
     const score = makeScore();
     score.parts[0]!.measures[0]!.expressions = [
-      { position: { fraction: [0, 1] }, text: [{ text: "dolce" }] },
-      { position: { fraction: [0, 1] }, text: [{ text: "<copilot>done" }] },
-      { position: { fraction: [1, 2] }, text: [{ text: "</copilot>" }] },
+      { type: "expression", position: { fraction: [0, 1] }, text: [{ text: "dolce" }] },
+      { type: "expression", position: { fraction: [0, 1] }, text: [{ text: "<copilot>done" }] },
+      { type: "expression", position: { fraction: [1, 2] }, text: [{ text: "</copilot>" }] },
     ];
     const store = createDocumentStore();
     store.getState().loadScore(score, "test.mnx");

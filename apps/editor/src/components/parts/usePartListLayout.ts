@@ -270,7 +270,7 @@ export function usePartListLayout({
       // ancestor, then roll fully-selected groups up to the group itself. A
       // contiguous run that fully covers several adjacent groups thus reduces to
       // those top-level sibling groups, which wrap into one new bracket while the
-      // existing groups are preserved as nested sub-brackets.
+      // existing groups keep their own symbols.
       const keys = normalizeGroupSelection(layoutContent, Array.from(selectedPaths));
       if (keys.length < 2) return;
       if (!allSameParent(keys)) return;

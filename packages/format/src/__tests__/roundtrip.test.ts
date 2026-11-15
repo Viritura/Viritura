@@ -609,7 +609,7 @@ describe("MNX round-trip preserves editor wiring fields", () => {
     ]);
   });
 
-  it("preserves a per-note notehead override (_x.viritura.notehead)", () => {
+  it("migrates a per-note notehead override to native MNX", () => {
     const source = {
       mnx: { version: 1 },
       global: { measures: [{ time: { count: 4, unit: 4 } }] },
@@ -636,13 +636,15 @@ describe("MNX round-trip preserves editor wiring fields", () => {
     };
 
     const parsed1 = parseMnx(source);
-    expect(parsed1.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.notehead).toBe("diamond");
+    expect(parsed1.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.notehead).toEqual({ shape: "diamond" });
 
     const serialized = serializeMnx(parsed1);
     const noteJson = serialized.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]! as {
-      _x?: { viritura?: { notehead?: string } };
+      notehead?: { shape: string };
+      _x?: unknown;
     };
-    expect(noteJson._x).toEqual({ viritura: { notehead: "diamond" } });
+    expect(noteJson.notehead).toEqual({ shape: "diamond" });
+    expect(noteJson._x).toBeUndefined();
 
     const parsed2 = parseMnx(serialized);
     expect(parsed2).toEqual(parsed1);

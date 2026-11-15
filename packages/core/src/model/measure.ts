@@ -235,7 +235,7 @@ export interface Pedal {
 }
 
 /** Placement of a text expression (above or below the staff). */
-export type ExpressionPlacement = "below" | "above";
+export type ExpressionPlacement = "below" | "above" | "auto";
 
 /** Content, presentation and music-relative geometry shared by staff and system text. */
 export interface MusicText {
@@ -258,6 +258,9 @@ export interface MusicText {
 
 /** A text expression or direction at a rhythmic position on a particular staff. */
 export interface TextExpression extends MusicText {
+  /** MNX positioned-text type. Omitted on editor-authored legacy instances. */
+  type?: "general" | "expression";
+  id?: string;
   /** Optional staff number */
   staff?: number;
   /** Optional voice name */

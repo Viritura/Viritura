@@ -47,8 +47,8 @@ function buildLayoutFromGroups(partsInfo: PartInfo[], sortedGroups: GroupInfo[])
     const symbolMap: Record<string, string> = {
       bracket: "bracket",
       brace: "brace",
-      line: "bracket",
-      square: "bracket",
+      line: "square",
+      square: "square",
       none: "noSymbol",
     };
     const barlineMap: Record<string, string> = {

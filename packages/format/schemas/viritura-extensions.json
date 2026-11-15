@@ -493,42 +493,6 @@
       "description": "Placement of a text expression relative to the staff. Default: 'below'."
     },
 
-    "text-expression": {
-      "type": "object",
-      "description": "A text expression or direction at a rhythmic position (e.g. 'dolce', 'rit.', 'a tempo'). Rendered in italic serif font.",
-      "required": ["text", "position"],
-      "properties": {
-        "text": { "$ref": "#/$defs/text-content" },
-        "frame": { "$ref": "#/$defs/staff-text-frame-presentation" },
-        "pagePosition": { "$ref": "#/$defs/text-frame-page-position" },
-        "position": {
-          "$ref": "#/$defs/rhythmic-position",
-          "description": "Rhythmic position within the measure."
-        },
-        "placement": {
-          "$ref": "#/$defs/expression-placement"
-        },
-        "staff": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Staff number (1-based)."
-        },
-        "voice": {
-          "type": "string",
-          "description": "Voice name."
-        },
-        "manualOffset": {
-          "$ref": "#/$defs/sp-delta",
-          "description": "Manual [dx, dy] offset in spatia (sp), applied after automatic placement."
-        },
-        "avoidCollisions": {
-          "type": "boolean",
-          "description": "Whether automatic collision avoidance may re-flow this expression outward to clear other directions. Default (and when unset): true. Set false when the user manually places the expression (e.g. by dragging) so it stays exactly where put and others flow around it."
-        }
-      },
-      "additionalProperties": false
-    },
-
     "system-tempo": {
       "type": "object",
       "description": "Optional playback instruction on system text. No timing or swing change is implied when absent.",
@@ -756,6 +720,26 @@
         "oneOf": [{ "$ref": "#/$defs/text-run" }, { "$ref": "#/$defs/glyph-run" }]
       }
     },
+    "positioned-text-extensions": {
+      "type": "object",
+      "description": "Viritura presentation metadata on native MNX positioned text.",
+      "properties": {
+        "frame": { "$ref": "#/$defs/staff-text-frame-presentation" },
+        "pagePosition": { "$ref": "#/$defs/text-frame-page-position" },
+        "manualOffset": { "$ref": "#/$defs/sp-delta" },
+        "avoidCollisions": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "text-chunk-extensions": {
+      "type": "object",
+      "description": "Viritura inline formatting on native MNX formatted-text chunks.",
+      "properties": {
+        "style": { "$ref": "#/$defs/text-run-style" },
+        "smuflStyle": { "$ref": "#/$defs/text-run-style" }
+      },
+      "additionalProperties": false
+    },
     "sp-delta": {
       "type": "array",
       "description": "A [dx, dy] delta in spatia (sp) applied on top of an engine-computed point.",
@@ -906,11 +890,6 @@
           "type": "array",
           "items": { "$ref": "#/$defs/pedal" },
           "description": "Piano pedal markings."
-        },
-        "expressions": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/text-expression" },
-          "description": "Text expressions and performance directions."
         },
         "condensingOverride": {
           "type": "string",
@@ -1134,7 +1113,7 @@
     "notehead-shape": {
       "type": "string",
       "enum": ["normal", "x", "circleX", "diamond", "slash", "triangleUp", "triangleDown"],
-      "description": "A notehead shape. MNX has no notehead field on note, kit-note or kit-component (W3C MNX issue #249); Viritura tracks it as a vendor extension on the kit-component (per-instrument) and optionally on a pitched note (per-note override)."
+      "description": "Legacy Viritura notehead shape accepted on kit components and pitched notes. New documents use the native MNX notehead object."
     },
 
     "kit-component-extensions": {
@@ -1143,7 +1122,7 @@
       "properties": {
         "notehead": {
           "$ref": "#/$defs/notehead-shape",
-          "description": "Notehead shape rendered for hits on this kit component (e.g. 'x' for cymbals/hi-hat). Default: 'normal'."
+          "description": "Legacy notehead shape for hits on this kit component. New documents use the native MNX notehead object."
         },
         "drumKit": {
           "type": "integer",
@@ -1161,7 +1140,7 @@
       "properties": {
         "notehead": {
           "$ref": "#/$defs/notehead-shape",
-          "description": "Notehead-shape override for this single pitched note, overriding the default notehead for the note's duration (e.g. a diamond harmonic among normal noteheads in a chord). MNX has no notehead field on note (W3C MNX issue #249); Viritura tracks it as a per-note vendor extension. Default: inherit from duration."
+          "description": "Legacy notehead-shape override for this pitched note. New documents use the native MNX notehead object."
         }
       },
       "additionalProperties": false
@@ -1391,6 +1370,8 @@
           "type": "object",
           "required": ["position"],
           "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "type": { "type": "string", "enum": ["general", "expression"] },
             "position": { "$ref": "#/$defs/rhythmic-position" },
             "placement": { "$ref": "#/$defs/expression-placement" },
             "staff": { "type": "integer", "minimum": 1 },

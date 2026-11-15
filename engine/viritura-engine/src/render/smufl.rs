@@ -56,9 +56,9 @@ pub mod smufl {
     pub const BRACKET_TERMINAL_HEIGHT: f64 = 1.18;
     /// Bracket line thickness in staff spaces (from Bravura engravingDefaults.bracketThickness).
     pub const BRACKET_THICKNESS: f64 = 0.5;
-    /// Line bracket thickness in staff spaces (from Bravura engravingDefaults.subBracketThickness).
-    /// Used for nested brackets that auto-render as thin lines.
-    pub const LINE_BRACKET_THICKNESS: f64 = 0.16;
+    /// Sub-bracket thickness in staff spaces (from Bravura engravingDefaults.subBracketThickness).
+    /// Used for MNX `square` staff-group brackets.
+    pub const SUB_BRACKET_THICKNESS: f64 = 0.16;
 
     // ═══════════════════════════════════════
     // Noteheads (U+E0A0 - U+E0FF)
@@ -72,10 +72,12 @@ pub mod smufl {
     pub const NOTEHEAD_X_WHOLE: u32 = 0xE0A7;
     pub const NOTEHEAD_X_HALF: u32 = 0xE0A8;
     pub const NOTEHEAD_X_BLACK: u32 = 0xE0A9;
-    pub const NOTEHEAD_PLUS_DOUBLE_WHOLE: u32 = 0xE0AA;
-    pub const NOTEHEAD_PLUS_WHOLE: u32 = 0xE0AB;
-    pub const NOTEHEAD_PLUS_HALF: u32 = 0xE0AC;
-    pub const NOTEHEAD_PLUS_BLACK: u32 = 0xE0AD;
+    pub const NOTEHEAD_PLUS_DOUBLE_WHOLE: u32 = 0xE0AC;
+    pub const NOTEHEAD_PLUS_WHOLE: u32 = 0xE0AD;
+    pub const NOTEHEAD_PLUS_HALF: u32 = 0xE0AE;
+    pub const NOTEHEAD_PLUS_BLACK: u32 = 0xE0AF;
+    pub const NOTEHEAD_SQUARE_WHITE: u32 = 0xE0B8;
+    pub const NOTEHEAD_SQUARE_BLACK: u32 = 0xE0B9;
     pub const NOTEHEAD_CIRCLE_X_DOUBLE_WHOLE: u32 = 0xE0B0;
     pub const NOTEHEAD_CIRCLE_X_WHOLE: u32 = 0xE0B1;
     pub const NOTEHEAD_CIRCLE_X_HALF: u32 = 0xE0B2;
@@ -915,6 +917,24 @@ pub mod smufl {
         let is_half = matches!(duration, Half);
         match shape {
             NoteheadShape::Normal => notehead_glyph(duration),
+            NoteheadShape::Plus => {
+                if is_double_whole {
+                    NOTEHEAD_PLUS_DOUBLE_WHOLE
+                } else if is_whole {
+                    NOTEHEAD_PLUS_WHOLE
+                } else if is_half {
+                    NOTEHEAD_PLUS_HALF
+                } else {
+                    NOTEHEAD_PLUS_BLACK
+                }
+            }
+            NoteheadShape::Square => {
+                if is_double_whole || is_whole || is_half {
+                    NOTEHEAD_SQUARE_WHITE
+                } else {
+                    NOTEHEAD_SQUARE_BLACK
+                }
+            }
             NoteheadShape::X => {
                 if is_double_whole {
                     NOTEHEAD_X_DOUBLE_WHOLE
@@ -979,6 +999,13 @@ pub mod smufl {
                     NOTEHEAD_TRIANGLE_DOWN_HALF
                 } else {
                     NOTEHEAD_TRIANGLE_DOWN_BLACK
+                }
+            }
+            NoteheadShape::Custom(codepoint) => {
+                if *codepoint == 0 {
+                    notehead_glyph(duration)
+                } else {
+                    *codepoint
                 }
             }
         }
@@ -2033,6 +2060,19 @@ pub mod smufl {
             "fClef15ma" => Some(F_CLEF_15MA),
             "unpitchedPercussionClef1" => Some(UNPITCHED_PERCUSSION_CLEF_1),
             "6stringTabClef" => Some(TAB_CLEF_6STR),
+            // Noteheads
+            "noteheadDoubleWhole" => Some(NOTEHEAD_DOUBLE_WHOLE),
+            "noteheadWhole" => Some(NOTEHEAD_WHOLE),
+            "noteheadHalf" => Some(NOTEHEAD_HALF),
+            "noteheadBlack" => Some(NOTEHEAD_BLACK),
+            "noteheadXBlack" => Some(NOTEHEAD_X_BLACK),
+            "noteheadPlusBlack" => Some(NOTEHEAD_PLUS_BLACK),
+            "noteheadSquareBlack" => Some(NOTEHEAD_SQUARE_BLACK),
+            "noteheadCircleX" => Some(NOTEHEAD_CIRCLE_X),
+            "noteheadDiamondBlack" => Some(NOTEHEAD_DIAMOND_BLACK),
+            "noteheadTriangleUpBlack" => Some(NOTEHEAD_TRIANGLE_UP_BLACK),
+            "noteheadTriangleDownBlack" => Some(NOTEHEAD_TRIANGLE_DOWN_BLACK),
+            "noteheadSlashVerticalBlack" => Some(NOTEHEAD_SLASH_VERTICAL_BLACK),
             // Dynamics — individual letters
             "dynamicPiano" => Some(DYNAMIC_PIANO),
             "dynamicMezzo" => Some(DYNAMIC_MEZZO),
@@ -2598,6 +2638,18 @@ mod tests {
         assert_eq!(
             smufl::smufl_name_to_codepoint("dynamicRinforzando2"),
             Some(smufl::DYNAMIC_RINFORZANDO2)
+        );
+    }
+
+    #[test]
+    fn resolves_native_notehead_glyph_names() {
+        assert_eq!(
+            smufl::smufl_name_to_codepoint("noteheadXBlack"),
+            Some(smufl::NOTEHEAD_X_BLACK)
+        );
+        assert_eq!(
+            smufl::smufl_name_to_codepoint("noteheadBlack"),
+            Some(smufl::NOTEHEAD_BLACK)
         );
     }
 

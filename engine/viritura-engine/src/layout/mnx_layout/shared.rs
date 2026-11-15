@@ -704,6 +704,8 @@ pub(super) fn append_partial_unison_label(
         .get_or_insert_with(Vec::new)
         .push(TextExpression {
             text: format!("a {source_count}").into(),
+            id: None,
+            text_type: crate::model::PositionedTextType::Expression,
             frame: None,
             position: RhythmicPosition {
                 fraction: (frac_num, frac_den),

@@ -130,8 +130,7 @@ by the `dynamic-group-extensions` definition in
 
 Gradual groups use the same extension object; there is no hairpin-specific
 copy. Text attached grammatically to a dynamic uses standard `prefix`/`suffix`;
-standalone directions such as `dolce` or `rit.` remain text expressions in
-`_x.viritura.expressions`. See
+standalone directions such as `dolce` or `rit.` remain native part-measure `text[]` items with `type: "expression"`. See
 [viritura-extensions.md](viritura-extensions.md).
 
 ## 6. Identity and editing

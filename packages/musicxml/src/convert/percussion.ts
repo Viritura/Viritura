@@ -3,6 +3,7 @@ import type {
   MnxEvent,
   MnxKitComponent,
   MnxKitNote,
+  MnxNote,
   MnxPart,
   MnxPitch,
   MnxSequenceContent,
@@ -157,11 +158,11 @@ function componentForPosition(
   builder: KitBuilder,
   partId: string,
   staffPosition: number,
-  notehead: string | undefined,
+  notehead: MnxNote["notehead"],
   fixedGm: number | undefined,
   sounds: Record<string, MnxSound>,
 ): string {
-  const key = `${staffPosition}:${notehead ?? ""}`;
+  const key = `${staffPosition}:${notehead ? JSON.stringify(notehead) : ""}`;
   const existing = builder.components.get(key);
   if (existing) return existing;
 
@@ -178,7 +179,7 @@ function componentForPosition(
   const component: MnxKitComponent = { staffPosition, sound: soundId };
   const compName = GM_PERCUSSION_NAMES[gmNote];
   if (compName) component.name = compName;
-  if (notehead) component._x = { viritura: { notehead } };
+  if (notehead) component.notehead = notehead;
   builder.kit[componentId] = component;
   builder.components.set(key, componentId);
   return componentId;
@@ -209,10 +210,9 @@ function convertPart(part: MnxPart, info: PartInfo | undefined, sounds: Record<s
         for (const note of event.notes) {
           if (!note.pitch) continue;
           const staffPosition = diatonic(note.pitch) + writtenCorrection - G4_DIATONIC;
-          // Already mapped to a Viritura shape by `buildNote` (see notes.ts) —
-          // consumed here to key the kit-component, then the note (and its
-          // vendor extension) is discarded below in favor of `kitNotes`.
-          const notehead = note._x?.viritura.notehead;
+          // Consume the native per-note head to build the reusable kit component;
+          // the event itself is replaced by `kitNotes` below.
+          const notehead = note.notehead;
           const componentId = componentForPosition(builder, part.id, staffPosition, notehead, fixedGm, sounds);
           const kitNote: MnxKitNote = { kitComponent: componentId };
           if (note.staff !== undefined) kitNote.staff = note.staff;

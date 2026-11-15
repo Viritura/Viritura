@@ -43,15 +43,7 @@ export const WithAboveExpressionFlow: StoryObj = {
         {
           time: { count: 4, unit: 4 },
           virituraGlobal: { rehearsalMark: { text: [{ text: "2" }], style: "boxed" } },
-          virituraPartMeasure: {
-            expressions: [
-              {
-                text: "pizz.",
-                position: { fraction: [0, 1] },
-                placement: "above",
-              },
-            ],
-          },
+          text: [{ type: "expression", text: [{ text: "pizz." }], position: { fraction: [0, 1] }, placement: "above" }],
           voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
         },
         {

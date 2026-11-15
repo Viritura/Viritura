@@ -14,8 +14,8 @@ function makePercussionScore(): Score {
       {
         name: "Percussion",
         kit: {
-          "kit-snare": { staffPosition: 2, name: "Snare", sound: "snd-snare", notehead: "normal" },
-          "kit-crash": { staffPosition: 6, name: "Crash", sound: "snd-crash", notehead: "x" },
+          "kit-snare": { staffPosition: 2, name: "Snare", sound: "snd-snare" },
+          "kit-crash": { staffPosition: 6, name: "Crash", sound: "snd-crash", notehead: { shape: "x" } },
         },
         measures: [],
       },
@@ -82,7 +82,7 @@ describe("drumKitCommands", () => {
     const kit = next.parts[0]!.kit!;
     expect(Object.keys(kit).sort()).toEqual(["kit-cowbell", "kit-snare"]);
     expect(kit["kit-crash"]).toBeUndefined();
-    expect(kit["kit-cowbell"]!.notehead).toBe("triangleUp");
+    expect(kit["kit-cowbell"]!.notehead).toEqual({ shape: "triangle" });
     expect(next.global!.sounds!["snd-p0-kit-cowbell"]!.midiNumber).toBe(56);
 
     // The removed crash's original sound entry is pruned.
@@ -106,7 +106,7 @@ function makePercussionScoreWithNotes(): Score {
         name: "Percussion",
         kit: {
           "kit-snare": { staffPosition: 2, name: "Snare", sound: "snd-snare" },
-          "kit-crash": { staffPosition: 6, name: "Crash", sound: "snd-crash", notehead: "x" },
+          "kit-crash": { staffPosition: 6, name: "Crash", sound: "snd-crash", notehead: { shape: "x" } },
         },
         measures: [{ sequences: [{ content: [ev("kit-snare"), ev("kit-crash")] }] }],
       },
@@ -137,7 +137,7 @@ describe("applyDrumKitEdits — kit-note reference integrity", () => {
     ]);
     expect(kitRefs(next)).toEqual(["kit-snare", "kit-crash"]);
     // The component (same id) now carries the new notehead, so the note follows.
-    expect(next.parts[0]!.kit!["kit-snare"]!.notehead).toBe("x");
+    expect(next.parts[0]!.kit!["kit-snare"]!.notehead).toEqual({ shape: "x" });
   });
 
   it("rebinds a removed component's notes to the surviving nearest staff position", () => {
@@ -201,7 +201,7 @@ describe("setEventNotehead — pitched notes", () => {
     const notes = next.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
     expect(notes.type).toBe("event");
     if (notes.type !== "event") throw new Error("expected event");
-    expect(notes.notes!.map((n) => n.notehead)).toEqual(["diamond", "diamond"]);
+    expect(notes.notes!.map((n) => n.notehead)).toEqual([{ shape: "diamond" }, { shape: "diamond" }]);
     // Original untouched.
     expect(score.parts[0]!.measures[0]!.sequences[0]!.content[0]).not.toBe(notes);
   });
@@ -233,7 +233,7 @@ describe("setEventNotehead — percussion kit-notes", () => {
     const refs = kitRefs(next);
     expect(refs[0]).not.toBe("kit-snare");
     const comp = next.parts[0]!.kit![refs[0]!]!;
-    expect(comp.notehead).toBe("x");
+    expect(comp.notehead).toEqual({ shape: "x" });
     // Same instrument: sound + staff position preserved.
     expect(comp.sound).toBe("snd-snare");
     expect(comp.staffPosition).toBe(2);
@@ -264,7 +264,7 @@ describe("setEventNotehead — percussion kit-notes", () => {
     expect(kitRefs(second)[2]).toBe(newId);
     // Only one snare-x component was created.
     const snareXComps = Object.values(second.parts[0]!.kit!).filter(
-      (c) => c.sound === "snd-snare" && c.notehead === "x",
+      (c) => c.sound === "snd-snare" && c.notehead?.shape === "x",
     );
     expect(snareXComps).toHaveLength(1);
   });

@@ -2288,8 +2288,8 @@ fn test_grand_staff_repeat_numbers_and_dynamics_use_distinct_shared_lanes() {
                      "end": {"measure": "m2", "position": {"fraction": [1, 1]}},
                      "wedgeType": "increasing", "visuallyContinues": "repeat-p"}
                 ],
-                "expressions": [
-                    {"text": [{"text": "cresc."}], "position": {"fraction": [1, 2]}}
+                "text": [
+                    {"type": "expression", "text": [{"text": "cresc."}], "position": {"fraction": [1, 2]}}
                 ]
             }
         ]}]

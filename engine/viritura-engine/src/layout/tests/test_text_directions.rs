@@ -720,7 +720,7 @@ fn test_above_expression_clears_stem_tip() {
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
-            "expressions": [{"text": [{"text": "pizz."}], "position": {"fraction": [0, 4]}, "placement": "above"}],
+            "text": [{"type": "expression", "text": [{"text": "pizz."}], "position": {"fraction": [0, 4]}, "placement": "above"}],
             "sequences": [{"content": [
                 {"duration": {"base": "quarter"}, "stemDirection": "up",
                  "notes": [{"pitch": {"step": "G", "octave": 4}}]}
@@ -784,9 +784,9 @@ fn test_barline_anchored_expression_right_aligns_to_measure_end() {
         "global": {"measures": [{"time": {"count": 2, "unit": 4}, "barline": {"type": "double"}}]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
-            "_x": {"viritura": {"expressions": [
-                {"text": [{"text": "D.C. al Coda"}], "position": {"fraction": [1, 1]}, "placement": "above"}
-            ]}},
+            "text": [
+                {"type": "expression", "text": [{"text": "D.C. al Coda"}], "position": {"fraction": [1, 1]}, "placement": "above"}
+            ],
             "sequences": [{"content": [
                 {"duration": {"base": "half"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
             ]}]
@@ -1002,7 +1002,7 @@ fn test_text_expression_x_aligns_with_notehead_left_edge() {
             "sequences": [{"content": [
                 {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}
             ]}],
-            "_x": {"viritura": {"expressions": [{"text": [{"text": "cantabile"}], "position": {"fraction": [0, 1]}}]}}
+            "text": [{"type": "expression", "text": [{"text": "cantabile"}], "position": {"fraction": [0, 1]}}]
         }]}]
     }"#;
 
@@ -1073,7 +1073,7 @@ fn test_above_expression_stays_aligned_under_rehearsal_mark() {
             "sequences": [{"content": [
                 {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
             ]}],
-            "_x": {"viritura": {"expressions": [{"text": [{"text": "a tempo"}], "position": {"fraction": [0, 1]}, "placement": "above"}]}}
+            "text": [{"type": "expression", "text": [{"text": "a tempo"}], "position": {"fraction": [0, 1]}, "placement": "above"}]
         }]}]
     }"#;
     let without_mark = r#"{
@@ -1084,7 +1084,7 @@ fn test_above_expression_stays_aligned_under_rehearsal_mark() {
             "sequences": [{"content": [
                 {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
             ]}],
-            "_x": {"viritura": {"expressions": [{"text": [{"text": "a tempo"}], "position": {"fraction": [0, 1]}, "placement": "above"}]}}
+            "text": [{"type": "expression", "text": [{"text": "a tempo"}], "position": {"fraction": [0, 1]}, "placement": "above"}]
         }]}]
     }"#;
 
@@ -1545,7 +1545,7 @@ fn test_above_direction_not_lifted_over_stemless_whole_notes() {
                 "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
                 "parts": [{{"measures": [{{
                     "clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}],
-                    "_x": {{"viritura": {{"expressions": [{{"text": [{{"text": "arco"}}], "position": {{"fraction": [0, 1]}}, "placement": "above"}}]}}}},
+                    "text": [{{"type": "expression", "text": [{{"text": "arco"}}], "position": {{"fraction": [0, 1]}}, "placement": "above"}}],
                     "sequences": [{{"content": [
                         {{"duration": {{"base": "{base}"}}, "notes": [
                             {{"pitch": {{"step": "E", "octave": 4}}}},
@@ -1790,7 +1790,7 @@ fn test_above_text_clears_articulation() {
             "sequences": [{"content": [
                 {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "A", "octave": 5}}], "markings": {"accent": {}}}
             ]}],
-            "_x": {"viritura": {"expressions": [{"text": [{"text": "arco"}], "position": {"fraction": [0, 1]}, "placement": "above"}]}}
+            "text": [{"type": "expression", "text": [{"text": "arco"}], "position": {"fraction": [0, 1]}, "placement": "above"}]
         }]}]
     }"#;
     let score = crate::parse::parse_mnx(json).expect("parse arco+accent");

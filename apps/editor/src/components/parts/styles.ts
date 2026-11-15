@@ -2,9 +2,9 @@ import type React from "react";
 
 export const SYMBOL_OPTIONS = [
   { value: "bracket", label: "Bracket" },
+  { value: "square", label: "Square" },
   { value: "brace", label: "Brace" },
-  { value: "line", label: "Line" },
-  { value: "none", label: "None" },
+  { value: "noSymbol", label: "None" },
 ];
 
 export const BAR_COL_WIDTH = 7;

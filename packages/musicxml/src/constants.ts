@@ -1,3 +1,4 @@
+import type { Notehead } from "@viritura/core";
 import type { MnxDuration } from "./types";
 
 // ─── MusicXML note type → MNX base duration ─────────────────────────
@@ -52,31 +53,26 @@ export const BARLINE_STYLE_MAP: Record<string, string> = {
   none: "noBarline",
 };
 
-// ─── MusicXML notehead token → Viritura notehead shape vendor extension ──
-// (normal | x | circleX | diamond | slash | triangleUp | triangleDown).
-// MNX has no notehead field on note, kit-note, or kit-component (W3C MNX
-// issue #249); Viritura tracks it via `_x.viritura.notehead` (see
-// `note-extensions` / `kit-component-extensions` in viritura-extensions.json).
-// Tokens not listed (square, cluster, none, …) have no Viritura equivalent and
-// fall back to the default `normal` notehead.
+// ─── MusicXML notehead token → native MNX notehead ──
 
-const NOTEHEAD_MAP: Record<string, string> = {
+const NOTEHEAD_MAP: Record<string, Notehead["shape"]> = {
   x: "x",
   cross: "x",
   "circle-x": "circleX",
   diamond: "diamond",
   slash: "slash",
   slashed: "slash",
-  triangle: "triangleUp",
+  triangle: "triangle",
   "inverted triangle": "triangleDown",
+  plus: "plus",
+  square: "square",
 };
 
-/** Map a raw MusicXML notehead token to a Viritura notehead shape, or
- *  undefined for the default (normal) head. */
-export function noteheadShape(token: string | undefined): string | undefined {
+/** Map a MusicXML notehead token to native MNX, or undefined for the default head. */
+export function noteheadShape(token: string | undefined): Notehead | undefined {
   if (!token) return undefined;
   const shape = NOTEHEAD_MAP[token];
-  return shape && shape !== "normal" ? shape : undefined;
+  return shape ? { shape } : undefined;
 }
 
 // ─── MusicXML accidental text → normalized name ─────────────────────

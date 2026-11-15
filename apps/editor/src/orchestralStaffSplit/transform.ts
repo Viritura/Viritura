@@ -358,14 +358,16 @@ function validateSplitRoster(score: Score): void {
   }
 }
 
-function normalizeSplitPlayerBraceGroups(content: readonly LayoutContent[]): LayoutContent[] {
+function normalizeSplitPlayerBraceGroups(content: readonly LayoutContent[], insideBracket = false): LayoutContent[] {
   return content.map((node): LayoutContent => {
     if (node.type === "staff") return node;
-    const normalizedContent = normalizeSplitPlayerBraceGroups(node.content);
+    const bracketsChildren = insideBracket || node.symbol === "bracket" || node.symbol === "square";
+    const normalizedContent = normalizeSplitPlayerBraceGroups(node.content, bracketsChildren);
     if (node.symbol !== "brace" || !isCompleteSplitPlayerGroup(normalizedContent)) {
       return { ...node, content: normalizedContent };
     }
-    return { ...node, symbol: "bracket", content: normalizedContent };
+    // Players of one instrument take a sub-bracket inside a section bracket.
+    return { ...node, symbol: insideBracket ? "square" : "bracket", content: normalizedContent };
   });
 }
 

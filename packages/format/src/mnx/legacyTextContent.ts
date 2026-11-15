@@ -39,14 +39,6 @@ function eachTextOwner(doc: Obj, visit: (owner: Obj) => void): void {
       if (owner) visit(owner);
     }
   }
-  for (const part of asArray(doc["parts"]) ?? []) {
-    for (const measure of asArray(asObj(part)?.["measures"]) ?? []) {
-      for (const expression of asArray(virituraOf(measure)?.["expressions"]) ?? []) {
-        const expr = asObj(expression);
-        if (expr) visit(expr);
-      }
-    }
-  }
 }
 
 function hasLegacyText(doc: Obj): boolean {

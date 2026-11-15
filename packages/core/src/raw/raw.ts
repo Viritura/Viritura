@@ -214,6 +214,7 @@ export interface components {
             color?: components["schemas"]["color"];
             location: components["schemas"]["rhythmic-position"];
         } & components["schemas"]["global-attrs"];
+        "formatted-text": (components["schemas"]["text-chunk-text"] | components["schemas"]["text-chunk-smufl"])[];
         fraction: components["schemas"]["integer-unsigned"][];
         "full-measure-rest": {
             fermata?: components["schemas"]["fermata"];
@@ -266,11 +267,13 @@ export interface components {
         };
         "kit-component": {
             name?: components["schemas"]["string"];
+            notehead?: components["schemas"]["notehead"];
             sound?: components["schemas"]["id"];
             staffPosition: components["schemas"]["staff-position"];
         } & components["schemas"]["global-attrs"];
         "kit-note": {
             kitComponent: components["schemas"]["id"];
+            notehead?: components["schemas"]["notehead"];
             perform?: components["schemas"]["perform-options"];
             staff?: components["schemas"]["staff-number"];
             ties?: components["schemas"]["tie-list"];
@@ -358,6 +361,7 @@ export interface components {
         note: {
             accidentalDisplay?: components["schemas"]["accidental-display"];
             markings?: components["schemas"]["note-markings"];
+            notehead?: components["schemas"]["notehead"];
             perform?: components["schemas"]["perform-options"];
             pitch: components["schemas"]["pitch"];
             staff?: components["schemas"]["staff-number"];
@@ -378,6 +382,13 @@ export interface components {
             duration: components["schemas"]["note-value"];
             multiple: components["schemas"]["positive-integer"];
         } & components["schemas"]["global-attrs"];
+        notehead: {
+            glyph?: components["schemas"]["smufl-glyph"];
+            /** @default default */
+            shape: components["schemas"]["notehead-shape"];
+        } & components["schemas"]["global-attrs"];
+        /** @enum {string} */
+        "notehead-shape": "default" | "oval" | "x" | "diamond" | "triangle" | "triangleDown" | "slash" | "plus" | "circleX" | "square" | "custom";
         octave: number;
         ottava: {
             end: components["schemas"]["measure-rhythmic-position"];
@@ -414,6 +425,7 @@ export interface components {
             ottavas?: components["schemas"]["ottava"][];
             sequences: components["schemas"]["sequence"][];
             staffConfigs?: components["schemas"]["positioned-staff-config"][];
+            text?: components["schemas"]["positioned-text"][];
         } & components["schemas"]["global-attrs"];
         "part-name": string;
         "part-short-name": string;
@@ -439,6 +451,14 @@ export interface components {
             config: components["schemas"]["staff-config"];
             position?: components["schemas"]["rhythmic-position"];
             staff?: components["schemas"]["staff-number"];
+        } & components["schemas"]["global-attrs"];
+        "positioned-text": {
+            placement?: components["schemas"]["placement"];
+            position?: components["schemas"]["rhythmic-position"];
+            staff?: components["schemas"]["staff-number"];
+            text: components["schemas"]["formatted-text"];
+            type?: components["schemas"]["text-type"];
+            voice?: components["schemas"]["voice-name"];
         } & components["schemas"]["global-attrs"];
         "positive-integer": number;
         /** @enum {string} */
@@ -566,7 +586,7 @@ export interface components {
             voice?: components["schemas"]["voice-name"];
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
-        "staff-symbol": "bracket" | "brace" | "noSymbol";
+        "staff-symbol": "bracket" | "square" | "brace" | "noSymbol";
         /** @enum {string} */
         "stem-direction": "up" | "down";
         /** @enum {string} */
@@ -601,6 +621,18 @@ export interface components {
         tenuto: {
             placement?: components["schemas"]["placement"];
         } & components["schemas"]["global-attrs"];
+        "text-chunk-smufl": {
+            glyphs: components["schemas"]["smufl-glyph"][];
+            /** @constant */
+            type: "smufl";
+        } & components["schemas"]["global-attrs"];
+        "text-chunk-text": {
+            text: components["schemas"]["string"];
+            /** @constant */
+            type?: "text";
+        } & components["schemas"]["global-attrs"];
+        /** @enum {string} */
+        "text-type": "general" | "expression";
         tie: {
             lv?: boolean;
             side?: components["schemas"]["slur-side"];
@@ -715,6 +747,7 @@ export type FermataDuration = components["schemas"]["fermata-duration"];
 export type FermataSymbol = components["schemas"]["fermata-symbol"];
 export type Fifths = components["schemas"]["fifths"];
 export type Fine = components["schemas"]["fine"];
+export type FormattedText = components["schemas"]["formatted-text"];
 export type Fraction = components["schemas"]["fraction"];
 export type FullMeasureRest = components["schemas"]["full-measure-rest"];
 export type Global = components["schemas"]["global"];
@@ -759,6 +792,8 @@ export type NoteMarkings = components["schemas"]["note-markings"];
 export type NoteValue = components["schemas"]["note-value"];
 export type NoteValueBase = components["schemas"]["note-value-base"];
 export type NoteValueQuantity = components["schemas"]["note-value-quantity"];
+export type Notehead = components["schemas"]["notehead"];
+export type NoteheadShape = components["schemas"]["notehead-shape"];
 export type Octave = components["schemas"]["octave"];
 export type Ottava = components["schemas"]["ottava"];
 export type OttavaAmount = components["schemas"]["ottava-amount"];
@@ -774,6 +809,7 @@ export type Pitch = components["schemas"]["pitch"];
 export type Placement = components["schemas"]["placement"];
 export type PositionedClef = components["schemas"]["positioned-clef"];
 export type PositionedStaffConfig = components["schemas"]["positioned-staff-config"];
+export type PositionedText = components["schemas"]["positioned-text"];
 export type PositiveInteger = components["schemas"]["positive-integer"];
 export type RelativeDynamicValue = components["schemas"]["relative-dynamic-value"];
 export type RepeatEnd = components["schemas"]["repeat-end"];
@@ -825,6 +861,9 @@ export type SystemLayout = components["schemas"]["system-layout"];
 export type SystemLayoutContent = components["schemas"]["system-layout-content"];
 export type Tempo = components["schemas"]["tempo"];
 export type Tenuto = components["schemas"]["tenuto"];
+export type TextChunkSmufl = components["schemas"]["text-chunk-smufl"];
+export type TextChunkText = components["schemas"]["text-chunk-text"];
+export type TextType = components["schemas"]["text-type"];
 export type Tie = components["schemas"]["tie"];
 export type TieList = components["schemas"]["tie-list"];
 export type TieTargetType = components["schemas"]["tie-target-type"];

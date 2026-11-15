@@ -39,6 +39,7 @@ fn staff_symbol_to_string(s: raw::StaffSymbol) -> String {
     match s {
         raw::StaffSymbol::Bracket => "bracket".into(),
         raw::StaffSymbol::Brace => "brace".into(),
+        raw::StaffSymbol::Square => "square".into(),
         raw::StaffSymbol::NoSymbol => "noSymbol".into(),
     }
 }

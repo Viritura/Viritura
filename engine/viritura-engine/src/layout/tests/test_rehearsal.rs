@@ -960,7 +960,7 @@ fn test_rehearsal_mark_dodges_left_over_direction() {
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
              "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}]}]},
-            {"expressions": [{"text": [{"text": "arco"}], "position": {"fraction": [0, 4]}, "placement": "above"}],
+            {"text": [{"type": "expression", "text": [{"text": "arco"}], "position": {"fraction": [0, 4]}, "placement": "above"}],
              "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 6}}]}]}]}
         ]}]
     }"#;
@@ -1061,7 +1061,7 @@ fn test_rehearsal_mark_bbox_tracks_dodge_over_direction() {
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
              "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}]}]},
-            {"expressions": [{"text": [{"text": "arco"}], "position": {"fraction": [0, 4]}, "placement": "above"}],
+            {"text": [{"type": "expression", "text": [{"text": "arco"}], "position": {"fraction": [0, 4]}, "placement": "above"}],
              "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 6}}]}]}]}
         ]}]
     }"#;

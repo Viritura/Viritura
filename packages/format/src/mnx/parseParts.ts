@@ -3,7 +3,7 @@
 // Schema-defined inputs (Part, PartMeasure, Kit, KitComponent, Beam,
 // Arpeggio, NonArpeggio, PositionedClef) now consume the generated
 // Raw* types. The vendor-extension blocks under `_x.viritura` (pedal,
-// pedal, chordSymbol, textExpression, condensingOverride, transposition,
+// pedal, chordSymbol, condensingOverride, transposition,
 // part identity) are still narrowed with `as Record<string, unknown>`
 // because the schema deliberately leaves vendor dicts opaque.
 
@@ -22,7 +22,7 @@ import type {
 } from "@viritura/core";
 import type { Part } from "@viritura/core";
 import type { PositionedClef, Clef } from "@viritura/core";
-import type { ClefSign, KitComponent, NoteheadShape } from "@viritura/core";
+import { legacyNotehead, type ClefSign, type KitComponent } from "@viritura/core";
 
 import type {
   Part as RawPart,
@@ -49,27 +49,27 @@ import type {
   InstrumentTransposition as RawInstrumentTransposition,
 } from "@viritura/core/raw-viritura";
 
-import { parseDynamicGroup, parseOttava, parseTextExpression, parsePedal, parseRhythmicPosition } from "./parseGlobal";
+import { parseDynamicGroup, parseOttava, parsePositionedText, parsePedal, parseRhythmicPosition } from "./parseGlobal";
 import { parseSequences } from "./parseContent";
 
 // ═══════════════════════════════════════════
 // Parts
 // ═══════════════════════════════════════════
 
-export function parseParts(arr: RawPart[] | undefined): Part[] {
+export function parseParts(arr: RawPart[] | undefined, useLegacyKeyFlipDefault = false): Part[] {
   if (!arr) return [];
-  return arr.map(parsePart);
+  return arr.map((part) => parsePart(part, useLegacyKeyFlipDefault));
 }
 
-function parsePart(raw: RawPart): Part {
+function parsePart(raw: RawPart, useLegacyKeyFlipDefault: boolean): Part {
   const part: Part = {
     name: raw.name ?? "",
-    measures: parsePartMeasures(raw.measures),
+    measures: parsePartMeasures(raw.measures, useLegacyKeyFlipDefault),
   };
   if (raw.id) part.id = raw.id;
   if (raw.shortName !== undefined) part.shortName = raw.shortName;
   if (raw.staves !== undefined) part.staves = raw.staves;
-  if (raw.transposition) part.transposition = parseTransposition(raw.transposition);
+  if (raw.transposition) part.transposition = parseTransposition(raw.transposition, useLegacyKeyFlipDefault);
   if (raw.kit) {
     part.kit = parseKit(raw.kit);
   }
@@ -89,7 +89,10 @@ function parsePart(raw: RawPart): Part {
     }
     if (viritura.instruments) {
       ext.instruments = Object.fromEntries(
-        Object.entries(viritura.instruments).map(([key, instrument]) => [key, parseInstrumentDefinition(instrument)]),
+        Object.entries(viritura.instruments).map(([key, instrument]) => [
+          key,
+          parseInstrumentDefinition(instrument, useLegacyKeyFlipDefault),
+        ]),
       );
     }
     if (viritura.initialInstrument !== undefined) ext.initialInstrument = viritura.initialInstrument;
@@ -100,32 +103,44 @@ function parsePart(raw: RawPart): Part {
   return part;
 }
 
-function parseTransposition(t: RawPartTransposition | RawInstrumentTransposition): Transposition {
+function parseTransposition(
+  t: RawPartTransposition | RawInstrumentTransposition,
+  useLegacyKeyFlipDefault: boolean,
+): Transposition {
   const transposition: Transposition = {
     interval: {
       halfSteps: t.interval.halfSteps,
       staffDistance: t.interval.staffDistance,
     },
   };
-  if (t.keyFifthsFlipAt !== undefined) transposition.keyFifthsFlipAt = t.keyFifthsFlipAt;
+  if (t.keyFifthsFlipAt !== undefined) {
+    transposition.keyFifthsFlipAt = t.keyFifthsFlipAt;
+  } else if (useLegacyKeyFlipDefault && 7 * t.interval.halfSteps !== 12 * t.interval.staffDistance) {
+    transposition.keyFifthsFlipAt = 7;
+  }
   if (t.prefersWrittenPitches !== undefined) transposition.prefersWrittenPitches = t.prefersWrittenPitches;
   return transposition;
 }
 
-function parseInstrumentDefinition(raw: RawInstrumentDefinition): InstrumentDefinition {
+function parseInstrumentDefinition(
+  raw: RawInstrumentDefinition,
+  useLegacyKeyFlipDefault: boolean,
+): InstrumentDefinition {
   const instrument: InstrumentDefinition = { instrumentId: raw.instrumentId };
   if (raw.name !== undefined) instrument.name = raw.name;
   if (raw.shortName !== undefined) instrument.shortName = raw.shortName;
-  if (raw.transposition) instrument.transposition = parseTransposition(raw.transposition);
+  if (raw.transposition) {
+    instrument.transposition = parseTransposition(raw.transposition, useLegacyKeyFlipDefault);
+  }
   if (raw.midiProgram !== undefined) instrument.midiProgram = raw.midiProgram;
   return instrument;
 }
 
-function parseInstrumentChange(raw: RawInstrumentChange): InstrumentChange {
+function parseInstrumentChange(raw: RawInstrumentChange, useLegacyKeyFlipDefault: boolean): InstrumentChange {
   const change: InstrumentChange = {};
   if (raw.position) change.position = parseRhythmicPosition(raw.position);
   if (raw.instrument !== undefined) change.instrument = raw.instrument;
-  if (raw.transposition) change.transposition = parseTransposition(raw.transposition);
+  if (raw.transposition) change.transposition = parseTransposition(raw.transposition, useLegacyKeyFlipDefault);
   if (raw.instruction) {
     change.instruction = {};
     if (raw.instruction.text !== undefined) change.instruction.text = raw.instruction.text;
@@ -153,23 +168,21 @@ function parseKitComponent(raw: RawKitComponent): KitComponent {
   };
   if (typeof raw.name === "string") c.name = raw.name;
   if (typeof raw.sound === "string") c.sound = raw.sound;
-  // _x.viritura vendor extensions: notehead (MNX issue #249) + drumKit override.
   const viritura = raw._x?.["viritura"] as RawKitComponentExt | undefined;
-  if (viritura?.notehead) {
-    c.notehead = viritura.notehead as NoteheadShape;
-  }
+  if (raw.notehead) c.notehead = raw.notehead;
+  else if (viritura?.notehead) c.notehead = legacyNotehead(viritura.notehead);
   if (typeof viritura?.drumKit === "number") {
     c.drumKit = viritura.drumKit;
   }
   return c;
 }
 
-function parsePartMeasures(arr: RawPartMeasure[] | undefined): PartMeasure[] {
+function parsePartMeasures(arr: RawPartMeasure[] | undefined, useLegacyKeyFlipDefault: boolean): PartMeasure[] {
   if (!arr) return [];
-  return arr.map(parsePartMeasure);
+  return arr.map((measure) => parsePartMeasure(measure, useLegacyKeyFlipDefault));
 }
 
-function parsePartMeasure(raw: RawPartMeasure): PartMeasure {
+function parsePartMeasure(raw: RawPartMeasure, useLegacyKeyFlipDefault: boolean): PartMeasure {
   const pm: PartMeasure = {
     sequences: parseSequences(raw.sequences),
   };
@@ -195,15 +208,13 @@ function parsePartMeasure(raw: RawPartMeasure): PartMeasure {
   if (raw.measureRepeat) {
     pm.measureRepeat = parseMeasureRepeat(raw.measureRepeat);
   }
+  if (raw.text?.length) pm.expressions = raw.text.map(parsePositionedText);
 
   // _x.viritura vendor extensions (none of these are in the MNX schema)
   const viritura = raw._x?.["viritura"] as RawPartMeasureExt | undefined;
   if (viritura) {
     if (viritura.pedals) {
       pm.pedals = viritura.pedals.map(parsePedal);
-    }
-    if (viritura.expressions) {
-      pm.expressions = viritura.expressions.map(parseTextExpression);
     }
     if (viritura.condensingOverride) {
       pm.condensingOverride = viritura.condensingOverride;
@@ -218,7 +229,9 @@ function parsePartMeasure(raw: RawPartMeasure): PartMeasure {
       pm.staffMeters = viritura.staffMeters.map(parseStaffMeterChange);
     }
     if (viritura.instrumentChanges && viritura.instrumentChanges.length > 0) {
-      pm.instrumentChanges = viritura.instrumentChanges.map(parseInstrumentChange);
+      pm.instrumentChanges = viritura.instrumentChanges.map((change) =>
+        parseInstrumentChange(change, useLegacyKeyFlipDefault),
+      );
     }
   }
   return pm;

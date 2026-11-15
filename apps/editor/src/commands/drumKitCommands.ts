@@ -13,7 +13,16 @@
 import { produce } from "../score/scoreClone";
 import { isPercussionPart } from "../score/kitInput";
 import { keyLabel, defaultDrumKitProgram } from "@viritura/audio";
-import type { Score, NoteheadShape, Part, SequenceContent, KitNote, KitComponent } from "@viritura/core";
+import {
+  legacyNotehead,
+  noteheadEditorShape,
+  type Score,
+  type NoteheadShape,
+  type Part,
+  type SequenceContent,
+  type KitNote,
+  type KitComponent,
+} from "@viritura/core";
 import type { KitComponentEdit, DrumKitTarget } from "../components/DrumKitDialog";
 
 /** Default GM key when a component has no resolvable sound (acoustic snare). */
@@ -42,7 +51,7 @@ export function resolveDrumKitTarget(score: Score, partIndex: number): DrumKitTa
       id,
       name: comp.name ?? id,
       staffPosition: comp.staffPosition ?? 0,
-      notehead: comp.notehead ?? "normal",
+      notehead: noteheadEditorShape(comp.notehead),
       drumKit: comp.drumKit,
       midiKey: typeof midi === "number" ? midi : FALLBACK_MIDI_KEY,
     };
@@ -81,7 +90,9 @@ export function applyDrumKitEdits(score: Score, partIndex: number, edits: readon
     for (const edit of edits) {
       const soundId = `snd-p${partIndex}-${edit.id}`;
       const comp: (typeof newKit)[string] = { staffPosition: edit.staffPosition, name: edit.name, sound: soundId };
-      if (edit.notehead !== "normal") comp.notehead = edit.notehead as NoteheadShape;
+      const previous = oldKit[edit.id]?.notehead;
+      if (previous && noteheadEditorShape(previous) === edit.notehead) comp.notehead = previous;
+      else if (edit.notehead !== "normal") comp.notehead = legacyNotehead(edit.notehead);
       if (edit.drumKit !== undefined) comp.drumKit = edit.drumKit;
       newKit[edit.id] = comp;
 
@@ -197,7 +208,7 @@ export function setEventNotehead(score: Score, params: SetNoteheadParams): Score
     if (event.notes && event.notes.length > 0) {
       for (const note of event.notes) {
         if (notehead === "normal") delete note.notehead;
-        else note.notehead = notehead;
+        else note.notehead = legacyNotehead(notehead);
       }
       return;
     }
@@ -226,7 +237,7 @@ function applyNoteheadToKitNote(part: Part, kitNote: KitNote, notehead: Notehead
   if (!kit) return;
   const current = kit[kitNote.kitComponent];
   if (!current) return;
-  if ((current.notehead ?? "normal") === notehead) return;
+  if (noteheadEditorShape(current.notehead) === notehead) return;
 
   // Reuse a sibling component that already represents this instrument with the
   // requested notehead, so toggling between noteheads doesn't bloat the kit.
@@ -236,7 +247,7 @@ function applyNoteheadToKitNote(part: Part, kitNote: KitNote, notehead: Notehead
       (comp.staffPosition ?? 0) === (current.staffPosition ?? 0) &&
       comp.sound === current.sound &&
       comp.drumKit === current.drumKit &&
-      (comp.notehead ?? "normal") === notehead
+      noteheadEditorShape(comp.notehead) === notehead
     ) {
       kitNote.kitComponent = id;
       return;
@@ -246,7 +257,7 @@ function applyNoteheadToKitNote(part: Part, kitNote: KitNote, notehead: Notehead
   // Mint a new component cloned from the current one with the chosen notehead.
   const newComp: KitComponent = { ...current };
   if (notehead === "normal") delete newComp.notehead;
-  else newComp.notehead = notehead;
+  else newComp.notehead = legacyNotehead(notehead);
   const newId = freshKitComponentId(kit, kitNote.kitComponent, notehead);
   kit[newId] = newComp;
   kitNote.kitComponent = newId;
@@ -275,10 +286,10 @@ export function getEventNotehead(
   const content = resolveEventContainer(seq.content, loc.tupletIndex);
   const event = content?.[loc.eventIndex];
   if (!event || event.type !== "event") return null;
-  if (event.notes && event.notes.length > 0) return event.notes[0]?.notehead ?? "normal";
+  if (event.notes && event.notes.length > 0) return noteheadEditorShape(event.notes[0]?.notehead);
   if (event.kitNotes && event.kitNotes.length > 0) {
     const compId = event.kitNotes[0]?.kitComponent;
-    if (compId) return part.kit?.[compId]?.notehead ?? "normal";
+    if (compId) return noteheadEditorShape(event.kitNotes[0]?.notehead ?? part.kit?.[compId]?.notehead);
   }
   return null;
 }

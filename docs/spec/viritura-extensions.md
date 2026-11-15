@@ -11,21 +11,23 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                       | Extensions                                                                                                                                      |
-| -------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, pageSetupDefaults, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, pageSetupRole, instrumentNameDisplay, autoHideEmptyParts, layoutBreaks, textFrames                                                   |
-| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                                               |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                                         |
-| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                                         |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                                               |
-| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                                           |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                                   |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                                    |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                                                      |
-| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                                            |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                                           |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                                        |
+| MNX Object                                   | JSON Path                                       | Extensions                                                                                                                   |
+| -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks, textFrames                                                                   |
+| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                            |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                      |
+| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                      |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                                         |
+| positioned text                              | `parts[].measures[].text[]._x.viritura`         | frame, pagePosition, manualOffset, avoidCollisions                                                                           |
+| formatted-text chunk                         | `parts[].measures[].text[].text[]._x.viritura`  | style, smuflStyle                                                                                                            |
+| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                        |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                 |
+| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                                   |
+| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                         |
+| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                        |
+| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                     |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -1588,21 +1590,33 @@ Array of piano pedal markings.
 
 **SMuFL glyphs**: U+E650 (Ped), U+E655 (\*), U+E659 (Sost.)
 
-### `expressions`
+### Positioned text (`text[]`)
 
-Array of text expressions and performance directions.
+Staff text expressions and performance directions use native MNX
+`part-measure.text[]` items. The retired `_x.viritura.expressions` array is no
+longer read; documents containing it fail validation.
 
-| Property    | Type                                   | Required | Description                                                                              |
-| ----------- | -------------------------------------- | -------- | ---------------------------------------------------------------------------------------- |
-| `text`      | [TextContent](#inline-text-content)    | **Yes**  | Expression text (e.g. "dolce", "rit.", "a tempo"); legacy strings are accepted on import |
-| `position`  | [RhythmicPosition](#rhythmic-position) | **Yes**  | Rhythmic position                                                                        |
-| `placement` | `"below"` \| `"above"`                 | No       | Position relative to staff. Default: `"below"`                                           |
-| `staff`     | integer (≥1)                           | No       | Staff number                                                                             |
-| `voice`     | string                                 | No       | Voice name                                                                               |
-| `frame`     | object                                 | No       | Optional rectangular presentation; see below                                             |
+The native `type` defaults to `"general"` and may be `"expression"`. Expression
+text remains a separate object from dynamics; layout may place matching
+expression text inline with a dynamic at the same rhythmic position, but no
+stored link is created. Viritura presentation metadata lives under each item's
+`_x.viritura`; run styles live under each text chunk's `_x.viritura.style`
+(and `smuflStyle` for SMuFL chunks).
 
-Below-staff text defaults to italic serif; above-staff text uses upright serif.
-Rich-text run styles remain available inside either a plain expression or a frame.
+| Property                                                                           | Type                                   | Required | Description                                        |
+| ---------------------------------------------------------------------------------- | -------------------------------------- | -------- | -------------------------------------------------- |
+| `text`                                                                             | MNX formatted text                     | **Yes**  | Text and SMuFL chunks (e.g. "dolce", "rit.")       |
+| `type`                                                                             | `"general"` \| `"expression"`          | No       | MNX text type. Default: `"general"`                |
+| `position`                                                                         | [RhythmicPosition](#rhythmic-position) | No       | Rhythmic position. Default: measure start          |
+| `placement`                                                                        | `"above"` \| `"below"` \| `"auto"`     | No       | Position relative to staff; `"auto"` renders below |
+| `staff`                                                                            | integer (≥1)                           | No       | Staff number                                       |
+| `voice`                                                                            | string                                 | No       | Voice name                                         |
+| `_x.viritura.frame`                                                                | object                                 | No       | Optional rectangular presentation; see below       |
+| `_x.viritura.pagePosition`                                                         | object                                 | No       | Page-frame restoration geometry                    |
+| `_x.viritura.manualOffset`                                                         | [dx, dy] in sp                         | No       | Manual offset after automatic placement            |
+| `_x.viritura.avoidCollisions`                                                      | boolean                                | No       | `false` pins manually placed text. Default: `true` |
+| Below-staff text defaults to italic serif; above-staff text uses upright serif.    |
+| Rich-text run styles remain available inside either a plain expression or a frame. |
 
 `frame` shares the page-frame presentation vocabulary, but its width, when
 specified, is `{ "unit": "staffSpaces", "value": <positive number> }`.
@@ -1641,14 +1655,19 @@ The glyph picker opens from **Insert notation glyph** and preserves named glyph 
 
 ```json
 {
-  "text": [{ "text": "Play freely\nThen resume the pulse", "style": { "weight": "bold" } }],
+  "type": "expression",
+  "text": [{ "text": "Play freely\nThen resume the pulse", "_x": { "viritura": { "style": { "weight": "bold" } } } }],
   "position": { "fraction": [0, 1] },
   "placement": "above",
-  "frame": {
-    "width": { "unit": "staffSpaces", "value": 20 },
-    "padding": 0.5,
-    "border": "solid",
-    "paragraphJustification": "center"
+  "_x": {
+    "viritura": {
+      "frame": {
+        "width": { "unit": "staffSpaces", "value": 20 },
+        "padding": 0.5,
+        "border": "solid",
+        "paragraphJustification": "center"
+      }
+    }
   }
 }
 ```
@@ -2132,22 +2151,17 @@ Extensions on `parts[].kit[]._x.viritura` (on a drum-kit component).
 
 ### `notehead`
 
-Notehead shape rendered for hits on this kit component (e.g. `"x"` for cymbals/hi-hat,
-`"diamond"` for special techniques). The underlying MNX gap is broader than drum-kit
-notation: MNX has no standard way to assign a custom notehead shape or SMuFL notehead
-glyph on `note`, `kit-component`, or inherited layout defaults. See
-[W3C MNX issue #249](https://github.com/w3c-cg/mnx/issues/249).
+Legacy notehead shape for hits on this kit component. MNX 52 has native
+`notehead` objects on `note`, `kit-note`, and `kit-component`, including
+SMuFL glyphs for custom shapes. Viritura accepts this extension when reading
+older scores, prefers a native notehead when both forms are present, and writes
+the native MNX field.
 
-Viritura currently stores notehead shape on `kit-component` because that covers the
-percussion-map use case cleanly: every `kit-note` referencing the component renders with
-the configured shape while round-tripping through spec-compliant MNX consumers. A future
-MNX standard solution should likely address both per-note overrides and reusable/inherited
-defaults, not only drum kits.
+Legacy values: `"normal"`, `"x"`, `"circleX"`, `"diamond"`, `"slash"`,
+`"triangleUp"`, `"triangleDown"`, `"plus"`, and `"square"`. Native MNX
+uses `"oval"` for `"normal"` and `"triangle"` for `"triangleUp"`.
 
-Allowed values: `"normal"`, `"x"`, `"circleX"`, `"diamond"`, `"slash"`,
-`"triangleUp"`, `"triangleDown"`. Default: `"normal"`.
-
-A pitched `note` may carry the same `_x.viritura.notehead` as a per-note override.
+A legacy pitched `note` may carry the same `_x.viritura.notehead` as a per-note override.
 Playback does not sound pitched notes with `"x"`, `"circleX"`, or `"slash"` noteheads:
 those mark unpitched techniques (claps, taps, spoken or percussive effects, rhythmic
 slashes) that MIDI cannot reproduce. Diamond (harmonic) and triangle (shape-note)

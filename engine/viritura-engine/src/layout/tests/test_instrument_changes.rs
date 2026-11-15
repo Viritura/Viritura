@@ -979,9 +979,9 @@ fn instrument_changes_reminders_do_not_change_authored_expression_rest_boundarie
         value["parts"][0]["measures"][index]["sequences"] =
             json!([{"content":[{"duration":{"base":"whole"},"rest":{}}]}]);
     }
-    value["parts"][0]["measures"][1]["_x"] = json!({"viritura":{"expressions":[{
-        "text":[{"text":"dolce"}], "position":{"fraction":[0,1]}
-    }]}});
+    value["parts"][0]["measures"][1]["text"] = json!([{
+        "type":"expression", "text":[{"text":"dolce"}], "position":{"fraction":[0,1]}
+    }]);
     let resolved = resolve_measures(&parse(&value), 0);
     assert!(!resolved[1].part.expressions.as_ref().unwrap()[0].instrument_reminder);
     assert_eq!(

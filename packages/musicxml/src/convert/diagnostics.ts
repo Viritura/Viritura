@@ -92,7 +92,6 @@ export function collectLossyDiagnostics(root: Element, dx: DiagnosticCollector, 
     note("delayed-turn", "info", "Delayed turns dropped — enable vendor extensions to preserve", "musicxml-turn");
     note("arpeggiate", "info", "Arpeggios dropped — enable vendor extensions to preserve", "musicxml-arpeggio");
     note("rehearsal", "info", "Rehearsal marks dropped — enable vendor extensions to preserve", "musicxml-rehearsal");
-    note("words", "info", "Text expressions dropped — enable vendor extensions to preserve", "musicxml-words");
     note("pedal", "info", "Pedal markings dropped — enable vendor extensions to preserve", "musicxml-pedal");
     note("fingering", "info", "Fingerings dropped — enable vendor extensions to preserve", "musicxml-fingering");
   }

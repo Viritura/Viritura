@@ -436,12 +436,26 @@ pub struct Pedal {
 /// the Viritura vendor `expression-placement` schema.
 pub use crate::raw_viritura::ExpressionPlacement;
 
+/// Semantic role of positioned MNX text; only expression text participates in
+/// expression-specific placement and dynamic inline pairing.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum PositionedTextType {
+    #[default]
+    Expression,
+    General,
+}
+
 /// A text expression or direction at a rhythmic position (e.g. "dolce", "rit.", "a tempo").
 /// These are Italian or other language performance directions typically rendered in italic.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TextExpression {
     /// The expression text (e.g. "dolce", "espressivo", "rit.", "a tempo")
     pub text: TextContent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, rename = "type")]
+    pub text_type: PositionedTextType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frame: Option<super::text_frame::StaffTextFramePresentation>,
     /// Rhythmic position within the measure

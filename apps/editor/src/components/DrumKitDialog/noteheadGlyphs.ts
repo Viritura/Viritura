@@ -11,6 +11,9 @@ export const NOTEHEAD_GLYPHS: Record<NoteheadShape, { glyph: string; label: stri
   slash: { glyph: "\uE103", label: "Slash" },
   triangleUp: { glyph: "\uE0BF", label: "Triangle up" },
   triangleDown: { glyph: "\uE0C7", label: "Triangle down" },
+  plus: { glyph: "\uE0AF", label: "Plus" },
+  square: { glyph: "\uE0B9", label: "Square" },
+  custom: { glyph: "?", label: "Custom" },
 };
 
 /** Notehead shapes in palette order. */
@@ -22,6 +25,8 @@ export const NOTEHEAD_SHAPES: readonly NoteheadShape[] = [
   "triangleUp",
   "triangleDown",
   "slash",
+  "plus",
+  "square",
 ];
 
 /** The Bravura glyph for a notehead shape (quarter-note form). */

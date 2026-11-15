@@ -1,4 +1,11 @@
-import type { ClefSign, KitComponent, Part, PositionedStaffConfig, Sound } from "@viritura/core";
+import {
+  legacyNotehead,
+  type ClefSign,
+  type KitComponent,
+  type Part,
+  type PositionedStaffConfig,
+  type Sound,
+} from "@viritura/core";
 import type { CatalogInstrument, KitComponentDef } from "./InstrumentCatalog";
 import { buildPartTransposition } from "./InstrumentCatalog";
 
@@ -104,7 +111,9 @@ function attachKit(
       name: component.name,
       sound: soundId,
       staffPosition: component.staffPosition,
-      ...(component.notehead && component.notehead !== "normal" ? { notehead: component.notehead } : {}),
+      ...(component.notehead && component.notehead !== "normal"
+        ? { notehead: legacyNotehead(component.notehead) }
+        : {}),
       ...(component.drumKit !== undefined ? { drumKit: component.drumKit } : {}),
     };
     sounds[soundId] = { midiNumber: component.midiNumber, name: component.name };

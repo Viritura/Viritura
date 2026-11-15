@@ -25,9 +25,7 @@ export const Dolce: StoryObj = {
             ],
           ],
           dynamics: [{ value: "p", position: { fraction: [0, 1] } }],
-          virituraPartMeasure: {
-            expressions: [{ text: [{ text: "dolce" }], position: { fraction: [0, 1] } }],
-          },
+          text: [{ type: "expression", text: [{ text: "dolce" }], position: { fraction: [0, 1] } }],
         },
       ],
     });
@@ -49,12 +47,10 @@ export const MultipleExpressions: StoryObj = {
               { duration: "quarter", notes: [{ step: "A", octave: 4 }] },
             ],
           ],
-          virituraPartMeasure: {
-            expressions: [
-              { text: [{ text: "espressivo" }], position: { fraction: [0, 1] } },
-              { text: [{ text: "rit." }], position: { fraction: [1, 2] } },
-            ],
-          },
+          text: [
+            { type: "expression", text: [{ text: "espressivo" }], position: { fraction: [0, 1] } },
+            { type: "expression", text: [{ text: "rit." }], position: { fraction: [1, 2] } },
+          ],
         },
       ],
     });
@@ -99,24 +95,27 @@ export const FramedStaffText: StoryObj = {
         {
           time: { count: 4, unit: 4 },
           voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
-          virituraPartMeasure: {
-            expressions: [
-              {
-                text: [
-                  { text: "Play freely\n", style: { weight: "bold" } },
-                  { text: "Then resume the pulse without a break" },
-                ],
-                position: { fraction: [0, 1] },
-                placement: "above",
-                frame: {
-                  width: { unit: "staffSpaces", value: 18 },
-                  padding: 0.5,
-                  border: "solid",
-                  paragraphJustification: "center",
+          text: [
+            {
+              type: "expression",
+              text: [
+                { text: "Play freely\n", _x: { viritura: { style: { weight: "bold" } } } },
+                { text: "Then resume the pulse without a break" },
+              ],
+              position: { fraction: [0, 1] },
+              placement: "above",
+              _x: {
+                viritura: {
+                  frame: {
+                    width: { unit: "staffSpaces", value: 18 },
+                    padding: 0.5,
+                    border: "solid",
+                    paragraphJustification: "center",
+                  },
                 },
               },
-            ],
-          },
+            },
+          ],
         },
       ],
     });

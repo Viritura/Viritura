@@ -532,10 +532,7 @@ describe("convertMusicXmlToMnx — basics", () => {
     const measure = result.parts[0]!.measures[0]!;
     expect(measure.dynamics).toHaveLength(1);
     expect(measure.dynamics![0]!.value).toBe("fff");
-    const ext = (measure as unknown as Record<string, unknown>)._x as {
-      viritura: Record<string, unknown>;
-    };
-    const exprs = ext.viritura["expressions"] as { text: { text: string }[] }[];
+    const exprs = measure.text!;
     expect(exprs).toHaveLength(1);
     expect(exprs[0]!.text).toEqual([{ text: "arco" }]);
   });
@@ -559,8 +556,7 @@ describe("convertMusicXmlToMnx — basics", () => {
 
     const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
     const measure = result.parts[0]!.measures[0]!;
-    const ext = (measure as unknown as Record<string, unknown>)._x as { viritura: Record<string, unknown> };
-    const exprs = ext.viritura["expressions"] as { text: unknown }[];
+    const exprs = measure.text!;
     expect(exprs.map((expr) => expr.text)).toEqual([[{ text: "cresc." }], [{ text: "poco a poco" }]]);
   });
 
@@ -583,8 +579,7 @@ describe("convertMusicXmlToMnx — basics", () => {
 
     const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
     const measure = result.parts[0]!.measures[0]!;
-    const ext = (measure as unknown as Record<string, unknown>)._x as { viritura: Record<string, unknown> };
-    const exprs = ext.viritura["expressions"] as { text: unknown }[];
+    const exprs = measure.text!;
     expect(exprs.map((expr) => expr.text)).toEqual([
       [{ text: "sim." }],
       [{ text: "sim.", style: { fontStyle: "italic" } }],
@@ -1215,9 +1210,8 @@ describe("convertMusicXmlToMnx — tempo", () => {
     expect(tempo.bpm).toBe(80);
     expect(tempo._x).toEqual({ viritura: { text: [{ text: "Molto moderato" }] } });
     // The directive text must NOT also be emitted as a staff text expression.
-    const measure = result.parts[0]!.measures[0]! as unknown as Record<string, unknown>;
-    const ext = measure._x as { viritura?: Record<string, unknown> } | undefined;
-    expect(ext?.viritura?.["expressions"]).toBeUndefined();
+    const measure = result.parts[0]!.measures[0]!;
+    expect(measure.text).toBeUndefined();
   });
 
   it("omits tempo-text directive when vendor extensions are disabled", () => {
@@ -2237,9 +2231,8 @@ describe("convertMusicXmlToMnx — wedges", () => {
       <direction placement="above"><direction-type><words>dolce</words></direction-type></direction>
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
     `);
-    const measure = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!;
-    const ext = (measure as unknown as Record<string, unknown>)._x as { viritura: Record<string, unknown> };
-    const expressions = ext.viritura["expressions"] as { text: { text: string }[]; placement?: string }[];
+    const measure = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!;
+    const expressions = measure.text!;
     expect(expressions).toHaveLength(1);
     expect(expressions[0]!.text).toEqual([{ text: "dolce" }]);
     expect(expressions[0]!.placement).toBe("above");
@@ -2256,7 +2249,7 @@ describe("convertMusicXmlToMnx — wedges", () => {
     const global = score.global.measures[0]! as {
       _x?: { viritura: { systemText?: { id: string; text: { text: string }[]; placement: string }[] } };
     };
-    const partMeasure = score.parts[0]!.measures[0]! as { _x?: { viritura: Record<string, unknown> } };
+    const partMeasure = score.parts[0]!.measures[0]!;
 
     expect(global._x?.viritura.systemText).toHaveLength(1);
     expect(global._x?.viritura.systemText?.[0]).toMatchObject({
@@ -2264,7 +2257,7 @@ describe("convertMusicXmlToMnx — wedges", () => {
       text: [{ text: "Con brio" }],
       placement: "above",
     });
-    expect(partMeasure._x?.viritura["expressions"]).toBeUndefined();
+    expect(partMeasure.text).toBeUndefined();
   });
 
   it.each([
@@ -2279,12 +2272,11 @@ describe("convertMusicXmlToMnx — wedges", () => {
     `);
     const diagnostics = new DiagnosticCollector();
     const score = convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
-    const partMeasure = score.parts[0]!.measures[0]! as {
-      _x?: { viritura: { expressions?: { text: { text: string }[]; placement?: string }[] } };
-    };
+    const partMeasure = score.parts[0]!.measures[0]!;
 
-    expect(partMeasure._x?.viritura.expressions).toHaveLength(1);
-    expect(partMeasure._x?.viritura.expressions?.[0]).toMatchObject({
+    expect(partMeasure.text).toHaveLength(1);
+    expect(partMeasure.text?.[0]).toMatchObject({
+      type: "expression",
       text: [{ text: "Espressivo" }],
       placement,
     });
@@ -2305,9 +2297,8 @@ describe("convertMusicXmlToMnx — wedges", () => {
       </direction>
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
     `);
-    const measure = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!;
-    const ext = (measure as unknown as Record<string, unknown>)._x as { viritura: Record<string, unknown> };
-    const expressions = ext.viritura["expressions"] as { text: { text: string }[] }[];
+    const measure = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!;
+    const expressions = measure.text!;
     expect(expressions).toHaveLength(1);
     expect(expressions[0]!.text).toEqual([{ text: "pizz." }]);
   });
@@ -3001,22 +2992,16 @@ describe("convertMusicXmlToMnx — percussion", () => {
     expect(ev0.notes).toHaveLength(1);
   });
 
-  it("maps a MusicXML <notehead> onto the kit-component vendor extension", () => {
+  it("maps a MusicXML <notehead> onto the native kit-component field", () => {
     const xml = percussionScore(`
       <note><pitch><step>G</step><octave>5</octave></pitch><duration>4</duration><type>whole</type><notehead>x</notehead></note>
     `);
     const result = convertMusicXmlToMnx(xml);
     const comp = Object.values(result.parts[0]!.kit!)[0]!;
-    expect(comp._x?.viritura.notehead).toBe("x");
+    expect(comp.notehead).toEqual({ shape: "x" });
   });
 
-  it("maps a MusicXML <notehead> on a pitched (non-percussion) note onto the per-note vendor extension", () => {
-    // MNX has no `notehead` field on `note` (W3C MNX issue #249) — a raw
-    // MusicXML notehead token must never be carried through as a bare
-    // `notehead` property (invalid per the MNX schema's
-    // `unevaluatedProperties: false`); it must be mapped into
-    // `_x.viritura.notehead` instead, matching Viritura's per-note notehead
-    // override extension.
+  it("maps a MusicXML <notehead> on a pitched note onto the native field", () => {
     const xml = wrapScore(`
       <note>
         <pitch><step>C</step><octave>4</octave></pitch>
@@ -3026,9 +3011,34 @@ describe("convertMusicXmlToMnx — percussion", () => {
       </note>
     `);
     const result = convertMusicXmlToMnx(xml);
-    const note = (result.parts[0]!.measures[0]!.sequences![0]!.content[0]! as { notes: { _x?: unknown }[] }).notes[0]!;
-    expect((note as { notehead?: unknown }).notehead).toBeUndefined();
-    expect((note._x as { viritura: { notehead?: string } })?.viritura.notehead).toBe("diamond");
+    const note = (result.parts[0]!.measures[0]!.sequences![0]!.content[0]! as { notes: { notehead?: unknown }[] })
+      .notes[0]!;
+    expect(note.notehead).toEqual({ shape: "diamond" });
+  });
+
+  it.each([
+    ["triangle", "triangle"],
+    ["inverted triangle", "triangleDown"],
+    ["slash", "slash"],
+    ["plus", "plus"],
+    ["circle-x", "circleX"],
+    ["square", "square"],
+  ])("maps MusicXML %s noteheads to native MNX shapes", (xmlShape, mnxShape) => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration><type>whole</type>
+        <notehead>${xmlShape}</notehead>
+      </note>
+    `);
+    const score = convertMusicXmlToMnx(xml);
+    const note = (
+      score.parts[0]!.measures[0]!.sequences![0]!.content[0]! as {
+        notes: { notehead?: unknown }[];
+      }
+    ).notes[0]!;
+
+    expect(note.notehead).toEqual({ shape: mnxShape });
   });
 
   it("separates same-line hits with different noteheads into distinct components", () => {

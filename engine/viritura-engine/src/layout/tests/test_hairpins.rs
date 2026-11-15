@@ -544,9 +544,9 @@ fn test_dynamic_pinned_hairpin_clears_slur_over_full_span() {
         "global": {"measures": [{"id": "m1", "time": {"count": 4, "unit": 4}}]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
-            "_x": {"viritura": {"expressions": [
-                {"text": [{"text": "cresc."}], "position": {"fraction": [0, 1]}}
-            ]}},
+            "text": [
+                {"type": "expression", "text": [{"text": "cresc."}], "position": {"fraction": [0, 1]}}
+            ],
             "dynamics": [
                 {"id": "start-p", "type": "immediate", "position": {"fraction": [0, 1]}, "value": "p"},
                 {"id": "under-slur", "type": "gradual", "position": {"fraction": [0, 1]},

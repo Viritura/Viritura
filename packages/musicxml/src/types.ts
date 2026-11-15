@@ -1,6 +1,6 @@
-// ─── MNX document output types (schema version 36) ──────────────────
+// ─── MNX document output types (schema version 52) ──────────────────
 
-import type { ChordSymbol, DynamicGroup, Jump, NoteMarkings, Part, Swing, TextContent } from "@viritura/core";
+import type { ChordSymbol, DynamicGroup, Jump, NoteMarkings, Notehead, Part, Swing, TextContent } from "@viritura/core";
 
 export interface MnxDocument {
   mnx: { version: number; support?: { useLyricExtenders?: boolean } };
@@ -107,7 +107,7 @@ export interface MnxKitComponent {
   staffPosition: number;
   sound?: string;
   name?: string;
-  _x?: { viritura: { notehead?: string } };
+  notehead?: Notehead;
 }
 
 /** A drum-hit "note" within an event (MNX `kit-note`): no pitch, references a
@@ -127,6 +127,7 @@ export interface MnxTransposition {
 export interface MnxPartMeasure {
   clefs?: MnxPositionedClef[];
   dynamics?: MnxDynamic[];
+  text?: MnxPositionedText[];
   sequences?: MnxSequence[];
   beams?: MnxBeam[];
   ottavas?: MnxOttava[];
@@ -137,6 +138,14 @@ export interface MnxPartMeasure {
     staff?: number;
   }>;
   _x?: { viritura: Record<string, unknown> };
+}
+
+interface MnxPositionedText {
+  type: "expression";
+  text: TextContent;
+  position: MnxRhythmicPosition;
+  placement?: "above" | "below";
+  staff?: number;
 }
 
 export interface MnxNonArpeggio {
@@ -310,12 +319,8 @@ export interface MnxNote {
   markings?: NoteMarkings;
   ties?: MnxTie[];
   staff?: number;
-  /** Vendor-extension per-note notehead override (mapped from a MusicXML
-   *  `<notehead>` token). MNX has no notehead field on a note (W3C MNX issue
-   *  #249). Percussion conversion reads this back off the note to build
-   *  kit-components, then discards the note entirely (replaced by
-   *  `kitNotes`), so it never survives onto a drum hit. */
-  _x?: { viritura: { notehead?: string } };
+  /** Native MNX notehead (also consumed for the percussion kit-component map). */
+  notehead?: Notehead;
 }
 
 export interface MnxTie {

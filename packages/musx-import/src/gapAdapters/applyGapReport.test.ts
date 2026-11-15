@@ -180,9 +180,9 @@ describe("applyDenigmaGapReport", () => {
     const parsed = JSON.parse(result.mnxJson) as {
       parts: Array<{ measures: Array<JsonRecord> }>;
     };
-    expect(viritura(parsed.parts[0]!.measures[0]!)["expressions"]).toEqual([
-      { text: [{ text: "dolce" }], position: { fraction: [0, 1] } },
-      { text: [{ text: "pizz." }], position: { fraction: [1, 4] } },
+    expect(parsed.parts[0]!.measures[0]!["text"]).toEqual([
+      { type: "expression", text: [{ text: "dolce" }], position: { fraction: [0, 1] } },
+      { type: "expression", text: [{ text: "pizz." }], position: { fraction: [1, 4] } },
     ]);
     expect(result.outcomes.map((entry) => entry.disposition)).toEqual(["handled", "handled", "handled-partially"]);
   });
@@ -210,12 +210,16 @@ describe("applyDenigmaGapReport", () => {
 
     const result = apply([gap]);
     const parsed = JSON.parse(result.mnxJson) as { parts: Array<{ measures: Array<JsonRecord> }> };
-    expect(viritura(parsed.parts[0]!.measures[0]!)["expressions"]).toEqual([
+    expect(parsed.parts[0]!.measures[0]!["text"]).toEqual([
       {
+        type: "expression",
         text: [
-          { text: "sempre ", style: { fontStyle: "italic" } },
-          { glyphs: ["dynamicPiano"] },
-          { text: "pizz.", style: { weight: "bold", decorations: ["underline", "strikethrough"] } },
+          { text: "sempre ", _x: { viritura: { style: { fontStyle: "italic" } } } },
+          { type: "smufl", glyphs: ["dynamicPiano"] },
+          {
+            text: "pizz.",
+            _x: { viritura: { style: { weight: "bold", decorations: ["underline", "strikethrough"] } } },
+          },
         ],
         position: { fraction: [0, 1] },
       },
@@ -560,8 +564,8 @@ describe("applyDenigmaGapReport", () => {
       value: { base: "quarter" },
       _x: { viritura: { text: [{ text: "Andante" }], showMetronomeMark: false } },
     });
-    expect(viritura(parsed.parts[0]!.measures[0]!)["expressions"]).toEqual([
-      { text: [{ text: "rit." }], position: { fraction: [1, 4] }, placement: "above" },
+    expect(parsed.parts[0]!.measures[0]!["text"]).toEqual([
+      { type: "expression", text: [{ text: "rit." }], position: { fraction: [1, 4] }, placement: "above" },
     ]);
   });
 

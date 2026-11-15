@@ -160,6 +160,8 @@ describe("score text frames", () => {
         partId: "part-1",
         measureId: "global-measure-1",
         expression: {
+          id: "staff-text-1",
+          type: "general",
           position: { fraction: [1, 4] },
           staff: 1,
           placement: "below",
@@ -197,13 +199,14 @@ describe("score text frames", () => {
           measures: [
             {
               ...measure,
-              _x: {
-                viritura: {
-                  expressions: [
-                    { text: [{ text: "Staff instructions" }], position: { fraction: [0, 1] }, pagePosition: geometry },
-                  ],
+              text: [
+                {
+                  type: "expression",
+                  text: [{ text: "Staff instructions" }],
+                  position: { fraction: [0, 1] },
+                  _x: { viritura: { pagePosition: geometry } },
                 },
-              },
+              ],
             },
           ],
         },

@@ -51,6 +51,9 @@ const STEM_ANCHORS: Record<NoteheadShape, { width: number; upY: number; downY: n
   triangleUp: { width: 1.172, upY: -0.5, downY: -0.5 },
   triangleDown: { width: 1.168, upY: 0.5, downY: 0.5 },
   slash: { width: 1.46, upY: 0.656, downY: -0.664 },
+  plus: { width: 1.0, upY: 0, downY: 0 },
+  square: { width: 1.252, upY: 0.5, downY: -0.5 },
+  custom: { width: 1.18, upY: 0.168, downY: -0.168 },
 };
 
 const SVG_STYLE: CSSProperties = { display: "block", maxWidth: "100%", maxHeight: "100%" };

@@ -99,7 +99,10 @@ fn flatten_content_recursive(
         match item {
             LayoutContent::Group(group) => {
                 let first_staff = staves.len();
-                let child_depth = if group.symbol.as_deref().unwrap_or("bracket") == "bracket" {
+                let child_depth = if matches!(
+                    group.symbol.as_deref().unwrap_or("bracket"),
+                    "bracket" | "square"
+                ) {
                     bracket_depth + 1
                 } else {
                     bracket_depth

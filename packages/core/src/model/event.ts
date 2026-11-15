@@ -23,8 +23,8 @@ import type {
   SlideOutOfNote as RawSlideOutOfNote,
 } from "../raw";
 import type { Pitch } from "./pitch";
-import type { KitNote, NoteheadShape } from "./kit";
-import type { Narrow, HoistVendor } from "./_derive";
+import type { KitNote } from "./kit";
+import type { Narrow } from "./_derive";
 
 /**
  * Duration (MNX note value).
@@ -70,12 +70,9 @@ export type Written = RawWritten;
  * Derived from MNX raw `note`, with `pitch` narrowed to our `Pitch` type
  * (raw uses an open `octave: number`; we narrow to `Octave = 0..9`).
  *
- * `notehead` is a Viritura vendor extension (`_x.viritura.notehead`) — MNX has
- * no notehead field on `note` (W3C MNX issue #249). It overrides the default
- * notehead for a single pitched note (e.g. a diamond harmonic inside an
- * otherwise normal chord). Stored per-note because chords mix noteheads.
+ * `notehead` overrides the default notehead for this individual note.
  */
-export type Note = HoistVendor<Narrow<RawNote, { pitch: Pitch }>, { notehead?: NoteheadShape }>;
+export type Note = Narrow<RawNote, { pitch: Pitch }>;
 
 /** MNX-generated slide-in type; these are notation marks, not timed playback curves. */
 export type SlideInType = RawSlideIntoNote["type"];

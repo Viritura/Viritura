@@ -44,8 +44,8 @@ pub struct LayoutStaff {
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub labelref: Option<String>,
-    /// Staff symbol type (MNX `symbol`): "brace", "bracket", "noSymbol".
-    /// Nested brackets automatically render as thin lines.
+    /// Staff symbol type (MNX `symbol`): "brace", "bracket", "square", "noSymbol".
+    /// Nested brackets render as full brackets; `square` is the thin sub-bracket.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub symbol: Option<String>,
     /// Whether this is an expansion staff (source staves shown below a condensed staff).
