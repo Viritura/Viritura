@@ -38,8 +38,14 @@ describe("legacy staff-group symbol migration", () => {
     expect((outer.content[0] as LayoutGroup).symbol).toBe("square");
   });
 
-  it("keeps nested MNX brackets as brackets", () => {
+  it("upgrades brackets nested in a bracket to MNX square sub-brackets", () => {
     const outer = parseMnx(document("bracket", "bracket")).layouts?.[0]?.content[0] as LayoutGroup;
+    expect(outer.symbol).toBe("bracket");
+    expect((outer.content[0] as LayoutGroup).symbol).toBe("square");
+  });
+
+  it("keeps brackets nested in a brace as brackets", () => {
+    const outer = parseMnx(document("brace", "bracket")).layouts?.[0]?.content[0] as LayoutGroup;
     expect((outer.content[0] as LayoutGroup).symbol).toBe("bracket");
   });
 });

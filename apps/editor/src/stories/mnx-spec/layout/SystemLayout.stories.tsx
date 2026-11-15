@@ -259,15 +259,6 @@ export const NestedSubGroups: StoryObj = {
   name: "Nested orchestral groups",
 };
 
-/**
- * Nested MNX `bracket` groups draw as full brackets: the innermost brackets
- * stay beside the staff and the enclosing bracket steps outward.
- */
-export const NestedFullBrackets: StoryObj = {
-  render: () => <ScorePreview mnxJson={nestedGroupsMnx.replaceAll('"symbol": "square"', '"symbol": "bracket"')} />,
-  name: "Nested full brackets",
-};
-
 // ---------------------------------------------------------------------------
 // Story 3: noSymbol group
 //   Two vocal parts share barlines (grouped) but have no bracket or brace.
