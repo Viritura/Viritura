@@ -31,9 +31,7 @@ pub(super) fn render_group_brackets_and_braces(
         let bottom_y = staff_y_offsets[group.last_staff] + staff_height;
 
         match group.symbol.as_str() {
-            // Standard engraving practice: a bracket nested inside another
-            // bracket is drawn as a thin sub-bracket, not a second full bracket.
-            "square" | "bracket" if group.symbol == "square" || group.depth > 0 => {
+            "square" => {
                 // Standard engraving practice: a sub-bracket sits outside the
                 // enclosing bracket, and its hooks reach the system line.
                 let bracket_x = if group.depth == 0 {
@@ -60,7 +58,11 @@ pub(super) fn render_group_brackets_and_braces(
                 }
             }
             "bracket" => {
-                let bracket_x = margin_left - 0.7 * sp;
+                // Standard engraving practice: nested brackets keep the
+                // innermost bracket beside the staff and step enclosing
+                // brackets outward.
+                let levels = nested_bracket_levels(group, groups, staff_y_offsets.len());
+                let bracket_x = margin_left - (0.7 + levels as f64 * NESTED_BRACKET_STEP_SP) * sp;
                 let glyph_size = 4.0 * sp;
                 dl.push(RenderCommand::DrawGlyph {
                     x: bracket_x,
@@ -113,6 +115,10 @@ pub(super) fn render_group_brackets_and_braces(
     }
 }
 
+/// Horizontal step between nested full brackets, in staff spaces: the bracket
+/// thickness plus a clear gap.
+const NESTED_BRACKET_STEP_SP: f64 = smufl::BRACKET_THICKNESS + 0.25;
+
 /// A secondary bracket spanning one staff carries no grouping information, so
 /// standard engraving practice omits it.
 fn is_rendered_group(group: &GroupRange, staff_count: usize) -> bool {
@@ -121,6 +127,24 @@ fn is_rendered_group(group: &GroupRange, staff_count: usize) -> bool {
         && !(group.depth > 0
             && group.first_staff == group.last_staff
             && matches!(group.symbol.as_str(), "bracket" | "square"))
+}
+
+/// Count the distinct nesting levels of full brackets drawn inside `outer`.
+fn nested_bracket_levels(outer: &GroupRange, groups: &[GroupRange], staff_count: usize) -> usize {
+    let mut depths: Vec<usize> = groups
+        .iter()
+        .filter(|inner| {
+            inner.symbol == "bracket"
+                && inner.depth > outer.depth
+                && inner.first_staff >= outer.first_staff
+                && inner.last_staff <= outer.last_staff
+                && is_rendered_group(inner, staff_count)
+        })
+        .map(|inner| inner.depth)
+        .collect();
+    depths.sort_unstable();
+    depths.dedup();
+    depths.len()
 }
 
 fn render_brace_label(
@@ -200,21 +224,41 @@ mod tests {
     }
 
     #[test]
-    fn nested_bracket_draws_like_square_sub_bracket_beside_unshifted_outer_bracket() {
-        let staves = [10.0, 30.0, 50.0];
-        let nested_bracket = render(
+    fn nested_bracket_draws_full_bracket_and_steps_enclosing_bracket_outward() {
+        let dl = render(
             &[group(0, 1, "bracket", 1), group(0, 2, "bracket", 0)],
-            &staves,
+            &[10.0, 30.0, 50.0],
         );
-        let nested_square = render(
+        let bracket_tops: Vec<f64> = dl
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawGlyph { x, codepoint, .. }
+                    if *codepoint == smufl::BRACKET_TOP =>
+                {
+                    Some(*x)
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(bracket_tops.len(), 2);
+        assert!((bracket_tops[0] - 19.3).abs() < 0.001);
+        assert!((bracket_tops[1] - (19.3 - NESTED_BRACKET_STEP_SP)).abs() < 0.001);
+    }
+
+    #[test]
+    fn nested_square_keeps_the_enclosing_bracket_next_to_the_staff() {
+        let dl = render(
             &[group(0, 1, "square", 1), group(0, 2, "bracket", 0)],
-            &staves,
+            &[10.0, 30.0, 50.0],
         );
-        assert_eq!(
-            format!("{:?}", nested_bracket.commands),
-            format!("{:?}", nested_square.commands)
-        );
-        let bracket_tops: Vec<f64> = nested_bracket
+        assert!(matches!(
+            &dl.commands[0],
+            RenderCommand::DrawRect { x, w, .. }
+                if (*x - 18.9).abs() < 0.001
+                    && (*w - smufl::SUB_BRACKET_THICKNESS).abs() < 0.001
+        ));
+        let bracket_tops: Vec<f64> = dl
             .commands
             .iter()
             .filter_map(|command| match command {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LayoutGroup } from "@viritura/core";
 import { parseMnx } from "../mnx/parser";
+import { serializeMnx } from "../mnx/serializer";
 
 const STAVES = [
   { type: "staff", sources: [{ part: "P1" }] },
@@ -28,22 +29,24 @@ describe("legacy staff-group symbol migration", () => {
     expect((outer.content[0] as LayoutGroup).symbol).toBe("square");
   });
 
-  it("upgrades brackets nested in a bracket to MNX square sub-brackets", () => {
-    const outer = parseMnx(document("bracket", "bracket")).layouts?.[0]?.content[0] as LayoutGroup;
-    expect(outer.symbol).toBe("bracket");
-    expect((outer.content[0] as LayoutGroup).symbol).toBe("square");
-  });
-
-  it("upgrades every bracket below the outermost bracket, at any depth", () => {
-    const outer = parseMnx(document("bracket", "bracket", "bracket")).layouts?.[0]?.content[0] as LayoutGroup;
+  it("preserves nested brackets across parsing and serialization", () => {
+    const score = parseMnx(document("bracket", "bracket", "bracket"));
+    const outer = parseMnx(serializeMnx(score)).layouts?.[0]?.content[0] as LayoutGroup;
     const middle = outer.content[0] as LayoutGroup;
     expect(outer.symbol).toBe("bracket");
-    expect(middle.symbol).toBe("square");
-    expect((middle.content[0] as LayoutGroup).symbol).toBe("square");
+    expect(middle.symbol).toBe("bracket");
+    expect((middle.content[0] as LayoutGroup).symbol).toBe("bracket");
   });
 
-  it("keeps brackets nested in a brace as brackets", () => {
-    const outer = parseMnx(document("brace", "bracket")).layouts?.[0]?.content[0] as LayoutGroup;
+  it.each(["brace", "square", "noSymbol"])("keeps brackets nested in %s groups", (symbol) => {
+    const outer = parseMnx(document(symbol, "bracket")).layouts?.[0]?.content[0] as LayoutGroup;
     expect((outer.content[0] as LayoutGroup).symbol).toBe("bracket");
+  });
+
+  it("preserves nested brackets when another group uses a legacy symbol", () => {
+    const outer = parseMnx(document("bracket", "bracket", "line")).layouts?.[0]?.content[0] as LayoutGroup;
+    const middle = outer.content[0] as LayoutGroup;
+    expect(middle.symbol).toBe("bracket");
+    expect((middle.content[0] as LayoutGroup).symbol).toBe("square");
   });
 });

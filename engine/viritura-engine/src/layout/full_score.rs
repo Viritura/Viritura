@@ -867,7 +867,7 @@ pub(super) struct GroupRange {
     /// Last staff index in this group (inclusive).
     pub(crate) last_staff: usize,
     /// Symbol type: "bracket", "brace", "square", or "noSymbol".
-    /// Nested brackets render as thin sub-brackets, the same as `square`.
+    /// Nested brackets render as full brackets; `square` is the thin sub-bracket.
     pub(crate) symbol: String,
     /// Group label.
     pub(crate) label: Option<String>,
