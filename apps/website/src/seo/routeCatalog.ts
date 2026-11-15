@@ -70,8 +70,7 @@ const publicRoutes: readonly SeoRoute[] = [
   {
     path: "/docs/instruments-and-scores",
     title: "Scores, Parts, & Layouts | Viritura Documentation",
-    description:
-      "Learn how MNX source parts, score definitions, layouts, full scores, and instrumental parts work in Viritura.",
+    description: "Manage instruments, full and section scores, instrumental parts, and layouts in Viritura.",
     canonicalPath: "/docs/instruments-and-scores",
     indexable: true,
   },

@@ -73,9 +73,16 @@ extension is added automatically.
 
 ## Embed the source
 
-Enable **Embed MNX source** to attach the document's MNX JSON to each PDF for
-round-trip and archival workflows. The visible pages remain ordinary PDF
+Enable **Embed MNX source** to attach a copy of the entire editable document
+as an `.mnx` file to each individual PDF, including every instrument rather
+than just the selected score or part. The visible pages remain ordinary PDF
 content.
+
+> [!NOTE]
+> **Availability: ZIP or separate PDFs**
+>
+> **Single PDF** combines only the pages and does not retain the attached
+> document.
 
 ## Before delivery
 
@@ -86,6 +93,6 @@ content.
 5. Open the generated PDF outside Viritura before running a large batch.
 
 For page geometry and house style, see
-[Engraving & Layout](/docs/engraving-and-layout). For the MNX and
-musician-facing meanings of score and part, see
+[Engraving & Layout](/docs/engraving-and-layout). For managing scores and parts,
+see
 [Scores, Parts, & Layouts](/docs/instruments-and-scores).

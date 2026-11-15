@@ -11,26 +11,27 @@ from the Start Center to an edited, saved document.
 Open [app.viritura.com](https://app.viritura.com) in your browser. The Start
 Center offers four paths:
 
-- **New Project…** creates a versioned project in a folder you choose.
-- **Open Project Folder…** is the recommended option for ongoing work. It keeps
-  the MNX document, Git history, source files, and exports together in one project
+- **New Project** creates a versioned project in a folder you choose.
+- **Open Project Folder** is the recommended option for ongoing work. It keeps
+  the document, Git history, source files, and exports together in one project
   folder.
-- **Import…** converts a MusicXML, compressed MXL, or Finale MUSX file into an
-  MNX document.
-- **Open MNX file** opens a standalone `.mnx` document for quick edits or viewing,
-  without the project folder, source files, exports, or Git history.
+- **Import** opens music from a MusicXML, compressed MXL, or Finale MUSX file
+  as a new document.
+- **Open MNX file** opens a standalone Viritura document (`.mnx`) for quick
+  edits or viewing, without the project folder, source files, exports, or Git
+  history.
 
 > [!NOTE]
 > **Availability: Chromium web / desktop app**
 >
 > Creating or opening a project folder requires directory access. Firefox and
-> Safari can open standalone MNX files and import MusicXML, but cannot use
+> Safari can open standalone `.mnx` files and import MusicXML, but cannot use
 > folder-backed projects in the web editor.
 
 You can also start with a bundled example document. Local files work without an
 account.
 
-When you create a project, Viritura creates an MNX document named after its
+When you create a project, Viritura creates a document named after its
 folder and opens **Setup** with an empty ensemble. Setup is Viritura's
 score-creation workspace beside the live score, and its settings remain
 available throughout the project.
@@ -147,8 +148,8 @@ the next launch uses the update.
 - [Note Entry](/docs/note-entry) — the complete input workflow.
 - [Notation &amp; Editing](/docs/notation-and-editing) — selection, palettes,
   inspector, and the jump bar.
-- [Scores, Parts, &amp; Layouts](/docs/instruments-and-scores) — how MNX source
-  parts, layouts, score definitions, and musician-facing outputs relate.
+- [Scores, Parts, &amp; Layouts](/docs/instruments-and-scores) — manage
+  instruments, scores, and parts.
 - [Percussion Maps](/docs/percussion-maps) — connect unpitched sounds to staff
   positions, noteheads, and playback.
 - [Engraving &amp; Layout](/docs/engraving-and-layout) — house style and page

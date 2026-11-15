@@ -127,7 +127,7 @@ without restating it. When a note at the start of a new measure changes the
 previous measure's spelling of the same written pitch, Viritura adds an
 unenclosed courtesy accidental automatically. Tied continuations remain
 unmarked, except for a parenthesized reminder at a system or page start. These
-automatic marks are layout-only and do not change the MNX document. When no
+automatic marks affect only the display and do not change the notes. When no
 accidental key is selected, note input inherits the alteration already in force
 for that pitch in the current measure.
 

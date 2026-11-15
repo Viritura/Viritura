@@ -35,7 +35,7 @@ toggles the side panels for a distraction‑free view.
 > [!NOTE]
 > **Availability: GitHub Gist**
 >
-> Preview links currently load an MNX document from a GitHub Gist. The author
+> Preview links currently load a `.mnx` document from a GitHub Gist. The author
 > needs a GitHub account to create the Gist; recipients do not need an account.
 
 To share a score without starting a live editing session:
@@ -47,8 +47,8 @@ To share a score without starting a live editing session:
    the preview fixed at the current revision.
 5. Create and copy the Viritura preview link.
 
-The preview provides score-view controls, playback, an MNX download, and a link
-to the source Gist. It cannot modify the author's document.
+The preview provides score-view controls, playback, a download of the `.mnx`
+file, and a link to the source Gist. It cannot modify the author's document.
 
 A secret Gist is unlisted, not private. Anyone with the link can open or
 forward it, and the Gist exposes its GitHub author and revision history. Use

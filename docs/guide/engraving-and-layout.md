@@ -75,9 +75,11 @@ page-turn-friendly format.
 ## Systems and page flow
 
 To force a break, select a barline and choose **System break** or **Page
-break** in the Engrave toolbar. The music after that barline then starts a new
-system or page. The **Forced breaks** panel lists the breaks in the current
-layout; remove a selected break there, or clear all of them at once.
+break** in the Engrave toolbar. Alternatively, `Ctrl/Cmd`-click a barline for
+a system break or `Shift`-click it for a page break. The music after that
+barline then starts a new system or page. The **Forced breaks** panel lists the
+breaks in the current layout; remove a selected break there, or clear all of
+them at once.
 
 Forced breaks are durable layout decisions. Use them sparingly: make the
 automatic layout do most of the work, then intervene for musical phrasing,
@@ -96,9 +98,8 @@ placement alone.
 ## Condensing
 
 Press `Alt+C` to open condensing controls for eligible multi-player material.
-Condensing changes the rendered view, not the MNX source parts: each
-instrument's music remains stored independently, and its instrumental part
-continues to draw from that source.
+Condensing changes the displayed score, not the underlying music. Each
+instrument's music remains separate and is used in its own instrumental part.
 
 Always review condensed passages at entrances, divisi changes, unisons, and
 rhythmically independent writing.
@@ -107,7 +108,6 @@ The two staves of a piano or other multi-staff instrument are never merged with
 each other. When a player doubles on another instrument, condensing splits and
 rejoins their shared staff at system boundaries around the change.
 
-For the distinction between MNX source parts, score definitions, scores, and
-instrumental parts, see
+For managing instruments, scores, and instrumental parts, see
 [Scores, Parts, & Layouts](/docs/instruments-and-scores). For final PDF output, see
 [Publishing & Export](/docs/publishing-and-export).

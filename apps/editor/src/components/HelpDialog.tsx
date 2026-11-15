@@ -144,7 +144,7 @@ function stripBackticks(s: string): string {
 
 /** Replace `Mod` with the platform-appropriate key name. */
 function localizeKey(key: string): string {
-  if (!IS_MAC) return key;
+  if (!IS_MAC) return key.replace(/\bMod\b/g, "Ctrl");
   return key
     .replace(/\bMod\b/g, "⌘")
     .replace(/\bCtrl\b/g, "⌃")

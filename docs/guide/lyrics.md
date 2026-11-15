@@ -135,14 +135,14 @@ document.
   or a valid private-use tag. Viritura preserves valid authored tags rather
   than silently rewriting them.
 
-Line metadata, ordering, and entered syllables are normal document edits. They
-round-trip through MNX and participate in undo and redo.
+Line metadata, ordering, and entered syllables are saved with the document and
+participate in undo and redo.
 
 ## Imported lyrics
 
-MusicXML import creates lyric lines from numbered `<lyric>` elements. When the
-source consistently provides a lyric name or language, Viritura retains that
-information as the line label and language.
+MusicXML import creates lyric lines from the source file's numbered lines.
+When the source consistently provides a lyric name or language, Viritura
+retains that information as the line label and language.
 
 For general selection, palettes, and editing commands, see
 [Notation & Editing](/docs/notation-and-editing). For entering notes, see

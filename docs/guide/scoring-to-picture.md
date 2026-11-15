@@ -15,7 +15,7 @@ Open Picture and choose **Configure** in the Video panel:
 
 The local file is not uploaded as part of this workflow. The document stores its
 timing relationship and attachment metadata; after moving the project or
-returning on another device, use **Relink…** when prompted.
+returning on another device, use **Relink** when prompted.
 
 ## Work with timecode
 

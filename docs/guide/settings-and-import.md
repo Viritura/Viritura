@@ -71,16 +71,16 @@ action.
 Choose **File → Import**, the Start Center's **Import** tile, or drag a supported
 file into the editor. Viritura accepts MusicXML (`.musicxml` or `.xml`),
 compressed MusicXML (`.mxl`), and Finale (`.musx`) files and opens the converted
-result as a standalone MNX document.
+result as a standalone `.mnx` document.
 
-Finale MUSX conversion runs in a dedicated worker using the bundled Denigma
-converter. MUSX files are limited to 64 MiB, and the resulting MNX is validated
-before it opens. The editor reports conversion warnings when Finale-specific
-details cannot be carried across.
+Finale MUSX files are limited to 64 MiB. Viritura checks the converted document
+before opening it and reports warnings when Finale-specific details cannot be
+carried across.
 
-Import settings control vendor extensions and MusicXML behavior that cannot be
-inferred unambiguously from the source file. Finale import currently uses the
-converter's standard settings, including Tempo Tool data.
+Import settings control whether to retain Viritura-specific notation details
+and how to handle stem directions and metronome marks in MusicXML files. Finale
+import currently uses the converter's standard settings, including Tempo Tool
+data.
 
 MusicXML import may request review when percussion sounds cannot be identified
 reliably. See
@@ -91,7 +91,7 @@ reliably. See
 If one voice in one measure contains notation that Viritura cannot read, for
 example a tuplet whose notes do not fill its stated ratio, only that voice in
 that measure is left empty. The rest of the document opens normally. This
-applies to imported files and to MNX files opened directly.
+applies to imported files and to `.mnx` files opened directly.
 
 An **Imported with errors** dialog lists each emptied voice with an identifier
 such as `E1`. The same identifier appears as a text item (“Import error E1”) at

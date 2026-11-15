@@ -6,8 +6,8 @@ notehead, so the document can engrave and play the same musical intent.
 
 ## Open the percussion map
 
-In **Setup → Instruments**, expand an unpitched percussion instrument and choose
-**Edit Percussion Map…**.
+In **Setup → Instruments**, right-click an unpitched percussion instrument or
+open its **Instrument actions** menu, then choose **Edit percussion map**.
 
 Viritura may also open the map automatically:
 
@@ -15,9 +15,8 @@ Viritura may also open the map automatically:
 - during MusicXML import when the source file does not identify every
   percussion sound with enough confidence.
 
-The editor updates the percussion map stored on the instrument's MNX source
-part. It does not change layout membership, create another source part, or
-duplicate music.
+The map belongs to the instrument. Editing it does not change which scores
+include the instrument, add another instrument, or duplicate its music.
 
 ## Understand the workbench
 
@@ -36,7 +35,7 @@ Use this to catch mappings that look correct but play the wrong instrument.
 
 ## Start from a preset
 
-Use **Load preset…** to replace the current mapping with:
+Use **Load preset** to replace the current mapping with:
 
 - **Full Drum Kit** — kick, snare, hi-hats, toms, and crash;
 - **Orchestral Percussion** — snare, bass drum, crash cymbals, tambourine, and
@@ -121,11 +120,11 @@ Recognized MusicXML instrument-sound mappings do not require manual review.
 Choose **Apply** to save the mapping into the document. Choose **Cancel** or
 close the dialog to leave the existing mapping unchanged.
 
-The percussion map is shared wherever that MNX source part appears. Updating it
+The percussion map follows the instrument wherever it appears. Updating it
 therefore changes notation and playback consistently in the full score, section
-scores, and the instrument's part extract.
+scores, and the instrument's part.
 
-For the distinction between an MNX source part and an instrumental part, see
-[Scores, Parts, & Layouts](/docs/instruments-and-scores#terminology). For
+For managing instruments in scores and parts, see
+[Scores, Parts, & Layouts](/docs/instruments-and-scores). For
 playback-channel controls, see
 [Playback, Mixer, & Piano Roll](/docs/playback-and-piano-roll).

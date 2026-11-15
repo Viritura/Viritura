@@ -23,7 +23,7 @@ staff.
 To remove whole bars, click empty staff space to select a bar and Shift-click
 to extend the bar selection. Choose **Edit → Delete Selected Bars**, or
 right-click inside the selected bars and choose **Delete Selected Bars**.
-This removes those bars from every source part in the document, even when
+This removes those bars from every instrument in the document, even when
 only one staff is selected. Deleting all bars leaves one empty bar. Use
 **Undo** to restore the deleted bars.
 
@@ -324,7 +324,7 @@ expose their own specialized controls. Selecting a lyric syllable lets you
 correct its text, word position, or lyric line without changing its note.
 
 Use direct shortcuts for frequent actions and the inspector for precise or
-less common properties. Both edit the same MNX document and participate in
+less common properties. Both edit the same document and participate in
 undo and redo.
 
 ## Undo and clipboard history
@@ -333,7 +333,7 @@ The **History** tab in the left panel has two sections. **Undo History** lists
 your recent edits with descriptive names; click an entry to undo or redo
 straight to that point. The current state is marked **NOW**.
 
-Copy and paste use MNX-aware score fragments rather than pixels. The
+Copy and paste preserve musical information, not just its appearance. The
 **Clipboard** section retains recent copied fragments and shows a musical
 preview, making it useful when reusing several passages. **Clear** empties it.
 
