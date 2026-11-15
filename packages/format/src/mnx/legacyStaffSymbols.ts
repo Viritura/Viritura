@@ -60,9 +60,14 @@ export function migrateLegacyStaffSymbols(json: unknown): unknown {
   if (!found) return json;
 
   const upgraded = structuredClone(doc);
+  // Classify every group against the original symbols before rewriting any:
+  // turning a nested bracket into `square` must not change how its own
+  // descendants are classified.
+  const rewrites: Array<[Obj, string]> = [];
   eachLayout(upgraded, (group, insideBracket) => {
     const symbol = upgradedSymbol(group["symbol"], insideBracket);
-    if (symbol !== undefined) group["symbol"] = symbol;
+    if (symbol !== undefined) rewrites.push([group, symbol]);
   });
+  for (const [group, symbol] of rewrites) group["symbol"] = symbol;
   return upgraded;
 }

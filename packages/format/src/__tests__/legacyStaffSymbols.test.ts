@@ -2,32 +2,22 @@ import { describe, expect, it } from "vitest";
 import type { LayoutGroup } from "@viritura/core";
 import { parseMnx } from "../mnx/parser";
 
-function document(outerSymbol: string, innerSymbol: string) {
+const STAVES = [
+  { type: "staff", sources: [{ part: "P1" }] },
+  { type: "staff", sources: [{ part: "P2" }] },
+];
+
+/** Builds one layout whose groups nest in the given order, outermost first. */
+function document(...symbols: string[]) {
+  const content = symbols.reduceRight<unknown[]>(
+    (inner, symbol) => [{ type: "group", symbol, content: inner }],
+    STAVES,
+  );
   return {
     mnx: { version: 1 },
     global: { measures: [{ time: { count: 4, unit: 4 } }] },
     parts: ["P1", "P2"].map((id) => ({ id, measures: [{ sequences: [{ content: [] }] }] })),
-    layouts: [
-      {
-        id: "full",
-        content: [
-          {
-            type: "group",
-            symbol: outerSymbol,
-            content: [
-              {
-                type: "group",
-                symbol: innerSymbol,
-                content: [
-                  { type: "staff", sources: [{ part: "P1" }] },
-                  { type: "staff", sources: [{ part: "P2" }] },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    ],
+    layouts: [{ id: "full", content }],
   };
 }
 
@@ -42,6 +32,14 @@ describe("legacy staff-group symbol migration", () => {
     const outer = parseMnx(document("bracket", "bracket")).layouts?.[0]?.content[0] as LayoutGroup;
     expect(outer.symbol).toBe("bracket");
     expect((outer.content[0] as LayoutGroup).symbol).toBe("square");
+  });
+
+  it("upgrades every bracket below the outermost bracket, at any depth", () => {
+    const outer = parseMnx(document("bracket", "bracket", "bracket")).layouts?.[0]?.content[0] as LayoutGroup;
+    const middle = outer.content[0] as LayoutGroup;
+    expect(outer.symbol).toBe("bracket");
+    expect(middle.symbol).toBe("square");
+    expect((middle.content[0] as LayoutGroup).symbol).toBe("square");
   });
 
   it("keeps brackets nested in a brace as brackets", () => {
