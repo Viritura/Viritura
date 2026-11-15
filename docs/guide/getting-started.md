@@ -8,8 +8,8 @@ from the Start Center to an edited, saved document.
 
 ## Open or create work
 
-Open [app.viritura.com](https://app.viritura.com) in your browser, or choose
-**Open Editor** on the landing page. The Start Center offers four paths:
+Open [app.viritura.com](https://app.viritura.com) in your browser. The Start
+Center offers four paths:
 
 - **New Project…** creates a versioned project in a folder you choose.
 - **Open Project Folder…** is the recommended option for ongoing work. It keeps
