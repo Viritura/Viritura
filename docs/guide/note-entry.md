@@ -127,7 +127,7 @@ without restating it. When a note at the start of a new measure changes the
 previous measure's spelling of the same written pitch, Viritura adds an
 unenclosed courtesy accidental automatically. Tied continuations remain
 unmarked, except for a parenthesized reminder at a system or page start. These
-automatic marks are layout-only and do not change the MNX document. When no
+automatic marks affect only the display and do not change the notes. When no
 accidental key is selected, note input inherits the alteration already in force
 for that pitch in the current measure.
 
@@ -166,16 +166,37 @@ voices take stems up and Down voices stems down. When a voice has the bar to
 itself — the other voice is empty or holds only hidden rests — its stems follow
 pitch like a single voice. To force a direction for one note, flip it with `F`.
 
+To change the hint for one bar, select a note in that voice and set **Voice
+Direction** in the **Layout Overrides** section of Properties. **Auto** uses the voice's lane.
+The same section's **Cross-Staff** control moves a note onto another staff of
+the same instrument, such as the other hand of a piano.
+
+## Rhythm source
+
+To copy the rhythm of another staff while you enter pitches, choose that staff
+and voice from the rhythm-reading list (the glasses icon) in the note input
+toolbar, just before the duration buttons. Each note you enter then takes the
+duration of the matching source event, including tuplets, and rests in the
+source are written as rests automatically. This is useful for doublings and
+homophonic writing.
+
+The cursor must sit on a rhythmic boundary of the source. When the source runs
+out, input returns to **Manual duration**; choosing a duration in the toolbar
+does the same.
+
 ## Moving the cursor
 
-| Key         | Action                            |
-| ----------- | --------------------------------- |
-| `←` / `→`   | Move by one event                 |
-| `↑` / `↓`   | Move between staves / instruments |
-| `Space`     | Advance without entering anything |
-| `Backspace` | Delete previous event             |
-| `Delete`    | Delete current event              |
-| `Esc` / `N` | Exit note input                   |
+| Key                    | Action                                      |
+| ---------------------- | ------------------------------------------- |
+| `←` / `→`              | Move by one event                           |
+| `H`                    | Previous event                              |
+| `J`                    | Next measure                                |
+| `↑` / `↓`              | Move between staves / instruments           |
+| `Space`                | Advance without entering anything           |
+| `Backspace` / `Delete` | Retract the last entered event in the voice |
+| `Esc` / `N`            | Exit note input                             |
+
+The score scrolls automatically to keep the input cursor in view.
 
 ## Auditory feedback
 

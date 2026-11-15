@@ -189,7 +189,7 @@ function MetronomeToggle() {
   const { toggleMetronome } = usePlaybackActions();
 
   return (
-    <Tooltip content={`Metronome ${metronomeEnabled ? "On" : "Off"} (Ctrl+M)`}>
+    <Tooltip content={`Metronome ${metronomeEnabled ? "On" : "Off"}`}>
       <button
         style={metronomeButtonStyle(metronomeEnabled)}
         onClick={toggleMetronome}

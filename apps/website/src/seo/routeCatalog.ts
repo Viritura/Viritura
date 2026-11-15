@@ -69,9 +69,8 @@ const publicRoutes: readonly SeoRoute[] = [
   },
   {
     path: "/docs/instruments-and-scores",
-    title: "Scores, Parts and Layouts | Viritura Documentation",
-    description:
-      "Learn how MNX source parts, score definitions, layouts, full scores, and instrumental parts work in Viritura.",
+    title: "Scores, Parts, & Layouts | Viritura Documentation",
+    description: "Manage instruments, full and section scores, instrumental parts, and layouts in Viritura.",
     canonicalPath: "/docs/instruments-and-scores",
     indexable: true,
   },
@@ -119,7 +118,7 @@ const publicRoutes: readonly SeoRoute[] = [
   },
   {
     path: "/docs/playback-and-piano-roll",
-    title: "Playback, Mixer and Piano Roll | Viritura Documentation",
+    title: "Playback, Mixer, & Piano Roll | Viritura Documentation",
     description: "Use score playback, mixer controls, sound profiles, and the piano roll in Viritura.",
     canonicalPath: "/docs/playback-and-piano-roll",
     indexable: true,

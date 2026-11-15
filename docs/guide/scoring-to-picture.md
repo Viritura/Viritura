@@ -15,7 +15,7 @@ Open Picture and choose **Configure** in the Video panel:
 
 The local file is not uploaded as part of this workflow. The document stores its
 timing relationship and attachment metadata; after moving the project or
-returning on another device, use **Relink…** when prompted.
+returning on another device, use **Relink** when prompted.
 
 ## Work with timecode
 
@@ -56,6 +56,6 @@ window. The video element remains active when you switch activities, so you can
 watch the scene while editing notation in Write or Engrave.
 
 For transport controls, see
-[Playback, Mixer & Piano Roll](/docs/playback-and-piano-roll). Picture-specific
+[Playback, Mixer, & Piano Roll](/docs/playback-and-piano-roll). Picture-specific
 mouse and keyboard commands are listed in
 [Keyboard & Mouse](/docs/keyboard-shortcuts#picture).

@@ -174,15 +174,14 @@ Use the instrument's **Chord Symbols** control in Setup, or chord visibility in
 - **Show**: show the progression above this instrument's first displayed staff.
 - **Hide**: suppress it for this instrument.
 
-This is an instrument setting, stored on its source part. It follows that
-instrument wherever it appears, including the full score and instrumental
-parts; it is not an independent layout or per-symbol staff setting. Automatic
-uses the source part's initial instrument identity, even if the player changes
-instruments later. Use **Show** to include any other instrument or an instrument
-whose identity is unrecognized. An existing explicit **Show** or **Hide**
-setting takes precedence over Automatic. When multiple instruments share a
-staff, only one copy is displayed on that staff. Visibility affects engraving,
-not playback.
+This setting follows the instrument wherever it appears, including the full
+score and instrumental parts; it is not an independent layout or per-symbol
+staff setting. Automatic uses the instrument initially chosen in Setup, even
+if the player changes instruments later. Use **Show** to include any other
+instrument or an instrument whose identity is unrecognized. An existing
+explicit **Show** or **Hide** setting takes precedence over Automatic. When
+multiple instruments share a staff, only one copy is displayed on that staff.
+Visibility affects engraving, not playback.
 
 ## Import, paste, and export
 
@@ -199,7 +198,7 @@ so nearby but different changes are not merged. Pasting sets affected
 instruments to **Show**, including instruments previously set to **Hide**, for
 the entire progression.
 
-MNX saves preserve the shared progression and authored text. PDF and SVG export
+Saving the document preserves the shared progression and authored text. PDF and SVG export
 use the selected score or instrumental part's visibility and concert/written
 pitch settings, including both roots and slash bass notes. Editor warning
 marks are not printed or exported.
@@ -216,7 +215,8 @@ than silently substituting a playable chord.
 >
 > Added/omitted-degree text is retained by the clipboard converter, but another
 > application's chord vocabulary determines how it displays and plays that
-> text. Use MNX for lossless exchange between Viritura documents.
+> text. Use Viritura's `.mnx` files to exchange chord symbols without loss
+> between Viritura documents.
 
 ## Unsupported symbols and playback
 
@@ -243,7 +243,7 @@ even when its symbols are hidden. An explicit instrument selection includes
 chords only when it covers every instrument visible in the current view; a
 partial selection excludes them. In a single-instrument view, selecting that
 instrument therefore includes chords. An explicitly empty selection plays
-nothing. See [Playback, Mixer & Piano Roll](/docs/playback-and-piano-roll).
+nothing. See [Playback, Mixer, & Piano Roll](/docs/playback-and-piano-roll).
 
 ## House style
 

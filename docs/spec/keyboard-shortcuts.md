@@ -321,6 +321,17 @@ Active after pressing `N`. Most letter keys enter notes directly; the cursor adv
 
 ---
 
+## Engrave Activity {#engrave}
+
+Use these shortcuts on a barline in the Engrave activity.
+
+| Key           | Action                                         |
+| ------------- | ---------------------------------------------- |
+| `Mod+Click`   | Force a system break after the clicked barline |
+| `Shift+Click` | Force a page break after the clicked barline   |
+
+---
+
 ## Picture Activity {#picture}
 
 Available only while the Picture activity is open. These bindings unregister

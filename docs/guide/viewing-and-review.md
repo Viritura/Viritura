@@ -4,15 +4,18 @@ This guide covers score display, canvas navigation, and revision comparison.
 
 ## View modes
 
-Switch how the score flows from the view menu / status bar:
+Switch how the score flows with the **View mode** menu in the status bar. The
+status bar is hidden until you move the pointer to the bottom edge of the
+window.
 
 - **Page** — paginated pages exactly as they'll print. Best for final
   proofreading and publishing.
+- **Spread** — facing pages stacked vertically, for checking page turns.
+- **Spread (H)** — facing pages laid out side by side in a horizontal row.
 - **Horizon** — one continuous galley that scrolls horizontally. Best for fast
   note entry and reading long passages without page breaks getting in the way.
   As you scroll, the clef and current key signature stay visible at the left
-  of each staff.
-- **Spread** — facing pages, for checking page turns.
+  of each staff. Available in Setup and Write.
 
 The same score can look subtly different between view modes because each uses a
 layout strategy tuned to its job; page mode is the source of truth for print.
@@ -35,7 +38,7 @@ toggles the side panels for a distraction‑free view.
 > [!NOTE]
 > **Availability: GitHub Gist**
 >
-> Preview links currently load an MNX document from a GitHub Gist. The author
+> Preview links currently load a `.mnx` document from a GitHub Gist. The author
 > needs a GitHub account to create the Gist; recipients do not need an account.
 
 To share a score without starting a live editing session:
@@ -47,8 +50,8 @@ To share a score without starting a live editing session:
    the preview fixed at the current revision.
 5. Create and copy the Viritura preview link.
 
-The preview provides score-view controls, playback, an MNX download, and a link
-to the source Gist. It cannot modify the author's document.
+The preview provides score-view controls, playback, a download of the `.mnx`
+file, and a link to the source Gist. It cannot modify the author's document.
 
 A secret Gist is unlisted, not private. Anyone with the link can open or
 forward it, and the Gist exposes its GitHub author and revision history. Use

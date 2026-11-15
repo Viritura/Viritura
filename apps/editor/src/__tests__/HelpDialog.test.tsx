@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, within } from "@testing-library/react";
 import { HelpDialog } from "../components/HelpDialog";
 
 afterEach(cleanup);
@@ -16,7 +16,12 @@ describe("HelpDialog", () => {
     expect(screen.getByTestId("shortcuts-global")).toBeTruthy();
     expect(screen.getByTestId("shortcuts-normal")).toBeTruthy();
     expect(screen.getByTestId("shortcuts-noteInput")).toBeTruthy();
+    expect(screen.getByTestId("shortcuts-engrave")).toBeTruthy();
     expect(screen.getByTestId("shortcuts-picture")).toBeTruthy();
+    expect(screen.getByText("Force a system break after the clicked barline")).toBeTruthy();
+    expect(screen.getByText("Force a page break after the clicked barline")).toBeTruthy();
+    const engraveShortcuts = within(screen.getByTestId("shortcuts-engrave"));
+    expect(engraveShortcuts.getByText(/Mac/.test(navigator.userAgent) ? "⌘+Click" : "Ctrl+Click")).toBeTruthy();
   });
 
   it("documents keyboard-first commands in discoverability tables", () => {
@@ -41,6 +46,9 @@ describe("HelpDialog", () => {
       "/docs/collaboration",
     );
     expect(screen.getByRole("link", { name: "Connect MCP" }).getAttribute("href")).toContain("/docs/mcp");
+    expect(screen.getByRole("link", { name: "Open engrave activity reference" }).getAttribute("href")).toContain(
+      "/docs/keyboard-shortcuts#engrave",
+    );
     expect(screen.getByRole("link", { name: "Open picture activity reference" }).getAttribute("href")).toContain(
       "/docs/keyboard-shortcuts#picture",
     );

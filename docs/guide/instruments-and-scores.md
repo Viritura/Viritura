@@ -1,60 +1,45 @@
-# Scores, Parts &amp; Layouts
+# Scores, Parts, &amp; Layouts
 
-Viritura bridges the language musicians use with the names in the **MNX** data
-model. Those vocabularies overlap, but they are not identical: an MNX
-`score` definition can produce either a conductor's score or a performer's
-instrumental part.
+Viritura keeps the music for your instruments together in one document. You
+can work with that music in a full score, section scores, and individual
+instrumental parts.
 
 ## Terminology
 
-Public guides use the musician-facing terms unless they explicitly say **MNX**:
+- A **document** contains the piece, its instruments, scores, parts, and settings.
+- An **instrument** has its own music and settings, such as a flute or piano.
+- A **full score** brings the ensemble together. A **section score** shows a
+  group of instruments, such as the strings or percussion.
+- An **instrumental part** shows the music for one instrument, prepared for a
+  performer. It can contain more than one staff, as in a piano part.
+- A **layout** determines which instruments and staves appear in a score or
+  part, their order, and how they are grouped.
 
-| Term                                      | Meaning                                                                                                                                                          |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Document**                              | The whole `.mnx` file: musical content, layouts, full and section scores, instrumental parts, metadata, and Viritura extensions.                                 |
-| **Instrument**                            | A musical source shown in Setup, such as Flute, Piano, or Percussion. Its music is normally stored in an MNX `part` object.                                      |
-| **MNX part** or **source part**           | The schema object that owns musical content. It is not automatically a printed instrumental part.                                                                |
-| **Layout**                                | An MNX tree of groups and staves that maps one or more source parts into visible staves.                                                                         |
-| **MNX score definition**                  | A schema object that selects one layout plus page and pitch-display settings. Despite its name, it can define a full score, section score, or instrumental part. |
-| **Full score** or **section score**       | A musician-facing, multi-instrument view used by a conductor, composer, or section.                                                                              |
-| **Instrumental part** or **part extract** | A musician-facing view prepared for one performer or instrument, such as Flute 1 or Piano. It is represented by an MNX score definition and layout.              |
-
-The Viritura interface groups an MNX score definition under **Scores** when its
-layout references more than one source part, and under **Parts** when every
-staff comes from one source part. This is a Viritura presentation convention,
-not the meaning of `score` in the MNX schema.
-
-Staff count alone does not decide the category. A grand-staff piano layout is
-still one instrumental part, while a percussion or choir layout containing
-several source parts is a score.
-
-The crucial consequence is that an output's instrument membership is derived
-from its layout. Adding an instrument to a score adds a staff referencing that
-instrument's source part to the score's layout. Removing it from the score
-leaves the source part and its music in the document.
+An instrument can appear in the full score, section scores, and its own part.
+Edits to its music show up in each of those views. Removing it from a score
+changes that score's layout, but keeps the instrument and its music in the
+document.
 
 ## Where options live
 
-The selected score or instrumental part does not own every setting shown on the
-canvas. Each layer has a different job:
+Different settings apply to different parts of your work:
 
-| Owner                     | Options                                                                                                   |
-| ------------------------- | --------------------------------------------------------------------------------------------------------- |
-| **Document**              | Project metadata, global measures, tempo, opening key and time signatures                                 |
-| **Instrument / MNX part** | Music, long and short names, instrument identity, staff count, transposition, written-pitch preference    |
-| **Layout**                | Which source parts appear, staff order, groups, brackets, labels, condensing sources                      |
-| **MNX score definition**  | Output name, selected layout, concert or written pitch, page setup, and output-specific measure-rest data |
+| Applies to        | Examples                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------ |
+| **Document**      | Project details, bars, tempo, and opening key and time signatures                    |
+| **Instrument**    | Music, names, staff count, transposition, and written-pitch preference               |
+| **Layout**        | Included instruments and staves, their order, groups, brackets, and condensing       |
+| **Score or part** | Name, chosen layout, concert or written pitch, page setup, and measure-rest settings |
 
-This separation is what allows one source part to appear in several outputs
-without duplicating its music. For example, the Clarinet in B-flat source part
-owns its transposition once, while the full score and clarinet instrumental
-part independently choose concert or written pitch and their own page setup.
+For example, set a B-flat clarinet's transposition on the instrument. The full
+score and clarinet part can then independently use concert or written pitch
+and have different page setups.
 
 ## The Setup panel
 
-In Setup, **Instruments** edits the document's MNX source parts and
-**Layouts** edits the output views that reference them. Project metadata and
-opening music are document-level settings.
+In Setup, **Instruments** lets you add and configure instruments. **Layouts**
+controls which staves appear in scores and parts, as well as their order and
+grouping. Other tabs hold project details and opening music.
 
 See [Getting Started](/docs#setup-mode) for the Setup workspace
 orientation.
@@ -62,8 +47,7 @@ orientation.
 ## Add an instrument
 
 In **Instruments**, click **Add instrument** and pick from the catalog. Viritura
-adds its MNX source part to the document and creates its instrumental-part view
-automatically.
+adds it to the document and creates its instrumental part automatically.
 
 If the document contains multiple full or section scores, choose which of those
 multi-instrument scores should include the new instrument. This checklist
@@ -80,11 +64,10 @@ single undoable edit.
 
 ## Change an instrument
 
-Expand an instrument in **Instruments** and choose **Change Instrument…**.
-Changes that preserve the staff structure and MNX note kind keep the existing
+In **Instruments**, right-click an instrument or open its **Instrument actions**
+menu, then choose **Change instrument**. Compatible changes keep the existing
 music — for example, Flute to Oboe. Percussion-to-percussion changes rebind
-existing hits to the nearest position in the replacement map after
-confirmation.
+existing hits to the nearest position in the replacement map after confirmation.
 
 The picker labels each choice **Compatible**, **Review**, or **Add instead**
 before selection. Expanding a one-staff instrument to a multi-staff instrument
@@ -101,17 +84,18 @@ recognized MusicXML instrument-sound mappings import without interruption.
 
 ## Percussion maps
 
-Choose **Edit Percussion Map…** on an unpitched instrument to configure its
-playback sounds, staff positions, and noteheads. See
+Choose **Edit percussion map** from the **Instrument actions** menu on an
+unpitched instrument to configure its playback sounds, staff positions, and
+noteheads. See
 [Percussion Maps](/docs/percussion-maps) for the complete workflow.
 
 ## Manage a score's instruments
 
-In **Setup → Layouts**, right‑click a score header for **Manage Instruments…** — a
+In **Setup → Layouts**, right‑click a score header for **Manage Instruments** — a
 checklist (grouped by family) of every instrument in the document, pre‑checked
 to the score's current contents. Check to add, uncheck to remove. Removing an
-instrument here keeps its source part and music in the document; it only leaves
-that score's layout.
+instrument here removes it from that score's layout, but keeps the instrument
+and its music in the document.
 
 You can also right‑click an individual staff for **Remove from this Score**, or
 use the score header's **+ Add instrument** menu to add an instrument that is
@@ -120,7 +104,7 @@ not yet present.
 ## Build a section score
 
 To create a score for a subset of instruments, such as a percussion section,
-use **Add Score → Section Score…**:
+use **Add score → Section score**:
 
 1. Name the score.
 2. Tick the instruments to include — grouped by family.
@@ -143,7 +127,9 @@ and the list auto‑scrolls.
 
 ## Transposing instruments
 
-### Transposition belongs to the source part
+<a id="transposition-belongs-to-the-source-part"></a>
+
+### Set an instrument's transposition
 
 Expand an instrument in **Setup → Instruments** to edit its transposition:
 
@@ -159,23 +145,25 @@ The interval convention is:
 
 For example, a B-flat clarinet uses `+2` chromatic semitones and `+1` staff
 step: sounding B-flat is displayed as written C. Editing the transposition
-changes the derived pitch in every output that renders that source part at
-written pitch; concert-pitch outputs continue to show the stored sounding
-pitch.
+changes how that instrument is notated wherever written pitch is used; its
+sounding pitch stays the same.
 
-### Concert or written pitch belongs to the output
+<a id="concert-or-written-pitch-belongs-to-the-output"></a>
+
+### Choose concert or written pitch
 
 In the normal editing activities, the **Concert / Written** control in the
 status bar updates only the score or instrumental part currently selected in
-the header. It persists on that MNX score definition as `useWritten`.
+the header. The choice is saved with that score or part.
 
-- **Concert** displays stored sounding pitches.
-- **Written** applies each source part's transposition to notes and key
+- **Concert** displays sounding pitches, except for instruments set to prefer
+  written pitches, described below.
+- **Written** applies each instrument's transposition to notes and key
   signatures.
 
-Every output chooses independently. A full score can remain at concert pitch
+Each score or part chooses independently. A full score can remain at concert pitch
 while the clarinet part uses written pitch. Switching the control changes
-display without rewriting the stored music, which remains at sounding pitch.
+display without rewriting the music.
 
 New documents default the full score to concert pitch. An automatically created
 instrumental part for a transposing instrument defaults to written pitch.
@@ -187,8 +175,8 @@ revision or the open document.
 ### Prefers written pitches is an instrument exception
 
 The instrument option is **Prefers written pitches**, not “prefers concert
-pitch.” It means the source part remains written even when the selected output
-is set to Concert.
+pitch.” It means the instrument stays at written pitch even when the selected
+score or part is set to Concert.
 
 Viritura enables this convention for pure-octave transposers such as piccolo,
 glockenspiel, xylophone, guitar, contrabassoon, and double bass. Showing their
@@ -197,29 +185,26 @@ compare pitch classes.
 
 The effective display rule is:
 
-| Output `useWritten` | Source part prefers written | Display |
-| ------------------- | --------------------------- | ------- |
-| Off                 | Off                         | Concert |
-| On                  | Off                         | Written |
-| Off                 | On                          | Written |
-| On                  | On                          | Written |
+| Score or part | Prefers written pitches | Display |
+| ------------- | ----------------------- | ------- |
+| Concert       | Off                     | Concert |
+| Written       | Off                     | Written |
+| Concert       | On                      | Written |
+| Written       | On                      | Written |
 
 Use this exception only when the instrument is conventionally octave-displaced.
 For ordinary transposing instruments such as B-flat clarinet or horn in F,
-leave it off and let each output's Concert / Written setting decide.
+leave it off and let each score or part's Concert / Written setting decide.
 
-## Output-specific page setup
+<a id="output-specific-page-setup"></a>
 
-Page setup belongs to each MNX score definition, so outputs sharing the same
-music can use different paper, staff, margin, and page-turn settings. Configure
-them in [Engraving & Layout](/docs/engraving-and-layout#page-setup).
+## Page setup for scores and parts
 
-## Why it's modeled this way
+Each score and part has its own page setup, so the same music can appear with
+different paper, staff, margin, and page-turn settings. Configure them in
+[Engraving & Layout](/docs/engraving-and-layout#page-setup).
 
-Keeping source parts, layouts, and score definitions separate means one
-instrument's music lives in exactly one place, even though it can appear in a
-full score, section score, and instrumental part. Edit a note once and it is
-correct in every output.
+<a id="why-it-s-modeled-this-way"></a>
 
 For score-wide typography, page setup, systems, and condensing, see
 [Engraving &amp; Layout](/docs/engraving-and-layout).

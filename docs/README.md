@@ -39,21 +39,19 @@ runbooks.
 
 ## Public guide terminology
 
-The public guides bridge musician-facing language with MNX schema names. Their
-terminology contract is defined in
-[guide/instruments-and-scores.md](guide/instruments-and-scores.md#terminology).
+Public guides are written for musicians. Explain instruments, scores,
+instrumental parts, and layouts through the workflows they support, without
+requiring knowledge of MNX internals. Mention formats and file extensions when
+they matter for opening, saving, importing, or exporting files.
 
-- **Document** means the whole `.mnx` file.
-- **MNX part** or **source part** means the music-bearing schema object, not
-  automatically a performer's printed part.
-- **MNX score definition** means the schema object that selects a layout; it can
-  render a full score, section score, or instrumental part.
-- Bare **score**, **instrumental part**, and **part extract** refer to
-  musician-facing outputs.
+The [public terminology guide](guide/instruments-and-scores.md#terminology)
+describes these concepts for readers. For the underlying data model, see
+[Data Model Pipeline](spec/data-model-pipeline.md).
 
-New public documentation must preserve these distinctions. When discussing
-file-level state, prefer “the document stores…” over the internal TypeScript
-model's looser “the score stores…”.
+## Documentation style
+
+Prefer the Oxford comma in lists of three or more items, including headings
+such as **Scores, Parts, & Layouts**.
 
 ## Availability callouts
 

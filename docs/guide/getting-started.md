@@ -3,66 +3,35 @@
 Viritura is a web‑native music notation editor for composing, arranging,
 engraving, and sharing scores.
 
-This guide gets you from the Start Center to an edited, saved document.
-
-## Install Viritura as an app
-
-Open [app.viritura.com](https://app.viritura.com) and choose **Install Viritura**
-when offered, or use your browser's **Install app** command. The installed web
-app opens in its own window and uses the same editor as the browser.
-
-> [!NOTE]
-> **Availability: Windows / Chrome or Edge**
->
-> Opening documents by double-clicking requires installing the web app in Chrome
-> or Edge and approving its file-handling permission. Other browsers can still
-> open documents through **Open MNX file** or drag and drop.
-
-To open a document from Windows File Explorer, right-click an `.mnx` file,
-choose **Open with**, and select Viritura. Choose it as the default app for
-`.mnx` files to open them by double-clicking. Each document opens in a separate
-window. The extension is `.mnx`, not `.mxn`.
-
-After the editor reports that it is ready for offline editing and playback, you
-can reopen it without a connection, work with local documents, and play them
-using the built-in sound library. The initial offline setup downloads the
-SoundFont (about 119 MiB), playback worklet, and reverb files along with the
-editor. Wait for that setup to finish before disconnecting.
-
-Browser storage must remain available; clearing site data removes the offline
-cache. Account features, collaboration, remote repositories, and MUSX imports
-that need the converter download still require a connection. The installed web
-app does not provide the native desktop app's VST hosting.
-
-Updates download in the background without reloading an open document. When an
-update is ready, save your work and close all Viritura windows and browser tabs;
-the next launch uses the update.
+Viritura runs in your browser; no installation is required. This guide gets you
+from the Start Center to an edited, saved document.
 
 ## Open or create work
 
-Launch the editor from the landing page (**Open Editor**) or go straight to
-[app.viritura.com](https://app.viritura.com). The Start Center offers four paths:
+Open [app.viritura.com](https://app.viritura.com) in your browser. The Start
+Center offers four paths:
 
-- **New Project…** creates a versioned project in a folder you choose.
-- **Open Project Folder…** is the recommended option for ongoing work. It keeps
-  the MNX document, Git history, source files, and exports together in one project
+- **New Project** creates a versioned project in a folder you choose.
+- **Open Project Folder** is the recommended option for ongoing work. It keeps
+  the document, Git history, source files, and exports together in one project
   folder.
-- **Import…** converts a MusicXML, compressed MXL, or Finale MUSX file into an
-  MNX document.
-- **Open MNX file** opens a standalone `.mnx` document for quick edits or viewing,
-  without the project folder, source files, exports, or Git history.
+- **Import** opens music from a MusicXML, compressed MXL, or Finale MUSX file
+  as a new document.
+- **Open MNX file** opens a standalone Viritura document (`.mnx`) for quick
+  edits or viewing, without the project folder, source files, exports, or Git
+  history.
 
 > [!NOTE]
 > **Availability: Chromium web / desktop app**
 >
 > Creating or opening a project folder requires directory access. Firefox and
-> Safari can open standalone MNX files and import MusicXML, but cannot use
+> Safari can open standalone `.mnx` files and import MusicXML, but cannot use
 > folder-backed projects in the web editor.
 
 You can also start with a bundled example document. Local files work without an
 account.
 
-When you create a project, Viritura creates an MNX document named after its
+When you create a project, Viritura creates a document named after its
 folder and opens **Setup** with an empty ensemble. Setup is Viritura's
 score-creation workspace beside the live score, and its settings remain
 available throughout the project.
@@ -73,7 +42,7 @@ Setup stays beside the live score and contains project metadata, opening music,
 the instrument roster, and score/part layouts. Start with those four tabs, then
 return whenever the document's structure changes.
 
-See [Scores, Parts & Layouts](/docs/instruments-and-scores) for the complete
+See [Scores, Parts, & Layouts](/docs/instruments-and-scores) for the complete
 Setup workflow. Unpitched instruments are covered in
 [Percussion Maps](/docs/percussion-maps).
 
@@ -102,6 +71,27 @@ Within **Write**, two interaction states control how keystrokes behave:
 
 The status of note input is always visible in the toolbar; press `N` or `Esc`
 to leave it.
+
+### Status bar and view options
+
+The status bar stays hidden so the score can use the whole window. Move the
+pointer to the **bottom edge of the window** and it slides up; move away and it
+hides again.
+
+| Control                    | What it does                                                           | Shown in                               |
+| -------------------------- | ---------------------------------------------------------------------- | -------------------------------------- |
+| **Concert / Written**      | Shows sounding or transposed pitch for the current score or part       | Setup, Write, Engrave, Review          |
+| **View mode**              | Switches between **Page**, **Spread**, **Spread (H)**, and **Horizon** | Setup, Write, Engrave, Publish         |
+| Zoom slider and percentage | Drag to zoom; click the percentage to return to 100%                   | Setup, Write, Engrave, Publish, Review |
+| Ruler button               | Calibrates the display so 100% matches the printed size                | Setup, Write, Engrave, Publish         |
+
+**Horizon** is only available in Setup and Write. When measures have the wrong
+number of beats, Write also shows a warning in the status bar with **Repair**
+and **Dismiss** actions.
+
+You can also zoom with `Mod+=`, `Mod+-`, and `Mod+0` (reset), or with
+`Mod`+wheel. See [Viewing & Review](/docs/viewing-and-review) for view modes,
+canvas navigation, and read-only previews.
 
 ## Enter your first notes
 
@@ -140,13 +130,47 @@ the Jump Bar.
 > prior interaction or when closing a mobile browser. Save before leaving;
 > the warning is not a substitute for saving.
 
+## Install Viritura as an app
+
+Installation is optional. For a separate window, open
+[app.viritura.com](https://app.viritura.com) and choose **Install Viritura**
+when offered, or use your browser's **Install app** command. The installed web
+app uses the same editor as the browser.
+
+> [!NOTE]
+> **Availability: Windows / Chrome or Edge**
+>
+> Opening documents by double-clicking requires installing the web app in Chrome
+> or Edge and approving its file-handling permission. Other browsers can still
+> open documents through **Open MNX file** or drag and drop.
+
+To open a document from Windows File Explorer, right-click an `.mnx` file,
+choose **Open with**, and select Viritura. Choose it as the default app for
+`.mnx` files to open them by double-clicking. Each document opens in a separate
+window. The extension is `.mnx`, not `.mxn`.
+
+After the editor reports that it is ready for offline editing and playback, you
+can reopen it without a connection, work with local documents, and play them
+using the built-in sound library. The initial offline setup downloads the
+SoundFont (about 119 MiB), playback worklet, and reverb files along with the
+editor. Wait for that setup to finish before disconnecting.
+
+Browser storage must remain available; clearing site data removes the offline
+cache. Account features, collaboration, remote repositories, and MUSX imports
+that need the converter download still require a connection. The installed web
+app does not provide the native desktop app's VST hosting.
+
+Updates download in the background without reloading an open document. When an
+update is ready, save your work and close all Viritura windows and browser tabs;
+the next launch uses the update.
+
 ## Where to next
 
 - [Note Entry](/docs/note-entry) — the complete input workflow.
 - [Notation &amp; Editing](/docs/notation-and-editing) — selection, palettes,
   inspector, and the jump bar.
-- [Scores, Parts &amp; Layouts](/docs/instruments-and-scores) — how MNX source
-  parts, layouts, score definitions, and musician-facing outputs relate.
+- [Scores, Parts, &amp; Layouts](/docs/instruments-and-scores) — manage
+  instruments, scores, and parts.
 - [Percussion Maps](/docs/percussion-maps) — connect unpitched sounds to staff
   positions, noteheads, and playback.
 - [Engraving &amp; Layout](/docs/engraving-and-layout) — house style and page

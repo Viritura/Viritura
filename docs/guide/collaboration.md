@@ -16,7 +16,7 @@ people who should be able to edit the document.
 
 The Live panel lists participants and shows whether the session is active.
 Collaborator presence, cursors, selections, and document edits update in real
-time. Changes still use the same MNX document model as local editing.
+time.
 
 The host page anchors the live session. Closing it ends the session for
 everyone. Choose **Leave** when you are finished and remove the room link from

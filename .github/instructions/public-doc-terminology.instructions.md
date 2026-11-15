@@ -1,26 +1,29 @@
 ---
-description: Keep public documentation terminology distinct from MNX schema object names
+description: Use musician-facing language without requiring knowledge of MNX internals
 applyTo: "{docs/guide/**/*.md,apps/website/src/routes/docs/**/*.{ts,tsx},apps/editor/src/components/HelpDialog.tsx}"
 ---
 
 # Public documentation terminology
 
-Public guides use musician-facing language by default. Follow the terminology
-contract in `docs/guide/instruments-and-scores.md#terminology`:
+Public guides are written for musicians. Describe scores, instrumental parts,
+layouts, and instruments in terms of what users see and do, without requiring
+knowledge of MNX or its data model. Name MNX, `.mnx`, or other formats when
+needed for file workflows or to match a UI label.
 
-- **document** means the whole `.mnx` file;
-- **MNX part** or **source part** means the schema object that owns music;
-- **MNX score definition** means the schema object that selects a layout and
-  can render either a score or an instrumental part;
-- **layout** means the staff/group tree that maps source parts into an output;
-- **score**, **section score**, **instrumental part**, and **part extract** mean
-  musician-facing rendered outputs.
+- **document** means the whole piece and its settings;
+- **instrument** means the instrument and its music in the document;
+- **layout** describes which instruments and staves appear and how they are
+  arranged;
+- **score**, **section score**, **instrumental part**, and **part extract**
+  describe the views musicians use.
 
-Never call an MNX source part a printed part, and never imply that an MNX
-`score` definition is necessarily a conductor score. Prefer “the document
-stores…” over “the score stores…” when describing file-level data.
+Keep the underlying distinction accurate: an MNX source part is not necessarily
+a printed part, and an MNX score definition can describe either a score or an
+instrumental part. Explain those schema concepts in technical documentation,
+not as prerequisites for using the editor.
 
-Example: write “The document contains one Flute source part, and separate MNX
-score definitions render it in the full score and Flute 1 instrumental part.”
-Do not write “The Flute part appears in two scores” unless the surrounding text
-has already made the data-model meaning explicit.
+## Learnings
+
+Prefer “the instrument's music appears in the score and its part” to explaining
+how MNX source parts and score definitions relate. Mention file formats when
+they help a musician choose, open, save, import, or export a file.

@@ -1,4 +1,4 @@
-# Playback, Mixer & Piano Roll
+# Playback, Mixer, & Piano Roll
 
 Playback is available throughout the editor. The **Play** activity adds the
 mixer, sound assignment, and spatial stage; **Roll** provides a performance
@@ -6,12 +6,35 @@ visualization of the same playback timeline.
 
 ## Transport
 
-Press `Space` to play or pause. Playback begins at the current selection when
-one is available, otherwise at the start of the score. Use the transport bar to
-seek, control following, and monitor the playhead.
+Press `Space` to play or pause and `Esc` to stop. Playback begins at the current
+selection when one is available, otherwise at the start of the score. Use the
+transport bar to return to the start, toggle the metronome, seek, control
+following, and monitor the playhead. Click the time display to switch between
+elapsed/total time and measure:beat.
+
+When a selection covers only some staves, playback is limited to those staves
+and the transport shows a badge such as "2 selected staves". Clear the
+selection to hear the full ensemble again.
+
+**Settings → Playback** controls which transport controls are shown (the time
+display, the follow-playback-head control, and the metronome) and whether
+the view follows the playhead.
 
 Playback follows tempo, dynamics, articulations, repeats, and the document's
 sound assignments. Unpitched percussion uses its instrument's percussion map.
+
+Some markings also change the performance:
+
+- Tempo ramps (rit., accel., and similar) change speed gradually along their
+  chosen curve, and swing instructions apply to the chosen subdivision. See
+  [Notation & Editing](/docs/notation-and-editing#staff-and-system-text).
+- Glissandos and portamentos play chromatically, diatonically, or as a pitch
+  bend, as set in Properties.
+- D.C., D.S., Coda, and Fine markings are followed.
+- _pizz._ and _arco_ switch string instruments between plucked and bowed
+  sounds.
+- On pitched staves, X, circled-X, and slash noteheads are silent; diamond and
+  triangle noteheads still sound.
 
 ## Mixer
 
@@ -27,6 +50,9 @@ adjust:
 
 Mute and solo remain active when you switch away from Play because they belong
 to the playback engine, not just the visible mixer.
+
+Mixer settings, including levels, mute and solo, groups, the Chords channel,
+and master volume, are saved with the document and restored when it reopens.
 
 ### Chords channel
 
@@ -91,4 +117,4 @@ editing is not currently wired from the piano roll. Make changes in **Write**.
 
 For score navigation and playback following, see
 [Viewing & Review](/docs/viewing-and-review). For percussion sound assignments,
-see [Scores, Parts & Layouts](/docs/instruments-and-scores#percussion-maps).
+see [Scores, Parts, & Layouts](/docs/instruments-and-scores#percussion-maps).

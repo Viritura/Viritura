@@ -47,6 +47,14 @@ so reassignment cannot silently overwrite text.
 Press `Delete` or `Backspace` while a lyric syllable is selected to remove only
 the lyric. Its note remains unchanged.
 
+### Extender lines
+
+A word's final syllable held across a melisma is followed by an extender line.
+For a selected syllable, **Lyric extender** chooses **Auto**, **Show**, or
+**Hide**; with **Show**, you can also choose the note where the line ends. The
+document-wide **Lyric extender policy** in the Lyrics section either infers
+missing extenders automatically or draws only the extenders set explicitly.
+
 Standard clipboard commands follow the selection:
 
 - Copying or cutting a selected syllable uses plain text. Cutting removes only
@@ -127,14 +135,14 @@ document.
   or a valid private-use tag. Viritura preserves valid authored tags rather
   than silently rewriting them.
 
-Line metadata, ordering, and entered syllables are normal document edits. They
-round-trip through MNX and participate in undo and redo.
+Line metadata, ordering, and entered syllables are saved with the document and
+participate in undo and redo.
 
 ## Imported lyrics
 
-MusicXML import creates lyric lines from numbered `<lyric>` elements. When the
-source consistently provides a lyric name or language, Viritura retains that
-information as the line label and language.
+MusicXML import creates lyric lines from the source file's numbered lines.
+When the source consistently provides a lyric name or language, Viritura
+retains that information as the line label and language.
 
 For general selection, palettes, and editing commands, see
 [Notation & Editing](/docs/notation-and-editing). For entering notes, see

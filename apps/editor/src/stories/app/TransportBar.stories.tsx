@@ -38,9 +38,6 @@ function TransportBarWrapper() {
             <li>
               <kbd style={kbdStyle}>Escape</kbd> Stop
             </li>
-            <li>
-              <kbd style={kbdStyle}>Ctrl+M</kbd> Toggle Metronome
-            </li>
           </ul>
         </div>
       </div>

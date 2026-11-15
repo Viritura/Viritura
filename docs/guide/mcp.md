@@ -19,10 +19,16 @@ When the secure session is ready:
 Connecting is tab-specific: other open documents are not exposed unless you
 explicitly connect them too.
 
+A client's sign-in lasts up to 30 days if the client supports staying signed
+in; otherwise it lasts about an hour. After that, or if you revoke access, the
+client asks you to sign in through your browser again.
+
 ## Review MCP changes
 
-An MCP client can inspect the open document, answer notation-aware questions,
-and propose edits. By default, proposed document changes require approval in the
+An MCP client can inspect the open document, answer notation-aware questions
+about chords, timing, instrument ranges, and annotations, and propose edits,
+including notes, chord symbols, and individual staff expressions. By default,
+proposed document changes require approval in the
 corresponding Viritura tab. Clicking outside a review dialog does not dismiss or
 reject the proposal; use **Accept** or **Reject** to decide.
 
