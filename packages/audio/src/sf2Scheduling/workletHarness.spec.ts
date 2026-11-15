@@ -54,8 +54,9 @@ export function createWorkletHarness(
   const workerPort: TestPort = {
     onmessage: null,
     postMessage(data) {
-      posted.push(structuredClone(data));
-      queueMicrotask(() => mainPort.onmessage?.({ data: structuredClone(data) }));
+      const message = structuredClone(data);
+      posted.push(message);
+      queueMicrotask(() => mainPort.onmessage?.({ data: message }));
     },
   };
   class AudioWorkletProcessor {
