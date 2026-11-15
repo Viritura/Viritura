@@ -26,6 +26,12 @@ Instrument Profiles choose the sound sources available for document playback.
 > Audio Output, VST3 profile management, and Default Reverb settings appear only
 > when the native audio host is available.
 
+## Playback
+
+**Playback** chooses which controls appear in the transport bar (the time
+display, the follow-playback-head control, and the metronome) and whether the
+view follows the playhead during playback.
+
 ## MIDI input
 
 Open **Audio → MIDI Input** to connect a MIDI keyboard or control surface.
@@ -105,6 +111,13 @@ development and engraving investigation.
 
 These settings can make the score canvas visually noisy and may affect performance.
 Leave them off for ordinary writing, playback, and publication work.
+
+If the editor becomes slow or runs low on memory, open **Rendering → Memory
+diagnostics** and choose **Download diagnostics**. When unusually high memory
+use is detected, Viritura saves a report automatically and shows a notice;
+after a reload, **Download saved report** (in the same category or in the
+notice) retrieves it. Reports stay on your device until you choose to share
+them and contain no score content, so they are safe to attach to a bug report.
 
 For opening projects and standalone files, see
 [Getting Started](/docs#open-or-create-work).

@@ -47,6 +47,14 @@ so reassignment cannot silently overwrite text.
 Press `Delete` or `Backspace` while a lyric syllable is selected to remove only
 the lyric. Its note remains unchanged.
 
+### Extender lines
+
+A word's final syllable held across a melisma is followed by an extender line.
+For a selected syllable, **Lyric extender** chooses **Auto**, **Show**, or
+**Hide**; with **Show**, you can also choose the note where the line ends. The
+document-wide **Lyric extender policy** in the Lyrics section either infers
+missing extenders automatically or draws only the extenders set explicitly.
+
 Standard clipboard commands follow the selection:
 
 - Copying or cutting a selected syllable uses plain text. Cutting removes only

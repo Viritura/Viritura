@@ -28,6 +28,18 @@ only one staff is selected. Deleting all bars leaves one empty bar. Use
 **Undo** to restore the deleted bars.
 
 The existing **Delete** command clears selected music without removing bars.
+When a cut or delete empties a whole bar on a staff, that bar shows a
+full-measure rest again.
+
+Select an explicit time signature and press `Delete` to remove it. Following
+bars inherit the nearest earlier time signature, and automatic beat grouping
+follows the inherited meter.
+
+To exchange the music of two staves, select a bar range that covers exactly two
+staves, either on two instruments or on the two staves of one piano, and
+choose **Edit → Swap Staff Contents** or the same command from the right-click
+menu. Voices and staff-attached markings move together; the staves' clefs,
+instruments, and other structural settings stay where they are.
 
 The fastest commands act directly on the selection:
 
@@ -76,6 +88,10 @@ automatically for text, formatting, page attachment, size and position.
 In Horizon, which has no pages, new page frames start on page 1 and can be
 edited in Properties even though they are not drawn there.
 
+Rich text editing in Properties provides **Bold**, **Italic**, **Underline**,
+and **Strikethrough** formatting, a font family, a relative text size, and a
+SMuFL glyph search for inserting music symbols inline.
+
 In the popover, enter `Freely` or `Allegro` for plain system text,
 `q=180` for a metronome marking, or `Allegro q=180` for both. Dotted units
 such as `q.=90` and a bare BPM such as `180` are also supported. Explicit
@@ -88,10 +104,30 @@ Replacing tempo syntax with words alone removes playback settings.
 Editing the words of a BPM-free Swing or Straight instruction preserves its
 rhythm setting; choose Inherit in Properties to clear it.
 
+The **Rhythm** setting offers **Inherit** (the default), **Straight**, or
+**Swing**. Swing applies to **Eighth** or **Sixteenth** notes with a **60%
+(3:2)** or **Triplet (2:1)** preset, or a custom long:short ratio. The
+**Effective** readout shows which rhythm instruction is in force at that point
+and where it comes from.
+
 The **Lyrics** tile (**Shift+W**) starts inline syllable entry on the selected
 note and opens Properties. Active-line selection, adding and reordering lines,
 labels, language, Paste verse/Reflow and extender settings live in the Lyrics
 section of Properties rather than the palette.
+
+### Tempo ramps
+
+To make a gradual tempo change, select where it should start and open
+**Properties → Tempo ramp → Add tempo ramp**. Set the **Start bar** and **End
+bar** (with optional quarter-note offsets), then choose the target as a
+**Percentage of starting tempo** (80% by default) or as a **Quarter-note BPM**.
+**Tempo curve** shapes the change: **Linear**, **Early change**, **Late
+change**, or **Smooth**. **Marking preset** prints **rit.**, **accel.**,
+**rall.**, **stringendo**, or **Custom text**. Choose **Create tempo ramp** to
+add it.
+
+A ramp applies to every instrument and normally starts from the tempo already
+in force. Deleting a ramp's printed label also removes its playback change.
 
 ## Spread chords across staves
 
@@ -159,7 +195,8 @@ a line, cut it, then paste it into another staff to move one voice by hand; use
 
 ## Palettes and radial menus
 
-The left panel contains notation palettes and clipboard history. Palettes are
+The left panel contains notation palettes, undo and clipboard history, and
+Properties. Palettes are
 useful when you want to browse available symbols; radial menus are faster once
 you know the category shortcut.
 
@@ -173,8 +210,10 @@ you know the category shortcut.
 | `Shift+F` | Fingerings                |
 | `Shift+H` | Breath marks and fermatas |
 | `Shift+M` | Time signatures           |
-| `Shift+R` | Repeats                   |
+| `Shift+O` | Ornaments                 |
+| `Shift+R` | Repeats and navigation    |
 | `Shift+3` | Tuplets                   |
+| `Shift+4` | Time signatures (alias)   |
 | `Shift+5` | Key signatures            |
 
 Choose an item from a radial menu to apply it to the current selection. The
@@ -198,23 +237,105 @@ See [Chord Symbols](/docs/chord-symbols) for entering harmony and
 [Lyrics](/docs/lyrics) for syllable entry, melismas, labels, languages, and
 line ordering.
 
+## Markings and lines
+
+| Marking                    | Where to find it                             | Notes                                                                      |
+| -------------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
+| Glissando / portamento     | **Connections** palette                      | Select exactly two notes or chords in one instrument                       |
+| Scoop, plop, falloff, doit | **Notehead markings** palette                | Applies per notehead; notation only, with no playback effect               |
+| Caesura                    | **Breath & fermata** palette (`Shift+H`)     | On a barline it spans every displayed staff; on a note or rest it is local |
+| Up-bow / down-bow          | **Articulations** palette (`Shift+A`)        | Applies to every selected note                                             |
+| Ottava lines               | **Octaves & pedals** palette                 | 8va, 8vb, 15ma, 15mb, 22ma, 22mb                                           |
+| Segno, Coda, D.C., D.S.    | **Repeats & navigation** palette (`Shift+R`) | Markers go at the start of the selection; jumps and Fine at its end        |
+
+Finish note input before adding a glissando or portamento. In Properties,
+the **Glissando / portamento** section sets the **Type**, a straight or wavy
+**Line style**, the **Playback type** (**Chromatic**, **Diatonic**, or **Pitch
+bend**), and whether the "gliss." or "port." label is shown.
+
+Slides also have **Slide in** and **Slide out** controls in the **Note
+markings** section. A selected caesura offers four shapes and one or two
+strokes. Bow markings expose **Direction** and **Placement**.
+
+Drag either end of an ottava line to change its span. Its Properties section
+sets the displacement, placement, and whether it applies to all staves and
+voices or only one.
+
+Navigation markers drive playback: repeats, D.C., D.S., To Coda, and Fine are
+followed when the score plays. In Properties, **Instruction** changes the
+marker type, Segno and Coda offer alternative glyphs, and **Add text** prints
+custom wording before, after, or instead of the standard text without changing
+what the marker does.
+
+### Rests, bars, and meters
+
+To hide a rest, select it and check **Hidden** under **Rest visibility** in
+Properties. A hidden rest remains visible as a placeholder in Write so you can
+select it again.
+
+To start the score with an upbeat, open the barline menu (`Shift+B`) and choose
+**Create Pickup Bar**. Pick a **Pickup duration** shorter than the opening time
+signature. The command is unavailable when the score already starts with a
+pickup.
+
+Selecting a bar shows its time signature, barline, repeats, measure-repeat, and
+measure-number controls in Properties:
+
+- **Display** shows a time signature as stacked numbers, common time (4/4),
+  cut time (2/2), an open meter, or with a note-value denominator.
+- **Barline → Type** includes double, final, heavy, dashed, dotted, tick, short,
+  and no barline.
+- **Repeat End** adds a **Repeat Count** of 2 to 32 playthroughs.
+- **Measure number → Override** renumbers a bar; **Clear override** restores
+  automatic numbering.
+
+With a time signature selected, **Meter grouping display** chooses how beat
+groups are printed, for this time signature or for one staff only. It changes
+appearance, not rhythm. A **staff-local meter** gives one staff a different
+time signature over the same bar; choose **Shared duration** when both meters
+fill the same length, or **Fit measure**, then **Apply to this staff**. **Reset
+to global** removes it.
+
+### Beams
+
+Select notes to reach the **Beam** section of Properties. **Join selected
+notes** and **Break after selection** override automatic beaming, and **Beam
+level** applies the change only to secondary or deeper beams, for example to
+split sixteenths into groups of four beneath a continuous eighth beam. A
+single note at a secondary level can carry a full beam, an automatic one, or a
+forward or backward beamlet.
+
+### Instrument changes
+
+To switch a player to another instrument partway through, select a single bar
+in that instrument and choose **Edit → Change instrument or tuning** (also in
+the right-click menu and jump bar). The change lasts until the next instrument
+change. Sounding pitches are preserved, so written notes respell for the new
+transposition. The dialog can customize the tuning and set the printed label
+and an advance reminder. House style controls whether these labels appear; see
+[Engraving & Layout](/docs/engraving-and-layout).
+
 ## Inspector
 
-The right inspector changes properties of the selected item. The available
-controls depend on what is selected: notes expose pitch and notation
-properties, while lyrics, slurs, barlines, text, and other annotations expose
-their own specialized controls. Selecting a lyric syllable lets you correct its
-text, word position, or lyric line without changing its note.
+The **Properties** tab in the left panel changes properties of the selected
+item. The available controls depend on what is selected: notes expose pitch and
+notation properties, while lyrics, slurs, barlines, text, and other annotations
+expose their own specialized controls. Selecting a lyric syllable lets you
+correct its text, word position, or lyric line without changing its note.
 
 Use direct shortcuts for frequent actions and the inspector for precise or
 less common properties. Both edit the same MNX document and participate in
 undo and redo.
 
-## Clipboard history
+## Undo and clipboard history
+
+The **History** tab in the left panel has two sections. **Undo History** lists
+your recent edits with descriptive names; click an entry to undo or redo
+straight to that point. The current state is marked **NOW**.
 
 Copy and paste use MNX-aware score fragments rather than pixels. The
-**History** tab in the left panel retains recent copied fragments and shows a
-musical preview, making it useful when reusing several passages.
+**Clipboard** section retains recent copied fragments and shows a musical
+preview, making it useful when reusing several passages. **Clear** empties it.
 
 Pasting preserves written rest values: a quarter rest followed by a half rest
 stays as two rests rather than becoming a dotted half rest. Rests created to

@@ -51,6 +51,13 @@ individually.
 Style controls include the font family, size, weight, italic treatment, color,
 and alignment where applicable.
 
+### Instrument changes
+
+**Show label at change** and **Show advance reminder** control whether
+instrument-change labels and the reminder before a change are printed. Set the
+label and reminder text for an individual change in Write; see
+[Notation & Editing](/docs/notation-and-editing#instrument-changes).
+
 ## Page setup
 
 Open the **Layouts** tab to edit the score or instrumental part selected in the header. Page
@@ -67,13 +74,10 @@ page-turn-friendly format.
 
 ## Systems and page flow
 
-The Engrave workspace exposes system-level controls beside the score. Use them
-to:
-
-- force a system break at a chosen measure;
-- force a page break;
-- control staff visibility for a particular system;
-- inspect spacing and balance before publication.
+To force a break, select a barline and choose **System break** or **Page
+break** in the Engrave toolbar. The music after that barline then starts a new
+system or page. The **Forced breaks** panel lists the breaks in the current
+layout; remove a selected break there, or clear all of them at once.
 
 Forced breaks are durable layout decisions. Use them sparingly: make the
 automatic layout do most of the work, then intervene for musical phrasing,
@@ -98,6 +102,10 @@ continues to draw from that source.
 
 Always review condensed passages at entrances, divisi changes, unisons, and
 rhythmically independent writing.
+
+The two staves of a piano or other multi-staff instrument are never merged with
+each other. When a player doubles on another instrument, condensing splits and
+rejoins their shared staff at system boundaries around the change.
 
 For the distinction between MNX source parts, score definitions, scores, and
 instrumental parts, see
