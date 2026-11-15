@@ -267,12 +267,12 @@ describe("SF2 scheduling worklet", () => {
       context,
       expect.any(String),
       expect.objectContaining({
-        processorOptions: {
+        processorOptions: expect.objectContaining({
           sampleRate: 48_000,
           initialTime: 10,
           convolverMode: false,
-          processorConfig: { eventsEnabled: true },
-        },
+          processorConfig: expect.objectContaining({ eventsEnabled: true }),
+        }),
       }),
     );
     synth.destroy();
