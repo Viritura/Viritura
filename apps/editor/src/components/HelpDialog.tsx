@@ -27,6 +27,7 @@ const QUICK_GUIDES = [
   { slug: "percussion-maps", label: "Edit percussion maps" },
   { slug: "note-entry", label: "Enter notes" },
   { slug: "lyrics", label: "Enter lyrics" },
+  { slug: "chord-symbols", label: "Enter chord symbols" },
   { slug: "notation-and-editing", label: "Edit notation" },
   { slug: "engraving-and-layout", label: "Engrave and lay out" },
   { slug: "playback-and-piano-roll", label: "Playback and mixer" },
