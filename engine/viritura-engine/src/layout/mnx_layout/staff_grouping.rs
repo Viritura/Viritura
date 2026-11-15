@@ -247,6 +247,34 @@ mod tests {
     }
 
     #[test]
+    fn nested_square_keeps_the_enclosing_bracket_next_to_the_staff() {
+        let dl = render(
+            &[group(0, 1, "square", 1), group(0, 2, "bracket", 0)],
+            &[10.0, 30.0, 50.0],
+        );
+        assert!(matches!(
+            &dl.commands[0],
+            RenderCommand::DrawRect { x, w, .. }
+                if (*x - 18.9).abs() < 0.001
+                    && (*w - smufl::SUB_BRACKET_THICKNESS).abs() < 0.001
+        ));
+        let bracket_tops: Vec<f64> = dl
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawGlyph { x, codepoint, .. }
+                    if *codepoint == smufl::BRACKET_TOP =>
+                {
+                    Some(*x)
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(bracket_tops.len(), 1);
+        assert!((bracket_tops[0] - 19.3).abs() < 0.001);
+    }
+
+    #[test]
     fn single_staff_secondary_brackets_are_omitted() {
         let dl = render(
             &[group(0, 0, "square", 1), group(1, 1, "bracket", 1)],

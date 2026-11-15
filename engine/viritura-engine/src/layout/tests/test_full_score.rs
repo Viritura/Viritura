@@ -7,6 +7,7 @@ use crate::layout::spacing::{build_merged_log_spacing_for_part_measures, rigid_d
 use crate::layout::staff_brace::{brace_design_width, is_brace_glyph};
 use crate::layout::{layout_full_score, layout_score, layout_with_mnx_scores};
 use crate::parse::parse_mnx;
+use crate::render::smufl::smufl;
 use crate::render::*;
 
 #[test]
@@ -173,6 +174,61 @@ fn test_full_score_bracket_rendering() {
         "Expected at least 1 bracket vertical rect, got {}",
         bracket_rects.len()
     );
+}
+
+#[test]
+fn beethoven_sub_brackets_preserve_the_outer_bracket_position() {
+    let score = parse_mnx(include_str!(
+        "../../../../../packages/format/fixtures/mnx/beethoven-symphony-5-movement-1.mnx"
+    ))
+    .unwrap();
+    let config = LayoutConfig::default();
+    let sp = config.sp;
+
+    for score_index in [0, 1] {
+        let dl = layout_with_mnx_scores(&score, &config, score_index);
+        let tops: Vec<(f64, f64)> = dl
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawGlyph {
+                    x, y, codepoint, ..
+                } if *codepoint == smufl::BRACKET_TOP => Some((*x, *y)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            tops.len(),
+            1,
+            "score {score_index} must have one full bracket"
+        );
+        let (bracket_x, bracket_y) = tops[0];
+        assert!(
+            dl.commands.iter().any(|command| matches!(
+                command,
+                RenderCommand::DrawLine { x1, y1, x2, y2, .. }
+                    if (*x1 - *x2).abs() < 0.01
+                        && (*x1 - bracket_x - 0.7 * sp).abs() < 0.01
+                        && (*y1 - bracket_y).abs() < 0.01
+                        && y2 > y1
+            )),
+            "score {score_index} must keep the bracket beside the system line"
+        );
+        let squares = dl
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    RenderCommand::DrawRect { x, w, h, .. }
+                        if (*x - bracket_x + 0.4 * sp).abs() < 0.01
+                            && (*w - smufl::SUB_BRACKET_THICKNESS * sp).abs() < 0.01
+                            && *h > 4.0 * sp
+                )
+            })
+            .count();
+        assert_eq!(squares, 2, "score {score_index} must have two sub-brackets");
+    }
 }
 
 #[test]

@@ -164,7 +164,7 @@
                   ]
                 }
               ],
-              "symbol": "bracket"
+              "symbol": "square"
             },
             {
               "type": "staff",
@@ -198,7 +198,7 @@
                   ]
                 }
               ],
-              "symbol": "bracket"
+              "symbol": "square"
             }
           ],
           "symbol": "bracket"
