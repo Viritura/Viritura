@@ -20,9 +20,9 @@ editor-integration gaps.
   Structural-edit reference lifecycle and staff-local timing remain under
   integration review; schema acceptance alone does not establish those paths.
 - The pinned Denigma producer was exercised on its eight acceptance scores.
-  All actual adapted outputs validated against v46; it declares document
-  version `40`, which is not evidence of a schema revision. Acceptance now
-  validates every output even when that number differs from `46`. No
+  The current pin (`45c3f626`) emits document version `52` and gap-report
+  schema v2; all adapted outputs validate against MNX schema 52. Acceptance
+  checks native noteheads, positioned text, and text-formatting ranges. No
   old-draft adapter is applied; unsupported output requires a producer update.
 - The corpus gate covers native fixtures, v46 fixtures and the embedded
   viewer sample in TypeScript schema/round-trip validation and Rust layout of

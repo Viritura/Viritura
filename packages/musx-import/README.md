@@ -42,19 +42,19 @@ for (const outcome of result.gapOutcomes) {
 
 The result includes standard MNX, Denigma diagnostics, and the versioned
 structured conversion-gap report produced by Denigma. Viritura applies its
-supported schema-v1 adapters in the worker and returns one outcome for every
+supported schema-v1/v2 adapters in the worker and returns one outcome for every
 source gap. The consuming editor validates the adapted document against the
 MNX and Viritura extension schemas before loading it. Gap payloads use stable
 target MNX IDs as anchors. Unknown fields and gap types remain visible as
 unhandled outcomes and import diagnostics rather than being silently
 discarded.
 
-The current schema-v1 adapters preserve:
+The current adapters preserve:
 
 - score-wide chord roots, slash bass notes, normalized qualities, common
   extensions, and source text provenance;
-- recognized per-note notehead families (`normal`, X, diamond, slash,
-  circle-X, and triangles);
+- native MNX per-note and percussion-kit notehead shapes, with legacy
+  schema-v1 notehead-gap support;
 - generic expressive text and performance instructions as expressions, with
   per-run bold/italic/underline/strikethrough and SMuFL glyph runs preserved;
 - rehearsal marks;
@@ -67,6 +67,16 @@ explicit fills, source font names and sizes, performance-technique playback
 semantics, multiple rehearsal marks in one measure, separate displayed/playback
 metronome values, note-specific chord endpoints, custom/dashed/invisible lines,
 and tab slides remain explicit partial or unhandled outcomes.
+
+The pinned producer emits MNX schema 52 and gap-report schema 2. Native
+positioned text retains its voice and grace-note position; partial technique
+gaps do not create duplicate expressions. Text-formatting ranges restore
+bold, italic, underline, and strikethrough through `_x.viritura.style`, using
+Unicode scalar offsets for text and list offsets for SMuFL glyphs. All ranges
+resolve against the original content before splitting, including overlapping
+ranges. Source fonts, sizes, baseline offsets, tracking, and hidden-text
+formatting remain partial losses. Text-insert substitutions retain the
+producer's visible fallback; dynamic insert semantics remain unhandled.
 
 ### Global harmony and source pitch
 

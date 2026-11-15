@@ -1,5 +1,6 @@
 import type { TextContent } from "@viritura/core";
 import type { DenigmaDiagnostic, DenigmaGap, DenigmaGapOutcome, DenigmaGapReport } from "../types";
+import { applyTextFormattingGaps } from "./textFormatting";
 import { applyChordSymbolGaps } from "./chordSymbols";
 import { formattedTextContent, hasUnimportedFormatting } from "./textRuns";
 import {
@@ -149,6 +150,8 @@ function nativeTextContent(content: TextContent): JsonRecord[] {
 }
 
 function addTextExpression(gap: DenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
+  const existing = index.byId(gap.anchor);
+  if (gap.extent === "partial" && Array.isArray(existing?.["text"])) return formattingOutcome(expression);
   const target = expressionMeasure(gap, index);
   const content = expressionContent(expression);
   if (!target?.partMeasure || !content) return outcome("unhandled", "Expression target or plain text is unavailable.");
@@ -477,7 +480,7 @@ function applyNoteheadGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
 
 type GapAdapter = (gap: DenigmaGap, index: TargetIndex) => GapApplication;
 
-const SCHEMA_V1_ADAPTERS: Readonly<Record<string, GapAdapter>> = {
+const GAP_ADAPTERS: Readonly<Record<string, GapAdapter>> = {
   expression: applyExpressionGap,
   "marker-text": applyMarkerTextGap,
   notehead: applyNoteheadGap,
@@ -486,7 +489,7 @@ const SCHEMA_V1_ADAPTERS: Readonly<Record<string, GapAdapter>> = {
 };
 
 function applyGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
-  const adapter = SCHEMA_V1_ADAPTERS[gap.type];
+  const adapter = GAP_ADAPTERS[gap.type];
   return adapter ? adapter(gap, index) : outcome("unhandled", `Unsupported Denigma gap type ${gap.type}.`);
 }
 
@@ -503,7 +506,7 @@ export function applyDenigmaGapReport(
   report: DenigmaGapReport,
   indentSpaces?: number,
 ): GapAdaptationResult {
-  if (report.schemaVersion !== 1) {
+  if (report.schemaVersion !== 1 && report.schemaVersion !== 2) {
     throw new Error(`Unsupported Denigma gap-report schema version ${String(report.schemaVersion)}.`);
   }
   let parsed: unknown;
@@ -515,9 +518,10 @@ export function applyDenigmaGapReport(
   const document = assertMnxEnvelope(parsed);
   const index = new TargetIndex(document);
   const diagnostics: DenigmaDiagnostic[] = [];
+  const formattingApplications = applyTextFormattingGaps(report.gaps, index);
   const chordApplications = applyChordSymbolGaps(report.gaps, index, diagnostics);
   const outcomes = report.gaps.map((gap, gapIndex) => {
-    const application = chordApplications.get(gapIndex) ?? applyGap(gap, index);
+    const application = formattingApplications.get(gapIndex) ?? chordApplications.get(gapIndex) ?? applyGap(gap, index);
     const result: DenigmaGapOutcome = {
       gapIndex,
       type: gap.type,

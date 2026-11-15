@@ -27,6 +27,7 @@ interface DenigmaModule {
     splitInstruments: number,
     indentSpaces: number,
     cueLayer: number,
+    pitchDisplayMode: number,
     selectedOutputs: number,
     selectedOutputCount: number,
     writeGapReport: number,
@@ -132,6 +133,22 @@ function isGap(value: unknown): value is DenigmaGap {
   if (!isGapAnchor(value) || !isRecord(value)) return false;
   if (typeof value.type !== "string" || (value.extent !== "complete" && value.extent !== "partial")) return false;
   if (value.end !== undefined && !isGapAnchor(value.end)) return false;
+  if (
+    value.textRanges !== undefined &&
+    (!Array.isArray(value.textRanges) ||
+      !value.textRanges.every(
+        (range) =>
+          isRecord(range) &&
+          typeof range.anchor === "string" &&
+          Number.isSafeInteger(range.offset) &&
+          Number.isSafeInteger(range.length) &&
+          typeof range.offset === "number" &&
+          range.offset >= 0 &&
+          typeof range.length === "number" &&
+          range.length > 0,
+      ))
+  )
+    return false;
   if (value.placements === undefined) return true;
   return (
     Array.isArray(value.placements) &&
@@ -147,7 +164,7 @@ function isGap(value: unknown): value is DenigmaGap {
 function isGapReport(value: unknown): value is DenigmaGapReport {
   return (
     isRecord(value) &&
-    value.schemaVersion === 1 &&
+    (value.schemaVersion === 1 || value.schemaVersion === 2) &&
     isRecord(value.producer) &&
     typeof value.producer.name === "string" &&
     typeof value.producer.version === "string" &&
@@ -207,6 +224,7 @@ export async function convertWithDenigma(
       options.splitInstruments ? 1 : 0,
       options.indentSpaces ?? -1,
       options.cueLayer ?? 0,
+      0, // pitchDisplayMode: source display (ignored for MNX)
       0,
       0,
       1,

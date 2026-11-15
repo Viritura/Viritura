@@ -20,12 +20,14 @@ export interface DenigmaGap extends DenigmaGapAnchor {
   type: string;
   extent: "complete" | "partial";
   end?: DenigmaGapAnchor;
+  /** Original element-local Unicode scalar or glyph-list coordinates (schema v2). */
+  textRanges?: Array<{ anchor: string; offset: number; length: number }>;
   placements?: Array<DenigmaGapAnchor & { kind: "staff" | "system-top" | "system-bottom" }>;
   [key: string]: unknown;
 }
 
 export interface DenigmaGapReport {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   producer: {
     name: string;
     version: string;
