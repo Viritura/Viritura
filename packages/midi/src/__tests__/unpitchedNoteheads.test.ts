@@ -28,8 +28,8 @@ const C4: Note = { pitch: { step: "C", octave: 4 } };
 const E4: Note = { pitch: { step: "E", octave: 4 } };
 
 describe("unpitched noteheads on pitched staves", () => {
-  it.each(["x", "circleX", "slash"] as const)("does not sound a %s notehead", (notehead) => {
-    const score = scoreWithEvents([[{ ...C4, notehead }], [E4]]);
+  it.each(["x", "circleX", "slash"] as const)("does not sound a %s notehead", (shape) => {
+    const score = scoreWithEvents([[{ ...C4, notehead: { shape } }], [E4]]);
     const noteOns = generateTimeline(score).events.filter((e) => e.type === "noteOn");
     expect(noteOns.map((e) => e.midiNote)).toEqual([64]);
     const performed = generatePerformanceEvents(score, 0).filter((e) => e.kind === "noteOn");
@@ -38,9 +38,9 @@ describe("unpitched noteheads on pitched staves", () => {
 
   it("keeps pitched noteheads and normal chord members sounding", () => {
     const score = scoreWithEvents([
-      [{ ...C4, notehead: "x" }, E4],
-      [{ ...C4, notehead: "diamond" }],
-      [{ ...C4, notehead: "triangleUp" }],
+      [{ ...C4, notehead: { shape: "x" } }, E4],
+      [{ ...C4, notehead: { shape: "diamond" } }],
+      [{ ...C4, notehead: { shape: "triangle" } }],
     ]);
     const noteOns = generateTimeline(score).events.filter((e) => e.type === "noteOn");
     expect(noteOns.map((e) => e.midiNote)).toEqual([64, 60, 60]);
