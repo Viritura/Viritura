@@ -4,15 +4,18 @@ This guide covers score display, canvas navigation, and revision comparison.
 
 ## View modes
 
-Switch how the score flows from the view menu / status bar:
+Switch how the score flows with the **View mode** menu in the status bar. The
+status bar is hidden until you move the pointer to the bottom edge of the
+window.
 
 - **Page** — paginated pages exactly as they'll print. Best for final
   proofreading and publishing.
+- **Spread** — facing pages stacked vertically, for checking page turns.
+- **Spread (H)** — facing pages laid out side by side in a horizontal row.
 - **Horizon** — one continuous galley that scrolls horizontally. Best for fast
   note entry and reading long passages without page breaks getting in the way.
   As you scroll, the clef and current key signature stay visible at the left
-  of each staff.
-- **Spread** — facing pages, for checking page turns.
+  of each staff. Available in Setup and Write.
 
 The same score can look subtly different between view modes because each uses a
 layout strategy tuned to its job; page mode is the source of truth for print.

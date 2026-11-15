@@ -72,6 +72,27 @@ Within **Write**, two interaction states control how keystrokes behave:
 The status of note input is always visible in the toolbar; press `N` or `Esc`
 to leave it.
 
+### Status bar and view options
+
+The status bar stays hidden so the score can use the whole window. Move the
+pointer to the **bottom edge of the window** and it slides up; move away and it
+hides again.
+
+| Control                    | What it does                                                           | Shown in                               |
+| -------------------------- | ---------------------------------------------------------------------- | -------------------------------------- |
+| **Concert / Written**      | Shows sounding or transposed pitch for the current score or part       | Setup, Write, Engrave, Review          |
+| **View mode**              | Switches between **Page**, **Spread**, **Spread (H)**, and **Horizon** | Setup, Write, Engrave, Publish         |
+| Zoom slider and percentage | Drag to zoom; click the percentage to return to 100%                   | Setup, Write, Engrave, Publish, Review |
+| Ruler button               | Calibrates the display so 100% matches the printed size                | Setup, Write, Engrave, Publish         |
+
+**Horizon** is only available in Setup and Write. When measures have the wrong
+number of beats, Write also shows a warning in the status bar with **Repair**
+and **Dismiss** actions.
+
+You can also zoom with `Mod+=`, `Mod+-`, and `Mod+0` (reset), or with
+`Mod`+wheel. See [Viewing & Review](/docs/viewing-and-review) for view modes,
+canvas navigation, and read-only previews.
+
 ## Enter your first notes
 
 1. Press `N` to enter **note input mode**.

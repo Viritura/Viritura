@@ -45,6 +45,13 @@ const GUIDE_PAGES: readonly Omit<DocPageMeta, "section">[] = [
     file: "docs/guide/getting-started.md",
   },
   {
+    slug: "viewing-and-review",
+    path: "/docs/viewing-and-review",
+    title: "Viewing & Review",
+    group: "Start",
+    file: "docs/guide/viewing-and-review.md",
+  },
+  {
     slug: "instruments-and-scores",
     path: "/docs/instruments-and-scores",
     title: "Scores, Parts, & Layouts",
@@ -115,13 +122,6 @@ const GUIDE_PAGES: readonly Omit<DocPageMeta, "section">[] = [
     file: "docs/guide/collaboration.md",
   },
   { slug: "mcp", path: "/docs/mcp", title: "MCP", group: "Share & Finish", file: "docs/guide/mcp.md" },
-  {
-    slug: "viewing-and-review",
-    path: "/docs/viewing-and-review",
-    title: "Viewing & Review",
-    group: "Share & Finish",
-    file: "docs/guide/viewing-and-review.md",
-  },
   {
     slug: "publishing-and-export",
     path: "/docs/publishing-and-export",
