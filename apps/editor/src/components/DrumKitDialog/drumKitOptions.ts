@@ -12,6 +12,8 @@ export const NOTEHEAD_OPTIONS: readonly SelectOption[] = [
   { value: "slash", label: "Slash ∕" },
   { value: "triangleUp", label: "Triangle ▲" },
   { value: "triangleDown", label: "Triangle ▽" },
+  { value: "plus", label: "Plus +" },
+  { value: "square", label: "Square ■" },
 ];
 
 /** Coerce an arbitrary string back to a NoteheadShape (Select gives strings). */

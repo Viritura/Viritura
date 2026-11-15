@@ -9,7 +9,7 @@ use crate::model::note_markings::{
 };
 use crate::model::pitch::Pitch as ModelPitch;
 use crate::promote::articulation::{promote_accidental_display, promote_tie};
-use crate::promote::kit::{parse_notehead_shape, promote_perform_options};
+use crate::promote::kit::{parse_notehead_shape, promote_native_notehead, promote_perform_options};
 use crate::promote::pitch::promote_pitch;
 use crate::promote::vendor_ext::read_viritura_ext;
 use crate::raw;
@@ -29,10 +29,14 @@ pub(crate) fn promote_written(r: raw::Written) -> ModelWritten {
 }
 
 pub(crate) fn promote_note(r: raw::Note) -> ModelNote {
-    let notehead = read_viritura_ext(r.x.as_ref())
-        .and_then(|v| v.get("notehead"))
-        .and_then(|v| v.as_str())
-        .and_then(parse_notehead_shape);
+    let notehead = if let Some(native) = r.notehead.as_ref() {
+        promote_native_notehead(native)
+    } else {
+        read_viritura_ext(r.x.as_ref())
+            .and_then(|v| v.get("notehead"))
+            .and_then(|v| v.as_str())
+            .and_then(parse_notehead_shape)
+    };
     ModelNote {
         pitch: promote_pitch(r.pitch),
         id: r.id.map(String::from),
@@ -90,7 +94,7 @@ pub(crate) fn promote_kit_note_to_note(r: raw::KitNote) -> ModelNote {
         staff: r.staff.map(|s| u32::try_from(s.0).unwrap_or(1)),
         kit_component: Some(String::from(r.kit_component)),
         perform: r.perform.map(promote_perform_options),
-        notehead: None,
+        notehead: r.notehead.as_ref().and_then(promote_native_notehead),
         markings: None,
         source_part_index: None,
         source_event_id: None,
@@ -111,6 +115,38 @@ mod tests {
         assert_eq!(n.id.as_deref(), Some("n1"));
         assert_eq!(n.notehead, Some(crate::model::kit::NoteheadShape::Diamond));
         assert!(n.kit_component.is_none());
+    }
+
+    #[test]
+    fn native_notehead_takes_precedence_over_legacy_extension() {
+        let json = r#"{"pitch":{"step":"E","octave":4},"notehead":{"shape":"x"},"_x":{"viritura":{"notehead":"diamond"}}}"#;
+        let r: raw::Note = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            promote_note(r).notehead,
+            Some(crate::model::kit::NoteheadShape::X)
+        );
+    }
+
+    #[test]
+    fn promotes_kit_note_override() {
+        let json = r#"{"kitComponent":"snare","notehead":{"shape":"square"}}"#;
+        let r: raw::KitNote = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            promote_kit_note_to_note(r).notehead,
+            Some(crate::model::kit::NoteheadShape::Square)
+        );
+    }
+
+    #[test]
+    fn promotes_native_custom_notehead_glyph() {
+        let json = r#"{"pitch":{"step":"C","octave":4},"notehead":{"shape":"custom","glyph":"noteheadXBlack"}}"#;
+        let raw: raw::Note = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            promote_note(raw).notehead,
+            Some(crate::model::kit::NoteheadShape::Custom(
+                crate::render::smufl::smufl::NOTEHEAD_X_BLACK
+            ))
+        );
     }
 
     #[test]

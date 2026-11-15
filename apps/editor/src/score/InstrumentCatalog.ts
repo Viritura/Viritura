@@ -157,6 +157,9 @@ export function buildPartTransposition(def: TranspositionDef): Transposition {
   const transposition: Transposition = {
     interval: { halfSteps: def.halfSteps, staffDistance },
   };
+  if (7 * def.halfSteps !== 12 * staffDistance) {
+    transposition.keyFifthsFlipAt = 7;
+  }
   if (isPureOctaveTransposition(def.halfSteps, staffDistance)) {
     transposition.prefersWrittenPitches = true;
   }

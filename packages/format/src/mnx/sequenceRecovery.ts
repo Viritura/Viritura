@@ -124,17 +124,16 @@ function annotate(root: JsonObject, entry: RecoveredSequence): void {
   const part = asObject(itemAt(root["parts"], entry.partIndex));
   const measure = asObject(itemAt(part?.["measures"], entry.measureIndex));
   if (!measure) return;
-  const x = asObject(measure["_x"]) ?? {};
-  const viritura = asObject(x["viritura"]) ?? {};
-  const expressions = Array.isArray(viritura["expressions"]) ? viritura["expressions"] : [];
+  const text = Array.isArray(measure["text"]) ? measure["text"] : [];
   const marker: JsonObject = {
+    type: "expression",
     text: [{ text: `Import error ${entry.logId}` }],
     position: { fraction: [0, 1] },
     placement: "above",
     staff: entry.staff,
   };
   if (entry.voice !== undefined) marker["voice"] = entry.voice;
-  measure["_x"] = { ...x, viritura: { ...viritura, expressions: [...expressions, marker] } };
+  measure["text"] = [...text, marker];
 }
 
 interface SequenceErrors {

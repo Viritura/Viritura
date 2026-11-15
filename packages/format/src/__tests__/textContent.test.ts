@@ -125,21 +125,15 @@ describe("migrateLegacyTextContent", () => {
     parts: [
       {
         id: "part-1",
-        measures: [
-          {
-            sequences: [{ content: [] }],
-            _x: { viritura: { expressions: [{ text: "dolce", position: { fraction: [0, 1] } }] } },
-          },
-        ],
+        measures: [{ sequences: [{ content: [] }] }],
       },
     ],
   };
 
-  it("widens strings at all three text-content sites", () => {
+  it("widens strings at the global text-content sites", () => {
     const out = migrateLegacyTextContent(structuredClone(legacyDocument)) as typeof legacyDocument;
     expect(out.global.measures[0]!.tempos[0]!._x.viritura.text).toEqual([{ text: "Andante" }]);
     expect(out.global.measures[0]!._x.viritura.rehearsalMark.text).toEqual([{ text: "A" }]);
-    expect(out.parts[0]!.measures[0]!._x.viritura.expressions[0]!.text).toEqual([{ text: "dolce" }]);
   });
 
   it("does not mutate the input document", () => {
@@ -153,7 +147,6 @@ describe("migrateLegacyTextContent", () => {
     const current = structuredClone(legacyDocument);
     current.global.measures[0]!.tempos[0]!._x.viritura.text = [{ text: "Andante" }] as never;
     current.global.measures[0]!._x.viritura.rehearsalMark.text = [{ text: "A" }] as never;
-    current.parts[0]!.measures[0]!._x.viritura.expressions[0]!.text = [{ text: "dolce" }] as never;
     expect(migrateLegacyTextContent(current)).toBe(current);
   });
 

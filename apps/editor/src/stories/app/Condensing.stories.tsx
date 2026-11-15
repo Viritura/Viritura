@@ -1551,18 +1551,14 @@ export const MidSystemStemReversalNeedsRest: StoryObj = {
 };
 
 // SS-33 — Both parts share a single 'con sord.' text expression on the stave.
-// MNX core has no mute concept, so this uses the Viritura vendor extension
-// `_x.viritura.expressions` (see packages/format/schemas/viritura-extensions.json).
+// MNX core has no mute concept, so this uses native part-measure expression
+// text (`text[]` with `type: "expression"`).
 // Hand-built because the story builder doesn't emit per-measure expressions yet.
 export const SharedMuteExpression: StoryObj = {
   name: "SS-33 — Shared 'con sord.' on common-stem parts",
   render: () => {
     const conSord = {
-      _x: {
-        viritura: {
-          expressions: [{ text: [{ text: "con sord." }], position: { fraction: [0, 1] }, placement: "below" }],
-        },
-      },
+      text: [{ type: "expression", text: [{ text: "con sord." }], position: { fraction: [0, 1] }, placement: "below" }],
       sequences: [{ content: [ev(N("G", 4)), ev(N("A", 4)), ev(N("B", 4)), ev(N("C", 5))] }],
     } as Record<string, unknown>;
     const mnx = JSON.stringify(
@@ -1598,8 +1594,8 @@ export const SharedMuteExpression: StoryObj = {
 };
 
 // SS-34 — Mute states differ → separate stems and separate labels (one above
-// for up-stem player, one below for down-stem player). Same vendor-extension
-// approach as SS-33 (`_x.viritura.expressions`) since MNX core has no mute concept.
+// for up-stem player, one below for down-stem player). Same native expression
+// text approach as SS-33 since MNX core has no mute concept.
 export const DifferentMuteExpressions: StoryObj = {
   name: "SS-34 — Different mutes → separate stems, label per part",
   render: () => {
@@ -1615,13 +1611,14 @@ export const DifferentMuteExpressions: StoryObj = {
             transposition: { interval: { halfSteps: 7, staffDistance: 4 } },
             measures: [
               {
-                _x: {
-                  viritura: {
-                    expressions: [
-                      { text: [{ text: "con sord." }], position: { fraction: [0, 1] }, placement: "above" },
-                    ],
+                text: [
+                  {
+                    type: "expression",
+                    text: [{ text: "con sord." }],
+                    position: { fraction: [0, 1] },
+                    placement: "above",
                   },
-                },
+                ],
                 sequences: [{ content: [ev(N("G", 4)), ev(N("A", 4)), ev(N("B", 4)), ev(N("C", 5))] }],
               },
             ],
@@ -1633,13 +1630,14 @@ export const DifferentMuteExpressions: StoryObj = {
             transposition: { interval: { halfSteps: 7, staffDistance: 4 } },
             measures: [
               {
-                _x: {
-                  viritura: {
-                    expressions: [
-                      { text: [{ text: "senza sord." }], position: { fraction: [0, 1] }, placement: "below" },
-                    ],
+                text: [
+                  {
+                    type: "expression",
+                    text: [{ text: "senza sord." }],
+                    position: { fraction: [0, 1] },
+                    placement: "below",
                   },
-                },
+                ],
                 sequences: [{ content: [ev(N("E", 4)), ev(N("F", 4)), ev(N("G", 4)), ev(N("A", 4))] }],
               },
             ],

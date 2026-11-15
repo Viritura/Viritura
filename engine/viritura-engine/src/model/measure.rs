@@ -195,7 +195,7 @@ pub struct PartMeasure {
     /// Piano pedal markings in this measure (Viritura extension `_x.viritura.pedals[]`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pedals: Option<Vec<Pedal>>,
-    /// Text expressions in this measure (Viritura extension `_x.viritura.expressions[]`)
+    /// Positioned text in this measure (native MNX `text[]`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expressions: Option<Vec<TextExpression>>,
     /// User-specified condensing override for this measure (Viritura extension `_x.viritura.condensingOverride`).

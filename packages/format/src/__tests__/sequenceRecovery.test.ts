@@ -18,7 +18,7 @@ interface TestScore {
     measures: Array<{
       beams?: Array<{ events: string[] }>;
       sequences: TestSequence[];
-      _x?: { viritura?: { expressions?: Array<Record<string, unknown>> } };
+      text?: Array<Record<string, unknown>>;
     }>;
   }>;
 }
@@ -105,8 +105,9 @@ describe("recoverInvalidSequences", () => {
     expect(measure.sequences[0]!.content).toEqual([]);
     expect(measure.sequences[1]!.content[0]!["id"]).toBe("good1");
     expect(recovered.parts[0]!.measures[1]).toEqual(original.parts[0]!.measures[1]);
-    expect(measure._x?.viritura?.expressions).toEqual([
+    expect(measure.text).toEqual([
       {
+        type: "expression",
         text: [{ text: "Import error E1" }],
         position: { fraction: [0, 1] },
         placement: "above",

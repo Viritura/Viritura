@@ -177,6 +177,7 @@ describe("bar change dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]?.transposition).toEqual({
       interval: { halfSteps: 3, staffDistance: 2 },
+      keyFifthsFlipAt: 7,
     });
   });
 

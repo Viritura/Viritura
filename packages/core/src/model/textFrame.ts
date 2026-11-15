@@ -16,7 +16,10 @@ export interface TextFramePagePosition {
 export interface TextFrameStaffAttachment {
   partId: string;
   measureId: string;
-  expression: Pick<TextExpression, "position" | "placement" | "staff" | "voice" | "manualOffset" | "avoidCollisions">;
+  expression: Pick<
+    TextExpression,
+    "id" | "type" | "position" | "placement" | "staff" | "voice" | "manualOffset" | "avoidCollisions"
+  >;
   width?: Extract<TextFrameWidth, { unit: "staffSpaces" }>;
 }
 

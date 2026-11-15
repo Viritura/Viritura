@@ -12,21 +12,22 @@ function document(frame?: unknown) {
         measures: [
           {
             sequences: [{ content: [] }],
-            _x: {
-              viritura: {
-                expressions: [
-                  {
-                    text: [{ text: "Play freely\nThen resume", style: { weight: "bold" } }],
-                    position: { fraction: [1, 4] },
-                    placement: "above",
-                    staff: 1,
+            text: [
+              {
+                type: "expression",
+                text: [{ text: "Play freely\nThen resume", _x: { viritura: { style: { weight: "bold" } } } }],
+                position: { fraction: [1, 4] },
+                placement: "above",
+                staff: 1,
+                _x: {
+                  viritura: {
                     manualOffset: [2, -1],
                     avoidCollisions: false,
                     ...(frame === undefined ? {} : { frame }),
                   },
-                ],
+                },
               },
-            },
+            ],
           },
         ],
       },

@@ -17,10 +17,14 @@ pub(crate) fn promote_sound(raw: raw::Sound) -> Sound {
 }
 
 pub(crate) fn promote_kit_component(raw: raw::KitComponent) -> KitComponent {
-    let notehead = read_viritura_ext(raw.x.as_ref())
-        .and_then(|v| v.get("notehead"))
-        .and_then(|v| v.as_str())
-        .and_then(parse_notehead_shape);
+    let notehead = if let Some(native) = raw.notehead.as_ref() {
+        promote_native_notehead(native)
+    } else {
+        read_viritura_ext(raw.x.as_ref())
+            .and_then(|v| v.get("notehead"))
+            .and_then(|v| v.as_str())
+            .and_then(parse_notehead_shape)
+    };
     KitComponent {
         name: raw.name.map(|n| n.0),
         sound: raw.sound.map(|id| id.to_string()),
@@ -38,10 +42,33 @@ pub(crate) fn parse_notehead_shape(s: &str) -> Option<NoteheadShape> {
         "slash" => NoteheadShape::Slash,
         "triangleUp" => NoteheadShape::TriangleUp,
         "triangleDown" => NoteheadShape::TriangleDown,
+        "plus" => NoteheadShape::Plus,
+        "square" => NoteheadShape::Square,
+        "custom" => NoteheadShape::Custom(0),
         _ => return None,
     })
 }
 
+pub(crate) fn promote_native_notehead(raw: &raw::Notehead) -> Option<NoteheadShape> {
+    match raw.shape {
+        raw::NoteheadShape::Default => None,
+        raw::NoteheadShape::Oval => Some(NoteheadShape::Normal),
+        raw::NoteheadShape::X => Some(NoteheadShape::X),
+        raw::NoteheadShape::Diamond => Some(NoteheadShape::Diamond),
+        raw::NoteheadShape::Triangle => Some(NoteheadShape::TriangleUp),
+        raw::NoteheadShape::TriangleDown => Some(NoteheadShape::TriangleDown),
+        raw::NoteheadShape::Slash => Some(NoteheadShape::Slash),
+        raw::NoteheadShape::Plus => Some(NoteheadShape::Plus),
+        raw::NoteheadShape::CircleX => Some(NoteheadShape::CircleX),
+        raw::NoteheadShape::Square => Some(NoteheadShape::Square),
+        raw::NoteheadShape::Custom => Some(NoteheadShape::Custom(
+            raw.glyph
+                .as_ref()
+                .and_then(|glyph| crate::render::smufl::smufl::smufl_name_to_codepoint(glyph))
+                .unwrap_or(0),
+        )),
+    }
+}
 /// MNX `perform-options` is currently a stub on the model side too —
 /// just pass through whatever id is present.
 pub(crate) fn promote_perform_options(raw: raw::PerformOptions) -> PerformOptions {

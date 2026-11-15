@@ -32,9 +32,7 @@ pub struct PerformOptions {
 
 /// Notehead shape for a drum-kit component (Viritura vendor extension).
 /// Stored under `_x.viritura.notehead`.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum NoteheadShape {
     #[default]
     Normal,
@@ -44,6 +42,61 @@ pub enum NoteheadShape {
     Slash,
     TriangleUp,
     TriangleDown,
+    Plus,
+    Square,
+    /// Native MNX custom notehead resolved to a Bravura codepoint; zero means
+    /// the glyph is unsupported and the standard duration notehead is used.
+    Custom(u32),
+}
+
+impl Serialize for NoteheadShape {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self {
+            Self::Normal => "normal",
+            Self::X => "x",
+            Self::CircleX => "circleX",
+            Self::Diamond => "diamond",
+            Self::Slash => "slash",
+            Self::TriangleUp => "triangleUp",
+            Self::TriangleDown => "triangleDown",
+            Self::Plus => "plus",
+            Self::Square => "square",
+            Self::Custom(_) => "custom",
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for NoteheadShape {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        match value.as_str() {
+            "normal" => Ok(Self::Normal),
+            "x" => Ok(Self::X),
+            "circleX" => Ok(Self::CircleX),
+            "diamond" => Ok(Self::Diamond),
+            "slash" => Ok(Self::Slash),
+            "triangleUp" => Ok(Self::TriangleUp),
+            "triangleDown" => Ok(Self::TriangleDown),
+            "plus" => Ok(Self::Plus),
+            "square" => Ok(Self::Square),
+            "custom" => Ok(Self::Custom(0)),
+            _ => Err(serde::de::Error::unknown_variant(
+                &value,
+                &[
+                    "normal",
+                    "x",
+                    "circleX",
+                    "diamond",
+                    "slash",
+                    "triangleUp",
+                    "triangleDown",
+                    "plus",
+                    "square",
+                    "custom",
+                ],
+            )),
+        }
+    }
 }
 
 /// Wrapper for `_x.viritura` vendor block on a `kit-component`.

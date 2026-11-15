@@ -179,6 +179,8 @@ fn append_expression(
             .get_or_insert_with(Vec::new)
             .push(TextExpression {
                 text: text.into(),
+                id: None,
+                text_type: crate::model::PositionedTextType::Expression,
                 position,
                 placement: Some(ExpressionPlacement::Above),
                 staff: Some(1),

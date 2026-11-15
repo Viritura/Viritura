@@ -1839,7 +1839,7 @@ fn test_tempo_lifts_over_above_direction() {
             "sequences": [{"content": [
                 {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
             ]}],
-            "_x": {"viritura": {"expressions": [{"text": [{"text": "arco"}], "position": {"fraction": [0, 1]}, "placement": "above"}]}}
+            "text": [{"type": "expression", "text": [{"text": "arco"}], "position": {"fraction": [0, 1]}, "placement": "above"}]
         }]}]
     }"#;
     let score = crate::parse::parse_mnx(json).expect("parse a tempo + arco");

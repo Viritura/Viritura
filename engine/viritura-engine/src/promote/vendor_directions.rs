@@ -14,7 +14,8 @@
 use crate::model::chord_symbol::{ChordRoot as ModelChordRoot, ChordSymbol as ModelChordSymbol};
 use crate::model::direction::{
     MarkerText as ModelMarkerText, MarkerTextPlacement as ModelMarkerTextPlacement,
-    MarkerTexts as ModelMarkerTexts, Pedal as ModelPedal, RehearsalMark as ModelRehearsalMark,
+    MarkerTexts as ModelMarkerTexts, Pedal as ModelPedal,
+    PositionedTextType as ModelPositionedTextType, RehearsalMark as ModelRehearsalMark,
     TextExpression as ModelTextExpression,
 };
 use crate::model::event::{Glissando as ModelGlissando, GlissandoStyle as ModelGlissandoStyle};
@@ -23,8 +24,12 @@ use crate::model::staff_meter::{
     StaffMeter as ModelStaffMeter, StaffMeterChange as ModelStaffMeterChange,
     StaffMeterSynchronization as ModelStaffMeterSynchronization,
 };
-use crate::model::text::TextContent as ModelTextContent;
+use crate::model::text::{
+    GlyphRun as ModelGlyphRun, TextContent as ModelTextContent,
+    TextContentChunk as ModelTextContentChunk, TextRun as ModelTextRun,
+};
 use crate::promote::vendor_ext::read_viritura_ext;
+use crate::promote::PromoteError;
 use crate::{raw, raw_viritura};
 
 // ─── Public entry points ──────────────────────────────────────────────
@@ -33,7 +38,6 @@ use crate::{raw, raw_viritura};
 #[derive(Default)]
 pub(crate) struct PartMeasureVendor {
     pub pedals: Option<Vec<ModelPedal>>,
-    pub expressions: Option<Vec<ModelTextExpression>>,
     pub condensing_override: Option<String>,
     pub grouping_display_overrides: Option<Vec<ModelStaffGroupingDisplayOverride>>,
     pub staff_meters: Option<Vec<ModelStaffMeterChange>>,
@@ -56,7 +60,6 @@ pub(crate) fn extract_part_measure_vendor_with_fallback(
         // Synthesize the still-supported unrelated extension fields.
         let synthetic = serde_json::json!({
             "pedals": top.get("pedals").cloned().unwrap_or(serde_json::Value::Array(Vec::new())),
-            "expressions": top.get("expressions").cloned().unwrap_or(serde_json::Value::Array(Vec::new())),
         });
         serde_json::from_value(synthetic).unwrap_or_default()
     } else {
@@ -64,13 +67,6 @@ pub(crate) fn extract_part_measure_vendor_with_fallback(
     };
     PartMeasureVendor {
         pedals: vec_or_none(raw_ext.pedals.into_iter().map(promote_pedal).collect()),
-        expressions: vec_or_none(
-            raw_ext
-                .expressions
-                .into_iter()
-                .map(promote_text_expression)
-                .collect(),
-        ),
         grouping_display_overrides: vec_or_none(
             raw_ext
                 .grouping_display_overrides
@@ -201,20 +197,107 @@ fn promote_pedal(r: raw_viritura::Pedal) -> ModelPedal {
     }
 }
 
-fn promote_text_expression(r: raw_viritura::TextExpression) -> ModelTextExpression {
-    ModelTextExpression {
-        text: ModelTextContent::from_raw(r.text),
-        frame: r.frame.map(super::staff_text_frame::promote_presentation),
-        position: promote_rhythmic_position_local(r.position),
-        placement: r.placement,
-        staff: r.staff.map(|staff| u32::try_from(staff).unwrap_or(1)),
-        voice: r.voice,
+pub(crate) fn promote_positioned_text(
+    r: raw::PositionedText,
+) -> Result<ModelTextExpression, PromoteError> {
+    let text = r
+        .text
+        .0
+        .into_iter()
+        .map(|item| {
+            if let Some(run) = item.subtype_0 {
+                let style = positioned_text_style(run.x.as_ref(), "style")?;
+                return Ok(ModelTextContentChunk::Text(ModelTextRun {
+                    text: run.text.to_string(),
+                    style,
+                }));
+            }
+            if let Some(run) = item.subtype_1 {
+                let style = positioned_text_style(run.x.as_ref(), "style")?;
+                let smufl_style = positioned_text_style(run.x.as_ref(), "smuflStyle")?;
+                return Ok(ModelTextContentChunk::Glyph(ModelGlyphRun {
+                    glyphs: run
+                        .glyphs
+                        .into_iter()
+                        .map(|glyph| glyph.to_string())
+                        .collect(),
+                    style,
+                    smufl_style,
+                }));
+            }
+            Err(PromoteError::UnsupportedTextContent(
+                "formatted text chunk has no text or SMuFL variant".into(),
+            ))
+        })
+        .collect::<Result<Vec<_>, PromoteError>>()?;
+    let extensions = positioned_text_extensions(r.x.as_ref());
+    let frame = extensions
+        .and_then(|x| x.get("frame"))
+        .map(|value| {
+            serde_json::from_value::<raw_viritura::StaffTextFramePresentation>(value.clone())
+                .map(super::staff_text_frame::promote_presentation)
+                .map_err(|error| PromoteError::UnsupportedTextContent(error.to_string()))
+        })
+        .transpose()?;
+    let manual_offset = extensions
+        .and_then(|x| x.get("manualOffset"))
+        .map(|value| {
+            serde_json::from_value::<raw_viritura::SpDelta>(value.clone())
+                .map(|delta| delta.0)
+                .map_err(|error| PromoteError::UnsupportedTextContent(error.to_string()))
+        })
+        .transpose()?;
+    let avoid_collisions = extensions
+        .and_then(|x| x.get("avoidCollisions"))
+        .and_then(serde_json::Value::as_bool);
+    Ok(ModelTextExpression {
+        text: ModelTextContent(text),
+        id: r.id.map(String::from),
+        text_type: match r.type_.unwrap_or(raw::TextType::General) {
+            raw::TextType::Expression => ModelPositionedTextType::Expression,
+            raw::TextType::General => ModelPositionedTextType::General,
+        },
+        frame,
+        position: r
+            .position
+            .map(super::clef::promote_rhythmic_position)
+            .unwrap_or(crate::model::clef::RhythmicPosition { fraction: (0, 1) }),
+        placement: match r.placement {
+            Some(raw::Placement::Above) => Some(raw_viritura::ExpressionPlacement::Above),
+            Some(raw::Placement::Below) => Some(raw_viritura::ExpressionPlacement::Below),
+            Some(raw::Placement::Auto) | None => None,
+        },
+        staff: r.staff.map(|staff| u32::try_from(staff.0).unwrap_or(1)),
+        voice: r.voice.map(String::from),
         source_part_index: None,
         source_expression_index: None,
         instrument_reminder: false,
-        manual_offset: r.manual_offset.map(|d| d.0),
-        avoid_collisions: r.avoid_collisions,
-    }
+        manual_offset,
+        avoid_collisions,
+    })
+}
+
+fn positioned_text_style(
+    x: Option<&raw::VendorExtensions>,
+    field: &str,
+) -> Result<Option<crate::model::text::TextRunStyle>, PromoteError> {
+    let Some(value) = positioned_text_extensions(x).and_then(|extensions| extensions.get(field))
+    else {
+        return Ok(None);
+    };
+    serde_json::from_value::<raw_viritura::TextRunStyle>(value.clone())
+        .map(Into::into)
+        .map(Some)
+        .map_err(|error| PromoteError::UnsupportedTextContent(error.to_string()))
+}
+
+fn positioned_text_extensions(
+    x: Option<&raw::VendorExtensions>,
+) -> Option<&serde_json::Map<String, serde_json::Value>> {
+    let key = raw::VendorExtensionsKey::try_from("viritura")
+        .expect("the Viritura extension key is valid");
+    x.and_then(|extensions| extensions.0.get(&key))
+        .map(|extensions| &extensions.0)
 }
 
 fn promote_chord_symbol(r: raw_viritura::ChordSymbol) -> ModelChordSymbol {

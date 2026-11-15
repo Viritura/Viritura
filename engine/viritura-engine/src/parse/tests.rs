@@ -1434,7 +1434,7 @@ fn test_strict_parse_rejects_chord_staff_and_layout_visibility_switches() {
 }
 
 #[test]
-fn test_parse_vendor_ext_expressions() {
+fn test_parse_part_measure_text() {
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
@@ -1442,22 +1442,19 @@ fn test_parse_vendor_ext_expressions() {
             "sequences": [{"content": [
                 {"duration": {"base": "whole"}, "rest": {}}
             ]}],
-            "_x": {
-                "viritura": {
-                    "expressions": [{
-                        "text": [{"text": "dolce"}],
-                        "position": {"fraction": [0, 1]}
-                    }]
-                }
-            }
+            "text": [{
+                "type": "expression",
+                "text": [{"text": "dolce"}],
+                "position": {"fraction": [0, 1]}
+            }]
         }]}]
     }"#;
 
-    let score = parse_mnx(json).expect("Failed to parse _x.viritura expressions");
+    let score = parse_mnx(json).expect("Failed to parse part-measure text");
     let exprs = score.parts[0].measures[0]
         .expressions
         .as_ref()
-        .expect("Expected expressions from _x.viritura");
+        .expect("Expected expressions from part-measure text");
     assert_eq!(exprs.len(), 1);
     assert_eq!(exprs[0].text.plain_text(), "dolce");
 }

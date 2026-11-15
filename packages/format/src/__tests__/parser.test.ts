@@ -108,18 +108,19 @@ describe("parseMnx", () => {
       { glyphs: ["dynamicMF"] },
       { text: "subito", style: { weight: "bold", size: 1.25 } },
     ];
-    mnx.parts[0]!.measures[0]!["_x"] = {
-      viritura: {
-        expressions: [{ text: content, position: { fraction: [0, 4] } }],
-      },
-    };
+    const nativeContent = [
+      { text: "con ", _x: { viritura: { style: { fontStyle: "italic" } } } },
+      { type: "smufl", glyphs: ["dynamicMF"] },
+      { text: "subito", _x: { viritura: { style: { weight: "bold", size: 1.25 } } } },
+    ];
+    mnx.parts[0]!.measures[0]!["text"] = [{ type: "expression", text: nativeContent, position: { fraction: [0, 4] } }];
 
     const score = parseMnx(mnx);
     expect(score.parts[0]?.measures[0]?.expressions?.[0]?.text).toEqual(content);
     const serialized = serializeMnx(score) as {
-      parts: Array<{ measures: Array<{ _x?: { viritura?: { expressions?: Array<{ text: unknown }> } } }> }>;
+      parts: Array<{ measures: Array<{ text?: Array<{ text: unknown }> }> }>;
     };
-    expect(serialized.parts[0]?.measures[0]?._x?.viritura?.expressions?.[0]?.text).toEqual(content);
+    expect(serialized.parts[0]?.measures[0]?.text?.[0]?.text).toEqual(nativeContent);
   });
 
   it("should parse barline correctly", () => {
@@ -1743,7 +1744,7 @@ describe("parseMnx _x.viritura extensions", () => {
     expect(serialized.global.measures[0]?._x.viritura.chordSymbols[0]?.textOverride).toBe("");
   });
 
-  it("should parse text expressions from _x.viritura", () => {
+  it("should parse native text expressions", () => {
     const mnx = {
       mnx: { version: 1 },
       global: {
@@ -1754,17 +1755,14 @@ describe("parseMnx _x.viritura extensions", () => {
           measures: [
             {
               clefs: [{ clef: { sign: "G", staffPosition: -2 } }],
-              _x: {
-                viritura: {
-                  expressions: [
-                    {
-                      text: "dolce",
-                      position: { fraction: [0, 1] },
-                      placement: "below",
-                    },
-                  ],
+              text: [
+                {
+                  type: "expression",
+                  text: [{ text: "dolce" }],
+                  position: { fraction: [0, 1] },
+                  placement: "below",
                 },
-              },
+              ],
               sequences: [{ content: [{ duration: { base: "whole" }, notes: [{ pitch: { step: "C", octave: 4 } }] }] }],
             },
           ],
@@ -1825,17 +1823,14 @@ describe("parseMnx _x.viritura extensions", () => {
           measures: [
             {
               clefs: [{ clef: { sign: "G", staffPosition: -2 } }],
-              _x: {
-                viritura: {
-                  expressions: [
-                    {
-                      text: "dolce",
-                      position: { fraction: [0, 1] },
-                      manualOffset: [1.5, -0.75],
-                    },
-                  ],
+              text: [
+                {
+                  type: "expression",
+                  text: [{ text: "dolce" }],
+                  position: { fraction: [0, 1] },
+                  _x: { viritura: { manualOffset: [1.5, -0.75] } },
                 },
-              },
+              ],
               sequences: [{ content: [{ duration: { base: "whole" }, notes: [{ pitch: { step: "C", octave: 4 } }] }] }],
             },
           ],
@@ -1864,16 +1859,13 @@ describe("parseMnx _x.viritura extensions", () => {
           measures: [
             {
               clefs: [{ clef: { sign: "G", staffPosition: -2 } }],
-              _x: {
-                viritura: {
-                  expressions: [
-                    {
-                      text: "dolce",
-                      position: { fraction: [0, 1] },
-                    },
-                  ],
+              text: [
+                {
+                  type: "expression",
+                  text: [{ text: "dolce" }],
+                  position: { fraction: [0, 1] },
                 },
-              },
+              ],
               sequences: [{ content: [{ duration: { base: "whole" }, notes: [{ pitch: { step: "C", octave: 4 } }] }] }],
             },
           ],

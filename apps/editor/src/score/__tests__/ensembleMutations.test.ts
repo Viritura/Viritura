@@ -25,25 +25,25 @@ describe("addEnsembleToScore", () => {
         label: "Woodwinds",
         symbol: "bracket",
         content: [
-          { label: undefined, symbol: "bracket", content: ["staff", "staff"] },
-          { label: undefined, symbol: "bracket", content: ["staff", "staff"] },
-          { label: undefined, symbol: "bracket", content: ["staff", "staff"] },
-          { label: undefined, symbol: "bracket", content: ["staff", "staff"] },
+          { label: undefined, symbol: "square", content: ["staff", "staff"] },
+          { label: undefined, symbol: "square", content: ["staff", "staff"] },
+          { label: undefined, symbol: "square", content: ["staff", "staff"] },
+          { label: undefined, symbol: "square", content: ["staff", "staff"] },
         ],
       },
       {
         label: "Brass",
         symbol: "bracket",
         content: [
-          { label: undefined, symbol: "bracket", content: ["staff", "staff"] },
-          { label: undefined, symbol: "bracket", content: ["staff", "staff"] },
+          { label: undefined, symbol: "square", content: ["staff", "staff"] },
+          { label: undefined, symbol: "square", content: ["staff", "staff"] },
         ],
       },
       "staff",
       {
         label: "Strings",
         symbol: "bracket",
-        content: [{ label: undefined, symbol: "bracket", content: ["staff", "staff"] }, "staff", "staff", "staff"],
+        content: [{ label: undefined, symbol: "square", content: ["staff", "staff"] }, "staff", "staff", "staff"],
       },
     ]);
   });

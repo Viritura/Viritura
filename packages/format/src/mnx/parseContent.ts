@@ -51,7 +51,7 @@ import type {
   AccidentalEnclosureSymbol,
   Pitch,
 } from "@viritura/core";
-import type { NoteValueBase, StemDirection, Step, Octave } from "@viritura/core";
+import { legacyNotehead, type NoteValueBase, type StemDirection, type Step, type Octave } from "@viritura/core";
 
 import type {
   Sequence as RawSequence,
@@ -482,9 +482,9 @@ function parseNote(raw: RawNote): Note {
     if (raw.written.diatonicDelta !== undefined) note.written.diatonicDelta = raw.written.diatonicDelta;
   }
 
-  // _x.viritura.notehead: per-note notehead-shape override (MNX issue #249).
   const viritura = raw._x?.["viritura"] as RawNoteExt | undefined;
-  if (viritura?.notehead) note.notehead = viritura.notehead;
+  if (raw.notehead) note.notehead = raw.notehead;
+  else if (viritura?.notehead) note.notehead = legacyNotehead(viritura.notehead);
 
   if (raw.markings) note.markings = raw.markings;
 
@@ -497,6 +497,7 @@ function parseKitNote(raw: RawKitNote): KitNote {
   };
   if (raw.id) kn.id = raw.id;
   if (typeof raw.staff === "number") kn.staff = raw.staff;
+  if (raw.notehead) kn.notehead = raw.notehead;
   if (raw.ties) {
     kn.ties = raw.ties.map(parseTie);
   }

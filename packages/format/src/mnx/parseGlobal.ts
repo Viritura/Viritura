@@ -69,6 +69,7 @@ import type {
   Time as RawTime,
   Key as RawKey,
   Barline as RawBarline,
+  PositionedText as RawPositionedText,
 } from "@viritura/core/raw";
 import type {
   DynamicGroupExtensions as RawDynamicGroupExt,
@@ -77,7 +78,6 @@ import type {
   Pedal as RawPedal,
   ChordSymbol as RawChordSymbol,
   ChordRoot as RawChordRoot,
-  TextExpression as RawTextExpression,
   MarkerText as RawMarkerText,
   MarkerTexts as RawMarkerTexts,
   GradualTempo as RawGradualTempo,
@@ -431,22 +431,24 @@ function parseChordSymbol(raw: RawChordSymbol): ChordSymbol {
   return cs;
 }
 
-export function parseTextExpression(raw: RawTextExpression): TextExpression {
+export function parsePositionedText(raw: RawPositionedText): TextExpression {
   const expr: TextExpression = {
     text: parseTextContent(raw.text) ?? [],
-    position: parseRhythmicPosition(raw.position),
+    position: raw.position ? parseRhythmicPosition(raw.position) : { fraction: [0, 1] as const },
+    type: raw.type ?? "general",
   };
+  if (raw.id) expr.id = raw.id;
   if (raw.placement) expr.placement = raw.placement as ExpressionPlacement;
   if (raw.staff !== undefined) expr.staff = raw.staff;
   if (raw.voice) expr.voice = raw.voice;
-  const mo = raw.manualOffset;
-  if (Array.isArray(mo) && mo.length === 2) {
-    const [dx, dy] = mo;
-    if (typeof dx === "number" && typeof dy === "number") expr.manualOffset = [dx, dy];
+  const ext = raw._x?.viritura as Record<string, unknown> | undefined;
+  const mo = ext?.["manualOffset"];
+  if (Array.isArray(mo) && mo.length === 2 && mo.every((value) => typeof value === "number")) {
+    expr.manualOffset = [mo[0]!, mo[1]!];
   }
-  if (typeof raw.avoidCollisions === "boolean") expr.avoidCollisions = raw.avoidCollisions;
-  if (raw.frame !== undefined) expr.frame = parseStaffTextFramePresentation(raw.frame);
-  if (raw.pagePosition !== undefined) expr.pagePosition = parseTextFramePagePosition(raw.pagePosition);
+  if (typeof ext?.["avoidCollisions"] === "boolean") expr.avoidCollisions = ext["avoidCollisions"];
+  if (ext?.["frame"] !== undefined) expr.frame = parseStaffTextFramePresentation(ext["frame"]);
+  if (ext?.["pagePosition"] !== undefined) expr.pagePosition = parseTextFramePagePosition(ext["pagePosition"]);
   return expr;
 }
 

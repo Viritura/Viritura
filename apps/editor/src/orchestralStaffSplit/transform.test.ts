@@ -354,7 +354,7 @@ describe("splitOrchestralParts", () => {
       barlineStyle: "mensurstrich",
     });
     expect(findGroupByParts(fullLayout.content, ["P7-1", "P7-2", "P7-3"])).toMatchObject({
-      symbol: "bracket",
+      symbol: "square",
       label: "Tromboni",
       barlineStyle: "unified",
     });
@@ -531,7 +531,7 @@ describe("splitOrchestralParts", () => {
     const repairedFull = repaired.layouts!.find((layout) => layout.id === "full-score")!;
     const repairedCondensed = repaired.layouts!.find((layout) => layout.id === "condensed-score")!;
 
-    expect(findGroupByParts(repairedFull.content, ["P7-1", "P7-2", "P7-3"])?.symbol).toBe("bracket");
+    expect(findGroupByParts(repairedFull.content, ["P7-1", "P7-2", "P7-3"])?.symbol).toBe("square");
     expect(findStaffByPart(repairedFull.content, "P2-1")).toMatchObject({ label: "Ob." });
     for (const partId of ["P2-2", "P5-2", "P6-2", "P7-2", "P7-3"]) {
       expect(findStaffByPart(repairedFull.content, partId)).toMatchObject({ labelref: "name" });

@@ -136,25 +136,36 @@ function expressionMeasure(gap: DenigmaGap, index: TargetIndex) {
   return direct ? index.measure(`P1.m${direct.measureIndex + 1}`) : undefined;
 }
 
+/** Native MNX positioned-text chunks; Viritura run styling lives under `_x.viritura`. */
+function nativeTextContent(content: TextContent): JsonRecord[] {
+  return content.map((chunk) => {
+    const native: JsonRecord = "text" in chunk ? { text: chunk.text } : { type: "smufl", glyphs: chunk.glyphs };
+    const vendor: JsonRecord = {};
+    if (chunk.style) vendor["style"] = chunk.style;
+    if ("glyphs" in chunk && chunk.smuflStyle) vendor["smuflStyle"] = chunk.smuflStyle;
+    if (Object.keys(vendor).length > 0) native["_x"] = { viritura: vendor };
+    return native;
+  });
+}
+
 function addTextExpression(gap: DenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
   const target = expressionMeasure(gap, index);
   const content = expressionContent(expression);
   if (!target?.partMeasure || !content) return outcome("unhandled", "Expression target or plain text is unavailable.");
-  const extensions = ensureViritura(target.partMeasure);
-  const expressions = ensureArrayProperty(extensions, "expressions");
-  const value: JsonRecord = { text: content, position: gapPosition(gap) };
+  const texts = ensureArrayProperty(target.partMeasure, "text");
+  const value: JsonRecord = { type: "expression", text: nativeTextContent(content), position: gapPosition(gap) };
   const placement = expressionPlacement(gap);
   if (placement) value["placement"] = placement;
   const staff = gap.staff ?? gap.placements?.find((candidate) => candidate.kind === "staff")?.staff;
   if (staff !== undefined) value["staff"] = staff;
-  const duplicate = expressions.some(
+  const duplicate = texts.some(
     (candidate) =>
       isRecord(candidate) &&
       JSON.stringify(candidate["text"]) === JSON.stringify(value["text"]) &&
       JSON.stringify(candidate["position"]) === JSON.stringify(value["position"]) &&
       candidate["staff"] === value["staff"],
   );
-  if (!duplicate) expressions.push(value);
+  if (!duplicate) texts.push(value);
   return formattingOutcome(expression);
 }
 

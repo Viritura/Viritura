@@ -149,6 +149,8 @@ export interface MeasureArgs {
   }>;
   /** Standard MNX non-arpeggio markings */
   nonArpeggios?: Array<{ position: { fraction: number[] }; span: { start: string; end: string } }>;
+  /** Standard MNX positioned text (`text[]`) */
+  text?: Array<Record<string, unknown>>;
   /** Viritura part measure extensions */
   virituraPartMeasure?: Record<string, unknown>;
 }
@@ -318,6 +320,10 @@ export function buildMnx(args: ScoreArgs): string {
 
     if (m.nonArpeggios && m.nonArpeggios.length > 0) {
       pm.nonArpeggios = m.nonArpeggios;
+    }
+
+    if (m.text && m.text.length > 0) {
+      pm.text = m.text;
     }
 
     // Viritura part measure extensions

@@ -9,23 +9,26 @@ export const ERASING_STAFF_TEXT_MNX = buildMnx({
     {
       time: { count: 4, unit: 4 },
       voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
-      virituraPartMeasure: {
-        expressions: [
-          {
-            text: [{ text: "Ink knockout" }],
-            position: { fraction: [0, 1] },
-            placement: "above",
-            manualOffset: [0, -5],
-            avoidCollisions: false,
-            frame: {
-              width: { unit: "staffSpaces", value: 14 },
-              padding: 0.5,
-              border: "solid",
-              eraseBackground: true,
+      text: [
+        {
+          type: "expression",
+          text: [{ text: "Ink knockout" }],
+          position: { fraction: [0, 1] },
+          placement: "above",
+          _x: {
+            viritura: {
+              manualOffset: [0, -5],
+              avoidCollisions: false,
+              frame: {
+                width: { unit: "staffSpaces", value: 14 },
+                padding: 0.5,
+                border: "solid",
+                eraseBackground: true,
+              },
             },
           },
-        ],
-      },
+        },
+      ],
     },
   ],
 });

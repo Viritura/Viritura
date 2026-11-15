@@ -1,4 +1,4 @@
-import type { Note, NoteEvent, NoteheadShape } from "@viritura/core";
+import { noteheadEditorShape, type Note, type NoteEvent, type NoteheadShape } from "@viritura/core";
 
 /**
  * Notehead shapes that mark a pitched-staff note as unpitched: X / circle-X
@@ -8,7 +8,7 @@ import type { Note, NoteEvent, NoteheadShape } from "@viritura/core";
 const UNPITCHED_NOTEHEADS: ReadonlySet<NoteheadShape> = new Set(["x", "circleX", "slash"]);
 
 function isSoundingNote(note: Note): boolean {
-  return note.notehead === undefined || !UNPITCHED_NOTEHEADS.has(note.notehead);
+  return note.notehead === undefined || !UNPITCHED_NOTEHEADS.has(noteheadEditorShape(note.notehead));
 }
 
 /**

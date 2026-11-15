@@ -184,12 +184,6 @@ pub(crate) fn key_signature_layout(
         };
     }
     let count = key.accidental_count();
-    let codepoint = if key.is_sharps() {
-        smufl::ACCIDENTAL_SHARP
-    } else {
-        smufl::ACCIDENTAL_FLAT
-    };
-
     // Staff positions for sharps/flats in half-spaces from top line.
     // Values are tuned per clef so key signatures align with the active clef context
     // rather than always using treble placement.
@@ -243,13 +237,28 @@ pub(crate) fn key_signature_layout(
         &flat_positions[..]
     };
 
+    let sharp_steps = ["F", "C", "G", "D", "A", "E", "B"];
+    let flat_steps = ["B", "E", "A", "D", "G", "C", "F"];
+    let signature_steps = if key.is_sharps() {
+        &sharp_steps
+    } else {
+        &flat_steps
+    };
     for i in 0..count.min(7) {
+        let alteration = key.alteration_for_step(signature_steps[i as usize]);
+        let codepoint = smufl::accidental_glyph(alteration).unwrap_or_else(|| {
+            if key.is_sharps() {
+                smufl::ACCIDENTAL_DOUBLE_SHARP
+            } else {
+                smufl::ACCIDENTAL_DOUBLE_FLAT
+            }
+        });
         glyphs.push(KeySignatureGlyph {
             x: x_cur,
             y: staff_y + positions[i as usize] * sp * 0.5,
             codepoint,
         });
-        x_cur += 1.1 * sp;
+        x_cur += (smufl::glyph_bbox(codepoint).2 + 0.1).max(1.1) * sp;
     }
 
     // Make `x` the actual left ink edge. This keeps the signature's clearance

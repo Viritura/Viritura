@@ -96,9 +96,13 @@ fn test_auto_hide_keeps_rest_markings_and_spanner_continuations() {
         serde_json::json!({});
     fixtures.push(fermata);
     let mut expression = auto_hide_fixture();
-    expression["parts"][1]["measures"][0]["_x"] = serde_json::json!({"viritura": {
-        "expressions": [{"text": [{"text": "tacet"}], "position": {"fraction": [0, 1]}}]
-    }});
+    expression["parts"][1]["measures"][0]["text"] = serde_json::json!([
+        {
+            "type": "expression",
+            "text": [{"text": "tacet"}],
+            "position": {"fraction": [0, 1]}
+        }
+    ]);
     fixtures.push(expression);
     let mut hairpin = auto_hide_fixture();
     hairpin["parts"][1]["measures"][0]["dynamics"] = serde_json::json!([{

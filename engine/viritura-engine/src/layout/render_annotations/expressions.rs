@@ -7,8 +7,8 @@ use super::super::types::*;
 use super::dynamics::PlacedDynamic;
 use super::substrate_obstacles::{above_glyph_top_in_range, stem_tip_y, AboveGlyphBox};
 use crate::model::{
-    ExpressionPlacement, MultiStaffPlacement, StaffTextFrameWidth, SystemText, TextExpression,
-    TextFrameAlign,
+    ExpressionPlacement, MultiStaffPlacement, PositionedTextType, StaffTextFrameWidth, SystemText,
+    TextExpression, TextFrameAlign,
 };
 use crate::render::*;
 
@@ -90,11 +90,13 @@ pub(crate) fn render_text_expressions(
         .map(|(index, expression)| {
             (
                 expression.clone(),
-                element_id::expression(
-                    expression.source_part_index.unwrap_or(pi),
-                    mi,
-                    expression.source_expression_index.unwrap_or(index),
-                ),
+                expression.id.clone().unwrap_or_else(|| {
+                    element_id::expression(
+                        expression.source_part_index.unwrap_or(pi),
+                        mi,
+                        expression.source_expression_index.unwrap_or(index),
+                    )
+                }),
             )
         })
         .collect();
@@ -131,7 +133,9 @@ pub(crate) fn render_text_expressions(
     let mut pending: Vec<PendingExpr> = Vec::new();
 
     for (expr, text_element_id) in &expressions {
-        let is_above = matches!(expr.placement, Some(ExpressionPlacement::Above));
+        let is_expression = expr.text_type == PositionedTextType::Expression;
+        let is_above = matches!(expr.placement, Some(ExpressionPlacement::Above))
+            || (!is_expression && expr.placement.is_none());
 
         let beat = expr.position.beats();
 
@@ -188,7 +192,8 @@ pub(crate) fn render_text_expressions(
         // Standard engraving practice: expression text sharing a rhythmic
         // position and side with a dynamic continues inline after that dynamic.
         let inline_dynamic = dynamic_boxes.iter().find(|dynamic| {
-            !expr.instrument_reminder
+            is_expression
+                && !expr.instrument_reminder
                 && dynamic.above == is_above
                 && (dynamic.beat - beat).abs() < 0.01
         });
@@ -204,11 +209,11 @@ pub(crate) fn render_text_expressions(
         // resolver are both skipped, so the text sits exactly where placed even
         // if that overlaps notes or other directions. Default/unset = auto.
         let avoid = expr.avoid_collisions.unwrap_or(true);
-        let between_center = expr
-            .placement
-            .is_none()
-            .then(|| super::dynamics::grand_staff_gap_center(staff_y, sp, staff_y_offsets))
-            .flatten();
+        let between_center = if is_expression && expr.placement.is_none() {
+            super::dynamics::grand_staff_gap_center(staff_y, sp, staff_y_offsets)
+        } else {
+            None
+        };
         let inline_dynamic_is_explicit = inline_dynamic.is_some()
             && ml.resolved.part.dynamics.as_ref().is_some_and(|dynamics| {
                 dynamics.iter().any(|dynamic| {
@@ -240,99 +245,18 @@ pub(crate) fn render_text_expressions(
                 staff_bottom + config.expression_min_distance * sp
             }
         } else if is_above {
-            // Text spans several rhythmic columns: clear every note and stem
-            // under its ink, including music after a rest-anchored direction.
-            let mut highest_y = staff_y; // top staff line
-            let mut has_obstacle_above = false;
-            let (scan_left, scan_right) = expression_span(note_x, text_width, right_aligned);
-            for vl in &ml.voice_layouts {
-                for i in 0..vl.events.len() {
-                    let event_x = vl.events.x(i);
-                    if event_x + notehead_w >= scan_left && event_x <= scan_right {
-                        let note_positions = vl.events.note_positions(i);
-                        for &pos in note_positions {
-                            let note_y = staff_y + pos * sp * 0.5;
-                            if note_y < staff_y {
-                                has_obstacle_above = true;
-                            }
-
-                            if note_y < highest_y {
-                                highest_y = note_y;
-                            }
-                        }
-                        // Stem-up stems protrude above the chord; the text must
-                        // clear the stem tip, not just the noteheads (otherwise
-                        // an above-staff direction such as "pizz." sits right at
-                        // the stem tip even though the notes are inside the staff).
-                        // Gate on `has_stem()`: a whole note (or breve) carries a
-                        // notional `stem_up` for tie/slur orientation but draws NO
-                        // stem, so counting a phantom stem tip would lift the
-                        // direction to clear ink that is never rendered (e.g. an
-                        // octave dyad of whole notes whose notional up-stem
-                        // reaches 2sp above the staff pushed "arco" up for
-                        // nothing). Only a real, drawn stem widens the skyline.
-                        if vl.events.stem_up(i)
-                            && vl.events.event(i).duration.base.has_stem()
-                            && !note_positions.is_empty()
-                        {
-                            let top_pos =
-                                note_positions.iter().copied().fold(f64::INFINITY, f64::min);
-                            let stem_tip =
-                                stem_tip_y(top_pos, true, staff_y, sp, config.stem_length);
-                            if stem_tip < staff_y {
-                                has_obstacle_above = true;
-                            }
-                            if stem_tip < highest_y {
-                                highest_y = stem_tip;
-                            }
-                        }
-                    }
-                }
-            }
-            // Articulations (accents/marcato/staccato dots) protrude above the
-            // noteheads; an above-staff direction such as "arco" must clear them
-            // too, not just the noteheads and stems. Standard engraving practice
-            // stacks performance directions above any articulation on the note.
-            //
-            // Scan around the rhythmic ANCHOR (`note_x`), never the manually
-            // offset `draw_x`: the auto datum `base_y` must NOT depend on the
-            // manual offset, or the vertical anchor would shift as the user
-            // drags horizontally (the offset feeding back into the datum it is
-            // measured from → a jumpy drag). For an un-offset expression
-            // `draw_x == note_x`, so this is identical to the old range. A
-            // right-aligned instruction's ink extends LEFT from `note_x`
-            // instead of right.
-            let (artic_scan_left, artic_scan_right) = match alignment {
-                TextFrameAlign::Right => (note_x - text_width.max(notehead_w), note_x),
-                TextFrameAlign::Center => (note_x - text_width / 2.0, note_x + text_width / 2.0),
-                TextFrameAlign::Left => (note_x, note_x + text_width.max(notehead_w)),
-            };
-            if let Some(gtop) =
-                above_glyph_top_in_range(above_glyph_boxes, artic_scan_left, artic_scan_right)
-            {
-                has_obstacle_above = true;
-                if gtop < highest_y {
-                    highest_y = gtop;
-                }
-            }
-            // Baseline anchoring (matches tempo): `base_y` IS the alphabetic
-            // baseline, and the box bottom sits on it so descenders protrude
-            // toward the staff exactly as tempo's do. Two distances, both from
-            // the placement table — no standalone "lift" property:
-            //   - rest gap: `attach_gap_above` (the staff datum reserve, 1sp).
-            //   - lift clearance: `padding.vertical` (the SINGLE inter-ink gap;
-            //     "ink is ink", so clearing a notehead uses the same value as
-            //     stacking over a sibling dependent).
-            // The above-staff reserve (`attach_gap_above` = 1sp) differs from
-            // the below-staff one (`attach_gap_below` = 3sp, the dynamics line);
-            // placement isn't intrinsic to the text, so it's a per-side field.
-            let attach_gap = expr_metrics.attach_gap_above() * sp;
-            let clearance = expr_metrics.padding.vertical * sp;
-            if has_obstacle_above {
-                highest_y - clearance
-            } else {
-                staff_y - attach_gap
-            }
+            above_expression_baseline(
+                ml,
+                staff_y,
+                sp,
+                config,
+                note_x,
+                text_width,
+                alignment,
+                right_aligned,
+                above_glyph_boxes,
+                &expr_metrics,
+            )
         } else {
             expr_y
         };
@@ -355,6 +279,7 @@ pub(crate) fn render_text_expressions(
             // subtract to move up for a positive value.
             base_y: base_y + frame_clearance - off_y_sp * sp,
             is_above,
+            is_expression,
             text: expr.text.clone(),
             element_id: text_element_id.clone(),
             // Computed above; unset defaults to true (auto-avoidance on).
@@ -366,6 +291,82 @@ pub(crate) fn render_text_expressions(
     // Resolve mutual vertical overlap between the preferred boxes, then emit
     // each expression at its displaced baseline.
     emit_stacked_expressions(dl, &pending, font_size, sp, &expr_metrics, dynamic_boxes);
+}
+
+fn above_expression_baseline(
+    ml: &MeasureLayout,
+    staff_y: f64,
+    sp: f64,
+    config: &LayoutConfig,
+    note_x: f64,
+    text_width: f64,
+    alignment: TextFrameAlign,
+    right_aligned: bool,
+    above_glyph_boxes: &[AboveGlyphBox],
+    metrics: &super::super::placement_metrics::PlacementMetrics,
+) -> f64 {
+    let mut highest_y = staff_y;
+    let mut has_obstacle_above = false;
+    let notehead_w = 1.18 * sp;
+    let (scan_left, scan_right) = expression_span(note_x, text_width, right_aligned);
+
+    for vl in &ml.voice_layouts {
+        for i in 0..vl.events.len() {
+            let event_x = vl.events.x(i);
+            if event_x + notehead_w >= scan_left && event_x <= scan_right {
+                let note_positions = vl.events.note_positions(i);
+                for &pos in note_positions {
+                    let note_y = staff_y + pos * sp * 0.5;
+                    if note_y < staff_y {
+                        has_obstacle_above = true;
+                    }
+                    if note_y < highest_y {
+                        highest_y = note_y;
+                    }
+                }
+                // Only real, drawn stems widen the skyline. Whole notes carry a
+                // notional stem direction for ties and slurs but render no stem.
+                if vl.events.stem_up(i)
+                    && vl.events.event(i).duration.base.has_stem()
+                    && !note_positions.is_empty()
+                {
+                    let top_pos = note_positions.iter().copied().fold(f64::INFINITY, f64::min);
+                    let stem_tip = stem_tip_y(top_pos, true, staff_y, sp, config.stem_length);
+                    if stem_tip < staff_y {
+                        has_obstacle_above = true;
+                    }
+                    if stem_tip < highest_y {
+                        highest_y = stem_tip;
+                    }
+                }
+            }
+        }
+    }
+
+    // Articulations protrude above noteheads; standard engraving practice
+    // stacks performance directions above any articulation on the note.
+    // Scan around the rhythmic anchor, not the manually offset draw position,
+    // so dragging text horizontally cannot shift its automatic vertical datum.
+    let (artic_scan_left, artic_scan_right) = match alignment {
+        TextFrameAlign::Right => (note_x - text_width.max(notehead_w), note_x),
+        TextFrameAlign::Center => (note_x - text_width / 2.0, note_x + text_width / 2.0),
+        TextFrameAlign::Left => (note_x, note_x + text_width.max(notehead_w)),
+    };
+    if let Some(gtop) =
+        above_glyph_top_in_range(above_glyph_boxes, artic_scan_left, artic_scan_right)
+    {
+        has_obstacle_above = true;
+        if gtop < highest_y {
+            highest_y = gtop;
+        }
+    }
+
+    let clearance = metrics.padding.vertical * sp;
+    if has_obstacle_above {
+        highest_y - clearance
+    } else {
+        staff_y - metrics.attach_gap_above() * sp
+    }
 }
 
 /// One expression's preferred placement, before mutual stacking.
@@ -380,6 +381,7 @@ struct PendingExpr {
     /// before the resolver's outward displacement.
     base_y: f64,
     is_above: bool,
+    is_expression: bool,
     text: crate::model::TextContent,
     element_id: String,
     /// When false, the expression is manually placed: the stacking resolver
@@ -502,7 +504,11 @@ fn emit_stacked_expressions(
                 dl,
                 p.left(),
                 top,
-                if p.is_above { "serif" } else { "serif italic" },
+                if p.is_expression && !p.is_above {
+                    "serif italic"
+                } else {
+                    "serif"
+                },
                 sp,
                 p.erase_background,
             );
@@ -513,7 +519,11 @@ fn emit_stacked_expressions(
                 p.draw_x,
                 draw_y,
                 font_size,
-                if p.is_above { "serif" } else { "serif italic" },
+                if p.is_expression && !p.is_above {
+                    "serif italic"
+                } else {
+                    "serif"
+                },
                 "#000000",
                 match p.alignment {
                     TextFrameAlign::Right => TextAlign::Right,
@@ -637,6 +647,8 @@ fn system_text_expression(
     }
     TextExpression {
         text: content,
+        id: Some(text.id.clone()),
+        text_type: PositionedTextType::Expression,
         frame: text.frame.clone(),
         position: text.position.clone(),
         placement: text.placement,

@@ -151,6 +151,13 @@ describe("per-position editor pitch context", () => {
   it("uses diatonic spelling and the active key flip for displayed keys", () => {
     expect(resolveDisplayKeyFifths(0, { interval: { halfSteps: 3, staffDistance: 2 } })).toBe(-3);
     expect(resolveDisplayKeyFifths(5, { interval: { halfSteps: 2, staffDistance: 1 }, keyFifthsFlipAt: 6 })).toBe(-5);
+    expect(resolveDisplayKeyFifths(5, { interval: { halfSteps: 2, staffDistance: 1 }, keyFifthsFlipAt: 7 })).toBe(-5);
+    expect(resolveDisplayKeyFifths(7, { interval: { halfSteps: 2, staffDistance: 1 } })).toBe(9);
+    expect(resolveDisplayKeyFifths(0, { interval: { halfSteps: 6, staffDistance: 3 } })).toBe(6);
+    expect(resolveDisplayKeyFifths(0, { interval: { halfSteps: 6, staffDistance: 4 } })).toBe(-6);
+    expect(resolveDisplayKeyFifths(-7, { interval: { halfSteps: -2, staffDistance: -1 }, keyFifthsFlipAt: 7 })).toBe(
+      -9,
+    );
     expect(resolveDisplayKeyFifths(-2, { interval: { halfSteps: -12, staffDistance: -7 } })).toBe(-2);
   });
 

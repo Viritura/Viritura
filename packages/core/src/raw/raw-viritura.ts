@@ -232,23 +232,6 @@ export interface components {
          * @enum {string}
          */
         "expression-placement": "below" | "above";
-        /** @description A text expression or direction at a rhythmic position (e.g. 'dolce', 'rit.', 'a tempo'). Rendered in italic serif font. */
-        "text-expression": {
-            text: components["schemas"]["text-content"];
-            frame?: components["schemas"]["staff-text-frame-presentation"];
-            pagePosition?: components["schemas"]["text-frame-page-position"];
-            /** @description Rhythmic position within the measure. */
-            position: components["schemas"]["rhythmic-position"];
-            placement?: components["schemas"]["expression-placement"];
-            /** @description Staff number (1-based). */
-            staff?: number;
-            /** @description Voice name. */
-            voice?: string;
-            /** @description Manual [dx, dy] offset in spatia (sp), applied after automatic placement. */
-            manualOffset?: components["schemas"]["sp-delta"];
-            /** @description Whether automatic collision avoidance may re-flow this expression outward to clear other directions. Default (and when unset): true. Set false when the user manually places the expression (e.g. by dragging) so it stays exactly where put and others flow around it. */
-            avoidCollisions?: boolean;
-        };
         /** @description Optional playback instruction on system text. No timing or swing change is implied when absent. */
         "system-tempo": {
             bpm?: number;
@@ -356,6 +339,18 @@ export interface components {
         };
         /** @description Ordered text and SMuFL glyph runs. Always an array: a bare string is not valid, so consumers never branch on representation. Legacy documents storing a plain string are widened to a single text run on read. */
         "text-content": (components["schemas"]["text-run"] | components["schemas"]["glyph-run"])[];
+        /** @description Viritura presentation metadata on native MNX positioned text. */
+        "positioned-text-extensions": {
+            frame?: components["schemas"]["staff-text-frame-presentation"];
+            pagePosition?: components["schemas"]["text-frame-page-position"];
+            manualOffset?: components["schemas"]["sp-delta"];
+            avoidCollisions?: boolean;
+        };
+        /** @description Viritura inline formatting on native MNX formatted-text chunks. */
+        "text-chunk-extensions": {
+            style?: components["schemas"]["text-run-style"];
+            smuflStyle?: components["schemas"]["text-run-style"];
+        };
         /** @description A [dx, dy] delta in spatia (sp) applied on top of an engine-computed point. */
         "sp-delta": number[];
         /** @description Per-handle bezier overrides for a slur. Each field is a [dx, dy] delta in spatia (sp) applied on top of the engine-computed point, so user edits compose with automatic collision avoidance. Used by engrave-mode handle drags. */
@@ -433,8 +428,6 @@ export interface components {
         "part-measure-extensions": {
             /** @description Piano pedal markings. */
             pedals?: components["schemas"]["pedal"][];
-            /** @description Text expressions and performance directions. */
-            expressions?: components["schemas"]["text-expression"][];
             /**
              * @description User-specified condensing mode override for this measure.
              * @enum {string}
@@ -541,20 +534,20 @@ export interface components {
             glissandos?: components["schemas"]["glissando"][];
         };
         /**
-         * @description A notehead shape. MNX has no notehead field on note, kit-note or kit-component (W3C MNX issue #249); Viritura tracks it as a vendor extension on the kit-component (per-instrument) and optionally on a pitched note (per-note override).
+         * @description Legacy Viritura notehead shape accepted on kit components and pitched notes. New documents use the native MNX notehead object.
          * @enum {string}
          */
         "notehead-shape": "normal" | "x" | "circleX" | "diamond" | "slash" | "triangleUp" | "triangleDown";
         /** @description Viritura vendor extensions on an MNX kit-component object. */
         "kit-component-extensions": {
-            /** @description Notehead shape rendered for hits on this kit component (e.g. 'x' for cymbals/hi-hat). Default: 'normal'. */
+            /** @description Legacy notehead shape for hits on this kit component. New documents use the native MNX notehead object. */
             notehead?: components["schemas"]["notehead-shape"];
             /** @description GS drum-kit program (bank 128) that this component's `sound.midiNumber` should play on, overriding the percussion part's default kit. Lets a single percussion staff borrow a sound from another kit (e.g. a Tam-tam/Big Gong from the Ethnic kit, pgm 49) that the part's main kit lacks. The audio engine routes such hits to a dedicated drum channel loaded with this program. */
             drumKit?: number;
         };
         /** @description Viritura vendor extensions on an MNX note object (the `_x.viritura` dict on a pitched note). */
         "note-extensions": {
-            /** @description Notehead-shape override for this single pitched note, overriding the default notehead for the note's duration (e.g. a diamond harmonic among normal noteheads in a chord). MNX has no notehead field on note (W3C MNX issue #249); Viritura tracks it as a per-note vendor extension. Default: inherit from duration. */
+            /** @description Legacy notehead-shape override for this pitched note. New documents use the native MNX notehead object. */
             notehead?: components["schemas"]["notehead-shape"];
         };
         /** @description A 2D position on the concert-hall stage, in meters. X runs left (negative) to right (positive); Y runs from the audience (negative) toward backstage (positive). */
@@ -687,6 +680,9 @@ export interface components {
             partId: string;
             measureId: string;
             expression: {
+                id?: string;
+                /** @enum {string} */
+                type?: "general" | "expression";
                 position: components["schemas"]["rhythmic-position"];
                 placement?: components["schemas"]["expression-placement"];
                 staff?: number;
@@ -1108,7 +1104,6 @@ export type ChordRoot = components["schemas"]["chord-root"];
 export type ChordSymbol = components["schemas"]["chord-symbol"];
 export type ChordSymbolStyle = components["schemas"]["chord-symbol-style"];
 export type ExpressionPlacement = components["schemas"]["expression-placement"];
-export type TextExpression = components["schemas"]["text-expression"];
 export type SystemTempo = components["schemas"]["system-tempo"];
 export type SystemText = components["schemas"]["system-text"];
 export type TrillExtension = components["schemas"]["trill-extension"];
@@ -1122,6 +1117,8 @@ export type TextRunStyle = components["schemas"]["text-run-style"];
 export type TextRun = components["schemas"]["text-run"];
 export type GlyphRun = components["schemas"]["glyph-run"];
 export type TextContent = components["schemas"]["text-content"];
+export type PositionedTextExtensions = components["schemas"]["positioned-text-extensions"];
+export type TextChunkExtensions = components["schemas"]["text-chunk-extensions"];
 export type SpDelta = components["schemas"]["sp-delta"];
 export type SlurShape = components["schemas"]["slur-shape"];
 export type SlurExtensions = components["schemas"]["slur-extensions"];

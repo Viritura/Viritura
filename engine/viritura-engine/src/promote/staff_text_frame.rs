@@ -41,20 +41,18 @@ pub(super) fn promote_presentation(
 }
 
 pub(super) fn validate_presentations(measure: &serde_json::Value) -> Result<(), PromoteError> {
-    let expressions = measure
-        .pointer("/_x/viritura/expressions")
-        .or_else(|| measure.get("expressions"));
-    for (index, expression) in expressions
+    for (index, text) in measure
+        .get("text")
         .and_then(serde_json::Value::as_array)
         .into_iter()
         .flatten()
         .enumerate()
     {
-        let Some(value) = expression.get("frame") else {
+        let Some(value) = text.pointer("/_x/viritura/frame") else {
             continue;
         };
         let error = |reason: String| {
-            PromoteError::InvalidTextFrame(format!("expressions[{index}].frame: {reason}"))
+            PromoteError::InvalidTextFrame(format!("text[{index}].frame: {reason}"))
         };
         crate::validator::validate_staff_text_frame(value).map_err(error)?;
         let frame: StaffTextFramePresentation =
@@ -70,8 +68,6 @@ pub(super) fn validate_presentations(measure: &serde_json::Value) -> Result<(), 
         {
             return Err(error("dimensions are out of range".into()));
         }
-        let _: raw::TextExpression =
-            serde_json::from_value(expression.clone()).map_err(|e| error(e.to_string()))?;
     }
     Ok(())
 }
@@ -102,11 +98,12 @@ mod tests {
     #[test]
     fn rejects_invalid_erase_background_on_recovery_paths() {
         for value in [json!(null), json!("true"), json!(1)] {
-            let measure = json!({"_x": {"viritura": {"expressions": [{
+            let measure = json!({"text": [{
+                "type": "expression",
                 "text": [{"text": "Play freely"}],
                 "position": {"fraction": [0, 1]},
-                "frame": {"eraseBackground": value}
-            }]}}});
+                "_x": {"viritura": {"frame": {"eraseBackground": value}}}
+            }]});
             assert!(validate_presentations(&measure).is_err());
         }
     }

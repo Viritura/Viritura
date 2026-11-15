@@ -30,6 +30,7 @@ use crate::promote::event::promote_sequence;
 use crate::promote::key::promote_key;
 use crate::promote::repeat::{promote_ending, promote_repeat_end, promote_repeat_start_with_json};
 use crate::promote::time::promote_time;
+use crate::promote::vendor_directions::promote_positioned_text;
 use crate::promote::vendor_directions::{
     extract_global_measure_vendor, extract_part_measure_vendor_with_fallback,
 };
@@ -281,6 +282,11 @@ pub(crate) fn promote_part_measure(
             .map(promote_positioned_staff_config)
             .collect(),
     );
+    let native_text = r
+        .text
+        .into_iter()
+        .map(promote_positioned_text)
+        .collect::<Result<Vec<_>, _>>()?;
 
     let vendor = extract_part_measure_vendor_with_fallback(r.x.as_ref(), Some(original_json));
     let instrument_changes: Option<Vec<crate::model::InstrumentChange>> = original_json
@@ -315,7 +321,7 @@ pub(crate) fn promote_part_measure(
         measure_repeat,
         staff_configs,
         pedals: vendor.pedals,
-        expressions: vendor.expressions,
+        expressions: (!native_text.is_empty()).then_some(native_text),
         condensing_override: vendor.condensing_override,
         grouping_display_overrides: vendor.grouping_display_overrides,
         staff_meters: vendor.staff_meters,
@@ -399,5 +405,35 @@ mod tests {
         let p = parse_part(r#"{"sequences": [], "_x": {"viritura": {}}}"#);
         assert!(p.pedals.is_none());
         assert!(p.expressions.is_none());
+    }
+
+    #[test]
+    fn promotes_native_positioned_text_and_chunk_style() {
+        let p = parse_part(
+            r#"{
+                "sequences": [],
+                "text": [{
+                    "id": "direction-1",
+                    "type": "expression",
+                    "text": [{
+                        "text": "dolce",
+                        "_x": {"viritura": {"style": {"fontStyle": "italic"}}}
+                    }],
+                    "position": {"fraction": [1, 4]},
+                    "_x": {"viritura": {"manualOffset": [1, -0.5]}}
+                }]
+            }"#,
+        );
+        let text = &p.expressions.as_ref().unwrap()[0];
+        assert_eq!(text.id.as_deref(), Some("direction-1"));
+        assert_eq!(text.text_type, crate::model::PositionedTextType::Expression);
+        assert_eq!(text.manual_offset, Some([1.0, -0.5]));
+        let crate::model::text::TextContentChunk::Text(run) = &text.text.0[0] else {
+            panic!("native text chunk is text");
+        };
+        assert_eq!(
+            run.style.as_ref().unwrap().font_style,
+            Some(crate::model::text::TextFontStyle::Italic)
+        );
     }
 }

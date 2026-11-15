@@ -775,6 +775,20 @@
       "type": "object",
       "unevaluatedProperties": false
     },
+    "formatted-text": {
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/text-chunk-text"
+          },
+          {
+            "$ref": "#/$defs/text-chunk-smufl"
+          }
+        ]
+      },
+      "minItems": 1,
+      "type": "array"
+    },
     "fraction": {
       "items": {
         "$ref": "#/$defs/integer-unsigned"
@@ -976,6 +990,9 @@
         "name": {
           "$ref": "#/$defs/string"
         },
+        "notehead": {
+          "$ref": "#/$defs/notehead"
+        },
         "sound": {
           "$ref": "#/$defs/id"
         },
@@ -996,6 +1013,9 @@
       "properties": {
         "kitComponent": {
           "$ref": "#/$defs/id"
+        },
+        "notehead": {
+          "$ref": "#/$defs/notehead"
         },
         "perform": {
           "$ref": "#/$defs/perform-options"
@@ -1343,6 +1363,9 @@
         "markings": {
           "$ref": "#/$defs/note-markings"
         },
+        "notehead": {
+          "$ref": "#/$defs/notehead"
+        },
         "perform": {
           "$ref": "#/$defs/perform-options"
         },
@@ -1437,6 +1460,57 @@
       "required": ["duration", "multiple"],
       "type": "object",
       "unevaluatedProperties": false
+    },
+    "notehead": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "dependentRequired": {
+        "glyph": ["shape"]
+      },
+      "dependentSchemas": {
+        "shape": {
+          "if": {
+            "properties": {
+              "shape": {
+                "const": "custom"
+              }
+            }
+          },
+          "then": {
+            "required": ["glyph"]
+          }
+        }
+      },
+      "properties": {
+        "glyph": {
+          "$ref": "#/$defs/smufl-glyph"
+        },
+        "shape": {
+          "$ref": "#/$defs/notehead-shape",
+          "default": "default"
+        }
+      },
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "notehead-shape": {
+      "enum": [
+        "default",
+        "oval",
+        "x",
+        "diamond",
+        "triangle",
+        "triangleDown",
+        "slash",
+        "plus",
+        "circleX",
+        "square",
+        "custom"
+      ],
+      "type": "string"
     },
     "octave": {
       "type": "integer"
@@ -1587,6 +1661,12 @@
             "$ref": "#/$defs/positioned-staff-config"
           },
           "type": "array"
+        },
+        "text": {
+          "items": {
+            "$ref": "#/$defs/positioned-text"
+          },
+          "type": "array"
         }
       },
       "required": ["sequences"],
@@ -1694,6 +1774,36 @@
         }
       },
       "required": ["config"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "positioned-text": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "placement": {
+          "$ref": "#/$defs/placement"
+        },
+        "position": {
+          "$ref": "#/$defs/rhythmic-position"
+        },
+        "staff": {
+          "$ref": "#/$defs/staff-number"
+        },
+        "text": {
+          "$ref": "#/$defs/formatted-text"
+        },
+        "type": {
+          "$ref": "#/$defs/text-type"
+        },
+        "voice": {
+          "$ref": "#/$defs/voice-name"
+        }
+      },
+      "required": ["text"],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2216,7 +2326,7 @@
       "unevaluatedProperties": false
     },
     "staff-symbol": {
-      "enum": ["bracket", "brace", "noSymbol"],
+      "enum": ["bracket", "square", "brace", "noSymbol"],
       "type": "string"
     },
     "stem-direction": {
@@ -2367,6 +2477,52 @@
       },
       "type": "object",
       "unevaluatedProperties": false
+    },
+    "text-chunk-smufl": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "glyphs": {
+          "items": {
+            "$ref": "#/$defs/smufl-glyph"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "type": {
+          "const": "smufl",
+          "type": "string"
+        }
+      },
+      "required": ["glyphs", "type"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "text-chunk-text": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "text": {
+          "$ref": "#/$defs/string"
+        },
+        "type": {
+          "const": "text",
+          "type": "string"
+        }
+      },
+      "required": ["text"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "text-type": {
+      "enum": ["general", "expression"],
+      "type": "string"
     },
     "tie": {
       "allOf": [
@@ -2558,7 +2714,7 @@
       "type": "string"
     }
   },
-  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/46",
+  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/52",
   "$ref": "#/$defs/root",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "An encoding of Common Western Music Notation.",

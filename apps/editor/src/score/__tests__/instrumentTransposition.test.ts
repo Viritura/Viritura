@@ -37,6 +37,7 @@ describe("buildPartTransposition — prefersWrittenPitches", () => {
       const inst = getCatalogInstrument(id);
       expect(inst?.transposition, `${id} should be a transposing instrument`).toBeDefined();
       const t = buildPartTransposition(inst!.transposition!);
+      expect(t.keyFifthsFlipAt, `${id} should not flip its unchanged key signature`).toBeUndefined();
       expect(t.prefersWrittenPitches, `${id} should prefer written pitches`).toBe(true);
     }
   });
@@ -45,6 +46,7 @@ describe("buildPartTransposition — prefersWrittenPitches", () => {
     for (const id of KEY_TRANSPOSER_IDS) {
       const inst = getCatalogInstrument(id);
       const t = buildPartTransposition(inst!.transposition!);
+      expect(t.keyFifthsFlipAt, `${id} should use the legacy-compatible key boundary`).toBe(7);
       expect(t.prefersWrittenPitches, `${id} should NOT prefer written pitches`).toBeUndefined();
     }
   });

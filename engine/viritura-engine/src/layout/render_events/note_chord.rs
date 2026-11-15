@@ -51,9 +51,10 @@ pub(crate) fn notehead_for_note(
     kit: Option<&HashMap<String, KitComponent>>,
 ) -> u32 {
     let shape = note.and_then(|note| match &note.kit_component {
-        Some(id) => kit
-            .and_then(|k| k.get(id))
-            .and_then(|c| c.notehead.as_ref()),
+        Some(id) => note.notehead.as_ref().or_else(|| {
+            kit.and_then(|k| k.get(id))
+                .and_then(|c| c.notehead.as_ref())
+        }),
         None => note.notehead.as_ref(),
     });
     smufl::shaped_notehead_glyph(shape, duration)

@@ -484,15 +484,12 @@ export function buildParts(
         }
       }
 
-      // Vendor extension data. Text expressions are attached to their own
-      // measure; pedals are start/stop spans paired across
+      // Positioned text is native MNX data; pedals are start/stop spans paired across
       // measures and attached to the measure where they START. Rehearsal marks
       // belong on the GLOBAL measure, not the part measure.
-      if (vendorExt) {
-        if (result.expressions.length > 0) {
-          exprByMeasure.set(mi, result.expressions);
-        }
+      if (result.expressions.length > 0) exprByMeasure.set(mi, result.expressions);
 
+      if (vendorExt) {
         if (result.systemTexts.length > 0) {
           const gm = globalMeasures[mi];
           if (gm) {
@@ -567,18 +564,15 @@ export function buildParts(
       if (measure) measure.dynamics = [...(measure.dynamics ?? []), ...groups];
     }
 
-    // Write buffered vendor spans/expressions onto their start measures. Any
-    // span still open at the end of the part is dropped (no valid end position).
-    if (vendorExt) {
-      for (let mi = 0; mi < mnxPart.measures.length; mi++) {
-        const exprs = exprByMeasure.get(mi);
-        const pedals = pedalsByMeasure.get(mi);
-        if (!exprs && !pedals) continue;
-        const vendorData: Record<string, unknown> = {};
-        if (exprs) vendorData["expressions"] = exprs;
-        if (pedals) vendorData["pedals"] = pedals;
-        const measure = mnxPart.measures[mi]!;
-        measure._x = { viritura: { ...measure._x?.viritura, ...vendorData } };
+    // Write native positioned text and vendor pedal spans onto their start
+    // measures. Any pedal span still open at the end is dropped.
+    for (let mi = 0; mi < mnxPart.measures.length; mi++) {
+      const exprs = exprByMeasure.get(mi);
+      const pedals = pedalsByMeasure.get(mi);
+      const measure = mnxPart.measures[mi]!;
+      if (exprs) measure.text = exprs.map((expression) => ({ ...expression, type: "expression" }));
+      if (pedals) {
+        measure._x = { viritura: { ...measure._x?.viritura, pedals } };
       }
     }
 

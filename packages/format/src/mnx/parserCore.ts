@@ -475,7 +475,7 @@ function parseMnxInternal(json: unknown, diagnostics: DiagnosticCollector): Scor
     global: {
       measures: parseGlobalMeasures(globalObj?.["measures"] as RawMeasureGlobal[] | undefined),
     },
-    parts: parseParts(partsArr),
+    parts: parseParts(partsArr, hasVirituraExtensions(json)),
   };
 
   // Global lyrics
@@ -528,6 +528,23 @@ function parseMnxInternal(json: unknown, diagnostics: DiagnosticCollector): Scor
   scanUnknownFields(obj, diagnostics);
 
   return score;
+}
+
+function hasVirituraExtensions(root: unknown): boolean {
+  const pending = [root];
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (Array.isArray(value)) {
+      pending.push(...value);
+      continue;
+    }
+    if (typeof value !== "object" || value === null) continue;
+    const object = value as Record<string, unknown>;
+    const extensions = object["_x"];
+    if (typeof extensions === "object" && extensions !== null && "viritura" in extensions) return true;
+    for (const child of Object.values(object)) pending.push(child);
+  }
+  return false;
 }
 
 /**

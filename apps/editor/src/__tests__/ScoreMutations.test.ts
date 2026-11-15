@@ -198,7 +198,7 @@ describe("buildLayouts", () => {
 
     expect(woodwinds.label).toBe("Woodwinds");
     expect(woodwinds.content).toHaveLength(1);
-    expect(woodwinds.content[0]).toMatchObject({ symbol: "bracket" });
+    expect(woodwinds.content[0]).toMatchObject({ symbol: "square" });
     expect(woodwinds.content[0]!.content).toHaveLength(3);
   });
 

@@ -61,7 +61,7 @@ describe("Percussion (drum kit) parsing", () => {
     const kit = part.kit!;
     expect(Object.keys(kit)).toHaveLength(3);
     expect(kit["kick"]).toEqual({ name: "Kick", sound: "snd-kick", staffPosition: -4 });
-    expect(kit["snare"]).toEqual({ name: "Snare", sound: "snd-snare", staffPosition: 0, notehead: "x" });
+    expect(kit["snare"]).toEqual({ name: "Snare", sound: "snd-snare", staffPosition: 0, notehead: { shape: "x" } });
     // drumKit vendor extension hoisted to the top level alongside notehead.
     expect(kit["gong"]).toEqual({ name: "Tam-tam", sound: "snd-snare", staffPosition: -3, drumKit: 49 });
   });
@@ -96,15 +96,15 @@ describe("Percussion (drum kit) parsing", () => {
     }
   });
 
-  it("notehead vendor extension survives round-trip", () => {
+  it("migrates the notehead vendor extension to native MNX", () => {
     const score1 = parseMnx(drumKitMnx);
     const json = serializeMnx(score1);
-    // Verify the JSON shape carries _x.viritura.notehead on the snare component (dict)
     const kitJson = (json as any).parts[0].kit;
-    expect(kitJson["snare"]._x).toEqual({ viritura: { notehead: "x" } });
+    expect(kitJson["snare"].notehead).toEqual({ shape: "x" });
+    expect(kitJson["snare"]._x).toBeUndefined();
     expect(kitJson["kick"]._x).toBeUndefined();
     const score2 = parseMnx(json);
-    expect(score2.parts[0]!.kit!["snare"].notehead).toBe("x");
+    expect(score2.parts[0]!.kit!["snare"].notehead).toEqual({ shape: "x" });
   });
 
   it("serialized kit-notes go in kitNotes array (not notes)", () => {

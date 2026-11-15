@@ -34,6 +34,8 @@ const extensionDefinitions = [
   "system-text",
   "staff-text-frame-presentation",
   "text-frame-page-position",
+  "positioned-text-extensions",
+  "text-chunk-extensions",
 ] as const;
 
 const here = import.meta.dirname;

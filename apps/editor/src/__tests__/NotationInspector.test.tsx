@@ -50,6 +50,7 @@ function buildScore(): Score {
             measureRepeat: { number: 2 },
             expressions: [
               {
+                type: "expression",
                 text: [{ text: "Play freely", style: { weight: "bold" } }],
                 position: { fraction: [1, 4] },
                 placement: "above",
@@ -911,7 +912,10 @@ describe("NotationInspector", () => {
 
     await waitFor(() => {
       const event = currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0];
-      expect(event?.type === "event" ? event.notes?.map((note) => note.notehead) : []).toEqual(["diamond", "diamond"]);
+      expect(event?.type === "event" ? event.notes?.map((note) => note.notehead) : []).toEqual([
+        { shape: "diamond" },
+        { shape: "diamond" },
+      ]);
     });
   });
 

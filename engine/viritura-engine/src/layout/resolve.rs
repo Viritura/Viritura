@@ -30,8 +30,12 @@ pub(crate) fn resolve_display_key(
 ) -> (KeySignature, i32) {
     if active_key.atonal == Some(true) {
         (active_key.clone(), 0)
-    } else if let Some((_, half_steps)) = transposition {
-        active_key.transpose_with_diatonic_adjustment(half_steps, key_fifths_flip_at)
+    } else if let Some((staff_distance, half_steps)) = transposition {
+        active_key.transpose_with_diatonic_adjustment(
+            staff_distance,
+            half_steps,
+            key_fifths_flip_at,
+        )
     } else {
         (active_key.clone(), 0)
     }

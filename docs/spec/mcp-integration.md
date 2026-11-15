@@ -119,9 +119,9 @@ existing index and replacement `value` to update. The value is a model
 `TextExpression`, including `text` as rich-text chunks and a rhythmic
 `position`. Read the current annotations with `score.search_annotations` or
 `score.get_measures`: staff text lives in
-`parts[].measures[]._x.viritura.expressions`. `measureIndex` is the zero-based
+`parts[].measures[].text`. `measureIndex` is the zero-based
 index in the full score (not the returned slice), and `expressionIndex` is the
-zero-based index in that measure's expressions array, including entries on other
+zero-based index in that measure's `text` array, including entries on other
 staves/voices. Removing several expressions in one measure requires descending
 index order because patches are applied sequentially. Both indices must be
 non-negative integers, and missing targets are rejected. Only the selected

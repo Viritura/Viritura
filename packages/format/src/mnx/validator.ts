@@ -37,6 +37,8 @@ import {
   systemLayoutExtensions,
   layoutStaffExtensions,
   scoreExtensions,
+  positionedTextExtensions,
+  textChunkExtensions,
 } from "./standaloneValidators";
 
 type ExtensionDefinition =
@@ -57,7 +59,9 @@ type ExtensionDefinition =
   | "slur-extensions"
   | "system-layout-extensions"
   | "layout-staff-extensions"
-  | "score-extensions";
+  | "score-extensions"
+  | "positioned-text-extensions"
+  | "text-chunk-extensions";
 
 type StandaloneValidateFunction = ((data: unknown) => boolean) & Pick<ValidateFunction, "errors">;
 
@@ -80,6 +84,8 @@ const extensionValidators: Record<ExtensionDefinition, StandaloneValidateFunctio
   "system-layout-extensions": systemLayoutExtensions,
   "layout-staff-extensions": layoutStaffExtensions,
   "score-extensions": scoreExtensions,
+  "positioned-text-extensions": positionedTextExtensions,
+  "text-chunk-extensions": textChunkExtensions,
 };
 
 /** A single schema-validation failure, normalised for caller consumption. */
@@ -280,6 +286,13 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
       asObjects(measure["dynamics"]).forEach((dynamic, dynamicIndex) =>
         validateAt(dynamic, `${measurePointer}/dynamics/${dynamicIndex}`, "dynamic-group-extensions"),
       );
+      asObjects(measure["text"]).forEach((text, textIndex) => {
+        const textPointer = `${measurePointer}/text/${textIndex}`;
+        validateAt(text, textPointer, "positioned-text-extensions");
+        asObjects(text["text"]).forEach((chunk, chunkIndex) =>
+          validateAt(chunk, `${textPointer}/text/${chunkIndex}`, "text-chunk-extensions"),
+        );
+      });
       asObjects(measure["sequences"]).forEach((sequence, sequenceIndex) => {
         visitContent(sequence["content"], `${measurePointer}/sequences/${sequenceIndex}/content`);
       });

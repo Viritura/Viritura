@@ -408,7 +408,7 @@ fn test_bbox_text_expression() {
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
-        "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}], "_x": {"viritura": {"expressions": [{"text": [{"text": "dolce"}], "position": {"fraction": [0, 1]}}]}}}]}]
+        "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}], "text": [{"type": "expression", "text": [{"text": "dolce"}], "position": {"fraction": [0, 1]}}]}]}]
     }"#;
 
     let score = parse_mnx(json).unwrap();
@@ -446,7 +446,7 @@ fn test_bbox_text_expression_manual_offset_moves() {
             r#"{{
                 "mnx": {{"version": 1}},
                 "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
-                "parts": [{{"measures": [{{"clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}], "sequences": [{{"content": [{{"duration": {{"base": "whole"}}, "rest": {{}}}}]}}], "_x": {{"viritura": {{"expressions": [{{"text": [{{"text": "dolce"}}], "position": {{"fraction": [0, 1]}}{off}}}]}}}}}}]}}]
+                "parts": [{{"measures": [{{"clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}], "sequences": [{{"content": [{{"duration": {{"base": "whole"}}, "rest": {{}}}}]}}], "text": [{{"type": "expression", "text": [{{"text": "dolce"}}], "position": {{"fraction": [0, 1]}}{off}}}]}}]}}]
             }}"#,
             off = off
         );
@@ -461,7 +461,7 @@ fn test_bbox_text_expression_manual_offset_moves() {
 
     let (x0, y0) = layout("");
     // +2 sp right, +3 sp up. Default spatium is small; just assert direction.
-    let (x1, y1) = layout(r#", "manualOffset": [2, 3]"#);
+    let (x1, y1) = layout(r#", "_x": {"viritura": {"manualOffset": [2, 3]}}"#);
 
     assert!(
         x1 > x0 + 0.5,
@@ -487,7 +487,7 @@ fn test_text_expression_offset_invalidates_warm_cache() {
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
-        "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}], "_x": {"viritura": {"expressions": [{"text": [{"text": "dolce"}], "position": {"fraction": [0, 1]}}]}}}]}]
+        "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}], "text": [{"type": "expression", "text": [{"text": "dolce"}], "position": {"fraction": [0, 1]}}]}]}]
     }"#;
 
     let mut score = parse_mnx(json).unwrap();
@@ -531,7 +531,7 @@ fn test_text_expression_avoid_collisions_false_uses_bare_datum() {
             r#"{{
                 "mnx": {{"version": 1}},
                 "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
-                "parts": [{{"measures": [{{"clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}], "sequences": [{{"content": [{{"duration": {{"base": "whole"}}, "notes": [{{"pitch": {{"step": "G", "octave": 6}}}}]}}]}}], "_x": {{"viritura": {{"expressions": [{{"text": [{{"text": "arco"}}], "position": {{"fraction": [0, 1]}}, "placement": "above"{avoid}}}]}}}}}}]}}]
+                "parts": [{{"measures": [{{"clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}], "sequences": [{{"content": [{{"duration": {{"base": "whole"}}, "notes": [{{"pitch": {{"step": "G", "octave": 6}}}}]}}]}}], "text": [{{"type": "expression", "text": [{{"text": "arco"}}], "position": {{"fraction": [0, 1]}}, "placement": "above"{avoid}}}]}}]}}]
             }}"#,
             avoid = avoid
         );
@@ -545,7 +545,7 @@ fn test_text_expression_avoid_collisions_false_uses_bare_datum() {
     };
 
     let y_auto = layout("");
-    let y_pinned = layout(r#", "avoidCollisions": false"#);
+    let y_pinned = layout(r#", "_x": {"viritura": {"avoidCollisions": false}}"#);
     assert!(
         y_pinned > y_auto + 0.5,
         "avoidCollisions=false should sit at the bare datum (lower, ignoring the high note): \
@@ -563,7 +563,7 @@ fn test_bbox_text_expression_width_hugs_text() {
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
-        "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}], "_x": {"viritura": {"expressions": [{"text": [{"text": "pizz."}], "position": {"fraction": [0, 1]}}]}}}]}]
+        "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}], "text": [{"type": "expression", "text": [{"text": "pizz."}], "position": {"fraction": [0, 1]}}]}]}]
     }"#;
 
     let score = parse_mnx(json).unwrap();
@@ -616,7 +616,7 @@ fn test_bbox_text_expression_left_aligned_at_note() {
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
-            "expressions": [{"text": [{"text": "arco"}], "position": {"fraction": [1, 4]}, "placement": "above"}],
+            "text": [{"type": "expression", "text": [{"text": "arco"}], "position": {"fraction": [1, 4]}, "placement": "above"}],
             "sequences": [{"content": [
                 {"duration": {"base": "quarter"}, "rest": {}},
                 {"duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "G", "octave": 4}}]},
@@ -689,7 +689,7 @@ fn test_text_expression_slides_left_off_right_margin() {
                 "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
                 "parts": [{{"measures": [{{
                     "clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}],
-                    "expressions": [{{"text": [{{"text": "{text}"}}], "position": {{"fraction": [3, 4]}}, "placement": "above"}}],
+                    "text": [{{"type": "expression", "text": [{{"text": "{text}"}}], "position": {{"fraction": [3, 4]}}, "placement": "above"}}],
                     "sequences": [{{"content": [
                         {{"duration": {{"base": "quarter"}}, "notes": [{{"pitch": {{"step": "G", "octave": 4}}}}]}},
                         {{"duration": {{"base": "quarter"}}, "notes": [{{"pitch": {{"step": "G", "octave": 4}}}}]}},
@@ -749,7 +749,7 @@ fn test_tempo_does_not_decongest_expression_when_already_clear() {
                 "global": {{"measures": [{{ {tempos} "time": {{"count": 4, "unit": 4}}}}]}},
                 "parts": [{{"measures": [{{
                     "clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}],
-                    "expressions": [{{"text": [{{"text": "arco"}}], "position": {{"fraction": [0, 1]}}, "placement": "above"}}],
+                    "text": [{{"type": "expression", "text": [{{"text": "arco"}}], "position": {{"fraction": [0, 1]}}, "placement": "above"}}],
                     "sequences": [{{"content": [
                         {{"duration": {{"base": "quarter"}}, "notes": [{{"pitch": {{"step": "C", "octave": 7}}}}]}},
                         {{"duration": {{"base": "quarter"}}, "rest": {{}}}},
