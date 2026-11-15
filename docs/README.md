@@ -55,6 +55,11 @@ New public documentation must preserve these distinctions. When discussing
 file-level state, prefer “the document stores…” over the internal TypeScript
 model's looser “the score stores…”.
 
+## Documentation style
+
+Prefer the Oxford comma in lists of three or more items, including headings
+such as **Scores, Parts, & Layouts**.
+
 ## Availability callouts
 
 Use a GitHub-compatible Availability alert when a workflow has a material

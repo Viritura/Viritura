@@ -126,6 +126,6 @@ therefore changes notation and playback consistently in the full score, section
 scores, and the instrument's part extract.
 
 For the distinction between an MNX source part and an instrumental part, see
-[Scores, Parts & Layouts](/docs/instruments-and-scores#terminology). For
+[Scores, Parts, & Layouts](/docs/instruments-and-scores#terminology). For
 playback-channel controls, see
-[Playback, Mixer & Piano Roll](/docs/playback-and-piano-roll).
+[Playback, Mixer, & Piano Roll](/docs/playback-and-piano-roll).

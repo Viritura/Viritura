@@ -47,7 +47,7 @@ const GUIDE_PAGES: readonly Omit<DocPageMeta, "section">[] = [
   {
     slug: "instruments-and-scores",
     path: "/docs/instruments-and-scores",
-    title: "Scores, Parts & Layouts",
+    title: "Scores, Parts, & Layouts",
     group: "Create",
     file: "docs/guide/instruments-and-scores.md",
   },
@@ -96,7 +96,7 @@ const GUIDE_PAGES: readonly Omit<DocPageMeta, "section">[] = [
   {
     slug: "playback-and-piano-roll",
     path: "/docs/playback-and-piano-roll",
-    title: "Playback, Mixer & Piano Roll",
+    title: "Playback, Mixer, & Piano Roll",
     group: "Shape & Hear",
     file: "docs/guide/playback-and-piano-roll.md",
   },

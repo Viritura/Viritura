@@ -243,7 +243,7 @@ even when its symbols are hidden. An explicit instrument selection includes
 chords only when it covers every instrument visible in the current view; a
 partial selection excludes them. In a single-instrument view, selecting that
 instrument therefore includes chords. An explicitly empty selection plays
-nothing. See [Playback, Mixer & Piano Roll](/docs/playback-and-piano-roll).
+nothing. See [Playback, Mixer, & Piano Roll](/docs/playback-and-piano-roll).
 
 ## House style
 

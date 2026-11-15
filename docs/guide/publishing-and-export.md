@@ -88,4 +88,4 @@ content.
 For page geometry and house style, see
 [Engraving & Layout](/docs/engraving-and-layout). For the MNX and
 musician-facing meanings of score and part, see
-[Scores, Parts & Layouts](/docs/instruments-and-scores).
+[Scores, Parts, & Layouts](/docs/instruments-and-scores).

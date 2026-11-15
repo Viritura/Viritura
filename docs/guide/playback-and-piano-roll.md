@@ -1,4 +1,4 @@
-# Playback, Mixer & Piano Roll
+# Playback, Mixer, & Piano Roll
 
 Playback is available throughout the editor. The **Play** activity adds the
 mixer, sound assignment, and spatial stage; **Roll** provides a performance
@@ -117,4 +117,4 @@ editing is not currently wired from the piano roll. Make changes in **Write**.
 
 For score navigation and playback following, see
 [Viewing & Review](/docs/viewing-and-review). For percussion sound assignments,
-see [Scores, Parts & Layouts](/docs/instruments-and-scores#percussion-maps).
+see [Scores, Parts, & Layouts](/docs/instruments-and-scores#percussion-maps).

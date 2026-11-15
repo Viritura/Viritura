@@ -109,5 +109,5 @@ rejoins their shared staff at system boundaries around the change.
 
 For the distinction between MNX source parts, score definitions, scores, and
 instrumental parts, see
-[Scores, Parts & Layouts](/docs/instruments-and-scores). For final PDF output, see
+[Scores, Parts, & Layouts](/docs/instruments-and-scores). For final PDF output, see
 [Publishing & Export](/docs/publishing-and-export).

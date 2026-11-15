@@ -1,4 +1,4 @@
-# Scores, Parts &amp; Layouts
+# Scores, Parts, &amp; Layouts
 
 Viritura bridges the language musicians use with the names in the **MNX** data
 model. Those vocabularies overlap, but they are not identical: an MNX

@@ -41,7 +41,7 @@ Setup stays beside the live score and contains project metadata, opening music,
 the instrument roster, and score/part layouts. Start with those four tabs, then
 return whenever the document's structure changes.
 
-See [Scores, Parts & Layouts](/docs/instruments-and-scores) for the complete
+See [Scores, Parts, & Layouts](/docs/instruments-and-scores) for the complete
 Setup workflow. Unpitched instruments are covered in
 [Percussion Maps](/docs/percussion-maps).
 
@@ -147,7 +147,7 @@ the next launch uses the update.
 - [Note Entry](/docs/note-entry) — the complete input workflow.
 - [Notation &amp; Editing](/docs/notation-and-editing) — selection, palettes,
   inspector, and the jump bar.
-- [Scores, Parts &amp; Layouts](/docs/instruments-and-scores) — how MNX source
+- [Scores, Parts, &amp; Layouts](/docs/instruments-and-scores) — how MNX source
   parts, layouts, score definitions, and musician-facing outputs relate.
 - [Percussion Maps](/docs/percussion-maps) — connect unpitched sounds to staff
   positions, noteheads, and playback.
