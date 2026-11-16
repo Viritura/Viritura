@@ -76,8 +76,16 @@ pub(crate) fn multimeasure_rest_prefix(
     let leading_barline = BarlineKind::at_boundary(
         !ml.is_first_on_system && rm.prev_has_repeat_end,
         rm.global.repeat_start.is_some() && !defer_repeat,
-        rm.prev_barline_type.as_ref(),
-        BarlineType::Regular,
+        if defer_repeat {
+            None
+        } else {
+            rm.prev_barline_type.as_ref()
+        },
+        if defer_repeat {
+            BarlineType::NoBarline
+        } else {
+            BarlineType::Regular
+        },
     );
     let barline_advance = if at_start {
         0.0

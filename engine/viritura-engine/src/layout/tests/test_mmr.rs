@@ -1215,8 +1215,13 @@ fn test_key_change_multimeasure_rest_renders_repeat_start_once() {
         barline_width: 0.3,
         ..LayoutConfig::default()
     };
-    for barline in ["regular", "double"] {
-        source["global"]["measures"][0]["barline"] = serde_json::json!({"type": barline});
+    for barline in ["regular", "double", "repeat-end"] {
+        let previous_repeat_end = barline == "repeat-end";
+        source["global"]["measures"][0]["barline"] =
+            serde_json::json!({"type": if previous_repeat_end { "regular" } else { barline }});
+        if previous_repeat_end {
+            source["global"]["measures"][0]["repeatEnd"] = serde_json::json!({});
+        }
         for with_time in [false, true] {
             if with_time {
                 source["global"]["measures"][1]["time"] =
@@ -1251,17 +1256,38 @@ fn test_key_change_multimeasure_rest_renders_repeat_start_once() {
                     "the repeat start belongs after the changed key, not on both sides"
                 );
                 let repeat = &repeats[0];
-                let boundary_right = display
+                let boundary_commands: Vec<_> = display
                     .commands
                     .iter()
                     .enumerate()
-                    .filter(|(index, command)| {
+                    .filter(|(index, _)| {
                         display.element_ids[*index].as_deref() == Some("m1/barline")
-                            && matches!(command, RenderCommand::DrawLine { .. })
                     })
-                    .filter_map(|(_, command)| command.bbox())
-                    .map(|bbox| bbox.x + bbox.width)
-                    .fold(f64::NEG_INFINITY, f64::max);
+                    .map(|(_, command)| command)
+                    .collect();
+                assert!(boundary_commands.iter().all(|command| matches!(command,
+                    RenderCommand::DrawGlyph { codepoint, .. }
+                        if *codepoint == smufl::REPEAT_LEFT || *codepoint == smufl::REPEAT_RIGHT)),
+                    "the repeat after the key replaces the ordinary boundary; no extra stroke may precede the key");
+                let previous_ends = boundary_commands
+                    .iter()
+                    .filter(|command| {
+                        matches!(command,
+                        RenderCommand::DrawGlyph { codepoint, .. }
+                            if *codepoint == smufl::REPEAT_RIGHT)
+                    })
+                    .count();
+                assert_eq!(
+                    previous_ends,
+                    usize::from(previous_repeat_end),
+                    "a preceding repeat end must remain visible"
+                );
+                let boundary_right = display
+                    .measure_bounds
+                    .iter()
+                    .find(|bound| bound.index == 1)
+                    .unwrap()
+                    .x;
                 let signature_ink = |id: &str| {
                     display
                         .commands
@@ -1286,7 +1312,7 @@ fn test_key_change_multimeasure_rest_renders_repeat_start_once() {
                 );
                 assert!(
                     (key_left - boundary_right - 0.5 * config.sp).abs() < 1e-6,
-                    "the key must clear the boundary actually drawn before it, not the deferred repeat: gap={}sp",
+                    "the key must clear the boundary anchor or preceding repeat end, not the deferred repeat: gap={}sp",
                     (key_left - boundary_right) / config.sp
                 );
                 let signature_right = if with_time {

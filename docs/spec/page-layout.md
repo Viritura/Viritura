@@ -99,8 +99,10 @@ group; repeat barlines remain visible at its outer edges rather than forcing
 those measures to stand alone. The H-bar and its end serif clear repeat-end ink
 on the last collapsed measure.
 When a changed key precedes an MMR's repeat start, its left clearance is
-measured from the boundary actually drawn before the key, not from the
-deferred repeat. The H-bar, count, and bar-number range share a prefix that
+measured from the measure boundary anchor, not from the deferred repeat.
+The repeat start is the boundary: no additional ordinary or double barline
+is drawn before the key. A preceding repeat end remains visible and the key
+clears its ink. The H-bar, count, and bar-number range share a prefix that
 includes the full repeat-start ink after any key and time signatures.
 
 Tempo and above-staff system text at an MMR's start may extend over following
