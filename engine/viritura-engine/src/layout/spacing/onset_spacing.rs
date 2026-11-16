@@ -4,7 +4,86 @@ use super::super::spacing::*;
 use super::collectors::*;
 use super::geometry_snapshot::{build_spacing_snapshot, SpacingSnapshot};
 use super::timing::BeatKey;
+use crate::render::smufl::smufl;
 use std::collections::{HashMap, HashSet};
+
+#[derive(Clone, Copy)]
+struct TrailingSpace {
+    buffer_sp: f64,
+    has_caesura: bool,
+}
+
+impl TrailingSpace {
+    fn regular(config: &LayoutConfig) -> Self {
+        Self {
+            buffer_sp: super::super::render_barlines::regular_trailing_barline_content_buffer_sp(
+                config,
+            ),
+            has_caesura: false,
+        }
+    }
+
+    fn for_measure(measure: &ResolvedMeasure, config: &LayoutConfig) -> Self {
+        let barline_buffer =
+            super::super::render_barlines::trailing_barline_content_buffer_sp(measure, config);
+        let Some(caesura) = &measure.global.caesura else {
+            return Self {
+                buffer_sp: barline_buffer,
+                has_caesura: false,
+            };
+        };
+        let glyph = smufl::caesura_glyph(&caesura.marking.style, caesura.marking.marks);
+        let (_, _, width, _) = smufl::glyph_bbox(glyph);
+        let caesura_buffer = super::super::measure::MEASURE_TRAILING_PADDING_SP
+            + super::super::render_barlines::trailing_barline_extra_width(measure, config, 1.0)
+            - width
+            - super::super::render_articulations::CAESURA_RIGHT_PAD_SP;
+        Self {
+            buffer_sp: barline_buffer.min(caesura_buffer),
+            has_caesura: true,
+        }
+    }
+
+    fn merge(self, other: Self) -> Self {
+        Self {
+            buffer_sp: self.buffer_sp.min(other.buffer_sp),
+            has_caesura: self.has_caesura || other.has_caesura,
+        }
+    }
+
+    fn constrain_final_gap(
+        self,
+        snapshot: &SpacingSnapshot<'_>,
+        beat: BeatKey,
+        config: &LayoutConfig,
+        advance: f64,
+    ) -> (f64, f64) {
+        const TRAILING_INK_CLEARANCE_SP: f64 = 0.5;
+        let mut right_extent = snapshot
+            .right_ink_extents
+            .get(&beat)
+            .copied()
+            .unwrap_or(2.0 * config.notehead_rx);
+        if let Some(width) = snapshot
+            .fermata_widths
+            .get(&beat)
+            .filter(|_| self.has_caesura)
+        {
+            right_extent = right_extent.max(config.notehead_rx + width * 0.5);
+        }
+        let trailing_floor = right_extent + TRAILING_INK_CLEARANCE_SP - self.buffer_sp;
+        GapFloorConstraint {
+            min_advance: trailing_floor.max(0.0),
+            rigid: true,
+            reason: if self.has_caesura {
+                SpaceReason::Caesura
+            } else {
+                SpaceReason::TrailingBarline
+            },
+        }
+        .reconcile(advance)
+    }
+}
 
 /// Extract a measure's clef changes as `(beat, Clef)` pairs, sorted by beat,
 /// for the accidental ledger-extent reservation. Returns an empty vector when
@@ -89,7 +168,7 @@ pub(crate) fn build_log_spacing_for_part_measure(
         &beamed_ids,
         &suppressed_note_ids,
         None,
-        super::super::render_barlines::regular_trailing_barline_content_buffer_sp(config),
+        TrailingSpace::regular(config),
     )
 }
 
@@ -126,11 +205,11 @@ pub(crate) fn build_log_spacing_for_resolved_measure(
         &beamed_ids,
         &suppressed_note_ids,
         measure.kit.as_ref(),
-        super::super::render_barlines::trailing_barline_content_buffer_sp(measure, config),
+        TrailingSpace::for_measure(measure, config),
     )
 }
 
-pub(super) fn build_log_spacing_with_arpeggios(
+fn build_log_spacing_with_arpeggios(
     sequences: &[Sequence],
     ratio: f64,
     total_beats: f64,
@@ -143,7 +222,7 @@ pub(super) fn build_log_spacing_with_arpeggios(
     beamed_event_ids: &HashSet<String>,
     suppressed_note_ids: &HashSet<String>,
     kit: Option<&HashMap<String, KitComponent>>,
-    trailing_barline_buffer_sp: f64,
+    trailing_space: TrailingSpace,
 ) -> LogSpacing {
     let all_sequences: Vec<&[Sequence]> = vec![sequences];
     let staff_ratios = [ratio];
@@ -165,7 +244,7 @@ pub(super) fn build_log_spacing_with_arpeggios(
         &beamed_event_ids,
         &suppressed_note_ids,
         &[kit],
-        trailing_barline_buffer_sp,
+        trailing_space,
     )
 }
 
@@ -210,7 +289,7 @@ pub(crate) fn build_merged_log_spacing_for_part_measures(
         &beamed_event_ids,
         &suppressed_note_ids,
         &vec![None; part_measures.len()],
-        super::super::render_barlines::regular_trailing_barline_content_buffer_sp(config),
+        TrailingSpace::regular(config),
     )
 }
 
@@ -283,17 +362,13 @@ pub(crate) fn build_merged_log_spacing_for_resolved_measures(
             .collect::<Vec<_>>(),
         measures
             .iter()
-            .map(|measure| {
-                super::super::render_barlines::trailing_barline_content_buffer_sp(measure, config)
-            })
-            .reduce(f64::min)
-            .unwrap_or_else(|| {
-                super::super::render_barlines::regular_trailing_barline_content_buffer_sp(config)
-            }),
+            .map(|measure| TrailingSpace::for_measure(measure, config))
+            .reduce(TrailingSpace::merge)
+            .unwrap_or_else(|| TrailingSpace::regular(config)),
     )
 }
 
-pub(super) fn build_merged_log_spacing_with_arpeggios(
+fn build_merged_log_spacing_with_arpeggios(
     all_sequences: &[&[Sequence]],
     staff_ratios: &[f64],
     total_beats: f64,
@@ -306,7 +381,7 @@ pub(super) fn build_merged_log_spacing_with_arpeggios(
     beamed_event_ids: &[HashSet<String>],
     suppressed_note_ids: &[HashSet<String>],
     kits: &[Option<&HashMap<String, KitComponent>>],
-    trailing_barline_buffer_sp: f64,
+    trailing_space: TrailingSpace,
 ) -> LogSpacing {
     build_spacing_from_sequences(
         all_sequences,
@@ -321,7 +396,7 @@ pub(super) fn build_merged_log_spacing_with_arpeggios(
         beamed_event_ids,
         suppressed_note_ids,
         kits,
-        trailing_barline_buffer_sp,
+        trailing_space,
     )
 }
 
@@ -370,7 +445,7 @@ fn build_spacing_from_sequences(
     beamed_event_ids: &[HashSet<String>],
     suppressed_note_ids: &[HashSet<String>],
     kits: &[Option<&HashMap<String, KitComponent>>],
-    trailing_barline_buffer_sp: f64,
+    trailing_space: TrailingSpace,
 ) -> LogSpacing {
     let snapshot = build_spacing_snapshot(
         all_sequences,
@@ -547,20 +622,8 @@ fn build_spacing_from_sequences(
                 constraint.reconcile(base_advance)
             });
         if next_onset.is_none() {
-            const TRAILING_INK_CLEARANCE_SP: f64 = 0.5;
-            let trailing_floor = snapshot
-                .right_ink_extents
-                .get(&beat_key)
-                .copied()
-                .unwrap_or(2.0 * config.notehead_rx)
-                + TRAILING_INK_CLEARANCE_SP
-                - trailing_barline_buffer_sp;
-            let trailing = GapFloorConstraint {
-                min_advance: trailing_floor.max(0.0),
-                rigid: true,
-                reason: SpaceReason::TrailingBarline,
-            };
-            (gap_advance, gap_rigid) = trailing.reconcile(gap_advance);
+            (gap_advance, gap_rigid) =
+                trailing_space.constrain_final_gap(&snapshot, beat_key, config, gap_advance);
         }
         cum_width += gap_advance;
         // The clef column is physical ink clearance and must survive system

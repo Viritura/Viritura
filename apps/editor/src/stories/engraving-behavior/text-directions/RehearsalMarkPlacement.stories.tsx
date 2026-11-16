@@ -80,3 +80,38 @@ export const BoxLeftAlignsWithBarline: StoryObj = {
   },
   name: "Box aligns left with a mid-system barline",
 };
+
+export const AboveAscendingSlur: StoryObj = {
+  render: () => {
+    const mnx = buildMnx({
+      measures: [
+        {
+          time: { count: 4, unit: 4 },
+          voices: [
+            [
+              { duration: "eighth", notes: [{ step: "C", octave: 5 }], slurs: [{ target: "slur-end", side: "up" }] },
+              { duration: "eighth", notes: [{ step: "D", octave: 5 }] },
+              { duration: "eighth", notes: [{ step: "E", octave: 5 }] },
+              { duration: "eighth", notes: [{ step: "F", octave: 5 }] },
+              { duration: "eighth", notes: [{ step: "G", octave: 5 }] },
+              { duration: "eighth", notes: [{ step: "A", octave: 5 }] },
+              { duration: "eighth", notes: [{ step: "B", octave: 5 }] },
+              { duration: "eighth", notes: [{ step: "C", octave: 6 }] },
+            ],
+          ],
+        },
+        {
+          virituraGlobal: { rehearsalMark: { text: [{ text: "B" }] } },
+          voices: [
+            [
+              { id: "slur-end", duration: "quarter", notes: [{ step: "D", octave: 6 }] },
+              { duration: "half", dots: 1, rest: true },
+            ],
+          ],
+        },
+      ],
+    });
+    return <ScorePreview mnxJson={mnx} />;
+  },
+  name: "Rehearsal mark rises above an ascending slur",
+};

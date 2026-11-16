@@ -189,8 +189,21 @@ fn repaginate_measured_part(
     system_heights: &[f64],
     protrusion_extras: &[(f64, f64)],
     title_height: f64,
-    title_page: bool,
+    original: &page_turn::NaturalPartPlan,
+    packed_page_starts: &[usize],
 ) -> Option<page_turn::TurnPlan> {
+    let preserved_pages = original
+        .page_starts
+        .iter()
+        .zip(packed_page_starts)
+        .take_while(|(planned, packed)| planned == packed)
+        .count()
+        .saturating_sub(1);
+    let resume = original
+        .page_starts
+        .get(preserved_pages)
+        .copied()
+        .unwrap_or(0);
     let part = score.parts.get(single_source_part_index(flat_staves)?)?;
     let windows = page_turn::analyze_turn_windows_for_visible_blocks(
         &score.global.measures,
@@ -215,25 +228,66 @@ fn repaginate_measured_part(
         })
         .collect();
     let mut page_turns = config.page_turns.clone();
-    page_turns.title_page = if title_page {
+    page_turns.title_page = if resume == 0 && original.title_page {
         page_turn::TitlePagePolicy::Always
     } else {
         page_turn::TitlePagePolicy::Never
     };
+    if resume > 0 {
+        let preceding_pages = preserved_pages
+            + usize::from(original.title_page)
+            + original
+                .blank_pages_before
+                .iter()
+                .filter(|&&start| start <= resume)
+                .count();
+        page_turns.first_page_recto = Some(original.first_page_recto ^ (preceding_pages % 2 == 1));
+    }
     let geometry = page_turn::PageGeometry {
         usable_height: (config.page_height - config.page_margin_top - config.page_margin_bottom)
             * config.sp,
-        title_height: title_height + config.first_page_footer_height,
+        title_height: if resume == 0 {
+            title_height + config.first_page_footer_height
+        } else {
+            0.0
+        },
         inter_system_spacing: config.sp,
     };
-    page_turn::optimize(
-        system_heights,
-        &gaps,
+    let mut refined = page_turn::optimize_safe_repacking(
+        &system_heights[resume..],
+        &gaps[resume..],
         &geometry,
         &page_turns,
-        &ranges,
+        &ranges[resume..],
         &windows,
     )
+    .or_else(|| {
+        page_turn::optimize(
+            &system_heights[resume..],
+            &gaps[resume..],
+            &geometry,
+            &page_turns,
+            &ranges[resume..],
+            &windows,
+        )
+    })?;
+    let mut starts = original.page_starts[..preserved_pages].to_vec();
+    starts.extend(refined.page_starts.iter().map(|start| start + resume));
+    refined.page_starts = starts;
+    let mut blanks: Vec<_> = original
+        .blank_pages_before
+        .iter()
+        .copied()
+        .filter(|&start| start <= resume)
+        .collect();
+    blanks.extend(
+        refined
+            .blank_pages_before
+            .iter()
+            .map(|start| start + resume),
+    );
+    refined.blank_pages_before = blanks;
+    Some(refined)
 }
 
 /// Position automatic-flow pages. The exact page-turn additions are gated to a
@@ -286,7 +340,7 @@ pub(super) fn position_auto_flow_pages(
             &page_starts,
         )
     };
-    let mut packed_page_starts = packed_pages
+    let mut packed_page_starts: Vec<usize> = packed_pages
         .iter()
         .filter_map(|page| page.system_indices.first().copied())
         .collect();
@@ -294,10 +348,8 @@ pub(super) fn position_auto_flow_pages(
         || natural_plan.is_some_and(|plan| plan.systems != systems);
     let mut metadata_plan = natural_plan.cloned();
     if let Some(plan) = metadata_plan.as_mut().filter(|_| membership_changed) {
-        // An overflow invalidates the estimated page fits. Keeping the old
-        // break immediately after a safety break can strand a single line.
-        // Re-plan pages, not systems, using the packer's measured geometry.
-        plan.blank_pages_before.clear();
+        // Keep the fitting prefix and its selected turns. Re-plan only from
+        // the first overfull page so a later repair cannot spoil an earlier turn.
         if let Some(refined) = repaginate_measured_part(
             score,
             config,
@@ -307,7 +359,8 @@ pub(super) fn position_auto_flow_pages(
             system_heights,
             protrusion_extras,
             break_title_height,
-            title_page,
+            plan,
+            &packed_page_starts,
         ) {
             plan.page_starts = refined.page_starts;
             plan.blank_pages_before = refined.blank_pages_before;
@@ -553,14 +606,14 @@ mod tests {
         let visible: Vec<_> = (0..20).collect();
         let systems: Vec<_> = visible.iter().map(|&measure| vec![measure]).collect();
         for title_page in [false, true] {
-            for overflow in [false, true] {
+            for (page_starts, expected) in [
+                (vec![0, 4, 8, 12, 16], Some(vec![4; 5])),
+                (vec![0, 6, 12, 18], Some(vec![5; 4])),
+                (vec![0, 4, 10, 16], None),
+            ] {
                 let plan = page_turn::NaturalPartPlan {
                     systems: systems.clone(),
-                    page_starts: if overflow {
-                        vec![0, 6, 12, 18]
-                    } else {
-                        vec![0, 4, 8, 12, 16]
-                    },
+                    page_starts,
                     blank_pages_before: Vec::new(),
                     title_page,
                     first_page_recto: true,
@@ -585,11 +638,23 @@ mod tests {
                     .filter(|page| !page.system_indices.is_empty())
                     .collect();
                 let counts: Vec<_> = music.iter().map(|page| page.system_indices.len()).collect();
-                assert_eq!(
-                    counts,
-                    if overflow { vec![5; 4] } else { vec![4; 5] },
-                    "cover={title_page}, overflow={overflow}"
-                );
+                if let Some(expected) = expected {
+                    assert_eq!(
+                        counts, expected,
+                        "cover={title_page}, starts={:?}",
+                        plan.page_starts
+                    );
+                } else {
+                    assert_eq!(
+                        counts.first(),
+                        Some(&4),
+                        "the fitting prefix must be preserved"
+                    );
+                    assert!(
+                        counts.iter().all(|&count| count <= 5),
+                        "repaired pages must fit"
+                    );
+                }
                 assert_eq!(
                     music
                         .iter()

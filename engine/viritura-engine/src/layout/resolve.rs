@@ -617,18 +617,17 @@ fn emit_mmr_segment(
 /// fermatas**, which sit on an event marking (not a global measure property)
 /// and so aren't visible to the global-only page-turn predicate.
 ///
-/// System text is isolated on both sides because it may be rhythmically
-/// positioned inside its measure; collapsing that measure into a longer rest
-/// would stretch or hide its anchor. Triggers split by where they sit relative
-/// to the bar:
+/// System text starts a group; text inside a measure also closes that group,
+/// preserving its rhythmic anchor. Start-positioned text may label an MMR.
+/// Triggers split by where they sit relative to the bar:
 /// - **Start-of-measure** structure on bar `i` (time/key/tempo change, system
-///   text, rehearsal mark, either repeat boundary, volta start, segno/coda, or
+///   text, rehearsal mark, repeat start, volta start, segno/coda, or
 ///   a caesura/fermata on bar `i`) opens the new group at `i`.
 /// - **End-of-measure** structure on bar `i-1` (a *structural* barline —
 ///   double/final/heavy, system text, repeat end, fine, jump, or a
 ///   caesura/fermata on bar `i-1`) closes the previous group, so `i` opens the
-///   next one. Both repeat boundaries also close their measure, leaving every
-///   repeat barline visible.
+///   next one. Repeat-start and repeat-end bars can therefore be the first and
+///   last bars of an MMR while keeping both repeat barlines at its outer edges.
 ///   A plain `Regular` barline is the implicit division between every bar and
 ///   does NOT break.
 ///
@@ -658,7 +657,6 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
         || g.system_text().is_some_and(|texts| !texts.is_empty())
         || g.rehearsal_mark().is_some()
         || g.repeat_start.is_some()
-        || g.repeat_end.is_some()
         || g.ending.is_some()
         || g.segno.is_some()
         || g.coda().is_some()
@@ -679,12 +677,13 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
     );
     let ends_prev = pg.caesura.is_some()
         || prev_barline_breaks
-        || pg.system_text().is_some_and(|texts| !texts.is_empty())
+        || pg
+            .system_text()
+            .is_some_and(|texts| texts.iter().any(|text| text.position.beats().abs() > 1e-9))
         || prev
             .chord_symbols
             .as_ref()
             .is_some_and(|chords| !chords.is_empty())
-        || pg.repeat_start.is_some()
         || pg.repeat_end.is_some()
         || pg.fine.is_some()
         || pg.jump.is_some()

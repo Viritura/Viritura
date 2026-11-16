@@ -48,12 +48,9 @@ pub(crate) fn render_span_meters(
     // A courtesy meter announcing the next system spans the same group.
     if let Some(last) = measure_layouts.last() {
         let barline_x = last.x + last.width;
-        if let Some((x, ts)) = crate::layout::courtesy_signatures::courtesy_time_x(
-            &last.resolved,
-            barline_x,
-            config,
-            sp,
-        ) {
+        if let Some((x, ts)) =
+            crate::layout::courtesy_signatures::courtesy_time_x(&last.resolved, barline_x, sp)
+        {
             let layout = super::time_signature_layout(settings, ts, x, top_y, bottom_y, sp, None);
             super::render_time_signature_layout(dl, &layout);
         }

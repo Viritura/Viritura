@@ -20,6 +20,27 @@ fn expression_span(anchor: f64, width: f64, right_aligned: bool) -> (f64, f64) {
     }
 }
 
+fn mmr_text_anchor_x(
+    ml: &MeasureLayout,
+    expr: &TextExpression,
+    above: bool,
+    x: f64,
+    sp: f64,
+    config: &LayoutConfig,
+) -> f64 {
+    if ml.multimeasure_rest_count.is_some()
+        && above
+        && expr.position.beats().abs() < 1e-9
+        && expr.avoid_collisions.unwrap_or(true)
+        && expr.manual_offset.is_none()
+    {
+        if let Some((_, right)) = super::rehearsal_marks::rehearsal_mark_x_extent(ml, sp, config) {
+            return x.max(right + 0.5 * sp);
+        }
+    }
+    x
+}
+
 fn below_expression_baseline(
     ml: &MeasureLayout,
     staff_y: f64,
@@ -105,7 +126,7 @@ pub(crate) fn render_text_expressions(
             let is_above = matches!(text.placement, Some(ExpressionPlacement::Above));
             if (is_above && ml.is_first_staff) || (!is_above && ml.is_last_staff) {
                 expressions.push((
-                    system_text_expression(text, ml, config),
+                    system_text_expression(text, &ml.resolved, config),
                     element_id::system_text(mi, &text.id),
                 ));
             }
@@ -139,9 +160,8 @@ pub(crate) fn render_text_expressions(
 
         let beat = expr.position.beats();
 
-        // Look up actual event X position from voice layouts to match real note spacing.
-        // Fall back to linear interpolation if no matching event is found.
-        let event_x = ml.voice_layouts.iter().find_map(|vl| {
+        // A centered bar rest's visual position is not a rhythmic anchor.
+        let event_x = ml.rhythmic_voice_layouts().find_map(|vl| {
             (0..vl.events.len())
                 .find(|&i| {
                     (vl.events.beat_position(i) - beat).abs() < 0.01
@@ -170,6 +190,7 @@ pub(crate) fn render_text_expressions(
                 x_origin + beat_pos * content_width
             }
         };
+        let note_x = mmr_text_anchor_x(ml, expr, is_above, note_x, sp, config);
 
         // The text's LEFT border is its rhythmic anchor, so it is always
         // left-aligned at the note and simply extends rightward however far the
@@ -622,11 +643,11 @@ fn expression_block(
 
 fn system_text_expression(
     text: &SystemText,
-    ml: &MeasureLayout,
+    rm: &crate::model::ResolvedMeasure,
     config: &LayoutConfig,
 ) -> TextExpression {
     let mut content = super::system_instruction::display_content(text);
-    if ml.resolved.global.tempo_ramp_text_id() == Some(text.id.as_str()) {
+    if rm.global.tempo_ramp_text_id() == Some(text.id.as_str()) {
         use crate::model::{TextContentChunk, TextWeight, TextWeightName};
         let bold = config
             .text_styles
@@ -662,6 +683,49 @@ fn system_text_expression(
     }
 }
 
+pub(super) fn system_text_start_width(
+    rm: &crate::model::ResolvedMeasure,
+    config: &LayoutConfig,
+    sp: f64,
+) -> f64 {
+    rm.global
+        .system_text()
+        .unwrap_or_default()
+        .iter()
+        .filter(|text| {
+            text.position.beats().abs() < 1e-9
+                && matches!(text.placement, Some(ExpressionPlacement::Above))
+                && text.avoid_collisions.unwrap_or(true)
+                && text.manual_offset.is_none()
+        })
+        .map(|text| {
+            let expression = system_text_expression(text, rm, config);
+            let width = expression_block(&expression, 2.0 * sp, sp).map_or_else(
+                || {
+                    let ink = super::text_content::content_ink_bounds(
+                        &expression.text,
+                        2.0 * sp,
+                        "serif",
+                        TextAlign::Left,
+                    );
+                    (ink.x + ink.width).max(super::text_content::content_width(
+                        &expression.text,
+                        2.0 * sp,
+                        FontFamily::Serif,
+                        false,
+                    ))
+                },
+                |block| block.width,
+            );
+            match expression_alignment(&expression, false) {
+                TextFrameAlign::Left => width,
+                TextFrameAlign::Center => width * 0.5,
+                TextFrameAlign::Right => 0.0,
+            }
+        })
+        .fold(0.0_f64, f64::max)
+}
+
 pub(crate) fn system_text_vertical_extras(
     ml: &MeasureLayout,
     sp: f64,
@@ -689,7 +753,7 @@ pub(crate) fn system_text_vertical_extras(
     let side_bearing = metrics.padding.horizontal * sp;
 
     for text in texts {
-        let expression = system_text_expression(text, ml, config);
+        let expression = system_text_expression(text, &ml.resolved, config);
         let is_above = matches!(text.placement, Some(ExpressionPlacement::Above));
         let block = expression_block(&expression, font_size, sp);
         let text_width = block.as_ref().map_or_else(
@@ -704,7 +768,7 @@ pub(crate) fn system_text_vertical_extras(
             |block| block.width,
         );
         let beat = text.position.beats();
-        let event_x = ml.voice_layouts.iter().find_map(|vl| {
+        let event_x = ml.rhythmic_voice_layouts().find_map(|vl| {
             (0..vl.events.len())
                 .find(|&i| (vl.events.beat_position(i) - beat).abs() < 0.01)
                 .map(|i| vl.events.x(i))
@@ -717,6 +781,7 @@ pub(crate) fn system_text_vertical_extras(
                 x_origin + (beat / total_beats) * content_width
             }
         });
+        let note_x = mmr_text_anchor_x(ml, &expression, is_above, note_x, sp, config);
         let alignment = expression_alignment(&expression, right_aligned);
         let [offset_x, offset_y] = text.manual_offset.unwrap_or([0.0, 0.0]);
         let draw_x = note_x + offset_x * sp;

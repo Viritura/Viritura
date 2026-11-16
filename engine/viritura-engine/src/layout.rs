@@ -67,7 +67,7 @@ mod tests;
 pub use config::LayoutConfig;
 pub use note_preview::{compute_note_preview, NotePreviewAccidental, NotePreviewInput};
 pub use orchestration::layout_score;
-pub use page::compute_page_breaks;
+pub use page::{compute_page_breaks, validate_page_fit, PageFitError};
 pub use render_signatures::compute_key_signature_positions;
 pub use slur_preview::{
     compute_slur_preview, SlurPreview, SlurPreviewHandle, SlurPreviewInput, SlurPreviewMode,
@@ -601,7 +601,7 @@ pub(crate) fn compute_above_staff_extra(
             let (artic_top, _artic_bottom) =
                 render_geometry::measure_articulation_extent(ml, 0.0, sp, config);
             let highest = highest.min(artic_top);
-            let highest = highest.min(render_annotations::global_caesura_top(ml, sp, config));
+            let highest = highest.min(render_annotations::global_caesura_top(ml, sp));
             // An above-staff meter is engraved over the top line, so it is
             // part of the protrusion the system above has to clear.
             let highest = match time_signatures::above_staff_extent(
@@ -874,6 +874,7 @@ fn render_system_contents(
         render_measure(
             dl,
             ml,
+            &score.global.measures,
             render_measure::measure_repeat_span_right(measure_layouts, i),
             staff_y,
             sp,

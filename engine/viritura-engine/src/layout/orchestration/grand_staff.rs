@@ -299,6 +299,7 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
             render_measure(
                 dl,
                 ml,
+                &score.global.measures,
                 render_measure::measure_repeat_span_right(layouts, i),
                 staff_y,
                 sp,

@@ -13,6 +13,7 @@ use super::arpeggios::*;
 use super::articulations::*;
 use super::fermatas_trills_ornaments::*;
 use super::fingerings::*;
+use super::CAESURA_RIGHT_PAD_SP;
 use crate::model::*;
 use crate::render::smufl::smufl;
 use crate::render::*;
@@ -220,7 +221,7 @@ pub(crate) fn render_caesuras(
     _config: &LayoutConfig,
 ) {
     let glyph_size = 4.0 * sp;
-    let right_padding = 0.25 * sp;
+    let right_padding = CAESURA_RIGHT_PAD_SP * sp;
 
     for vl in &ml.voice_layouts {
         for i in 0..vl.events.len() {

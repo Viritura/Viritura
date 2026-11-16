@@ -17,6 +17,303 @@ fn hbar_count(dl: &DisplayList, sp: f64) -> usize {
         .count()
 }
 
+fn hbar_for_measure(dl: &DisplayList, measure_index: usize, sp: f64) -> (f64, f64) {
+    let measure = dl
+        .measure_bounds
+        .iter()
+        .find(|bound| bound.index == measure_index)
+        .unwrap();
+    dl.commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawRect { x, y, w, h, .. }
+                if (*h - sp).abs() < 1e-6
+                    && *w > 2.0 * sp
+                    && (*y - measure.y - 1.5 * sp).abs() < 1e-6
+                    && *x >= measure.x
+                    && *x + *w <= measure.x + measure.width + 1e-6 =>
+            {
+                Some((*x, *x + *w))
+            }
+            _ => None,
+        })
+        .expect("measure must contain an MMR H-bar")
+}
+
+fn mmr_span_score(
+    system_text: bool,
+    rehearsal_at: Option<usize>,
+    with_text: bool,
+) -> crate::model::Score {
+    let mut source = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": (0..13).map(|index| {
+            let mut measure = serde_json::json!({"id": format!("m{index}")});
+            if index == 0 {
+                measure["time"] = serde_json::json!({"count": 4, "unit": 4});
+            } else if index == 4 || index == 8 {
+                measure["key"] = serde_json::json!({"fifths": if index == 4 { 1 } else { -1 }});
+            }
+            if rehearsal_at == Some(index) {
+                measure["_x"] = serde_json::json!({"viritura": {"rehearsalMark": {"text": [{"text": "G"}]}}});
+            }
+            measure
+        }).collect::<Vec<_>>()},
+        "parts": [{"measures": (0..13).map(|index| serde_json::json!({
+            "sequences": [if index < 12 {
+                serde_json::json!({"content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}})
+            } else {
+                serde_json::json!({"content": [{"duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "C", "octave": 5}}]}]})
+            }]
+        })).collect::<Vec<_>>()}]
+    });
+    if with_text {
+        let label = "Broadly, with a steady pulse and energy";
+        if system_text {
+            source["global"]["measures"][0]["_x"]["viritura"]["systemText"] = serde_json::json!([{
+                "id": "label", "text": [{"text": label}],
+                "position": {"fraction": [0, 1]}, "placement": "above"
+            }]);
+        } else {
+            source["global"]["measures"][0]["tempos"] = serde_json::json!([{
+                "bpm": 100, "value": {"base": "half"},
+                "_x": {"viritura": {"text": [{"text": label}]}}
+            }]);
+        }
+    }
+    parse_mnx(&source.to_string()).unwrap()
+}
+
+fn mmr_span_annotation_bbox(display: &DisplayList, system_text: bool) -> &BoundingBox {
+    let id = if system_text {
+        "m0/systemText/label"
+    } else {
+        "m0/tempo0"
+    };
+    &display
+        .element_bboxes
+        .iter()
+        .find(|bbox| bbox.element_id == id)
+        .unwrap()
+        .bbox
+}
+
+#[test]
+fn unblocked_mmr_start_text_can_overhang_without_widening_rests() {
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    for system_text in [false, true] {
+        let bare = mmr_span_score(system_text, None, false);
+        let annotated = mmr_span_score(system_text, None, true);
+        for render in [
+            layout_score(&bare, 0, &config),
+            layout_with_mnx_scores(&bare, &config, 0),
+        ]
+        .into_iter()
+        .zip([
+            layout_score(&annotated, 0, &config),
+            layout_with_mnx_scores(&annotated, &config, 0),
+        ]) {
+            let (bare, annotated) = render;
+            assert_eq!(hbar_count(&annotated, config.sp), 3);
+            for (before, after) in bare.measure_bounds.iter().zip(&annotated.measure_bounds) {
+                assert!(
+                    (before.width - after.width).abs() < 1e-6,
+                    "without a blocking rehearsal mark, text must not widen any MMR"
+                );
+            }
+            let text = mmr_span_annotation_bbox(&annotated, system_text);
+            let first = &annotated.measure_bounds[0];
+            assert!(
+                text.x + text.width > first.x + first.width,
+                "the long label should naturally overhang its first MMR"
+            );
+        }
+    }
+}
+
+#[test]
+fn mmr_start_system_text_flows_after_a_colocated_rehearsal_mark() {
+    let score = mmr_span_score(true, Some(0), true);
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    let display = layout_with_mnx_scores(&score, &config, 0);
+    let text = mmr_span_annotation_bbox(&display, true);
+    let mark = &display
+        .element_bboxes
+        .iter()
+        .find(|bbox| bbox.element_id == "m0/rehearsal")
+        .unwrap()
+        .bbox;
+    assert!(
+        text.x > mark.x + mark.width,
+        "a start-positioned system instruction must flow after its own rehearsal frame"
+    );
+}
+
+#[test]
+fn mmr_annotation_span_widths_do_not_accumulate_in_the_layout_cache() {
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    for rehearsal_at in [Some(4), Some(8), None] {
+        let score = mmr_span_score(false, rehearsal_at, true);
+        let warm =
+            crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let cold = layout_with_mnx_scores(&score, &config, 0);
+        for (warm, cold) in warm.measure_bounds.iter().zip(&cold.measure_bounds) {
+            assert!(
+                (warm.width - cold.width).abs() < 1e-6,
+                "changing the blocking rehearsal must recompute the span from natural widths"
+            );
+        }
+    }
+}
+
+#[test]
+fn authored_systems_preserve_mmr_annotation_span_clearance() {
+    for system_text in [false, true] {
+        for rehearsal_at in [None, Some(4), Some(8)] {
+            let mut score = mmr_span_score(system_text, rehearsal_at, true);
+            score.scores.push(
+                serde_json::from_value(serde_json::json!({
+                    "pages": [{"systems": [{"measure": "m0"}]}]
+                }))
+                .unwrap(),
+            );
+            let config = LayoutConfig {
+                multimeasure_rests: true,
+                page_width: Some(1800.0),
+                ..LayoutConfig::default()
+            };
+            let display = layout_with_mnx_scores(&score, &config, 0);
+            assert_eq!(hbar_count(&display, config.sp), 3);
+            let text = mmr_span_annotation_bbox(&display, system_text);
+            if let Some(index) = rehearsal_at {
+                let mark = &display
+                    .element_bboxes
+                    .iter()
+                    .find(|bbox| bbox.element_id == format!("m{index}/rehearsal"))
+                    .unwrap()
+                    .bbox;
+                let mark_measure = display
+                    .measure_bounds
+                    .iter()
+                    .find(|bound| bound.index == index)
+                    .unwrap();
+                assert_eq!(
+                    display.measure_bounds[0].system_index, mark_measure.system_index,
+                    "the wide authored system must include both the text and its blocking mark"
+                );
+                assert!(
+                    text.x + text.width + 0.5 * config.sp <= mark.x + 1e-6,
+                    "authored-system justification must preserve the full annotation span: \
+                     system_text={system_text}, rehearsal={index}, text_right={}, mark_left={}",
+                    text.x + text.width,
+                    mark.x
+                );
+            } else {
+                let first = &display.measure_bounds[0];
+                assert!(
+                    text.x + text.width > first.x + first.width,
+                    "unblocked text may overhang its MMR on authored systems too"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn rehearsal_clearance_is_distributed_across_the_mmr_text_span() {
+    for page_width in [None, Some(1200.0), Some(1800.0)] {
+        let config = LayoutConfig {
+            multimeasure_rests: true,
+            page_width,
+            ..LayoutConfig::default()
+        };
+        for system_text in [false, true] {
+            let baseline =
+                layout_with_mnx_scores(&mmr_span_score(system_text, None, true), &config, 0);
+            for rehearsal_at in [4, 8] {
+                let score = mmr_span_score(system_text, Some(rehearsal_at), true);
+                let display = layout_with_mnx_scores(&score, &config, 0);
+                let width = |dl: &DisplayList, index| {
+                    dl.measure_bounds
+                        .iter()
+                        .find(|bound| bound.index == index)
+                        .unwrap()
+                        .width
+                };
+                let text = mmr_span_annotation_bbox(&display, system_text);
+                let mark = &display
+                    .element_bboxes
+                    .iter()
+                    .find(|bbox| bbox.element_id == format!("m{rehearsal_at}/rehearsal"))
+                    .unwrap()
+                    .bbox;
+                let first = &display.measure_bounds[0];
+                let mark_measure = display
+                    .measure_bounds
+                    .iter()
+                    .find(|bound| bound.index == rehearsal_at)
+                    .unwrap();
+                if mark_measure.system_index != first.system_index {
+                    let right = display
+                        .measure_bounds
+                        .iter()
+                        .filter(|bound| bound.system_index == first.system_index)
+                        .map(|bound| bound.x + bound.width)
+                        .fold(0.0_f64, f64::max);
+                    assert!(
+                        text.x + text.width <= right + 1e-6,
+                        "a system break must leave the complete text on its original system"
+                    );
+                    continue;
+                }
+                assert!(
+                    text.x + text.width + 0.5 * config.sp <= mark.x + 1e-6,
+                    "the full annotation must fit horizontally before the rehearsal frame: \
+                     system_text={system_text}, page_width={page_width:?}, rehearsal={rehearsal_at}, \
+                     text_right={}, mark_left={}, owner_width={}",
+                    text.x + text.width, mark.x, width(&display, 0)
+                );
+                assert!(width(&display, 0) > width(&baseline, 0));
+                if rehearsal_at == 8 {
+                    assert!(
+                        width(&display, 4) > width(&baseline, 4),
+                        "spacing must grow both MMRs, not just the text's owner"
+                    );
+                    assert!(
+                        (width(&display, 0) / width(&baseline, 0)
+                            - width(&display, 4) / width(&baseline, 4))
+                        .abs()
+                            < 1e-6,
+                        "the available span must expand proportionally"
+                    );
+                }
+                let base_text = mmr_span_annotation_bbox(&baseline, system_text);
+                let relative_y =
+                    |dl: &DisplayList, bbox: &BoundingBox| bbox.y - dl.measure_bounds[0].y;
+                assert!(
+                    (relative_y(&display, text) - relative_y(&baseline, base_text)).abs()
+                        < 0.1 * config.sp,
+                    "rehearsal clearance must not add a vertical text lift: \
+                     system_text={system_text}, rehearsal={rehearsal_at}, actual={}, baseline={}",
+                    relative_y(&display, text),
+                    relative_y(&baseline, base_text)
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn test_global_harmony_survives_auto_and_authored_multimeasure_rests() {
     for authored in [false, true] {
@@ -627,9 +924,8 @@ fn test_multimeasure_rest_auto_detect_breaks_at_fermata() {
 
 #[test]
 fn test_multimeasure_rest_keeps_repeat_barlines_visible() {
-    // Repeat-start and repeat-end barlines must remain on ordinary measures,
-    // never hidden inside an H-bar. The plain rest pairs on either side may
-    // still collapse independently.
+    // Repeat boundaries may be the outer edges of a collapsed rest, but
+    // must never be swallowed inside it.
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [
@@ -655,12 +951,12 @@ fn test_multimeasure_rest_keeps_repeat_barlines_visible() {
     }"#;
     let score = parse_mnx(json).unwrap();
     let resolved = crate::layout::resolve::resolve_measures(&score, 0);
-    let expected_groups = vec![(0, 2), (3, 2), (6, 2)];
+    let expected_groups = vec![(0, 2), (2, 4), (6, 2)];
 
     assert_eq!(
         crate::layout::resolve::detect_multimeasure_rest_groups(&resolved),
         expected_groups,
-        "repeat-bearing bars must remain uncollapsed"
+        "repeat-start and repeat-end bars must join their enclosed rest group"
     );
 
     let mut authored = std::collections::HashMap::new();
@@ -670,12 +966,12 @@ fn test_multimeasure_rest_keeps_repeat_barlines_visible() {
     starts.sort();
     assert_eq!(
         starts,
-        vec![(0, 2), (3, 2), (6, 2)],
+        vec![(0, 2), (2, 4), (6, 2)],
         "authored MMRs must preserve repeats too"
     );
     assert!(
-        !skip.contains(&2) && !skip.contains(&5),
-        "repeat-bearing bars must stay visible"
+        !skip.contains(&2) && skip.contains(&5) && !skip.contains(&6),
+        "the repeat start opens the MMR and the repeat end closes it"
     );
 
     let display_list = layout_score(
@@ -701,6 +997,228 @@ fn test_multimeasure_rest_keeps_repeat_barlines_visible() {
         repeat_glyphs, 2,
         "MMR rendering must retain both repeat barlines"
     );
+}
+
+fn four_bar_ending_score() -> crate::model::Score {
+    let mut source = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}, "key": {"fifths": -1}, "repeatStart": {}},
+            {}, {}, {},
+            {"ending": {"duration": 4, "numbers": [1]}},
+            {}, {}, {"repeatEnd": {}},
+            {"ending": {"duration": 1, "numbers": [2], "open": true}},
+            {}
+        ]},
+        "parts": [{"id": "p", "measures": (0..10).map(|index| serde_json::json!({
+            "sequences": [if index < 9 {
+                serde_json::json!({"content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}})
+            } else {
+                serde_json::json!({"content": [{"duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "C", "octave": 5}}]}]})
+            }]
+        })).collect::<Vec<_>>()}],
+        "layouts": [{"id": "L", "content": [{"type": "staff", "sources": [{"part": "p"}]}]}],
+        "scores": [{"name": "Solo", "layout": "L"}]
+    });
+    for (index, measure) in source["global"]["measures"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+    {
+        measure["id"] = serde_json::json!(format!("m{index}"));
+    }
+    parse_mnx(&source.to_string()).unwrap()
+}
+
+#[test]
+fn test_multimeasure_rests_include_repeat_edges_of_four_bar_endings() {
+    let score = four_bar_ending_score();
+    let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+    assert_eq!(
+        crate::layout::resolve::detect_multimeasure_rest_groups(&resolved),
+        vec![(0, 4), (4, 4)],
+        "repeat edges must produce 4+4, not 1+3 and 3+1"
+    );
+    let authored = std::collections::HashMap::from([(0, 9)]);
+    let (starts, skip) = crate::layout::resolve::split_authored_mmr_ranges(&authored, &resolved);
+    assert_eq!(starts, std::collections::HashMap::from([(0, 4), (4, 4)]));
+    assert!(skip.contains(&7) && !skip.contains(&8));
+
+    for page_width in [None, Some(800.0)] {
+        let config = LayoutConfig {
+            multimeasure_rests: true,
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let display = layout_with_mnx_scores(&score, &config, 0);
+        assert_eq!(hbar_count(&display, config.sp), 2);
+        let counts: Vec<_> = display
+            .element_bboxes
+            .iter()
+            .filter(|bbox| bbox.element_id.ends_with("/mmrcount"))
+            .collect();
+        assert_eq!(counts.len(), 2);
+        for count in counts {
+            assert!(
+                display.commands.iter().any(|command| matches!(
+                    command,
+                    RenderCommand::DrawGlyph { x, y, codepoint, .. }
+                        if *codepoint == smufl::time_sig_digit(4)
+                            && *x >= count.bbox.x && *x <= count.bbox.x + count.bbox.width
+                            && *y >= count.bbox.y && *y <= count.bbox.y + count.bbox.height
+                )),
+                "each collapsed rest must display a count of four"
+            );
+        }
+        for codepoint in [smufl::REPEAT_LEFT, smufl::REPEAT_RIGHT] {
+            assert_eq!(
+                display
+                    .commands
+                    .iter()
+                    .filter(|command| matches!(
+                        command, RenderCommand::DrawGlyph { codepoint: actual, .. }
+                            if *actual == codepoint
+                    ))
+                    .count(),
+                1,
+                "the MMR edge must retain its repeat barline"
+            );
+        }
+        assert!(display
+            .element_bboxes
+            .iter()
+            .any(|bbox| bbox.element_id == "m4/volta"));
+    }
+}
+
+#[test]
+fn multimeasure_rest_clears_its_trailing_repeat_barline() {
+    for split_system in [false, true] {
+        for combined_repeat in [false, true] {
+            let mut score = four_bar_ending_score();
+            if combined_repeat {
+                score.global.measures[8].repeat_start =
+                    score.global.measures[0].repeat_start.clone();
+            }
+            let mut definition = serde_json::json!({
+                "name": "Solo",
+                "layout": "L",
+                "multimeasureRests": [
+                    {"start": "m0", "duration": 4}, {"start": "m4", "duration": 4}
+                ]
+            });
+            if split_system {
+                definition["pages"] =
+                    serde_json::json!([{"systems": [{"measure": "m0"}, {"measure": "m8"}]}]);
+            }
+            score.scores[0] = serde_json::from_value(definition).unwrap();
+            let config = LayoutConfig {
+                multimeasure_rests: true,
+                page_width: split_system.then_some(1200.0),
+                ..LayoutConfig::default()
+            };
+            let display = layout_with_mnx_scores(&score, &config, 0);
+            let (left, right) = hbar_for_measure(&display, 4, config.sp);
+            let repeat_codepoint = if combined_repeat && !split_system {
+                smufl::REPEAT_RIGHT_LEFT
+            } else {
+                smufl::REPEAT_RIGHT
+            };
+            let repeat = display
+                .commands
+                .iter()
+                .find_map(|command| match command {
+                    RenderCommand::DrawGlyph { codepoint, .. }
+                        if *codepoint == repeat_codepoint =>
+                    {
+                        command.bbox()
+                    }
+                    _ => None,
+                })
+                .unwrap_or_else(|| {
+                    panic!(
+                        "missing trailing repeat barline: split={split_system}, combined={combined_repeat}"
+                    )
+                });
+            let serif_right = right + 0.08 * config.sp;
+            assert!(
+                repeat.x - serif_right >= 0.5 * config.sp - 1e-6,
+                "H-bar serif must clear the repeat ink: split={split_system}, combined={combined_repeat}, gap={}",
+                (repeat.x - serif_right) / config.sp
+            );
+            let count = &display
+                .element_bboxes
+                .iter()
+                .find(|bbox| bbox.element_id == "m4/mmrcount")
+                .unwrap()
+                .bbox;
+            assert!(
+                ((left + right) * 0.5 - (count.x + count.width * 0.5)).abs() < 1e-6,
+                "H-bar clearance must preserve the count's center"
+            );
+        }
+    }
+}
+
+#[test]
+fn multimeasure_rest_trailing_barline_edits_invalidate_render_cache() {
+    let mut score = four_bar_ending_score();
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    let before = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let repeat_end = score.global.measures[7].repeat_end.take();
+    let warm = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let cold = layout_with_mnx_scores(&score, &config, 0);
+    let (before_left, before_right) = hbar_for_measure(&before, 4, config.sp);
+    let warm_bar = hbar_for_measure(&warm, 4, config.sp);
+    let cold_bar = hbar_for_measure(&cold, 4, config.sp);
+    assert!(
+        warm_bar.1 - warm_bar.0 > before_right - before_left,
+        "removing the repeat must restore the ordinary H-bar width"
+    );
+    assert!((warm_bar.0 - cold_bar.0).abs() < 1e-6);
+    assert!((warm_bar.1 - cold_bar.1).abs() < 1e-6);
+
+    score.global.measures[7].repeat_end = repeat_end;
+    let restored =
+        crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let cold = layout_with_mnx_scores(&score, &config, 0);
+    let restored_bar = hbar_for_measure(&restored, 4, config.sp);
+    let cold_bar = hbar_for_measure(&cold, 4, config.sp);
+    assert!((restored_bar.0 - cold_bar.0).abs() < 1e-6);
+    assert!((restored_bar.1 - cold_bar.1).abs() < 1e-6);
+}
+
+#[test]
+fn test_key_change_multimeasure_rest_renders_repeat_start_once() {
+    let score = parse_mnx(&serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}},
+            {"key": {"fifths": -1}, "repeatStart": {}},
+            {}
+        ]},
+        "parts": [{"measures": [
+            {"sequences": [{"content": [{"duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "C", "octave": 5}}]}]}]},
+            {"sequences": [{"content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}}]},
+            {"sequences": [{"content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}}]}
+        ]}]
+    }).to_string()).unwrap();
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    let display = layout_with_mnx_scores(&score, &config, 0);
+    assert_eq!(hbar_count(&display, config.sp), 1);
+    assert_eq!(display.commands.iter().filter(|command| matches!(
+        command, RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::REPEAT_LEFT
+    )).count(), 1, "the repeat start belongs after the changed key, not on both sides");
 }
 
 #[test]
@@ -1571,6 +2089,90 @@ fn test_multimeasure_rest_natural_width_reserves_prefix_and_digits() {
 }
 
 #[test]
+fn test_multimeasure_rest_key_signature_uses_the_hbar_inset_once() {
+    for fifths in [None, Some(1), Some(-2)] {
+        let mut document = serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [
+                {"id": "m0", "time": {"count": 4, "unit": 4}, "barline": {"type": "double"}},
+                {"id": "m1"},
+                {"id": "m2"}
+            ]},
+            "parts": [{"id": "solo", "measures": [
+                {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+                 "sequences": [{"content": [
+                     {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+                 ]}]},
+                {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+                {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+            ]}],
+            "layouts": [{"id": "L", "content": [
+                {"type": "staff", "sources": [{"part": "solo"}]}
+            ]}],
+            "scores": [{"name": "Solo", "layout": "L",
+                "multimeasureRests": [{"start": "m1", "duration": 2}]}]
+        });
+        if let Some(fifths) = fifths {
+            document["global"]["measures"][1]["key"] = serde_json::json!({"fifths": fifths});
+        }
+        let score = parse_mnx(&document.to_string()).unwrap();
+        let config = LayoutConfig::default();
+        let sp = config.sp;
+        let dl = layout_with_mnx_scores(&score, &config, 0);
+        let measure = dl
+            .measure_bounds
+            .iter()
+            .find(|bound| bound.index == 1)
+            .unwrap();
+        let bar_left = dl
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                RenderCommand::DrawRect { x, y, w, h, .. }
+                    if *x >= measure.x
+                        && *x < measure.x + measure.width
+                        && (*y - measure.y - 1.5 * sp).abs() < 1e-6
+                        && (*h - sp).abs() < 1e-6
+                        && *w > 2.0 * sp =>
+                {
+                    Some(*x)
+                }
+                _ => None,
+            })
+            .expect("multi-measure rest H-bar");
+        let key_right = dl
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawGlyph {
+                    x,
+                    y,
+                    size,
+                    codepoint,
+                    ..
+                } if *x >= measure.x
+                    && *x < bar_left
+                    && *y >= measure.y - sp
+                    && *y <= measure.y + 5.0 * sp
+                    && matches!(*codepoint, smufl::ACCIDENTAL_SHARP | smufl::ACCIDENTAL_FLAT) =>
+                {
+                    let (left, _, width, _) = smufl::glyph_bbox(*codepoint);
+                    Some(x + (left + width) * size / 4.0)
+                }
+                _ => None,
+            })
+            .reduce(f64::max);
+        assert_eq!(key_right.is_some(), fifths.is_some());
+        let gap = bar_left - key_right.unwrap_or(measure.x);
+        assert!(
+            (gap - 1.5 * sp).abs() < 1e-6,
+            "{fifths:?}: H-bar should use its 1.5sp inset once, got {}sp",
+            gap / sp
+        );
+    }
+}
+
+#[test]
 fn test_system_start_multimeasure_rest_repeats_clef_and_key() {
     // A multimeasure rest that opens a new system must repeat the clef and key
     // signature, exactly like a normal measure that begins a system. Build a
@@ -1600,7 +2202,7 @@ fn test_system_start_multimeasure_rest_repeats_clef_and_key() {
         ]}]
     }"#;
 
-    let score = parse_mnx(json).unwrap();
+    let mut score = parse_mnx(json).unwrap();
     let config = LayoutConfig {
         multimeasure_rests: true,
         // Narrow enough that the note measure fills system 1 and the collapsed
@@ -1611,38 +2213,43 @@ fn test_system_start_multimeasure_rest_repeats_clef_and_key() {
         ..LayoutConfig::default()
     };
 
-    let dl = layout_score(&score, 0, &config);
-
-    // Clef glyphs live in the SMuFL clef block U+E050–U+E07F.
-    let clef_count = dl
-        .commands
-        .iter()
-        .filter(|cmd| {
-            matches!(cmd, RenderCommand::DrawGlyph { codepoint, .. }
-                if (0xE050..=0xE07F).contains(codepoint))
-        })
-        .count();
-    assert!(
-        clef_count >= 2,
-        "expected a clef on the note measure and a repeated clef on the \
-         system-start multimeasure rest, got {clef_count}"
-    );
-
-    // Key signature has two sharps; with the key repeated on the second system
-    // there must be at least four sharp glyphs total.
-    let sharp_count = dl
-        .commands
-        .iter()
-        .filter(|cmd| {
-            matches!(cmd, RenderCommand::DrawGlyph { codepoint, .. }
-                if *codepoint == smufl::ACCIDENTAL_SHARP)
-        })
-        .count();
-    assert!(
-        sharp_count >= 4,
-        "expected the two-sharp key signature to be repeated on the \
-         system-start multimeasure rest (>=4 sharps), got {sharp_count}"
-    );
+    for fifths in [1, -2] {
+        score.global.measures[0].key.as_mut().unwrap().fifths = fifths;
+        let dl = layout_score(&score, 0, &config);
+        assert!(dl
+            .measure_bounds
+            .iter()
+            .any(|bound| bound.index == 1 && bound.system_index == 1));
+        let ink_bounds = |id: &str| {
+            dl.commands
+                .iter()
+                .zip(&dl.element_ids)
+                .filter_map(|(command, element_id)| match command {
+                    RenderCommand::DrawGlyph {
+                        x, size, codepoint, ..
+                    } if element_id.as_deref() == Some(id) => {
+                        let (left, _, width, _) = smufl::glyph_bbox(*codepoint);
+                        Some((x + left * size / 4.0, x + (left + width) * size / 4.0))
+                    }
+                    _ => None,
+                })
+                .fold(
+                    (f64::INFINITY, f64::NEG_INFINITY),
+                    |(left, right), (glyph_left, glyph_right)| {
+                        (left.min(glyph_left), right.max(glyph_right))
+                    },
+                )
+        };
+        for measure_index in [0, 1] {
+            let (_, clef_right) = ink_bounds(&format!("p0/m{measure_index}/clef"));
+            let (key_left, _) = ink_bounds(&format!("p0/m{measure_index}/key"));
+            assert!(clef_right.is_finite() && key_left.is_finite());
+            assert!(
+                (key_left - clef_right - 0.8 * config.sp).abs() < 1e-6,
+                "key {fifths} at measure {measure_index} must clear the clef by 0.8sp"
+            );
+        }
+    }
 }
 
 #[test]

@@ -7,7 +7,10 @@
 //! The furniture is derived layout state, never an extra score declaration.
 
 use super::config::LayoutConfig;
-use super::render_barlines::{barline_left_extent, barline_right_extent, system_end_barline_kind};
+use super::render_barlines::{
+    barline_left_extent, barline_right_extent, leading_barline_kind, system_end_barline_kind,
+    BarlineKind,
+};
 use super::render_signatures::{
     change_clef_width, change_clef_width_sp, key_signature_layout, render_change_clef,
     render_key_signature, staff_has_key_signature,
@@ -106,8 +109,8 @@ fn time_width_sp(rm: &ResolvedMeasure, time: &TimeSignature, config: &LayoutConf
     .width
 }
 
-fn barline_clearance_sp(rm: &ResolvedMeasure, config: &LayoutConfig) -> f64 {
-    barline_right_extent(&system_end_barline_kind(rm, false), config, 1.0) + BARLINE_CLEARANCE_SP
+fn barline_clearance_sp(rm: &ResolvedMeasure) -> f64 {
+    rm.system_end.barline_right_extent_sp + BARLINE_CLEARANCE_SP
 }
 
 /// Share one clef slot, one key slot, and one staff-line extension across
@@ -118,6 +121,7 @@ fn barline_clearance_sp(rm: &ResolvedMeasure, config: &LayoutConfig) -> f64 {
 pub(crate) fn share_system_end<'a>(
     ends: impl IntoIterator<Item = &'a mut ResolvedMeasure>,
     config: &LayoutConfig,
+    barline_kind: BarlineKind,
 ) -> f64 {
     let mut ends: Vec<_> = ends.into_iter().collect();
     // The barline's own trailing buffer already separates the slot from the
@@ -140,11 +144,10 @@ pub(crate) fn share_system_end<'a>(
                 .map(|time| time_width_sp(rm, time, config))
         })
         .fold(0.0_f64, f64::max);
+    let barline_right_extent_sp = barline_right_extent(&barline_kind, config, 1.0);
+    let barline_left_extent_sp = barline_left_extent(&barline_kind, config, 1.0);
     let suffix = if key_slot > 0.0 || time_slot > 0.0 {
-        let clearance = ends
-            .iter()
-            .map(|rm| barline_clearance_sp(rm, config))
-            .fold(0.0_f64, f64::max);
+        let clearance = barline_right_extent_sp + BARLINE_CLEARANCE_SP;
         let key_to_time = if key_slot > 0.0 && time_slot > 0.0 {
             KEY_TO_TIME_SP
         } else {
@@ -157,6 +160,8 @@ pub(crate) fn share_system_end<'a>(
     for rm in &mut ends {
         rm.system_end.clef_slot_sp = clef_slot;
         rm.system_end.key_slot_sp = key_slot;
+        rm.system_end.barline_left_extent_sp = barline_left_extent_sp;
+        rm.system_end.barline_right_extent_sp = barline_right_extent_sp;
         rm.system_end.suffix_sp = suffix;
     }
     clef_slot + suffix
@@ -169,7 +174,22 @@ pub(crate) fn system_end_measures<'a>(
     next_index: Option<usize>,
     config: &LayoutConfig,
 ) -> Vec<Option<ResolvedMeasure>> {
+    let staves: Vec<_> = staves.collect();
+    let barline_kind = staves
+        .iter()
+        .find_map(|staff| {
+            next_index
+                .and_then(|next| staff.get(next))
+                .map(leading_barline_kind)
+                .or_else(|| {
+                    last_index
+                        .and_then(|last| staff.get(last))
+                        .map(|last| system_end_barline_kind(last, true))
+                })
+        })
+        .unwrap_or(BarlineKind::Regular);
     let mut ends: Vec<Option<ResolvedMeasure>> = staves
+        .iter()
         .map(|staff| {
             let mut last = staff.get(last_index?)?.clone();
             if let Some(next) = next_index.and_then(|next| staff.get(next)) {
@@ -178,7 +198,7 @@ pub(crate) fn system_end_measures<'a>(
             Some(last)
         })
         .collect();
-    share_system_end(ends.iter_mut().flatten(), config);
+    share_system_end(ends.iter_mut().flatten(), config, barline_kind);
     ends
 }
 
@@ -214,16 +234,15 @@ pub(crate) fn staff_end_x(last: &MeasureLayout, sp: f64) -> f64 {
 }
 
 /// Origin of the courtesy meter's ink after a barline drawn at `barline_x`.
-pub(crate) fn courtesy_time_x<'a>(
-    rm: &'a ResolvedMeasure,
+pub(crate) fn courtesy_time_x(
+    rm: &ResolvedMeasure,
     barline_x: f64,
-    config: &LayoutConfig,
     sp: f64,
-) -> Option<(f64, &'a TimeSignature)> {
+) -> Option<(f64, &TimeSignature)> {
     let time = rm.system_end.time.as_ref()?;
     let key_slot = rm.system_end.key_slot_sp;
     let key_to_time = if key_slot > 0.0 { KEY_TO_TIME_SP } else { 0.0 };
-    let x = barline_x + (barline_clearance_sp(rm, config) + key_slot + key_to_time) * sp;
+    let x = barline_x + (barline_clearance_sp(rm) + key_slot + key_to_time) * sp;
     Some((x, time))
 }
 
@@ -239,10 +258,8 @@ pub(crate) fn render_system_end_courtesy(
     config: &LayoutConfig,
 ) {
     if let Some(clef) = rm.system_end.clef.as_ref() {
-        // A courtesy clef implies a following system, so the barline is never final.
-        let kind = system_end_barline_kind(rm, false);
         let clef_right =
-            barline_x - barline_left_extent(&kind, config, sp) - CLEF_CLEARANCE_SP * sp;
+            barline_x - rm.system_end.barline_left_extent_sp * sp - CLEF_CLEARANCE_SP * sp;
         render_change_clef(
             dl,
             clef_right - change_clef_width(clef, sp),
@@ -254,7 +271,7 @@ pub(crate) fn render_system_end_courtesy(
     if let Some(key) = rm.system_end.key.as_ref() {
         render_key_signature(
             dl,
-            barline_x + barline_clearance_sp(rm, config) * sp,
+            barline_x + barline_clearance_sp(rm) * sp,
             staff_y,
             sp,
             &key.key,
@@ -265,7 +282,7 @@ pub(crate) fn render_system_end_courtesy(
     if config.time_signature_settings.distribution == TimeSignatureDistribution::PerGroup {
         return;
     }
-    if let Some((x, time)) = courtesy_time_x(rm, barline_x, config, sp) {
+    if let Some((x, time)) = courtesy_time_x(rm, barline_x, sp) {
         let layout = time_signature_layout(
             config.time_signature_settings,
             time,

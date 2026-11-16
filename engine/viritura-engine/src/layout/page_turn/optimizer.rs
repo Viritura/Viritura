@@ -222,6 +222,7 @@ fn run_dp(
     windows: &[TurnWindow],
     initial_pages: usize,
     first_page_recto: bool,
+    require_safe_turns: bool,
 ) -> Option<DpResult> {
     let s = system_heights.len();
     if s == 0 {
@@ -259,17 +260,26 @@ fn run_dp(
 
                 let title_reserve = if j == 0 { geometry.title_height } else { 0.0 };
                 let capacity = geometry.usable_height - title_reserve;
-                // Multi-system pages must fit; a lone oversized system is always
-                // allowed (the packer grows its box).
+                // A lone oversized system reaches the positioner's staff-gap
+                // compression; residual overflow is reported before rendering.
                 let count = i - j;
                 if count > 1 && content > capacity {
                     break;
                 }
                 let is_last = i == s;
-                if !page_fill_is_allowed(content, capacity, is_last, config) {
+                if !(page_fill_is_allowed(content, capacity, is_last, config)
+                    || require_safe_turns && config.allow_partial_pages && count >= 2)
+                {
                     continue;
                 }
                 let density = density_cost(content, capacity, is_last, config);
+                let safe_turn =
+                    window_after_system(system_ranges, windows, sys).is_some_and(|window| {
+                        !window.structural
+                            && !window.fermata_blocked
+                            && window.quality != TurnQuality::Impossible
+                            && window.turn_seconds >= config.min_acceptable_secs
+                    });
 
                 // Direct transition to the next music page.
                 let new_par = (par_j + 1) % 2;
@@ -280,7 +290,12 @@ fn run_dp(
                     }
                 }
                 let cand = base + direct_step;
-                if cand < dp[i][new_par] {
+                if cand < dp[i][new_par]
+                    && (!require_safe_turns
+                        || is_last
+                        || !is_physical_turn(par_j, first_page_recto)
+                        || safe_turn)
+                {
                     dp[i][new_par] = cand;
                     back[i][new_par] = (j, par_j, false);
                 }
@@ -288,7 +303,7 @@ fn run_dp(
                 // A blank page shifts the following music page's parity. Of the
                 // two consecutive page boundaries around it, exactly one is a
                 // physical turn, and both occur in the same musical rest window.
-                if i < s && config.allow_intentional_blanks {
+                if i < s && config.allow_intentional_blanks && (!require_safe_turns || safe_turn) {
                     let next_music_par = par_j;
                     let mut blank_step = density + config.weights.blank_page;
                     if let Some(win) = window_after_system(system_ranges, windows, sys) {
@@ -470,6 +485,45 @@ pub fn optimize(
     system_ranges: &[(usize, usize)],
     windows: &[TurnWindow],
 ) -> Option<TurnPlan> {
+    optimize_with_turn_policy(
+        system_heights,
+        system_gaps,
+        geometry,
+        config,
+        system_ranges,
+        windows,
+        false,
+    )
+}
+
+pub(crate) fn optimize_safe_repacking(
+    system_heights: &[f64],
+    system_gaps: &[f64],
+    geometry: &PageGeometry,
+    config: &PageTurnConfig,
+    system_ranges: &[(usize, usize)],
+    windows: &[TurnWindow],
+) -> Option<TurnPlan> {
+    optimize_with_turn_policy(
+        system_heights,
+        system_gaps,
+        geometry,
+        config,
+        system_ranges,
+        windows,
+        true,
+    )
+}
+
+fn optimize_with_turn_policy(
+    system_heights: &[f64],
+    system_gaps: &[f64],
+    geometry: &PageGeometry,
+    config: &PageTurnConfig,
+    system_ranges: &[(usize, usize)],
+    windows: &[TurnWindow],
+    require_safe_turns: bool,
+) -> Option<TurnPlan> {
     // Candidate (title_page, first_page_recto) configurations.
     let titles: &[bool] = match config.title_page {
         TitlePagePolicy::Always => &[true],
@@ -509,6 +563,7 @@ pub fn optimize(
                 windows,
                 initial_pages,
                 recto,
+                require_safe_turns,
             ) else {
                 continue;
             };
@@ -604,6 +659,31 @@ mod tests {
             structural: false,
             fermata_blocked: false,
             annotation: TurnAnnotation::None,
+        }
+    }
+
+    #[test]
+    fn measured_repacking_allows_partial_pages_to_preserve_safe_turns() {
+        let config = PageTurnConfig {
+            first_page_recto: Some(true),
+            ..cfg()
+        };
+        let heights = vec![20.0; 10];
+        let gaps = vec![0.0; 10];
+        let mut windows: Vec<_> = (0..10).map(impossible_window).collect();
+        windows[1] = comfortable_window(1);
+        windows[7] = comfortable_window(7);
+        let ordinary = optimize(&heights, &gaps, &geom(), &config, &ranges(10), &windows).unwrap();
+        assert!(!ordinary.warnings.is_empty());
+        let safe =
+            optimize_safe_repacking(&heights, &gaps, &geom(), &config, &ranges(10), &windows)
+                .unwrap();
+        assert!(safe.warnings.is_empty());
+        assert!(safe.page_starts.len() > ordinary.page_starts.len());
+        for (page, &start) in safe.page_starts.iter().enumerate() {
+            let end = safe.page_starts.get(page + 1).copied().unwrap_or(10);
+            assert!(end - start >= 2);
+            assert!(heights[start..end].iter().sum::<f64>() <= geom().usable_height);
         }
     }
 

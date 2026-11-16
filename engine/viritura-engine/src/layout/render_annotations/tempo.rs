@@ -31,6 +31,42 @@ fn format_bpm(bpm: f64) -> String {
         .to_owned()
 }
 
+fn tempo_runs_ink_right(runs: &[TempoRun], text_size: f64, font: &str) -> f64 {
+    runs.iter()
+        .map(|run| {
+            let (dx, ink) = match run {
+                TempoRun::Text { dx, text } => (
+                    *dx,
+                    super::text_content::content_ink_bounds(
+                        &TextContent::from(text.as_str()),
+                        text_size,
+                        font,
+                        TextAlign::Left,
+                    ),
+                ),
+                TempoRun::Content { dx, content } => (
+                    *dx,
+                    super::text_content::content_ink_bounds(
+                        content,
+                        text_size,
+                        font,
+                        TextAlign::Left,
+                    ),
+                ),
+                TempoRun::Glyph {
+                    dx,
+                    codepoint,
+                    size,
+                } => {
+                    let (x, _, width, _) = smufl::glyph_bbox(*codepoint);
+                    return dx + (x + width) * size / 4.0;
+                }
+            };
+            dx + ink.x + ink.width
+        })
+        .fold(0.0_f64, f64::max)
+}
+
 /// Lay out a metronome-style tempo marking as a sequence of positioned runs.
 pub(crate) fn tempo_metronome_runs(
     tempo: &Tempo,
@@ -144,6 +180,51 @@ pub(crate) fn measure_tempo_width(rm: &ResolvedMeasure, config: &LayoutConfig, s
         return 0.0;
     }
     tempo_w + rehearsal_mark_flow_clearance(rm.global.rehearsal_mark(), sp, config)
+}
+
+pub(crate) fn mmr_start_annotation_width(
+    rm: &ResolvedMeasure,
+    config: &LayoutConfig,
+    sp: f64,
+) -> f64 {
+    let tempo_width = rm
+        .global
+        .tempos
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .filter(|tempo| {
+            tempo
+                .location
+                .as_ref()
+                .is_none_or(|position| position.beats().abs() < 1e-9)
+                && tempo.avoid_collisions.unwrap_or(true)
+                && tempo.manual_offset.is_none()
+        })
+        .map(|tempo| {
+            let style = config.text_styles.resolve(TextRole::Tempo);
+            let size = style.size_px(sp);
+            let width = tempo_marking_width(tempo, config, sp);
+            if tempo.bpm.is_some() && tempo.show_metronome_mark.unwrap_or(true) {
+                let show_text = tempo.display_text().is_some_and(|text| !text.is_empty())
+                    && tempo.show_text.unwrap_or(true);
+                let (runs, _) =
+                    tempo_metronome_runs(tempo, show_text, size, sp, &style.font_string());
+                width.max(tempo_runs_ink_right(&runs, size, &style.font_string()))
+            } else if tempo.show_text.unwrap_or(true) {
+                let ink = super::text_content::content_ink_bounds(
+                    &tempo.display_text().unwrap_or_default(),
+                    size,
+                    &style.font_string(),
+                    TextAlign::Left,
+                );
+                width.max(ink.x + ink.width)
+            } else {
+                width
+            }
+        })
+        .fold(0.0_f64, f64::max);
+    tempo_width.max(super::expressions::system_text_start_width(rm, config, sp))
 }
 
 pub(crate) fn resolved_tempo_widths(

@@ -161,15 +161,8 @@ pub(in crate::layout) fn compute_natural_widths(
             ml.width
         };
 
-        // Reserve room for above-staff annotations through the §4 space-request
-        // channel. A rehearsal mark reserves its box width so it can't overhang
-        // the next bar; a tempo over a multi-measure rest widens the bar (up to
-        // a cap) instead of overflowing. These are declarative `MinMeasureWidth`
-        // requests folded into the natural width before justification, so the
-        // line-breaker and justification still run exactly once. A co-located
-        // tempo over a *normal* bar is NOT reserved — it may overhang following
-        // bars and is kept inside the right page margin by a render-time
-        // left-nudge (see `render_tempo_markings`).
+        // Local rehearsal flow reserves its own box. Following rehearsal
+        // boundaries are reconciled across the complete MMR annotation span.
         let space_reqs =
             space_requests::measure_min_width_requests(rm, rm.index, is_mmr, config, sp);
         let width = space_requests::reconcile_natural_width(width, &space_reqs, sp);
@@ -178,5 +171,13 @@ pub(in crate::layout) fn compute_natural_widths(
         x_cursor += width;
     }
 
+    space_requests::reserve_mmr_annotation_spans(
+        visible_resolved,
+        mmr_start_map,
+        &mut natural_widths,
+        config,
+        sp,
+    );
+    x_cursor = margin_left + natural_widths.iter().sum::<f64>();
     (natural_widths, content_hashes, x_cursor)
 }

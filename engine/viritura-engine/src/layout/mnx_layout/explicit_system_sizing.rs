@@ -4,7 +4,8 @@ use super::super::config::LayoutConfig;
 use super::super::full_score::{FlatStaff, GroupRange};
 use super::super::types::MeasureLayout;
 use super::staff_placement::compute_staff_y_offsets_for_system;
-use crate::render::{DisplayList, PageLayout};
+use crate::model::Score;
+use crate::render::PageLayout;
 
 pub(super) struct ExplicitSystemSize {
     pub(super) above: f64,
@@ -20,7 +21,7 @@ impl ExplicitSystemSize {
         staves: &[FlatStaff],
         groups: &[GroupRange],
         config: &LayoutConfig,
-        use_beams: bool,
+        score: &Score,
     ) -> Self {
         let sp = config.sp;
         let staff_height = 4.0 * sp;
@@ -44,6 +45,8 @@ impl ExplicitSystemSize {
             .windows(2)
             .map(|pair| (pair[1] - pair[0] - staff_height).max(0.0))
             .collect();
+        let (ink_above, ink_below) =
+            super::system_ink::outer_extents(layouts, staves, &placement.offsets, score, config);
         let above = layouts.first().map_or(0.0, |staff| {
             let measures: Vec<_> = staff.iter().map(|layout| &layout.resolved).collect();
             super::super::compute_above_staff_extra(
@@ -53,7 +56,7 @@ impl ExplicitSystemSize {
                 config.stem_length,
                 config,
             )
-            .max(Self::outer_ink_extents(staff, 0.0, &placement.offsets, config, use_beams).0)
+            .max(ink_above)
         });
         let below = layouts.last().map_or(0.0, |staff| {
             super::super::compute_below_staff_extra_from_layouts(
@@ -62,16 +65,7 @@ impl ExplicitSystemSize {
                 config.stem_length,
                 config,
             )
-            .max(
-                Self::outer_ink_extents(
-                    staff,
-                    placement.offsets.last().copied().unwrap_or(0.0),
-                    &placement.offsets,
-                    config,
-                    use_beams,
-                )
-                .1,
-            )
+            .max(ink_below)
         });
         Self {
             above,
@@ -80,96 +74,6 @@ impl ExplicitSystemSize {
             staff_height,
             default_clearance,
         }
-    }
-
-    fn outer_ink_extents(
-        layouts: &[MeasureLayout],
-        staff_y: f64,
-        offsets: &[f64],
-        config: &LayoutConfig,
-        use_beams: bool,
-    ) -> (f64, f64) {
-        use super::super::render_annotations::{collect_articulation_boxes, render_dynamics};
-        let sp = config.sp;
-        let mut above = 0.0_f64;
-        let mut below = 0.0_f64;
-        let mut scratch = DisplayList::new(0.0, 0.0);
-        let beamed_ids = super::super::beams::collect_all_beamed_event_ids(layouts, use_beams);
-        let slur_map = super::super::slurs::collect_slur_participation(layouts);
-        for ml in layouts {
-            for element in super::super::render_geometry::compute_measure_bboxes(
-                ml,
-                staff_y,
-                sp,
-                config,
-                ml.part_index,
-                &beamed_ids,
-                0.0,
-                false,
-                false,
-                None,
-            ) {
-                above = above.max(staff_y - element.bbox.y);
-                below = below.max(element.bbox.y + element.bbox.height - staff_y - 4.0 * sp);
-                scratch.push_element_bbox_with_shape(element);
-            }
-            for (voice_index, voice) in ml.voice_layouts.iter().enumerate() {
-                for index in 0..voice.events.len() {
-                    super::super::render_articulations::render_articulations(
-                        &mut scratch,
-                        &voice.events,
-                        index,
-                        staff_y,
-                        sp,
-                        config,
-                        "",
-                        Some(&slur_map),
-                        voice_index,
-                    );
-                }
-            }
-            let mut articulations = collect_articulation_boxes(&scratch.commands);
-            let tuplets = super::super::tuplets::render_tuplet_brackets(
-                &mut scratch,
-                ml,
-                staff_y,
-                sp,
-                config,
-                &articulations,
-                Some(offsets),
-            );
-            articulations.extend(tuplets);
-            for dynamic in render_dynamics(
-                &mut scratch,
-                ml,
-                staff_y,
-                sp,
-                config,
-                &articulations,
-                Some(offsets),
-            ) {
-                above = above.max(staff_y - dynamic.y_top);
-                below = below.max(dynamic.y_bottom - staff_y - 4.0 * sp);
-            }
-        }
-        if let Some(first) = layouts.first() {
-            super::super::hairpins::render_hairpins(
-                &mut scratch,
-                layouts,
-                staff_y,
-                sp,
-                config,
-                first.part_index,
-                0,
-                0,
-                Some(offsets),
-            );
-        }
-        for element in &scratch.element_bboxes {
-            above = above.max(staff_y - element.bbox.y);
-            below = below.max(element.bbox.y + element.bbox.height - staff_y - 4.0 * sp);
-        }
-        (above, below)
     }
 
     pub(super) fn height(&self, gap: f64, clearance: f64) -> f64 {

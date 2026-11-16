@@ -5,14 +5,18 @@ use super::text_styles::TextRole;
 use crate::model::score::ScoreMetadata;
 use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
 
+mod containment;
 mod copyright;
+mod ink;
 mod instrument_names;
 mod packing;
 mod part_score_name;
 mod turn_sequence;
+pub use containment::{validate_page_fit, PageFitError};
 pub(crate) use copyright::{
     copyright_footer_height, render_copyright_footer, render_first_page_copyright,
 };
+pub(crate) use ink::vertical_ink_extent;
 pub(crate) use instrument_names::{
     initial_instrument_instruction, instrument_tuning_name, resolve_part_display_names,
     resolve_part_display_names_at, resolve_required_part_display_names, PartDisplayInfo,

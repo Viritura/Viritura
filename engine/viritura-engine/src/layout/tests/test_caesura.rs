@@ -87,20 +87,26 @@ fn global_caesura_matches_local_top_line_and_barline_clearance() {
 }
 
 #[test]
-fn global_caesura_uses_shared_collision_flow_without_horizontal_dodge() {
+fn global_caesura_stays_on_the_staff_line_and_remains_an_obstacle() {
     use crate::layout::placement_metrics::PlacementTable;
     use crate::layout::render_annotations::flow_above_staff_dependents;
     let mut dl = DisplayList::new(300.0, 200.0);
     let sp = 10.0;
     let staff_y = 100.0;
-    for (id, codepoint) in [
-        ("p0/m0/s0/high", smufl::NOTEHEAD_BLACK),
-        ("m0/caesura", smufl::CAESURA),
+    let (_, y_offset, _, height) = smufl::glyph_bbox(smufl::CAESURA);
+    for (id, codepoint, y) in [
+        ("p0/m0/s0/high", smufl::NOTEHEAD_BLACK, 78.0),
+        (
+            "m0/caesura",
+            smufl::CAESURA,
+            staff_y - (y_offset + height * 0.5) * sp,
+        ),
+        ("m0/tempo0", smufl::NOTEHEAD_BLACK, 90.0),
     ] {
         dl.push_selectable_command(
             RenderCommand::DrawGlyph {
                 x: 200.0,
-                y: 80.0,
+                y,
                 codepoint,
                 font: "Bravura".into(),
                 size: 4.0 * sp,
@@ -112,13 +118,13 @@ fn global_caesura_uses_shared_collision_flow_without_horizontal_dodge() {
             HitPolicy::Ink,
         );
     }
-    let before_x = dl
+    let before = dl
         .element_bboxes
         .iter()
         .find(|b| b.element_id == "m0/caesura")
         .unwrap()
         .bbox
-        .x;
+        .clone();
     flow_above_staff_dependents(&mut dl, 0, 0, &[], &PlacementTable::default(), staff_y, sp);
     let note = &dl
         .element_bboxes
@@ -132,8 +138,16 @@ fn global_caesura_uses_shared_collision_flow_without_horizontal_dodge() {
         .find(|b| b.element_id == "m0/caesura")
         .unwrap()
         .bbox;
-    assert!((pause.x - before_x).abs() < 1e-6);
-    assert!(pause.y + pause.height < note.y);
+    let tempo = &dl
+        .element_bboxes
+        .iter()
+        .find(|b| b.element_id == "m0/tempo0")
+        .unwrap()
+        .bbox;
+    assert_eq!(*pause, before);
+    assert!((pause.y + pause.height * 0.5 - staff_y).abs() < 1e-6);
+    assert!(note.y + note.height < pause.y);
+    assert!(tempo.y + tempo.height < pause.y);
 }
 
 fn global_caesura_score() -> crate::model::Score {
@@ -202,6 +216,13 @@ fn global_caesura_native_attributes_and_every_displayed_staff() {
             assert!(xs.iter().all(|x| (x - xs[0]).abs() < 1e-6));
             for bbox in boxes {
                 assert!(bbox.bbox.width > 0.0 && bbox.bbox.height > 0.0);
+                let center_y = bbox.bbox.y + bbox.bbox.height * 0.5;
+                assert!(
+                    dl.measure_bounds
+                        .iter()
+                        .any(|bound| bound.index == measure && (bound.y - center_y).abs() < 1e-6),
+                    "{id} must remain centered on its staff's top line"
+                );
             }
         }
     }
@@ -246,6 +267,114 @@ fn global_caesura_cached_edit_and_delete_match_cold_layout() {
             serde_json::to_value(cold_boxes).unwrap()
         );
     }
+}
+
+fn dense_global_caesura_score(shape: &str) -> crate::model::Score {
+    let parts: Vec<_> = (0..2)
+        .map(|part| {
+            let notes: Vec<_> = (0..8)
+                .map(|index| {
+                    let mut event = serde_json::json!({
+                        "id": format!("e{index}"),
+                        "duration": {"base": "eighth"},
+                        "notes": [{"pitch": {"step": "C", "octave": 5 + part}}]
+                    });
+                    if index == 7 {
+                        event["fermata"] = serde_json::json!({});
+                    }
+                    event
+                })
+                .collect();
+            serde_json::json!({
+                "id": format!("p{part}"),
+                "measures": [
+                    {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+                     "sequences": [{"content": notes}]},
+                    {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+                ]
+            })
+        })
+        .collect();
+    parse_mnx(
+        &serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [
+                {"id": "m0", "time": {"count": 4, "unit": 4}, "caesura": {"shape": shape}},
+                {"id": "m1"}
+            ]},
+            "parts": parts,
+            "layouts": [{"id": "full", "content": (0..2).map(|part| serde_json::json!({
+                "type": "staff", "sources": [{"part": format!("p{part}")}]
+            })).collect::<Vec<_>>()}],
+            "scores": [{"name": "Full", "layout": "full"}]
+        })
+        .to_string(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn global_caesura_clears_dense_final_notes_and_fermatas() {
+    for shape in ["normal", "thick", "short", "curved"] {
+        let score = dense_global_caesura_score(shape);
+        for page_width in [None, Some(450.0), Some(700.0)] {
+            let config = LayoutConfig {
+                page_width,
+                ..LayoutConfig::default()
+            };
+            for display in [
+                layout_score(&score, 0, &config),
+                layout_with_mnx_scores(&score, &config, 0),
+            ] {
+                for bound in display
+                    .measure_bounds
+                    .iter()
+                    .filter(|bound| bound.index == 0)
+                {
+                    let pause = &display
+                        .element_bboxes
+                        .iter()
+                        .find(|bbox| {
+                            bbox.element_id == "m0/caesura"
+                                && (bbox.bbox.y + bbox.bbox.height * 0.5 - bound.y).abs() < 1e-6
+                        })
+                        .expect("caesura centered on this staff")
+                        .bbox;
+                    for suffix in ["n0", "ferm"] {
+                        let id = format!("p{}/m0/s0/e7/{suffix}", bound.part_index);
+                        let ink = &display
+                            .element_bboxes
+                            .iter()
+                            .find(|bbox| bbox.element_id == id)
+                            .unwrap_or_else(|| panic!("missing {id}"))
+                            .bbox;
+                        assert!(
+                            pause.x - ink.x - ink.width >= 0.3 * config.sp - 1e-6,
+                            "caesura must clear {id}: shape={shape}, page_width={page_width:?}, \
+                             pause={pause:?}, ink={ink:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn global_caesura_spacing_edits_invalidate_cached_layout() {
+    use crate::layout::{cache::LayoutCache, layout_with_mnx_scores_cached};
+    let mut score = dense_global_caesura_score("thick");
+    let config = LayoutConfig::default();
+    let mut cache = LayoutCache::new();
+    let caesura = score.global.measures[0].caesura.take();
+    layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    score.global.measures[0].caesura = caesura;
+    let warm = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let cold = layout_with_mnx_scores(&score, &config, 0);
+    assert_eq!(
+        serde_json::to_value(&warm.commands).unwrap(),
+        serde_json::to_value(&cold.commands).unwrap()
+    );
 }
 
 // ═══════════════════════════════════════════
@@ -338,6 +467,10 @@ fn test_caesura_is_selectable_with_exact_glyph_bounds() {
         .expect("caesura hitbox");
 
     assert_eq!(hitbox.bbox, command_bbox);
+    assert!(
+        (hitbox.bbox.y + hitbox.bbox.height * 0.5 - dl.measure_bounds[0].y).abs() < 1e-6,
+        "event caesura must be centered on the top staff line"
+    );
     assert!(matches!(
         dl.element_shapes
             .iter()

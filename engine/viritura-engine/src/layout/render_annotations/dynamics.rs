@@ -202,7 +202,7 @@ pub(super) fn dynamic_note_center_x(
 ) -> f64 {
     let fallback_w = 1.18 * sp;
     let voice_index = dynamic_voice_index(ml, dynamic);
-    match ml.voice_layouts.iter().find_map(|vl| {
+    match ml.rhythmic_voice_layouts().find_map(|vl| {
         if voice_index.is_some_and(|index| vl.voice_index != index) {
             return None;
         }

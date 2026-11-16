@@ -143,7 +143,7 @@ fn assert_default_volta_placement(
             .iter()
             .find(|bound| bound.index == measure && bound.staff_index == staff_index)
             .unwrap();
-        let expected_y = staff.y - 1.88 * sp;
+        let expected_y = staff.y - 2.38 * sp;
         assert!(
             brackets
                 .iter()
@@ -225,7 +225,7 @@ fn test_volta_horizon_clearance_is_scoped_to_its_staff() {
         assert!(
             brackets
                 .iter()
-                .any(|bracket| (bracket.bbox.y - (lower_staff.y - 1.88 * config.sp)).abs() < 1e-6),
+                .any(|bracket| (bracket.bbox.y - (lower_staff.y - 2.38 * config.sp)).abs() < 1e-6),
             "the lower staff's ending must not follow the upper staff's articulation"
         );
         let articulation = display
@@ -628,8 +628,8 @@ fn test_volta_leaves_one_space_above_multimeasure_rest_counts() {
                     })
                     .unwrap();
                 assert!(
-                    number.bbox.y - bottom >= config.sp - 0.01,
-                    "MMR count must clear the volta stroke by 1sp: {:?} vs {bottom}",
+                    number.bbox.y - bottom >= 1.5 * config.sp - 0.01,
+                    "the larger ending label must raise the volta stroke above the MMR count: {:?} vs {bottom}",
                     number.bbox
                 );
                 let count_ink: Vec<_> = display
@@ -681,7 +681,23 @@ fn test_volta_leaves_one_space_above_multimeasure_rest_counts() {
                         first.bbox
                     );
                 }
-                if (first.bbox.y - second.bbox.y).abs() < 0.01 {
+                let first_system = display
+                    .measure_bounds
+                    .iter()
+                    .find(|bound| bound.index == 1)
+                    .unwrap()
+                    .system_index;
+                let second_system = display
+                    .measure_bounds
+                    .iter()
+                    .find(|bound| bound.index == count as usize + 1)
+                    .unwrap()
+                    .system_index;
+                if first_system == second_system {
+                    assert!(
+                        (first.bbox.y - second.bbox.y).abs() < 0.01,
+                        "adjoining ending brackets must share their elevated line"
+                    );
                     assert!(
                         second.bbox.x > first.bbox.x + first.bbox.width,
                         "adjoining ending brackets must have a visible gap"
@@ -1266,8 +1282,8 @@ fn test_volta_brackets_simple() {
             unreachable!();
         };
         assert!(
-            (*size - 1.5 * sp).abs() < 0.01,
-            "volta number should use larger 1.5sp type"
+            (*size - 2.0 * sp).abs() < 0.01,
+            "volta number should use the default 2sp score-text size"
         );
         assert!(
             matches!(baseline, TextBaseline::Top),

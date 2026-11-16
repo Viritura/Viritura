@@ -11,6 +11,110 @@ use crate::render::*;
 // Rehearsal marks
 // ================================================
 #[test]
+fn rehearsal_mark_clears_an_ascending_cross_bar_slur() {
+    let mut notes: Vec<_> = ["C", "D", "E", "F", "G", "A", "B", "C"]
+        .iter()
+        .enumerate()
+        .map(|(index, step)| {
+            serde_json::json!({
+                "duration": {"base": "eighth"},
+                "notes": [{"pitch": {"step": step, "octave": if index == 7 { 6 } else { 5 }}}]
+            })
+        })
+        .collect();
+    notes[0]["slurs"] = serde_json::json!([{"target": "end", "side": "up"}]);
+    let mut source = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}},
+            {"_x": {"viritura": {"rehearsalMark": {"text": [{"text": "B"}]}}}}
+        ]},
+        "parts": [{"id": "p", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+             "sequences": [{"content": notes}]},
+            {"sequences": [{"content": [
+                {"id": "end", "duration": {"base": "quarter"},
+                 "notes": [{"pitch": {"step": "D", "octave": 6}}]},
+                {"duration": {"base": "half", "dots": 1}, "rest": {}}
+            ]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [{"type": "staff", "sources": [{"part": "p"}]}]}],
+        "scores": [{"name": "Solo", "layout": "L"}]
+    });
+    let mut slurred_source = source.clone();
+    source["parts"][0]["measures"][0]["sequences"][0]["content"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("slurs");
+    let renderers: [fn(&Score, &LayoutConfig) -> DisplayList; 3] = [
+        |score, config| layout_score(score, 0, config),
+        |score, config| layout_with_mnx_scores(score, config, 0),
+        crate::layout::layout_full_score,
+    ];
+    let config = LayoutConfig::default();
+    let clearance = config
+        .placement
+        .resolve(ElementKind::RehearsalMark)
+        .padding
+        .vertical
+        * config.sp;
+    for avoid_collisions in [true, false] {
+        slurred_source["global"]["measures"][1]["_x"]["viritura"]["rehearsalMark"]
+            ["avoidCollisions"] = serde_json::json!(avoid_collisions);
+        source["global"]["measures"][1]["_x"]["viritura"]["rehearsalMark"]["avoidCollisions"] =
+            serde_json::json!(avoid_collisions);
+        let score = parse_mnx(&slurred_source.to_string()).unwrap();
+        let without_slur = parse_mnx(&source.to_string()).unwrap();
+        for render in renderers {
+            let display = render(&score, &config);
+            let baseline = render(&without_slur, &config);
+            let mark = &display
+                .element_bboxes
+                .iter()
+                .find(|bbox| bbox.element_id == "m1/rehearsal")
+                .unwrap()
+                .bbox;
+            let previous = &baseline
+                .element_bboxes
+                .iter()
+                .find(|bbox| bbox.element_id == "m1/rehearsal")
+                .unwrap()
+                .bbox;
+            let edge = crate::layout::render_annotations::highest_slur_edge_above(
+                &display.slur_geometries,
+                mark.x,
+                mark.x + mark.width,
+            )
+            .expect("the ascending slur must overlap the rehearsal mark");
+            if avoid_collisions {
+                assert!(
+                mark.y + mark.height + clearance <= edge + 1e-6,
+                "rehearsal frame must clear the slur: bottom={}, edge={edge}, clearance={clearance}",
+                mark.y + mark.height
+            );
+            } else {
+                let staff_y = |dl: &DisplayList| {
+                    dl.measure_bounds
+                        .iter()
+                        .find(|bound| bound.index == 1)
+                        .unwrap()
+                        .y
+                };
+                assert!(
+                    ((mark.y - staff_y(&display)) - (previous.y - staff_y(&baseline))).abs() < 1e-6,
+                    "manual collision opt-out must preserve the rehearsal mark's vertical anchor"
+                );
+            }
+            assert!(
+                (mark.x - previous.x).abs() < 1e-6,
+                "slur clearance must preserve the rehearsal mark's horizontal anchor"
+            );
+            assert_text_mark_hitboxes_match(&display);
+        }
+    }
+}
+
+#[test]
 fn rehearsal_house_style_resizes_frames_and_preserves_run_overrides() {
     let mut previous_width = 0.0;
     for size in [2.8, 4.0] {

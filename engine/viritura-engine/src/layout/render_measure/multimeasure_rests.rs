@@ -59,7 +59,7 @@ pub(crate) fn multimeasure_rest_natural_width(prefix_width: f64, count: u32, sp:
 
 /// Structural clef/key/time prefix the H-bar must clear, in pixels. Unlike the
 /// measure's full `prefix_width`, this deliberately excludes the first-note
-/// accidental/min-spacing clearance (a multimeasure rest has no first note), so
+/// approach and accidental clearance (the H-bar supplies its own inset), so
 /// the bar centers over the true inner width of the measure: full-width on a
 /// mid-system rest, and only past the clef/key/time on a system-start rest.
 pub(crate) fn multimeasure_rest_structural_prefix(ml: &MeasureLayout, sp: f64) -> f64 {
@@ -125,9 +125,12 @@ pub(crate) fn multimeasure_rest_structural_prefix(ml: &MeasureLayout, sp: f64) -
     }
 
     if w > 0.0 {
-        w += 1.2 * sp;
         // The measured prefix also includes the leading boundary's ink edge.
-        w = w.max(ml.prefix_width - ml.first_onset_padding);
+        w = w.max(
+            ml.prefix_width
+                - ml.first_onset_padding
+                - super::super::measure::PREFIX_TO_ONSET_GAP_SP * sp,
+        );
     }
     w
 }
@@ -158,6 +161,66 @@ pub(crate) fn multimeasure_rest_number_extent(
     Some((center_x - half_width, center_x + half_width, top_y))
 }
 
+fn render_multimeasure_rest_count(
+    dl: &mut DisplayList,
+    ml: &MeasureLayout,
+    count: u32,
+    center_x: f64,
+    staff_y: f64,
+    sp: f64,
+    count_y_override: Option<f64>,
+) {
+    let number_size = 4.0 * sp;
+    let count_y = count_y_override.unwrap_or(staff_y - 1.5 * sp);
+    let display_str = ml
+        .multimeasure_rest_label
+        .clone()
+        .unwrap_or_else(|| count.to_string());
+    let all_digits = display_str.chars().all(|c| c.is_ascii_digit());
+
+    if all_digits && !display_str.is_empty() {
+        let total_width = multimeasure_rest_number_width(&display_str, sp);
+        let mut x = center_x - total_width / 2.0;
+        for ch in display_str.chars() {
+            if let Some(digit) = ch.to_digit(10) {
+                dl.push(RenderCommand::DrawGlyph {
+                    x,
+                    y: count_y,
+                    codepoint: smufl::time_sig_digit(digit),
+                    font: "Bravura".into(),
+                    size: number_size,
+                    color: "#000000".into(),
+                    rotation: 0.0,
+                });
+                x += smufl::time_sig_digit_advance(digit) * sp;
+            }
+        }
+    } else {
+        let font_size = 2.0 * sp;
+        let (text_y, baseline) =
+            count_y_override.map_or((count_y, TextBaseline::Bottom), |center_y| {
+                (
+                    center_y
+                        + crate::layout::text_styles::cap_center_offset_from_baseline(
+                            crate::layout::text_styles::FontFamily::Serif,
+                            font_size,
+                        ),
+                    TextBaseline::Alphabetic,
+                )
+            });
+        dl.push(RenderCommand::DrawText {
+            x: center_x,
+            y: text_y,
+            text: display_str,
+            font: "serif bold".into(),
+            size: font_size,
+            color: "#000000".into(),
+            align: TextAlign::Center,
+            baseline,
+        });
+    }
+}
+
 pub(crate) fn render_multimeasure_rest(
     dl: &mut DisplayList,
     ml: &MeasureLayout,
@@ -167,6 +230,7 @@ pub(crate) fn render_multimeasure_rest(
     count: u32,
     render_count: bool,
     count_y_override: Option<f64>,
+    trailing_barline: BarlineKind,
 ) {
     let staff_height = 4.0 * sp;
     let is_first = ml.resolved.index == 0;
@@ -177,7 +241,16 @@ pub(crate) fn render_multimeasure_rest(
     let defer_repeat_start = ml.resolved.global.repeat_start.is_some()
         && (is_first || ml.is_first_on_system || ml.resolved.key_signature_changed());
     if !is_first && !ml.is_first_on_system {
-        let start_bt = leading_barline_kind(&ml.resolved);
+        let start_bt = if defer_repeat_start {
+            BarlineKind::at_boundary(
+                prev_has_repeat_end,
+                false,
+                ml.resolved.prev_barline_type.as_ref(),
+                BarlineType::Regular,
+            )
+        } else {
+            leading_barline_kind(&ml.resolved)
+        };
         let cmd_idx = dl.commands.len();
         render_barline(dl, ml.x, staff_y, staff_height, sp, config, &start_bt);
         for ci in cmd_idx..dl.commands.len() {
@@ -194,7 +267,7 @@ pub(crate) fn render_multimeasure_rest(
             if let Some(pc) = clefs.first() {
                 let cmd_idx = dl.commands.len();
                 render_clef(dl, x_cursor + 0.5 * sp, staff_y, sp, &pc.clef);
-                x_cursor += 3.0 * sp;
+                x_cursor += clef_prefix_advance_sp(&pc.clef) * sp;
                 dl.tag_command(cmd_idx, element_id::clef(ml.part_index, ml.resolved.index));
             }
         }
@@ -284,8 +357,17 @@ pub(crate) fn render_multimeasure_rest(
         || ml.resolved.global.repeat_start.is_some()
         || ml.resolved.global.repeat_end.is_some();
     let edge_clearance = if has_repeat_edge { 1.0 * sp } else { 0.5 * sp };
+    let vert_width = 0.16 * sp;
+    let trailing_clearance = if matches!(
+        trailing_barline,
+        BarlineKind::RepeatEnd | BarlineKind::RepeatBoth
+    ) {
+        barline_left_extent(&trailing_barline, config, sp) + 0.5 * sp + vert_width * 0.5
+    } else {
+        0.0
+    };
     let hbar_half_area = (hbar_area_right - hbar_area_left) / 2.0;
-    let hbar_max_half_span = (hbar_half_area - edge_clearance).max(0.0);
+    let hbar_max_half_span = (hbar_half_area - edge_clearance.max(trailing_clearance)).max(0.0);
     let hbar_half_span = (hbar_half_area - 1.5 * sp)
         .max(2.0 * sp)
         .min(hbar_max_half_span);
@@ -304,7 +386,6 @@ pub(crate) fn render_multimeasure_rest(
         color: "#000000".into(),
     });
 
-    let vert_width = 0.16 * sp;
     dl.push(RenderCommand::DrawRect {
         x: bar_left - vert_width / 2.0,
         y: serif_top,
@@ -320,54 +401,15 @@ pub(crate) fn render_multimeasure_rest(
         color: "#000000".into(),
     });
 
-    let center_x = (bar_left + bar_right) / 2.0;
-    let number_size = 4.0 * sp;
-    let count_y = count_y_override.unwrap_or(staff_y - 1.5 * sp);
-    let display_str = ml
-        .multimeasure_rest_label
-        .clone()
-        .unwrap_or_else(|| count.to_string());
-    let all_digits = display_str.chars().all(|c| c.is_ascii_digit());
-
-    if render_count && all_digits && !display_str.is_empty() {
-        let total_width = multimeasure_rest_number_width(&display_str, sp);
-        let mut x = center_x - total_width / 2.0;
-        for ch in display_str.chars() {
-            if let Some(digit) = ch.to_digit(10) {
-                dl.push(RenderCommand::DrawGlyph {
-                    x,
-                    y: count_y,
-                    codepoint: smufl::time_sig_digit(digit),
-                    font: "Bravura".into(),
-                    size: number_size,
-                    color: "#000000".into(),
-                    rotation: 0.0,
-                });
-                x += smufl::time_sig_digit_advance(digit) * sp;
-            }
-        }
-    } else if render_count {
-        let font_size = 2.0 * sp;
-        let (text_y, baseline) =
-            count_y_override.map_or((count_y, TextBaseline::Bottom), |center_y| {
-                (
-                    center_y
-                        + crate::layout::text_styles::cap_center_offset_from_baseline(
-                            crate::layout::text_styles::FontFamily::Serif,
-                            font_size,
-                        ),
-                    TextBaseline::Alphabetic,
-                )
-            });
-        dl.push(RenderCommand::DrawText {
-            x: center_x,
-            y: text_y,
-            text: display_str,
-            font: "serif bold".into(),
-            size: font_size,
-            color: "#000000".into(),
-            align: TextAlign::Center,
-            baseline,
-        });
+    if render_count {
+        render_multimeasure_rest_count(
+            dl,
+            ml,
+            count,
+            (bar_left + bar_right) / 2.0,
+            staff_y,
+            sp,
+            count_y_override,
+        );
     }
 }

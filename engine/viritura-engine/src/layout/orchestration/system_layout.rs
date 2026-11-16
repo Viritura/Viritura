@@ -161,16 +161,26 @@ pub(in crate::layout) fn precompute_system_layouts(
     for (sys_idx, sys_measures) in systems.iter().enumerate() {
         let mut last_resolved =
             visible_resolved[*sys_measures.last().expect("nonempty system")].clone();
-        if let Some(&next_mi) = systems.get(sys_idx + 1).and_then(|system| system.first()) {
+        let next = systems
+            .get(sys_idx + 1)
+            .and_then(|system| system.first())
+            .map(|&next_mi| visible_resolved[next_mi]);
+        if let Some(next) = next {
             last_resolved.system_end = crate::layout::courtesy_signatures::courtesy_for_boundary(
                 &last_resolved,
-                visible_resolved[next_mi],
+                next,
                 config,
             );
         }
+        let end_barline_kind = crate::layout::render_barlines::system_end_barline_kind_at_boundary(
+            &last_resolved,
+            next,
+            next.is_none(),
+        );
         let courtesy_reserve = crate::layout::courtesy_signatures::share_system_end(
             std::iter::once(&mut last_resolved),
             config,
+            end_barline_kind,
         ) * sp;
         let natural_total: f64 = sys_measures.iter().map(|&mi| natural_widths[mi]).sum();
         let avail_w = content_width.unwrap_or(natural_total);
@@ -187,13 +197,24 @@ pub(in crate::layout) fn precompute_system_layouts(
                 rm.index == 0 && matches!(rm.global.number, Some(0))
             })
             .collect();
-        let forced_sys_widths = compute_justified_system_widths(
+        let mut forced_sys_widths = compute_justified_system_widths(
             &natural_sys_widths,
             (avail_w - courtesy_reserve).max(1.0),
             config.page_width.is_some(),
             sys_idx == system_count - 1,
             &lock_from_stretch,
             &demand_sys,
+        );
+        let measures: Vec<_> = sys_measures
+            .iter()
+            .map(|&mi| visible_resolved[mi])
+            .collect();
+        space_requests::reconcile_mmr_annotation_justification(
+            &measures,
+            mmr_start_map,
+            &mut forced_sys_widths,
+            config,
+            sp,
         );
 
         let mut sys_x = margin_left;

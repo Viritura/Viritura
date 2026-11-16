@@ -642,6 +642,7 @@ fn render_one_staff_for_system(
         render_measure(
             dl,
             ml,
+            &score.global.measures,
             measure_repeat_span_right(measure_layouts, i),
             staff_y,
             sp,

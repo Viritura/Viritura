@@ -7,6 +7,161 @@ use crate::layout::page::*;
 use crate::parse::parse_mnx;
 use crate::render::*;
 
+#[test]
+fn paged_system_frames_contain_endings_and_slur_displaced_dynamics() {
+    use crate::layout::layout_with_mnx_scores;
+    use serde_json::json;
+    for authored in [false, true] {
+        let globals: Vec<_> = (0..8)
+            .map(|index| {
+                let mut measure = json!({"id": format!("m{index}")});
+                if index == 0 {
+                    measure["time"] = json!({"count": 4, "unit": 4});
+                }
+                if index == 2 {
+                    measure["ending"] = json!({"numbers": [1], "duration": 4});
+                }
+                measure
+            })
+            .collect();
+        let parts: Vec<_> = (0..8)
+            .map(|index| {
+                let mut events: Vec<_> = ["C", "D", "E", "F", "G", "A", "B", "C"]
+                    .iter()
+                    .enumerate()
+                    .map(|(note, step)| json!({
+                        "id": format!("e{index}-{note}"),
+                        "duration": {"base": "eighth"},
+                        "notes": [{"pitch": {"step": step, "octave": if note == 7 {5} else {4}}}]
+                    }))
+                    .collect();
+                events[0]["slurs"] = json!([{"target": format!("e{index}-7"), "side": "down"}]);
+                json!({
+                    "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+                    "dynamics": [{"type": "immediate", "value": "f", "position": {"fraction": [0, 1]}}],
+                    "sequences": [{"content": events}]
+                })
+            })
+            .collect();
+        let mut source = json!({
+            "mnx": {"version": 1},
+            "global": {"measures": globals},
+            "parts": [{"id": "p", "measures": parts}],
+            "layouts": [{"id": "L", "content": [{"type": "staff", "sources": [{"part": "p"}]}]}],
+            "scores": [{"name": "Oboe", "layout": "L"}]
+        });
+        if authored {
+            source["scores"][0]["pages"] = json!([{"systems": (0..8)
+                .map(|index| json!({"measure": format!("m{index}")})).collect::<Vec<_>>()}]);
+        }
+        let score = parse_mnx(&source.to_string()).unwrap();
+        let config = LayoutConfig {
+            page_width: Some(700.0),
+            page_height: 85.0,
+            emit_layout_debug: true,
+            ..LayoutConfig::default()
+        };
+        let display = layout_with_mnx_scores(&score, &config, 0);
+        validate_page_fit(&display, &config).unwrap();
+        let debug = display.layout_debug.as_ref().unwrap();
+        assert!(debug.systems.len() >= 3);
+        assert!(display.pages.len() >= 2);
+        let starts: Vec<_> = debug
+            .systems
+            .iter()
+            .map(|system| {
+                let staff = display
+                    .measure_bounds
+                    .iter()
+                    .find(|bound| bound.system_index == system.index)
+                    .unwrap();
+                display
+                    .commands
+                    .iter()
+                    .position(|command| {
+                        matches!(command,
+                            RenderCommand::DrawLine {x1, x2, y1, y2, ..}
+                                if (*y1 - staff.y).abs() < 1e-6 && (*y2 - staff.y).abs() < 1e-6
+                                && (*x1 - staff.x).abs() < 1e-6 && x2 - x1 > 8.0 * config.sp
+                        )
+                    })
+                    .unwrap()
+            })
+            .collect();
+        let mut previous: Option<(usize, f64)> = None;
+        for (index, system) in debug.systems.iter().enumerate() {
+            let end = starts
+                .get(index + 1)
+                .copied()
+                .unwrap_or(display.commands.len());
+            let boxes: Vec<_> = display.commands[starts[index]..end]
+                .iter()
+                .filter_map(|command| {
+                    if let RenderCommand::DrawFilledBezier {
+                        y1,
+                        y2,
+                        ocy1,
+                        ocy2,
+                        iy1,
+                        iy2,
+                        icy1,
+                        icy2,
+                        ..
+                    } = command
+                    {
+                        let samples: Vec<_> =
+                            [[*y1, *ocy1, *ocy2, *y2], [*iy1, *icy1, *icy2, *iy2]]
+                                .into_iter()
+                                .flat_map(|[p0, p1, p2, p3]| {
+                                    (0..=1024).map(move |index| {
+                                        let t = f64::from(index) / 1024.0;
+                                        let u = 1.0 - t;
+                                        u * u * u * p0
+                                            + 3.0 * u * u * t * p1
+                                            + 3.0 * u * t * t * p2
+                                            + t * t * t * p3
+                                    })
+                                })
+                                .collect();
+                        let top = samples.iter().copied().fold(f64::INFINITY, f64::min);
+                        let bottom = samples.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                        return Some(BoundingBox::new(0.0, top, 0.0, bottom - top));
+                    }
+                    command.bbox().or_else(|| {
+                        crate::layout::render_annotations::substrate_obstacles::text_command_bbox(
+                            command,
+                        )
+                    })
+                })
+                .collect();
+            let top = boxes
+                .iter()
+                .map(|bbox| bbox.y)
+                .fold(f64::INFINITY, f64::min);
+            let bottom = boxes
+                .iter()
+                .map(|bbox| bbox.y + bbox.height)
+                .fold(f64::NEG_INFINITY, f64::max);
+            let page = &display.pages[system.page_index];
+            assert!(
+                top >= page.y_offset + config.page_margin_top * config.sp - 1e-6
+                    && bottom <= page.y_offset + page.height - config.page_margin_bottom * config.sp + 1e-6,
+                "all final ink must fit the music frame: authored={authored}, system={index}, top={top}, bottom={bottom}"
+            );
+            if let Some((page_index, previous_bottom)) = previous {
+                if page_index == system.page_index {
+                    assert!(
+                        top - previous_bottom >= config.sp - 1e-6,
+                        "ending and dynamic ink must clear adjacent systems: authored={authored}, system={index}, gap={}",
+                        top - previous_bottom
+                    );
+                }
+            }
+            previous = Some((system.page_index, bottom));
+        }
+    }
+}
+
 fn explicit_score_spacing_fixture() -> crate::model::Score {
     let mut parts: Vec<_> = (0..8)
         .map(|index| {
@@ -83,6 +238,7 @@ fn test_explicit_score_page_fit_preserves_notation_clearance_and_outer_extents()
             ..LayoutConfig::default()
         };
         let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+        validate_page_fit(&display, &config).unwrap();
         assert_eq!(display.pages.len(), 1);
         let system = &display.layout_debug.as_ref().unwrap().systems[0];
         let top = config.page_margin_top * config.sp;
@@ -117,6 +273,26 @@ fn test_explicit_score_page_fit_preserves_notation_clearance_and_outer_extents()
             );
         }
     }
+}
+
+#[test]
+fn unfit_single_system_reports_overflow_without_resizing_the_page() {
+    let score = explicit_score_spacing_fixture();
+    let config = LayoutConfig {
+        sp: 10.0,
+        page_width: Some(1000.0),
+        page_height: 30.0,
+        page_margin_top: 5.0,
+        page_margin_bottom: 5.0,
+        ..LayoutConfig::default()
+    };
+    let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    assert_eq!(display.pages.len(), 1);
+    assert_eq!(display.pages[0].height, 300.0);
+    let error = validate_page_fit(&display, &config).unwrap_err();
+    assert_eq!(error.page_number, 0);
+    assert!(error.top_overflow_sp > 0.0 || error.bottom_overflow_sp > 0.0);
+    assert!(error.to_string().contains("cannot fit its notation"));
 }
 
 #[test]

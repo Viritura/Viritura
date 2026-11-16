@@ -200,7 +200,6 @@ pub(crate) fn collect_fixed_above_ink_boxes(
                     || id.contains("/expr")
                     || id.contains("/rehearsal")
                     || id.contains("/tuplet")
-                    || (id.starts_with('m') && id.ends_with("/caesura"))
                     || id.starts_with("tie/")
                     || id.starts_with("slur/")
             }) {

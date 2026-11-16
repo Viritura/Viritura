@@ -276,9 +276,29 @@ pub(super) fn build_explicit_system_layouts<'a>(
             Some(current)
         })
         .collect();
+    let boundary_next_index = sys_measure_indices.last().map(|&last_index| {
+        last_index + mmr_start_map.get(&last_index).copied().unwrap_or(1) as usize
+    });
+    let end_barline_kind = boundary_next_index
+        .and_then(|next_index| {
+            all_resolved
+                .iter()
+                .find_map(|resolved| resolved.get(next_index))
+        })
+        .map(crate::layout::render_barlines::leading_barline_kind)
+        .or_else(|| {
+            sys_measure_indices.last().and_then(|&last_index| {
+                all_resolved
+                    .iter()
+                    .find_map(|resolved| resolved.get(last_index))
+                    .map(|last| crate::layout::render_barlines::system_end_barline_kind(last, true))
+            })
+        })
+        .unwrap_or(crate::layout::render_barlines::BarlineKind::Regular);
     let courtesy_reserve = crate::layout::courtesy_signatures::share_system_end(
         system_ends.iter_mut().flatten(),
         config,
+        end_barline_kind,
     ) * sp;
     let first_extra_prefix = sys_measure_indices.first().map_or(0.0, |&first_index| {
         compute_system_start_prefix_extra(
@@ -309,6 +329,28 @@ pub(super) fn build_explicit_system_layouts<'a>(
     } else {
         1.0
     };
+
+    let mut justified_widths: Vec<_> = sys_measure_indices
+        .iter()
+        .map(|&mi| max_widths.get(mi).copied().unwrap_or(10.0) * staff_scale)
+        .collect();
+    if let Some((_, resolved)) = all_resolved
+        .iter()
+        .enumerate()
+        .find(|(part_index, _)| shown_parts.contains(part_index))
+    {
+        let measures: Vec<_> = sys_measure_indices
+            .iter()
+            .map(|&mi| &resolved[mi])
+            .collect();
+        super::super::space_requests::reconcile_mmr_annotation_justification(
+            &measures,
+            mmr_start_map,
+            &mut justified_widths,
+            config,
+            sp,
+        );
+    }
 
     for (staff_index, flat_staff) in flat_staves.iter().enumerate() {
         let use_written = score_def.use_written.unwrap_or(false);
@@ -606,7 +648,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
 
         for (local_index, measure) in virtual_resolved.iter().enumerate() {
             let measure_index = sys_measure_indices[local_index];
-            let forced_width = max_widths.get(measure_index).copied().unwrap_or(10.0) * staff_scale
+            let forced_width = justified_widths[local_index]
                 + if local_index == 0 {
                     first_extra_prefix
                 } else {

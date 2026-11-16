@@ -149,6 +149,15 @@ pub(crate) fn system_end_barline_kind(rm: &ResolvedMeasure, is_last_system: bool
     end_barline_kind(&rm.global, is_last_system)
 }
 
+pub(crate) fn system_end_barline_kind_at_boundary(
+    rm: &ResolvedMeasure,
+    next: Option<&ResolvedMeasure>,
+    is_last_system: bool,
+) -> BarlineKind {
+    next.map(leading_barline_kind)
+        .unwrap_or_else(|| system_end_barline_kind(rm, is_last_system))
+}
+
 fn end_barline_kind(global: &GlobalMeasure, is_last_system: bool) -> BarlineKind {
     let fallback = if is_last_system {
         BarlineType::Final
@@ -176,6 +185,13 @@ pub(crate) fn trailing_barline_kind(
         .get(trailing_barline_index(ml) - 1)
         .unwrap_or(&ml.resolved.global);
     end_barline_kind(global, is_last_system)
+}
+
+pub(crate) fn mmr_trailing_barline_kind(
+    ml: &MeasureLayout,
+    globals: &[GlobalMeasure],
+) -> BarlineKind {
+    trailing_barline_kind(ml, globals, trailing_barline_index(ml) >= globals.len())
 }
 
 /// Standard engraving practice: signatures clear the barline's visible ink.

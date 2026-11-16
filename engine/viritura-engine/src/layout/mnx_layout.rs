@@ -20,6 +20,7 @@ mod render_setup;
 mod resolve_condensing;
 mod retained_segments;
 mod system_extras;
+mod system_ink;
 mod system_precompute;
 mod system_rendering;
 

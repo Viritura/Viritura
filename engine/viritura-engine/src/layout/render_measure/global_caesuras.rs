@@ -1,3 +1,4 @@
+use super::super::render_articulations::CAESURA_RIGHT_PAD_SP;
 use super::super::{config::LayoutConfig, types::MeasureLayout};
 use crate::render::{smufl::smufl, DisplayList, ElementKind, HitPolicy, RenderCommand};
 
@@ -16,7 +17,7 @@ pub(super) fn render_global_caesura(
     let (left, top, width, height) = smufl::glyph_bbox(codepoint);
     // Standard engraving practice: centre the strokes on the top staff line,
     // just before the barline, matching event-local caesuras.
-    let x = ml.x + ml.width - (left + width + 0.25) * sp;
+    let x = ml.x + ml.width - (left + width + CAESURA_RIGHT_PAD_SP) * sp;
     let y = staff_y - (top + height * 0.5) * sp;
     dl.push_selectable_command(
         RenderCommand::DrawGlyph {

@@ -465,6 +465,7 @@ pub(crate) fn collect_measure_notehead_obstacles(
 pub(crate) fn render_measure(
     dl: &mut DisplayList,
     ml: &MeasureLayout,
+    global_measures: &[GlobalMeasure],
     measure_repeat_right: f64,
     staff_y: f64,
     sp: f64,
@@ -501,6 +502,7 @@ pub(crate) fn render_measure(
 
     // Handle multimeasure rest rendering
     if let Some(count) = ml.multimeasure_rest_count {
+        let trailing_kind = mmr_trailing_barline_kind(ml, global_measures);
         render_multimeasure_rest(
             dl,
             ml,
@@ -510,6 +512,7 @@ pub(crate) fn render_measure(
             count,
             shared_lane.is_top,
             shared_lane.center_y,
+            trailing_kind,
         );
         // Above-staff system objects still belong on a multimeasure rest (a
         // tempo or rehearsal mark at the start of a long rest must show). The
@@ -537,6 +540,16 @@ pub(crate) fn render_measure(
                 leading_clef_gap,
             );
         }
+        render_text_expressions(
+            dl,
+            ml,
+            staff_y,
+            sp,
+            config,
+            mmr_number_extents,
+            &[],
+            shared_lane_staff_y_offsets,
+        );
         render_measure_numbers(dl, ml, staff_y, sp, config, render_mmr_range_here);
         return;
     }

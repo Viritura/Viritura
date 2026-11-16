@@ -391,6 +391,10 @@ pub(crate) struct SystemEndCourtesy {
     pub(crate) time: Option<TimeSignature>,
     /// Widest courtesy key on any staff of the system, in staff spaces.
     pub(crate) key_slot_sp: f64,
+    /// Left-hand ink extent of the system-end barline, in staff spaces.
+    pub(crate) barline_left_extent_sp: f64,
+    /// Right-hand ink extent of the system-end barline, in staff spaces.
+    pub(crate) barline_right_extent_sp: f64,
     /// Staff-line extension beyond the barline, in staff spaces.
     pub(crate) suffix_sp: f64,
 }

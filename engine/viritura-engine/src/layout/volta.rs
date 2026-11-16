@@ -200,12 +200,12 @@ fn render_volta_brackets_filtered<M: Borrow<MeasureLayout>>(
     {
         return;
     }
-    let default_bracket_y = staff_y - 1.8 * sp; // above top staff line
     let hook_length = 1.2 * sp; // vertical hook height
     let line_width = 0.16 * sp; // Bravura engravingDefaults.repeatEndingLineThickness
-    let text_size = 1.5 * sp;
+    let text_size = 2.0 * sp;
     let text_x_offset = 0.5 * sp; // text inset from left edge
     let text_y_offset = 0.3 * sp; // text below bracket line
+    let default_bracket_y = staff_y - text_y_offset - text_size;
     let stem_length = 3.5 * sp;
     let min_clearance = 1.0 * sp;
     // Closed endings without a repeat barline retain a full-space setback.
@@ -312,9 +312,8 @@ fn render_volta_brackets_filtered<M: Borrow<MeasureLayout>>(
 
             let label = ending_label(ending);
             if let Some(count_top) = count_top {
-                // Standard engraving practice: leave one staff space of ink
-                // clearance between the count and the bracket's lower edge.
-                local_bracket_y = local_bracket_y.min(count_top - min_clearance - line_width * 0.5);
+                // Leave room above the count for the larger ending label.
+                local_bracket_y = local_bracket_y.min(count_top - 1.5 * sp - line_width * 0.5);
                 if starts_here {
                     let label_left = x_left + text_x_offset;
                     let label_width = super::text_styles::text_width(

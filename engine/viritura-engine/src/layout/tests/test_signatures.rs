@@ -94,6 +94,82 @@ fn outgoing_key_glyphs(dl: &DisplayList, sp: f64) -> Vec<(u32, f64, f64)> {
 }
 
 #[test]
+fn courtesy_key_after_multimeasure_rest_clears_its_double_barline() {
+    use crate::layout::render_barlines::{barline_right_extent, BarlineKind};
+
+    let document = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "key": {"fifths": -3}, "time": {"count": 4, "unit": 4}},
+            {"id": "m1", "barline": {"type": "double"}},
+            {"id": "m2", "key": {"fifths": -1}}
+        ]},
+        "parts": [{"id": "p", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+             "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+            ]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [
+            {"type": "staff", "sources": [{"part": "p"}]}
+        ]}],
+        "scores": [{
+            "name": "Solo",
+            "layout": "L",
+            "multimeasureRests": [{"start": "m0", "duration": 2}],
+            "_x": {"viritura": {"layoutBreaks": [{"measure": "m2", "kind": "system"}]}}
+        }]
+    });
+    let score = parse_mnx(&document.to_string()).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(700.0),
+        ..Default::default()
+    };
+    let dl = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, None);
+    let first = dl
+        .measure_bounds
+        .iter()
+        .find(|bound| bound.index == 0 && bound.system_index == 0)
+        .expect("first system multi-measure rest");
+    let barline_x = first.x + first.width;
+    let sp = config.sp;
+    let key_ink_left = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawGlyph {
+                x,
+                y,
+                size,
+                codepoint,
+                ..
+            } if *codepoint == smufl::ACCIDENTAL_FLAT
+                && *x > barline_x
+                && *y >= first.y - sp
+                && *y <= first.y + 5.0 * sp =>
+            {
+                let (left, _, _, _) = smufl::glyph_bbox(*codepoint);
+                Some(x + left * size / 4.0)
+            }
+            _ => None,
+        })
+        .fold(f64::INFINITY, f64::min);
+    assert!(key_ink_left.is_finite(), "courtesy flat must be rendered");
+    let barline_right = barline_right_extent(&BarlineKind::Double, &config, 1.0) * sp;
+    assert!(
+        ((key_ink_left - barline_x - barline_right) - 0.5 * sp).abs() < 1e-6,
+        "courtesy key should clear the actual double barline by 0.5sp"
+    );
+    let key_ink_right = key_ink_left + smufl::glyph_bbox(smufl::ACCIDENTAL_FLAT).2 * sp;
+    assert!(
+        (staff_end_x(&dl, first.y) - key_ink_right - 0.5 * sp).abs() < 1e-6,
+        "staff tail after the courtesy key should remain 0.5sp"
+    );
+}
+
+#[test]
 fn courtesy_keys_clear_music_and_barlines_in_auto_and_authored_systems() {
     use crate::layout::layout_with_mnx_scores_cached;
     let bits = |dl: &DisplayList| {

@@ -18,7 +18,11 @@ pub(super) struct SystemExtras {
     pub(super) system_heights_px: Vec<f64>,
 }
 
+#[allow(clippy::too_many_arguments)] // Cached system measurement needs the same staff routes and geometry as rendering.
 pub(super) fn compute_system_extras(
+    score: &Score,
+    flat_staves: &[FlatStaff],
+    group_ranges: &[GroupRange],
     precomp_layouts: &[Vec<Vec<MeasureLayout>>],
     precomp_content_hashes: &[Vec<Vec<u64>>],
     sp: f64,
@@ -47,7 +51,10 @@ pub(super) fn compute_system_extras(
         sp.to_bits().hash(&mut h);
         config.stem_length.to_bits().hash(&mut h);
         config.default_intra_staff_clearance.to_bits().hash(&mut h);
-        h.finish()
+        super::super::volta::paged_ottava_dependency_hash(
+            score,
+            super::super::volta::ending_dependency_hash(score, h.finish()),
+        ) ^ super::super::lyric_extenders::cache_dependency_hash(score)
     };
 
     let default_inter = 7.0 * sp;
@@ -63,6 +70,7 @@ pub(super) fn compute_system_extras(
         // measure range: its complete extras dependency island is unchanged.
         // Reuse by index without re-walking every staff/measure hash.
         if let Some(prior_sys_idx) = reusable_system_sources
+            .filter(|_| config.page_width.is_none())
             .and_then(|sources| sources.get(sys_idx))
             .copied()
             .flatten()
@@ -117,14 +125,14 @@ pub(super) fn compute_system_extras(
         }
 
         // Miss: compute fresh, then store.
-        let below = sys_layouts
+        let mut below = sys_layouts
             .last()
             .map(|bottom_staff| {
                 compute_below_staff_extra_from_layouts(bottom_staff, sp, config.stem_length, config)
             })
             .unwrap_or(0.0);
 
-        let above = if let Some(top_staff) = sys_layouts.first() {
+        let mut above = if let Some(top_staff) = sys_layouts.first() {
             let sys_measures: Vec<&ResolvedMeasure> =
                 top_staff.iter().map(|ml| &ml.resolved).collect();
             compute_above_staff_extra(
@@ -138,69 +146,33 @@ pub(super) fn compute_system_extras(
             0.0
         };
 
-        // Pre-simulate Phase 2's `content_y.max(standard_y)` per inter-staff
-        // pair so the page-break planner receives an upper bound on actual
-        // extent. See the longer note in the SystemExtras struct doc above.
-        let mut intra: f64 = 0.0;
-        if sys_layouts.len() >= 2 {
-            for i in 1..sys_layouts.len() {
-                let upper = &sys_layouts[i - 1];
-                let lower = &sys_layouts[i];
-                let staff_bottom = staff_height;
-                let mut lowest_above: f64 = staff_bottom;
-                for ml in upper {
-                    let lp = super::super::render_annotations::lowest_point_in_measure(
-                        ml,
-                        0.0,
-                        sp,
-                        config.stem_length,
-                    );
-                    if lp > lowest_above {
-                        lowest_above = lp;
-                    }
-                }
-                let has_dynamics = upper.iter().any(|ml| {
-                    ml.resolved
-                        .part
-                        .dynamics
-                        .as_ref()
-                        .is_some_and(|d| !d.is_empty())
-                });
-                let has_lyrics = upper.iter().any(|ml| {
-                    ml.resolved.part.sequences.iter().any(|seq| {
-                        seq.content.iter().any(|c| {
-                            matches!(c, SequenceContent::Event(ev)
-                        if ev.lyrics.as_ref().is_some_and(|l|
-                            l.lines.as_ref().is_some_and(|ls| !ls.is_empty())))
-                        })
-                    })
-                });
-                if has_dynamics {
-                    lowest_above = lowest_above.max(staff_bottom + 4.5 * sp);
-                }
-                if has_lyrics {
-                    lowest_above = lowest_above.max(staff_bottom + 5.0 * sp);
-                }
-                let mut above_protrusion: f64 = 0.0;
-                for ml in lower {
-                    let hp = super::super::render_annotations::highest_point_in_measure(
-                        ml,
-                        0.0,
-                        sp,
-                        config.stem_length,
-                    );
-                    if hp < 0.0 && (-hp) > above_protrusion {
-                        above_protrusion = -hp;
-                    }
-                    above_protrusion = above_protrusion.max(
-                        -super::super::render_annotations::global_caesura_top(ml, sp, config),
-                    );
-                }
-                let min_clearance = config.default_intra_staff_clearance * sp;
-                let content_inter = lowest_above + above_protrusion + min_clearance;
-                let standard_inter = staff_height + default_inter;
-                intra += content_inter.max(standard_inter);
-            }
+        let view: Vec<Vec<&MeasureLayout>> = sys_layouts
+            .iter()
+            .map(|staff| staff.iter().collect())
+            .collect();
+        let placement = compute_staff_y_offsets_for_system(
+            &view,
+            flat_staves,
+            group_ranges,
+            0.0,
+            default_inter,
+            config.default_intra_staff_clearance * sp,
+            sp,
+            staff_height,
+            config,
+            false,
+        );
+        let intra = placement.offsets.last().copied().unwrap_or(0.0);
+        if config.page_width.is_some() {
+            let (ink_above, ink_below) = super::system_ink::outer_extents(
+                sys_layouts,
+                flat_staves,
+                &placement.offsets,
+                score,
+                config,
+            );
+            above = ink_above;
+            below = ink_below;
         }
 
         let system_height = staff_height + intra + below + above;

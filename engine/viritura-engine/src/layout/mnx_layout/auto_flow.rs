@@ -341,6 +341,9 @@ pub(super) fn layout_auto_flow_mnx_score(
         above_staff_extras,
         system_heights_px,
     } = compute_system_extras(
+        score,
+        flat_staves,
+        group_ranges,
         &precomp_layouts,
         &precomp_content_hashes,
         sp,

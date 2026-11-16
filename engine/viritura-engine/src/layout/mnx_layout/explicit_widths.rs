@@ -121,5 +121,16 @@ pub(super) fn compute_explicit_max_widths(
             ));
         }
     }
+    for (part_index, resolved) in all_resolved.iter().enumerate() {
+        if shown_parts.contains(&part_index) {
+            super::super::space_requests::reserve_mmr_span_widths(
+                resolved.iter(),
+                mmr_start_map,
+                &mut max_widths,
+                config,
+                sp,
+            );
+        }
+    }
     max_widths
 }

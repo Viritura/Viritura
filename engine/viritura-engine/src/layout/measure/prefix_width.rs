@@ -24,6 +24,7 @@ use std::collections::{HashMap, HashSet};
 
 /// Ink-to-ink clearance between a key signature and a following time signature.
 pub(crate) const KEY_TO_TIME_GAP_SP: f64 = 0.3;
+pub(crate) const PREFIX_TO_ONSET_GAP_SP: f64 = 1.2;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct AlignedPrefix {
@@ -221,7 +222,7 @@ pub(crate) fn prefix_layout(
 
     let has_prefix_furniture = prefix_width > 0.0;
     if has_prefix_furniture {
-        prefix_width += 1.2 * sp;
+        prefix_width += PREFIX_TO_ONSET_GAP_SP * sp;
         prefix_width += barline_advance;
     } else {
         prefix_width = barline_advance;

@@ -982,6 +982,11 @@ mod note_preview_tests {
     }
 }
 
+fn ensure_page_fit(display_list: &DisplayList, config: &LayoutConfig) -> Result<(), JsValue> {
+    viritura_engine::layout::validate_page_fit(display_list, config)
+        .map_err(|error| JsValue::from_str(&format!("Layout error: {error}")))
+}
+
 /// Layout a score from MNX JSON and return a DisplayList as JSON.
 #[wasm_bindgen]
 pub fn compute_layout(
@@ -998,6 +1003,7 @@ pub fn compute_layout(
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
     let display_list = layout_score(&score, part_index, &config);
+    ensure_page_fit(&display_list, &config)?;
 
     serde_json::to_string(&display_list)
         .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
@@ -1019,6 +1025,7 @@ pub fn compute_layout_binary(
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
     let display_list = layout_score(&score, part_index, &config);
+    ensure_page_fit(&display_list, &config)?;
     let binary = display_list.to_binary();
 
     Ok(js_sys::Float32Array::from(binary.as_slice()))
@@ -1084,6 +1091,7 @@ pub fn compute_full_score_layout(
     } else {
         layout_full_score(&score, &config)
     };
+    ensure_page_fit(&display_list, &config)?;
 
     serde_json::to_string(&display_list)
         .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
@@ -1105,6 +1113,7 @@ pub fn compute_mnx_score_layout(
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
     let display_list = layout_with_mnx_scores(&score, &config, score_index);
+    ensure_page_fit(&display_list, &config)?;
 
     serde_json::to_string(&display_list)
         .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
@@ -1129,6 +1138,7 @@ pub fn compute_full_score_layout_binary(
     } else {
         layout_full_score(&score, &config)
     };
+    ensure_page_fit(&display_list, &config)?;
     let binary = display_list.to_binary();
 
     Ok(js_sys::Float32Array::from(binary.as_slice()))
@@ -1150,6 +1160,7 @@ pub fn compute_mnx_score_layout_binary(
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
     let display_list = layout_with_mnx_scores(&score, &config, score_index);
+    ensure_page_fit(&display_list, &config)?;
     let binary = display_list.to_binary();
 
     Ok(js_sys::Float32Array::from(binary.as_slice()))
@@ -1476,6 +1487,8 @@ impl LayoutEngine {
             layout_full_score_cached(score, &config, Some(&mut self.cache))
         };
 
+        ensure_page_fit(&display_list, &config)?;
+
         if timing {
             let now = js_sys::Date::now();
             splits.push(("layout", now - t_last));
@@ -1592,6 +1605,7 @@ impl LayoutEngine {
         let display_list = layout_score_cached(&score, part_index, &config, Some(&mut self.cache));
         self.score = Some(score);
 
+        ensure_page_fit(&display_list, &config)?;
         serde_json::to_string(&display_list)
             .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
@@ -1675,6 +1689,7 @@ impl LayoutEngine {
 
         self.score = Some(score);
 
+        ensure_page_fit(&display_list, &config)?;
         Ok(display_list)
     }
 
@@ -1751,6 +1766,7 @@ impl LayoutEngine {
             layout_full_score_cached(score, &config, Some(&mut self.cache))
         };
 
+        ensure_page_fit(&display_list, &config)?;
         Ok(display_list)
     }
 
@@ -1885,6 +1901,7 @@ impl LayoutEngine {
 
         self.score = Some(score);
 
+        ensure_page_fit(&display_list, &config)?;
         serde_json::to_string(&display_list)
             .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
