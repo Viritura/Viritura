@@ -703,7 +703,7 @@ pub(crate) fn compute_above_staff_extra(
                     right,
                 );
                 if let Some((nx_l, nx_r, ntop)) =
-                    render_measure::multimeasure_rest_number_extent(ml, 0.0, sp)
+                    render_measure::multimeasure_rest_number_extent(ml, 0.0, sp, config)
                 {
                     if nx_r >= left && nx_l <= right && ntop < highest {
                         highest = ntop;
@@ -772,7 +772,7 @@ pub(crate) fn compute_above_staff_extra(
     if let Some(mls) = measure_layouts {
         for ml in mls {
             if let Some((_l, _r, top)) =
-                render_measure::multimeasure_rest_number_extent(ml, 0.0, sp)
+                render_measure::multimeasure_rest_number_extent(ml, 0.0, sp, config)
             {
                 glyph_top = glyph_top.max((-top).max(0.0));
             }

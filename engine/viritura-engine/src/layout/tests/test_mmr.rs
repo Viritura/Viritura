@@ -1196,11 +1196,11 @@ fn multimeasure_rest_trailing_barline_edits_invalidate_render_cache() {
 
 #[test]
 fn test_key_change_multimeasure_rest_renders_repeat_start_once() {
-    let score = parse_mnx(&serde_json::json!({
+    let mut source = serde_json::json!({
         "mnx": {"version": 1},
         "global": {"measures": [
-            {"time": {"count": 4, "unit": 4}},
-            {"key": {"fifths": -1}, "repeatStart": {}},
+            {"time": {"count": 4, "unit": 4}, "key": {"fifths": 3}},
+            {"key": {"fifths": 0}, "repeatStart": {}},
             {}
         ]},
         "parts": [{"measures": [
@@ -1209,16 +1209,119 @@ fn test_key_change_multimeasure_rest_renders_repeat_start_once() {
             {"sequences": [{"content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}}]},
             {"sequences": [{"content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}}]}
         ]}]
-    }).to_string()).unwrap();
+    });
     let config = LayoutConfig {
         multimeasure_rests: true,
+        barline_width: 0.3,
         ..LayoutConfig::default()
     };
-    let display = layout_with_mnx_scores(&score, &config, 0);
-    assert_eq!(hbar_count(&display, config.sp), 1);
-    assert_eq!(display.commands.iter().filter(|command| matches!(
-        command, RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::REPEAT_LEFT
-    )).count(), 1, "the repeat start belongs after the changed key, not on both sides");
+    for barline in ["regular", "double"] {
+        source["global"]["measures"][0]["barline"] = serde_json::json!({"type": barline});
+        for with_time in [false, true] {
+            if with_time {
+                source["global"]["measures"][1]["time"] =
+                    serde_json::json!({"count": 3, "unit": 4});
+            } else {
+                source["global"]["measures"][1]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("time");
+            }
+            let score = parse_mnx(&source.to_string()).unwrap();
+            for display in [
+                layout_score(&score, 0, &config),
+                layout_with_mnx_scores(&score, &config, 0),
+            ] {
+                assert_eq!(hbar_count(&display, config.sp), 1);
+                let repeats: Vec<_> = display
+                    .commands
+                    .iter()
+                    .filter_map(|command| match command {
+                        RenderCommand::DrawGlyph { codepoint, .. }
+                            if *codepoint == smufl::REPEAT_LEFT =>
+                        {
+                            command.bbox()
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                assert_eq!(
+                    repeats.len(),
+                    1,
+                    "the repeat start belongs after the changed key, not on both sides"
+                );
+                let repeat = &repeats[0];
+                let boundary_right = display
+                    .commands
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, command)| {
+                        display.element_ids[*index].as_deref() == Some("m1/barline")
+                            && matches!(command, RenderCommand::DrawLine { .. })
+                    })
+                    .filter_map(|(_, command)| command.bbox())
+                    .map(|bbox| bbox.x + bbox.width)
+                    .fold(f64::NEG_INFINITY, f64::max);
+                let signature_ink = |id: &str| {
+                    display
+                        .commands
+                        .iter()
+                        .enumerate()
+                        .filter(|(index, _)| display.element_ids[*index].as_deref() == Some(id))
+                        .filter_map(|(_, command)| command.bbox())
+                        .fold((f64::INFINITY, f64::NEG_INFINITY), |(left, right), bbox| {
+                            (left.min(bbox.x), right.max(bbox.x + bbox.width))
+                        })
+                };
+                let (key_left, key_right) = signature_ink("p0/m1/key");
+                let key_bounds = &display
+                    .element_bboxes
+                    .iter()
+                    .find(|bbox| bbox.element_id == "p0/m1/key")
+                    .unwrap()
+                    .bbox;
+                assert!(
+                    key_bounds.x <= key_left && key_bounds.x + key_bounds.width >= key_right,
+                    "the key-signature hitbox must follow the corrected prefix"
+                );
+                assert!(
+                    (key_left - boundary_right - 0.5 * config.sp).abs() < 1e-6,
+                    "the key must clear the boundary actually drawn before it, not the deferred repeat: gap={}sp",
+                    (key_left - boundary_right) / config.sp
+                );
+                let signature_right = if with_time {
+                    let (time_left, time_right) = signature_ink("m1/time");
+                    assert!(time_left >= key_right + 0.3 * config.sp - 1e-6);
+                    time_right
+                } else {
+                    key_right
+                };
+                assert!(
+                    repeat.x >= signature_right + 0.5 * config.sp - 1e-6,
+                    "the repeat start must follow all changed signatures"
+                );
+                let (left, right) = hbar_for_measure(&display, 1, config.sp);
+                let gap = left - 0.08 * config.sp - (repeat.x + repeat.width);
+                assert!(
+                    gap >= 0.5 * config.sp - 1e-6,
+                    "the H-bar serif must clear the repeat dots: gap={}sp",
+                    gap / config.sp
+                );
+                for id in ["m1/mmrcount", "m1/mnum"] {
+                    let label = &display
+                        .element_bboxes
+                        .iter()
+                        .find(|bbox| bbox.element_id == id)
+                        .unwrap()
+                        .bbox;
+                    assert!(
+                        ((label.x + label.width / 2.0) - (left + right) / 2.0).abs() < 1e-6,
+                        "the count and bar-number range must remain centered on the H-bar"
+                    );
+                }
+            }
+        }
+    }
 }
 
 #[test]

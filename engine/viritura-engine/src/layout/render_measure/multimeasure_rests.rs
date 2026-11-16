@@ -57,20 +57,34 @@ pub(crate) fn multimeasure_rest_natural_width(prefix_width: f64, count: u32, sp:
     prefix_width + body
 }
 
-/// Structural clef/key/time prefix the H-bar must clear, in pixels. Unlike the
-/// measure's full `prefix_width`, this deliberately excludes the first-note
-/// approach and accidental clearance (the H-bar supplies its own inset), so
-/// the bar centers over the true inner width of the measure: full-width on a
-/// mid-system rest, and only past the clef/key/time on a system-start rest.
-pub(crate) fn multimeasure_rest_structural_prefix(ml: &MeasureLayout, sp: f64) -> f64 {
-    let rm = &ml.resolved;
-    let is_first = rm.index == 0;
-    let at_start = is_first || ml.is_first_on_system;
-    let mut w = 0.0;
+pub(crate) struct MultimeasureRestPrefix {
+    leading_barline: BarlineKind,
+    pub(crate) barline_advance: f64,
+    time_x: Option<f64>,
+    repeat_x: Option<f64>,
+    width: f64,
+}
 
-    if rm.global.repeat_start.is_some() {
-        w += 1.5 * sp;
-    }
+pub(crate) fn multimeasure_rest_prefix(
+    ml: &MeasureLayout,
+    sp: f64,
+    config: &LayoutConfig,
+) -> MultimeasureRestPrefix {
+    let rm = &ml.resolved;
+    let at_start = rm.index == 0 || ml.is_first_on_system;
+    let defer_repeat = rm.global.repeat_start.is_some() && (at_start || rm.key_signature_changed());
+    let leading_barline = BarlineKind::at_boundary(
+        !ml.is_first_on_system && rm.prev_has_repeat_end,
+        rm.global.repeat_start.is_some() && !defer_repeat,
+        rm.prev_barline_type.as_ref(),
+        BarlineType::Regular,
+    );
+    let barline_advance = if at_start {
+        0.0
+    } else {
+        barline_right_extent(&leading_barline, config, sp) + 0.5 * sp
+    };
+    let mut w = 0.0;
 
     let has_start_clef = rm.part.clefs.as_ref().is_some_and(|clefs| {
         clefs.iter().any(|pc| match &pc.position {
@@ -114,25 +128,54 @@ pub(crate) fn multimeasure_rest_structural_prefix(ml: &MeasureLayout, sp: f64) -
         }
     }
 
-    if let Some(time) = rm.displayed_time_signature() {
+    let time_x = rm.displayed_time_signature().map(|time| {
+        let x = barline_advance + w;
         let staff_override = crate::layout::time_signatures::staff_grouping_override(&rm.part);
         w += crate::layout::time_signatures::prefix_reserve(
-            LayoutConfig::default().time_signature_settings,
+            config.time_signature_settings,
             time,
             sp,
             staff_override,
         );
-    }
-
+        x
+    });
     if w > 0.0 {
-        // The measured prefix also includes the leading boundary's ink edge.
+        w += barline_advance;
+    } else if rm.global.repeat_start.is_some() && !defer_repeat {
+        w = barline_right_extent(&leading_barline, config, sp);
+    }
+    let repeat_x = defer_repeat.then(|| {
+        let x = w + 0.5 * sp;
+        w = x + barline_right_extent(&BarlineKind::RepeatStart, config, sp);
+        x
+    });
+    if w > 0.0 {
         w = w.max(
             ml.prefix_width
                 - ml.first_onset_padding
                 - super::super::measure::PREFIX_TO_ONSET_GAP_SP * sp,
         );
     }
-    w
+    MultimeasureRestPrefix {
+        leading_barline,
+        barline_advance,
+        time_x,
+        repeat_x,
+        width: w,
+    }
+}
+
+/// Structural clef/key/time/repeat prefix the H-bar must clear, in pixels. Unlike the
+/// measure's full `prefix_width`, this deliberately excludes the first-note
+/// approach and accidental clearance (the H-bar supplies its own inset), so
+/// the bar centers over the true inner width of the measure: full-width on a
+/// mid-system rest, and only past the clef/key/time on a system-start rest.
+pub(crate) fn multimeasure_rest_structural_prefix(
+    ml: &MeasureLayout,
+    sp: f64,
+    config: &LayoutConfig,
+) -> f64 {
+    multimeasure_rest_prefix(ml, sp, config).width
 }
 
 /// Horizontal extent and top Y of the count number a multimeasure rest draws
@@ -142,10 +185,11 @@ pub(crate) fn multimeasure_rest_number_extent(
     ml: &MeasureLayout,
     staff_y: f64,
     sp: f64,
+    config: &LayoutConfig,
 ) -> Option<(f64, f64, f64)> {
     let count = ml.multimeasure_rest_count?;
 
-    let hbar_area_left = ml.x + multimeasure_rest_structural_prefix(ml, sp);
+    let hbar_area_left = ml.x + multimeasure_rest_structural_prefix(ml, sp, config);
     let hbar_area_right = ml.x + ml.width;
     let center_x = (hbar_area_left + hbar_area_right) / 2.0;
     let count_y = staff_y - 1.5 * sp;
@@ -236,31 +280,25 @@ pub(crate) fn render_multimeasure_rest(
     let is_first = ml.resolved.index == 0;
     let prev_has_repeat_end = !ml.is_first_on_system && ml.resolved.prev_has_repeat_end;
 
-    // A repeat-start opening a system is deferred until after the repeated
-    // clef/key/time prefix. Other non-system-start boundaries render normally.
-    let defer_repeat_start = ml.resolved.global.repeat_start.is_some()
-        && (is_first || ml.is_first_on_system || ml.resolved.key_signature_changed());
+    let prefix = multimeasure_rest_prefix(ml, sp, config);
     if !is_first && !ml.is_first_on_system {
-        let start_bt = if defer_repeat_start {
-            BarlineKind::at_boundary(
-                prev_has_repeat_end,
-                false,
-                ml.resolved.prev_barline_type.as_ref(),
-                BarlineType::Regular,
-            )
-        } else {
-            leading_barline_kind(&ml.resolved)
-        };
         let cmd_idx = dl.commands.len();
-        render_barline(dl, ml.x, staff_y, staff_height, sp, config, &start_bt);
+        render_barline(
+            dl,
+            ml.x,
+            staff_y,
+            staff_height,
+            sp,
+            config,
+            &prefix.leading_barline,
+        );
         for ci in cmd_idx..dl.commands.len() {
             dl.tag_command(ci, element_id::barline(ml.resolved.index));
         }
     }
 
     // Repeat structural signatures at score and system starts.
-    let mut x_cursor =
-        ml.x + leading_barline_advance(&ml.resolved, ml.is_first_on_system, config, sp);
+    let mut x_cursor = ml.x + prefix.barline_advance;
     let at_start = is_first || ml.is_first_on_system;
     if at_start {
         if let Some(clefs) = &ml.resolved.part.clefs {
@@ -297,7 +335,7 @@ pub(crate) fn render_multimeasure_rest(
             None
         };
         let cmd_idx = dl.commands.len();
-        x_cursor += render_key_signature(
+        render_key_signature(
             dl,
             x_cursor,
             staff_y,
@@ -319,7 +357,8 @@ pub(crate) fn render_multimeasure_rest(
                 crate::layout::time_signatures::staff_grouping_override(&ml.resolved.part);
             render_time_signature(
                 dl,
-                x_cursor + crate::layout::time_signatures::left_bearing(settings, sp),
+                ml.x + prefix.time_x.expect("MMR time signature prefix offset")
+                    + crate::layout::time_signatures::left_bearing(settings, sp),
                 staff_y,
                 sp,
                 ts,
@@ -332,8 +371,8 @@ pub(crate) fn render_multimeasure_rest(
         }
     }
 
-    if defer_repeat_start {
-        let bar_x = x_cursor + 0.5 * sp;
+    if let Some(repeat_x) = prefix.repeat_x {
+        let bar_x = ml.x + repeat_x;
         let cmd_idx = dl.commands.len();
         render_barline(
             dl,
@@ -350,7 +389,7 @@ pub(crate) fn render_multimeasure_rest(
     }
 
     let measure_right = ml.x + ml.width;
-    let hbar_area_left = ml.x + multimeasure_rest_structural_prefix(ml, sp);
+    let hbar_area_left = ml.x + prefix.width;
     let hbar_area_right = measure_right;
     let hbar_center = (hbar_area_left + hbar_area_right) / 2.0;
     let has_repeat_edge = prev_has_repeat_end

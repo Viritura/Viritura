@@ -352,7 +352,11 @@ pub(crate) fn key_signature_prefix_x(
         if !is_mmr {
             x += leading_clef_gap;
         }
-        x += leading_barline_advance(rm, ml.is_first_on_system, config, sp);
+        x += if is_mmr {
+            super::render_measure::multimeasure_rest_prefix(ml, sp, config).barline_advance
+        } else {
+            leading_barline_advance(rm, ml.is_first_on_system, config, sp)
+        };
     }
 
     if at_start {

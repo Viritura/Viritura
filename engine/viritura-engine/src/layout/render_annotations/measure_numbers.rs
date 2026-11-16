@@ -21,7 +21,7 @@ pub(crate) fn render_measure_numbers(
         return;
     }
     if let Some(count) = ml.multimeasure_rest_count {
-        render_multimeasure_number_range(dl, ml, staff_y, sp, count);
+        render_multimeasure_number_range(dl, ml, staff_y, sp, count, config);
         return;
     }
 
@@ -91,6 +91,7 @@ fn render_multimeasure_number_range(
     staff_y: f64,
     sp: f64,
     count: u32,
+    config: &LayoutConfig,
 ) {
     let start = match ml.resolved.global.number {
         Some(0) => return,
@@ -100,7 +101,7 @@ fn render_multimeasure_number_range(
     let end = start + count as i32 - 1;
 
     let font_size = 2.0 * sp;
-    let prefix = render_measure::multimeasure_rest_structural_prefix(ml, sp);
+    let prefix = render_measure::multimeasure_rest_structural_prefix(ml, sp, config);
     let center_x = ((ml.x + prefix) + (ml.x + ml.width)) / 2.0;
     let num_y = staff_y + 4.0 * sp + 0.5 * sp;
 

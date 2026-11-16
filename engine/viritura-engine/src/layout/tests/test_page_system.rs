@@ -2214,7 +2214,7 @@ fn test_above_staff_extra_reserves_for_mmr_count_number() {
     ml.part_index = 0;
     ml.multimeasure_rest_count = Some(12);
 
-    let extent = multimeasure_rest_number_extent(&ml, 0.0, sp)
+    let extent = multimeasure_rest_number_extent(&ml, 0.0, sp, &config)
         .expect("an MMR count number should have an extent");
     let count_top = extent.2; // negative = above staff
     let needed = (-count_top).max(0.0);

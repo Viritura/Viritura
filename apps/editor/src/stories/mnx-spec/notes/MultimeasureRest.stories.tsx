@@ -245,3 +245,42 @@ export const RepeatEndings: StoryObj = {
     />
   ),
 };
+
+export const KeyChangeAndRepeatStart: StoryObj = {
+  name: "Changed key before a repeat-start multi-measure rest",
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1 },
+        global: {
+          measures: Array.from({ length: 5 }, (_, index) => ({
+            id: `m${index}`,
+            ...(index === 0 ? { time: { count: 4, unit: 4 }, key: { fifths: 3 } } : {}),
+            ...(index === 1 ? { key: { fifths: 0 }, repeatStart: {} } : {}),
+          })),
+        },
+        parts: [
+          {
+            id: "P1",
+            measures: Array.from({ length: 5 }, (_, index) => ({
+              ...(index === 0 ? { clefs: [{ clef: { sign: "G", staffPosition: -2 } }] } : {}),
+              sequences: [
+                index === 0
+                  ? { content: [{ duration: { base: "whole" }, notes: [{ pitch: { step: "C", octave: 5 } }] }] }
+                  : { content: [], fullMeasure: { visualDuration: { base: "whole" } } },
+              ],
+            })),
+          },
+        ],
+        layouts: [{ id: "L1", content: [{ type: "staff", sources: [{ part: "P1" }] }] }],
+        scores: [
+          {
+            name: "Key change and repeat",
+            layout: "L1",
+            multimeasureRests: [{ start: "m1", duration: 4 }],
+          },
+        ],
+      })}
+    />
+  ),
+};

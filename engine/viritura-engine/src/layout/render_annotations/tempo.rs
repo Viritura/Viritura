@@ -406,7 +406,7 @@ pub(crate) fn resolve_tempo_placement(
     let compute_highest = |left: f64, right: f64| -> f64 {
         let mut highest = highest_point_in_range(ml, staff_y, sp, config.stem_length, left, right);
         if let Some((nx_l, nx_r, ntop)) =
-            crate::layout::render_measure::multimeasure_rest_number_extent(ml, staff_y, sp)
+            crate::layout::render_measure::multimeasure_rest_number_extent(ml, staff_y, sp, config)
         {
             if nx_r >= left && nx_l <= right && ntop < highest {
                 highest = ntop;

@@ -47,7 +47,7 @@ pub(crate) fn above_measure_obstacles(
 ) -> Vec<AboveGlyphBox> {
     measure_layouts
         .iter()
-        .filter_map(|ml| multimeasure_rest_number_extent(ml, staff_y, sp))
+        .filter_map(|ml| multimeasure_rest_number_extent(ml, staff_y, sp, config))
         .chain(measure_layouts.iter().filter_map(|ml| {
             super::super::time_signatures::above_staff_extent(
                 ml,

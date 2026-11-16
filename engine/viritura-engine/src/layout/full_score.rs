@@ -624,7 +624,7 @@ fn render_one_staff_for_system(
     // An above-staff meter occupies the same band of air, so it joins the list.
     let mmr_number_extents: Vec<super::render_annotations::AboveGlyphBox> = measure_layouts
         .iter()
-        .filter_map(|ml| multimeasure_rest_number_extent(ml, staff_y, sp))
+        .filter_map(|ml| multimeasure_rest_number_extent(ml, staff_y, sp, config))
         .chain(measure_layouts.iter().filter_map(|ml| {
             crate::layout::time_signatures::above_staff_extent(
                 ml,

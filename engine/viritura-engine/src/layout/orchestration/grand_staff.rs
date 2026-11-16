@@ -285,7 +285,9 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
         let tie_accidentals = compute_tie_accidental_map(layouts);
         let mmr_number_extents: Vec<render_annotations::AboveGlyphBox> = layouts
             .iter()
-            .filter_map(|ml| render_measure::multimeasure_rest_number_extent(ml, staff_y, sp))
+            .filter_map(|ml| {
+                render_measure::multimeasure_rest_number_extent(ml, staff_y, sp, config)
+            })
             .chain(layouts.iter().filter_map(|ml| {
                 crate::layout::time_signatures::above_staff_extent(
                     ml,

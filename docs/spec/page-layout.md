@@ -98,6 +98,10 @@ and after repeat ends. The repeat-bearing measures join the enclosed rest
 group; repeat barlines remain visible at its outer edges rather than forcing
 those measures to stand alone. The H-bar and its end serif clear repeat-end ink
 on the last collapsed measure.
+When a changed key precedes an MMR's repeat start, its left clearance is
+measured from the boundary actually drawn before the key, not from the
+deferred repeat. The H-bar, count, and bar-number range share a prefix that
+includes the full repeat-start ink after any key and time signatures.
 
 Tempo and above-staff system text at an MMR's start may extend over following
 MMRs. If a rehearsal mark blocks that span, the minimum horizontal clearance

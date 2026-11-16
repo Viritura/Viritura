@@ -76,10 +76,10 @@ pub(super) fn bbox_measure_numbers(
     // with regular bar numbers.
     if let Some(count) = ml.multimeasure_rest_count {
         if render_measure_number_here {
-            bbox_multimeasure_number_range(bboxes, ml, staff_y, sp, count);
+            bbox_multimeasure_number_range(bboxes, ml, staff_y, sp, count, config);
         }
         if render_mmr_count_here {
-            bbox_multimeasure_count_number(bboxes, ml, staff_y, sp, mmr_count_y_override);
+            bbox_multimeasure_count_number(bboxes, ml, staff_y, sp, mmr_count_y_override, config);
         }
         return;
     }
@@ -116,6 +116,7 @@ fn bbox_multimeasure_number_range(
     staff_y: f64,
     sp: f64,
     count: u32,
+    config: &LayoutConfig,
 ) {
     let start = match ml.resolved.global.number {
         Some(0) => return,
@@ -126,7 +127,7 @@ fn bbox_multimeasure_number_range(
 
     let font_size = 2.0 * sp;
     let text = format!("{start}\u{2013}{end}");
-    let prefix = super::super::render_measure::multimeasure_rest_structural_prefix(ml, sp);
+    let prefix = super::super::render_measure::multimeasure_rest_structural_prefix(ml, sp, config);
     let center_x = ((ml.x + prefix) + (ml.x + ml.width)) / 2.0;
     let num_y = staff_y + 4.0 * sp + 0.5 * sp;
     let text_w = smufl::serif_bold_text_width(&text, font_size);
@@ -153,9 +154,10 @@ fn bbox_multimeasure_count_number(
     staff_y: f64,
     sp: f64,
     count_y_override: Option<f64>,
+    config: &LayoutConfig,
 ) {
     let Some((left, right, top_y)) =
-        super::super::render_measure::multimeasure_rest_number_extent(ml, staff_y, sp)
+        super::super::render_measure::multimeasure_rest_number_extent(ml, staff_y, sp, config)
     else {
         return;
     };
