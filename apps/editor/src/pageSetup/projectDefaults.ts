@@ -17,7 +17,9 @@ export function setProjectPageDefault(
     for (const [index, definition] of (draft.scores ?? []).entries()) {
       if (pageSetupRoleForScore(score.scores, index, score.layouts, score.parts.length) !== role) continue;
       if (replaceOverrides) delete definition.pageSetup;
-      else if (definition.pageSetup) definition.pageSetup = resolveScorePageSetup(score, index);
+      else if (definition.pageSetup && Object.keys(definition.pageSetup).some((key) => key !== "pageTurns")) {
+        definition.pageSetup = resolveScorePageSetup(score, index);
+      }
     }
     draft.pageSetupDefaults ??= {};
     draft.pageSetupDefaults[role] = structuredClone(setup);

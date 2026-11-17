@@ -1,5 +1,5 @@
 import * as RadixTooltip from "@radix-ui/react-tooltip";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import styles from "./Tooltip.module.css";
 
 export interface TooltipProps {
@@ -30,12 +30,12 @@ export interface TooltipProps {
 // per-button count sane (tooltips are reserved for icon/glyph-only controls
 // and shortcut hints) means plain Radix roots are inexpensive at scale.
 export function Tooltip({ content, children, side = "bottom", open }: TooltipProps) {
-  // Switching a Radix root between an omitted `open` prop (uncontrolled) and
-  // a boolean (controlled) is unsupported. The key deliberately remounts the
-  // root when callers temporarily suppress a tooltip while a popover is open.
-  const controlMode = open === undefined ? "uncontrolled" : "controlled";
+  // The Radix root is always controlled so callers can suppress the tooltip
+  // without remounting the trigger subtree (which would reset stateful
+  // children such as a Select whose open menu caused the suppression).
+  const [hoverOpen, setHoverOpen] = useState(false);
   return (
-    <RadixTooltip.Root key={controlMode} {...(open === undefined ? {} : { open })}>
+    <RadixTooltip.Root open={open ?? hoverOpen} onOpenChange={setHoverOpen}>
       {/* asChild merges Radix's trigger props onto the single child element
        * directly. We deliberately do NOT add a wrapping <span> here — that
        * wrapper used to default to `display: inline-flex`, which silently

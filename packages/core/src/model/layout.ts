@@ -489,7 +489,7 @@ export interface ScoreDefinition {
   useWritten?: boolean;
   pages?: PageDefinition[];
   /** Per-score page setup (page size, margins, staff size). */
-  pageSetup?: PageSetup;
+  pageSetup?: Partial<PageSetup>;
   /** Explicit role when layout membership alone is ambiguous (e.g. a solo part). */
   pageSetupRole?: PageSetupRole;
   /** Independent instrument-name policies for the first and later systems. */

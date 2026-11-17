@@ -17,6 +17,7 @@ mod analysis;
 mod config;
 mod diagnostics;
 mod expansion;
+mod jump_itinerary;
 mod natural_geometry;
 mod navigation_timing;
 mod optimizer;

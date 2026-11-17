@@ -409,7 +409,7 @@ Per boundary it computes a `TurnWindow`:
   are turn-_avoid_ zones (exposed, expressive moments), not bonus windows.
 - **`annotation`** — `None | Vs | Time`, the suggested printed mark.
 
-Repeat and alternate-ending playback further constrains each written boundary.
+Repeat, alternate-ending and jump playback further constrains each written boundary.
 The available time is the minimum over its traversals, including backward
 repeat returns and forward skips over an ending. A rest in a first ending
 cannot supply turn time on the pass that skips it. A return from a sounding
@@ -417,8 +417,11 @@ repeat-end measure to a sounding repeat-start measure supplies zero seconds
 to every intervening cut, even if a long rest precedes the cut in written order.
 Navigation crossings below the quick-turn/minimum-acceptable threshold also
 set `structural`, so a printed multimeasure rest cannot override them. The
-overlay reports the limiting traversal's timing. D.C./D.S. routing remains
-deferred; the symbol-adjacent structural flags still apply.
+overlay reports the limiting traversal's timing. D.C., D.S., al Fine, al Coda
+and To Coda follow the playback navigation rules, including marker positions
+within a measure. Mid-measure silence is conservatively estimated from the
+measure's leading and trailing rest profile. Unresolvable navigation is logged
+and all turn windows are marked impossible rather than treated as safe.
 
 Beats→seconds is a thin, tempo-aware resolver (`TempoMap` in
 [tempo.rs](../../engine/viritura-engine/src/layout/page_turn/tempo.rs)): tempo is
@@ -516,6 +519,23 @@ for each candidate (`TitlePagePolicy::Auto` tries both with/without; `Always` /
 `Never` pin it) and keeps the cheapest. A dedicated title page also frees the
 inline title-block height on the first music page.
 
+In Engrave mode, the **Title page** dropdown beside the system/page-break
+buttons sets this policy for the selected part. **Automatic**, **On**, and
+**Off** explicitly select `auto`, `always`, and `never`. Automatic compares
+both title-page alternatives; On and Off rerun the joint system/page planner
+with the title page required or excluded, respectively. They do not merely add
+or remove a cover from an already chosen plan. The constraint can still leave
+unavoidable unsafe turns, which remain flagged. The control is unavailable for
+full scores, disabled page-turn optimization, and authored pagination.
+
+The override is stored in the score definition's
+`_x.viritura.pageSetup.pageTurns.titlePage`, without copying page dimensions,
+margins, staff size, or system breaks. Page-turn fields inherit the corresponding
+project defaults individually; selecting Automatic stores `auto` rather than
+inheriting a forced title-page policy. Other part-specific settings are preserved.
+Updating project defaults keeps turn-only overrides
+following the new geometry unless custom layouts are explicitly replaced.
+
 ### 4.3 Stage 3 — packer integration
 
 `plan_forced_starts` ([page_turn.rs](../../engine/viritura-engine/src/layout/page_turn.rs))
@@ -588,9 +608,6 @@ Not yet implemented:
 - **Materializing accepted turns to `score.pages[]`** so a chosen pagination
   locks and round-trips, plus engrave-mode lock/unlock and "find a better turn"
   affordances.
-- **Full repeat/jump routing.** `expand_playback_order` honors forward repeats
-  and voltas; D.C./D.S. jumps are not yet routed (their boundaries are still
-  protected conservatively via `structural` flags).
 - **Debounced auto-reflow** while editing in paged view (today: lazy/explicit
   recompute).
 

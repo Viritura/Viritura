@@ -12,6 +12,92 @@ use crate::parse::parse_mnx;
 use std::path::PathBuf;
 
 #[test]
+fn explicit_title_page_policy_replans_with_the_constraint() {
+    use crate::layout::page_turn::{
+        optimize_natural_part, MeasureInk, PageGeometry, PageTurnConfig, SystemHeights,
+        TitlePagePolicy, TurnAnnotation, TurnQuality, TurnWindow,
+    };
+
+    let visible: Vec<_> = (0..12).collect();
+    let baseline: Vec<_> = (0..4)
+        .map(|system| (system * 3..system * 3 + 3).collect())
+        .collect();
+    let ink = [MeasureInk {
+        core: 40.0,
+        ..MeasureInk::default()
+    }; 12];
+    let geometry = PageGeometry {
+        usable_height: 100.0,
+        title_height: 40.0,
+        inter_system_spacing: 0.0,
+    };
+    for (comfortable_boundary, automatic_title) in [(2, false), (5, true)] {
+        let windows: Vec<_> = (0..11)
+            .map(|boundary| {
+                let comfortable = boundary == comfortable_boundary;
+                TurnWindow {
+                    boundary_index: boundary,
+                    turn_seconds: if comfortable { 12.0 } else { 0.0 },
+                    tail_seconds: if comfortable { 12.0 } else { 0.0 },
+                    head_seconds: 0.0,
+                    head_rest_measures: 0,
+                    quality: if comfortable {
+                        TurnQuality::Comfortable
+                    } else {
+                        TurnQuality::Impossible
+                    },
+                    structural: false,
+                    fermata_blocked: false,
+                    annotation: TurnAnnotation::None,
+                }
+            })
+            .collect();
+        let plan = |title_page| {
+            optimize_natural_part(
+                &[30.0; 12],
+                &[],
+                100.0,
+                100.0,
+                &baseline,
+                &SystemHeights { ink: &ink, sp: 0.0 },
+                &visible,
+                12,
+                &windows,
+                &geometry,
+                &PageTurnConfig {
+                    title_page,
+                    first_page_recto: Some(true),
+                    allow_intentional_blanks: false,
+                    ..PageTurnConfig::default()
+                },
+            )
+            .expect("constrained plan")
+        };
+        let automatic = plan(TitlePagePolicy::Auto);
+        let on = plan(TitlePagePolicy::Always);
+        let off = plan(TitlePagePolicy::Never);
+        assert_eq!(automatic.title_page, automatic_title);
+        assert!(on.title_page);
+        assert!(!off.title_page);
+        assert_eq!(on.page_starts, vec![0, 2]);
+        assert_eq!(off.page_starts[1], 1);
+        assert_eq!(
+            automatic,
+            if automatic_title {
+                on.clone()
+            } else {
+                off.clone()
+            }
+        );
+        let opposite = if automatic_title { off } else { on };
+        assert_ne!(
+            opposite.page_starts, automatic.page_starts,
+            "forcing the opposite title policy must recast pages, not just toggle a cover"
+        );
+    }
+}
+
+#[test]
 fn pagination_debug_reports_rest_windows_and_preserves_engraving() {
     let played = serde_json::json!({
         "duration": {"base": "quarter"},
@@ -100,6 +186,78 @@ fn pagination_debug_reports_rest_windows_and_preserves_engraving() {
             assert_eq!(pagination.pages[0].kind, "title");
             assert!(!pagination.pages[0].physical_turn_after);
         }
+    }
+}
+
+#[test]
+fn pagination_debug_rates_jump_crossings_by_playback() {
+    let sound = serde_json::json!({
+        "duration": {"base": "whole"},
+        "notes": [{"pitch": {"step": "C", "octave": 5}}]
+    });
+    let short = serde_json::json!({
+        "duration": {"base": "half"},
+        "notes": [{"pitch": {"step": "C", "octave": 5}}]
+    });
+    let rest = serde_json::json!({"duration": {"base": "half"}, "rest": {}});
+    let global: Vec<_> = (0..48)
+        .map(|index| match index {
+            0 => serde_json::json!({
+                "time": {"count": 4, "unit": 4},
+                "tempos": [{"bpm": 120, "value": {"base": "quarter"}}],
+                "segno": {"location": {"fraction": [0, 1]}}
+            }),
+            35 => serde_json::json!({
+                "jump": {"type": "segno", "location": {"fraction": [1, 1]}}
+            }),
+            _ => serde_json::json!({}),
+        })
+        .collect();
+    let measures: Vec<_> = (0..48)
+        .map(|index| {
+            let content = if index == 0 || index == 35 {
+                vec![sound.clone()]
+            } else {
+                vec![short.clone(), rest.clone()]
+            };
+            serde_json::json!({"sequences": [{"content": content}]})
+        })
+        .collect();
+    let score = parse_mnx(
+        &serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": global},
+            "parts": [{"id": "p", "measures": measures}],
+            "layouts": [{"id": "l", "content": [{"type": "staff", "sources": [{"part": "p"}]}]}],
+            "scores": [{"name": "Jump part", "layout": "l"}]
+        })
+        .to_string(),
+    )
+    .expect("fixture parses");
+    let mut config = LayoutConfig {
+        sp: 10.0,
+        page_width: Some(400.0),
+        page_height: 50.0,
+        page_margin_top: 5.0,
+        page_margin_bottom: 5.0,
+        page_margin_left: 3.0,
+        page_margin_right: 3.0,
+        emit_layout_debug: true,
+        ..LayoutConfig::default()
+    };
+    config.page_turns.enabled = true;
+    let layout = layout_with_mnx_scores(&score, &config, 0);
+    let debug = layout.layout_debug.unwrap().pagination.unwrap();
+    let crossings: Vec<_> = debug
+        .systems
+        .iter()
+        .filter(|system| system.last_measure > 0 && system.last_measure < 35)
+        .collect();
+    assert!(!crossings.is_empty());
+    for system in crossings {
+        let boundary = system.boundary.as_ref().unwrap();
+        assert_eq!(boundary.quality, "impossible");
+        assert!(boundary.structural);
     }
 }
 
