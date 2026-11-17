@@ -143,6 +143,16 @@ export class TargetIndex {
         const target = { partIndex, part: partValue, measureIndex, partMeasure: measureValue, globalMeasure };
         this.measures.set(anchor, target);
         this.register(measureValue);
+        const texts = Array.isArray(measureValue["text"]) ? measureValue["text"] : [];
+        texts.forEach((text) => {
+          if (!isRecord(text)) return;
+          this.register(text);
+          if (Array.isArray(text["text"])) {
+            text["text"].forEach((element) => {
+              if (isRecord(element)) this.register(element);
+            });
+          }
+        });
 
         const sequences = Array.isArray(measureValue["sequences"]) ? measureValue["sequences"] : [];
         const allEvents: PositionedEvent[] = [];
