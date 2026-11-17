@@ -38,6 +38,7 @@ import { CondensedStaffToggles } from "../../condensedStaves";
 const EMPTY_EXPANDED: Set<string> = new Set();
 import { usePlaybackActions, usePlaybackState, useFollowEnabled } from "@viritura/playback";
 import { useLayoutDebugStore } from "../../debug/layoutDebugStore";
+import { usePaginationDebugStore } from "../../debug/pagination";
 import { ContextMenu, type ContextMenuState } from "@viritura/ui";
 
 // Public types live in `./types` and `./imperativeHandle` so this file
@@ -515,7 +516,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           backendRef,
           glyphAtlasRef,
           pageCacheRef,
-          emitLayoutDebug: useLayoutDebugStore.getState().enabled,
+          emitLayoutDebug: useLayoutDebugStore.getState().enabled || usePaginationDebugStore.getState().enabled,
           keepLayoutBackendAlive,
           setWasmReady,
         }),
@@ -635,7 +636,23 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     // Ref to track selectedScoreIndex without triggering the main effect
     const selectedScoreIndexRef = useRef(selectedScoreIndex);
     selectedScoreIndexRef.current = selectedScoreIndex;
-    const debugEnabled = useLayoutDebugStore((s) => s.enabled);
+    const spacingDebugEnabled = useLayoutDebugStore((s) => s.enabled);
+    const paginationDebugEnabled = usePaginationDebugStore((s) => s.enabled);
+    const paginationCategories = usePaginationDebugStore((s) => s.categories);
+    const inspectedSystem = usePaginationDebugStore((s) => s.selectedSystem);
+    const debugEnabled = spacingDebugEnabled || paginationDebugEnabled;
+
+    useEffect(() => {
+      if (printPreview) return;
+      usePaginationDebugStore
+        .getState()
+        .setDiagnostics(paginationDebugEnabled ? (displayListRef.current?.layoutDebug?.pagination ?? null) : null);
+    }, [displayListVersion, paginationDebugEnabled, printPreview, documentGeneration]);
+
+    useEffect(() => {
+      const frame = requestAnimationFrame(() => paintNowRef.current());
+      return () => cancelAnimationFrame(frame);
+    }, [spacingDebugEnabled, paginationDebugEnabled, paginationCategories, inspectedSystem]);
 
     // Compute display list when MNX JSON changes (from document context)
     useEffect(() => {
@@ -873,6 +890,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       // the engine re-runs (its measure cache is independent of the flag).
       backend.setEmitLayoutDebug(debugEnabled);
       backend.invalidateCache();
+      const token = ++viewSwitchTokenRef.current;
       void runSecondaryRelayout({
         mnxJson,
         selectedScoreIndex,
@@ -887,7 +905,8 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         paintNowRef,
         setDisplayListVersion, // no setContentSize for debug path
         forceDirectPaint: true,
-      });
+        isStale: () => viewSwitchTokenRef.current !== token,
+      }).catch((error: unknown) => console.error("[LayoutDebug] Could not update diagnostics:", error));
     }, [
       debugEnabled,
       wasmReady,

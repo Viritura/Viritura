@@ -15,6 +15,7 @@
 
 mod analysis;
 mod config;
+mod diagnostics;
 mod expansion;
 mod natural_geometry;
 mod optimizer;
@@ -26,6 +27,7 @@ pub use analysis::{
     TurnWindow,
 };
 pub use config::{EngravingPreset, PageTurnConfig, PageTurnWeights, TitlePagePolicy};
+pub(crate) use diagnostics::{build_pagination_debug, PaginationDebugInputs};
 use expansion::multimeasure_rest_break_flags;
 pub use expansion::{expand_playback_order, structural_boundary_flags};
 pub(crate) use natural_geometry::{optimize_natural_part, NaturalPartPlan};

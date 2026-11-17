@@ -48,6 +48,8 @@ use super::system_extras::*;
 use super::system_precompute::*;
 use super::system_rendering::*;
 
+mod diagnostics;
+
 /// Per-staff resolve pass: for every flat staff, walk the score's measures
 /// building [`ResolvedMeasure`]s (virtual part measures with clef carry-forward
 /// and transposed key signatures), then place condensing labels (`a 2`, `1.`,
@@ -972,56 +974,35 @@ pub(super) fn layout_auto_flow_mnx_score(
     }
 
     if config.emit_layout_debug {
-        use super::super::debug;
-        let mut systems_dbg: Vec<crate::render::SystemDebug> = (0..system_count)
-            .map(|sys_idx| {
-                let staff_top = system_y_positions[sys_idx];
-                let above_extra = above_staff_extras[sys_idx];
-                let below_extra = below_staff_extras[sys_idx];
-                let bottom_staff_y = dbg_bottom_staff_y[sys_idx];
-                let top_staff = precomp_layouts[sys_idx]
-                    .first()
-                    .map(|s| s.as_slice())
-                    .unwrap_or(&[]);
-                let bottom_staff = precomp_layouts[sys_idx]
-                    .last()
-                    .map(|s| s.as_slice())
-                    .unwrap_or(&[]);
-                let x_start = top_staff.first().map_or(0.0, |ml| ml.x);
-                let x_end = top_staff.last().map_or(x_start, |ml| ml.x + ml.width);
-                let staff_bottom_y = bottom_staff_y + staff_height;
-                crate::render::SystemDebug {
-                    index: sys_idx,
-                    page_index: debug::page_for_system(&dl.pages, sys_idx),
-                    bbox_top_y: staff_top - above_extra,
-                    staff_top_y: staff_top,
-                    staff_bottom_y,
-                    bbox_bottom_y: staff_bottom_y + below_extra,
-                    x_start,
-                    x_end,
-                    above_extra,
-                    above_breakdown: debug::above_breakdown(top_staff, sp, config.stem_length),
-                    below_extra,
-                    below_breakdown: debug::below_breakdown(bottom_staff, sp, config.stem_length),
-                    measure_extremes: debug::measure_extremes(top_staff, sp, config.stem_length),
-                    staff_pairs: dbg_staff_pairs.get(sys_idx).cloned().unwrap_or_default(),
-                    measure_spacings: debug::measure_spacings(top_staff, |idx| {
-                        max_widths.get(idx).copied()
-                    }),
-                    inter_system_gap_to_next: None,
-                }
-            })
-            .collect();
-        debug::link_inter_system_gaps(&mut systems_dbg, sp);
-        dl.layout_debug = Some(crate::render::LayoutDebugInfo {
-            systems: systems_dbg,
-            sp,
-            staff_height,
-            min_note_spacing: config.min_note_spacing * sp,
-            shortest_duration_space: config.shortest_duration_space * sp,
-            spacing_increment: config.spacing_increment * sp,
-            placement: debug::build_placement_debug(config, sp),
+        let mut info = diagnostics::build_system_debug(diagnostics::SystemDebugInputs {
+            config,
+            pages: &dl.pages,
+            layouts: &precomp_layouts,
+            positions: &system_y_positions,
+            extras: &extras_pairs,
+            bottom_staff_y: &dbg_bottom_staff_y,
+            staff_pairs: &dbg_staff_pairs,
+            max_widths,
         });
+        info.pagination = (!chunked).then(|| {
+            page_turn::build_pagination_debug(page_turn::PaginationDebugInputs {
+                config,
+                global: &score.global.measures,
+                part: single_source_part_index(flat_staves)
+                    .map(|index| score.parts[index].measures.as_slice()),
+                systems,
+                visible_indices,
+                natural_widths,
+                heights: &system_heights_px,
+                protrusions: &extras_pairs,
+                pages: &dl.pages,
+                placed: &info.systems,
+                title_height: title_height_px,
+                plan: natural_part_plan.as_ref(),
+                authored_breaks: !layout_breaks.is_empty(),
+            })
+        });
+        dl.layout_debug = Some(info);
     }
 
     tick!("slurs+ties+pages+debug");

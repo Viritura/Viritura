@@ -11,9 +11,11 @@ pub(crate) mod text_fonts;
 mod command;
 mod debug;
 mod display_list;
+mod pagination_debug;
 mod types;
 
 pub use command::*;
 pub use debug::*;
 pub use display_list::*;
+pub use pagination_debug::*;
 pub use types::*;

@@ -12,6 +12,98 @@ use crate::parse::parse_mnx;
 use std::path::PathBuf;
 
 #[test]
+fn pagination_debug_reports_rest_windows_and_preserves_engraving() {
+    let played = serde_json::json!({
+        "duration": {"base": "quarter"},
+        "notes": [{"pitch": {"step": "C", "octave": 5}}]
+    });
+    let rest = serde_json::json!({"duration": {"base": "half"}});
+    let measure = serde_json::json!({
+        "sequences": [{"content": [played.clone(), played, rest]}]
+    });
+    let global: Vec<_> = (0..48)
+        .map(|index| {
+            if index == 0 {
+                serde_json::json!({
+                    "id": "m0", "time": {"count": 4, "unit": 4},
+                    "tempos": [{"bpm": 120, "value": {"base": "quarter"}}]
+                })
+            } else {
+                serde_json::json!({"id": format!("m{index}")})
+            }
+        })
+        .collect();
+    let score = parse_mnx(
+        &serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": global},
+            "parts": [{"id": "p", "measures": vec![measure; 48]}],
+            "layouts": [{"id": "l", "content": [{"type": "staff", "sources": [{"part": "p"}]}]}],
+            "scores": [{"name": "Diagnostic part", "layout": "l"}]
+        })
+        .to_string(),
+    )
+    .expect("diagnostic fixture parses");
+    for title in [
+        crate::layout::page_turn::TitlePagePolicy::Never,
+        crate::layout::page_turn::TitlePagePolicy::Always,
+    ] {
+        let mut config = LayoutConfig {
+            sp: 10.0,
+            page_width: Some(400.0),
+            page_height: 50.0,
+            page_margin_top: 5.0,
+            page_margin_bottom: 5.0,
+            page_margin_left: 3.0,
+            page_margin_right: 3.0,
+            ..LayoutConfig::default()
+        };
+        config.page_turns.enabled = true;
+        config.page_turns.title_page = title;
+        config.page_turns.allow_intentional_blanks = false;
+        let plain = layout_with_mnx_scores(&score, &config, 0);
+        assert!(plain.layout_debug.is_none());
+        config.emit_layout_debug = true;
+        let diagnostic = layout_with_mnx_scores(&score, &config, 0);
+        assert_eq!(
+            serde_json::to_value(&plain.commands).unwrap(),
+            serde_json::to_value(&diagnostic.commands).unwrap(),
+            "debug emission must not change engraving"
+        );
+        assert_eq!(
+            serde_json::to_value(&plain.pages).unwrap(),
+            serde_json::to_value(&diagnostic.pages).unwrap()
+        );
+        let info = diagnostic.layout_debug.unwrap();
+        let pagination = info.pagination.expect("pagination diagnostics emitted");
+        assert!(pagination.pages.len() > 1);
+        assert_eq!(pagination.systems.len(), info.systems.len());
+        assert!(pagination.pages.iter().all(|p| p.capacity > 0.0));
+        for system in &pagination.systems {
+            assert!(system.natural_width > 0.0 && system.available_width > 0.0);
+            if system.last_measure == 47 {
+                assert!(system.boundary.is_none());
+                assert!(!system.page_break_after && !system.physical_turn_after);
+                continue;
+            }
+            let boundary = system.boundary.as_ref().expect("non-final boundary");
+            assert!((boundary.tail_seconds - 1.0).abs() < 1e-6);
+            assert_eq!(boundary.head_seconds, 0.0);
+            assert_eq!(boundary.quality, "tight");
+            let page_index = info.systems[system.system_index].page_index;
+            assert_eq!(
+                system.physical_turn_after,
+                system.page_break_after && page_index.is_multiple_of(2)
+            );
+        }
+        if title == crate::layout::page_turn::TitlePagePolicy::Always {
+            assert_eq!(pagination.pages[0].kind, "title");
+            assert!(!pagination.pages[0].physical_turn_after);
+        }
+    }
+}
+
+#[test]
 #[ignore = "requires VIRITURA_PAGE_TURN_SCORE pointing to a local MNX score"]
 fn local_score_page_turn_regression() {
     let path = std::env::var("VIRITURA_PAGE_TURN_SCORE").expect("local MNX path");

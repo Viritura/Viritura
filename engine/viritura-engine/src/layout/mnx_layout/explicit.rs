@@ -912,6 +912,7 @@ pub fn layout_with_mnx_scores_cached(
     if config.emit_layout_debug && !dbg_systems.is_empty() {
         super::super::debug::link_inter_system_gaps(&mut dbg_systems, sp);
         dl.layout_debug = Some(crate::render::LayoutDebugInfo {
+            pagination: None,
             systems: dbg_systems,
             sp,
             staff_height,

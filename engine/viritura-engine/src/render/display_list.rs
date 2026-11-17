@@ -730,6 +730,7 @@ mod translate_tests {
 
         // layout_debug.systems[*]
         dl.layout_debug = Some(LayoutDebugInfo {
+            pagination: None,
             systems: vec![SystemDebug {
                 index: 0,
                 page_index: 0,

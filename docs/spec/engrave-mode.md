@@ -17,6 +17,37 @@ touching `parts[]`.
 | **Reset breaks**                                               | Toolbar "Reset to auto layout"                                                      | clears `pages[]`                                           |
 | **Restore hidden staves**                                      | Toolbar "Show all hidden staves" (conditional)                                      | strips derived `system.layout` overrides                   |
 
+## Page and system diagnostics
+
+Settings > Advanced > **Page & System Debug** controls an editor-only overlay,
+independent of **Layout Debug** (note spacing). Its switches show:
+
+- Rest seconds before and after each selected page break, with physical turns
+  distinguished from facing-page transitions. Optionally show unselected
+  system-end boundaries too.
+- Page capacity and natural-budget fill versus the final placed span. The latter
+  includes vertical justification; it is not the planner's density input.
+- System density (natural width / rendered content width), and its reciprocal
+  width scale (below 1 means compression, above 1 means stretching).
+- Navigation and fermata/breath hazards, plus hypothetical physical-turn costs.
+
+The boundary inspector highlights its system and exposes rest counts and
+pre-measurement versus final page membership. Diagnostics can be exported as
+JSON for comparisons. Labels use one-based written positions, including pickups,
+not custom printed measure numbers.
+
+Settings persist locally, not in MNX. Neither overlay appears in print preview
+or exported notation. Engine diagnostics are opt-in through the existing debug
+channel; enabling either overlay requests that channel without enabling the
+other overlay's painting.
+
+Automatic-flow layouts expose these diagnostics; authored `pages[].systems[]`
+and horizon view currently do not. Rest analysis requires a single source part.
+Unselected system ends are opportunities, not certified feasible alternatives:
+constrained replanning, rejected-candidate ranks, and individual rebalancing-pass
+traces are not yet exposed. Reported membership changes identify measured
+repacking, not the particular optimization pass responsible.
+
 ## Architecture
 
 ```mermaid

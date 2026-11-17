@@ -142,6 +142,7 @@ export interface SlurPreview {
 // ── Vertical-spacing debug sidecar ────────────────────────────────
 
 export interface LayoutDebugInfo {
+  pagination?: PaginationDebugInfo;
   systems: SystemDebug[];
   /** Pixels per spatium used by this layout. */
   sp: number;
@@ -160,6 +161,47 @@ export interface LayoutDebugInfo {
    * ink bbox from these numbers. Absent on older engine builds.
    */
   placement?: Record<string, PlacementDebug>;
+}
+
+export interface PaginationDebugInfo {
+  status: string;
+  comfortableSecs: number;
+  vsSecs: number;
+  minFillFraction: number;
+  targetFillFraction: number;
+  firstPageRecto: boolean;
+  titlePage: boolean;
+  measuredRepacking: boolean;
+  pages: {
+    pageIndex: number;
+    frameTop: number;
+    frameBottom: number;
+    capacity: number;
+    contentHeight: number;
+    placedHeight: number;
+    isFinalMusicPage: boolean;
+    kind: "music" | "title" | "blank";
+    physicalTurnAfter: boolean;
+  }[];
+  systems: {
+    systemIndex: number;
+    firstMeasure: number;
+    lastMeasure: number;
+    naturalWidth: number;
+    availableWidth: number;
+    pageBreakAfter: boolean;
+    physicalTurnAfter: boolean;
+    plannedPageBreakAfter: boolean;
+    boundary: {
+      tailSeconds: number;
+      headSeconds: number;
+      headRestMeasures: number;
+      quality: "comfortable" | "quick" | "tight" | "impossible";
+      structural: boolean;
+      fermataBlocked: boolean;
+      turnCost: number;
+    } | null;
+  }[];
 }
 
 /** Resolved placement metrics for one dependent kind, in pixels. */

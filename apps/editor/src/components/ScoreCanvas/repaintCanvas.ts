@@ -13,7 +13,7 @@ import {
   type SpatialIndex,
 } from "@viritura/renderer";
 import { useLayoutDebugStore } from "../../debug/layoutDebugStore";
-import { paintLayoutDebug } from "../../debug/layoutDebugPainter";
+import { paintScoreDebug, usePaginationDebugStore } from "../../debug/pagination";
 import { getPaperPattern } from "./paperPattern";
 import { PAGE_STACK_GAP, computePagePlacements, placementCommandOffset } from "./viewportGeometry";
 import { suppressElementCommands } from "./dragPreviewSuppression";
@@ -471,8 +471,8 @@ function paintLayoutDebugIfEnabled(
 ): void {
   if (!displayList.layoutDebug) return;
   const { enabled, categories } = useLayoutDebugStore.getState();
-  if (!enabled) return;
-  paintLayoutDebug(ctx, displayList.layoutDebug, {
+  if (!enabled && !usePaginationDebugStore.getState().enabled) return;
+  paintScoreDebug(ctx, displayList.layoutDebug, {
     categories,
     zoom,
     offsetX,
