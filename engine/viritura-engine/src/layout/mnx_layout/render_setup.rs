@@ -36,14 +36,13 @@ pub(super) fn render_head(
             page_width,
         )
     };
-    dl.commands.extend(commands);
+    dl.extend_page_furniture(commands);
     if !dedicated_title_page {
-        dl.commands
-            .extend(super::super::page::render_first_page_copyright(
-                score.metadata(),
-                config,
-                page_width,
-            ));
+        dl.extend_page_furniture(super::super::page::render_first_page_copyright(
+            score.metadata(),
+            config,
+            page_width,
+        ));
     }
     super::super::page::render_page_numbers_excluding(
         dl,

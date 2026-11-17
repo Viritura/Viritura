@@ -44,17 +44,12 @@ pub fn page_overflows(dl: &DisplayList, config: &LayoutConfig) -> Vec<PageOverfl
             .partition_point(|page| page.y_offset <= center)
             .saturating_sub(1);
         let page = &dl.pages[page_index];
-        let musical = dl
+        let is_page_furniture = dl
             .element_ids
             .get(index)
             .and_then(|id| id.as_deref())
-            .is_some_and(|id| {
-                id.split('/').any(|segment| {
-                    segment
-                        .strip_prefix('m')
-                        .is_some_and(|value| value.parse::<usize>().is_ok())
-                })
-            });
+            .is_some_and(|id| id.starts_with("page/"));
+        let musical = !is_page_furniture;
         let frame_top = page.y_offset
             + if musical {
                 config.page_margin_top * config.sp
@@ -147,5 +142,41 @@ mod tests {
             ..config
         };
         assert!(validate_page_fit(&dl, &unpaged).is_ok());
+    }
+
+    #[test]
+    fn reports_overflow_for_untagged_multimeasure_rest_ink() {
+        let config = LayoutConfig {
+            sp: 10.0,
+            page_width: Some(200.0),
+            page_margin_top: 1.0,
+            page_margin_bottom: 1.0,
+            ..LayoutConfig::default()
+        };
+        let mut dl = DisplayList::new(200.0, 100.0);
+        dl.pages.push(PageLayout {
+            page_number: 0,
+            y_offset: 0.0,
+            height: 100.0,
+            system_indices: vec![0],
+        });
+        dl.push(RenderCommand::DrawRect {
+            x: 20.0,
+            y: 89.0,
+            w: 60.0,
+            h: 4.0,
+            color: "#000".into(),
+        });
+        dl.push_page_furniture(RenderCommand::DrawRect {
+            x: 20.0,
+            y: 95.0,
+            w: 60.0,
+            h: 3.0,
+            color: "#000".into(),
+        });
+
+        let overflows = page_overflows(&dl, &config);
+        assert_eq!(overflows.len(), 1);
+        assert!((overflows[0].bottom_overflow_sp - 0.3).abs() < 1e-9);
     }
 }

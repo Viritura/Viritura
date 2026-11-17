@@ -234,10 +234,8 @@ pub fn layout_full_score_cached(
     if config.page_width.is_some() {
         let title_y = config.page_margin_top * sp;
         let title_cmds = render_title_block(score.metadata(), config, title_y, page_w);
-        for cmd in title_cmds {
-            dl.commands.push(cmd);
-        }
-        dl.commands.extend(super::page::render_first_page_copyright(
+        dl.extend_page_furniture(title_cmds);
+        dl.extend_page_furniture(super::page::render_first_page_copyright(
             score.metadata(),
             config,
             page_w,

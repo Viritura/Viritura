@@ -395,7 +395,7 @@ pub fn layout_score_cached(
 
     let mut dl = DisplayList::new(total_width, total_height);
     dl.set_parts(score, [part_index]);
-    dl.commands.extend(page::render_first_page_copyright(
+    dl.extend_page_furniture(page::render_first_page_copyright(
         score.metadata(),
         config,
         total_width,

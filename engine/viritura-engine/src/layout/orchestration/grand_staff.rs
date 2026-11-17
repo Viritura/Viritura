@@ -736,7 +736,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
 
     let mut dl = DisplayList::new(page_w, total_height);
     dl.set_parts(score, [part_index]);
-    dl.commands.extend(page::render_first_page_copyright(
+    dl.extend_page_furniture(page::render_first_page_copyright(
         score.metadata(),
         config,
         page_w,

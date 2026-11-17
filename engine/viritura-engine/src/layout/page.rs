@@ -746,7 +746,7 @@ pub(crate) fn render_page_numbers_excluding(
             (page_width - margin_right_px, TextAlign::Right)
         };
 
-        dl.push(RenderCommand::DrawText {
+        dl.push_page_furniture(RenderCommand::DrawText {
             x,
             y,
             text: page_num.to_string(),

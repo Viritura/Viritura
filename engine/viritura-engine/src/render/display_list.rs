@@ -139,6 +139,19 @@ impl DisplayList {
         self.element_ids.push(Some(element_id));
     }
 
+    pub(crate) fn push_page_furniture(&mut self, cmd: RenderCommand) {
+        self.push_tagged(cmd, "page/furniture".into());
+    }
+
+    pub(crate) fn extend_page_furniture(
+        &mut self,
+        commands: impl IntoIterator<Item = RenderCommand>,
+    ) {
+        for command in commands {
+            self.push_page_furniture(command);
+        }
+    }
+
     /// Emit one selectable command and derive every geometry store from that
     /// exact command. Prefer this over separately calling `push_tagged` and
     /// reconstructing an `ElementBBox` in a later layout pass.

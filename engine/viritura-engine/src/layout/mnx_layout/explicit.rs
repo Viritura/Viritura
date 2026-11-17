@@ -80,16 +80,14 @@ fn render_explicit_chrome(
     }
     let title_y = config.page_margin_top * sp;
     let title_cmds = render_title_block(score.metadata(), config, title_y, page_w);
-    for cmd in title_cmds {
-        dl.commands.push(cmd);
-    }
+    dl.extend_page_furniture(title_cmds);
 
     if let Some(label) = part_score_name {
         render_part_score_name(dl, label, config, page_w);
     }
 
     render_page_numbers(dl, pages, config, page_w);
-    dl.commands.extend(render_first_page_copyright(
+    dl.extend_page_furniture(render_first_page_copyright(
         score.metadata(),
         config,
         page_w,
