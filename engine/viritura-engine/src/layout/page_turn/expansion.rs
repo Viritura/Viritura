@@ -6,13 +6,10 @@
 //! music the player encounters next is not simply the next written measure, or
 //! the same boundary is traversed on multiple passes with different content.
 //!
-//! Rather than fully simulating every pass (which needs a complete repeat/jump
-//! interpreter and is brittle for malformed input), we take the conservative
-//! interim rule from the design doc: **flag any boundary touched by repeat,
-//! volta, or jump structure as structurally complex**, so the optimizer avoids
-//! placing a physical turn there. We also provide a simple forward-repeat
-//! playback expansion (voltas honored, jumps not yet routed) that is useful for
-//! tempo/length reasoning and is fully unit-tested.
+//! Boundaries beside navigation symbols are conservatively flagged. Repeat
+//! playback expansion also feeds `navigation_timing`, which checks rest time
+//! at every crossing of an intervening written boundary, including backward
+//! returns and skipped alternate endings. D.C./D.S. jumps are not yet routed.
 
 use crate::model::measure::GlobalMeasure;
 

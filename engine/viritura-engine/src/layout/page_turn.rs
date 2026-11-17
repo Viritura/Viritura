@@ -18,6 +18,7 @@ mod config;
 mod diagnostics;
 mod expansion;
 mod natural_geometry;
+mod navigation_timing;
 mod optimizer;
 mod spread_casting;
 mod tempo;
@@ -271,7 +272,15 @@ pub fn analyze_turn_windows(
     let tempo = TempoMap::from_global(global_measures, config.default_bpm);
     let structural = structural_boundary_flags(global_measures);
     let mmr_breaks = multimeasure_rest_break_flags(global_measures);
-    compute_turn_windows(&profiles, &tempo, &structural, &mmr_breaks, config)
+    let mut windows = compute_turn_windows(&profiles, &tempo, &structural, &mmr_breaks, config);
+    navigation_timing::constrain_navigation_windows(
+        &mut windows,
+        global_measures,
+        &profiles,
+        &tempo,
+        config,
+    );
+    windows
 }
 
 pub(crate) fn analyze_turn_windows_for_visible_blocks(
@@ -294,7 +303,15 @@ pub(crate) fn analyze_turn_windows_for_visible_blocks(
     let tempo = TempoMap::from_global(global_measures, config.default_bpm);
     let structural = structural_boundary_flags(global_measures);
     let mmr_breaks = multimeasure_rest_break_flags(global_measures);
-    compute_turn_windows(&profiles, &tempo, &structural, &mmr_breaks, config)
+    let mut windows = compute_turn_windows(&profiles, &tempo, &structural, &mmr_breaks, config);
+    navigation_timing::constrain_navigation_windows(
+        &mut windows,
+        global_measures,
+        &profiles,
+        &tempo,
+        config,
+    );
+    windows
 }
 
 #[cfg(test)]

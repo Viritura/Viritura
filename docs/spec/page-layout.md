@@ -409,6 +409,17 @@ Per boundary it computes a `TurnWindow`:
   are turn-_avoid_ zones (exposed, expressive moments), not bonus windows.
 - **`annotation`** — `None | Vs | Time`, the suggested printed mark.
 
+Repeat and alternate-ending playback further constrains each written boundary.
+The available time is the minimum over its traversals, including backward
+repeat returns and forward skips over an ending. A rest in a first ending
+cannot supply turn time on the pass that skips it. A return from a sounding
+repeat-end measure to a sounding repeat-start measure supplies zero seconds
+to every intervening cut, even if a long rest precedes the cut in written order.
+Navigation crossings below the quick-turn/minimum-acceptable threshold also
+set `structural`, so a printed multimeasure rest cannot override them. The
+overlay reports the limiting traversal's timing. D.C./D.S. routing remains
+deferred; the symbol-adjacent structural flags still apply.
+
 Beats→seconds is a thin, tempo-aware resolver (`TempoMap` in
 [tempo.rs](../../engine/viritura-engine/src/layout/page_turn/tempo.rs)): tempo is
 piecewise-constant between marks; unknown tempo falls back to

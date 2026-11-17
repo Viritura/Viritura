@@ -786,10 +786,10 @@ fn beethoven_cello_dense_turn_pages_remain_vertically_justified() {
 }
 
 /// Beethoven 5, movement I is the production-scale regression for global part
-/// casting. Clarinet 2 recasts its natural systems around a comfortable turn
-/// after page 1, so Auto needs no title page and the part fits three pages.
+/// casting. Clarinet 2 must avoid the apparently comfortable rest inside the
+/// exposition: the repeat return crosses that cut with insufficient turn time.
 #[test]
-fn beethoven_clarinet_two_recasts_around_comfortable_turn() {
+fn beethoven_clarinet_two_recasts_beyond_exposition_repeat() {
     let json = include_str!(
         "../../../../../packages/format/fixtures/mnx/beethoven-symphony-5-movement-1.mnx"
     );
@@ -824,6 +824,17 @@ fn beethoven_clarinet_two_recasts_around_comfortable_turn() {
     let greedy = layout_with_mnx_scores(&score, &config, score_index);
     config.page_turns.enabled = true;
     config.page_turns.allow_intentional_blanks = false;
+    let windows = crate::layout::page_turn::analyze_turn_windows(
+        &score.global.measures,
+        &score.parts[5].measures,
+        &config.page_turns,
+    );
+    assert_eq!(
+        windows[81].quality,
+        crate::layout::page_turn::TurnQuality::Tight
+    );
+    assert!(windows[81].turn_seconds < config.page_turns.min_acceptable_secs);
+    assert!(windows[81].structural);
     let planned = layout_with_mnx_scores(&score, &config, score_index);
 
     assert_eq!(
@@ -846,22 +857,25 @@ fn beethoven_clarinet_two_recasts_around_comfortable_turn() {
             .pages
             .first()
             .is_some_and(|page| !page.system_indices.is_empty()),
-        "Auto should omit the title page when page 1 already ends on a comfortable turn"
+        "Auto should omit a title page that cannot improve turn quality"
     );
     assert_eq!(
         planned.pages.len(),
         3,
         "Clarinet 2 should fill three music pages"
     );
-    let turns: Vec<_> = physical_turns(&planned)
-        .into_iter()
-        .map(turn_quality)
-        .collect();
-    assert_eq!(
-        turns,
-        ["comfortable"],
-        "Clarinet 2 should need one comfortable turn"
+    let turns = physical_turns(&planned);
+    assert_eq!(turns.len(), 1);
+    assert!(
+        turns[0].last_measure >= 124,
+        "the physical turn must follow the exposition repeat"
     );
+    assert_eq!(
+        turn_quality(turns[0]),
+        "tight",
+        "the limited rest after the exposition must not be mislabeled comfortable"
+    );
+    assert!(!turns[0].boundary.as_ref().unwrap().structural);
     let first_spread_counts = (
         planned.pages[1].system_indices.len(),
         planned.pages[2].system_indices.len(),
