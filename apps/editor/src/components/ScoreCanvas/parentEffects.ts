@@ -63,9 +63,10 @@ interface ParentNotificationsArgs {
 export function printOverflowPages(displayList: DisplayList | null, bottomMarginPx: number): number[] {
   const pages = displayList?.pages ?? [];
   const bounds = displayList?.measureBounds ?? [];
-  if (pages.length === 0 || bounds.length === 0) return [];
+  // The engine measures all emitted ink, including dynamics, lyrics, and curves.
+  const overflow = new Set<number>((displayList?.pageOverflows ?? []).map((entry) => entry.pageNumber + 1));
+  if (pages.length === 0 || bounds.length === 0) return [...overflow].sort((a, b) => a - b);
 
-  const overflow = new Set<number>();
   for (const bound of bounds) {
     if (bound.isHidden || bound.ghostStaff) continue;
     const page = pages.find(

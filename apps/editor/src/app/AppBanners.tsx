@@ -60,8 +60,8 @@ export function AppBanners(props: AppBannersProps): React.ReactElement {
       {fileError && <FileErrorBanner error={fileError} />}
       {!fileError && printOverflowPages.length > 0 && (
         <div style={printWarningBannerStyle}>
-          ⚠️ {pageLabel} {pageRanges} exceed the printable bottom margin. Reduce the staff size, choose a larger page,
-          or hide unused staves before printing.
+          ⚠️ {pageLabel} {pageRanges} exceed the printable margins. Reduce the staff size, choose a larger page, or hide
+          unused staves before printing.
         </div>
       )}
       {trackBannerFile && !fileError && (

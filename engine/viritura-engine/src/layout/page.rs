@@ -12,7 +12,7 @@ mod instrument_names;
 mod packing;
 mod part_score_name;
 mod turn_sequence;
-pub use containment::{validate_page_fit, PageFitError};
+pub use containment::{page_overflows, validate_page_fit};
 pub(crate) use copyright::{
     copyright_footer_height, render_copyright_footer, render_first_page_copyright,
 };

@@ -4,7 +4,6 @@ import { render, screen } from "@testing-library/react";
 import { printOverflowPages } from "../components/ScoreCanvas/parentEffects";
 import { AppBanners } from "../app/AppBanners";
 import { formatPageRanges } from "../app/printOverflow";
-import { pageBottomClipRect } from "../components/ScoreCanvas/repaintCanvas";
 
 function displayList(staffBottoms: number[]): DisplayList {
   return {
@@ -40,6 +39,12 @@ describe("printOverflowPages", () => {
     dl.measureBounds![1]!.isHidden = true;
     expect(printOverflowPages(dl, 10)).toEqual([]);
   });
+
+  it("includes engine-measured ink overflow beyond the staff lines", () => {
+    const dl = displayList([90, 190]);
+    dl.pageOverflows = [{ pageNumber: 1, topOverflowSp: 0, bottomOverflowSp: 0.43 }];
+    expect(printOverflowPages(dl, 10)).toEqual([2]);
+  });
 });
 
 describe("print overflow banner", () => {
@@ -55,22 +60,11 @@ describe("print overflow banner", () => {
       />,
     );
 
-    expect(screen.getByText(/Pages 2, 4 exceed the printable bottom margin/)).toBeTruthy();
+    expect(screen.getByText(/Pages 2, 4 exceed the printable margins/)).toBeTruthy();
     expect(screen.getByText(/Reduce the staff size/)).toBeTruthy();
   });
 
   it("compacts consecutive page numbers into readable ranges", () => {
     expect(formatPageRanges([1, 2, 3, 5, 7, 8])).toBe("1–3, 5, 7–8");
-  });
-});
-
-describe("pageBottomClipRect", () => {
-  it("preserves margin furniture while clipping at the printable bottom", () => {
-    expect(pageBottomClipRect(10, 20, 200, 300, { top: 15, right: 12, bottom: 18, left: 10 })).toEqual({
-      x: 10,
-      y: 20,
-      width: 200,
-      height: 282,
-    });
   });
 });

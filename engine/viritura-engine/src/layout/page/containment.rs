@@ -1,17 +1,10 @@
-//! Last-resort rejection of vertical overflow after all overlays are emitted.
+//! Last-resort detection of vertical overflow after all overlays are emitted.
 
 use super::super::LayoutConfig;
 use super::vertical_ink_extent;
-use crate::render::DisplayList;
+use crate::render::{DisplayList, PageOverflow};
 
-#[derive(Debug, PartialEq)]
-pub struct PageFitError {
-    pub page_number: usize,
-    pub top_overflow_sp: f64,
-    pub bottom_overflow_sp: f64,
-}
-
-impl std::fmt::Display for PageFitError {
+impl std::fmt::Display for PageOverflow {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             formatter,
@@ -23,13 +16,23 @@ impl std::fmt::Display for PageFitError {
     }
 }
 
-impl std::error::Error for PageFitError {}
+impl std::error::Error for PageOverflow {}
 
-/// Validate emitted ink, including late cross-system curves. Musical commands
-/// must stay inside the printable frame; page furniture may occupy the margins.
-pub fn validate_page_fit(dl: &DisplayList, config: &LayoutConfig) -> Result<(), PageFitError> {
+/// Validate emitted ink, returning the first overflowing page.
+pub fn validate_page_fit(dl: &DisplayList, config: &LayoutConfig) -> Result<(), PageOverflow> {
+    match page_overflows(dl, config).into_iter().next() {
+        Some(overflow) => Err(overflow),
+        None => Ok(()),
+    }
+}
+
+/// Measure emitted ink, including late cross-system curves, and report the
+/// worst overflow per page. Musical commands must stay inside the printable
+/// frame; page furniture may occupy the margins.
+pub fn page_overflows(dl: &DisplayList, config: &LayoutConfig) -> Vec<PageOverflow> {
+    let mut overflows: Vec<PageOverflow> = Vec::new();
     if config.page_width.is_none() || dl.pages.is_empty() {
-        return Ok(());
+        return overflows;
     }
     for (index, command) in dl.commands.iter().enumerate() {
         let Some((top, bottom)) = vertical_ink_extent(command) else {
@@ -64,17 +67,30 @@ pub fn validate_page_fit(dl: &DisplayList, config: &LayoutConfig) -> Result<(), 
             } else {
                 0.0
             };
-        let top_overflow = (frame_top - top).max(0.0);
-        let bottom_overflow = (bottom - frame_bottom).max(0.0);
-        if top_overflow > 1e-6 || bottom_overflow > 1e-6 {
-            return Err(PageFitError {
-                page_number: page.page_number,
-                top_overflow_sp: top_overflow / config.sp,
-                bottom_overflow_sp: bottom_overflow / config.sp,
-            });
+        let top_overflow = (frame_top - top).max(0.0) / config.sp;
+        let bottom_overflow = (bottom - frame_bottom).max(0.0) / config.sp;
+        if top_overflow <= 1e-6 && bottom_overflow <= 1e-6 {
+            continue;
         }
+        let entry = match overflows
+            .iter()
+            .position(|overflow| overflow.page_number == page.page_number)
+        {
+            Some(position) => &mut overflows[position],
+            None => {
+                overflows.push(PageOverflow {
+                    page_number: page.page_number,
+                    top_overflow_sp: 0.0,
+                    bottom_overflow_sp: 0.0,
+                });
+                overflows.last_mut().expect("overflow was just pushed")
+            }
+        };
+        entry.top_overflow_sp = entry.top_overflow_sp.max(top_overflow);
+        entry.bottom_overflow_sp = entry.bottom_overflow_sp.max(bottom_overflow);
     }
-    Ok(())
+    overflows.sort_by_key(|overflow| overflow.page_number);
+    overflows
 }
 
 #[cfg(test)]
@@ -118,6 +134,13 @@ mod tests {
         let error = validate_page_fit(&dl, &config).unwrap_err();
         assert_eq!(error.page_number, 0);
         assert!((error.bottom_overflow_sp - 0.8).abs() < 1e-9);
+
+        let mut deeper = dl.commands[0].clone();
+        deeper.translate_in_place(0.0, 5.0);
+        dl.push_tagged(deeper, "p0/m1/slur".into());
+        let overflows = page_overflows(&dl, &config);
+        assert_eq!(overflows.len(), 1, "one worst-case entry per page");
+        assert!((overflows[0].bottom_overflow_sp - 1.3).abs() < 1e-9);
 
         let unpaged = LayoutConfig {
             page_width: None,

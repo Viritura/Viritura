@@ -1199,6 +1199,14 @@ impl LayoutCache {
         self.pending_patch.take().map(|patch| patch.to_binary())
     }
 
+    /// Carry whole-frame page overflow diagnostics on the pending patch
+    /// overlay, which the client reads as the reconstructed frame's value.
+    pub fn set_pending_page_overflows(&mut self, overflows: Vec<crate::render::PageOverflow>) {
+        if let Some(patch) = self.pending_patch.as_mut() {
+            patch.overlay.page_overflows = overflows;
+        }
+    }
+
     /// Append `seg` to the pending patch frame's overlay, if one is recorded.
     /// Used by the caller to fold post-layout global content (e.g. a part-score
     /// name) into the delta so reconstruction stays byte-identical.

@@ -150,14 +150,6 @@ interface TileRenderOpts {
   canvasBg: string;
   paperFill: string | CanvasPattern | null;
   pageStackGap: number;
-  printableInsets: PageInsets;
-}
-
-interface PageInsets {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
 }
 
 export interface PaintFrameOpts {
@@ -174,7 +166,6 @@ export interface PaintFrameOpts {
 ull paints ink only (no paper or shadow). */
   paperFill?: string | CanvasPattern | null;
   pageStackGap?: number;
-  printableInsets?: PageInsets;
 }
 
 function paintHorizonPaper(
@@ -251,7 +242,6 @@ export class TileCache {
   private cachedPaperFill: string | CanvasPattern | null = "";
   /** Last page-stack gap (px) used. Invalidates tiles on change. */
   private cachedPageStackGap = 0;
-  private cachedPrintableInsets = "";
 
   /** Per-page command split for page view (rebuilt when version changes). */
   private pageCommands: RenderCommand[][] | null = null;
@@ -385,7 +375,7 @@ export class TileCache {
    * Render a single tile at (col, row) in tile-grid coordinates.
    */
   private renderTile(col: number, row: number, opts: TileRenderOpts): HTMLCanvasElement {
-    const { displayList, zoom, dpr, glyphAtlas, viewMode, canvasBg, paperFill, pageStackGap, printableInsets } = opts;
+    const { displayList, zoom, dpr, glyphAtlas, viewMode, canvasBg, paperFill, pageStackGap } = opts;
     const ts = this.tileSize;
     const deviceTs = Math.round(ts * dpr);
     const canvas = document.createElement("canvas");
@@ -423,7 +413,6 @@ export class TileCache {
         contentH,
         margin,
         pageStackGap,
-        printableInsets,
       );
     } else if (viewMode === "horizon" && this.horizonBuckets) {
       this.paintHorizonBucketed(ctx, displayList, glyphAtlas, contentX, contentY, contentW, contentH, margin);
@@ -510,7 +499,6 @@ export class TileCache {
     contentH: number,
     margin: number,
     pageStackGap: number,
-    printableInsets: PageInsets,
   ): void {
     const cullX1 = contentX - margin;
     const cullX2 = contentX + contentW + margin;
@@ -524,7 +512,7 @@ export class TileCache {
       const pageCullY2 = contentY + contentH + margin - dy;
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, page.yOffset + dy, displayList.width, Math.max(0, page.height - printableInsets.bottom));
+      ctx.rect(0, page.yOffset + dy, displayList.width, page.height);
       ctx.clip();
       ctx.translate(0, dy);
       paintCommandsCulled(ctx, cmds, glyphAtlas, cullX1, cullX2, pageCullY1, pageCullY2);
@@ -571,7 +559,6 @@ export class TileCache {
       canvasBg = "#e0e2ea",
       paperFill = "#FFFFFF",
       pageStackGap = 0,
-      printableInsets = { top: 0, right: 0, bottom: 0, left: 0 },
     } = opts;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -581,7 +568,7 @@ export class TileCache {
     // glyph blits are 1:1 with device pixels instead of resampled (aliased).
     glyphAtlas?.ensureDeviceScale(dpr * zoom);
 
-    this.maybeInvalidateForViewChange(zoom, viewMode, dpr, canvasBg, paperFill, pageStackGap, printableInsets);
+    this.maybeInvalidateForViewChange(zoom, viewMode, dpr, canvasBg, paperFill, pageStackGap);
     this.maybeInvalidateForVersionChange(version, displayList, viewMode);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -603,7 +590,6 @@ export class TileCache {
         canvasBg,
         paperFill,
         pageStackGap,
-        printableInsets,
       },
       scrollX,
       scrollY,
@@ -617,17 +603,14 @@ export class TileCache {
     canvasBg: string,
     paperFill: string | CanvasPattern | null,
     pageStackGap: number,
-    printableInsets: PageInsets,
   ): void {
-    const printableInsetsKey = `${printableInsets.top},${printableInsets.right},${printableInsets.bottom},${printableInsets.left}`;
     if (
       zoom !== this.cachedZoom ||
       viewMode !== this.cachedViewMode ||
       dpr !== this.cachedDpr ||
       canvasBg !== this.cachedCanvasBg ||
       paperFill !== this.cachedPaperFill ||
-      pageStackGap !== this.cachedPageStackGap ||
-      printableInsetsKey !== this.cachedPrintableInsets
+      pageStackGap !== this.cachedPageStackGap
     ) {
       this.invalidate();
       this.cachedZoom = zoom;
@@ -636,7 +619,6 @@ export class TileCache {
       this.cachedCanvasBg = canvasBg;
       this.cachedPaperFill = paperFill;
       this.cachedPageStackGap = pageStackGap;
-      this.cachedPrintableInsets = printableInsetsKey;
     }
   }
 

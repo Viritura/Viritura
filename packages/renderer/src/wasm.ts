@@ -279,6 +279,15 @@ function normalizeDisplayList(raw: Record<string, unknown>): DisplayList {
       turnSeconds: (w["turnSeconds"] ?? w["turn_seconds"]) as number,
     }));
   }
+  // Normalize page_overflows → pageOverflows
+  if (!dl.pageOverflows && (raw as Record<string, unknown>)["page_overflows"]) {
+    const rawOverflows = (raw as Record<string, unknown>)["page_overflows"] as Record<string, unknown>[];
+    dl.pageOverflows = rawOverflows.map((o) => ({
+      pageNumber: (o["pageNumber"] ?? o["page_number"]) as number,
+      topOverflowSp: (o["topOverflowSp"] ?? o["top_overflow_sp"]) as number,
+      bottomOverflowSp: (o["bottomOverflowSp"] ?? o["bottom_overflow_sp"]) as number,
+    }));
+  }
   return dl;
 }
 

@@ -158,7 +158,7 @@ export interface ScoreCanvasProps {
   onLayoutsChange?: (layouts: string[]) => void;
   /** Called when the page count changes (page view only; 0 for horizon view). */
   onPageCountChange?: (count: number) => void;
-  /** Called with 1-based page numbers whose staff lines exceed the printable bottom margin. */
+  /** Called with 1-based page numbers whose notation exceeds the printable margins. */
   onPrintOverflowChange?: (pages: number[]) => void;
   /** View mode: "page" (paper layout with system breaks) or "horizon" (continuous, no breaks) */
   viewMode?: ViewMode;

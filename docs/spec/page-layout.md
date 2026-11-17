@@ -248,13 +248,16 @@ it may also relax the fill floor for pages containing at least two systems to
 preserve safe turns. If no safe plan exists, the ordinary optimizer retains its
 explicit page-turn warnings.
 
-The WASM layout entry points also validate emitted vertical ink after late
+The WASM layout entry points also measure emitted vertical ink after late
 cross-system overlays. Tagged musical ink must fit the printable frame, and
-other painted commands must fit the physical page. A residual overflow returns
-an explicit layout error with the page number and excess in staff spaces,
-rather than returning a clipped layout. This includes a single system that
-cannot fit after permitted staff-gap compression. Paper dimensions and music
-scale are never silently changed.
+other painted commands must fit the physical page. A residual overflow does not
+reject the layout: the display list is returned unclipped with
+`page_overflows`, recording each affected page's worst top and bottom excess in
+staff spaces. Binary display lists carry this as their final trailer, and
+patch frames carry it on the overlay. The editor names the affected pages in
+its non-blocking print warning. This includes a single system that cannot fit
+after permitted staff-gap compression. Paper dimensions and music scale are
+never silently changed.
 
 After same-system slurs are laid out, rehearsal frames move upward to clear
 overlapping above-staff slur ink by their configured vertical padding. This

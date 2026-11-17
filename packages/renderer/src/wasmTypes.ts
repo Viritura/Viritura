@@ -57,6 +57,9 @@ export interface DisplayList {
   /** Flagged physical page turns from the auto-page-break optimizer. Populated
    * only when page turns are enabled and the layout is paged. */
   pageTurnWarnings?: PageTurnWarning[];
+  /** Pages whose notation exceeds the printable frame. The layout is still
+   * complete; consumers should warn rather than refuse to display it. */
+  pageOverflows?: PageOverflow[];
   /** Transient non-enumerable PatchFrame partitions used for coarse direct-paint culling. */
   retainedRenderLayers?: RetainedRenderLayer[];
   /** Transient one-shot hook that updates flattened compatibility stores after
@@ -86,6 +89,14 @@ export interface PageTurnWarning {
   kind: string;
   /** Available turn time in seconds at this boundary. */
   turnSeconds: number;
+}
+
+/** Worst vertical overflow on one page. Mirrors the Rust `render::PageOverflow`. */
+export interface PageOverflow {
+  /** Zero-based page number. */
+  pageNumber: number;
+  topOverflowSp: number;
+  bottomOverflowSp: number;
 }
 
 /**

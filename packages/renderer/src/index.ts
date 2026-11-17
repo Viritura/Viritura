@@ -78,6 +78,7 @@ export type {
   CachedLayoutEngine,
   LayoutDebugInfo,
   PageTurnWarning,
+  PageOverflow,
   SystemDebug,
   AboveBreakdown,
   BelowBreakdown,
