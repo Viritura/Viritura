@@ -35,10 +35,12 @@ pub(super) fn globally_plan_part_systems(
     flat_staves: &[FlatStaff],
     baseline_systems: &[Vec<usize>],
     natural_widths: &[f64],
+    tempo_widths: &[f64],
     visible_indices: &[usize],
     content_width_first: Option<f64>,
     content_width_subseq: Option<f64>,
     title_height_px: f64,
+    ink_inputs: &super::measure_ink_profile::InkProfileInputs<'_>,
 ) -> Option<page_turn::NaturalPartPlan> {
     if !config.page_turns.enabled || config.page_width.is_none() {
         return None;
@@ -73,17 +75,10 @@ pub(super) fn globally_plan_part_systems(
         visible_indices,
         &page_turns,
     );
-    // Before exact system layouts exist, estimate each system from the complete
-    // staff geometry rather than from a nominal measures-per-line count. The
-    // exact packer later honors these boundaries and only adds a safety break
-    // when measured content would overflow.
-    let staff_count = flat_staves.len().max(1) as f64;
-    let nominal_system_height = (staff_count * 4.0 + (staff_count - 1.0).max(0.0) * 7.0 + 8.0) * sp;
-    let system_heights = vec![nominal_system_height; baseline_systems.len()];
-    let mut system_gaps = vec![sp; baseline_systems.len()];
-    if let Some(first) = system_gaps.first_mut() {
-        *first = 0.0;
-    }
+    // Estimate each candidate system from the ink of the measures it would
+    // hold, using the same staff placement and gap rules as measured packing.
+    let ink = super::measure_ink_profile::measure_ink_profile(ink_inputs);
+    let heights = page_turn::SystemHeights { ink: &ink, sp };
     let usable_height =
         (config.page_height - config.page_margin_top - config.page_margin_bottom) * sp;
     let geometry = page_turn::PageGeometry {
@@ -93,11 +88,11 @@ pub(super) fn globally_plan_part_systems(
     };
     page_turn::optimize_natural_part(
         natural_widths,
+        tempo_widths,
         first_width,
         subsequent_width,
         baseline_systems,
-        &system_heights,
-        &system_gaps,
+        &heights,
         visible_indices,
         score.global.measures.len(),
         &windows,

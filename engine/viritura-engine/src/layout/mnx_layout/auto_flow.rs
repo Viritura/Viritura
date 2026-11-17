@@ -237,6 +237,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     let title_height_px = title_block_height(score.metadata(), config).max(
         super::super::page::part_score_name_height(part_score_name, config),
     );
+    let tempo_demands = tempo_fit_demands(&all_staff_resolved, &budget, &mmr, config);
     let natural_part_plan = layout_breaks
         .is_empty()
         .then(|| {
@@ -247,24 +248,30 @@ pub(super) fn layout_auto_flow_mnx_score(
                 flat_staves,
                 &plan.systems,
                 &budget.natural_widths,
+                &tempo_demands,
                 &mmr.visible_indices,
                 plan.content_width_first,
                 plan.content_width_subseq,
                 title_height_px,
+                &super::measure_ink_profile::InkProfileInputs {
+                    score,
+                    config,
+                    flat_staves,
+                    group_ranges,
+                    resolved: &all_staff_resolved,
+                    ottavas: &all_staff_ottavas,
+                    mmr: &mmr,
+                    mmr_labels: mmr_label_map,
+                    budget: &budget,
+                    baseline: &plan,
+                },
             )
         })
         .flatten();
     if let Some(global_plan) = &natural_part_plan {
         plan.systems.clone_from(&global_plan.systems);
     }
-    fit_tempo_system_breaks(
-        &mut plan,
-        &all_staff_resolved,
-        &budget,
-        &mmr,
-        &forced_system_starts,
-        config,
-    );
+    fit_tempo_system_breaks(&mut plan, &tempo_demands, &budget, &forced_system_starts);
     tick!("  plan_system_breaks");
 
     // Stitched-horizon: un-paged view with a chunk width set. The galley is

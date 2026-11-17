@@ -386,6 +386,25 @@ fn system_count(dl: &crate::render::DisplayList) -> usize {
         .map_or(0, |index| index + 1)
 }
 
+/// Systems followed by a physical page turn, from the pagination diagnostics.
+fn physical_turns(dl: &crate::render::DisplayList) -> Vec<&crate::render::PaginationSystemDebug> {
+    dl.layout_debug
+        .as_ref()
+        .and_then(|info| info.pagination.as_ref())
+        .expect("pagination diagnostics emitted")
+        .systems
+        .iter()
+        .filter(|system| system.physical_turn_after)
+        .collect()
+}
+
+fn turn_quality(system: &crate::render::PaginationSystemDebug) -> &str {
+    system
+        .boundary
+        .as_ref()
+        .map_or("none", |boundary| boundary.quality.as_str())
+}
+
 #[test]
 fn page_turns_leave_full_scores_and_authored_pagination_unchanged() {
     fn assert_unchanged(json: &str, score_index: usize) {
@@ -452,37 +471,21 @@ fn beethoven_flute_bassoons_and_violins_keep_dense_natural_casting() {
         }));
     }
 
-    let flute = &score.scores[2];
-    let longest_rest = flute
-        .multimeasure_rests
-        .iter()
-        .max_by_key(|range| range.duration)
-        .expect("Flute 1 has collapsed rests");
-    let rest_start = score
-        .global
-        .measures
-        .iter()
-        .position(|measure| measure.id.as_deref() == Some(longest_rest.start.as_str()))
-        .expect("Flute MMR start is global");
-    let flute_layout = layout_with_mnx_scores(&score, &planned_config, 2);
-    let rest_system = flute_layout
-        .measure_bounds
-        .iter()
-        .find(|bound| bound.index == rest_start)
-        .map(|bound| bound.system_index)
-        .expect("Flute MMR is visible");
-    let rest_page = flute_layout
-        .pages
-        .iter()
-        .position(|page| page.system_indices.contains(&rest_system))
-        .expect("Flute MMR belongs to a page");
+    // Flute 1 fits three dense music pages; its one turn needs no tight rest.
+    let mut flute_config = planned_config.clone();
+    flute_config.emit_layout_debug = true;
+    let flute_layout = layout_with_mnx_scores(&score, &flute_config, 2);
     assert_eq!(
-        flute_layout.pages[rest_page].system_indices.last(),
-        Some(&rest_system),
-        "Flute 1's longest visible MMR should remain at the outgoing page foot"
+        flute_layout.pages.len(),
+        3,
+        "Flute 1 should fill three music pages"
     );
+    let turns: Vec<_> = physical_turns(&flute_layout)
+        .into_iter()
+        .map(turn_quality)
+        .collect();
+    assert_eq!(turns, ["quick"], "Flute 1 should need one playable turn");
 }
-
 #[test]
 fn beethoven_bassoon_one_keeps_mmr_before_page_break() {
     let score = parse_mnx(include_str!(
@@ -582,6 +585,14 @@ fn beethoven_dense_strings_turn_after_printed_mmrs() {
         "../../../../../packages/format/fixtures/mnx/beethoven-symphony-5-movement-1.mnx"
     ))
     .expect("fixture parses");
+    let measure_index = |id: &str| {
+        score
+            .global
+            .measures
+            .iter()
+            .position(|measure| measure.id.as_deref() == Some(id))
+            .expect("MMR start is global")
+    };
     for score_index in [15, 16, 17] {
         let mut config = LayoutConfig {
             sp: 1.625 * 12.0,
@@ -591,107 +602,49 @@ fn beethoven_dense_strings_turn_after_printed_mmrs() {
             page_margin_bottom: 15.0 / 1.625,
             page_margin_left: 15.0 / 1.625,
             page_margin_right: 15.0 / 1.625,
+            emit_layout_debug: true,
             ..LayoutConfig::default()
         };
         config.page_turns.enabled = true;
         config.page_turns.allow_intentional_blanks = false;
         let layout = layout_with_mnx_scores(&score, &config, score_index);
         let definition = &score.scores[score_index];
-        let measure_index = |id: &str| {
-            score
-                .global
-                .measures
-                .iter()
-                .position(|measure| measure.id.as_deref() == Some(id))
-                .expect("MMR start is global")
-        };
-        let system_at = |measure: usize| {
-            layout
-                .measure_bounds
-                .iter()
-                .find(|bound| bound.index == measure)
-                .map(|bound| bound.system_index)
-                .expect("MMR has a visible bound")
-        };
+        let name = definition.name.as_deref().unwrap_or("string part");
         assert_eq!(
             layout.pages.len(),
             5,
-            "dense strings use five physical pages"
+            "{name} uses a title page plus four music pages"
         );
-        if score_index == 17 {
-            assert!(
-                layout
-                    .pages
-                    .first()
-                    .is_some_and(|page| page.system_indices.is_empty()),
-                "Viola should use a title page to eliminate first-page sparsity"
-            );
-            let turn_rest = definition
-                .multimeasure_rests
-                .iter()
-                .find(|rest| rest.duration == 7)
-                .expect("Viola has the target seven-bar MMR");
-            assert_eq!(
-                layout.pages[2].system_indices.last(),
-                Some(&system_at(measure_index(&turn_rest.start))),
-                "Viola's first physical turn must follow the MMR near measure 279"
-            );
-            assert!(
-                layout
-                    .pages
-                    .iter()
-                    .skip(1)
-                    .all(|page| page.system_indices.len() >= 10),
-                "Viola's title plan should keep every music page naturally dense"
-            );
-            continue;
-        }
         assert!(
-            layout
-                .pages
-                .first()
-                .is_some_and(|page| !page.system_indices.is_empty()),
-            "violins omit the title page"
+            layout.pages[0].system_indices.is_empty(),
+            "{name} should use the title page so one turn serves both spreads"
         );
-        let early_rest = definition
-            .multimeasure_rests
-            .iter()
-            .filter(|rest| rest.duration == 4)
-            .filter_map(|rest| {
-                let start = measure_index(&rest.start);
-                (start < 70).then_some(start)
-            })
-            .max()
-            .expect("string part has an early four-bar MMR");
+        let turns = physical_turns(&layout);
+        assert_eq!(turns.len(), 1, "{name} should need a single physical turn");
+        let turn = turns[0];
         assert_eq!(
-            layout.pages[0].system_indices.last(),
-            Some(&system_at(early_rest)),
-            "page 1 must end on the early four-bar MMR"
+            layout.pages[2].system_indices.last(),
+            Some(&turn.system_index),
+            "{name} turns after its first spread"
         );
-
-        let later_rest_systems: Vec<_> = definition
+        let printed_mmr_ends: Vec<_> = definition
             .multimeasure_rests
             .iter()
-            .filter(|rest| rest.duration == 4)
-            .filter_map(|rest| {
-                let start = measure_index(&rest.start);
-                (302..=318).contains(&start).then(|| system_at(start))
-            })
+            .map(|rest| measure_index(&rest.start) + rest.duration as usize - 1)
             .collect();
         assert!(
-            layout.pages[2]
-                .system_indices
-                .last()
-                .is_some_and(|system| later_rest_systems.contains(system)),
-            "page 3 must end on a four-bar MMR between measures 303 and 322"
+            printed_mmr_ends.contains(&turn.last_measure),
+            "{name}'s turn must follow a printed MMR, not measure {}",
+            turn.last_measure + 1
         );
         assert!(
-            layout.pages[3].system_indices.len() > layout.pages[4].system_indices.len(),
-            "page 4 should keep natural density and leave final-page sparsity on page 5"
+            layout.pages[1..4]
+                .iter()
+                .all(|page| page.system_indices.len() >= 10),
+            "{name} should keep non-final music pages naturally dense"
         );
     }
 }
-
 #[test]
 fn beethoven_every_part_keeps_acceptable_physical_turns() {
     let score = parse_mnx(include_str!(
@@ -788,32 +741,17 @@ fn beethoven_cello_dense_turn_pages_remain_vertically_justified() {
             .is_some_and(|page| page.system_indices.is_empty()),
         "Cello should use the title page to shift turn parity"
     );
-    let turn_rest = score.scores[18]
-        .multimeasure_rests
-        .iter()
-        .find(|rest| rest.duration == 8)
-        .expect("Cello has the target MMR");
-    let rest_start = score
-        .global
-        .measures
-        .iter()
-        .position(|measure| measure.id.as_deref() == Some(turn_rest.start.as_str()))
-        .expect("MMR start is global");
-    let rest_system = layout
-        .measure_bounds
-        .iter()
-        .find(|bound| bound.index == rest_start)
-        .map(|bound| bound.system_index)
-        .expect("MMR has a visible bound");
+    let turns = physical_turns(&layout);
+    assert_eq!(turns.len(), 1, "Cello should need a single physical turn");
     assert_eq!(
         layout.pages[2].system_indices.last(),
-        Some(&rest_system),
-        "Cello's first physical turn must follow the MMR near measure 280"
+        Some(&turns[0].system_index),
+        "Cello turns after its first spread"
     );
-    assert_eq!(
-        layout.pages[3].system_indices.first(),
-        Some(&(rest_system + 1)),
-        "music after the Cello MMR must begin the incoming page"
+    assert!(
+        matches!(turn_quality(turns[0]), "comfortable" | "quick"),
+        "Cello's turn should follow a playable rest, got {}",
+        turn_quality(turns[0])
     );
     assert!(
         layout
@@ -848,10 +786,10 @@ fn beethoven_cello_dense_turn_pages_remain_vertically_justified() {
 }
 
 /// Beethoven 5, movement I is the production-scale regression for global part
-/// casting. Clarinet 2's 33-bar MMR must stay on the outgoing turn page, with a
-/// title page shifting the first physical turn after two dense music pages.
+/// casting. Clarinet 2 recasts its natural systems around a comfortable turn
+/// after page 1, so Auto needs no title page and the part fits three pages.
 #[test]
-fn beethoven_clarinet_two_keeps_long_mmr_before_dense_turn() {
+fn beethoven_clarinet_two_recasts_around_comfortable_turn() {
     let json = include_str!(
         "../../../../../packages/format/fixtures/mnx/beethoven-symphony-5-movement-1.mnx"
     );
@@ -903,32 +841,26 @@ fn beethoven_clarinet_two_keeps_long_mmr_before_dense_turn() {
         mmr_system < 30,
         "the original system near 21 must not become a synthetic system {mmr_system}"
     );
-    let mmr_page = planned
-        .pages
-        .iter()
-        .position(|page| page.system_indices.contains(&mmr_system))
-        .expect("MMR system belongs to a page");
-
     assert!(
         planned
             .pages
             .first()
-            .is_some_and(|page| page.system_indices.is_empty()),
-        "Auto should elect the title page when it shifts the long-rest turn onto the physical boundary"
+            .is_some_and(|page| !page.system_indices.is_empty()),
+        "Auto should omit the title page when page 1 already ends on a comfortable turn"
     );
     assert_eq!(
-        mmr_page, 2,
-        "title page + two music pages should put the MMR at the first physical turn"
+        planned.pages.len(),
+        3,
+        "Clarinet 2 should fill three music pages"
     );
+    let turns: Vec<_> = physical_turns(&planned)
+        .into_iter()
+        .map(turn_quality)
+        .collect();
     assert_eq!(
-        planned.pages[mmr_page].system_indices.last(),
-        Some(&mmr_system),
-        "the full visible MMR must remain at the outgoing page foot"
-    );
-    assert_eq!(
-        planned.pages[mmr_page + 1].system_indices.first(),
-        Some(&(mmr_system + 1)),
-        "the system following the MMR must open the incoming page"
+        turns,
+        ["comfortable"],
+        "Clarinet 2 should need one comfortable turn"
     );
     let first_spread_counts = (
         planned.pages[1].system_indices.len(),

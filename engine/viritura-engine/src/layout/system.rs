@@ -184,26 +184,8 @@ pub(crate) fn enforce_tempo_system_breaks(
         let mut start = 0;
         while start < system.len() {
             let slice = &system[start..];
-            let total: f64 = slice
-                .iter()
-                .map(|&mi| widths.get(mi).copied().unwrap_or(0.0))
-                .sum::<f64>()
-                .max(f64::EPSILON);
-            // Find the first measure (after the system's first) whose tempo
-            // can't fit in the room remaining to the justified right edge.
-            let mut cum = 0.0;
-            let mut split_at: Option<usize> = None;
-            for (k, &mi) in slice.iter().enumerate() {
-                let tw = tempo_widths.get(mi).copied().unwrap_or(0.0);
-                if k > 0 && tw > 0.0 {
-                    let room = available_width * (1.0 - cum / total);
-                    if tw > room {
-                        split_at = Some(k);
-                        break;
-                    }
-                }
-                cum += widths.get(mi).copied().unwrap_or(0.0);
-            }
+            let split_at =
+                first_tempo_overflow(slice.iter().copied(), widths, tempo_widths, available_width);
             match split_at {
                 Some(k) => {
                     result.push(slice[..k].to_vec());
@@ -217,6 +199,31 @@ pub(crate) fn enforce_tempo_system_breaks(
         }
     }
     result
+}
+
+/// Offset of the first measure after a system's opening whose tempo cannot fit
+/// in the room left to the justified right edge. Planners use this to reject
+/// systems that [`enforce_tempo_system_breaks`] would otherwise split later.
+pub(crate) fn first_tempo_overflow(
+    measures: impl Iterator<Item = usize> + Clone,
+    widths: &[f64],
+    tempo_widths: &[f64],
+    available_width: f64,
+) -> Option<usize> {
+    if available_width <= 0.0 {
+        return None;
+    }
+    let width = |mi: usize| widths.get(mi).copied().unwrap_or(0.0);
+    let total = measures.clone().map(width).sum::<f64>().max(f64::EPSILON);
+    let mut cum = 0.0;
+    for (k, mi) in measures.enumerate() {
+        let tw = tempo_widths.get(mi).copied().unwrap_or(0.0);
+        if k > 0 && tw > 0.0 && tw > available_width * (1.0 - cum / total) {
+            return Some(k);
+        }
+        cum += width(mi);
+    }
+    None
 }
 
 /// Plan how a system's left-anchored text markings (tempo / direction text)

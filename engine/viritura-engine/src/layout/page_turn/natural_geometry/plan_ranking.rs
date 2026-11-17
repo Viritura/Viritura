@@ -28,25 +28,36 @@ pub(super) fn pagination_turn_rank(
             let window =
                 boundary_after_visible_position(visible_indices, total_measures, visible_end)
                     .and_then(|boundary| window_at_boundary(windows, Some(boundary)));
-            let engraving_rest_turn = collapsed_measure_range_len(visible_indices, visible_end)
-                .is_some_and(|length| length >= 4);
-            let bad = window.is_none_or(|window| {
-                window.structural
-                    || window.fermata_blocked
-                    || (!engraving_rest_turn
-                        && matches!(window.quality, TurnQuality::Tight | TurnQuality::Impossible))
-            });
-            let non_comfortable = window.is_none_or(|window| {
-                window.structural
-                    || window.fermata_blocked
-                    || (!engraving_rest_turn && !matches!(window.quality, TurnQuality::Comfortable))
-            });
-            bad_turns += usize::from(bad);
-            non_comfortable_turns += usize::from(non_comfortable);
+            let (bad, non_comfortable) = turn_grade(window, visible_indices, visible_end);
+            bad_turns += bad;
+            non_comfortable_turns += non_comfortable;
         }
         physical_page += 1 + usize::from(has_blank);
     }
     (bad_turns, non_comfortable_turns)
+}
+
+/// Grade one physical turn after visible position `visible_end` as
+/// `(bad, non_comfortable)` counts. A printed multimeasure rest of four or
+/// more bars makes a turn playable regardless of the tempo estimate, but only
+/// the timing itself can make it comfortable.
+pub(super) fn turn_grade(
+    window: Option<&TurnWindow>,
+    visible_indices: &[usize],
+    visible_end: usize,
+) -> (usize, usize) {
+    let engraving_rest_turn =
+        collapsed_measure_range_len(visible_indices, visible_end).is_some_and(|length| length >= 4);
+    let blocked = |window: &TurnWindow| window.structural || window.fermata_blocked;
+    let bad = window.is_none_or(|window| {
+        blocked(window)
+            || (!engraving_rest_turn
+                && matches!(window.quality, TurnQuality::Tight | TurnQuality::Impossible))
+    });
+    let non_comfortable = window.is_none_or(|window| {
+        blocked(window) || !matches!(window.quality, TurnQuality::Comfortable)
+    });
+    (usize::from(bad), usize::from(non_comfortable))
 }
 
 pub(super) fn title_page_lacks_strong_turn(

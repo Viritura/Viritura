@@ -12,16 +12,22 @@ use super::analysis::{TurnQuality, TurnWindow};
 use super::config::{PageTurnConfig, TitlePagePolicy};
 use super::optimizer::{is_physical_turn, page_fill_is_allowed, turn_cost, PageGeometry};
 use super::spread_casting::{baseline_plan, cast_two_page_spreads, pagination_density_cost};
-use crate::layout::system::MAX_COMPRESSION_OVERFLOW;
+use crate::layout::system::{first_tempo_overflow, MAX_COMPRESSION_OVERFLOW};
 
 mod long_mmr_casting;
 mod plan_ranking;
+mod sparse_page_rebalancing;
+mod system_height;
 mod turn_rebalancing;
+
+pub(crate) use system_height::{MeasureInk, SystemHeights};
 
 use long_mmr_casting::pull_opening_long_mmr_into_prior_spread;
 use plan_ranking::{
-    pagination_sparse_page_count, pagination_turn_rank, title_page_lacks_strong_turn, PlanRank,
+    pagination_sparse_page_count, pagination_turn_rank, title_page_lacks_strong_turn, turn_grade,
+    PlanRank,
 };
+use sparse_page_rebalancing::{rebalance_sparse_facing_pages, rebalance_sparse_penultimate_page};
 use turn_rebalancing::{cast_dense_mmr_turns, rebalance_sparse_turn_pages};
 
 const SYSTEM_CAST_WEIGHT: f64 = 0.25;
@@ -59,8 +65,31 @@ struct StateKey {
 
 #[derive(Debug, Clone, Copy)]
 struct StateValue {
+    /// `(bad, non_comfortable)` physical turns so far. Turn playability
+    /// dominates every density and casting cost, matching [`PlanRank`].
+    turns: (usize, usize),
     cost: f64,
     node: usize,
+    /// Content height of the open page, carried along the path because
+    /// content-derived system heights and gaps are not a function of the key.
+    content: f64,
+    /// Extent of the last system on the open page.
+    last: MeasureInk,
+}
+
+impl StateValue {
+    /// Prefer more playable turns, then the cheaper path, then the one
+    /// leaving more room on the open page.
+    fn improves_on(&self, current: &Self) -> bool {
+        match self.turns.cmp(&current.turns) {
+            std::cmp::Ordering::Less => true,
+            std::cmp::Ordering::Greater => false,
+            std::cmp::Ordering::Equal => {
+                self.cost < current.cost
+                    || (self.cost <= current.cost && self.content < current.content - 1e-9)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -89,6 +118,12 @@ fn system_fits(prefix: &[f64], start: usize, end: usize, available: f64) -> bool
     end == start + 1
         || (available > 0.0
             && span_width(prefix, start, end) <= available * MAX_COMPRESSION_OVERFLOW + 1e-6)
+}
+
+/// Whether every tempo marking in the system fits; the measured layout would
+/// otherwise split it and silently recast all later systems and page turns.
+fn tempo_fits(widths: &[f64], tempo: &[f64], start: usize, end: usize, available: f64) -> bool {
+    tempo.is_empty() || first_tempo_overflow(start..end, widths, tempo, available).is_none()
 }
 
 fn system_cast_cost(width: f64, available: f64) -> f64 {
@@ -185,219 +220,6 @@ fn window_at_boundary(windows: &[TurnWindow], boundary: Option<usize>) -> Option
         .find(|window| window.boundary_index == boundary)
 }
 
-/// Move a sparse penultimate page's turn later when a usable later turn fits.
-///
-/// Spread balancing can leave the page immediately before the final page below
-/// the vertical-justification floor. When that page ends at a physical turn,
-/// prefer a later Comfortable/V.S. boundary that fills it more naturally. The
-/// final page is intentionally allowed to absorb the resulting slack.
-fn rebalance_sparse_penultimate_page(
-    plan: &mut NaturalPartPlan,
-    system_heights: &[f64],
-    system_gaps: &[f64],
-    visible_indices: &[usize],
-    total_measures: usize,
-    windows: &[TurnWindow],
-    geometry: &PageGeometry,
-    config: &PageTurnConfig,
-) {
-    let page_count = plan.page_starts.len();
-    if page_count < 2 {
-        return;
-    }
-
-    let page = page_count - 2;
-    let physical_page = usize::from(plan.title_page)
-        + page
-        + plan
-            .blank_pages_before
-            .iter()
-            .filter(|&&start| start <= plan.page_starts[page])
-            .count();
-    let next_start = plan.page_starts[page + 1];
-    if plan.blank_pages_before.contains(&next_start)
-        || !is_physical_turn(physical_page % 2, plan.first_page_recto)
-    {
-        return;
-    }
-
-    let start = plan.page_starts[page];
-    let end = system_heights.len();
-    let capacity = geometry.usable_height
-        - if start == 0 && !plan.title_page {
-            geometry.title_height
-        } else {
-            0.0
-        };
-    if capacity <= 0.0 {
-        return;
-    }
-    let current_content = page_content_height(
-        system_heights,
-        system_gaps,
-        start,
-        next_start,
-        geometry.inter_system_spacing,
-    );
-    if current_content / capacity >= config.vertical_justify_threshold {
-        return;
-    }
-
-    let mut selected: Option<(f64, usize)> = None;
-    for split in (next_start + 1)..end {
-        let left_content = page_content_height(
-            system_heights,
-            system_gaps,
-            start,
-            split,
-            geometry.inter_system_spacing,
-        );
-        if left_content > capacity {
-            break;
-        }
-        let right_content = page_content_height(
-            system_heights,
-            system_gaps,
-            split,
-            end,
-            geometry.inter_system_spacing,
-        );
-        let right_capacity = geometry.usable_height;
-        if right_capacity <= 0.0 || (split < end - 1 && right_content > right_capacity) {
-            continue;
-        }
-
-        let visible_end = plan.systems[..split].iter().map(Vec::len).sum::<usize>();
-        let boundary =
-            boundary_after_visible_position(visible_indices, total_measures, visible_end);
-        let Some(window) = window_at_boundary(windows, boundary) else {
-            continue;
-        };
-        if !matches!(window.quality, TurnQuality::Comfortable | TurnQuality::Vs) {
-            continue;
-        }
-
-        let candidate_cost = super::optimizer::density_cost(left_content, capacity, false, config)
-            + turn_cost(window, config);
-        let replace = selected
-            .as_ref()
-            .is_none_or(|(cost, previous_split): &(f64, usize)| {
-                candidate_cost < *cost - 1e-9
-                    || ((candidate_cost - *cost).abs() <= 1e-9 && split > *previous_split)
-            });
-        if replace {
-            selected = Some((candidate_cost, split));
-        }
-    }
-
-    if let Some((_, split)) = selected {
-        plan.page_starts[page + 1] = split;
-    }
-}
-
-/// Rebalance a sparse page against its facing page before optimizing later
-/// spreads. A later spread must not reserve all of its systems if that leaves
-/// the preceding page below the justification floor.
-fn rebalance_sparse_facing_pages(
-    plan: &mut NaturalPartPlan,
-    system_heights: &[f64],
-    system_gaps: &[f64],
-    visible_indices: &[usize],
-    geometry: &PageGeometry,
-    config: &PageTurnConfig,
-) {
-    if plan.page_starts.len() < 3 {
-        return;
-    }
-
-    let mut physical_pages = Vec::with_capacity(plan.page_starts.len());
-    let mut physical_page = usize::from(plan.title_page);
-    for (page, _) in plan.page_starts.iter().enumerate() {
-        physical_pages.push(physical_page);
-        if page + 1 < plan.page_starts.len() {
-            physical_page += 1 + usize::from(
-                plan.blank_pages_before
-                    .contains(&plan.page_starts[page + 1]),
-            );
-        }
-    }
-
-    for page in 0..plan.page_starts.len() - 2 {
-        if physical_pages[page + 1] != physical_pages[page] + 1
-            || is_physical_turn(physical_pages[page] % 2, plan.first_page_recto)
-        {
-            continue;
-        }
-
-        let start = plan.page_starts[page];
-        let current_split = plan.page_starts[page + 1];
-        let end = plan.page_starts[page + 2];
-        let visible_end = plan.systems[..current_split].iter().map(Vec::len).sum();
-        if ends_collapsed_measure_range(visible_indices, visible_end) {
-            continue;
-        }
-        let left_capacity = geometry.usable_height
-            - if start == 0 && !plan.title_page {
-                geometry.title_height
-            } else {
-                0.0
-            };
-        let right_capacity = geometry.usable_height;
-        if left_capacity <= 0.0 || right_capacity <= 0.0 {
-            continue;
-        }
-
-        let current_content = page_content_height(
-            system_heights,
-            system_gaps,
-            start,
-            current_split,
-            geometry.inter_system_spacing,
-        );
-        if current_content / left_capacity >= config.vertical_justify_threshold {
-            continue;
-        }
-
-        let mut selected: Option<(f64, usize)> = None;
-        for split in (current_split + 1)..end {
-            let left_content = page_content_height(
-                system_heights,
-                system_gaps,
-                start,
-                split,
-                geometry.inter_system_spacing,
-            );
-            let right_content = page_content_height(
-                system_heights,
-                system_gaps,
-                split,
-                end,
-                geometry.inter_system_spacing,
-            );
-            if left_content > left_capacity || right_content > right_capacity {
-                continue;
-            }
-
-            let candidate_cost =
-                super::optimizer::density_cost(left_content, left_capacity, false, config)
-                    + super::optimizer::density_cost(right_content, right_capacity, false, config);
-            let replace = selected
-                .as_ref()
-                .is_none_or(|(cost, previous_split): &(f64, usize)| {
-                    candidate_cost < *cost - 1e-9
-                        || ((candidate_cost - *cost).abs() <= 1e-9 && split > *previous_split)
-                });
-            if replace {
-                selected = Some((candidate_cost, split));
-            }
-        }
-
-        if let Some((_, split)) = selected {
-            plan.page_starts[page + 1] = split;
-        }
-    }
-}
-
 fn reconstruct_plan(
     arena: &[PathNode],
     cost: f64,
@@ -446,10 +268,11 @@ fn reconstruct_plan(
 #[allow(clippy::too_many_lines)] // layer transitions share one arena and backpointer invariant
 fn run_joint_dp(
     natural_widths: &[f64],
+    tempo_widths: &[f64],
     first_width: f64,
     subsequent_width: f64,
-    system_heights: &[f64],
-    system_gaps: &[f64],
+    heights: &SystemHeights<'_>,
+    system_count: usize,
     visible_indices: &[usize],
     total_measures: usize,
     windows: &[TurnWindow],
@@ -460,7 +283,6 @@ fn run_joint_dp(
     avoid_sparse_pages: bool,
 ) -> Option<NaturalPartPlan> {
     let measure_count = natural_widths.len();
-    let system_count = system_heights.len();
     if measure_count == 0 || system_count == 0 || measure_count < system_count {
         return None;
     }
@@ -481,29 +303,40 @@ fn run_joint_dp(
     let mut arena = Vec::<PathNode>::new();
     let mut layer = BTreeMap::<StateKey, StateValue>::new();
 
-    let mut offer =
-        |target: &mut BTreeMap<StateKey, StateValue>, key: StateKey, cost: f64, node: PathNode| {
-            if target.get(&key).is_some_and(|current| current.cost <= cost) {
-                return;
-            }
-            let node_index = arena.len();
-            arena.push(node);
-            target.insert(
-                key,
-                StateValue {
-                    cost,
-                    node: node_index,
-                },
-            );
-        };
+    let mut offer = |target: &mut BTreeMap<StateKey, StateValue>,
+                     key: StateKey,
+                     value: StateValue,
+                     node: PathNode| {
+        if target
+            .get(&key)
+            .is_some_and(|current| !value.improves_on(current))
+        {
+            return;
+        }
+        let node_index = arena.len();
+        arena.push(node);
+        target.insert(
+            key,
+            StateValue {
+                node: node_index,
+                ..value
+            },
+        );
+    };
 
     // Seed the first system. It always starts the first music page.
     let max_first_end = measure_count - (system_count - 1);
+    let mut running = None;
     for end in 1..=max_first_end {
         if !system_fits(&prefix, 0, end, first_width) {
             break;
         }
-        let height = system_heights[0];
+        let extent = heights.extend(running, end - 1);
+        running = Some(extent);
+        if !tempo_fits(natural_widths, tempo_widths, 0, end, first_width) {
+            continue;
+        }
+        let height = extent.height();
         if height > first_page_capacity && system_count > 1 {
             continue;
         }
@@ -514,7 +347,13 @@ fn run_joint_dp(
                 page_start_system: 0,
                 page_parity: initial_pages % 2,
             },
-            system_cast_cost(span_width(&prefix, 0, end), first_width),
+            StateValue {
+                turns: (0, 0),
+                cost: system_cast_cost(span_width(&prefix, 0, end), first_width),
+                node: 0,
+                content: height,
+                last: extent,
+            },
             PathNode {
                 previous: None,
                 measure_start: 0,
@@ -532,9 +371,16 @@ fn run_joint_dp(
         for (state_key, state) in &layer {
             let remaining_systems = system_count - used_systems - 1;
             let max_end = measure_count - remaining_systems;
+            let mut running = None;
             for end in (state_key.measure_end + 1)..=max_end {
                 if !system_fits(&prefix, state_key.measure_end, end, subsequent_width) {
                     break;
+                }
+                let extent = heights.extend(running, end - 1);
+                running = Some(extent);
+                let start = state_key.measure_end;
+                if !tempo_fits(natural_widths, tempo_widths, start, end, subsequent_width) {
+                    continue;
                 }
                 let mut cast = system_cast_cost(
                     span_width(&prefix, state_key.measure_end, end),
@@ -552,28 +398,27 @@ fn run_joint_dp(
                 let next_system = used_systems;
 
                 // Keep the next system on the current page when it fits.
-                let current_content = page_content_height(
-                    system_heights,
-                    system_gaps,
-                    state_key.page_start_system,
-                    used_systems + 1,
-                    geometry.inter_system_spacing,
-                );
+                let current_content =
+                    state.content + heights.gap(state.last, extent) + extent.height();
                 let current_capacity = if state_key.page_start_system == 0 {
                     first_page_capacity
                 } else {
                     geometry.usable_height
                 };
-                if current_content <= current_capacity
-                    || state_key.page_start_system == used_systems
-                {
+                if current_content <= current_capacity {
                     offer(
                         &mut next,
                         StateKey {
                             measure_end: end,
                             ..*state_key
                         },
-                        state.cost + cast,
+                        StateValue {
+                            turns: state.turns,
+                            cost: state.cost + cast,
+                            node: 0,
+                            content: current_content,
+                            last: extent,
+                        },
                         PathNode {
                             previous: Some(state.node),
                             measure_start: state_key.measure_end,
@@ -585,18 +430,8 @@ fn run_joint_dp(
                 }
 
                 // Or close the current page and begin a new one here.
-                let closed_content = page_content_height(
-                    system_heights,
-                    system_gaps,
-                    state_key.page_start_system,
-                    used_systems,
-                    geometry.inter_system_spacing,
-                );
-                let closed_capacity = if state_key.page_start_system == 0 {
-                    first_page_capacity
-                } else {
-                    geometry.usable_height
-                };
+                let closed_content = state.content;
+                let closed_capacity = current_capacity;
                 if !page_fill_is_allowed(closed_content, closed_capacity, false, config)
                     || (avoid_sparse_pages
                         && closed_capacity > 0.0
@@ -604,6 +439,13 @@ fn run_joint_dp(
                 {
                     continue;
                 }
+                let opened = StateValue {
+                    turns: state.turns,
+                    cost: 0.0,
+                    node: 0,
+                    content: extent.height(),
+                    last: extent,
+                };
                 let boundary = boundary_after_visible_position(
                     visible_indices,
                     total_measures,
@@ -611,7 +453,10 @@ fn run_joint_dp(
                 );
                 let window = window_at_boundary(windows, boundary);
                 let direct_parity = (state_key.page_parity + 1) % 2;
-                let direct_turn = if is_physical_turn(state_key.page_parity, first_page_recto) {
+                let grade = turn_grade(window, visible_indices, state_key.measure_end);
+                let add_grade = |(bad, rough): (usize, usize)| (bad + grade.0, rough + grade.1);
+                let direct_is_turn = is_physical_turn(state_key.page_parity, first_page_recto);
+                let direct_turn = if direct_is_turn {
                     window.map_or(0.0, |candidate| turn_cost(candidate, config))
                 } else {
                     0.0
@@ -623,7 +468,15 @@ fn run_joint_dp(
                         page_start_system: next_system,
                         page_parity: direct_parity,
                     },
-                    state.cost + cast + direct_turn + page_count_weight,
+                    StateValue {
+                        turns: if direct_is_turn {
+                            add_grade(state.turns)
+                        } else {
+                            state.turns
+                        },
+                        cost: state.cost + cast + direct_turn + page_count_weight,
+                        ..opened
+                    },
                     PathNode {
                         previous: Some(state.node),
                         measure_start: state_key.measure_end,
@@ -644,11 +497,15 @@ fn run_joint_dp(
                             page_start_system: next_system,
                             page_parity: state_key.page_parity,
                         },
-                        state.cost
-                            + cast
-                            + config.weights.blank_page
-                            + blank_turn
-                            + page_count_weight,
+                        StateValue {
+                            turns: add_grade(state.turns),
+                            cost: state.cost
+                                + cast
+                                + config.weights.blank_page
+                                + blank_turn
+                                + page_count_weight,
+                            ..opened
+                        },
                         PathNode {
                             previous: Some(state.node),
                             measure_start: state_key.measure_end,
@@ -666,18 +523,12 @@ fn run_joint_dp(
         }
     }
 
-    let mut best: Option<(f64, usize)> = None;
+    let mut best: Option<StateValue> = None;
     for (state_key, state) in layer {
         if state_key.measure_end != measure_count {
             continue;
         }
-        let final_content = page_content_height(
-            system_heights,
-            system_gaps,
-            state_key.page_start_system,
-            system_count,
-            geometry.inter_system_spacing,
-        );
+        let final_content = state.content;
         let final_capacity = if state_key.page_start_system == 0 {
             first_page_capacity
         } else {
@@ -686,13 +537,16 @@ fn run_joint_dp(
         if !page_fill_is_allowed(final_content, final_capacity, true, config) {
             continue;
         }
-        let cost = state.cost;
-        if best.is_none_or(|current| cost < current.0) {
-            best = Some((cost, state.node));
+        if best.is_none_or(|current| state.improves_on(&current)) {
+            best = Some(state);
         }
     }
 
-    let (cost, node_index) = best?;
+    let StateValue {
+        cost,
+        node: node_index,
+        ..
+    } = best?;
     Some(reconstruct_plan(
         &arena,
         cost,
@@ -704,15 +558,15 @@ fn run_joint_dp(
 }
 
 /// Evaluate title-page alternatives and return the cheapest joint natural
-/// casting. The number of systems is fixed by `system_heights.len()`.
+/// casting. The number of systems is fixed by `baseline_systems.len()`.
 #[allow(clippy::too_many_arguments)] // public planner boundary
 pub(crate) fn optimize_natural_part(
     natural_widths: &[f64],
+    tempo_widths: &[f64],
     first_width: f64,
     subsequent_width: f64,
     baseline_systems: &[Vec<usize>],
-    system_heights: &[f64],
-    system_gaps: &[f64],
+    heights: &SystemHeights<'_>,
     visible_indices: &[usize],
     total_measures: usize,
     windows: &[TurnWindow],
@@ -730,10 +584,11 @@ pub(crate) fn optimize_natural_part(
     while let Some((title_page, avoid_sparse_pages)) = candidates.pop() {
         let Some(mut candidate) = run_joint_dp(
             natural_widths,
+            tempo_widths,
             first_width,
             subsequent_width,
-            system_heights,
-            system_gaps,
+            heights,
+            baseline_systems.len(),
             visible_indices,
             total_measures,
             windows,
@@ -748,6 +603,10 @@ pub(crate) fn optimize_natural_part(
         if title_page {
             candidate.cost += config.weights.title_page;
         }
+        // Later passes only move page boundaries, so the DP's casting fixes
+        // every system's height and leading gap.
+        let (system_heights, system_gaps) = heights.for_systems(&candidate.systems);
+        let (system_heights, system_gaps) = (system_heights.as_slice(), system_gaps.as_slice());
         let turn_before =
             pagination_turn_cost(&candidate, visible_indices, total_measures, windows, config);
         let density_before =
@@ -842,10 +701,11 @@ pub(crate) fn optimize_natural_part(
     }
     best.map(|(_, plan)| plan).or_else(|| {
         (!baseline_systems.is_empty()).then(|| {
+            let (system_heights, system_gaps) = heights.for_systems(baseline_systems);
             baseline_plan(
                 baseline_systems,
-                system_heights,
-                system_gaps,
+                &system_heights,
+                &system_gaps,
                 geometry,
                 config,
             )
@@ -857,6 +717,12 @@ pub(crate) fn optimize_natural_part(
 mod tests {
     use super::*;
     use crate::layout::page_turn::{TurnAnnotation, TurnQuality};
+
+    /// Uniform measure heights with no inter-system gap (a zero staff space
+    /// collapses the gap floor).
+    fn uniform_heights(ink: &[MeasureInk]) -> SystemHeights<'_> {
+        SystemHeights { ink, sp: 0.0 }
+    }
 
     fn window(boundary: usize, seconds: f64, tail: f64) -> TurnWindow {
         TurnWindow {
@@ -910,11 +776,16 @@ mod tests {
             .collect();
         let plan = optimize_natural_part(
             &widths,
+            &[],
             120.0,
             120.0,
             &[vec![0, 1, 2], vec![3, 4, 5], vec![6, 7, 8], vec![9, 10, 11]],
-            &[40.0; 4],
-            &[0.0; 4],
+            &uniform_heights(
+                &[MeasureInk {
+                    core: 40.0,
+                    ..MeasureInk::default()
+                }; 16],
+            ),
             &visible,
             12,
             &windows,
@@ -948,11 +819,16 @@ mod tests {
         windows[8] = window(8, 2.0, 2.0);
         let plan = optimize_natural_part(
             &[45.0; 8],
+            &[],
             140.0,
             140.0,
             &[vec![0, 1], vec![2, 3], vec![4, 5], vec![6, 7]],
-            &[40.0; 4],
-            &[0.0; 4],
+            &uniform_heights(
+                &[MeasureInk {
+                    core: 40.0,
+                    ..MeasureInk::default()
+                }; 16],
+            ),
             &visible,
             12,
             &windows,
@@ -995,11 +871,16 @@ mod tests {
             .collect();
         let plan = optimize_natural_part(
             &[50.0; 14],
+            &[],
             100.0,
             100.0,
             &baseline,
-            &[20.0; 7],
-            &[0.0; 7],
+            &uniform_heights(
+                &[MeasureInk {
+                    core: 20.0,
+                    ..MeasureInk::default()
+                }; 16],
+            ),
             &visible,
             14,
             &windows,
@@ -1010,5 +891,88 @@ mod tests {
 
         assert_eq!(plan.page_starts, vec![0, 3]);
         assert_eq!(pagination_turn_rank(&plan, &visible, 14, &windows), (0, 0));
+    }
+
+    fn single_page_config() -> PageTurnConfig {
+        PageTurnConfig {
+            title_page: TitlePagePolicy::Never,
+            first_page_recto: Some(true),
+            allow_intentional_blanks: false,
+            ..PageTurnConfig::default()
+        }
+    }
+
+    #[test]
+    fn rejects_systems_whose_tempo_text_would_force_a_split() {
+        let visible: Vec<usize> = (0..6).collect();
+        let windows: Vec<_> = (0..5).map(|boundary| window(boundary, 0.0, 0.0)).collect();
+        let ink = [MeasureInk {
+            core: 40.0,
+            ..MeasureInk::default()
+        }; 6];
+        let plan_with = |tempo: &[f64]| {
+            optimize_natural_part(
+                &[30.0; 6],
+                tempo,
+                100.0,
+                100.0,
+                &[vec![0, 1, 2], vec![3, 4, 5]],
+                &uniform_heights(&ink),
+                &visible,
+                6,
+                &windows,
+                &geometry(),
+                &single_page_config(),
+            )
+            .expect("plan")
+        };
+        assert_eq!(plan_with(&[]).systems, vec![vec![0, 1, 2], vec![3, 4, 5]]);
+        // Measure 4's tempo text cannot fit after measure 3 on one line, so the
+        // measured layout would split [3, 4, 5]; the planner starts a system
+        // at measure 4 instead.
+        let tempo = [0.0, 0.0, 0.0, 0.0, 70.0, 0.0];
+        assert_eq!(
+            plan_with(&tempo).systems,
+            vec![vec![0, 1, 2, 3], vec![4, 5]]
+        );
+    }
+
+    #[test]
+    fn page_capacity_uses_the_ink_of_each_systems_measures() {
+        let visible: Vec<usize> = (0..8).collect();
+        let windows: Vec<_> = (0..7)
+            .map(|boundary| window(boundary, 12.0, 12.0))
+            .collect();
+        let mut ink = [MeasureInk {
+            core: 30.0,
+            ..MeasureInk::default()
+        }; 8];
+        // A tall marking in measure 2 makes its whole system 70 high, so only
+        // two systems fit on the first page.
+        ink[2].above = 40.0;
+        let heights = uniform_heights(&ink);
+        let baseline: Vec<_> = (0..4).map(|s| vec![s * 2, s * 2 + 1]).collect();
+        let plan = optimize_natural_part(
+            &[50.0; 8],
+            &[],
+            100.0,
+            100.0,
+            &baseline,
+            &heights,
+            &visible,
+            8,
+            &windows,
+            &geometry(),
+            &single_page_config(),
+        )
+        .expect("plan");
+
+        assert_eq!(plan.page_starts, vec![0, 2]);
+        let (system_heights, system_gaps) = heights.for_systems(&plan.systems);
+        assert_eq!(system_heights, vec![30.0, 70.0, 30.0, 30.0]);
+        assert!(
+            page_content_height(&system_heights, &system_gaps, 0, 2, 0.0)
+                <= geometry().usable_height
+        );
     }
 }
