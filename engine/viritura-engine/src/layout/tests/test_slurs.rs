@@ -4997,6 +4997,146 @@ fn test_slur_across_chunk_seam_stays_continuous_in_stitched_horizon() {
 }
 
 #[test]
+fn test_broken_slur_stays_over_outgoing_tie_at_system_end() {
+    use crate::layout::slurs::participation::endpoint_snapshot;
+    use crate::layout::slurs::{render_cross_system_slurs, GlobalSlurEvent, SystemSlurBounds};
+    use crate::layout::ties::{render_cross_system_ties, GlobalTieNote};
+    use crate::model::event::{Slur, Tie};
+    use std::collections::HashMap;
+    use std::rc::Rc;
+
+    let config = LayoutConfig::default();
+    let sp = config.sp;
+    let tie_note = |id: &str, x: f64, y: f64, system_idx: usize, ties: Vec<Tie>| GlobalTieNote {
+        note_id: Rc::from(id),
+        x,
+        stem_x: x + 1.18 * sp,
+        measure_left_x: if system_idx == 0 { 20.0 } else { 300.0 },
+        measure_right_x: if system_idx == 0 { 200.0 } else { 500.0 },
+        y_pos: 0.0,
+        eff_staff_y: y,
+        stem_up: false,
+        num_voices: 1,
+        notehead_center_offset: 0.59 * sp,
+        chord_positions: vec![0.0],
+        system_idx,
+        part_index: 0,
+        staff_idx: 0,
+        ties,
+    };
+    let tie = Tie {
+        target: Some("tie-target".to_string()),
+        target_type: None,
+        side: None,
+        lv: None,
+    };
+    let tie_notes = vec![
+        tie_note("tied-note", 175.0, 100.0, 0, vec![tie]),
+        tie_note("tie-target", 330.0, 220.0, 1, Vec::new()),
+    ];
+    let make_event =
+        |id: &str, x: f64, y_pos: f64, y: f64, system_idx: usize, tie: bool| GlobalSlurEvent {
+            event_id: Rc::from(id),
+            endpoint: endpoint_snapshot(
+                x,
+                y_pos,
+                y_pos,
+                false,
+                true,
+                1.18 * sp,
+                1,
+                y,
+                1,
+                1,
+                0,
+                1.0,
+                tie,
+                false,
+                None,
+            ),
+            system_idx,
+            part_index: 0,
+            staff_idx: 0,
+            slurs: Vec::new(),
+            note_positions: Vec::new(),
+            tie_links: Vec::new(),
+        };
+    let mut source = make_event("source", 60.0, 6.0, 100.0, 0, false);
+    source.slurs.push(Slur {
+        target: "slur-target".to_string(),
+        side: None,
+        side_end: None,
+        line_type: None,
+        start_note: None,
+        end_note: None,
+        shape: None,
+    });
+    let mut tied = make_event("tied", 175.0, 0.0, 100.0, 0, true);
+    tied.note_positions = vec![(Rc::from("tied-note"), 0.0, 100.0)];
+    tied.tie_links = vec![(Rc::from("tied-note"), Rc::from("tie-target"))];
+    let mut continuation = make_event("tie-continuation", 330.0, 0.0, 220.0, 1, false);
+    continuation.note_positions = vec![(Rc::from("tie-target"), 0.0, 220.0)];
+    let target = make_event("slur-target", 390.0, 0.0, 220.0, 1, false);
+    let events = vec![source, tied, continuation, target];
+    let bounds = HashMap::from([
+        (
+            (0, 0, 0),
+            SystemSlurBounds {
+                left_x: 20.0,
+                right_x: 200.0,
+            },
+        ),
+        (
+            (1, 0, 0),
+            SystemSlurBounds {
+                left_x: 300.0,
+                right_x: 500.0,
+            },
+        ),
+    ]);
+    let mut display = DisplayList::new(600.0, 400.0);
+    render_cross_system_ties(&mut display, &tie_notes, &bounds, sp, &config, false);
+    render_cross_system_slurs(&mut display, &events, &bounds, sp, &config, false);
+    let band = |id: &str| {
+        display
+            .element_shapes
+            .iter()
+            .find(|shape| shape.element_id == id)
+            .and_then(|shape| match &shape.geom {
+                ShapeGeom::Band { samples } => Some(samples.clone()),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("missing connector band {id}"))
+    };
+    let tie_half = band("tie/tied-note/tie-target/lh");
+    let slur_half = band("slur/source/slur-target/lh");
+    let slur_bottom_at = |x: f64| {
+        slur_half
+            .windows(2)
+            .find(|pair| pair[0].0 <= x && x <= pair[1].0)
+            .map(|pair| {
+                let t = (x - pair[0].0) / (pair[1].0 - pair[0].0).max(1e-9);
+                pair[0].2 + (pair[1].2 - pair[0].2) * t
+            })
+    };
+    for &(x, tie_top, _) in &tie_half {
+        let Some(slur_bottom) = slur_bottom_at(x) else {
+            continue;
+        };
+        assert!(
+            slur_bottom < tie_top - 0.2 * sp,
+            "outgoing slur bottom {slur_bottom} must stay over the outgoing tie top {tie_top} at x={x}"
+        );
+    }
+    let slur_end_x = slur_half.last().expect("slur samples").0;
+    let tie_end_x = tie_half.last().expect("tie samples").0;
+    assert!(
+        slur_end_x >= tie_end_x - 0.1 * sp,
+        "the slur must continue past the tie's free end ({slur_end_x} vs {tie_end_x})"
+    );
+}
+
+#[test]
 fn test_cross_system_slur_uses_hanger_and_clears_tie_continuation() {
     use crate::layout::slurs::participation::endpoint_snapshot;
     use crate::layout::slurs::{render_cross_system_slurs, GlobalSlurEvent, SystemSlurBounds};

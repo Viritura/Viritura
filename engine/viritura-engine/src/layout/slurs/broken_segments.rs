@@ -97,8 +97,6 @@ pub(super) fn shape_note_bound_segment(
     thickness: f64,
     endpoint_thickness: f64,
     handle_deltas: Option<HandleDeltas>,
-    note_bound_start: bool,
-    note_bound_end: bool,
     sp: f64,
     config: &LayoutConfig,
 ) -> ShapedBrokenSegment {
@@ -113,13 +111,12 @@ pub(super) fn shape_note_bound_segment(
         x2,
         sp,
     );
+    // Standard engraving practice: a broken slur stays outside a tie that is
+    // broken at the same system edge, so free continuation ends take the same
+    // tie lane as note-bound ends.
     if handle_deltas.is_none() {
-        if note_bound_start {
-            y1 = tie_endpoint_lane(y1, start_tips, curve_dir, 0, sp);
-        }
-        if note_bound_end {
-            y2 = tie_endpoint_lane(y2, end_tips, curve_dir, 0, sp);
-        }
+        y1 = tie_endpoint_lane(y1, start_tips, curve_dir, 0, sp);
+        y2 = tie_endpoint_lane(y2, end_tips, curve_dir, 0, sp);
     }
     let chord_len = (x2 - x1).hypot(y2 - y1).max(0.01);
     let default_shoulder = default_shoulder_for_chord(chord_len, sp, config);
@@ -226,7 +223,7 @@ pub(super) fn emit_middle_segments(
         let default_shoulder = default_shoulder_for_chord(chord_len, sp, config);
         let cp_indent = default_cp_indent_for_chord(chord_len, sp, config);
         let mut obstacles = middle_obstacles(dl, events, piece, x1, x2, sp, config);
-        collect_seam_span_tie_obstacles(
+        let (start_tips, end_tips) = collect_seam_span_tie_obstacles(
             dl,
             &mut obstacles,
             (first.eff_staff_y + last.eff_staff_y) * 0.5,
@@ -234,6 +231,8 @@ pub(super) fn emit_middle_segments(
             x2,
             sp,
         );
+        y1 = tie_endpoint_lane(y1, start_tips, curve_dir, 0, sp);
+        y2 = tie_endpoint_lane(y2, end_tips, curve_dir, 0, sp);
         let collision = compute_shoulder_and_apex(
             x1,
             x2,

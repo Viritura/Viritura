@@ -785,8 +785,6 @@ pub(super) fn emit_cross_system_slur(
         thickness,
         endpoint_thickness,
         source_handles,
-        true,
-        false,
         sp,
         config,
     );
@@ -841,8 +839,6 @@ pub(super) fn emit_cross_system_slur(
         thickness,
         endpoint_thickness,
         target_handles,
-        false,
-        true,
         sp,
         config,
     );
