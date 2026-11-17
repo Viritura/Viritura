@@ -72,7 +72,7 @@ pub(crate) fn multimeasure_rest_prefix(
 ) -> MultimeasureRestPrefix {
     let rm = &ml.resolved;
     let at_start = rm.index == 0 || ml.is_first_on_system;
-    let defer_repeat = rm.global.repeat_start.is_some() && (at_start || rm.key_signature_changed());
+    let defer_repeat = defers_repeat_start(rm, ml.is_first_on_system);
     let leading_barline = BarlineKind::at_boundary(
         !ml.is_first_on_system && rm.prev_has_repeat_end,
         rm.global.repeat_start.is_some() && !defer_repeat,

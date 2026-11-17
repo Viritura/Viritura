@@ -11,7 +11,7 @@
 use super::super::config::LayoutConfig;
 use super::super::measure::helpers::collect_flat_events;
 use super::super::render_barlines::{
-    barline_right_extent, leading_barline_advance, leading_barline_kind,
+    barline_right_extent, defers_repeat_start, leading_barline_advance, measure_start_barline_kind,
 };
 use super::super::render_signatures::{clef_prefix_advance_sp, key_signature_layout};
 use super::super::resolve::*;
@@ -78,7 +78,7 @@ fn first_onset_ink_padding_sp(
     let has_leading_barline =
         (rm.index != 0 && !is_system_start) || rm.global.repeat_start.is_some();
     let barline_right_ink = if has_leading_barline && !is_system_start {
-        barline_right_extent(&leading_barline_kind(rm), config, 1.0)
+        barline_right_extent(&measure_start_barline_kind(rm), config, 1.0)
     } else {
         0.0
     };
@@ -136,10 +136,10 @@ pub(crate) fn prefix_layout(
 ) -> PrefixLayout {
     let is_first = rm.index == 0;
     let mut prefix_width = 0.0;
-    let has_repeat_start = rm.global.repeat_start.is_some();
     let barline_advance = leading_barline_advance(rm, is_system_start, config, sp);
+    let defer_repeat_start = defers_repeat_start(rm, is_system_start);
 
-    if has_repeat_start && (is_first || is_system_start) {
+    if defer_repeat_start {
         prefix_width += 1.5 * sp;
     }
 
@@ -253,7 +253,6 @@ pub(crate) fn prefix_layout(
         0.0
     };
     prefix_width = prefix_width.max(min_clearance);
-    let defer_repeat_start = (is_first || is_system_start) && has_repeat_start;
     let time_reserve = rm.displayed_time_signature().map(|time| {
         let staff_override = crate::layout::time_signatures::staff_grouping_override(&rm.part);
         crate::layout::time_signatures::prefix_reserve(

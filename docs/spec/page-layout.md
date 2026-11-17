@@ -98,12 +98,16 @@ and after repeat ends. The repeat-bearing measures join the enclosed rest
 group; repeat barlines remain visible at its outer edges rather than forcing
 those measures to stand alone. The H-bar and its end serif clear repeat-end ink
 on the last collapsed measure.
-When a changed key precedes an MMR's repeat start, its left clearance is
-measured from the measure boundary anchor, not from the deferred repeat.
-The repeat start is the boundary: no additional ordinary or double barline
-is drawn before the key. A preceding repeat end remains visible and the key
-clears its ink. The H-bar, count, and bar-number range share a prefix that
-includes the full repeat-start ink after any key and time signatures.
+A repeat start that opens a system or the piece, or coincides with a key
+change, follows the clef, key, and time signatures. This applies equally to
+ordinary measures and MMRs, and the deferred repeat aligns across staves (with
+its group connector) even when transposing staves have different key widths.
+The changed key's left clearance is measured from the measure boundary anchor,
+not from the deferred repeat. The repeat start is the boundary: no additional
+ordinary or double barline is drawn before the key. A preceding repeat end
+remains visible and the key clears its ink. For MMRs, the H-bar, count, and
+bar-number range share a prefix that includes the full repeat-start ink after
+any key and time signatures.
 
 Tempo and above-staff system text at an MMR's start may extend over following
 MMRs. If a rehearsal mark blocks that span, the minimum horizontal clearance

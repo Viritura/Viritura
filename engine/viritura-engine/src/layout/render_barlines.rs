@@ -145,6 +145,25 @@ pub(crate) fn leading_barline_kind(rm: &ResolvedMeasure) -> BarlineKind {
     )
 }
 
+/// Standard engraving practice: a start repeat that opens a system or the
+/// piece, or coincides with a key change, follows the clef/key/time furniture
+/// so the repeat sign sits immediately before the music it repeats.
+pub(crate) fn defers_repeat_start(rm: &ResolvedMeasure, is_system_start: bool) -> bool {
+    rm.global.repeat_start.is_some()
+        && (rm.index == 0 || is_system_start || rm.key_signature_changed())
+}
+
+/// Barline drawn at a mid-system measure's left boundary. A deferred repeat
+/// start replaces the ordinary boundary stroke; only a preceding repeat end
+/// remains before the signatures.
+pub(crate) fn measure_start_barline_kind(rm: &ResolvedMeasure) -> BarlineKind {
+    if defers_repeat_start(rm, false) {
+        BarlineKind::at_boundary(rm.prev_has_repeat_end, false, None, BarlineType::NoBarline)
+    } else {
+        leading_barline_kind(rm)
+    }
+}
+
 pub(crate) fn system_end_barline_kind(rm: &ResolvedMeasure, is_last_system: bool) -> BarlineKind {
     end_barline_kind(&rm.global, is_last_system)
 }
@@ -204,7 +223,7 @@ pub(crate) fn leading_barline_advance(
     if rm.index == 0 || is_system_start {
         return 0.0;
     }
-    let kind = leading_barline_kind(rm);
+    let kind = measure_start_barline_kind(rm);
     barline_right_extent(&kind, config, sp) + 0.5 * sp
 }
 

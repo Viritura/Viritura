@@ -473,8 +473,27 @@ pub(in crate::layout) fn render_grand_staff_system_connectors(
 
     // Inter-staff barlines at each measure boundary
     for (mi, ml) in top_layouts.iter().enumerate() {
+        if defers_repeat_start(&ml.resolved, ml.is_first_on_system)
+            && ml.multimeasure_rest_count.is_none()
+        {
+            let barline_tag = element_id::barline(ml.resolved.index);
+            for gap_idx in 0..(num_staves - 1) {
+                render_tagged_barline_connector(
+                    dl,
+                    BarlineGap {
+                        x: super::super::render_measure::deferred_repeat_start_x(ml, sp),
+                        y_top: staff_y_offsets[gap_idx] + staff_height,
+                        y_bottom: staff_y_offsets[gap_idx + 1],
+                    },
+                    sp,
+                    config,
+                    &BarlineKind::RepeatStart,
+                    &barline_tag,
+                );
+            }
+        }
         if mi > 0 {
-            let connector_bt = leading_barline_kind(&ml.resolved);
+            let connector_bt = measure_start_barline_kind(&ml.resolved);
             let barline_tag = element_id::barline(ml.resolved.index);
             for gap_idx in 0..(num_staves - 1) {
                 render_tagged_barline_connector(

@@ -449,9 +449,11 @@ pub(crate) fn measure_barline_context(
             .and_then(|measure| measure.barline.as_ref())
             .map(|barline| barline.barline_type),
         previous.is_some_and(|measure| measure.repeat_end.is_some()),
+        // A repeat start coinciding with a key change is drawn after the new
+        // key, so the preceding measure reserves no trailing repeat width.
         globals
             .get(index + 1)
-            .is_some_and(|measure| measure.repeat_start.is_some()),
+            .is_some_and(|measure| measure.repeat_start.is_some() && measure.key.is_none()),
     )
 }
 

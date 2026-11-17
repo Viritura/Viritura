@@ -231,13 +231,14 @@ fn render_measure_prefix(
     // Standard engraving practice: the initial system-start bar is hidden by
     // default for single-staff parts.
     //
-    // A repeat-start barline that opens a system (or the piece) is deferred:
-    // the restated clef and key signature come first, with the start-repeat
-    // barline drawn immediately before the music (see below). Its 1.5sp slot is
-    // still reserved at the end of the prefix region.
+    // A repeat-start barline that opens a system (or the piece), or coincides
+    // with a key change, is deferred: the clef and key signature come first,
+    // with the start-repeat barline drawn immediately before the music (see
+    // below). Its 1.5sp slot is reserved at the end of the prefix region, and
+    // no ordinary barline is drawn before a mid-system key change.
     let defer_repeat_start = prefix.defer_repeat_start;
     if !is_first && !ml.is_first_on_system {
-        let start_bt = leading_barline_kind(rm);
+        let start_bt = measure_start_barline_kind(rm);
         // Mid-system clef change: draw the change clef (only on the staff that
         // actually changes clef) in the leading gap BEFORE the barline, then
         // advance the cursor past the gap uniformly so the barline lands at the
@@ -381,11 +382,12 @@ fn render_measure_prefix(
         x_cursor += time_sig_reserve;
     }
 
-    // A deferred system-start repeat-start barline sits immediately after the
-    // clef/key/time prefix — its reserved 1.5sp slot ends one trailing pad
-    // (1.2sp) before the first note.
+    // A deferred repeat-start barline sits immediately after the clef/key/time
+    // prefix — its reserved 1.5sp slot ends one trailing pad (1.2sp) before the
+    // first note. Anchoring to the aligned prefix keeps it vertical across
+    // staves whose key signatures differ in width.
     if defer_repeat_start {
-        let bar_x = x_cursor + 0.5 * sp;
+        let bar_x = (x_cursor + 0.5 * sp).max(deferred_repeat_start_x(ml, sp));
         let cmd_idx = dl.commands.len();
         render_barline(
             dl,
@@ -402,6 +404,14 @@ fn render_measure_prefix(
     }
 
     x_cursor
+}
+
+/// Aligned x of a deferred start-repeat barline: the end of the shared prefix
+/// minus the onset gap and the 1.5sp repeat slot, inset by its 0.5sp approach.
+pub(crate) fn deferred_repeat_start_x(ml: &MeasureLayout, sp: f64) -> f64 {
+    ml.x + ml.prefix_width
+        - ml.first_onset_padding
+        - (super::measure::PREFIX_TO_ONSET_GAP_SP + 1.0) * sp
 }
 
 /// Collect every notehead in a measure as an accidental-clearance obstacle
