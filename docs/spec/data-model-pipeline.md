@@ -64,8 +64,9 @@ updates the one shared model object. The Rust global model reuses event-caesura
 geometry and retains native attributes; no vendor or legacy input form is accepted.
 Global caesura strokes are centered on the top staff line, with their ink ending
 a quarter staff-space before the visible ending barline, matching event-local
-placement. Shared collision flow can lift the marking to clear other ink, but
-does not treat the movable caesura itself as a fixed obstacle.
+placement. Shared collision flow keeps the caesura fixed and places movable
+directions around its ink. Final-note spacing reserves the caesura's horizontal
+footprint before the rhythmic grid is fixed.
 The top staff line is an attachment reference, not protruding collision ink.
 
 Playback inserts one hold at the measure end, max-merged with coincident

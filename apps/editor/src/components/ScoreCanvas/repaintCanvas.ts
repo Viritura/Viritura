@@ -38,42 +38,13 @@ export interface RepaintCanvasArgs {
   measureSelection?: { startMeasure: number; endMeasure: number; startPart: number; endPart: number } | null;
   /** Element whose engine-rendered ink is replaced by a live drag preview. */
   suppressedElementId?: string;
-  printableInsets?: PageInsets;
 }
 
-export interface PageInsets {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-}
-
-export function pageBottomClipRect(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  insets: PageInsets,
-): { x: number; y: number; width: number; height: number } {
-  return {
-    x,
-    y,
-    width,
-    height: Math.max(0, height - insets.bottom),
-  };
-}
-
-function clipPrintablePage(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  insets: PageInsets,
-): void {
-  const rect = pageBottomClipRect(x, y, width, height, insets);
+/** Clip to the physical page so margin overflow stays visible (the editor
+ * reports it as a print warning) while other pages' overlays are culled. */
+function clipPage(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number): void {
   ctx.beginPath();
-  ctx.rect(rect.x, rect.y, rect.width, rect.height);
+  ctx.rect(x, y, width, height);
   ctx.clip();
 }
 
@@ -93,7 +64,6 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
     viewMode = "page",
     measureSelection,
     suppressedElementId,
-    printableInsets = { top: 0, right: 0, bottom: 0, left: 0 },
   } = args;
   const displayList = suppressedElementId
     ? suppressElementCommands(sourceDisplayList, suppressedElementId)
@@ -156,7 +126,6 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
     visY1,
     visX2,
     visY2,
-    printableInsets,
   };
 
   // Horizon (galley) mode: draw paper content area with padding.
@@ -214,7 +183,7 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
         // Clip in visual coords so overlays drawn at engine Y for other
         // pages get culled (we still paint the full overlay each pass —
         // cheap, simpler than splitting overlay state by page).
-        clipPrintablePage(ctx, 0, page.yOffset + dy, PAGE_W, page.height, printableInsets);
+        clipPage(ctx, 0, page.yOffset + dy, PAGE_W, page.height);
         ctx.translate(0, dy);
 
         const entry = split[i];
@@ -249,7 +218,7 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
 
     const page = pages[0]!;
     ctx.save();
-    clipPrintablePage(ctx, 0, page.yOffset, PAGE_W, page.height, printableInsets);
+    clipPage(ctx, 0, page.yOffset, PAGE_W, page.height);
     paintCommandsCulled(ctx, displayList.commands, glyphAtlas ?? null, visX1, visX2, visY1, visY2);
     ctx.restore();
   } else if (viewMode === "horizon" && paintRetainedHorizonLayers(ctx, frame)) {
@@ -354,13 +323,12 @@ interface FramePaintCtx {
   visY1: number;
   visX2: number;
   visY2: number;
-  printableInsets: PageInsets;
 }
 
 // eslint-disable-next-line max-statements, complexity -- spread-view (open-book) painter: paper-card loop with binding-gutter gradients → per-page clip+translate command paint → selection/measure overlays → debug overlay. Already a single coherent sub-concept extracted from repaintCanvas; the remaining length is the gutter-gradient detail, not separable logic.
 function paintSpreadView(ctx: CanvasRenderingContext2D, viewMode: "spread" | "spread-h", c: FramePaintCtx): void {
   const { displayList, glyphAtlas, spatialIndex, selectedIds, dragPreview, measureSelection, zoom, paperFill } = c;
-  const { visX1, visY1, visX2, visY2, printableInsets } = c;
+  const { visX1, visY1, visX2, visY2 } = c;
   const PAGE_W = displayList.width;
   const pages = displayList.pages!;
 
@@ -450,7 +418,7 @@ function paintSpreadView(ctx: CanvasRenderingContext2D, viewMode: "spread" | "sp
     const { dx, dy } = placementCommandOffset(pos);
 
     ctx.save();
-    clipPrintablePage(ctx, pos.x, pos.y, PAGE_W, page.height, printableInsets);
+    clipPage(ctx, pos.x, pos.y, PAGE_W, page.height);
     ctx.translate(dx, dy);
 
     // Cull to this page's visible band (in command/engine coordinates).

@@ -457,6 +457,7 @@ fn run_joint_dp(
     config: &PageTurnConfig,
     title_page: bool,
     first_page_recto: bool,
+    avoid_sparse_pages: bool,
 ) -> Option<NaturalPartPlan> {
     let measure_count = natural_widths.len();
     let system_count = system_heights.len();
@@ -596,7 +597,11 @@ fn run_joint_dp(
                 } else {
                     geometry.usable_height
                 };
-                if !page_fill_is_allowed(closed_content, closed_capacity, false, config) {
+                if !page_fill_is_allowed(closed_content, closed_capacity, false, config)
+                    || (avoid_sparse_pages
+                        && closed_capacity > 0.0
+                        && closed_content < closed_capacity * config.vertical_justify_threshold)
+                {
                     continue;
                 }
                 let boundary = boundary_after_visible_position(
@@ -721,7 +726,8 @@ pub(crate) fn optimize_natural_part(
     };
     let first_page_recto = config.first_page_recto.unwrap_or(true);
     let mut best: Option<(PlanRank, NaturalPartPlan)> = None;
-    for &title_page in titles {
+    let mut candidates: Vec<_> = titles.iter().rev().map(|&title| (title, false)).collect();
+    while let Some((title_page, avoid_sparse_pages)) = candidates.pop() {
         let Some(mut candidate) = run_joint_dp(
             natural_widths,
             first_width,
@@ -735,6 +741,7 @@ pub(crate) fn optimize_natural_part(
             config,
             title_page,
             first_page_recto,
+            avoid_sparse_pages,
         ) else {
             continue;
         };
@@ -826,6 +833,11 @@ pub(crate) fn optimize_natural_part(
             rank < *current_rank || (rank == *current_rank && candidate.cost < current.cost)
         }) {
             best = Some((rank, candidate));
+        }
+        if !avoid_sparse_pages && sparse_pages > 0 && config.allow_partial_pages {
+            // A denser recast may retain the same turn quality while
+            // leaving the remaining slack on the last page.
+            candidates.push((title_page, true));
         }
     }
     best.map(|(_, plan)| plan).or_else(|| {
@@ -958,5 +970,45 @@ mod tests {
             boundary_after_visible_position(&visible, 12, boundary_position),
             Some(8)
         );
+    }
+
+    #[test]
+    fn sparse_page_is_kept_when_denser_turns_are_unsafe() {
+        let config = PageTurnConfig {
+            title_page: TitlePagePolicy::Never,
+            first_page_recto: Some(true),
+            allow_intentional_blanks: false,
+            ..PageTurnConfig::default()
+        };
+        let visible: Vec<usize> = (0..14).collect();
+        let windows: Vec<_> = (0..13)
+            .map(|boundary| {
+                if boundary == 5 {
+                    window(boundary, 12.0, 12.0)
+                } else {
+                    window(boundary, 0.0, 0.0)
+                }
+            })
+            .collect();
+        let baseline: Vec<_> = (0..7)
+            .map(|system| vec![system * 2, system * 2 + 1])
+            .collect();
+        let plan = optimize_natural_part(
+            &[50.0; 14],
+            100.0,
+            100.0,
+            &baseline,
+            &[20.0; 7],
+            &[0.0; 7],
+            &visible,
+            14,
+            &windows,
+            &geometry(),
+            &config,
+        )
+        .expect("plan");
+
+        assert_eq!(plan.page_starts, vec![0, 3]);
+        assert_eq!(pagination_turn_rank(&plan, &visible, 14, &windows), (0, 0));
     }
 }

@@ -477,6 +477,7 @@ export class PatchReconstructor {
       width: patch.width,
       height: patch.height,
       ...(pages ? { pages } : {}),
+      ...(patch.overlay.pageOverflows ? { pageOverflows: patch.overlay.pageOverflows } : {}),
     };
     const finalizeFlattenedStores = (): void => {
       if (

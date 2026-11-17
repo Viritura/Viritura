@@ -86,6 +86,9 @@ pub(super) fn system_render_hash(
             ml.part_index.hash(&mut h);
             ml.multimeasure_rest_count.hash(&mut h);
             ml.multimeasure_rest_label.hash(&mut h);
+            if ml.multimeasure_rest_count.is_some() {
+                mmr_trailing_barline_kind(ml, globals).hash(&mut h);
+            }
         }
     }
 
@@ -149,6 +152,9 @@ pub(super) fn staff_content_render_hash(
         layout.part_index.hash(&mut h);
         layout.multimeasure_rest_count.hash(&mut h);
         layout.multimeasure_rest_label.hash(&mut h);
+        if layout.multimeasure_rest_count.is_some() {
+            mmr_trailing_barline_kind(layout, globals).hash(&mut h);
+        }
     }
     if let Some(clef) = next_system_clef {
         if let Ok(json) = serde_json::to_string(clef) {

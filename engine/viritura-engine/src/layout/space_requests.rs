@@ -32,6 +32,11 @@ use super::config::LayoutConfig;
 use super::render_annotations;
 use crate::model::ResolvedMeasure;
 
+mod annotation_spans;
+pub(crate) use annotation_spans::{
+    reconcile_mmr_annotation_justification, reserve_mmr_annotation_spans, reserve_mmr_span_widths,
+};
+
 /// Why a request exists. Carried for diagnostics and so the reconciler can apply
 /// reason-specific caps (e.g. tempo-over-MMR widening is bounded; a rehearsal
 /// box must always fit).
@@ -103,8 +108,8 @@ const TEMPO_MMR_WIDEN_CAP_SP: f64 = 24.0;
 ///
 /// * A rehearsal mark reserves its box width so it can't overhang the next bar
 ///   (unbounded — the box must fit).
-/// * A tempo over a multi-measure rest reserves enough room to sit cleanly
-///   instead of overflowing (bounded by [`TEMPO_MMR_WIDEN_CAP_SP`]).
+/// * A tempo sharing an MMR with a rehearsal mark reserves its local flow
+///   width. Following rehearsal marks use the shared annotation-span requests.
 pub(crate) fn measure_min_width_requests(
     rm: &ResolvedMeasure,
     measure_idx: usize,
@@ -121,7 +126,7 @@ pub(crate) fn measure_min_width_requests(
             reason: SpaceReason::AboveLabel,
         });
     }
-    if is_mmr {
+    if is_mmr && rm.global.rehearsal_mark().is_some() {
         let tempo_w = render_annotations::measure_tempo_width(rm, config, sp);
         if tempo_w > 0.0 {
             reqs.push(MeasureWidthConstraint {
@@ -156,6 +161,19 @@ pub(crate) fn reconcile_natural_width(
         width = width.max(target);
     }
     width
+}
+
+/// Keep a pinned caesura's rigid trailing gap when a system is compressed.
+pub(crate) fn reconcile_caesura_rigid_width(
+    measure: &ResolvedMeasure,
+    width: f64,
+    rigid_width: f64,
+) -> f64 {
+    if measure.global.caesura.is_some() {
+        width.max(rigid_width)
+    } else {
+        width
+    }
 }
 
 #[cfg(test)]

@@ -143,7 +143,7 @@ fn assert_default_volta_placement(
             .iter()
             .find(|bound| bound.index == measure && bound.staff_index == staff_index)
             .unwrap();
-        let expected_y = staff.y - 1.88 * sp;
+        let expected_y = staff.y - 2.38 * sp;
         assert!(
             brackets
                 .iter()
@@ -225,7 +225,7 @@ fn test_volta_horizon_clearance_is_scoped_to_its_staff() {
         assert!(
             brackets
                 .iter()
-                .any(|bracket| (bracket.bbox.y - (lower_staff.y - 1.88 * config.sp)).abs() < 1e-6),
+                .any(|bracket| (bracket.bbox.y - (lower_staff.y - 2.38 * config.sp)).abs() < 1e-6),
             "the lower staff's ending must not follow the upper staff's articulation"
         );
         let articulation = display
@@ -628,8 +628,8 @@ fn test_volta_leaves_one_space_above_multimeasure_rest_counts() {
                     })
                     .unwrap();
                 assert!(
-                    number.bbox.y - bottom >= config.sp - 0.01,
-                    "MMR count must clear the volta stroke by 1sp: {:?} vs {bottom}",
+                    number.bbox.y - bottom >= 1.5 * config.sp - 0.01,
+                    "the larger ending label must raise the volta stroke above the MMR count: {:?} vs {bottom}",
                     number.bbox
                 );
                 let count_ink: Vec<_> = display
@@ -681,7 +681,23 @@ fn test_volta_leaves_one_space_above_multimeasure_rest_counts() {
                         first.bbox
                     );
                 }
-                if (first.bbox.y - second.bbox.y).abs() < 0.01 {
+                let first_system = display
+                    .measure_bounds
+                    .iter()
+                    .find(|bound| bound.index == 1)
+                    .unwrap()
+                    .system_index;
+                let second_system = display
+                    .measure_bounds
+                    .iter()
+                    .find(|bound| bound.index == count as usize + 1)
+                    .unwrap()
+                    .system_index;
+                if first_system == second_system {
+                    assert!(
+                        (first.bbox.y - second.bbox.y).abs() < 0.01,
+                        "adjoining ending brackets must share their elevated line"
+                    );
                     assert!(
                         second.bbox.x > first.bbox.x + first.bbox.width,
                         "adjoining ending brackets must have a visible gap"
@@ -1266,8 +1282,8 @@ fn test_volta_brackets_simple() {
             unreachable!();
         };
         assert!(
-            (*size - 1.5 * sp).abs() < 0.01,
-            "volta number should use larger 1.5sp type"
+            (*size - 2.0 * sp).abs() < 0.01,
+            "volta number should use the default 2sp score-text size"
         );
         assert!(
             matches!(baseline, TextBaseline::Top),
@@ -2081,5 +2097,102 @@ fn test_measure_repeat_hides_authored_bar_rest() {
             drawn_codepoints(&dl).contains(&smufl::REPEAT_1_BAR),
             "the measure-repeat sign should remain visible"
         );
+    }
+}
+
+#[test]
+fn test_key_change_precedes_mid_system_repeat_start() {
+    // Standard engraving practice: a start repeat that coincides with a key
+    // change follows the new signature, with no extra barline before the key.
+    // Transposing staves must agree on the repeat position.
+    let notes = |octave: u32| {
+        serde_json::json!({"sequences": [{"content": [{"duration": {"base": "whole"},
+            "notes": [{"pitch": {"step": "C", "octave": octave}}]}]}]})
+    };
+    let mut source = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}, "key": {"fifths": 3}},
+            {},
+            {"key": {"fifths": 0}, "repeatStart": {}},
+            {}
+        ]},
+        "parts": [
+            {"id": "P1", "measures": [notes(5), notes(5), notes(5), notes(5)]},
+            {"id": "P2", "transposition": {"interval": {"halfSteps": 7, "staffDistance": 4}},
+                "measures": [notes(4), notes(4), notes(4), notes(4)]}
+        ]
+    });
+    source["parts"][0]["measures"][0]["clefs"] =
+        serde_json::json!([{"clef": {"sign": "G", "staffPosition": -2}}]);
+    source["parts"][1]["measures"][0]["clefs"] =
+        serde_json::json!([{"clef": {"sign": "G", "staffPosition": -2}}]);
+    let config = LayoutConfig::default();
+    let sp = config.sp;
+    for barline in ["regular", "double"] {
+        source["global"]["measures"][1]["barline"] = serde_json::json!({"type": barline});
+        let score = parse_mnx(&source.to_string()).unwrap();
+        for (display, staves) in [
+            (layout_score(&score, 1, &config), 1),
+            (layout_with_mnx_scores(&score, &config, 0), 2),
+        ] {
+            let tagged = |id: &str| -> Vec<&RenderCommand> {
+                display
+                    .commands
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, _)| display.element_ids[*index].as_deref() == Some(id))
+                    .map(|(_, command)| command)
+                    .collect()
+            };
+            let key_right = (0..2)
+                .flat_map(|part| tagged(&format!("p{part}/m2/key")))
+                .filter_map(RenderCommand::bbox)
+                .map(|bbox| bbox.x + bbox.width)
+                .fold(f64::NEG_INFINITY, f64::max);
+            assert!(key_right.is_finite(), "the key change must render");
+            let boundary = tagged("m2/barline");
+            let repeat_xs: Vec<f64> = boundary
+                .iter()
+                .filter_map(|command| match command {
+                    RenderCommand::DrawGlyph { codepoint, x, .. }
+                        if *codepoint == smufl::REPEAT_LEFT =>
+                    {
+                        Some(*x)
+                    }
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(repeat_xs.len(), staves, "one repeat start per staff");
+            assert!(
+                repeat_xs.iter().all(|x| (x - repeat_xs[0]).abs() < 1e-6),
+                "repeat starts must align across transposing staves: {repeat_xs:?}"
+            );
+            for command in &boundary {
+                let bbox = command.bbox().unwrap();
+                assert!(
+                    bbox.x >= key_right + 0.5 * sp - 1e-6,
+                    "{barline}: no boundary ink may precede the key change (x={}, key right={key_right})",
+                    bbox.x
+                );
+            }
+            let boundary_x = display
+                .measure_bounds
+                .iter()
+                .find(|bound| bound.index == 2)
+                .unwrap()
+                .x;
+            let key_left = tagged("p0/m2/key")
+                .into_iter()
+                .chain(tagged("p1/m2/key"))
+                .filter_map(RenderCommand::bbox)
+                .map(|bbox| bbox.x)
+                .fold(f64::INFINITY, f64::min);
+            assert!(
+                (key_left - boundary_x - 0.5 * sp).abs() < 1e-6,
+                "{barline}: the key must clear only the boundary anchor: gap={}sp",
+                (key_left - boundary_x) / sp
+            );
+        }
     }
 }

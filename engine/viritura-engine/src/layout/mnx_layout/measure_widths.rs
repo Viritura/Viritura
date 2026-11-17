@@ -323,16 +323,6 @@ pub(super) fn compute_natural_measure_widths(
         }
     }
 
-    // Apply a stretch factor for line-breaking so the greedy algorithm leaves
-    // breathing room instead of cramming measures at maximum compression.
-    // The actual layout uses max_widths (un-stretched) for proportional scaling.
-    let stretch = 1.15;
-    let natural_widths: Vec<f64> = mmr
-        .visible_indices
-        .iter()
-        .map(|&mi| max_widths.get(mi).copied().unwrap_or(0.0) * stretch)
-        .collect();
-
     // Phase P: re-store max_widths for the next scoped pass to reuse. Always
     // store (not only when scoped_max_widths was on this pass) so a cold
     // pass populates the cache for a subsequent scoped patch edit.
@@ -340,6 +330,22 @@ pub(super) fn compute_natural_measure_widths(
         c.set_last_width_span(width_span, all_staff_resolved.len() * measure_count);
         c.set_cached_max_widths(max_widths.clone());
     }
+
+    for resolved in all_staff_resolved {
+        space_requests::reserve_mmr_span_widths(
+            resolved.iter(),
+            &mmr.start_map,
+            &mut max_widths,
+            config,
+            sp,
+        );
+    }
+    // Apply breathing room only after reconciling annotation spans.
+    let natural_widths = mmr
+        .visible_indices
+        .iter()
+        .map(|&mi| max_widths.get(mi).copied().unwrap_or(0.0) * 1.15)
+        .collect();
 
     MeasureWidthBudget {
         max_widths,

@@ -234,10 +234,8 @@ pub fn layout_full_score_cached(
     if config.page_width.is_some() {
         let title_y = config.page_margin_top * sp;
         let title_cmds = render_title_block(score.metadata(), config, title_y, page_w);
-        for cmd in title_cmds {
-            dl.commands.push(cmd);
-        }
-        dl.commands.extend(super::page::render_first_page_copyright(
+        dl.extend_page_furniture(title_cmds);
+        dl.extend_page_furniture(super::page::render_first_page_copyright(
             score.metadata(),
             config,
             page_w,
@@ -624,7 +622,7 @@ fn render_one_staff_for_system(
     // An above-staff meter occupies the same band of air, so it joins the list.
     let mmr_number_extents: Vec<super::render_annotations::AboveGlyphBox> = measure_layouts
         .iter()
-        .filter_map(|ml| multimeasure_rest_number_extent(ml, staff_y, sp))
+        .filter_map(|ml| multimeasure_rest_number_extent(ml, staff_y, sp, config))
         .chain(measure_layouts.iter().filter_map(|ml| {
             crate::layout::time_signatures::above_staff_extent(
                 ml,
@@ -642,6 +640,7 @@ fn render_one_staff_for_system(
         render_measure(
             dl,
             ml,
+            &score.global.measures,
             measure_repeat_span_right(measure_layouts, i),
             staff_y,
             sp,

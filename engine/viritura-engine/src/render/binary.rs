@@ -152,6 +152,7 @@ impl DisplayList {
     ///    (id_len, ...id_codepoints)...]`.
     /// 5. Clef contexts: `[bounds_count, (start_sign, change_count,
     ///    (x, sign)...)...]`, where 0 means no sign and 1–4 mean G/F/C/P.
+    /// 6. Page overflows: `[count, (page_number, top_sp, bottom_sp)...]`.
     ///
     /// A later trailer requires all earlier counts, including explicit zeros.
     /// Trailing empty sections are omitted. Thus main's pre-source buffers remain
@@ -269,12 +270,24 @@ impl DisplayList {
         }
 
         // Optional trailers are kept after the command payload so existing
-        // command offsets remain stable. Selection groups require an explicit
-        // zero measure count when no measure bounds are present.
-        if !self.measure_bounds.is_empty()
-            || !self.selection_groups.is_empty()
-            || !self.parts.is_empty()
-        {
+        // command offsets remain stable. A later trailer forces every earlier
+        // count to be written, even when zero.
+        let sources: Vec<_> = self
+            .measure_bounds
+            .iter()
+            .enumerate()
+            .filter(|(_, mb)| !mb.source_part_indices.is_empty())
+            .collect();
+        let has_overflows = !self.page_overflows.is_empty();
+        let has_clefs = has_overflows
+            || self
+                .measure_bounds
+                .iter()
+                .any(|bounds| bounds.clef_sign.is_some() || !bounds.clef_changes.is_empty());
+        let has_parts = has_clefs || !self.parts.is_empty() || !self.measure_bounds.is_empty();
+        let has_sources = has_parts || !sources.is_empty();
+        let has_groups = has_sources || !self.selection_groups.is_empty();
+        if has_groups || !self.measure_bounds.is_empty() {
             buf.push(self.measure_bounds.len() as f32);
             for mb in &self.measure_bounds {
                 if let Some(measure_id) = &mb.measure_id {
@@ -307,18 +320,7 @@ impl DisplayList {
                 buf.push(if mb.is_expansion { 1.0 } else { 0.0 });
             }
         }
-        let sources: Vec<_> = self
-            .measure_bounds
-            .iter()
-            .enumerate()
-            .filter(|(_, mb)| !mb.source_part_indices.is_empty())
-            .collect();
-        // Sources require a group count even when there are no selection groups.
-        if !self.selection_groups.is_empty()
-            || !sources.is_empty()
-            || !self.parts.is_empty()
-            || !self.measure_bounds.is_empty()
-        {
+        if has_groups {
             buf.push(self.selection_groups.len() as f32);
             for group in &self.selection_groups {
                 let id: Vec<u32> = group.element_id.chars().map(|c| c as u32).collect();
@@ -337,7 +339,7 @@ impl DisplayList {
             }
         }
 
-        if !sources.is_empty() || !self.parts.is_empty() || !self.measure_bounds.is_empty() {
+        if has_sources {
             buf.push(sources.len() as f32);
             for (index, mb) in sources {
                 buf.push(index as f32);
@@ -346,7 +348,7 @@ impl DisplayList {
             }
         }
 
-        if !self.parts.is_empty() || !self.measure_bounds.is_empty() {
+        if has_parts {
             buf.push(self.parts.len() as f32);
             for part in &self.parts {
                 buf.push(part.index as f32);
@@ -359,11 +361,7 @@ impl DisplayList {
             }
         }
 
-        if self
-            .measure_bounds
-            .iter()
-            .any(|bounds| bounds.clef_sign.is_some() || !bounds.clef_changes.is_empty())
-        {
+        if has_clefs {
             buf.push(self.measure_bounds.len() as f32);
             for bounds in &self.measure_bounds {
                 buf.push(encode_clef_sign(bounds.clef_sign));
@@ -372,6 +370,15 @@ impl DisplayList {
                     buf.push(change.x as f32);
                     buf.push(encode_clef_sign(Some(change.sign)));
                 }
+            }
+        }
+
+        if has_overflows {
+            buf.push(self.page_overflows.len() as f32);
+            for overflow in &self.page_overflows {
+                buf.push(overflow.page_number as f32);
+                buf.push(overflow.top_overflow_sp as f32);
+                buf.push(overflow.bottom_overflow_sp as f32);
             }
         }
 
@@ -719,6 +726,24 @@ mod tests {
         encode_identity_string(&mut expected, "Piano");
         expected.push(0.0);
         assert_eq!(buffer, expected);
+    }
+
+    #[test]
+    fn page_overflow_trailer_writes_every_earlier_count() {
+        let mut dl = DisplayList::new(100.0, 50.0);
+        dl.page_overflows.push(crate::render::PageOverflow {
+            page_number: 2,
+            top_overflow_sp: 0.0,
+            bottom_overflow_sp: 0.5,
+        });
+        assert_eq!(
+            dl.to_binary(),
+            vec![
+                100.0, 50.0, 0.0, 0.0, 0.0, 0.0, 0.0, // header
+                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // bounds, groups, sources, parts, ids, clefs
+                1.0, 2.0, 0.0, 0.5,
+            ]
+        );
     }
 
     #[test]

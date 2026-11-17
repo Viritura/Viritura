@@ -133,7 +133,7 @@ fn key_changes_clear_the_right_ink_of_every_barline() {
         let sp = config.sp;
         let dl = layout_score(&score, 0, &config);
         let resolved = resolve_measures(&score, 0);
-        let kind = leading_barline_kind(&resolved[1]);
+        let kind = measure_start_barline_kind(&resolved[1]);
         let ml =
             crate::layout::measure::layout_measure(&resolved[1], sp, 0.0, &config, None, &[], 1.0);
         let key_origin = key_signature_prefix_x(&ml, sp, 0.0, &config);
@@ -183,8 +183,14 @@ fn key_changes_clear_the_right_ink_of_every_barline() {
             regular.global.repeat_start = None;
             compute_prefix_width(&regular, sp, false, &config)
         };
+        let deferred_repeat_slot = if defers_repeat_start(&resolved[1], false) {
+            1.5 * sp
+        } else {
+            0.0
+        };
         let expected_delta = barline_right_extent(&kind, &config, sp)
-            - barline_right_extent(&BarlineKind::Regular, &config, sp);
+            - barline_right_extent(&BarlineKind::Regular, &config, sp)
+            + deferred_repeat_slot;
         assert!(
             (compute_prefix_width(&resolved[1], sp, false, &config)
                 - regular_width

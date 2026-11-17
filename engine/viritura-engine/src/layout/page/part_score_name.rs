@@ -96,7 +96,7 @@ pub fn render_part_score_name(
         .fold(0.0_f64, f64::max)
         + 2.0 * pad_x;
     for (index, line) in title.split('\n').enumerate() {
-        dl.push(RenderCommand::DrawText {
+        dl.push_page_furniture(RenderCommand::DrawText {
             x: left + pad_x,
             y: top + pad_y + size * 0.78 + index as f64 * size * 1.2,
             text: line.to_string(),
@@ -115,7 +115,7 @@ pub fn render_part_score_name(
         (left, top, left, bottom),
         (right, top, right, bottom),
     ] {
-        dl.push(RenderCommand::DrawLine {
+        dl.push_page_furniture(RenderCommand::DrawLine {
             x1,
             y1,
             x2,

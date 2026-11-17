@@ -1,24 +1,14 @@
 use super::{shift_marking_x, DisplayList, MeasureLayout};
-use crate::layout::config::LayoutConfig;
-use crate::render::{smufl::smufl, ElementKind};
+use crate::render::smufl::smufl;
 
-/// Reserve the same barline-local ink column before staff/page positions freeze.
-pub(crate) fn global_caesura_top(ml: &MeasureLayout, sp: f64, config: &LayoutConfig) -> f64 {
+/// Reserve the caesura's fixed extent above the top staff line.
+pub(crate) fn global_caesura_top(ml: &MeasureLayout, sp: f64) -> f64 {
     let Some(caesura) = &ml.resolved.global.caesura else {
         return 0.0;
     };
     let glyph = smufl::caesura_glyph(&caesura.marking.style, caesura.marking.marks);
-    let (_, _, width, height) = smufl::glyph_bbox(glyph);
-    let metrics = config.placement.resolve(ElementKind::Caesura);
-    let right = ml.x + ml.width - 0.25 * sp;
-    let top = -height * 0.5 * sp;
-    let substrate =
-        super::highest_point_in_range(ml, 0.0, sp, config.stem_length, right - width * sp, right);
-    if substrate < 0.0 {
-        top.min(substrate - (metrics.padding.vertical + height) * sp)
-    } else {
-        top
-    }
+    let (_, _, _, height) = smufl::glyph_bbox(glyph);
+    -height * 0.5 * sp
 }
 
 /// A change clef may precede the incoming barline. Use its exported visible

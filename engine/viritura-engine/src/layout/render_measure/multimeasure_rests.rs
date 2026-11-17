@@ -57,20 +57,42 @@ pub(crate) fn multimeasure_rest_natural_width(prefix_width: f64, count: u32, sp:
     prefix_width + body
 }
 
-/// Structural clef/key/time prefix the H-bar must clear, in pixels. Unlike the
-/// measure's full `prefix_width`, this deliberately excludes the first-note
-/// accidental/min-spacing clearance (a multimeasure rest has no first note), so
-/// the bar centers over the true inner width of the measure: full-width on a
-/// mid-system rest, and only past the clef/key/time on a system-start rest.
-pub(crate) fn multimeasure_rest_structural_prefix(ml: &MeasureLayout, sp: f64) -> f64 {
-    let rm = &ml.resolved;
-    let is_first = rm.index == 0;
-    let at_start = is_first || ml.is_first_on_system;
-    let mut w = 0.0;
+pub(crate) struct MultimeasureRestPrefix {
+    leading_barline: BarlineKind,
+    pub(crate) barline_advance: f64,
+    time_x: Option<f64>,
+    repeat_x: Option<f64>,
+    width: f64,
+}
 
-    if rm.global.repeat_start.is_some() {
-        w += 1.5 * sp;
-    }
+pub(crate) fn multimeasure_rest_prefix(
+    ml: &MeasureLayout,
+    sp: f64,
+    config: &LayoutConfig,
+) -> MultimeasureRestPrefix {
+    let rm = &ml.resolved;
+    let at_start = rm.index == 0 || ml.is_first_on_system;
+    let defer_repeat = defers_repeat_start(rm, ml.is_first_on_system);
+    let leading_barline = BarlineKind::at_boundary(
+        !ml.is_first_on_system && rm.prev_has_repeat_end,
+        rm.global.repeat_start.is_some() && !defer_repeat,
+        if defer_repeat {
+            None
+        } else {
+            rm.prev_barline_type.as_ref()
+        },
+        if defer_repeat {
+            BarlineType::NoBarline
+        } else {
+            BarlineType::Regular
+        },
+    );
+    let barline_advance = if at_start {
+        0.0
+    } else {
+        barline_right_extent(&leading_barline, config, sp) + 0.5 * sp
+    };
+    let mut w = 0.0;
 
     let has_start_clef = rm.part.clefs.as_ref().is_some_and(|clefs| {
         clefs.iter().any(|pc| match &pc.position {
@@ -114,22 +136,54 @@ pub(crate) fn multimeasure_rest_structural_prefix(ml: &MeasureLayout, sp: f64) -
         }
     }
 
-    if let Some(time) = rm.displayed_time_signature() {
+    let time_x = rm.displayed_time_signature().map(|time| {
+        let x = barline_advance + w;
         let staff_override = crate::layout::time_signatures::staff_grouping_override(&rm.part);
         w += crate::layout::time_signatures::prefix_reserve(
-            LayoutConfig::default().time_signature_settings,
+            config.time_signature_settings,
             time,
             sp,
             staff_override,
         );
-    }
-
+        x
+    });
     if w > 0.0 {
-        w += 1.2 * sp;
-        // The measured prefix also includes the leading boundary's ink edge.
-        w = w.max(ml.prefix_width - ml.first_onset_padding);
+        w += barline_advance;
+    } else if rm.global.repeat_start.is_some() && !defer_repeat {
+        w = barline_right_extent(&leading_barline, config, sp);
     }
-    w
+    let repeat_x = defer_repeat.then(|| {
+        let x = w + 0.5 * sp;
+        w = x + barline_right_extent(&BarlineKind::RepeatStart, config, sp);
+        x
+    });
+    if w > 0.0 {
+        w = w.max(
+            ml.prefix_width
+                - ml.first_onset_padding
+                - super::super::measure::PREFIX_TO_ONSET_GAP_SP * sp,
+        );
+    }
+    MultimeasureRestPrefix {
+        leading_barline,
+        barline_advance,
+        time_x,
+        repeat_x,
+        width: w,
+    }
+}
+
+/// Structural clef/key/time/repeat prefix the H-bar must clear, in pixels. Unlike the
+/// measure's full `prefix_width`, this deliberately excludes the first-note
+/// approach and accidental clearance (the H-bar supplies its own inset), so
+/// the bar centers over the true inner width of the measure: full-width on a
+/// mid-system rest, and only past the clef/key/time on a system-start rest.
+pub(crate) fn multimeasure_rest_structural_prefix(
+    ml: &MeasureLayout,
+    sp: f64,
+    config: &LayoutConfig,
+) -> f64 {
+    multimeasure_rest_prefix(ml, sp, config).width
 }
 
 /// Horizontal extent and top Y of the count number a multimeasure rest draws
@@ -139,10 +193,11 @@ pub(crate) fn multimeasure_rest_number_extent(
     ml: &MeasureLayout,
     staff_y: f64,
     sp: f64,
+    config: &LayoutConfig,
 ) -> Option<(f64, f64, f64)> {
     let count = ml.multimeasure_rest_count?;
 
-    let hbar_area_left = ml.x + multimeasure_rest_structural_prefix(ml, sp);
+    let hbar_area_left = ml.x + multimeasure_rest_structural_prefix(ml, sp, config);
     let hbar_area_right = ml.x + ml.width;
     let center_x = (hbar_area_left + hbar_area_right) / 2.0;
     let count_y = staff_y - 1.5 * sp;
@@ -158,6 +213,66 @@ pub(crate) fn multimeasure_rest_number_extent(
     Some((center_x - half_width, center_x + half_width, top_y))
 }
 
+fn render_multimeasure_rest_count(
+    dl: &mut DisplayList,
+    ml: &MeasureLayout,
+    count: u32,
+    center_x: f64,
+    staff_y: f64,
+    sp: f64,
+    count_y_override: Option<f64>,
+) {
+    let number_size = 4.0 * sp;
+    let count_y = count_y_override.unwrap_or(staff_y - 1.5 * sp);
+    let display_str = ml
+        .multimeasure_rest_label
+        .clone()
+        .unwrap_or_else(|| count.to_string());
+    let all_digits = display_str.chars().all(|c| c.is_ascii_digit());
+
+    if all_digits && !display_str.is_empty() {
+        let total_width = multimeasure_rest_number_width(&display_str, sp);
+        let mut x = center_x - total_width / 2.0;
+        for ch in display_str.chars() {
+            if let Some(digit) = ch.to_digit(10) {
+                dl.push(RenderCommand::DrawGlyph {
+                    x,
+                    y: count_y,
+                    codepoint: smufl::time_sig_digit(digit),
+                    font: "Bravura".into(),
+                    size: number_size,
+                    color: "#000000".into(),
+                    rotation: 0.0,
+                });
+                x += smufl::time_sig_digit_advance(digit) * sp;
+            }
+        }
+    } else {
+        let font_size = 2.0 * sp;
+        let (text_y, baseline) =
+            count_y_override.map_or((count_y, TextBaseline::Bottom), |center_y| {
+                (
+                    center_y
+                        + crate::layout::text_styles::cap_center_offset_from_baseline(
+                            crate::layout::text_styles::FontFamily::Serif,
+                            font_size,
+                        ),
+                    TextBaseline::Alphabetic,
+                )
+            });
+        dl.push(RenderCommand::DrawText {
+            x: center_x,
+            y: text_y,
+            text: display_str,
+            font: "serif bold".into(),
+            size: font_size,
+            color: "#000000".into(),
+            align: TextAlign::Center,
+            baseline,
+        });
+    }
+}
+
 pub(crate) fn render_multimeasure_rest(
     dl: &mut DisplayList,
     ml: &MeasureLayout,
@@ -167,34 +282,38 @@ pub(crate) fn render_multimeasure_rest(
     count: u32,
     render_count: bool,
     count_y_override: Option<f64>,
+    trailing_barline: BarlineKind,
 ) {
     let staff_height = 4.0 * sp;
     let is_first = ml.resolved.index == 0;
     let prev_has_repeat_end = !ml.is_first_on_system && ml.resolved.prev_has_repeat_end;
 
-    // A repeat-start opening a system is deferred until after the repeated
-    // clef/key/time prefix. Other non-system-start boundaries render normally.
-    let defer_repeat_start = ml.resolved.global.repeat_start.is_some()
-        && (is_first || ml.is_first_on_system || ml.resolved.key_signature_changed());
+    let prefix = multimeasure_rest_prefix(ml, sp, config);
     if !is_first && !ml.is_first_on_system {
-        let start_bt = leading_barline_kind(&ml.resolved);
         let cmd_idx = dl.commands.len();
-        render_barline(dl, ml.x, staff_y, staff_height, sp, config, &start_bt);
+        render_barline(
+            dl,
+            ml.x,
+            staff_y,
+            staff_height,
+            sp,
+            config,
+            &prefix.leading_barline,
+        );
         for ci in cmd_idx..dl.commands.len() {
             dl.tag_command(ci, element_id::barline(ml.resolved.index));
         }
     }
 
     // Repeat structural signatures at score and system starts.
-    let mut x_cursor =
-        ml.x + leading_barline_advance(&ml.resolved, ml.is_first_on_system, config, sp);
+    let mut x_cursor = ml.x + prefix.barline_advance;
     let at_start = is_first || ml.is_first_on_system;
     if at_start {
         if let Some(clefs) = &ml.resolved.part.clefs {
             if let Some(pc) = clefs.first() {
                 let cmd_idx = dl.commands.len();
                 render_clef(dl, x_cursor + 0.5 * sp, staff_y, sp, &pc.clef);
-                x_cursor += 3.0 * sp;
+                x_cursor += clef_prefix_advance_sp(&pc.clef) * sp;
                 dl.tag_command(cmd_idx, element_id::clef(ml.part_index, ml.resolved.index));
             }
         }
@@ -224,7 +343,7 @@ pub(crate) fn render_multimeasure_rest(
             None
         };
         let cmd_idx = dl.commands.len();
-        x_cursor += render_key_signature(
+        render_key_signature(
             dl,
             x_cursor,
             staff_y,
@@ -246,7 +365,8 @@ pub(crate) fn render_multimeasure_rest(
                 crate::layout::time_signatures::staff_grouping_override(&ml.resolved.part);
             render_time_signature(
                 dl,
-                x_cursor + crate::layout::time_signatures::left_bearing(settings, sp),
+                ml.x + prefix.time_x.expect("MMR time signature prefix offset")
+                    + crate::layout::time_signatures::left_bearing(settings, sp),
                 staff_y,
                 sp,
                 ts,
@@ -259,8 +379,8 @@ pub(crate) fn render_multimeasure_rest(
         }
     }
 
-    if defer_repeat_start {
-        let bar_x = x_cursor + 0.5 * sp;
+    if let Some(repeat_x) = prefix.repeat_x {
+        let bar_x = ml.x + repeat_x;
         let cmd_idx = dl.commands.len();
         render_barline(
             dl,
@@ -277,15 +397,24 @@ pub(crate) fn render_multimeasure_rest(
     }
 
     let measure_right = ml.x + ml.width;
-    let hbar_area_left = ml.x + multimeasure_rest_structural_prefix(ml, sp);
+    let hbar_area_left = ml.x + prefix.width;
     let hbar_area_right = measure_right;
     let hbar_center = (hbar_area_left + hbar_area_right) / 2.0;
     let has_repeat_edge = prev_has_repeat_end
         || ml.resolved.global.repeat_start.is_some()
         || ml.resolved.global.repeat_end.is_some();
     let edge_clearance = if has_repeat_edge { 1.0 * sp } else { 0.5 * sp };
+    let vert_width = 0.16 * sp;
+    let trailing_clearance = if matches!(
+        trailing_barline,
+        BarlineKind::RepeatEnd | BarlineKind::RepeatBoth
+    ) {
+        barline_left_extent(&trailing_barline, config, sp) + 0.5 * sp + vert_width * 0.5
+    } else {
+        0.0
+    };
     let hbar_half_area = (hbar_area_right - hbar_area_left) / 2.0;
-    let hbar_max_half_span = (hbar_half_area - edge_clearance).max(0.0);
+    let hbar_max_half_span = (hbar_half_area - edge_clearance.max(trailing_clearance)).max(0.0);
     let hbar_half_span = (hbar_half_area - 1.5 * sp)
         .max(2.0 * sp)
         .min(hbar_max_half_span);
@@ -304,7 +433,6 @@ pub(crate) fn render_multimeasure_rest(
         color: "#000000".into(),
     });
 
-    let vert_width = 0.16 * sp;
     dl.push(RenderCommand::DrawRect {
         x: bar_left - vert_width / 2.0,
         y: serif_top,
@@ -320,54 +448,15 @@ pub(crate) fn render_multimeasure_rest(
         color: "#000000".into(),
     });
 
-    let center_x = (bar_left + bar_right) / 2.0;
-    let number_size = 4.0 * sp;
-    let count_y = count_y_override.unwrap_or(staff_y - 1.5 * sp);
-    let display_str = ml
-        .multimeasure_rest_label
-        .clone()
-        .unwrap_or_else(|| count.to_string());
-    let all_digits = display_str.chars().all(|c| c.is_ascii_digit());
-
-    if render_count && all_digits && !display_str.is_empty() {
-        let total_width = multimeasure_rest_number_width(&display_str, sp);
-        let mut x = center_x - total_width / 2.0;
-        for ch in display_str.chars() {
-            if let Some(digit) = ch.to_digit(10) {
-                dl.push(RenderCommand::DrawGlyph {
-                    x,
-                    y: count_y,
-                    codepoint: smufl::time_sig_digit(digit),
-                    font: "Bravura".into(),
-                    size: number_size,
-                    color: "#000000".into(),
-                    rotation: 0.0,
-                });
-                x += smufl::time_sig_digit_advance(digit) * sp;
-            }
-        }
-    } else if render_count {
-        let font_size = 2.0 * sp;
-        let (text_y, baseline) =
-            count_y_override.map_or((count_y, TextBaseline::Bottom), |center_y| {
-                (
-                    center_y
-                        + crate::layout::text_styles::cap_center_offset_from_baseline(
-                            crate::layout::text_styles::FontFamily::Serif,
-                            font_size,
-                        ),
-                    TextBaseline::Alphabetic,
-                )
-            });
-        dl.push(RenderCommand::DrawText {
-            x: center_x,
-            y: text_y,
-            text: display_str,
-            font: "serif bold".into(),
-            size: font_size,
-            color: "#000000".into(),
-            align: TextAlign::Center,
-            baseline,
-        });
+    if render_count {
+        render_multimeasure_rest_count(
+            dl,
+            ml,
+            count,
+            (bar_left + bar_right) / 2.0,
+            staff_y,
+            sp,
+            count_y_override,
+        );
     }
 }

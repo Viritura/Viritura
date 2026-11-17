@@ -204,6 +204,7 @@ pub(super) fn precompute_system_layouts(
             })
             .flatten()
             .map(|&vi| mmr.visible_indices[vi]);
+        let next_resolved = next_mi.and_then(|next| all_staff_resolved.first()?.get(next));
         let mut end_courtesies: Vec<ResolvedMeasure> = sys_measure_indices
             .last()
             .map(|&mi| {
@@ -224,8 +225,22 @@ pub(super) fn precompute_system_layouts(
                     .collect()
             })
             .unwrap_or_default();
-        let courtesy_reserve =
-            crate::layout::courtesy_signatures::share_system_end(&mut end_courtesies, config) * sp;
+        let end_barline_kind = sys_measure_indices
+            .last()
+            .and_then(|&last| all_staff_resolved.first()?.get(last))
+            .map(|last| {
+                crate::layout::render_barlines::system_end_barline_kind_at_boundary(
+                    last,
+                    next_resolved,
+                    next_resolved.is_none(),
+                )
+            })
+            .unwrap_or(crate::layout::render_barlines::BarlineKind::Regular);
+        let courtesy_reserve = crate::layout::courtesy_signatures::share_system_end(
+            &mut end_courtesies,
+            config,
+            end_barline_kind,
+        ) * sp;
         let system_ends: Vec<_> = end_courtesies.into_iter().map(|rm| rm.system_end).collect();
 
         // Membership has reconverged and no measure in this system belongs to
@@ -441,6 +456,21 @@ pub(super) fn precompute_system_layouts(
             1.0
         };
 
+        let mut justified_widths: Vec<_> = sys_measure_indices
+            .iter()
+            .map(|&mi| budget.max_widths.get(mi).copied().unwrap_or(10.0) * scale)
+            .collect();
+        if let Some(staff) = all_staff_resolved.first() {
+            let measures: Vec<_> = sys_measure_indices.iter().map(|&mi| &staff[mi]).collect();
+            space_requests::reconcile_mmr_annotation_justification(
+                &measures,
+                &mmr.start_map,
+                &mut justified_widths,
+                config,
+                sp,
+            );
+        }
+
         // Step 4 (B-full): the whole-system layout signature. `sys_signature`
         // already folds the system's measure membership + per-measure content
         // hashes + sp + common_shortest_beats + chunked; we extend it with the
@@ -556,7 +586,7 @@ pub(super) fn precompute_system_layouts(
                 } else {
                     &all_staff_resolved[staff_idx][mi]
                 };
-                let forced_width = budget.max_widths.get(mi).copied().unwrap_or(10.0) * scale
+                let forced_width = justified_widths[si]
                     + if si == 0 { first_extra_prefix } else { 0.0 }
                     + if start_clef_change_measures.contains(&mi) {
                         1.2 * sp

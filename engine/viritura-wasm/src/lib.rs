@@ -982,6 +982,12 @@ mod note_preview_tests {
     }
 }
 
+/// Overflow is reported, never rejected: the editor shows the layout and a
+/// warning so the user can correct the page setup.
+fn record_page_fit(display_list: &mut DisplayList, config: &LayoutConfig) {
+    display_list.page_overflows = viritura_engine::layout::page_overflows(display_list, config);
+}
+
 /// Layout a score from MNX JSON and return a DisplayList as JSON.
 #[wasm_bindgen]
 pub fn compute_layout(
@@ -997,7 +1003,8 @@ pub fn compute_layout(
 
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-    let display_list = layout_score(&score, part_index, &config);
+    let mut display_list = layout_score(&score, part_index, &config);
+    record_page_fit(&mut display_list, &config);
 
     serde_json::to_string(&display_list)
         .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
@@ -1018,7 +1025,8 @@ pub fn compute_layout_binary(
 
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-    let display_list = layout_score(&score, part_index, &config);
+    let mut display_list = layout_score(&score, part_index, &config);
+    record_page_fit(&mut display_list, &config);
     let binary = display_list.to_binary();
 
     Ok(js_sys::Float32Array::from(binary.as_slice()))
@@ -1079,11 +1087,12 @@ pub fn compute_full_score_layout(
 
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-    let display_list = if !score.scores.is_empty() {
+    let mut display_list = if !score.scores.is_empty() {
         layout_with_mnx_scores(&score, &config, 0)
     } else {
         layout_full_score(&score, &config)
     };
+    record_page_fit(&mut display_list, &config);
 
     serde_json::to_string(&display_list)
         .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
@@ -1104,7 +1113,8 @@ pub fn compute_mnx_score_layout(
 
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-    let display_list = layout_with_mnx_scores(&score, &config, score_index);
+    let mut display_list = layout_with_mnx_scores(&score, &config, score_index);
+    record_page_fit(&mut display_list, &config);
 
     serde_json::to_string(&display_list)
         .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
@@ -1124,11 +1134,12 @@ pub fn compute_full_score_layout_binary(
 
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-    let display_list = if !score.scores.is_empty() {
+    let mut display_list = if !score.scores.is_empty() {
         layout_with_mnx_scores(&score, &config, 0)
     } else {
         layout_full_score(&score, &config)
     };
+    record_page_fit(&mut display_list, &config);
     let binary = display_list.to_binary();
 
     Ok(js_sys::Float32Array::from(binary.as_slice()))
@@ -1149,7 +1160,8 @@ pub fn compute_mnx_score_layout_binary(
 
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-    let display_list = layout_with_mnx_scores(&score, &config, score_index);
+    let mut display_list = layout_with_mnx_scores(&score, &config, score_index);
+    record_page_fit(&mut display_list, &config);
     let binary = display_list.to_binary();
 
     Ok(js_sys::Float32Array::from(binary.as_slice()))
@@ -1463,7 +1475,7 @@ impl LayoutEngine {
 
         let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-        let display_list = if !score.scores.is_empty() {
+        let mut display_list = if !score.scores.is_empty() {
             layout_with_mnx_scores_cached(
                 score,
                 &config,
@@ -1475,6 +1487,8 @@ impl LayoutEngine {
         } else {
             layout_full_score_cached(score, &config, Some(&mut self.cache))
         };
+
+        record_page_fit(&mut display_list, &config);
 
         if timing {
             let now = js_sys::Date::now();
@@ -1589,9 +1603,11 @@ impl LayoutEngine {
         }
 
         let config = build_config(spatium, page_width, page_setup_json.as_deref());
-        let display_list = layout_score_cached(&score, part_index, &config, Some(&mut self.cache));
+        let mut display_list =
+            layout_score_cached(&score, part_index, &config, Some(&mut self.cache));
         self.score = Some(score);
 
+        record_page_fit(&mut display_list, &config);
         serde_json::to_string(&display_list)
             .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
@@ -1662,7 +1678,7 @@ impl LayoutEngine {
 
         let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-        let display_list = if !score.scores.is_empty() {
+        let mut display_list = if !score.scores.is_empty() {
             layout_with_mnx_scores_cached(
                 &score,
                 &config,
@@ -1675,6 +1691,7 @@ impl LayoutEngine {
 
         self.score = Some(score);
 
+        record_page_fit(&mut display_list, &config);
         Ok(display_list)
     }
 
@@ -1738,7 +1755,7 @@ impl LayoutEngine {
 
         let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-        let display_list = if !score.scores.is_empty() {
+        let mut display_list = if !score.scores.is_empty() {
             layout_with_mnx_scores_cached(
                 score,
                 &config,
@@ -1751,6 +1768,7 @@ impl LayoutEngine {
             layout_full_score_cached(score, &config, Some(&mut self.cache))
         };
 
+        record_page_fit(&mut display_list, &config);
         Ok(display_list)
     }
 
@@ -1836,6 +1854,10 @@ impl LayoutEngine {
             page_setup_json,
             score_index,
         );
+        if let Ok(display_list) = &result {
+            self.cache
+                .set_pending_page_overflows(display_list.page_overflows.clone());
+        }
         let pending = self.cache.take_pending_patch_binary();
         self.cache.set_patch_frame_enabled(false);
 
@@ -1875,7 +1897,7 @@ impl LayoutEngine {
         // Invalidate cache on structural change
         self.cache.invalidate();
 
-        let display_list = if !score.scores.is_empty() {
+        let mut display_list = if !score.scores.is_empty() {
             layout_with_mnx_scores(&score, &config, score_index.unwrap_or(0))
         } else if score.parts.len() == 1 {
             layout_score(&score, 0, &config)
@@ -1885,6 +1907,7 @@ impl LayoutEngine {
 
         self.score = Some(score);
 
+        record_page_fit(&mut display_list, &config);
         serde_json::to_string(&display_list)
             .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }

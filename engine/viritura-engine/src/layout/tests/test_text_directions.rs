@@ -114,6 +114,148 @@ fn test_text_expressions_below_staff_position() {
     );
 }
 
+fn beat_one_annotation_layout(
+    sequences: serde_json::Value,
+    page_width: Option<f64>,
+    time_count: u32,
+) -> DisplayList {
+    let source = json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "time": {"count": time_count, "unit": 4},
+            "_x": {"viritura": {"systemText": [{
+                "id": "rall", "position": {"fraction": [0, 1]},
+                "placement": "above", "text": [{"text": "rall."}],
+                "tempo": {"bpm": 84, "value": {"base": "quarter"}},
+                "avoidCollisions": false
+            }]}}
+        }]},
+        "parts": [{"measures": [{
+            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+            "text": [{
+                "type": "expression", "position": {"fraction": [0, 1]},
+                "placement": "above", "text": [{"text": "arco"}],
+                "_x": {"viritura": {"avoidCollisions": false}}
+            }],
+            "dynamics": [{
+                "type": "immediate", "position": {"fraction": [0, 1]}, "value": "ff",
+                "placement": "below",
+                "_x": {"viritura": {"avoidCollisions": false}}
+            }],
+            "sequences": sequences
+        }]}]
+    });
+    let config = LayoutConfig {
+        page_width,
+        ..LayoutConfig::default()
+    };
+    crate::layout::layout_with_mnx_scores(&parse_mnx(&source.to_string()).unwrap(), &config, 0)
+}
+
+#[test]
+fn beat_one_annotations_ignore_centered_bar_rests() {
+    let note_sequence = json!({"content": (0..4).map(|_| json!({
+            "duration": {"base": "quarter"},
+            "notes": [{"pitch": {"step": "C", "octave": 5}}]
+        })).collect::<Vec<_>>()});
+    let full_measure = json!({
+        "content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}
+    });
+    let text_x = |display: &DisplayList, label: &str| {
+        display
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                RenderCommand::DrawText { x, text, .. } if text == label => Some(*x),
+                _ => None,
+            })
+            .unwrap()
+    };
+    let dynamic_x = |display: &DisplayList| {
+        display
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                RenderCommand::DrawGlyph { x, codepoint, .. }
+                    if *codepoint == crate::render::smufl::smufl::DYNAMIC_FF =>
+                {
+                    Some(*x)
+                }
+                _ => None,
+            })
+            .unwrap()
+    };
+    for page_width in [None, Some(800.0)] {
+        let notes = beat_one_annotation_layout(json!([note_sequence]), page_width, 4);
+        let note_x = notes
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                RenderCommand::DrawGlyph { x, codepoint, .. }
+                    if *codepoint == crate::render::smufl::smufl::NOTEHEAD_BLACK =>
+                {
+                    Some(*x)
+                }
+                _ => None,
+            })
+            .unwrap();
+        for sequences in [
+            json!([full_measure]),
+            json!([{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]),
+            json!([{"content": [
+                {"duration": {"base": "half"}, "rest": {}},
+                {"duration": {"base": "half"}, "rest": {}}
+            ]}]),
+            json!([full_measure, note_sequence]),
+        ] {
+            let display = beat_one_annotation_layout(sequences, page_width, 4);
+            for label in ["rall.", "arco"] {
+                assert!(
+                    (text_x(&display, label) - note_x).abs() < 1e-6,
+                    "{label} must align with the natural beat-one note onset"
+                );
+            }
+            assert!(
+                (dynamic_x(&display) - dynamic_x(&notes)).abs() < 1e-6,
+                "a beat-one dynamic must retain its natural note-centered anchor"
+            );
+        }
+    }
+}
+
+#[test]
+fn full_measure_visual_duration_does_not_define_text_onsets() {
+    let notes = beat_one_annotation_layout(
+        json!([{"content": (0..6).map(|_| json!({
+            "duration": {"base": "quarter"},
+            "notes": [{"pitch": {"step": "C", "octave": 5}}]
+        })).collect::<Vec<_>>()}]),
+        Some(800.0),
+        6,
+    );
+    let rest = beat_one_annotation_layout(
+        json!([{"content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}}]),
+        Some(800.0),
+        6,
+    );
+    for label in ["rall.", "arco"] {
+        let x = |display: &DisplayList| {
+            display
+                .commands
+                .iter()
+                .find_map(|command| match command {
+                    RenderCommand::DrawText { x, text, .. } if text == label => Some(*x),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        assert!(
+            (x(&rest) - x(&notes)).abs() < 1e-6,
+            "{label} must ignore the centered whole-rest glyph in a 6/4 measure"
+        );
+    }
+}
+
 #[test]
 fn system_text_renders_once_at_each_visible_system_boundary() {
     let parts = ["P1", "P2"].map(|id| {

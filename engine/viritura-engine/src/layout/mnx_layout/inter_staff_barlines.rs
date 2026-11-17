@@ -10,9 +10,10 @@ use super::super::config::LayoutConfig;
 use super::super::element_id;
 use super::super::full_score::GroupRange;
 use super::super::render_barlines::{
-    leading_barline_kind, render_tagged_barline_connector, trailing_barline_index,
-    trailing_barline_kind, BarlineGap, BarlineKind,
+    defers_repeat_start, measure_start_barline_kind, render_tagged_barline_connector,
+    trailing_barline_index, trailing_barline_kind, BarlineGap, BarlineKind,
 };
+use super::super::render_measure::deferred_repeat_start_x;
 use super::super::types::MeasureLayout;
 use super::staff_grouping::staves_share_group;
 use crate::model::GlobalMeasure;
@@ -42,6 +43,23 @@ pub(super) fn render_inter_staff_barlines(
     suppress_end_connector: bool,
 ) {
     for ml in first_layouts {
+        if defers_repeat_start(&ml.resolved, ml.is_first_on_system)
+            && ml.multimeasure_rest_count.is_none()
+        {
+            connect_gaps(
+                dl,
+                GapRun {
+                    x: deferred_repeat_start_x(ml, sp),
+                    staff_y_offsets,
+                    staff_height,
+                    group_ranges,
+                },
+                sp,
+                config,
+                &BarlineKind::RepeatStart,
+                &element_id::barline(ml.resolved.index),
+            );
+        }
         // Skip only a TRUE system start (the left margin has no connector). A
         // stitched-horizon seam continuation has `is_first_on_system == false`
         // even at `mi_idx == 0`; it MUST draw its boundary connector so it lines
@@ -51,7 +69,7 @@ pub(super) fn render_inter_staff_barlines(
         if ml.is_first_on_system {
             continue;
         }
-        let connector_bt = leading_barline_kind(&ml.resolved);
+        let connector_bt = measure_start_barline_kind(&ml.resolved);
         // Mid-system clef-change measures shift their start barline right by the
         // leading clef gap (see `render_measure_prefix`). The inter-staff
         // connector must shift by the SAME amount or it splits away from the

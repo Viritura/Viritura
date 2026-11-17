@@ -53,6 +53,19 @@ pub struct DisplayList {
     /// Each entry flags a physical page turn that lands somewhere awkward.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page_turn_warnings: Option<Vec<PageTurnWarning>>,
+    /// Pages whose notation could not fit inside the printable frame. The
+    /// layout is still returned so the editor can show and correct it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub page_overflows: Vec<PageOverflow>,
+}
+
+/// Worst vertical overflow on one page, in staff spaces.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PageOverflow {
+    /// Zero-based page number.
+    pub page_number: usize,
+    pub top_overflow_sp: f64,
+    pub bottom_overflow_sp: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -90,6 +103,7 @@ impl DisplayList {
             measure_bounds: Vec::new(),
             layout_debug: None,
             page_turn_warnings: None,
+            page_overflows: Vec::new(),
         }
     }
 
@@ -123,6 +137,19 @@ impl DisplayList {
         }
         self.commands.push(cmd);
         self.element_ids.push(Some(element_id));
+    }
+
+    pub(crate) fn push_page_furniture(&mut self, cmd: RenderCommand) {
+        self.push_tagged(cmd, "page/furniture".into());
+    }
+
+    pub(crate) fn extend_page_furniture(
+        &mut self,
+        commands: impl IntoIterator<Item = RenderCommand>,
+    ) {
+        for command in commands {
+            self.push_page_furniture(command);
+        }
     }
 
     /// Emit one selectable command and derive every geometry store from that

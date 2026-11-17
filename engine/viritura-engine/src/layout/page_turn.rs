@@ -29,6 +29,7 @@ pub use config::{EngravingPreset, PageTurnConfig, PageTurnWeights, TitlePagePoli
 use expansion::multimeasure_rest_break_flags;
 pub use expansion::{expand_playback_order, structural_boundary_flags};
 pub(crate) use natural_geometry::{optimize_natural_part, NaturalPartPlan};
+pub(crate) use optimizer::optimize_safe_repacking;
 pub use optimizer::{optimize, PageGeometry, PageTurnHint, TurnPlan, TurnWarning, TurnWarningKind};
 pub use tempo::TempoMap;
 

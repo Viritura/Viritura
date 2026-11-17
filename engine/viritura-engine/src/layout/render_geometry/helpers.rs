@@ -3,7 +3,9 @@
 use super::super::config::LayoutConfig;
 use super::super::element_id;
 use super::super::render_annotations::highest_point_in_range;
-use super::super::render_barlines::render_barline;
+use super::super::render_barlines::{
+    barline_ink_width, defers_repeat_start, render_barline, BarlineKind,
+};
 use super::super::render_measure::MIDDLE_LINE_POS;
 use super::super::render_signatures::{
     key_signature_is_rendered, key_signature_layout, key_signature_prefix_x, KeySignatureLayout,
@@ -409,13 +411,15 @@ pub(crate) fn compute_measure_bboxes(
         };
         // Minimum hit area: 1.5sp for easy clicking
         let hit_width = visual_width.max(1.5 * sp);
-        // A system-start (or first-measure) repeat-start barline is rendered
-        // after the clef/key/time prefix, not at ml.x — mirror that here so the
-        // selection box tracks the glyph. Otherwise a mid-system start-of-measure
-        // clef change shifts the barline right by `leading_clef_gap` (the change
-        // clef is engraved before the barline), so the bbox must shift too.
-        let bar_center_x = if has_repeat_start && ml.is_first_on_system {
-            ml.x + ml.prefix_width - 1.2 * sp - 0.75 * sp
+        // A deferred repeat-start barline (system start, first measure, or key
+        // change) is rendered after the clef/key/time prefix, not at ml.x —
+        // mirror that here so the selection box tracks the glyph. Otherwise a
+        // mid-system start-of-measure clef change shifts the barline right by
+        // `leading_clef_gap` (the change clef is engraved before the barline),
+        // so the bbox must shift too.
+        let bar_center_x = if defers_repeat_start(&ml.resolved, ml.is_first_on_system) {
+            crate::layout::render_measure::deferred_repeat_start_x(ml, sp)
+                + 0.5 * barline_ink_width(&BarlineKind::RepeatStart, config, sp)
         } else {
             ml.x + leading_clef_gap
         };

@@ -60,7 +60,7 @@ pub(crate) use measure_numbers::{
 // Public annotation barrel; tempo consumes the rehearsal API through its sibling module.
 pub(crate) use rehearsal_marks::{
     collect_above_text_boxes, measure_above_label_reserved_width, rehearsal_mark_baseline_y,
-    rehearsal_mark_x_extent, render_rehearsal_marks,
+    rehearsal_mark_left_ink_extent, rehearsal_mark_x_extent, render_rehearsal_marks,
 };
 #[allow(unused_imports)]
 // Public annotation barrel; extracted siblings import private substrate APIs directly.
@@ -74,9 +74,9 @@ pub(crate) use text_content::{content_width, emit_content};
 
 #[allow(unused_imports)] // Preserve the annotation barrel API for geometry and test consumers.
 pub(crate) use tempo::{
-    global_tempo_widths, measure_tempo_fit_width, measure_tempo_width, render_tempo_markings,
-    resolve_tempo_placement, resolved_tempo_widths, tempo_marking_width, tempo_metronome_runs,
-    TempoRun,
+    global_tempo_widths, measure_tempo_fit_width, measure_tempo_width, mmr_start_annotation_width,
+    render_tempo_markings, resolve_tempo_placement, resolved_tempo_widths, tempo_marking_width,
+    tempo_metronome_runs, TempoRun,
 };
 
 /// Lift above-staff performance directions (expression text such as "arco",
@@ -575,7 +575,8 @@ pub(crate) fn flow_above_staff_dependents(
         .cloned()
         .collect();
 
-    // Pinned box obstacles: rehearsal-mark frames and tuplet numbers/brackets.
+    // Rehearsal frames settle above staff ink and slurs before other
+    // directions clear them. Tuplet numbers/brackets remain pinned.
     // Rehearsal-mark commands are tagged `m{measure}/rehearsal` (no index), so
     // the gate substring is `/rehearsal` — NOT `rehearsal/`, which never matches
     // and silently disables the whole rehearsal-box keep-out stage.
@@ -592,6 +593,17 @@ pub(crate) fn flow_above_staff_dependents(
         .vertical
         * sp;
     for frame in &mut rehearsal_boxes {
+        if measure_layouts
+            .iter()
+            .find(|ml| Some(ml.resolved.index) == frame.measure_index)
+            .and_then(|ml| ml.resolved.global.rehearsal_mark())
+            .is_some_and(|mark| mark.avoid_collisions == Some(false))
+        {
+            continue;
+        }
+        if let Some((left, right, top, bottom)) = marking_extent(dl, staff_cmd_start, &frame.eid) {
+            (frame.left, frame.right, frame.top, frame.bottom) = (left, right, top, bottom);
+        }
         let overlap_tolerance = 0.05 * sp;
         let ceiling = fixed_ink_boxes
             .iter()
@@ -601,6 +613,7 @@ pub(crate) fn flow_above_staff_dependents(
                     && *left < frame.right - overlap_tolerance
             })
             .map(|(_, _, top, _)| *top)
+            .chain(slur_ceiling_over_span(&slurs, frame.left, frame.right))
             .min_by(f64::total_cmp);
         let dy = clear_below_ceiling(frame.bottom, ceiling, rehearsal_clearance);
         if dy > 0.0 {
@@ -707,7 +720,7 @@ pub(crate) fn flow_above_staff_dependents(
         .fold(f64::NEG_INFINITY, f64::max);
     for m in &movers {
         let (mut left, mut right, mut top, mut bottom) = (m.left, m.right, m.top, m.bottom);
-        if framed_expression_is_pinned(measure_layouts, &m.eid) {
+        if m.eid.ends_with("/caesura") || framed_expression_is_pinned(measure_layouts, &m.eid) {
             placed_tops.push(FlatTop {
                 eid: m.eid.clone(),
                 rank: m.rank,

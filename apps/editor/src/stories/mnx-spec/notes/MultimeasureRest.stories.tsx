@@ -131,3 +131,156 @@ export const Interactive: StoryObj<InteractiveArgs> = {
   },
   render: ({ duration }) => <ScorePreview mnxJson={makeMultimeasureRestMnx(duration)} />,
 };
+
+interface AnnotationSpanArgs {
+  rehearsalAfter: "none" | "one" | "two";
+  systemText: boolean;
+}
+
+const makeAnnotationSpanMnx = ({ rehearsalAfter, systemText }: AnnotationSpanArgs) => {
+  const rehearsalIndex = rehearsalAfter === "one" ? 4 : rehearsalAfter === "two" ? 8 : -1;
+  const text = [{ text: "Broadly, with a steady pulse and energy" }];
+  return JSON.stringify({
+    mnx: { version: 1 },
+    global: {
+      measures: Array.from({ length: 13 }, (_, index) => ({
+        id: `m${index}`,
+        ...(index === 0
+          ? {
+              time: { count: 4, unit: 4 },
+              ...(systemText
+                ? {
+                    _x: {
+                      viritura: {
+                        systemText: [{ id: "label", text, position: { fraction: [0, 1] }, placement: "above" }],
+                      },
+                    },
+                  }
+                : { tempos: [{ bpm: 100, value: { base: "half" }, _x: { viritura: { text } } }] }),
+            }
+          : {}),
+        ...(index === 4 || index === 8 ? { key: { fifths: index === 4 ? 1 : -1 } } : {}),
+        ...(index === rehearsalIndex ? { _x: { viritura: { rehearsalMark: { text: [{ text: "G" }] } } } } : {}),
+      })),
+    },
+    parts: [
+      {
+        id: "P1",
+        measures: Array.from({ length: 13 }, (_, index) => ({
+          ...(index === 0 ? { clefs: [{ clef: { sign: "G", staffPosition: -2 } }] } : {}),
+          sequences: [
+            index < 12
+              ? { content: [], fullMeasure: { visualDuration: { base: "whole" } } }
+              : {
+                  content: [
+                    {
+                      duration: { base: "whole" },
+                      notes: [{ pitch: { step: "C", octave: 5 } }],
+                    },
+                  ],
+                },
+          ],
+        })),
+      },
+    ],
+    layouts: [{ id: "L1", content: [{ type: "staff", sources: [{ part: "P1" }] }] }],
+    scores: [
+      {
+        name: "Annotation spans",
+        layout: "L1",
+        multimeasureRests: [0, 4, 8].map((index) => ({ start: `m${index}`, duration: 4 })),
+      },
+    ],
+  });
+};
+
+export const AnnotationSpans: StoryObj<AnnotationSpanArgs> = {
+  name: "Tempo and system text before rehearsal marks",
+  args: { rehearsalAfter: "two", systemText: false },
+  argTypes: {
+    rehearsalAfter: { control: "radio", options: ["none", "one", "two"] },
+    systemText: { control: "boolean" },
+  },
+  render: (args) => <ScorePreview mnxJson={makeAnnotationSpanMnx(args)} />,
+};
+
+export const RepeatEndings: StoryObj = {
+  name: "Multi-measure rests in repeat endings",
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1 },
+        global: {
+          measures: Array.from({ length: 9 }, (_, index) => ({
+            id: `m${index}`,
+            ...(index === 0 ? { time: { count: 4, unit: 4 }, ending: { duration: 4, numbers: [1] } } : {}),
+            ...(index === 3 ? { repeatEnd: {} } : {}),
+            ...(index === 4 ? { ending: { duration: 4, numbers: [2], open: true } } : {}),
+          })),
+        },
+        parts: [
+          {
+            id: "P1",
+            measures: Array.from({ length: 9 }, (_, index) => ({
+              ...(index === 0 ? { clefs: [{ clef: { sign: "G", staffPosition: -2 } }] } : {}),
+              sequences: [
+                index < 8
+                  ? { content: [], fullMeasure: { visualDuration: { base: "whole" } } }
+                  : {
+                      content: [{ duration: { base: "whole" }, notes: [{ pitch: { step: "C", octave: 5 } }] }],
+                    },
+              ],
+            })),
+          },
+        ],
+        layouts: [{ id: "L1", content: [{ type: "staff", sources: [{ part: "P1" }] }] }],
+        scores: [
+          {
+            name: "Repeat endings",
+            layout: "L1",
+            multimeasureRests: [0, 4].map((index) => ({ start: `m${index}`, duration: 4 })),
+          },
+        ],
+      })}
+    />
+  ),
+};
+
+export const KeyChangeAndRepeatStart: StoryObj = {
+  name: "Changed key before a repeat-start multi-measure rest",
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1 },
+        global: {
+          measures: Array.from({ length: 5 }, (_, index) => ({
+            id: `m${index}`,
+            ...(index === 0 ? { time: { count: 4, unit: 4 }, key: { fifths: 3 } } : {}),
+            ...(index === 1 ? { key: { fifths: 0 }, repeatStart: {} } : {}),
+          })),
+        },
+        parts: [
+          {
+            id: "P1",
+            measures: Array.from({ length: 5 }, (_, index) => ({
+              ...(index === 0 ? { clefs: [{ clef: { sign: "G", staffPosition: -2 } }] } : {}),
+              sequences: [
+                index === 0
+                  ? { content: [{ duration: { base: "whole" }, notes: [{ pitch: { step: "C", octave: 5 } }] }] }
+                  : { content: [], fullMeasure: { visualDuration: { base: "whole" } } },
+              ],
+            })),
+          },
+        ],
+        layouts: [{ id: "L1", content: [{ type: "staff", sources: [{ part: "P1" }] }] }],
+        scores: [
+          {
+            name: "Key change and repeat",
+            layout: "L1",
+            multimeasureRests: [{ start: "m1", duration: 4 }],
+          },
+        ],
+      })}
+    />
+  ),
+};

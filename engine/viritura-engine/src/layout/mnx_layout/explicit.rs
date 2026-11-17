@@ -80,16 +80,14 @@ fn render_explicit_chrome(
     }
     let title_y = config.page_margin_top * sp;
     let title_cmds = render_title_block(score.metadata(), config, title_y, page_w);
-    for cmd in title_cmds {
-        dl.commands.push(cmd);
-    }
+    dl.extend_page_furniture(title_cmds);
 
     if let Some(label) = part_score_name {
         render_part_score_name(dl, label, config, page_w);
     }
 
     render_page_numbers(dl, pages, config, page_w);
-    dl.commands.extend(render_first_page_copyright(
+    dl.extend_page_furniture(render_first_page_copyright(
         score.metadata(),
         config,
         page_w,
@@ -745,12 +743,6 @@ pub fn layout_with_mnx_scores_cached(
     let mut persistent_state = PersistentStaffState::default();
     let mut prepared_systems = Vec::with_capacity(system_count);
     let mut system_sizes = Vec::with_capacity(system_count);
-    let use_beams = score
-        .mnx
-        .support
-        .as_ref()
-        .and_then(|support| support.use_beams)
-        .unwrap_or(false);
     for (index, ((staves, groups), &(start, end))) in system_flat_staves
         .iter()
         .zip(&system_measure_ranges)
@@ -772,7 +764,7 @@ pub fn layout_with_mnx_scores_cached(
             staves,
             groups,
             config,
-            use_beams,
+            score,
         ));
         prepared_systems.push((prepared, persistent_state.clone()));
     }

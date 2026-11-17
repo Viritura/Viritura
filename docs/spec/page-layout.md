@@ -56,6 +56,8 @@ Alternate-ending brackets also continue across system and page breaks. MNX
 closing repeat: an ending starting at bar 98 with duration 4 covers bars 98-101.
 Only the first fragment carries the number and opening hook; only the final
 closed fragment carries a closing hook, aligned with its repeat barline.
+Ending numbers use the 2sp default score-text size, and the bracket rises to
+leave room for them and for multi-measure-rest counts.
 Continuation fragments keep the original ending's selection ID and clear the
 notes and stems on their own system. Horizon chunk seams keep one continuous
 bracket, and retained frames invalidate continuation geometry when an authored
@@ -85,6 +87,34 @@ does not contribute prefix space.
 Without prefix furniture, first-onset accidentals and displaced chord heads
 impose an absolute clearance from the barline ink, not extra padding after the
 signature cursor advance.
+
+Whole-bar rests are centered visually, but do not define rhythmic anchors.
+Beat-positioned staff and system text (including tempo instructions) and
+dynamics use the normal beat-one onset or another voice's rhythmic event,
+not the centered rest. Shorter, rhythmically spaced rests remain valid anchors.
+
+Multi-measure rests split before repeat starts and alternate-ending starts,
+and after repeat ends. The repeat-bearing measures join the enclosed rest
+group; repeat barlines remain visible at its outer edges rather than forcing
+those measures to stand alone. The H-bar and its end serif clear repeat-end ink
+on the last collapsed measure.
+A repeat start that opens a system or the piece, or coincides with a key
+change, follows the clef, key, and time signatures. This applies equally to
+ordinary measures and MMRs, and the deferred repeat aligns across staves (with
+its group connector) even when transposing staves have different key widths.
+The changed key's left clearance is measured from the measure boundary anchor,
+not from the deferred repeat. The repeat start is the boundary: no additional
+ordinary or double barline is drawn before the key. A preceding repeat end
+remains visible and the key clears its ink. For MMRs, the H-bar, count, and
+bar-number range share a prefix that includes the full repeat-start ink after
+any key and time signatures.
+
+Tempo and above-staff system text at an MMR's start may extend over following
+MMRs. If a rehearsal mark blocks that span, the minimum horizontal clearance
+is reserved before line-breaking and retained during justification. The MMRs
+between the text and the rehearsal mark share the additional width
+proportionally; an unobstructed span does not widen the rests. System text at
+an interior rhythmic position still isolates its measure.
 
 ### 1.1 Duration spring — fixed-quarter power law
 
@@ -198,6 +228,42 @@ system come from `compute_staff_y_offsets_for_system`
 which pushes staves apart by content skylines (hanging dynamics, ledger lines,
 articulations) but never closes a gap below
 `default_intra_staff_clearance = 2.0 sp`.
+
+Paged MNX layouts measure their outer ink through the same staff-content
+renderer used for the final display list, after collision flow. The resulting
+envelope includes repeat-ending continuations, same-system curves, displaced
+dynamics, text, glyphs, and stroke widths, without counting padded selection
+boxes as ink. Automatic pagination uses these measured outer extents instead
+of nominal annotation estimates; authored-system pagination also retains its
+existing conservative content floors. Both paths use the measurement before
+page packing and vertical justification, so additional ink
+consumes space or pushes systems onto another page rather than being clipped.
+Cached envelopes also depend on remote ending, ottava, and lyric sources that
+can change a continuation without editing its local measures.
+
+When measured ink invalidates a part's planned pagination, fitting prefix pages
+remain unchanged and only the affected suffix is repacked, preserving physical
+page-turn parity. Safe repacking may add pages; when partial pages are allowed,
+it may also relax the fill floor for pages containing at least two systems to
+preserve safe turns. If no safe plan exists, the ordinary optimizer retains its
+explicit page-turn warnings.
+
+The WASM layout entry points also measure emitted vertical ink after late
+cross-system overlays. Tagged musical ink must fit the printable frame, and
+other painted commands must fit the physical page. A residual overflow does not
+reject the layout: the display list is returned unclipped with
+`page_overflows`, recording each affected page's worst top and bottom excess in
+staff spaces. Binary display lists carry this as their final trailer, and
+patch frames carry it on the overlay. The editor names the affected pages in
+its non-blocking print warning. This includes a single system that cannot fit
+after permitted staff-gap compression. Paper dimensions and music scale are
+never silently changed.
+
+After same-system slurs are laid out, rehearsal frames move upward to clear
+overlapping above-staff slur ink by their configured vertical padding. This
+preserves the mark's horizontal anchor and keeps selection geometry aligned
+with its rendered frame. An explicit `avoidCollisions: false` disables this
+automatic movement.
 
 ### 2.2 Inter-system gap & skyline absorption
 
@@ -395,6 +461,11 @@ because vertical justification needs slack and >100% is physically impossible
 (it is a _one-sided_ problem — the only failure is under-fill); (b) the in-band
 term is squared so the optimizer distributes emptiness evenly instead of
 tolerating one glaring half-empty page.
+
+When partial pages are allowed and a natural part plan leaves a non-final page
+below the vertical-justification threshold, the planner also tries a denser
+system casting. Turn quality remains the first priority, so a sparse page is
+retained when it enables a safer turn.
 
 #### Turn cost
 

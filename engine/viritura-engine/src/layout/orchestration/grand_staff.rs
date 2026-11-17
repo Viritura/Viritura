@@ -285,7 +285,9 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
         let tie_accidentals = compute_tie_accidental_map(layouts);
         let mmr_number_extents: Vec<render_annotations::AboveGlyphBox> = layouts
             .iter()
-            .filter_map(|ml| render_measure::multimeasure_rest_number_extent(ml, staff_y, sp))
+            .filter_map(|ml| {
+                render_measure::multimeasure_rest_number_extent(ml, staff_y, sp, config)
+            })
             .chain(layouts.iter().filter_map(|ml| {
                 crate::layout::time_signatures::above_staff_extent(
                     ml,
@@ -299,6 +301,7 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
             render_measure(
                 dl,
                 ml,
+                &score.global.measures,
                 render_measure::measure_repeat_span_right(layouts, i),
                 staff_y,
                 sp,
@@ -470,8 +473,27 @@ pub(in crate::layout) fn render_grand_staff_system_connectors(
 
     // Inter-staff barlines at each measure boundary
     for (mi, ml) in top_layouts.iter().enumerate() {
+        if defers_repeat_start(&ml.resolved, ml.is_first_on_system)
+            && ml.multimeasure_rest_count.is_none()
+        {
+            let barline_tag = element_id::barline(ml.resolved.index);
+            for gap_idx in 0..(num_staves - 1) {
+                render_tagged_barline_connector(
+                    dl,
+                    BarlineGap {
+                        x: super::super::render_measure::deferred_repeat_start_x(ml, sp),
+                        y_top: staff_y_offsets[gap_idx] + staff_height,
+                        y_bottom: staff_y_offsets[gap_idx + 1],
+                    },
+                    sp,
+                    config,
+                    &BarlineKind::RepeatStart,
+                    &barline_tag,
+                );
+            }
+        }
         if mi > 0 {
-            let connector_bt = leading_barline_kind(&ml.resolved);
+            let connector_bt = measure_start_barline_kind(&ml.resolved);
             let barline_tag = element_id::barline(ml.resolved.index);
             for gap_idx in 0..(num_staves - 1) {
                 render_tagged_barline_connector(
@@ -714,7 +736,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
 
     let mut dl = DisplayList::new(page_w, total_height);
     dl.set_parts(score, [part_index]);
-    dl.commands.extend(page::render_first_page_copyright(
+    dl.extend_page_furniture(page::render_first_page_copyright(
         score.metadata(),
         config,
         page_w,

@@ -6,6 +6,32 @@ use super::substrate_obstacles::{above_glyph_top_in_range, highest_point_in_rang
 use crate::model::{RehearsalMark, RehearsalMarkStyle, ResolvedMeasure};
 use crate::render::*;
 
+const REHEARSAL_BORDER_WIDTH_SP: f64 = 0.12;
+
+pub(crate) fn rehearsal_mark_left_ink_extent(
+    rm: &ResolvedMeasure,
+    sp: f64,
+    config: &LayoutConfig,
+) -> f64 {
+    let Some(mark) = rm.global.rehearsal_mark() else {
+        return 0.0;
+    };
+    let centered = if mark.avoid_collisions.unwrap_or(true) {
+        rehearsal_box_width_for_mark(mark, sp, config) * 0.5
+    } else {
+        0.0
+    };
+    let border = if matches!(
+        mark.style.as_ref().unwrap_or(&RehearsalMarkStyle::Boxed),
+        RehearsalMarkStyle::Boxed
+    ) {
+        REHEARSAL_BORDER_WIDTH_SP * sp
+    } else {
+        0.0
+    };
+    centered + border - mark.manual_offset.unwrap_or([0.0, 0.0])[0] * sp
+}
+
 /// Horizontal extent (left edge, right edge) of the rehearsal mark a measure
 /// would draw at its start, or `None` if the measure has no rehearsal mark.
 pub(crate) fn rehearsal_mark_x_extent(
@@ -265,7 +291,7 @@ pub(crate) fn render_rehearsal_marks(
     };
     let mi = ml.resolved.index;
     let cmd_idx = dl.commands.len();
-    let border_width = 0.12 * sp;
+    let border_width = REHEARSAL_BORDER_WIDTH_SP * sp;
     let style = mark.style.as_ref().unwrap_or(&RehearsalMarkStyle::Boxed);
     let placement =
         rehearsal_mark_placement(ml, staff_y, sp, config, above_glyph_boxes, leading_clef_gap);

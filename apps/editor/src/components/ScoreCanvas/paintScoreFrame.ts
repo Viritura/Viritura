@@ -304,12 +304,6 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
             }
           : null,
       suppressedElementId: suppressedSlurId,
-      printableInsets: {
-        top: pageSetup.margins.top * PX_PER_MM,
-        right: pageSetup.margins.right * PX_PER_MM,
-        bottom: pageSetup.margins.bottom * PX_PER_MM,
-        left: pageSetup.margins.left * PX_PER_MM,
-      },
     });
   } else {
     usedTileCache = true;
@@ -334,12 +328,6 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
       canvasBg,
       paperFill,
       pageStackGap: viewMode === "page" ? PAGE_STACK_GAP : 0,
-      printableInsets: {
-        top: pageSetup.margins.top * PX_PER_MM,
-        right: pageSetup.margins.right * PX_PER_MM,
-        bottom: pageSetup.margins.bottom * PX_PER_MM,
-        left: pageSetup.margins.left * PX_PER_MM,
-      },
     });
   }
   markPerformance("viritura:base-score-paint-end");

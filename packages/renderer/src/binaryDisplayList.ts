@@ -14,6 +14,7 @@
 import type {
   DisplayList,
   PageLayout,
+  PageOverflow,
   RenderCommand,
   ElementBBox,
   BoundingBox,
@@ -194,6 +195,46 @@ function readClefContexts(r: BinaryReader, bounds: MeasureBounds[]): void {
   }
 }
 
+function readSourcePartIndices(r: BinaryReader, measureBounds: MeasureBounds[]): void {
+  const entryCount = r.f32();
+  for (let i = 0; i < entryCount; i++) {
+    const boundsIndex = r.f32();
+    const sourceCount = r.f32();
+    const sources: number[] = [];
+    for (let j = 0; j < sourceCount; j++) sources.push(r.f32());
+    const bounds = measureBounds[boundsIndex];
+    if (bounds && sources.length > 0) bounds.sourcePartIndices = sources;
+  }
+}
+
+function readPartSummaries(r: BinaryReader, measureBounds: MeasureBounds[]): PartSummary[] {
+  const parts: PartSummary[] = [];
+  const count = r.f32();
+  for (let i = 0; i < count; i++) {
+    parts.push({
+      index: r.f32(),
+      id: readCodepointString(r, r.f32()),
+      name: readCodepointString(r, r.f32()),
+    });
+  }
+  const boundsCount = r.f32();
+  for (let i = 0; i < boundsCount; i++) {
+    const id = readCodepointString(r, r.f32());
+    const bounds = measureBounds[i];
+    if (bounds) bounds.partId = id;
+  }
+  return parts;
+}
+
+function readPageOverflows(r: BinaryReader): PageOverflow[] {
+  const overflows: PageOverflow[] = [];
+  const count = r.f32();
+  for (let i = 0; i < count; i++) {
+    overflows.push({ pageNumber: r.f32(), topOverflowSp: r.f32(), bottomOverflowSp: r.f32() });
+  }
+  return overflows;
+}
+
 function readElementIds(r: BinaryReader, numCommands: number, numStrings: number): (string | null)[] | undefined {
   if (numStrings === 0) {
     // Skip per-command indices (all -1.0)
@@ -249,38 +290,14 @@ export function decodeBinaryDisplayList(data: Float32Array): DisplayList {
   const elementIds = readElementIds(r, numCommands, numStrings);
   const measureBounds = r.pos < data.length ? readMeasureBounds(r, r.f32()) : [];
   const selectionGroups = r.pos < data.length ? readSelectionGroups(r, r.f32()) : [];
-  const parts: PartSummary[] = [];
-  if (r.pos < data.length) {
-    const entryCount = r.f32();
-    for (let i = 0; i < entryCount; i++) {
-      const boundsIndex = r.f32();
-      const sourceCount = r.f32();
-      const sources: number[] = [];
-      for (let j = 0; j < sourceCount; j++) sources.push(r.f32());
-      const bounds = measureBounds[boundsIndex];
-      if (bounds && sources.length > 0) bounds.sourcePartIndices = sources;
-    }
-  }
-  if (r.pos < data.length) {
-    const count = r.f32();
-    for (let i = 0; i < count; i++) {
-      parts.push({
-        index: r.f32(),
-        id: readCodepointString(r, r.f32()),
-        name: readCodepointString(r, r.f32()),
-      });
-    }
-    const boundsCount = r.f32();
-    for (let i = 0; i < boundsCount; i++) {
-      const id = readCodepointString(r, r.f32());
-      const bounds = measureBounds[i];
-      if (bounds) bounds.partId = id;
-    }
-  }
+  if (r.pos < data.length) readSourcePartIndices(r, measureBounds);
+  const parts = r.pos < data.length ? readPartSummaries(r, measureBounds) : [];
   if (r.pos < data.length) readClefContexts(r, measureBounds);
+  const pageOverflows = r.pos < data.length ? readPageOverflows(r) : [];
 
   const result: DisplayList = { commands, width, height };
   if (pages.length > 0) result.pages = pages;
+  if (pageOverflows.length > 0) result.pageOverflows = pageOverflows;
   if (elementIds) result.elementIds = elementIds;
   if (elementBboxes.length > 0) result.elementBboxes = elementBboxes;
   if (slurGeometries.length > 0) result.slurGeometries = slurGeometries;

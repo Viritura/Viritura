@@ -36,6 +36,21 @@ pub(crate) struct MeasureLayout {
     pub(crate) is_last_staff: bool,
 }
 
+impl MeasureLayout {
+    pub(crate) fn rhythmic_voice_layouts(&self) -> impl Iterator<Item = &VoiceLayout> {
+        let total_beats = super::measure::layout_total_beats(&self.resolved);
+        self.voice_layouts.iter().filter(move |voice| {
+            !voice.is_centered_bar_rest(total_beats)
+                && self
+                    .resolved
+                    .part
+                    .sequences
+                    .get(voice.voice_index)
+                    .is_none_or(|sequence| sequence.full_measure.is_none())
+        })
+    }
+}
+
 /// Describes a mid-measure clef change for rendering.
 #[derive(Clone)]
 pub(crate) struct MidClefChange {

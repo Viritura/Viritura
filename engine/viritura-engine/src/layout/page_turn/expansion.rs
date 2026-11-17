@@ -84,7 +84,9 @@ pub fn multimeasure_rest_break_flags(measures: &[GlobalMeasure]) -> Vec<bool> {
                 let prev = &measures[i - 1];
                 prev.barline.is_some()
                     || prev.caesura.is_some()
-                    || prev.system_text().is_some_and(|texts| !texts.is_empty())
+                    || prev.system_text().is_some_and(|texts| {
+                        texts.iter().any(|text| text.position.beats().abs() > 1e-9)
+                    })
                     || prev.repeat_end.is_some()
                     || prev.fine.is_some()
                     || prev.jump.is_some()

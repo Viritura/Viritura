@@ -187,6 +187,13 @@ describe("decodeBinaryDisplayList", () => {
     expect(dl.selectionGroups).toBeUndefined();
   });
 
+  it("decodes the page-overflow trailer after empty earlier trailers", () => {
+    const data = new Float32Array([400, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0.5]);
+    const dl = decodeBinaryDisplayList(data);
+    expect(dl.pageOverflows).toEqual([{ pageNumber: 2, topOverflowSp: 0, bottomOverflowSp: 0.5 }]);
+    expect(dl.measureBounds).toBeUndefined();
+  });
+
   it("should decode DrawLine command", () => {
     const black = encodeColor("#000000");
     const data = buildBinaryBuffer(800, 600, [

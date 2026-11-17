@@ -343,7 +343,7 @@ pub(super) fn compute_chunked_global_offsets(
                     config.stem_length,
                 ));
                 above = above.max(-super::super::render_annotations::global_caesura_top(
-                    measure, sp, config,
+                    measure, sp,
                 ));
                 if receives_meter {
                     if let Some((_left, _right, meter_top)) =

@@ -420,7 +420,9 @@ pub(super) fn fermata_min_gap_sp(glyph_w: f64, config: &LayoutConfig) -> f64 {
 /// Noteheads are left-anchored at their onset, so the current one protrudes a
 /// full notehead width (`2 * notehead_rx`) past the onset.
 pub(super) fn caesura_min_gap_sp(glyph_w: f64, config: &LayoutConfig) -> f64 {
-    const CAESURA_RIGHT_PAD: f64 = 0.25; // matches render_caesuras right padding
     const LEFT_CLEARANCE: f64 = 0.5; // breathing room past the current notehead
-    2.0 * config.notehead_rx + LEFT_CLEARANCE + glyph_w + CAESURA_RIGHT_PAD
+    2.0 * config.notehead_rx
+        + LEFT_CLEARANCE
+        + glyph_w
+        + super::super::render_articulations::CAESURA_RIGHT_PAD_SP
 }
