@@ -15,8 +15,11 @@
 
 mod analysis;
 mod config;
+mod diagnostics;
 mod expansion;
+mod jump_itinerary;
 mod natural_geometry;
+mod navigation_timing;
 mod optimizer;
 mod spread_casting;
 mod tempo;
@@ -26,9 +29,12 @@ pub use analysis::{
     TurnWindow,
 };
 pub use config::{EngravingPreset, PageTurnConfig, PageTurnWeights, TitlePagePolicy};
+pub(crate) use diagnostics::{build_pagination_debug, PaginationDebugInputs};
 use expansion::multimeasure_rest_break_flags;
 pub use expansion::{expand_playback_order, structural_boundary_flags};
-pub(crate) use natural_geometry::{optimize_natural_part, NaturalPartPlan};
+pub(crate) use natural_geometry::{
+    optimize_natural_part, MeasureInk, NaturalPartPlan, SystemHeights,
+};
 pub(crate) use optimizer::optimize_safe_repacking;
 pub use optimizer::{optimize, PageGeometry, PageTurnHint, TurnPlan, TurnWarning, TurnWarningKind};
 pub use tempo::TempoMap;
@@ -230,6 +236,32 @@ pub fn plan_forced_starts(
     }
 }
 
+/// Profile every part measure. A bar without written events (MNX `fullMeasure`
+/// rests and empty sequences) lasts its prevailing time signature, not zero
+/// beats; otherwise whole-bar rests would contribute no turn time.
+fn part_profiles(
+    global_measures: &[GlobalMeasure],
+    part_measures: &[PartMeasure],
+) -> Vec<MeasureProfile> {
+    let mut nominal_beats = 4.0;
+    part_measures
+        .iter()
+        .enumerate()
+        .map(|(index, measure)| {
+            if let Some(time) = global_measures.get(index).and_then(|g| g.time.as_ref()) {
+                nominal_beats = time.measure_beats();
+            }
+            let mut profile = profile_from_part_measure(measure);
+            if profile.total_beats <= 0.0 && profile.is_full_rest {
+                profile.total_beats = nominal_beats;
+                profile.leading_rest_beats = nominal_beats;
+                profile.trailing_rest_beats = nominal_beats;
+            }
+            profile
+        })
+        .collect()
+}
+
 /// Build the per-boundary turn windows for a part (stage 1, exposed for the
 /// warnings overlay and tests).
 pub fn analyze_turn_windows(
@@ -237,14 +269,19 @@ pub fn analyze_turn_windows(
     part_measures: &[PartMeasure],
     config: &PageTurnConfig,
 ) -> Vec<TurnWindow> {
-    let profiles: Vec<MeasureProfile> = part_measures
-        .iter()
-        .map(profile_from_part_measure)
-        .collect();
+    let profiles = part_profiles(global_measures, part_measures);
     let tempo = TempoMap::from_global(global_measures, config.default_bpm);
     let structural = structural_boundary_flags(global_measures);
     let mmr_breaks = multimeasure_rest_break_flags(global_measures);
-    compute_turn_windows(&profiles, &tempo, &structural, &mmr_breaks, config)
+    let mut windows = compute_turn_windows(&profiles, &tempo, &structural, &mmr_breaks, config);
+    navigation_timing::constrain_navigation_windows(
+        &mut windows,
+        global_measures,
+        &profiles,
+        &tempo,
+        config,
+    );
+    windows
 }
 
 pub(crate) fn analyze_turn_windows_for_visible_blocks(
@@ -253,10 +290,7 @@ pub(crate) fn analyze_turn_windows_for_visible_blocks(
     visible_indices: &[usize],
     config: &PageTurnConfig,
 ) -> Vec<TurnWindow> {
-    let mut profiles: Vec<MeasureProfile> = part_measures
-        .iter()
-        .map(profile_from_part_measure)
-        .collect();
+    let mut profiles = part_profiles(global_measures, part_measures);
     for pair in visible_indices.windows(2) {
         if pair[1] <= pair[0] + 1 {
             continue;
@@ -270,7 +304,15 @@ pub(crate) fn analyze_turn_windows_for_visible_blocks(
     let tempo = TempoMap::from_global(global_measures, config.default_bpm);
     let structural = structural_boundary_flags(global_measures);
     let mmr_breaks = multimeasure_rest_break_flags(global_measures);
-    compute_turn_windows(&profiles, &tempo, &structural, &mmr_breaks, config)
+    let mut windows = compute_turn_windows(&profiles, &tempo, &structural, &mmr_breaks, config);
+    navigation_timing::constrain_navigation_windows(
+        &mut windows,
+        global_measures,
+        &profiles,
+        &tempo,
+        config,
+    );
+    windows
 }
 
 #[cfg(test)]
@@ -287,6 +329,42 @@ mod tests {
 
     fn at(blocks: &[usize], pos: usize) -> Option<usize> {
         blocks.get(pos).copied()
+    }
+
+    #[test]
+    fn full_measure_rests_last_their_time_signature() {
+        let played = serde_json::json!({
+            "duration": {"base": "quarter"},
+            "notes": [{"pitch": {"step": "C", "octave": 5}}]
+        });
+        let played_bar = serde_json::json!({"sequences": [{"content": vec![played; 4]}]});
+        let rest_bar = serde_json::json!({"sequences": [{"content": [], "fullMeasure": {}}]});
+        let score = crate::parse::parse_mnx(
+            &serde_json::json!({
+                "mnx": {"version": 1},
+                "global": {"measures": [
+                    {"time": {"count": 3, "unit": 4},
+                     "tempos": [{"bpm": 60, "value": {"base": "quarter"}}]},
+                    {}, {}, {}
+                ]},
+                "parts": [{"id": "p", "measures": [played_bar.clone(), rest_bar.clone(), rest_bar, played_bar]}]
+            })
+            .to_string(),
+        )
+        .expect("fixture parses");
+        let windows = super::analyze_turn_windows(
+            &score.global.measures,
+            &score.parts[0].measures,
+            &super::PageTurnConfig::default(),
+        );
+        // Two silent 3/4 bars at 60 bpm give six seconds around any boundary
+        // inside the rest.
+        let window = windows
+            .iter()
+            .find(|window| window.boundary_index == 1)
+            .expect("boundary after the first rest bar");
+        assert!((window.turn_seconds - 6.0).abs() < 1e-6, "{window:?}");
+        assert_eq!(window.quality, super::TurnQuality::Comfortable);
     }
 
     #[test]

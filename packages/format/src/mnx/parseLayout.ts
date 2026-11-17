@@ -209,7 +209,7 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
       pageSetup.pageTurns = pageTurns;
     }
     if (Object.keys(pageSetup).length > 0) {
-      sd.pageSetup = pageSetup as PageSetup;
+      sd.pageSetup = pageSetup;
     }
   }
 

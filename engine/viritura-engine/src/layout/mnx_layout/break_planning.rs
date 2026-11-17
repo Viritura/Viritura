@@ -51,22 +51,18 @@ pub(super) fn forced_page_starts(
         .collect()
 }
 
-pub(super) fn fit_tempo_system_breaks(
-    plan: &mut SystemBreakPlan,
+/// Width each visible measure's tempo marking needs to the right of its
+/// left edge; zero for measures without one.
+pub(super) fn tempo_fit_demands(
     resolved: &[super::resolve_condensing::ResolvedStaffSnapshot],
     budget: &MeasureWidthBudget,
     mmr: &MmrPlan,
-    forced_starts: &[usize],
     config: &LayoutConfig,
-) {
-    let Some(first_width) = plan.content_width_first else {
-        return;
-    };
+) -> Vec<f64> {
     let Some(staff) = resolved.first() else {
-        return;
+        return Vec::new();
     };
-    let demands: Vec<_> = mmr
-        .visible_indices
+    mmr.visible_indices
         .iter()
         .enumerate()
         .map(|(vi, &mi)| {
@@ -77,7 +73,21 @@ pub(super) fn fit_tempo_system_breaks(
                 config.sp,
             )
         })
-        .collect();
+        .collect()
+}
+
+pub(super) fn fit_tempo_system_breaks(
+    plan: &mut SystemBreakPlan,
+    demands: &[f64],
+    budget: &MeasureWidthBudget,
+    forced_starts: &[usize],
+) {
+    let Some(first_width) = plan.content_width_first else {
+        return;
+    };
+    if demands.is_empty() {
+        return;
+    }
     loop {
         let overflow = plan.systems.iter().enumerate().find_map(|(si, measures)| {
             let available = if si == 0 {
@@ -85,13 +95,13 @@ pub(super) fn fit_tempo_system_breaks(
             } else {
                 plan.content_width_subseq.unwrap_or(first_width)
             };
-            let fitted = system::enforce_tempo_system_breaks(
-                vec![measures.clone()],
+            system::first_tempo_overflow(
+                measures.iter().copied(),
                 &budget.natural_widths,
-                &demands,
+                demands,
                 available,
-            );
-            (fitted.len() > 1).then(|| (si, fitted[0].len()))
+            )
+            .map(|offset| (si, offset))
         });
         let Some((si, offset)) = overflow else { break };
         let start = plan.systems[si][offset];

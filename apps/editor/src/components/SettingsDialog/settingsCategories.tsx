@@ -23,6 +23,7 @@ import { AppearancePanel } from "./panels/AppearancePanel";
 import { ImportPanel } from "./panels/ImportPanel";
 import { RenderingPanel } from "./panels/RenderingPanel";
 import { LayoutDebugPanel } from "./panels/LayoutDebugPanel";
+import { PaginationDebugPanel } from "../../debug/pagination";
 import { AccountPanel } from "./panels/AccountPanel";
 import { MidiInputPanel } from "./panels/MidiInputPanel";
 import { PlaybackPanel } from "./panels/PlaybackPanel";
@@ -188,6 +189,15 @@ const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     description: "Spacing and placement guides from the engraving engine.",
     keywords: ["spacing", "bbox", "system", "staff", "gap", "debug", "overlay", "engrave"],
     Panel: LayoutDebugPanel,
+  },
+  {
+    id: "pagination-debug",
+    label: "Page & System Debug",
+    group: "Advanced",
+    icon: <Bug size={14} />,
+    description: "Page turns, rest windows, page capacity and system density.",
+    keywords: ["page", "turn", "rest", "capacity", "density", "system", "debug", "overlay", "break"],
+    Panel: PaginationDebugPanel,
   },
 ];
 

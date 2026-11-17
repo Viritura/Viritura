@@ -6,13 +6,9 @@
 //! music the player encounters next is not simply the next written measure, or
 //! the same boundary is traversed on multiple passes with different content.
 //!
-//! Rather than fully simulating every pass (which needs a complete repeat/jump
-//! interpreter and is brittle for malformed input), we take the conservative
-//! interim rule from the design doc: **flag any boundary touched by repeat,
-//! volta, or jump structure as structurally complex**, so the optimizer avoids
-//! placing a physical turn there. We also provide a simple forward-repeat
-//! playback expansion (voltas honored, jumps not yet routed) that is useful for
-//! tempo/length reasoning and is fully unit-tested.
+//! Boundaries beside navigation symbols are conservatively flagged. Repeat
+//! playback expansion also feeds `navigation_timing`, which checks rest time
+//! at every crossing of an intervening written boundary.
 
 use crate::model::measure::GlobalMeasure;
 
@@ -96,15 +92,13 @@ pub fn multimeasure_rest_break_flags(measures: &[GlobalMeasure]) -> Vec<bool> {
         .collect()
 }
 
-/// Expand the written measures into playback order, honoring simple forward
-/// repeats and voltas. Jumps (D.C./D.S.) are **not** routed in this v1 pass and
-/// are treated as fall-through; structural flags above still protect their
-/// boundaries from turns.
+/// Expand written measures into repeat and volta playback order. Jump routing
+/// is applied separately to this initial order.
 ///
 /// Each entry is a written measure index, possibly repeated across passes.
 /// Voltas: a measure inside an `ending` whose `numbers` excludes the current
 /// pass is skipped on that pass.
-pub fn expand_playback_order(measures: &[GlobalMeasure]) -> Vec<usize> {
+pub fn expand_playback_order(measures: &[GlobalMeasure]) -> Result<Vec<usize>, String> {
     let n = measures.len();
     let mut order = Vec::new();
     let mut i = 0usize;
@@ -114,11 +108,11 @@ pub fn expand_playback_order(measures: &[GlobalMeasure]) -> Vec<usize> {
     // The measure index of the most recent repeat-start (or 0 as implicit).
     let mut segment_start = 0usize;
     // Guard against pathological infinite loops on malformed input.
-    let mut budget = n.saturating_mul(8).max(16);
+    let mut budget = 100_000usize;
 
     while i < n {
         if budget == 0 {
-            break;
+            return Err("repeat playback exceeds the traversal limit".into());
         }
         budget -= 1;
 
@@ -149,7 +143,7 @@ pub fn expand_playback_order(measures: &[GlobalMeasure]) -> Vec<usize> {
         }
         i += 1;
     }
-    order
+    Ok(order)
 }
 
 #[cfg(test)]
@@ -237,7 +231,7 @@ mod tests {
     #[test]
     fn test_expand_plain_is_identity() {
         let measures = plain(3);
-        assert_eq!(expand_playback_order(&measures), vec![0, 1, 2]);
+        assert_eq!(expand_playback_order(&measures).unwrap(), vec![0, 1, 2]);
     }
 
     #[test]
@@ -247,7 +241,10 @@ mod tests {
         measures[1].repeat_start = Some(RepeatStart { times: None });
         measures[2].repeat_end = Some(RepeatEnd { times: Some(2) });
         // Pass: 0,1,2, (repeat back) 1,2, then 3.
-        assert_eq!(expand_playback_order(&measures), vec![0, 1, 2, 1, 2, 3]);
+        assert_eq!(
+            expand_playback_order(&measures).unwrap(),
+            vec![0, 1, 2, 1, 2, 3]
+        );
     }
 
     #[test]
@@ -270,7 +267,10 @@ mod tests {
         });
         // Pass 1: 0,1(end1,repeat back to 0). Pass 2: 0, skip ending1 (m1),
         // play ending2 (m2), then 3,4.
-        assert_eq!(expand_playback_order(&measures), vec![0, 1, 0, 2, 3, 4]);
+        assert_eq!(
+            expand_playback_order(&measures).unwrap(),
+            vec![0, 1, 0, 2, 3, 4]
+        );
     }
 
     #[test]

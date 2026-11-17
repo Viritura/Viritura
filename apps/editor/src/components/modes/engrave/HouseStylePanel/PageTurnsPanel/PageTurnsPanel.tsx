@@ -1,9 +1,8 @@
 import { useCallback, useState } from "react";
 import { Checkbox, FormField, FormInput, Select } from "@viritura/ui";
 import {
-  defaultPageSetupForScore,
+  resolveScorePageSetup,
   resolvePageTurnSettings,
-  type PageSetup,
   type PageTurnSettings,
   type ResolvedPageTurnSettings,
 } from "@viritura/core";
@@ -348,21 +347,7 @@ export function PageTurnsPanel() {
   const store = useDocumentStoreApi();
   const scoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
   const scoreDefinition = score?.scores?.[scoreIndex];
-  const defaults = defaultPageSetupForScore(
-    score?.scores,
-    scoreIndex,
-    score?.layouts,
-    score?.parts?.length,
-    score?.pageSetupDefaults,
-  );
-  const effectiveSetup: PageSetup = {
-    ...defaults,
-    ...scoreDefinition?.pageSetup,
-    margins: {
-      ...defaults.margins,
-      ...scoreDefinition?.pageSetup?.margins,
-    },
-  };
+  const effectiveSetup = resolveScorePageSetup(score, scoreIndex);
   const settings = resolvePageTurnSettings(effectiveSetup.pageTurns);
 
   const commit = useCallback(
@@ -370,21 +355,7 @@ export function PageTurnsPanel() {
       const currentScore = store.getState().workingScore;
       const currentDefinition = currentScore?.scores?.[scoreIndex];
       if (!currentScore || !currentDefinition) return;
-      const currentDefaults = defaultPageSetupForScore(
-        currentScore.scores,
-        scoreIndex,
-        currentScore.layouts,
-        currentScore.parts.length,
-        currentScore.pageSetupDefaults,
-      );
-      const currentSetup: PageSetup = {
-        ...currentDefaults,
-        ...currentDefinition.pageSetup,
-        margins: {
-          ...currentDefaults.margins,
-          ...currentDefinition.pageSetup?.margins,
-        },
-      };
+      const currentSetup = resolveScorePageSetup(currentScore, scoreIndex);
       const nextSettings = storedSettings(update(resolvePageTurnSettings(currentSetup.pageTurns)));
       const scores = [...(currentScore.scores ?? [])];
       scores[scoreIndex] = {

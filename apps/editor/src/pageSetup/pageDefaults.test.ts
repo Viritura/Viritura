@@ -66,7 +66,10 @@ describe("project page defaults", () => {
       ),
     };
     const reopened = parseMnx(serializeMnx(custom));
-    expect(resolveScorePageSetup(reopened, 1)).toEqual(override);
+    expect(resolveScorePageSetup(reopened, 1)).toEqual({
+      ...override,
+      pageTurns: { ...LETTER.pageTurns, ...override.pageTurns },
+    });
     expect(reopened.pageSetupDefaults?.part).toEqual(LETTER);
     expect(reopened.scores?.[1]?.pageSetupRole).toBe("part");
     const reset: Score = {
@@ -85,5 +88,29 @@ describe("project page defaults", () => {
     const result = serializer.serialize(next);
     expect(result.structuralChange).toBe(true);
     expect(JSON.parse(result.json)).toEqual(serializeMnx(next));
+  });
+
+  it("keeps turn-only overrides inheriting project geometry and other turn settings", () => {
+    const score: Score = {
+      ...SCORE,
+      pageSetupDefaults: {
+        part: { ...LETTER, pageTurns: { enabled: true, preset: "professional", titlePage: "always" } },
+      },
+      scores: [{ pageSetupRole: "part", pageSetup: { pageTurns: { enabled: true, titlePage: "never" } } }],
+    };
+    const nextDefault = {
+      ...LETTER,
+      width: 250,
+      spatiumMm: 1.75,
+      pageTurns: { enabled: true, preset: "professional" as const, minFillFraction: 0.9 },
+    };
+    const updated = setProjectPageDefault(score, "part", nextDefault, false);
+    expect(updated.scores?.[0]?.pageSetup).toEqual(score.scores?.[0]?.pageSetup);
+    expect(resolveScorePageSetup(updated, 0)).toEqual({
+      ...nextDefault,
+      pageTurns: { ...nextDefault.pageTurns, titlePage: "never" },
+    });
+    const replaced = setProjectPageDefault(updated, "part", nextDefault, true);
+    expect(replaced.scores?.[0]?.pageSetup).toBeUndefined();
   });
 });

@@ -29,6 +29,8 @@ pub struct PageLayout {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LayoutDebugInfo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pagination: Option<PaginationDebugInfo>,
     /// One entry per system in the layout.
     pub systems: Vec<SystemDebug>,
     /// Pixels per spatium used by this layout (so the overlay can label in sp).

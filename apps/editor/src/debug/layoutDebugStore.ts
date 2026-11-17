@@ -9,6 +9,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { setEmitLayoutDebug } from "@viritura/renderer";
+import { usePaginationDebugStore } from "./pagination";
 
 export interface LayoutDebugCategories {
   systemBboxes: boolean;
@@ -50,7 +51,7 @@ export const useLayoutDebugStore = create<LayoutDebugState>()(
       enabled: false,
       categories: DEFAULT_CATEGORIES,
       setEnabled: (enabled) => {
-        setEmitLayoutDebug(enabled);
+        setEmitLayoutDebug(enabled || usePaginationDebugStore.getState().enabled);
         set({ enabled });
       },
       toggleCategory: (key) => set({ categories: { ...get().categories, [key]: !get().categories[key] } }),

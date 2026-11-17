@@ -214,62 +214,6 @@ pub fn profile_from_part_measure(m: &PartMeasure) -> MeasureProfile {
 
 // ── Turn-window computation ───────────────────────────────────────────────
 
-fn tail_seconds(profiles: &[MeasureProfile], tempo: &TempoMap, end_measure: usize) -> f64 {
-    let mut secs = 0.0;
-    let mut m = end_measure as isize;
-    while m >= 0 {
-        let p = &profiles[m as usize];
-        secs += tempo.seconds(m as usize, p.trailing_rest_beats);
-        if !p.is_full_rest {
-            break;
-        }
-        m -= 1;
-    }
-    secs
-}
-
-fn head_seconds(profiles: &[MeasureProfile], tempo: &TempoMap, start_measure: usize) -> f64 {
-    let mut secs = 0.0;
-    let mut m = start_measure;
-    while m < profiles.len() {
-        let p = &profiles[m];
-        secs += tempo.seconds(m, p.leading_rest_beats);
-        if !p.is_full_rest {
-            break;
-        }
-        m += 1;
-    }
-    secs
-}
-
-/// Count the consecutive whole-bar rests at the top of the incoming page,
-/// starting at `start_measure` — the leading multimeasure rest the player
-/// rests through right after turning.
-///
-/// `mmr_breaks[i]` marks measures that *start a new* multimeasure rest group
-/// (rehearsal mark, time/key change, barline change, repeat/jump structure,
-/// etc.). The count stops at the first such break after `start_measure`, so the
-/// hint reports only the first rest group rather than summing every consecutive
-/// resting bar across separate multimeasure rests.
-fn head_rest_measures(
-    profiles: &[MeasureProfile],
-    mmr_breaks: &[bool],
-    start_measure: usize,
-) -> usize {
-    let mut count = 0;
-    let mut m = start_measure;
-    while m < profiles.len() && profiles[m].is_full_rest {
-        // The head measure (m == start_measure) always counts; a later measure
-        // that begins a fresh multimeasure rest ends the first group.
-        if m > start_measure && mmr_breaks.get(m).copied().unwrap_or(false) {
-            break;
-        }
-        count += 1;
-        m += 1;
-    }
-    count
-}
-
 fn classify(seconds: f64, config: &PageTurnConfig) -> TurnQuality {
     if seconds <= 0.0 {
         TurnQuality::Impossible
@@ -301,11 +245,40 @@ pub fn compute_turn_windows(
     if profiles.len() < 2 {
         return Vec::new();
     }
+    let mut tails = vec![0.0; profiles.len()];
+    let mut heads = vec![0.0; profiles.len()];
+    let mut rest_counts = vec![0usize; profiles.len()];
+    for (index, profile) in profiles.iter().enumerate() {
+        tails[index] = tempo.seconds(index, profile.trailing_rest_beats)
+            + if profile.is_full_rest && index > 0 {
+                tails[index - 1]
+            } else {
+                0.0
+            };
+    }
+    for index in (0..profiles.len()).rev() {
+        let profile = &profiles[index];
+        heads[index] = tempo.seconds(index, profile.leading_rest_beats)
+            + if profile.is_full_rest && index + 1 < profiles.len() {
+                heads[index + 1]
+            } else {
+                0.0
+            };
+        if profile.is_full_rest {
+            rest_counts[index] = 1 + if index + 1 < profiles.len()
+                && !mmr_breaks.get(index + 1).copied().unwrap_or(false)
+            {
+                rest_counts[index + 1]
+            } else {
+                0
+            };
+        }
+    }
     let mut windows = Vec::with_capacity(profiles.len() - 1);
     for b in 0..profiles.len() - 1 {
-        let tail_seconds = tail_seconds(profiles, tempo, b);
-        let head_seconds = head_seconds(profiles, tempo, b + 1);
-        let head_rest_measures = head_rest_measures(profiles, mmr_breaks, b + 1);
+        let tail_seconds = tails[b];
+        let head_seconds = heads[b + 1];
+        let head_rest_measures = rest_counts[b + 1];
         let turn_seconds = tail_seconds + head_seconds;
         let quality = classify(turn_seconds, config);
         let fermata_blocked = profiles[b].has_fermata
@@ -411,6 +384,18 @@ mod tests {
         );
         // Boundary 0 head walks through the full-rest measure 1 (4 s).
         assert!((w[0].turn_seconds - 4.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn long_rest_itinerary_accumulates_and_respects_mmr_breaks() {
+        let profiles = vec![full_rest(4.0); 10_000];
+        let tempo = TempoMap::from_spq(vec![1.0; profiles.len()]);
+        let mut breaks = vec![false; profiles.len()];
+        breaks[5_000] = true;
+        let windows = compute_turn_windows(&profiles, &tempo, &[], &breaks, &cfg());
+        assert_eq!(windows[0].turn_seconds, 40_000.0);
+        assert_eq!(windows[0].head_rest_measures, 4_999);
+        assert_eq!(windows[4_999].head_rest_measures, 5_000);
     }
 
     #[test]

@@ -43,6 +43,8 @@ export interface SelectProps {
   readonly indicator?: "chevron" | "corner";
   /** Standard form trigger or compact square toolbar button. */
   readonly triggerVariant?: "default" | "icon-button";
+  /** Notified when the option list opens or closes (e.g. to suppress a trigger tooltip). */
+  readonly onOpenChange?: (open: boolean) => void;
 }
 
 // Radix Select disallows empty-string item values, so we map "" ↔ sentinel.
@@ -71,6 +73,7 @@ export function Select({
   active = false,
   indicator,
   triggerVariant = "default",
+  onOpenChange,
 }: SelectProps) {
   const selected = options.find((o) => o.value === value);
   return (
@@ -78,6 +81,7 @@ export function Select({
       value={toRadix(value)}
       onValueChange={(v) => onValueChange(fromRadix(v))}
       disabled={disabled ?? false}
+      {...(onOpenChange ? { onOpenChange } : {})}
     >
       <RadixSelect.Trigger asChild>
         <SelectTrigger

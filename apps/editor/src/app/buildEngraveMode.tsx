@@ -12,6 +12,7 @@ import { NotationInspector } from "../components/NotationInspector";
 import { SlurPropertiesPanel } from "../components/modes/engrave/SlurPropertiesPanel";
 import { EngraveLeftPanel } from "../components/modes/engrave/EngraveLeftPanel";
 import { BreakToolbar } from "../components/modes/engrave/BreakToolbar";
+import { TitlePageControl } from "../components/modes/engrave/TitlePageControl";
 import { WorkspaceToolbar, WorkspaceToolbarGroup } from "../components/WorkspaceToolbar";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import { getNoteEventAtLocation, resolveEventLocation } from "../score/ElementPath";
@@ -145,6 +146,7 @@ export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
               kind={engrave.selectedBreakKind}
               onSetKind={engrave.handleSetSelectedBreak}
             />
+            <TitlePageControl scoreIndex={engrave.activeScoreIndex} />
             {engrave.hasAnyHidden && (
               <Button
                 variant="default"

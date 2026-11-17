@@ -31,7 +31,7 @@ import { repaintCanvas } from "./repaintCanvas";
 import { paintEngraveAdornments, paintWriteSlurHandles } from "./paintEngraveAdornments";
 import { resolveSelectedHiddenClefOverlay } from "./selectedHiddenClef";
 import { useLayoutDebugStore } from "../../debug/layoutDebugStore";
-import { paintLayoutDebug } from "../../debug/layoutDebugPainter";
+import { paintScoreDebug, usePaginationDebugStore } from "../../debug/pagination";
 import type { SelectionState } from "../../store/selectionStore";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import type { BarlineHit, EngraveAdornments } from "./ScoreCanvas";
@@ -284,7 +284,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
   ) {
     repaintCanvas({
       canvas,
-      displayList: dl,
+      displayList: printPreview ? { ...dl, layoutDebug: undefined } : dl,
       scrollX: viewport.scrollX,
       scrollY: viewport.scrollY,
       zoom: viewport.zoom,
@@ -607,9 +607,9 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
     }
 
     // Vertical-spacing debug overlay
-    if (dl.layoutDebug) {
+    if (!printPreview && dl.layoutDebug) {
       const { enabled, categories } = useLayoutDebugStore.getState();
-      if (enabled) {
+      if (enabled || usePaginationDebugStore.getState().enabled) {
         // Visible world rect in content coordinates. The overlay culls its
         // per-box passes to this rect (see PaintLayoutDebugOpts.visible) —
         // without it the painter walks every element box in the score every
@@ -638,7 +638,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
             ctx.beginPath();
             ctx.rect(pos.x, pos.y, PAGE_W, page.height);
             ctx.clip();
-            paintLayoutDebug(ctx, dl.layoutDebug, {
+            paintScoreDebug(ctx, dl.layoutDebug, {
               categories,
               zoom: viewport.zoom,
               offsetX: dx,
@@ -656,7 +656,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
             ctx.restore();
           }
         } else {
-          paintLayoutDebug(ctx, dl.layoutDebug, {
+          paintScoreDebug(ctx, dl.layoutDebug, {
             categories,
             zoom: viewport.zoom,
             elementBboxes: dl.elementBboxes,

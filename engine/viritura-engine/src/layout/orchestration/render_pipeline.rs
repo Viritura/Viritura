@@ -162,6 +162,7 @@ pub(in crate::layout) fn emit_layout_debug(
         .collect();
     debug::link_inter_system_gaps(&mut systems_dbg, sp);
     dl.layout_debug = Some(crate::render::LayoutDebugInfo {
+        pagination: None,
         systems: systems_dbg,
         sp,
         staff_height,

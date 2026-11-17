@@ -1,0 +1,1 @@
+export { TitlePageControl } from "./TitlePageControl";
