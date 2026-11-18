@@ -8,25 +8,35 @@
 Implement concert double-action pedal-harp support:
 
 1. Explicit, time-positioned seven-pedal settings, shared by both staves.
-2. A simple greedy calculation that chooses a setting covering the longest
-   upcoming passage before another setting is needed.
+2. Spelling-preserving greedy pedal calculation, plus better enharmonic
+   alternatives when they exist, with at most three solutions to choose from.
 3. Playback of harp glissandos through the strings selected by those pedals,
    rather than through the key signature's diatonic pitch classes.
 4. Red noteheads for written notes that disagree with the pedals.
 
-**Confirmed during planning:** ordinary notes keep their written/sounding
-pitch in playback, even when incompatible with the pedals. Warn rather than
-retune, silence, or rewrite them. The first calculator preserves spelling.
-An enharmonic-aware solver is a later extension, not natural-harmonic support.
+**Confirmed during planning:**
+
+- Ordinary notes keep their authored sounding pitch in playback, even when
+  incompatible with the pedals. A mismatch turns the notehead red; it does not
+  retune, silence, or rewrite the note.
+- Calculate without respelling by default, but also search for enharmonic
+  improvements. Rank pedal results by fewer pedal-setting changes, then fewer
+  individual pedal movements.
+- "Suggest respelling" makes the fewest spelling changes needed to improve
+  the no-respelling result, or to make an otherwise impossible passage feasible.
+  Offer "Maximum respell" only when allowing more respelling improves that
+  pedal result further. Neither option changes authored sounding pitches.
+- Auto-apply exactly one valid, distinct solution. For two or three solutions,
+  show a choice dialog, preferring "No respelling" when available.
 
 The remaining policies below are proposed defaults, made explicit so that
 implementation does not silently choose musical behavior.
 
-Not included in v1: automatic enharmonic respelling, lever/single-action
-harps, pedal-motion audio, physically modeled retuning of ringing strings,
-special harp techniques, or a full MusicXML harp-marking interchange project.
-The calculator is a pitch-feasibility aid, not a guarantee of human
-playability or globally minimal pedal changes.
+Not included in v1: lever/single-action harps, pedal-motion audio, physically
+modeled retuning of ringing strings, natural harmonics or other special harp
+techniques, or a full MusicXML harp-marking interchange project. The calculator
+is a pitch-feasibility aid, not a guarantee of human playability. The greedy
+baseline is not itself a proof of globally minimal pedal changes.
 
 ## 2. Current implementation and integration points
 
@@ -145,14 +155,16 @@ documents the conventional pedal order;
 [SMuFL harp techniques](https://w3c-cg.github.io/smufl/latest/tables/harp-techniques.html)
 defines pedal positions and glyphs.
 
-## 5. Greedy calculation: longest compatible prefix
+## 5. Pedal calculation and ranked enharmonic alternatives
 
 ### Inputs and scope
 
-**Calculate harp pedals** opens a preview for the active harp part or a bounded
-selection. Preserve every manual snapshot as a hard anchor. Recompute only
-calculated snapshots inside the chosen scope. Do not run or persist the
-calculator automatically whenever notes change.
+**Calculate harp pedals** solves the active harp part or a bounded selection.
+Always run the spelling-preserving pass and the enharmonic search before
+deciding whether to auto-apply or open a solution dialog. Preserve every manual
+snapshot as a hard anchor. Recompute only calculated snapshots inside the chosen
+scope; change note spelling only as part of an applied enharmonic solution.
+Do not run or persist the calculator automatically whenever notes change.
 
 Build one ordered stream of musical constraints across both staves and all
 voices. Use exact score-time positions and existing rhythmic traversal/timing
@@ -166,7 +178,7 @@ Do not use reverb tails or sampler envelope lengths as notation constraints.
 Treat a grace cluster conservatively as one pedal-stable group and disclose
 that policy rather than promising sub-grace pedal choreography.
 
-### Algorithm
+### Spelling-preserving baseline: longest compatible prefix
 
 For each region bounded by manual snapshots or the requested end:
 
@@ -191,38 +203,148 @@ For each region bounded by manual snapshots or the requested end:
 6. If held notes conflict with a new attack, report the exact notes, letter,
    and location. A pedal cannot simultaneously satisfy both. Do not generate
    repeated zero-length settings, respell notes, or silently drop constraints.
+   This makes the no-respelling pass infeasible, not necessarily the complete
+   calculation: the enharmonic search may still find a valid solution.
 
 For example, C-natural followed later by F-sharp and then C-sharp needs two
 settings: prepare F-sharp in the first setting even before its first use,
 then change C at the C-sharp onset. C-natural and C-sharp simultaneously,
 including an overlap from a held note, cannot be solved without changing
-notation or performance assumptions.
+notation or performance assumptions. An enharmonic pass may instead use
+C-natural and D-flat, if all other simultaneous and sustained constraints
+permit it.
 
 This is longest-prefix greedy, **not** a proof of minimum total pedal movements
 or ergonomic feasibility. No `3^7` enumeration is needed while written-letter
 constraints are independent. Sort/build the constraint stream once, then
 advance a cursor; do not repeatedly rescan the remaining score.
 
-### Preview and application safety
+### Enharmonic search and ranking
 
-- Preview proposed diagrams, changed pedals, covered spans, and unsolved
-  locations. Show existing manual-marker mismatches as red noteheads, without
-  a separate mismatch message.
-- Use one explicit Apply and one undo transaction. If the requested region
-  has unsolved requirements, block Apply and let the user revise the scope
-  or music; do not present partial calculation as a successful solve.
+Enumerate alternative string spellings that retain each note's exact sounding
+pitch, using only flat/natural/sharp harp strings. Handle B-sharp and C-flat
+with their correct octave, not just pitch-class equivalence. Double accidentals
+may therefore become playable by respelling; microtones with no exact harp
+string equivalent remain infeasible.
+
+Search the `3^7 = 2,187` possible tuning configurations at relevant musical
+boundaries, filtering by manual anchors, simultaneous notes, and sounding
+intervals. Reuse the baseline's timing stream and scope rules. A shortest-path
+or dynamic-programming search should retain nondominated combinations of
+pedal cost and respelling count, rather than enumerate the Cartesian product
+of all note spellings. Track the selected string/spelling for active held/tied
+notes across transitions; 2,187 bounds tuning configurations, not the entire
+state space when those assignments are included. Cache feasibility results and
+prune dominated states without silently dropping musical constraints.
+
+Measure each complete, feasible candidate with the following metrics; the
+category rules below specify how to prioritize them:
+
+1. **Pedal cost:** lexicographically minimize the number of pedal-setting
+   changes, then the total number of individual pedals moved. A snapshot that
+   changes three letters counts as one setting change and three pedal movements.
+   Count each changed letter once even for flat-to-sharp movement; ergonomic
+   travel distance is not part of this first cost model.
+2. **Respelling count:** count source note objects whose step/alter/octave changes,
+   not repeated playback occurrences. Keep a tie chain coherently spelled and
+   count all changed source notes in that chain.
+3. Use deterministic spelling and placement tie-breaks for otherwise equivalent
+   results, and preserve existing calculated IDs where the content is unchanged.
+
+Include transitions into and out of the selected region when their tuning is
+known, including any required restoration setting. Do not count the first
+setting in an unknown initial state as a pedal-setting _change_ or assign it
+invented individual pedal movements. All candidates must use the same boundaries
+and cost accounting.
+
+If the enhanced search finds a better zero-respelling path than the greedy
+baseline, use it as the "No respelling" candidate before comparing alternatives.
+Do not label a pedal-only improvement as an enharmonic solution.
+
+Keep at most one candidate in each category:
+
+| Choice                 | Selection rule                                                                                                                                                                                                                                                                                              |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No respelling**      | Best available valid result that preserves every source spelling. Keep this option whenever feasible, even if an enharmonic result has lower pedal cost.                                                                                                                                                    |
+| **Suggest respelling** | If a no-respelling result exists, choose the fewest respelled source notes that yield strictly lower pedal cost; among equally small respellings, minimize pedal cost. If the baseline is infeasible, instead choose the fewest respelled notes needed for any valid solution, then minimize pedal cost.    |
+| **Maximum respell**    | Allow unrestricted respelling within scope to minimize pedal cost, with fewer respelled notes as the tie-break. Show only if its pedal cost is strictly lower than the "Suggest respelling" result. This means permission for more respelling, not maximizing the number of changed notes for its own sake. |
+
+Discard incomplete or infeasible candidates; they are not solutions or disabled
+choices in the dialog. Deduplicate normalized pedal timelines and note edits.
+Do not add another alternative merely because it uses different enharmonic
+spellings with the same pedal cost and more changed notes. Equal-cost respelling
+alone is not an improvement over "No respelling."
+
+### Single-solution application and choice dialog
+
+- **Zero valid solutions:** report calculation failure and leave the document
+  unchanged. Red noteheads can show incompatible notes in the score; do not
+  treat an incomplete solve as a successful alternative.
+- **Exactly one valid, distinct solution:** auto-apply it without a preview or
+  confirmation dialog. This includes an enharmonic solution when no valid
+  no-respelling solution exists. Complete both passes first; never apply the
+  baseline while still searching for alternatives.
+- **Two or three valid, distinct solutions:** open one dialog, ordered
+  **No respelling**, **Suggest respelling**, **Maximum respell**, omitting
+  unavailable categories. Default to No respelling when present, otherwise
+  Suggest respelling. Do not show Maximum respell without its further
+  improvement.
+- For each offered choice, show its pedal-setting-change count, individual
+  pedal-movement count, and respelled-note count. Preview its diagrams and
+  spelling edits so the trade-off is clear. Existing note mismatches remain
+  red noteheads only, with no separate mismatch message.
+- Apply the selected solution with one explicit Apply; Cancel changes nothing.
+  One available solution must not open this dialog merely because it includes
+  respelling.
+- An interrupted, cancelled, or incomplete search is not proof that only one
+  solution exists. Do not auto-apply a provisional baseline or quietly omit
+  unfinished alternative categories.
+
+Required candidate-flow cases:
+
+| Calculated result                                                                                         | Expected behavior                                                              |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Valid no-respelling result; respelling gives no strictly better pedal cost                                | Auto-apply No respelling.                                                      |
+| No respelling plus a better limited-respelling result; unrestricted search cannot improve it further      | Show two choices, defaulting to No respelling.                                 |
+| Limited respelling improves the baseline, and unrestricted respelling improves it further                 | Show all three choices, defaulting to No respelling.                           |
+| No valid no-respelling result; limited and unrestricted search select the same solution                   | Auto-apply that one enharmonic solution.                                       |
+| No valid no-respelling result; unrestricted respelling strictly improves the minimally respelled solution | Show Suggest respelling and Maximum respell, defaulting to Suggest respelling. |
+| No complete valid result                                                                                  | Report failure; apply nothing.                                                 |
+
+### Application safety
+
+- Apply pedal snapshots and any note-spelling patches together in one undoable
+  collaborative transaction. Undo restores both the previous pedal settings
+  and every changed spelling. A solution that makes no changes is a no-op,
+  not a new undo entry.
+- Preserve exact authored sounding pitches, note/event IDs, timing, ties,
+  voices, and staves. Update spelling-dependent accidental display and derived
+  notation consistently. Do not transpose notes or break ties to obtain a
+  better pedal cost.
+- A tie chain crossing the selected boundary keeps its original spelling
+  unless the entire chain is in scope. Never silently respell notes outside
+  the selected region or overwrite a locked manual snapshot.
+- Carry held-note constraints across both scope boundaries. Any required
+  restoration must remain compatible with notes whose notated duration extends
+  beyond the selection; do not truncate those notes to make a candidate valid.
 - For a bounded selection, preserve tuning outside it. Restore the original
   known tuning at the exclusive end when needed, unless an existing manual
   snapshot already does so. If the original following state was unknown,
   block bounded application and explain that the scope must extend through
   the part/harp segment end or to a user-established boundary setting.
-- Revalidate against the current document revision on Apply. Repeated
-  calculation with unchanged input produces the same settings, without
-  duplicate markers or needless replacement of unchanged IDs.
+- Revalidate against the current document revision before auto-application or
+  dialog Apply. If the source changed, recompute both passes and the candidate
+  count rather than applying stale patches. Repeated calculation with unchanged
+  input produces the same settings without duplicate markers or needless
+  replacement of unchanged IDs.
 - Unannotated glissando interiors contribute no invented harmonic target.
-  Their endpoints constrain spelling; unconstrained pedals follow the stated
-  tie-break. Show the resulting glissando pitch sequence in the preview.
-  Inferring an intended glissando scale/chord is deferred.
+  Endpoints preserve their exact sounding pitches; the no-respelling candidate
+  also preserves their string spelling. Recompute each candidate's glissando
+  string path and playback from its proposed endpoint spellings and pedals.
+  An enharmonic endpoint edit can change the intermediate string sequence even
+  when its sounding pitch is unchanged; do not claim the entire glissando audio
+  is invariant. Show the resulting sequence in the multi-solution preview.
+  Inferring an intended glissando scale/chord remains deferred.
 
 ## 6. Playback contract
 
@@ -307,13 +429,13 @@ work into a native transport rewrite.
 
 ## 8. Delivery sequence and acceptance gates
 
-| Phase                 | Deliverable                                                                                                                    | Required evidence before moving on                                                                                                                                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Contract and state | Vendor schema, generated artifacts, TS/Rust models, parse/promote/demote, shared resolver and structured issues.               | Full/delta round-trips; schema rejection cases; both-staff inheritance; exact mid-measure boundaries; unknown state; instrument changes.                                                                                     |
-| 2. Explicit settings  | Typed add/update/move/remove patches, command/dialog/properties, diagram engraving, hit-testing, undo/redo, and collaboration. | Save/reopen; remote edits; fast/full Yjs parity; duplicate-position conflicts; part extracts; collision and system/page placement; an MNX Storybook story.                                                                   |
-| 3. Greedy calculator  | Constraint stream, longest-prefix solver, protected manual anchors, preview, atomic Apply, and scope restoration.              | Future-unused-pedal preparation; simultaneous/overlapping conflicts; ties/tuplets/graces; stable reruns; selection boundaries; no mutations before Apply.                                                                    |
-| 4. Playback           | Harp-pedal glissando mode, instrument-aware default, timed state lookup, diagnostics, and unchanged ordinary-note pitch.       | Exact generated pitches/times; ascending/descending; enharmonic duplicates; C-flat/B-sharp; mid-gliss changes; chords/cross-staff spans; repeats/jumps/seeking; explicit override and non-harp regressions; native fallback. |
-| 5. Warning UX         | Cached analysis and red notehead-only overlay, with no warning banner or explanatory text.                                     | One bad chord note only; red remains visible when selected; mismatch playback unchanged; fix/delete/undo/remote edit refresh; selection/retention/zoom; warnings absent from exports and print preview; app Storybook story. |
+| Phase                 | Deliverable                                                                                                                                                            | Required evidence before moving on                                                                                                                                                                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Contract and state | Vendor schema, generated artifacts, TS/Rust models, parse/promote/demote, shared resolver and structured issues.                                                       | Full/delta round-trips; schema rejection cases; both-staff inheritance; exact mid-measure boundaries; unknown state; instrument changes.                                                                                                                                              |
+| 2. Explicit settings  | Typed add/update/move/remove patches, command/dialog/properties, diagram engraving, hit-testing, undo/redo, and collaboration.                                         | Save/reopen; remote edits; fast/full Yjs parity; duplicate-position conflicts; part extracts; collision and system/page placement; an MNX Storybook story.                                                                                                                            |
+| 3. Ranked calculator  | Shared constraints, greedy baseline, enharmonic search, up to three ranked candidates, single-solution auto-apply, choice dialog, atomic edits, and scope restoration. | No-respelling preference; strict pedal-cost improvements; minimal versus maximum respelling; zero/one/two/three valid candidates; deduplication; exact sounding-pitch preservation; ties/manual anchors/scope boundaries; stale-result rejection; atomic undo/redo and collaboration. |
+| 4. Playback           | Harp-pedal glissando mode, instrument-aware default, timed state lookup, diagnostics, and unchanged ordinary-note pitch.                                               | Exact generated pitches/times; ascending/descending; enharmonic duplicates; C-flat/B-sharp; mid-gliss changes; chords/cross-staff spans; repeats/jumps/seeking; explicit override and non-harp regressions; native fallback.                                                          |
+| 5. Warning UX         | Cached analysis and red notehead-only overlay, with no warning banner or explanatory text.                                                                             | One bad chord note only; red remains visible when selected; mismatch playback unchanged; fix/delete/undo/remote edit refresh; selection/retention/zoom; warnings absent from exports and print preview; app Storybook story.                                                          |
 
 Phases 2 and 3 depend on phase 1; playback and warning analysis also depend
 on the shared contract. Ship the complete vertical slice only after all five
@@ -346,26 +468,17 @@ guidance. Update affected notation-reference coverage only after delivered
 behavior is source-audited. No implementation tests were run for this
 documentation-only plan.
 
-## 9. Later extension: enharmonic-aware solving
+## 9. Later extensions
 
-The next step should optimize **alternative string spellings for the same
-sounding pitches**, not change the composition:
-
-- Enumerate feasible letter/alteration choices for each sounding pitch,
-  restricted to the harp's flat/natural/sharp strings. Preserve sounding
-  octave correctly for B-sharp and C-flat.
-- Search the small `3^7 = 2,187` tuning space, filtering by simultaneous and
-  sustained-note requirements. Use shortest-path/dynamic programming over
-  relevant boundaries, with costs for pedal movements, required time,
-  left/right-foot conflicts, distance moved, and respelling.
-- Treat explicit manual settings as locked. Prefer unchanged spellings;
-  preview any spelling changes with cautionary accidentals and tie consistency.
-  Never mutate notes as an invisible side effect of calculating pedals.
+- Add ergonomic costs and feasibility checks for pedal travel distance,
+  available time, and left/right-foot conflicts. Do not confuse the initial
+  count-based ranking with a complete human-playability assessment.
 - For glissandos, allow an explicitly chosen target pitch set/chord/scale,
   then find pedal settings producing it, including intentional repeated
   pitches on enharmonic strings. Do not infer this intent from endpoints alone.
-- Offer ranked alternatives when useful: fewer pedal changes versus fewer
-  respellings. Keep deterministic scoring and report unsatisfiable regions.
+- Add instrument-specific fixed extreme strings, alternate tunings, or other
+  harp types only through an explicit capability model.
 
-Keep this behind a separate future mode. V1 needs no general solver framework,
-respelling permissions, or speculative harmony-analysis dependency.
+Enharmonic alternatives and the one-versus-many application flow are part of
+the initial delivery, not a separate future mode. No harmony-analysis dependency
+is required to enumerate exact enharmonic equivalents.
