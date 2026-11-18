@@ -7,6 +7,7 @@ use super::super::resolve::*;
 use super::super::skyline::{Skyline, SkylineDirection};
 use super::super::spacing::*;
 use super::super::types::*;
+use super::beam_stems::normalize_beam_group_stem_directions;
 use super::cross_staff::*;
 use super::helpers::*;
 use super::prefix_width::{compute_max_prefix_width, prefix_layout, AlignedPrefix, PrefixContext};
@@ -461,75 +462,6 @@ pub(super) fn apply_multi_voice_horizontal_offsets(
             }
         }
     }
-}
-
-/// Normalize stem direction across beam groups.
-///
-/// `render_beams` uses `beam_events[0].stem_up` for the whole group, but each
-/// event's `stem_up` is computed independently based on its own note position.
-/// Events 2+ in a group may therefore have a different `stem_up` than event 0,
-/// causing slurs and articulations attached to those events to read the wrong
-/// value (standard engraving convention: slur is opposite the stem). Propagate the first
-/// event's `stem_up` to every event in the group, matching beams.rs.
-pub(super) fn normalize_beam_group_stem_directions(
-    voice_layouts: &mut [VoiceLayout],
-    rm: &ResolvedMeasure,
-) -> HashSet<String> {
-    use std::collections::HashSet;
-    let beams_owned: Vec<Beam>;
-    let beams: &[Beam] = if let Some(b) = rm.part.beams.as_ref() {
-        b.as_slice()
-    } else {
-        beams_owned = super::super::beams::auto_beam_groups(
-            voice_layouts,
-            rm.effective_beat_meter(),
-            &HashSet::new(),
-        );
-        &beams_owned
-    };
-    let beamed_ids: HashSet<String> = beams
-        .iter()
-        .flat_map(|beam| beam.events.iter().cloned())
-        .collect();
-    for beam in beams {
-        let first_stem_up = beam.events.iter().find_map(|id| {
-            voice_layouts.iter().find_map(|vl| {
-                (0..vl.events.len())
-                    .find(|&i| vl.events.id(i) == Some(id.as_str()))
-                    .map(|i| vl.events.stem_up(i))
-            })
-        });
-        let Some(stem_up) = first_stem_up else {
-            continue;
-        };
-        for id in &beam.events {
-            for vl in voice_layouts.iter_mut() {
-                for i in 0..vl.events.len() {
-                    if vl.events.id(i) == Some(id.as_str()) {
-                        // Flipping the stem direction also flips which side of
-                        // the stem a second-interval notehead is displaced to
-                        // (stem-up displaces the upper note right, stem-down the
-                        // lower note left). The `note_x_offsets` were computed in
-                        // `layout_sequence_content` with this event's ORIGINAL
-                        // stem direction; if the beam-group normalization changes
-                        // it, recompute them or the displaced noteheads end up on
-                        // the wrong side, detached from the stem by a notehead
-                        // width (standard engraving practice; the cause of
-                        // "floating" cluster noteheads in beamed chords).
-                        if vl.events.stem_up(i) != stem_up {
-                            vl.events.set_stem_up(i, stem_up);
-                            let positions = vl.events.note_positions(i).to_vec();
-                            let new_offsets = compute_seconds_displacement(&positions, stem_up);
-                            vl.events
-                                .note_x_offsets_mut(i)
-                                .copy_from_slice(&new_offsets);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    beamed_ids
 }
 
 /// Lay out a single voice (sequence) within a measure, producing a `VoiceLayout`.

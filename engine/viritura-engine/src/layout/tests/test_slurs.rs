@@ -5293,3 +5293,44 @@ fn test_cross_system_slur_uses_hanger_and_clears_tie_continuation() {
         "the complete broken slur must inherit one automatic-up direction"
     );
 }
+
+#[test]
+fn test_auto_slur_follows_beam_group_direction_from_middle_line_start() {
+    // A beam group that starts on the middle line but descends below it takes
+    // stems up as a whole (the farthest note decides), so an auto slur inside
+    // the group curves below, opposite the stems.
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+            "sequences": [{"content": [
+                {"id": "b", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "B", "octave": 4}}]},
+                {"id": "a", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "A", "octave": 4}}]},
+                {"id": "g", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "G", "octave": 4}}],
+                 "slurs": [{"target": "e"}]},
+                {"id": "e", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "E", "octave": 4, "alter": -1}}]},
+                {"duration": {"base": "half"}, "rest": {}}
+            ]}]
+        }]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    let slur = dl
+        .commands
+        .iter()
+        .enumerate()
+        .find(|(i, _)| dl.element_ids.get(*i).and_then(|id| id.as_deref()) == Some("slur/g/e"))
+        .map(|(_, command)| command)
+        .expect("slur/g/e should be rendered");
+    let RenderCommand::DrawFilledBezier {
+        y1, y2, ocy1, ocy2, ..
+    } = slur
+    else {
+        panic!("expected DrawFilledBezier");
+    };
+    assert!(
+        ocy1 + ocy2 > y1 + y2,
+        "slur under stems-up beam group must curve below: y=({y1},{y2}) oc=({ocy1},{ocy2})"
+    );
+}

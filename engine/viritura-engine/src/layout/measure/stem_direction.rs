@@ -114,6 +114,34 @@ pub(crate) fn stem_up_from_pitch(note_positions: &[f64]) -> bool {
     average > MIDDLE_LINE_POSITION
 }
 
+/// Automatic stem direction shared by a beamed group, from its pitches alone.
+///
+/// Standard engraving practice: a beam takes one direction for the whole
+/// group, decided by the note farthest from the middle line. When the extremes
+/// are equidistant, the majority of notes decides; an even split takes
+/// downward stems. Returns `None` when the group has no pitched notes.
+pub(crate) fn beam_group_stem_up_from_pitch<'a>(
+    events: impl IntoIterator<Item = &'a [f64]>,
+) -> Option<bool> {
+    let positions: Vec<f64> = events.into_iter().flatten().copied().collect();
+    let highest = positions.iter().copied().reduce(f64::min)?;
+    let lowest = positions.iter().copied().reduce(f64::max)?;
+    let above = MIDDLE_LINE_POSITION - highest;
+    let below = lowest - MIDDLE_LINE_POSITION;
+    if (below - above).abs() > f64::EPSILON {
+        return Some(below > above);
+    }
+    let below_count = positions
+        .iter()
+        .filter(|&&p| p > MIDDLE_LINE_POSITION)
+        .count();
+    let above_count = positions
+        .iter()
+        .filter(|&&p| p < MIDDLE_LINE_POSITION)
+        .count();
+    Some(below_count > above_count)
+}
+
 /// Resolve one event's stem direction against the full precedence order.
 pub(crate) fn resolve_stem_up(
     stem_direction: Option<&StemDirection>,

@@ -168,8 +168,9 @@ fn render_chord_with_second_has_displaced_noteheads() {
 
 #[test]
 fn beamed_stem_flip_recomputes_second_displacement() {
-    // A beam group whose first event is naturally stem-up (low note) followed by
-    // a high chord-with-a-second that is naturally stem-DOWN. Beam-group stem
+    // A beam group whose low first note puts the whole group stem-up, followed
+    // by a chord-with-a-second just above the middle line that is naturally
+    // stem-DOWN. Beam-group stem
     // normalization flips the high chord to stem-up to match the group. The
     // chord's second-interval displacement must be RECOMPUTED for the new stem
     // direction (stem-up displaces the upper note RIGHT, +1) — otherwise it
@@ -181,8 +182,8 @@ fn beamed_stem_flip_recomputes_second_displacement() {
         "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
             {"duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "D", "octave": 4}}]},
             {"duration": {"base": "eighth"}, "notes": [
-                {"pitch": {"step": "B", "octave": 5}},
-                {"pitch": {"step": "C", "octave": 6}}
+                {"pitch": {"step": "B", "octave": 4}},
+                {"pitch": {"step": "C", "octave": 5}}
             ]}
         ]}]}]}]
     }"#;
@@ -197,7 +198,7 @@ fn beamed_stem_flip_recomputes_second_displacement() {
     let chord = &events[1];
     assert_eq!(chord.note_positions.len(), 2, "second event is a chord");
 
-    // The chord was normalized to the group's (first event's) stem-up direction.
+    // The chord was normalized to the group's stem-up direction.
     assert!(
         chord.stem_up,
         "high chord should be normalized to the beam group's stem-up direction"
