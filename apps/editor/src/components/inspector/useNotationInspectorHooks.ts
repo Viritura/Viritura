@@ -17,6 +17,7 @@ import {
   resolveColorSelectionTarget,
   type ColorSelectionTarget,
 } from "../../commands/colorCommands";
+import { defaultGlissandoStyle } from "../../commands/glissandoCommands";
 
 interface AutoScrollArgs {
   preferredSection: InspectorSection | null | undefined;
@@ -207,6 +208,9 @@ export function useTieSlurHandlers({ score, target, glissando, updateScore }: Ti
       const oldDefault = glissando?.kind === "portamento" ? "port." : "gliss.";
       const patch: Parameters<typeof setPrimaryGlissandoProperties>[2] = { kind: v };
       if (glissando?.text === oldDefault) patch.text = v === "portamento" ? "port." : "gliss.";
+      if (glissando && glissando.style === defaultGlissandoStyle(glissando.kind ?? "glissando")) {
+        patch.style = defaultGlissandoStyle(v);
+      }
       applyGlissando(patch, "Unable to update glissando type.");
     },
     handleGlissandoPlaybackTypeChange: (v: string) => {

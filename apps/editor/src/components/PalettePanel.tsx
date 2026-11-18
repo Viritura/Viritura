@@ -423,7 +423,6 @@ export function PalettePanel({
             sourceEventId: source.id,
             targetEventId: target.id,
             kind,
-            style: "straight",
             text: kind === "portamento" ? "port." : "gliss.",
           });
         });

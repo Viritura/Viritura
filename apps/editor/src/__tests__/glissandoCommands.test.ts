@@ -65,6 +65,16 @@ describe("glissando commands", () => {
     ]);
   });
 
+  it("defaults glissandos to wavy lines and portamento to straight lines", () => {
+    const gliss = buildScore();
+    addGlissando(gliss, { sourceEventId: "source", targetEventId: "target", kind: "glissando" });
+    expect(sourceEvent(gliss).glissandos?.[0]?.style).toBe("wavy");
+
+    const port = buildScore();
+    addGlissando(port, { sourceEventId: "source", targetEventId: "target", kind: "portamento" });
+    expect(sourceEvent(port).glissandos?.[0]?.style).toBe("straight");
+  });
+
   it("rejects endpoints in different parts", () => {
     const score = buildScore();
     score.parts.push({

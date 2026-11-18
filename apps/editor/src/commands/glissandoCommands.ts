@@ -58,6 +58,11 @@ function requireEndpoint(score: Score, eventId: string, name: "Source" | "Target
   return endpoint;
 }
 
+/** Glissandos are conventionally engraved wavy; portamento uses a straight line. */
+export function defaultGlissandoStyle(kind: GlissandoKind): GlissandoStyle {
+  return kind === "portamento" ? "straight" : "wavy";
+}
+
 export function addGlissando(score: Score, params: AddGlissandoParams): Score {
   if (params.sourceEventId === params.targetEventId) {
     throw new Error("Glissando endpoints must be different notes.");
@@ -68,10 +73,11 @@ export function addGlissando(score: Score, params: AddGlissandoParams): Score {
     throw new Error("Glissando endpoints must belong to the same part.");
   }
 
+  const kind = params.kind ?? "glissando";
   const glissando: Glissando = {
     target: params.targetEventId,
-    kind: params.kind ?? "glissando",
-    style: params.style ?? "straight",
+    kind,
+    style: params.style ?? defaultGlissandoStyle(kind),
   };
   if (params.text) glissando.text = params.text;
   if (params.showText !== undefined) glissando.showText = params.showText;
