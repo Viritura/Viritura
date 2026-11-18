@@ -6,7 +6,7 @@ use super::direction::{
     Coda, DynamicGroup, Fine, Jump, MarkerTexts, MultiStaffPlacement, Ottava, Pedal, RehearsalMark,
     Segno, Tempo, TextExpression,
 };
-use super::event::{ArpeggioDirection, Sequence};
+use super::event::{ArpeggioDirection, Glissando, Sequence};
 use super::key::KeySignature;
 use super::kit::KitComponent;
 use super::repeat::{Ending, RepeatEnd, RepeatStart};
@@ -312,6 +312,16 @@ pub struct NonArpeggio {
 // (full parse) or `promote::promote_part_measure_json` (external
 // patch flow). See `docs/spec/data-model-pipeline.md`.
 
+/// A glissando whose target is reached by returning across a repeat barline.
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct RepeatGlissando {
+    pub(crate) source: String,
+    pub(crate) glissando: Glissando,
+    pub(crate) start_measure: usize,
+    pub(crate) end_measure: usize,
+    pub(crate) direction: f64,
+}
+
 /// Resolved measure — global + part data merged for rendering.
 #[derive(Debug, Clone)]
 pub struct ResolvedMeasure {
@@ -343,6 +353,7 @@ pub struct ResolvedMeasure {
     /// continuations suppress automatic accidental spacing unless the renderer
     /// elects to show a courtesy accidental at a system start.
     pub tie_continuation_ids: Vec<String>,
+    pub(crate) repeat_glissandos: Vec<RepeatGlissando>,
     /// Staff line count in force at the start of this measure.
     /// The canonical five-line coordinate frame remains unchanged.
     pub active_staff_lines: u32,

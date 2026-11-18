@@ -270,6 +270,7 @@ pub(crate) fn resolve_measures_for_staff(
                     None
                 },
                 tie_continuation_ids: rm.tie_continuation_ids.clone(),
+                repeat_glissandos: rm.repeat_glissandos,
                 measure_repeat_covered: rm.measure_repeat_covered,
                 next_has_repeat_start: rm.next_has_repeat_start,
                 prev_barline_type: rm.prev_barline_type,

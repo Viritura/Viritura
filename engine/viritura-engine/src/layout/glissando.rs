@@ -13,6 +13,12 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 use std::collections::HashMap;
 
+mod repeat_returns;
+
+pub(crate) use repeat_returns::resolve_repeat_glissandos;
+pub(crate) use repeat_returns::state_salt as repeat_glissando_state_salt;
+pub(crate) use repeat_returns::APPROACH_LENGTH_SP as REPEAT_APPROACH_LENGTH_SP;
+
 /// Cached position info for a glissando endpoint.
 struct GlissEndpoint {
     x: f64,
@@ -23,6 +29,8 @@ struct GlissEndpoint {
     /// same part (harp/keyboard writing), so the line must follow it there.
     staff_y: f64,
     notehead_w: f64,
+    measure_index: usize,
+    measure_right: f64,
 }
 
 /// One staff's laid-out measures paired with the Y of its top staff line.
@@ -71,6 +79,8 @@ pub(crate) fn render_glissandos(
                                 y_pos,
                                 staff_y: event_staff_y,
                                 notehead_w,
+                                measure_index: ml.resolved.index,
+                                measure_right: ml.x + ml.width - ml.trailing_barline_extra,
                             },
                         );
                     }
@@ -88,6 +98,11 @@ pub(crate) fn render_glissandos(
                         let src_id = vl.events.id(i).unwrap_or("");
                         if let Some(src) = event_map.get(src_id) {
                             for gliss in glissandos {
+                                if ml.resolved.repeat_glissandos.iter().any(|route| {
+                                    route.source == src_id && route.glissando.target == gliss.target
+                                }) {
+                                    continue;
+                                }
                                 if let Some(tgt) = event_map.get(&gliss.target) {
                                     let eid = element_id::glissando(src_id, &gliss.target);
                                     let cmd_idx = dl.commands.len();
@@ -104,6 +119,7 @@ pub(crate) fn render_glissandos(
             }
         }
     }
+    repeat_returns::render(dl, staves, &event_map, sp, config);
 }
 
 /// Emit a single glissando line between source and target events.
@@ -123,8 +139,18 @@ fn emit_glissando(
     let y1 = src.staff_y + src.y_pos * sp * 0.5;
     let y2 = tgt.staff_y + tgt.y_pos * sp * 0.5;
 
-    let line_width = config.glissando_line_width * sp;
+    emit_glissando_segment(dl, (x1, y1), (x2, y2), gliss, sp, config);
+}
 
+fn emit_glissando_segment(
+    dl: &mut DisplayList,
+    (x1, y1): (f64, f64),
+    (x2, y2): (f64, f64),
+    gliss: &Glissando,
+    sp: f64,
+    config: &LayoutConfig,
+) {
+    let line_width = config.glissando_line_width * sp;
     match gliss.style {
         GlissandoStyle::Straight => {
             dl.push(RenderCommand::DrawLine {

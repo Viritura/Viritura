@@ -6,6 +6,162 @@ use crate::layout::layout_score;
 use crate::parse::parse_mnx;
 use crate::render::*;
 
+fn repeat_glissando_fixture() -> serde_json::Value {
+    serde_json::from_str(include_str!(
+        "../../../../../packages/format/fixtures/mnx/glissando-repeat-return.mnx"
+    ))
+    .unwrap()
+}
+
+fn tagged_glissando_commands<'a>(dl: &'a DisplayList, id: &str) -> Vec<&'a RenderCommand> {
+    dl.commands
+        .iter()
+        .enumerate()
+        .filter_map(|(index, command)| {
+            (dl.element_ids.get(index).and_then(Option::as_deref) == Some(id)).then_some(command)
+        })
+        .collect()
+}
+
+#[test]
+fn test_glissando_repeat_return_splits_at_barlines_and_keeps_first_entry() {
+    for explicit in [false, true] {
+        let mut fixture = repeat_glissando_fixture();
+        if explicit {
+            fixture["scores"][0]["pages"] = serde_json::json!([{"systems": [
+                {"measure": "entry"}, {"measure": "repeat-end"}
+            ]}]);
+        }
+        for measure in [0, 2] {
+            let index = if measure == 0 { 0 } else { 1 };
+            fixture["parts"][0]["measures"][measure]["sequences"][0]["content"][index]["_x"]
+                ["viritura"]["glissandos"][0]["style"] = serde_json::json!("straight");
+        }
+        let score = parse_mnx(&fixture.to_string()).unwrap();
+        let config = LayoutConfig {
+            page_width: Some(1000.0),
+            ..LayoutConfig::default()
+        };
+        let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+        assert_eq!(
+            tagged_glissando_commands(&display, "gliss/entry-source/downbeat")
+                .iter()
+                .filter(|command| matches!(command, RenderCommand::DrawLine { .. }))
+                .count(),
+            1
+        );
+        let lines: Vec<_> = tagged_glissando_commands(&display, "gliss/return-source/downbeat")
+            .into_iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawLine { x1, y1, x2, y2, .. } => Some((*x1, *y1, *x2, *y2)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            lines.len(),
+            2,
+            "repeat return needs one outgoing and one incoming fragment"
+        );
+        for (measure, expected_end) in [(1, false), (2, true)] {
+            let bound = display
+                .measure_bounds
+                .iter()
+                .find(|bound| bound.index == measure)
+                .unwrap();
+            let matching: Vec<_> = lines
+                .iter()
+                .filter(|(x1, y1, x2, y2)| {
+                    *x1 >= bound.x
+                        && *x2 <= bound.x + bound.width
+                        && *y1 > bound.y - 5.0 * config.sp
+                        && *y2 < bound.y + 10.0 * config.sp
+                })
+                .collect();
+            assert_eq!(
+                matching.len(),
+                1,
+                "fragment must remain inside its endpoint measure"
+            );
+            let (x1, y1, x2, y2) = *matching[0];
+            assert!(x1 < x2 && y1 > y2, "both fragments must rise left-to-right");
+            assert!(x2 - x1 <= 3.0 * config.sp + 1e-6);
+            if expected_end {
+                assert!(x1 > bound.x + bound.width * 0.5);
+            }
+        }
+    }
+}
+
+#[test]
+fn test_glissando_repeat_return_within_one_measure_and_implicit_start() {
+    let mut fixture = repeat_glissando_fixture();
+    fixture["global"]["measures"] = serde_json::json!([{
+        "id": "single", "time": {"count": 4, "unit": 4}, "repeatEnd": {}
+    }]);
+    let mut target = fixture["parts"][0]["measures"][1]["sequences"][0]["content"][0].clone();
+    target["duration"] = serde_json::json!({"base": "half"});
+    let mut source = fixture["parts"][0]["measures"][2]["sequences"][0]["content"][1].clone();
+    source["duration"] = serde_json::json!({"base": "half"});
+    source["_x"]["viritura"]["glissandos"][0]["style"] = serde_json::json!("straight");
+    fixture["parts"][0]["measures"] = serde_json::json!([{
+        "sequences": [{"content": [target, source]}]
+    }]);
+    let score = parse_mnx(&fixture.to_string()).unwrap();
+    let display = layout_score(&score, 0, &LayoutConfig::default());
+    let lines: Vec<_> = tagged_glissando_commands(&display, "gliss/return-source/downbeat")
+        .into_iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawLine { x1, x2, .. } => Some((*x1, *x2)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(lines.len(), 2);
+    assert!(lines.iter().all(|(x1, x2)| x1 < x2));
+}
+
+#[test]
+fn test_glissando_repeat_return_survives_horizon_cache_edits() {
+    let fixture = repeat_glissando_fixture();
+    let mut score = parse_mnx(&fixture.to_string()).unwrap();
+    let config = LayoutConfig {
+        horizon_chunk_width: Some(200.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    let _ = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let crate::model::SequenceContent::Event(event) =
+        &mut score.parts[0].measures[2].sequences[0].content[1]
+    else {
+        panic!("expected return source")
+    };
+    event.notes.as_mut().unwrap()[0].pitch.octave = 6;
+    cache.set_pending_dirty_region(Some(
+        crate::layout::cache::DirtyRegion::local_part_measures(2, 2, vec![true]),
+    ));
+    let cached = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let fresh = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    let id = "gliss/return-source/downbeat";
+    let commands = tagged_glissando_commands(&cached, id);
+    assert!(!commands.is_empty());
+    assert_eq!(
+        serde_json::to_value(commands).unwrap(),
+        serde_json::to_value(tagged_glissando_commands(&fresh, id)).unwrap()
+    );
+
+    let crate::model::SequenceContent::Event(event) =
+        &mut score.parts[0].measures[2].sequences[0].content[1]
+    else {
+        panic!("expected return source")
+    };
+    event.glissandos = None;
+    cache.set_pending_dirty_region(Some(
+        crate::layout::cache::DirtyRegion::local_part_measures(2, 2, vec![true]),
+    ));
+    let removed =
+        crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    assert!(tagged_glissando_commands(&removed, id).is_empty());
+}
+
 // ═══════════════════════════════════════════
 // Glissando tests
 // ═══════════════════════════════════════════

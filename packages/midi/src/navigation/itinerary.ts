@@ -5,6 +5,8 @@ export interface PlayedMeasureSpan {
   startBeat: number;
   endBeat: number;
   measureBeats: number;
+  /** Present only when this occurrence actually returns across a repeat barline. */
+  exit?: "repeat";
 }
 
 export function beatInPlayedSpan(beat: number, span: PlayedMeasureSpan | undefined): boolean {
@@ -138,6 +140,18 @@ function nextInstruction(
   };
 }
 
+function recordRepeatExit(
+  spans: PlayedMeasureSpan[],
+  index: number,
+  measure: GlobalMeasure,
+  next: number | undefined,
+): void {
+  const span = spans.at(-1);
+  if (span?.measureIndex === index && measure.repeatEnd && next !== undefined && next <= index) {
+    span.exit = "repeat";
+  }
+}
+
 export function compileNavigation(
   measures: readonly GlobalMeasure[],
   initialOrder: readonly number[],
@@ -202,6 +216,7 @@ export function compileNavigation(
       }
       continue;
     }
+    recordRepeatExit(result, index, measure, state.replay ? undefined : order[state.orderIndex + 1]);
     state.orderIndex++;
     cursor = { measureIndex: state.replay ? index + 1 : (order[state.orderIndex] ?? measures.length), beat: 0 };
   }

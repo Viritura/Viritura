@@ -1,9 +1,37 @@
 import type { Glissando, GlissandoStyle, NoteEvent, Score, SequenceContent } from "@viritura/core";
 import { walkSequenceEvents } from "@viritura/core";
 import { produce } from "../score/scoreClone";
-import { expandCondensedSpannerIds } from "../score/condensedWriteback";
+import { expandCondensedSpannerIds, resolveCondensedSelectionEvents } from "../score/condensedWriteback";
+import type { EventLocation } from "../score/ElementPath";
+import type { SelectionState } from "../store/selectionStore";
 
 export type GlissandoKind = NonNullable<Glissando["kind"]>;
+
+export function resolveGlissandoSelectionEvents(
+  score: Score,
+  selection: SelectionState,
+  selectedScoreIndex: number,
+): EventLocation[] {
+  if (selection.kind !== "multi") return resolveCondensedSelectionEvents(score, selection, selectedScoreIndex);
+  const locations = selection.elementIds.flatMap((elementId) =>
+    resolveCondensedSelectionEvents(score, { kind: "single", elementId, elementType: "event" }, selectedScoreIndex),
+  );
+  return [
+    ...new Map(
+      locations.map((loc) => [
+        [
+          loc.partIndex,
+          loc.measureIndex,
+          loc.sequenceIndex,
+          loc.contentPath?.join("."),
+          loc.tupletIndex,
+          loc.eventIndex,
+        ].join("/"),
+        loc,
+      ]),
+    ).values(),
+  ];
+}
 
 export interface AddGlissandoParams {
   sourceEventId: string;

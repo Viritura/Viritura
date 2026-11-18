@@ -43,7 +43,82 @@ function source(score: Score): NoteEvent {
   return event;
 }
 
+function repeatReturnScore(kind: Glissando["kind"]): Score {
+  const score = scoreFor({ kind });
+  const entry = source(score);
+  const target = score.parts[0]!.measures[0]!.sequences[0]!.content[1]!;
+  if (target.type !== "event") throw new Error("Expected event");
+  entry.duration = { base: "whole" };
+  target.duration = { base: "whole" };
+  score.parts[0]!.measures[0]!.sequences[0]!.content.splice(1);
+  score.global.measures.push({ repeatStart: {} }, { repeatEnd: { times: 3 } });
+  score.parts[0]!.measures.push(
+    { sequences: [{ content: [target] }] },
+    {
+      sequences: [
+        {
+          content: [
+            { type: "event", duration: { base: "half", dots: 1 }, rest: {} },
+            { ...entry, id: "return-source", duration: { base: "quarter" } },
+          ],
+        },
+      ],
+    },
+  );
+  return score;
+}
+
 describe("glissando playback", () => {
+  it.each(["glissando", "portamento"] as const)(
+    "plays the entry and taken repeat returns to one target for %s",
+    (kind) => {
+      const timeline = generateTimeline(repeatReturnScore(kind));
+      expect(timeline.expandedMeasureToOriginal).toEqual([0, 1, 2, 1, 2, 1, 2]);
+      expect(timeline.diagnostics).toEqual([]);
+      const attacks = timeline.events.filter((event) => event.type === "noteOn");
+      expect(attacks.filter((event) => event.scoreEventId === "target")).toHaveLength(3);
+      const returns = attacks.filter((event) => event.scoreEventId === "return-source");
+      if (kind === "glissando") {
+        expect(returns.map((event) => event.midiNote)).toEqual([60, 62, 64, 65, 60, 62, 64, 65, 60]);
+      } else {
+        const bends = timeline.events.filter((event) => event.type === "pitchBend");
+        const resets = bends.filter((event) => event.value === 8192);
+        expect(resets).toHaveLength(6);
+        const targets = attacks.filter((event) => event.scoreEventId === "target");
+        expect(resets.filter((event) => targets.some((target) => target.time === event.time))).toHaveLength(3);
+        expect(bends.every((event) => event.time <= targets.at(-1)!.time)).toBe(true);
+      }
+      expect(returns.at(-1)?.playbackLaneId).not.toContain(":gliss:");
+    },
+  );
+
+  it("supports an implicit repeat start in a single repeated measure", () => {
+    const score = repeatReturnScore("glissando");
+    const target = score.parts[0]!.measures[1]!.sequences[0]!.content[0] as NoteEvent;
+    const source = score.parts[0]!.measures[2]!.sequences[0]!.content[1] as NoteEvent;
+    target.duration = { base: "half" };
+    source.duration = { base: "half" };
+    score.global.measures = [{ time: { count: 4, unit: 4 }, repeatEnd: { times: 3 } }];
+    score.parts[0]!.measures = [{ sequences: [{ content: [target, source] }] }];
+    const timeline = generateTimeline(score);
+    expect(timeline.expandedMeasureToOriginal).toEqual([0, 0, 0]);
+    expect(timeline.diagnostics).toEqual([]);
+    expect(
+      timeline.events
+        .filter((event) => event.type === "noteOn" && event.scoreEventId === "return-source")
+        .map((event) => event.midiNote),
+    ).toEqual([60, 62, 64, 65, 60, 62, 64, 65, 60]);
+  });
+
+  it("does not connect a backward line when repeats are disabled", () => {
+    const timeline = generateTimeline(repeatReturnScore("glissando"), { expandRepeats: false });
+    expect(timeline.expandedMeasureToOriginal).toEqual([0, 1, 2]);
+    expect(
+      timeline.events.filter((event) => event.type === "noteOn" && event.scoreEventId === "return-source"),
+    ).toHaveLength(1);
+    expect(timeline.diagnostics?.some((diagnostic) => diagnostic.code === "glissando-playback-unsupported")).toBe(true);
+  });
+
   it("defaults glissando to diatonic without duplicating the target attack", () => {
     const timeline = generateTimeline(scoreFor());
     expect(timeline.events.filter((event) => event.type === "noteOn").map((event) => event.midiNote)).toEqual([
@@ -178,7 +253,7 @@ describe("glissando playback", () => {
     expect(timeline.diagnostics).toEqual([]);
   });
 
-  it("does not sweep to a target after a D.C. jump", () => {
+  it.each([false, true])("does not sweep after D.C., even at a repeat-end barline (%s)", (repeatEnd) => {
     const score = scoreFor();
     const first = source(score);
     first.glissandos = undefined;
@@ -187,6 +262,10 @@ describe("glissando playback", () => {
     score.parts[0]!.measures[0]!.sequences[0]!.content.splice(1);
     score.global.measures[0]!.fine = { location: { fraction: [1, 1] } };
     score.global.measures.push({ jump: { type: "dcAlFine", location: { fraction: [1, 1] } } });
+    if (repeatEnd) {
+      score.global.measures[0]!.repeatStart = {};
+      score.global.measures[1]!.repeatEnd = { times: 1 };
+    }
     score.parts[0]!.measures.push({
       sequences: [
         {

@@ -425,6 +425,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             prev_key: prev_display_key.clone(),
             system_end: Default::default(),
             tie_continuation_ids: incoming_ties,
+            repeat_glissandos: super::glissando::resolve_repeat_glissandos(score, part_index, i),
             active_staff_lines: measure_staff_lines,
             transposition,
             written_diatonic_adjustment: diatonic_adjustment,

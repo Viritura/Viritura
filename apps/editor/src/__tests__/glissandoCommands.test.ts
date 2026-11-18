@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { NoteEvent, Score } from "@viritura/core";
-import { addGlissando, removeGlissandoByElementId, setGlissandoProperties } from "../commands/glissandoCommands";
+import {
+  addGlissando,
+  removeGlissandoByElementId,
+  resolveGlissandoSelectionEvents,
+  setGlissandoProperties,
+} from "../commands/glissandoCommands";
+import { getEventAtLocation } from "../score/ElementPath";
 
 function buildScore(): Score {
   return {
@@ -49,6 +55,31 @@ function sourceEvent(score: Score): NoteEvent {
 }
 
 describe("glissando commands", () => {
+  it("preserves source-first click order when adding a repeat return to a shared target", () => {
+    const score = buildScore();
+    const entry = sourceEvent(score);
+    const targetSequence = score.parts[0]!.measures[0]!.sequences.splice(1)[0]!;
+    score.global.measures.push({ repeatStart: {} }, { repeatEnd: {} });
+    const returnSource: NoteEvent = { ...entry, id: "return-source" };
+    score.parts[0]!.measures.push({ sequences: [targetSequence] }, { sequences: [{ content: [returnSource] }] });
+    addGlissando(score, { sourceEventId: "source", targetEventId: "target" });
+    const endpoints = resolveGlissandoSelectionEvents(
+      score,
+      {
+        kind: "multi",
+        elementIds: ["p0/m2/s0/return-source/n0", "p0/m1/s0/target/n0"],
+      },
+      0,
+    );
+    expect(endpoints.map((location) => getEventAtLocation(score, location)?.id)).toEqual(["return-source", "target"]);
+    addGlissando(score, { sourceEventId: "return-source", targetEventId: "target" });
+    expect(entry.glissandos).toEqual([{ target: "target", kind: "glissando", style: "wavy" }]);
+    expect(returnSource.glissandos).toEqual(entry.glissandos);
+    const removed = removeGlissandoByElementId(score, "gliss/return-source/target")!;
+    expect(sourceEvent(removed).glissandos).toEqual(entry.glissandos);
+    expect((removed.parts[0]!.measures[2]!.sequences[0]!.content[0] as NoteEvent).glissandos).toBeUndefined();
+  });
+
   it("creates a semantic portamento across staves", () => {
     const score = buildScore();
 

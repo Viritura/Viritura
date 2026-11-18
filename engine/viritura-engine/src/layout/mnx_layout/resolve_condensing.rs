@@ -90,7 +90,10 @@ pub(super) fn resolve_staves_with_condensing_labels(
     let salt = super::super::instrument_changes::state_salt(
         score,
         flat_staves,
-        resolve_staves_salt(flat_staves, use_written, measure_count),
+        super::super::glissando::repeat_glissando_state_salt(
+            score,
+            resolve_staves_salt(flat_staves, use_written, measure_count),
+        ),
     );
     let resolved_content_unchanged =
         dirty_region.is_some_and(|region| !region.flags.contains(cache::DirtyFlags::CONTENT));
@@ -632,6 +635,13 @@ pub(super) fn resolve_one_measure_phase1(
         active_key: display_key.clone(),
         prev_key: state.prev_display_key.clone(),
         tie_continuation_ids: Vec::new(),
+        repeat_glissandos: flat_staff
+            .sources
+            .iter()
+            .flat_map(|source| {
+                super::super::glissando::resolve_repeat_glissandos(score, source.part_index, mi)
+            })
+            .collect(),
         active_staff_lines: measure_staff_lines,
         transposition,
         written_diatonic_adjustment: diatonic_adjustment,

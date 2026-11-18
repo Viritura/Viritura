@@ -54,10 +54,29 @@ function measureAt(timeline: MidiTimeline, beat: number): number {
   return index;
 }
 
-function continuousTo(timeline: MidiTimeline, start: MidiEvent, end: MidiEvent): boolean {
+function continuousTo(score: Score, timeline: MidiTimeline, start: MidiEvent, end: MidiEvent): boolean {
   const startBeat = start.scoreBeat ?? timeline.model.beatAtTime(start.time);
   const endBeat = end.scoreBeat ?? timeline.model.beatAtTime(end.time);
-  for (let index = measureAt(timeline, startBeat); index < measureAt(timeline, endBeat); index++) {
+  const first = measureAt(timeline, startBeat);
+  const last = measureAt(timeline, endBeat);
+  const sourceMeasure = timeline.expandedMeasureToOriginal[first]!;
+  const targetMeasure = timeline.expandedMeasureToOriginal[last]!;
+  if (last === first + 1 && targetMeasure <= sourceMeasure && score.global.measures[sourceMeasure]?.repeatEnd) {
+    let repeatStart = sourceMeasure;
+    while (repeatStart > 0 && !score.global.measures[repeatStart]?.repeatStart) repeatStart--;
+    const from = timeline.playedSpans?.[first];
+    const to = timeline.playedSpans?.[last];
+    if (
+      repeatStart === targetMeasure &&
+      Math.abs(endBeat - timeline.measureStartBeats[last]!) < 1e-9 &&
+      (!timeline.playedSpans || from?.exit === "repeat") &&
+      (!from || from.endBeat === from.measureBeats) &&
+      (!to || to.startBeat === 0)
+    ) {
+      return true;
+    }
+  }
+  for (let index = first; index < last; index++) {
     if (timeline.playedSpans) {
       if (!playedSpansContinue(timeline.playedSpans[index]!, timeline.playedSpans[index + 1])) return false;
     } else if (timeline.expandedMeasureToOriginal[index + 1] !== timeline.expandedMeasureToOriginal[index]! + 1) {
@@ -180,7 +199,7 @@ export function applyGlissandoPlayback(score: Score, timeline: MidiTimeline): Ti
       for (const onset of sources) {
         if (removed.has(onset)) continue;
         const time = targets.find(
-          (target) => target.time > onset.time + 1e-9 && continuousTo(timeline, onset, target),
+          (target) => target.time > onset.time + 1e-9 && continuousTo(score, timeline, onset, target),
         )?.time;
         if (time === undefined) continue;
         const sourceChord = sources
@@ -232,7 +251,7 @@ export function applyGlissandoPlayback(score: Score, timeline: MidiTimeline): Ti
       if (!realized)
         diagnostics.push({
           code: "glissando-playback-unsupported",
-          message: `Glissando from "${source}" to "${glissando.target}" has no forward pitched endpoints on a continuous playback route.`,
+          message: `Glissando from "${source}" to "${glissando.target}" has no pitched endpoints on a continuous route or a taken repeat return.`,
           playbackLaneIds: sources.flatMap((event) => (event.playbackLaneId ? [event.playbackLaneId] : [])),
         });
     }
