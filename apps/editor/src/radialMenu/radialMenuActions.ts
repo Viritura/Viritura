@@ -388,10 +388,20 @@ function resolveImmediateDynamicTargets(
     selectedScoreIndex === undefined
       ? resolveSelectionEvents(selection, score)
       : resolveCondensedSelectionEvents(score, selection, selectedScoreIndex);
+  const selectedIds =
+    selection.kind === "single" ? [selection.elementId] : selection.kind === "multi" ? selection.elementIds : [];
+  const barRestTargets = selectedIds.flatMap((elementId) =>
+    resolveFullMeasureRestLocation(elementId, score)
+      ? resolveDynamicTargets(score, { kind: "single", elementId, elementType: "rest" }, selectedScoreIndex)
+      : [],
+  );
   const targets = events
     .filter((location) => {
       const event = getEventAtLocation(score, location);
-      return event?.type === "event" && (!!event.notes?.length || !!event.kitNotes?.length);
+      return (
+        event?.type === "event" &&
+        (!!event.notes?.length || !!event.kitNotes?.length || (selection.kind !== "range" && !!event.rest))
+      );
     })
     .map((location) => ({
       partIndex: location.partIndex,
@@ -401,7 +411,7 @@ function resolveImmediateDynamicTargets(
     }));
   return [
     ...new Map(
-      targets.map((target) => [
+      [...targets, ...barRestTargets].map((target) => [
         `${target.partIndex}/${target.staff ?? ""}/${target.startMeasureIndex}/${target.startPosition.fraction.join("/")}`,
         target,
       ]),
