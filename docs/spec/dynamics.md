@@ -165,6 +165,12 @@ affixes for immediate and accent, direction/endpoint/optional start
 value/orientation for gradual, louder-softer and affixes for relative, and
 staff, voice, orientation, manual placement, and collision pinning for all.
 
+Immediate and accent markings can be entered on explicitly selected notes or
+rests, including full-measure rests. They use the selected onset and staff,
+so a rest on the upper staff of a grand staff can anchor a dynamic while the
+lower staff plays. Multi-selections apply the marking at each selected onset;
+range selections continue to skip intervening rests.
+
 ### 6.3 Clipboard
 
 Gradual groups are spans:

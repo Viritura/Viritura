@@ -574,6 +574,93 @@ describe("addDynamicExpression — standard group placement", () => {
 });
 
 describe("addDynamic — multi-staff", () => {
+  it.each(["single", "multi"] as const)("places a dynamic at an explicitly selected rest onset (%s)", (kind) => {
+    const score = makeSimpleScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [
+      {
+        type: "event",
+        id: "ev-1",
+        duration: { base: "quarter" },
+        notes: [{ pitch: { step: "C", octave: 4 } }],
+      },
+      { type: "event", id: "rest-1", duration: { base: "quarter" }, rest: {} },
+    ];
+    const selection: Selection =
+      kind === "single"
+        ? { kind, elementId: "p0/m0/s0/rest-1", elementType: "rest" }
+        : { kind, elementIds: ["p0/m0/s0/ev-1", "p0/m0/s0/rest-1"] };
+    const result = addDynamicExpression(score, selection, [{ type: "dynamic", value: "p" }]);
+    const dynamics = result?.parts[0]!.measures[0]!.dynamics;
+
+    expect(dynamics?.map((dynamic) => dynamic.position.fraction)).toEqual(
+      kind === "single"
+        ? [[1, 4]]
+        : [
+            [0, 1],
+            [1, 4],
+          ],
+    );
+    expect(dynamics?.at(-1)).toMatchObject({ type: "immediate", value: "p" });
+    expect(dynamics?.at(-1)?.staff).toBeUndefined();
+    expect(score.parts[0]!.measures[0]!.dynamics).toBeUndefined();
+  });
+
+  it.each([
+    ["single", 1],
+    ["single", 2],
+    ["multi", 1],
+    ["multi", 2],
+  ] as const)("anchors a dynamic to a grand-staff full-bar rest (%s, staff %i)", (kind, staff) => {
+    const score = makeSimpleScore();
+    score.parts[0]!.staves = 2;
+    score.parts[0]!.measures[0]!.sequences[0]!.staff = staff === 1 ? 2 : 1;
+    score.parts[0]!.measures[0]!.sequences.push({
+      staff,
+      fullMeasure: { visualDuration: { base: "whole" } },
+      content: [],
+    });
+    const selection: Selection =
+      kind === "single"
+        ? { kind, elementId: "p0/m0/s1/e0", elementType: "rest" }
+        : { kind, elementIds: ["p0/m0/s1/e0"] };
+    const result = addDynamic(score, selection, "mf");
+
+    expect(result?.parts[0]!.measures[0]!.dynamics).toEqual([
+      expect.objectContaining({ type: "immediate", value: "mf", staff, position: { fraction: [0, 1] } }),
+    ]);
+    expect(result?.parts[0]!.measures[0]!.sequences).toEqual(score.parts[0]!.measures[0]!.sequences);
+    expect(score.parts[0]!.measures[0]!.dynamics).toBeUndefined();
+  });
+
+  it.each([false, true])("broadcasts a selected condensed rest dynamic (full measure: %s)", (fullMeasure) => {
+    const score = makeSimpleScore();
+    score.parts[0]!.id = "part-0";
+    score.parts[0]!.measures[0]!.sequences[0] = fullMeasure
+      ? { content: [], fullMeasure: { visualDuration: { base: "whole" } } }
+      : { content: [{ type: "event", id: "rest-1", duration: { base: "whole" }, rest: {} }] };
+    const secondPart = structuredClone(score.parts[0]!);
+    secondPart.id = "part-1";
+    score.parts.push(secondPart);
+    score.layouts = [
+      {
+        id: "condensed",
+        content: [{ type: "staff", sources: [{ part: "part-0" }, { part: "part-1" }] }],
+      },
+    ];
+    score.scores = [{ name: "Condensed", layout: "condensed" }];
+    const result = addDynamic(
+      score,
+      { kind: "single", elementId: `p0/m0/s0/${fullMeasure ? "e0" : "rest-1"}`, elementType: "rest" },
+      "p",
+      0,
+    );
+
+    expect(result?.parts.map((part) => part.measures[0]!.dynamics)).toEqual([
+      [expect.objectContaining({ value: "p", position: { fraction: [0, 1] } })],
+      [expect.objectContaining({ value: "p", position: { fraction: [0, 1] } })],
+    ]);
+  });
+
   function makeTwoPartScore(): Score {
     const part = (name: string, id: string) => ({
       name,

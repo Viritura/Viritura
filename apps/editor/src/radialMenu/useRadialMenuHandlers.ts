@@ -173,7 +173,7 @@ export function useRadialMenuHandlers(deps: RadialMenuHandlersDeps): RadialMenuH
       if (symbolicDynamicTokens) {
         const newScore = addDynamicExpression(score, selection, symbolicDynamicTokens, selectedScoreIndex);
         if (newScore) updateScore(newScore);
-        else toast.warning("Select a note or range before adding a dynamic");
+        else toast.warning("Select a note, rest, or range before adding a dynamic");
         setRadialMenu(null);
         return;
       }
@@ -193,7 +193,7 @@ export function useRadialMenuHandlers(deps: RadialMenuHandlersDeps): RadialMenuH
       if (tokens) {
         const newScore = addDynamicExpression(score, selection, tokens, selectedScoreIndex);
         if (newScore) updateScore(newScore);
-        else toast.warning("Select a note or range before adding a dynamic");
+        else toast.warning("Select a note, rest, or range before adding a dynamic");
         setRadialMenu(null);
         return;
       }
