@@ -1,5 +1,6 @@
 import type { Glissando, GlissandoStyle, NoteEvent, Score, SequenceContent } from "@viritura/core";
 import { walkSequenceEvents } from "@viritura/core";
+import { eventBeatPosition } from "../app/timedAnnotationPosition";
 import { produce } from "../score/scoreClone";
 import { expandCondensedSpannerIds, resolveCondensedSelectionEvents } from "../score/condensedWriteback";
 import type { EventLocation } from "../score/ElementPath";
@@ -7,30 +8,76 @@ import type { SelectionState } from "../store/selectionStore";
 
 export type GlissandoKind = NonNullable<Glissando["kind"]>;
 
+function shareRepeat(score: Score, first: EventLocation, second: EventLocation): boolean {
+  if (first.partIndex !== second.partIndex) return false;
+  const earliest = Math.min(first.measureIndex, second.measureIndex);
+  const latest = Math.max(first.measureIndex, second.measureIndex);
+  // Repeat ends use the nearest preceding start, or the start of the score.
+  let start = 0;
+  for (const [index, measure] of score.global.measures.entries()) {
+    if (measure.repeatStart) start = index;
+    if (!measure.repeatEnd) continue;
+    const times = measure.repeatEnd.times ?? 2;
+    if (Number.isInteger(times) && times > 1 && times <= 1000 && start <= earliest && latest <= index) return true;
+  }
+  return false;
+}
+
+function sameEvent(first: EventLocation, second: EventLocation): boolean {
+  return (
+    first.partIndex === second.partIndex &&
+    first.measureIndex === second.measureIndex &&
+    first.sequenceIndex === second.sequenceIndex &&
+    first.tupletIndex === second.tupletIndex &&
+    first.eventIndex === second.eventIndex
+  );
+}
+
+function selectionOrder(
+  score: Score,
+  selection: Extract<SelectionState, { kind: "multi" | "range" }>,
+  selectedScoreIndex: number,
+  events: EventLocation[],
+): EventLocation[] {
+  const ids = selection.kind === "multi" ? selection.elementIds : [selection.startElementId, selection.endElementId];
+  const ordered: EventLocation[] = [];
+  for (const elementId of ids) {
+    const single: SelectionState = {
+      kind: "single",
+      elementId,
+      elementType: "event",
+      ...(selection.measureAnchor && { measureAnchor: selection.measureAnchor }),
+    };
+    for (const location of resolveCondensedSelectionEvents(score, single, selectedScoreIndex)) {
+      const event = events.find((candidate) => sameEvent(candidate, location));
+      if (event && !ordered.some((candidate) => sameEvent(candidate, event))) ordered.push(event);
+    }
+  }
+  return ordered.length === events.length ? ordered : events;
+}
+
+function eventBeat(score: Score, location: EventLocation): number {
+  const sequence = score.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex];
+  if (!sequence) throw new Error("Unable to resolve the selected line endpoint.");
+  return eventBeatPosition(sequence, location);
+}
+
 export function resolveGlissandoSelectionEvents(
   score: Score,
   selection: SelectionState,
   selectedScoreIndex: number,
 ): EventLocation[] {
-  if (selection.kind !== "multi") return resolveCondensedSelectionEvents(score, selection, selectedScoreIndex);
-  const locations = selection.elementIds.flatMap((elementId) =>
-    resolveCondensedSelectionEvents(score, { kind: "single", elementId, elementType: "event" }, selectedScoreIndex),
+  const events = resolveCondensedSelectionEvents(score, selection, selectedScoreIndex);
+  if (events.length !== 2) return events;
+  if ((selection.kind === "multi" || selection.kind === "range") && shareRepeat(score, events[0]!, events[1]!)) {
+    return selectionOrder(score, selection, selectedScoreIndex, events);
+  }
+  return events.sort(
+    (first, second) =>
+      first.partIndex - second.partIndex ||
+      first.measureIndex - second.measureIndex ||
+      eventBeat(score, first) - eventBeat(score, second),
   );
-  return [
-    ...new Map(
-      locations.map((loc) => [
-        [
-          loc.partIndex,
-          loc.measureIndex,
-          loc.sequenceIndex,
-          loc.contentPath?.join("."),
-          loc.tupletIndex,
-          loc.eventIndex,
-        ].join("/"),
-        loc,
-      ]),
-    ).values(),
-  ];
 }
 
 export interface AddGlissandoParams {

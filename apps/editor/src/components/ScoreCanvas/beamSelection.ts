@@ -13,7 +13,7 @@ interface BeamSelectionArgs {
   toggle: boolean;
   measureAnchor: MeasureSelectionPoint | null;
   selectElements: (ids: readonly string[], measureAnchor?: MeasureSelectionPoint) => void;
-  toggleSelection: (id: string) => void;
+  toggleSelection: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
 }
 
 /** Select the exact source events represented by beam ink at the pointer. */
@@ -28,7 +28,7 @@ export function selectBeamAtPoint(args: BeamSelectionArgs): boolean {
       : members;
   if (selectionMembers.length === 0) return false;
   if (args.toggle) {
-    for (const member of selectionMembers) args.toggleSelection(member);
+    for (const member of selectionMembers) args.toggleSelection(member, args.measureAnchor ?? undefined);
   } else {
     args.selectElements(selectionMembers, args.measureAnchor ?? undefined);
   }

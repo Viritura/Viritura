@@ -2067,9 +2067,10 @@ Extensions on `event._x.viritura` (on the event object itself, not inside markin
 Array of glissando/portamento lines connecting this event to target events.
 
 New lines created in the editor default to wavy for glissando and straight for
-portamento. For a two-note multi-selection, click the source first and then
-Ctrl/Cmd-click the target; this also permits a target earlier in the score.
-Range selections retain score order.
+portamento. Outside a shared repeat, the editor orders selected endpoints by
+musical time. When both endpoints are in the same repeated section, selection
+order determines the direction: select the source first and the target second.
+This applies to both multi-selections and two-note ranges.
 
 Copy/paste and repeat assign fresh IDs to both endpoints and retarget each copied
 line to the copied target, including across selected staves and voices. Lines

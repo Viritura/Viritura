@@ -405,12 +405,12 @@ export function PalettePanel({
       const score = store.getState().score;
       const selected = useSelectionStore.getState().selection;
       if (!score) return;
-      const events = resolveGlissandoSelectionEvents(score, selected, selectedScoreIndex);
-      if (events.length !== 2) {
-        toast.error("Select exactly two notes or chords for this line.");
-        return;
-      }
       try {
+        const events = resolveGlissandoSelectionEvents(score, selected, selectedScoreIndex);
+        if (events.length !== 2) {
+          toast.error("Select exactly two notes or chords for this line.");
+          return;
+        }
         const nextScore = produce(score, (draft) => {
           const source = getEventAtLocation(draft, events[0]!);
           const target = getEventAtLocation(draft, events[1]!);

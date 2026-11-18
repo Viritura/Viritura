@@ -13,6 +13,9 @@ export function eventBeatPosition(sequence: Sequence, target: TimedAnnotationTar
   if (target.tupletIndex === undefined) return beat;
 
   const container = sequence.content[target.tupletIndex];
+  if (container?.type === "tremolo" && container.content[target.eventIndex]) {
+    return beat + (sequenceContentBeats(container) * target.eventIndex) / container.content.length;
+  }
   if (container?.type !== "tuplet") return beat;
   const outerBeats = container.outer.multiple * durationToBeats(container.outer.duration);
   const innerBeats = container.inner.multiple * durationToBeats(container.inner.duration);
@@ -32,6 +35,9 @@ export function eventEndBeatPosition(sequence: Sequence, target: TimedAnnotation
   }
 
   const container = sequence.content[containerIndex];
+  if (container?.type === "tremolo" && container.content[target.eventIndex]) {
+    return start + sequenceContentBeats(container) / container.content.length;
+  }
   if (container?.type !== "tuplet") return start;
   const event = container.content[target.eventIndex];
   if (!event) return start;
