@@ -187,6 +187,7 @@ export function applyGlissandoPlayback(score: Score, timeline: MidiTimeline): Ti
   const added: MidiEvent[] = [];
   const mirroredLanes = new Set<string>();
   partLines.forEach((lines, partIndex) => {
+    const processedLines = new Set<string>();
     for (const { source, glissando } of lines) {
       const onsets = original.filter((event) => event.partIndex === partIndex && event.type === "noteOn");
       const sources = onsets.filter((event) => event.scoreEventId === source);
@@ -195,6 +196,10 @@ export function applyGlissandoPlayback(score: Score, timeline: MidiTimeline): Ti
         exactTargets.length > 0
           ? exactTargets
           : onsets.filter((event) => event.scoreEventId?.replaceAll("/", "_") === glissando.target);
+      const type = glissando.playbackType ?? (glissando.kind === "portamento" ? "pitch-bend" : "diatonic");
+      const lineKey = JSON.stringify([source, targets[0]?.scoreEventId ?? glissando.target, type]);
+      if (processedLines.has(lineKey)) continue;
+      processedLines.add(lineKey);
       let realized = false;
       for (const onset of sources) {
         if (removed.has(onset)) continue;
@@ -212,7 +217,6 @@ export function applyGlissandoPlayback(score: Score, timeline: MidiTimeline): Ti
         const off = releases.get(onset);
         if (!off || onset.channel === 9) continue;
         realized = true;
-        const type = glissando.playbackType ?? (glissando.kind === "portamento" ? "pitch-bend" : "diatonic");
         removed.add(onset);
         removed.add(off);
         const lane = `${onset.playbackLaneId ?? `part:${partIndex}`}:gliss:${source}:${sourceChord.indexOf(onset)}`;

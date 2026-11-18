@@ -295,6 +295,39 @@ describe("glissando commands", () => {
     expect(sourceEvent(port).glissandos?.[0]?.style).toBe("straight");
   });
 
+  it("replaces the style of an existing line while preserving its playback settings", () => {
+    const score = buildScore();
+    addGlissando(score, {
+      sourceEventId: "source",
+      targetEventId: "target",
+      style: "wavy",
+      playbackType: "chromatic",
+      showText: false,
+    });
+
+    addGlissando(score, { sourceEventId: "source", targetEventId: "target", style: "straight" });
+
+    expect(sourceEvent(score).glissandos).toEqual([
+      { target: "target", kind: "glissando", style: "straight", playbackType: "chromatic", showText: false },
+    ]);
+  });
+
+  it("collapses existing duplicate endpoints without changing lines to other targets", () => {
+    const score = buildScore();
+    sourceEvent(score).glissandos = [
+      { target: "target", style: "straight" },
+      { target: "other-target", kind: "portamento", style: "straight" },
+      { target: "target", style: "wavy" },
+    ];
+
+    addGlissando(score, { sourceEventId: "source", targetEventId: "target", style: "wavy" });
+
+    expect(sourceEvent(score).glissandos).toEqual([
+      { target: "target", kind: "glissando", style: "wavy" },
+      { target: "other-target", kind: "portamento", style: "straight" },
+    ]);
+  });
+
   it("rejects endpoints in different parts", () => {
     const score = buildScore();
     score.parts.push({

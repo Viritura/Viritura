@@ -148,8 +148,12 @@ export function addGlissando(score: Score, params: AddGlissandoParams): Score {
     throw new Error("Glissando endpoints must belong to the same part.");
   }
 
-  const kind = params.kind ?? "glissando";
+  const glissandos = source.event.glissandos ?? [];
+  const existingIndex = glissandos.findIndex((line) => line.target === params.targetEventId);
+  const existing = glissandos[existingIndex];
+  const kind = params.kind ?? existing?.kind ?? "glissando";
   const glissando: Glissando = {
+    ...existing,
     target: params.targetEventId,
     kind,
     style: params.style ?? defaultGlissandoStyle(kind),
@@ -157,7 +161,13 @@ export function addGlissando(score: Score, params: AddGlissandoParams): Score {
   if (params.text) glissando.text = params.text;
   if (params.showText !== undefined) glissando.showText = params.showText;
   if (params.playbackType !== undefined) glissando.playbackType = params.playbackType;
-  source.event.glissandos = [...(source.event.glissandos ?? []), glissando];
+  source.event.glissandos =
+    existingIndex < 0
+      ? [...glissandos, glissando]
+      : glissandos.flatMap((line, index) => {
+          if (index === existingIndex) return [glissando];
+          return line.target === params.targetEventId ? [] : [line];
+        });
   return score;
 }
 

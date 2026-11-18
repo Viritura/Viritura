@@ -2101,6 +2101,9 @@ outgoing and incoming fragments, including across systems or horizon chunks;
 the incoming fragment reserves space before the downbeat.
 Other playback jumps are not crossed. Missing, unsupported backward, simultaneous, or percussion endpoints
 produce a playback diagnostic. Text visibility and line style do not affect sound.
+Repeated lines between the same endpoints with the same effective playback type
+play once. Adding a line to an existing endpoint pair updates that line instead
+of adding a duplicate, preserving playback settings not explicitly changed.
 
 The line inspector exposes the playback type for both glissando and portamento.
 Desktop native/Lua playback does not yet support these transitions; parts with
