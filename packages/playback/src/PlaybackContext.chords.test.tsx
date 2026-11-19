@@ -707,7 +707,7 @@ describe("global chords through the real browser provider", () => {
     synth.cancelScheduledNotes.mockClear();
     act(() => actions().stop());
     expect(synth.cancelScheduledNotes).toHaveBeenCalled();
-    expect(synth.destroy).toHaveBeenCalledOnce();
+    expect(synth.destroy).not.toHaveBeenCalled();
     clearNotes();
     await flush(3100);
     expect(notes(0)).toEqual([]);
@@ -821,6 +821,8 @@ describe("global chords through the real browser provider", () => {
     });
     expect(synths).toHaveLength(2);
     act(() => actions().stop());
+    expect(synths.every((synth) => synth.destroy.mock.calls.length === 0)).toBe(true);
+    act(() => root.unmount());
     expect(synths.every((synth) => synth.destroy.mock.calls.length === 1)).toBe(true);
   });
 
@@ -870,6 +872,8 @@ describe("global chords through the real browser provider", () => {
         if (synth.synth.noteOn.mock.calls.length) expect(synth.destroy).not.toHaveBeenCalled();
       }
       act(() => actions().stop());
+      expect(previewSynth!.destroy).not.toHaveBeenCalled();
+      act(() => root.unmount());
       expect(synths.every((synth) => synth.destroy.mock.calls.length === 1)).toBe(true);
     },
   );

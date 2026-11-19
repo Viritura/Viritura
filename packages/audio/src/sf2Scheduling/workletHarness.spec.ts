@@ -1,5 +1,5 @@
 import { createContext, runInContext } from "node:vm";
-import { vi, type Mock } from "vitest";
+import { vi } from "vitest";
 import type { SynthCoreConfig } from "spessasynth_lib";
 import { buildSchedulingWorklet, cancelScheduledNotes } from "./index";
 import type { Sf2Sampler } from "../Sf2Sampler";
@@ -17,6 +17,7 @@ export interface MidiEnvelope {
 interface TestPort {
   onmessage: ((event: { data: unknown }) => void) | null;
   postMessage(data: unknown): void;
+  close(): void;
 }
 
 interface TestProcessor {
@@ -46,6 +47,7 @@ export function createWorkletHarness(
   const sent: unknown[] = [];
   const mainPort: TestPort = {
     onmessage: null,
+    close: vi.fn(),
     postMessage(data) {
       sent.push(structuredClone(data));
       workerPort.onmessage?.({ data: structuredClone(data) });
@@ -53,6 +55,7 @@ export function createWorkletHarness(
   };
   const workerPort: TestPort = {
     onmessage: null,
+    close: vi.fn(),
     postMessage(data) {
       const message = structuredClone(data);
       posted.push(message);
@@ -101,6 +104,7 @@ export function createWorkletHarness(
   const outputs = Array.from({ length: 17 }, () => [new Float32Array(128), new Float32Array(128)]);
   return {
     port: mainPort as unknown as MessagePort,
+    workerPort,
     posted,
     sent,
     sandbox,
@@ -216,9 +220,9 @@ export function createSamplerWorkletHarness() {
       },
     },
     outputNode,
-    cancelScheduledNotes: vi.fn((owned: readonly number[], cutoff: number) =>
-      cancelScheduledNotes(worklet.port, owned, cutoff),
-    ) as Mock<(owned: readonly number[], cutoff: number) => void>,
+    cancelScheduledNotes: vi.fn((owned: readonly number[], cutoff: number, allMidi = false) =>
+      cancelScheduledNotes(worklet.port, owned, cutoff, allMidi),
+    ),
   };
   return {
     ...worklet,

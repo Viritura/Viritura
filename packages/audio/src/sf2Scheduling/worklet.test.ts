@@ -219,6 +219,23 @@ describe("SF2 scheduling worklet", () => {
     expect(second).toHaveLength(1);
   });
 
+  it("releases the processor port and pending MIDI only after forwarding destruction", () => {
+    const received: unknown[] = [];
+    const h = createWorkletHarness(undefined, (data) => {
+      expect(h.workerPort.close).not.toHaveBeenCalled();
+      received.push(data);
+    });
+    h.port.postMessage(midiEnvelope([0x90, 60, 90], 12));
+    const destroy = { type: "destroyWorklet", channelNumber: -1, data: null };
+    h.port.postMessage(destroy);
+    expect(received).toEqual([destroy]);
+    expect(h.workerPort.onmessage).toBeNull();
+    expect(h.workerPort.close).toHaveBeenCalledOnce();
+    h.advance(12);
+    h.port.postMessage(midiEnvelope([0x90, 61, 90]));
+    expect(received).toEqual([destroy]);
+  });
+
   it("interoperates with the installed vendor node creator, async worklet bootstrap and MIDI envelope", async () => {
     const require = createRequire(import.meta.url);
     const dist = dirname(require.resolve("spessasynth_lib"));
@@ -276,5 +293,8 @@ describe("SF2 scheduling worklet", () => {
       }),
     );
     synth.destroy();
+    expect(h.workerPort.onmessage).toBeNull();
+    expect(h.workerPort.close).toHaveBeenCalledOnce();
+    expect(h.advance(13)).toBe(false);
   });
 });
