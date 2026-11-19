@@ -24,6 +24,7 @@ import { type TransposeInterval } from "./pitchDuration";
 import type { Interval, TextContent } from "@viritura/core";
 import type { ImportedHarmonySource } from "./harmonyConsolidation";
 import type { OpenLyricExtender } from "./lyricExtenders";
+import { nativeFormattedText } from "./textRuns";
 
 function readTransposeInterval(transpose: Element | null): TransposeInterval | undefined {
   if (!transpose) return undefined;
@@ -570,7 +571,13 @@ export function buildParts(
       const exprs = exprByMeasure.get(mi);
       const pedals = pedalsByMeasure.get(mi);
       const measure = mnxPart.measures[mi]!;
-      if (exprs) measure.text = exprs.map((expression) => ({ ...expression, type: "expression" }));
+      if (exprs) {
+        measure.text = exprs.map((expression) => ({
+          ...expression,
+          text: nativeFormattedText(expression.text),
+          type: "expression",
+        }));
+      }
       if (pedals) {
         measure._x = { viritura: { ...measure._x?.viritura, pedals } };
       }

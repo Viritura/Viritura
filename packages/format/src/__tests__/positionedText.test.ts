@@ -63,6 +63,32 @@ describe("native part-measure positioned text", () => {
     );
   });
 
+  it("repairs vendor-shaped chunks written into native positioned text", () => {
+    // Earlier MusicXML conversions wrote chunk-level `style` and untyped glyph
+    // runs into native `text`, which the MNX schema rejects.
+    const text = [
+      {
+        type: "expression",
+        text: [
+          { text: "rit.", style: { fontStyle: "italic" } },
+          { glyphs: ["dynamicPiano"], smuflStyle: { color: "#ff0000" } },
+        ],
+        position: { fraction: [0, 1] },
+      },
+    ];
+    const score = parseMnx(document({ text }));
+    expect(score.parts[0]?.measures[0]?.expressions?.[0]?.text).toEqual([
+      { text: "rit.", style: { fontStyle: "italic" } },
+      { glyphs: ["dynamicPiano"], smuflStyle: { color: "#ff0000" } },
+    ]);
+
+    const serialized = serializeMnx(score) as { parts: { measures: { text?: { text: unknown }[] }[] }[] };
+    expect(serialized.parts[0]?.measures[0]?.text?.[0]?.text).toEqual([
+      { text: "rit.", _x: { viritura: { style: { fontStyle: "italic" } } } },
+      { type: "smufl", glyphs: ["dynamicPiano"], _x: { viritura: { smuflStyle: { color: "#ff0000" } } } },
+    ]);
+  });
+
   it("rejects the retired Viritura expressions extension", () => {
     const legacy = { text: [{ text: "dolce" }], position: { fraction: [1, 4] } };
     expect(() => parseMnx(document({ _x: { viritura: { expressions: [legacy] } } }))).toThrow();

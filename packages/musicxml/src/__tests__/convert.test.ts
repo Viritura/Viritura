@@ -582,7 +582,31 @@ describe("convertMusicXmlToMnx — basics", () => {
     const exprs = measure.text!;
     expect(exprs.map((expr) => expr.text)).toEqual([
       [{ text: "sim." }],
-      [{ text: "sim.", style: { fontStyle: "italic" } }],
+      [{ text: "sim.", _x: { viritura: { style: { fontStyle: "italic" } } } }],
+    ]);
+  });
+
+  it("writes MNX formatted-text chunks for native positioned text", () => {
+    // Inline formatting belongs under `_x.viritura` on native MNX chunks, and
+    // glyph chunks need `type: "smufl"`; the vendor run shape fails the schema.
+    const xml = wrapScore(`
+      <direction placement="above">
+        <direction-type>
+          <words font-weight="bold">poco </words>
+          <symbol color="#FF0000">dynamicPiano</symbol>
+        </direction-type>
+      </direction>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    `);
+
+    const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+    expect(result.parts[0]!.measures[0]!.text![0]!.text).toEqual([
+      { text: "poco ", _x: { viritura: { style: { weight: "bold" } } } },
+      { type: "smufl", glyphs: ["dynamicPiano"], _x: { viritura: { style: { color: "#ff0000" } } } },
     ]);
   });
 
