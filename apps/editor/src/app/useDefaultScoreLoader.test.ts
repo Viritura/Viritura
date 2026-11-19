@@ -129,4 +129,50 @@ describe("useDefaultScoreLoader", () => {
       recovered: [expect.objectContaining({ logId: "E1", measureId: "m2", voice: "s1layer1" })],
     });
   });
+
+  it("migrates legacy text before recovering and marking an invalid sequence", async () => {
+    useImportErrorLogStore.setState({ log: null });
+    const source = JSON.parse(
+      readFileSync(
+        resolve(process.cwd(), "../../packages/format/fixtures/recovery/malformed-tuplet-sequence.mnx"),
+        "utf8",
+      ),
+    ) as { parts: { measures: { text?: unknown[] }[] }[] };
+    source.parts[0]!.measures[0]!.text = [
+      { type: "expression", text: [{ text: "dolce", style: { fontStyle: "italic" } }] },
+    ];
+    const loadScore = vi.fn();
+    const setFileHandle = vi.fn();
+    const setFileError = vi.fn();
+    const openedFile = {
+      filename: "legacy-with-invalid-sequence.mnx",
+      mnxJson: JSON.stringify(source),
+      fileHandle: {} as FileSystemFileHandle,
+    };
+
+    renderHook(() =>
+      useDefaultScoreLoader({
+        store: { getState: () => ({ mnxJson: "" }) } as never,
+        loadScore,
+        resetHistory: vi.fn(),
+        openedFile,
+        setSelectedScoreIndex: vi.fn(),
+        setFileHandle,
+        setFileError,
+      }),
+    );
+
+    await waitFor(() => expect(loadScore).toHaveBeenCalled());
+    const score = loadScore.mock.calls[0]![0] as Score;
+    expect(score.parts[0]!.measures[0]!.expressions?.[0]?.text).toEqual([
+      { text: "dolce", style: { fontStyle: "italic" } },
+    ]);
+    expect(score.parts[0]!.measures[1]!.expressions?.[0]?.text).toEqual([{ text: "Import error E1" }]);
+    expect(setFileHandle).toHaveBeenCalledWith(null);
+    expect(setFileError).toHaveBeenCalledWith(null);
+    expect(useImportErrorLogStore.getState().log).toMatchObject({
+      status: "recovered",
+      recovered: [expect.objectContaining({ logId: "E1", measureIndex: 1 })],
+    });
+  });
 });

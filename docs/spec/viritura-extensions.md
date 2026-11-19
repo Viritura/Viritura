@@ -870,6 +870,12 @@ in these positions. Readers widen such a string to a single-chunk array before
 schema validation, so older files keep loading; writers always emit the array
 form.
 
+Native positioned text writes inline formatting under each chunk's
+`_x.viritura`; SMuFL chunks also have `type: "smufl"`. Readers repair
+MusicXML-converted files that placed formatting directly on native chunks or
+omitted the glyph type. MusicXML import omits inline formatting when vendor
+extensions are disabled.
+
 Inline `size` is a positive multiplier over the owning text role's resolved
 size. It is a **relative** unit — the CSS `em` equivalent — not an absolute
 point size, so score text keeps its proportion when the staff size changes.
@@ -890,13 +896,10 @@ underline and strikeout independently, so a run may need several at once.
 [{ "text": "con ", "style": { "fontStyle": "italic" } }, { "glyphs": ["dynamicMezzoForte"] }, { "text": " subito" }]
 ```
 
-This Viritura representation is an implementation bridge, not a claim about
-the final MNX text encoding. The ordered text/glyph/style content is kept
-independent from its semantic owner, anchor, placement, and lifecycle. Text
-frames with wrapping and geometry remain separate objects; measure- and
-page-anchored text frames are not navigation-marker text. Serialization
-adapters can map this content to the MNX representation once that proposal is
-standardized.
+This is the Viritura vendor-content representation. Native positioned text
+uses MNX formatted-text chunks and keeps the optional styling in vendor
+extensions. Text frames with wrapping and geometry remain separate objects;
+measure- and page-anchored text frames are not navigation-marker text.
 
 #### Text size across formats
 

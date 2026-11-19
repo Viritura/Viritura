@@ -99,6 +99,9 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 - Tempo (`<metronome>` and `<sound tempo>` with mid-measure `location.fraction` positioning)
 - Volta endings (multi-number support, duration post-processing for start→stop range, `discontinue` → `open: true`)
 - Navigation: segno/coda (with SMuFL `glyph` and color), Fine, all native jump types and rhythmic offsets
+- Staff `<words>` directions and embedded SMuFL symbols as positioned text;
+  inline formatting is preserved under `_x.viritura` only when extensions are enabled;
+  otherwise its loss is reported in import diagnostics
 - MusicXML colors on keys, clefs, volta endings, grace groups, and segnos
 - Beam grouping (per voice / level), ottava lines, multi-staff parts (grand staff with brace grouping), and cross-staff note/event assignments
 - `<stem>up\|down</stem>` → `event.stemDirection`
@@ -107,7 +110,7 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 **Features attached as `_x.viritura` vendor extensions** (no MNX-native equivalent yet):
 
 - Trills, mordents, turn variants, event-level arpeggios, and fingerings
-- Rehearsal marks, text `<words>` directions, and pedal markings
+- Rehearsal marks, system text, and pedal markings
 - Score metadata (title, creators, work, and movement details)
 - Glissando/slide spans and common chord symbols
 - `<instrument-sound>` as the part's instrument identity, so catalog matching

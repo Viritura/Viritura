@@ -90,6 +90,46 @@ describe("recoverImportedMnx", () => {
     expect(recoverImportedMnx(text)).toEqual({ mnxJson: text, recovered: [], error: null });
   });
 
+  it("returns migrated text even when no sequences need recovery", () => {
+    const text = JSON.stringify({
+      mnx: { version: 1 },
+      global: { measures: [{ id: "m1", time: { count: 2, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [{ content: [{ duration: { base: "half" }, rest: {} }] }],
+              text: [{ text: [{ text: "dolce", style: { fontStyle: "italic" } }] }],
+            },
+          ],
+        },
+      ],
+    });
+    const result = recoverImportedMnx(text);
+    expect(result.error).toBeNull();
+    expect(result.recovered).toEqual([]);
+    expect(JSON.parse(result.mnxJson)).toMatchObject({
+      parts: [
+        {
+          measures: [
+            {
+              text: [
+                {
+                  text: [
+                    {
+                      text: "dolce",
+                      _x: { viritura: { style: { fontStyle: "italic" } } },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it("empties the failing sequence and keeps the others", () => {
     const result = recoverImportedMnx(withSequences([{ duration: { base: "half" }, rest: {} }], [malformedTuplet]));
     const recovered = JSON.parse(result.mnxJson) as {

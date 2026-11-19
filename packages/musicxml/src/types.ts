@@ -1,6 +1,16 @@
 // ─── MNX document output types (schema version 52) ──────────────────
 
-import type { ChordSymbol, DynamicGroup, Jump, NoteMarkings, Notehead, Part, Swing, TextContent } from "@viritura/core";
+import type {
+  ChordSymbol,
+  DynamicGroup,
+  Jump,
+  NoteMarkings,
+  Notehead,
+  Part,
+  Swing,
+  TextContent,
+  TextRunStyle,
+} from "@viritura/core";
 
 export interface MnxDocument {
   mnx: { version: number; support?: { useLyricExtenders?: boolean } };
@@ -142,11 +152,16 @@ export interface MnxPartMeasure {
 
 interface MnxPositionedText {
   type: "expression";
-  text: TextContent;
+  text: MnxFormattedTextChunk[];
   position: MnxRhythmicPosition;
   placement?: "above" | "below";
   staff?: number;
 }
+
+/** An MNX `formatted-text` chunk; Viritura inline formatting lives in `_x`. */
+export type MnxFormattedTextChunk = ({ text: string; type?: "text" } | { type: "smufl"; glyphs: string[] }) & {
+  _x?: { viritura: { style?: TextRunStyle; smuflStyle?: TextRunStyle } };
+};
 
 export interface MnxNonArpeggio {
   position: MnxRhythmicPosition;

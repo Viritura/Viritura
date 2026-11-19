@@ -128,7 +128,7 @@ export function recoverImportedMnx(text: string): ImportedMnxRecovery {
     return { mnxJson: text, recovered: [], error: describeValidationError(recovered[0]?.errors[0]) };
   }
   return {
-    mnxJson: recovered.length > 0 ? JSON.stringify(recovery.document) : text,
+    mnxJson: recovery.document !== document ? JSON.stringify(recovery.document) : text,
     recovered,
     error: validation.ok ? null : describeValidationError(validation.errors[0]),
   };

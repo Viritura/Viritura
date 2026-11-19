@@ -24,6 +24,7 @@ import { type TransposeInterval } from "./pitchDuration";
 import type { Interval, TextContent } from "@viritura/core";
 import type { ImportedHarmonySource } from "./harmonyConsolidation";
 import type { OpenLyricExtender } from "./lyricExtenders";
+import { nativeFormattedText } from "./textRuns";
 
 function readTransposeInterval(transpose: Element | null): TransposeInterval | undefined {
   if (!transpose) return undefined;
@@ -219,6 +220,7 @@ export function buildParts(
   const lyricLineIds = new Set<string>();
   const lyricMetadataCandidates = new Map<string, LyricMetadataCandidates>();
   const systemTextOrigins = new Map<number, Map<string, Set<number>>>();
+  let reportedTextFormattingLoss = false;
   const openSlurs = new Map<string, SlurState>();
   const openGlissandos = new Map<string, GlissandoState>();
   // Tie pairing persists across measures so ties spanning a barline resolve.
@@ -570,7 +572,25 @@ export function buildParts(
       const exprs = exprByMeasure.get(mi);
       const pedals = pedalsByMeasure.get(mi);
       const measure = mnxPart.measures[mi]!;
-      if (exprs) measure.text = exprs.map((expression) => ({ ...expression, type: "expression" }));
+      if (exprs) {
+        if (
+          !vendorExt &&
+          !reportedTextFormattingLoss &&
+          exprs.some((expression) => expression.text.some((chunk) => chunk.style))
+        ) {
+          flags.diagnostics?.warn(
+            "/direction/words",
+            "Text formatting dropped — enable Viritura extensions to preserve it",
+            "musicxml-text-formatting",
+          );
+          reportedTextFormattingLoss = true;
+        }
+        measure.text = exprs.map((expression) => ({
+          ...expression,
+          text: nativeFormattedText(expression.text, vendorExt),
+          type: "expression",
+        }));
+      }
       if (pedals) {
         measure._x = { viritura: { ...measure._x?.viritura, pedals } };
       }
