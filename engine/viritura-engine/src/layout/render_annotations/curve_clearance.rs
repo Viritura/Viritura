@@ -548,11 +548,7 @@ pub(crate) fn push_below_dynamics_under_slurs(
                     {
                         continue;
                     }
-                    let expression_id = element_id::expression(
-                        expression.source_part_index.unwrap_or(pi),
-                        mi,
-                        expression.source_expression_index.unwrap_or(index),
-                    );
+                    let expression_id = element_id::text_expression(expression, pi, mi, index);
                     shift_marking_down(dl, &expression_id, dy);
                 }
             }

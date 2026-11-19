@@ -318,8 +318,14 @@ in that instrument and choose **Edit → Change instrument or tuning** (also in
 the right-click menu and jump bar). The change lasts until the next instrument
 change. Sounding pitches are preserved, so written notes respell for the new
 transposition. The dialog can customize the tuning and set the printed label
-and an advance reminder. House style controls whether these labels appear; see
+and an advance reminder. Automatic labels do not add the key when switching
+instruments, but show it when changing the same instrument's tuning. House
+style controls whether these labels appear; see
 [Engraving & Layout](/docs/engraving-and-layout).
+
+To remove an instrument change, click its label in the score and press
+**Delete**; the player returns to the previous instrument. Deleting an advance
+reminder (such as "To Flute") hides only that reminder and keeps the change.
 
 ## Inspector
 

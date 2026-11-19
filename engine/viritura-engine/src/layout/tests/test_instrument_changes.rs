@@ -53,6 +53,19 @@ fn texts(display: &DisplayList) -> Vec<&str> {
         .collect()
 }
 
+fn tagged_text<'a>(display: &'a DisplayList, id: &str) -> Option<&'a str> {
+    display
+        .commands
+        .iter()
+        .zip(&display.element_ids)
+        .find_map(|(command, tag)| match command {
+            RenderCommand::DrawText { text, .. } if tag.as_deref() == Some(id) => {
+                Some(text.as_str())
+            }
+            _ => None,
+        })
+}
+
 fn glyph_count(display: &DisplayList, glyph: u32) -> usize {
     display
         .commands
@@ -87,7 +100,7 @@ fn instrument_changes_resolve_defaults_overrides_and_sounding_invariance() {
     );
     assert_eq!(resolved[1].prev_key.fifths, 2);
     let display = layout_score(&score, 0, &LayoutConfig::default());
-    assert!(texts(&display).contains(&"Fl. in C"));
+    assert!(texts(&display).contains(&"Fl."));
     assert!(texts(&display).contains(&"Fl. in F"));
     assert_eq!(glyph_count(&display, smufl::ACCIDENTAL_NATURAL), 2);
     assert_eq!(serde_json::to_value(&score.parts[0]).unwrap(), before);
@@ -147,6 +160,221 @@ fn reminder_expression(measure: &PartMeasure) -> Option<&TextExpression> {
 }
 
 #[test]
+fn instrument_changes_switch_labels_omit_tuning_for_distinct_instruments() {
+    let cases = [
+        (
+            json!({"instrumentId":"wind.reed.oboe","name":"Oboe","shortName":"Ob.","transposition":interval(0,0)}),
+            json!({"instrumentId":"wind.reed.english-horn","name":"English Horn","shortName":"E.Hn.","transposition":interval(7,4)}),
+            "E.Hn.",
+        ),
+        (
+            json!({"instrumentId":"wind.reed.english-horn","name":"English Horn","shortName":"E.Hn.","transposition":interval(7,4)}),
+            json!({"instrumentId":"wind.reed.oboe","name":"Oboe","shortName":"Ob.","transposition":interval(0,0)}),
+            "Ob.",
+        ),
+        (
+            json!({"instrumentId":"wind.flutes.flute","name":"Flute","shortName":"Fl.","transposition":interval(0,0)}),
+            json!({"instrumentId":"wind.flutes.flute.piccolo","name":"Piccolo","shortName":"Picc.","transposition":interval(-12,-7)}),
+            "Picc.",
+        ),
+        (
+            json!({"instrumentId":"wind.reed.clarinet.bflat","name":"Clarinet in B♭","shortName":"Cl.","transposition":interval(2,1)}),
+            json!({"instrumentId":"wind.reed.clarinet.bass","name":"Bass Clarinet","shortName":"B.Cl.","transposition":interval(14,8)}),
+            "B.Cl.",
+        ),
+        (
+            json!({"instrumentId":"wind.reed.oboe","name":"Oboe","shortName":"Ob.","transposition":interval(0,0)}),
+            json!({"instrumentId":"wind.reed.clarinet.a","name":"Clarinet in A","transposition":interval(3,2)}),
+            "Cl.",
+        ),
+    ];
+    for (initial, destination, expected) in cases {
+        let mut value = document();
+        value["parts"][0]["name"] = initial["name"].clone();
+        value["parts"][0]["shortName"] = initial["shortName"].clone();
+        value["parts"][0]["transposition"] = initial["transposition"].clone();
+        value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"] = initial;
+        value["parts"][0]["_x"]["viritura"]["instruments"]["flute"] = destination;
+        sounding_then_rest(&mut value, 0);
+        set_reminder(&mut value, 1, json!({}), json!({}));
+        let score = parse(&value);
+        let resolved = resolve_measures(&score, 0);
+        assert_eq!(
+            reminder_expression(&resolved[0].part)
+                .unwrap()
+                .text
+                .plain_text(),
+            format!("To {expected}")
+        );
+        assert_eq!(
+            resolved[1].part.expressions.as_ref().unwrap()[0]
+                .text
+                .plain_text(),
+            expected
+        );
+        for display in [
+            layout_score(&score, 0, &LayoutConfig::default()),
+            layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+        ] {
+            for (id, text) in [
+                ("p0/m1/expr-instchange0", expected.to_string()),
+                ("p0/m1/expr-instreminder0", format!("To {expected}")),
+            ] {
+                assert_eq!(tagged_text(&display, id), Some(text.as_str()), "{id}");
+            }
+        }
+    }
+}
+
+#[test]
+fn instrument_changes_keep_tuning_for_changes_within_an_instrument() {
+    let cases = [
+        (
+            json!({"instrumentId":"wind.reed.clarinet.bflat","name":"Clarinet in B♭","shortName":"Cl.","transposition":interval(2,1)}),
+            json!({"instrumentId":"wind.reed.clarinet.a","name":"Clarinet in A","shortName":"Cl.","transposition":interval(3,2)}),
+            json!({"instrument":"flute"}),
+            "Cl. in A",
+        ),
+        (
+            json!({"instrumentId":"brass.trumpet.bflat","name":"Trumpet in B♭","shortName":"Tpt.","transposition":interval(2,1)}),
+            json!({"instrumentId":"brass.trumpet.c","name":"Trumpet in C","shortName":"Tpt.","transposition":interval(0,0)}),
+            json!({"instrument":"flute"}),
+            "Tpt. in C",
+        ),
+        (
+            json!({"instrumentId":"brass.french-horn","name":"Horn in F","shortName":"Hn.","transposition":interval(7,4)}),
+            json!({"instrumentId":"wind.flutes.flute","name":"Flute","shortName":"Fl."}),
+            json!({"transposition":interval(2,1)}),
+            "Hn. in B♭ alto",
+        ),
+        (
+            json!({"instrumentId":"wind.reed.clarinet.bflat","name":"Clarinet in B♭","shortName":"Cl.","transposition":interval(2,1)}),
+            json!({"instrumentId":"wind.reed.clarinet.bflat","name":"Clarinet in B♭","shortName":"Cl.","transposition":interval(2,1)}),
+            json!({"instrument":"flute"}),
+            "Cl.",
+        ),
+    ];
+    for (initial, destination, change, expected) in cases {
+        let mut value = document();
+        value["parts"][0]["name"] = initial["name"].clone();
+        value["parts"][0]["shortName"] = initial["shortName"].clone();
+        value["parts"][0]["transposition"] = initial["transposition"].clone();
+        value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"] = initial;
+        value["parts"][0]["_x"]["viritura"]["instruments"]["flute"] = destination;
+        value["parts"][0]["measures"][1]["_x"] = json!({"viritura":{"instrumentChanges":[change]}});
+        sounding_then_rest(&mut value, 0);
+        let resolved = resolve_measures(&parse(&value), 0);
+        assert_eq!(
+            reminder_expression(&resolved[0].part)
+                .unwrap()
+                .text
+                .plain_text(),
+            format!("To {expected}")
+        );
+        assert_eq!(
+            resolved[1].part.expressions.as_ref().unwrap()[0]
+                .text
+                .plain_text(),
+            expected
+        );
+    }
+}
+
+#[test]
+fn instrument_changes_preserve_custom_switch_labels() {
+    let mut value = document();
+    sounding_then_rest(&mut value, 0);
+    set_reminder(
+        &mut value,
+        1,
+        json!({"text":"To Fl. in C"}),
+        json!({"text":"Fl. in C"}),
+    );
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert_eq!(
+        reminder_expression(&resolved[0].part)
+            .unwrap()
+            .text
+            .plain_text(),
+        "To Fl. in C"
+    );
+    assert_eq!(
+        resolved[1].part.expressions.as_ref().unwrap()[0]
+            .text
+            .plain_text(),
+        "Fl. in C"
+    );
+}
+
+#[test]
+fn instrument_changes_legacy_transposition_and_first_bar_compare_initial_state() {
+    let mut value = document();
+    value["parts"][0].as_object_mut().unwrap().remove("_x");
+    value["parts"][0]["name"] = json!("Horn in F");
+    value["parts"][0]["shortName"] = json!("Hn.");
+    value["parts"][0]["transposition"] = interval(7, 4);
+    value["parts"][0]["measures"][0]["_x"] = json!({"viritura":{"instrumentChanges":[{
+        "transposition":interval(2,1)
+    }]}});
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert_eq!(
+        resolved[0].part.expressions.as_ref().unwrap()[0]
+            .text
+            .plain_text(),
+        "Hn. in B♭ alto"
+    );
+}
+
+#[test]
+fn instrument_changes_cached_labels_follow_the_immediately_previous_instrument() {
+    let mut value = document();
+    value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"]["instrumentId"] =
+        json!("wind.reed.clarinet.bflat");
+    value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet-a"] = json!({
+        "instrumentId":"wind.reed.clarinet.a","name":"Clarinet in A","shortName":"Cl.",
+        "transposition":interval(3,2)
+    });
+    value["parts"][0]["measures"][1]["_x"] =
+        json!({"viritura":{"instrumentChanges":[{"instrument":"flute"}]}});
+    value["parts"][0]["measures"][2]["_x"] =
+        json!({"viritura":{"instrumentChanges":[{"instrument":"clarinet-a"}]}});
+    sounding_then_rest(&mut value, 1);
+    let config = LayoutConfig::default();
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    cache.set_range_scope(crate::layout::cache::RangeScope {
+        scoped_resolve: true,
+        ..Default::default()
+    });
+    let initial =
+        crate::layout::layout_with_mnx_scores_cached(&parse(&value), &config, 0, Some(&mut cache));
+    assert_eq!(tagged_text(&initial, "p0/m2/expr-instchange0"), Some("Cl."));
+    assert_eq!(
+        tagged_text(&initial, "p0/m2/expr-instreminder0"),
+        Some("To Cl.")
+    );
+
+    value["parts"][0]["measures"][1]["_x"]["viritura"]["instrumentChanges"][0]["instrument"] =
+        json!("clarinet");
+    let score = parse(&value);
+    cache.set_pending_dirty_region(Some(
+        crate::layout::cache::DirtyRegion::local_part_measures(1, 1, vec![true]),
+    ));
+    let cached = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    assert_eq!(
+        tagged_text(&cached, "p0/m2/expr-instchange0"),
+        Some("Cl. in A")
+    );
+    assert_eq!(
+        tagged_text(&cached, "p0/m2/expr-instreminder0"),
+        Some("To Cl. in A")
+    );
+    assert_eq!(
+        serde_json::to_value(cached).unwrap(),
+        serde_json::to_value(layout_with_mnx_scores(&score, &config, 0)).unwrap()
+    );
+}
+
+#[test]
 fn instrument_changes_reminders_anchor_sounding_note_and_are_independent() {
     let mut value = document();
     sounding_then_rest(&mut value, 0);
@@ -160,7 +388,7 @@ fn instrument_changes_reminders_anchor_sounding_note_and_are_independent() {
     let resolved = resolve_measures(&score, 0);
     let expression = reminder_expression(&resolved[0].part).unwrap();
     assert_eq!(expression.position.fraction, (0, 1));
-    assert_eq!(expression.text.plain_text(), "To Fl. in C");
+    assert_eq!(expression.text.plain_text(), "To Fl.");
     assert!(resolved[1].part.expressions.is_none());
     for display in [
         layout_score(&score, 0, &LayoutConfig::default()),
@@ -169,7 +397,7 @@ fn instrument_changes_reminders_anchor_sounding_note_and_are_independent() {
         assert_eq!(
             texts(&display)
                 .iter()
-                .filter(|text| **text == "To Fl. in C")
+                .filter(|text| **text == "To Fl.")
                 .count(),
             1
         );
@@ -246,7 +474,7 @@ fn instrument_changes_house_style_invalidates_cached_directions() {
     let fresh = layout_with_mnx_scores(&score, &config, 0);
     assert_eq!(texts(&cached), texts(&fresh));
     assert!(!texts(&cached).contains(&"Change now"));
-    assert!(!texts(&cached).contains(&"To Fl. in C"));
+    assert!(!texts(&cached).contains(&"To Fl."));
 }
 
 #[test]
@@ -411,15 +639,17 @@ fn instrument_changes_short_label_fallback_uses_new_instrument_not_original_part
             .unwrap()
             .text
             .plain_text(),
-        "To Fl. in C"
+        "To Fl."
     );
-    assert!(resolved[1]
-        .part
-        .expressions
-        .iter()
-        .flatten()
-        .any(|expression| !expression.instrument_reminder
-            && expression.text.plain_text() == "Fl. in C"));
+    assert!(
+        resolved[1]
+            .part
+            .expressions
+            .iter()
+            .flatten()
+            .any(|expression| !expression.instrument_reminder
+                && expression.text.plain_text() == "Fl.")
+    );
 }
 
 #[test]
@@ -706,7 +936,7 @@ fn instrument_changes_incompatible_sources_get_independent_written_staves() {
             2
         );
     }
-    assert!(texts(&display).contains(&"Fl. in C"));
+    assert!(texts(&display).contains(&"Fl."));
 }
 
 #[test]
@@ -896,7 +1126,7 @@ fn instrument_changes_reminder_anchor_interrupts_multimeasure_rests() {
         multimeasure_rests: true,
         ..LayoutConfig::default()
     };
-    assert!(texts(&layout_with_mnx_scores(&parse(&value), &config, 0)).contains(&"To Fl. in C"));
+    assert!(texts(&layout_with_mnx_scores(&parse(&value), &config, 0)).contains(&"To Fl."));
 }
 
 #[test]
@@ -1120,4 +1350,31 @@ fn instrument_changes_cached_reminder_edits_and_release_moves_match_fresh_layout
         serde_json::to_value(cached).unwrap(),
         serde_json::to_value(layout_with_mnx_scores(&score, &config, 0)).unwrap()
     );
+}
+
+#[test]
+fn instrument_changes_labels_have_ids_distinct_from_authored_expressions() {
+    let mut value = document();
+    sounding_then_rest(&mut value, 0);
+    set_reminder(&mut value, 1, json!({}), json!({}));
+    value["parts"][0]["measures"][1]["text"] = json!([{
+        "type":"expression", "text":[{"text":"dolce"}], "position":{"fraction":[0,1]}
+    }]);
+    let score = parse(&value);
+    for display in [
+        layout_score(&score, 0, &LayoutConfig::default()),
+        layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+    ] {
+        let id_of = |wanted: &str| {
+            display.commands.iter().zip(&display.element_ids).find_map(
+                |(command, id)| match command {
+                    RenderCommand::DrawText { text, .. } if text == wanted => id.clone(),
+                    _ => None,
+                },
+            )
+        };
+        assert_eq!(id_of("Fl.").as_deref(), Some("p0/m1/expr-instchange0"));
+        assert_eq!(id_of("To Fl.").as_deref(), Some("p0/m1/expr-instreminder0"));
+        assert_eq!(id_of("dolce").as_deref(), Some("p0/m1/expr0"));
+    }
 }
