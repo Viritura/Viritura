@@ -664,6 +664,153 @@ fn instrument_changes_short_label_fallback_uses_new_instrument_not_original_part
 }
 
 #[test]
+fn instrument_changes_implied_octaves_use_instrument_names_without_tuning() {
+    for (name, short, instrument_id, half_steps, staff_distance, other, other_short, other_id) in [
+        (
+            "Piccolo",
+            "Picc.",
+            "wind.flutes.flute.piccolo",
+            -12,
+            -7,
+            "Flute",
+            "Fl.",
+            "wind.flutes.flute",
+        ),
+        (
+            "Double Bass",
+            "Cb.",
+            "strings.contrabass",
+            12,
+            7,
+            "Cello",
+            "Vc.",
+            "strings.cello",
+        ),
+    ] {
+        let mut value = document();
+        let transposition = interval(half_steps, staff_distance);
+        value["parts"][0]["name"] = json!(name);
+        value["parts"][0]["shortName"] = json!(short);
+        value["parts"][0]["transposition"] = transposition.clone();
+        value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"] = json!({
+            "instrumentId":instrument_id, "name":name, "shortName":short,
+            "transposition":transposition
+        });
+        value["parts"][0]["_x"]["viritura"]["instruments"]["flute"] = json!({
+            "instrumentId":other_id, "name":other, "shortName":other_short
+        });
+        sounding_then_rest(&mut value, 0);
+        sounding_then_rest(&mut value, 1);
+        set_reminder(&mut value, 1, json!({}), json!({}));
+        value["parts"][0]["measures"][2]["_x"] =
+            json!({"viritura":{"instrumentChanges":[{"instrument":"clarinet"}]}});
+
+        let score = parse(&value);
+        assert_eq!(
+            crate::layout::page::initial_instrument_instruction(&score.parts[0]).as_deref(),
+            Some(short)
+        );
+        assert_eq!(
+            crate::layout::page::resolve_required_part_display_names(&score.parts)[0].display_name,
+            format!("{name}\n{other} in C")
+        );
+        for index in [0, 2] {
+            let active = crate::layout::page::resolve_part_display_names_at(&score.parts, index);
+            assert_eq!(active[0].display_name, name);
+            assert_eq!(active[0].display_short_name, short);
+        }
+        assert_eq!(
+            resolve_measures(&score, 0)[0].transposition,
+            Some((staff_distance, half_steps))
+        );
+
+        for display in [
+            layout_score(&score, 0, &LayoutConfig::default()),
+            layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+            crate::layout::layout_full_score(&score, &LayoutConfig::default()),
+        ] {
+            for (id, expected) in [
+                ("p0/m0/expr-instinitial", short.to_string()),
+                ("p0/m1/expr-instreminder0", format!("To {other_short}")),
+                ("p0/m1/expr-instchange0", other.to_string()),
+                ("p0/m2/expr-instreminder0", format!("To {short}")),
+                ("p0/m2/expr-instchange0", name.to_string()),
+            ] {
+                assert_eq!(tagged_text(&display, id), Some(expected.as_str()), "{id}");
+            }
+        }
+
+        value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"]["shortName"] =
+            json!(format!("{short} in C"));
+        assert_eq!(
+            crate::layout::page::initial_instrument_instruction(&parse(&value).parts[0]),
+            Some(format!("{short} in C"))
+        );
+        value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"]
+            .as_object_mut()
+            .unwrap()
+            .remove("transposition");
+        value["parts"][0]["measures"][2]["_x"]["viritura"]["instrumentChanges"][0]
+            ["transposition"] = interval(half_steps, staff_distance);
+        assert_eq!(
+            crate::layout::page::initial_instrument_instruction(&parse(&value).parts[0]),
+            Some(format!("{short} in C"))
+        );
+    }
+}
+
+#[test]
+fn instrument_changes_noninitial_octave_override_is_not_an_implied_default() {
+    let mut value = document();
+    value["parts"][0]["name"] = json!("Piccolo");
+    value["parts"][0]["shortName"] = json!("Picc.");
+    value["parts"][0]["transposition"] = interval(-12, -7);
+    value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"] = json!({
+        "instrumentId":"wind.flutes.flute.piccolo", "name":"Piccolo", "shortName":"Picc.",
+        "transposition":interval(-12,-7)
+    });
+    value["parts"][0]["measures"][1]["_x"] = json!({
+        "viritura":{"instrumentChanges":[{"instrument":"flute","transposition":interval(-12,-7)}]}
+    });
+    let score = parse(&value);
+    let active = crate::layout::page::resolve_part_display_names_at(&score.parts, 1);
+    assert_eq!(
+        active[0].display_name,
+        "Flute in C (sounds C5 for written C4)"
+    );
+}
+
+#[test]
+fn instrument_changes_octave_tuning_changes_still_distinguish_the_same_instrument() {
+    let mut value = document();
+    value["parts"][0]["name"] = json!("Flute");
+    value["parts"][0]["shortName"] = json!("Fl.");
+    value["parts"][0]["transposition"] = interval(0, 0);
+    value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"] = json!({
+        "instrumentId":"wind.flutes.flute", "name":"Flute", "shortName":"Fl.",
+        "transposition":interval(-12,-7)
+    });
+    sounding_then_rest(&mut value, 0);
+    value["parts"][0]["measures"][1]["_x"] =
+        json!({"viritura":{"instrumentChanges":[{"transposition":interval(-12,-7)}]}});
+    let score = parse(&value);
+    let resolved = resolve_measures(&score, 0);
+    assert_eq!(
+        reminder_expression(&resolved[0].part)
+            .unwrap()
+            .text
+            .plain_text(),
+        "To Fl. in C (sounds C5 for written C4)"
+    );
+    assert_eq!(
+        resolved[1].part.expressions.as_ref().unwrap()[0]
+            .text
+            .plain_text(),
+        "Flute in C (sounds C5 for written C4)"
+    );
+}
+
+#[test]
 fn instrument_changes_initial_label_clears_stems_after_opening_rest() {
     let mut value = document();
     value["parts"][0]["measures"][0]["sequences"] = json!([{"content":[

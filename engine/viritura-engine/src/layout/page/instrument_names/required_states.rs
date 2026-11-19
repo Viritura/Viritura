@@ -60,8 +60,8 @@ pub(super) fn names(part: &Part) -> Vec<RequiredName> {
                     && other.interval.0.rem_euclid(12) == state.interval.0.rem_euclid(12)
             });
             RequiredName {
-                full: active_name(part, state.active, full, same_pitch_other_octave),
-                short: active_name(part, state.active, &short, same_pitch_other_octave),
+                full: state_name(part, state.active, full, same_pitch_other_octave),
+                short: state_name(part, state.active, &short, same_pitch_other_octave),
             }
         })
         .collect()
@@ -80,9 +80,35 @@ pub(super) fn active_names(part: &Part, measure_index: usize) -> RequiredName {
         .and_then(|d| d.name.as_deref())
         .unwrap_or(&part.name);
     RequiredName {
-        full: active_name(part, active, full, distinguish_octave),
-        short: active_name(part, active, &short_name(part, active), distinguish_octave),
+        full: state_name(part, active, full, distinguish_octave),
+        short: state_name(part, active, &short_name(part, active), distinguish_octave),
     }
+}
+
+fn state_name(
+    part: &Part,
+    active: ActiveInstrument<'_>,
+    authored: &str,
+    distinguish_octave: bool,
+) -> String {
+    let (interval, default_interval) = active_intervals(part, active);
+    // The part transposition is a default only for the initial instrument.
+    let has_active_default = active.definition.is_none_or(|definition| {
+        definition.transposition.is_some()
+            || ActiveInstrument::initial(part)
+                .definition
+                .is_some_and(|initial| std::ptr::eq(initial, definition))
+    });
+    // A pure octave has seven staff steps per twelve semitones.
+    if !distinguish_octave
+        && has_active_default
+        && interval == default_interval
+        && interval.0 != 0
+        && i64::from(interval.0) * 7 == i64::from(interval.1) * 12
+    {
+        return authored.to_string();
+    }
+    active_name(part, active, authored, distinguish_octave)
 }
 
 fn active_name(

@@ -84,6 +84,52 @@ export const AutomaticDoublingLabelsAndReminders: StoryObj = {
   render: () => <ScorePreview mnxJson={automaticDoublingReminders()} />,
 };
 
+export const PiccoloFluteDoubling: StoryObj = {
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1 },
+        global: { measures: [{ time: { count: 4, unit: 4 } }, {}, {}] },
+        scores: [{ name: "Piccolo and flute", useWritten: true }],
+        parts: [
+          {
+            name: "Piccolo",
+            shortName: "Picc.",
+            transposition: { interval: { halfSteps: -12, staffDistance: -7 } },
+            _x: {
+              viritura: {
+                initialInstrument: "picc",
+                instruments: {
+                  picc: {
+                    instrumentId: "wind.flutes.flute.piccolo",
+                    name: "Piccolo",
+                    shortName: "Picc.",
+                    transposition: { interval: { halfSteps: -12, staffDistance: -7 } },
+                  },
+                  fl: { instrumentId: "wind.flutes.flute", name: "Flute", shortName: "Fl." },
+                },
+              },
+            },
+            measures: Array.from({ length: 3 }, (_, index) => ({
+              ...(index > 0
+                ? { _x: { viritura: { instrumentChanges: [{ instrument: index === 1 ? "fl" : "picc" }] } } }
+                : {}),
+              sequences: [
+                {
+                  content: [
+                    { duration: { base: "half" }, notes: [{ pitch: { step: "C", octave: 5 } }] },
+                    { duration: { base: "half" }, rest: {} },
+                  ],
+                },
+              ],
+            })),
+          },
+        ],
+      })}
+    />
+  ),
+};
+
 export const SaxophoneChangeAtBlue: StoryObj = {
   render: () => (
     <ScorePreview

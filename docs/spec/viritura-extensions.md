@@ -1821,9 +1821,11 @@ example `To Cl in A` and `Clarinet in A`. Keyed catalog variants of the same
 instrument count as one instrument; register-qualified IDs such as bass
 clarinet remain distinct.
 Authored label text is preserved. The initial label, system names, and
-frontmatter retain their tuning information. Octave-only tuning labels
-include, for example, `(sounds C5 for written C4)`. These labels use sounding
-pitch for written C, not numeric MNX interval counts.
+frontmatter retain meaningful tuning information. An instrument's default
+octave transposition is implicit in its name, so a piccolo label reads `Picc.`
+rather than `Picc. in C (sounds C5 for written C4)`. Unusual octave-distinct
+tunings of the same instrument remain distinguishable; their labels use
+sounding pitch for written C, not numeric MNX interval counts.
 Generated labels participate in the same text-expression collision rules as
 authored directions, including on multimeasure rests.
 
@@ -1955,10 +1957,13 @@ names on later systems. Changes later in the system do not alter its staff
 label. Frontmatter lists **all required states** in first-use order.
 Returning to the same instrument and interval does
 not repeat its entry; unused instrument definitions and unchanged-state
-reminders do not add entries. Octave differences remain distinct:
+reminders do not add entries. Different octave tunings of the same instrument
+remain distinct:
 B-flat horn uses **alto** / **basso**, and E-flat clarinet uses
 **piccolo** / **alto**. Other octave-distinct tunings state the sounding
-pitch for written C4. Explicit author-supplied layout labels remain intact.
+pitch for written C4; the default octave transposition of a different
+instrument needs no such explanation. Explicit author-supplied layout labels
+remain intact.
 
 Extracted parts use the same required-state list in the boxed instrument
 header on the first page, including a dedicated title page. Automatic
