@@ -25,7 +25,17 @@ async function loadWorklet(context: BaseAudioContext, workletUrl: string): Promi
   }
 }
 
-export function cancelScheduledNotes(port: MessagePort, channels: readonly number[], fromAudioTime: number): void {
+export function cancelScheduledNotes(
+  port: MessagePort,
+  channels: readonly number[],
+  fromAudioTime: number,
+  allMidi = false,
+): void {
   if (Number.isNaN(fromAudioTime)) throw new RangeError("The SF2 cancellation cutoff must not be NaN");
-  port.postMessage({ type: "viritura:cancelScheduledNotes", channels: [...channels], fromAudioTime });
+  port.postMessage({
+    type: "viritura:cancelScheduledNotes",
+    channels: [...channels],
+    fromAudioTime,
+    ...(allMidi ? { allMidi: true } : {}),
+  });
 }

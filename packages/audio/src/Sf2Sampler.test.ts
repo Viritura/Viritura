@@ -66,7 +66,8 @@ describe("Sf2Synth memory accounting", () => {
       },
     );
     vi.spyOn(console, "log").mockImplementation(() => {});
-    const context = { createGain: () => ({}) } as unknown as AudioContext;
+    const createGain = vi.fn(() => ({ disconnect: vi.fn() }));
+    const context = { createGain } as unknown as AudioContext;
     const before = getSf2MemoryStats();
     const first = await Sf2Synth.create(context, new ArrayBuffer(1024));
     const second = await Sf2Synth.create(context, new ArrayBuffer(1024));
@@ -82,6 +83,7 @@ describe("Sf2Synth memory accounting", () => {
     });
     second.destroy();
     expect(getSf2MemoryStats()).toEqual(before);
+    for (const { value } of createGain.mock.results) expect(value.disconnect).toHaveBeenCalledOnce();
   });
 });
 
@@ -166,7 +168,7 @@ describe("Sf2Sampler", () => {
     sampler.allNotesOff();
 
     expect(synth.stopAll).not.toHaveBeenCalled();
-    expect(sf2Synth.cancelScheduledNotes).toHaveBeenCalledExactlyOnceWith([3, 4], -Infinity);
+    expect(sf2Synth.cancelScheduledNotes).toHaveBeenCalledExactlyOnceWith([3, 4], -Infinity, true);
     expect(synth.controllerChange.mock.calls).toEqual([
       [3, 120, 0],
       [3, 123, 0],
@@ -363,7 +365,7 @@ describe("Sf2Sampler", () => {
     expect(h.attacks.map(({ note }) => note)).toEqual([60, 64, 61, 70]);
   });
 
-  it("stops hidden playback without ghost attacks or a delayed panic killing immediate preview", () => {
+  it("stops hidden playback without stale programs, controllers or notes affecting a warm restart", () => {
     const h = createSamplerWorkletHarness();
     const sampler = new Sf2Sampler(h.sf2Synth, 3, 0, { altKitChannels: new Map([[48, 4]]) });
     sampler.setVolume(0.5);
@@ -385,7 +387,7 @@ describe("Sf2Sampler", () => {
     sampler.noteOn(72, 100);
     sampler.noteOn(73, 100, undefined, 48);
 
-    expect(h.cancel).toHaveBeenCalledExactlyOnceWith([3, 4], -Infinity);
+    expect(h.cancel).toHaveBeenCalledExactlyOnceWith([3, 4], -Infinity, true);
     for (const time of [10.05, 10.15, 10.3, 10.5, 12, 13, 20]) h.advance(time);
     expect(h.channels[3]!.voices).toEqual(new Set([72]));
     expect(h.channels[4]!.voices).toEqual(new Set([73]));
@@ -399,8 +401,8 @@ describe("Sf2Sampler", () => {
       expect(h.channels[channel]!.controllers.get(39)).toBe(0);
       expect(h.channels[channel]!.controllers.get(10)).toBe(32);
     }
-    expect(h.channels[3]!.controllers.get(74)).toBe(32);
-    expect(h.channels[3]!.program).toBe(41);
+    expect(h.channels[3]!.controllers.get(74)).toBeUndefined();
+    expect(h.channels[3]!.program).toBe(0);
     expect(h.outputNode.gain.value).toBe(0.35);
   });
 

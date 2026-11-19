@@ -81,7 +81,7 @@ export interface ISampler {
    *  instrument's release tail. Sustain may defer release until pedal-up.
    *  `altKitProgram` mirrors {@link noteOn} so the release targets the same channel. */
   noteOff(midiNote: number, time?: number, altKitProgram?: number): void;
-  /** Immediately release all sounding notes. */
+  /** Immediately release all sounding notes and discard pending MIDI for these voices. */
   allNotesOff(): void;
   /** Reversible playback-only mute, independent of mixer gain and controllers.
    * Silences current voices but retains queued note events at their original

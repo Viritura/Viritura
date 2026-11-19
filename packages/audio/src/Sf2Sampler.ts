@@ -137,9 +137,9 @@ export class Sf2Synth {
     return new Sf2Synth(synth as unknown as SpessaSynthLike, audioContext, outputGain, schedulingPort, soundBankBytes);
   }
 
-  /** Cancel only adapter-owned note events; active voices and other MIDI are untouched. */
-  cancelScheduledNotes(channels: readonly number[], fromAudioTime: number): void {
-    cancelScheduledNotes(this.schedulingPort, channels, fromAudioTime);
+  /** Cancel queued notes, or all queued MIDI when retiring a transport run. */
+  cancelScheduledNotes(channels: readonly number[], fromAudioTime: number, allMidi = false): void {
+    cancelScheduledNotes(this.schedulingPort, channels, fromAudioTime, allMidi);
   }
 
   /**
@@ -188,6 +188,7 @@ export class Sf2Synth {
     if (this.synth.destroy) {
       this.synth.destroy();
     }
+    this.outputNode.disconnect();
   }
 }
 
@@ -419,9 +420,9 @@ export class Sf2Sampler implements ISampler {
   }
 
   allNotesOff(): void {
-    // Include overdue, undrained events. Port FIFO ordering cancels old notes
-    // before silencing voices and releasing the transport-only mute for previews.
-    this.cancelScheduledNotes(-Infinity);
+    // A warm restart must not inherit future programs/controllers from the
+    // previous run. FIFO cancellation precedes panic and preview unmuting.
+    this.sf2Synth.cancelScheduledNotes([...new Set([this.channel, ...this.altKitChannels.values()])], -Infinity, true);
     this.sendPitchBend(8192, undefined, 2);
     for (const channel of new Set([this.channel, ...this.altKitChannels.values()])) {
       this.synth.controllerChange(channel, 120, 0);

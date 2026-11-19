@@ -826,9 +826,15 @@ export function PlaybackProvider({
     // Playing -> stopped is synchronized by the engine state callback.
     if (engineRef.current?.getState() !== "playing") stopNativeHost();
     engineRef.current?.stop();
-    disposeAllSamplers();
+    // Keep the valid graph warm; stopping already cancels queued notes and
+    // silences voices. Routing changes and unmount own sampler disposal.
+    for (const sampler of samplersRef.current.values()) {
+      sampler.resetTechniqueState?.();
+      sampler.sendControl?.(64, 0);
+      sampler.sendControl?.(66, 0);
+    }
     dispatchPlayback({ type: "STOP" });
-  }, [disposeAllSamplers, chordPreview, stopNativeHost]);
+  }, [chordPreview, stopNativeHost]);
 
   const seek = useCallback(
     (seconds: number) => {

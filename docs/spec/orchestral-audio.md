@@ -12,7 +12,7 @@ The engine is built like a recording engineer's mix, not a 3D-audio simulator:
 
 - **Stereo speakers, not headphones.** Orchestral music is mixed for a stereo field in front of the listener — panned with MIDI CC10, blended with a single hall reverb. We deliberately do **not** use HRTF / binaural panning, which makes instruments sound "inside the listener's head" and is wrong for this use case.
 - **The hall is half the sound.** Convolution reverb using real concert-hall impulse responses provides the spatial signature; everything else (per-section gain, pre-delay, EQ decorrelation) just feeds that hall sensibly.
-- **Per-section pooling, not per-part synths.** Every part in the same orchestra section (e.g. all violins) shares one `Sf2Synth` instance on different MIDI channels. This keeps the per-AudioContext `AudioWorklet` count under control and shares the ~125 MB SoundFont buffer.
+- **Per-section pooling, not per-part synths.** Every part in the same orchestra section (e.g. all violins) shares one `Sf2Synth` instance on different MIDI channels. Each synth receives its own transferred copy of the ~119 MiB SoundFont; pooling avoids a copy per part.
 - **One shipped SoundFont, swappable tomorrow.** Playback ships [`Shan-SGM-Pro-15.sf2`](../../packages/audio/assets/sounds/Shan-SGM-Pro-15.sf2) (Shan SGM-Pro v15, a GM/GS SoundFont, ~119 MB) staged at application build time under `/sounds/` and fetched at app boot by [`PlaybackContext`](../../packages/playback/src/PlaybackContext.tsx). The sampler interface (`ISampler`) lets us swap the SoundFont layer for higher-quality sample libraries (SFZ banks, Muse Sounds-style streamers) without touching the routing.
 
 ---
@@ -213,6 +213,24 @@ on the audio clock, in both browser tabs and installed PWAs. This buffer protect
 against main-thread scheduling delays shorter than the look-ahead window; it does
 not add 500 ms to the Play command. The separate start pre-roll remains 120 ms.
 Longer stalls or browser background throttling can still exhaust the buffer.
+
+### Resource lifetime
+
+Stop resets the playhead, cancels pending MIDI (including programs/controllers),
+silences voices, and restores baseline timbre and released pedals without destroying
+the valid section synth graph. Subsequent
+Play and note previews reuse its SoundFont copies and routing. Mixer state remains
+independent of transport state. A stopped transport can therefore still report
+live synths in memory diagnostics; these are intentionally warm, not playing.
+
+Instrument/profile or playback-lane changes invalidate the graph and dispose its
+synths before rebuilding. Provider unmount also disposes the graph and closes its
+AudioContext. Synth disposal forwards the vendor's destroy message, clears the
+adapter queue, detaches the processor's message handler, and closes its MessagePort.
+Leaving that port active can retain the stopped processor's audio-thread resources
+until the entire AudioContext closes. The intermediate synth output is disconnected
+as well. Ordinary Stop must not use AudioContext closure as a substitute for this
+cleanup.
 
 ---
 
