@@ -67,6 +67,23 @@ export const HiddenChangeInstruction: StoryObj = {
   render: () => <ScorePreview mnxJson={doublingScore(true, true)} />,
 };
 
+function automaticDoublingReminders(): string {
+  const score = JSON.parse(doublingScore(true)) as {
+    parts: { measures: { sequences: { content: unknown[] }[] }[] }[];
+  };
+  for (const index of [0, 2]) {
+    score.parts[0]!.measures[index]!.sequences[0]!.content = [
+      { duration: { base: "half" }, notes: [{ pitch: { step: "C", octave: 5 } }] },
+      { duration: { base: "half" }, rest: {} },
+    ];
+  }
+  return JSON.stringify(score);
+}
+
+export const AutomaticDoublingLabelsAndReminders: StoryObj = {
+  render: () => <ScorePreview mnxJson={automaticDoublingReminders()} />,
+};
+
 function condensedDoublingScore(): string {
   const score = JSON.parse(doublingScore(true)) as {
     parts: {

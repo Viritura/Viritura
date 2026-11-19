@@ -95,6 +95,17 @@ fn active_name(
         .definition
         .and_then(|d| d.name.as_deref())
         .unwrap_or(&part.name);
+    let (interval, default_interval) = active_intervals(part, active);
+    format_name(
+        authored,
+        full,
+        interval,
+        default_interval,
+        distinguish_octave,
+    )
+}
+
+fn active_intervals(part: &Part, active: ActiveInstrument<'_>) -> ((i32, i32), (i32, i32)) {
     let interval = active.transposition.map_or((0, 0), |t| {
         (t.interval.half_steps, t.interval.staff_distance)
     });
@@ -105,13 +116,7 @@ fn active_name(
         .map_or((0, 0), |t| {
             (t.interval.half_steps, t.interval.staff_distance)
         });
-    format_name(
-        authored,
-        full,
-        interval,
-        default_interval,
-        distinguish_octave,
-    )
+    (interval, default_interval)
 }
 
 fn short_name(part: &Part, active: ActiveInstrument<'_>) -> String {
@@ -130,8 +135,19 @@ fn short_name(part: &Part, active: ActiveInstrument<'_>) -> String {
         .unwrap_or_else(|| super::super::abbreviate_part_name(full))
 }
 
-pub(crate) fn instrument_tuning_name(part: &Part, active: ActiveInstrument<'_>) -> String {
-    active_name(part, active, &short_name(part, active), false)
+pub(crate) fn instrument_change_name(
+    part: &Part,
+    active: ActiveInstrument<'_>,
+    include_tuning: bool,
+) -> String {
+    let short = short_name(part, active);
+    if include_tuning {
+        return active_name(part, active, &short, false);
+    }
+    let (interval, default_interval) = active_intervals(part, active);
+    let (pitch, _) = tuning(interval);
+    let (default_pitch, _) = tuning(default_interval);
+    without_tuning(&short, &pitch, &default_pitch)
 }
 
 fn tuning(interval: (i32, i32)) -> (String, i64) {
@@ -168,15 +184,7 @@ fn format_name(
 ) -> String {
     let (pitch, octave) = tuning(interval);
     let (default_pitch, _) = tuning(default_interval);
-    let mut base = authored.to_string();
-    for suffix in [format!(" in {default_pitch}"), format!(" in {pitch}")] {
-        if let Some(index) = base.find(&suffix) {
-            let end = index + suffix.len();
-            if end == base.len() || base[end..].starts_with(' ') {
-                base.replace_range(index..end, "");
-            }
-        }
-    }
+    let mut base = without_tuning(authored, &pitch, &default_pitch);
     let lower = full.to_lowercase();
     let qualifier = if lower.contains("horn") && interval.0.rem_euclid(12) == 2 {
         match interval {
@@ -207,6 +215,19 @@ fn format_name(
         label.push_str(&format!(" (sounds {pitch}{octave} for written C4)"));
     }
     label
+}
+
+fn without_tuning(authored: &str, pitch: &str, default_pitch: &str) -> String {
+    let mut base = authored.to_string();
+    for suffix in [format!(" in {default_pitch}"), format!(" in {pitch}")] {
+        if let Some(index) = base.find(&suffix) {
+            let end = index + suffix.len();
+            if end == base.len() || base[end..].starts_with(' ') {
+                base.replace_range(index..end, "");
+            }
+        }
+    }
+    base
 }
 
 pub(crate) fn initial_instruction(part: &Part) -> Option<String> {

@@ -1812,12 +1812,15 @@ score-wide `showChangeLabel` and `showAdvanceReminder` defaults (both true
 when omitted). **Engrave → House Style → Instrument Changes** edits these
 defaults. Change-point labels use the same visibility inheritance rule.
 Neither its custom text nor its visibility changes the `instruction` label
-at the declaration. Automatic labels within the music use the active
-instrument's `shortName` (or its automatic abbreviation) and tuning for
-both instrument switches and transposition-only changes: `Cl in B♭` at
-the opening, `To Cl in C` as the advance reminder, and `Cl in C` at the
-change. Authored abbreviation punctuation and custom label text are
-preserved. Frontmatter retains full instrument names. Octave-only labels
+at the declaration. Automatic change labels and reminders use the active
+instrument's `shortName` (or its automatic abbreviation). When switching
+instruments they do not add the tuning, for example `To E.Hn.` and `E.Hn.`.
+When the same instrument changes tuning, they include the new key, for
+example `To Cl in A` and `Cl in A`. Keyed catalog variants of the same
+instrument count as one instrument; register-qualified IDs such as bass
+clarinet remain distinct.
+Authored label text is preserved. The initial label, system names, and
+frontmatter retain their tuning information. Octave-only tuning labels
 include, for example, `(sounds C5 for written C4)`. These labels use sounding
 pitch for written C, not numeric MNX interval counts.
 
