@@ -133,6 +133,20 @@ describe("glissando playback", () => {
     expect(timeline.diagnostics).toEqual([]);
   });
 
+  it.each<Partial<Glissando>>([{}, { playbackType: "chromatic" }, { kind: "portamento" }])(
+    "plays duplicate line styles once without a false endpoint diagnostic (%j)",
+    (properties) => {
+      const score = scoreFor({ ...properties, style: "wavy" });
+      const expected = generateTimeline(score);
+      source(score).glissandos!.push({ target: "target", ...properties, style: "straight" });
+
+      const timeline = generateTimeline(score);
+
+      expect(timeline.events).toEqual(expected.events);
+      expect(timeline.diagnostics).toEqual([]);
+    },
+  );
+
   it("plays every chromatic semitone regardless of kind or displayed text", () => {
     const timeline = generateTimeline(scoreFor({ kind: "portamento", playbackType: "chromatic", showText: false }));
     expect(timeline.events.filter((event) => event.type === "noteOn").map((event) => event.midiNote)).toEqual([

@@ -129,7 +129,7 @@ expression is removed; music, neighboring text, and other annotations are
 preserved. This patch targets staff expressions, not system text or page text
 frames.
 
-Accepted patch proposals enter the editor's normal `commitPatches()` path and therefore retain validation, undo grouping, and Yjs collaboration behavior. Whole-document proposals use `commitDocument()`. Both manual and automatic acceptance check that the working-score revision still matches the revision captured when the proposal was staged. Proposal tools return `pending` for manual review or `accepted` after successful auto-accept; `preview.get_status` exposes the recorded outcome. Commit failures mark the proposal stale and return an MCP error rather than reporting acceptance.
+Accepted patch proposals enter the editor's normal `commitPatches()` path and therefore retain validation, undo grouping, and Yjs collaboration behavior. Whole-document proposals use `commitDocument()`. Both manual and automatic acceptance check the preconditions described below. Proposal tools return `pending` for manual review or `accepted` after successful auto-accept; `preview.get_status` exposes the recorded outcome. Commit failures mark the proposal stale and return an MCP error rather than reporting acceptance.
 
 ### Patch input and rhythm safety
 
@@ -154,8 +154,23 @@ proposal commits the reviewed repaired result, including generated rest IDs.
 
 Score responses include an opaque `revision` that changes immediately with the
 working score, even if layout publication is still pending. Proposal tools may
-send it as `baseRevision`; a mismatch returns `revision_conflict` without
-staging an edit. A pending proposal also becomes stale when the score changes.
+send it as `baseRevision`. Patch and chord-note proposals may use an older
+revision if their target part-measures and part settings are unchanged. Edits
+to other measures or parts are preserved. Conflict checks intentionally use
+whole part-measures, not individual note fields. Document context (including
+global measures) and part/measure structure must also remain unchanged.
+Structural and score/part-wide patches conservatively require unchanged score
+content. Unknown or evicted base revisions fail closed with `revision_conflict`;
+the editor retains snapshots of the last 32 revisions exposed through MCP,
+cleared when the MCP session stops.
+Re-read the score before retrying.
+
+Pending patch proposals use the same preconditions for status, replay, and
+acceptance, including any reviewed repair patches. Loading another document
+invalidates them. Whole-document MNX proposals, tools producing whole-document
+proposals, and patch proposals requiring a whole-document repair commit retain
+exact-revision acceptance safety; whole-document tools also require an exact
+supplied `baseRevision`. Cancelling a batch does not require a current revision.
 
 Proposal calls and `preview.cancel_batch` accept an optional `requestId` (1-64
 characters). Repeating the same tool and arguments with the same ID replays the
@@ -169,7 +184,7 @@ chunk and repeat the same ID and arguments when retrying that chunk.
 
 ### Large edits
 
-MCP client requests may be up to 4 MiB; the rest of the API keeps its 256 KB limit. The relay reads a request body only after authorizing its bearer token. Edits larger than one `preview.propose_patches` call can be split into sequential calls with the same `batchId`. Calls with `final: false` validate their patches on top of the earlier parts and return `batching` with the running `patchCount`. The call with `final: true` (the default) creates one proposal that is reviewed, auto-accepted, and undone as a single edit. A batch holds at most 4096 patches. It is discarded if the document changes before it is finalized (`batch_stale`) or if the MCP session stops. An invalid part is rejected without discarding earlier valid parts.
+MCP client requests may be up to 4 MiB; the rest of the API keeps its 256 KB limit. The relay reads a request body only after authorizing its bearer token. Edits larger than one `preview.propose_patches` call can be split into sequential calls with the same `batchId`. Calls with `final: false` validate their patches on top of the earlier parts and return `batching` with the running `patchCount`. The call with `final: true` (the default) creates one proposal that is reviewed, auto-accepted, and undone as a single edit. A batch holds at most 4096 patches. Unrelated concurrent edits are allowed. Every chunk's target areas, including newly added areas, are checked against the batch's original score before replaying all chunks on the latest score. A conflicting batch is discarded (`batch_stale`); stopping the MCP session also clears batches. An invalid part is rejected without discarding earlier valid parts.
 Use `preview.get_batch` to inspect an open batch and `preview.cancel_batch` to
 discard it. A final chunk rejected by the rhythm-safety gate is not appended;
 retry the corrected final call without resending the earlier chunks.
