@@ -640,13 +640,13 @@ fn system_text_expression(
     rm: &crate::model::ResolvedMeasure,
     config: &LayoutConfig,
 ) -> TextExpression {
-    let mut content = super::system_instruction::display_content(text);
+    let bold = config
+        .text_styles
+        .resolve(super::super::text_styles::TextRole::Tempo)
+        .bold;
+    let mut content = super::system_instruction::display_content(text, bold);
     if rm.global.tempo_ramp_text_id() == Some(text.id.as_str()) {
         use crate::model::{TextContentChunk, TextWeight, TextWeightName};
-        let bold = config
-            .text_styles
-            .resolve(super::super::text_styles::TextRole::Tempo)
-            .bold;
         for chunk in &mut content.0 {
             if let TextContentChunk::Text(run) = chunk {
                 run.style

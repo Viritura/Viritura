@@ -2,25 +2,27 @@ use super::substrate_obstacles;
 use crate::layout::{element_id, types::MeasureLayout};
 use crate::render::*;
 
-pub(super) fn framed_expression_is_pinned(measures: &[MeasureLayout], eid: &str) -> bool {
-    measures.iter().any(|ml| {
-        ml.resolved
-            .part
-            .expressions
-            .as_ref()
-            .is_some_and(|expressions| {
-                expressions.iter().enumerate().any(|(index, expression)| {
-                    expression.frame.is_some()
-                        && expression.avoid_collisions == Some(false)
-                        && element_id::text_expression(
-                            expression,
-                            ml.part_index,
-                            ml.resolved.index,
-                            index,
-                        ) == eid
+pub(super) fn marking_is_pinned(measures: &[MeasureLayout], eid: &str) -> bool {
+    super::system_instruction::source_text(measures, eid)
+        .is_some_and(|text| text.avoid_collisions == Some(false))
+        || measures.iter().any(|ml| {
+            ml.resolved
+                .part
+                .expressions
+                .as_ref()
+                .is_some_and(|expressions| {
+                    expressions.iter().enumerate().any(|(index, expression)| {
+                        expression.frame.is_some()
+                            && expression.avoid_collisions == Some(false)
+                            && element_id::text_expression(
+                                expression,
+                                ml.part_index,
+                                ml.resolved.index,
+                                index,
+                            ) == eid
+                    })
                 })
-            })
-    })
+        })
 }
 
 pub(super) fn marking_extent(

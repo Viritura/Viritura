@@ -1318,6 +1318,16 @@ Conversion to staff text is rejected while playback settings or hidden text
 would be lost. Switching BPM on/off preserves rich text, framing, placement,
 manual offset and collision settings.
 
+Above-system instructions use the same outer collision layer as legacy tempo
+markings, including clearance from neighboring staff ink, multimeasure-rest
+counts, curves, rehearsal frames and tuplets. This applies with or without
+playback or a visible metronome. `avoidCollisions: false` pins the instruction
+instead of applying the automatic collision pass.
+
+A visible metronome mark, including its parentheses, uses the score's Tempo
+text weight (bold by default), matching standalone tempo markings. Authored
+text runs keep their own formatting.
+
 MusicXML `<direction system="only-top">` words map to global system text only
 when their placement is above or omitted. `system="none"` and directions with
 no `system` attribute retain the existing staff-expression mapping.

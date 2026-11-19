@@ -378,13 +378,10 @@ fn tempo_ramp_labels_inherit_tempo_weight_and_preserve_explicit_formatting() {
                 );
                 assert_eq!(
                     font(" = 84)"),
-                    if owner == "ramp" {
-                        font(" = 120")
-                    } else {
-                        "serif"
-                    },
-                    "the system instruction's metronome must render with its inherited weight"
+                    font(" = 120"),
+                    "a system instruction's metronome must match standalone tempo weight"
                 );
+                assert_eq!(font(" = 120"), if bold { "serif bold" } else { "serif" });
             }
         }
     }
@@ -487,6 +484,168 @@ fn system_instruction_renders_framed_text_and_optional_metronome_together() {
         }
     }
 }
+fn instruction_ink(display: &DisplayList, eid: &str) -> BoundingBox {
+    display
+        .commands
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| display.element_ids[*index].as_deref() == Some(eid))
+        .filter_map(|(_, command)| match command {
+            RenderCommand::DrawText { .. } => {
+                crate::layout::render_annotations::substrate_obstacles::text_command_bbox(command)
+            }
+            _ => command.bbox(),
+        })
+        .reduce(|a, b| a.union(&b))
+        .unwrap()
+}
+
+#[test]
+fn system_instruction_clears_neighbouring_multimeasure_rest_ink() {
+    let source = json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}, "_x": {"viritura": {"systemText": [{
+                "id": "love-letter",
+                "text": [{"text": "Love Letter", "style": {
+                    "font": "serif", "size": 1.2, "weight": "bold"
+                }}],
+                "position": {"fraction": [0, 1]}, "placement": "above",
+                "tempo": {"bpm": 100, "value": {"base": "quarter"}}
+            }]}}},
+            {"key": {"fifths": 2}}, {}, {}, {}, {}, {}
+        ]},
+        "parts": [{"measures": (0..7).map(|_| json!({
+            "sequences": [{"content": [], "fullMeasure": {}}]
+        })).collect::<Vec<_>>()}]
+    });
+    let mut score = parse_mnx(&source.to_string()).unwrap();
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    let sp = config.sp;
+    let display = layout_score(&score, 0, &config);
+    let ink = instruction_ink(&display, "m0/systemText/love-letter");
+    let count = display
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == 0xE086 => command.bbox(),
+            _ => None,
+        })
+        .expect("six-bar multimeasure-rest count");
+    assert!(
+        ink.x < count.x + count.width && ink.x + ink.width > count.x,
+        "the instruction must reach the neighbouring count to exercise collision avoidance"
+    );
+    let gap = config
+        .placement
+        .resolve(ElementKind::Tempo)
+        .padding
+        .vertical
+        * sp;
+    assert!(
+        ink.y + ink.height <= count.y - gap + 0.01,
+        "combined instruction ink {ink:?} must clear neighbouring count {count:?}"
+    );
+
+    score.global.measures[0]
+        .extensions
+        .as_mut()
+        .unwrap()
+        .viritura
+        .as_mut()
+        .unwrap()
+        .system_text
+        .as_mut()
+        .unwrap()[0]
+        .avoid_collisions = Some(false);
+    let pinned = layout_score(&score, 0, &config);
+    let pinned_ink = instruction_ink(&pinned, "m0/systemText/love-letter");
+    assert!(
+        pinned_ink.y + pinned_ink.height > count.y,
+        "disabling avoidance must retain the authored placement"
+    );
+}
+
+#[test]
+fn system_instruction_clears_neighbouring_notes_and_rehearsal_frames() {
+    let config = LayoutConfig::default();
+    let gap = config
+        .placement
+        .resolve(ElementKind::Tempo)
+        .padding
+        .vertical
+        * config.sp;
+    for (show_text, metronome, framed) in [
+        (true, false, false),
+        (false, true, false),
+        (true, true, true),
+    ] {
+        let mut instruction = json!({
+            "id": "instruction", "text": [{"text": "Broadly, with great expression"}],
+            "position": {"fraction": [3, 4]}, "placement": "above", "showText": show_text
+        });
+        if metronome {
+            instruction["tempo"] = json!({"bpm": 100, "value": {"base": "quarter"}});
+        }
+        if framed {
+            instruction["frame"] = json!({"border": "solid", "padding": 0.5});
+        }
+        let mut source = json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [
+                {"time": {"count": 4, "unit": 4},
+                    "_x": {"viritura": {"systemText": [instruction]}}},
+                {"_x": {"viritura": {"rehearsalMark": {"text": "E"}}}}
+            ]},
+            "parts": [{"measures": [
+                {"sequences": [{"content": [], "fullMeasure": {}}]},
+                {"sequences": [{"content": [{
+                    "duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "C", "octave": 7}}]
+                }]}]}
+            ]}]
+        });
+        let display = layout_score(&parse_mnx(&source.to_string()).unwrap(), 0, &config);
+        let ink = instruction_ink(&display, "m0/systemText/instruction");
+        source["global"]["measures"][0]["_x"]["viritura"]["systemText"][0]["avoidCollisions"] =
+            json!(false);
+        let pinned = layout_score(&parse_mnx(&source.to_string()).unwrap(), 0, &config);
+        let pinned_ink = instruction_ink(&pinned, "m0/systemText/instruction");
+        let obstacles: Vec<_> = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| {
+                display.element_ids[*index]
+                    .as_deref()
+                    .is_some_and(|id| id.starts_with("p0/m1/") || id == "m1/rehearsal")
+            })
+            .filter_map(|(_, command)| command.bbox())
+            .filter(|bbox| bbox.y < config.margin_top * config.sp)
+            .collect();
+        assert!(
+            obstacles.iter().any(|bbox| {
+                pinned_ink.x < bbox.x + bbox.width
+                    && pinned_ink.x + pinned_ink.width > bbox.x
+                    && pinned_ink.y + pinned_ink.height > bbox.y
+            }),
+            "the pinned instruction must need clearance from neighbouring ink"
+        );
+        for obstacle in obstacles {
+            if ink.x < obstacle.x + obstacle.width && ink.x + ink.width > obstacle.x {
+                assert!(
+                    ink.y + ink.height <= obstacle.y - gap + 0.01,
+                    "instruction {ink:?} must clear obstacle {obstacle:?} \
+                     (show_text={show_text}, metronome={metronome}, framed={framed})"
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn test_chord_symbols_render_text() {
     let json = std::fs::read_to_string(concat!(
@@ -2178,6 +2337,99 @@ fn test_expression_rank_below_tempo() {
     assert!(
         expr < tempo,
         "expression rank ({expr}) must sit below tempo rank ({tempo}) so tempo rises above it"
+    );
+}
+
+#[test]
+fn equal_tempo_and_expression_ranks_preserve_expression_stacking() {
+    use crate::layout::render_annotations::flow_above_staff_dependents;
+
+    let settle = |tempo_rank| {
+        let mut placement = PlacementTable::default();
+        placement.merge_json(&json!({"tempo": {"stackRank": tempo_rank}}));
+        let mut dl = DisplayList::new(400.0, 400.0);
+        for (index, y) in [80.0, 70.0].into_iter().enumerate() {
+            dl.push_tagged(
+                RenderCommand::DrawText {
+                    x: 20.0,
+                    y,
+                    text: format!("expression {index}"),
+                    size: 20.0,
+                    font: "serif".to_string(),
+                    align: TextAlign::Left,
+                    baseline: TextBaseline::Alphabetic,
+                    color: "#000000".to_string(),
+                },
+                format!("p0/m0/expr{index}"),
+            );
+        }
+        flow_above_staff_dependents(&mut dl, 0, 0, &[], &placement, 100.0, 12.0);
+        dl.commands
+            .iter()
+            .map(|cmd| match cmd {
+                RenderCommand::DrawText { x, y, .. } => (*x, *y),
+                _ => panic!("expected expression text"),
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let table = PlacementTable::default();
+    let expression_rank = table.resolve(ElementKind::Expression).stack_rank;
+    let tempo_rank = table.resolve(ElementKind::Tempo).stack_rank;
+    let expected = settle(tempo_rank);
+    assert!(
+        expected[1].1 < 70.0,
+        "expressions must stack when they overlap"
+    );
+    assert_eq!(
+        settle(expression_rank),
+        expected,
+        "the tempo's rank must not change expression collision behavior"
+    );
+}
+
+#[test]
+fn equal_tempo_and_expression_ranks_preserve_tempo_rehearsal_clearance() {
+    use crate::layout::render_annotations::flow_above_staff_dependents;
+
+    let settle = |expression_rank| {
+        let mut placement = PlacementTable::default();
+        placement.merge_json(&json!({"expression": {"stackRank": expression_rank}}));
+        let mut dl = DisplayList::new(400.0, 400.0);
+        for (id, text, y) in [("m0/tempo0", "Allegro", 80.0), ("m0/rehearsal", "A", 70.0)] {
+            dl.push_tagged(
+                RenderCommand::DrawText {
+                    x: 20.0,
+                    y,
+                    text: text.to_string(),
+                    size: 20.0,
+                    font: "serif".to_string(),
+                    align: TextAlign::Left,
+                    baseline: TextBaseline::Alphabetic,
+                    color: "#000000".to_string(),
+                },
+                id.to_string(),
+            );
+        }
+        flow_above_staff_dependents(&mut dl, 0, 0, &[], &placement, 100.0, 12.0);
+        dl.commands
+            .iter()
+            .map(|cmd| match cmd {
+                RenderCommand::DrawText { x, y, .. } => (*x, *y),
+                _ => panic!("expected marking text"),
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let table = PlacementTable::default();
+    let expression_rank = table.resolve(ElementKind::Expression).stack_rank;
+    let tempo_rank = table.resolve(ElementKind::Tempo).stack_rank;
+    let expected = settle(expression_rank);
+    assert!(expected[0].1 < 80.0, "tempo must clear the rehearsal mark");
+    assert_eq!(
+        settle(tempo_rank),
+        expected,
+        "the expression's rank must not change tempo collision behavior"
     );
 }
 
