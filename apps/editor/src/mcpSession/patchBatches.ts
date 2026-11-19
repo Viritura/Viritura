@@ -1,14 +1,14 @@
 import { applyPatchesToScore, type Score, type ScorePatch } from "@viritura/core";
+import { patchesStillApplicable, type PatchBase } from "./patchRevisions";
 
 const MAX_BATCH_PATCHES = 4096;
 const MAX_OPEN_BATCHES = 8;
 
 interface PatchBatch {
   readonly baseRevision: string;
+  readonly base: PatchBase;
   readonly patches: readonly ScorePatch[];
   readonly chunkCount: number;
-  /** Base score with every accepted batch part applied, so later parts can target earlier results. */
-  readonly shadow: Score;
 }
 
 type AppendResult =
@@ -18,24 +18,31 @@ type AppendResult =
 const batches = new Map<string, PatchBatch>();
 
 /**
- * Validate `patches` on top of the batch's accumulated shadow score and append
- * them. An invalid part throws and leaves the batch unchanged so the caller can
- * correct and resend it.
+ * Replay accumulated patches against the latest compatible score, so later
+ * chunks can target earlier results without dropping unrelated concurrent edits.
+ * An invalid chunk throws and leaves the batch unchanged.
  */
 export function appendPatchBatch(
   batchId: string,
   baseScore: Score,
-  baseRevision: string,
+  currentRevision: string,
+  documentIdentity: string,
   patches: readonly ScorePatch[],
   retain: boolean,
 ): AppendResult {
   const existing = batches.get(batchId);
-  if (existing && existing.baseRevision !== baseRevision) {
+  const combined = [...(existing?.patches ?? []), ...patches];
+  if (
+    existing &&
+    (existing.base.documentIdentity !== documentIdentity ||
+      (existing.baseRevision !== currentRevision &&
+        !patchesStillApplicable(existing.base, baseScore, documentIdentity, combined)))
+  ) {
     batches.delete(batchId);
     return {
       ok: false,
       code: "batch_stale",
-      message: `Batch ${batchId} was discarded because the score changed. Re-read the score and resend every batch.`,
+      message: `Batch ${batchId} was discarded because its score area changed. Re-read the score and resend every batch.`,
     };
   }
   if (!existing && batches.size >= MAX_OPEN_BATCHES) {
@@ -56,17 +63,22 @@ export function appendPatchBatch(
   }
 
   // Clone first: applying patches can mutate patch-owned objects inserted into the draft.
-  const shadow = applyPatchesToScore(existing?.shadow ?? baseScore, structuredClone(patches));
-  const combined = [...priorPatches, ...patches];
+  applyPatchesToScore(baseScore, structuredClone(combined));
   if (retain) {
-    batches.set(batchId, { baseRevision, patches: combined, shadow, chunkCount: (existing?.chunkCount ?? 0) + 1 });
+    batches.set(batchId, {
+      baseRevision: existing?.baseRevision ?? currentRevision,
+      base: existing?.base ?? { score: structuredClone(baseScore), documentIdentity },
+      patches: combined,
+      chunkCount: (existing?.chunkCount ?? 0) + 1,
+    });
   }
   return { ok: true, patches: combined };
 }
 
 export function getPatchBatch(
   batchId: string,
-  currentRevision: string,
+  score: Score | null,
+  documentIdentity: string,
 ): {
   batchId: string;
   status: "batching" | "stale";
@@ -78,7 +90,7 @@ export function getPatchBatch(
   if (!batch) return null;
   return {
     batchId,
-    status: batch.baseRevision === currentRevision ? "batching" : "stale",
+    status: score && patchesStillApplicable(batch.base, score, documentIdentity, batch.patches) ? "batching" : "stale",
     baseRevision: batch.baseRevision,
     patchCount: batch.patches.length,
     chunkCount: batch.chunkCount,

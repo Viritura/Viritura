@@ -3,6 +3,7 @@ import type { ScorePatch } from "@viritura/core";
 import type { StructuralDiffSummary } from "./documentSummary";
 import { clearPatchBatches } from "./patchBatches";
 import { clearIdempotentRequests } from "./idempotentRequests";
+import { clearPatchRevisions, type PatchBase } from "./patchRevisions";
 
 type McpConnectionStatus = "idle" | "registering" | "waiting" | "connected" | "error";
 type McpProposalStatus = "pending" | "accepted" | "rejected" | "stale";
@@ -23,6 +24,8 @@ export interface McpProposal {
   readonly patches: readonly ScorePatch[];
   readonly originalMnx: string;
   readonly originalRevision: string;
+  /** Preconditions for measure-scoped patch acceptance across unrelated edits. */
+  readonly patchBase?: PatchBase;
   /** Whole-document diff payload for small scores; large scores use patch review. */
   readonly proposedMnx: string | null;
   /** Full repaired document when a repair cannot be addressed by part ID. */
@@ -74,6 +77,7 @@ export const useMcpSessionStore = create<McpSessionState>((set) => ({
   stop: () => {
     clearPatchBatches();
     clearIdempotentRequests();
+    clearPatchRevisions();
     set({ desired: false, autoAccept: false });
   },
   setAutoAccept: (autoAccept) => set((state) => (state.desired ? { autoAccept } : state)),
@@ -86,6 +90,7 @@ export const useMcpSessionStore = create<McpSessionState>((set) => ({
   clear: () => {
     clearPatchBatches();
     clearIdempotentRequests();
+    clearPatchRevisions();
     set({ status: "idle", registration: null, clientName: null, error: null, proposals: {} });
   },
   addProposal: (proposal) => set((state) => ({ proposals: { ...state.proposals, [proposal.id]: proposal } })),
