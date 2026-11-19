@@ -96,7 +96,7 @@ pub(super) fn append_instructions(
     let Some(authored) = part.measures.get(measure_index) else {
         return;
     };
-    for change in ordered_instrument_changes(authored) {
+    for (change_index, change) in ordered_instrument_changes(authored).into_iter().enumerate() {
         if change
             .instruction
             .as_ref()
@@ -119,10 +119,11 @@ pub(super) fn append_instructions(
                 .unwrap_or(RhythmicPosition { fraction: (0, 1) }),
             source_part_index,
             false,
+            super::element_id::instrument_change(source_part_index, measure_index, change_index),
         );
     }
-    for (change_index, authored) in part.measures.iter().enumerate() {
-        for change in ordered_instrument_changes(authored) {
+    for (change_measure, authored) in part.measures.iter().enumerate() {
+        for (change_index, change) in ordered_instrument_changes(authored).into_iter().enumerate() {
             if change
                 .reminder
                 .as_ref()
@@ -132,7 +133,7 @@ pub(super) fn append_instructions(
                 continue;
             }
             let Some((anchor_index, position, staff)) =
-                reminders::anchor(score, part, change_index, change)
+                reminders::anchor(score, part, change_measure, change)
             else {
                 continue;
             };
@@ -141,9 +142,20 @@ pub(super) fn append_instructions(
                     .reminder
                     .as_ref()
                     .and_then(|reminder| reminder.text.clone())
-                    .unwrap_or_else(|| derived_reminder(part, change_index, change));
+                    .unwrap_or_else(|| derived_reminder(part, change_measure, change));
                 if !text.is_empty() {
-                    append_expression(measure, text, position, source_part_index, true);
+                    append_expression(
+                        measure,
+                        text,
+                        position,
+                        source_part_index,
+                        true,
+                        super::element_id::instrument_change_reminder(
+                            source_part_index,
+                            change_measure,
+                            change_index,
+                        ),
+                    );
                     if let Some(expression) =
                         measure.expressions.as_mut().and_then(|e| e.last_mut())
                     {
@@ -161,6 +173,7 @@ pub(super) fn append_instructions(
                 RhythmicPosition { fraction: (0, 1) },
                 source_part_index,
                 false,
+                super::element_id::initial_instrument_label(source_part_index),
             );
         }
     }
@@ -172,6 +185,7 @@ fn append_expression(
     position: RhythmicPosition,
     source_part_index: usize,
     instrument_reminder: bool,
+    id: String,
 ) {
     if !text.is_empty() {
         measure
@@ -179,7 +193,7 @@ fn append_expression(
             .get_or_insert_with(Vec::new)
             .push(TextExpression {
                 text: text.into(),
-                id: None,
+                id: Some(id),
                 text_type: crate::model::PositionedTextType::Expression,
                 position,
                 placement: Some(ExpressionPlacement::Above),

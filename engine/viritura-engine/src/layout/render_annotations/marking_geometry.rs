@@ -12,10 +12,11 @@ pub(super) fn framed_expression_is_pinned(measures: &[MeasureLayout], eid: &str)
                 expressions.iter().enumerate().any(|(index, expression)| {
                     expression.frame.is_some()
                         && expression.avoid_collisions == Some(false)
-                        && element_id::expression(
-                            expression.source_part_index.unwrap_or(ml.part_index),
+                        && element_id::text_expression(
+                            expression,
+                            ml.part_index,
                             ml.resolved.index,
-                            expression.source_expression_index.unwrap_or(index),
+                            index,
                         ) == eid
                 })
             })

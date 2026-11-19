@@ -111,13 +111,7 @@ pub(crate) fn render_text_expressions(
         .map(|(index, expression)| {
             (
                 expression.clone(),
-                expression.id.clone().unwrap_or_else(|| {
-                    element_id::expression(
-                        expression.source_part_index.unwrap_or(pi),
-                        mi,
-                        expression.source_expression_index.unwrap_or(index),
-                    )
-                }),
+                element_id::text_expression(expression, pi, mi, index),
             )
         })
         .collect();

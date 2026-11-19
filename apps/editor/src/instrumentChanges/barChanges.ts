@@ -186,3 +186,26 @@ export function removeBarInstrumentChange(score: Score, target: BarInstrumentTar
   }
   return { score: next };
 }
+
+const CHANGE_LABEL_ID = /^p(\d+)\/m(\d+)\/expr-inst(change|reminder)\d+$/;
+
+/**
+ * Deletes what a rendered instrument-change label names: the change label removes
+ * the change itself; an advance reminder ("To Flute") hides only that reminder.
+ */
+export function deleteInstrumentChangeByElementId(score: Score, elementId: string): Score | null {
+  const match = CHANGE_LABEL_ID.exec(elementId);
+  if (!match) return null;
+  const target = { partIndex: Number(match[1]), measureIndex: Number(match[2]) };
+  if (match[3] === "change") {
+    const result = removeBarInstrumentChange(score, target);
+    return result.error ? null : result.score;
+  }
+  const part = score.parts[target.partIndex];
+  const change = part ? barStartChange(part, target.measureIndex) : undefined;
+  if (!change || change.reminder?.hidden) return null;
+  const next = structuredClone(score);
+  const nextChange = barStartChange(next.parts[target.partIndex]!, target.measureIndex)!;
+  nextChange.reminder = { ...nextChange.reminder, hidden: true };
+  return next;
+}

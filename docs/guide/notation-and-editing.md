@@ -321,6 +321,10 @@ transposition. The dialog can customize the tuning and set the printed label
 and an advance reminder. House style controls whether these labels appear; see
 [Engraving & Layout](/docs/engraving-and-layout).
 
+To remove an instrument change, click its label in the score and press
+**Delete**; the player returns to the previous instrument. Deleting an advance
+reminder (such as "To Flute") hides only that reminder and keeps the change.
+
 ## Inspector
 
 The **Properties** tab in the left panel changes properties of the selected

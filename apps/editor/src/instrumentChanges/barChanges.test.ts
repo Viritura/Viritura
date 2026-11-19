@@ -6,6 +6,7 @@ import { createPlayer } from "../score/InstrumentCatalog";
 import { changeInstrumentInScore } from "../score/changeInstrument";
 import {
   barStartChange,
+  deleteInstrumentChangeByElementId,
   removeBarInstrumentChange,
   resolveBarInstrumentTarget,
   setBarInstrument,
@@ -159,6 +160,18 @@ describe("bar instrument changes", () => {
       { clef: { sign: "G", staffPosition: -2 } },
       { position: { fraction: [1, 2] }, clef: { sign: "C", staffPosition: 0 } },
     ]);
+  });
+
+  it("deletes a selected change label but only hides a selected advance reminder", () => {
+    const target = { partIndex: 0, measureIndex: 1 };
+    const changed = setBarInstrument(scoreFor(), target, "wind.reed.oboe", undefined, { text: "To oboe" }).score;
+    const hidden = deleteInstrumentChangeByElementId(changed, "p0/m1/expr-instreminder0");
+    expect(barStartChange(hidden!.parts[0]!, 1)).toMatchObject({ reminder: { text: "To oboe", hidden: true } });
+    expect(deleteInstrumentChangeByElementId(hidden!, "p0/m1/expr-instreminder0")).toBeNull();
+    const removed = deleteInstrumentChangeByElementId(changed, "p0/m1/expr-instchange0");
+    expect(removed!.parts[0]!.measures[1]!.instrumentChanges).toBeUndefined();
+    expect(deleteInstrumentChangeByElementId(changed, "p0/m0/expr-instinitial")).toBeNull();
+    expect(barStartChange(changed.parts[0]!, 1)?.reminder).toEqual({ text: "To oboe" });
   });
 
   it("blocks unsafe staff-count and percussion-map changes without modifying the score", () => {

@@ -1121,3 +1121,33 @@ fn instrument_changes_cached_reminder_edits_and_release_moves_match_fresh_layout
         serde_json::to_value(layout_with_mnx_scores(&score, &config, 0)).unwrap()
     );
 }
+
+#[test]
+fn instrument_changes_labels_have_ids_distinct_from_authored_expressions() {
+    let mut value = document();
+    sounding_then_rest(&mut value, 0);
+    set_reminder(&mut value, 1, json!({}), json!({}));
+    value["parts"][0]["measures"][1]["text"] = json!([{
+        "type":"expression", "text":[{"text":"dolce"}], "position":{"fraction":[0,1]}
+    }]);
+    let score = parse(&value);
+    for display in [
+        layout_score(&score, 0, &LayoutConfig::default()),
+        layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+    ] {
+        let id_of = |wanted: &str| {
+            display.commands.iter().zip(&display.element_ids).find_map(
+                |(command, id)| match command {
+                    RenderCommand::DrawText { text, .. } if text == wanted => id.clone(),
+                    _ => None,
+                },
+            )
+        };
+        assert_eq!(id_of("Fl. in C").as_deref(), Some("p0/m1/expr-instchange0"));
+        assert_eq!(
+            id_of("To Fl. in C").as_deref(),
+            Some("p0/m1/expr-instreminder0")
+        );
+        assert_eq!(id_of("dolce").as_deref(), Some("p0/m1/expr0"));
+    }
+}

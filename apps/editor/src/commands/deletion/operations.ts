@@ -24,6 +24,7 @@ import {
 import { cloneScore } from "../../score/scoreClone";
 import { deleteTextFrameInScore, textFrameIdFromElementId, textFramesForScore } from "../../score/textFrameMutations";
 import { removeTuplet } from "../tupletCommands";
+import { deleteInstrumentChangeByElementId } from "../../instrumentChanges";
 import type { DeletionContext, DeletionOperation, DeletionTarget, DeletionTargetKind } from "./types";
 import { deleteClefByElementId, deleteSlurByElementId, deleteTieByElementId } from "./structuralTargets";
 import { removeEventOrnament, removeFermata } from "./eventLeaves";
@@ -161,6 +162,7 @@ export const deletionOperations: Record<DeletionTargetKind, DeletionOperation> =
   slur: connector(deleteSlurByElementId),
   tie: connector(deleteTieByElementId),
   clef: { kind: "leaf", remove: deleteClefByElementId },
+  "instrument-change": { kind: "leaf", remove: deleteInstrumentChangeByElementId },
   fingering: unsupported("Individual fingering deletion is not implemented."),
   tremolo: unsupported("Delete the participating events or edit tremolo properties instead."),
   breath: unsupported("Breath deletion is not implemented."),

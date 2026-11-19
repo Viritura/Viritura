@@ -201,6 +201,16 @@ const cases: CoverageCase[] = [
   { kind: "coda", id: "m1/coda", present: (s) => s.global.measures[1]!.coda !== undefined },
   { kind: "fine", id: "m1/fine", present: (s) => s.global.measures[1]!.fine !== undefined },
   { kind: "clef", id: "p0/m1/clef", present: (s) => Boolean(s.parts[0]!.measures[1]!.clefs?.length) },
+  {
+    kind: "instrument-change",
+    id: "p0/m1/expr-instchange0",
+    prepare: (s) => {
+      s.parts[0]!.measures[1]!.instrumentChanges = [
+        { transposition: { interval: { halfSteps: -2, staffDistance: -1 } } },
+      ];
+    },
+    present: (s) => s.parts[0]!.measures[1]!.instrumentChanges !== undefined,
+  },
   { kind: "key-signature", id: "p0/m1/key", present: (s) => s.global.measures[1]!.key !== undefined },
   { kind: "time-signature", id: "m1/time", present: (s) => s.global.measures[1]!.time !== undefined },
   {
