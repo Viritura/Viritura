@@ -12,6 +12,7 @@
  * metadata) are not recoverable here and are returned to the caller.
  */
 
+import { migrateLegacyTextContent } from "./legacyTextContent";
 import { validateRawScore, type RawScoreValidationError, type RawScoreValidationResult } from "./validator";
 
 /** One sequence emptied because it failed validation. */
@@ -208,7 +209,8 @@ function pruneDiscarded(document: JsonObject, discarded: ReadonlySet<string>): v
 }
 
 /**
- * Validate `json` and empty every sequence that contains a validation error.
+ * Migrate legacy text, then validate `json` and empty every sequence that
+ * contains a validation error.
  * Repeats until the document validates or only non-sequence errors remain.
  * The input is never mutated.
  */
@@ -216,10 +218,11 @@ export function recoverInvalidSequences(
   json: unknown,
   options: RecoverInvalidSequencesOptions = {},
 ): SequenceRecoveryResult {
-  const initial = validateRawScore(json);
-  if (initial.ok || !asObject(json)) return { document: json, recovered: [], validation: initial };
+  const migrated = migrateLegacyTextContent(json);
+  const initial = validateRawScore(migrated);
+  if (initial.ok || !asObject(migrated)) return { document: migrated, recovered: [], validation: initial };
 
-  const document = structuredClone(json) as JsonObject;
+  const document = structuredClone(migrated) as JsonObject;
   const prefix = options.logIdPrefix ?? "E";
   const recovered: RecoveredSequence[] = [];
   const emptied = new Set<string>();
@@ -238,7 +241,7 @@ export function recoverInvalidSequences(
     validation = validateRawScore(document);
   }
 
-  if (recovered.length === 0) return { document: json, recovered, validation };
+  if (recovered.length === 0) return { document: migrated, recovered, validation };
 
   if (validation.ok && options.annotate !== false) {
     const annotated = structuredClone(document);

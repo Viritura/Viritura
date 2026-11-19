@@ -120,13 +120,13 @@ export function plainOf(content: TextContent): string {
  * vendor `text-content` shape, inline formatting moves under `_x.viritura` and
  * glyph runs carry `type: "smufl"`.
  */
-export function nativeFormattedText(content: TextContent): MnxFormattedTextChunk[] {
+export function nativeFormattedText(content: TextContent, vendorExt: boolean): MnxFormattedTextChunk[] {
   return content.map((chunk) => {
     const native: MnxFormattedTextChunk =
       "text" in chunk ? { text: chunk.text } : { type: "smufl", glyphs: chunk.glyphs };
     const viritura: { style?: TextRunStyle; smuflStyle?: TextRunStyle } = {};
-    if (chunk.style) viritura.style = chunk.style;
-    if ("glyphs" in chunk && chunk.smuflStyle) viritura.smuflStyle = chunk.smuflStyle;
+    if (vendorExt && chunk.style) viritura.style = chunk.style;
+    if (vendorExt && "glyphs" in chunk && chunk.smuflStyle) viritura.smuflStyle = chunk.smuflStyle;
     if (Object.keys(viritura).length > 0) native._x = { viritura };
     return native;
   });

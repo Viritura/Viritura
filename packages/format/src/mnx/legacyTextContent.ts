@@ -69,18 +69,23 @@ function isVendorShapedChunk(chunk: Obj): boolean {
 }
 
 function nativizeChunk(chunk: Obj): void {
-  if (Array.isArray(chunk["glyphs"]) && chunk["type"] === undefined) chunk["type"] = "smufl";
   const moved: Obj = {};
+  const hasStyle = VENDOR_CHUNK_KEYS.some((key) => key in chunk);
+  const x = asObj(chunk["_x"]);
+  const viritura = asObj(x?.["viritura"]);
+  if (hasStyle) {
+    if ("_x" in chunk && !x) return;
+    if (x && "viritura" in x && !viritura) return;
+    if (viritura && VENDOR_CHUNK_KEYS.some((key) => key in chunk && key in viritura)) return;
+  }
+  if (Array.isArray(chunk["glyphs"]) && chunk["type"] === undefined) chunk["type"] = "smufl";
   for (const key of VENDOR_CHUNK_KEYS) {
     if (!(key in chunk)) continue;
     moved[key] = chunk[key];
     delete chunk[key];
   }
   if (Object.keys(moved).length === 0) return;
-  const x = asObj(chunk["_x"]) ?? {};
-  // An explicit vendor value wins over the misplaced top-level copy.
-  x["viritura"] = { ...moved, ...asObj(x["viritura"]) };
-  chunk["_x"] = x;
+  chunk["_x"] = { ...x, viritura: { ...viritura, ...moved } };
 }
 
 function needsUpgrade(doc: Obj): boolean {

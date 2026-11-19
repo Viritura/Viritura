@@ -220,6 +220,7 @@ export function buildParts(
   const lyricLineIds = new Set<string>();
   const lyricMetadataCandidates = new Map<string, LyricMetadataCandidates>();
   const systemTextOrigins = new Map<number, Map<string, Set<number>>>();
+  let reportedTextFormattingLoss = false;
   const openSlurs = new Map<string, SlurState>();
   const openGlissandos = new Map<string, GlissandoState>();
   // Tie pairing persists across measures so ties spanning a barline resolve.
@@ -572,9 +573,21 @@ export function buildParts(
       const pedals = pedalsByMeasure.get(mi);
       const measure = mnxPart.measures[mi]!;
       if (exprs) {
+        if (
+          !vendorExt &&
+          !reportedTextFormattingLoss &&
+          exprs.some((expression) => expression.text.some((chunk) => chunk.style))
+        ) {
+          flags.diagnostics?.warn(
+            "/direction/words",
+            "Text formatting dropped — enable Viritura extensions to preserve it",
+            "musicxml-text-formatting",
+          );
+          reportedTextFormattingLoss = true;
+        }
         measure.text = exprs.map((expression) => ({
           ...expression,
-          text: nativeFormattedText(expression.text),
+          text: nativeFormattedText(expression.text, vendorExt),
           type: "expression",
         }));
       }

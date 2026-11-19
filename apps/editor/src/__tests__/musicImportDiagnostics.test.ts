@@ -31,6 +31,38 @@ afterEach(() => {
 });
 
 describe.each(["musicxml", "xml", "mxl"])("%s source diagnostic propagation", (extension) => {
+  it.each([true, false])("imports schema-valid formatted text with vendor extensions %s", async (enabled) => {
+    useImportSettingsStore.setState({ includeVendorExtensions: enabled });
+    const result = await convertImportedMusicFile(
+      await sourceFile(
+        score(`
+        <direction><direction-type>
+          <words font-style="italic">dolce </words><symbol>dynamicPiano</symbol>
+        </direction-type></direction>
+      `),
+        extension,
+      ),
+    );
+    const json: unknown = JSON.parse(result.mnxJson);
+    expect(validateRawScore(json)).toMatchObject({ ok: true });
+    if (enabled) {
+      expect(result.importDiagnostics).toBeUndefined();
+    } else {
+      expect(result.importDiagnostics).toEqual([
+        expect.objectContaining({ severity: "warning", code: "musicxml-text-formatting" }),
+      ]);
+    }
+    const imported = parseMnx(json);
+    const text = imported.parts[0]!.measures[0]!.expressions![0]!.text;
+    expect(text).toEqual([
+      enabled ? { text: "dolce ", style: { fontStyle: "italic" } } : { text: "dolce " },
+      { glyphs: ["dynamicPiano"] },
+    ]);
+    const saved = serializeMnx(imported);
+    expect(validateRawScore(saved)).toMatchObject({ ok: true });
+    expect(parseMnx(saved).parts[0]!.measures[0]!.expressions![0]!.text).toEqual(text);
+  });
+
   it("preserves explicit tempo swing and BPM-free anchors through import and save/load", async () => {
     const result = await convertImportedMusicFile(
       await sourceFile(

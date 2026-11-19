@@ -145,6 +145,35 @@ describe("recoverInvalidSequences", () => {
     ]);
   });
 
+  it.each(["semantic", "schema"])("migrates text before recovering %s sequence errors", (kind) => {
+    const score = twoVoiceScore();
+    const measure = score.parts[0]!.measures[0]!;
+    measure.text = [{ type: "expression", text: [{ text: "dolce", style: { fontStyle: "italic" } }] }];
+    if (kind === "schema") measure.sequences[0]!.content[0]!["inner"] = { duration: { base: "invalid" }, multiple: 3 };
+    const original = structuredClone(score);
+
+    const result = recoverInvalidSequences(score);
+    const recovered = result.document as TestScore;
+    expect(score).toEqual(original);
+    expect(result.validation.ok).toBe(true);
+    expect(result.recovered).toHaveLength(1);
+    expect(recovered.parts[0]!.measures[0]!.sequences[0]!.content).toEqual([]);
+    expect(recovered.parts[0]!.measures[0]!.text).toEqual([
+      { type: "expression", text: [{ text: "dolce", _x: { viritura: { style: { fontStyle: "italic" } } } }] },
+      {
+        type: "expression",
+        text: [{ text: "Import error E1" }],
+        position: { fraction: [0, 1] },
+        placement: "above",
+        staff: 1,
+        voice: "v1",
+      },
+    ]);
+    expect(parseMnx(recovered).parts[0]!.measures[0]!.expressions?.[0]?.text).toEqual([
+      { text: "dolce", style: { fontStyle: "italic" } },
+    ]);
+  });
+
   it("leaves errors outside sequences unrecovered", () => {
     const score = twoVoiceScore() as unknown as Record<string, unknown>;
     delete score["mnx"];
