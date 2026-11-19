@@ -197,6 +197,7 @@ pub(crate) fn collect_fixed_above_ink_boxes(
             let id = element_ids.get(index).and_then(|id| id.as_deref());
             if id.is_some_and(|id| {
                 id.contains("/tempo")
+                    || id.contains("/systemText/")
                     || id.contains("/expr")
                     || id.contains("/rehearsal")
                     || id.contains("/tuplet")

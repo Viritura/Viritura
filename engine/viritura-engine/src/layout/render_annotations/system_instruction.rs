@@ -1,7 +1,29 @@
-use crate::model::{GlyphRun, SystemText, TextContent, TextContentChunk, TextRun, TextRunStyle};
+use crate::model::{
+    GlyphRun, SystemText, TextContent, TextContentChunk, TextRun, TextRunStyle, TextWeight,
+    TextWeightName,
+};
 use crate::render::smufl::smufl;
 
-pub(super) fn display_content(instruction: &SystemText) -> TextContent {
+pub(super) fn source_text<'a>(
+    measures: &'a [crate::layout::types::MeasureLayout],
+    eid: &str,
+) -> Option<&'a SystemText> {
+    let (measure, id) = eid.split_once("/systemText/")?;
+    let measure: usize = measure.strip_prefix('m')?.parse().ok()?;
+    measures
+        .iter()
+        .find(|ml| ml.resolved.index == measure)?
+        .resolved
+        .global
+        .system_text()?
+        .iter()
+        .find(|text| text.id == id)
+}
+
+/// Builds the drawn content of a system instruction. The appended metronome
+/// mark follows the score's Tempo text weight, matching standalone tempo
+/// markings, independently of the authored words' styling.
+pub(super) fn display_content(instruction: &SystemText, metronome_bold: bool) -> TextContent {
     let mut content = if instruction.show_text == Some(false) {
         TextContent::default()
     } else {
@@ -20,10 +42,20 @@ pub(super) fn display_content(instruction: &SystemText) -> TextContent {
         TextContentChunk::Text(run) => !run.text.is_empty(),
         TextContentChunk::Glyph(run) => !run.glyphs.is_empty(),
     });
+    let metronome_style = || {
+        Some(TextRunStyle {
+            weight: Some(TextWeight::Named(if metronome_bold {
+                TextWeightName::Bold
+            } else {
+                TextWeightName::Normal
+            })),
+            ..Default::default()
+        })
+    };
     if has_text {
         content.0.push(TextContentChunk::Text(TextRun {
             text: " (".into(),
-            style: None,
+            style: metronome_style(),
         }));
     }
     let name = match smufl::metronome_note_glyph(&value.base) {
@@ -48,7 +80,7 @@ pub(super) fn display_content(instruction: &SystemText) -> TextContent {
     }));
     content.0.push(TextContentChunk::Text(TextRun {
         text: format!(" = {bpm}{}", if has_text { ")" } else { "" }),
-        style: None,
+        style: metronome_style(),
     }));
     content
 }
