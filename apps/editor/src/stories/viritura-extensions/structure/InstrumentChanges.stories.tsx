@@ -84,6 +84,113 @@ export const AutomaticDoublingLabelsAndReminders: StoryObj = {
   render: () => <ScorePreview mnxJson={automaticDoublingReminders()} />,
 };
 
+export const PiccoloFluteDoubling: StoryObj = {
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1 },
+        global: { measures: [{ time: { count: 4, unit: 4 } }, {}, {}] },
+        scores: [{ name: "Piccolo and flute", useWritten: true }],
+        parts: [
+          {
+            name: "Piccolo",
+            shortName: "Picc.",
+            transposition: { interval: { halfSteps: -12, staffDistance: -7 } },
+            _x: {
+              viritura: {
+                initialInstrument: "picc",
+                instruments: {
+                  picc: {
+                    instrumentId: "wind.flutes.flute.piccolo",
+                    name: "Piccolo",
+                    shortName: "Picc.",
+                    transposition: { interval: { halfSteps: -12, staffDistance: -7 } },
+                  },
+                  fl: { instrumentId: "wind.flutes.flute", name: "Flute", shortName: "Fl." },
+                },
+              },
+            },
+            measures: Array.from({ length: 3 }, (_, index) => ({
+              ...(index > 0
+                ? { _x: { viritura: { instrumentChanges: [{ instrument: index === 1 ? "fl" : "picc" }] } } }
+                : {}),
+              sequences: [
+                {
+                  content: [
+                    { duration: { base: "half" }, notes: [{ pitch: { step: "C", octave: 5 } }] },
+                    { duration: { base: "half" }, rest: {} },
+                  ],
+                },
+              ],
+            })),
+          },
+        ],
+      })}
+    />
+  ),
+};
+
+export const SaxophoneChangeAtBlue: StoryObj = {
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            { id: "m0", time: { count: 4, unit: 4 } },
+            { id: "m1", _x: { viritura: { rehearsalMark: { text: [{ text: "I" }], style: "boxed" } } } },
+            {},
+            { tempos: [{ bpm: 135, value: { base: "quarter" }, _x: { viritura: { text: [{ text: "Blue" }] } } }] },
+          ],
+        },
+        scores: [{ name: "Clarinet doubling alto saxophone", multimeasureRests: [{ start: "m1", duration: 2 }] }],
+        parts: [
+          {
+            name: "Clarinet",
+            shortName: "Cl.",
+            _x: {
+              viritura: {
+                initialInstrument: "clarinet",
+                instruments: {
+                  clarinet: { instrumentId: "wind.reed.clarinet", name: "Clarinet", shortName: "Cl." },
+                  sax: {
+                    instrumentId: "wind.reed.saxophone.alto",
+                    name: "Alto Saxophone",
+                    shortName: "A. Sax.",
+                    transposition: { interval: { halfSteps: 9, staffDistance: 5 } },
+                  },
+                },
+              },
+            },
+            measures: [
+              {
+                sequences: [
+                  {
+                    content: [
+                      { duration: { base: "half", dots: 1 }, rest: {} },
+                      { duration: { base: "eighth" }, notes: [{ pitch: { step: "C", octave: 5 } }] },
+                      { duration: { base: "eighth" }, rest: {} },
+                    ],
+                  },
+                ],
+              },
+              ...Array.from({ length: 2 }, () => ({
+                sequences: [{ content: [], fullMeasure: { visualDuration: { base: "whole" } } }],
+              })),
+              {
+                _x: { viritura: { instrumentChanges: [{ instrument: "sax" }] } },
+                sequences: [
+                  { content: [{ duration: { base: "whole" }, notes: [{ pitch: { step: "C", octave: 5 } }] }] },
+                ],
+              },
+            ],
+          },
+        ],
+      })}
+    />
+  ),
+};
+
 function condensedDoublingScore(): string {
   const score = JSON.parse(doublingScore(true)) as {
     parts: {

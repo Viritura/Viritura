@@ -100,8 +100,8 @@ fn instrument_changes_resolve_defaults_overrides_and_sounding_invariance() {
     );
     assert_eq!(resolved[1].prev_key.fifths, 2);
     let display = layout_score(&score, 0, &LayoutConfig::default());
-    assert!(texts(&display).contains(&"Fl."));
-    assert!(texts(&display).contains(&"Fl. in F"));
+    assert!(texts(&display).contains(&"Flute"));
+    assert!(texts(&display).contains(&"Flute in F"));
     assert_eq!(glyph_count(&display, smufl::ACCIDENTAL_NATURAL), 2);
     assert_eq!(serde_json::to_value(&score.parts[0]).unwrap(), before);
     assert_eq!(
@@ -166,29 +166,34 @@ fn instrument_changes_switch_labels_omit_tuning_for_distinct_instruments() {
             json!({"instrumentId":"wind.reed.oboe","name":"Oboe","shortName":"Ob.","transposition":interval(0,0)}),
             json!({"instrumentId":"wind.reed.english-horn","name":"English Horn","shortName":"E.Hn.","transposition":interval(7,4)}),
             "E.Hn.",
+            "English Horn",
         ),
         (
             json!({"instrumentId":"wind.reed.english-horn","name":"English Horn","shortName":"E.Hn.","transposition":interval(7,4)}),
             json!({"instrumentId":"wind.reed.oboe","name":"Oboe","shortName":"Ob.","transposition":interval(0,0)}),
             "Ob.",
+            "Oboe",
         ),
         (
             json!({"instrumentId":"wind.flutes.flute","name":"Flute","shortName":"Fl.","transposition":interval(0,0)}),
             json!({"instrumentId":"wind.flutes.flute.piccolo","name":"Piccolo","shortName":"Picc.","transposition":interval(-12,-7)}),
             "Picc.",
+            "Piccolo",
         ),
         (
             json!({"instrumentId":"wind.reed.clarinet.bflat","name":"Clarinet in B♭","shortName":"Cl.","transposition":interval(2,1)}),
             json!({"instrumentId":"wind.reed.clarinet.bass","name":"Bass Clarinet","shortName":"B.Cl.","transposition":interval(14,8)}),
             "B.Cl.",
+            "Bass Clarinet",
         ),
         (
             json!({"instrumentId":"wind.reed.oboe","name":"Oboe","shortName":"Ob.","transposition":interval(0,0)}),
             json!({"instrumentId":"wind.reed.clarinet.a","name":"Clarinet in A","transposition":interval(3,2)}),
             "Cl.",
+            "Clarinet",
         ),
     ];
-    for (initial, destination, expected) in cases {
+    for (initial, destination, expected, arrival) in cases {
         let mut value = document();
         value["parts"][0]["name"] = initial["name"].clone();
         value["parts"][0]["shortName"] = initial["shortName"].clone();
@@ -210,14 +215,14 @@ fn instrument_changes_switch_labels_omit_tuning_for_distinct_instruments() {
             resolved[1].part.expressions.as_ref().unwrap()[0]
                 .text
                 .plain_text(),
-            expected
+            arrival
         );
         for display in [
             layout_score(&score, 0, &LayoutConfig::default()),
             layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
         ] {
             for (id, text) in [
-                ("p0/m1/expr-instchange0", expected.to_string()),
+                ("p0/m1/expr-instchange0", arrival.to_string()),
                 ("p0/m1/expr-instreminder0", format!("To {expected}")),
             ] {
                 assert_eq!(tagged_text(&display, id), Some(text.as_str()), "{id}");
@@ -234,27 +239,31 @@ fn instrument_changes_keep_tuning_for_changes_within_an_instrument() {
             json!({"instrumentId":"wind.reed.clarinet.a","name":"Clarinet in A","shortName":"Cl.","transposition":interval(3,2)}),
             json!({"instrument":"flute"}),
             "Cl. in A",
+            "Clarinet in A",
         ),
         (
             json!({"instrumentId":"brass.trumpet.bflat","name":"Trumpet in B♭","shortName":"Tpt.","transposition":interval(2,1)}),
             json!({"instrumentId":"brass.trumpet.c","name":"Trumpet in C","shortName":"Tpt.","transposition":interval(0,0)}),
             json!({"instrument":"flute"}),
             "Tpt. in C",
+            "Trumpet in C",
         ),
         (
             json!({"instrumentId":"brass.french-horn","name":"Horn in F","shortName":"Hn.","transposition":interval(7,4)}),
             json!({"instrumentId":"wind.flutes.flute","name":"Flute","shortName":"Fl."}),
             json!({"transposition":interval(2,1)}),
             "Hn. in B♭ alto",
+            "Horn in B♭ alto",
         ),
         (
             json!({"instrumentId":"wind.reed.clarinet.bflat","name":"Clarinet in B♭","shortName":"Cl.","transposition":interval(2,1)}),
             json!({"instrumentId":"wind.reed.clarinet.bflat","name":"Clarinet in B♭","shortName":"Cl.","transposition":interval(2,1)}),
             json!({"instrument":"flute"}),
             "Cl.",
+            "Clarinet",
         ),
     ];
-    for (initial, destination, change, expected) in cases {
+    for (initial, destination, change, expected, arrival) in cases {
         let mut value = document();
         value["parts"][0]["name"] = initial["name"].clone();
         value["parts"][0]["shortName"] = initial["shortName"].clone();
@@ -275,7 +284,7 @@ fn instrument_changes_keep_tuning_for_changes_within_an_instrument() {
             resolved[1].part.expressions.as_ref().unwrap()[0]
                 .text
                 .plain_text(),
-            expected
+            arrival
         );
     }
 }
@@ -321,7 +330,7 @@ fn instrument_changes_legacy_transposition_and_first_bar_compare_initial_state()
         resolved[0].part.expressions.as_ref().unwrap()[0]
             .text
             .plain_text(),
-        "Hn. in B♭ alto"
+        "Horn in B♭ alto"
     );
 }
 
@@ -347,7 +356,10 @@ fn instrument_changes_cached_labels_follow_the_immediately_previous_instrument()
     });
     let initial =
         crate::layout::layout_with_mnx_scores_cached(&parse(&value), &config, 0, Some(&mut cache));
-    assert_eq!(tagged_text(&initial, "p0/m2/expr-instchange0"), Some("Cl."));
+    assert_eq!(
+        tagged_text(&initial, "p0/m2/expr-instchange0"),
+        Some("Clarinet")
+    );
     assert_eq!(
         tagged_text(&initial, "p0/m2/expr-instreminder0"),
         Some("To Cl.")
@@ -362,7 +374,7 @@ fn instrument_changes_cached_labels_follow_the_immediately_previous_instrument()
     let cached = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
     assert_eq!(
         tagged_text(&cached, "p0/m2/expr-instchange0"),
-        Some("Cl. in A")
+        Some("Clarinet in A")
     );
     assert_eq!(
         tagged_text(&cached, "p0/m2/expr-instreminder0"),
@@ -571,7 +583,7 @@ fn instrument_changes_default_reminder_precedes_long_rest_passage_unless_hidden(
         .unwrap()
         .iter()
         .any(|expression| !expression.instrument_reminder
-            && expression.text.plain_text() == "Cl. in A"));
+            && expression.text.plain_text() == "Clarinet in A"));
     value["parts"][0]["measures"][3]["_x"]["viritura"]["instrumentChanges"][0]["reminder"] =
         json!({"hidden":true});
     let resolved = resolve_measures(&parse(&value), 0);
@@ -579,7 +591,7 @@ fn instrument_changes_default_reminder_precedes_long_rest_passage_unless_hidden(
 }
 
 #[test]
-fn instrument_changes_concert_tuning_uses_short_names_at_opening_reminder_and_change() {
+fn instrument_changes_concert_tuning_uses_short_reminder_and_full_change_name() {
     let mut value = document();
     sounding_then_rest(&mut value, 0);
     value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"]["name"] =
@@ -602,7 +614,7 @@ fn instrument_changes_concert_tuning_uses_short_names_at_opening_reminder_and_ch
         .iter()
         .flatten()
         .any(|expression| !expression.instrument_reminder
-            && expression.text.plain_text() == "Cl in C"));
+            && expression.text.plain_text() == "Clarinet in C"));
     assert!(resolved[0]
         .part
         .expressions
@@ -641,14 +653,160 @@ fn instrument_changes_short_label_fallback_uses_new_instrument_not_original_part
             .plain_text(),
         "To Fl."
     );
-    assert!(
-        resolved[1]
-            .part
-            .expressions
-            .iter()
-            .flatten()
-            .any(|expression| !expression.instrument_reminder
-                && expression.text.plain_text() == "Fl.")
+    assert!(resolved[1]
+        .part
+        .expressions
+        .iter()
+        .flatten()
+        .any(
+            |expression| !expression.instrument_reminder && expression.text.plain_text() == "Flute"
+        ));
+}
+
+#[test]
+fn instrument_changes_implied_octaves_use_instrument_names_without_tuning() {
+    for (name, short, instrument_id, half_steps, staff_distance, other, other_short, other_id) in [
+        (
+            "Piccolo",
+            "Picc.",
+            "wind.flutes.flute.piccolo",
+            -12,
+            -7,
+            "Flute",
+            "Fl.",
+            "wind.flutes.flute",
+        ),
+        (
+            "Double Bass",
+            "Cb.",
+            "strings.contrabass",
+            12,
+            7,
+            "Cello",
+            "Vc.",
+            "strings.cello",
+        ),
+    ] {
+        let mut value = document();
+        let transposition = interval(half_steps, staff_distance);
+        value["parts"][0]["name"] = json!(name);
+        value["parts"][0]["shortName"] = json!(short);
+        value["parts"][0]["transposition"] = transposition.clone();
+        value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"] = json!({
+            "instrumentId":instrument_id, "name":name, "shortName":short,
+            "transposition":transposition
+        });
+        value["parts"][0]["_x"]["viritura"]["instruments"]["flute"] = json!({
+            "instrumentId":other_id, "name":other, "shortName":other_short
+        });
+        sounding_then_rest(&mut value, 0);
+        sounding_then_rest(&mut value, 1);
+        set_reminder(&mut value, 1, json!({}), json!({}));
+        value["parts"][0]["measures"][2]["_x"] =
+            json!({"viritura":{"instrumentChanges":[{"instrument":"clarinet"}]}});
+
+        let score = parse(&value);
+        assert_eq!(
+            crate::layout::page::initial_instrument_instruction(&score.parts[0]).as_deref(),
+            Some(short)
+        );
+        assert_eq!(
+            crate::layout::page::resolve_required_part_display_names(&score.parts)[0].display_name,
+            format!("{name}\n{other} in C")
+        );
+        for index in [0, 2] {
+            let active = crate::layout::page::resolve_part_display_names_at(&score.parts, index);
+            assert_eq!(active[0].display_name, name);
+            assert_eq!(active[0].display_short_name, short);
+        }
+        assert_eq!(
+            resolve_measures(&score, 0)[0].transposition,
+            Some((staff_distance, half_steps))
+        );
+
+        for display in [
+            layout_score(&score, 0, &LayoutConfig::default()),
+            layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+            crate::layout::layout_full_score(&score, &LayoutConfig::default()),
+        ] {
+            for (id, expected) in [
+                ("p0/m0/expr-instinitial", short.to_string()),
+                ("p0/m1/expr-instreminder0", format!("To {other_short}")),
+                ("p0/m1/expr-instchange0", other.to_string()),
+                ("p0/m2/expr-instreminder0", format!("To {short}")),
+                ("p0/m2/expr-instchange0", name.to_string()),
+            ] {
+                assert_eq!(tagged_text(&display, id), Some(expected.as_str()), "{id}");
+            }
+        }
+
+        value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"]["shortName"] =
+            json!(format!("{short} in C"));
+        assert_eq!(
+            crate::layout::page::initial_instrument_instruction(&parse(&value).parts[0]),
+            Some(format!("{short} in C"))
+        );
+        value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"]
+            .as_object_mut()
+            .unwrap()
+            .remove("transposition");
+        value["parts"][0]["measures"][2]["_x"]["viritura"]["instrumentChanges"][0]
+            ["transposition"] = interval(half_steps, staff_distance);
+        assert_eq!(
+            crate::layout::page::initial_instrument_instruction(&parse(&value).parts[0]),
+            Some(format!("{short} in C"))
+        );
+    }
+}
+
+#[test]
+fn instrument_changes_noninitial_octave_override_is_not_an_implied_default() {
+    let mut value = document();
+    value["parts"][0]["name"] = json!("Piccolo");
+    value["parts"][0]["shortName"] = json!("Picc.");
+    value["parts"][0]["transposition"] = interval(-12, -7);
+    value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"] = json!({
+        "instrumentId":"wind.flutes.flute.piccolo", "name":"Piccolo", "shortName":"Picc.",
+        "transposition":interval(-12,-7)
+    });
+    value["parts"][0]["measures"][1]["_x"] = json!({
+        "viritura":{"instrumentChanges":[{"instrument":"flute","transposition":interval(-12,-7)}]}
+    });
+    let score = parse(&value);
+    let active = crate::layout::page::resolve_part_display_names_at(&score.parts, 1);
+    assert_eq!(
+        active[0].display_name,
+        "Flute in C (sounds C5 for written C4)"
+    );
+}
+
+#[test]
+fn instrument_changes_octave_tuning_changes_still_distinguish_the_same_instrument() {
+    let mut value = document();
+    value["parts"][0]["name"] = json!("Flute");
+    value["parts"][0]["shortName"] = json!("Fl.");
+    value["parts"][0]["transposition"] = interval(0, 0);
+    value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"] = json!({
+        "instrumentId":"wind.flutes.flute", "name":"Flute", "shortName":"Fl.",
+        "transposition":interval(-12,-7)
+    });
+    sounding_then_rest(&mut value, 0);
+    value["parts"][0]["measures"][1]["_x"] =
+        json!({"viritura":{"instrumentChanges":[{"transposition":interval(-12,-7)}]}});
+    let score = parse(&value);
+    let resolved = resolve_measures(&score, 0);
+    assert_eq!(
+        reminder_expression(&resolved[0].part)
+            .unwrap()
+            .text
+            .plain_text(),
+        "To Fl. in C (sounds C5 for written C4)"
+    );
+    assert_eq!(
+        resolved[1].part.expressions.as_ref().unwrap()[0]
+            .text
+            .plain_text(),
+        "Flute in C (sounds C5 for written C4)"
     );
 }
 
@@ -799,11 +957,11 @@ fn instrument_changes_reminders_resolve_tuplets_and_boundary_releases() {
 fn instrument_changes_pitch_based_transposition_defaults_preserve_spelling_and_octaves() {
     let mut value = document();
     for (half_steps, staff_distance, expected) in [
-        (9, 5, "Cl. in E♭ alto"),
-        (1, 1, "Cl. in B"),
-        (-1, 0, "Cl. in C♯"),
-        (-12, -7, "Cl. in C (sounds C5 for written C4)"),
-        (12, 7, "Cl. in C (sounds C3 for written C4)"),
+        (9, 5, "Clarinet in E♭ alto"),
+        (1, 1, "Clarinet in B"),
+        (-1, 0, "Clarinet in C♯"),
+        (-12, -7, "Clarinet in C (sounds C5 for written C4)"),
+        (12, 7, "Clarinet in C (sounds C3 for written C4)"),
     ] {
         value["parts"][0]["measures"][1]["_x"] = json!({"viritura":{"instrumentChanges":[{
             "transposition":interval(half_steps,staff_distance)
@@ -936,7 +1094,7 @@ fn instrument_changes_incompatible_sources_get_independent_written_staves() {
             2
         );
     }
-    assert!(texts(&display).contains(&"Fl."));
+    assert!(texts(&display).contains(&"Flute"));
 }
 
 #[test]
@@ -1373,8 +1531,92 @@ fn instrument_changes_labels_have_ids_distinct_from_authored_expressions() {
                 },
             )
         };
-        assert_eq!(id_of("Fl.").as_deref(), Some("p0/m1/expr-instchange0"));
+        assert_eq!(id_of("Flute").as_deref(), Some("p0/m1/expr-instchange0"));
         assert_eq!(id_of("To Fl.").as_deref(), Some("p0/m1/expr-instreminder0"));
         assert_eq!(id_of("dolce").as_deref(), Some("p0/m1/expr0"));
+    }
+}
+
+#[test]
+fn instrument_changes_saxophone_reminder_clears_rehearsal_at_multimeasure_rest() {
+    let mut value = document();
+    value["parts"][0]["_x"]["viritura"]["instruments"]["flute"] = json!({
+        "instrumentId":"wind.reed.saxophone.alto", "name":"Alto Saxophone", "shortName":"A. Sax.",
+        "transposition":interval(9,5)
+    });
+    value["parts"][0]["measures"][0]["sequences"] = json!([{"content":[
+        {"duration":{"base":"half","dots":1},"rest":{}},
+        {"duration":{"base":"eighth"},"notes":[{"pitch":{"step":"C","octave":5}}]},
+        {"duration":{"base":"eighth"},"rest":{}}
+    ]}]);
+    for index in 1..3 {
+        value["parts"][0]["measures"][index]["sequences"] =
+            json!([{"content":[],"fullMeasure":{"visualDuration":{"base":"whole"}}}]);
+    }
+    value["global"]["measures"][1]["_x"] =
+        json!({"viritura":{"rehearsalMark":{"text":[{"text":"I"}],"style":"boxed"}}});
+    value["global"]["measures"][3]["tempos"] = json!([{
+        "bpm":135,"value":{"base":"quarter"},"_x":{"viritura":{"text":[{"text":"Blue"}]}}
+    }]);
+    set_reminder(&mut value, 3, json!({}), json!({}));
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        page_width: Some(900.0),
+        ..LayoutConfig::default()
+    };
+    for authored in [false, true] {
+        let reminder_id = if authored {
+            value["parts"][0]["measures"][3]["_x"]["viritura"]["instrumentChanges"][0]
+                ["reminder"] = json!({"hidden":true});
+            value["parts"][0]["measures"][0]["text"] = json!([{
+                "type":"expression","text":[{"text":"To A. Sax."}],
+                "position":{"fraction":[3,4]},"placement":"above","manualOffset":[1.68,0]
+            }]);
+            "p0/m0/expr0"
+        } else {
+            "p0/m3/expr-instreminder0"
+        };
+        let score = parse(&value);
+        for display in [
+            layout_score(&score, 0, &config),
+            layout_with_mnx_scores(&score, &config, 0),
+        ] {
+            assert_eq!(tagged_text(&display, reminder_id), Some("To A. Sax."));
+            assert_eq!(
+                tagged_text(&display, "p0/m3/expr-instchange0"),
+                Some("Alto Saxophone")
+            );
+            let bbox = |id: &str| {
+                &display
+                    .element_bboxes
+                    .iter()
+                    .find(|b| b.element_id == id)
+                    .unwrap()
+                    .bbox
+            };
+            let reminder = bbox(reminder_id);
+            let mark = bbox("m1/rehearsal");
+            let clearance = config
+                .placement
+                .resolve(crate::render::ElementKind::RehearsalMark)
+                .padding
+                .vertical
+                * config.sp;
+            assert!(
+                reminder.x + reminder.width <= mark.x
+                    || mark.x + mark.width <= reminder.x
+                    || mark.y + mark.height + clearance <= reminder.y + 1e-6,
+                "reminder {reminder:?} must clear rehearsal mark {mark:?}"
+            );
+            let label = bbox("p0/m3/expr-instchange0");
+            let tempo = bbox("m3/tempo0");
+            assert!(
+                label.x + label.width <= tempo.x
+                    || tempo.x + tempo.width <= label.x
+                    || label.y + label.height <= tempo.y
+                    || tempo.y + tempo.height <= label.y,
+                "change label must clear Blue"
+            );
+        }
     }
 }

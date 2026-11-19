@@ -246,26 +246,9 @@ pub(crate) fn collect_above_text_boxes(
 ) -> Vec<AboveGlyphBox> {
     let mut boxes = Vec::new();
     for cmd in commands {
-        if let RenderCommand::DrawText {
-            x,
-            y,
-            text,
-            size,
-            baseline,
-            ..
-        } = cmd
+        if let Some(bbox) =
+            super::substrate_obstacles::text_command_bbox(cmd).or_else(|| cmd.bbox())
         {
-            if *y >= staff_y {
-                continue;
-            }
-            let text_width = text.chars().count() as f64 * 0.5 * *size;
-            let top = match baseline {
-                TextBaseline::Bottom => *y - *size,
-                TextBaseline::Middle => *y - *size * 0.5,
-                _ => *y,
-            };
-            boxes.push((*x, *x + text_width, top));
-        } else if let Some(bbox) = cmd.bbox() {
             if bbox.y < staff_y {
                 boxes.push((bbox.x, bbox.x + bbox.width, bbox.y));
             }
