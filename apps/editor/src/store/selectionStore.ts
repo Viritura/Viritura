@@ -128,6 +128,7 @@ interface ClearSelectionAction {
 interface ToggleSelectionAction {
   readonly type: "TOGGLE_SELECTION";
   readonly elementId: string;
+  readonly measureAnchor?: MeasureSelectionPoint;
 }
 
 interface SelectMeasureAction {
@@ -218,6 +219,7 @@ function toggleElementSelection(state: Selection, action: ToggleSelectionAction)
       kind: "single",
       elementId: action.elementId,
       elementType: parseElementType(action.elementId),
+      ...(action.measureAnchor && { measureAnchor: action.measureAnchor }),
     };
   }
   if (state.kind === "single") {
@@ -225,6 +227,7 @@ function toggleElementSelection(state: Selection, action: ToggleSelectionAction)
     return {
       kind: "multi",
       elementIds: [state.elementId, action.elementId],
+      ...(state.measureAnchor && { measureAnchor: state.measureAnchor }),
     };
   }
   if (state.kind === "multi") {
@@ -232,21 +235,28 @@ function toggleElementSelection(state: Selection, action: ToggleSelectionAction)
     if (existing.includes(action.elementId)) {
       const remaining = existing.filter((id) => id !== action.elementId);
       if (remaining.length === 0) return { kind: "none" };
+      const measureAnchor = action.elementId === existing[0] ? undefined : state.measureAnchor;
       if (remaining.length === 1) {
         return {
           kind: "single",
           elementId: remaining[0]!,
           elementType: parseElementType(remaining[0]!),
+          ...(measureAnchor && { measureAnchor }),
         };
       }
-      return { kind: "multi", elementIds: remaining };
+      return { kind: "multi", elementIds: remaining, ...(measureAnchor && { measureAnchor }) };
     }
-    return { kind: "multi", elementIds: [...existing, action.elementId] };
+    return {
+      kind: "multi",
+      elementIds: [...existing, action.elementId],
+      ...(state.measureAnchor && { measureAnchor: state.measureAnchor }),
+    };
   }
   // From range: start fresh multi-select
   return {
     kind: "multi",
     elementIds: [action.elementId],
+    ...(action.measureAnchor && { measureAnchor: action.measureAnchor }),
   };
 }
 
@@ -332,6 +342,7 @@ function selectionReducer(state: Selection, action: SelectionAction): Selection 
           kind: "single",
           elementId: elementIds[0]!,
           elementType: parseElementType(elementIds[0]!),
+          ...(action.measureAnchor && { measureAnchor: action.measureAnchor }),
         };
       }
       return {
@@ -446,7 +457,7 @@ interface SelectionActionsValue {
     rhythmicRange?: SelectionRhythmicRange,
   ) => void;
   extendSelection: (elementId: string, measureAnchor?: MeasureSelectionPoint) => void;
-  toggleSelection: (elementId: string) => void;
+  toggleSelection: (elementId: string, measureAnchor?: MeasureSelectionPoint) => void;
   selectMeasure: (partIndex: number, staffIndex: number, measureIndex: number, localStaffIndex?: number) => void;
   extendMeasure: (partIndex: number, staffIndex: number, measureIndex: number, localStaffIndex?: number) => void;
   clearSelection: () => void;
@@ -466,7 +477,8 @@ const actions: SelectionActionsValue = {
     }),
   extendSelection: (elementId, measureAnchor) =>
     dispatchSelection({ type: "EXTEND_SELECTION", elementId, ...(measureAnchor && { measureAnchor }) }),
-  toggleSelection: (elementId) => dispatchSelection({ type: "TOGGLE_SELECTION", elementId }),
+  toggleSelection: (elementId, measureAnchor) =>
+    dispatchSelection({ type: "TOGGLE_SELECTION", elementId, ...(measureAnchor && { measureAnchor }) }),
   selectMeasure: (partIndex, staffIndex, measureIndex, localStaffIndex) =>
     dispatchSelection({
       type: "SELECT_MEASURE",

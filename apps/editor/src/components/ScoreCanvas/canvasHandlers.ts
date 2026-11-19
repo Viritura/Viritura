@@ -107,7 +107,7 @@ export interface CanvasHandlerCtx {
   selectElement: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
   selectElements: (ids: readonly string[]) => void;
   extendSelection: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
-  toggleSelection: (id: string) => void;
+  toggleSelection: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
   clearSelection: () => void;
   selectMeasure: (partIndex: number, staffIndex: number, measureIndex: number, localStaffIndex?: number) => void;
   extendMeasure: (partIndex: number, staffIndex: number, measureIndex: number, localStaffIndex?: number) => void;

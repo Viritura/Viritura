@@ -75,7 +75,7 @@ import {
   createTupletFromRange,
   parseTupletRatio,
 } from "../commands/tupletCommands";
-import { addGlissando, type GlissandoKind } from "../commands/glissandoCommands";
+import { addGlissando, resolveGlissandoSelectionEvents, type GlissandoKind } from "../commands/glissandoCommands";
 import {
   durationToBeats,
   sequenceContentBeats,
@@ -405,12 +405,12 @@ export function PalettePanel({
       const score = store.getState().score;
       const selected = useSelectionStore.getState().selection;
       if (!score) return;
-      const events = resolveCondensedSelectionEvents(score, selected, selectedScoreIndex);
-      if (events.length !== 2) {
-        toast.error("Select exactly two notes or chords for this line.");
-        return;
-      }
       try {
+        const events = resolveGlissandoSelectionEvents(score, selected, selectedScoreIndex);
+        if (events.length !== 2) {
+          toast.error("Select exactly two notes or chords for this line.");
+          return;
+        }
         const nextScore = produce(score, (draft) => {
           const source = getEventAtLocation(draft, events[0]!);
           const target = getEventAtLocation(draft, events[1]!);
@@ -423,7 +423,6 @@ export function PalettePanel({
             sourceEventId: source.id,
             targetEventId: target.id,
             kind,
-            style: "straight",
             text: kind === "portamento" ? "port." : "gliss.",
           });
         });

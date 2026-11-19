@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ScorePreview } from "../../storyFixtures/ScorePreview";
 import { buildMnx } from "../../storyFixtures/buildMnx";
+import repeatReturnMnx from "../../../../../../packages/format/fixtures/mnx/glissando-repeat-return.mnx?raw";
 
 const meta: Meta = {
   title: "Viritura Extensions/Techniques & Ornaments/Glissandi",
@@ -8,6 +9,11 @@ const meta: Meta = {
 };
 
 export default meta;
+
+export const RepeatReturn: StoryObj = {
+  name: "First entry and repeat return share a target",
+  render: () => <ScorePreview mnxJson={repeatReturnMnx} />,
+};
 
 /** Both glissando styles (straight + wavy) in one measure. */
 export const AllGlissandoStyles: StoryObj = {

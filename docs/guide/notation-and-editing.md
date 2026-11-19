@@ -248,10 +248,16 @@ line ordering.
 | Ottava lines               | **Octaves & pedals** palette                 | 8va, 8vb, 15ma, 15mb, 22ma, 22mb                                           |
 | Segno, Coda, D.C., D.S.    | **Repeats & navigation** palette (`Shift+R`) | Markers go at the start of the selection; jumps and Fine at its end        |
 
-Finish note input before adding a glissando or portamento. In Properties,
-the **Glissando / portamento** section sets the **Type**, a straight or wavy
-**Line style**, the **Playback type** (**Chromatic**, **Diatonic**, or **Pitch
-bend**), and whether the "gliss." or "port." label is shown.
+Finish note input before adding a glissando or portamento. Outside a repeat,
+select the two notes in either order; the line goes forward. When both notes
+are in the same repeat, select the starting note first and the destination
+second. Ctrl/Cmd-click selects nonadjacent notes. A line back across a repeat
+is supported from the repeat-end measure to the repeat-start downbeat.
+
+In Properties, the **Glissando / portamento** section sets the **Type**, a
+straight or wavy **Line style**, the **Playback type** (**Chromatic**,
+**Diatonic**, or **Pitch bend**), and whether the "gliss." or "port." label
+is shown.
 
 Slides also have **Slide in** and **Slide out** controls in the **Note
 markings** section. A selected caesura offers four shapes and one or two

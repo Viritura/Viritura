@@ -128,7 +128,7 @@ export function selectCanvasElement(
     measureAnchor = chordSelectionPoint(score, measureAnchor, ctx.selectedScoreIndex, ctx.displayListRef.current);
   }
   if (e.shiftKey) ctx.extendSelection(elementId, measureAnchor);
-  else if (e.ctrlKey || e.metaKey) ctx.toggleSelection(elementId);
+  else if (e.ctrlKey || e.metaKey) ctx.toggleSelection(elementId, measureAnchor);
   else if (measureAnchor) ctx.selectElement(elementId, measureAnchor);
   else ctx.selectElement(elementId);
 }

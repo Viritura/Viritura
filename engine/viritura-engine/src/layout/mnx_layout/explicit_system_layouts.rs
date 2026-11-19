@@ -604,6 +604,17 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 active_key: display_key.clone(),
                 prev_key: previous_display_key.clone(),
                 tie_continuation_ids: Vec::new(),
+                repeat_glissandos: effective_staff
+                    .sources
+                    .iter()
+                    .flat_map(|source| {
+                        super::super::glissando::resolve_repeat_glissandos(
+                            score,
+                            source.part_index,
+                            measure_index,
+                        )
+                    })
+                    .collect(),
                 active_staff_lines: measure_staff_lines,
                 transposition,
                 written_diatonic_adjustment: diatonic_adjustment,

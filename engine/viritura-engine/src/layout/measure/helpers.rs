@@ -686,7 +686,7 @@ pub(super) fn max_lyric_half_width(ev: &Event, sp: f64) -> Option<f64> {
 
 /// Flatten sequence content into (beat_position, &Event) pairs.
 /// Recurses into tuplets and multi-note tremolos with proper duration scaling.
-pub(super) fn collect_flat_events(
+pub(crate) fn collect_flat_events(
     content: &[SequenceContent],
     cursor: f64,
     scale: f64,

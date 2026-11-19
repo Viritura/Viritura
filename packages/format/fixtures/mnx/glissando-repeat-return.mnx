@@ -1,0 +1,51 @@
+{
+  "mnx": { "version": 1 },
+  "global": {
+    "measures": [
+      { "id": "entry", "time": { "count": 4, "unit": 4 } },
+      { "id": "repeat-start", "repeatStart": {} },
+      { "id": "repeat-end", "repeatEnd": { "times": 2 } }
+    ]
+  },
+  "parts": [{
+    "id": "piano",
+    "name": "Piano",
+    "measures": [
+      {
+        "clefs": [{ "clef": { "sign": "G", "staffPosition": -2 } }],
+        "sequences": [{ "content": [{
+          "id": "entry-source",
+          "duration": { "base": "whole" },
+          "notes": [{ "pitch": { "step": "C", "octave": 4 } }],
+          "_x": { "viritura": { "glissandos": [{
+            "target": "downbeat", "kind": "glissando", "style": "wavy", "text": "gliss."
+          }] } }
+        }] }]
+      },
+      {
+        "sequences": [{ "content": [{
+          "id": "downbeat",
+          "duration": { "base": "whole" },
+          "notes": [{ "pitch": { "step": "G", "octave": 5 } }]
+        }] }]
+      },
+      {
+        "sequences": [{ "content": [
+          { "duration": { "base": "half", "dots": 1 }, "rest": {} },
+          {
+            "id": "return-source",
+            "duration": { "base": "quarter" },
+            "notes": [{ "pitch": { "step": "C", "octave": 4 } }],
+            "_x": { "viritura": { "glissandos": [{
+              "target": "downbeat", "kind": "glissando", "style": "wavy", "text": "gliss."
+            }] } }
+          }
+        ] }]
+      }
+    ]
+  }],
+  "layouts": [{ "id": "piano-layout", "content": [
+    { "type": "staff", "sources": [{ "part": "piano" }] }
+  ] }],
+  "scores": [{ "name": "Score", "layout": "piano-layout" }]
+}

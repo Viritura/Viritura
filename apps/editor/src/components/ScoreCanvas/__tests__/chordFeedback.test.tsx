@@ -10,6 +10,7 @@ import { selectionReducer, type Selection } from "../../../store/selectionStore"
 import { resolveSelectionEvents } from "../../../store/selectionUtils";
 import { computeDeleteSelection } from "../../../commands/computeDeleteSelection";
 import { handleCanvasClickImpl, type CanvasHandlerCtx } from "../canvasHandlers";
+import { selectCanvasElement } from "../elementSelection";
 import { globalChordForElement, previewClickedChord } from "../chordFeedback";
 import { UnsupportedChordOverlay } from "../UnsupportedChordOverlay";
 
@@ -156,6 +157,16 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   useSelectionStore.setState(useSelectionStore.getInitialState());
+});
+
+it("passes the expanded staff context through Ctrl-click selection", () => {
+  const elementId = "p0/m0/s0/note/n0";
+  const { ctx } = context(elementId);
+  const measureAnchor = { partIndex: 0, staffIndex: 1, measureIndex: 0, isExpansion: true };
+
+  selectCanvasElement({ ...click, ctrlKey: true }, ctx, elementId, measureAnchor);
+
+  expect(ctx.toggleSelection).toHaveBeenCalledWith(elementId, measureAnchor);
 });
 
 describe("direct canvas chord preview", () => {

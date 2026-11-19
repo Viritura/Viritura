@@ -9,7 +9,7 @@ use super::{BoundaryState, DirtyRegion, PatchFrame, RangeScope, RetainedSegment,
 use crate::model::measure::ResolvedMeasure;
 use crate::render::DisplayList;
 
-mod instrument_timeline;
+mod score_dependencies;
 mod staff_spanners;
 
 /// Cached natural width entry for a single measure.
@@ -322,7 +322,7 @@ pub struct LayoutCache {
     last_horizon_staff_extents_reused: usize,
     cached_horizon_tie_maps: Vec<HashMap<String, bool>>,
     last_horizon_tie_maps_reused: usize,
-    instrument_timeline_salt: Option<u64>,
+    score_dependencies: score_dependencies::ScoreDependencySalts,
 }
 
 /// Phase G/H cached output of `compute_system_spacing` for one system. The
@@ -432,7 +432,7 @@ impl LayoutCache {
             last_horizon_staff_extents_reused: 0,
             cached_horizon_tie_maps: Vec::new(),
             last_horizon_tie_maps_reused: 0,
-            instrument_timeline_salt: None,
+            score_dependencies: Default::default(),
         }
     }
 
@@ -444,7 +444,7 @@ impl LayoutCache {
         self.resolved_staves = None;
         self.resolved_staves_salt = 0;
         self.time_signature_settings_prepared = false;
-        self.instrument_timeline_salt = None;
+        self.score_dependencies = Default::default();
     }
 
     fn invalidate_layout_products(&mut self) {

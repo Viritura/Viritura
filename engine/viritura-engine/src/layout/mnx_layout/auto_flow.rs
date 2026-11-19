@@ -105,6 +105,11 @@ pub(super) fn layout_auto_flow_mnx_score(
     if let Some(ref mut c) = cache {
         c.check_config(config);
         super::super::instrument_changes::revalidate(c, score, flat_staves, &mut dirty_region);
+        if c.check_repeat_glissandos(super::super::glissando::repeat_glissando_state_salt(
+            score, 0,
+        )) {
+            dirty_region = None;
+        }
     }
 
     // Env-gated phase timing probe (no-op unless VIRITURA_LAYOUT_TIMING is set).

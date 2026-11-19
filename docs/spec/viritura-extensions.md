@@ -2066,6 +2066,12 @@ Extensions on `event._x.viritura` (on the event object itself, not inside markin
 
 Array of glissando/portamento lines connecting this event to target events.
 
+New lines created in the editor default to wavy for glissando and straight for
+portamento. Outside a shared repeat, the editor orders selected endpoints by
+musical time. When both endpoints are in the same repeated section, selection
+order determines the direction: select the source first and the target second.
+This applies to both multi-selections and two-note ranges.
+
 Copy/paste and repeat assign fresh IDs to both endpoints and retarget each copied
 line to the copied target, including across selected staves and voices. Lines
 whose targets are outside the copied selection are omitted from the pasted events.
@@ -2083,8 +2089,14 @@ Playback runs from the source onset to the target onset. Chromatic playback
 visits every intermediate semitone; diatonic playback follows the source key
 signature. Chord endpoints pair notes in ascending pitch order, reusing the
 highest target note if the source chord has more notes. Transitions use an
-isolated lane per source note, so other voices are not detuned or released. Lines do not
-cross playback jumps. Missing, backward, simultaneous, or percussion endpoints
+isolated lane per source note, so other voices are not detuned or released.
+A line from a repeat-end measure to the matching repeat-start downbeat plays
+only on passes that take that repeat. The final pass retains ordinary source-note
+playback. Both an earlier entry source and the repeat-return source can target the
+same downbeat without duplicating its attack. The return is engraved as separate
+outgoing and incoming fragments, including across systems or horizon chunks;
+the incoming fragment reserves space before the downbeat.
+Other playback jumps are not crossed. Missing, unsupported backward, simultaneous, or percussion endpoints
 produce a playback diagnostic. Text visibility and line style do not affect sound.
 
 The line inspector exposes the playback type for both glissando and portamento.

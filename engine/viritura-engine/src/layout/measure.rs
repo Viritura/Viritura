@@ -12,7 +12,9 @@ mod tremolo_pair;
 pub(crate) const MEASURE_TRAILING_PADDING_SP: f64 = 0.5;
 
 pub(crate) use cross_staff::*;
-pub(crate) use helpers::{compute_note_staff_positions, compute_seconds_displacement};
+pub(crate) use helpers::{
+    collect_flat_events, compute_note_staff_positions, compute_seconds_displacement,
+};
 pub(crate) use orchestrate::*;
 pub(crate) use prefix_width::*;
 pub(crate) use stem_direction::{contesting_voice_count, resolve_stem_up, StemContext};

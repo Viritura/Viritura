@@ -115,7 +115,19 @@ fn first_onset_ink_padding_sp(
     } else {
         0.0
     };
-    accidental_padding.max(cluster_padding)
+    let repeat_approach = if rm.repeat_glissandos.iter().any(|route| {
+        route.start_measure == rm.index
+            && rm.part.sequences.iter().any(|sequence| {
+                collect_flat_events(&sequence.content, 0.0, 1.0)
+                    .iter()
+                    .any(|(_, event)| event.id.as_deref() == Some(route.glissando.target.as_str()))
+            })
+    }) {
+        super::super::glissando::REPEAT_APPROACH_LENGTH_SP + 0.6
+    } else {
+        0.0
+    };
+    accidental_padding.max(cluster_padding) + repeat_approach
 }
 
 #[derive(Clone, Copy)]
