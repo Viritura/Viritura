@@ -109,7 +109,9 @@ pub(super) fn append_instructions(
             .instruction
             .as_ref()
             .and_then(|instruction| instruction.text.clone())
-            .unwrap_or_else(|| derived_instruction(part, measure_index, change_index, change));
+            .unwrap_or_else(|| {
+                derived_instruction(part, measure_index, change_index, change, false)
+            });
         append_expression(
             measure,
             text,
@@ -219,7 +221,7 @@ fn derived_reminder(
 ) -> String {
     format!(
         "To {}",
-        derived_instruction(part, measure_index, change_index, change)
+        derived_instruction(part, measure_index, change_index, change, true)
     )
 }
 
@@ -228,6 +230,7 @@ fn derived_instruction(
     measure_index: usize,
     change_index: usize,
     change: &InstrumentChange,
+    abbreviated: bool,
 ) -> String {
     let mut previous = measure_index.checked_sub(1).map_or_else(
         || ActiveInstrument::initial(part),
@@ -264,6 +267,7 @@ fn derived_instruction(
         part,
         active,
         same_instrument && interval(previous) != interval(active),
+        abbreviated,
     )
 }
 

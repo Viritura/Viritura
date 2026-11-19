@@ -139,15 +139,24 @@ pub(crate) fn instrument_change_name(
     part: &Part,
     active: ActiveInstrument<'_>,
     include_tuning: bool,
+    abbreviated: bool,
 ) -> String {
-    let short = short_name(part, active);
+    let name = if abbreviated {
+        short_name(part, active)
+    } else {
+        active
+            .definition
+            .and_then(|d| d.name.as_deref())
+            .unwrap_or(&part.name)
+            .to_string()
+    };
     if include_tuning {
-        return active_name(part, active, &short, false);
+        return active_name(part, active, &name, false);
     }
     let (interval, default_interval) = active_intervals(part, active);
     let (pitch, _) = tuning(interval);
     let (default_pitch, _) = tuning(default_interval);
-    without_tuning(&short, &pitch, &default_pitch)
+    without_tuning(&name, &pitch, &default_pitch)
 }
 
 fn tuning(interval: (i32, i32)) -> (String, i64) {

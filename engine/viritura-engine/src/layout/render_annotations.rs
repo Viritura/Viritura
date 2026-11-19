@@ -925,16 +925,9 @@ pub(crate) fn flow_above_staff_dependents(
         top -= total_dy;
         bottom -= total_dy;
 
-        // Stage B: rehearsal-mark frames (gated on horizontal AND vertical
-        // overlap with the mover's *current* box). Only tempo markings clear a
-        // rehearsal-mark frame: a tempo and a rehearsal mark are co-equal system
-        // objects that share the topmost line, so a tempo overhanging a mark's
-        // column rises above it. A performance direction (expression) is NOT a
-        // system object — the rehearsal mark owns the top slot and already
-        // dodges sideways around directions (see `render_rehearsal_marks`), so
-        // lifting the direction over the mark too would be redundant double
-        // avoidance that floats it far above the staff. Directions therefore
-        // stay put under the mark and rely on the mark's own horizontal dodge.
+        // Stage B: tempo clears overlapping rehearsal frames. Expressions
+        // remain inside the rehearsal layer; the frame clears their final ink
+        // below, including directions that overhang from a preceding measure.
         let mut box_ceiling: Option<f64> = None;
         if m.rank == tempo_rank || m.eid.ends_with("/caesura") {
             for mb in &rehearsal_boxes {
@@ -969,6 +962,25 @@ pub(crate) fn flow_above_staff_dependents(
 
         // One lift, applied to commands + bbox + shapes together.
         shift_marking(dl, staff_cmd_start, &m.eid, total_dy);
+        if m.rank == expr_rank {
+            for frame in &mut rehearsal_boxes {
+                if frame.right < left || frame.left > right {
+                    continue;
+                }
+                if measure_layouts
+                    .iter()
+                    .find(|ml| Some(ml.resolved.index) == frame.measure_index)
+                    .and_then(|ml| ml.resolved.global.rehearsal_mark())
+                    .is_some_and(|mark| mark.avoid_collisions == Some(false))
+                {
+                    continue;
+                }
+                let dy = clear_below_ceiling(frame.bottom, Some(top - dy_c), rehearsal_clearance);
+                shift_marking(dl, staff_cmd_start, &frame.eid, dy);
+                frame.top -= dy;
+                frame.bottom -= dy;
+            }
+        }
         placed_tops.push(FlatTop {
             eid: m.eid.clone(),
             rank: m.rank,
