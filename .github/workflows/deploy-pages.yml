@@ -69,6 +69,8 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - name: Test Pages readiness check
+        run: node --experimental-strip-types --test scripts/wait-for-pages.test.ts
       - name: Install Rust toolchain
         run: |
           rustup toolchain install 1.93.1 --profile minimal --target wasm32-unknown-unknown
@@ -130,19 +132,11 @@ jobs:
       - name: Wait for ${{ matrix.target }} preview
         env:
           PREVIEW_URL: ${{ steps.target.outputs.preview_url }}
+          TARGET: ${{ matrix.target }}
+          OUTPUT_DIRECTORY: ${{ steps.target.outputs.directory }}
         shell: bash
         run: |
-          for attempt in {1..12}; do
-            content="$(curl --fail --silent --show-error \
-              "$PREVIEW_URL/viritura-build-${GITHUB_SHA}.txt" || true)"
-            if [[ "$content" == "$GITHUB_SHA" ]]; then
-              exit 0
-            fi
-            echo "Preview has not published build $GITHUB_SHA yet (attempt $attempt/12)."
-            sleep 5
-          done
-          echo "Preview did not publish build $GITHUB_SHA within 60 seconds." >&2
-          exit 1
+          node scripts/wait-for-pages.ts "$PREVIEW_URL" "$TARGET" "$OUTPUT_DIRECTORY" "$GITHUB_SHA"
       - name: Smoke-test ${{ matrix.target }} preview
         env:
           PREVIEW_URL: ${{ steps.target.outputs.preview_url }}
@@ -150,8 +144,9 @@ jobs:
         shell: bash
         run: |
           if [[ "$TARGET" == "website" ]]; then
-            VIRITURA_WEBSITE_URL="$PREVIEW_URL" pnpm e2e:deployed
+            VIRITURA_WEBSITE_URL="$PREVIEW_URL" pnpm e2e:deployed e2e/deployed/pages.spec.ts
           else
+            PLAYWRIGHT_BASE_URL="$PREVIEW_URL" pnpm e2e:deployed e2e/deployed/editor-pages.spec.ts
             PLAYWRIGHT_BASE_URL="$PREVIEW_URL" pnpm e2e:smoke
           fi
       - if: failure()
@@ -174,19 +169,11 @@ jobs:
       - name: Wait for ${{ matrix.target }} production
         env:
           PRODUCTION_URL: ${{ steps.target.outputs.production_url }}
+          TARGET: ${{ matrix.target }}
+          OUTPUT_DIRECTORY: ${{ steps.target.outputs.directory }}
         shell: bash
         run: |
-          for attempt in {1..12}; do
-            content="$(curl --fail --silent --show-error \
-              "$PRODUCTION_URL/viritura-build-${GITHUB_SHA}.txt" || true)"
-            if [[ "$content" == "$GITHUB_SHA" ]]; then
-              exit 0
-            fi
-            echo "Production has not published build $GITHUB_SHA yet (attempt $attempt/12)."
-            sleep 5
-          done
-          echo "Production did not publish build $GITHUB_SHA within 60 seconds." >&2
-          exit 1
+          node scripts/wait-for-pages.ts "$PRODUCTION_URL" "$TARGET" "$OUTPUT_DIRECTORY" "$GITHUB_SHA"
       - name: Verify ${{ matrix.target }} production
         env:
           PRODUCTION_URL: ${{ steps.target.outputs.production_url }}
@@ -194,8 +181,9 @@ jobs:
         shell: bash
         run: |
           if [[ "$TARGET" == "website" ]]; then
-            VIRITURA_WEBSITE_URL="$PRODUCTION_URL" pnpm e2e:deployed
+            VIRITURA_WEBSITE_URL="$PRODUCTION_URL" pnpm e2e:deployed e2e/deployed/pages.spec.ts
           else
+            PLAYWRIGHT_BASE_URL="$PRODUCTION_URL" pnpm e2e:deployed e2e/deployed/editor-pages.spec.ts
             PLAYWRIGHT_BASE_URL="$PRODUCTION_URL" pnpm e2e:smoke
           fi
       - if: failure()
