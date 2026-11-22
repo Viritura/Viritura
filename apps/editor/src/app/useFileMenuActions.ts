@@ -192,11 +192,11 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
           }
           setStartCenterOpen(false);
           toast.success(`Opened ${file.name}`);
-        }
-        try {
-          setRecentScores(await listRecentScores());
-        } catch {
-          /* ignore */
+          try {
+            setRecentScores(await listRecentScores());
+          } catch {
+            /* ignore */
+          }
         }
       } catch (err) {
         console.error("Failed to reopen recent:", err);
