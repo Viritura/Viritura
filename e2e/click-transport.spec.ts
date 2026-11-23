@@ -58,14 +58,20 @@ for (const mode of ["Page", "Spread", "Spread (H)"]) {
         };
       }, viewport);
     }
-    const first = mode === "Page" ? [0] : [0, 1];
+    const first = [0];
+    const frameSize = mode === "Page" ? 1 : 2;
     await expect.poll(async () => (await frame()).pages).toEqual(first);
     await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
     const bars = page.getByRole("listbox", { name: "Start bar" });
+    if (mode !== "Page") {
+      for (let step = 0; step < 100 && (await frame()).pages[0] === 0; step++) await bars.press("ArrowRight");
+      await expect.poll(async () => (await frame()).pages).toEqual([1, 2]);
+      await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    }
     await bars.press("End");
     await expect.poll(async () => (await frame()).pages[0] ?? 0).toBeGreaterThan(first.at(-1)!);
     await expect.poll(async () => (await frame()).pages.length).toBeGreaterThanOrEqual(1);
-    expect((await frame()).pages.length).toBeLessThanOrEqual(first.length);
+    expect((await frame()).pages.length).toBeLessThanOrEqual(frameSize);
     await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
     await bars.press("Home");
     await expect.poll(async () => (await frame()).pages).toEqual(first);
@@ -74,6 +80,10 @@ for (const mode of ["Page", "Spread", "Spread (H)"]) {
     for (let step = 0; step < 10; step++) await bars.press("ArrowLeft");
     await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
     const selectedPages = (await frame()).pages;
+    if (mode !== "Page" && selectedPages.length === 2) {
+      expect(selectedPages[0]! % 2).toBe(1);
+      expect(selectedPages[1]).toBe(selectedPages[0]! + 1);
+    }
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(async () => (await frame()).pages).toEqual(selectedPages);
     await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);

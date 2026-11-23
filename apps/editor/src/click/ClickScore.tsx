@@ -56,7 +56,7 @@ export function ClickScore({
         style={VIEWER_STYLE}
         viewMode={settings.viewMode}
         contentAlign={settings.viewMode === "horizon" ? "start" : "page"}
-        spreadFirstPage="paired"
+        spreadFirstPage="single"
         controls={false}
         scoreIndex={view.scoreIndex}
         pageWidth={pageWidth}

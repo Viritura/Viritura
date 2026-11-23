@@ -36,6 +36,39 @@ describe("page arrangements", () => {
     ).toEqual([0, 116, 58]);
   });
 
+  it.each(["spread", "spread-horizontal"] as const)(
+    "%s keeps the recto title separate from subsequent verso/recto frames",
+    (viewMode) => {
+      const result = arrangePages({
+        pages: [...pages, pages[0]!, pages[1]!],
+        viewMode,
+        zoom: 1,
+        gap: 16,
+        frameGap: 184,
+        spreadFirstPage: "single",
+      });
+      expect(pageFrame(result.positions, 0, viewMode, "single")).toEqual({
+        x: result.positions[0]!.x,
+        y: result.positions[0]!.y,
+        width: 100,
+        height: 180,
+      });
+      for (const left of [1, 3]) {
+        const verso = result.positions[left]!;
+        const recto = result.positions[left + 1]!;
+        expect(verso.y).toBe(recto.y);
+        expect(recto.x).toBe(verso.x + verso.width + 16);
+        expect(pageFrame(result.positions, left, viewMode, "single")).toEqual(
+          pageFrame(result.positions, left + 1, viewMode, "single"),
+        );
+        expect(pageFrame(result.positions, left, viewMode, "single")?.width).toBe(216);
+      }
+      expect(pageFrame(result.positions, 1, viewMode, "single")).not.toEqual(
+        pageFrame(result.positions, 0, viewMode, "single"),
+      );
+    },
+  );
+
   it("centres content that fits and keeps oversized axes at the start", () => {
     const viewport = { width: 400, height: 300 };
     expect(contentOffset(undefined, viewport, { width: 100, height: 100 })).toEqual({ x: 0, y: 0 });

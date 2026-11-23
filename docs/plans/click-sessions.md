@@ -66,7 +66,9 @@ Implemented:
   to the viewport. Switching view modes enables the corresponding fit.
   Paginated playhead following centers the whole page or paired spread and
   advances by whole frames, including backwards repeat/jump navigation.
-  Spreads pair the first two pages; a final unpaired page is centered.
+  Spreads show the first recto/title page alone, then pair the following
+  verso/recto pages (2–3, 4–5, and so on). Single opening and final unpaired
+  pages are centered; page turns and backwards jumps use this same grouping.
   Frames adapt to viewport resize and navigation hiding without showing
   fragments of adjacent frames. Horizon retains continuous playhead scrolling.
   Fit adapts to viewport and selected-score changes; manual zoom exits fit.
