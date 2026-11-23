@@ -33,7 +33,10 @@ Implemented:
   While stopped, both navigation dials are visible in the floating transport,
   alongside countoff and Start. During playback (including countoff), the
   transport shrinks to just the current bar number and Stop. Stopping, finishing,
-  or an audio interruption restores the full transport. Drag any non-interactive area with a
+  or an audio interruption restores the full transport. The Start/Stop button
+  stays at the lower-right anchor in both modes, including narrow layouts;
+  expansion grows above and to the left unless viewport bounds require a shift.
+  Drag any non-interactive area with a
   mouse or touch, or focus the panel and use arrow keys
   (Shift for larger steps). Movement is bounded to the score viewport and
   re-clamped on resize. Score-load errors are visible without replacing the

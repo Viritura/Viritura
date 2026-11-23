@@ -44,8 +44,8 @@ function setup() {
   vi.spyOn(transport, "getBoundingClientRect").mockImplementation(
     () =>
       new DOMRect(
-        Number.parseFloat(transport.style.left) || 200,
-        60 + (Number.parseFloat(transport.style.top) || 380),
+        parent.clientWidth - (Number.parseFloat(transport.style.right) || 200) - 400,
+        60 + parent.clientHeight - (Number.parseFloat(transport.style.bottom) || 20) - 200,
         400,
         200,
       ),
@@ -67,15 +67,15 @@ describe("floating click transport", () => {
       clientY: 460,
     });
     fireEvent.pointerMove(transport, { pointerId: 1, clientX: 1000, clientY: 1000 });
-    expect(transport.style.left).toBe("392px");
-    expect(transport.style.top).toBe("392px");
+    expect(transport.style.right).toBe("8px");
+    expect(transport.style.bottom).toBe("8px");
     fireEvent.pointerCancel(transport, { pointerId: 1 });
     fireEvent.pointerMove(transport, { pointerId: 1, clientX: 10, clientY: 10 });
-    expect(transport.style.left).toBe("392px");
+    expect(transport.style.right).toBe("8px");
     fireEvent.pointerDown(transport, { pointerId: 2, button: 0, clientX: 400, clientY: 470 });
     fireEvent.pointerMove(transport, { pointerId: 2, clientX: -500, clientY: -500 });
-    expect(transport.style.left).toBe("8px");
-    expect(transport.style.top).toBe("8px");
+    expect(transport.style.right).toBe("392px");
+    expect(transport.style.bottom).toBe("392px");
     fireEvent.pointerUp(transport, { pointerId: 2 });
     expect(transport.releasePointerCapture).toHaveBeenCalledWith(2);
   });
@@ -83,15 +83,15 @@ describe("floating click transport", () => {
   it("supports keyboard movement and stays reachable after viewport resizing", () => {
     const { transport, parent, resize } = setup();
     fireEvent.keyDown(transport, { key: "ArrowRight" });
-    expect(transport.style.left).toBe("210px");
+    expect(transport.style.right).toBe("190px");
     fireEvent.keyDown(transport, { key: "ArrowUp", shiftKey: true });
-    expect(transport.style.top).toBe("340px");
-    Object.defineProperty(parent, "clientHeight", { value: 350, configurable: true });
+    expect(transport.style.bottom).toBe("60px");
+    Object.defineProperty(parent, "clientHeight", { value: 250, configurable: true });
     resize();
-    expect(transport.style.top).toBe("142px");
+    expect(transport.style.bottom).toBe("42px");
     fireEvent.pointerDown(screen.getByRole("button", { name: "Start" }), { pointerId: 3, button: 0 });
     fireEvent.pointerMove(transport, { pointerId: 3, clientX: 0, clientY: 0 });
-    expect(transport.style.top).toBe("142px");
+    expect(transport.style.bottom).toBe("42px");
   });
 
   it("does not drag or consume arrow keys from controls or either dial's contents", () => {
@@ -100,7 +100,7 @@ describe("floating click transport", () => {
       fireEvent.pointerDown(target, { pointerId: 1, button: 0, clientX: 250, clientY: 460 });
       fireEvent.pointerMove(transport, { pointerId: 1, clientX: 1000, clientY: 1000 });
       expect(fireEvent.keyDown(target, { key: "ArrowRight" })).toBe(true);
-      expect(transport.style.left).toBe("");
+      expect(transport.style.right).toBe("");
       expect(transport.setPointerCapture).not.toHaveBeenCalled();
     }
   });

@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import styles from "./ClickPage.module.css";
 
 interface Position {
-  readonly x: number;
-  readonly y: number;
+  readonly right: number;
+  readonly bottom: number;
 }
 
 interface FloatingTransportProps {
@@ -13,17 +13,17 @@ interface FloatingTransportProps {
 }
 
 const DIRECTIONS: Readonly<Record<string, Position>> = {
-  ArrowLeft: { x: -1, y: 0 },
-  ArrowRight: { x: 1, y: 0 },
-  ArrowUp: { x: 0, y: -1 },
-  ArrowDown: { x: 0, y: 1 },
+  ArrowLeft: { right: 1, bottom: 0 },
+  ArrowRight: { right: -1, bottom: 0 },
+  ArrowUp: { right: 0, bottom: 1 },
+  ArrowDown: { right: 0, bottom: -1 },
 };
 
 function bounded(position: Position, element: HTMLElement): Position {
   const parent = element.parentElement!;
   return {
-    x: Math.max(8, Math.min(Math.max(8, parent.clientWidth - element.offsetWidth - 8), position.x)),
-    y: Math.max(8, Math.min(Math.max(8, parent.clientHeight - element.offsetHeight - 8), position.y)),
+    right: Math.max(8, Math.min(Math.max(8, parent.clientWidth - element.offsetWidth - 8), position.right)),
+    bottom: Math.max(8, Math.min(Math.max(8, parent.clientHeight - element.offsetHeight - 8), position.bottom)),
   };
 }
 
@@ -39,7 +39,7 @@ export function FloatingTransport({ busy, compact, children }: FloatingTransport
       setPosition((previous) => {
         if (!previous) return previous;
         const next = bounded(previous, element);
-        return next.x === previous.x && next.y === previous.y ? previous : next;
+        return next.right === previous.right && next.bottom === previous.bottom ? previous : next;
       });
     });
     observer.observe(element);
@@ -56,7 +56,7 @@ export function FloatingTransport({ busy, compact, children }: FloatingTransport
       aria-busy={busy}
       aria-description="Drag to move, or use arrow keys when focused. Hold Shift for larger steps."
       tabIndex={0}
-      style={position ? { left: position.x, top: position.y, bottom: "auto", transform: "none" } : undefined}
+      style={position ? { right: position.right, bottom: position.bottom } : undefined}
       onPointerDown={(event) => {
         if (event.button !== 0 || drag.current || !ref.current) return;
         const interactive =
@@ -69,7 +69,7 @@ export function FloatingTransport({ busy, compact, children }: FloatingTransport
         const rect = ref.current.getBoundingClientRect();
         drag.current = {
           pointerId: event.pointerId,
-          offset: { x: event.clientX - rect.left, y: event.clientY - rect.top },
+          offset: { right: rect.right - event.clientX, bottom: rect.bottom - event.clientY },
         };
         event.currentTarget.focus({ preventScroll: true });
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -82,8 +82,8 @@ export function FloatingTransport({ busy, compact, children }: FloatingTransport
         setPosition(
           bounded(
             {
-              x: event.clientX - parent.left - current.offset.x,
-              y: event.clientY - parent.top - current.offset.y,
+              right: parent.right - event.clientX - current.offset.right,
+              bottom: parent.bottom - event.clientY - current.offset.bottom,
             },
             element,
           ),
@@ -114,8 +114,8 @@ export function FloatingTransport({ busy, compact, children }: FloatingTransport
         setPosition(
           bounded(
             {
-              x: rect.left - parent.left + direction.x * step,
-              y: rect.top - parent.top + direction.y * step,
+              right: parent.right - rect.right + direction.right * step,
+              bottom: parent.bottom - rect.bottom + direction.bottom * step,
             },
             element,
           ),

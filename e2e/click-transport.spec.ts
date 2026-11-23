@@ -80,12 +80,20 @@ for (const viewport of [
     await panel.getByRole("radio", { name: "2 bars" }).click();
     const expanded = await panel.boundingBox();
     if (!expanded) throw new Error("Click transport is not visible");
+    const expandedButton = await panel.getByRole("button", { name: "Start", exact: true }).boundingBox();
+    if (!expandedButton) throw new Error("Start button is not visible");
     await panel.getByRole("button", { name: "Start", exact: true }).focus();
     await page.keyboard.press("Enter");
 
     const stop = panel.getByRole("button", { name: "Stop", exact: true });
     const bar = panel.getByRole("status", { name: "Current bar" });
     await expect(stop).toBeEnabled();
+    const compactButton = await stop.boundingBox();
+    if (!compactButton) throw new Error("Stop button is not visible");
+    expect(Math.abs(compactButton.x - expandedButton.x)).toBeLessThan(1);
+    expect(Math.abs(compactButton.y - expandedButton.y)).toBeLessThan(1);
+    expect(compactButton.width).toBeCloseTo(expandedButton.width, 0);
+    expect(compactButton.height).toBeCloseTo(expandedButton.height, 0);
     await expect(bar).toHaveText(String(viewport.barNumber));
     await expect(panel.getByRole("listbox")).toHaveCount(0);
     await expect(panel.getByRole("radiogroup")).toHaveCount(0);
@@ -107,6 +115,8 @@ for (const viewport of [
     await page.mouse.down();
     await page.mouse.move(viewport.width - 10, viewport.height - 10, { steps: 5 });
     await page.mouse.up();
+    const movedButton = await stop.boundingBox();
+    if (!movedButton) throw new Error("Moved Stop button is not visible");
     await stop.click();
 
     const start = panel.getByRole("button", { name: "Start", exact: true });
@@ -130,6 +140,17 @@ for (const viewport of [
         );
       })
       .toBe(true);
+    const restoredButton = await start.boundingBox();
+    if (!restoredButton) throw new Error("Restored Start button is not visible");
+    expect(Math.abs(restoredButton.x - movedButton.x)).toBeLessThan(1);
+    expect(Math.abs(restoredButton.y - movedButton.y)).toBeLessThan(1);
+    await start.click();
+    await expect(stop).toBeEnabled();
+    const restartedButton = await stop.boundingBox();
+    if (!restartedButton) throw new Error("Restarted Stop button is not visible");
+    expect(Math.abs(restartedButton.x - restoredButton.x)).toBeLessThan(1);
+    expect(Math.abs(restartedButton.y - restoredButton.y)).toBeLessThan(1);
+    await stop.click();
   });
 }
 

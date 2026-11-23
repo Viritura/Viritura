@@ -92,12 +92,12 @@
 }
 
 .floatingTransport {
+  --expanded-width: min(560px, calc(100% - 24px));
   position: absolute;
   z-index: 10;
-  left: 50%;
+  right: calc((100% - var(--expanded-width)) / 2);
   bottom: 12px;
-  transform: translateX(-50%);
-  width: min(560px, calc(100% - 24px));
+  width: var(--expanded-width);
   max-height: calc(100% - 16px);
   overflow: auto;
   border: 1px solid var(--border);
@@ -156,7 +156,7 @@
 
 .controlStrip {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--space-3);
 }
 
@@ -246,9 +246,9 @@
     flex-basis: 100%;
   }
 
-  .transport,
-  .transport button {
+  .transport {
     width: 100%;
+    justify-content: flex-end;
   }
 }
 
