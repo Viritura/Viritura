@@ -18,6 +18,7 @@ import {
 import { buildLayouts, buildScoreDefinitions } from "./layoutBuilder";
 import { buildInitialStaffConfigs, createCatalogPart, persistedPartNames } from "./catalogPart";
 import { buildOrchestralLayoutGroups, orchestralInstrumentGroup } from "./layoutGrouping";
+import { preserveCondensedStaves } from "../app/condensedLayout";
 
 // ─── Extract players from an existing Score ──────────────────────
 
@@ -508,7 +509,7 @@ export function addInstrumentToScore(score: Score, instrumentId: string, targetL
       ? {
           ...layout,
           content: canonicalIds.has(layout.id)
-            ? canonicalLayoutContent(scoreWithPart, layout, newPartId)
+            ? preserveCondensedStaves(canonicalLayoutContent(scoreWithPart, layout, newPartId), layout.content)
             : appendStaffToFullScoreContent(layout.content, familyLabel, newStaffNode),
         }
       : layout,

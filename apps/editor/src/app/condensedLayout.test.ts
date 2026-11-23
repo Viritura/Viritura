@@ -69,4 +69,24 @@ describe("condensed instrument identity", () => {
       },
     ]);
   });
+
+  it("keeps a top-level grand staff's staves separate", () => {
+    const grandStaff: LayoutContent[] = [
+      {
+        type: "group",
+        symbol: "brace",
+        content: [
+          { type: "staff", sources: [{ part: "pno", staff: 1 }] },
+          { type: "staff", sources: [{ part: "pno", staff: 2 }] },
+        ],
+      },
+    ];
+    const piano: Part = {
+      id: "pno",
+      name: "Piano",
+      measures: [],
+      _x: { viritura: { instrumentId: "keyboard.piano" } },
+    };
+    expect(buildCondensedLayoutContent(grandStaff, [piano])).toEqual(grandStaff);
+  });
 });

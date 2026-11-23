@@ -65,4 +65,34 @@ describe("addInstrumentToScore — target layouts", () => {
     expect(collectPartIdsInLayout(next.layouts!.find((l) => l.id === "full")!.content).has(newId)).toBe(true);
     expect(collectPartIdsInLayout(next.layouts!.find((l) => l.id === "brass")!.content).has(newId)).toBe(false);
   });
+
+  it("keeps the condensed score's merged staves when adding an instrument", () => {
+    const score = {
+      mnx: { version: 1 },
+      parts: [
+        { id: "tp1", name: "Trumpet", measures: [{}], _x: { viritura: { instrumentId: "brass.trumpet.bflat" } } },
+        { id: "tp2", name: "Trumpet", measures: [{}], _x: { viritura: { instrumentId: "brass.trumpet.bflat" } } },
+      ],
+      layouts: [
+        { id: "full", content: [staff("tp1"), staff("tp2")] },
+        { id: "cond", content: [{ type: "staff", sources: [{ part: "tp1" }, { part: "tp2" }] }] },
+      ],
+      scores: [
+        { name: "Full Score", layout: "full" },
+        { name: "Condensed Score", layout: "cond" },
+      ],
+      global: { measures: [{}] },
+    } as unknown as Score;
+    const next = addInstrumentToScore(score, "wind.flutes.flute");
+    const newId = newPartId(score, next);
+    const staves: string[][] = [];
+    const walk = (content: readonly LayoutContent[]) => {
+      for (const node of content) {
+        if (node.type === "group") walk(node.content);
+        else staves.push(node.sources.map((s) => s.part));
+      }
+    };
+    walk(next.layouts!.find((l) => l.id === "cond")!.content);
+    expect(staves).toEqual([[newId], ["tp1", "tp2"]]);
+  });
 });
