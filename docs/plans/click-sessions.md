@@ -20,7 +20,12 @@ Implemented:
   and status, and a stopped-only session tempo percentage. Audio is created only
   from Play; opening a file does not create instrument or click audio. File,
   worklet, and context-interruption failures are visible. No upload or editor
-  bootstrap is needed. The first slice starts at the beginning of the file.
+  bootstrap is needed.
+- **Horizontal bar dial** — choose a start from the performed bar order with
+  touch, scrolling, tapping, or keyboard. Rehearsal marks appear above bar
+  numbers, repeat visits are distinguished, and the next-start card shows the
+  selected bar's countoff, meter, and tempo. During playback and pause the dial
+  follows the current performed bar without seeking or rescheduling audio.
 - **Isolated entry** — [`click/index.html`](../../apps/editor/click/index.html)
   is built separately from the editor, with development and deployed `/click`
   routing. The build traverses the click entry's output chunks and rejects
@@ -60,15 +65,15 @@ Implemented:
   Play restarts with the countoff and Resume continues without one.
 
 Remaining: measure-position resolution rules and MNX subdivision metadata,
-the project setlist picker, persisted click settings, start-bar selection,
-the movable controller and bar wheel, and the release gates below.
+the project setlist picker, persisted click settings, the movable controller,
+additional rehearsal navigation, and the release gates below.
 
 Single-file smoke check: start the UI through `pnpm dev:stack up ui`, obtain
 the editor origin with `pnpm dev:stack url`, and visit its `/click` route.
 Choose **Open MNX**, select a local file, then **Play**. The first bar is a
-synthetic countoff; Pause/Resume retains its position, while Stop then Play
-starts a fresh countoff. This initial browser check is not studio-output
-qualification or a hard real-time guarantee.
+synthetic countoff before the selected bar; Pause/Resume retains its position,
+while Stop then Play starts a fresh countoff. This initial browser check is not
+studio-output qualification or a hard real-time guarantee.
 
 ## Goal and confirmed requirements
 
@@ -220,34 +225,32 @@ and [Popover](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API).
 
 ## Touch bar wheel and start preview
 
-Proposed selector: a vertical, scroll-snapping bar wheel with a fixed center
-selection line, rather than a small circular knob that requires precise rotation.
-Show the previous and next bars around a large selected bar number. Display
-rehearsal letters/text prominently at their authored positions and retain
-**Rehearsal O + 3 bars** context between marks. Never infer rehearsal letters
-from bar numbering.
+The current selector is a horizontal bar dial with a fixed center selection
+line. It shows rehearsal text above bar numbers and retains **Rehearsal O + 3
+bars** context between marks. Rehearsal letters are never inferred from bar
+numbering.
 
-- Swipe or scroll for nearby bars, tap a visible row to select, and provide
-  **Previous rehearsal** / **Next rehearsal** for long-distance navigation.
-- Provide an accessible rehearsal list and direct **Go to bar** entry. Arrow
-  keys step by bar; Home/End reach the first/last playable bar. The dial-like
-  interaction is an enhancement, not the only way to select a start.
+- Swipe or scroll for nearby bars, or tap a visible bar to select it. Arrow
+  keys step by bar; Home/End reach the first/last selectable bar.
+- Planned: **Previous rehearsal** / **Next rehearsal**, an accessible rehearsal
+  list, and direct **Go to bar** entry for long-distance navigation.
 - Use at least 44 by 44 CSS-pixel touch targets, high-contrast large text,
   visible keyboard focus, and reduced-motion support. Keep the start summary
   and primary transport visible while the bar list scrolls.
 - Scrolling previews a candidate without moving a playing transport. Settle
   to one bar to commit the next start; disable Play while a gesture or inertial
   scroll is unresolved. Pressing Play must never race a moving wheel.
-- During playback, distinguish **Playing** from **Next start**. Browsing does
-  not seek, stop, or start sound. Starting the candidate requires an explicit
-  **Stop and start here** action; Resume continues the paused take instead.
+- During playback and pause, distinguish the current bar from **Next start**.
+  The dial is read-only and follows playback; Resume continues the paused take.
+  Future browsing during a take must never seek, stop, or start sound implicitly.
 
-The wheel selects authored bar boundaries, identified by stable measure ID
-rather than a rounded audio time or display number. If repeats/jumps create
-multiple visits, show the selected pass/route explicitly and resolve it through
-the existing playback itinerary. Do not silently choose an ambiguous occurrence.
-If a rehearsal mark is inside a bar, label its offset and offer that bar's
-beginning; exact intra-bar rehearsal starts require the later intra-bar policy.
+The dial selects bar-boundary occurrences from the repeat/jump-expanded
+itinerary rather than a rounded audio time or display number. Multiple visits
+show their pass explicitly; partial visits beginning inside a bar are shown
+but are not selectable starts. Persisted selections should identify the authored
+bar by stable measure ID as well as the intended visit. If future rehearsal
+marks can be placed inside a bar, label the offset and offer that bar's
+beginning; exact intra-bar starts require the later intra-bar policy.
 
 The controller's main information is a start card, not merely a seek slider:
 

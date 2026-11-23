@@ -19,6 +19,8 @@ export interface ClickResolutionRule {
 export interface ClickSessionOptions {
   /** 0-based score measure to start at (its first performance). Default 0. */
   readonly startMeasure?: number;
+  /** 0-based performed measure occurrence, for explicitly selecting a repeat or jump visit. */
+  readonly startTimelineMeasure?: number;
   /** Session tempo as a percentage of the written tempo. Default 100. */
   readonly tempoPercent?: number;
   /** Prepend one synthetic bar of clicks in the start bar's meter and tempo. Default true. */
@@ -56,9 +58,8 @@ export function buildClickSessionProgram(
   const { model, measureStartBeats, measureTimeSignatures, playedSpans, expandedMeasureToOriginal } = source;
   const tempoPercent = options.tempoPercent ?? 100;
   if (!Number.isFinite(tempoPercent) || tempoPercent <= 0) throw new RangeError("Tempo percentage must be positive");
-  const startMeasure = options.startMeasure ?? 0;
-  const startIndex = expandedMeasureToOriginal.indexOf(startMeasure);
-  if (startIndex < 0) throw new RangeError(`Measure ${startMeasure + 1} is never performed`);
+  const startIndex = resolveStartIndex(expandedMeasureToOriginal, options);
+  const startMeasure = expandedMeasureToOriginal[startIndex]!;
   const resolutions = sortedResolutions(options.resolutions ?? []);
 
   const scale = 100 / tempoPercent;
@@ -89,6 +90,21 @@ export function buildClickSessionProgram(
     startBpm: 60 / quarterSeconds,
     startTimelineMeasure: startIndex,
   };
+}
+
+function resolveStartIndex(measureOrder: readonly number[], options: ClickSessionOptions): number {
+  if (options.startTimelineMeasure !== undefined) {
+    if (options.startMeasure !== undefined) throw new RangeError("Choose either a score measure or a performed visit");
+    const index = options.startTimelineMeasure;
+    if (!Number.isInteger(index) || index < 0 || index >= measureOrder.length) {
+      throw new RangeError("Performed measure visit is out of range");
+    }
+    return index;
+  }
+  const measure = options.startMeasure ?? 0;
+  const index = measureOrder.indexOf(measure);
+  if (index < 0) throw new RangeError(`Measure ${measure + 1} is never performed`);
+  return index;
 }
 
 /** One synthetic bar of beat clicks (accented downbeat) at a fixed quarter-note length. */

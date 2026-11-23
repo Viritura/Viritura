@@ -107,6 +107,35 @@ describe("buildClickSessionProgram", () => {
     expect(program.duration).toBe(3.5);
     expect(times(program.events)).toEqual([0, 0.25, 0.5, 0.875, 1.25, 1.5, 1.75, 2, 2.25, 2.625, 3, 3.25]);
   });
+
+  it("starts at the explicitly selected repeat visit with its own countoff", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          { time: { count: 2, unit: 4 }, tempos: [{ bpm: 120, value: { base: "quarter" } }], repeatStart: {} },
+          { repeatEnd: {} },
+          { time: { count: 3, unit: 4 }, tempos: [{ bpm: 60, value: { base: "quarter" } }] },
+        ],
+      },
+      parts: [],
+    };
+    const timeline = generateTimeline(score);
+    expect(timeline.expandedMeasureToOriginal).toEqual([0, 1, 0, 1, 2]);
+    const program = buildClickSessionProgram(timeline, { startTimelineMeasure: 2 });
+    expect(program.startTimelineMeasure).toBe(2);
+    expect(program.countoffSeconds).toBe(1);
+    expect(program.duration).toBe(6);
+    expect(times(program.events)).toEqual([0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5]);
+    const later = buildClickSessionProgram(timeline, { startTimelineMeasure: 4 });
+    expect(later.countoffClicks).toBe(3);
+    expect(later.countoffSeconds).toBe(3);
+    expect(later.startBpm).toBe(60);
+    expect(times(later.events)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(() => buildClickSessionProgram(timeline, { startTimelineMeasure: 5 })).toThrow(RangeError);
+    expect(() => buildClickSessionProgram(timeline, { startTimelineMeasure: 1.5 })).toThrow(RangeError);
+    expect(() => buildClickSessionProgram(timeline, { startMeasure: 0, startTimelineMeasure: 2 })).toThrow(RangeError);
+  });
 });
 
 describe("describeClickCue", () => {

@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClickEngineEvent } from "@viritura/audio/click";
 import score from "../../../../packages/format/fixtures/mnx/c-major-scale.mnx?raw";
+import rehearsals from "../../../../packages/format/fixtures/mnx/rehearsal-marks.mnx?raw";
 import { ClickPage } from "./index";
 
 const audio = vi.hoisted(() => ({
@@ -126,6 +127,94 @@ describe("standalone click page", () => {
         12,
       ),
     );
+  });
+
+  it("settles touch scrolling before enabling Play and starts at the selected rehearsal", async () => {
+    render(<ClickPage />);
+    await openFile(rehearsals);
+    const dial = screen.getByRole("listbox", { name: "Start bar" });
+    const play = screen.getByRole("button", { name: "Play", exact: true });
+
+    fireEvent.pointerDown(dial, { pointerType: "touch" });
+    expect(play.hasAttribute("disabled")).toBe(true);
+    dial.scrollLeft = 160;
+    fireEvent.scroll(dial);
+    expect(screen.getByText("Rehearsal A, 4 clicks free")).toBeTruthy();
+    fireEvent.pointerUp(dial, { pointerType: "touch" });
+    await waitFor(() => expect(screen.getByText("Rehearsal B, 4 clicks free")).toBeTruthy());
+    expect(play.hasAttribute("disabled")).toBe(false);
+    expect(screen.getByText(/Bar 3.*4\/4.*Quarter = 120/)).toBeTruthy();
+
+    fireEvent.click(play);
+    await waitFor(() =>
+      expect(audio.load).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          { time: 0, level: "accent" },
+          { time: 2, level: "accent" },
+          { time: 6, level: "accent" },
+        ]),
+        8,
+      ),
+    );
+    expect(screen.getByRole("status", { name: "Playback position" }).textContent).toContain("After countoffBar 3");
+  });
+
+  it("selects a repeated bar visit rather than silently starting its first occurrence", async () => {
+    const repeated = JSON.parse(score) as {
+      global: { measures: { repeatStart?: object; repeatEnd?: object }[] };
+    };
+    repeated.global.measures[0]!.repeatStart = {};
+    repeated.global.measures[1]!.repeatEnd = {};
+    render(<ClickPage />);
+    await openFile(JSON.stringify(repeated));
+    fireEvent.click(screen.getByRole("option", { name: "Bar 1, visit 2 of 2" }));
+    expect(screen.getByText(/Bar 1, visit 2 of 2.*4\/4/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Play", exact: true }));
+    await waitFor(() => expect(audio.load).toHaveBeenCalledWith(expect.any(Array), 6));
+    expect(screen.getByRole("status", { name: "Playback position" }).textContent).toContain("visit 2 of 2");
+  });
+
+  it("follows the current bar during playback, freezes on pause, and keeps the selected start", async () => {
+    render(<ClickPage />);
+    await openFile();
+    fireEvent.click(screen.getByRole("button", { name: "Play", exact: true }));
+    await waitFor(() =>
+      expect(screen.getByRole("status", { name: "Playback status" }).textContent).toContain("Counting off"),
+    );
+
+    act(() => {
+      audio.context.currentTime = 3.1;
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("status", { name: "Playback position" }).textContent).toContain("Current barBar 1"),
+    );
+    act(() => {
+      audio.context.currentTime = 5.1;
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("status", { name: "Playback position" }).textContent).toContain("Current barBar 2"),
+    );
+    expect(screen.getByRole("option", { name: "Bar 2" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText("Bar 1, 4 clicks free")).toBeTruthy();
+
+    audio.stop.mockResolvedValueOnce(4.1);
+    fireEvent.click(screen.getByRole("button", { name: "Pause", exact: true }));
+    await waitFor(() => expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Paused"));
+    act(() => {
+      audio.context.currentTime = 20;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.getByRole("status", { name: "Playback position" }).textContent).toContain("Current barBar 2");
+    expect(screen.getByRole("option", { name: "Bar 1" }).hasAttribute("disabled")).toBe(true);
+
+    act(() => {
+      audio.context.currentTime = 1;
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Resume", exact: true }));
+    await waitFor(() => expect(audio.start).toHaveBeenLastCalledWith(4.1));
+    fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
+    await waitFor(() => expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Ready"));
+    expect(screen.getByRole("option", { name: "Bar 1" }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("reports worklet errors and permits an explicit fresh retry", async () => {

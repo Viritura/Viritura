@@ -47,10 +47,27 @@
   font-weight: 700;
 }
 
+.navigation {
+  margin-top: var(--space-6);
+}
+
+.navigation h2 {
+  font-size: 1.15rem;
+}
+
+.navigation p {
+  color: var(--text-muted);
+}
+
 .preview {
   margin-block: var(--space-6);
   padding-block: var(--space-5);
   border-block: 1px solid var(--border);
+}
+
+.previewLabel {
+  color: var(--text-muted);
+  font-size: 0.875rem;
 }
 
 .preview h2 {
@@ -95,6 +112,19 @@
   display: flex;
   gap: var(--space-4);
   margin-top: var(--space-6);
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.position {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.position strong {
   font-size: 1.5rem;
   font-variant-numeric: tabular-nums;
 }

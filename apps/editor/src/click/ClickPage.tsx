@@ -1,6 +1,8 @@
-import { useId, useMemo, useRef } from "react";
-import { Button, FormInput, Slider } from "@viritura/ui";
-import { buildClickSessionProgram, describeClickCue } from "@viritura/playback/click";
+import { useId, useRef, useState } from "react";
+import { Button, FormInput } from "@viritura/ui";
+import type { ClickSessionProgram } from "@viritura/playback/click";
+import { ClickControls } from "./ClickControls";
+import { clickBarAtTime, describeClickBar } from "./barNavigation";
 import { useClickPlayer } from "./useClickPlayer";
 import styles from "./ClickPage.module.css";
 
@@ -19,7 +21,7 @@ function statusLabel(
   ];
 }
 
-function countoffPosition(program: ReturnType<typeof buildClickSessionProgram> | undefined, elapsed: number): number {
+function countoffPosition(program: ClickSessionProgram | undefined, elapsed: number): number {
   return Math.max(
     1,
     program?.events.slice(0, program.countoffClicks).filter((event) => event.time <= elapsed).length ?? 0,
@@ -28,27 +30,19 @@ function countoffPosition(program: ReturnType<typeof buildClickSessionProgram> |
 
 export function ClickPage() {
   const player = useClickPlayer();
+  const [dialSettling, setDialSettling] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const tempoId = useId();
   const statusId = useId();
   const active = player.phase === "playing" || player.phase === "paused";
-  const preview = useMemo(
-    () =>
-      player.document && player.tempoPercent > 0
-        ? buildClickSessionProgram(player.document.timing, { tempoPercent: player.tempoPercent })
-        : undefined,
-    [player.document, player.tempoPercent],
-  );
-  const countingOff =
-    player.phase === "playing" && player.program !== undefined && player.elapsed < player.program.countoffSeconds;
+  const beforeStart = active && player.program !== undefined && player.elapsed < player.program.countoffSeconds;
+  const countingOff = player.phase === "playing" && beforeStart;
   const status = statusLabel(player.phase, player.busy, countingOff, player.tempoPercent, player.document);
-  const nextBeat = preview
-    ? describeClickCue({
-        measureNumber: player.document?.barNumbers[0] ?? 1,
-        countoffClicks: preview.countoffClicks,
-      })
-    : "One bar countoff before every fresh start";
-  const countoffBeat = countoffPosition(preview, player.elapsed);
+  const barIndex =
+    active && player.document && player.program
+      ? clickBarAtTime(player.document.timing, player.program, player.elapsed, player.tempoPercent)
+      : player.startBar;
+  const currentBar = player.document?.bars[barIndex];
+  const countoffBeat = countoffPosition(player.program, player.elapsed);
 
   return (
     <main className={styles.page}>
@@ -66,76 +60,40 @@ export function ClickPage() {
           accept=".mnx,application/json"
           aria-label="MNX file"
           hidden
-          disabled={active || player.busy}
+          disabled={active || player.busy || dialSettling}
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
             event.currentTarget.value = "";
             if (file) void player.open(file);
           }}
         />
-        <Button size="lg" disabled={active || player.busy} onClick={() => inputRef.current?.click()}>
+        <Button size="lg" disabled={active || player.busy || dialSettling} onClick={() => inputRef.current?.click()}>
           Open MNX
         </Button>
 
-        {player.document && (
-          <>
-            {preview && (
-              <div className={styles.preview}>
-                <h2>{nextBeat}</h2>
-                <p>
-                  {player.document.timing.measureTimeSignatures[0]?.count}/
-                  {player.document.timing.measureTimeSignatures[0]?.unit}
-                  {" | "}Quarter = {Number(preview.startBpm.toFixed(2))}
-                  {" | "}Through track end
-                </p>
-              </div>
-            )}
-            <fieldset className={styles.tempo} disabled={active || player.busy}>
-              <label htmlFor={tempoId}>Session tempo %</label>
-              <Slider
-                id={tempoId}
-                min={0}
-                max={100}
-                step={1}
-                value={player.tempoPercent}
-                onChange={player.setTempoPercent}
-                ariaDescribedBy={statusId}
-              />
-              <output htmlFor={tempoId}>{player.tempoPercent}%</output>
-              <Button disabled={active || player.busy} onClick={() => player.setTempoPercent(100)}>
-                Reset to 100%
-              </Button>
-            </fieldset>
-            <div className={styles.transport}>
-              <Button
-                variant="primary"
-                size="lg"
-                disabled={active || player.busy || player.tempoPercent === 0}
-                onClick={() => void player.play()}
-              >
-                Play
-              </Button>
-              <Button
-                size="lg"
-                disabled={!active || player.busy}
-                onClick={() => void (player.phase === "paused" ? player.resume() : player.pause())}
-              >
-                {player.phase === "paused" ? "Resume" : "Pause"}
-              </Button>
-              <Button size="lg" disabled={!active || player.busy} onClick={() => void player.stop()}>
-                Stop
-              </Button>
-            </div>
-          </>
-        )}
+        <ClickControls
+          player={player}
+          active={active}
+          barIndex={barIndex}
+          dialSettling={dialSettling}
+          onSettlingChange={setDialSettling}
+          statusId={statusId}
+        />
         <div id={statusId} className={styles.status} role="status" aria-label="Playback status" aria-live="polite">
           <strong>{status}</strong>
           {countingOff && (
             <span>
-              {countoffBeat} of {preview?.countoffClicks}
+              {countoffBeat} of {player.program?.countoffClicks}
             </span>
           )}
         </div>
+        {active && currentBar && (
+          <div className={styles.position} role="status" aria-label="Playback position" aria-live="polite">
+            <span>{beforeStart ? "After countoff" : "Current bar"}</span>
+            <strong>{describeClickBar(currentBar)}</strong>
+            {currentBar.rehearsalContext && <span>Rehearsal {currentBar.rehearsalContext}</span>}
+          </div>
+        )}
         {player.error && (
           <p className={styles.error} role="alert">
             {player.error}
