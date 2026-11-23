@@ -64,12 +64,19 @@ for (const mode of ["Page", "Spread", "Spread (H)"]) {
         : '[data-reader-source-page="3"][data-reader-target-page="1"]',
     );
     await expect(preview).toBeVisible();
-    const verso = await page.locator(single ? 'canvas[data-page="0"]' : 'canvas[data-page="1"]').boundingBox();
-    const overlay = await preview.boundingBox();
-    if (!verso || !overlay) throw new Error("Early verso preview is not visible");
-    expect(Math.abs(overlay.x - verso.x)).toBeLessThan(1);
-    expect(Math.abs(overlay.y - verso.y)).toBeLessThan(1);
-    expect(Math.abs(overlay.height - verso.height * (single ? 0.5 : 1))).toBeLessThan(1);
+    const target = page.locator(single ? 'canvas[data-page="0"]' : 'canvas[data-page="1"]');
+    await expect
+      .poll(async () => {
+        const [pageBox, previewBox] = await Promise.all([target.boundingBox(), preview.boundingBox()]);
+        return (
+          pageBox !== null &&
+          previewBox !== null &&
+          Math.abs(previewBox.x - pageBox.x) < 1 &&
+          Math.abs(previewBox.y - pageBox.y) < 1 &&
+          Math.abs(previewBox.height - pageBox.height * (single ? 0.5 : 1)) < 1
+        );
+      })
+      .toBe(true);
     await page.getByRole("button", { name: "Stop", exact: true }).click();
     await expect(preview).toHaveCount(0);
     await page.getByRole("button", { name: "Start", exact: true }).click();
