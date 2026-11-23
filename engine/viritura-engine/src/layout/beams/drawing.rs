@@ -226,10 +226,25 @@ pub(super) fn reposition_rests_under_beam(
     let last_beat = beam_events.last().unwrap().beat_position;
     let first_x = stem_tips.first().unwrap().0;
     for voice in &ml.voice_layouts {
+        if !beam_events.iter().any(|member| {
+            (0..voice.events.len()).any(|index| {
+                member
+                    .id
+                    .as_deref()
+                    .is_some_and(|id| voice.events.id(index) == Some(id))
+            })
+        }) {
+            continue;
+        }
         for index in 0..voice.events.len() {
             let event = voice.events.event(index);
             let beat = voice.events.beat_position(index);
             if !event.is_rest()
+                || event
+                    .rest
+                    .as_ref()
+                    .and_then(|rest| rest.staff_position)
+                    .is_some()
                 || beat <= first_beat
                 || beat >= last_beat
                 || event.duration.base.flag_count() == 0

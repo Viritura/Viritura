@@ -422,6 +422,12 @@ In divisi mode, only entirely resting sequences are suppressed. Notes inside
 tuplets (including nested tuplets) and multi-note tremolos count as active music;
 a sequence containing those notes plus ordinary rests must remain visible.
 
+Visible rests use the same clearance rules as ordinary multi-voice staves:
+upper-voice rests move upward and lower-voice rests downward in staff-line
+increments until they clear horizontally overlapping note and beam ink.
+This preserves voice order even in crossed or extreme registers, includes
+beams spanning a later rest, and honors explicitly authored rest positions.
+
 ### Transposition constraints
 
 Instruments of different transpositions **cannot share a staff** — they produce different key signatures in written pitch mode.

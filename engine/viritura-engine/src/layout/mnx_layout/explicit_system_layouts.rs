@@ -588,6 +588,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 );
             virtual_resolved.push(ResolvedMeasure {
                 system_end: Default::default(),
+                use_beams: super::super::support_flags::engraving_flags(score).0,
                 index: measure_index,
                 chord_symbols: super::chord_symbols::visible_global_chord_symbols(
                     score,

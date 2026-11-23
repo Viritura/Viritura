@@ -413,6 +413,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             measure_barline_context(globals, i);
         result.push(ResolvedMeasure {
             index: i,
+            use_beams: super::support_flags::engraving_flags(score).0,
             global,
             part: part_measure,
             chord_symbols,

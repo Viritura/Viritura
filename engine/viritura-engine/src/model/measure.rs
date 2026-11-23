@@ -326,6 +326,8 @@ pub(crate) struct RepeatGlissando {
 #[derive(Debug, Clone)]
 pub struct ResolvedMeasure {
     pub index: usize,
+    /// Honor authored beams exclusively rather than supplying automatic groups.
+    pub(crate) use_beams: bool,
     pub global: GlobalMeasure,
     pub part: PartMeasure,
     /// Layout-only harmony lane cloned from global events; never part-measure data.

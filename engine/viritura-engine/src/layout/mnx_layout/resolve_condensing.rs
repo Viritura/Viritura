@@ -614,6 +614,7 @@ pub(super) fn resolve_one_measure_phase1(
         measure_barline_context(&score.global.measures, mi);
     let rm = ResolvedMeasure {
         system_end: Default::default(),
+        use_beams: super::super::support_flags::engraving_flags(score).0,
         index: mi,
         chord_symbols: {
             let mut chord_staff = flat_staff.clone();

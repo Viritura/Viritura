@@ -789,11 +789,6 @@ pub(super) fn layout_measure_inner(
     // See `apply_multi_voice_horizontal_offsets` for the algorithm details.
     apply_multi_voice_horizontal_offsets(&mut voice_layouts, config, sp);
 
-    // Resolve vertical rest conflicts in multi-voice contexts.
-    if voice_layouts.len() >= 2 {
-        resolve_voice_rest_conflicts(&mut voice_layouts);
-    }
-
     // Place mid-measure clefs inside the clearance already reserved by the
     // shared spacing map. No post-layout event shift is needed.
     let mut mid_clef_layouts: Vec<MidClefChange> = Vec::new();
@@ -856,7 +851,7 @@ pub(super) fn layout_measure_inner(
         }
     }
 
-    MeasureLayout {
+    let mut measure = MeasureLayout {
         x: start_x,
         width: measure_width,
         resolved: rm.clone(),
@@ -873,7 +868,9 @@ pub(super) fn layout_measure_inner(
         show_system_objects: true,
         is_first_staff: true,
         is_last_staff: true,
-    }
+    };
+    resolve_voice_rest_conflicts(&mut measure, sp, config);
+    measure
 }
 
 fn has_visible_measure_prefix(
