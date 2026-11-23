@@ -1,7 +1,8 @@
-import { useId, useMemo } from "react";
+import { useId, useMemo, useRef } from "react";
 import { Button, ButtonGroup, Slider } from "@viritura/ui";
 import { buildClickSessionProgram, describeClickCue } from "@viritura/playback/click";
 import { BarDial } from "./BarDial";
+import { RehearsalDial } from "./RehearsalDial";
 import { describeClickBar } from "./barNavigation";
 import type { useClickPlayer } from "./useClickPlayer";
 import styles from "./ClickPage.module.css";
@@ -24,6 +25,7 @@ export function ClickControls({
   statusId,
 }: ClickControlsProps) {
   const tempoId = useId();
+  const settling = useRef({ bars: false, rehearsals: false });
   const preview = useMemo(
     () =>
       player.document && player.tempoPercent > 0
@@ -47,15 +49,27 @@ export function ClickControls({
       })
     : undefined;
 
+  function reportSettling(track: "bars" | "rehearsals", value: boolean): void {
+    settling.current[track] = value;
+    onSettlingChange(settling.current.bars || settling.current.rehearsals);
+  }
+
   return (
     <>
       <section className={styles.navigation} aria-label="Bar navigation">
+        <RehearsalDial
+          bars={player.document.bars}
+          index={barIndex}
+          enabled={!active && !player.busy}
+          onSelect={player.setStartBar}
+          onSettlingChange={(value) => reportSettling("rehearsals", value)}
+        />
         <BarDial
           bars={player.document.bars}
           index={barIndex}
           enabled={!active && !player.busy}
           onSelect={player.setStartBar}
-          onSettlingChange={onSettlingChange}
+          onSettlingChange={(value) => reportSettling("bars", value)}
         />
       </section>
       {preview && (

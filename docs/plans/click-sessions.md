@@ -22,9 +22,11 @@ Implemented:
   worklet, and context-interruption failures are visible. No upload or editor
   bootstrap is needed. The filename and Open MNX action live in a compact top
   bar; the main surface contains only navigation, start details, and controls.
-- **Horizontal bar dial** — choose a start from the performed bar order with
-  touch, scrolling, tapping, or keyboard. Rehearsal marks appear above bar
-  numbers, repeat visits are distinguished, and the next-start card shows the
+- **Horizontal navigation dials** — choose a start from independently scrollable
+  rehearsal and bar-number tracks with touch, scrolling, tapping, or keyboard.
+  The upper track contains only rehearsal marks, so distant marks are adjacent;
+  selecting one centers its bar in the lower track. Repeat visits are distinguished,
+  and the next-start card shows the
   selected bar's countoff, meter, and tempo. During playback and pause the dial
   follows the current performed bar without seeking or rescheduling audio.
 - **Isolated entry** — [`click/index.html`](../../apps/editor/click/index.html)
@@ -227,15 +229,18 @@ and [Popover](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API).
 
 ## Touch bar wheel and start preview
 
-The current selector is a horizontal bar dial with a fixed center selection
-line. It shows rehearsal text above bar numbers and retains **Rehearsal O + 3
-bars** context between marks. Rehearsal letters are never inferred from bar
-numbering.
+The current selector has two independently scrollable horizontal tracks with
+fixed center selection lines: rehearsal marks above and bar numbers below.
+Rehearsals are adjacent entries regardless of the number of intervening bars.
+Selecting a rehearsal jumps to its bar; selecting a bar highlights its preceding
+rehearsal. Both tracks follow playback. Scores without rehearsal marks show only
+the bar track. The start cue retains **Rehearsal O + 3 bars** context between
+marks. Rehearsal letters are never inferred from bar numbering.
 
-- Swipe or scroll for nearby bars, or tap a visible bar to select it. Arrow
-  keys step by bar; Home/End reach the first/last selectable bar.
-- Planned: **Previous rehearsal** / **Next rehearsal**, an accessible rehearsal
-  list, and direct **Go to bar** entry for long-distance navigation.
+- Swipe or scroll either track, or tap an entry to select it. Arrow keys step
+  through the focused track; Home/End reach its first/last selectable entry.
+- Planned: **Previous rehearsal** / **Next rehearsal** shortcut buttons and
+  direct **Go to bar** entry.
 - Use at least 44 by 44 CSS-pixel touch targets, high-contrast large text,
   visible keyboard focus, and reduced-motion support. Keep the start summary
   and primary transport visible while the bar list scrolls.
@@ -243,7 +248,7 @@ numbering.
   to one bar to commit the next start; disable Play while a gesture or inertial
   scroll is unresolved. Pressing Play must never race a moving wheel.
 - During playback and pause, distinguish the current bar from **Next start**.
-  The dial is read-only and follows playback; Resume continues the paused take.
+  Both tracks are read-only and follow playback; Resume continues the paused take.
   Future browsing during a take must never seek, stop, or start sound implicitly.
 
 The dial selects bar-boundary occurrences from the repeat/jump-expanded

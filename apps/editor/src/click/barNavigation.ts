@@ -13,6 +13,22 @@ export interface ClickBar {
   readonly startable: boolean;
 }
 
+export interface ClickDialProps {
+  readonly bars: readonly ClickBar[];
+  readonly index: number;
+  readonly enabled: boolean;
+  readonly onSelect: (index: number) => void;
+  readonly onSettlingChange: (settling: boolean) => void;
+}
+
+export interface ClickDialEntry {
+  readonly id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly detail?: string;
+  readonly startable: boolean;
+}
+
 export function collectClickBars(score: Score, timing: PlaybackTiming): ClickBar[] {
   let latestMark: { text: string; index: number } | undefined;
   const authored = score.global.measures.map((measure, index) => {

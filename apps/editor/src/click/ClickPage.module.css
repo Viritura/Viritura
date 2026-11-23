@@ -50,6 +50,8 @@
 }
 
 .navigation {
+  display: grid;
+  gap: var(--space-3);
   min-width: 0;
 }
 

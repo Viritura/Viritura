@@ -34,13 +34,13 @@
 
 .track {
   position: relative;
-  height: 118px;
+  height: 80px;
 }
 
-.track .bar {
+.track .entry {
   position: absolute;
   top: 0;
-  height: 110px;
+  height: 72px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -50,33 +50,29 @@
   opacity: 1;
 }
 
-.track .bar[aria-selected="true"] {
+.track .entry[aria-selected="true"] {
   color: var(--accent);
   font-weight: 700;
 }
 
-.track .bar:disabled {
+.track .entry:disabled {
   opacity: 1;
 }
 
-.rehearsal {
-  height: 28px;
+.label {
   max-width: 100%;
   overflow: hidden;
-  font-size: 1.05rem;
-  font-weight: 700;
-  line-height: 28px;
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.number {
-  font-size: 1.4rem;
-  font-variant-numeric: tabular-nums;
-}
-
 .visit {
   min-height: 1em;
+  max-width: 100%;
+  overflow: hidden;
   font-size: 0.7rem;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }

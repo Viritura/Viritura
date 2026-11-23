@@ -213,6 +213,65 @@ describe("standalone click page", () => {
     expect(screen.getByRole("status", { name: "Playback position" }).textContent).toContain("visit 2 of 2");
   });
 
+  it("scrolls through rehearsals independently and synchronizes the selected bar", async () => {
+    render(<ClickPage />);
+    await openFile(rehearsals);
+    const rehearsalTrack = screen.getByRole("listbox", { name: "Rehearsal" });
+    const barTrack = screen.getByRole("listbox", { name: "Start bar" });
+    expect(within(rehearsalTrack).getAllByRole("option")).toHaveLength(4);
+    fireEvent.pointerDown(rehearsalTrack, { pointerType: "touch" });
+    rehearsalTrack.scrollLeft = 80;
+    fireEvent.scroll(rehearsalTrack);
+    expect(barTrack.scrollLeft).toBe(0);
+    expect(screen.getByRole("button", { name: "Play", exact: true }).hasAttribute("disabled")).toBe(true);
+    fireEvent.pointerUp(rehearsalTrack, { pointerType: "touch" });
+    await waitFor(() => expect(screen.getByText("Rehearsal B, 4 clicks free")).toBeTruthy());
+    expect(rehearsalTrack.scrollLeft).toBe(80);
+    expect(barTrack.scrollLeft).toBe(160);
+    fireEvent.click(within(barTrack).getByRole("option", { name: "Bar 2" }));
+    expect(
+      within(rehearsalTrack).getByRole("option", { name: "Rehearsal A, Bar 1" }).getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(rehearsalTrack.scrollLeft).toBe(0);
+    expect(barTrack.scrollLeft).toBe(80);
+  });
+
+  it("keeps Play disabled until both tracks have settled", async () => {
+    render(<ClickPage />);
+    await openFile(rehearsals);
+    const rehearsalTrack = screen.getByRole("listbox", { name: "Rehearsal" });
+    fireEvent.pointerDown(rehearsalTrack, { pointerType: "touch" });
+    fireEvent.wheel(screen.getByRole("listbox", { name: "Start bar" }), { deltaY: 80 });
+    await waitFor(() => expect(screen.getByText("Rehearsal A + 1 bar, 4 clicks free")).toBeTruthy());
+    const play = screen.getByRole("button", { name: "Play", exact: true });
+    expect(play.hasAttribute("disabled")).toBe(true);
+    fireEvent.pointerUp(rehearsalTrack, { pointerType: "touch" });
+    await waitFor(() => expect(play.hasAttribute("disabled")).toBe(false));
+  });
+
+  it("follows the current rehearsal without seeking the playing take", async () => {
+    render(<ClickPage />);
+    await openFile(rehearsals);
+    fireEvent.click(screen.getByRole("button", { name: "Play", exact: true }));
+    await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
+    act(() => {
+      audio.context.currentTime = 7.1;
+    });
+    const track = screen.getByRole("listbox", { name: "Rehearsal" });
+    await waitFor(() =>
+      expect(within(track).getByRole("option", { name: "Rehearsal B, Bar 3" }).getAttribute("aria-selected")).toBe(
+        "true",
+      ),
+    );
+    expect(track.scrollLeft).toBe(80);
+    expect(track.getAttribute("aria-readonly")).toBe("true");
+    track.scrollLeft = 240;
+    fireEvent.scroll(track);
+    expect(track.scrollLeft).toBe(80);
+    expect(audio.load).toHaveBeenCalledOnce();
+    expect(screen.getByText("Rehearsal A, 4 clicks free")).toBeTruthy();
+  });
+
   it("follows the current bar during playback, freezes on pause, and keeps the selected start", async () => {
     render(<ClickPage />);
     await openFile();
