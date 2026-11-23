@@ -1940,8 +1940,10 @@ clicked staff. Instrument choices must keep the same staff count and be
 pitched instruments. Percussion-map swaps and changes of staff count need
 separate source parts; this extension does not define per-instrument kits.
 Changing instrument also sets the catalog's clefs and staff-line counts at
-the bar start, preserving later-positioned staff changes. Removing it
-restores the previous instrument's catalog defaults there.
+the bar start, preserving later-positioned staff changes. A clef is inserted
+only when it differs from the clef already in effect on that staff, so
+flute/piccolo changes do not repeat the treble clef. Removing a change
+restores the previous instrument's catalog defaults without redundant clefs.
 
 Setup's **Change instrument** still replaces the starting instrument for the
 whole part; its **Customize tuning** section edits the starting transposition.
