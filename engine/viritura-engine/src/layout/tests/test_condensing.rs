@@ -54,6 +54,67 @@ fn default_config() -> LayoutConfig {
 }
 
 #[test]
+fn condensed_divisi_preserves_tuplet_voices_with_rests() {
+    use crate::layout::condensing::{analyze_merge_mode, MergeMode};
+    use serde_json::json;
+
+    let triplets = |octave, group| {
+        json!({
+            "type":"tuplet",
+            "inner":{"multiple":3,"duration":{"base":"eighth"}},
+            "outer":{"multiple":2,"duration":{"base":"eighth"}},
+            "content":(["C","D","E"].map(|step| json!({
+                "id":format!("triplet-{octave}-{group}-{step}"),
+                "duration":{"base":"eighth"},
+                "notes":[{"pitch":{"step":step,"octave":octave}}]
+            })))
+        })
+    };
+    let rest = json!({"duration":{"base":"half"},"rest":{}});
+    let first = json!({"sequences":[{"content":[triplets(5,0),triplets(5,1),rest]}]});
+    let second = json!({"sequences":[{"content":[rest,triplets(4,0),triplets(4,1)]}]});
+    let resting = json!({"sequences":[{"content":[
+        {"duration":{"base":"whole"},"rest":{}}
+    ]}]});
+    let document = json!({
+        "mnx":{"version":1},
+        "global":{"measures":[{"id":"m1","time":{"count":4,"unit":4}}]},
+        "parts":[
+            {"id":"cl1","measures":[first]},
+            {"id":"cl2","measures":[second]},
+            {"id":"cl3","measures":[resting]}
+        ],
+        "layouts":[{"id":"condensed","content":[{
+            "type":"staff","sources":[{"part":"cl1"},{"part":"cl2"},{"part":"cl3"}]
+        }]}],
+        "scores":[{"name":"Condensed","layout":"condensed"}]
+    });
+    let score = parse_mnx(&document.to_string()).unwrap();
+    assert_eq!(
+        analyze_merge_mode(
+            &score
+                .parts
+                .iter()
+                .map(|part| &part.measures[0])
+                .collect::<Vec<_>>()
+        ),
+        MergeMode::Divisi
+    );
+    let mut cache = LayoutCache::new();
+    for display in [
+        layout_with_mnx_scores(&score, &default_config(), 0),
+        layout_with_mnx_scores_cached(&score, &default_config(), 0, Some(&mut cache)),
+        layout_with_mnx_scores_cached(&score, &default_config(), 0, Some(&mut cache)),
+    ] {
+        assert_eq!(count_noteheads(&display), 12);
+        assert!(!display.commands.iter().any(|command| matches!(
+            command,
+            RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::REST_WHOLE
+        )));
+    }
+}
+
+#[test]
 fn doubling_oboes_condense_split_for_english_horn_and_rejoin() {
     use serde_json::json;
 

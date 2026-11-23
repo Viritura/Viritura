@@ -624,9 +624,9 @@ pub(super) fn build_virtual_part_measure(
         all_sequences
             .into_iter()
             .filter(|seq| {
-                seq.content
+                collect_flat_events(&seq.content, 0.0, 1.0)
                     .iter()
-                    .any(|c| matches!(c, SequenceContent::Event(ev) if !ev.is_rest()))
+                    .any(|(_, event)| !event.is_rest())
             })
             .collect()
     } else {
