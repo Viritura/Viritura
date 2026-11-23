@@ -3,7 +3,7 @@ import { ClickEngine } from "@viritura/audio/click";
 import { buildClickSessionProgram, type ClickSessionProgram } from "@viritura/playback/click";
 import { readClickDocument, type ClickDocument } from "./clickDocument";
 
-type Phase = "empty" | "ready" | "playing" | "paused" | "complete";
+type Phase = "empty" | "ready" | "playing" | "complete";
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -22,7 +22,7 @@ export function useClickPlayer() {
   const engineRef = useRef<ClickEngine | undefined>(undefined);
   const mounted = useRef(true);
   const locked = useRef(false);
-  const position = useRef({ offset: 0, anchor: 0 });
+  const anchor = useRef(0);
 
   useEffect(() => {
     mounted.current = true;
@@ -39,7 +39,7 @@ export function useClickPlayer() {
     const timer = setInterval(() => {
       const engine = engineRef.current;
       if (engine) {
-        setElapsed(position.current.offset + Math.max(0, engine.context.currentTime - position.current.anchor));
+        setElapsed(Math.max(0, engine.context.currentTime - anchor.current));
       }
     }, 75);
     return () => clearInterval(timer);
@@ -105,7 +105,7 @@ export function useClickPlayer() {
         setError(
           event.type === "failed"
             ? event.message
-            : `Click interrupted: ${event.count} missed click(s). Press Play for a fresh countoff.`,
+            : `Click interrupted: ${event.count} missed click(s). Press Start for a fresh countoff.`,
         );
         setPhase("ready");
         void closeEngine().catch((failure: unknown) => setError(`Could not close audio: ${message(failure)}`));
@@ -113,7 +113,7 @@ export function useClickPlayer() {
     });
     engine.context.onstatechange = () => {
       if (engineRef.current !== engine || engine.context.state === "running") return;
-      setError("Click audio was interrupted. Press Play for a fresh countoff.");
+      setError("Click audio was interrupted. Press Start for a fresh countoff.");
       setPhase("ready");
       void closeEngine().catch((failure: unknown) => setError(`Could not close audio: ${message(failure)}`));
     };
@@ -129,36 +129,15 @@ export function useClickPlayer() {
         startTimelineMeasure: startBar,
       });
       setProgram(next);
-      // Creation happens inside the Play gesture, not while opening a file.
+      // Creation happens inside the Start gesture, not while opening a file.
       const engine = await getEngine();
       if (!engine) return;
       await engine.context.resume();
       await engine.load(next.events, next.duration);
       const receipt = await engine.start();
       if (!mounted.current || engineRef.current !== engine) return;
-      position.current = { offset: 0, anchor: receipt.contextTime };
+      anchor.current = receipt.contextTime;
       setElapsed(0);
-      setPhase("playing");
-    });
-  }
-
-  function pause(): Promise<void> {
-    return run(async () => {
-      const engine = engineRef.current;
-      if (!engine) throw new Error("Click audio is not ready");
-      const offset = await engine.stop();
-      position.current.offset = offset;
-      setElapsed(offset);
-      setPhase("paused");
-    });
-  }
-
-  function resume(): Promise<void> {
-    return run(async () => {
-      const engine = engineRef.current;
-      if (!engine) throw new Error("Click audio is not ready");
-      const receipt = await engine.start(position.current.offset);
-      position.current.anchor = receipt.contextTime;
       setPhase("playing");
     });
   }
@@ -166,7 +145,6 @@ export function useClickPlayer() {
   function stop(): Promise<void> {
     return run(async () => {
       await engineRef.current?.stop();
-      position.current.offset = 0;
       setElapsed(0);
       setPhase("ready");
     });
@@ -187,8 +165,6 @@ export function useClickPlayer() {
     program,
     open,
     play,
-    pause,
-    resume,
     stop,
   };
 }

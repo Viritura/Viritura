@@ -16,19 +16,20 @@ Implemented:
 
 - **Standalone single-file page** —
   [`ClickPage`](../../apps/editor/src/click/ClickPage.tsx) opens one ordinary MNX
-  locally at `/click`, with Play, Pause/Resume, Stop, a selectable one- or two-bar countoff preview
+  locally at `/click`, with a single Start/Stop button, a selectable one- or two-bar countoff preview
   and status, and a stopped-only session tempo percentage. Audio is created only
-  from Play; opening a file does not create instrument or click audio. File,
+  from Start; opening a file does not create instrument or click audio. File,
   worklet, and context-interruption failures are visible. No upload or editor
   bootstrap is needed. The filename and Open MNX action live in a compact top
   bar; the main surface contains only navigation, start details, and controls.
 - **Horizontal navigation dials** — choose a start from independently scrollable
   rehearsal and bar-number tracks with touch, scrolling, tapping, or keyboard.
   The upper track contains only rehearsal marks, so distant marks are adjacent;
-  selecting one centers its bar in the lower track. Repeat visits are distinguished,
-  and the next-start card shows the
-  selected bar's countoff, meter, and tempo. During playback and pause the dial
-  follows the current performed bar without seeking or rescheduling audio.
+  selecting one centers its bar in the lower track. Repeat visits are distinguished.
+  The countoff control shows the number of free clicks for the selected bar
+  and the current beat during countoff.
+  During playback both dials follow the current performed bar without seeking or
+  rescheduling audio.
 - **Isolated entry** — [`click/index.html`](../../apps/editor/click/index.html)
   is built separately from the editor, with development and deployed `/click`
   routing. The build traverses the click entry's output chunks and rejects
@@ -73,9 +74,9 @@ additional rehearsal navigation, and the release gates below.
 
 Single-file smoke check: start the UI through `pnpm dev:stack up ui`, obtain
 the editor origin with `pnpm dev:stack url`, and visit its `/click` route.
-Choose **Open MNX**, select a local file, then **Play**. The first bar is a
-synthetic countoff before the selected bar; Pause/Resume retains its position,
-while Stop then Play starts a fresh countoff. This initial browser check is not
+Choose **Open MNX**, select a local file, then **Start**. The first bar is a
+synthetic countoff before the selected bar; Stop then Start begins a fresh
+countoff. This initial browser check is not
 studio-output qualification or a hard real-time guarantee.
 
 ## Goal and confirmed requirements
@@ -90,12 +91,11 @@ named for what it plays — **Click** at `/click` — not for recording:
 - Program click resolution, including subdivisions, at tempo changes.
 - Automatically play the selected one or two bars of countoff before each fresh
   start or restart (default: one bar).
-  Resume continues immediately, without another countoff.
 - Apply one session-wide tempo percentage to every track.
 - Output clicks only. Recording and audio capture happen in the external DAW.
 - Provide a small movable controller, usable by touch during the session.
 - Make selecting a start bar easy, with prominent rehearsal letters and an
-  unambiguous preview such as **Rehearsal O, 4 clicks free**.
+  unambiguous countoff preview such as **4 clicks free**.
 - Treat click accuracy as a release requirement: a dedicated click-only engine,
   no muted-score playback, and no dependence on UI timers to deliver each click.
   Run sessions on a standalone `/click` page that never loads the editor.
@@ -119,14 +119,14 @@ and network clock synchronization are outside this first delivery.
    (see [Standalone `/click` page](#standalone-click-page)), then
    navigates to `/click`, which shows:
    - Track picker, ordered track list, and **Previous** / **Next** actions.
-   - Large **Play**, **Pause**, **Resume**, **Stop**, and **Restart** controls.
+   - A large **Start** / **Stop** control.
    - Current track, bar/beat, meter, written tempo, and effective tempo.
    - One clearly labeled **Session tempo %** control with **Reset to 100%**.
    - A visible countoff state and beat indicator.
    - Click volume and a table of tempo changes with click-resolution controls.
    - **Float controls**, a touch-friendly bar wheel, and an always-visible
      preview of the next start.
-4. Select a track, adjust its click program, and press **Play**.
+4. Select a track, adjust its click program, and press **Start**.
 5. Hear the selected one or two bars of countoff, then the track's click program.
 6. Stop automatically at the track end. Select another track or restart a take.
 
@@ -234,8 +234,7 @@ fixed center selection lines: rehearsal marks above and bar numbers below.
 Rehearsals are adjacent entries regardless of the number of intervening bars.
 Selecting a rehearsal jumps to its bar; selecting a bar highlights its preceding
 rehearsal. Both tracks follow playback. Scores without rehearsal marks show only
-the bar track. The start cue retains **Rehearsal O + 3 bars** context between
-marks. Rehearsal letters are never inferred from bar numbering.
+the bar track. Rehearsal letters are never inferred from bar numbering.
 
 - Swipe or scroll either track, or tap an entry to select it. Arrow keys step
   through the focused track; Home/End reach its first/last selectable entry.
@@ -245,10 +244,10 @@ marks. Rehearsal letters are never inferred from bar numbering.
   visible keyboard focus, and reduced-motion support. Keep the start summary
   and primary transport visible while the bar list scrolls.
 - Scrolling previews a candidate without moving a playing transport. Settle
-  to one bar to commit the next start; disable Play while a gesture or inertial
-  scroll is unresolved. Pressing Play must never race a moving wheel.
-- During playback and pause, distinguish the current bar from **Next start**.
-  Both tracks are read-only and follow playback; Resume continues the paused take.
+  to one bar to commit the next start; disable Start while a gesture or inertial
+  scroll is unresolved. Pressing Start must never race a moving wheel.
+- During playback both tracks are read-only and follow the current bar. Stopping
+  returns them to the selected start.
   Future browsing during a take must never seek, stop, or start sound implicitly.
 
 The dial selects bar-boundary occurrences from the repeat/jump-expanded
@@ -259,14 +258,14 @@ bar by stable measure ID as well as the intended visit. If future rehearsal
 marks can be placed inside a bar, label the offset and offer that bar's
 beginning; exact intra-bar starts require the later intra-bar policy.
 
-The controller's main information is a start card, not merely a seek slider:
+The current page shows the destination in the dials and its countoff beside the
+countoff control. A future floating controller must preserve both:
 
 ```text
 Track: Song 03
-Rehearsal O, 4 clicks free
-Bar 97 | 4/4 | Quarter = 108 | Session 90%
-1 bar countoff -> Rehearsal O -> track end
-[ Play ]  [ Stop ]
+Rehearsal O | Bar 97
+1 bar countoff | 4 clicks free
+[ Start ]
 ```
 
 In this example the authored tempo is quarter = 120. Secondary detail must
@@ -276,21 +275,18 @@ bar, not eight beats or two bars of countoff. For 6/8 grouped in two, show
 **2 clicks free**, **2 dotted-quarter beats / 6 eighth-note ticks** when
 subdivided. Irregular or partial pulse patterns need an exact meter/grouping
 description rather than rounding a fractional count into a misleading integer.
-Without a rehearsal mark, use **Bar 97, 4 clicks free**; after a mark, use
-**Rehearsal O + 3 bars, 4 clicks free**.
+The dials show the destination, so the countoff preview need not repeat it.
+Default endpoint is the end of the track; any future range or loop must make
+its endpoint explicit.
+During pre-roll, show **Counting off 1 of 4** beside the countoff control.
+The dials show the current location during playback. No extra audible cue is
+implied by the descriptive text.
 
-Show the destination, effective tempo and beat unit, meter, countoff duration,
-and playback endpoint before Play. Default endpoint is the end of the track;
-any future range or loop must replace that endpoint in the card explicitly.
-During pre-roll, change the status to **Counting off: 1 of 4** with a separate
-subdivision indicator, then **Playing: Rehearsal O**. No spoken announcement
-or extra audible cue is implied by the descriptive text.
-
-Derive the card and the scheduled start from the same immutable resolved
+Derive the countoff preview and the scheduled start from the same resolved
 start description: document revision, target measure/route, effective tempo,
 meter, countoff pulse/subdivision events, and endpoint. Track/score/percentage
 changes invalidate it. If the target is deleted, ambiguous, or cannot compile,
-show a diagnostic and disable Play instead of retaining a plausible old card.
+show a diagnostic and disable Start instead of retaining a plausible old preview.
 Screen-reader status announces the committed selection, not every scroll frame.
 
 ## Existing implementation and required changes
@@ -589,14 +585,13 @@ them, rather than approximating their timing with a UI timer.
 
 ## Countoff and transport contract
 
-| Action                       | Countoff                                                       |
-| ---------------------------- | -------------------------------------------------------------- |
-| Play from stopped            | Selected one or two bars                                       |
-| Restart                      | Cancel pending audio, then a fresh selected countoff           |
-| Fresh play from a chosen bar | Selected bars at that location's meter and instantaneous tempo |
-| Resume after pause           | None; continue the same take                                   |
-| Choose a different track     | No sound until Play; Play receives the selected countoff       |
-| Natural end                  | Stop; no next-track autoplay                                   |
+| Action                        | Countoff                                                       |
+| ----------------------------- | -------------------------------------------------------------- |
+| Start from stopped            | Selected one or two bars                                       |
+| Restart                       | Cancel pending audio, then a fresh selected countoff           |
+| Fresh start from a chosen bar | Selected bars at that location's meter and instantaneous tempo |
+| Choose a different track      | No sound until Start; Start receives the selected countoff     |
+| Natural end                   | Stop; no next-track autoplay                                   |
 
 Use a distinct `countingOff` transport phase. Pre-roll is not an inserted measure
 and never changes saved bar numbers, notes, or duration. At the selected
@@ -617,8 +612,7 @@ Proposed first delivery offers bar-boundary start selection. For a pickup,
 count the selected full bars of its governing meter and then play the authored pickup
 without padding the score. Arbitrary intra-bar starts and free-meter countoffs
 need explicit policies before enabling them; do not invent a 4/4 fallback.
-Pause during countoff preserves its exact phase; Resume finishes the remaining
-pre-roll without starting another countoff. Stop cancels it immediately.
+Stop cancels countoff immediately; the next Start begins a fresh countoff.
 
 ## Session-wide tempo percentage
 
@@ -646,13 +640,13 @@ At 1–100%, compile the corresponding tempo without rewriting the MNX.
    Test tempo-boundary changes, inheritance, repeats/jumps, and mid-bar changes.
 3. **Recording engine and transport.** Extract timing-only compilation, add the
    preloaded click worklet and exclusive resource lifecycle, then wire explicit
-   fresh-start versus resume semantics, meter-aware pre-roll, cancellation, and
+   fresh-start semantics, meter-aware pre-roll, cancellation, and
    session percentage. Meet the deterministic audio and live-stall gates before
    treating the UI as recording-ready. Missing soundfonts and VST hosts cannot
    block click playback.
 4. **Session surface and validation.** Add the `/click` build entry with its
    bundle-boundary check, direct MNX loading, the shared floating/Document
-   PiP controller, touch bar wheel, rehearsal navigation, and resolved start card.
+   PiP controller, touch bar wheel, rehearsal navigation, and countoff preview.
    Cover them in the composed app Storybook story, including narrow windows,
    missing PiP support, errors, and countoff state. Run wired-output manual
    checks and long-run foreground-DAW output qualification. Reuse existing
@@ -667,13 +661,13 @@ Focused automated acceptance cases:
 - At 80%, the 4/4 case lasts 2.5 seconds; all track tempos and total performed
   durations use the same factor after a switch.
 - Fresh start at a later bar uses that bar's tempo, meter, and click pattern;
-  Resume has no extra countoff and Restart always has one.
+  starting again after Stop always has a new countoff.
 - Select Rehearsal O in 4/4 at quarter = 120 immediately after a 3/4 bar at
   quarter = 60. At 100%, the preview reports four counted beats and playback
   emits a two-second synthetic countoff, not the preceding three-second bar.
 - At eighth-note subdivision, that preview distinguishes four counted beats
   from eight audible ticks; both UI and scheduler use the same start description.
-- Touch scrolling across rehearsal marks never starts/seeks audio, and Play
+- Touch scrolling across rehearsal marks never starts/seeks audio, and Start
   cannot consume an unsettled candidate. Test keyboard/direct-entry equivalents,
   duplicate rehearsal labels, repeat passes, and a deleted selected bar.
 - Opening, moving, resizing, closing, and reopening the controller preserves

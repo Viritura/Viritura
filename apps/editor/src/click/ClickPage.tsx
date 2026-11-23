@@ -2,7 +2,7 @@ import { useId, useRef, useState } from "react";
 import { Button, FormInput } from "@viritura/ui";
 import type { ClickSessionProgram } from "@viritura/playback/click";
 import { ClickControls } from "./ClickControls";
-import { clickBarAtTime, describeClickBar } from "./barNavigation";
+import { clickBarAtTime } from "./barNavigation";
 import { useClickPlayer } from "./useClickPlayer";
 import styles from "./ClickPage.module.css";
 
@@ -15,15 +15,18 @@ function statusLabel(
 ): string {
   if (busy) return "Preparing";
   if (countingOff) return "Counting off";
-  if (document && tempoPercent === 0) return "Set tempo above 0% to play";
-  return { empty: "", ready: "Ready", playing: "Playing", paused: "Paused", complete: "Finished" }[phase];
+  if (document && tempoPercent === 0) return "Set tempo above 0% to start";
+  return { empty: "", ready: "Ready", playing: "Playing", complete: "Finished" }[phase];
 }
 
 function countoffPosition(program: ClickSessionProgram | undefined, elapsed: number): number {
-  return Math.max(
-    1,
-    program?.events.slice(0, program.countoffClicks).filter((event) => event.time <= elapsed).length ?? 0,
-  );
+  if (!program) return 1;
+  let beats = 0;
+  for (const event of program.events) {
+    if (event.time >= program.countoffSeconds || event.time > elapsed) break;
+    if (event.level !== "subdivision") beats++;
+  }
+  return Math.max(1, beats);
 }
 
 export function ClickPage() {
@@ -31,7 +34,7 @@ export function ClickPage() {
   const [dialSettling, setDialSettling] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const statusId = useId();
-  const active = player.phase === "playing" || player.phase === "paused";
+  const active = player.phase === "playing";
   const beforeStart = active && player.program !== undefined && player.elapsed < player.program.countoffSeconds;
   const countingOff = player.phase === "playing" && beforeStart;
   const status = statusLabel(player.phase, player.busy, countingOff, player.tempoPercent, player.document);
@@ -39,7 +42,6 @@ export function ClickPage() {
     active && player.document && player.program
       ? clickBarAtTime(player.document.timing, player.program, player.elapsed, player.tempoPercent)
       : player.startBar;
-  const currentBar = player.document?.bars[barIndex];
   const countoffBeat = countoffPosition(player.program, player.elapsed);
 
   return (
@@ -66,34 +68,23 @@ export function ClickPage() {
       </header>
       <main>
         <section className={styles.card} aria-label="Click player" aria-busy={player.busy}>
-          <ClickControls
-            player={player}
-            active={active}
-            barIndex={barIndex}
-            dialSettling={dialSettling}
-            onSettlingChange={setDialSettling}
-            statusId={statusId}
-          />
-          <div id={statusId} className={styles.status} role="status" aria-label="Playback status" aria-live="polite">
-            <strong>{status}</strong>
-            {countingOff && (
-              <span>
-                {countoffBeat} of {player.program?.countoffClicks}
-              </span>
-            )}
-          </div>
-          {active && currentBar && (
-            <div className={styles.position} role="status" aria-label="Playback position" aria-live="polite">
-              <span>{beforeStart ? "After countoff" : "Current bar"}</span>
-              <strong>{describeClickBar(currentBar)}</strong>
-              {currentBar.rehearsalContext && <span>Rehearsal {currentBar.rehearsalContext}</span>}
-            </div>
-          )}
           {player.error && (
             <p className={styles.error} role="alert">
               {player.error}
             </p>
           )}
+          <ClickControls
+            player={player}
+            active={active}
+            barIndex={barIndex}
+            countoffBeat={countingOff ? countoffBeat : undefined}
+            dialSettling={dialSettling}
+            onSettlingChange={setDialSettling}
+            statusId={statusId}
+          />
+          <div id={statusId} className={styles.srOnly} role="status" aria-label="Playback status">
+            {status}
+          </div>
         </section>
       </main>
     </div>

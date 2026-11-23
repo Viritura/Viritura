@@ -1,9 +1,8 @@
 import { useId, useMemo, useRef } from "react";
 import { Button, ButtonGroup, Slider } from "@viritura/ui";
-import { buildClickSessionProgram, describeClickCue } from "@viritura/playback/click";
+import { buildClickSessionProgram } from "@viritura/playback/click";
 import { BarDial } from "./BarDial";
 import { RehearsalDial } from "./RehearsalDial";
-import { describeClickBar } from "./barNavigation";
 import type { useClickPlayer } from "./useClickPlayer";
 import styles from "./ClickPage.module.css";
 
@@ -11,6 +10,7 @@ interface ClickControlsProps {
   readonly player: ReturnType<typeof useClickPlayer>;
   readonly active: boolean;
   readonly barIndex: number;
+  readonly countoffBeat: number | undefined;
   readonly dialSettling: boolean;
   readonly onSettlingChange: (settling: boolean) => void;
   readonly statusId: string;
@@ -20,6 +20,7 @@ export function ClickControls({
   player,
   active,
   barIndex,
+  countoffBeat,
   dialSettling,
   onSettlingChange,
   statusId,
@@ -38,16 +39,6 @@ export function ClickControls({
     [player.document, player.tempoPercent, player.countoffBars, player.startBar],
   );
   if (!player.document) return null;
-
-  const selectedBar = player.document.bars[player.startBar]!;
-  const meter = player.document.timing.measureTimeSignatures[player.startBar]!;
-  const nextBeat = preview
-    ? describeClickCue({
-        rehearsal: selectedBar.rehearsalContext,
-        measureNumber: selectedBar.number,
-        countoffClicks: preview.countoffClicks,
-      })
-    : undefined;
 
   function reportSettling(track: "bars" | "rehearsals", value: boolean): void {
     settling.current[track] = value;
@@ -72,18 +63,6 @@ export function ClickControls({
           onSettlingChange={(value) => reportSettling("bars", value)}
         />
       </section>
-      {preview && (
-        <div className={styles.preview}>
-          <span className={styles.previewLabel}>Next start</span>
-          <h2>{nextBeat}</h2>
-          <p>
-            {describeClickBar(selectedBar)}
-            {" | "}
-            {meter.count}/{meter.unit}
-            {" | "}Quarter = {Number(preview.startBpm.toFixed(2))}
-          </p>
-        </div>
-      )}
       <div className={styles.countoff}>
         <span>Countoff</span>
         <ButtonGroup
@@ -96,6 +75,13 @@ export function ClickControls({
           onChange={(value) => player.setCountoffBars(value === "1" ? 1 : 2)}
           disabled={active || player.busy}
         />
+        {preview && (
+          <span aria-live="polite">
+            {countoffBeat === undefined
+              ? `${preview.countoffClicks} ${preview.countoffClicks === 1 ? "click" : "clicks"} free`
+              : `Counting off ${countoffBeat} of ${preview.countoffClicks}`}
+          </span>
+        )}
       </div>
       <fieldset className={styles.tempo} disabled={active || player.busy}>
         <label htmlFor={tempoId}>Session tempo %</label>
@@ -112,25 +98,16 @@ export function ClickControls({
         <Button disabled={active || player.busy} onClick={() => player.setTempoPercent(100)}>
           Reset to 100%
         </Button>
+        {player.tempoPercent === 0 && <span>Set tempo above 0% to start</span>}
       </fieldset>
       <div className={styles.transport}>
         <Button
           variant="primary"
           size="lg"
-          disabled={active || player.busy || dialSettling || player.tempoPercent === 0}
-          onClick={() => void player.play()}
+          disabled={player.busy || (!active && (dialSettling || player.tempoPercent === 0))}
+          onClick={() => void (active ? player.stop() : player.play())}
         >
-          Play
-        </Button>
-        <Button
-          size="lg"
-          disabled={!active || player.busy}
-          onClick={() => void (player.phase === "paused" ? player.resume() : player.pause())}
-        >
-          {player.phase === "paused" ? "Resume" : "Pause"}
-        </Button>
-        <Button size="lg" disabled={!active || player.busy} onClick={() => void player.stop()}>
-          Stop
+          {active ? "Stop" : "Start"}
         </Button>
       </div>
     </>
