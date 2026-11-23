@@ -209,8 +209,8 @@ fn render_measure_prefix(
         .and_then(|clefs| clefs.iter().find(|c| c.position.is_none()));
 
     // Mid-system start-of-measure clef change. Standard engraving practice
-    // engraves it BEFORE the preceding barline (at the end of the previous
-    // measure), not after it. `clef_change_measures` is the measure-level set
+    // engraves it before an ordinary preceding barline, but after an end
+    // repeat when it applies only to following music. `clef_change_measures` is the measure-level set
     // (any part of this measure changes clef), so the shared barline shifts
     // right by the same leading gap on EVERY staff and stays vertically aligned
     // even when only one part actually changes clef. The leading-gap space is
@@ -232,7 +232,7 @@ fn render_measure_prefix(
     // default for single-staff parts.
     //
     // A repeat-start barline that opens a system (or the piece), or coincides
-    // with a key change, is deferred: the clef and key signature come first,
+    // with a key or time change, is deferred: the clef and signatures come first,
     // with the start-repeat barline drawn immediately before the music (see
     // below). Its 1.5sp slot is reserved at the end of the prefix region, and
     // no ordinary barline is drawn before a mid-system key change.
@@ -243,7 +243,7 @@ fn render_measure_prefix(
         // actually changes clef) in the leading gap BEFORE the barline, then
         // advance the cursor past the gap uniformly so the barline lands at the
         // same x on every staff regardless of which parts changed clef.
-        if is_clef_change_measure {
+        if is_clef_change_measure && !rm.prev_has_repeat_end {
             if let Some(pc) = explicit_clef_change {
                 // Right-align the change clef against the barline's LEFT ink
                 // edge (not its center) with a fixed pad, so it clears wide
@@ -269,6 +269,14 @@ fn render_measure_prefix(
             dl.tag_command(ci, element_id::barline(rm.index));
         }
         x_cursor += prefix.barline_advance;
+        if is_clef_change_measure && rm.prev_has_repeat_end {
+            if let Some(pc) = explicit_clef_change {
+                let cmd_idx = dl.commands.len();
+                render_change_clef(dl, x_cursor, staff_y, sp, &pc.clef);
+                dl.tag_command(cmd_idx, element_id::clef(ml.part_index, rm.index));
+            }
+            x_cursor += CLEF_CHANGE_LEADING_GAP_SP * sp;
+        }
     }
 
     // Condensing change marker: small dashed line above the staff at the barline

@@ -169,6 +169,7 @@ pub(crate) fn prefix_layout(
         .and_then(|clefs| clefs.iter().find(|pc| pc.position.is_none()));
     let leading_clef_gap = forced_leading_clef_gap.unwrap_or_else(|| {
         if !is_first
+            && !rm.prev_has_repeat_end
             && explicit_start_clef.is_some_and(|pc| !pc.clef.is_hidden())
             && (matches!(context, PrefixContext::MeasureLayout) || !is_system_start)
         {
@@ -190,6 +191,13 @@ pub(crate) fn prefix_layout(
             }
         }
         _ => prefix_width += leading_clef_gap,
+    }
+    if !is_first
+        && !is_system_start
+        && rm.prev_has_repeat_end
+        && explicit_start_clef.is_some_and(|pc| !pc.clef.is_hidden())
+    {
+        prefix_width += crate::layout::render_measure::CLEF_CHANGE_LEADING_GAP_SP * sp;
     }
 
     let restates_key = match context {

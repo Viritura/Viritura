@@ -146,11 +146,14 @@ pub(crate) fn leading_barline_kind(rm: &ResolvedMeasure) -> BarlineKind {
 }
 
 /// Standard engraving practice: a start repeat that opens a system or the
-/// piece, or coincides with a key change, follows the clef/key/time furniture
+/// piece, or coincides with a key or time change, follows the clef/key/time furniture
 /// so the repeat sign sits immediately before the music it repeats.
 pub(crate) fn defers_repeat_start(rm: &ResolvedMeasure, is_system_start: bool) -> bool {
     rm.global.repeat_start.is_some()
-        && (rm.index == 0 || is_system_start || rm.key_signature_changed())
+        && (rm.index == 0
+            || is_system_start
+            || rm.key_signature_changed()
+            || rm.global.time.is_some())
 }
 
 /// Barline drawn at a mid-system measure's left boundary. A deferred repeat

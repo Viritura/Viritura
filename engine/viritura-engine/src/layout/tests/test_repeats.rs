@@ -2160,6 +2160,7 @@ fn test_key_change_precedes_mid_system_repeat_start() {
                     {
                         Some(*x)
                     }
+
                     _ => None,
                 })
                 .collect();
@@ -2194,5 +2195,112 @@ fn test_key_change_precedes_mid_system_repeat_start() {
                 (key_left - boundary_x) / sp
             );
         }
+    }
+}
+
+#[test]
+fn test_time_change_precedes_mid_system_repeat_start() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}},
+            {"time": {"count": 3, "unit": 4}, "repeatStart": {}},
+            {}
+        ]},
+        "parts": [{"measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "half", "dots": 1}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "half", "dots": 1}, "rest": {}}]}]}
+        ]}]
+    }"#,
+    )
+    .unwrap();
+    let config = LayoutConfig::default();
+    for display in [
+        layout_score(&score, 0, &config),
+        layout_with_mnx_scores(&score, &config, 0),
+    ] {
+        let time_right = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| display.element_ids[*index].as_deref() == Some("m1/time"))
+            .filter_map(|(_, command)| command.bbox())
+            .map(|bbox| bbox.x + bbox.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let repeat_left = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| display.element_ids[*index].as_deref() == Some("m1/barline"))
+            .filter_map(|(_, command)| match command {
+                RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::REPEAT_LEFT => {
+                    command.bbox()
+                }
+                _ => None,
+            })
+            .map(|bbox| bbox.x)
+            .fold(f64::INFINITY, f64::min);
+        assert!(time_right.is_finite() && repeat_left.is_finite());
+        assert!(
+            time_right < repeat_left,
+            "time signature must precede the repeat"
+        );
+    }
+}
+
+#[test]
+fn test_clef_change_after_end_repeat_barline() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}, "repeatStart": {}},
+            {"repeatEnd": {}},
+            {}
+        ]},
+        "parts": [{"measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"clefs": [{"clef": {"sign": "F", "staffPosition": 2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}
+            ]}]}
+        ]}]
+    }"#,
+    )
+    .unwrap();
+    let config = LayoutConfig::default();
+    for display in [
+        layout_score(&score, 0, &config),
+        layout_with_mnx_scores(&score, &config, 0),
+    ] {
+        let clef_left = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| display.element_ids[*index].as_deref() == Some("p0/m2/clef"))
+            .filter_map(|(_, command)| command.bbox())
+            .map(|bbox| bbox.x)
+            .fold(f64::INFINITY, f64::min);
+        let repeat_right = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| display.element_ids[*index].as_deref() == Some("m2/barline"))
+            .filter_map(|(_, command)| match command {
+                RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::REPEAT_RIGHT => {
+                    command.bbox()
+                }
+                _ => None,
+            })
+            .map(|bbox| bbox.x + bbox.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        assert!(clef_left.is_finite() && repeat_right.is_finite());
+        assert!(clef_left > repeat_right, "clef must follow the end repeat");
     }
 }

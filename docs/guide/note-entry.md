@@ -125,7 +125,9 @@ Accidentals follow standard engraving practice: a pitch altered earlier in the
 measure isn't re‑marked, and a note tied across a barline keeps its accidental
 without restating it. When a note at the start of a new measure changes the
 previous measure's spelling of the same written pitch, Viritura adds an
-unenclosed courtesy accidental automatically. Tied continuations remain
+unenclosed courtesy accidental automatically. In automatically laid-out scores,
+simple repeats and alternate endings also compare each bar played immediately
+before the note's bar. Tied continuations remain
 unmarked, except for a parenthesized reminder at a system or page start. These
 automatic marks affect only the display and do not change the notes. When no
 accidental key is selected, note input inherits the alteration already in force

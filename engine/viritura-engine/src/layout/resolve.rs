@@ -3,6 +3,9 @@
 use super::types::*;
 use crate::model::*;
 
+mod repeat_accidentals;
+pub(crate) use repeat_accidentals::{apply_repeat_courtesy_accidentals, has_repeat_navigation};
+
 /// Whether `index` lies inside a measure-repeat span in this part. MNX encodes
 /// the sign only on the first covered bar, so later covered bars must derive
 /// this state by looking backward.
@@ -288,6 +291,8 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
     let count = globals.len().max(part.measures.len());
     let mut prev_display_key = KeySignature::default();
     let mut previous_accidental_state = AccidentalState::new();
+    let empty_accidental_state = AccidentalState::new();
+    let repeat_navigation = has_repeat_navigation(globals);
     for i in 0..count {
         let (transposition, key_fifths_flip_at) =
             ActiveInstrument::at(part, i, (0, 1)).display_transposition(use_written);
@@ -402,7 +407,11 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             &mut part_measure,
             display_transposition,
             &incoming_ties,
-            &previous_accidental_state,
+            if repeat_navigation {
+                &empty_accidental_state
+            } else {
+                &previous_accidental_state
+            },
         );
         let measure_staff_lines = super::staff_lines::resolve_measure_staff_lines(
             &mut active_staff_lines,
@@ -437,6 +446,9 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         previous_accidental_state = current_accidental_state;
         prev_display_key = display_key;
     }
+    if repeat_navigation {
+        apply_repeat_courtesy_accidentals(&mut result, globals);
+    }
     result
 }
 
@@ -450,11 +462,11 @@ pub(crate) fn measure_barline_context(
             .and_then(|measure| measure.barline.as_ref())
             .map(|barline| barline.barline_type),
         previous.is_some_and(|measure| measure.repeat_end.is_some()),
-        // A repeat start coinciding with a key change is drawn after the new
-        // key, so the preceding measure reserves no trailing repeat width.
-        globals
-            .get(index + 1)
-            .is_some_and(|measure| measure.repeat_start.is_some() && measure.key.is_none()),
+        // A repeat start coinciding with a key or time change follows the
+        // signature, so the preceding measure reserves no trailing repeat width.
+        globals.get(index + 1).is_some_and(|measure| {
+            measure.repeat_start.is_some() && measure.key.is_none() && measure.time.is_none()
+        }),
     )
 }
 

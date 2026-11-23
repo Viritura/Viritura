@@ -388,16 +388,19 @@ pub(crate) struct CourtesyKeySignature {
     pub(crate) clef_sign: ClefSign,
 }
 
-/// Courtesy furniture at a system break: a clef before the system-end barline,
-/// and key and time signatures after it on staff lines that extend past it.
+/// Courtesy furniture at a system break: a clef before an ordinary barline or
+/// after an end repeat, and key and time signatures after the barline.
 /// The slot widths are shared by every staff of the system, including staves
 /// that show nothing, so barlines, beat columns, and courtesy meters align.
 #[derive(Debug, Clone, Default, Serialize)]
 pub(crate) struct SystemEndCourtesy {
     pub(crate) clef: Option<Clef>,
+    /// Courtesy clef after an end-repeat announces only the following music.
+    pub(crate) clef_after_barline: bool,
     /// Widest courtesy clef plus barline clearance on any staff, in staff
     /// spaces, reserved inside the outgoing measure before its barline.
     pub(crate) clef_slot_sp: f64,
+    pub(crate) suffix_clef_slot_sp: f64,
     pub(crate) key: Option<CourtesyKeySignature>,
     pub(crate) time: Option<TimeSignature>,
     /// Widest courtesy key on any staff of the system, in staff spaces.

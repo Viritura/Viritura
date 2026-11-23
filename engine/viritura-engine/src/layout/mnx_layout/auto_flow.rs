@@ -169,6 +169,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         measures: all_staff_resolved,
         ottavas: all_staff_ottavas,
         duration_histogram,
+        resolved_start,
         resolved_end,
     } = resolve_staves_with_condensing_labels(
         score,
@@ -180,6 +181,9 @@ pub(super) fn layout_auto_flow_mnx_score(
     // Carried clef/key state can change geometry beyond the authored patch.
     if let (Some(region), Some(end)) = (dirty_region.as_mut(), resolved_end) {
         region.measure_end = region.measure_end.max(end);
+    }
+    if let (Some(region), Some(start)) = (dirty_region.as_mut(), resolved_start) {
+        region.measure_start = region.measure_start.min(start);
     }
     let dirty_range = dirty_region.as_ref().map(cache::DirtyRegion::measure_range);
 

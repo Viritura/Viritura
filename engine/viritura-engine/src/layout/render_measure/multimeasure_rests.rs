@@ -110,6 +110,16 @@ pub(crate) fn multimeasure_rest_prefix(
             .unwrap_or(3.0);
         w += clef_advance * sp;
     }
+    if !at_start
+        && rm.prev_has_repeat_end
+        && rm.part.clefs.as_ref().is_some_and(|clefs| {
+            clefs
+                .iter()
+                .any(|clef| clef.position.is_none() && !clef.clef.is_hidden())
+        })
+    {
+        w += super::CLEF_CHANGE_LEADING_GAP_SP * sp;
+    }
 
     let is_key_change = rm.key_signature_changed();
     if is_key_change || (at_start && rm.active_key.accidental_count() != 0) {
@@ -316,6 +326,17 @@ pub(crate) fn render_multimeasure_rest(
                 x_cursor += clef_prefix_advance_sp(&pc.clef) * sp;
                 dl.tag_command(cmd_idx, element_id::clef(ml.part_index, ml.resolved.index));
             }
+        }
+    } else if prev_has_repeat_end {
+        if let Some(pc) = ml.resolved.part.clefs.as_ref().and_then(|clefs| {
+            clefs
+                .iter()
+                .find(|clef| clef.position.is_none() && !clef.clef.is_hidden())
+        }) {
+            let cmd_idx = dl.commands.len();
+            render_change_clef(dl, x_cursor, staff_y, sp, &pc.clef);
+            dl.tag_command(cmd_idx, element_id::clef(ml.part_index, ml.resolved.index));
+            x_cursor += super::CLEF_CHANGE_LEADING_GAP_SP * sp;
         }
     }
     let is_key_change = ml.resolved.key_signature_changed();
