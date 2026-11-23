@@ -48,6 +48,29 @@ describe("buildClickSessionProgram", () => {
     expect(times(program.events)).toEqual([0, 1, 2, 3, 4, 6]);
   });
 
+  it("counts off two complete bars with an accent on each downbeat", () => {
+    const timeline = timelineFor([{ time: { count: 4, unit: 4 }, bpm: 120 }]);
+    const program = buildClickSessionProgram(timeline, { countoffBars: 2 });
+    expect(program.countoffClicks).toBe(8);
+    expect(program.countoffSeconds).toBe(4);
+    expect(program.duration).toBe(6);
+    expect(times(program.events)).toEqual([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5]);
+    expect(program.events.filter((event) => event.level === "accent").map((event) => event.time)).toEqual([0, 2, 4]);
+    const without = buildClickSessionProgram(timeline, { countoff: false, countoffBars: 2 });
+    expect(without.countoffClicks).toBe(0);
+    expect(without.duration).toBe(2);
+  });
+
+  it("uses the authored beat groups and session tempo for both countoff bars", () => {
+    const timeline = timelineFor([{ time: { count: 7, unit: 8 }, bpm: 120 }]);
+    timeline.measureTimeSignatures[0]!.beatStructure = [2, 3, 2];
+    const program = buildClickSessionProgram(timeline, { countoffBars: 2, tempoPercent: 50 });
+    expect(program.countoffClicks).toBe(6);
+    expect(program.countoffSeconds).toBe(7);
+    expect(program.duration).toBe(10.5);
+    expect(times(program.events)).toEqual([0, 1, 2.5, 3.5, 4.5, 6, 7, 8, 9.5]);
+  });
+
   it("applies each resolution rule from its measure onward", () => {
     const timeline = timelineFor([{ time: { count: 2, unit: 4 }, bpm: 120 }, {}, {}]);
     const program = buildClickSessionProgram(timeline, {

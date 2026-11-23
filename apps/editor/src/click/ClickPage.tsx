@@ -16,9 +16,7 @@ function statusLabel(
   if (busy) return "Preparing";
   if (countingOff) return "Counting off";
   if (document && tempoPercent === 0) return "Set tempo above 0% to play";
-  return { empty: "Open an MNX file", ready: "Ready", playing: "Playing", paused: "Paused", complete: "Finished" }[
-    phase
-  ];
+  return { empty: "", ready: "Ready", playing: "Playing", paused: "Paused", complete: "Finished" }[phase];
 }
 
 function countoffPosition(program: ClickSessionProgram | undefined, elapsed: number): number {
@@ -45,15 +43,10 @@ export function ClickPage() {
   const countoffBeat = countoffPosition(player.program, player.elapsed);
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <header className={styles.header}>
         <a href="/">Viritura</a>
-        <span>Practice &amp; studio</span>
-      </header>
-      <section className={styles.card} aria-label="Click player" aria-busy={player.busy}>
-        <p className={styles.eyebrow}>CLICK</p>
-        <h1>{player.document?.filename ?? "Your music. Just the click."}</h1>
-        <p>Open one MNX file. No instruments, no score rendering, only the click.</p>
+        <h1>{player.document?.filename ?? "Click"}</h1>
         <FormInput
           ref={inputRef}
           type="file"
@@ -67,43 +60,42 @@ export function ClickPage() {
             if (file) void player.open(file);
           }}
         />
-        <Button size="lg" disabled={active || player.busy || dialSettling} onClick={() => inputRef.current?.click()}>
+        <Button disabled={active || player.busy || dialSettling} onClick={() => inputRef.current?.click()}>
           Open MNX
         </Button>
-
-        <ClickControls
-          player={player}
-          active={active}
-          barIndex={barIndex}
-          dialSettling={dialSettling}
-          onSettlingChange={setDialSettling}
-          statusId={statusId}
-        />
-        <div id={statusId} className={styles.status} role="status" aria-label="Playback status" aria-live="polite">
-          <strong>{status}</strong>
-          {countingOff && (
-            <span>
-              {countoffBeat} of {player.program?.countoffClicks}
-            </span>
-          )}
-        </div>
-        {active && currentBar && (
-          <div className={styles.position} role="status" aria-label="Playback position" aria-live="polite">
-            <span>{beforeStart ? "After countoff" : "Current bar"}</span>
-            <strong>{describeClickBar(currentBar)}</strong>
-            {currentBar.rehearsalContext && <span>Rehearsal {currentBar.rehearsalContext}</span>}
+      </header>
+      <main>
+        <section className={styles.card} aria-label="Click player" aria-busy={player.busy}>
+          <ClickControls
+            player={player}
+            active={active}
+            barIndex={barIndex}
+            dialSettling={dialSettling}
+            onSettlingChange={setDialSettling}
+            statusId={statusId}
+          />
+          <div id={statusId} className={styles.status} role="status" aria-label="Playback status" aria-live="polite">
+            <strong>{status}</strong>
+            {countingOff && (
+              <span>
+                {countoffBeat} of {player.program?.countoffClicks}
+              </span>
+            )}
           </div>
-        )}
-        {player.error && (
-          <p className={styles.error} role="alert">
-            {player.error}
-          </p>
-        )}
-      </section>
-      <p className={styles.note}>
-        Click output only. Use a wired audio output for studio sessions. Subdivision editing and setlists are coming
-        later.
-      </p>
-    </main>
+          {active && currentBar && (
+            <div className={styles.position} role="status" aria-label="Playback position" aria-live="polite">
+              <span>{beforeStart ? "After countoff" : "Current bar"}</span>
+              <strong>{describeClickBar(currentBar)}</strong>
+              {currentBar.rehearsalContext && <span>Rehearsal {currentBar.rehearsalContext}</span>}
+            </div>
+          )}
+          {player.error && (
+            <p className={styles.error} role="alert">
+              {player.error}
+            </p>
+          )}
+        </section>
+      </main>
+    </div>
   );
 }

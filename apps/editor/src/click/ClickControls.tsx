@@ -1,5 +1,5 @@
 import { useId, useMemo } from "react";
-import { Button, Slider } from "@viritura/ui";
+import { Button, ButtonGroup, Slider } from "@viritura/ui";
 import { buildClickSessionProgram, describeClickCue } from "@viritura/playback/click";
 import { BarDial } from "./BarDial";
 import { describeClickBar } from "./barNavigation";
@@ -29,10 +29,11 @@ export function ClickControls({
       player.document && player.tempoPercent > 0
         ? buildClickSessionProgram(player.document.timing, {
             tempoPercent: player.tempoPercent,
+            countoffBars: player.countoffBars,
             startTimelineMeasure: player.startBar,
           })
         : undefined,
-    [player.document, player.tempoPercent, player.startBar],
+    [player.document, player.tempoPercent, player.countoffBars, player.startBar],
   );
   if (!player.document) return null;
 
@@ -49,8 +50,6 @@ export function ClickControls({
   return (
     <>
       <section className={styles.navigation} aria-label="Bar navigation">
-        <h2>Bar dial</h2>
-        <p>Swipe, scroll, or use arrow keys to choose a start bar. The dial follows playback.</p>
         <BarDial
           bars={player.document.bars}
           index={barIndex}
@@ -68,10 +67,22 @@ export function ClickControls({
             {" | "}
             {meter.count}/{meter.unit}
             {" | "}Quarter = {Number(preview.startBpm.toFixed(2))}
-            {" | "}Through track end
           </p>
         </div>
       )}
+      <div className={styles.countoff}>
+        <span>Countoff</span>
+        <ButtonGroup
+          ariaLabel="Countoff"
+          options={[
+            { value: "1", label: "1 bar" },
+            { value: "2", label: "2 bars" },
+          ]}
+          value={player.countoffBars === 1 ? "1" : "2"}
+          onChange={(value) => player.setCountoffBars(value === "1" ? 1 : 2)}
+          disabled={active || player.busy}
+        />
+      </div>
       <fieldset className={styles.tempo} disabled={active || player.busy}>
         <label htmlFor={tempoId}>Session tempo %</label>
         <Slider

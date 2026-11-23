@@ -23,8 +23,10 @@ export interface ClickSessionOptions {
   readonly startTimelineMeasure?: number;
   /** Session tempo as a percentage of the written tempo. Default 100. */
   readonly tempoPercent?: number;
-  /** Prepend one synthetic bar of clicks in the start bar's meter and tempo. Default true. */
+  /** Prepend synthetic clicks in the start bar's meter and tempo. Default true. */
   readonly countoff?: boolean;
+  /** Number of countoff bars. Default 1. */
+  readonly countoffBars?: 1 | 2;
   readonly resolutions?: readonly ClickResolutionRule[];
 }
 
@@ -45,7 +47,7 @@ export interface ClickSessionProgram {
 const MAX_SUBDIVISION = 12;
 
 /**
- * Compile a click-only session program. The countoff is a fresh bar in the
+ * Compile a click-only session program. The countoff uses fresh bars in the
  * start bar's meter and tempo (never a replay of the previous bar), and every
  * score click is timed through the continuous tempo model so ramps, sub-bar
  * tempo changes, and holds stay exact. The tempo percentage scales elapsed time
@@ -58,6 +60,8 @@ export function buildClickSessionProgram(
   const { model, measureStartBeats, measureTimeSignatures, playedSpans, expandedMeasureToOriginal } = source;
   const tempoPercent = options.tempoPercent ?? 100;
   if (!Number.isFinite(tempoPercent) || tempoPercent <= 0) throw new RangeError("Tempo percentage must be positive");
+  const countoffBars = options.countoffBars ?? 1;
+  if (countoffBars !== 1 && countoffBars !== 2) throw new RangeError("Countoff must be 1 or 2 bars");
   const startIndex = resolveStartIndex(expandedMeasureToOriginal, options);
   const startMeasure = expandedMeasureToOriginal[startIndex]!;
   const resolutions = sortedResolutions(options.resolutions ?? []);
@@ -68,7 +72,12 @@ export function buildClickSessionProgram(
   const quarterSeconds = model.spbAtBeat(startBeat) * scale;
   const countoff =
     (options.countoff ?? true)
-      ? countoffBar(measureTimeSignatures[startIndex]!, quarterSeconds, resolutionAt(resolutions, startMeasure))
+      ? countoffBar(
+          measureTimeSignatures[startIndex]!,
+          quarterSeconds,
+          resolutionAt(resolutions, startMeasure),
+          countoffBars,
+        )
       : { events: [], seconds: 0, beats: 0 };
   const events: ClickProgramEvent[] = countoff.events;
   const countoffClicks = countoff.beats;
@@ -107,24 +116,28 @@ function resolveStartIndex(measureOrder: readonly number[], options: ClickSessio
   return index;
 }
 
-/** One synthetic bar of beat clicks (accented downbeat) at a fixed quarter-note length. */
+/** Synthetic bars of beat clicks with an accented downbeat in each bar. */
 function countoffBar(
   meter: TimeSignature,
   quarterSeconds: number,
   subdivision: number,
+  bars: 1 | 2,
 ): { events: ClickProgramEvent[]; seconds: number; beats: number } {
   const events: ClickProgramEvent[] = [];
-  pushMeasureClicks(events, {
-    meter,
-    measureBeat: 0,
-    span: undefined,
-    subdivision,
-    timeAtBeat: (beat) => beat * quarterSeconds,
-  });
+  const barBeats = meter.count * (4 / meter.unit);
+  for (let bar = 0; bar < bars; bar++) {
+    pushMeasureClicks(events, {
+      meter,
+      measureBeat: bar * barBeats,
+      span: undefined,
+      subdivision,
+      timeAtBeat: (beat) => beat * quarterSeconds,
+    });
+  }
   return {
     events,
-    seconds: meter.count * (4 / meter.unit) * quarterSeconds,
-    beats: resolveMeter(meter).beatStructure.length,
+    seconds: bars * barBeats * quarterSeconds,
+    beats: bars * resolveMeter(meter).beatStructure.length,
   };
 }
 

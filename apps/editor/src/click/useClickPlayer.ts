@@ -12,6 +12,7 @@ function message(error: unknown): string {
 export function useClickPlayer() {
   const [document, setDocument] = useState<ClickDocument>();
   const [tempoPercent, setTempoPercent] = useState(100);
+  const [countoffBars, setCountoffBars] = useState<1 | 2>(1);
   const [startBar, setStartBar] = useState(0);
   const [phase, setPhase] = useState<Phase>("empty");
   const [busy, setBusy] = useState(false);
@@ -122,7 +123,11 @@ export function useClickPlayer() {
   function play(): Promise<void> {
     return run(async () => {
       if (!document) throw new Error("Open an MNX file first");
-      const next = buildClickSessionProgram(document.timing, { tempoPercent, startTimelineMeasure: startBar });
+      const next = buildClickSessionProgram(document.timing, {
+        tempoPercent,
+        countoffBars,
+        startTimelineMeasure: startBar,
+      });
       setProgram(next);
       // Creation happens inside the Play gesture, not while opening a file.
       const engine = await getEngine();
@@ -171,6 +176,8 @@ export function useClickPlayer() {
     document,
     tempoPercent,
     setTempoPercent,
+    countoffBars,
+    setCountoffBars,
     startBar,
     setStartBar,
     phase,

@@ -1,6 +1,5 @@
 .page {
   min-height: 100dvh;
-  padding: var(--space-5);
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui, system-ui, sans-serif);
@@ -8,10 +7,11 @@
 
 .header {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--space-4);
-  max-width: 760px;
-  margin: 0 auto var(--space-7);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .header a {
@@ -19,18 +19,26 @@
   font-weight: 700;
 }
 
+.header h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header button {
+  flex-shrink: 0;
+  min-height: 44px;
+}
+
 .card {
   max-width: 760px;
   margin: auto;
-  padding: clamp(1.5rem, 5vw, 3rem);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  background: var(--surface);
-}
-
-.card h1 {
-  font-size: clamp(1.7rem, 5vw, 2.5rem);
-  overflow-wrap: anywhere;
+  padding: clamp(1rem, 4vw, 2rem);
 }
 
 .card p {
@@ -41,22 +49,8 @@
   min-height: 44px;
 }
 
-.eyebrow {
-  color: var(--accent);
-  letter-spacing: 0.2em;
-  font-weight: 700;
-}
-
 .navigation {
-  margin-top: var(--space-6);
-}
-
-.navigation h2 {
-  font-size: 1.15rem;
-}
-
-.navigation p {
-  color: var(--text-muted);
+  min-width: 0;
 }
 
 .preview {
@@ -72,6 +66,13 @@
 
 .preview h2 {
   font-size: clamp(1.4rem, 4vw, 2rem);
+}
+
+.countoff {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 
 .tempo {
@@ -110,6 +111,7 @@
 
 .status {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-4);
   margin-top: var(--space-6);
   font-size: 1.5rem;
@@ -135,10 +137,4 @@
   border-radius: var(--radius-md);
   color: var(--danger, #b42318);
   overflow-wrap: anywhere;
-}
-
-.note {
-  max-width: 760px;
-  margin: var(--space-5) auto;
-  color: var(--text-muted);
 }

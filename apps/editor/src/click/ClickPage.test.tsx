@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClickEngineEvent } from "@viritura/audio/click";
 import score from "../../../../packages/format/fixtures/mnx/c-major-scale.mnx?raw";
@@ -49,7 +49,9 @@ describe("standalone click page", () => {
   it("opens MNX without audio, counts off on Play, resumes in place, and restarts after Stop", async () => {
     render(<ClickPage />);
     await openFile();
-    expect(screen.getByRole("heading", { name: "practice.mnx" })).toBeTruthy();
+    const navigation = within(screen.getByRole("banner"));
+    expect(navigation.getByRole("heading", { name: "practice.mnx" })).toBeTruthy();
+    expect(navigation.getByRole("button", { name: "Open MNX" })).toBeTruthy();
     expect(screen.getByText("Bar 1, 4 clicks free")).toBeTruthy();
     expect(audio.create).not.toHaveBeenCalled();
 
@@ -89,6 +91,43 @@ describe("standalone click page", () => {
     expect(screen.queryByRole("heading", { name: "practice.mnx" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Play", exact: true })).toBeNull();
     expect(audio.create).not.toHaveBeenCalled();
+  });
+
+  it("toggles the countoff cue and plays both bars before the selected start", async () => {
+    render(<ClickPage />);
+    await openFile();
+    fireEvent.click(screen.getByRole("radio", { name: "2 bars" }));
+    expect(screen.getByText("Bar 1, 8 clicks free")).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "1 bar" }));
+    expect(screen.getByText("Bar 1, 4 clicks free")).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "2 bars" }));
+    fireEvent.click(screen.getByRole("option", { name: "Bar 2" }));
+    expect(screen.getByText("Bar 2, 8 clicks free")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Play", exact: true }));
+    await waitFor(() =>
+      expect(audio.load).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          { time: 0, level: "accent" },
+          { time: 2, level: "accent" },
+          { time: 4, level: "accent" },
+        ]),
+        6,
+      ),
+    );
+    expect(screen.getByRole("radio", { name: "1 bar" }).hasAttribute("disabled")).toBe(true);
+    act(() => {
+      audio.context.currentTime = 4.6;
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("status", { name: "Playback status" }).textContent).toContain("8 of 8"),
+    );
+    expect(screen.getByRole("status", { name: "Playback position" }).textContent).toContain("After countoffBar 2");
+    act(() => {
+      audio.context.currentTime = 5.1;
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("status", { name: "Playback position" }).textContent).toContain("Current barBar 2"),
+    );
   });
 
   it("uses a 0–100% tempo scale and requires a positive tempo to play", async () => {

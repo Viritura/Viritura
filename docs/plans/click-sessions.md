@@ -16,11 +16,12 @@ Implemented:
 
 - **Standalone single-file page** —
   [`ClickPage`](../../apps/editor/src/click/ClickPage.tsx) opens one ordinary MNX
-  locally at `/click`, with Play, Pause/Resume, Stop, a one-bar countoff preview
+  locally at `/click`, with Play, Pause/Resume, Stop, a selectable one- or two-bar countoff preview
   and status, and a stopped-only session tempo percentage. Audio is created only
   from Play; opening a file does not create instrument or click audio. File,
   worklet, and context-interruption failures are visible. No upload or editor
-  bootstrap is needed.
+  bootstrap is needed. The filename and Open MNX action live in a compact top
+  bar; the main surface contains only navigation, start details, and controls.
 - **Horizontal bar dial** — choose a start from the performed bar order with
   touch, scrolling, tapping, or keyboard. Rehearsal marks appear above bar
   numbers, repeat visits are distinguished, and the next-start card shows the
@@ -54,7 +55,7 @@ Implemented:
   `blob:` worklets.
 - **Click session program** —
   [`buildClickSessionProgram`](../../packages/playback/src/clickSession/clickSessionProgram.ts)
-  compiles a start bar, a fresh one-bar countoff in that bar's meter and tempo,
+  compiles a start bar, a fresh one- or two-bar countoff in that bar's meter and tempo,
   existing irregular beat grouping, per-measure subdivision rules, and the session tempo percentage through the
   continuous tempo model. `describeClickCue` produces strings such as
   "Rehearsal O, 4 clicks free". The worklet receives the complete endpoint so
@@ -85,7 +86,8 @@ named for what it plays — **Click** at `/click` — not for recording:
 - Use a global picker to choose the active file without repeatedly opening files.
 - Treat those files as the session's track list; do not combine songs into one score.
 - Program click resolution, including subdivisions, at tempo changes.
-- Automatically play one bar of countoff before each fresh start or restart.
+- Automatically play the selected one or two bars of countoff before each fresh
+  start or restart (default: one bar).
   Resume continues immediately, without another countoff.
 - Apply one session-wide tempo percentage to every track.
 - Output clicks only. Recording and audio capture happen in the external DAW.
@@ -123,7 +125,7 @@ and network clock synchronization are outside this first delivery.
    - **Float controls**, a touch-friendly bar wheel, and an always-visible
      preview of the next start.
 4. Select a track, adjust its click program, and press **Play**.
-5. Hear exactly one bar of countoff, then the track's click program.
+5. Hear the selected one or two bars of countoff, then the track's click program.
 6. Stop automatically at the track end. Select another track or restart a take.
 
 **Proposed defaults:** manual advancement, no automatic playback on selection,
@@ -294,7 +296,7 @@ Screen-reader status announces the committed selection, not every scroll frame.
 | Click timing         | `buildClickTrack` uses the MIDI tempo model, expanded measure starts, and played spans.                                                                  | Reuse the musical timing model and route semantics, but compile to a dedicated click engine rather than the note scheduler.                                                                |
 | Click delivery       | `Scheduler` fills an audio look-ahead window from a main-thread `setTimeout`; `scheduleClicks` drops events whose delivery time has passed.              | Preload a complete take into an AudioWorklet before starting. Neither main-thread timers nor per-click messages may determine onset delivery.                                              |
 | Resolution           | `resolveMeter` resolves authored irregular grouping for the click compiler and countoff.                                                                 | Add persisted subdivision overrides, including changes inside a bar.                                                                                                                       |
-| Countoff             | The current count-in creates quarter-note clicks before score time zero; startup applies it only when stopped at the beginning.                          | Use a meter-aware one-bar pre-roll at each fresh start, not a loop over a potentially fractional quarter-note count.                                                                       |
+| Countoff             | The current count-in creates quarter-note clicks before score time zero; startup applies it only when stopped at the beginning.                          | Use a meter-aware one- or two-bar pre-roll at each fresh start, not a loop over a potentially fractional quarter-note count.                                                               |
 | Tempo adjustment     | `PlaybackEngine.setTempo` derives a scale from the first tempo-map entry.                                                                                | Expose percentage semantics explicitly and reapply the same scale whenever the active file changes.                                                                                        |
 | Playback preparation | The provider normally builds instrument samplers and prepares native playback.                                                                           | Add a real click-only preparation path: no soundfont requirement, instrument notes, MIDI note output, or native VST start. Muting instruments after preparing them is insufficient.        |
 
@@ -582,14 +584,14 @@ them, rather than approximating their timing with a UI timer.
 
 ## Countoff and transport contract
 
-| Action                       | Countoff                                                 |
-| ---------------------------- | -------------------------------------------------------- |
-| Play from stopped            | One bar                                                  |
-| Restart                      | Cancel pending audio, then one new bar                   |
-| Fresh play from a chosen bar | One bar at that location's meter and instantaneous tempo |
-| Resume after pause           | None; continue the same take                             |
-| Choose a different track     | No sound until Play; Play receives one bar               |
-| Natural end                  | Stop; no next-track autoplay                             |
+| Action                       | Countoff                                                       |
+| ---------------------------- | -------------------------------------------------------------- |
+| Play from stopped            | Selected one or two bars                                       |
+| Restart                      | Cancel pending audio, then a fresh selected countoff           |
+| Fresh play from a chosen bar | Selected bars at that location's meter and instantaneous tempo |
+| Resume after pause           | None; continue the same take                                   |
+| Choose a different track     | No sound until Play; Play receives the selected countoff       |
+| Natural end                  | Stop; no next-track autoplay                                   |
 
 Use a distinct `countingOff` transport phase. Pre-roll is not an inserted measure
 and never changes saved bar numbers, notes, or duration. At the selected
@@ -601,17 +603,17 @@ preceding measure. A ramp within the selected bar begins with the track after
 the frozen-tempo countoff, not during it.
 
 Countoff uses the selected local click pattern, including meter grouping and
-subdivision. A 6/8 countoff occupies six eighths, not six quarters; a 5/8
-countoff occupies five eighths even though that is 2.5 quarter notes. The score
-entry must be exactly one notated bar after the first countoff click, without a
-duplicate click at the transition.
+subdivision. Each 6/8 countoff bar occupies six eighths, not six quarters; each
+5/8 countoff bar occupies five eighths even though that is 2.5 quarter notes.
+The score entry must be exactly the selected number of notated bars after the
+first countoff click, without a duplicate click at the transition.
 
 Proposed first delivery offers bar-boundary start selection. For a pickup,
-count a full bar of its governing meter and then play the authored pickup
+count the selected full bars of its governing meter and then play the authored pickup
 without padding the score. Arbitrary intra-bar starts and free-meter countoffs
 need explicit policies before enabling them; do not invent a 4/4 fallback.
 Pause during countoff preserves its exact phase; Resume finishes the remaining
-pre-roll without starting another full bar. Stop cancels it immediately.
+pre-roll without starting another countoff. Stop cancels it immediately.
 
 ## Session-wide tempo percentage
 
