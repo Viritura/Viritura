@@ -56,6 +56,11 @@ Implemented:
   Score/part and view-mode selection do not change the click itinerary or
   initialize audio. The selected mode persists while the navigation is hidden
   during playback; opening another file resets it to Horizon.
+  Engraving uses the MNX project score/part page-setup defaults and each authored
+  score's overrides, resolved by the same helper as the main editor. Page size,
+  margins, and staff size follow the selected view; source-part views use the
+  project's part defaults. Viewer zoom changes display scale, not engraving sizes.
+  Paginated modes use the authored margins; Horizon keeps its edge-to-edge strip.
   Zoom in/out and the current percentage sit beside **Fit**, which fits the
   staff height in Horizon or the page height in paginated modes to the viewport.
   Fit adapts to viewport and selected-score changes; manual zoom exits fit.

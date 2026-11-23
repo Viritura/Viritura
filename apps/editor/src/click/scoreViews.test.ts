@@ -1,9 +1,30 @@
 import { describe, expect, it } from "vitest";
 import { parseMnx } from "@viritura/format";
+import { DEFAULT_PAGE_SETUP, DEFAULT_PART_PAGE_SETUP } from "@viritura/core";
 import multipleLayouts from "../../../../packages/format/fixtures/mnx/multiple-layouts.mnx?raw";
 import { clickPartMnx, clickScoreViews } from "./scoreViews";
 
 describe("click score views", () => {
+  it("resolves project engraving defaults, score overrides, and source-part settings", () => {
+    const score = parseMnx(JSON.parse(multipleLayouts));
+    score.pageSetupDefaults = {
+      score: {
+        ...DEFAULT_PAGE_SETUP,
+        width: 300,
+        height: 200,
+        orientation: "landscape",
+        spatiumMm: 1.8,
+        margins: { top: 10, right: 12, bottom: 14, left: 16 },
+      },
+      part: { ...DEFAULT_PART_PAGE_SETUP, width: 180, height: 260, spatiumMm: 1.6 },
+    };
+    score.scores![1]!.pageSetup = { height: 280, spatiumMm: 2 };
+    const views = clickScoreViews(score);
+    expect(views[0]?.pageSetup).toEqual(score.pageSetupDefaults.score);
+    expect(views[1]?.pageSetup).toEqual({ ...score.pageSetupDefaults.score, height: 280, spatiumMm: 2 });
+    expect(views.find((view) => view.partIndex === 1)?.pageSetup).toEqual(score.pageSetupDefaults.part);
+  });
+
   it("preserves authored views and supplements missing extracts without duplicating an authored part", () => {
     const score = parseMnx(JSON.parse(multipleLayouts));
     const partId = score.parts[0]!.id!;

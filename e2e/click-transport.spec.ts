@@ -2,6 +2,74 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 
+test("click pages honor MNX page and staff sizes when switching score views", async ({ page }) => {
+  const fixture = await readFile(
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "c-major-scale.mnx"),
+    "utf8",
+  );
+  const mnx = {
+    ...(JSON.parse(fixture) as Record<string, unknown>),
+    _x: {
+      viritura: {
+        pageSetupDefaults: {
+          score: {
+            width: 300,
+            height: 200,
+            orientation: "landscape",
+            spatiumMm: 1,
+            margins: { top: 10, right: 12, bottom: 14, left: 16 },
+          },
+        },
+      },
+    },
+    scores: [
+      { name: "Small staff", _x: { viritura: { pageSetupRole: "score" } } },
+      { name: "Large staff", _x: { viritura: { pageSetupRole: "score", pageSetup: { spatiumMm: 2 } } } },
+      {
+        name: "Portrait",
+        _x: {
+          viritura: {
+            pageSetupRole: "score",
+            pageSetup: { width: 180, height: 260, orientation: "portrait", spatiumMm: 1.6 },
+          },
+        },
+      },
+    ],
+  };
+  await page.goto("/click");
+  await page.getByLabel("MNX file").setInputFiles({
+    name: "engraving-sizes.mnx",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(mnx)),
+  });
+  await page.getByRole("combobox", { name: "View mode" }).click();
+  await page.getByRole("option", { name: "Page", exact: true }).click();
+  const canvas = page.locator('canvas[data-page="0"]');
+  const marker = page.locator('[data-score-playhead="true"]');
+  async function pageAspect() {
+    const box = await canvas.boundingBox();
+    return box === null ? 0 : box.width / box.height;
+  }
+  async function staffHeight() {
+    return (await marker.boundingBox())?.height ?? 0;
+  }
+  await expect.poll(pageAspect).toBeCloseTo(1.5, 2);
+  await expect.poll(staffHeight).toBeGreaterThan(1);
+  const originalHeight = await staffHeight();
+  async function selectScore(name: string) {
+    await page.getByRole("combobox", { name: "Score or part" }).click();
+    await page.getByRole("option", { name, exact: true }).click();
+  }
+  await selectScore("Large staff");
+  await expect.poll(async () => (await staffHeight()) / originalHeight).toBeCloseTo(2, 1);
+  await expect.poll(pageAspect).toBeCloseTo(1.5, 2);
+  await selectScore("Portrait");
+  await expect.poll(pageAspect).toBeCloseTo(180 / 260, 2);
+  await selectScore("Small staff");
+  await expect.poll(pageAspect).toBeCloseTo(1.5, 2);
+  await expect.poll(async () => (await staffHeight()) / originalHeight).toBeCloseTo(1, 1);
+});
+
 test("click score view modes arrange pages vertically and horizontally", async ({ page }) => {
   await page.goto("/click");
   await page

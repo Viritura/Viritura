@@ -1,10 +1,11 @@
-import type { LayoutContent, Score } from "@viritura/core";
+import { resolveScorePageSetup, type LayoutContent, type PageSetup, type Score } from "@viritura/core";
 import { parseMnx, serializeMnx } from "@viritura/format";
 
 export interface ClickScoreView {
   readonly label: string;
   readonly scoreIndex: number;
   readonly partIndex?: number;
+  readonly pageSetup: PageSetup;
 }
 
 function layoutParts(content: readonly LayoutContent[]): Set<string> {
@@ -26,13 +27,20 @@ export function clickScoreViews(score: Score): ClickScoreView[] {
     const layout = score.layouts?.find((candidate) => candidate.id === layoutId);
     const parts = layout ? layoutParts(layout.content) : new Set(score.parts.flatMap((part) => part.id ?? []));
     if (parts.size === 1) for (const part of parts) extractedParts.add(part);
-    return { label: definition.name ?? (index === 0 ? "Full score" : `Score ${index + 1}`), scoreIndex: index };
+    return {
+      label: definition.name ?? (index === 0 ? "Full score" : `Score ${index + 1}`),
+      scoreIndex: index,
+      pageSetup: resolveScorePageSetup(score, index),
+    };
   });
-  if (views.length === 0) views.push({ label: "Full score", scoreIndex: 0 });
+  if (views.length === 0) {
+    views.push({ label: "Full score", scoreIndex: 0, pageSetup: resolveScorePageSetup(score, 0) });
+  }
   if (score.parts.length > 1) {
+    const pageSetup = resolveScorePageSetup({ ...score, scores: [{ pageSetupRole: "part" }] }, 0);
     score.parts.forEach((part, partIndex) => {
       if (part.id && extractedParts.has(part.id)) return;
-      views.push({ label: part.name || `Part ${partIndex + 1}`, scoreIndex: 0, partIndex });
+      views.push({ label: part.name || `Part ${partIndex + 1}`, scoreIndex: 0, partIndex, pageSetup });
     });
   }
   return views;
