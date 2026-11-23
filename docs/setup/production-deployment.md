@@ -181,23 +181,6 @@ The active checked-in host vhost is
 Shared non-CSP security headers live in
 [`deploy/nginx-snippets/viritura-security-headers.conf`](../../deploy/nginx-snippets/viritura-security-headers.conf).
 
-The `/github/git/` location permits request bodies up to **25 MiB**, matching
-`GitHubGitProxyController`; other routes retain the **16 MiB** edge limit.
-Larger Git requests receive HTTP 413 with a JSON error and credentialed CORS
-headers for `https://app.viritura.com`, so the browser can read the failure
-instead of reporting a generic CORS/network error.
-
-Validate the Git payload boundaries and error headers with Docker running:
-
-```bash
-node --experimental-strip-types --test deploy/nginx-api.test.ts
-```
-
-This isolated test uses `nginx:alpine` with no published ports or external
-network access. It does not contact GitHub or run the application.
-Nginx changes require the host installation and reload steps above; deploying
-only the API application does not activate them.
-
 ## Post-deploy checks
 
 After a static deployment:
