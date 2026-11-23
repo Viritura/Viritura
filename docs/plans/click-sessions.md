@@ -525,7 +525,8 @@ and show missing entries as unavailable rather than removing them silently.
 Removing a track from the setlist must not delete its MNX file.
 Store the active selection as local UI state, not shared musical content.
 
-Reject paths escaping the approved folder and nonfinite/nonpositive percentages.
+Reject paths escaping the approved folder and percentages outside 0–100% or
+nonfinite percentages. A saved 0% is a stopped setting and cannot start playback.
 Report malformed manifests and failed writes explicitly; never claim settings
 were saved when they were not. A read-only folder can still play, but must show
 unsaved session changes and offer an explicit download.
@@ -618,10 +619,10 @@ performed duration; changing tracks must not reset it. For example, 90% turns
 quarter = 120 into quarter = 108 and dotted quarter = 60 into dotted quarter = 54.
 Never rewrite authored tempo marks or store scaled BPM back into an MNX.
 
-Proposed first-delivery behavior: editable only while stopped, including not
-while paused or preparing. Invalid input receives inline feedback and cannot
-start playback. Final UI bounds and step size remain an implementation-time
-product decision; do not silently clamp or assume a range in the data model.
+The session control ranges from 0% to 100% in 1% steps and is editable only
+while stopped, not while paused or preparing. At 0%, show that the tempo must
+be raised and disable Play; no finite click schedule exists at zero tempo.
+At 1–100%, compile the corresponding tempo without rewriting the MNX.
 
 ## Delivery slices and acceptance
 

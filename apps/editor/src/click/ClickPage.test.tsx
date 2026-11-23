@@ -90,6 +90,44 @@ describe("standalone click page", () => {
     expect(audio.create).not.toHaveBeenCalled();
   });
 
+  it("uses a 0–100% tempo scale and requires a positive tempo to play", async () => {
+    render(<ClickPage />);
+    await openFile();
+
+    const slider = screen.getByRole("slider", { name: "Session tempo %" });
+    const play = screen.getByRole("button", { name: "Play", exact: true });
+    expect(slider.getAttribute("min")).toBe("0");
+    expect(slider.getAttribute("max")).toBe("100");
+
+    fireEvent.change(slider, { target: { value: "0" } });
+    expect(screen.getByText("0%")).toBeTruthy();
+    expect(play.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Set tempo above 0% to play");
+    fireEvent.click(play);
+    expect(audio.create).not.toHaveBeenCalled();
+
+    fireEvent.change(slider, { target: { value: "1" } });
+    expect(screen.getByText(/Quarter = 1\.2/)).toBeTruthy();
+    expect(play.hasAttribute("disabled")).toBe(false);
+
+    fireEvent.change(slider, { target: { value: "50" } });
+    expect(screen.getByText(/Quarter = 60/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Reset to 100%" }));
+    expect(screen.getByText(/Quarter = 120/)).toBeTruthy();
+
+    fireEvent.change(slider, { target: { value: "50" } });
+    fireEvent.click(play);
+    await waitFor(() =>
+      expect(audio.load).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          { time: 0, level: "accent" },
+          { time: 4, level: "accent" },
+        ]),
+        12,
+      ),
+    );
+  });
+
   it("reports worklet errors and permits an explicit fresh retry", async () => {
     audio.create.mockRejectedValueOnce(new Error("Worklet unavailable"));
     render(<ClickPage />);

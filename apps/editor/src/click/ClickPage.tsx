@@ -4,9 +4,16 @@ import { buildClickSessionProgram, describeClickCue } from "@viritura/playback/c
 import { useClickPlayer } from "./useClickPlayer";
 import styles from "./ClickPage.module.css";
 
-function statusLabel(phase: ReturnType<typeof useClickPlayer>["phase"], busy: boolean, countingOff: boolean): string {
+function statusLabel(
+  phase: ReturnType<typeof useClickPlayer>["phase"],
+  busy: boolean,
+  countingOff: boolean,
+  tempoPercent: number,
+  document: ReturnType<typeof useClickPlayer>["document"],
+): string {
   if (busy) return "Preparing";
   if (countingOff) return "Counting off";
+  if (document && tempoPercent === 0) return "Set tempo above 0% to play";
   return { empty: "Open an MNX file", ready: "Ready", playing: "Playing", paused: "Paused", complete: "Finished" }[
     phase
   ];
@@ -23,17 +30,18 @@ export function ClickPage() {
   const player = useClickPlayer();
   const inputRef = useRef<HTMLInputElement>(null);
   const tempoId = useId();
+  const statusId = useId();
   const active = player.phase === "playing" || player.phase === "paused";
   const preview = useMemo(
     () =>
-      player.document
+      player.document && player.tempoPercent > 0
         ? buildClickSessionProgram(player.document.timing, { tempoPercent: player.tempoPercent })
         : undefined,
     [player.document, player.tempoPercent],
   );
   const countingOff =
     player.phase === "playing" && player.program !== undefined && player.elapsed < player.program.countoffSeconds;
-  const status = statusLabel(player.phase, player.busy, countingOff);
+  const status = statusLabel(player.phase, player.busy, countingOff, player.tempoPercent, player.document);
   const nextBeat = preview
     ? describeClickCue({
         measureNumber: player.document?.barNumbers[0] ?? 1,
@@ -69,26 +77,29 @@ export function ClickPage() {
           Open MNX
         </Button>
 
-        {preview && (
+        {player.document && (
           <>
-            <div className={styles.preview}>
-              <h2>{nextBeat}</h2>
-              <p>
-                {player.document?.timing.measureTimeSignatures[0]?.count}/
-                {player.document?.timing.measureTimeSignatures[0]?.unit}
-                {" | "}Quarter = {Number(preview.startBpm.toFixed(2))}
-                {" | "}Through track end
-              </p>
-            </div>
+            {preview && (
+              <div className={styles.preview}>
+                <h2>{nextBeat}</h2>
+                <p>
+                  {player.document.timing.measureTimeSignatures[0]?.count}/
+                  {player.document.timing.measureTimeSignatures[0]?.unit}
+                  {" | "}Quarter = {Number(preview.startBpm.toFixed(2))}
+                  {" | "}Through track end
+                </p>
+              </div>
+            )}
             <fieldset className={styles.tempo} disabled={active || player.busy}>
               <label htmlFor={tempoId}>Session tempo %</label>
               <Slider
                 id={tempoId}
-                min={25}
-                max={200}
+                min={0}
+                max={100}
                 step={1}
                 value={player.tempoPercent}
                 onChange={player.setTempoPercent}
+                ariaDescribedBy={statusId}
               />
               <output htmlFor={tempoId}>{player.tempoPercent}%</output>
               <Button disabled={active || player.busy} onClick={() => player.setTempoPercent(100)}>
@@ -96,7 +107,12 @@ export function ClickPage() {
               </Button>
             </fieldset>
             <div className={styles.transport}>
-              <Button variant="primary" size="lg" disabled={active || player.busy} onClick={() => void player.play()}>
+              <Button
+                variant="primary"
+                size="lg"
+                disabled={active || player.busy || player.tempoPercent === 0}
+                onClick={() => void player.play()}
+              >
                 Play
               </Button>
               <Button
@@ -112,7 +128,7 @@ export function ClickPage() {
             </div>
           </>
         )}
-        <div className={styles.status} role="status" aria-label="Playback status" aria-live="polite">
+        <div id={statusId} className={styles.status} role="status" aria-label="Playback status" aria-live="polite">
           <strong>{status}</strong>
           {countingOff && (
             <span>
