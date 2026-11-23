@@ -10,6 +10,8 @@ Related references: [file-format.md](../spec/file-format.md), [id-system.md](../
 - Project creation/opening, recent-project persistence, author identity, and real Git commits on save.
   Recent-project bookkeeping runs independently of opening and refreshes the menu when it finishes;
   a stalled browser handle comparison must not block loading the score or its history.
+  Saved-location permission checks fail after five seconds without a response (one minute
+  for an interactive permission request), offering an explicit file/folder picker retry.
 - Review History panel with log selection, working-tree state, branch/tag detection, and dual-canvas plus JSON diff.
 - GitHub App connection, repository creation, push/fetch, periodic background fetch, and ahead/behind status.
 - Server-side GitHub credential handling and constrained smart-HTTP proxy. Reusable provider credentials do not enter browser storage.
