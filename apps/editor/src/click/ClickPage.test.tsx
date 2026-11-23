@@ -164,7 +164,8 @@ describe("standalone click page", () => {
 
     fireEvent.change(slider, { target: { value: "50" } });
     expect(screen.getByText("50%")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Reset to 100%" }));
+    expect(screen.queryByRole("button", { name: "Reset to 100%" })).toBeNull();
+    fireEvent.change(slider, { target: { value: "100" } });
     expect(screen.getByText("100%")).toBeTruthy();
 
     fireEvent.change(slider, { target: { value: "50" } });

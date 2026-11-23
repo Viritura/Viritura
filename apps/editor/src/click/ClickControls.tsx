@@ -95,9 +95,6 @@ export function ClickControls({
           ariaDescribedBy={statusId}
         />
         <output htmlFor={tempoId}>{player.tempoPercent}%</output>
-        <Button disabled={active || player.busy} onClick={() => player.setTempoPercent(100)}>
-          Reset to 100%
-        </Button>
         {player.tempoPercent === 0 && <span>Set tempo above 0% to start</span>}
       </fieldset>
       <div className={styles.transport}>
