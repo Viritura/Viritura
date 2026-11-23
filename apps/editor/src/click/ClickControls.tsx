@@ -30,7 +30,6 @@ export function ClickControls({ player, active, barIndex, dialSettling, onSettli
   );
   if (!player.document) return null;
   const meter = player.document.timing.measureTimeSignatures[player.startBar]!;
-  const selected = player.document.bars[player.startBar]!;
   const current = player.document.bars[barIndex]!;
 
   function reportSettling(track: "bars" | "rehearsals", value: boolean): void {
@@ -66,10 +65,6 @@ export function ClickControls({ player, active, barIndex, dialSettling, onSettli
         ) : (
           <div className={styles.settings}>
             <div className={styles.startDetails} role="group" aria-label="Selected start" aria-live="polite">
-              <span>
-                {selected.rehearsalContext ? `${selected.rehearsalContext} / ` : ""}
-                {describeClickBar(selected)}
-              </span>
               <span>
                 {meter.count}/{meter.unit}
               </span>

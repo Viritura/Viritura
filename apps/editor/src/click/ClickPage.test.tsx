@@ -133,7 +133,7 @@ describe("standalone click page", () => {
     const tempo = within(screen.getByRole("banner")).getByRole("slider", { name: "Session tempo %" });
     expect(tempo).toBeTruthy();
     fireEvent.click(screen.getByRole("option", { name: "Bar 3, rehearsal B" }));
-    expect(transport.getByRole("group", { name: "Selected start" }).textContent).toContain("B / Bar 3");
+    expect(transport.getByRole("option", { name: "Bar 3, rehearsal B" }).getAttribute("aria-selected")).toBe("true");
     expect(audio.create).not.toHaveBeenCalled();
     fireEvent.click(transport.getByRole("button", { name: "Start", exact: true }));
     await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
@@ -148,7 +148,7 @@ describe("standalone click page", () => {
     await waitFor(() => expect(transport.getByRole("listbox", { name: "Start bar" })).toBeTruthy());
     expect(transport.getByRole("listbox", { name: "Rehearsal" })).toBeTruthy();
     expect(transport.getByRole("radiogroup", { name: "Countoff" })).toBeTruthy();
-    expect(transport.getByRole("group", { name: "Selected start" }).textContent).toContain("B / Bar 3");
+    expect(transport.getByRole("option", { name: "Bar 3, rehearsal B" }).getAttribute("aria-selected")).toBe("true");
     expect(transport.queryByRole("status", { name: "Current bar" })).toBeNull();
     expect(screen.getByRole("region", { name: "Click player" }).dataset.compact).toBeUndefined();
   });
@@ -297,11 +297,14 @@ describe("standalone click page", () => {
     mixedMeter.global.measures[1]!.tempos = [{ bpm: 90, value: { base: "quarter" } }];
     render(<ClickPage />);
     await openFile(JSON.stringify(mixedMeter));
-    const details = within(screen.getByRole("group", { name: "Selected start" }));
+    const startDetails = screen.getByRole("group", { name: "Selected start" });
+    const details = within(startDetails);
+    expect(startDetails.textContent).toBe("4/4Quarter = 120");
     expect(details.getByText("4/4")).toBeTruthy();
     expect(details.getByText("Quarter = 120")).toBeTruthy();
     expect(screen.getByText("4 clicks free")).toBeTruthy();
     fireEvent.click(screen.getByRole("option", { name: "Bar 2" }));
+    expect(startDetails.textContent).toBe("3/4Quarter = 90");
     expect(details.getByText("3/4")).toBeTruthy();
     expect(details.getByText("Quarter = 90")).toBeTruthy();
     expect(screen.getByText("3 clicks free")).toBeTruthy();

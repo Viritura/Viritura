@@ -9,7 +9,7 @@ test("dragging the click transport does not select its text", async ({ page }) =
 
   const panel = page.getByRole("region", { name: "Click player" });
   const details = panel.getByRole("group", { name: "Selected start" });
-  await expect(details).toContainText("A / Bar 1");
+  await expect(panel.getByRole("option", { name: "Bar 1, rehearsal A" })).toHaveAttribute("aria-selected", "true");
   const initial = await panel.boundingBox();
   const area = await details.boundingBox();
   if (!initial || !area) throw new Error("Click transport is not visible");
@@ -27,7 +27,7 @@ test("dragging the click transport does not select its text", async ({ page }) =
   await panel.getByRole("radio", { name: "2 bars" }).click();
   await expect(panel.getByText("8 clicks free")).toBeVisible();
   await panel.getByRole("option", { name: "Bar 3, rehearsal B" }).click();
-  await expect(details).toContainText("B / Bar 3");
+  await expect(panel.getByRole("option", { name: "Bar 3, rehearsal B" })).toHaveAttribute("aria-selected", "true");
 });
 
 test("dragging a navigation dial horizontally selects a later bar", async ({ page }) => {
@@ -37,8 +37,7 @@ test("dragging a navigation dial horizontally selects a later bar", async ({ pag
     .setInputFiles(resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"));
 
   const panel = page.getByRole("region", { name: "Click player" });
-  const details = panel.getByRole("group", { name: "Selected start" });
-  await expect(details).toContainText("A / Bar 1");
+  await expect(panel.getByRole("option", { name: "Bar 1, rehearsal A" })).toHaveAttribute("aria-selected", "true");
   const box = await panel.getByRole("listbox", { name: "Start bar" }).boundingBox();
   if (!box) throw new Error("Start bar dial is not visible");
 
@@ -50,7 +49,7 @@ test("dragging a navigation dial horizontally selects a later bar", async ({ pag
   await page.waitForTimeout(150);
   await page.mouse.up();
 
-  await expect(details).toContainText("B / Bar 3");
+  await expect(panel.getByRole("option", { name: "Bar 3, rehearsal B" })).toHaveAttribute("aria-selected", "true");
   expect(await page.evaluate(() => window.getSelection()?.toString())).toBe("");
   await expect(panel.getByRole("button", { name: "Start", exact: true })).toBeEnabled();
 });
@@ -101,7 +100,7 @@ for (const viewport of [
     await expect(panel.getByRole("listbox", { name: "Rehearsal" })).toBeVisible();
     await expect(panel.getByRole("listbox", { name: "Start bar" })).toBeVisible();
     await expect(panel.getByRole("radio", { name: "2 bars" })).toBeChecked();
-    await expect(panel.getByRole("group", { name: "Selected start" })).toContainText("B / Bar 3");
+    await expect(panel.getByRole("option", { name: "Bar 3, rehearsal B" })).toHaveAttribute("aria-selected", "true");
     await expect(bar).toHaveCount(0);
     await expect
       .poll(async () => {
