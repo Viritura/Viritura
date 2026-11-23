@@ -20,6 +20,7 @@ test("shared-score links still load the editor", async ({ page }) => {
   for (const path of ["/s/gist", "/s/gist/"]) {
     const response = await page.goto(`${EDITOR_URL}${path}`);
     expect(response?.status()).toBe(200);
+    await expect(page).toHaveURL(`${EDITOR_URL}${path}`);
     await expect(page.getByText("Shared score unavailable")).toBeVisible();
   }
 });

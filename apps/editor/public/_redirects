@@ -1,2 +1,2 @@
-/s/gist /index.html 200
-/s/gist/* /index.html 200
+/s/gist / 200
+/s/gist/* / 200
