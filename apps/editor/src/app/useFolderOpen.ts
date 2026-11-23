@@ -113,11 +113,6 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
           if (!hasGit && canSetUpGitHubRepository) {
             openDialog("projectGitHubSetup");
           }
-          try {
-            setRecentScores(await listRecentScores());
-          } catch {
-            /* ignore */
-          }
         } else {
           const file = await chosen.handle.getFile();
           const json = await file.text();

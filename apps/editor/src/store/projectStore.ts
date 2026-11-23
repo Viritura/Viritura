@@ -21,6 +21,7 @@ import {
 } from "../git";
 import { FsaFs } from "../git/fs/fsaFs";
 import { rememberScore } from "./recentScores";
+import { setRecentScores } from "./onboardingStore";
 
 /**
  * Sentinel SHA representing the live working tree.
@@ -283,14 +284,12 @@ export async function bootProjectFromHandle(opts: {
   const baseline = await adapter.readScore();
   await useProjectStore.getState().setAdapter(adapter, opts.rootHandle);
   useProjectStore.getState().setProjectDiskBaseline(adapter, baseline);
-  // Persist this project as a recent score so it shows up in the Start
-  // Center / Open Recent menu. We resolve the file handle for the score so
-  // the entry is fully self-contained even if the user later opens this
-  // recent without re-picking the folder.
-  try {
-    const fileHandle = await resolveFileHandle(opts.rootHandle, opts.scorePath);
-    if (fileHandle) {
-      await rememberScore({
+  // Recent-handle comparisons can stall in the browser; bookkeeping must not
+  // prevent an already-read project from opening.
+  void resolveFileHandle(opts.rootHandle, opts.scorePath)
+    .then(async (fileHandle) => {
+      if (!fileHandle) return;
+      const entry = await rememberScore({
         scoreName: lastSegment(opts.scorePath),
         fileHandle,
         vcs: {
@@ -299,10 +298,9 @@ export async function bootProjectFromHandle(opts: {
           scoreRelPath: opts.scorePath,
         },
       });
-    }
-  } catch (err) {
-    console.warn("Failed to record recent project score:", err);
-  }
+      setRecentScores((previous) => [entry, ...previous.filter((recent) => recent.id !== entry.id)]);
+    })
+    .catch((err: unknown) => console.warn("Failed to record recent project score:", err));
   return adapter;
 }
 

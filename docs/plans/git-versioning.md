@@ -8,6 +8,8 @@ Related references: [file-format.md](../spec/file-format.md), [id-system.md](../
 
 - `isomorphic-git` behind `FsAdapter` and `ProjectAdapter`, with folder-backed and standalone project modes.
 - Project creation/opening, recent-project persistence, author identity, and real Git commits on save.
+  Recent-project bookkeeping runs independently of opening and refreshes the menu when it finishes;
+  a stalled browser handle comparison must not block loading the score or its history.
 - Review History panel with log selection, working-tree state, branch/tag detection, and dual-canvas plus JSON diff.
 - GitHub App connection, repository creation, push/fetch, periodic background fetch, and ahead/behind status.
 - Server-side GitHub credential handling and constrained smart-HTTP proxy. Reusable provider credentials do not enter browser storage.
