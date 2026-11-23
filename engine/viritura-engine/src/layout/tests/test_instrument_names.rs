@@ -200,6 +200,90 @@ fn instrument_names_part_header_is_multiline_on_authored_inline_and_title_pages(
 }
 
 #[test]
+fn instrument_names_piccolo_flute_part_header_omits_redundant_concert_tuning() {
+    for (authored, explicit_zero, flute_first) in [
+        (false, false, false),
+        (true, false, false),
+        (false, true, false),
+        (false, false, true),
+    ] {
+        let mut value = document();
+        let initial = if flute_first { "fl" } else { "picc" };
+        value["parts"][0]["name"] = json!(if flute_first { "Flute" } else { "Piccolo" });
+        value["parts"][0]["shortName"] = json!(if flute_first { "Fl." } else { "Picc." });
+        value["parts"][0]["transposition"] = if flute_first {
+            interval(0, 0)
+        } else {
+            interval(-12, -7)
+        };
+        value["parts"][0]["_x"]["viritura"] = json!({
+            "initialInstrument":initial,
+            "instruments":{
+                "picc":{"instrumentId":"wind.flutes.flute.piccolo","name":"Piccolo",
+                    "shortName":"Picc.","transposition":interval(-12,-7)},
+                "fl":{"instrumentId":"wind.flutes.flute","name":"Flute","shortName":"Fl."}
+            }
+        });
+        if explicit_zero {
+            value["parts"][0]["_x"]["viritura"]["instruments"]["fl"]["transposition"] =
+                interval(0, 0);
+        }
+        change(
+            &mut value,
+            1,
+            json!({"instrument":if flute_first { "picc" } else { "fl" }}),
+        );
+        value["layouts"][0]["content"] = json!([{
+            "type":"staff","sources":[{"part":"p1"}],"labelref":"name"
+        }]);
+        value["scores"][0]["name"] = value["parts"][0]["name"].clone();
+        if !authored {
+            value["scores"][0].as_object_mut().unwrap().remove("pages");
+        }
+        let score = parse(&value);
+        let expected = if flute_first {
+            ["Flute", "Piccolo"]
+        } else {
+            ["Piccolo", "Flute"]
+        };
+        assert_eq!(
+            resolve_required_part_display_names(&score.parts)[0].display_name,
+            expected.join("\n")
+        );
+        let config = LayoutConfig {
+            page_width: Some(1000.0),
+            ..LayoutConfig::default()
+        };
+        let display = layout_with_mnx_scores(&score, &config, 0);
+        let header: Vec<_> = display
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawText { x, text, .. }
+                    if (*x - (config.page_margin_left + 0.6) * config.sp).abs() < 0.01 =>
+                {
+                    Some(text.as_str())
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(header, expected);
+    }
+}
+
+#[test]
+fn instrument_names_authored_concert_tuning_is_preserved() {
+    let mut value = document();
+    value["parts"][0]["_x"]["viritura"]["instruments"]["fl"]["name"] = json!("Flute in C");
+    value["parts"][0]["_x"]["viritura"]["instruments"]["fl"]["shortName"] = json!("Fl. in C");
+    change(&mut value, 1, json!({"instrument":"fl"}));
+    let score = parse(&value);
+    let names = resolve_part_display_names_at(&score.parts, 1);
+    assert_eq!(names[0].display_name, "Flute in C");
+    assert_eq!(names[0].display_short_name, "Fl. in C");
+}
+
+#[test]
 fn instrument_names_custom_part_header_and_layout_label_are_preserved() {
     for authored in [false, true] {
         let mut value = part_header_document(authored);
@@ -244,13 +328,10 @@ fn instrument_names_staff_labels_use_first_bar_state_while_frontmatter_lists_all
     );
     let score = parse(&value);
     let required = resolve_required_part_display_names(&score.parts);
-    assert_eq!(
-        required[0].display_name,
-        "Clarinet in B\u{266d}\nFlute in C"
-    );
+    assert_eq!(required[0].display_name, "Clarinet in B\u{266d}\nFlute");
     for (index, full, short) in [
         (0, "Clarinet in B\u{266d}", "Cl. in B\u{266d}"),
-        (1, "Flute in C", "Fl. in C"),
+        (1, "Flute", "Fl."),
         (3, "Clarinet in B\u{266d}", "Cl. in B\u{266d}"),
     ] {
         let names = resolve_part_display_names_at(&score.parts, index);
@@ -329,7 +410,7 @@ fn instrument_names_render_only_system_start_state_on_authored_pages_and_auto_br
                 1,
                 "{ink:?}"
             );
-            assert!(ink.contains(&"in C"), "{ink:?}");
+            assert!(!ink.contains(&"in C"), "{ink:?}");
             assert!(
                 !ink.contains(&"in F"),
                 "mid-system change must not change staff label: {ink:?}"
@@ -365,7 +446,7 @@ fn instrument_names_initial_label_requires_a_real_change_and_respects_first_bar_
     let score = parse(&value);
     assert_eq!(
         resolve_part_display_names_at(&score.parts, 0)[0].display_name,
-        "Flute in C"
+        "Flute"
     );
     assert_eq!(
         resolve_measures(&score, 0)[0]
@@ -498,9 +579,9 @@ fn instrument_names_new_identity_gets_its_own_abbreviation_and_player_number() {
     value["parts"][1] = other;
     let score = parse(&value);
     let names = resolve_part_display_names_at(&score.parts, 1);
-    assert_eq!(names[0].display_name, "Flute in C 1");
-    assert_eq!(names[0].display_short_name, "Fl. in C 1");
-    assert_eq!(names[1].display_short_name, "Fl. in C 2");
+    assert_eq!(names[0].display_name, "Flute 1");
+    assert_eq!(names[0].display_short_name, "Fl. 1");
+    assert_eq!(names[1].display_short_name, "Fl. 2");
 }
 
 #[test]

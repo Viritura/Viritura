@@ -1974,6 +1974,9 @@ B-flat horn uses **alto** / **basso**, and E-flat clarinet uses
 pitch for written C4; the default octave transposition of a different
 instrument needs no such explanation. Explicit author-supplied layout labels
 remain intact.
+Nontransposing instruments likewise omit a derived `in C` suffix when using
+their default tuning, so a piccolo/flute player's header reads `Piccolo` and
+`Flute`. Authored names and nondefault or octave-distinct tunings remain intact.
 
 Extracted parts use the same required-state list in the boxed instrument
 header on the first page, including a dedicated title page. Automatic
