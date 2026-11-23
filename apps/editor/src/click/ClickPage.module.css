@@ -111,7 +111,7 @@
 .dragSurface {
   position: absolute;
   inset: 0;
-  /* Keep touch-action off the ancestor so dials retain native touch scrolling. */
+  /* Keep touch-action off the ancestor so each dial controls its own gestures. */
   touch-action: none;
 }
 
@@ -210,6 +210,30 @@
 .transport button {
   min-width: 100px;
   min-height: 56px;
+}
+
+.floatingTransport[data-compact="true"] {
+  width: min(240px, calc(100% - 24px));
+}
+
+.compactControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.currentBar {
+  flex: 1;
+  min-width: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.compactControls .transport,
+.compactControls .transport button {
+  width: auto;
 }
 
 @media (max-width: 480px) {

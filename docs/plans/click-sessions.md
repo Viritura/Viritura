@@ -30,8 +30,10 @@ Implemented:
   audio. Stopping selects the current performed bar visit using the audio
   thread's acknowledged position; the next Start plays a fresh countoff
   from that visit. The playhead rests at the visit's start.
-  Both navigation dials are always visible in the floating transport,
-  alongside countoff and Start/Stop. Drag any non-interactive area with a
+  While stopped, both navigation dials are visible in the floating transport,
+  alongside countoff and Start. During playback (including countoff), the
+  transport shrinks to just the current bar number and Stop. Stopping, finishing,
+  or an audio interruption restores the full transport. Drag any non-interactive area with a
   mouse or touch, or focus the panel and use arrow keys
   (Shift for larger steps). Movement is bounded to the score viewport and
   re-clamped on resize. Score-load errors are visible without replacing the
@@ -51,8 +53,8 @@ Implemented:
   A compact line below the dials shows the selected start's time signature and
   effective quarter-note tempo, including the session percentage.
   The countoff control shows the number of free clicks for the selected bar
-  and the current beat during countoff.
-  During playback both dials follow the current performed bar without seeking or
+  before playback.
+  During playback the compact bar display follows the current performed bar without seeking or
   rescheduling audio.
 - **Isolated entry** — [`click/index.html`](../../apps/editor/click/index.html)
   is built separately from the editor, with development and deployed `/click`

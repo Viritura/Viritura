@@ -1,6 +1,5 @@
 import { useId, useRef, useState } from "react";
 import { Button, FormInput, Slider } from "@viritura/ui";
-import type { ClickSessionProgram } from "@viritura/playback/click";
 import { ClickControls } from "./ClickControls";
 import { ClickScore } from "./ClickScore";
 import { ClickScoreControls, type ClickScoreSettings } from "./ClickScoreControls";
@@ -22,16 +21,6 @@ function statusLabel(
   return { empty: "", ready: "Ready", playing: "Playing", complete: "Finished" }[phase];
 }
 
-function countoffPosition(program: ClickSessionProgram | undefined, elapsed: number): number {
-  if (!program) return 1;
-  let beats = 0;
-  for (const event of program.events) {
-    if (event.time >= program.countoffSeconds || event.time > elapsed) break;
-    if (event.level !== "subdivision") beats++;
-  }
-  return Math.max(1, beats);
-}
-
 export function ClickPage() {
   const player = useClickPlayer();
   const [dialSettling, setDialSettling] = useState(false);
@@ -46,7 +35,6 @@ export function ClickPage() {
     active && player.document && player.program
       ? clickBarAtTime(player.document.timing, player.program, player.elapsed, player.tempoPercent)
       : player.startBar;
-  const countoffBeat = countoffPosition(player.program, player.elapsed);
   const scorePosition =
     active && player.document && player.program
       ? clickScorePosition(player.document.timing, player.program, player.elapsed, player.tempoPercent)
@@ -113,7 +101,7 @@ export function ClickPage() {
           />
         )}
         {(player.document || player.error || player.busy) && (
-          <FloatingTransport busy={player.busy}>
+          <FloatingTransport busy={player.busy} compact={active}>
             {player.error && (
               <p className={styles.error} role="alert">
                 {player.error}
@@ -123,7 +111,6 @@ export function ClickPage() {
               player={player}
               active={active}
               barIndex={barIndex}
-              countoffBeat={countingOff ? countoffBeat : undefined}
               dialSettling={dialSettling}
               onSettlingChange={setDialSettling}
             />

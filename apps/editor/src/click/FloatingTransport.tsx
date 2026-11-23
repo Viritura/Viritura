@@ -8,6 +8,7 @@ interface Position {
 
 interface FloatingTransportProps {
   readonly busy: boolean;
+  readonly compact?: boolean;
   readonly children: ReactNode;
 }
 
@@ -26,7 +27,7 @@ function bounded(position: Position, element: HTMLElement): Position {
   };
 }
 
-export function FloatingTransport({ busy, children }: FloatingTransportProps) {
+export function FloatingTransport({ busy, compact, children }: FloatingTransportProps) {
   const ref = useRef<HTMLElement>(null);
   const drag = useRef<{ pointerId: number; offset: Position } | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
@@ -50,6 +51,7 @@ export function FloatingTransport({ busy, children }: FloatingTransportProps) {
     <section
       ref={ref}
       className={styles.floatingTransport}
+      data-compact={compact || undefined}
       aria-label="Click player"
       aria-busy={busy}
       aria-description="Drag to move, or use arrow keys when focused. Hold Shift for larger steps."

@@ -11,19 +11,11 @@ interface ClickControlsProps {
   readonly player: ReturnType<typeof useClickPlayer>;
   readonly active: boolean;
   readonly barIndex: number;
-  readonly countoffBeat: number | undefined;
   readonly dialSettling: boolean;
   readonly onSettlingChange: (settling: boolean) => void;
 }
 
-export function ClickControls({
-  player,
-  active,
-  barIndex,
-  countoffBeat,
-  dialSettling,
-  onSettlingChange,
-}: ClickControlsProps) {
+export function ClickControls({ player, active, barIndex, dialSettling, onSettlingChange }: ClickControlsProps) {
   const settling = useRef({ bars: false, rehearsals: false });
   const preview = useMemo(
     () =>
@@ -39,6 +31,7 @@ export function ClickControls({
   if (!player.document) return null;
   const meter = player.document.timing.measureTimeSignatures[player.startBar]!;
   const selected = player.document.bars[player.startBar]!;
+  const current = player.document.bars[barIndex]!;
 
   function reportSettling(track: "bars" | "rehearsals", value: boolean): void {
     settling.current[track] = value;
@@ -47,54 +40,60 @@ export function ClickControls({
 
   return (
     <>
-      <section className={styles.navigation} aria-label="Bar navigation">
-        <RehearsalDial
-          bars={player.document.bars}
-          index={barIndex}
-          enabled={!active && !player.busy}
-          onSelect={player.setStartBar}
-          onSettlingChange={(value) => reportSettling("rehearsals", value)}
-        />
-        <BarDial
-          bars={player.document.bars}
-          index={barIndex}
-          enabled={!active && !player.busy}
-          onSelect={player.setStartBar}
-          onSettlingChange={(value) => reportSettling("bars", value)}
-        />
-      </section>
-      <div className={styles.controlStrip}>
-        <div className={styles.settings}>
-          <div className={styles.startDetails} role="group" aria-label="Selected start" aria-live="polite">
-            <span>
-              {selected.rehearsalContext ? `${selected.rehearsalContext} / ` : ""}
-              {describeClickBar(selected)}
-            </span>
-            <span>
-              {meter.count}/{meter.unit}
-            </span>
-            <span>Quarter = {preview ? Number(preview.startBpm.toFixed(2)) : 0}</span>
-          </div>
-          <div className={styles.countoff}>
-            <ButtonGroup
-              ariaLabel="Countoff"
-              options={[
-                { value: "1", label: "1 bar" },
-                { value: "2", label: "2 bars" },
-              ]}
-              value={player.countoffBars === 1 ? "1" : "2"}
-              onChange={(value) => player.setCountoffBars(value === "1" ? 1 : 2)}
-              disabled={active || player.busy}
-            />
-            {preview && (
-              <span aria-live="polite">
-                {countoffBeat === undefined
-                  ? `${preview.countoffClicks} ${preview.countoffClicks === 1 ? "click" : "clicks"} free`
-                  : `Counting off ${countoffBeat} of ${preview.countoffClicks}`}
+      {!active && (
+        <section className={styles.navigation} aria-label="Bar navigation">
+          <RehearsalDial
+            bars={player.document.bars}
+            index={barIndex}
+            enabled={!active && !player.busy}
+            onSelect={player.setStartBar}
+            onSettlingChange={(value) => reportSettling("rehearsals", value)}
+          />
+          <BarDial
+            bars={player.document.bars}
+            index={barIndex}
+            enabled={!active && !player.busy}
+            onSelect={player.setStartBar}
+            onSettlingChange={(value) => reportSettling("bars", value)}
+          />
+        </section>
+      )}
+      <div className={active ? styles.compactControls : styles.controlStrip}>
+        {active ? (
+          <output className={styles.currentBar} aria-label="Current bar" aria-description={describeClickBar(current)}>
+            {current.number}
+          </output>
+        ) : (
+          <div className={styles.settings}>
+            <div className={styles.startDetails} role="group" aria-label="Selected start" aria-live="polite">
+              <span>
+                {selected.rehearsalContext ? `${selected.rehearsalContext} / ` : ""}
+                {describeClickBar(selected)}
               </span>
-            )}
+              <span>
+                {meter.count}/{meter.unit}
+              </span>
+              <span>Quarter = {preview ? Number(preview.startBpm.toFixed(2)) : 0}</span>
+            </div>
+            <div className={styles.countoff}>
+              <ButtonGroup
+                ariaLabel="Countoff"
+                options={[
+                  { value: "1", label: "1 bar" },
+                  { value: "2", label: "2 bars" },
+                ]}
+                value={player.countoffBars === 1 ? "1" : "2"}
+                onChange={(value) => player.setCountoffBars(value === "1" ? 1 : 2)}
+                disabled={active || player.busy}
+              />
+              {preview && (
+                <span aria-live="polite">
+                  {preview.countoffClicks} {preview.countoffClicks === 1 ? "click" : "clicks"} free
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
         <div className={styles.transport}>
           <Button
             variant="primary"
