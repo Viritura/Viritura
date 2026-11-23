@@ -154,6 +154,8 @@ pub(crate) fn defers_repeat_start(rm: &ResolvedMeasure, is_system_start: bool) -
             || is_system_start
             || rm.key_signature_changed()
             || rm.global.time.is_some()
+            || rm.repeat_key_restatement_from.is_some()
+            || rm.repeat_time_restatement.is_some()
             || rm
                 .part
                 .clefs

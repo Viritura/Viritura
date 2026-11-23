@@ -272,6 +272,8 @@ fn render_measure_prefix(
             dl.tag_command(ci, element_id::barline(rm.index));
         }
         x_cursor += prefix.barline_advance;
+        x_cursor +=
+            render_repeat_ending_left_bracket_at(dl, ml, x_cursor, staff_y, sp, config, true);
         if is_clef_change_measure && rm.prev_has_repeat_end {
             if let Some(pc) = explicit_clef_change {
                 let cmd_idx = dl.commands.len();
@@ -282,10 +284,7 @@ fn render_measure_prefix(
         }
     }
 
-    if rm.repeat_ending_brackets {
-        draw_repeat_signature_bracket(dl, x_cursor, staff_y, sp, config, rm.index, true);
-        x_cursor += REPEAT_SIGNATURE_BRACKET_SP * sp;
-    }
+    x_cursor += render_repeat_ending_left_bracket_at(dl, ml, x_cursor, staff_y, sp, config, false);
 
     // Condensing change marker: small dashed line above the staff at the barline
     // where a condensing mode transition occurs (e.g., unison → divisi).

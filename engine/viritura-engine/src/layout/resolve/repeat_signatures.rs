@@ -25,11 +25,7 @@ pub(crate) fn apply_repeat_signature_restatements(
         let Some(previous) = resolved.get(source) else {
             continue;
         };
-        if target >= source
-            || resolved
-                .get(target)
-                .is_none_or(|measure| measure.global.repeat_start.is_none())
-        {
+        if target >= source || resolved.get(target).is_none() {
             continue;
         }
 
@@ -115,7 +111,7 @@ fn apply_first_ending_reminders(resolved: &mut [ResolvedMeasure], globals: &[Glo
             && second.active_key == ending_key
             && super::super::render_signatures::staff_has_key_signature(second)
         {
-            second.repeat_key_restatement_from = Some(second.active_key.clone());
+            second.repeat_key_restatement_from = Some(previous_key);
             has_reminder = true;
         }
         if time_changed

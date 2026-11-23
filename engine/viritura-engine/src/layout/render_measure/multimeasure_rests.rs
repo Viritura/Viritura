@@ -122,6 +122,9 @@ pub(crate) fn multimeasure_rest_prefix(
     }
     if rm.repeat_ending_brackets {
         w += 2.0 * super::REPEAT_SIGNATURE_BRACKET_SP * sp;
+        if rm.repeat_clef_restatement {
+            w += super::REPEAT_SIGNATURE_CLEF_GAP_SP * sp;
+        }
     }
 
     let is_key_change = rm.key_signature_changed() || rm.repeat_key_restatement_from.is_some();
@@ -319,6 +322,8 @@ fn render_multimeasure_rest_prefix(
 
     let mut x_cursor = ml.x + prefix.barline_advance;
     let at_start = is_first || ml.is_first_on_system;
+    x_cursor +=
+        super::render_left_repeat_signature_bracket(dl, ml, x_cursor, staff_y, sp, config, true);
     if at_start {
         if let Some(clefs) = &ml.resolved.part.clefs {
             if let Some(pc) = clefs.first() {
@@ -339,18 +344,6 @@ fn render_multimeasure_rest_prefix(
             dl.tag_command(cmd_idx, element_id::clef(ml.part_index, ml.resolved.index));
             x_cursor += super::CLEF_CHANGE_LEADING_GAP_SP * sp;
         }
-    }
-    if ml.resolved.repeat_ending_brackets {
-        super::draw_repeat_signature_bracket(
-            dl,
-            x_cursor,
-            staff_y,
-            sp,
-            config,
-            ml.resolved.index,
-            true,
-        );
-        x_cursor += super::REPEAT_SIGNATURE_BRACKET_SP * sp;
     }
     let is_key_change =
         ml.resolved.key_signature_changed() || ml.resolved.repeat_key_restatement_from.is_some();

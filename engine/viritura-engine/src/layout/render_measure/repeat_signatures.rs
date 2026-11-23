@@ -5,6 +5,7 @@ use crate::layout::types::MeasureLayout;
 use crate::render::{DisplayList, RenderCommand};
 
 pub(crate) const REPEAT_SIGNATURE_BRACKET_SP: f64 = 0.35;
+pub(crate) const REPEAT_SIGNATURE_CLEF_GAP_SP: f64 = 0.2;
 
 /// Aligned x of a deferred start-repeat barline, inset from the prefix end.
 pub(crate) fn deferred_repeat_start_x(ml: &MeasureLayout, sp: f64) -> f64 {
@@ -76,4 +77,53 @@ pub(crate) fn draw_repeat_signature_bracket(
     for index in command_start..dl.commands.len() {
         dl.tag_command(index, element_id::barline(measure));
     }
+}
+
+pub(crate) fn render_left_repeat_signature_bracket(
+    dl: &mut DisplayList,
+    ml: &MeasureLayout,
+    x: f64,
+    staff_y: f64,
+    sp: f64,
+    config: &LayoutConfig,
+    clef_follows: bool,
+) -> f64 {
+    if !ml.resolved.repeat_ending_brackets {
+        return 0.0;
+    }
+    draw_repeat_signature_bracket(dl, x, staff_y, sp, config, ml.resolved.index, true);
+    let clef_gap = if clef_follows && ml.resolved.repeat_clef_restatement {
+        REPEAT_SIGNATURE_CLEF_GAP_SP * sp
+    } else {
+        0.0
+    };
+    REPEAT_SIGNATURE_BRACKET_SP * sp + clef_gap
+}
+
+pub(crate) fn render_repeat_ending_left_bracket_at(
+    dl: &mut DisplayList,
+    ml: &MeasureLayout,
+    x: f64,
+    staff_y: f64,
+    sp: f64,
+    config: &LayoutConfig,
+    before_clef: bool,
+) -> f64 {
+    let rm = &ml.resolved;
+    let precedes_clef = rm.repeat_ending_brackets
+        && rm.prev_has_repeat_end
+        && rm.index > 0
+        && !ml.is_first_on_system;
+    if !rm.repeat_ending_brackets || before_clef != precedes_clef {
+        return 0.0;
+    }
+    render_left_repeat_signature_bracket(
+        dl,
+        ml,
+        x,
+        staff_y,
+        sp,
+        config,
+        precedes_clef || rm.index == 0 || ml.is_first_on_system,
+    )
 }

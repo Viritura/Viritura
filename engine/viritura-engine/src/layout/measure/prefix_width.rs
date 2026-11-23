@@ -156,6 +156,9 @@ pub(crate) fn prefix_layout(
     }
     if rm.repeat_ending_brackets {
         prefix_width += 2.0 * crate::layout::render_measure::REPEAT_SIGNATURE_BRACKET_SP * sp;
+        if rm.repeat_clef_restatement && (is_first || is_system_start || rm.prev_has_repeat_end) {
+            prefix_width += crate::layout::render_measure::REPEAT_SIGNATURE_CLEF_GAP_SP * sp;
+        }
     }
 
     let start_clef = rm.part.clefs.as_ref().and_then(|clefs| {
