@@ -34,13 +34,13 @@
 
 .track {
   position: relative;
-  height: 80px;
+  height: 60px;
 }
 
 .track .entry {
   position: absolute;
   top: 0;
-  height: 72px;
+  height: 56px;
   display: flex;
   flex-direction: column;
   justify-content: center;

@@ -87,6 +87,7 @@ function ScorePlayhead({ beat, position, partId, follow, render, className, styl
 function ScoreViewComponent({
   mnx,
   assetBaseUrl,
+  useWorker = false,
   pageWidth = 800,
   pageHeight,
   pageMargins,
@@ -128,6 +129,7 @@ function ScoreViewComponent({
     if (!container.current) return;
     const mounted = mountScore(container.current, mnx, {
       assetBaseUrl,
+      useWorker,
       pageWidth,
       pageHeight,
       pageMargins,
@@ -193,6 +195,7 @@ function ScoreViewComponent({
   useEffect(() => {
     handle.current?.setOptions({
       assetBaseUrl,
+      useWorker,
       pageWidth,
       pageHeight,
       pageMargins,
@@ -209,6 +212,7 @@ function ScoreViewComponent({
     });
   }, [
     assetBaseUrl,
+    useWorker,
     pageWidth,
     pageHeight,
     pageMargins?.top,

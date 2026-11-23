@@ -2,8 +2,8 @@
 
 > **Status:** In progress, November 2026. The click-only audio engine and
 > click session program compiler and standalone single-file page are implemented
-> (see [Implementation status](#implementation-status)); the setlist, floating
-> controller, and subdivision persistence remain proposed. Confirmed requirements and proposed defaults are
+> (see [Implementation status](#implementation-status)); the setlist, detached
+> controller window, and subdivision persistence remain proposed. Confirmed requirements and proposed defaults are
 > distinguished below.
 >
 > **Related:** [File format](../spec/file-format.md),
@@ -21,7 +21,19 @@ Implemented:
   from Start; opening a file does not create instrument or click audio. File,
   worklet, and context-interruption failures are visible. No upload or editor
   bootstrap is needed. The filename and Open MNX action live in a compact top
-  bar; the main surface contains only navigation, start details, and controls.
+  bar.
+- **Score-first surface and floating transport** —
+  `@viritura/score-viewer-react` displays the opened MNX in a continuous,
+  horizontally scrolling score, with layout in a dedicated worker and
+  viewport-tiled painting. A playhead follows the click audio clock through
+  countoff, tempo scaling, repeats, and partial-bar jumps; it does not schedule
+  audio. Stopping restores the selected start. The existing navigation dials,
+  countoff, tempo, and Start/Stop live in a compact floating transport. Its
+  selected-bar button expands the two navigation dials on demand. Move it
+  by its grip with a mouse or touch, or focus the grip and use arrow keys
+  (Shift for larger steps). Movement is bounded to the score viewport and
+  re-clamped on resize. Score-load errors are visible without replacing the
+  independent click engine. A detached PiP window remains future work.
 - **Horizontal navigation dials** — choose a start from independently scrollable
   rehearsal and bar-number tracks with touch, scrolling, tapping, or keyboard.
   The upper track contains only rehearsal marks, so distant marks are adjacent;
@@ -35,8 +47,9 @@ Implemented:
 - **Isolated entry** — [`click/index.html`](../../apps/editor/click/index.html)
   is built separately from the editor, with development and deployed `/click`
   routing. The build traverses the click entry's output chunks and rejects
-  renderer, engraving-engine, collaboration, MCP, sampler, or editor-playback
-  code. Explicit public `@viritura/audio/click`,
+  collaboration, MCP, sampler, editor canvas/store, or editor-playback code.
+  Standalone engraving and rendering are allowed for the score viewer.
+  Explicit public `@viritura/audio/click`,
   `@viritura/playback/click`, and `@viritura/midi/timing` barrels avoid importing
   the broad package barrels in development as well as production; these are
   declared package exports, not access to private files.
@@ -71,7 +84,7 @@ Implemented:
   Play restarts with the countoff and Resume continues without one.
 
 Remaining: measure-position resolution rules and MNX subdivision metadata,
-the project setlist picker, persisted click settings, the movable controller,
+the project setlist picker, persisted click settings, the detached controller,
 additional rehearsal navigation, and the release gates below.
 
 Single-file smoke check: start the UI through `pnpm dev:stack up ui`, obtain
@@ -151,15 +164,15 @@ by a full document navigation rather than an in-app activity. Switching
 activities inside the editor cannot release the editor's resources: loaded
 modules stay resident, WebAssembly memory never shrinks, and the playback
 provider, layout, autosave, collaboration, and MCP surfaces stay mounted.
-A fresh document removes all of them, so practice and studio sessions share
-one browser tab with nothing but the click.
+A fresh document removes those editor-owned resources. The standalone score
+viewer is loaded independently and does not create instrument audio.
 
 - **Separate build entry.** Add a `click.html` Vite entry (with the hosting
   rewrite for `/click`) so the editor bundle can never be pulled in. Its
   import graph is limited to the click engine, timing-only compiler, MNX
-  reader, project access, the controller, and UI primitives.
-  Add a bundle check that fails if the entry reaches the score engine WASM,
-  renderer, CRDT, MCP, SF2, or VST modules.
+  reader, standalone score viewer, project access, the controller, and UI primitives.
+  A bundle check rejects the editor canvas/stores, CRDT, MCP, SF2, VST, and
+  non-click audio modules while allowing the viewer's engraving/rendering code.
 - **MNX is the only track format.** Open ordinary `.mnx` files directly on
   `/click`; using the editor first is optional. Do not introduce prepared click
   files, exported event lists, or a second saved representation of musical
@@ -177,9 +190,9 @@ one browser tab with nothing but the click.
   and restores the project.
 - **Desktop.** The Tauri shell opens `/click` in its own window so the editor
   window can be closed while the click plays.
-- **Controller hosts.** On `/click` the controller is the full page, touch
-  first. Document Picture-in-Picture remains available to keep the controls
-  above a DAW; the in-page floating host is for the editor's quick click check.
+- **Controller hosts.** On `/click` the score is the main surface, with a
+  movable, touch-first floating transport. Document Picture-in-Picture remains
+  proposed for keeping controls above a DAW.
 
 The in-editor `releaseAudio` path stays as a quick click-only check while
 editing. It is not the qualified session surface.
@@ -260,8 +273,9 @@ bar by stable measure ID as well as the intended visit. If future rehearsal
 marks can be placed inside a bar, label the offset and offer that bar's
 beginning; exact intra-bar starts require the later intra-bar policy.
 
-The current page shows the destination in the dials and its countoff beside the
-countoff control. A future floating controller must preserve both:
+The floating transport shows the selected destination in its navigation button,
+with expandable dials and a countoff cue beside the countoff control. A future
+detached controller must preserve both:
 
 ```text
 Track: Song 03
@@ -348,9 +362,11 @@ Do not close a shared context or unrelated native resource behind another owner'
 back; separate ownership or suspend the score context while the click context is
 active. Mere disconnection is not proof that a processor has stopped.
 
-The `/click` page must not load the engraving canvas, piano roll, video
-decoder, or ordinary score-playback provider. Stop layout/render subscriptions,
-animation loops, and automatic instrument preloads owned by those surfaces.
+The `/click` page must not load the editor's engraving canvas, piano roll, video
+decoder, or ordinary score-playback provider. The standalone viewer runs layout
+in a worker and paints visible score tiles; its playhead reads the click clock
+without driving audio. Do not mount editor layout/render subscriptions,
+animation loops, or automatic instrument preloads.
 Retain unsaved document data and lightweight track/rehearsal metadata; do not
 discard edits or clear shared caches indiscriminately. Load/compile only the
 selected track, with no background preparation of the next score during a take.
@@ -446,8 +462,9 @@ These are proposed qualification workloads, not claims about current behavior:
   Report raw results too; do not fit away intermittent timing errors or call
   relative loopback measurements absolute latency/DAW sample-lock proof.
 - Instrumentation confirms zero live instrument synth processors, no score
-  note/control dispatch, no soundfont fetch/decode, and no ongoing engraving/video
-  work during a click session. Heap snapshots should show released application-owned
+  note/control dispatch, no soundfont fetch/decode, and no editor-owned engraving
+  or video work during a click session. Qualify timing with standalone viewer
+  scrolling and tile painting active. Heap snapshots should show released application-owned
   instrument buffers after collection; do not promise immediate OS memory return.
 - Forced worklet failure, context suspension, denied audio startup, stale program
   acknowledgments, and device changes produce explicit non-ready/interrupted

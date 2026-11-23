@@ -83,3 +83,22 @@ export function clickBarAtTime(
   }
   return Math.max(start, low - 1);
 }
+
+/** Project the audio clock onto written notation, including partial jump destinations. */
+export function clickScorePosition(
+  timing: PlaybackTiming,
+  program: ClickSessionProgram,
+  elapsed: number,
+  tempoPercent: number,
+): { measureIndex: number; beat: number } {
+  const index = clickBarAtTime(timing, program, elapsed, tempoPercent);
+  const sourceTime =
+    timing.measureStartTimes[program.startTimelineMeasure]! +
+    (Math.max(0, elapsed - program.countoffSeconds) * tempoPercent) / 100;
+  const span = timing.playedSpans?.[index];
+  const beat = (span?.startBeat ?? 0) + timing.model.beatAtTime(sourceTime) - timing.measureStartBeats[index]!;
+  return {
+    measureIndex: timing.expandedMeasureToOriginal[index]!,
+    beat: Math.max(span?.startBeat ?? 0, Math.min(span?.endBeat ?? Infinity, beat)),
+  };
+}

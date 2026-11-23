@@ -11,7 +11,7 @@ const meta: Meta<typeof ClickPage> = {
 export default meta;
 export const OpenMnx: StoryObj<typeof ClickPage> = {};
 
-export const RehearsalDial: StoryObj<typeof ClickPage> = {
+export const ScoreAndFloatingTransport: StoryObj<typeof ClickPage> = {
   play: async ({ canvasElement }) => {
     const input = canvasElement.querySelector<HTMLInputElement>('input[aria-label="MNX file"]');
     if (!input) throw new Error("The MNX file input is missing");

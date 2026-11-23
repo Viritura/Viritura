@@ -3,7 +3,7 @@ import type { Score } from "@viritura/core";
 import { compilePlaybackTiming } from "@viritura/midi/timing";
 import { buildClickSessionProgram } from "@viritura/playback/click";
 import rehearsalMarks from "../../../../packages/format/fixtures/mnx/rehearsal-marks.mnx?raw";
-import { clickBarAtTime, collectClickBars, describeClickBar } from "./barNavigation";
+import { clickBarAtTime, clickScorePosition, collectClickBars, describeClickBar } from "./barNavigation";
 import { readClickDocument } from "./clickDocument";
 
 describe("click bar navigation", () => {
@@ -37,6 +37,10 @@ describe("click bar navigation", () => {
     expect(clickBarAtTime(timing, program, 3.99, 50)).toBe(2);
     expect(clickBarAtTime(timing, program, 4, 50)).toBe(3);
     expect(clickBarAtTime(timing, program, 6, 50)).toBe(4);
+    expect(clickScorePosition(timing, program, 1, 50)).toEqual({ measureIndex: 0, beat: 0 });
+    expect(clickScorePosition(timing, program, 3, 50)).toEqual({ measureIndex: 0, beat: 1 });
+    expect(clickScorePosition(timing, program, 4.5, 50)).toEqual({ measureIndex: 1, beat: 0.5 });
+    expect(clickScorePosition(timing, program, 8, 50)).toEqual({ measureIndex: 2, beat: 1 });
   });
 
   it("follows a shortened pickup after a full countoff", () => {
@@ -98,5 +102,11 @@ describe("click bar navigation", () => {
     expect(partialIndex).toBeGreaterThanOrEqual(0);
     expect(bars[partialIndex]!.startable).toBe(false);
     expect(describeClickBar(bars[partialIndex]!)).toContain("partial visit");
+    const program = buildClickSessionProgram(timing, { startTimelineMeasure: 0 });
+    const elapsed = program.countoffSeconds + timing.measureStartTimes[partialIndex]! + 0.25;
+    expect(clickScorePosition(timing, program, elapsed, 100)).toEqual({
+      measureIndex: timing.playedSpans![partialIndex]!.measureIndex,
+      beat: timing.playedSpans![partialIndex]!.startBeat + 0.5,
+    });
   });
 });

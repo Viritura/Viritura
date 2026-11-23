@@ -1,8 +1,10 @@
-import { useId, useMemo, useRef } from "react";
+import { useId, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { Button, ButtonGroup, Slider } from "@viritura/ui";
 import { buildClickSessionProgram } from "@viritura/playback/click";
 import { BarDial } from "./BarDial";
 import { RehearsalDial } from "./RehearsalDial";
+import { describeClickBar } from "./barNavigation";
 import type { useClickPlayer } from "./useClickPlayer";
 import styles from "./ClickPage.module.css";
 
@@ -26,6 +28,8 @@ export function ClickControls({
   statusId,
 }: ClickControlsProps) {
   const tempoId = useId();
+  const navigationId = useId();
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const settling = useRef({ bars: false, rehearsals: false });
   const preview = useMemo(
     () =>
@@ -40,6 +44,7 @@ export function ClickControls({
   );
   if (!player.document) return null;
   const meter = player.document.timing.measureTimeSignatures[player.startBar]!;
+  const selected = player.document.bars[player.startBar]!;
 
   function reportSettling(track: "bars" | "rehearsals", value: boolean): void {
     settling.current[track] = value;
@@ -48,71 +53,94 @@ export function ClickControls({
 
   return (
     <>
-      <section className={styles.navigation} aria-label="Bar navigation">
-        <RehearsalDial
-          bars={player.document.bars}
-          index={barIndex}
-          enabled={!active && !player.busy}
-          onSelect={player.setStartBar}
-          onSettlingChange={(value) => reportSettling("rehearsals", value)}
-        />
-        <BarDial
-          bars={player.document.bars}
-          index={barIndex}
-          enabled={!active && !player.busy}
-          onSelect={player.setStartBar}
-          onSettlingChange={(value) => reportSettling("bars", value)}
-        />
-      </section>
-      <div className={styles.startDetails} role="group" aria-label="Selected start" aria-live="polite">
-        <span>
-          {meter.count}/{meter.unit}
-        </span>
-        <span>Quarter = {preview ? Number(preview.startBpm.toFixed(2)) : 0}</span>
-      </div>
-      <div className={styles.countoff}>
-        <span>Countoff</span>
-        <ButtonGroup
-          ariaLabel="Countoff"
-          options={[
-            { value: "1", label: "1 bar" },
-            { value: "2", label: "2 bars" },
-          ]}
-          value={player.countoffBars === 1 ? "1" : "2"}
-          onChange={(value) => player.setCountoffBars(value === "1" ? 1 : 2)}
-          disabled={active || player.busy}
-        />
-        {preview && (
-          <span aria-live="polite">
-            {countoffBeat === undefined
-              ? `${preview.countoffClicks} ${preview.countoffClicks === 1 ? "click" : "clicks"} free`
-              : `Counting off ${countoffBeat} of ${preview.countoffClicks}`}
-          </span>
-        )}
-      </div>
-      <fieldset className={styles.tempo} disabled={active || player.busy}>
-        <label htmlFor={tempoId}>Session tempo %</label>
-        <Slider
-          id={tempoId}
-          min={0}
-          max={100}
-          step={1}
-          value={player.tempoPercent}
-          onChange={player.setTempoPercent}
-          ariaDescribedBy={statusId}
-        />
-        <output htmlFor={tempoId}>{player.tempoPercent}%</output>
-        {player.tempoPercent === 0 && <span>Set tempo above 0% to start</span>}
-      </fieldset>
-      <div className={styles.transport}>
-        <Button
-          variant="primary"
-          size="lg"
-          disabled={player.busy || (!active && (dialSettling || player.tempoPercent === 0))}
-          onClick={() => void (active ? player.stop() : player.play())}
-        >
-          {active ? "Stop" : "Start"}
-        </Button>
+      {navigationOpen && (
+        <section id={navigationId} className={styles.navigation} aria-label="Bar navigation">
+          <RehearsalDial
+            bars={player.document.bars}
+            index={barIndex}
+            enabled={!active && !player.busy}
+            onSelect={player.setStartBar}
+            onSettlingChange={(value) => reportSettling("rehearsals", value)}
+          />
+          <BarDial
+            bars={player.document.bars}
+            index={barIndex}
+            enabled={!active && !player.busy}
+            onSelect={player.setStartBar}
+            onSettlingChange={(value) => reportSettling("bars", value)}
+          />
+        </section>
+      )}
+      <div className={styles.controlStrip}>
+        <div className={styles.settings}>
+          <div className={styles.startDetails} role="group" aria-label="Selected start" aria-live="polite">
+            <Button
+              variant="ghost"
+              size="sm"
+              ariaLabel="Bar navigation"
+              aria-expanded={navigationOpen}
+              aria-controls={navigationId}
+              disabled={dialSettling}
+              onClick={() => setNavigationOpen((value) => !value)}
+            >
+              {navigationOpen ? (
+                <ChevronDown size={16} aria-hidden="true" />
+              ) : (
+                <ChevronUp size={16} aria-hidden="true" />
+              )}
+              {selected.rehearsalContext ? `${selected.rehearsalContext} / ` : ""}
+              {describeClickBar(selected)}
+            </Button>
+            <span>
+              {meter.count}/{meter.unit}
+            </span>
+            <span>Quarter = {preview ? Number(preview.startBpm.toFixed(2)) : 0}</span>
+          </div>
+          <div className={styles.countoff}>
+            <span>Countoff</span>
+            <ButtonGroup
+              ariaLabel="Countoff"
+              options={[
+                { value: "1", label: "1 bar" },
+                { value: "2", label: "2 bars" },
+              ]}
+              value={player.countoffBars === 1 ? "1" : "2"}
+              onChange={(value) => player.setCountoffBars(value === "1" ? 1 : 2)}
+              disabled={active || player.busy}
+            />
+            {preview && (
+              <span aria-live="polite">
+                {countoffBeat === undefined
+                  ? `${preview.countoffClicks} ${preview.countoffClicks === 1 ? "click" : "clicks"} free`
+                  : `Counting off ${countoffBeat} of ${preview.countoffClicks}`}
+              </span>
+            )}
+          </div>
+          <fieldset className={styles.tempo} disabled={active || player.busy}>
+            <label htmlFor={tempoId}>Session tempo %</label>
+            <Slider
+              id={tempoId}
+              min={0}
+              max={100}
+              step={1}
+              value={player.tempoPercent}
+              onChange={player.setTempoPercent}
+              ariaDescribedBy={statusId}
+            />
+            <output htmlFor={tempoId}>{player.tempoPercent}%</output>
+            {player.tempoPercent === 0 && <span>Set tempo above 0% to start</span>}
+          </fieldset>
+        </div>
+        <div className={styles.transport}>
+          <Button
+            variant="primary"
+            size="lg"
+            disabled={player.busy || (!active && (dialSettling || player.tempoPercent === 0))}
+            onClick={() => void (active ? player.stop() : player.play())}
+          >
+            {active ? "Stop" : "Start"}
+          </Button>
+        </div>
       </div>
     </>
   );

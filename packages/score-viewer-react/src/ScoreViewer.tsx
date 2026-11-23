@@ -24,6 +24,7 @@ import { useViewerLayoutControls } from "./viewerLayoutControls";
 export interface ScoreViewerProps {
   readonly mnx: string | object;
   readonly assetBaseUrl?: string;
+  readonly useWorker?: boolean;
   readonly pageWidth?: number;
   readonly pageHeight?: number;
   readonly pageMargins?: ScorePageMargins;
@@ -150,6 +151,7 @@ function clearFitForHorizon(args: {
 export function ScoreViewer({
   mnx,
   assetBaseUrl,
+  useWorker,
   pageWidth = 800,
   pageHeight = pageWidth * (297 / 210),
   pageMargins,
@@ -362,6 +364,7 @@ export function ScoreViewer({
         <ScoreView
           mnx={mnx}
           assetBaseUrl={assetBaseUrl}
+          useWorker={useWorker}
           pageWidth={effectivePageWidth}
           pageHeight={effectivePageHeight}
           pageMargins={pageMargins}

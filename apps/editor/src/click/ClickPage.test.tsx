@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClickEngineEvent } from "@viritura/audio/click";
+import type { ScorePosition, ScoreViewerProps } from "@viritura/score-viewer-react";
 import score from "../../../../packages/format/fixtures/mnx/c-major-scale.mnx?raw";
 import rehearsals from "../../../../packages/format/fixtures/mnx/rehearsal-marks.mnx?raw";
 import { ClickPage } from "./index";
@@ -17,6 +18,25 @@ const audio = vi.hoisted(() => ({
 
 vi.mock("@viritura/audio/click", () => ({
   ClickEngine: { create: audio.create },
+}));
+
+vi.mock("@viritura/score-viewer-react", () => ({
+  ScoreViewer: ({ children, mnx, useWorker, defaultViewMode }: ScoreViewerProps) => (
+    <div data-testid="score-viewer" data-mnx={mnx} data-worker={useWorker} data-mode={defaultViewMode}>
+      {children}
+    </div>
+  ),
+  ScoreView: {
+    Playhead: ({
+      position,
+      follow,
+    }: {
+      position: Extract<ScorePosition, { measureIndex: number }>;
+      follow: boolean;
+    }) => (
+      <div data-testid="playhead" data-measure={position.measureIndex} data-beat={position.beat} data-follow={follow} />
+    ),
+  },
 }));
 
 beforeEach(() => {
@@ -36,16 +56,65 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-async function openFile(text = score, name = "practice.mnx") {
+async function openFile(text = score, name = "practice.mnx", expandNavigation = true) {
   fireEvent.change(screen.getByLabelText("MNX file"), {
     target: { files: [new File([text], name, { type: "application/json" })] },
   });
   await waitFor(() =>
     expect(screen.getByRole("region", { name: "Click player" }).getAttribute("aria-busy")).toBe("false"),
   );
+  const navigation = screen.queryByRole("button", { name: "Bar navigation", exact: true });
+  if (expandNavigation && navigation?.getAttribute("aria-expanded") === "false") fireEvent.click(navigation);
 }
 
 describe("standalone click page", () => {
+  it("keeps the transport compact and expands the two navigation tracks on demand", async () => {
+    render(<ClickPage />);
+    await openFile(rehearsals, "rehearsals.mnx", false);
+    expect(screen.queryByRole("listbox", { name: "Start bar" })).toBeNull();
+    const navigation = screen.getByRole("button", { name: "Bar navigation", exact: true });
+    expect(navigation.textContent).toContain("A / Bar 1");
+    fireEvent.click(navigation);
+    expect(screen.getByRole("listbox", { name: "Rehearsal" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("option", { name: "Bar 3, rehearsal B" }));
+    fireEvent.click(navigation);
+    expect(screen.queryByRole("listbox", { name: "Start bar" })).toBeNull();
+    expect(navigation.textContent).toContain("B / Bar 3");
+    expect(audio.create).not.toHaveBeenCalled();
+  });
+
+  it("uses the score as its main surface and follows the click clock without restarting audio", async () => {
+    render(<ClickPage />);
+    await openFile();
+    const viewer = screen.getByTestId("score-viewer");
+    const playhead = screen.getByTestId("playhead");
+    expect(viewer.dataset.mnx).toBe(score);
+    expect(viewer.dataset.worker).toBe("true");
+    expect(viewer.dataset.mode).toBe("horizon");
+    expect(playhead.dataset.follow).toBe("true");
+    fireEvent.click(screen.getByRole("option", { name: "Bar 2" }));
+    expect(playhead.dataset.measure).toBe("1");
+    expect(playhead.dataset.beat).toBe("0");
+    fireEvent.click(screen.getByRole("option", { name: "Bar 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
+    act(() => {
+      audio.context.currentTime = 2;
+    });
+    await waitFor(() => expect(screen.getByText("Counting off 3 of 4")).toBeTruthy());
+    expect(playhead.dataset.beat).toBe("0");
+    act(() => {
+      audio.context.currentTime = 5.25;
+    });
+    await waitFor(() => expect(playhead.dataset.measure).toBe("1"));
+    expect(Number(playhead.dataset.beat)).toBeCloseTo(0.5);
+    expect(audio.start).toHaveBeenCalledOnce();
+    expect(audio.load).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
+    await waitFor(() => expect(playhead.dataset.measure).toBe("0"));
+    expect(playhead.dataset.beat).toBe("0");
+  });
+
   it("opens MNX without audio and toggles Start and Stop with a fresh countoff", async () => {
     render(<ClickPage />);
     await openFile();
@@ -91,6 +160,7 @@ describe("standalone click page", () => {
     await openFile("{}", "invalid.mnx");
     expect(screen.getByRole("alert").textContent).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "practice.mnx" })).toBeNull();
+    expect(screen.queryByTestId("score-viewer")).toBeNull();
     expect(screen.queryByRole("button", { name: "Start", exact: true })).toBeNull();
     expect(audio.create).not.toHaveBeenCalled();
   });

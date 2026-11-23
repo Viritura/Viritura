@@ -32,9 +32,10 @@ export function clickPagePlugin(): Plugin {
           const normalized = id.replaceAll("\\", "/");
           if (module.renderedLength === 0) continue;
           if (
-            /\/packages\/(?:score-engine|renderer|crdt|video-sync)\//.test(normalized) ||
+            /\/packages\/(?:crdt|video-sync)\//.test(normalized) ||
             /\/(?:spessasynth_core|spessasynth_lib)\//.test(normalized) ||
-            /\/apps\/editor\/src\/(?:mcpSession|instrumentProfiles|store)\//.test(normalized) ||
+            /\/apps\/editor\/src\/(?:mcpSession|instrumentProfiles|store|components\/ScoreCanvas)\//.test(normalized) ||
+            /\/packages\/audio\/src\/(?!clickEngine\/)/.test(normalized) ||
             /\/packages\/playback\/src\/PlaybackContext\.tsx/.test(normalized)
           )
             this.error(`The standalone click page must not load ${id}`);

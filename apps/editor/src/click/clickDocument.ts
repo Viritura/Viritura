@@ -5,6 +5,7 @@ import { collectClickBars, type ClickBar } from "./barNavigation";
 
 export interface ClickDocument {
   readonly filename: string;
+  readonly mnx: string;
   readonly timing: PlaybackTiming;
   readonly bars: readonly ClickBar[];
 }
@@ -17,6 +18,7 @@ export function readClickDocument(filename: string, text: string): ClickDocument
   if (!bars.some((bar) => bar.startable)) throw new Error("The MNX file has no playable bar boundary");
   return {
     filename,
+    mnx: text,
     timing,
     bars,
   };

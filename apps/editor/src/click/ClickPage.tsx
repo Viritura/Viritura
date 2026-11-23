@@ -2,7 +2,9 @@ import { useId, useRef, useState } from "react";
 import { Button, FormInput } from "@viritura/ui";
 import type { ClickSessionProgram } from "@viritura/playback/click";
 import { ClickControls } from "./ClickControls";
-import { clickBarAtTime } from "./barNavigation";
+import { ClickScore } from "./ClickScore";
+import { FloatingTransport } from "./FloatingTransport";
+import { clickBarAtTime, clickScorePosition } from "./barNavigation";
 import { useClickPlayer } from "./useClickPlayer";
 import styles from "./ClickPage.module.css";
 
@@ -43,6 +45,10 @@ export function ClickPage() {
       ? clickBarAtTime(player.document.timing, player.program, player.elapsed, player.tempoPercent)
       : player.startBar;
   const countoffBeat = countoffPosition(player.program, player.elapsed);
+  const scorePosition =
+    active && player.document && player.program
+      ? clickScorePosition(player.document.timing, player.program, player.elapsed, player.tempoPercent)
+      : { measureIndex: player.document?.bars[player.startBar]?.measureIndex ?? 0, beat: 0 };
 
   return (
     <div className={styles.page}>
@@ -66,26 +72,29 @@ export function ClickPage() {
           Open MNX
         </Button>
       </header>
-      <main>
-        <section className={styles.card} aria-label="Click player" aria-busy={player.busy}>
-          {player.error && (
-            <p className={styles.error} role="alert">
-              {player.error}
-            </p>
-          )}
-          <ClickControls
-            player={player}
-            active={active}
-            barIndex={barIndex}
-            countoffBeat={countingOff ? countoffBeat : undefined}
-            dialSettling={dialSettling}
-            onSettlingChange={setDialSettling}
-            statusId={statusId}
-          />
-          <div id={statusId} className={styles.srOnly} role="status" aria-label="Playback status">
-            {status}
-          </div>
-        </section>
+      <main className={styles.workspace}>
+        {player.document && <ClickScore document={player.document} position={scorePosition} />}
+        {(player.document || player.error || player.busy) && (
+          <FloatingTransport busy={player.busy}>
+            {player.error && (
+              <p className={styles.error} role="alert">
+                {player.error}
+              </p>
+            )}
+            <ClickControls
+              player={player}
+              active={active}
+              barIndex={barIndex}
+              countoffBeat={countingOff ? countoffBeat : undefined}
+              dialSettling={dialSettling}
+              onSettlingChange={setDialSettling}
+              statusId={statusId}
+            />
+            <div id={statusId} className={styles.srOnly} role="status" aria-label="Playback status">
+              {status}
+            </div>
+          </FloatingTransport>
+        )}
       </main>
     </div>
   );
