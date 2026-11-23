@@ -238,9 +238,9 @@ export default tseslint.config(
           patterns: [
             {
               regex:
-                "^@viritura/(audio|crdt|format|midi|musicxml|playback|renderer|score-engine|score-viewer-react|sound-profiles)/(?!.*\\.css$)(?!package\\.json$).+",
+                "^@viritura/(?!(?:audio/click|playback/click|midi/timing)$)(audio|crdt|format|midi|musicxml|playback|renderer|score-engine|score-viewer-react|sound-profiles)/(?!.*\\.css$)(?!package\\.json$).+",
               message:
-                "Import the package barrel only (e.g. `@viritura/midi`). Deep imports into a package's internals are forbidden — see AGENTS.md → Module Structure. (Raw `.css` deep imports are allowed for stylesheet entry points, and `package.json` for published packages that export it.)",
+                "Import a declared public barrel only (e.g. `@viritura/midi`). The lightweight audio/click, playback/click, and midi/timing barrels are explicitly exported for standalone click playback. Deep imports into internals remain forbidden — see AGENTS.md → Module Structure.",
             },
             {
               regex: "^@viritura/ui/(?!tokens\\.css$|reset\\.css$).+",

@@ -19,6 +19,7 @@ export class ClickEngineError extends Error {
 export type ClickEngineEvent =
   | { readonly type: "started"; readonly contextTime: number }
   | { readonly type: "ended" }
+  | { readonly type: "failed"; readonly message: string }
   | { readonly type: "missed"; readonly count: number };
 
 export interface ClickStartReceipt {
@@ -77,6 +78,10 @@ export class ClickEngine {
     private readonly ackTimeoutMs: number,
   ) {
     node.port.onmessage = (event: MessageEvent<WorkletReply>) => this.receive(event.data);
+    node.onprocessorerror = () => {
+      const event: ClickEngineEvent = { type: "failed", message: "The click audio processor failed" };
+      for (const listener of this.listeners) listener(event);
+    };
     node.connect(context.destination);
   }
 
@@ -112,9 +117,13 @@ export class ClickEngine {
   }
 
   /** Transfer a complete click program to the audio thread; resolves once it is resident there. */
-  async load(events: readonly ClickProgramEvent[]): Promise<number> {
+  async load(events: readonly ClickProgramEvent[], duration?: number): Promise<number> {
     const program = compileClickProgram(events, this.sampleRate);
-    const reply = await this.request({ type: "load", frames: program.frames, levels: program.levels }, [
+    if (duration !== undefined && (!Number.isFinite(duration) || duration < (events.at(-1)?.time ?? 0))) {
+      throw new RangeError("Click duration must be finite and include every click");
+    }
+    const endFrame = duration === undefined ? 0 : Math.round(duration * this.sampleRate);
+    const reply = await this.request({ type: "load", frames: program.frames, levels: program.levels, endFrame }, [
       program.frames.buffer,
       program.levels.buffer,
     ]);

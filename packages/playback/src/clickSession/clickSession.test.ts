@@ -31,11 +31,12 @@ describe("buildClickSessionProgram", () => {
     ]);
     const program = buildClickSessionProgram(timeline, { startMeasure: 1 });
 
-    expect(program.countoffClicks).toBe(5);
+    expect(program.countoffClicks).toBe(2);
     expect(program.countoffSeconds).toBeCloseTo(1.25);
     expect(program.startBpm).toBeCloseTo(120);
-    expect(times(program.events)).toEqual([0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25]);
-    expect(levels(program.events).slice(0, 6)).toEqual(["accent", "beat", "beat", "beat", "beat", "accent"]);
+    expect(times(program.events)).toEqual([0, 0.75, 1.25, 2]);
+    expect(levels(program.events)).toEqual(["accent", "beat", "accent", "beat"]);
+    expect(program.duration).toBe(2.5);
   });
 
   it("scales the whole take, countoff included, by the session tempo percentage", () => {
@@ -94,6 +95,18 @@ describe("buildClickSessionProgram", () => {
     );
     expect(() => buildClickSessionProgram(timeline, { startMeasure: 4 })).toThrow(RangeError);
   });
+
+  it("uses authored irregular beat groups for both countoff and subdivided playback", () => {
+    const timeline = timelineFor([{ time: { count: 7, unit: 8 }, bpm: 120 }]);
+    timeline.measureTimeSignatures[0]!.beatStructure = [2, 3, 2];
+    const program = buildClickSessionProgram(timeline, {
+      resolutions: [{ fromMeasure: 0, subdivision: 2 }],
+    });
+    expect(program.countoffClicks).toBe(3);
+    expect(program.countoffSeconds).toBe(1.75);
+    expect(program.duration).toBe(3.5);
+    expect(times(program.events)).toEqual([0, 0.25, 0.5, 0.875, 1.25, 1.5, 1.75, 2, 2.25, 2.625, 3, 3.25]);
+  });
 });
 
 describe("describeClickCue", () => {
@@ -140,7 +153,7 @@ describe("ClickSessionTransport", () => {
     await expect(transport.play()).rejects.toThrow("Prepare");
     await transport.prepare(program);
     expect(order).toEqual(["release", "load"]);
-    expect(engine.load).toHaveBeenCalledWith(program.events);
+    expect(engine.load).toHaveBeenCalledWith(program.events, program.duration);
 
     await transport.play();
     expect(engine.start).toHaveBeenLastCalledWith(0);

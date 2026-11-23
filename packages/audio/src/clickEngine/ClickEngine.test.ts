@@ -139,6 +139,20 @@ describe("compileClickProgram", () => {
 });
 
 describe("ClickEngine", () => {
+  it("keeps playing through the final beat until the supplied track endpoint", async () => {
+    const { device, engine } = await createEngine();
+    const events: ClickEngineEvent[] = [];
+    engine.onEvent((event) => events.push(event));
+    await engine.load([{ time: 0, level: "accent" }], 1);
+    await engine.start(0, 0.01);
+    device.render(24_000);
+    await Promise.resolve();
+    expect(events.map((event) => event.type)).toEqual(["started"]);
+    device.render(49_000);
+    await Promise.resolve();
+    expect(events.map((event) => event.type)).toEqual(["started", "ended"]);
+  });
+
   it("renders every click on its exact sample frame from the armed anchor", async () => {
     const { device, engine } = await createEngine();
     const events: ClickEngineEvent[] = [];

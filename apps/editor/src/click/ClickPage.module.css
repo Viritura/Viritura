@@ -1,0 +1,114 @@
+.page {
+  min-height: 100dvh;
+  padding: var(--space-5);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-width: 760px;
+  margin: 0 auto var(--space-7);
+}
+
+.header a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.card {
+  max-width: 760px;
+  margin: auto;
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+}
+
+.card h1 {
+  font-size: clamp(1.7rem, 5vw, 2.5rem);
+  overflow-wrap: anywhere;
+}
+
+.card p {
+  margin-block: var(--space-4);
+}
+
+.card button {
+  min-height: 44px;
+}
+
+.eyebrow {
+  color: var(--accent);
+  letter-spacing: 0.2em;
+  font-weight: 700;
+}
+
+.preview {
+  margin-block: var(--space-6);
+  padding-block: var(--space-5);
+  border-block: 1px solid var(--border);
+}
+
+.preview h2 {
+  font-size: clamp(1.4rem, 4vw, 2rem);
+}
+
+.tempo {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.tempo input {
+  flex: 1;
+  min-width: 120px;
+  min-height: 44px;
+  accent-color: var(--accent);
+}
+
+.tempo output {
+  min-width: 4ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.transport {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.transport button {
+  min-width: 100px;
+  min-height: 56px;
+}
+
+.status {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.error {
+  padding: var(--space-4);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-md);
+  color: var(--danger, #b42318);
+  overflow-wrap: anywhere;
+}
+
+.note {
+  max-width: 760px;
+  margin: var(--space-5) auto;
+  color: var(--text-muted);
+}

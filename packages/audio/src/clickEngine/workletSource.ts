@@ -69,6 +69,7 @@ class ClickProcessor extends AudioWorkletProcessor {
     this.running = false;
     this.anchorFrame = 0;
     this.offsetFrame = 0;
+    this.endFrame = 0;
     this.next = 0;
     this.gain = 1;
     this.announced = false;
@@ -87,6 +88,7 @@ class ClickProcessor extends AudioWorkletProcessor {
         }
         this.frames = message.frames;
         this.levels = message.levels;
+        this.endFrame = message.endFrame;
         return this.port.postMessage({ type: "loaded", requestId, count: this.frames.length });
       }
       case "start": {
@@ -169,9 +171,9 @@ class ClickProcessor extends AudioWorkletProcessor {
         if (position + length >= samples.length) this.activeVoice[slot] = -1;
         else sounding = true;
       }
-      if (!sounding && this.next >= this.frames.length && programStart >= this.offsetFrame) {
+      if (!sounding && this.next >= this.frames.length && programEnd >= this.endFrame && programStart >= this.offsetFrame) {
         this.running = false;
-        this.offsetFrame = this.frames.length > 0 ? this.frames[this.frames.length - 1] : 0;
+        this.offsetFrame = Math.max(this.endFrame, this.frames.length > 0 ? this.frames[this.frames.length - 1] : 0);
         this.port.postMessage({ type: "ended" });
       }
     }

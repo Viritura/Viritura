@@ -1,4 +1,4 @@
-import { ClickEngine, type ClickEngineEvent, type ClickStartReceipt } from "@viritura/audio";
+import { ClickEngine, type ClickEngineEvent, type ClickStartReceipt } from "@viritura/audio/click";
 import type { ClickSessionProgram } from "./clickSessionProgram";
 
 /** The click-engine surface the transport drives (a {@link ClickEngine} in production). */
@@ -35,7 +35,7 @@ export class ClickSessionTransport {
     if (this.engine && this.currentStatus === "playing") await this.engine.stop();
     await this.options.releaseScoreAudio();
     const engine = await this.ensureEngine();
-    await engine.load(program.events);
+    await engine.load(program.events, program.duration);
     this.pausedAt = 0;
     this.currentStatus = "ready";
   }

@@ -1,9 +1,9 @@
 # Click sessions (`/click`)
 
 > **Status:** In progress, November 2026. The click-only audio engine and
-> click session program compiler are implemented (see
-> [Implementation status](#implementation-status)); the setlist, controller, and
-> persistence remain proposed. Confirmed requirements and proposed defaults are
+> click session program compiler and standalone single-file page are implemented
+> (see [Implementation status](#implementation-status)); the setlist, floating
+> controller, and subdivision persistence remain proposed. Confirmed requirements and proposed defaults are
 > distinguished below.
 >
 > **Related:** [File format](../spec/file-format.md),
@@ -14,6 +14,27 @@
 
 Implemented:
 
+- **Standalone single-file page** —
+  [`ClickPage`](../../apps/editor/src/click/ClickPage.tsx) opens one ordinary MNX
+  locally at `/click`, with Play, Pause/Resume, Stop, a one-bar countoff preview
+  and status, and a stopped-only session tempo percentage. Audio is created only
+  from Play; opening a file does not create instrument or click audio. File,
+  worklet, and context-interruption failures are visible. No upload or editor
+  bootstrap is needed. The first slice starts at the beginning of the file.
+- **Isolated entry** — [`click/index.html`](../../apps/editor/click/index.html)
+  is built separately from the editor, with development and deployed `/click`
+  routing. The build traverses the click entry's output chunks and rejects
+  renderer, engraving-engine, collaboration, MCP, sampler, or editor-playback
+  code. Explicit public `@viritura/audio/click`,
+  `@viritura/playback/click`, and `@viritura/midi/timing` barrels avoid importing
+  the broad package barrels in development as well as production; these are
+  declared package exports, not access to private files.
+- **Timing-only compilation** —
+  [`compilePlaybackTiming`](../../packages/midi/src/playbackTiming/index.ts)
+  reuses musical navigation, pickup/cadenza lengths, holds, and continuous tempo
+  realization without generating instrument notes or dynamics. Its timing is
+  regression-tested against score playback through pickups, holds, repeated
+  ramps, and jumps.
 - **Click-only engine** —
   [`ClickEngine`](../../packages/audio/src/clickEngine/ClickEngine.ts) runs a
   private AudioContext whose graph contains only the click worklet. The full
@@ -29,19 +50,25 @@ Implemented:
 - **Click session program** —
   [`buildClickSessionProgram`](../../packages/playback/src/clickSession/clickSessionProgram.ts)
   compiles a start bar, a fresh one-bar countoff in that bar's meter and tempo,
-  per-measure subdivision rules, and the session tempo percentage through the
+  existing irregular beat grouping, per-measure subdivision rules, and the session tempo percentage through the
   continuous tempo model. `describeClickCue` produces strings such as
-  "Rehearsal O, 4 clicks free".
+  "Rehearsal O, 4 clicks free". The worklet receives the complete endpoint so
+  playback includes the final beat's duration rather than ending at its onset.
 - **Score audio release** — `PlaybackActions.releaseAudio()` stops playback,
   destroys samplers and SF2 synths, releases native hosts, and suspends the score
   AudioContext. `ClickSessionTransport` calls it before loading a program;
   Play restarts with the countoff and Resume continues without one.
 
-Remaining: the standalone [`/click` page](#standalone-click-page), the
-timing-only compiler (the program is still derived from
-a full `generateTimeline` result at prepare time, off the audio path),
-measure-position resolution rules, the project setlist picker, persisted click
-settings, the movable controller and bar wheel, and the release gates below.
+Remaining: measure-position resolution rules and MNX subdivision metadata,
+the project setlist picker, persisted click settings, start-bar selection,
+the movable controller and bar wheel, and the release gates below.
+
+Single-file smoke check: start the UI through `pnpm dev:stack up ui`, obtain
+the editor origin with `pnpm dev:stack url`, and visit its `/click` route.
+Choose **Open MNX**, select a local file, then **Play**. The first bar is a
+synthetic countoff; Pause/Resume retains its position, while Stop then Play
+starts a fresh countoff. This initial browser check is not studio-output
+qualification or a hard real-time guarantee.
 
 ## Goal and confirmed requirements
 
@@ -263,7 +290,7 @@ Screen-reader status announces the committed selection, not every scroll frame.
 | Project storage      | `GitProjectAdapter` accepts a `scorePath`, but `ProjectAdapter` exposes one active score and its history. `bootProjectFromHandle` opens a selected path. | Introduce folder-level file discovery and active-document selection without requiring a Git repository. Keep one selected score adapter rather than loading every score into editor state. |
 | Click timing         | `buildClickTrack` uses the MIDI tempo model, expanded measure starts, and played spans.                                                                  | Reuse the musical timing model and route semantics, but compile to a dedicated click engine rather than the note scheduler.                                                                |
 | Click delivery       | `Scheduler` fills an audio look-ahead window from a main-thread `setTimeout`; `scheduleClicks` drops events whose delivery time has passed.              | Preload a complete take into an AudioWorklet before starting. Neither main-thread timers nor per-click messages may determine onset delivery.                                              |
-| Resolution           | `resolveMeter` already resolves authored irregular grouping; the click compiler still uses `Metronome.getBeatsForMeasure`.                               | Reuse the shared meter resolver and add explicit subdivision overrides, including changes inside a bar.                                                                                    |
+| Resolution           | `resolveMeter` resolves authored irregular grouping for the click compiler and countoff.                                                                 | Add persisted subdivision overrides, including changes inside a bar.                                                                                                                       |
 | Countoff             | The current count-in creates quarter-note clicks before score time zero; startup applies it only when stopped at the beginning.                          | Use a meter-aware one-bar pre-roll at each fresh start, not a loop over a potentially fractional quarter-note count.                                                                       |
 | Tempo adjustment     | `PlaybackEngine.setTempo` derives a scale from the first tempo-map entry.                                                                                | Expose percentage semantics explicitly and reapply the same scale whenever the active file changes.                                                                                        |
 | Playback preparation | The provider normally builds instrument samplers and prepares native playback.                                                                           | Add a real click-only preparation path: no soundfont requirement, instrument notes, MIDI note output, or native VST start. Muting instruments after preparing them is insufficient.        |
@@ -517,9 +544,8 @@ written BPM, and effective BPM. Each row has an explicit resolution override or
 
 Default to one click at each beat boundary from `resolveMeter`, including
 authored irregular grouping. Do not infer the beat from BPM or introduce a
-second grouping control. The current click session compiler still uses the
-older simple/compound metronome helper; switching it to the shared meter
-resolver is required before claiming irregular-meter support.
+second grouping control. The click session compiler uses the shared meter
+resolver for both countoff and playback.
 
 Proposed controls: **Inherit**, **On the beat**, or an explicit subdivision
 (initial choices: 2, 3, or 4 equally spaced clicks per resolved beat). Distinguish

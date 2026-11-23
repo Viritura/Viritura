@@ -1,10 +1,11 @@
-import { Metronome, type ClickProgramEvent } from "@viritura/audio";
+import type { ClickProgramEvent } from "@viritura/audio";
+import { resolveMeter, type TimeSignature } from "@viritura/core";
 import type { MidiTimeline, PlayedMeasureSpan } from "@viritura/midi";
 
 /** Tempo and meter structure needed to compile a click session program. */
 export type ClickSessionSource = Pick<
   MidiTimeline,
-  "model" | "measureStartBeats" | "measureTimeSignatures" | "playedSpans" | "expandedMeasureToOriginal"
+  "model" | "duration" | "measureStartBeats" | "measureTimeSignatures" | "playedSpans" | "expandedMeasureToOriginal"
 >;
 
 /** Click resolution from a score measure onward (until the next rule). */
@@ -26,6 +27,7 @@ export interface ClickSessionOptions {
 }
 
 export interface ClickSessionProgram {
+  readonly duration: number;
   /** Clicks in program seconds; program time 0 is the first countoff click. */
   readonly events: ClickProgramEvent[];
   /** Number of countoff clicks before the start bar ("4 clicks free"). */
@@ -65,10 +67,10 @@ export function buildClickSessionProgram(
   const quarterSeconds = model.spbAtBeat(startBeat) * scale;
   const countoff =
     (options.countoff ?? true)
-      ? countoffBar(measureTimeSignatures[startIndex]!, quarterSeconds)
-      : { events: [], seconds: 0 };
+      ? countoffBar(measureTimeSignatures[startIndex]!, quarterSeconds, resolutionAt(resolutions, startMeasure))
+      : { events: [], seconds: 0, beats: 0 };
   const events: ClickProgramEvent[] = countoff.events;
-  const countoffClicks = events.length;
+  const countoffClicks = countoff.beats;
   const timeAtBeat = (globalBeat: number) => countoff.seconds + (model.timeAtBeat(globalBeat) - startTime) * scale;
 
   for (let index = startIndex; index < measureStartBeats.length; index++) {
@@ -80,6 +82,7 @@ export function buildClickSessionProgram(
   }
 
   return {
+    duration: countoff.seconds + (source.duration - startTime) * scale,
     events,
     countoffClicks,
     countoffSeconds: countoff.seconds,
@@ -88,23 +91,30 @@ export function buildClickSessionProgram(
   };
 }
 
-interface Meter {
-  readonly count: number;
-  readonly unit: number;
-}
-
 /** One synthetic bar of beat clicks (accented downbeat) at a fixed quarter-note length. */
-function countoffBar(meter: Meter, quarterSeconds: number): { events: ClickProgramEvent[]; seconds: number } {
-  const events = Metronome.getBeatsForMeasure(meter.count, meter.unit).map((beat): ClickProgramEvent => ({
-    time: beat.position * (4 / meter.unit) * quarterSeconds,
-    level: beat.accented ? "accent" : "beat",
-  }));
-  return { events, seconds: meter.count * (4 / meter.unit) * quarterSeconds };
+function countoffBar(
+  meter: TimeSignature,
+  quarterSeconds: number,
+  subdivision: number,
+): { events: ClickProgramEvent[]; seconds: number; beats: number } {
+  const events: ClickProgramEvent[] = [];
+  pushMeasureClicks(events, {
+    meter,
+    measureBeat: 0,
+    span: undefined,
+    subdivision,
+    timeAtBeat: (beat) => beat * quarterSeconds,
+  });
+  return {
+    events,
+    seconds: meter.count * (4 / meter.unit) * quarterSeconds,
+    beats: resolveMeter(meter).beatStructure.length,
+  };
 }
 
 interface MeasureClickGrid {
   readonly measureBeat: number;
-  readonly meter: Meter;
+  readonly meter: TimeSignature;
   readonly span: PlayedMeasureSpan | undefined;
   readonly subdivision: number;
   readonly timeAtBeat: (globalBeat: number) => number;
@@ -112,15 +122,16 @@ interface MeasureClickGrid {
 
 function pushMeasureClicks(events: ClickProgramEvent[], grid: MeasureClickGrid): void {
   const { measureBeat, meter, span, subdivision, timeAtBeat } = grid;
-  const beatQuarters = (Metronome.isCompoundMeter(meter.count, meter.unit) ? 3 : 1) * (4 / meter.unit);
-  for (const beat of Metronome.getBeatsForMeasure(meter.count, meter.unit)) {
-    const beatStart = beat.position * (4 / meter.unit);
+  const { beatBoundaries } = resolveMeter(meter);
+  for (let index = 0; index < beatBoundaries.length - 1; index++) {
+    const beatStart = beatBoundaries[index]!;
+    const beatQuarters = beatBoundaries[index + 1]! - beatStart;
     for (let step = 0; step < subdivision; step++) {
       const sourceBeat = beatStart + (step * beatQuarters) / subdivision;
       if (span && (sourceBeat < span.startBeat || sourceBeat >= span.endBeat)) continue;
       events.push({
         time: timeAtBeat(measureBeat + sourceBeat - (span?.startBeat ?? 0)),
-        level: step > 0 ? "subdivision" : beat.accented ? "accent" : "beat",
+        level: step > 0 ? "subdivision" : index === 0 ? "accent" : "beat",
       });
     }
   }
