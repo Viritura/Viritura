@@ -1,5 +1,7 @@
 //! Per-system measure-layout construction for authored MNX systems.
 
+mod repeat_signatures;
+
 use super::super::cache::LayoutCache;
 use super::super::condensing::{label_for_mode_styled, LabelStyle, MergeMode};
 use super::super::config::LayoutConfig;
@@ -576,24 +578,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
             let repeat_clef_restatement =
                 repeat_signature.is_some_and(|measure| measure.repeat_clef_restatement);
             if repeat_clef_restatement {
-                if let Some(mut clef) = virtual_part
-                    .clefs
-                    .as_ref()
-                    .and_then(|clefs| {
-                        clefs.iter().find(|clef| {
-                            clef.position
-                                .as_ref()
-                                .is_none_or(|position| position.fraction.0 == 0)
-                        })
-                    })
-                    .cloned()
-                {
-                    clef.position = None;
-                    virtual_part
-                        .clefs
-                        .get_or_insert_with(Vec::new)
-                        .insert(0, clef);
-                }
+                repeat_signatures::restate_clef(&mut virtual_part);
             }
 
             let (display_key, diatonic_adjustment) = crate::layout::resolve::resolve_display_key(
