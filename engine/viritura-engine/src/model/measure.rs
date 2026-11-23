@@ -328,6 +328,7 @@ pub struct ResolvedMeasure {
     pub index: usize,
     pub global: GlobalMeasure,
     pub part: PartMeasure,
+    pub(crate) use_beams: bool,
     /// Layout-only harmony lane cloned from global events; never part-measure data.
     pub(crate) chord_symbols: Option<Vec<ChordSymbol>>,
     /// This measure is represented by a measure-repeat sign at this index or an

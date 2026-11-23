@@ -259,6 +259,7 @@ fn incoming_tie_targets(measures: &[PartMeasure], index: usize) -> Vec<String> {
 pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<ResolvedMeasure> {
     let part = &score.parts[part_index];
     let globals = &score.global.measures;
+    let use_beams = super::support_flags::engraving_flags(score).0;
 
     // Resolve staff 1's effective staff-local meter at every measure index up
     // front (inherits until changed/reset — see `crate::model::staff_meter`).
@@ -415,6 +416,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             index: i,
             global,
             part: part_measure,
+            use_beams,
             chord_symbols,
             measure_repeat_covered: measure_is_covered_by_repeat(&part.measures, i),
             next_has_repeat_start,

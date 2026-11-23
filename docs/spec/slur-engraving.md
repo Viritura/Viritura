@@ -12,9 +12,14 @@ while retaining the notehead attachments. Explicitly edited slur shapes remain
 under the author's control. Clearance is best-effort when tightly constrained
 endpoints do not leave enough room for full separation.
 
-For mixed stem directions, automatic contour correction must not pull a
-stem-side slur tip inward through the stem or its beam. When attachment and
-contour conflict, the stem-side attachment takes priority. Automatic slurs with
+For mixed stem directions, the stem-side tip moves from the stem end toward its
+notehead so the slur does not tilt against the pitch contour (Gould, _Behind
+Bars_ p.111). It starts just clear of the notehead and floats outward along the
+stem by half the pitch difference between the endpoint notes. It stays at the
+stem end when that float would pass the stem tip, when a beam continues inside
+the slur from that stem, or when a source note's flag occupies the inside of
+its stem. Contour correction never pulls a tip through a stem, flag, or beam.
+Automatic slurs with
 opposing endpoint stems keep the standard above-slur default; mountain/valley
 side flips apply only when the endpoint stems agree. Explicit sides still win.
 

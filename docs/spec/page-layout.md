@@ -78,6 +78,14 @@ tremolos, grace attachment, accidentals, flags, displacement, and annotations.
 Spacing estimators consume that snapshot rather than independently walking raw
 `SequenceContent`.
 
+Unbeamed flags impose a minimum gap that leaves at least 0.2 sp before vertically
+overlapping rhythmic ink at the next onset. Rests use the same ink clearance on
+both sides. These collision floors survive compression, but do not become rigid
+width: duration springs can still stretch the gap when the system has room.
+Clearance is shared across aligned staves. A change-clef column already clears
+the preceding flag's full right extent, so it does not add a second flag-to-note
+gap.
+
 Measure prefixes use the leading barline's right ink edge, rather than its
 anchor or half its total width, with 0.5 sp clearance before a changed key or
 time signature. Double barlines straddle their anchor; final and heavy

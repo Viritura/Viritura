@@ -264,6 +264,7 @@ pub(crate) fn resolve_measures_for_staff(
                 index: rm.index,
                 global: rm.global,
                 part: split,
+                use_beams: rm.use_beams,
                 chord_symbols: if staff_num == 1 {
                     rm.chord_symbols
                 } else {

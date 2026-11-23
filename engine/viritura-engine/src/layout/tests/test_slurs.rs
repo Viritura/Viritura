@@ -1854,58 +1854,36 @@ fn test_mixed_stem_slur_clears_its_beamed_source() {
     }
 }
 
-#[test]
-fn test_mixed_stem_target_stays_near_stem_tip_when_contour_conflicts() {
-    let json = r#"{
-        "mnx": {"version": 1},
-        "global": {"measures": [{"time": {"count": 2, "unit": 4}}]},
-        "parts": [{"measures": [{
-            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
-            "sequences": [{"content": [
-                {"id": "mixed-start", "duration": {"base": "quarter", "dots": 1},
-                 "stemDirection": "down", "notes": [{"pitch": {"step": "B", "octave": 4}}],
-                 "slurs": [{"target": "mixed-end", "side": "up"}]},
-                {"id": "mixed-end", "duration": {"base": "eighth"},
-                 "stemDirection": "up", "notes": [{"pitch": {"step": "A", "octave": 4}}]}
-            ]}]
-        }]}]
-    }"#;
-    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &LayoutConfig::default());
-    let slur = dl
-        .commands
-        .iter()
-        .find(|command| is_draw_bezier(command))
-        .expect("mixed-stem slur");
-    assert_mixed_stem_tip_near_stem(&dl, slur, false);
+fn mixed_stem_pair(start: (&str, &str, &str), end: (&str, &str, &str), tail: &str) -> String {
+    format!(
+        r#"{{
+        "mnx": {{"version": 1}},
+        "global": {{"measures": [{{"time": {{"count": 2, "unit": 4}}}}]}},
+        "parts": [{{"measures": [{{
+            "clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}],
+            "sequences": [{{"content": [
+                {{"id": "mixed-start", "duration": {}, "stemDirection": "{}",
+                 "notes": [{{"pitch": {{"step": "{}", "octave": 4}}}}],
+                 "slurs": [{{"target": "mixed-end", "side": "up"}}]}},
+                {{"id": "mixed-end", "duration": {}, "stemDirection": "{}",
+                 "notes": [{{"pitch": {{"step": "{}", "octave": 4}}}}]}}{tail}
+            ]}}]
+        }}]}}]
+    }}"#,
+        start.0, start.1, start.2, end.0, end.1, end.2
+    )
 }
 
-#[test]
-fn test_mixed_stem_source_stays_near_stem_tip_when_contour_conflicts() {
-    let json = r#"{
-        "mnx": {"version": 1},
-        "global": {"measures": [{"time": {"count": 2, "unit": 4}}]},
-        "parts": [{"measures": [{
-            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
-            "sequences": [{"content": [
-                {"id": "mixed-start", "duration": {"base": "quarter"},
-                 "stemDirection": "up", "notes": [{"pitch": {"step": "A", "octave": 4}}],
-                 "slurs": [{"target": "mixed-end", "side": "up"}]},
-                {"id": "mixed-end", "duration": {"base": "quarter"},
-                 "stemDirection": "down", "notes": [{"pitch": {"step": "B", "octave": 4}}]}
-            ]}]
-        }]}]
-    }"#;
-    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &LayoutConfig::default());
-    let slur = dl
-        .commands
-        .iter()
-        .find(|command| is_draw_bezier(command))
-        .expect("mixed-stem slur");
-    assert_mixed_stem_tip_near_stem(&dl, slur, true);
-}
-
-fn assert_mixed_stem_tip_near_stem(dl: &DisplayList, slur: &RenderCommand, source: bool) {
+/// Returns `(slur, [(stem_x, stem_top, stem_bottom)])` sorted left to right.
+fn mixed_stem_layout(json: &str) -> (RenderCommand, Vec<(f64, f64, f64)>) {
     let config = LayoutConfig::default();
+    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &config);
+    let slur = dl
+        .commands
+        .iter()
+        .find(|command| is_draw_bezier(command))
+        .expect("mixed-stem slur")
+        .clone();
     let mut stems: Vec<_> = dl
         .commands
         .iter()
@@ -1921,25 +1899,81 @@ fn assert_mixed_stem_tip_near_stem(dl: &DisplayList, slur: &RenderCommand, sourc
                 && (y1 - y2).abs() > config.sp
                 && (*width - config.stem_width * config.sp).abs() < 1e-6 =>
             {
-                Some((*x1, y1.min(*y2)))
+                Some((*x1, y1.min(*y2), y1.max(*y2)))
             }
             _ => None,
         })
         .collect();
     stems.sort_by(|a, b| a.0.total_cmp(&b.0));
     assert_eq!(stems.len(), 2);
-    let (y1, y2) = bezier_endpoints_y(slur);
-    let (tip_y, stem_y) = if source {
-        (y1, stems[0].1)
-    } else {
-        (y2, stems[1].1)
-    };
+    (slur, stems)
+}
+
+fn assert_tip_floats_toward_notehead(tip: (f64, f64), stem: (f64, f64, f64), source: bool) {
+    let sp = LayoutConfig::default().sp;
+    let (tip_x, tip_y) = tip;
+    let (stem_x, stem_top, stem_bottom) = stem;
     assert!(
-        (tip_y - stem_y).abs() <= 1.5 * config.sp,
-        "stem-side slur tip must remain near the stem tip: slur={slur:?}, stems={stems:?}"
+        if source {
+            tip_x > stem_x
+        } else {
+            tip_x < stem_x
+        },
+        "floated tip must stay inside its stem: tip={tip:?}, stem={stem:?}"
+    );
+    assert!(
+        tip_y - stem_top >= 1.5 * sp && stem_bottom - tip_y >= 0.5 * sp,
+        "stem-side tip must float from the stem end toward the notehead: tip={tip:?}, stem={stem:?}"
     );
 }
 
+#[test]
+fn test_mixed_stem_source_tip_follows_rising_contour() {
+    // Gould p.111: with opposite outer stems, the stem-side tip moves toward
+    // the notehead so the slur does not tilt against a rising line.
+    let json = mixed_stem_pair(
+        (r#"{"base": "quarter"}"#, "up", "A"),
+        (r#"{"base": "quarter"}"#, "down", "B"),
+        "",
+    );
+    let (slur, stems) = mixed_stem_layout(&json);
+    let (x1, _) = bezier_endpoints_x(&slur);
+    let (y1, y2) = bezier_endpoints_y(&slur);
+    assert_tip_floats_toward_notehead((x1, y1), stems[0], true);
+    assert!(y2 < y1, "rising A4→B4 slur must rise: y1={y1}, y2={y2}");
+}
+
+#[test]
+fn test_mixed_stem_target_tip_follows_falling_contour() {
+    let json = mixed_stem_pair(
+        (r#"{"base": "quarter", "dots": 1}"#, "down", "B"),
+        (r#"{"base": "eighth"}"#, "up", "A"),
+        "",
+    );
+    let (slur, stems) = mixed_stem_layout(&json);
+    let (_, x2) = bezier_endpoints_x(&slur);
+    let (y1, y2) = bezier_endpoints_y(&slur);
+    assert_tip_floats_toward_notehead((x2, y2), stems[1], false);
+    assert!(y2 > y1, "falling B4→A4 slur must fall: y1={y1}, y2={y2}");
+}
+
+#[test]
+fn test_mixed_stem_flagged_source_keeps_stem_tip() {
+    // The flag occupies the inside of an up-stem source, so the tip stays
+    // at the stem end instead of floating into it.
+    let json = mixed_stem_pair(
+        (r#"{"base": "eighth"}"#, "up", "A"),
+        (r#"{"base": "quarter"}"#, "down", "B"),
+        r#", {"duration": {"base": "eighth"}, "rest": {}}"#,
+    );
+    let (slur, stems) = mixed_stem_layout(&json);
+    let (y1, _) = bezier_endpoints_y(&slur);
+    let sp = LayoutConfig::default().sp;
+    assert!(
+        (y1 - stems[0].1).abs() <= 1.5 * sp,
+        "flagged source tip must stay near the stem end: slur={slur:?}, stems={stems:?}"
+    );
+}
 #[test]
 fn test_tall_mountain_forced_above() {
     // True mountain with span >= 10 hs: outer notes C4, inner peaks A5/B5.

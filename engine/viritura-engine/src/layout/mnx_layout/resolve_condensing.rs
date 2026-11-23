@@ -623,6 +623,7 @@ pub(super) fn resolve_one_measure_phase1(
         },
         global,
         part: virtual_pm,
+        use_beams: crate::layout::support_flags::engraving_flags(score).0,
         measure_repeat_covered: flat_staff.sources.iter().any(|source| {
             score.parts.get(source.part_index).is_some_and(|part| {
                 crate::layout::resolve::measure_is_covered_by_repeat(&part.measures, mi)

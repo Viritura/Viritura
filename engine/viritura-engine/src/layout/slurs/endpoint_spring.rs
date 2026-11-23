@@ -166,6 +166,123 @@ pub(super) fn correct_mixed_tilt(
     }
 }
 
+/// Standard engraving practice (Gould, *Behind Bars* p.111): when the outer
+/// notes have opposite stems, the stem-side tip moves from the stem end toward
+/// its notehead so the slur does not tilt against the pitch contour. The tip
+/// starts just clear of the notehead and floats outward along the stem by half
+/// the pitch difference. It keeps the stem-tip anchor when that float would
+/// reach past the stem end, or when a flag or beam occupies the inside of the
+/// stem.
+pub(super) struct MixedStemContour<'a> {
+    src: &'a EventRenderInfo,
+    tgt: &'a EventRenderInfo,
+    /// Absolute Y of the slur-side outer notehead at each endpoint.
+    note_ys: (f64, f64),
+    curve_dir: f64,
+    sp: f64,
+}
+
+impl<'a> MixedStemContour<'a> {
+    /// Stem-side endpoints never target a specific chord note, so the
+    /// slur-side outer note of each endpoint snapshot is the anchoring note.
+    pub(super) fn new(
+        src: &'a EventRenderInfo,
+        tgt: &'a EventRenderInfo,
+        curve_dir: f64,
+        sp: f64,
+    ) -> Self {
+        let note_y = |endpoint: &EventRenderInfo| {
+            let pos = if curve_dir < 0.0 {
+                endpoint.y_pos
+            } else {
+                endpoint.y_pos_bottom
+            };
+            endpoint.eff_staff_y + pos * sp * 0.5
+        };
+        Self {
+            src,
+            tgt,
+            note_ys: (note_y(src), note_y(tgt)),
+            curve_dir,
+            sp,
+        }
+    }
+
+    /// Returns the source tip offset and whether it still uses the stem-tip anchor.
+    pub(super) fn source(&self, stem_side: bool, on_line: bool, stem_offset: f64) -> (f64, bool) {
+        let rise = self.note_ys.1 - self.note_ys.0;
+        self.tip(
+            self.src,
+            self.tgt,
+            self.note_ys.0,
+            rise,
+            (stem_side, on_line),
+            stem_offset,
+        )
+    }
+
+    /// Returns the target tip offset and whether it still uses the stem-tip anchor.
+    pub(super) fn target(&self, stem_side: bool, on_line: bool, stem_offset: f64) -> (f64, bool) {
+        let rise = self.note_ys.0 - self.note_ys.1;
+        self.tip(
+            self.tgt,
+            self.src,
+            self.note_ys.1,
+            rise,
+            (stem_side, on_line),
+            stem_offset,
+        )
+    }
+
+    fn tip(
+        &self,
+        endpoint: &EventRenderInfo,
+        other: &EventRenderInfo,
+        note_y: f64,
+        rise: f64,
+        (stem_side, on_line): (bool, bool),
+        stem_offset: f64,
+    ) -> (f64, bool) {
+        let (curve_dir, sp) = (self.curve_dir, self.sp);
+        let inward_right = other.x >= endpoint.x;
+        let stem_x = if endpoint.stem_up {
+            endpoint.x + endpoint.notehead_w
+        } else {
+            endpoint.x
+        };
+        let inner_beam = endpoint.is_beamed
+            && endpoint.beam_x_extent.is_none_or(|(left, right)| {
+                if inward_right {
+                    right > stem_x + 0.25 * sp
+                } else {
+                    left < stem_x - 0.25 * sp
+                }
+            });
+        if !stem_side
+            || endpoint.stem_up == other.stem_up
+            || endpoint.mag < 1.0
+            || inner_beam
+            || (endpoint.has_flag && inward_right)
+        {
+            return (stem_offset, stem_side);
+        }
+        let float = if rise * curve_dir > 0.0 {
+            0.5 * rise
+        } else {
+            0.0
+        };
+        let offset = curve_dir * notehead_y_offset(on_line, 1.0, false, false, sp) + float;
+        if (offset - stem_offset) * curve_dir > 0.0 {
+            return (stem_offset, stem_side);
+        }
+        // Off-line snapping moves a floated tip back toward its notehead so
+        // it cannot overshoot the contour it is following.
+        let y = note_y + offset;
+        let snapped =
+            super::render::apply_staff_line_clearance(y, -curve_dir, endpoint.eff_staff_y, sp);
+        (snapped - note_y, false)
+    }
+}
 pub(super) fn stem_contained_x(
     endpoint: &EventRenderInfo,
     inward_sign: f64,
