@@ -31,6 +31,7 @@ pub(crate) struct SpacingEvent<'a> {
     pub duration_beats: f64,
     pub stem: StemContext,
     pub sequence_index: usize,
+    pub event_index: usize,
     pub sequence_staff: u32,
 }
 
@@ -178,12 +179,14 @@ fn push_event<'a>(
             .or_default()
             .append(pending_graces);
     }
+    let event_index = timeline.events.len();
     timeline.events.push(SpacingEvent {
         key,
         event,
         duration_beats,
         stem,
         sequence_index,
+        event_index,
         sequence_staff,
     });
 }

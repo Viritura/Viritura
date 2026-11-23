@@ -28,6 +28,12 @@ pub(crate) struct LogSpacing {
     /// Total rigid width in spatium. This may exceed `rigid_widths.last()` when
     /// final-onset ink needs a hard tail before the trailing barline.
     pub rigid_total: f64,
+    /// Minimum cumulative onset positions under compression, parallel to
+    /// `mapping`. Unlike rigid widths, these can expand with their duration
+    /// springs while remaining a collision-safe lower bound.
+    pub minimum_widths: Vec<f64>,
+    /// Total minimum width, including any final ink-clearance tail.
+    pub minimum_total: f64,
     /// Base spatium (px per sp) used to convert rigid widths to fixed pixels.
     pub base_sp: f64,
 }
@@ -35,26 +41,41 @@ pub(crate) struct LogSpacing {
 impl LogSpacing {
     /// Look up x position for a given beat from the spacing map.
     ///
-    /// Rigid padding (accidental clearance) keeps a fixed physical size of
-    /// `rigid_sp * base_sp` pixels regardless of `content_width`; only the
-    /// elastic remainder (duration spacing) is scaled to fit the allotted
-    /// width. Under extreme compression the elastic part collapses to zero
-    /// before the rigid struts give way, so accidentals never overlap their
-    /// noteheads — the measure overflows instead, which is the legible choice.
+    /// Rigid padding keeps its physical size. Under compression, onset
+    /// positions interpolate toward their minimum collision-safe positions;
+    /// under expansion, duration springs distribute the extra width.
     pub fn lookup_x(&self, beat: f64, content_width: f64, x_origin: f64) -> f64 {
         if self.mapping.is_empty() || self.total_width <= 0.0 {
             return x_origin;
         }
         let mut x_offset = 0.0;
         let mut rigid_offset = 0.0;
+        let mut onset_index = 0;
         for (idx, &(b, x)) in self.mapping.iter().enumerate() {
             if b <= beat + 0.001 {
                 x_offset = x;
                 rigid_offset = self.rigid_widths.get(idx).copied().unwrap_or(0.0);
+                onset_index = idx;
             } else {
                 break;
             }
         }
+        let ideal_px = self.total_width * self.base_sp;
+        if content_width < ideal_px || self.minimum_total > self.total_width {
+            let minimum_px = self.minimum_total * self.base_sp;
+            let compression = ((content_width - minimum_px)
+                / (ideal_px - minimum_px).max(f64::EPSILON))
+            .clamp(0.0, 1.0);
+            let minimum_offset = self
+                .minimum_widths
+                .get(onset_index)
+                .copied()
+                .unwrap_or(rigid_offset);
+            return x_origin
+                + (minimum_offset + (x_offset - minimum_offset).max(0.0) * compression)
+                    * self.base_sp;
+        }
+
         let elastic_total = (self.total_width - self.rigid_total).max(1e-9);
         let elastic_offset = (x_offset - rigid_offset).max(0.0);
         let rigid_px = self.rigid_total * self.base_sp;

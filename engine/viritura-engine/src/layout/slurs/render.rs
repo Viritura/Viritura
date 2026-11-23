@@ -8,7 +8,7 @@ use super::direction::*;
 use super::endpoint_spring::{
     apply_beam_tip_clearance, correct_mixed_tilt, endpoint_note_position,
     grace_source_needs_stem_escape, level_note_targeted_stem_pair, notehead_y_offset,
-    snap_tip_off_staff_line, stem_contained_x, uses_stem_side, uses_stem_side_x,
+    snap_tip_off_staff_line, stem_contained_x, uses_stem_side, uses_stem_side_x, MixedStemContour,
 };
 use super::obstacle_shapes::collect_shape_obstacles;
 use super::participation::*;
@@ -636,6 +636,11 @@ pub(super) fn emit_slur_bezier(
         curve_dir * notehead_y_offset(tgt_on_line, tgt.mag, grace_slur, grace_to_chord, sp)
     };
 
+    // Opposite outer stems: float stem-side tips toward their noteheads.
+    let contour = MixedStemContour::new(src, tgt, curve_dir, sp);
+    let (y1_offset, src_stem_anchor) = contour.source(src_stem_anchor, src_on_line, y1_offset);
+    let (y2_offset, tgt_at_stem) = contour.target(tgt_stem_side, tgt_on_line, y2_offset);
+
     // ── Tip-stacking offset ────────────────────────
     // When multiple slur tips meet at the same notehead, separate them in
     // BOTH axes: lift each tip outward in the curve direction, and fan it
@@ -749,7 +754,7 @@ pub(super) fn emit_slur_bezier(
     // multi-level beams contribute their exact local outer edge rather than a
     // whole-polygon bbox extreme.
     y1 = apply_beam_tip_clearance(y1, src, src_anchor_dir, src_stem_anchor, sp);
-    y2 = apply_beam_tip_clearance(y2, tgt, end_curve_dir, tgt_stem_side, sp);
+    y2 = apply_beam_tip_clearance(y2, tgt, end_curve_dir, tgt_at_stem, sp);
 
     // ── Staff-line clearance for stem-side endpoints ──────────────
     // Encapsulated in `apply_staff_line_clearance` — nudges stem-side
@@ -758,7 +763,7 @@ pub(super) fn emit_slur_bezier(
     if src_stem_anchor {
         y1 = apply_staff_line_clearance(y1, src_anchor_dir, src_eff_y, sp);
     }
-    if tgt_stem_side {
+    if tgt_at_stem {
         y2 = apply_staff_line_clearance(y2, curve_dir, tgt_eff_y, sp);
     }
     let pitch_slope = tgt_eff_y - src_eff_y + (tgt_y_pos - src_y_pos) * sp * 0.5;

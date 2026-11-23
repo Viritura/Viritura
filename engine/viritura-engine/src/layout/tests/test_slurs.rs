@@ -9,6 +9,69 @@ use crate::render::*;
 
 // ---- Slur rendering tests ----
 #[test]
+fn test_auto_flow_slur_continuation_keeps_receiving_system_context() {
+    use crate::layout::cache::LayoutCache;
+    use crate::layout::layout_with_mnx_scores_cached;
+
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m1", "time": {"count": 4, "unit": 4}},
+            {"id": "m2"}
+        ]},
+        "parts": [{"id": "flute", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+             "sequences": [{"content": [
+                {"id": "source", "duration": {"base": "whole"},
+                 "notes": [{"pitch": {"step": "B", "octave": 4}}],
+                 "slurs": [{"target": "target"}]}
+             ]}]},
+            {"sequences": [{"content": [
+                {"id": "first", "duration": {"base": "quarter"},
+                 "notes": [{"pitch": {"step": "D", "octave": 6}}]},
+                {"id": "second", "duration": {"base": "quarter"},
+                 "notes": [{"pitch": {"step": "A", "octave": 5}}]},
+                {"id": "third", "duration": {"base": "quarter"},
+                 "notes": [{"pitch": {"step": "C", "octave": 6}}]},
+                {"id": "target", "duration": {"base": "quarter"},
+                 "notes": [{"pitch": {"step": "B", "octave": 5}}]}
+             ]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [
+            {"type": "staff", "sources": [{"part": "flute"}]}
+        ]}],
+        "scores": [{"name": "Flute", "layout": "L", "_x": {"viritura": {
+            "layoutBreaks": [{"measure": "m2", "kind": "system"}]
+        }}}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(1000.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = LayoutCache::new();
+    for pass in 0..2 {
+        let display = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let first = display
+            .element_bboxes
+            .iter()
+            .find(|entry| entry.element_id == "p0/m1/s0/first/n0")
+            .expect("first receiving-system note");
+        let incoming = display
+            .slur_geometries
+            .iter()
+            .find(|geometry| geometry.element_id == "slur/source/target/rh")
+            .expect("incoming continuation");
+        assert!(
+            incoming.p0_x < first.bbox.x,
+            "pass {pass}: continuation must begin before the first note, not near its target: start={}, first={}",
+            incoming.p0_x,
+            first.bbox.x
+        );
+    }
+}
+
+#[test]
 fn test_enclosing_slur_clears_tuplet_number() {
     let json = r#"{
         "mnx": {"version": 1},
@@ -1576,6 +1639,84 @@ fn test_mixed_stems_defaults_above() {
 }
 
 #[test]
+fn test_mixed_beam_slur_keeps_default_side_over_a_shallow_mountain() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 2, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+            "sequences": [{"content": [
+                {"id": "lead", "duration": {"base": "16th"},
+                 "notes": [{"pitch": {"step": "E", "alter": -1, "octave": 5}}]},
+                {"id": "source", "duration": {"base": "16th"},
+                 "notes": [{"pitch": {"step": "G", "octave": 4}}],
+                 "slurs": [{"target": "target"}]},
+                {"id": "inner-a", "duration": {"base": "16th"},
+                 "notes": [{"pitch": {"step": "A", "octave": 4}}]},
+                {"id": "inner-b", "duration": {"base": "16th"},
+                 "notes": [{"pitch": {"step": "B", "octave": 4}}]},
+                {"id": "target", "duration": {"base": "eighth"},
+                 "notes": [{"pitch": {"step": "A", "octave": 4}}]},
+                {"id": "end", "duration": {"base": "eighth"},
+                 "notes": [{"pitch": {"step": "G", "octave": 4}}]}
+            ]}]
+        }]}]
+    }"#;
+    let config = LayoutConfig::default();
+    let display = layout_score(&parse_mnx(json).unwrap(), 0, &config);
+    let slur = display
+        .commands
+        .iter()
+        .enumerate()
+        .find_map(|(index, command)| {
+            (display.element_ids[index].as_deref() == Some("slur/source/target")
+                && matches!(command, RenderCommand::DrawFilledBezier { .. }))
+            .then_some(command)
+        })
+        .expect("mixed-beam slur");
+    assert!(
+        is_curve_above(slur),
+        "a shallow mountain must not flip the mixed-stem default onto the source beam"
+    );
+    let (x1, x2) = bezier_endpoints_x(slur);
+    let mut checked_samples = 0;
+    for shape in &display.element_shapes {
+        if shape.kind != ElementKind::Beam {
+            continue;
+        }
+        let ShapeGeom::Cmd { cmd_idx } = shape.geom else {
+            continue;
+        };
+        let RenderCommand::DrawPolygon { points, .. } = &display.commands[cmd_idx as usize] else {
+            panic!("beam polygon")
+        };
+        for sample in 1..100 {
+            let x = x1 + (x2 - x1) * f64::from(sample) / 100.0;
+            let mut beam_top = f64::INFINITY;
+            for index in 0..points.len() {
+                let (ax, ay) = points[index];
+                let (bx, by) = points[(index + 1) % points.len()];
+                if (bx - ax).abs() > 1e-9 && x >= ax.min(bx) && x <= ax.max(bx) {
+                    beam_top = beam_top.min(ay + (by - ay) * (x - ax) / (bx - ax));
+                }
+            }
+            if beam_top.is_finite() {
+                checked_samples += 1;
+                let slur_y = bezier_inner_y_at_x(slur, x);
+                assert!(
+                    slur_y < beam_top,
+                    "slur must stay above beam ink at x={x}: slur={slur_y}, beam={beam_top}"
+                );
+            }
+        }
+    }
+    assert!(
+        checked_samples > 0,
+        "slur must overlap a beam's horizontal span"
+    );
+}
+
+#[test]
 fn test_mixed_stem_slur_clears_its_beamed_source() {
     let json = r#"{
         "mnx": {"version": 1},
@@ -1713,58 +1854,36 @@ fn test_mixed_stem_slur_clears_its_beamed_source() {
     }
 }
 
-#[test]
-fn test_mixed_stem_target_stays_near_stem_tip_when_contour_conflicts() {
-    let json = r#"{
-        "mnx": {"version": 1},
-        "global": {"measures": [{"time": {"count": 2, "unit": 4}}]},
-        "parts": [{"measures": [{
-            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
-            "sequences": [{"content": [
-                {"id": "mixed-start", "duration": {"base": "quarter", "dots": 1},
-                 "stemDirection": "down", "notes": [{"pitch": {"step": "B", "octave": 4}}],
-                 "slurs": [{"target": "mixed-end", "side": "up"}]},
-                {"id": "mixed-end", "duration": {"base": "eighth"},
-                 "stemDirection": "up", "notes": [{"pitch": {"step": "A", "octave": 4}}]}
-            ]}]
-        }]}]
-    }"#;
-    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &LayoutConfig::default());
-    let slur = dl
-        .commands
-        .iter()
-        .find(|command| is_draw_bezier(command))
-        .expect("mixed-stem slur");
-    assert_mixed_stem_tip_near_stem(&dl, slur, false);
+fn mixed_stem_pair(start: (&str, &str, &str), end: (&str, &str, &str), tail: &str) -> String {
+    format!(
+        r#"{{
+        "mnx": {{"version": 1}},
+        "global": {{"measures": [{{"time": {{"count": 2, "unit": 4}}}}]}},
+        "parts": [{{"measures": [{{
+            "clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}],
+            "sequences": [{{"content": [
+                {{"id": "mixed-start", "duration": {}, "stemDirection": "{}",
+                 "notes": [{{"pitch": {{"step": "{}", "octave": 4}}}}],
+                 "slurs": [{{"target": "mixed-end", "side": "up"}}]}},
+                {{"id": "mixed-end", "duration": {}, "stemDirection": "{}",
+                 "notes": [{{"pitch": {{"step": "{}", "octave": 4}}}}]}}{tail}
+            ]}}]
+        }}]}}]
+    }}"#,
+        start.0, start.1, start.2, end.0, end.1, end.2
+    )
 }
 
-#[test]
-fn test_mixed_stem_source_stays_near_stem_tip_when_contour_conflicts() {
-    let json = r#"{
-        "mnx": {"version": 1},
-        "global": {"measures": [{"time": {"count": 2, "unit": 4}}]},
-        "parts": [{"measures": [{
-            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
-            "sequences": [{"content": [
-                {"id": "mixed-start", "duration": {"base": "quarter"},
-                 "stemDirection": "up", "notes": [{"pitch": {"step": "A", "octave": 4}}],
-                 "slurs": [{"target": "mixed-end", "side": "up"}]},
-                {"id": "mixed-end", "duration": {"base": "quarter"},
-                 "stemDirection": "down", "notes": [{"pitch": {"step": "B", "octave": 4}}]}
-            ]}]
-        }]}]
-    }"#;
-    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &LayoutConfig::default());
-    let slur = dl
-        .commands
-        .iter()
-        .find(|command| is_draw_bezier(command))
-        .expect("mixed-stem slur");
-    assert_mixed_stem_tip_near_stem(&dl, slur, true);
-}
-
-fn assert_mixed_stem_tip_near_stem(dl: &DisplayList, slur: &RenderCommand, source: bool) {
+/// Returns `(slur, [(stem_x, stem_top, stem_bottom)])` sorted left to right.
+fn mixed_stem_layout(json: &str) -> (RenderCommand, Vec<(f64, f64, f64)>) {
     let config = LayoutConfig::default();
+    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &config);
+    let slur = dl
+        .commands
+        .iter()
+        .find(|command| is_draw_bezier(command))
+        .expect("mixed-stem slur")
+        .clone();
     let mut stems: Vec<_> = dl
         .commands
         .iter()
@@ -1780,25 +1899,81 @@ fn assert_mixed_stem_tip_near_stem(dl: &DisplayList, slur: &RenderCommand, sourc
                 && (y1 - y2).abs() > config.sp
                 && (*width - config.stem_width * config.sp).abs() < 1e-6 =>
             {
-                Some((*x1, y1.min(*y2)))
+                Some((*x1, y1.min(*y2), y1.max(*y2)))
             }
             _ => None,
         })
         .collect();
     stems.sort_by(|a, b| a.0.total_cmp(&b.0));
     assert_eq!(stems.len(), 2);
-    let (y1, y2) = bezier_endpoints_y(slur);
-    let (tip_y, stem_y) = if source {
-        (y1, stems[0].1)
-    } else {
-        (y2, stems[1].1)
-    };
+    (slur, stems)
+}
+
+fn assert_tip_floats_toward_notehead(tip: (f64, f64), stem: (f64, f64, f64), source: bool) {
+    let sp = LayoutConfig::default().sp;
+    let (tip_x, tip_y) = tip;
+    let (stem_x, stem_top, stem_bottom) = stem;
     assert!(
-        (tip_y - stem_y).abs() <= 1.5 * config.sp,
-        "stem-side slur tip must remain near the stem tip: slur={slur:?}, stems={stems:?}"
+        if source {
+            tip_x > stem_x
+        } else {
+            tip_x < stem_x
+        },
+        "floated tip must stay inside its stem: tip={tip:?}, stem={stem:?}"
+    );
+    assert!(
+        tip_y - stem_top >= 1.5 * sp && stem_bottom - tip_y >= 0.5 * sp,
+        "stem-side tip must float from the stem end toward the notehead: tip={tip:?}, stem={stem:?}"
     );
 }
 
+#[test]
+fn test_mixed_stem_source_tip_follows_rising_contour() {
+    // Gould p.111: with opposite outer stems, the stem-side tip moves toward
+    // the notehead so the slur does not tilt against a rising line.
+    let json = mixed_stem_pair(
+        (r#"{"base": "quarter"}"#, "up", "A"),
+        (r#"{"base": "quarter"}"#, "down", "B"),
+        "",
+    );
+    let (slur, stems) = mixed_stem_layout(&json);
+    let (x1, _) = bezier_endpoints_x(&slur);
+    let (y1, y2) = bezier_endpoints_y(&slur);
+    assert_tip_floats_toward_notehead((x1, y1), stems[0], true);
+    assert!(y2 < y1, "rising A4→B4 slur must rise: y1={y1}, y2={y2}");
+}
+
+#[test]
+fn test_mixed_stem_target_tip_follows_falling_contour() {
+    let json = mixed_stem_pair(
+        (r#"{"base": "quarter", "dots": 1}"#, "down", "B"),
+        (r#"{"base": "eighth"}"#, "up", "A"),
+        "",
+    );
+    let (slur, stems) = mixed_stem_layout(&json);
+    let (_, x2) = bezier_endpoints_x(&slur);
+    let (y1, y2) = bezier_endpoints_y(&slur);
+    assert_tip_floats_toward_notehead((x2, y2), stems[1], false);
+    assert!(y2 > y1, "falling B4→A4 slur must fall: y1={y1}, y2={y2}");
+}
+
+#[test]
+fn test_mixed_stem_flagged_source_keeps_stem_tip() {
+    // The flag occupies the inside of an up-stem source, so the tip stays
+    // at the stem end instead of floating into it.
+    let json = mixed_stem_pair(
+        (r#"{"base": "eighth"}"#, "up", "A"),
+        (r#"{"base": "quarter"}"#, "down", "B"),
+        r#", {"duration": {"base": "eighth"}, "rest": {}}"#,
+    );
+    let (slur, stems) = mixed_stem_layout(&json);
+    let (y1, _) = bezier_endpoints_y(&slur);
+    let sp = LayoutConfig::default().sp;
+    assert!(
+        (y1 - stems[0].1).abs() <= 1.5 * sp,
+        "flagged source tip must stay near the stem end: slur={slur:?}, stems={stems:?}"
+    );
+}
 #[test]
 fn test_tall_mountain_forced_above() {
     // True mountain with span >= 10 hs: outer notes C4, inner peaks A5/B5.

@@ -715,27 +715,26 @@ pub(super) fn layout_measure_inner(
         );
         &local_log_spacing
     };
-
     let min_content_width = if is_pickup { 1.5 * sp } else { 4.0 * sp };
     let trailing_barline_extra =
         super::super::render_barlines::trailing_barline_extra_width(rm, config, sp);
     let fixed_width =
         prefix_width + super::MEASURE_TRAILING_PADDING_SP * sp + trailing_barline_extra;
-    let rigid_measure_width = fixed_width + (log_spacing.rigid_total * sp).max(min_content_width);
+    let rigid_measure_width = fixed_width + (log_spacing.minimum_total * sp).max(min_content_width);
     let forced_width = forced_width.map(|width| {
         super::super::space_requests::reconcile_caesura_rigid_width(rm, width, rigid_measure_width)
     });
-    let natural_content_width =
-        (log_spacing.total_width * sp)
-            .max(min_content_width)
-            .max(skyline_min_content_width(
-                &rm.part.sequences,
-                total_beats,
-                &rm.active_key,
-                config,
-                sp,
-                common_shortest_beats,
-            ));
+    let natural_content_width = (log_spacing.total_width * sp)
+        .max(log_spacing.minimum_total * sp)
+        .max(min_content_width)
+        .max(skyline_min_content_width(
+            &rm.part.sequences,
+            total_beats,
+            &rm.active_key,
+            config,
+            sp,
+            common_shortest_beats,
+        ));
     let content_width = if let Some(fw) = forced_width {
         // The forced width already includes structural barline overhead from
         // the natural-width and system-justification passes.
