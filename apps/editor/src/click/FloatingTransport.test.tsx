@@ -23,7 +23,13 @@ function setup() {
   render(
     <main>
       <FloatingTransport busy={false}>
+        <span>Countoff</span>
         <Button>Start</Button>
+        <div role="listbox" aria-label="Start bar" tabIndex={0}>
+          <div role="option" aria-selected="true">
+            <span>Bar 1</span>
+          </div>
+        </div>
       </FloatingTransport>
     </main>,
   );
@@ -44,42 +50,58 @@ function setup() {
         200,
       ),
   );
-  const handle = screen.getByRole("button", { name: "Move transport" });
-  handle.setPointerCapture = vi.fn();
-  handle.hasPointerCapture = vi.fn(() => true);
-  handle.releasePointerCapture = vi.fn();
-  return { transport, parent, handle, resize: () => act(() => resize()) };
+  transport.setPointerCapture = vi.fn();
+  transport.hasPointerCapture = vi.fn(() => true);
+  transport.releasePointerCapture = vi.fn();
+  return { transport, parent, resize: () => act(() => resize()) };
 }
 
 describe("floating click transport", () => {
-  it("moves by touch on its handle, clamps at the score edges, and stops on cancellation", () => {
-    const { handle, transport } = setup();
-    fireEvent.pointerDown(handle, { pointerId: 1, pointerType: "touch", button: 0, clientX: 250, clientY: 460 });
-    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 1000, clientY: 1000 });
+  it("moves by touch from panel content, clamps at the score edges, and stops on cancellation", () => {
+    const { transport } = setup();
+    fireEvent.pointerDown(screen.getByText("Countoff"), {
+      pointerId: 1,
+      pointerType: "touch",
+      button: 0,
+      clientX: 250,
+      clientY: 460,
+    });
+    fireEvent.pointerMove(transport, { pointerId: 1, clientX: 1000, clientY: 1000 });
     expect(transport.style.left).toBe("392px");
     expect(transport.style.top).toBe("392px");
-    fireEvent.pointerCancel(handle, { pointerId: 1 });
-    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerCancel(transport, { pointerId: 1 });
+    fireEvent.pointerMove(transport, { pointerId: 1, clientX: 10, clientY: 10 });
     expect(transport.style.left).toBe("392px");
-    fireEvent.pointerDown(handle, { pointerId: 2, button: 0, clientX: 400, clientY: 470 });
-    fireEvent.pointerMove(handle, { pointerId: 2, clientX: -500, clientY: -500 });
+    fireEvent.pointerDown(transport, { pointerId: 2, button: 0, clientX: 400, clientY: 470 });
+    fireEvent.pointerMove(transport, { pointerId: 2, clientX: -500, clientY: -500 });
     expect(transport.style.left).toBe("8px");
     expect(transport.style.top).toBe("8px");
-    fireEvent.pointerUp(handle, { pointerId: 2 });
-    expect(handle.releasePointerCapture).toHaveBeenCalledWith(2);
+    fireEvent.pointerUp(transport, { pointerId: 2 });
+    expect(transport.releasePointerCapture).toHaveBeenCalledWith(2);
   });
 
   it("supports keyboard movement and stays reachable after viewport resizing", () => {
-    const { handle, transport, parent, resize } = setup();
-    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    const { transport, parent, resize } = setup();
+    fireEvent.keyDown(transport, { key: "ArrowRight" });
     expect(transport.style.left).toBe("210px");
-    fireEvent.keyDown(handle, { key: "ArrowUp", shiftKey: true });
+    fireEvent.keyDown(transport, { key: "ArrowUp", shiftKey: true });
     expect(transport.style.top).toBe("340px");
     Object.defineProperty(parent, "clientHeight", { value: 350, configurable: true });
     resize();
     expect(transport.style.top).toBe("142px");
     fireEvent.pointerDown(screen.getByRole("button", { name: "Start" }), { pointerId: 3, button: 0 });
-    fireEvent.pointerMove(handle, { pointerId: 3, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(transport, { pointerId: 3, clientX: 0, clientY: 0 });
     expect(transport.style.top).toBe("142px");
+  });
+
+  it("does not drag or consume arrow keys from controls or either dial's contents", () => {
+    const { transport } = setup();
+    for (const target of [screen.getByRole("button", { name: "Start" }), screen.getByText("Bar 1")]) {
+      fireEvent.pointerDown(target, { pointerId: 1, button: 0, clientX: 250, clientY: 460 });
+      fireEvent.pointerMove(transport, { pointerId: 1, clientX: 1000, clientY: 1000 });
+      expect(fireEvent.keyDown(target, { key: "ArrowRight" })).toBe(true);
+      expect(transport.style.left).toBe("");
+      expect(transport.setPointerCapture).not.toHaveBeenCalled();
+    }
   });
 });

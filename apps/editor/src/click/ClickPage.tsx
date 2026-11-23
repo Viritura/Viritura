@@ -1,11 +1,11 @@
 import { useId, useRef, useState } from "react";
-import { Button, FormInput } from "@viritura/ui";
+import { Button, FormInput, Slider } from "@viritura/ui";
 import type { ClickSessionProgram } from "@viritura/playback/click";
 import { ClickControls } from "./ClickControls";
 import { ClickScore } from "./ClickScore";
 import { ClickScoreControls, type ClickScoreSettings } from "./ClickScoreControls";
 import { FloatingTransport } from "./FloatingTransport";
-import { clickBarAtTime, clickScorePosition } from "./barNavigation";
+import { clickBarAtTime, clickScorePosition, clickStartPosition } from "./barNavigation";
 import { useClickPlayer } from "./useClickPlayer";
 import styles from "./ClickPage.module.css";
 
@@ -38,6 +38,7 @@ export function ClickPage() {
   const [scoreSettings, setScoreSettings] = useState<ClickScoreSettings>({ viewIndex: 0, zoom: 1, fitMode: "height" });
   const inputRef = useRef<HTMLInputElement>(null);
   const statusId = useId();
+  const tempoId = useId();
   const active = player.phase === "playing";
   const countingOff = active && player.program !== undefined && player.elapsed < player.program.countoffSeconds;
   const status = statusLabel(player.phase, player.busy, countingOff, player.tempoPercent, player.document);
@@ -49,7 +50,9 @@ export function ClickPage() {
   const scorePosition =
     active && player.document && player.program
       ? clickScorePosition(player.document.timing, player.program, player.elapsed, player.tempoPercent)
-      : { measureIndex: player.document?.bars[player.startBar]?.measureIndex ?? 0, beat: 0 };
+      : player.document
+        ? clickStartPosition(player.document.timing, player.startBar)
+        : { measureIndex: 0, beat: 0 };
 
   return (
     <div className={styles.page}>
@@ -76,7 +79,28 @@ export function ClickPage() {
           Open MNX
         </Button>
         {player.document && (
-          <ClickScoreControls views={player.document.scoreViews} settings={scoreSettings} onChange={setScoreSettings} />
+          <>
+            <fieldset className={styles.tempo} disabled={active || player.busy}>
+              <label htmlFor={tempoId}>Session tempo %</label>
+              <Slider
+                id={tempoId}
+                min={0}
+                max={100}
+                step={1}
+                value={player.tempoPercent}
+                onChange={player.setTempoPercent}
+                ariaDescribedBy={statusId}
+              />
+              <output htmlFor={tempoId} aria-label="Session tempo percentage">
+                {player.tempoPercent}%
+              </output>
+            </fieldset>
+            <ClickScoreControls
+              views={player.document.scoreViews}
+              settings={scoreSettings}
+              onChange={setScoreSettings}
+            />
+          </>
         )}
       </header>
       <main className={styles.workspace}>
@@ -102,7 +126,6 @@ export function ClickPage() {
               countoffBeat={countingOff ? countoffBeat : undefined}
               dialSettling={dialSettling}
               onSettlingChange={setDialSettling}
-              statusId={statusId}
             />
             <div id={statusId} className={styles.srOnly} role="status" aria-label="Playback status">
               {status}

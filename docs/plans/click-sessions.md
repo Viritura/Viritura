@@ -20,17 +20,19 @@ Implemented:
   and status, and a stopped-only session tempo percentage. Audio is created only
   from Start; opening a file does not create instrument or click audio. File,
   worklet, and context-interruption failures are visible. No upload or editor
-  bootstrap is needed. The filename and Open MNX action live in a compact top
-  bar.
+  bootstrap is needed. The filename, Open MNX action, and session tempo live
+  in a compact top bar.
 - **Score-first surface and floating transport** —
   `@viritura/score-viewer-react` displays the opened MNX in a continuous,
   horizontally scrolling score, with layout in a dedicated worker and
   viewport-tiled painting. A playhead follows the click audio clock through
   countoff, tempo scaling, repeats, and partial-bar jumps; it does not schedule
-  audio. Stopping restores the selected start. The existing navigation dials,
-  countoff, tempo, and Start/Stop live in a compact floating transport. Its
-  selected-bar button expands the two navigation dials on demand. Move it
-  by its grip with a mouse or touch, or focus the grip and use arrow keys
+  audio. Stopping selects the current performed bar visit using the audio
+  thread's acknowledged position; the next Start plays a fresh countoff
+  from that visit. The playhead rests at the visit's start.
+  Both navigation dials are always visible in the floating transport,
+  alongside countoff and Start/Stop. Drag any non-interactive area with a
+  mouse or touch, or focus the panel and use arrow keys
   (Shift for larger steps). Movement is bounded to the score viewport and
   re-clamped on resize. Score-load errors are visible without replacing the
   independent click engine. A detached PiP window remains future work.

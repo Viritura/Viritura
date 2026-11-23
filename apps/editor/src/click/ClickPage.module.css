@@ -104,35 +104,34 @@
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: 0 8px 32px rgb(0 0 0 / 18%);
-}
-
-.dragHandle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 36px;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
   cursor: grab;
-  touch-action: none;
-  user-select: none;
 }
 
-.dragHandle:active {
+.dragSurface {
+  position: absolute;
+  inset: 0;
+  /* Keep touch-action off the ancestor so dials retain native touch scrolling. */
+  touch-action: none;
+}
+
+.floatingTransport:active {
   cursor: grabbing;
 }
 
-.dragHandle:focus-visible {
+.floatingTransport:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
 .transportContent {
+  position: relative;
   padding: 10px 12px 12px;
+  pointer-events: none;
+}
+
+.transportContent
+  :is(button, input, select, textarea, a, label, [role="listbox"], [contenteditable="true"], [tabindex]) {
+  pointer-events: auto;
 }
 
 .transportContent button {
@@ -143,6 +142,7 @@
   display: grid;
   gap: var(--space-2);
   min-width: 0;
+  cursor: auto;
 }
 
 .startDetails {
@@ -177,6 +177,7 @@
 }
 
 .tempo {
+  margin: 0;
   border: 0;
   padding: 0;
   min-width: 0;
@@ -184,6 +185,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  flex: 0 1 300px;
 }
 
 .tempo input {

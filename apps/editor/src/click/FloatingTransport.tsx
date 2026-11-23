@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { GripHorizontal } from "lucide-react";
-import { Button } from "@viritura/ui";
 import styles from "./ClickPage.module.css";
 
 interface Position {
@@ -54,71 +52,75 @@ export function FloatingTransport({ busy, children }: FloatingTransportProps) {
       className={styles.floatingTransport}
       aria-label="Click player"
       aria-busy={busy}
+      aria-description="Drag to move, or use arrow keys when focused. Hold Shift for larger steps."
+      tabIndex={0}
       style={position ? { left: position.x, top: position.y, bottom: "auto", transform: "none" } : undefined}
+      onPointerDown={(event) => {
+        if (event.button !== 0 || drag.current || !ref.current) return;
+        const interactive =
+          event.target instanceof Element
+            ? event.target.closest(
+                'button, input, select, textarea, a, label, [role="listbox"], [contenteditable="true"], [tabindex]',
+              )
+            : null;
+        if (interactive && interactive !== event.currentTarget) return;
+        const rect = ref.current.getBoundingClientRect();
+        drag.current = {
+          pointerId: event.pointerId,
+          offset: { x: event.clientX - rect.left, y: event.clientY - rect.top },
+        };
+        event.currentTarget.focus({ preventScroll: true });
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        const current = drag.current;
+        const element = ref.current;
+        if (!current || current.pointerId !== event.pointerId || !element) return;
+        const parent = element.parentElement!.getBoundingClientRect();
+        setPosition(
+          bounded(
+            {
+              x: event.clientX - parent.left - current.offset.x,
+              y: event.clientY - parent.top - current.offset.y,
+            },
+            element,
+          ),
+        );
+      }}
+      onPointerUp={(event) => {
+        if (drag.current?.pointerId !== event.pointerId) return;
+        drag.current = null;
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+      }}
+      onLostPointerCapture={() => {
+        drag.current = null;
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const direction = DIRECTIONS[event.key];
+        const element = ref.current;
+        if (!direction || !element) return;
+        event.preventDefault();
+        const rect = element.getBoundingClientRect();
+        const parent = element.parentElement!.getBoundingClientRect();
+        const step = event.shiftKey ? 40 : 10;
+        setPosition(
+          bounded(
+            {
+              x: rect.left - parent.left + direction.x * step,
+              y: rect.top - parent.top + direction.y * step,
+            },
+            element,
+          ),
+        );
+      }}
     >
-      <Button
-        variant="ghost"
-        className={styles.dragHandle}
-        ariaLabel="Move transport"
-        aria-description="Drag to move, or use arrow keys when focused. Hold Shift for larger steps."
-        onPointerDown={(event) => {
-          if (event.button !== 0 || drag.current || !ref.current) return;
-          const rect = ref.current.getBoundingClientRect();
-          drag.current = {
-            pointerId: event.pointerId,
-            offset: { x: event.clientX - rect.left, y: event.clientY - rect.top },
-          };
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={(event) => {
-          const current = drag.current;
-          const element = ref.current;
-          if (!current || current.pointerId !== event.pointerId || !element) return;
-          const parent = element.parentElement!.getBoundingClientRect();
-          setPosition(
-            bounded(
-              {
-                x: event.clientX - parent.left - current.offset.x,
-                y: event.clientY - parent.top - current.offset.y,
-              },
-              element,
-            ),
-          );
-        }}
-        onPointerUp={(event) => {
-          if (drag.current?.pointerId !== event.pointerId) return;
-          drag.current = null;
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-            event.currentTarget.releasePointerCapture(event.pointerId);
-          }
-        }}
-        onPointerCancel={() => {
-          drag.current = null;
-        }}
-        onLostPointerCapture={() => {
-          drag.current = null;
-        }}
-        onKeyDown={(event) => {
-          const direction = DIRECTIONS[event.key];
-          const element = ref.current;
-          if (!direction || !element) return;
-          event.preventDefault();
-          const rect = element.getBoundingClientRect();
-          const parent = element.parentElement!.getBoundingClientRect();
-          const step = event.shiftKey ? 40 : 10;
-          setPosition(
-            bounded(
-              {
-                x: rect.left - parent.left + direction.x * step,
-                y: rect.top - parent.top + direction.y * step,
-              },
-              element,
-            ),
-          );
-        }}
-      >
-        <GripHorizontal size={20} aria-hidden="true" />
-      </Button>
+      <div className={styles.dragSurface} aria-hidden="true" />
       <div className={styles.transportContent}>{children}</div>
     </section>
   );

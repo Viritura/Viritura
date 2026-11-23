@@ -3,7 +3,13 @@ import type { Score } from "@viritura/core";
 import { compilePlaybackTiming } from "@viritura/midi/timing";
 import { buildClickSessionProgram } from "@viritura/playback/click";
 import rehearsalMarks from "../../../../packages/format/fixtures/mnx/rehearsal-marks.mnx?raw";
-import { clickBarAtTime, clickScorePosition, collectClickBars, describeClickBar } from "./barNavigation";
+import {
+  clickBarAtTime,
+  clickScorePosition,
+  clickStartPosition,
+  collectClickBars,
+  describeClickBar,
+} from "./barNavigation";
 import { readClickDocument } from "./clickDocument";
 
 describe("click bar navigation", () => {
@@ -108,5 +114,12 @@ describe("click bar navigation", () => {
       measureIndex: timing.playedSpans![partialIndex]!.measureIndex,
       beat: timing.playedSpans![partialIndex]!.startBeat + 0.5,
     });
+    const restarted = buildClickSessionProgram(timing, { startTimelineMeasure: partialIndex });
+    const restartPosition = {
+      measureIndex: timing.playedSpans![partialIndex]!.measureIndex,
+      beat: timing.playedSpans![partialIndex]!.startBeat,
+    };
+    expect(clickStartPosition(timing, partialIndex)).toEqual(restartPosition);
+    expect(clickScorePosition(timing, restarted, 0, 100)).toEqual(restartPosition);
   });
 });

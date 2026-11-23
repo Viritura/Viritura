@@ -66,22 +66,20 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-async function openFile(text = score, name = "practice.mnx", expandNavigation = true) {
+async function openFile(text = score, name = "practice.mnx") {
   fireEvent.change(screen.getByLabelText("MNX file"), {
     target: { files: [new File([text], name, { type: "application/json" })] },
   });
   await waitFor(() =>
     expect(screen.getByRole("region", { name: "Click player" }).getAttribute("aria-busy")).toBe("false"),
   );
-  const navigation = screen.queryByRole("button", { name: "Bar navigation", exact: true });
-  if (expandNavigation && navigation?.getAttribute("aria-expanded") === "false") fireEvent.click(navigation);
 }
 
 describe("standalone click page", () => {
   it("selects authored scores and source parts from the top nav without restarting a take", async () => {
     const user = userEvent.setup();
     render(<ClickPage />);
-    await openFile(multipleLayouts, "choir.mnx", false);
+    await openFile(multipleLayouts, "choir.mnx");
     const nav = within(screen.getByRole("banner"));
     const selector = nav.getByRole("combobox", { name: "Score or part" });
     const viewer = screen.getByTestId("score-viewer");
@@ -101,7 +99,7 @@ describe("standalone click page", () => {
 
   it("exposes zoom and fit in the top nav and resets the view when another file opens", async () => {
     render(<ClickPage />);
-    await openFile(score, "scale.mnx", false);
+    await openFile(score, "scale.mnx");
     const nav = within(screen.getByRole("banner"));
     const viewer = screen.getByTestId("score-viewer");
     fireEvent.click(nav.getByRole("button", { name: "Zoom in", exact: true }));
@@ -113,26 +111,28 @@ describe("standalone click page", () => {
     expect(viewer.dataset.zoom).toBe("1");
     expect(viewer.dataset.fit).toBe("none");
     fireEvent.click(nav.getByRole("button", { name: "Zoom in", exact: true }));
-    await openFile(rehearsals, "rehearsals.mnx", false);
+    await openFile(rehearsals, "rehearsals.mnx");
     expect(screen.getByTestId("score-viewer").dataset.zoom).toBe("1");
     expect(screen.getByTestId("score-viewer").dataset.scoreIndex).toBe("0");
     expect(screen.getByTestId("score-viewer").dataset.fit).toBe("height");
     expect(audio.create).not.toHaveBeenCalled();
   });
 
-  it("keeps the transport compact and expands the two navigation tracks on demand", async () => {
+  it("keeps both navigation tracks visible on the transport and session tempo in the top nav", async () => {
     render(<ClickPage />);
-    await openFile(rehearsals, "rehearsals.mnx", false);
-    expect(screen.queryByRole("listbox", { name: "Start bar" })).toBeNull();
-    const navigation = screen.getByRole("button", { name: "Bar navigation", exact: true });
-    expect(navigation.textContent).toContain("A / Bar 1");
-    fireEvent.click(navigation);
-    expect(screen.getByRole("listbox", { name: "Rehearsal" })).toBeTruthy();
+    await openFile(rehearsals, "rehearsals.mnx");
+    const transport = within(screen.getByRole("region", { name: "Click player" }));
+    expect(transport.getByRole("listbox", { name: "Start bar" })).toBeTruthy();
+    expect(transport.getByRole("listbox", { name: "Rehearsal" })).toBeTruthy();
+    expect(transport.queryByRole("slider", { name: "Session tempo %" })).toBeNull();
+    const tempo = within(screen.getByRole("banner")).getByRole("slider", { name: "Session tempo %" });
+    expect(tempo).toBeTruthy();
     fireEvent.click(screen.getByRole("option", { name: "Bar 3, rehearsal B" }));
-    fireEvent.click(navigation);
-    expect(screen.queryByRole("listbox", { name: "Start bar" })).toBeNull();
-    expect(navigation.textContent).toContain("B / Bar 3");
+    expect(transport.getByRole("group", { name: "Selected start" }).textContent).toContain("B / Bar 3");
     expect(audio.create).not.toHaveBeenCalled();
+    fireEvent.click(transport.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
+    expect(tempo.closest("fieldset")?.disabled).toBe(true);
   });
 
   it("uses the score as its main surface and follows the click clock without restarting audio", async () => {
@@ -162,8 +162,10 @@ describe("standalone click page", () => {
     expect(Number(playhead.dataset.beat)).toBeCloseTo(0.5);
     expect(audio.start).toHaveBeenCalledOnce();
     expect(audio.load).toHaveBeenCalledOnce();
+    audio.stop.mockResolvedValueOnce(4.25);
     fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
-    await waitFor(() => expect(playhead.dataset.measure).toBe("0"));
+    await waitFor(() => expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Ready"));
+    expect(playhead.dataset.measure).toBe("1");
     expect(playhead.dataset.beat).toBe("0");
   });
 
@@ -305,7 +307,7 @@ describe("standalone click page", () => {
     expect(screen.getByText("50%")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Reset to 100%" })).toBeNull();
     fireEvent.change(slider, { target: { value: "100" } });
-    expect(within(screen.getByRole("region", { name: "Click player" })).getByText("100%")).toBeTruthy();
+    expect(screen.getByRole("status", { name: "Session tempo percentage" }).textContent).toBe("100%");
 
     fireEvent.change(slider, { target: { value: "50" } });
     fireEvent.click(play);
@@ -359,10 +361,21 @@ describe("standalone click page", () => {
     render(<ClickPage />);
     await openFile(JSON.stringify(repeated));
     fireEvent.click(screen.getByRole("option", { name: "Bar 1, visit 2 of 2" }));
+    fireEvent.change(screen.getByRole("slider", { name: "Session tempo %" }), { target: { value: "50" } });
     expect(screen.getByRole("option", { name: "Bar 1, visit 2 of 2" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
-    await waitFor(() => expect(audio.load).toHaveBeenCalledWith(expect.any(Array), 6));
+    await waitFor(() => expect(audio.load).toHaveBeenCalledWith(expect.any(Array), 12));
     expect(screen.getByRole("option", { name: "Bar 1, visit 2 of 2" }).getAttribute("aria-selected")).toBe("true");
+    audio.stop.mockResolvedValueOnce(8.5);
+    fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Start", exact: true })).toBeTruthy());
+    expect(screen.getByRole("option", { name: "Bar 2, visit 2 of 2" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(audio.load).toHaveBeenLastCalledWith(expect.any(Array), 8));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Stop", exact: true })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Start", exact: true })).toBeTruthy());
+    expect(screen.getByRole("option", { name: "Bar 2, visit 2 of 2" }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("scrolls through rehearsals independently and synchronizes the selected bar", async () => {
@@ -426,7 +439,7 @@ describe("standalone click page", () => {
     expect(screen.getByText("4 clicks free")).toBeTruthy();
   });
 
-  it("follows the current bar during playback and restores the selected start on Stop", async () => {
+  it("uses the acknowledged Stop position even ahead of the UI clock and restarts that bar with a countoff", async () => {
     render(<ClickPage />);
     await openFile();
     fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
@@ -439,18 +452,25 @@ describe("standalone click page", () => {
     });
     await waitFor(() => expect(screen.getByText("4 clicks free")).toBeTruthy());
     expect(screen.getByRole("option", { name: "Bar 1" }).getAttribute("aria-selected")).toBe("true");
-    act(() => {
-      audio.context.currentTime = 5.1;
-    });
-    await waitFor(() =>
-      expect(screen.getByRole("option", { name: "Bar 2" }).getAttribute("aria-selected")).toBe("true"),
-    );
-    expect(screen.getByRole("option", { name: "Bar 2" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("option", { name: "Bar 1" }).hasAttribute("disabled")).toBe(true);
 
+    audio.stop.mockResolvedValueOnce(4.1);
     fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
     await waitFor(() => expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Ready"));
-    expect(screen.getByRole("option", { name: "Bar 1" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("option", { name: "Bar 2" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("playhead").dataset.measure).toBe("1");
+    expect(screen.getByTestId("playhead").dataset.beat).toBe("0");
+    fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() =>
+      expect(audio.load).toHaveBeenLastCalledWith(
+        expect.arrayContaining([
+          { time: 0, level: "accent" },
+          { time: 2, level: "accent" },
+        ]),
+        4,
+      ),
+    );
+    await waitFor(() => expect(screen.getByText("Counting off 1 of 4")).toBeTruthy());
   });
 
   it("reports worklet errors and permits an explicit fresh retry", async () => {

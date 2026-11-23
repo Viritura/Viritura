@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ClickEngine } from "@viritura/audio/click";
 import { buildClickSessionProgram, type ClickSessionProgram } from "@viritura/playback/click";
 import { readClickDocument, type ClickDocument } from "./clickDocument";
+import { clickBarAtTime } from "./barNavigation";
 
 type Phase = "empty" | "ready" | "playing" | "complete";
 
@@ -144,7 +145,11 @@ export function useClickPlayer() {
 
   function stop(): Promise<void> {
     return run(async () => {
-      await engineRef.current?.stop();
+      const engine = engineRef.current;
+      if (!engine || !document || !program) throw new Error("No click playback to stop");
+      const stoppedElapsed = await engine.stop();
+      if (!mounted.current || engineRef.current !== engine) return;
+      setStartBar(clickBarAtTime(document.timing, program, stoppedElapsed, tempoPercent));
       setElapsed(0);
       setPhase("ready");
     });

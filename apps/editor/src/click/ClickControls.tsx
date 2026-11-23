@@ -1,6 +1,5 @@
-import { useId, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { Button, ButtonGroup, Slider } from "@viritura/ui";
+import { useMemo, useRef } from "react";
+import { Button, ButtonGroup } from "@viritura/ui";
 import { buildClickSessionProgram } from "@viritura/playback/click";
 import { BarDial } from "./BarDial";
 import { RehearsalDial } from "./RehearsalDial";
@@ -15,7 +14,6 @@ interface ClickControlsProps {
   readonly countoffBeat: number | undefined;
   readonly dialSettling: boolean;
   readonly onSettlingChange: (settling: boolean) => void;
-  readonly statusId: string;
 }
 
 export function ClickControls({
@@ -25,11 +23,7 @@ export function ClickControls({
   countoffBeat,
   dialSettling,
   onSettlingChange,
-  statusId,
 }: ClickControlsProps) {
-  const tempoId = useId();
-  const navigationId = useId();
-  const [navigationOpen, setNavigationOpen] = useState(false);
   const settling = useRef({ bars: false, rehearsals: false });
   const preview = useMemo(
     () =>
@@ -53,44 +47,29 @@ export function ClickControls({
 
   return (
     <>
-      {navigationOpen && (
-        <section id={navigationId} className={styles.navigation} aria-label="Bar navigation">
-          <RehearsalDial
-            bars={player.document.bars}
-            index={barIndex}
-            enabled={!active && !player.busy}
-            onSelect={player.setStartBar}
-            onSettlingChange={(value) => reportSettling("rehearsals", value)}
-          />
-          <BarDial
-            bars={player.document.bars}
-            index={barIndex}
-            enabled={!active && !player.busy}
-            onSelect={player.setStartBar}
-            onSettlingChange={(value) => reportSettling("bars", value)}
-          />
-        </section>
-      )}
+      <section className={styles.navigation} aria-label="Bar navigation">
+        <RehearsalDial
+          bars={player.document.bars}
+          index={barIndex}
+          enabled={!active && !player.busy}
+          onSelect={player.setStartBar}
+          onSettlingChange={(value) => reportSettling("rehearsals", value)}
+        />
+        <BarDial
+          bars={player.document.bars}
+          index={barIndex}
+          enabled={!active && !player.busy}
+          onSelect={player.setStartBar}
+          onSettlingChange={(value) => reportSettling("bars", value)}
+        />
+      </section>
       <div className={styles.controlStrip}>
         <div className={styles.settings}>
           <div className={styles.startDetails} role="group" aria-label="Selected start" aria-live="polite">
-            <Button
-              variant="ghost"
-              size="sm"
-              ariaLabel="Bar navigation"
-              aria-expanded={navigationOpen}
-              aria-controls={navigationId}
-              disabled={dialSettling}
-              onClick={() => setNavigationOpen((value) => !value)}
-            >
-              {navigationOpen ? (
-                <ChevronDown size={16} aria-hidden="true" />
-              ) : (
-                <ChevronUp size={16} aria-hidden="true" />
-              )}
+            <span>
               {selected.rehearsalContext ? `${selected.rehearsalContext} / ` : ""}
               {describeClickBar(selected)}
-            </Button>
+            </span>
             <span>
               {meter.count}/{meter.unit}
             </span>
@@ -116,20 +95,6 @@ export function ClickControls({
               </span>
             )}
           </div>
-          <fieldset className={styles.tempo} disabled={active || player.busy}>
-            <label htmlFor={tempoId}>Session tempo %</label>
-            <Slider
-              id={tempoId}
-              min={0}
-              max={100}
-              step={1}
-              value={player.tempoPercent}
-              onChange={player.setTempoPercent}
-              ariaDescribedBy={statusId}
-            />
-            <output htmlFor={tempoId}>{player.tempoPercent}%</output>
-            {player.tempoPercent === 0 && <span>Set tempo above 0% to start</span>}
-          </fieldset>
         </div>
         <div className={styles.transport}>
           <Button

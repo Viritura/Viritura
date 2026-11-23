@@ -84,6 +84,13 @@ export function clickBarAtTime(
   return Math.max(start, low - 1);
 }
 
+export function clickStartPosition(timing: PlaybackTiming, index: number): { measureIndex: number; beat: number } {
+  return {
+    measureIndex: timing.expandedMeasureToOriginal[index]!,
+    beat: timing.playedSpans?.[index]?.startBeat ?? 0,
+  };
+}
+
 /** Project the audio clock onto written notation, including partial jump destinations. */
 export function clickScorePosition(
   timing: PlaybackTiming,
@@ -91,6 +98,7 @@ export function clickScorePosition(
   elapsed: number,
   tempoPercent: number,
 ): { measureIndex: number; beat: number } {
+  if (elapsed < program.countoffSeconds) return clickStartPosition(timing, program.startTimelineMeasure);
   const index = clickBarAtTime(timing, program, elapsed, tempoPercent);
   const sourceTime =
     timing.measureStartTimes[program.startTimelineMeasure]! +
