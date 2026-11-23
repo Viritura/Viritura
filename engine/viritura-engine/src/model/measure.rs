@@ -341,6 +341,14 @@ pub struct ResolvedMeasure {
     pub prev_has_repeat_end: bool,
     pub active_time: TimeSignature,
     pub active_key: KeySignature,
+    /// Previous-playthrough key signature restored at a repeat start.
+    pub(crate) repeat_key_restatement_from: Option<KeySignature>,
+    /// Meter restored at a repeat start after a change within the repeated span.
+    pub(crate) repeat_time_restatement: Option<TimeSignature>,
+    /// A carried clef is engraved again at a repeat start.
+    pub(crate) repeat_clef_restatement: bool,
+    /// Signature reminders inherited from a first ending are enclosed in brackets.
+    pub(crate) repeat_ending_brackets: bool,
     /// The display key in effect in the measure immediately before this one.
     /// Used to draw cancellation naturals when a key change reduces or removes
     /// accidentals (e.g. a change to an open/atonal key must show the previous
@@ -451,6 +459,9 @@ impl ResolvedMeasure {
     /// while this staff follows global. A staff carrying an inherited local
     /// meter does not reprint merely because the global meter changed.
     pub fn displayed_time_signature(&self) -> Option<&TimeSignature> {
+        if let Some(time) = &self.repeat_time_restatement {
+            return Some(time);
+        }
         let staff_meter_authored_here = self
             .part
             .staff_meters

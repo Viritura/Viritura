@@ -14,8 +14,13 @@ const score = JSON.stringify({
     measures: [
       { time: { count: 4, unit: 4 } },
       { time: { count: 3, unit: 4 }, repeatStart: {} },
-      { repeatEnd: {} },
-      {},
+      {
+        key: { fifths: 1 },
+        time: { count: 4, unit: 4 },
+        ending: { duration: 1, numbers: [1] },
+        repeatEnd: {},
+      },
+      { ending: { duration: 1, numbers: [2] } },
     ],
   },
   parts: [
@@ -31,6 +36,7 @@ const score = JSON.stringify({
           ],
         },
         {
+          clefs: [{ clef: { sign: "F", staffPosition: 2 } }],
           sequences: [
             {
               content: [
@@ -40,7 +46,6 @@ const score = JSON.stringify({
           ],
         },
         {
-          clefs: [{ clef: { sign: "F", staffPosition: 2 } }],
           sequences: [
             { content: [{ duration: { base: "half", dots: 1 }, notes: [{ pitch: { step: "C", octave: 3 } }] }] },
           ],

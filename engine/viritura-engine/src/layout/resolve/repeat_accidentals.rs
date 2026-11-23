@@ -11,23 +11,7 @@ pub(crate) fn apply_repeat_courtesy_accidentals(
     resolved: &mut [ResolvedMeasure],
     globals: &[GlobalMeasure],
 ) {
-    let mut depth = 0usize;
-    let mut nested = false;
-    for measure in globals {
-        if measure.repeat_start.is_some() {
-            depth += 1;
-            nested |= depth > 1;
-        }
-        if measure.repeat_end.is_some() {
-            depth = depth.saturating_sub(1);
-        }
-    }
-    let playback_order = if nested {
-        Err("nested repeats are not supported by repeat expansion".to_string())
-    } else {
-        expand_playback_order(globals)
-    };
-    let order = match playback_order {
+    let order = match expand_playback_order(globals) {
         Ok(order) => order,
         Err(error) => {
             eprintln!("repeat accidental navigation could not be resolved: {error}");

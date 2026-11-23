@@ -251,6 +251,10 @@ pub(super) fn resolve_staves_with_condensing_labels(
             scope_on,
         );
         if repeat_navigation {
+            crate::layout::resolve::apply_repeat_signature_restatements(
+                &mut resolved,
+                &score.global.measures,
+            );
             crate::layout::resolve::apply_repeat_courtesy_accidentals(
                 &mut resolved,
                 &score.global.measures,
@@ -675,6 +679,10 @@ pub(super) fn resolve_one_measure_phase1(
         prev_has_repeat_end,
         active_time: state.active_time.clone(),
         active_key: display_key.clone(),
+        repeat_key_restatement_from: None,
+        repeat_time_restatement: None,
+        repeat_clef_restatement: false,
+        repeat_ending_brackets: false,
         prev_key: state.prev_display_key.clone(),
         tie_continuation_ids: Vec::new(),
         repeat_glissandos: flat_staff

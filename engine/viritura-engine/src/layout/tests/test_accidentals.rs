@@ -1003,6 +1003,46 @@ fn test_repeat_courtesies_follow_performed_predecessors() {
 }
 
 #[test]
+fn nested_repeat_return_adds_a_courtesy_accidental() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}, "repeatStart": {}},
+            {},
+            {"repeatStart": {}},
+            {"repeatEnd": {}},
+            {"repeatEnd": {}}
+        ]},
+        "parts": [{"measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "F", "octave": 4, "alter": 1}}]}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "F", "octave": 4}}]}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+        ]}]
+    }"#,
+    )
+    .unwrap();
+    let resolved = resolve_measures(&score, 0);
+    let SequenceContent::Event(event) = &resolved[2].part.sequences[0].content[0] else {
+        panic!("expected the repeated sharp note");
+    };
+    assert_eq!(
+        event.notes()[0]
+            .accidental_display
+            .as_ref()
+            .and_then(|display| display.force),
+        Some(true),
+        "the inner repeat return follows the natural in its ending measure"
+    );
+}
+
+#[test]
 fn test_repeat_courtesy_updates_before_an_edited_ending() {
     let mut source = serde_json::json!({
         "mnx": {"version": 1},

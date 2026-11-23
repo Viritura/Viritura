@@ -153,7 +153,12 @@ pub(crate) fn defers_repeat_start(rm: &ResolvedMeasure, is_system_start: bool) -
         && (rm.index == 0
             || is_system_start
             || rm.key_signature_changed()
-            || rm.global.time.is_some())
+            || rm.global.time.is_some()
+            || rm
+                .part
+                .clefs
+                .as_ref()
+                .is_some_and(|clefs| clefs.iter().any(|clef| clef.position.is_none())))
 }
 
 /// Barline drawn at a mid-system measure's left boundary. A deferred repeat

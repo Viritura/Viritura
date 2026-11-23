@@ -154,6 +154,9 @@ pub(crate) fn prefix_layout(
     if defer_repeat_start {
         prefix_width += 1.5 * sp;
     }
+    if rm.repeat_ending_brackets {
+        prefix_width += 2.0 * crate::layout::render_measure::REPEAT_SIGNATURE_BRACKET_SP * sp;
+    }
 
     let start_clef = rm.part.clefs.as_ref().and_then(|clefs| {
         clefs.iter().find(|pc| {
@@ -204,11 +207,16 @@ pub(crate) fn prefix_layout(
         PrefixContext::Alignment => is_first || is_system_start,
         PrefixContext::MeasureLayout => is_first,
     };
+    let is_key_change = rm.key_signature_changed() || rm.repeat_key_restatement_from.is_some();
     if crate::layout::render_signatures::staff_has_key_signature(rm)
-        && (rm.key_signature_changed() || (restates_key && rm.active_key.accidental_count() != 0))
+        && (is_key_change || (restates_key && rm.active_key.accidental_count() != 0))
     {
-        let cancel_count = if rm.key_signature_changed() {
-            rm.prev_key.cancellation_count(&rm.active_key)
+        let cancel_from = rm
+            .repeat_key_restatement_from
+            .as_ref()
+            .unwrap_or(&rm.prev_key);
+        let cancel_count = if is_key_change {
+            cancel_from.cancellation_count(&rm.active_key)
         } else {
             0
         };
@@ -219,12 +227,12 @@ pub(crate) fn prefix_layout(
             .and_then(|clefs| clefs.first())
             .map(|pc| &pc.clef.sign)
             .unwrap_or(&ClefSign::G);
-        let cancel_prev = (cancel_count > 0).then_some(&rm.prev_key);
+        let cancel_prev = (cancel_count > 0).then_some(cancel_from);
         let key_width =
             key_signature_layout(0.0, 0.0, sp, &rm.active_key, clef_sign, cancel_prev).advance;
         if key_width > 0.0 {
             prefix_width += key_width;
-            if rm.global.time.is_some() {
+            if rm.global.time.is_some() || rm.repeat_time_restatement.is_some() {
                 prefix_width += KEY_TO_TIME_GAP_SP * sp;
             }
         }

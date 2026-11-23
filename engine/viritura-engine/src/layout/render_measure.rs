@@ -25,11 +25,13 @@ mod clef_changes;
 mod global_caesuras;
 mod measure_repeats;
 mod multimeasure_rests;
+mod repeat_signatures;
 mod shared_lanes;
 
 pub(crate) use clef_changes::*;
 pub(crate) use measure_repeats::*;
 pub(crate) use multimeasure_rests::*;
+pub(crate) use repeat_signatures::*;
 pub(crate) use shared_lanes::*;
 
 /// Middle staff line position in half-spaces from the top line.
@@ -215,8 +217,9 @@ fn render_measure_prefix(
     // right by the same leading gap on EVERY staff and stays vertically aligned
     // even when only one part actually changes clef. The leading-gap space is
     // reserved uniformly by `compute_prefix_width`.
-    let is_clef_change_measure =
-        !is_first && !ml.is_first_on_system && clef_change_measures.contains(&rm.index);
+    let is_clef_change_measure = !is_first
+        && !ml.is_first_on_system
+        && (clef_change_measures.contains(&rm.index) || rm.repeat_clef_restatement);
     // Footprint of the 2/3-size change clef drawn in the leading gap.
     let leading_clef_gap = prefix.leading_clef_gap;
 
@@ -279,6 +282,11 @@ fn render_measure_prefix(
         }
     }
 
+    if rm.repeat_ending_brackets {
+        draw_repeat_signature_bracket(dl, x_cursor, staff_y, sp, config, rm.index, true);
+        x_cursor += REPEAT_SIGNATURE_BRACKET_SP * sp;
+    }
+
     // Condensing change marker: small dashed line above the staff at the barline
     // where a condensing mode transition occurs (e.g., unison → divisi).
     // Ref: docs/plans/condensing-and-doubling.md §3
@@ -320,9 +328,13 @@ fn render_measure_prefix(
     // Key signature — render on key changes, at the start of the score, and
     // at the start of each system (continuation key signatures).
     // Ref:— key signatures repeat at every system start.
-    let is_key_change = rm.key_signature_changed();
+    let is_key_change = rm.key_signature_changed() || rm.repeat_key_restatement_from.is_some();
+    let cancel_from = rm
+        .repeat_key_restatement_from
+        .as_ref()
+        .unwrap_or(&rm.prev_key);
     let cancel_count = if is_key_change {
-        rm.prev_key.cancellation_count(&rm.active_key)
+        cancel_from.cancellation_count(&rm.active_key)
     } else {
         0
     };
@@ -336,7 +348,7 @@ fn render_measure_prefix(
             .map(|pc| &pc.clef.sign)
             .unwrap_or(&ClefSign::G);
         let cancel_prev = if cancel_count > 0 {
-            Some(&rm.prev_key)
+            Some(cancel_from)
         } else {
             None
         };
@@ -390,36 +402,20 @@ fn render_measure_prefix(
         x_cursor += time_sig_reserve;
     }
 
+    if rm.repeat_ending_brackets {
+        draw_repeat_signature_bracket(dl, x_cursor, staff_y, sp, config, rm.index, false);
+        x_cursor += REPEAT_SIGNATURE_BRACKET_SP * sp;
+    }
+
     // A deferred repeat-start barline sits immediately after the clef/key/time
     // prefix — its reserved 1.5sp slot ends one trailing pad (1.2sp) before the
     // first note. Anchoring to the aligned prefix keeps it vertical across
     // staves whose key signatures differ in width.
     if defer_repeat_start {
-        let bar_x = (x_cursor + 0.5 * sp).max(deferred_repeat_start_x(ml, sp));
-        let cmd_idx = dl.commands.len();
-        render_barline(
-            dl,
-            bar_x,
-            staff_y,
-            staff_height,
-            sp,
-            config,
-            &BarlineKind::RepeatStart,
-        );
-        for ci in cmd_idx..dl.commands.len() {
-            dl.tag_command(ci, element_id::barline(rm.index));
-        }
+        render_deferred_repeat_start(dl, ml, x_cursor, staff_y, sp, config);
     }
 
     x_cursor
-}
-
-/// Aligned x of a deferred start-repeat barline: the end of the shared prefix
-/// minus the onset gap and the 1.5sp repeat slot, inset by its 0.5sp approach.
-pub(crate) fn deferred_repeat_start_x(ml: &MeasureLayout, sp: f64) -> f64 {
-    ml.x + ml.prefix_width
-        - ml.first_onset_padding
-        - (super::measure::PREFIX_TO_ONSET_GAP_SP + 1.0) * sp
 }
 
 /// Collect every notehead in a measure as an accidental-clearance obstacle

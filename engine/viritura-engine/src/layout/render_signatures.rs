@@ -313,9 +313,13 @@ pub(crate) fn key_signature_is_rendered(ml: &MeasureLayout) -> bool {
     if !staff_has_key_signature(rm) {
         return false;
     }
-    let is_key_change = rm.key_signature_changed();
+    let is_key_change = rm.key_signature_changed() || rm.repeat_key_restatement_from.is_some();
+    let cancel_from = rm
+        .repeat_key_restatement_from
+        .as_ref()
+        .unwrap_or(&rm.prev_key);
     let cancel_count = if is_key_change {
-        rm.prev_key.cancellation_count(&rm.active_key)
+        cancel_from.cancellation_count(&rm.active_key)
     } else {
         0
     };
@@ -357,8 +361,20 @@ pub(crate) fn key_signature_prefix_x(
         } else {
             leading_barline_advance(rm, ml.is_first_on_system, config, sp)
         };
+        if rm.prev_has_repeat_end
+            && rm.part.clefs.as_ref().is_some_and(|clefs| {
+                clefs
+                    .iter()
+                    .any(|clef| clef.position.is_none() && !clef.clef.is_hidden())
+            })
+        {
+            x += super::render_measure::CLEF_CHANGE_LEADING_GAP_SP * sp;
+        }
     }
 
+    if rm.repeat_ending_brackets {
+        x += super::render_measure::REPEAT_SIGNATURE_BRACKET_SP * sp;
+    }
     if at_start {
         if let Some(clef) = prefix_clef(ml, is_mmr) {
             x += clef_prefix_advance_sp(clef) * sp;

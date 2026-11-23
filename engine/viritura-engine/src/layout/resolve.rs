@@ -4,7 +4,9 @@ use super::types::*;
 use crate::model::*;
 
 mod repeat_accidentals;
+mod repeat_signatures;
 pub(crate) use repeat_accidentals::{apply_repeat_courtesy_accidentals, has_repeat_navigation};
+pub(crate) use repeat_signatures::apply_repeat_signature_restatements;
 
 /// Whether `index` lies inside a measure-repeat span in this part. MNX encodes
 /// the sign only on the first covered bar, so later covered bars must derive
@@ -431,6 +433,10 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             prev_has_repeat_end,
             active_time: active_time.clone(),
             active_key: display_key.clone(),
+            repeat_key_restatement_from: None,
+            repeat_time_restatement: None,
+            repeat_clef_restatement: false,
+            repeat_ending_brackets: false,
             prev_key: prev_display_key.clone(),
             system_end: Default::default(),
             tie_continuation_ids: incoming_ties,
@@ -447,6 +453,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         prev_display_key = display_key;
     }
     if repeat_navigation {
+        apply_repeat_signature_restatements(&mut result, globals);
         apply_repeat_courtesy_accidentals(&mut result, globals);
     }
     result

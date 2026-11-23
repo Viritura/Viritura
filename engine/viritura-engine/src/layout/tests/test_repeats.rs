@@ -2253,6 +2253,145 @@ fn test_time_change_precedes_mid_system_repeat_start() {
 }
 
 #[test]
+fn repeat_return_restores_key_meter_and_clef_before_the_repeat_mark() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}, "key": {"fifths": 2}},
+            {"id": "m1", "repeatStart": {}},
+            {"id": "m2", "time": {"count": 3, "unit": 4}, "key": {"fifths": 0}, "repeatEnd": {}},
+            {"id": "m3"}
+        ]},
+        "parts": [{"id": "p1", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"clefs": [{"clef": {"sign": "F", "staffPosition": 2}}], "sequences": [{"content": [
+                {"duration": {"base": "half", "dots": 1}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [
+            {"type": "staff", "sources": [{"part": "p1"}]}
+        ]}],
+        "scores": [{"name": "Score", "layout": "L", "pages": [
+            {"systems": [{"measure": "m0"}, {"measure": "m1"}]}
+        ]}]
+    }"#,
+    )
+    .unwrap();
+    let resolved = resolve_measures(&score, 0);
+    assert_eq!(
+        resolved[1].repeat_key_restatement_from,
+        Some(resolved[2].active_key.clone())
+    );
+    assert_eq!(
+        resolved[1].displayed_time_signature(),
+        Some(&resolved[1].active_time)
+    );
+    assert!(
+        resolved[1]
+            .part
+            .clefs
+            .as_ref()
+            .unwrap()
+            .iter()
+            .any(|clef| clef.position.is_none() && clef.clef.sign == crate::model::ClefSign::G),
+        "the carried clef must be restated at the repeat start"
+    );
+
+    for display in [
+        layout_score(&score, 0, &LayoutConfig::default()),
+        layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+    ] {
+        let tagged_bounds = |fragment: &str| {
+            display
+                .commands
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| {
+                    display.element_ids[*index]
+                        .as_deref()
+                        .is_some_and(|id| id.contains(fragment))
+                })
+                .filter_map(|(_, command)| command.bbox())
+                .collect::<Vec<_>>()
+        };
+        let key_right = tagged_bounds("m1/key")
+            .iter()
+            .map(|bbox| bbox.x + bbox.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let clef_right = tagged_bounds("/m1/clef")
+            .iter()
+            .map(|bbox| bbox.x + bbox.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let repeat_left = tagged_bounds("m1/barline")
+            .iter()
+            .map(|bbox| bbox.x)
+            .fold(f64::INFINITY, f64::min);
+        assert!(key_right.is_finite(), "the restored key must be rendered");
+        assert!(clef_right.is_finite(), "the restored clef must be rendered");
+        assert!(
+            key_right < repeat_left && clef_right < repeat_left,
+            "restored signatures must precede the repeat mark"
+        );
+    }
+}
+
+#[test]
+fn second_ending_brackets_signatures_continued_from_the_first_ending() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}, "repeatStart": {}},
+            {"id": "m1", "key": {"fifths": 1}, "time": {"count": 3, "unit": 4},
+                "ending": {"duration": 1, "numbers": [1]}, "repeatEnd": {}},
+            {"id": "m2", "ending": {"duration": 1, "numbers": [2]}},
+            {"id": "m3"}
+        ]},
+        "parts": [{"id": "p1", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]},
+            {"clefs": [{"clef": {"sign": "F", "staffPosition": 2}}], "sequences": [{"content": [
+                {"duration": {"base": "half", "dots": 1}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "half", "dots": 1}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [
+            {"type": "staff", "sources": [{"part": "p1"}]}
+        ]}],
+        "scores": [{"name": "Score", "layout": "L"}]
+    }"#,
+    )
+    .unwrap();
+    let resolved = resolve_measures(&score, 0);
+    assert!(resolved[2].repeat_ending_brackets);
+    assert!(resolved[2].repeat_key_restatement_from.is_some());
+    assert!(resolved[2].repeat_time_restatement.is_some());
+    assert!(resolved[2].repeat_clef_restatement);
+
+    let display = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+    let reminder_lines = display
+        .commands
+        .iter()
+        .enumerate()
+        .filter(|(index, command)| {
+            display.element_ids[*index].as_deref() == Some("m2/barline")
+                && matches!(command, RenderCommand::DrawLine { .. })
+        })
+        .count();
+    assert_eq!(
+        reminder_lines, 6,
+        "bracketed key, meter, and clef reminders need a left and right bracket"
+    );
+}
+
+#[test]
 fn test_clef_change_after_end_repeat_barline() {
     let score = parse_mnx(
         r#"{
