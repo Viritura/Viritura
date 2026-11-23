@@ -213,7 +213,8 @@
 }
 
 .floatingTransport[data-compact="true"] {
-  width: min(240px, calc(100% - 24px));
+  width: max-content;
+  max-width: calc(100% - 24px);
 }
 
 .compactControls {
@@ -223,8 +224,8 @@
 }
 
 .currentBar {
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: 1ch;
   font-size: 2rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;

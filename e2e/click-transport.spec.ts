@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 
@@ -55,20 +56,27 @@ test("dragging a navigation dial horizontally selects a later bar", async ({ pag
 });
 
 for (const viewport of [
-  { width: 1400, height: 900 },
-  { width: 390, height: 844 },
+  { width: 1400, height: 900, barNumber: 3 },
+  { width: 390, height: 844, barNumber: 137 },
 ]) {
   test(`playback shrinks the transport and Stop restores it at ${viewport.width}px`, async ({ page }) => {
-    await page.setViewportSize(viewport);
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto("/click");
-    await page
-      .getByLabel("MNX file")
-      .setInputFiles(
-        resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
-      );
+    const fixture = await readFile(
+      resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+      "utf8",
+    );
+    const score = JSON.parse(fixture) as { global: { measures: { number?: number }[] } };
+    score.global.measures[2]!.number = viewport.barNumber;
+    await page.getByLabel("MNX file").setInputFiles({
+      name: "rehearsal-marks.mnx",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(score)),
+    });
 
     const panel = page.getByRole("region", { name: "Click player" });
-    await panel.getByRole("option", { name: "Bar 3, rehearsal B" }).click();
+    const barName = `Bar ${viewport.barNumber}, rehearsal B`;
+    await panel.getByRole("option", { name: barName }).click();
     await panel.getByRole("radio", { name: "2 bars" }).click();
     const expanded = await panel.boundingBox();
     if (!expanded) throw new Error("Click transport is not visible");
@@ -78,7 +86,7 @@ for (const viewport of [
     const stop = panel.getByRole("button", { name: "Stop", exact: true });
     const bar = panel.getByRole("status", { name: "Current bar" });
     await expect(stop).toBeEnabled();
-    await expect(bar).toHaveText("3");
+    await expect(bar).toHaveText(String(viewport.barNumber));
     await expect(panel.getByRole("listbox")).toHaveCount(0);
     await expect(panel.getByRole("radiogroup")).toHaveCount(0);
     await expect(panel.getByRole("group", { name: "Selected start" })).toHaveCount(0);
@@ -89,6 +97,12 @@ for (const viewport of [
 
     const barBox = await bar.boundingBox();
     if (!barBox) throw new Error("Current bar is not visible");
+    const textWidth = await bar.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return range.getBoundingClientRect().width;
+    });
+    expect(barBox.width).toBeLessThanOrEqual(textWidth + 1);
     await page.mouse.move(barBox.x + barBox.width / 2, barBox.y + barBox.height / 2);
     await page.mouse.down();
     await page.mouse.move(viewport.width - 10, viewport.height - 10, { steps: 5 });
@@ -100,7 +114,7 @@ for (const viewport of [
     await expect(panel.getByRole("listbox", { name: "Rehearsal" })).toBeVisible();
     await expect(panel.getByRole("listbox", { name: "Start bar" })).toBeVisible();
     await expect(panel.getByRole("radio", { name: "2 bars" })).toBeChecked();
-    await expect(panel.getByRole("option", { name: "Bar 3, rehearsal B" })).toHaveAttribute("aria-selected", "true");
+    await expect(panel.getByRole("option", { name: barName })).toHaveAttribute("aria-selected", "true");
     await expect(bar).toHaveCount(0);
     await expect
       .poll(async () => {
@@ -118,3 +132,42 @@ for (const viewport of [
       .toBe(true);
   });
 }
+
+test.describe("compact transport touch movement", () => {
+  test.use({ hasTouch: true });
+
+  test("the narrower bar display still supports vertical dragging", async ({ page, context }) => {
+    await page.goto("/click");
+    await page
+      .getByLabel("MNX file")
+      .setInputFiles(
+        resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+      );
+    const panel = page.getByRole("region", { name: "Click player" });
+    await panel.getByRole("button", { name: "Start", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    const handle = panel.getByRole("status", { name: "Current bar" });
+    await expect(handle).toBeVisible();
+    const before = await panel.boundingBox();
+    const area = await handle.boundingBox();
+    if (!before || !area) throw new Error("Transport drag surface is not visible");
+    const x = area.x + area.width / 2;
+    const y = area.y + area.height / 2;
+    const touch = await context.newCDPSession(page);
+    try {
+      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+      for (let step = 1; step <= 6; step++) {
+        await touch.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ x, y: y - step * 20 }],
+        });
+        await page.waitForTimeout(20);
+      }
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await expect.poll(async () => (await panel.boundingBox())?.y ?? Infinity).toBeLessThan(before.y - 100);
+      await panel.getByRole("button", { name: "Stop", exact: true }).click();
+    } finally {
+      await touch.detach();
+    }
+  });
+});
