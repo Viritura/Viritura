@@ -29,6 +29,21 @@ export { DEFAULT_ENGINE_OPTIONS } from "./types";
 export { Metronome } from "./Metronome";
 export type { MetronomeOptions, MetronomeBeat } from "./Metronome";
 
+// Click-only recording engine (dedicated AudioContext + click worklet)
+export {
+  ClickEngine,
+  ClickEngineError,
+  DEFAULT_CLICK_START_LEAD_SECONDS,
+  compileClickProgram,
+  type ClickEngineErrorCode,
+  type ClickEngineEvent,
+  type ClickEngineOptions,
+  type ClickLevel,
+  type ClickProgramEvent,
+  type ClickStartReceipt,
+  type CompiledClickProgram,
+} from "./clickEngine";
+
 // SF2 SoundFont sampler (via spessasynth_lib)
 export {
   Sf2Synth,

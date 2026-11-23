@@ -29,6 +29,7 @@ const FALLBACK_ACTIONS: PlaybackActions = {
   play: noopAsync,
   pause: noop,
   stop: noop,
+  releaseAudio: noopAsync,
   seek: noop,
   setSelectionPartIds: noop,
   setSelectionStaffCount: noop,

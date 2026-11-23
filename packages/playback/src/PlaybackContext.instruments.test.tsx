@@ -317,3 +317,44 @@ describe("published instrument changes", () => {
     vi.mocked(console.error).mockClear();
   });
 });
+
+describe("click-only release", () => {
+  it("tears down every score instrument and suspends the score graph, then rebuilds on play", async () => {
+    await publish(score());
+    act(() => {
+      actions().setSelectionPartIds(null);
+      if (getPlaybackSnapshot().state.countInEnabled) actions().toggleCountIn();
+      if (getPlaybackSnapshot().state.metronomeEnabled) actions().toggleMetronome();
+    });
+    await act(async () => {
+      await actions().play();
+    });
+    const built = [...synths];
+    expect(built.length).toBeGreaterThan(0);
+    const device = built[0]!.context as unknown as ChordTestDevice;
+
+    await act(async () => {
+      await actions().releaseAudio();
+    });
+
+    expect(getPlaybackSnapshot().state.status).toBe("stopped");
+    for (const synth of built) expect(synth.destroy).toHaveBeenCalledOnce();
+    expect(device.suspend).toHaveBeenCalledOnce();
+    expect(device.state).toBe("suspended");
+
+    await act(async () => {
+      await actions().play();
+    });
+    expect(synths.length).toBeGreaterThan(built.length);
+    expect(device.state).toBe("running");
+  });
+
+  it("releases the native host", async () => {
+    const host = nativeTransport();
+    await publish(score(), host);
+    await act(async () => {
+      await actions().releaseAudio();
+    });
+    expect(host.release).toHaveBeenCalledOnce();
+  });
+});

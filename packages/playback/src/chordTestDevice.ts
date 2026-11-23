@@ -49,7 +49,12 @@ export class ChordTestDevice {
   createConvolver = (): ReturnType<typeof audioNode> => audioNode(this);
   createOscillator = (): ReturnType<typeof audioNode> => audioNode(this);
   decodeAudioData = async () => ({ duration: 1, sampleRate: 48000 });
-  resume = async () => {};
+  resume = async () => {
+    this.state = "running";
+  };
+  suspend = vi.fn(async () => {
+    this.state = "suspended";
+  });
   close = vi.fn(async () => {
     this.state = "closed";
   });

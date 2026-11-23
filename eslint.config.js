@@ -28,6 +28,7 @@ export default tseslint.config(
       "**/public/score-engine/**",
       "**/public/denigma/**",
       "**/public/sounds/viritura-sf2-processor.js",
+      "**/public/sounds/viritura-click-processor.js",
       "engine/viritura-wasm/pkg-browser/**",
       "packages/musx-import/assets/**",
       "engine/target/**",
