@@ -3,6 +3,86 @@ import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 
 for (const mode of ["Page", "Spread", "Spread (H)"]) {
+  test(`${mode} previews the next flow during playback and restores it on Stop`, async ({ page }) => {
+    const single = mode === "Page";
+    const measures = Array.from({ length: single ? 16 : 20 }, (_, index) => ({
+      id: `m${index}`,
+      number: index + 1,
+      ...(index === 0 ? { time: { count: 1, unit: 4 }, tempos: [{ bpm: 60, value: { base: "quarter" } }] } : {}),
+    }));
+    const mnx = {
+      mnx: { version: 7 },
+      global: { measures },
+      layouts: [{ id: "reader-layout", content: [{ type: "staff", sources: [{ part: "p1" }] }] }],
+      parts: [
+        {
+          id: "p1",
+          measures: measures.map(() => ({
+            sequences: [{ content: [{ duration: { base: "quarter" }, notes: [{ pitch: { step: "C", octave: 4 } }] }] }],
+          })),
+        },
+      ],
+      scores: [
+        {
+          name: "Reader turns",
+          layout: "reader-layout",
+          _x: {
+            viritura: {
+              pageSetupRole: "score",
+              pageSetup: { width: 140, height: single ? 140 : 200, spatiumMm: single ? 1 : 1.5 },
+              layoutBreaks: measures
+                .filter((_, index) => index > 0 && (single || index % 4 === 0))
+                .map((measure, index) => ({
+                  measure: measure.id,
+                  kind: single && (index + 1) % 8 !== 0 ? "system" : "page",
+                })),
+            },
+          },
+        },
+      ],
+    };
+    await page.goto("/click");
+    await page.getByLabel("MNX file").setInputFiles({
+      name: "reader-turns.mnx",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(mnx)),
+    });
+    await page.getByRole("combobox", { name: "View mode" }).click();
+    await page.getByRole("option", { name: mode, exact: true }).click();
+    const bars = page.getByRole("listbox", { name: "Start bar" });
+    await bars.press("Home");
+    for (let index = 0; index < (single ? 7 : 10); index++) await bars.press("ArrowRight");
+    await expect(page.getByRole("option", { name: single ? "Bar 8" : "Bar 11", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.locator("[data-reader-source-page]")).toHaveCount(0);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    const preview = page.locator(
+      single
+        ? '[data-reader-source-page="1"][data-reader-target-page="0"]'
+        : '[data-reader-source-page="3"][data-reader-target-page="1"]',
+    );
+    await expect(preview).toBeVisible();
+    const verso = await page.locator(single ? 'canvas[data-page="0"]' : 'canvas[data-page="1"]').boundingBox();
+    const overlay = await preview.boundingBox();
+    if (!verso || !overlay) throw new Error("Early verso preview is not visible");
+    expect(Math.abs(overlay.x - verso.x)).toBeLessThan(1);
+    expect(Math.abs(overlay.y - verso.y)).toBeLessThan(1);
+    expect(Math.abs(overlay.height - verso.height * (single ? 0.5 : 1))).toBeLessThan(1);
+    await page.getByRole("button", { name: "Stop", exact: true }).click();
+    await expect(preview).toHaveCount(0);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect(preview).toBeVisible();
+    await expect(page.getByRole("status", { name: "Current bar" })).toHaveText(single ? "9" : "13", { timeout: 10000 });
+    await expect(preview).toHaveCount(0);
+    await expect(page.locator(single ? 'canvas[data-page="1"]' : 'canvas[data-page="3"]')).toBeVisible();
+    if (!single) await expect(page.locator('canvas[data-page="4"]')).toBeVisible();
+    await page.getByRole("button", { name: "Stop", exact: true }).click();
+  });
+}
+
+for (const mode of ["Page", "Spread", "Spread (H)"]) {
   test(`${mode} follows the playhead with a whole centered page frame`, async ({ page }) => {
     await page.goto("/click");
     await page

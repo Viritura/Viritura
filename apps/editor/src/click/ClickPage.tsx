@@ -104,6 +104,7 @@ export function ClickPage() {
             settings={scoreSettings}
             onSettingsChange={setScoreSettings}
             interactionEnabled={!active && !player.busy && !dialSettling}
+            active={active}
             onSelectMeasure={player.selectScoreMeasure}
           />
         )}

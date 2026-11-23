@@ -5,6 +5,7 @@ import type { ClickDocument } from "./clickDocument";
 import type { ClickScoreSettings } from "./ClickScoreControls";
 import { clickPartMnx } from "./scoreViews";
 import { ClickScoreInteractions } from "./ClickScoreInteractions";
+import { ClickReaderAdvance } from "./ClickReaderAdvance";
 import styles from "./ClickPage.module.css";
 
 const SCORE_STYLE = { minHeight: 0 };
@@ -18,6 +19,7 @@ interface ClickScoreProps {
   readonly settings: ClickScoreSettings;
   readonly onSettingsChange: Dispatch<SetStateAction<ClickScoreSettings>>;
   readonly interactionEnabled: boolean;
+  readonly active: boolean;
   readonly onSelectMeasure: (measureIndex: number) => void;
 }
 
@@ -27,6 +29,7 @@ export function ClickScore({
   settings,
   onSettingsChange,
   interactionEnabled,
+  active,
   onSelectMeasure,
 }: ClickScoreProps) {
   const view = document.scoreViews[settings.viewIndex]!;
@@ -83,6 +86,7 @@ export function ClickScore({
         )}
       >
         <ScoreView.Playhead position={position} follow={settings.viewMode === "horizon" ? true : "page"} />
+        <ClickReaderAdvance active={active} position={position} />
         <ClickScoreInteractions enabled={interactionEnabled} onSelectMeasure={onSelectMeasure} />
       </ScoreViewer>
     </section>

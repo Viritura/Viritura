@@ -97,6 +97,13 @@
   padding: var(--space-3);
 }
 
+.readerAdvance {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  background: #fff;
+}
+
 .floatingTransport {
   --expanded-width: min(560px, calc(100% - 24px));
   position: absolute;

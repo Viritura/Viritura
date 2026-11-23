@@ -71,6 +71,14 @@ Implemented:
   pages are centered; page turns and backwards jumps use this same grouping.
   Frames adapt to viewport resize and navigation hiding without showing
   fragments of adjacent frames. Horizon retains continuous playhead scrolling.
+  During playback, a recto page's halfway bar (unique written bars, rounded
+  down, independent of tempo) replaces the left verso with the following
+  verso. Entering that verso reveals its matching recto. In Page mode, the
+  last system triggers a clipped top-half preview of the next page over the
+  current top half; entering the next page restores its full display.
+  Skip this preview if the active last system starts above the halfway line.
+  Stop restores normal pages. Previews reuse the existing layout and paint
+  only when their page or scale changes, without another engraving/audio engine.
   Fit adapts to viewport and selected-score changes; manual zoom exits fit.
   The click viewer defaults to fit-height and an edge-to-edge white surface,
   without the viewer's paper shadow, gray backdrop, or viewport padding.
