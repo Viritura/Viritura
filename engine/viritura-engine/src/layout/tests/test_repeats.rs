@@ -70,6 +70,96 @@ fn volta_commands(display: &DisplayList) -> Vec<&RenderCommand> {
         .collect()
 }
 
+fn assert_volta_start_columns(display: &DisplayList, start: usize, end: usize, sp: f64) {
+    let id = crate::layout::element_id::volta(start);
+    for fragment in display
+        .element_bboxes
+        .iter()
+        .filter(|bbox| bbox.element_id == id)
+    {
+        let first = display
+            .measure_bounds
+            .iter()
+            .filter(|bound| {
+                bound.staff_index == 0
+                    && (start..=end).contains(&bound.index)
+                    && bound.y > fragment.bbox.y
+            })
+            .min_by(|a, b| a.y.total_cmp(&b.y).then(a.index.cmp(&b.index)))
+            .expect("ending fragment has a staff");
+        let system_first = display
+            .measure_bounds
+            .iter()
+            .filter(|bound| bound.staff_index == 0 && bound.system_index == first.system_index)
+            .min_by_key(|bound| bound.index)
+            .unwrap();
+        let expected = if first.index == system_first.index {
+            assert!(first.prefix_width > 0.0, "system must have a clef prefix");
+            first.x + first.prefix_width
+        } else {
+            first.x
+        };
+        let actual = fragment.bbox.x + 0.08 * sp;
+        assert!(
+            (actual - expected).abs() < 1e-6,
+            "ending at bar {} should start at {expected}, got {}",
+            first.index,
+            actual
+        );
+    }
+}
+
+#[test]
+fn test_volta_system_start_uses_beat_one_with_notes_and_centered_rests() {
+    for resting in [false, true] {
+        let mut score = if resting {
+            resting_volta_test_score()
+        } else {
+            volta_test_score()
+        };
+        let mut ending = score.global.measures[1].ending.take().unwrap();
+        ending.duration = 13;
+        score.global.measures[0].ending = Some(ending);
+        score.global.measures[0].key = Some(crate::model::KeySignature {
+            fifths: -2,
+            ..Default::default()
+        });
+        for authored in [false, true] {
+            if authored {
+                score.scores[0].pages = vec![crate::model::layout::PageDefinition {
+                    systems: (0..24)
+                        .step_by(4)
+                        .map(|index| crate::model::layout::SystemDefinition {
+                            measure: score.global.measures[index].id.clone().unwrap(),
+                            layout: None,
+                            layout_changes: Vec::new(),
+                        })
+                        .collect(),
+                }];
+            }
+            let config = LayoutConfig {
+                page_width: Some(500.0),
+                multimeasure_rests: resting,
+                ..LayoutConfig::default()
+            };
+            let mut cache = crate::layout::cache::LayoutCache::new();
+            for display in [
+                layout_score(&score, 0, &config),
+                layout_full_score(&score, &config),
+                layout_with_mnx_scores(&score, &config, 0),
+                layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache)),
+                layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache)),
+            ] {
+                assert!(display
+                    .element_bboxes
+                    .iter()
+                    .any(|bbox| bbox.element_id == crate::layout::element_id::volta(0)));
+                assert_volta_start_columns(&display, 0, 12, config.sp);
+            }
+        }
+    }
+}
+
 fn resting_volta_test_score() -> crate::model::Score {
     let mut score = volta_test_score();
     let rest = minimal_spacing_score(
@@ -413,6 +503,7 @@ fn test_volta_paged_ending_closes_only_in_its_final_measure() {
         layout_full_score(&score, &config),
         layout_with_mnx_scores(&score, &config, 0),
     ] {
+        assert_volta_start_columns(&display, 1, 12, config.sp);
         let systems: HashSet<_> = display
             .measure_bounds
             .iter()
@@ -531,6 +622,7 @@ fn test_volta_authored_galley_systems_keep_ending_continuations() {
             ..LayoutConfig::default()
         };
         let display = layout_with_mnx_scores(&score, &config, 0);
+        assert_volta_start_columns(&display, 1, 12, config.sp);
         let systems: HashSet<_> = display
             .measure_bounds
             .iter()
