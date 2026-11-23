@@ -74,11 +74,8 @@ pub(super) fn render_inter_staff_barlines(
         // leading clef gap (see `render_measure_prefix`). The inter-staff
         // connector must shift by the SAME amount or it splits away from the
         // per-staff barline.
-        let connector_x = if clef_change_measures.contains(&ml.resolved.index) {
-            ml.x + super::super::render_measure::CLEF_CHANGE_LEADING_GAP_SP * sp
-        } else {
-            ml.x
-        };
+        let connector_x = ml.x
+            + super::super::render_measure::measure_leading_clef_gap(ml, sp, clef_change_measures);
         connect_gaps(
             dl,
             GapRun {

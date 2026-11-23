@@ -18,6 +18,7 @@ pub(crate) fn measure_leading_clef_gap(
 ) -> f64 {
     if ml.resolved.index != 0
         && !ml.is_first_on_system
+        && !ml.resolved.prev_has_repeat_end
         && clef_change_measures.contains(&ml.resolved.index)
     {
         CLEF_CHANGE_LEADING_GAP_SP * sp

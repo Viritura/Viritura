@@ -1,5 +1,7 @@
 //! Per-system measure-layout construction for authored MNX systems.
 
+mod repeat_signatures;
+
 use super::super::cache::LayoutCache;
 use super::super::condensing::{
     first_sounding_position, label_for_mode_styled, LabelStyle, MergeMode,
@@ -575,6 +577,16 @@ pub(super) fn build_explicit_system_layouts<'a>(
             if let Some(clef) = virtual_part.clefs.as_ref().and_then(|clefs| clefs.last()) {
                 last_clef = Some(clef.clone());
             }
+            let repeat_signature = flat_staff.sources.first().and_then(|source| {
+                all_resolved
+                    .get(source.part_index)
+                    .and_then(|measures| measures.get(measure_index))
+            });
+            let repeat_clef_restatement =
+                repeat_signature.is_some_and(|measure| measure.repeat_clef_restatement);
+            if repeat_clef_restatement {
+                repeat_signatures::restate_clef(&mut virtual_part);
+            }
 
             let (display_key, diatonic_adjustment) = crate::layout::resolve::resolve_display_key(
                 &active_key,
@@ -610,6 +622,13 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 prev_has_repeat_end,
                 active_time: active_time.clone(),
                 active_key: display_key.clone(),
+                repeat_key_restatement_from: repeat_signature
+                    .and_then(|measure| measure.repeat_key_restatement_from.clone()),
+                repeat_time_restatement: repeat_signature
+                    .and_then(|measure| measure.repeat_time_restatement.clone()),
+                repeat_clef_restatement,
+                repeat_ending_brackets: repeat_signature
+                    .is_some_and(|measure| measure.repeat_ending_brackets),
                 prev_key: previous_display_key.clone(),
                 tie_continuation_ids: Vec::new(),
                 repeat_glissandos: effective_staff

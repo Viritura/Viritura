@@ -110,11 +110,31 @@ pub(crate) fn multimeasure_rest_prefix(
             .unwrap_or(3.0);
         w += clef_advance * sp;
     }
+    if !at_start
+        && rm.prev_has_repeat_end
+        && rm.part.clefs.as_ref().is_some_and(|clefs| {
+            clefs
+                .iter()
+                .any(|clef| clef.position.is_none() && !clef.clef.is_hidden())
+        })
+    {
+        w += super::CLEF_CHANGE_LEADING_GAP_SP * sp;
+    }
+    if rm.repeat_ending_brackets {
+        w += 2.0 * super::REPEAT_SIGNATURE_BRACKET_SP * sp;
+        if rm.repeat_clef_restatement {
+            w += super::REPEAT_SIGNATURE_CLEF_GAP_SP * sp;
+        }
+    }
 
-    let is_key_change = rm.key_signature_changed();
+    let is_key_change = rm.key_signature_changed() || rm.repeat_key_restatement_from.is_some();
     if is_key_change || (at_start && rm.active_key.accidental_count() != 0) {
+        let cancel_from = rm
+            .repeat_key_restatement_from
+            .as_ref()
+            .unwrap_or(&rm.prev_key);
         let cancel_count = if is_key_change {
-            rm.prev_key.cancellation_count(&rm.active_key)
+            cancel_from.cancellation_count(&rm.active_key)
         } else {
             0
         };
@@ -125,12 +145,12 @@ pub(crate) fn multimeasure_rest_prefix(
             .and_then(|clefs| clefs.first())
             .map(|pc| &pc.clef.sign)
             .unwrap_or(&ClefSign::G);
-        let cancel_prev = (cancel_count > 0).then_some(&rm.prev_key);
+        let cancel_prev = (cancel_count > 0).then_some(cancel_from);
         let key_width =
             key_signature_layout(0.0, 0.0, sp, &rm.active_key, clef_sign, cancel_prev).advance;
         if key_width > 0.0 {
             w += key_width;
-            if rm.global.time.is_some() {
+            if rm.global.time.is_some() || rm.repeat_time_restatement.is_some() {
                 w += super::super::measure::KEY_TO_TIME_GAP_SP * sp;
             }
         }
@@ -273,22 +293,17 @@ fn render_multimeasure_rest_count(
     }
 }
 
-pub(crate) fn render_multimeasure_rest(
+fn render_multimeasure_rest_prefix(
     dl: &mut DisplayList,
     ml: &MeasureLayout,
     staff_y: f64,
     sp: f64,
     config: &LayoutConfig,
-    count: u32,
-    render_count: bool,
-    count_y_override: Option<f64>,
-    trailing_barline: BarlineKind,
+    prefix: &MultimeasureRestPrefix,
 ) {
     let staff_height = 4.0 * sp;
     let is_first = ml.resolved.index == 0;
     let prev_has_repeat_end = !ml.is_first_on_system && ml.resolved.prev_has_repeat_end;
-
-    let prefix = multimeasure_rest_prefix(ml, sp, config);
     if !is_first && !ml.is_first_on_system {
         let cmd_idx = dl.commands.len();
         render_barline(
@@ -305,9 +320,10 @@ pub(crate) fn render_multimeasure_rest(
         }
     }
 
-    // Repeat structural signatures at score and system starts.
     let mut x_cursor = ml.x + prefix.barline_advance;
     let at_start = is_first || ml.is_first_on_system;
+    x_cursor +=
+        super::render_left_repeat_signature_bracket(dl, ml, x_cursor, staff_y, sp, config, true);
     if at_start {
         if let Some(clefs) = &ml.resolved.part.clefs {
             if let Some(pc) = clefs.first() {
@@ -317,12 +333,27 @@ pub(crate) fn render_multimeasure_rest(
                 dl.tag_command(cmd_idx, element_id::clef(ml.part_index, ml.resolved.index));
             }
         }
+    } else if prev_has_repeat_end {
+        if let Some(pc) = ml.resolved.part.clefs.as_ref().and_then(|clefs| {
+            clefs
+                .iter()
+                .find(|clef| clef.position.is_none() && !clef.clef.is_hidden())
+        }) {
+            let cmd_idx = dl.commands.len();
+            render_change_clef(dl, x_cursor, staff_y, sp, &pc.clef);
+            dl.tag_command(cmd_idx, element_id::clef(ml.part_index, ml.resolved.index));
+            x_cursor += super::CLEF_CHANGE_LEADING_GAP_SP * sp;
+        }
     }
-    let is_key_change = ml.resolved.key_signature_changed();
+    let is_key_change =
+        ml.resolved.key_signature_changed() || ml.resolved.repeat_key_restatement_from.is_some();
+    let cancel_from = ml
+        .resolved
+        .repeat_key_restatement_from
+        .as_ref()
+        .unwrap_or(&ml.resolved.prev_key);
     let key_cancel_count = if is_key_change {
-        ml.resolved
-            .prev_key
-            .cancellation_count(&ml.resolved.active_key)
+        cancel_from.cancellation_count(&ml.resolved.active_key)
     } else {
         0
     };
@@ -338,7 +369,7 @@ pub(crate) fn render_multimeasure_rest(
             .map(|pc| &pc.clef.sign)
             .unwrap_or(&ClefSign::G);
         let cancel_prev = if key_cancel_count > 0 {
-            Some(&ml.resolved.prev_key)
+            Some(cancel_from)
         } else {
             None
         };
@@ -352,7 +383,6 @@ pub(crate) fn render_multimeasure_rest(
             clef_sign,
             cancel_prev,
         );
-        // Tag every accidental so the whole signature highlights on selection.
         for ci in cmd_idx..dl.commands.len() {
             dl.tag_command(ci, element_id::key_sig(ml.part_index, ml.resolved.index));
         }
@@ -379,6 +409,22 @@ pub(crate) fn render_multimeasure_rest(
         }
     }
 
+    if ml.resolved.repeat_ending_brackets {
+        let bracket_x = prefix.repeat_x.map_or(
+            ml.x + prefix.width - super::REPEAT_SIGNATURE_BRACKET_SP * sp,
+            |repeat_x| ml.x + repeat_x - (0.5 + super::REPEAT_SIGNATURE_BRACKET_SP) * sp,
+        );
+        super::draw_repeat_signature_bracket(
+            dl,
+            bracket_x,
+            staff_y,
+            sp,
+            config,
+            ml.resolved.index,
+            false,
+        );
+    }
+
     if let Some(repeat_x) = prefix.repeat_x {
         let bar_x = ml.x + repeat_x;
         let cmd_idx = dl.commands.len();
@@ -395,6 +441,22 @@ pub(crate) fn render_multimeasure_rest(
             dl.tag_command(ci, element_id::barline(ml.resolved.index));
         }
     }
+}
+
+pub(crate) fn render_multimeasure_rest(
+    dl: &mut DisplayList,
+    ml: &MeasureLayout,
+    staff_y: f64,
+    sp: f64,
+    config: &LayoutConfig,
+    count: u32,
+    render_count: bool,
+    count_y_override: Option<f64>,
+    trailing_barline: BarlineKind,
+) {
+    let prefix = multimeasure_rest_prefix(ml, sp, config);
+    let prev_has_repeat_end = !ml.is_first_on_system && ml.resolved.prev_has_repeat_end;
+    render_multimeasure_rest_prefix(dl, ml, staff_y, sp, config, &prefix);
 
     let measure_right = ml.x + ml.width;
     let hbar_area_left = ml.x + prefix.width;

@@ -2252,6 +2252,7 @@ fn test_key_change_precedes_mid_system_repeat_start() {
                     {
                         Some(*x)
                     }
+
                     _ => None,
                 })
                 .collect();
@@ -2286,5 +2287,419 @@ fn test_key_change_precedes_mid_system_repeat_start() {
                 (key_left - boundary_x) / sp
             );
         }
+    }
+}
+
+#[test]
+fn test_time_change_precedes_mid_system_repeat_start() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}},
+            {"time": {"count": 3, "unit": 4}, "repeatStart": {}},
+            {}
+        ]},
+        "parts": [{"measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "half", "dots": 1}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "half", "dots": 1}, "rest": {}}]}]}
+        ]}]
+    }"#,
+    )
+    .unwrap();
+    let config = LayoutConfig::default();
+    for display in [
+        layout_score(&score, 0, &config),
+        layout_with_mnx_scores(&score, &config, 0),
+    ] {
+        let time_right = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| display.element_ids[*index].as_deref() == Some("m1/time"))
+            .filter_map(|(_, command)| command.bbox())
+            .map(|bbox| bbox.x + bbox.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let repeat_left = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| display.element_ids[*index].as_deref() == Some("m1/barline"))
+            .filter_map(|(_, command)| match command {
+                RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::REPEAT_LEFT => {
+                    command.bbox()
+                }
+                _ => None,
+            })
+            .map(|bbox| bbox.x)
+            .fold(f64::INFINITY, f64::min);
+        assert!(time_right.is_finite() && repeat_left.is_finite());
+        assert!(
+            time_right < repeat_left,
+            "time signature must precede the repeat"
+        );
+    }
+}
+
+#[test]
+fn repeat_return_restores_signatures_at_an_implicit_start() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}, "key": {"fifths": 2}},
+            {"id": "m1"},
+            {"id": "m2", "time": {"count": 3, "unit": 4}, "key": {"fifths": 0}, "repeatEnd": {}}
+        ]},
+        "parts": [{"measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"clefs": [{"clef": {"sign": "F", "staffPosition": 2}}], "sequences": [{"content": [
+                {"duration": {"base": "half", "dots": 1}, "rest": {}}
+            ]}]}
+        ]}]
+    }"#,
+    )
+    .unwrap();
+    let resolved = resolve_measures(&score, 0);
+    assert!(resolved[0].global.repeat_start.is_none());
+    assert_eq!(
+        resolved[0].repeat_key_restatement_from,
+        Some(resolved[2].active_key.clone())
+    );
+    assert_eq!(
+        resolved[0].repeat_time_restatement,
+        Some(resolved[0].active_time.clone())
+    );
+}
+
+#[test]
+fn repeat_return_restores_key_meter_and_clef_before_the_repeat_mark() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}, "key": {"fifths": 2}},
+            {"id": "m1", "repeatStart": {}},
+            {"id": "m2", "time": {"count": 3, "unit": 4}, "key": {"fifths": 0}, "repeatEnd": {}},
+            {"id": "m3"}
+        ]},
+        "parts": [{"id": "p1", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"clefs": [{"clef": {"sign": "F", "staffPosition": 2}}], "sequences": [{"content": [
+                {"duration": {"base": "half", "dots": 1}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [
+            {"type": "staff", "sources": [{"part": "p1"}]}
+        ]}],
+        "scores": [{"name": "Score", "layout": "L", "pages": [
+            {"systems": [{"measure": "m0"}, {"measure": "m1"}]}
+        ]}]
+    }"#,
+    )
+    .unwrap();
+    let resolved = resolve_measures(&score, 0);
+    assert_eq!(
+        resolved[1].repeat_key_restatement_from,
+        Some(resolved[2].active_key.clone())
+    );
+    assert_eq!(
+        resolved[1].displayed_time_signature(),
+        Some(&resolved[1].active_time)
+    );
+    assert!(
+        resolved[1]
+            .part
+            .clefs
+            .as_ref()
+            .unwrap()
+            .iter()
+            .any(|clef| clef.position.is_none() && clef.clef.sign == crate::model::ClefSign::G),
+        "the carried clef must be restated at the repeat start"
+    );
+
+    for display in [
+        layout_score(&score, 0, &LayoutConfig::default()),
+        layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+    ] {
+        let tagged_bounds = |fragment: &str| {
+            display
+                .commands
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| {
+                    display.element_ids[*index]
+                        .as_deref()
+                        .is_some_and(|id| id.contains(fragment))
+                })
+                .filter_map(|(_, command)| command.bbox())
+                .collect::<Vec<_>>()
+        };
+        let key_right = tagged_bounds("m1/key")
+            .iter()
+            .map(|bbox| bbox.x + bbox.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let clef_right = tagged_bounds("/m1/clef")
+            .iter()
+            .map(|bbox| bbox.x + bbox.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let repeat_left = tagged_bounds("m1/barline")
+            .iter()
+            .map(|bbox| bbox.x)
+            .fold(f64::INFINITY, f64::min);
+        assert!(key_right.is_finite(), "the restored key must be rendered");
+        assert!(clef_right.is_finite(), "the restored clef must be rendered");
+        assert!(
+            key_right < repeat_left && clef_right < repeat_left,
+            "restored signatures must precede the repeat mark"
+        );
+    }
+}
+
+#[test]
+fn repeat_restored_key_and_meter_precede_the_repeat_mark_without_a_clef_change() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}, "key": {"fifths": 2}},
+            {"id": "m1", "repeatStart": {}},
+            {"id": "m2", "time": {"count": 3, "unit": 4}, "key": {"fifths": 0}, "repeatEnd": {}},
+            {"id": "m3"}
+        ]},
+        "parts": [{"id": "p1", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "half", "dots": 1}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [
+            {"type": "staff", "sources": [{"part": "p1"}]}
+        ]}],
+        "scores": [{"name": "Score", "layout": "L"}]
+    }"#,
+    )
+    .unwrap();
+    let resolved = resolve_measures(&score, 0);
+    assert!(resolved[1].repeat_key_restatement_from.is_some());
+    assert!(resolved[1].repeat_time_restatement.is_some());
+    assert!(!resolved[1].repeat_clef_restatement);
+
+    for display in [
+        layout_score(&score, 0, &LayoutConfig::default()),
+        layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+    ] {
+        let tagged_bounds = |fragment: &str| {
+            display
+                .commands
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| {
+                    display.element_ids[*index]
+                        .as_deref()
+                        .is_some_and(|id| id.contains(fragment))
+                })
+                .filter_map(|(_, command)| command.bbox())
+                .collect::<Vec<_>>()
+        };
+        let key_right = tagged_bounds("m1/key")
+            .iter()
+            .map(|bbox| bbox.x + bbox.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let time_right = tagged_bounds("m1/time")
+            .iter()
+            .map(|bbox| bbox.x + bbox.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let repeat_left = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| {
+                display.element_ids[*index]
+                    .as_deref()
+                    .is_some_and(|id| id.contains("m1/barline"))
+            })
+            .filter_map(|(_, command)| match command {
+                RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::REPEAT_LEFT => {
+                    command.bbox()
+                }
+                _ => None,
+            })
+            .map(|bbox| bbox.x)
+            .fold(f64::INFINITY, f64::min);
+        assert!(key_right.is_finite() && time_right.is_finite() && repeat_left.is_finite());
+        assert!(
+            key_right < repeat_left && time_right < repeat_left,
+            "restored key and meter must precede the repeat mark"
+        );
+    }
+}
+
+#[test]
+fn second_ending_brackets_signatures_continued_from_the_first_ending() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}, "key": {"fifths": 1}, "repeatStart": {}},
+            {"id": "m1", "key": {"fifths": 0}, "time": {"count": 3, "unit": 4},
+                "ending": {"duration": 1, "numbers": [1]}, "repeatEnd": {}},
+            {"id": "m2", "ending": {"duration": 1, "numbers": [2]}},
+            {"id": "m3"}
+        ]},
+        "parts": [{"id": "p1", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]},
+            {"clefs": [{"clef": {"sign": "F", "staffPosition": 2}}], "sequences": [{"content": [
+                {"duration": {"base": "half", "dots": 1}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "half", "dots": 1}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [
+            {"type": "staff", "sources": [{"part": "p1"}]}
+        ]}],
+        "scores": [{"name": "Score", "layout": "L"}]
+    }"#,
+    )
+    .unwrap();
+    let resolved = resolve_measures(&score, 0);
+    assert!(resolved[2].repeat_ending_brackets);
+    assert_eq!(
+        resolved[2].repeat_key_restatement_from,
+        Some(resolved[0].active_key.clone())
+    );
+    assert_eq!(
+        resolved[2]
+            .repeat_key_restatement_from
+            .as_ref()
+            .map(|previous| previous.cancellation_count(&resolved[2].active_key)),
+        Some(1),
+        "the second-ending reminder must repeat the key-cancellation natural"
+    );
+    assert!(resolved[2].repeat_time_restatement.is_some());
+    assert!(resolved[2].repeat_clef_restatement);
+
+    let display = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+    let reminder_lines = display
+        .commands
+        .iter()
+        .enumerate()
+        .filter(|(index, command)| {
+            display.element_ids[*index].as_deref() == Some("m2/barline")
+                && matches!(command, RenderCommand::DrawLine { .. })
+        })
+        .count();
+    let key_reminder_glyphs = display
+        .commands
+        .iter()
+        .enumerate()
+        .filter(|(index, command)| {
+            display.element_ids[*index].as_deref() == Some("p0/m2/key")
+                && matches!(command, RenderCommand::DrawGlyph { .. })
+        })
+        .count();
+    assert!(
+        key_reminder_glyphs > 0,
+        "the bracketed reminder must show the cancellation natural"
+    );
+    let bracket_xs = display
+        .commands
+        .iter()
+        .enumerate()
+        .filter(|(index, command)| {
+            display.element_ids[*index].as_deref() == Some("m2/barline")
+                && matches!(command, RenderCommand::DrawLine { x1, x2, .. }
+                    if (x1 - x2).abs() < f64::EPSILON)
+        })
+        .filter_map(|(_, command)| match command {
+            RenderCommand::DrawLine { x1, .. } => Some(*x1),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let clef_bounds = display
+        .commands
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| display.element_ids[*index].as_deref() == Some("p0/m2/clef"))
+        .filter_map(|(_, command)| command.bbox())
+        .collect::<Vec<_>>();
+    let left_bracket = bracket_xs.iter().copied().fold(f64::INFINITY, f64::min);
+    let right_bracket = bracket_xs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    assert!(
+        clef_bounds
+            .iter()
+            .any(|bounds| bounds.x > left_bracket && bounds.x + bounds.width < right_bracket),
+        "the continuing clef must be enclosed by the reminder brackets: {bracket_xs:?}, {clef_bounds:?}"
+    );
+    assert_eq!(
+        reminder_lines, 6,
+        "bracketed key, meter, and clef reminders need a left and right bracket"
+    );
+}
+
+#[test]
+fn test_clef_change_after_end_repeat_barline() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}, "repeatStart": {}},
+            {"repeatEnd": {}},
+            {}
+        ]},
+        "parts": [{"measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"clefs": [{"clef": {"sign": "F", "staffPosition": 2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}
+            ]}]}
+        ]}]
+    }"#,
+    )
+    .unwrap();
+    let config = LayoutConfig::default();
+    for display in [
+        layout_score(&score, 0, &config),
+        layout_with_mnx_scores(&score, &config, 0),
+    ] {
+        let clef_left = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| display.element_ids[*index].as_deref() == Some("p0/m2/clef"))
+            .filter_map(|(_, command)| command.bbox())
+            .map(|bbox| bbox.x)
+            .fold(f64::INFINITY, f64::min);
+        let repeat_right = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| display.element_ids[*index].as_deref() == Some("m2/barline"))
+            .filter_map(|(_, command)| match command {
+                RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::REPEAT_RIGHT => {
+                    command.bbox()
+                }
+                _ => None,
+            })
+            .map(|bbox| bbox.x + bbox.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        assert!(clef_left.is_finite() && repeat_right.is_finite());
+        assert!(clef_left > repeat_right, "clef must follow the end repeat");
     }
 }
