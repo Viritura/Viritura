@@ -76,7 +76,6 @@ export function ClickControls({
             <span>Quarter = {preview ? Number(preview.startBpm.toFixed(2)) : 0}</span>
           </div>
           <div className={styles.countoff}>
-            <span>Countoff</span>
             <ButtonGroup
               ariaLabel="Countoff"
               options={[

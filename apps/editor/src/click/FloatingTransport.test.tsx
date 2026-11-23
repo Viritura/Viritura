@@ -23,7 +23,7 @@ function setup() {
   render(
     <main>
       <FloatingTransport busy={false}>
-        <span>Countoff</span>
+        <span>4 clicks free</span>
         <Button>Start</Button>
         <div role="listbox" aria-label="Start bar" tabIndex={0}>
           <div role="option" aria-selected="true">
@@ -59,7 +59,7 @@ function setup() {
 describe("floating click transport", () => {
   it("moves by touch from panel content, clamps at the score edges, and stops on cancellation", () => {
     const { transport } = setup();
-    fireEvent.pointerDown(screen.getByText("Countoff"), {
+    fireEvent.pointerDown(screen.getByText("4 clicks free"), {
       pointerId: 1,
       pointerType: "touch",
       button: 0,

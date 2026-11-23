@@ -222,6 +222,9 @@ describe("standalone click page", () => {
   it("toggles the countoff cue and plays both bars before the selected start", async () => {
     render(<ClickPage />);
     await openFile();
+    const transport = within(screen.getByRole("region", { name: "Click player" }));
+    expect(transport.queryByText("Countoff", { exact: true })).toBeNull();
+    expect(transport.getByRole("radiogroup", { name: "Countoff" })).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "2 bars" }));
     expect(screen.getByText("8 clicks free")).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "1 bar" }));
