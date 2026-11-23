@@ -26,6 +26,8 @@ Implemented:
   rehearsal and bar-number tracks with touch, scrolling, tapping, or keyboard.
   The upper track contains only rehearsal marks, so distant marks are adjacent;
   selecting one centers its bar in the lower track. Repeat visits are distinguished.
+  A compact line below the dials shows the selected start's time signature and
+  effective quarter-note tempo, including the session percentage.
   The countoff control shows the number of free clicks for the selected bar
   and the current beat during countoff.
   During playback both dials follow the current performed bar without seeking or

@@ -55,6 +55,14 @@
   min-width: 0;
 }
 
+.startDetails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  font-variant-numeric: tabular-nums;
+}
+
 .countoff {
   display: flex;
   flex-wrap: wrap;

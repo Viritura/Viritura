@@ -39,6 +39,7 @@ export function ClickControls({
     [player.document, player.tempoPercent, player.countoffBars, player.startBar],
   );
   if (!player.document) return null;
+  const meter = player.document.timing.measureTimeSignatures[player.startBar]!;
 
   function reportSettling(track: "bars" | "rehearsals", value: boolean): void {
     settling.current[track] = value;
@@ -63,6 +64,12 @@ export function ClickControls({
           onSettlingChange={(value) => reportSettling("bars", value)}
         />
       </section>
+      <div className={styles.startDetails} role="group" aria-label="Selected start" aria-live="polite">
+        <span>
+          {meter.count}/{meter.unit}
+        </span>
+        <span>Quarter = {preview ? Number(preview.startBpm.toFixed(2)) : 0}</span>
+      </div>
       <div className={styles.countoff}>
         <span>Countoff</span>
         <ButtonGroup

@@ -130,14 +130,29 @@ describe("standalone click page", () => {
     expect(screen.queryByRole("status", { name: "Playback position" })).toBeNull();
   });
 
-  it("updates the countoff cue when the selected bar changes meter", async () => {
-    const mixedMeter = JSON.parse(score) as { global: { measures: { time?: { count: number; unit: number } }[] } };
+  it("shows the selected start's meter and scaled tempo alongside its countoff", async () => {
+    const mixedMeter = JSON.parse(score) as {
+      global: {
+        measures: {
+          time?: { count: number; unit: number };
+          tempos?: { bpm: number; value: { base: string } }[];
+        }[];
+      };
+    };
     mixedMeter.global.measures[1]!.time = { count: 3, unit: 4 };
+    mixedMeter.global.measures[1]!.tempos = [{ bpm: 90, value: { base: "quarter" } }];
     render(<ClickPage />);
     await openFile(JSON.stringify(mixedMeter));
+    const details = within(screen.getByRole("group", { name: "Selected start" }));
+    expect(details.getByText("4/4")).toBeTruthy();
+    expect(details.getByText("Quarter = 120")).toBeTruthy();
     expect(screen.getByText("4 clicks free")).toBeTruthy();
     fireEvent.click(screen.getByRole("option", { name: "Bar 2" }));
+    expect(details.getByText("3/4")).toBeTruthy();
+    expect(details.getByText("Quarter = 90")).toBeTruthy();
     expect(screen.getByText("3 clicks free")).toBeTruthy();
+    fireEvent.change(screen.getByRole("slider", { name: "Session tempo %" }), { target: { value: "50" } });
+    expect(details.getByText("Quarter = 45")).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "2 bars" }));
     expect(screen.getByText("6 clicks free")).toBeTruthy();
   });
@@ -153,6 +168,7 @@ describe("standalone click page", () => {
 
     fireEvent.change(slider, { target: { value: "0" } });
     expect(screen.getByText("0%")).toBeTruthy();
+    expect(screen.getByText("Quarter = 0")).toBeTruthy();
     expect(play.hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Set tempo above 0% to start");
     fireEvent.click(play);
@@ -160,6 +176,7 @@ describe("standalone click page", () => {
 
     fireEvent.change(slider, { target: { value: "1" } });
     expect(screen.getByText("1%")).toBeTruthy();
+    expect(screen.getByText("Quarter = 1.2")).toBeTruthy();
     expect(play.hasAttribute("disabled")).toBe(false);
 
     fireEvent.change(slider, { target: { value: "50" } });
