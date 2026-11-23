@@ -412,6 +412,10 @@ When sources amalgamate (same rhythm, different pitches, same markings), the mar
 | Player 2 joins in harmony (same rhythm) | Single voice, combined chord       | `+2` (courtesy)                  |
 | Players diverge (different rhythms)     | Divisi (stems up/down)             | `1.` / `2.` on respective voices |
 
+Player labels attach to the first sounding note of the passage, not to an
+opening rest. This includes entries inside tuplets; labels for a mid-measure
+unison entry remain attached to the point where the players join.
+
 **Rest hiding rule.** Greedily prefer hiding rests by showing a player label (`1.`) instead. At the next beam break, if the other voice can't amalgamate, start showing explicit rests with divisi voices.
 
 In divisi mode, only entirely resting sequences are suppressed. Notes inside

@@ -764,6 +764,11 @@ pub(super) fn apply_condensing_labels(
                         false
                     };
                     if !placed_early {
+                        let ratio = resolved[mi]
+                            .effective_staff_meter
+                            .as_ref()
+                            .map_or(1.0, |meter| meter.ratio_to_global.as_f64());
+                        let position = first_sounding_position(&resolved[mi].part, ratio);
                         resolved[mi]
                             .part
                             .expressions
@@ -773,7 +778,7 @@ pub(super) fn apply_condensing_labels(
                                 id: None,
                                 text_type: crate::model::PositionedTextType::Expression,
                                 frame: None,
-                                position: RhythmicPosition { fraction: (0, 1) },
+                                position,
                                 placement: Some(ExpressionPlacement::Above),
                                 staff: None,
                                 voice: None,

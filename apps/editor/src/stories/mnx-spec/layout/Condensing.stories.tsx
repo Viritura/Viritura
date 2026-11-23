@@ -340,6 +340,53 @@ export const Solo: StoryObj = {
   name: "Solo — one part rests, '1.' label",
 };
 
+export const DelayedPlayerEntry: StoryObj = {
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1 },
+        global: { measures: [{ time: { count: 4, unit: 4 } }] },
+        parts: [0, 1].map((index) => ({
+          id: `fl${index + 1}`,
+          name: "Flute",
+          measures: [
+            {
+              sequences: [
+                {
+                  content:
+                    index === 0
+                      ? [
+                          { duration: { base: "quarter" }, rest: {} },
+                          {
+                            type: "tuplet",
+                            inner: { multiple: 6, duration: { base: "16th" } },
+                            outer: { multiple: 4, duration: { base: "16th" } },
+                            content: ["G", "F", "E", "D", "C", "B"].map((step) => ({
+                              duration: { base: "16th" },
+                              notes: [{ pitch: { step, octave: 5 } }],
+                            })),
+                          },
+                          { duration: { base: "half" }, rest: {} },
+                        ]
+                      : [{ duration: { base: "whole" }, rest: {} }],
+                },
+              ],
+            },
+          ],
+        })),
+        layouts: [
+          {
+            id: "cond",
+            content: [{ type: "staff", label: "Fl. 1, 2", sources: [{ part: "fl1" }, { part: "fl2" }] }],
+          },
+        ],
+        scores: [{ name: "Condensed", layout: "cond" }],
+      })}
+    />
+  ),
+  name: "Player label follows a rest to the first tuplet note",
+};
+
 // ═══════════════════════════════════════════════════
 // Mode Transitions — A2 → Divisi → Solo across measures
 // ═══════════════════════════════════════════════════
