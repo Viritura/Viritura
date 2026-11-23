@@ -142,6 +142,9 @@
       "linkify-it@<5.0.2": "5.0.2",
       "smol-toml@<=1.7.0": ">=1.7.1",
       "stb-vorbis": "workspace:*"
+    },
+    "patchedDependencies": {
+      "isomorphic-git@1.44.3": "patches/isomorphic-git@1.44.3.patch"
     }
   }
 }
