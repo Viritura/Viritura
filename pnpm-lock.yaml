@@ -39,6 +39,11 @@ overrides:
   smol-toml@<=1.7.0: '>=1.7.1'
   stb-vorbis: workspace:*
 
+patchedDependencies:
+  isomorphic-git@1.44.3:
+    hash: muec3ywftddsttcijyuyxo6z4e
+    path: patches/isomorphic-git@1.44.3.patch
+
 importers:
 
   .:
@@ -207,7 +212,7 @@ importers:
         version: 11.2.10
       isomorphic-git:
         specifier: ^1.44.3
-        version: 1.44.3
+        version: 1.44.3(patch_hash=muec3ywftddsttcijyuyxo6z4e)
       jszip:
         specifier: ^3.10.2
         version: 3.10.2
@@ -13051,7 +13056,7 @@ snapshots:
 
   isexe@2.0.0: {}
 
-  isomorphic-git@1.44.3:
+  isomorphic-git@1.44.3(patch_hash=muec3ywftddsttcijyuyxo6z4e):
     dependencies:
       async-lock: 1.4.1
       clean-git-ref: 2.0.1
