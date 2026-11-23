@@ -21,7 +21,9 @@ Implemented:
   from Start; opening a file does not create instrument or click audio. File,
   worklet, and context-interruption failures are visible. No upload or editor
   bootstrap is needed. The filename, Open MNX action, and session tempo live
-  in a compact top bar.
+  in a compact top bar. During playback (including countoff), the top bar is
+  hidden so the score fills the available height and height-fit zoom adapts.
+  Stopping, finishing, or an audio interruption restores the bar and its settings.
 - **Score-first surface and floating transport** —
   `@viritura/score-viewer-react` displays the opened MNX in a continuous,
   horizontally scrolling score, with layout in a dedicated worker and

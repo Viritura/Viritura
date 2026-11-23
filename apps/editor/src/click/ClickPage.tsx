@@ -44,7 +44,7 @@ export function ClickPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
+      <header className={styles.header} hidden={active}>
         <a href="/">Viritura</a>
         <h1>{player.document?.filename ?? "Click"}</h1>
         <FormInput

@@ -81,15 +81,13 @@ async function holdStill(): Promise<void> {
 }
 
 describe("standalone click page", () => {
-  it("selects authored scores and source parts from the top nav without restarting a take", async () => {
+  it("selects scores and parts before playback and preserves the selected view while the nav is hidden", async () => {
     const user = userEvent.setup();
     render(<ClickPage />);
     await openFile(multipleLayouts, "choir.mnx");
     const nav = within(screen.getByRole("banner"));
     const selector = nav.getByRole("combobox", { name: "Score or part" });
     const viewer = screen.getByTestId("score-viewer");
-    fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
-    await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
     await user.click(selector);
     await user.click(screen.getByRole("option", { name: "TwoStaffSplit", exact: true }));
     expect(viewer.dataset.scoreIndex).toBe("1");
@@ -98,6 +96,12 @@ describe("standalone click page", () => {
     await user.click(screen.getByRole("option", { name: "Alto", exact: true }));
     const partView = JSON.parse(viewer.dataset.mnx!) as { parts: { name: string }[] };
     expect(partView.parts.map((part) => part.name)).toEqual(["Alto"]);
+    expect(audio.create).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("banner")).toBeNull();
+    expect(screen.getByTestId("score-viewer")).toBe(viewer);
+    expect(JSON.parse(viewer.dataset.mnx!)).toEqual(partView);
     expect(audio.start).toHaveBeenCalledOnce();
     expect(audio.load).toHaveBeenCalledOnce();
   });
@@ -139,6 +143,7 @@ describe("standalone click page", () => {
     await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
     expect(tempo.closest("fieldset")?.disabled).toBe(true);
     await waitFor(() => expect(transport.getByRole("status", { name: "Current bar" }).textContent).toBe("3"));
+    expect(screen.queryByRole("banner")).toBeNull();
     expect(transport.queryByRole("listbox")).toBeNull();
     expect(transport.queryByRole("radiogroup", { name: "Countoff" })).toBeNull();
     expect(transport.queryByRole("group", { name: "Selected start" })).toBeNull();
@@ -146,6 +151,8 @@ describe("standalone click page", () => {
     expect(screen.getByRole("region", { name: "Click player" }).dataset.compact).toBe("true");
     fireEvent.click(transport.getByRole("button", { name: "Stop", exact: true }));
     await waitFor(() => expect(transport.getByRole("listbox", { name: "Start bar" })).toBeTruthy());
+    expect(screen.getByRole("banner")).toBeTruthy();
+    expect(within(screen.getByRole("banner")).getByRole("slider", { name: "Session tempo %" })).toBe(tempo);
     expect(transport.getByRole("listbox", { name: "Rehearsal" })).toBeTruthy();
     expect(transport.getByRole("radiogroup", { name: "Countoff" })).toBeTruthy();
     expect(transport.getByRole("option", { name: "Bar 3, rehearsal B" }).getAttribute("aria-selected")).toBe("true");
@@ -226,6 +233,7 @@ describe("standalone click page", () => {
     expect(audio.start).toHaveBeenLastCalledWith();
     act(() => audio.listener?.({ type: "ended" }));
     expect(screen.getByRole("button", { name: "Start" })).toBe(transport);
+    expect(screen.getByRole("banner")).toBeTruthy();
     expect(screen.getByRole("listbox", { name: "Start bar" })).toBeTruthy();
     expect(screen.queryByRole("status", { name: "Current bar" })).toBeNull();
   });
@@ -521,6 +529,7 @@ describe("standalone click page", () => {
     );
     await act(async () => audio.listener?.({ type: "failed", message: "Audio processor failed" }));
     expect(screen.getByRole("alert").textContent).toBe("Audio processor failed");
+    expect(screen.getByRole("banner")).toBeTruthy();
     expect(audio.dispose).toHaveBeenCalledOnce();
     expect(screen.getByRole("listbox", { name: "Start bar" })).toBeTruthy();
     expect(screen.queryByRole("status", { name: "Current bar" })).toBeNull();

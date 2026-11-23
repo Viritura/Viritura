@@ -78,6 +78,12 @@ for (const viewport of [
     const barName = `Bar ${viewport.barNumber}, rehearsal B`;
     await panel.getByRole("option", { name: barName }).click();
     await panel.getByRole("radio", { name: "2 bars" }).click();
+    const zoom = page.getByLabel("Score zoom");
+    await expect.poll(async () => Number.parseInt((await zoom.textContent()) ?? "0", 10)).toBeGreaterThan(100);
+    const initialZoom = Number.parseInt((await zoom.textContent()) ?? "0", 10);
+    const scoreView = page.getByRole("region", { name: "Score", exact: true });
+    const initialScore = await scoreView.boundingBox();
+    if (!initialScore) throw new Error("Score view is not visible");
     const expanded = await panel.boundingBox();
     if (!expanded) throw new Error("Click transport is not visible");
     const expandedButton = await panel.getByRole("button", { name: "Start", exact: true }).boundingBox();
@@ -88,6 +94,19 @@ for (const viewport of [
     const stop = panel.getByRole("button", { name: "Stop", exact: true });
     const bar = panel.getByRole("status", { name: "Current bar" });
     await expect(stop).toBeEnabled();
+    await expect(page.getByRole("banner")).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const playingScore = await scoreView.boundingBox();
+        return playingScore !== null && playingScore.y < 1 && Math.abs(playingScore.height - viewport.height) < 1;
+      })
+      .toBe(true);
+    await expect
+      .poll(async () => {
+        const playingZoom = Number.parseInt((await zoom.textContent()) ?? "0", 10);
+        return Math.abs(playingZoom / initialZoom - viewport.height / initialScore.height);
+      })
+      .toBeLessThan(0.02);
     const compactButton = await stop.boundingBox();
     if (!compactButton) throw new Error("Stop button is not visible");
     expect(Math.abs(compactButton.x - expandedButton.x)).toBeLessThan(1);
@@ -121,6 +140,14 @@ for (const viewport of [
 
     const start = panel.getByRole("button", { name: "Start", exact: true });
     await expect(start).toBeEnabled();
+    await expect(page.getByRole("banner")).toBeVisible();
+    await expect
+      .poll(async () => {
+        const restoredScore = await scoreView.boundingBox();
+        return restoredScore === null ? Infinity : Math.abs(restoredScore.height - initialScore.height);
+      })
+      .toBeLessThan(1);
+    await expect.poll(async () => Number.parseInt((await zoom.textContent()) ?? "0", 10)).toBe(initialZoom);
     await expect(panel.getByRole("listbox", { name: "Rehearsal" })).toBeVisible();
     await expect(panel.getByRole("listbox", { name: "Start bar" })).toBeVisible();
     await expect(panel.getByRole("radio", { name: "2 bars" })).toBeChecked();
