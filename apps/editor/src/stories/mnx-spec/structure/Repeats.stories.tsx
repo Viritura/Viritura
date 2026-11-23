@@ -176,7 +176,7 @@ export const EndingAtSystemStart: StoryObj = {
             {
               bpm: 120,
               value: { base: "quarter" },
-              text: "Beat-one anchor",
+              _x: { viritura: { text: [{ text: "Beat-one anchor" }] } },
             },
           ],
           fullMeasure: {},
