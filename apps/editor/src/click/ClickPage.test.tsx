@@ -31,12 +31,12 @@ vi.mock("@viritura/score-viewer-react", () => ({
     pagePositions: [],
     zoom: 1,
   }),
-  ScoreViewer: ({ children, mnx, useWorker, defaultViewMode, scoreIndex, zoom, fitMode }: ScoreViewerProps) => (
+  ScoreViewer: ({ children, mnx, useWorker, viewMode, scoreIndex, zoom, fitMode }: ScoreViewerProps) => (
     <div
       data-testid="score-viewer"
       data-mnx={mnx}
       data-worker={useWorker}
-      data-mode={defaultViewMode}
+      data-mode={viewMode}
       data-score-index={scoreIndex}
       data-zoom={zoom}
       data-fit={fitMode}
@@ -126,7 +126,37 @@ describe("standalone click page", () => {
     expect(audio.load).toHaveBeenCalledOnce();
   });
 
+  it("switches page, spread, horizontal spread, and horizon without restarting audio", async () => {
+    const user = userEvent.setup();
+    render(<ClickPage />);
+    await openFile();
+    const viewer = screen.getByTestId("score-viewer");
+    const selector = screen.getByRole("combobox", { name: "View mode" });
+    for (const [label, mode] of [
+      ["Page", "page"],
+      ["Spread", "spread"],
+      ["Horizon", "horizon"],
+      ["Spread (H)", "spread-horizontal"],
+    ]) {
+      await user.click(selector);
+      await user.click(screen.getByRole("option", { name: label, exact: true }));
+      expect(viewer.dataset.mode).toBe(mode);
+      expect(viewer.dataset.fit).toBe("height");
+    }
+    expect(audio.create).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("combobox", { name: "View mode" })).toBeNull();
+    expect(screen.getByTestId("score-viewer")).toBe(viewer);
+    expect(viewer.dataset.mode).toBe("spread-horizontal");
+    fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "View mode" })).toBeTruthy());
+    expect(viewer.dataset.mode).toBe("spread-horizontal");
+    expect(audio.start).toHaveBeenCalledOnce();
+  });
+
   it("exposes zoom and fit in the top nav and resets the view when another file opens", async () => {
+    const user = userEvent.setup();
     render(<ClickPage />);
     await openFile(score, "scale.mnx");
     const nav = within(screen.getByRole("banner"));
@@ -140,10 +170,13 @@ describe("standalone click page", () => {
     expect(viewer.dataset.zoom).toBe("1");
     expect(viewer.dataset.fit).toBe("none");
     fireEvent.click(nav.getByRole("button", { name: "Zoom in", exact: true }));
+    await user.click(nav.getByRole("combobox", { name: "View mode" }));
+    await user.click(screen.getByRole("option", { name: "Spread", exact: true }));
     await openFile(rehearsals, "rehearsals.mnx");
     expect(screen.getByTestId("score-viewer").dataset.zoom).toBe("1");
     expect(screen.getByTestId("score-viewer").dataset.scoreIndex).toBe("0");
     expect(screen.getByTestId("score-viewer").dataset.fit).toBe("height");
+    expect(screen.getByTestId("score-viewer").dataset.mode).toBe("horizon");
     expect(audio.create).not.toHaveBeenCalled();
   });
 

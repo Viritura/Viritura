@@ -2,6 +2,72 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 
+test("click score view modes arrange pages vertically and horizontally", async ({ page }) => {
+  await page.goto("/click");
+  await page
+    .getByLabel("MNX file")
+    .setInputFiles(
+      resolve(
+        import.meta.dirname,
+        "..",
+        "packages",
+        "format",
+        "fixtures",
+        "mnx",
+        "beethoven-symphony-5-movement-1.mnx",
+      ),
+    );
+  const selector = page.getByRole("combobox", { name: "View mode" });
+  const surface = page.locator('[data-score-playhead="true"]').locator("..");
+  async function dimensions() {
+    return surface.evaluate((element) => ({ width: element.clientWidth, height: element.clientHeight }));
+  }
+  async function selectMode(label: string) {
+    await selector.click();
+    await page.getByRole("option", { name: label, exact: true }).click();
+  }
+
+  await selectMode("Page");
+  await expect(page.locator('canvas[data-page="0"]')).toBeVisible();
+  await expect.poll(async () => (await dimensions()).height / (await dimensions()).width).toBeGreaterThan(4);
+  const single = await dimensions();
+
+  await selectMode("Spread");
+  await expect.poll(async () => (await dimensions()).width).toBeGreaterThan(single.width * 1.9);
+  await expect.poll(async () => (await dimensions()).height).toBeLessThan(single.height / 1.2);
+  const spread = await dimensions();
+
+  await selectMode("Spread (H)");
+  await expect.poll(async () => (await dimensions()).width).toBeGreaterThan(spread.width * 1.5);
+  await expect.poll(async () => (await dimensions()).height).toBeLessThan(spread.height / 1.5);
+
+  await selectMode("Horizon");
+  await expect(page.locator("canvas[data-page]")).toHaveCount(0);
+  const viewport = page.getByRole("region", { name: "Score", exact: true });
+  await expect
+    .poll(async () => {
+      const box = await viewport.boundingBox();
+      return box === null ? Infinity : Math.abs((await dimensions()).height - box.height);
+    })
+    .toBeLessThan(2);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const control of [
+    selector,
+    page.getByRole("combobox", { name: "Score or part" }),
+    page.getByRole("button", { name: "Zoom out", exact: true }),
+    page.getByRole("button", { name: "Zoom in", exact: true }),
+    page.getByRole("button", { name: "Zoom to fit", exact: true }),
+  ]) {
+    await expect(control).toBeVisible();
+    const box = await control.boundingBox();
+    if (!box) throw new Error("Score view control is not visible");
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+});
+
 test("dragging the click transport does not select its text", async ({ page }) => {
   await page.goto("/click");
   await page

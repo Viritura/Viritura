@@ -1,11 +1,12 @@
 import { Minus, Plus } from "lucide-react";
 import { Button, Select } from "@viritura/ui";
-import type { ScoreFitMode } from "@viritura/score-viewer-react";
+import type { ScoreFitMode, ScoreViewMode } from "@viritura/score-viewer-react";
 import type { ClickScoreView } from "./scoreViews";
 import styles from "./ClickPage.module.css";
 
 export interface ClickScoreSettings {
   readonly viewIndex: number;
+  readonly viewMode: ScoreViewMode;
   readonly zoom: number;
   readonly fitMode: ScoreFitMode;
 }
@@ -15,6 +16,13 @@ interface ClickScoreControlsProps {
   readonly settings: ClickScoreSettings;
   readonly onChange: (settings: ClickScoreSettings) => void;
 }
+
+const VIEW_MODES: readonly { value: ScoreViewMode; label: string }[] = [
+  { value: "page", label: "Page" },
+  { value: "spread", label: "Spread" },
+  { value: "spread-horizontal", label: "Spread (H)" },
+  { value: "horizon", label: "Horizon" },
+];
 
 export function ClickScoreControls({ views, settings, onChange }: ClickScoreControlsProps) {
   return (
@@ -27,6 +35,17 @@ export function ClickScoreControls({ views, settings, onChange }: ClickScoreCont
         disabled={views.length < 2}
         fullWidth={false}
         className={styles.scoreSelect}
+      />
+      <Select
+        aria-label="View mode"
+        value={settings.viewMode}
+        onValueChange={(value) => {
+          const mode = VIEW_MODES.find((option) => option.value === value);
+          if (!mode) throw new Error(`Unknown score view mode: ${value}`);
+          onChange({ ...settings, viewMode: mode.value });
+        }}
+        options={VIEW_MODES}
+        fullWidth={false}
       />
       <Button
         variant="ghost"

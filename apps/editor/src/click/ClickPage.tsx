@@ -24,7 +24,12 @@ function statusLabel(
 export function ClickPage() {
   const player = useClickPlayer();
   const [dialSettling, setDialSettling] = useState(false);
-  const [scoreSettings, setScoreSettings] = useState<ClickScoreSettings>({ viewIndex: 0, zoom: 1, fitMode: "height" });
+  const [scoreSettings, setScoreSettings] = useState<ClickScoreSettings>({
+    viewIndex: 0,
+    viewMode: "horizon",
+    zoom: 1,
+    fitMode: "height",
+  });
   const inputRef = useRef<HTMLInputElement>(null);
   const statusId = useId();
   const tempoId = useId();
@@ -58,7 +63,7 @@ export function ClickPage() {
             const file = event.currentTarget.files?.[0];
             event.currentTarget.value = "";
             if (file) {
-              setScoreSettings({ viewIndex: 0, zoom: 1, fitMode: "height" });
+              setScoreSettings({ viewIndex: 0, viewMode: "horizon", zoom: 1, fitMode: "height" });
               void player.open(file);
             }
           }}

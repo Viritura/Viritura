@@ -40,7 +40,7 @@ export function ClickScore({
         bare
         pageBackground="transparent"
         style={VIEWER_STYLE}
-        defaultViewMode="horizon"
+        viewMode={settings.viewMode}
         controls={false}
         scoreIndex={view.scoreIndex}
         zoom={settings.zoom}

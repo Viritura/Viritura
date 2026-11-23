@@ -51,9 +51,13 @@ Implemented:
   report an error. Dragging and bar selection are disabled during playback.
 - **Score view controls** — the top navigation selects authored score/part
   views, with read-only source-part views offered when extracts are absent.
-  Selection does not change the click itinerary or restart playback.
+  **View mode** offers **Page**, **Spread**, **Spread (H)** (horizontal
+  spreads), and **Horizon**, matching the main app. Horizon remains the default.
+  Score/part and view-mode selection do not change the click itinerary or
+  initialize audio. The selected mode persists while the navigation is hidden
+  during playback; opening another file resets it to Horizon.
   Zoom in/out and the current percentage sit beside **Fit**, which fits the
-  staff height to the viewport while preserving horizontal score scrolling.
+  staff height in Horizon or the page height in paginated modes to the viewport.
   Fit adapts to viewport and selected-score changes; manual zoom exits fit.
   The click viewer defaults to fit-height and an edge-to-edge white surface,
   without the viewer's paper shadow, gray backdrop, or viewport padding.
