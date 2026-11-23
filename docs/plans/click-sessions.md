@@ -37,8 +37,8 @@ Implemented:
   AudioContext. `ClickSessionTransport` calls it before loading a program;
   Play restarts with the countoff and Resume continues without one.
 
-Remaining: the standalone [`/click` page](#standalone-click-page), prepared
-click session files, the timing-only compiler (the program is still derived from
+Remaining: the standalone [`/click` page](#standalone-click-page), the
+timing-only compiler (the program is still derived from
 a full `generateTimeline` result at prepare time, off the audio path),
 measure-position resolution rules, the project setlist picker, persisted click
 settings, the movable controller and bar wheel, and the release gates below.
@@ -78,8 +78,9 @@ and network clock synchronization are outside this first delivery.
 1. Choose **Open project folder** and grant access to the session folder.
 2. Discover its immediate `.mnx` children. Display their names in an app-level
    **Track** picker beside the project name, available across editor modes.
-3. Choose **Open click session**. The editor saves pending edits, prepares the
-   setlist (see [Standalone `/click` page](#standalone-click-page)), and
+3. Choose **Open click session**. Resolve pending edits through the existing
+   save/discard/cancel workflow and hand off the MNX setlist
+   (see [Standalone `/click` page](#standalone-click-page)), then
    navigates to `/click`, which shows:
    - Track picker, ordered track list, and **Previous** / **Next** actions.
    - Large **Play**, **Pause**, **Resume**, **Stop**, and **Restart** controls.
@@ -117,23 +118,25 @@ one browser tab with nothing but the click.
 
 - **Separate build entry.** Add a `click.html` Vite entry (with the hosting
   rewrite for `/click`) so the editor bundle can never be pulled in. Its
-  import graph is limited to the click engine, click session compiler, MNX
-  reading needed for fallback compilation, the controller, and UI primitives.
+  import graph is limited to the click engine, timing-only compiler, MNX
+  reader, project access, the controller, and UI primitives.
   Add a bundle check that fails if the entry reaches the score engine WASM,
   renderer, CRDT, MCP, SF2, or VST modules.
-- **Prepare in the editor, perform on `/click`.** **Open click session** saves
-  each track's resolved click events and bar-wheel metadata (stable measure
-  ID, displayed number, rehearsal text, meter, effective tempo) as a derived
-  session file keyed by the source document revision. `/click` only reads
-  these files, so the full timeline pipeline never runs there. A missing or
-  stale file is reported per track; fallback compilation on `/click` waits for
-  the timing-only compiler and must not import instrument MIDI generation.
+- **MNX is the only track format.** Open ordinary `.mnx` files directly on
+  `/click`; using the editor first is optional. Do not introduce prepared click
+  files, exported event lists, or a second saved representation of musical
+  timing. Compile the selected MNX into transient click events and bar-wheel
+  metadata before Play, using the timing-only compiler without instrument MIDI
+  generation. The same MNX works for practice and studio sessions.
 - **Project access.** Persist the project directory handle in IndexedDB and
   request permission again from a user gesture on `/click`. Without File System
   Access, accept a dropped folder or files for read-only use.
-- **Read-only.** `/click` never edits scores. Session tempo percentage, click
-  volume, and the last selected start are page settings, not document edits.
-  **Back to editor** navigates back and restores the project.
+- **Limited editing.** `/click` does not mount notation editing. Explicit
+  subdivision changes are musical settings saved into the selected MNX through
+  the narrow format/persistence path; read-only sources require an explicit
+  download. Session tempo percentage, click volume, and the last selected start
+  are session/UI settings, not document edits. **Back to editor** navigates back
+  and restores the project.
 - **Desktop.** The Tauri shell opens `/click` in its own window so the editor
   window can be closed while the click plays.
 - **Controller hosts.** On `/click` the controller is the full page, touch
@@ -260,7 +263,7 @@ Screen-reader status announces the committed selection, not every scroll frame.
 | Project storage      | `GitProjectAdapter` accepts a `scorePath`, but `ProjectAdapter` exposes one active score and its history. `bootProjectFromHandle` opens a selected path. | Introduce folder-level file discovery and active-document selection without requiring a Git repository. Keep one selected score adapter rather than loading every score into editor state. |
 | Click timing         | `buildClickTrack` uses the MIDI tempo model, expanded measure starts, and played spans.                                                                  | Reuse the musical timing model and route semantics, but compile to a dedicated click engine rather than the note scheduler.                                                                |
 | Click delivery       | `Scheduler` fills an audio look-ahead window from a main-thread `setTimeout`; `scheduleClicks` drops events whose delivery time has passed.              | Preload a complete take into an AudioWorklet before starting. Neither main-thread timers nor per-click messages may determine onset delivery.                                              |
-| Resolution           | `Metronome.getBeatsForMeasure` derives simple or compound beats from meter.                                                                              | Add authored resolution and grouping changes, including changes inside a bar.                                                                                                              |
+| Resolution           | `resolveMeter` already resolves authored irregular grouping; the click compiler still uses `Metronome.getBeatsForMeasure`.                               | Reuse the shared meter resolver and add explicit subdivision overrides, including changes inside a bar.                                                                                    |
 | Countoff             | The current count-in creates quarter-note clicks before score time zero; startup applies it only when stopped at the beginning.                          | Use a meter-aware one-bar pre-roll at each fresh start, not a loop over a potentially fractional quarter-note count.                                                                       |
 | Tempo adjustment     | `PlaybackEngine.setTempo` derives a scale from the first tempo-map entry.                                                                                | Expose percentage semantics explicitly and reapply the same scale whenever the active file changes.                                                                                        |
 | Playback preparation | The provider normally builds instrument samplers and prepares native playback.                                                                           | Add a real click-only preparation path: no soundfont requirement, instrument notes, MIDI note output, or native VST start. Muting instruments after preparing them is insufficient.        |
@@ -457,14 +460,27 @@ the new name. Provide **Refresh tracks** and **Locate file** recovery.
 
 ## Persistence boundary
 
-Each `.mnx` remains independently openable and owns its musical structure and
-click program. Proposed vendor fields belong under `_x.viritura`, never as new
-top-level MNX properties:
+Each `.mnx` remains independently openable and is the only saved track format.
+Its existing meter, beat structure, tempo, ramps, and rehearsal marks already
+describe the click's timing and navigation. Do not duplicate them in a click
+file or store compiled timestamps.
 
-- Document-level `clickTrack` defaults.
-- Global-measure-level `clickTrack` changes at rational rhythmic positions.
-- Each change has stable identity and a complete explicit pattern; omission
-  means inherit the preceding pattern.
+Reuse `TimeSignature.beatStructure` and `resolveMeter` from the
+[meter model](../../packages/core/src/model/time.ts) for the beat, including
+irregular grouping. The only new musical metadata needed for this delivery is
+an explicit click-subdivision override at a rhythmic location:
+
+- Proposed tempo extension: `_x.viritura.click: { subdivision: 2 }`, alongside
+  the existing tempo metadata. Exact naming remains provisional.
+- With no override anywhere, click once per resolved meter beat.
+- Omitted metadata inherits the preceding subdivision; `subdivision: 1`
+  explicitly returns to beat-only clicks.
+- Allow an override at a ritardando's start, its end, or another rhythmic
+  position without requiring a new BPM or a visible metronome marking. Finalize
+  the positioned instruction representation during implementation; do not
+  fabricate a tempo value just to carry click metadata.
+- Do not add independent click beat/grouping definitions that could disagree
+  with the existing meter.
 
 The exact field names and schema are proposals to finalize during implementation.
 Update the extension schema, generated bindings/validators, model, parser,
@@ -499,21 +515,27 @@ The tempo table shows every actual tempo change, its bar/beat, written beat unit
 written BPM, and effective BPM. Each row has an explicit resolution override or
 **Inherit**. Also allow a click-only change where no tempo change exists.
 
-Proposed pattern controls:
+Default to one click at each beat boundary from `resolveMeter`, including
+authored irregular grouping. Do not infer the beat from BPM or introduce a
+second grouping control. The current click session compiler still uses the
+older simple/compound metronome helper; switching it to the shared meter
+resolver is required before claiming irregular-meter support.
 
-- Pulse: **Meter beat** or an explicit note value, including dotted values.
-- Subdivision: 1, 2, 3, or 4 equally spaced clicks per pulse.
-- Grouping for irregular meters, such as 7/8 grouped 2+2+3.
-- Accents: distinguish bar downbeat, pulse/group starts, and subdivisions.
+Proposed controls: **Inherit**, **On the beat**, or an explicit subdivision
+(initial choices: 2, 3, or 4 equally spaced clicks per resolved beat). Distinguish
+bar downbeat, beat/group starts, and subdivisions with accents. Dividing unequal
+groups equally per beat produces unequal tick spacing across groups; the UI
+must describe this rather than implying a uniform denominator-note grid.
 
 Examples:
 
-| Location | Tempo                    | Program                             | Result                         |
-| -------- | ------------------------ | ----------------------------------- | ------------------------------ |
-| Bar 1    | Quarter = 72             | Quarter pulse, subdivision 2        | Eighth-note clicks             |
-| Bar 17   | Quarter = 120            | Quarter pulse, subdivision 1        | Quarter-note clicks            |
-| Bar 33   | Dotted quarter = 60, 6/8 | Dotted-quarter pulse, subdivision 3 | Six eighth-note clicks per bar |
-| Bar 41   | Quarter = 90             | Quarter pulse, subdivision 3        | Eighth-note triplet clicks     |
+| Location | Tempo / meter            | Override      | Result                          |
+| -------- | ------------------------ | ------------- | ------------------------------- |
+| Bar 1    | Quarter = 72, 4/4        | Subdivision 2 | Eighth-note clicks              |
+| Bar 17   | Quarter = 120, 4/4       | On the beat   | Quarter-note clicks             |
+| Bar 33   | Dotted quarter = 60, 6/8 | Subdivision 3 | Six eighth-note clicks per bar  |
+| Bar 41   | Ritardando, 4/4          | Subdivision 2 | Eighth-note clicks through ramp |
+| Bar 45   | End of ritardando, 4/4   | On the beat   | Return to quarter-note clicks   |
 
 Resolve each pattern to rational musical positions, then use the existing tempo
 model to obtain seconds. Anchor the grid to the bar; a mid-bar change applies at
@@ -581,8 +603,8 @@ product decision; do not silently clamp or assume a range in the data model.
    switching, and optional session manifest. Verify two MNX files in a plain
    folder and a Git folder; edits, history, and saves must address the selected
    file. Cancelled or failed switches preserve the original document.
-2. **Click program persistence and timing.** Add schema/model round trips,
-   editor controls, rational pattern generation, grouping, and a distinct
+2. **MNX subdivision metadata and timing.** Add schema/model round trips,
+   editor controls, rational subdivision generation using existing grouping, and a distinct
    subdivision accent supported end-to-end by the click event/synth path.
    Test tempo-boundary changes, inheritance, repeats/jumps, and mid-bar changes.
 3. **Recording engine and transport.** Extract timing-only compilation, add the
@@ -592,7 +614,7 @@ product decision; do not silently clamp or assume a range in the data model.
    treating the UI as recording-ready. Missing soundfonts and VST hosts cannot
    block click playback.
 4. **Session surface and validation.** Add the `/click` build entry with its
-   bundle-boundary check, prepared session files, the shared floating/Document
+   bundle-boundary check, direct MNX loading, the shared floating/Document
    PiP controller, touch bar wheel, rehearsal navigation, and resolved start card.
    Cover them in the composed app Storybook story, including narrow windows,
    missing PiP support, errors, and countoff state. Run wired-output manual
