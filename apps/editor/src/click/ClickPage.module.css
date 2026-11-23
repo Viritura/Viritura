@@ -105,6 +105,7 @@
   background: var(--surface);
   box-shadow: 0 8px 32px rgb(0 0 0 / 18%);
   cursor: grab;
+  user-select: none;
 }
 
 .dragSurface {
