@@ -1639,6 +1639,84 @@ fn test_mixed_stems_defaults_above() {
 }
 
 #[test]
+fn test_mixed_beam_slur_keeps_default_side_over_a_shallow_mountain() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 2, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+            "sequences": [{"content": [
+                {"id": "lead", "duration": {"base": "16th"},
+                 "notes": [{"pitch": {"step": "E", "alter": -1, "octave": 5}}]},
+                {"id": "source", "duration": {"base": "16th"},
+                 "notes": [{"pitch": {"step": "G", "octave": 4}}],
+                 "slurs": [{"target": "target"}]},
+                {"id": "inner-a", "duration": {"base": "16th"},
+                 "notes": [{"pitch": {"step": "A", "octave": 4}}]},
+                {"id": "inner-b", "duration": {"base": "16th"},
+                 "notes": [{"pitch": {"step": "B", "octave": 4}}]},
+                {"id": "target", "duration": {"base": "eighth"},
+                 "notes": [{"pitch": {"step": "A", "octave": 4}}]},
+                {"id": "end", "duration": {"base": "eighth"},
+                 "notes": [{"pitch": {"step": "G", "octave": 4}}]}
+            ]}]
+        }]}]
+    }"#;
+    let config = LayoutConfig::default();
+    let display = layout_score(&parse_mnx(json).unwrap(), 0, &config);
+    let slur = display
+        .commands
+        .iter()
+        .enumerate()
+        .find_map(|(index, command)| {
+            (display.element_ids[index].as_deref() == Some("slur/source/target")
+                && matches!(command, RenderCommand::DrawFilledBezier { .. }))
+            .then_some(command)
+        })
+        .expect("mixed-beam slur");
+    assert!(
+        is_curve_above(slur),
+        "a shallow mountain must not flip the mixed-stem default onto the source beam"
+    );
+    let (x1, x2) = bezier_endpoints_x(slur);
+    let mut checked_samples = 0;
+    for shape in &display.element_shapes {
+        if shape.kind != ElementKind::Beam {
+            continue;
+        }
+        let ShapeGeom::Cmd { cmd_idx } = shape.geom else {
+            continue;
+        };
+        let RenderCommand::DrawPolygon { points, .. } = &display.commands[cmd_idx as usize] else {
+            panic!("beam polygon")
+        };
+        for sample in 1..100 {
+            let x = x1 + (x2 - x1) * f64::from(sample) / 100.0;
+            let mut beam_top = f64::INFINITY;
+            for index in 0..points.len() {
+                let (ax, ay) = points[index];
+                let (bx, by) = points[(index + 1) % points.len()];
+                if (bx - ax).abs() > 1e-9 && x >= ax.min(bx) && x <= ax.max(bx) {
+                    beam_top = beam_top.min(ay + (by - ay) * (x - ax) / (bx - ax));
+                }
+            }
+            if beam_top.is_finite() {
+                checked_samples += 1;
+                let slur_y = bezier_inner_y_at_x(slur, x);
+                assert!(
+                    slur_y < beam_top,
+                    "slur must stay above beam ink at x={x}: slur={slur_y}, beam={beam_top}"
+                );
+            }
+        }
+    }
+    assert!(
+        checked_samples > 0,
+        "slur must overlap a beam's horizontal span"
+    );
+}
+
+#[test]
 fn test_mixed_stem_slur_clears_its_beamed_source() {
     let json = r#"{
         "mnx": {"version": 1},

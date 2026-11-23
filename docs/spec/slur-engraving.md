@@ -14,7 +14,9 @@ endpoints do not leave enough room for full separation.
 
 For mixed stem directions, automatic contour correction must not pull a
 stem-side slur tip inward through the stem or its beam. When attachment and
-contour conflict, the stem-side attachment takes priority.
+contour conflict, the stem-side attachment takes priority. Automatic slurs with
+opposing endpoint stems keep the standard above-slur default; mountain/valley
+side flips apply only when the endpoint stems agree. Explicit sides still win.
 
 The implementation lives in [`engine/viritura-engine/src/layout/slurs/`](../../engine/viritura-engine/src/layout/slurs). Local and cross-system layout use the same endpoint snapshot semantics:
 
