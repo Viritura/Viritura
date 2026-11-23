@@ -712,7 +712,7 @@ fn instrument_changes_implied_octaves_use_instrument_names_without_tuning() {
         );
         assert_eq!(
             crate::layout::page::resolve_required_part_display_names(&score.parts)[0].display_name,
-            format!("{name}\n{other} in C")
+            format!("{name}\n{other}")
         );
         for index in [0, 2] {
             let active = crate::layout::page::resolve_part_display_names_at(&score.parts, index);

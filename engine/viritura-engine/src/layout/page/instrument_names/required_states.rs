@@ -99,6 +99,12 @@ fn state_name(
                 .definition
                 .is_some_and(|initial| std::ptr::eq(initial, definition))
     });
+    if !distinguish_octave
+        && interval == (0, 0)
+        && (!has_active_default || interval == default_interval)
+    {
+        return authored.to_string();
+    }
     // A pure octave has seven staff steps per twelve semitones.
     if !distinguish_octave
         && has_active_default

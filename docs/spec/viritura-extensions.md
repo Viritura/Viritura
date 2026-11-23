@@ -1940,8 +1940,10 @@ clicked staff. Instrument choices must keep the same staff count and be
 pitched instruments. Percussion-map swaps and changes of staff count need
 separate source parts; this extension does not define per-instrument kits.
 Changing instrument also sets the catalog's clefs and staff-line counts at
-the bar start, preserving later-positioned staff changes. Removing it
-restores the previous instrument's catalog defaults there.
+the bar start, preserving later-positioned staff changes. A clef is inserted
+only when it differs from the clef already in effect on that staff, so
+flute/piccolo changes do not repeat the treble clef. Removing a change
+restores the previous instrument's catalog defaults without redundant clefs.
 
 Setup's **Change instrument** still replaces the starting instrument for the
 whole part; its **Customize tuning** section edits the starting transposition.
@@ -1974,6 +1976,9 @@ B-flat horn uses **alto** / **basso**, and E-flat clarinet uses
 pitch for written C4; the default octave transposition of a different
 instrument needs no such explanation. Explicit author-supplied layout labels
 remain intact.
+Nontransposing instruments likewise omit a derived `in C` suffix when using
+their default tuning, so a piccolo/flute player's header reads `Piccolo` and
+`Flute`. Authored names and nondefault or octave-distinct tunings remain intact.
 
 Extracted parts use the same required-state list in the boxed instrument
 header on the first page, including a dedicated title page. Automatic

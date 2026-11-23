@@ -943,6 +943,169 @@ fn test_accidental_change_at_barline_gets_courtesy() {
 }
 
 #[test]
+fn test_repeat_courtesies_follow_performed_predecessors() {
+    for (common_alter, first_alter, second_alter, expected_second) in
+        [(0, 1, 0, false), (1, 0, 0, true)]
+    {
+        let note = |alter: i32| {
+            serde_json::json!({
+                "sequences": [{"content": [{"duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "F", "octave": 4, "alter": alter}}]}]}]
+            })
+        };
+        let mut measures = vec![note(common_alter), note(first_alter), note(second_alter)];
+        measures[0]["clefs"] = serde_json::json!([{"clef": {"sign": "G", "staffPosition": -2}}]);
+        let source = serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [
+                {"time": {"count": 4, "unit": 4}, "repeatStart": {}},
+                {"ending": {"numbers": [1], "duration": 1}, "repeatEnd": {}},
+                {"ending": {"numbers": [2], "duration": 1}}
+            ]},
+            "parts": [{"measures": measures}]
+        });
+        let score = parse_mnx(&source.to_string()).unwrap();
+        let resolved = resolve_measures(&score, 0);
+        let has_courtesy = |index: usize| {
+            let SequenceContent::Event(event) = &resolved[index].part.sequences[0].content[0]
+            else {
+                panic!("expected event");
+            };
+            event.notes()[0]
+                .accidental_display
+                .as_ref()
+                .is_some_and(|display| display.force == Some(true))
+        };
+        assert!(
+            has_courtesy(0),
+            "the repeat return compares against the first ending"
+        );
+        assert_eq!(
+            has_courtesy(2),
+            expected_second,
+            "the second ending follows the common bar, not the skipped first ending"
+        );
+        for display in [
+            layout_score(&score, 0, &LayoutConfig::default()),
+            crate::layout::layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+        ] {
+            let naturals = display
+                .commands
+                .iter()
+                .filter(|command| {
+                    matches!(command, RenderCommand::DrawGlyph { codepoint, .. }
+                        if *codepoint == smufl::ACCIDENTAL_NATURAL)
+                })
+                .count();
+            assert_eq!(naturals, if expected_second { 2 } else { 1 });
+        }
+    }
+}
+
+#[test]
+fn nested_repeat_return_adds_a_courtesy_accidental() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}, "repeatStart": {}},
+            {},
+            {"repeatStart": {}},
+            {"repeatEnd": {}},
+            {"repeatEnd": {}}
+        ]},
+        "parts": [{"measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "F", "octave": 4, "alter": 1}}]}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "F", "octave": 4}}]}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+        ]}]
+    }"#,
+    )
+    .unwrap();
+    let resolved = resolve_measures(&score, 0);
+    let SequenceContent::Event(event) = &resolved[2].part.sequences[0].content[0] else {
+        panic!("expected the repeated sharp note");
+    };
+    assert_eq!(
+        event.notes()[0]
+            .accidental_display
+            .as_ref()
+            .and_then(|display| display.force),
+        Some(true),
+        "the inner repeat return follows the natural in its ending measure"
+    );
+}
+
+#[test]
+fn test_repeat_courtesy_updates_before_an_edited_ending() {
+    let mut source = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}, "repeatStart": {}},
+            {"id": "m1"}, {"id": "m2", "repeatEnd": {}}
+        ]},
+        "parts": [{"id": "p1", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "F", "octave": 4}}]}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [
+                {"pitch": {"step": "F", "octave": 4}}
+            ]}]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [{"type": "staff", "sources": [{"part": "p1"}]}]}],
+        "scores": [{"name": "Score", "layout": "L"}]
+    });
+    let config = LayoutConfig {
+        horizon_chunk_width: Some(150.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    cache.set_range_scope(crate::layout::cache::RangeScope {
+        scoped_resolve: true,
+        scoped_breaks: true,
+        scoped_precompute: true,
+        scoped_slurs: true,
+    });
+    let score = parse_mnx(&source.to_string()).unwrap();
+    let _ = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    source["parts"][0]["measures"][2]["sequences"][0]["content"][0]["notes"][0]["pitch"]["alter"] =
+        serde_json::json!(1);
+    let score = parse_mnx(&source.to_string()).unwrap();
+    cache.set_pending_dirty_region(Some(
+        crate::layout::cache::DirtyRegion::local_part_measures(2, 2, vec![true]),
+    ));
+    let cached = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let cold = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    let natural_count = |display: &DisplayList| {
+        display.commands.iter().filter(|command| {
+        matches!(command, RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::ACCIDENTAL_NATURAL)
+    }).count()
+    };
+    assert_eq!(natural_count(&cold), 1);
+    assert_eq!(natural_count(&cached), natural_count(&cold));
+
+    source["global"]["measures"][2]
+        .as_object_mut()
+        .unwrap()
+        .remove("repeatEnd");
+    let score = parse_mnx(&source.to_string()).unwrap();
+    cache.set_pending_dirty_region(Some(
+        crate::layout::cache::DirtyRegion::local_part_measures(2, 2, vec![true]),
+    ));
+    let cached = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let cold = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    assert_eq!(natural_count(&cold), 0);
+    assert_eq!(natural_count(&cached), natural_count(&cold));
+}
+
+#[test]
 fn test_accidental_change_at_barline_gets_courtesy_in_mnx_score_layout() {
     let json = r#"{
         "mnx": {"version": 1},

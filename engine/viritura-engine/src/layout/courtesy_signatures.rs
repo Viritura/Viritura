@@ -1,9 +1,10 @@
 //! Courtesy signatures at a system break.
 //!
 //! Standard engraving practice: when a system opens with a new clef, key, or
-//! meter, the end of the preceding system announces it. The courtesy clef
-//! precedes the system-end barline; courtesy key and time signatures follow
-//! the barline on staff lines that extend past it, with no closing barline.
+//! meter, the end of the preceding system announces it. A courtesy clef
+//! normally precedes the system-end barline, but follows an end repeat when
+//! it applies only to the following music. Courtesy key and time signatures
+//! follow the barline on staff lines that extend past it.
 //! The furniture is derived layout state, never an extra score declaration.
 
 use super::config::LayoutConfig;
@@ -47,6 +48,7 @@ pub(crate) fn courtesy_for_boundary(
         .cloned();
     SystemEndCourtesy {
         clef: courtesy_clef(next),
+        clef_after_barline: current.global.repeat_end.is_some(),
         key,
         time,
         ..SystemEndCourtesy::default()
@@ -128,6 +130,13 @@ pub(crate) fn share_system_end<'a>(
     // rhythmic content, so the slot holds only the clef and its clearance.
     let clef_slot = ends
         .iter()
+        .filter(|rm| !rm.system_end.clef_after_barline)
+        .filter_map(|rm| rm.system_end.clef.as_ref())
+        .map(|clef| change_clef_width_sp(clef) + CLEF_CLEARANCE_SP)
+        .fold(0.0_f64, f64::max);
+    let suffix_clef_slot = ends
+        .iter()
+        .filter(|rm| rm.system_end.clef_after_barline)
         .filter_map(|rm| rm.system_end.clef.as_ref())
         .map(|clef| change_clef_width_sp(clef) + CLEF_CLEARANCE_SP)
         .fold(0.0_f64, f64::max);
@@ -146,19 +155,20 @@ pub(crate) fn share_system_end<'a>(
         .fold(0.0_f64, f64::max);
     let barline_right_extent_sp = barline_right_extent(&barline_kind, config, 1.0);
     let barline_left_extent_sp = barline_left_extent(&barline_kind, config, 1.0);
-    let suffix = if key_slot > 0.0 || time_slot > 0.0 {
+    let suffix = if suffix_clef_slot > 0.0 || key_slot > 0.0 || time_slot > 0.0 {
         let clearance = barline_right_extent_sp + BARLINE_CLEARANCE_SP;
         let key_to_time = if key_slot > 0.0 && time_slot > 0.0 {
             KEY_TO_TIME_SP
         } else {
             0.0
         };
-        clearance + key_slot + key_to_time + time_slot + STAFF_TAIL_SP
+        clearance + suffix_clef_slot + key_slot + key_to_time + time_slot + STAFF_TAIL_SP
     } else {
         0.0
     };
     for rm in &mut ends {
         rm.system_end.clef_slot_sp = clef_slot;
+        rm.system_end.suffix_clef_slot_sp = suffix_clef_slot;
         rm.system_end.key_slot_sp = key_slot;
         rm.system_end.barline_left_extent_sp = barline_left_extent_sp;
         rm.system_end.barline_right_extent_sp = barline_right_extent_sp;
@@ -242,13 +252,15 @@ pub(crate) fn courtesy_time_x(
     let time = rm.system_end.time.as_ref()?;
     let key_slot = rm.system_end.key_slot_sp;
     let key_to_time = if key_slot > 0.0 { KEY_TO_TIME_SP } else { 0.0 };
-    let x = barline_x + (barline_clearance_sp(rm) + key_slot + key_to_time) * sp;
+    let x = barline_x
+        + (barline_clearance_sp(rm) + rm.system_end.suffix_clef_slot_sp + key_slot + key_to_time)
+            * sp;
     Some((x, time))
 }
 
-/// Engrave this staff's courtesy clef before the barline, then its courtesy
-/// key and (per-staff) meter after it. Group-distributed meters are engraved
-/// by the spanning meter pass.
+/// Engrave this staff's courtesy clef on its appropriate side of the barline,
+/// then its courtesy key and (per-staff) meter. Group-distributed meters are
+/// engraved by the spanning meter pass.
 pub(crate) fn render_system_end_courtesy(
     dl: &mut DisplayList,
     rm: &ResolvedMeasure,
@@ -258,20 +270,20 @@ pub(crate) fn render_system_end_courtesy(
     config: &LayoutConfig,
 ) {
     if let Some(clef) = rm.system_end.clef.as_ref() {
-        let clef_right =
-            barline_x - rm.system_end.barline_left_extent_sp * sp - CLEF_CLEARANCE_SP * sp;
-        render_change_clef(
-            dl,
-            clef_right - change_clef_width(clef, sp),
-            staff_y,
-            sp,
-            clef,
-        );
+        let clef_x = if rm.system_end.clef_after_barline {
+            barline_x + barline_clearance_sp(rm) * sp
+        } else {
+            barline_x
+                - rm.system_end.barline_left_extent_sp * sp
+                - CLEF_CLEARANCE_SP * sp
+                - change_clef_width(clef, sp)
+        };
+        render_change_clef(dl, clef_x, staff_y, sp, clef);
     }
     if let Some(key) = rm.system_end.key.as_ref() {
         render_key_signature(
             dl,
-            barline_x + barline_clearance_sp(rm) * sp,
+            barline_x + (barline_clearance_sp(rm) + rm.system_end.suffix_clef_slot_sp) * sp,
             staff_y,
             sp,
             &key.key,

@@ -83,6 +83,34 @@ struct TimedEvent<'a> {
     is_beamed: bool,
 }
 
+pub(crate) fn laid_out_rhythmic_ink(
+    event: &super::super::types::EventLayout,
+    is_beamed: bool,
+    sp: f64,
+    config: &LayoutConfig,
+) -> Vec<crate::render::BoundingBox> {
+    let timed = TimedEvent {
+        beat_key: BeatKey::new(event.beat_position),
+        event: &event.event,
+        positions: event.note_positions.clone(),
+        offsets: event.note_x_offsets.clone(),
+        stem_up: event.stem_up,
+        is_beamed,
+    };
+    rhythmic_ink(&timed, config, false)
+        .0
+        .into_iter()
+        .map(|ink| {
+            crate::render::BoundingBox::new(
+                event.x + ink.left * sp,
+                ink.top * sp,
+                (ink.right - ink.left) * sp,
+                (ink.bottom - ink.top) * sp,
+            )
+        })
+        .collect()
+}
+
 struct VisibleAccidental {
     position: f64,
     alter: i32,
@@ -142,7 +170,11 @@ fn timed_event<'a>(
     })
 }
 
-fn rhythmic_ink(event: &TimedEvent<'_>, config: &LayoutConfig) -> (Vec<InkRect>, Option<InkRect>) {
+fn rhythmic_ink(
+    event: &TimedEvent<'_>,
+    config: &LayoutConfig,
+    estimate_beams: bool,
+) -> (Vec<InkRect>, Option<InkRect>) {
     let mut ink = Vec::new();
     let notehead = smufl::notehead_glyph(&event.event.duration.base);
     let (head_x, head_y, head_width, head_height) = smufl::glyph_bbox(notehead);
@@ -157,7 +189,10 @@ fn rhythmic_ink(event: &TimedEvent<'_>, config: &LayoutConfig) -> (Vec<InkRect>,
         add_ledger_ink(&mut ink, position, note_x, head_width, config);
     }
 
-    if !event.event.duration.base.has_stem() || event.positions.is_empty() {
+    if !event.event.duration.base.has_stem()
+        || event.positions.is_empty()
+        || (event.is_beamed && !estimate_beams)
+    {
         return (ink, None);
     }
 
@@ -587,7 +622,7 @@ pub(super) fn ink_snapshot(
             .copied()
             .unwrap_or(&default_key);
         for event in &events {
-            let (rhythmic, flag) = rhythmic_ink(event, config);
+            let (rhythmic, flag) = rhythmic_ink(event, config, true);
             obstacles
                 .entry(event.beat_key)
                 .or_default()

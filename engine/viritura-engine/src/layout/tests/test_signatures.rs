@@ -2511,6 +2511,59 @@ fn test_courtesy_clef_at_system_end() {
 }
 
 #[test]
+fn test_courtesy_clef_follows_end_repeat_at_system_break() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}, "repeatEnd": {}},
+            {}
+        ]},
+        "parts": [{"measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": []},
+            {"clefs": [{"clef": {"sign": "F", "staffPosition": 2}}], "sequences": []}
+        ]}]
+    }"#,
+    )
+    .unwrap();
+    let config = LayoutConfig::default();
+    let resolved = resolve_measures(&score, 0);
+    let mut outgoing = resolved[0].clone();
+    outgoing.system_end =
+        crate::layout::courtesy_signatures::courtesy_for_boundary(&outgoing, &resolved[1], &config);
+    crate::layout::courtesy_signatures::share_system_end(
+        std::iter::once(&mut outgoing),
+        &config,
+        crate::layout::render_barlines::BarlineKind::RepeatEnd,
+    );
+    let mut display = DisplayList::new(300.0, 100.0);
+    let barline_x = 100.0;
+    crate::layout::courtesy_signatures::render_system_end_courtesy(
+        &mut display,
+        &outgoing,
+        barline_x,
+        20.0,
+        config.sp,
+        &config,
+    );
+    let clef = display
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::F_CLEF => {
+                command.bbox()
+            }
+            _ => None,
+        })
+        .expect("courtesy clef");
+    assert!(clef.x > barline_x, "the clef must follow the end repeat");
+    assert!(
+        outgoing.system_end.suffix_sp > 0.0,
+        "staff lines must extend beneath the clef"
+    );
+}
+
+#[test]
 fn test_start_of_measure_clef_before_barline() {
     // Two measures on the same system. Clef change at start of measure 2
     // should be rendered BEFORE the barline (lower x position).

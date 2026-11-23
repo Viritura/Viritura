@@ -1,7 +1,11 @@
 //! Per-system measure-layout construction for authored MNX systems.
 
+mod repeat_signatures;
+
 use super::super::cache::LayoutCache;
-use super::super::condensing::{label_for_mode_styled, LabelStyle, MergeMode};
+use super::super::condensing::{
+    first_sounding_position, label_for_mode_styled, LabelStyle, MergeMode,
+};
 use super::super::config::LayoutConfig;
 use super::super::full_score::{compute_system_object_staves, FlatStaff, GroupRange};
 use super::super::measure::{
@@ -513,13 +517,18 @@ pub(super) fn build_explicit_system_layouts<'a>(
                         LabelStyle::Orchestral,
                     );
                     if let Some(text) = label.text() {
+                        let ratio = meter_state
+                            .effective
+                            .as_ref()
+                            .map_or(1.0, |meter| meter.ratio_to_global.as_f64());
+                        let position = first_sounding_position(&virtual_part, ratio);
                         virtual_part.expressions.get_or_insert_with(Vec::new).push(
                             TextExpression {
                                 text: text.into(),
                                 id: None,
                                 text_type: crate::model::PositionedTextType::Expression,
                                 frame: None,
-                                position: RhythmicPosition { fraction: (0, 1) },
+                                position,
                                 placement: Some(ExpressionPlacement::Above),
                                 staff: None,
                                 voice: None,
@@ -568,6 +577,16 @@ pub(super) fn build_explicit_system_layouts<'a>(
             if let Some(clef) = virtual_part.clefs.as_ref().and_then(|clefs| clefs.last()) {
                 last_clef = Some(clef.clone());
             }
+            let repeat_signature = flat_staff.sources.first().and_then(|source| {
+                all_resolved
+                    .get(source.part_index)
+                    .and_then(|measures| measures.get(measure_index))
+            });
+            let repeat_clef_restatement =
+                repeat_signature.is_some_and(|measure| measure.repeat_clef_restatement);
+            if repeat_clef_restatement {
+                repeat_signatures::restate_clef(&mut virtual_part);
+            }
 
             let (display_key, diatonic_adjustment) = crate::layout::resolve::resolve_display_key(
                 &active_key,
@@ -581,6 +600,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 );
             virtual_resolved.push(ResolvedMeasure {
                 system_end: Default::default(),
+                use_beams: super::super::support_flags::engraving_flags(score).0,
                 index: measure_index,
                 chord_symbols: super::chord_symbols::visible_global_chord_symbols(
                     score,
@@ -589,7 +609,6 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 ),
                 global,
                 part: virtual_part,
-                use_beams: crate::layout::support_flags::engraving_flags(score).0,
                 measure_repeat_covered: effective_staff.sources.iter().any(|source| {
                     score.parts.get(source.part_index).is_some_and(|part| {
                         crate::layout::resolve::measure_is_covered_by_repeat(
@@ -603,6 +622,13 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 prev_has_repeat_end,
                 active_time: active_time.clone(),
                 active_key: display_key.clone(),
+                repeat_key_restatement_from: repeat_signature
+                    .and_then(|measure| measure.repeat_key_restatement_from.clone()),
+                repeat_time_restatement: repeat_signature
+                    .and_then(|measure| measure.repeat_time_restatement.clone()),
+                repeat_clef_restatement,
+                repeat_ending_brackets: repeat_signature
+                    .is_some_and(|measure| measure.repeat_ending_brackets),
                 prev_key: previous_display_key.clone(),
                 tie_continuation_ids: Vec::new(),
                 repeat_glissandos: effective_staff

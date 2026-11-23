@@ -326,9 +326,10 @@ pub(crate) struct RepeatGlissando {
 #[derive(Debug, Clone)]
 pub struct ResolvedMeasure {
     pub index: usize,
+    /// Honor authored beams exclusively rather than supplying automatic groups.
+    pub(crate) use_beams: bool,
     pub global: GlobalMeasure,
     pub part: PartMeasure,
-    pub(crate) use_beams: bool,
     /// Layout-only harmony lane cloned from global events; never part-measure data.
     pub(crate) chord_symbols: Option<Vec<ChordSymbol>>,
     /// This measure is represented by a measure-repeat sign at this index or an
@@ -342,6 +343,14 @@ pub struct ResolvedMeasure {
     pub prev_has_repeat_end: bool,
     pub active_time: TimeSignature,
     pub active_key: KeySignature,
+    /// Previous-playthrough key signature restored at a repeat start.
+    pub(crate) repeat_key_restatement_from: Option<KeySignature>,
+    /// Meter restored at a repeat start after a change within the repeated span.
+    pub(crate) repeat_time_restatement: Option<TimeSignature>,
+    /// A carried clef is engraved again at a repeat start.
+    pub(crate) repeat_clef_restatement: bool,
+    /// Signature reminders inherited from a first ending are enclosed in brackets.
+    pub(crate) repeat_ending_brackets: bool,
     /// The display key in effect in the measure immediately before this one.
     /// Used to draw cancellation naturals when a key change reduces or removes
     /// accidentals (e.g. a change to an open/atonal key must show the previous
@@ -389,16 +398,19 @@ pub(crate) struct CourtesyKeySignature {
     pub(crate) clef_sign: ClefSign,
 }
 
-/// Courtesy furniture at a system break: a clef before the system-end barline,
-/// and key and time signatures after it on staff lines that extend past it.
+/// Courtesy furniture at a system break: a clef before an ordinary barline or
+/// after an end repeat, and key and time signatures after the barline.
 /// The slot widths are shared by every staff of the system, including staves
 /// that show nothing, so barlines, beat columns, and courtesy meters align.
 #[derive(Debug, Clone, Default, Serialize)]
 pub(crate) struct SystemEndCourtesy {
     pub(crate) clef: Option<Clef>,
+    /// Courtesy clef after an end-repeat announces only the following music.
+    pub(crate) clef_after_barline: bool,
     /// Widest courtesy clef plus barline clearance on any staff, in staff
     /// spaces, reserved inside the outgoing measure before its barline.
     pub(crate) clef_slot_sp: f64,
+    pub(crate) suffix_clef_slot_sp: f64,
     pub(crate) key: Option<CourtesyKeySignature>,
     pub(crate) time: Option<TimeSignature>,
     /// Widest courtesy key on any staff of the system, in staff spaces.
@@ -449,6 +461,9 @@ impl ResolvedMeasure {
     /// while this staff follows global. A staff carrying an inherited local
     /// meter does not reprint merely because the global meter changed.
     pub fn displayed_time_signature(&self) -> Option<&TimeSignature> {
+        if let Some(time) = &self.repeat_time_restatement {
+            return Some(time);
+        }
         let staff_meter_authored_here = self
             .part
             .staff_meters
