@@ -3,7 +3,7 @@ import { CLICK_LEVEL_CODES } from "./clickProgram";
 export const CLICK_PROCESSOR_NAME = "viritura-click";
 
 /** Synthesized click voices: [frequency Hz, duration s, peak gain] per level code. */
-export const CLICK_VOICE_SPECS: readonly (readonly [number, number, number])[] = (() => {
+const CLICK_VOICE_SPECS: readonly (readonly [number, number, number])[] = (() => {
   const specs: [number, number, number][] = [];
   specs[CLICK_LEVEL_CODES.accent] = [1760, 0.04, 0.9];
   specs[CLICK_LEVEL_CODES.beat] = [880, 0.03, 0.6];

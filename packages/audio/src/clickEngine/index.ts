@@ -13,4 +13,4 @@ export {
   type ClickProgramEvent,
   type CompiledClickProgram,
 } from "./clickProgram";
-export { buildClickWorklet, CLICK_PROCESSOR_NAME } from "./workletSource";
+export { buildClickWorklet } from "./workletSource";
