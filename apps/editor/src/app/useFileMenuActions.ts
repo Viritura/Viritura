@@ -10,6 +10,7 @@ import {
   forgetScore,
   listRecentScores,
   rememberScore,
+  RecentScorePermissionTimeoutError,
   type RecentScore,
 } from "../store/recentScores";
 import {
@@ -67,6 +68,35 @@ export interface FileMenuActions {
   handleStartCenterOpenFile: () => Promise<void>;
   handleStartCenterOpenProject: () => Promise<void>;
   handleStartCenterImport: () => Promise<void>;
+}
+
+async function handleForgetRecent(id: string): Promise<void> {
+  try {
+    await forgetScore(id);
+    setRecentScores((prev) => prev.filter((e) => e.id !== id));
+  } catch (err) {
+    console.error("Failed to forget recent:", err);
+  }
+}
+
+function reportRecentOpenError(
+  err: unknown,
+  entry: RecentScore,
+  openProject: () => Promise<void>,
+  openFile: () => Promise<void>,
+): void {
+  console.error("Failed to reopen recent:", err);
+  if (err instanceof RecentScorePermissionTimeoutError) {
+    toast.error(err.message, {
+      duration: Infinity,
+      action: {
+        label: entry.vcs ? "Choose folder again" : "Choose file again",
+        onClick: () => void (entry.vcs ? openProject() : openFile()),
+      },
+    });
+    return;
+  }
+  toast.error("Failed to open recent");
 }
 
 export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
@@ -199,21 +229,21 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
           }
         }
       } catch (err) {
-        console.error("Failed to reopen recent:", err);
-        toast.error("Failed to open recent");
+        reportRecentOpenError(err, entry, handleOpenProject, handleOpenFile);
       }
     },
-    [loadScore, resetHistory, store, suppressTrackBanner, setSelectedScoreIndex, setFileHandle, setOpenedFile],
+    [
+      loadScore,
+      resetHistory,
+      store,
+      suppressTrackBanner,
+      setSelectedScoreIndex,
+      setFileHandle,
+      setOpenedFile,
+      handleOpenProject,
+      handleOpenFile,
+    ],
   );
-
-  const handleForgetRecent = useCallback(async (id: string) => {
-    try {
-      await forgetScore(id);
-      setRecentScores((prev) => prev.filter((e) => e.id !== id));
-    } catch (err) {
-      console.error("Failed to forget recent:", err);
-    }
-  }, []);
 
   const handleSuppressStartCenterChange = useCallback((value: boolean) => {
     setSuppressStartCenter(value);

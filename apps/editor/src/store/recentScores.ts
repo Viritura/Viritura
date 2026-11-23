@@ -168,6 +168,27 @@ export async function forgetScore(id: string): Promise<void> {
   });
 }
 
+export class RecentScorePermissionTimeoutError extends Error {
+  constructor() {
+    super("The browser did not respond for this saved location. Choose it again to reopen.");
+    this.name = "RecentScorePermissionTimeoutError";
+  }
+}
+
+async function waitForPermission(result: Promise<PermissionState>, timeoutMs: number): Promise<PermissionState> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      result,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new RecentScorePermissionTimeoutError()), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Re-request permission. For VCS recents we ask on the root (so any score
  * in the folder is reachable); for plain recents we ask on the file handle.
@@ -182,11 +203,12 @@ export async function ensureScorePermission(
   };
   const target = (entry.vcs?.rootHandle ?? entry.fileHandle) as unknown as Permissioned;
   if (target.queryPermission) {
-    const current = await target.queryPermission({ mode });
+    const current = await waitForPermission(target.queryPermission({ mode }), 5000);
     if (current === "granted") return true;
   }
   if (target.requestPermission) {
-    const next = await target.requestPermission({ mode });
+    // Allow time to answer a real prompt, but do not wait forever on a stale handle.
+    const next = await waitForPermission(target.requestPermission({ mode }), 60000);
     return next === "granted";
   }
   return true;
