@@ -20,11 +20,22 @@
 
 .viewport {
   position: relative;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  touch-action: manipulation;
-  scrollbar-width: thin;
+  overflow: hidden;
+  touch-action: pan-y;
+  cursor: grab;
+  mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+}
+
+.viewport[aria-readonly="true"] {
+  cursor: default;
+}
+
+.viewport[data-dragging] {
+  cursor: grabbing;
+}
+
+.viewport[data-dragging] .entry {
+  pointer-events: none;
 }
 
 .viewport:focus-visible {
@@ -35,6 +46,15 @@
 .track {
   position: relative;
   height: 60px;
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    transition: none;
+  }
 }
 
 .track .entry {
@@ -47,6 +67,7 @@
   gap: 2px;
   padding: 4px;
   border-radius: 0;
+  cursor: inherit;
   opacity: 1;
 }
 

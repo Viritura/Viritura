@@ -40,10 +40,47 @@ describe("bar dial", () => {
     );
     const dial = screen.getByRole("listbox", { name: "Start bar" });
     fireEvent.wheel(dial, { deltaY: 3, deltaMode: WheelEvent.DOM_DELTA_LINE });
-    expect(dial.scrollLeft).toBe(48);
+    expect(screen.getByRole("option", { name: "Bar 2" }).getAttribute("aria-selected")).toBe("true");
     expect(onSettlingChange).toHaveBeenLastCalledWith(true);
     await waitFor(() => expect(onSettlingChange).toHaveBeenLastCalledWith(false));
     expect(onSelect).toHaveBeenCalledWith(1);
+  });
+
+  it("drags horizontally like a dial and snaps to the nearest bar on release", () => {
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const onSelect = vi.fn();
+    const onSettlingChange = vi.fn();
+    render(
+      <BarDial
+        bars={Array.from({ length: 20 }, (_, index) => bar(index))}
+        index={0}
+        enabled
+        onSelect={onSelect}
+        onSettlingChange={onSettlingChange}
+      />,
+    );
+    const dial = screen.getByRole("listbox", { name: "Start bar" });
+    fireEvent.pointerDown(dial, { pointerId: 1, pointerType: "touch", clientX: 300 });
+    expect(onSettlingChange).toHaveBeenLastCalledWith(true);
+    now = 400;
+    fireEvent.pointerMove(dial, { pointerId: 1, clientX: 130 });
+    expect(screen.getByRole("option", { name: "Bar 3" }).getAttribute("aria-selected")).toBe("true");
+    now = 600;
+    fireEvent.pointerUp(dial, { pointerId: 1, clientX: 130 });
+    expect(onSelect).toHaveBeenLastCalledWith(2);
+    expect(onSettlingChange).toHaveBeenLastCalledWith(false);
+    fireEvent.click(screen.getByRole("option", { name: "Bar 3" }));
+    expect(onSelect).toHaveBeenCalledOnce();
+
+    now = 1_000;
+    fireEvent.pointerDown(dial, { pointerId: 2, pointerType: "touch", clientX: 300 });
+    now = 1_040;
+    fireEvent.pointerMove(dial, { pointerId: 2, clientX: 220 });
+    now = 1_080;
+    fireEvent.pointerUp(dial, { pointerId: 2, clientX: 140 });
+    expect(onSelect.mock.lastCall?.[0]).toBeGreaterThan(5);
+    vi.restoreAllMocks();
   });
 
   it("renders a bounded window even for a long performance", () => {

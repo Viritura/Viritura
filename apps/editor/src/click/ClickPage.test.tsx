@@ -75,6 +75,11 @@ async function openFile(text = score, name = "practice.mnx") {
   );
 }
 
+/** Pausing before release prevents a dial drag from flinging past its target. */
+async function holdStill(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 120));
+}
+
 describe("standalone click page", () => {
   it("selects authored scores and source parts from the top nav without restarting a take", async () => {
     const user = userEvent.setup();
@@ -331,12 +336,12 @@ describe("standalone click page", () => {
     const dial = screen.getByRole("listbox", { name: "Start bar" });
     const play = screen.getByRole("button", { name: "Start", exact: true });
 
-    fireEvent.pointerDown(dial, { pointerType: "touch" });
+    fireEvent.pointerDown(dial, { pointerId: 1, pointerType: "touch", clientX: 300 });
     expect(play.hasAttribute("disabled")).toBe(true);
-    dial.scrollLeft = 160;
-    fireEvent.scroll(dial);
+    fireEvent.pointerMove(dial, { pointerId: 1, clientX: 140 });
     expect(play.hasAttribute("disabled")).toBe(true);
-    fireEvent.pointerUp(dial, { pointerType: "touch" });
+    await holdStill();
+    fireEvent.pointerUp(dial, { pointerId: 1, clientX: 140 });
     await waitFor(() => expect(play.hasAttribute("disabled")).toBe(false));
     expect(screen.getByRole("option", { name: "Bar 3, rehearsal B" }).getAttribute("aria-selected")).toBe("true");
     expect(play.hasAttribute("disabled")).toBe(false);
@@ -387,21 +392,27 @@ describe("standalone click page", () => {
     const rehearsalTrack = screen.getByRole("listbox", { name: "Rehearsal" });
     const barTrack = screen.getByRole("listbox", { name: "Start bar" });
     expect(within(rehearsalTrack).getAllByRole("option")).toHaveLength(4);
-    fireEvent.pointerDown(rehearsalTrack, { pointerType: "touch" });
-    rehearsalTrack.scrollLeft = 80;
-    fireEvent.scroll(rehearsalTrack);
-    expect(barTrack.scrollLeft).toBe(0);
+    fireEvent.pointerDown(rehearsalTrack, { pointerId: 1, pointerType: "touch", clientX: 300 });
+    fireEvent.pointerMove(rehearsalTrack, { pointerId: 1, clientX: 220 });
+    expect(within(barTrack).getByRole("option", { name: "Bar 1, rehearsal A" }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
     expect(screen.getByRole("button", { name: "Start", exact: true }).hasAttribute("disabled")).toBe(true);
-    fireEvent.pointerUp(rehearsalTrack, { pointerType: "touch" });
-    await waitFor(() => expect(barTrack.scrollLeft).toBe(160));
-    expect(rehearsalTrack.scrollLeft).toBe(80);
-    expect(barTrack.scrollLeft).toBe(160);
+    await holdStill();
+    fireEvent.pointerUp(rehearsalTrack, { pointerId: 1, clientX: 220 });
+    await waitFor(() =>
+      expect(within(barTrack).getByRole("option", { name: "Bar 3, rehearsal B" }).getAttribute("aria-selected")).toBe(
+        "true",
+      ),
+    );
+    expect(
+      within(rehearsalTrack).getByRole("option", { name: "Rehearsal B, Bar 3" }).getAttribute("aria-selected"),
+    ).toBe("true");
     fireEvent.click(within(barTrack).getByRole("option", { name: "Bar 2" }));
     expect(
       within(rehearsalTrack).getByRole("option", { name: "Rehearsal A, Bar 1" }).getAttribute("aria-selected"),
     ).toBe("true");
-    expect(rehearsalTrack.scrollLeft).toBe(0);
-    expect(barTrack.scrollLeft).toBe(80);
+    expect(within(barTrack).getByRole("option", { name: "Bar 2" }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("keeps Start disabled until both tracks have settled", async () => {
@@ -433,11 +444,13 @@ describe("standalone click page", () => {
         "true",
       ),
     );
-    expect(track.scrollLeft).toBe(80);
     expect(track.getAttribute("aria-readonly")).toBe("true");
-    track.scrollLeft = 240;
-    fireEvent.scroll(track);
-    expect(track.scrollLeft).toBe(80);
+    fireEvent.pointerDown(track, { pointerId: 1, pointerType: "touch", clientX: 300 });
+    fireEvent.pointerMove(track, { pointerId: 1, clientX: 140 });
+    fireEvent.pointerUp(track, { pointerId: 1, clientX: 140 });
+    expect(within(track).getByRole("option", { name: "Rehearsal B, Bar 3" }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
     expect(audio.load).toHaveBeenCalledOnce();
     expect(screen.getByText("4 clicks free")).toBeTruthy();
   });

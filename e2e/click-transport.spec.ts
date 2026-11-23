@@ -29,3 +29,28 @@ test("dragging the click transport does not select its text", async ({ page }) =
   await panel.getByRole("option", { name: "Bar 3, rehearsal B" }).click();
   await expect(details).toContainText("B / Bar 3");
 });
+
+test("dragging a navigation dial horizontally selects a later bar", async ({ page }) => {
+  await page.goto("/click");
+  await page
+    .getByLabel("MNX file")
+    .setInputFiles(resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"));
+
+  const panel = page.getByRole("region", { name: "Click player" });
+  const details = panel.getByRole("group", { name: "Selected start" });
+  await expect(details).toContainText("A / Bar 1");
+  const box = await panel.getByRole("listbox", { name: "Start bar" }).boundingBox();
+  if (!box) throw new Error("Start bar dial is not visible");
+
+  const y = box.y + box.height / 2;
+  const x = box.x + box.width / 2;
+  await page.mouse.move(x + 80, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 80, y, { steps: 8 });
+  await page.waitForTimeout(150);
+  await page.mouse.up();
+
+  await expect(details).toContainText("B / Bar 3");
+  expect(await page.evaluate(() => window.getSelection()?.toString())).toBe("");
+  await expect(panel.getByRole("button", { name: "Start", exact: true })).toBeEnabled();
+});

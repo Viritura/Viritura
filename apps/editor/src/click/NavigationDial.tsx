@@ -1,19 +1,13 @@
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type UIEvent,
-  type WheelEvent as ReactWheelEvent,
-} from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Button } from "@viritura/ui";
 import type { ClickDialEntry } from "./barNavigation";
 import styles from "./NavigationDial.module.css";
 
 const ITEM_WIDTH = 80;
 const SETTLE_MS = 180;
+const DRAG_THRESHOLD = 6;
+const VELOCITY_WINDOW_MS = 100;
+const MOMENTUM_MS = 280;
 
 interface NavigationDialProps {
   readonly entries: readonly ClickDialEntry[];
@@ -22,6 +16,19 @@ interface NavigationDialProps {
   readonly enabled: boolean;
   readonly onSelect: (index: number) => void;
   readonly onSettlingChange: (settling: boolean) => void;
+}
+
+interface DragSample {
+  readonly time: number;
+  readonly x: number;
+}
+
+interface DragState {
+  readonly pointerId: number;
+  readonly startX: number;
+  readonly startOffset: number;
+  active: boolean;
+  samples: DragSample[];
 }
 
 function boundedIndex(index: number, length: number): number {
@@ -50,15 +57,52 @@ function keyboardTarget(entries: readonly ClickDialEntry[], index: number, key: 
   return index >= 0 ? index : undefined;
 }
 
+/** Offset velocity in px/ms; dragging left moves the dial forward. */
+function releaseVelocity(samples: readonly DragSample[]): number {
+  const last = samples.at(-1);
+  const first = samples.find((sample) => last && last.time - sample.time <= VELOCITY_WINDOW_MS);
+  if (!first || !last || last.time <= first.time) return 0;
+  return -(last.x - first.x) / (last.time - first.time);
+}
+
+function settleDuration(distance: number): number {
+  return Math.round(Math.max(120, Math.min(450, Math.sqrt(distance) * 14)));
+}
+
+/** Either wheel axis turns the dial; line and page deltas are converted to pixels. */
+function wheelDistance(event: WheelEvent, pageWidth: number): number {
+  const scale =
+    event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? pageWidth : 1;
+  const delta = Math.abs(event.deltaX) >= Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+  return delta * scale;
+}
+
 export function NavigationDial({ entries, label, index, enabled, onSelect, onSettlingChange }: NavigationDialProps) {
   const viewport = useRef<HTMLDivElement>(null);
-  const pointerDown = useRef(false);
+  const drag = useRef<DragState | undefined>(undefined);
+  const suppressClick = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const automaticScroll = useRef<number | undefined>(undefined);
+  const offsetRef = useRef(0);
+  const browsingRef = useRef(false);
   const [width, setWidth] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  const [browseOffset, setBrowseOffset] = useState(0);
   const [browsing, setBrowsing] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [duration, setDuration] = useState(0);
   const id = useId();
+  const maxOffset = Math.max(0, entries.length - 1) * ITEM_WIDTH;
+  const restingOffset = Math.max(0, index) * ITEM_WIDTH;
+  const offset = browsing ? browseOffset : restingOffset;
+
+  function currentOffset(): number {
+    return browsingRef.current ? offsetRef.current : restingOffset;
+  }
+
+  function setOffset(next: number): void {
+    const bounded = Math.max(0, Math.min(maxOffset, next));
+    offsetRef.current = bounded;
+    setBrowseOffset(bounded);
+  }
 
   useEffect(() => {
     const node = viewport.current;
@@ -76,74 +120,46 @@ export function NavigationDial({ entries, label, index, enabled, onSelect, onSet
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  useEffect(() => {
-    const node = viewport.current;
-    if (!node || !enabled) return;
-    const wheel = (event: WheelEvent) => {
-      if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
-      event.preventDefault();
-      const scale =
-        event.deltaMode === WheelEvent.DOM_DELTA_LINE
-          ? 16
-          : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
-            ? node.clientWidth
-            : 1;
-      node.scrollLeft += event.deltaY * scale;
-    };
-    node.addEventListener("wheel", wheel, { passive: false });
-    return () => node.removeEventListener("wheel", wheel);
-  }, [enabled]);
-
-  useLayoutEffect(() => {
-    const node = viewport.current;
-    if (!node || browsing) return;
-    const target = Math.max(0, index) * ITEM_WIDTH;
-    if (Math.abs(node.scrollLeft - target) < 1) return;
-    automaticScroll.current = target;
-    node.scrollLeft = target;
-  }, [browsing, index, width]);
-
   function commit(next: number): void {
     clearTimeout(timer.current);
-    pointerDown.current = false;
+    drag.current = undefined;
+    setDragging(false);
+    setDuration(settleDuration(Math.abs(currentOffset() - next * ITEM_WIDTH)));
+    browsingRef.current = false;
     setBrowsing(false);
     onSelect(next);
     onSettlingChange(false);
-    const node = viewport.current;
-    if (node && Math.abs(node.scrollLeft - next * ITEM_WIDTH) >= 1) {
-      automaticScroll.current = next * ITEM_WIDTH;
-      node.scrollLeft = automaticScroll.current;
-    }
   }
 
   function settle(): void {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      if (pointerDown.current) return;
-      commit(closestStart(entries, Math.round((viewport.current?.scrollLeft ?? 0) / ITEM_WIDTH)));
+      if (drag.current?.active) return;
+      commit(closestStart(entries, Math.round(offsetRef.current / ITEM_WIDTH)));
     }, SETTLE_MS);
   }
 
-  function scroll(event: UIEvent<HTMLDivElement>): void {
-    const left = event.currentTarget.scrollLeft;
-    setScrollLeft(left);
-    if (!enabled) {
-      const target = Math.max(0, index) * ITEM_WIDTH;
-      if (Math.abs(left - target) >= 1) {
-        automaticScroll.current = target;
-        event.currentTarget.scrollLeft = target;
-      }
-      return;
-    }
-    if (automaticScroll.current !== undefined) {
-      const target = automaticScroll.current;
-      automaticScroll.current = undefined;
-      if (Math.abs(left - target) < 1) return;
-    }
+  function beginBrowsing(): void {
+    clearTimeout(timer.current);
+    if (!browsingRef.current) setOffset(restingOffset);
+    browsingRef.current = true;
     setBrowsing(true);
     onSettlingChange(true);
-    settle();
   }
+
+  useEffect(() => {
+    const node = viewport.current;
+    if (!node || !enabled) return;
+    const wheel = (event: WheelEvent) => {
+      if (event.ctrlKey || (!event.deltaX && !event.deltaY)) return;
+      event.preventDefault();
+      beginBrowsing();
+      setOffset(offsetRef.current + wheelDistance(event, node.clientWidth));
+      settle();
+    };
+    node.addEventListener("wheel", wheel, { passive: false });
+    return () => node.removeEventListener("wheel", wheel);
+  });
 
   function keyDown(event: KeyboardEvent<HTMLDivElement>): void {
     if (!enabled) return;
@@ -153,21 +169,68 @@ export function NavigationDial({ entries, label, index, enabled, onSelect, onSet
     commit(next);
   }
 
-  function wheelActivity(event: ReactWheelEvent<HTMLDivElement>): void {
-    if (!enabled || event.ctrlKey || (!event.deltaX && !event.deltaY)) return;
-    setScrollLeft(event.currentTarget.scrollLeft);
-    setBrowsing(true);
-    onSettlingChange(true);
+  function pointerDown(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (!enabled || (event.pointerType === "mouse" && event.button !== 0)) return;
+    suppressClick.current = false;
+    beginBrowsing();
+    drag.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startOffset: offsetRef.current,
+      active: false,
+      samples: [{ time: performance.now(), x: event.clientX }],
+    };
+  }
+
+  function pointerMove(event: ReactPointerEvent<HTMLDivElement>): void {
+    const state = drag.current;
+    if (!state || state.pointerId !== event.pointerId) return;
+    const dx = event.clientX - state.startX;
+    if (!state.active) {
+      if (Math.abs(dx) < DRAG_THRESHOLD) return;
+      state.active = true;
+      setDragging(true);
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    }
+    const time = performance.now();
+    state.samples = [...state.samples, { time, x: event.clientX }].filter(
+      (sample) => time - sample.time <= VELOCITY_WINDOW_MS,
+    );
+    setOffset(state.startOffset - dx);
+  }
+
+  function pointerUp(event: ReactPointerEvent<HTMLDivElement>): void {
+    const state = drag.current;
+    if (!state || state.pointerId !== event.pointerId) return;
+    drag.current = undefined;
+    if (!state.active) {
+      settle();
+      return;
+    }
+    suppressClick.current = true;
+    const samples = [...state.samples, { time: performance.now(), x: event.clientX }];
+    const projected = offsetRef.current + releaseVelocity(samples) * MOMENTUM_MS;
+    commit(closestStart(entries, Math.round(projected / ITEM_WIDTH)));
+  }
+
+  function pointerCancel(event: ReactPointerEvent<HTMLDivElement>): void {
+    const state = drag.current;
+    if (!state || state.pointerId !== event.pointerId) return;
+    drag.current = undefined;
+    setDragging(false);
     settle();
   }
 
   const visibleWidth = Math.max(width, ITEM_WIDTH);
   const inset = (visibleWidth - ITEM_WIDTH) / 2;
-  const center = browsing ? boundedIndex(Math.round(scrollLeft / ITEM_WIDTH), entries.length) : Math.max(0, index);
+  const center = browsing ? boundedIndex(Math.round(offset / ITEM_WIDTH), entries.length) : Math.max(0, index);
   const radius = Math.ceil(visibleWidth / (2 * ITEM_WIDTH)) + 4;
   const first = Math.max(0, center - radius);
   const last = Math.min(entries.length, center + radius + 1);
-  const trackStyle = { width: entries.length * ITEM_WIDTH + inset * 2 };
+  const trackStyle = {
+    transform: `translateX(${inset - offset}px)`,
+    transitionDuration: browsing ? "0ms" : `${duration}ms`,
+  };
 
   return (
     <div className={styles.dial}>
@@ -179,38 +242,24 @@ export function NavigationDial({ entries, label, index, enabled, onSelect, onSet
         aria-label={label}
         aria-readonly={!enabled}
         aria-activedescendant={index >= 0 || browsing ? `${id}-${center}` : undefined}
+        data-dragging={dragging || undefined}
         tabIndex={0}
         onKeyDown={keyDown}
-        onScroll={scroll}
-        onWheel={wheelActivity}
-        onPointerDown={(event) => {
-          if (!enabled) return;
-          pointerDown.current = true;
-          clearTimeout(timer.current);
-          setScrollLeft(event.currentTarget.scrollLeft);
-          setBrowsing(true);
-          onSettlingChange(true);
-        }}
-        onPointerUp={() => {
-          if (!pointerDown.current) return;
-          pointerDown.current = false;
-          settle();
-        }}
-        onPointerCancel={() => {
-          if (!pointerDown.current) return;
-          pointerDown.current = false;
-          settle();
-        }}
-        onPointerLeave={(event) => {
-          if (event.pointerType !== "mouse" || !pointerDown.current) return;
-          pointerDown.current = false;
-          settle();
+        onPointerDown={pointerDown}
+        onPointerMove={pointerMove}
+        onPointerUp={pointerUp}
+        onPointerCancel={pointerCancel}
+        onClickCapture={(event) => {
+          if (!suppressClick.current) return;
+          suppressClick.current = false;
+          event.preventDefault();
+          event.stopPropagation();
         }}
       >
         <div className={styles.track} style={trackStyle}>
-          {entries.slice(first, last).map((entry, offset) => {
-            const entryIndex = first + offset;
-            const entryStyle = { left: inset + entryIndex * ITEM_WIDTH, width: ITEM_WIDTH };
+          {entries.slice(first, last).map((entry, offsetIndex) => {
+            const entryIndex = first + offsetIndex;
+            const entryStyle = { left: entryIndex * ITEM_WIDTH, width: ITEM_WIDTH };
             return (
               <Button
                 key={entry.id}
