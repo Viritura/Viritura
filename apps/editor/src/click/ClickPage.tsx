@@ -3,6 +3,7 @@ import { Button, FormInput } from "@viritura/ui";
 import type { ClickSessionProgram } from "@viritura/playback/click";
 import { ClickControls } from "./ClickControls";
 import { ClickScore } from "./ClickScore";
+import { ClickScoreControls, type ClickScoreSettings } from "./ClickScoreControls";
 import { FloatingTransport } from "./FloatingTransport";
 import { clickBarAtTime, clickScorePosition } from "./barNavigation";
 import { useClickPlayer } from "./useClickPlayer";
@@ -34,11 +35,11 @@ function countoffPosition(program: ClickSessionProgram | undefined, elapsed: num
 export function ClickPage() {
   const player = useClickPlayer();
   const [dialSettling, setDialSettling] = useState(false);
+  const [scoreSettings, setScoreSettings] = useState<ClickScoreSettings>({ viewIndex: 0, zoom: 1, fitMode: "height" });
   const inputRef = useRef<HTMLInputElement>(null);
   const statusId = useId();
   const active = player.phase === "playing";
-  const beforeStart = active && player.program !== undefined && player.elapsed < player.program.countoffSeconds;
-  const countingOff = player.phase === "playing" && beforeStart;
+  const countingOff = active && player.program !== undefined && player.elapsed < player.program.countoffSeconds;
   const status = statusLabel(player.phase, player.busy, countingOff, player.tempoPercent, player.document);
   const barIndex =
     active && player.document && player.program
@@ -65,15 +66,28 @@ export function ClickPage() {
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
             event.currentTarget.value = "";
-            if (file) void player.open(file);
+            if (file) {
+              setScoreSettings({ viewIndex: 0, zoom: 1, fitMode: "height" });
+              void player.open(file);
+            }
           }}
         />
         <Button disabled={active || player.busy || dialSettling} onClick={() => inputRef.current?.click()}>
           Open MNX
         </Button>
+        {player.document && (
+          <ClickScoreControls views={player.document.scoreViews} settings={scoreSettings} onChange={setScoreSettings} />
+        )}
       </header>
       <main className={styles.workspace}>
-        {player.document && <ClickScore document={player.document} position={scorePosition} />}
+        {player.document && (
+          <ClickScore
+            document={player.document}
+            position={scorePosition}
+            settings={scoreSettings}
+            onSettingsChange={setScoreSettings}
+          />
+        )}
         {(player.document || player.error || player.busy) && (
           <FloatingTransport busy={player.busy}>
             {player.error && (

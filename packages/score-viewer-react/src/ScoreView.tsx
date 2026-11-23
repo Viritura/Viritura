@@ -115,6 +115,7 @@ function ScoreViewComponent({
 }: ScoreViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const handle = useRef<ScoreViewerHandle | null>(null);
+  const defaultPadding = useRef("");
   const callbacks = useRef({ onReady, onPaint, onError, pageClassName, pageStyle });
   useEffect(() => {
     callbacks.current = { onReady, onPaint, onError, pageClassName, pageStyle };
@@ -166,6 +167,7 @@ function ScoreViewComponent({
       },
     });
     handle.current = mounted;
+    defaultPadding.current = mounted.viewport.style.padding;
     if (bare) mounted.viewport.style.padding = "0";
     setViewer(mounted);
     return () => {
@@ -175,6 +177,11 @@ function ScoreViewComponent({
     // Mount exactly once. Subsequent score/option changes use the handle.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- imperative viewer lifecycle is owned by the mount
   }, []);
+
+  useEffect(() => {
+    const viewport = handle.current?.viewport;
+    viewport?.style.setProperty("padding", bare ? "0" : defaultPadding.current);
+  }, [bare]);
 
   useEffect(() => {
     if (firstMnxEffect.current) {

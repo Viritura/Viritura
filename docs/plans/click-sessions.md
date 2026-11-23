@@ -34,6 +34,14 @@ Implemented:
   (Shift for larger steps). Movement is bounded to the score viewport and
   re-clamped on resize. Score-load errors are visible without replacing the
   independent click engine. A detached PiP window remains future work.
+- **Score view controls** — the top navigation selects authored score/part
+  views, with read-only source-part views offered when extracts are absent.
+  Selection does not change the click itinerary or restart playback.
+  Zoom in/out and the current percentage sit beside **Fit**, which fits the
+  staff height to the viewport while preserving horizontal score scrolling.
+  Fit adapts to viewport and selected-score changes; manual zoom exits fit.
+  The click viewer defaults to fit-height and an edge-to-edge white surface,
+  without the viewer's paper shadow, gray backdrop, or viewport padding.
 - **Horizontal navigation dials** — choose a start from independently scrollable
   rehearsal and bar-number tracks with touch, scrolling, tapping, or keyboard.
   The upper track contains only rehearsal marks, so distant marks are adjacent;

@@ -1,9 +1,11 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import type { ClickEngineEvent } from "@viritura/audio/click";
 import type { ScorePosition, ScoreViewerProps } from "@viritura/score-viewer-react";
 import score from "../../../../packages/format/fixtures/mnx/c-major-scale.mnx?raw";
 import rehearsals from "../../../../packages/format/fixtures/mnx/rehearsal-marks.mnx?raw";
+import multipleLayouts from "../../../../packages/format/fixtures/mnx/multiple-layouts.mnx?raw";
 import { ClickPage } from "./index";
 
 const audio = vi.hoisted(() => ({
@@ -21,8 +23,16 @@ vi.mock("@viritura/audio/click", () => ({
 }));
 
 vi.mock("@viritura/score-viewer-react", () => ({
-  ScoreViewer: ({ children, mnx, useWorker, defaultViewMode }: ScoreViewerProps) => (
-    <div data-testid="score-viewer" data-mnx={mnx} data-worker={useWorker} data-mode={defaultViewMode}>
+  ScoreViewer: ({ children, mnx, useWorker, defaultViewMode, scoreIndex, zoom, fitMode }: ScoreViewerProps) => (
+    <div
+      data-testid="score-viewer"
+      data-mnx={mnx}
+      data-worker={useWorker}
+      data-mode={defaultViewMode}
+      data-score-index={scoreIndex}
+      data-zoom={zoom}
+      data-fit={fitMode}
+    >
       {children}
     </div>
   ),
@@ -68,6 +78,48 @@ async function openFile(text = score, name = "practice.mnx", expandNavigation = 
 }
 
 describe("standalone click page", () => {
+  it("selects authored scores and source parts from the top nav without restarting a take", async () => {
+    const user = userEvent.setup();
+    render(<ClickPage />);
+    await openFile(multipleLayouts, "choir.mnx", false);
+    const nav = within(screen.getByRole("banner"));
+    const selector = nav.getByRole("combobox", { name: "Score or part" });
+    const viewer = screen.getByTestId("score-viewer");
+    fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
+    await user.click(selector);
+    await user.click(screen.getByRole("option", { name: "TwoStaffSplit", exact: true }));
+    expect(viewer.dataset.scoreIndex).toBe("1");
+    expect(viewer.dataset.mnx).toBe(multipleLayouts);
+    await user.click(selector);
+    await user.click(screen.getByRole("option", { name: "Alto", exact: true }));
+    const partView = JSON.parse(viewer.dataset.mnx!) as { parts: { name: string }[] };
+    expect(partView.parts.map((part) => part.name)).toEqual(["Alto"]);
+    expect(audio.start).toHaveBeenCalledOnce();
+    expect(audio.load).toHaveBeenCalledOnce();
+  });
+
+  it("exposes zoom and fit in the top nav and resets the view when another file opens", async () => {
+    render(<ClickPage />);
+    await openFile(score, "scale.mnx", false);
+    const nav = within(screen.getByRole("banner"));
+    const viewer = screen.getByTestId("score-viewer");
+    fireEvent.click(nav.getByRole("button", { name: "Zoom in", exact: true }));
+    expect(viewer.dataset.zoom).toBe("1.2");
+    expect(nav.getByLabelText("Score zoom").textContent).toBe("120%");
+    fireEvent.click(nav.getByRole("button", { name: "Zoom to fit", exact: true }));
+    expect(viewer.dataset.fit).toBe("height");
+    fireEvent.click(nav.getByRole("button", { name: "Zoom out", exact: true }));
+    expect(viewer.dataset.zoom).toBe("1");
+    expect(viewer.dataset.fit).toBe("none");
+    fireEvent.click(nav.getByRole("button", { name: "Zoom in", exact: true }));
+    await openFile(rehearsals, "rehearsals.mnx", false);
+    expect(screen.getByTestId("score-viewer").dataset.zoom).toBe("1");
+    expect(screen.getByTestId("score-viewer").dataset.scoreIndex).toBe("0");
+    expect(screen.getByTestId("score-viewer").dataset.fit).toBe("height");
+    expect(audio.create).not.toHaveBeenCalled();
+  });
+
   it("keeps the transport compact and expands the two navigation tracks on demand", async () => {
     render(<ClickPage />);
     await openFile(rehearsals, "rehearsals.mnx", false);
@@ -253,7 +305,7 @@ describe("standalone click page", () => {
     expect(screen.getByText("50%")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Reset to 100%" })).toBeNull();
     fireEvent.change(slider, { target: { value: "100" } });
-    expect(screen.getByText("100%")).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Click player" })).getByText("100%")).toBeTruthy();
 
     fireEvent.change(slider, { target: { value: "50" } });
     fireEvent.click(play);

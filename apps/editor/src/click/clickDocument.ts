@@ -2,10 +2,12 @@ import { parseMnx } from "@viritura/format";
 import { resolveMeter } from "@viritura/core";
 import { compilePlaybackTiming, type PlaybackTiming } from "@viritura/midi/timing";
 import { collectClickBars, type ClickBar } from "./barNavigation";
+import { clickScoreViews, type ClickScoreView } from "./scoreViews";
 
 export interface ClickDocument {
   readonly filename: string;
   readonly mnx: string;
+  readonly scoreViews: readonly ClickScoreView[];
   readonly timing: PlaybackTiming;
   readonly bars: readonly ClickBar[];
 }
@@ -19,6 +21,7 @@ export function readClickDocument(filename: string, text: string): ClickDocument
   return {
     filename,
     mnx: text,
+    scoreViews: clickScoreViews(score),
     timing,
     bars,
   };
