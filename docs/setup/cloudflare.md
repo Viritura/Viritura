@@ -123,6 +123,9 @@ The `_headers` and `_redirects` files under each application's `public`
 directory provide security headers, caching rules, cross-origin isolation for
 the editor, and routing. The editor's root `404.html` disables Pages' default
 SPA fallback; `_redirects` explicitly serves the app for shared-score links.
+Shared-score rewrites target `/`, the canonical editor entry URL, rather than
+`/index.html`: Pages canonicalizes the latter with a redirect to `/`, losing
+the shared-score path before the client router loads.
 Missing `/assets/*` and `/wasm/*` files therefore return 404 rather than editor
 HTML. Those paths require cache revalidation even for successful responses:
 Pages applies the same path-based headers to errors, so immutable caching would
