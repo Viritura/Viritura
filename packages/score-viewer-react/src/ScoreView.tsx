@@ -38,7 +38,7 @@ interface ScorePlayheadProps {
   beat?: number;
   position?: { readonly measureIndex: number; readonly beat: number };
   partId?: string;
-  follow?: boolean;
+  follow?: boolean | "page";
   render?: (pos: { x: number; y: number; height: number }) => ReactNode;
   className?: string;
   style?: CSSProperties;
@@ -55,8 +55,12 @@ function ScorePlayhead({ beat, position, partId, follow, render, className, styl
   const left = geometry && page ? page.x + geometry.x * zoom : 0;
   const top = geometry && page ? page.y + geometry.y * zoom : 0;
   const height = geometry ? geometry.height * zoom : 0;
+  const geometryPage = geometry?.page;
   useEffect(() => {
-    if (!follow || !viewer || !geometry) return;
+    if (follow === "page" && viewer && geometryPage != null) viewer.scrollToPage(geometryPage);
+  }, [follow, viewer, geometryPage, pagePositions, zoom]);
+  useEffect(() => {
+    if (follow !== true || !viewer || !geometry) return;
     const viewport = viewer.viewport;
     if (left < viewport.scrollLeft || left > viewport.scrollLeft + viewport.clientWidth) {
       viewport.scrollTo({ left: Math.max(0, left - viewport.clientWidth / 3) });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { layoutOptionsFor } from "../layoutRequest";
-import { arrangePages, contentOffset } from "../pageArrangement";
+import { arrangePages, contentOffset, pageFrame, pageFrameGap } from "../pageArrangement";
 import { fitZoom } from "../zoom";
 import { followOffset } from "../playheadFollow";
 import { needsArrangement, needsLayout } from "../presentationChanges";
@@ -42,11 +42,40 @@ describe("page arrangements", () => {
     expect(contentOffset("center", viewport, { width: 100, height: 100 })).toEqual({ x: 150, y: 100 });
     expect(contentOffset("center", viewport, { width: 100, height: 900 })).toEqual({ x: 150, y: 0 });
   });
+
+  it("separates fitted spreads into viewport-sized frames and centers a final unpaired page", () => {
+    expect(pageFrameGap(pages, 1, 16, "spread-horizontal", { width: 400, height: 300 })).toBe(184);
+    const result = arrangePages({
+      pages,
+      viewMode: "spread-horizontal",
+      zoom: 1,
+      gap: 16,
+      frameGap: 184,
+      spreadFirstPage: "paired",
+    });
+    expect(result.positions.map((page) => page.x)).toEqual([0, 116, 458]);
+    expect(pageFrame(result.positions, 0, "spread-horizontal", "paired")).toEqual({
+      x: 0,
+      y: 0,
+      width: 216,
+      height: 200,
+    });
+    expect(pageFrame(result.positions, 1, "spread-horizontal", "paired")).toEqual(
+      pageFrame(result.positions, 0, "spread-horizontal", "paired"),
+    );
+    expect(pageFrame(result.positions, 2, "spread-horizontal", "paired")).toEqual({
+      x: 458,
+      y: 0,
+      width: 100,
+      height: 160,
+    });
+    expect(pageFrame(result.positions, 3, "spread-horizontal", "paired")).toBeUndefined();
+  });
 });
 
 describe("zoom and follow", () => {
   it("fits width or full page with available viewport padding", () => {
-    expect(fitZoom("fit-width", { width: 448, height: 248 }, pages[0]!, "spread", 16)).toBeCloseTo(400 / 216);
+    expect(fitZoom("fit-width", { width: 448, height: 248 }, pages[0]!, "spread", 16)).toBeCloseTo(384 / 200);
     expect(fitZoom("fit-page", { width: 448, height: 248 }, pages[0]!, "page", 16)).toBeCloseTo(200 / 180);
   });
 

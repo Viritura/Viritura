@@ -67,7 +67,11 @@ import { ScoreView } from "@viritura/score-viewer-react";
 It accepts the viewer's layout and presentation options as props: `pageWidth`,
 `pageHeight`, `pageMargins`, `spatium`, `scoreIndex`, `viewMode`, `zoom`, `gap`,
 `spreadFirstPage`, `pagesPerRow`, `pageBackground`, `contentAlign`, `ink` and
-`assetBaseUrl`. `<ScoreViewer>` accepts `contentAlign` too.
+`assetBaseUrl`. `<ScoreViewer>` accepts `contentAlign` too. Use
+`contentAlign="page"` with `<ScoreView.Playhead follow="page" />` to center
+and advance whole page/spread frames. Combine with `fitMode="page"` on
+`ScoreViewer` to fit the whole frame, and `spreadFirstPage="paired"` to pair
+the first two pages.
 Pass `bare` to remove the viewport padding when embedding a cropped fragment in
 a tight panel.
 

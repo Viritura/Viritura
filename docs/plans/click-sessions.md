@@ -62,7 +62,13 @@ Implemented:
   project's part defaults. Viewer zoom changes display scale, not engraving sizes.
   Paginated modes use the authored margins; Horizon keeps its edge-to-edge strip.
   Zoom in/out and the current percentage sit beside **Fit**, which fits the
-  staff height in Horizon or the page height in paginated modes to the viewport.
+  staff height in Horizon or a complete page/two-page spread in paginated modes
+  to the viewport. Switching view modes enables the corresponding fit.
+  Paginated playhead following centers the whole page or paired spread and
+  advances by whole frames, including backwards repeat/jump navigation.
+  Spreads pair the first two pages; a final unpaired page is centered.
+  Frames adapt to viewport resize and navigation hiding without showing
+  fragments of adjacent frames. Horizon retains continuous playhead scrolling.
   Fit adapts to viewport and selected-score changes; manual zoom exits fit.
   The click viewer defaults to fit-height and an edge-to-edge white surface,
   without the viewer's paper shadow, gray backdrop, or viewport padding.

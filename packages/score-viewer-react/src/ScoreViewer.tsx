@@ -69,7 +69,7 @@ export interface ScoreViewerProps {
   readonly pageClassName?: string;
   readonly pageStyle?: CSSProperties;
   readonly pageBackground?: string;
-  /** Where the score sits when it is smaller than the viewport. Default `"start"`. */
+  /** `"center"` centers small content; `"page"` centers and separates page/spread frames. Default `"start"`. */
   readonly contentAlign?: ScoreContentAlign;
   readonly loadingFallback?: ReactNode;
   readonly errorFallback?: (err: Error) => ReactNode;
@@ -113,10 +113,6 @@ function getPrimaryPageHeight(measurements: ScoreMeasurements | null, pageHeight
   return measurements?.pages[0]?.height ?? pageHeight;
 }
 
-function getFitContentWidth(viewMode: ScoreViewMode, pageWidth: number, gap: number): number {
-  return viewMode === "spread" || viewMode === "spread-horizontal" ? pageWidth * 2 + gap : pageWidth;
-}
-
 function getViewportPadding(): number {
   return 48;
 }
@@ -140,13 +136,14 @@ function computeFitZoom(args: {
   const usableWidth = Math.max(1, viewportSize.width - padding);
   const usableHeight = Math.max(1, viewportSize.height - padding);
   const layoutWidth = measurements?.pages[0]?.width ?? Math.max(1, pageWidth);
-  const contentWidth = getFitContentWidth(viewMode, layoutWidth, gap);
+  const spread = viewMode === "spread" || viewMode === "spread-horizontal";
+  const contentWidth = layoutWidth * (spread ? 2 : 1);
   const primaryPageHeight = getPrimaryPageHeight(measurements, pageHeight);
   if (fitMode === "height") {
     const height = viewMode === "horizon" ? args.horizonHeight : primaryPageHeight;
     return height == null ? null : clamp(usableHeight / Math.max(1, height), minZoom, maxZoom);
   }
-  const widthZoom = usableWidth / contentWidth;
+  const widthZoom = Math.max(1, usableWidth - (spread ? gap : 0)) / contentWidth;
   const pageZoom = Math.min(widthZoom, usableHeight / primaryPageHeight);
   return clamp(fitMode === "page" ? pageZoom : widthZoom, minZoom, maxZoom);
 }

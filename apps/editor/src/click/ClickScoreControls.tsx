@@ -42,7 +42,7 @@ export function ClickScoreControls({ views, settings, onChange }: ClickScoreCont
         onValueChange={(value) => {
           const mode = VIEW_MODES.find((option) => option.value === value);
           if (!mode) throw new Error(`Unknown score view mode: ${value}`);
-          onChange({ ...settings, viewMode: mode.value });
+          onChange({ ...settings, viewMode: mode.value, fitMode: mode.value === "horizon" ? "height" : "page" });
         }}
         options={VIEW_MODES}
         fullWidth={false}
@@ -71,8 +71,8 @@ export function ClickScoreControls({ views, settings, onChange }: ClickScoreCont
       <Button
         variant="ghost"
         ariaLabel="Zoom to fit"
-        aria-pressed={settings.fitMode === "height"}
-        onClick={() => onChange({ ...settings, fitMode: "height" })}
+        aria-pressed={settings.fitMode === (settings.viewMode === "horizon" ? "height" : "page")}
+        onClick={() => onChange({ ...settings, fitMode: settings.viewMode === "horizon" ? "height" : "page" })}
       >
         Fit
       </Button>

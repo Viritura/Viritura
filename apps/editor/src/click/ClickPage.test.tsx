@@ -50,7 +50,7 @@ vi.mock("@viritura/score-viewer-react", () => ({
       follow,
     }: {
       position: Extract<ScorePosition, { measureIndex: number }>;
-      follow: boolean;
+      follow: boolean | "page";
     }) => (
       <div data-testid="playhead" data-measure={position.measureIndex} data-beat={position.beat} data-follow={follow} />
     ),
@@ -141,7 +141,7 @@ describe("standalone click page", () => {
       await user.click(selector);
       await user.click(screen.getByRole("option", { name: label, exact: true }));
       expect(viewer.dataset.mode).toBe(mode);
-      expect(viewer.dataset.fit).toBe("height");
+      expect(viewer.dataset.fit).toBe(mode === "horizon" ? "height" : "page");
     }
     expect(audio.create).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));

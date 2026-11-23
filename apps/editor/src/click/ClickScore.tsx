@@ -55,6 +55,8 @@ export function ClickScore({
         pageBackground="transparent"
         style={VIEWER_STYLE}
         viewMode={settings.viewMode}
+        contentAlign={settings.viewMode === "horizon" ? "start" : "page"}
+        spreadFirstPage="paired"
         controls={false}
         scoreIndex={view.scoreIndex}
         pageWidth={pageWidth}
@@ -80,7 +82,7 @@ export function ClickScore({
           </p>
         )}
       >
-        <ScoreView.Playhead position={position} follow />
+        <ScoreView.Playhead position={position} follow={settings.viewMode === "horizon" ? true : "page"} />
         <ClickScoreInteractions enabled={interactionEnabled} onSelectMeasure={onSelectMeasure} />
       </ScoreViewer>
     </section>

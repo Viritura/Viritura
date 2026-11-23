@@ -116,6 +116,9 @@ very long scores stay responsive.
 | `assetBaseUrl`   | module dir | Base URL containing `wasm/`, `fonts/` and `score-engine.worker.js`                 |
 | `textFont`       | `true`     | `false` to skip Libertinus Serif and use the page's `serif` font                   |
 
+`contentAlign: "page"` centers and spaces page/spread frames. Call
+`viewer.scrollToPage(pageIndex)` to center the frame containing a zero-based page.
+
 ### Callbacks
 
 | Callback    | Called when                                                              |

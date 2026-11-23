@@ -2,6 +2,90 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 
+for (const mode of ["Page", "Spread", "Spread (H)"]) {
+  test(`${mode} follows the playhead with a whole centered page frame`, async ({ page }) => {
+    await page.goto("/click");
+    await page
+      .getByLabel("MNX file")
+      .setInputFiles(
+        resolve(
+          import.meta.dirname,
+          "..",
+          "packages",
+          "format",
+          "fixtures",
+          "mnx",
+          "beethoven-symphony-5-movement-1.mnx",
+        ),
+      );
+    await page.getByRole("combobox", { name: "View mode" }).click();
+    await page.getByRole("option", { name: mode, exact: true }).click();
+    const score = page.getByRole("region", { name: "Score", exact: true });
+    async function frame() {
+      const viewport = await score.boundingBox();
+      if (!viewport) throw new Error("Score viewport is not visible");
+      return page.locator("canvas[data-page]").evaluateAll((canvases, viewport) => {
+        const visible = canvases
+          .map((canvas) => ({ page: Number(canvas.getAttribute("data-page")), box: canvas.getBoundingClientRect() }))
+          .filter(
+            ({ box }) =>
+              box.right > viewport.x + 1 &&
+              box.left < viewport.x + viewport.width - 1 &&
+              box.bottom > viewport.y + 1 &&
+              box.top < viewport.y + viewport.height - 1,
+          );
+        return {
+          pages: visible.map(({ page }) => page).sort((a, b) => a - b),
+          fitted: visible.every(
+            ({ box }) =>
+              box.left >= viewport.x - 1 &&
+              box.right <= viewport.x + viewport.width + 1 &&
+              box.top >= viewport.y - 1 &&
+              box.bottom <= viewport.y + viewport.height + 1,
+          ),
+          centered:
+            visible.length > 0 &&
+            Math.abs(
+              (Math.min(...visible.map(({ box }) => box.left)) + Math.max(...visible.map(({ box }) => box.right))) / 2 -
+                viewport.x -
+                viewport.width / 2,
+            ) < 2 &&
+            Math.abs(
+              (Math.min(...visible.map(({ box }) => box.top)) + Math.max(...visible.map(({ box }) => box.bottom))) / 2 -
+                viewport.y -
+                viewport.height / 2,
+            ) < 2,
+        };
+      }, viewport);
+    }
+    const first = mode === "Page" ? [0] : [0, 1];
+    await expect.poll(async () => (await frame()).pages).toEqual(first);
+    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    const bars = page.getByRole("listbox", { name: "Start bar" });
+    await bars.press("End");
+    await expect.poll(async () => (await frame()).pages[0] ?? 0).toBeGreaterThan(first.at(-1)!);
+    await expect.poll(async () => (await frame()).pages.length).toBeGreaterThanOrEqual(1);
+    expect((await frame()).pages.length).toBeLessThanOrEqual(first.length);
+    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    await bars.press("Home");
+    await expect.poll(async () => (await frame()).pages).toEqual(first);
+    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    await bars.press("End");
+    for (let step = 0; step < 10; step++) await bars.press("ArrowLeft");
+    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    const selectedPages = (await frame()).pages;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(async () => (await frame()).pages).toEqual(selectedPages);
+    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect(page.getByRole("banner")).toHaveCount(0);
+    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    await page.getByRole("button", { name: "Stop", exact: true }).click();
+    await expect(page.getByRole("banner")).toBeVisible();
+    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+  });
+}
+
 test("click pages honor MNX page and staff sizes when switching score views", async ({ page }) => {
   const fixture = await readFile(
     resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "c-major-scale.mnx"),
