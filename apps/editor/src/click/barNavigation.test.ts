@@ -5,6 +5,7 @@ import { buildClickSessionProgram } from "@viritura/playback/click";
 import rehearsalMarks from "../../../../packages/format/fixtures/mnx/rehearsal-marks.mnx?raw";
 import {
   clickBarAtTime,
+  clickBarForMeasure,
   clickScorePosition,
   clickStartPosition,
   collectClickBars,
@@ -36,6 +37,9 @@ describe("click bar navigation", () => {
     const bars = collectClickBars(score, timing);
     expect(bars.map((bar) => bar.number)).toEqual([1, 2, 1, 2, 3]);
     expect(describeClickBar(bars[2]!)).toBe("Bar 1, visit 2 of 2");
+    expect(clickBarForMeasure(bars, 0, 3)).toBe(2);
+    expect(clickBarForMeasure(bars, 0, 1)).toBe(0);
+    expect(clickBarForMeasure(bars, 99, 0)).toBeUndefined();
     const program = buildClickSessionProgram(timing, { startTimelineMeasure: 2, tempoPercent: 50 });
     expect(program.countoffSeconds).toBe(2);
     expect(clickBarAtTime(timing, program, 0, 50)).toBe(2);
@@ -107,6 +111,10 @@ describe("click bar navigation", () => {
     const partialIndex = timing.playedSpans!.findIndex((span) => span.startBeat > 0);
     expect(partialIndex).toBeGreaterThanOrEqual(0);
     expect(bars[partialIndex]!.startable).toBe(false);
+    const fullVisit = clickBarForMeasure(bars, bars[partialIndex]!.measureIndex, partialIndex);
+    expect(fullVisit).not.toBe(partialIndex);
+    expect(bars[fullVisit!]!.startable).toBe(true);
+    expect(clickBarForMeasure([bars[partialIndex]!], bars[partialIndex]!.measureIndex, 0)).toBeUndefined();
     expect(describeClickBar(bars[partialIndex]!)).toContain("partial visit");
     const program = buildClickSessionProgram(timing, { startTimelineMeasure: 0 });
     const elapsed = program.countoffSeconds + timing.measureStartTimes[partialIndex]! + 0.25;

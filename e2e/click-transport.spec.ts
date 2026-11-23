@@ -219,3 +219,123 @@ test.describe("compact transport touch movement", () => {
     }
   });
 });
+
+test.describe("score browsing", () => {
+  test.use({ hasTouch: true });
+
+  test("pans without selecting, then selects a score bar by mouse and touch while preserving its repeat visit", async ({
+    page,
+    context,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/click");
+    const fixture = await readFile(
+      resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+      "utf8",
+    );
+    const score = JSON.parse(fixture) as {
+      global: { measures: { repeatStart?: object; repeatEnd?: object }[] };
+    };
+    score.global.measures[0]!.repeatStart = {};
+    score.global.measures[1]!.repeatEnd = {};
+    await page.getByLabel("MNX file").setInputFiles({
+      name: "repeated.mnx",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(score)),
+    });
+    const panel = page.getByRole("region", { name: "Click player" });
+    const first = panel.getByRole("option", { name: "Bar 3, rehearsal B" });
+    const target = panel.getByRole("option", { name: "Bar 1, visit 2 of 2, rehearsal A" });
+    await expect
+      .poll(async () => Number.parseInt((await page.getByLabel("Score zoom").textContent()) ?? "0", 10))
+      .toBeGreaterThan(100);
+    await target.click();
+    await expect(target).toHaveAttribute("aria-selected", "true");
+    const marker = page.locator('[data-score-playhead="true"]');
+    await expect(marker).toBeVisible();
+    const surface = marker.locator("..");
+    const viewport = surface.locator("..");
+    const targetOffset = await marker.evaluate((element) => {
+      const bar = element.getBoundingClientRect();
+      const parent = element.parentElement!.getBoundingClientRect();
+      return { x: bar.x - parent.x + 8, y: bar.y - parent.y + bar.height / 2 };
+    });
+    const touch = await context.newCDPSession(page);
+
+    async function revealTarget(useTouch: boolean) {
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const point = await surface.evaluate((element, offset) => {
+          const rect = element.getBoundingClientRect();
+          return { x: rect.x + offset.x, y: rect.y + offset.y };
+        }, targetOffset);
+        const area = await viewport.boundingBox();
+        if (!area) throw new Error("Score viewport is not visible");
+        if (point.x > area.x + 20 && point.x < area.x + area.width - 20) return point;
+        const delta = Math.max(-area.width * 0.6, Math.min(area.width * 0.6, point.x - area.x - area.width / 2));
+        const x = area.x + area.width * (delta > 0 ? 0.8 : 0.2);
+        if (useTouch) {
+          await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y: point.y }] });
+          for (let step = 1; step <= 6; step++) {
+            await touch.send("Input.dispatchTouchEvent", {
+              type: "touchMove",
+              touchPoints: [{ x: x - (delta * step) / 6, y: point.y }],
+            });
+            await page.waitForTimeout(20);
+          }
+          await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        } else {
+          await page.mouse.move(x, point.y);
+          await page.mouse.down();
+          await page.mouse.move(x - delta, point.y, { steps: 8 });
+          await page.mouse.up();
+        }
+      }
+      throw new Error("Dragging did not reveal the target score bar");
+    }
+
+    try {
+      for (const useTouch of [false, true]) {
+        await first.click();
+        await expect(first).toHaveAttribute("aria-selected", "true");
+        const point = await revealTarget(useTouch);
+        await expect(first).toHaveAttribute("aria-selected", "true");
+        if (useTouch) {
+          await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+          await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        } else {
+          await page.mouse.click(point.x, point.y);
+        }
+        await expect(target).toHaveAttribute("aria-selected", "true");
+      }
+
+      await panel.getByRole("radio", { name: "2 bars" }).click();
+      const initialZoom = Number.parseInt((await page.getByLabel("Score zoom").textContent()) ?? "0", 10);
+      await panel.getByRole("button", { name: "Start", exact: true }).focus();
+      await page.keyboard.press("Enter");
+      await expect(panel.getByRole("status", { name: "Current bar" })).toHaveText("1");
+      await expect
+        .poll(async () => Number.parseInt((await page.getByLabel("Score zoom").textContent()) ?? "0", 10))
+        .toBeGreaterThan(initialZoom);
+      const before = await viewport.evaluate((element) => element.scrollLeft);
+      const area = await viewport.boundingBox();
+      if (!area) throw new Error("Playing score viewport is not visible");
+      const point = { x: area.x + area.width / 2, y: area.y + area.height / 2 };
+      await page.mouse.move(point.x, point.y);
+      await page.mouse.down();
+      await page.mouse.move(point.x - 100, point.y, { steps: 5 });
+      await page.mouse.up();
+      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: point.x - 100, y: point.y }],
+      });
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      expect(await viewport.evaluate((element) => element.scrollLeft)).toBe(before);
+      await page.mouse.click(point.x, point.y);
+      await panel.getByRole("button", { name: "Stop", exact: true }).click();
+      await expect(target).toHaveAttribute("aria-selected", "true");
+    } finally {
+      await touch.detach();
+    }
+  });
+});

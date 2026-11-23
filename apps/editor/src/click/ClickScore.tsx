@@ -3,6 +3,7 @@ import { ScoreView, ScoreViewer, type ScorePosition } from "@viritura/score-view
 import type { ClickDocument } from "./clickDocument";
 import type { ClickScoreSettings } from "./ClickScoreControls";
 import { clickPartMnx } from "./scoreViews";
+import { ClickScoreInteractions } from "./ClickScoreInteractions";
 import styles from "./ClickPage.module.css";
 
 const SCORE_STYLE = { minHeight: 0 };
@@ -13,9 +14,18 @@ interface ClickScoreProps {
   readonly position: Extract<ScorePosition, { measureIndex: number }>;
   readonly settings: ClickScoreSettings;
   readonly onSettingsChange: Dispatch<SetStateAction<ClickScoreSettings>>;
+  readonly interactionEnabled: boolean;
+  readonly onSelectMeasure: (measureIndex: number) => void;
 }
 
-export function ClickScore({ document, position, settings, onSettingsChange }: ClickScoreProps) {
+export function ClickScore({
+  document,
+  position,
+  settings,
+  onSettingsChange,
+  interactionEnabled,
+  onSelectMeasure,
+}: ClickScoreProps) {
   const view = document.scoreViews[settings.viewIndex]!;
   const mnx = useMemo(
     () => (view.partIndex === undefined ? document.mnx : clickPartMnx(document.mnx, view.partIndex)),
@@ -53,6 +63,7 @@ export function ClickScore({ document, position, settings, onSettingsChange }: C
         )}
       >
         <ScoreView.Playhead position={position} follow />
+        <ClickScoreInteractions enabled={interactionEnabled} onSelectMeasure={onSelectMeasure} />
       </ScoreViewer>
     </section>
   );

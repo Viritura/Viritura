@@ -43,6 +43,12 @@ Implemented:
   (Shift for larger steps). Movement is bounded to the score viewport and
   re-clamped on resize. Score-load errors are visible without replacing the
   independent click engine. A detached PiP window remains future work.
+- **Score navigation** — while stopped, drag the score with a mouse or touch
+  to pan, or tap/click a bar to select its start and synchronize the dials.
+  Dragging does not select a bar. Score hits account for zoom and scrolling,
+  including part views. Repeated bars select the nearest full-bar visit to the
+  current start (ties prefer the earlier visit); bars without a full visit
+  report an error. Dragging and bar selection are disabled during playback.
 - **Score view controls** — the top navigation selects authored score/part
   views, with read-only source-part views offered when extracts are absent.
   Selection does not change the click itinerary or restart playback.

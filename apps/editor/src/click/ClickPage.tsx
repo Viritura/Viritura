@@ -98,6 +98,8 @@ export function ClickPage() {
             position={scorePosition}
             settings={scoreSettings}
             onSettingsChange={setScoreSettings}
+            interactionEnabled={!active && !player.busy && !dialSettling}
+            onSelectMeasure={player.selectScoreMeasure}
           />
         )}
         {(player.document || player.error || player.busy) && (

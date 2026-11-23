@@ -64,6 +64,20 @@ export function describeClickBar(bar: ClickBar): string {
   return `Bar ${bar.number}${visit}${partial}`;
 }
 
+/** A score tap preserves repeat context and only selects full-bar visits. */
+export function clickBarForMeasure(
+  bars: readonly ClickBar[],
+  measureIndex: number,
+  currentIndex: number,
+): number | undefined {
+  let nearest: number | undefined;
+  for (const [index, bar] of bars.entries()) {
+    if (bar.measureIndex !== measureIndex || !bar.startable) continue;
+    if (nearest === undefined || Math.abs(index - currentIndex) < Math.abs(nearest - currentIndex)) nearest = index;
+  }
+  return nearest;
+}
+
 /** Map the UI clock to the performed visit without scheduling audio on the UI thread. */
 export function clickBarAtTime(
   timing: PlaybackTiming,

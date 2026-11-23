@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ClickEngine } from "@viritura/audio/click";
 import { buildClickSessionProgram, type ClickSessionProgram } from "@viritura/playback/click";
 import { readClickDocument, type ClickDocument } from "./clickDocument";
-import { clickBarAtTime } from "./barNavigation";
+import { clickBarAtTime, clickBarForMeasure } from "./barNavigation";
 
 type Phase = "empty" | "ready" | "playing" | "complete";
 
@@ -155,6 +155,20 @@ export function useClickPlayer() {
     });
   }
 
+  const selectScoreMeasure = useCallback(
+    (measureIndex: number): void => {
+      if (!document || phase === "playing" || locked.current) return;
+      const next = clickBarForMeasure(document.bars, measureIndex, startBar);
+      if (next === undefined) {
+        setError("This bar has no full-bar visit in the playback order. Choose a start from the bar dial.");
+        return;
+      }
+      setError("");
+      setStartBar(next);
+    },
+    [document, phase, startBar],
+  );
+
   return {
     document,
     tempoPercent,
@@ -163,6 +177,7 @@ export function useClickPlayer() {
     setCountoffBars,
     startBar,
     setStartBar,
+    selectScoreMeasure,
     phase,
     busy,
     error,

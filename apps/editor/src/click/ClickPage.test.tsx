@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import type { ClickEngineEvent } from "@viritura/audio/click";
@@ -7,6 +7,7 @@ import score from "../../../../packages/format/fixtures/mnx/c-major-scale.mnx?ra
 import rehearsals from "../../../../packages/format/fixtures/mnx/rehearsal-marks.mnx?raw";
 import multipleLayouts from "../../../../packages/format/fixtures/mnx/multiple-layouts.mnx?raw";
 import { ClickPage } from "./index";
+import { useClickPlayer } from "./useClickPlayer";
 
 const audio = vi.hoisted(() => ({
   create: vi.fn(),
@@ -23,6 +24,13 @@ vi.mock("@viritura/audio/click", () => ({
 }));
 
 vi.mock("@viritura/score-viewer-react", () => ({
+  useScoreView: () => ({
+    viewer: null,
+    engine: null,
+    displayList: null,
+    pagePositions: [],
+    zoom: 1,
+  }),
   ScoreViewer: ({ children, mnx, useWorker, defaultViewMode, scoreIndex, zoom, fitMode }: ScoreViewerProps) => (
     <div
       data-testid="score-viewer"
@@ -81,6 +89,18 @@ async function holdStill(): Promise<void> {
 }
 
 describe("standalone click page", () => {
+  it("reports a score bar without a full playback visit and clears the error after a valid selection", async () => {
+    const { result } = renderHook(() => useClickPlayer());
+    await act(async () => result.current.open(new File([rehearsals], "rehearsals.mnx")));
+    act(() => result.current.selectScoreMeasure(99));
+    expect(result.current.error).toContain("no full-bar visit");
+    expect(result.current.startBar).toBe(0);
+    act(() => result.current.selectScoreMeasure(2));
+    expect(result.current.startBar).toBe(2);
+    expect(result.current.error).toBe("");
+    expect(audio.create).not.toHaveBeenCalled();
+  });
+
   it("selects scores and parts before playback and preserves the selected view while the nav is hidden", async () => {
     const user = userEvent.setup();
     render(<ClickPage />);
