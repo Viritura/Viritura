@@ -1,7 +1,9 @@
 //! Per-system measure-layout construction for authored MNX systems.
 
 use super::super::cache::LayoutCache;
-use super::super::condensing::{label_for_mode_styled, LabelStyle, MergeMode};
+use super::super::condensing::{
+    first_sounding_position, label_for_mode_styled, LabelStyle, MergeMode,
+};
 use super::super::config::LayoutConfig;
 use super::super::full_score::{compute_system_object_staves, FlatStaff, GroupRange};
 use super::super::measure::{
@@ -513,13 +515,18 @@ pub(super) fn build_explicit_system_layouts<'a>(
                         LabelStyle::Orchestral,
                     );
                     if let Some(text) = label.text() {
+                        let ratio = meter_state
+                            .effective
+                            .as_ref()
+                            .map_or(1.0, |meter| meter.ratio_to_global.as_f64());
+                        let position = first_sounding_position(&virtual_part, ratio);
                         virtual_part.expressions.get_or_insert_with(Vec::new).push(
                             TextExpression {
                                 text: text.into(),
                                 id: None,
                                 text_type: crate::model::PositionedTextType::Expression,
                                 frame: None,
-                                position: RhythmicPosition { fraction: (0, 1) },
+                                position,
                                 placement: Some(ExpressionPlacement::Above),
                                 staff: None,
                                 voice: None,
@@ -581,6 +588,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 );
             virtual_resolved.push(ResolvedMeasure {
                 system_end: Default::default(),
+                use_beams: super::super::support_flags::engraving_flags(score).0,
                 index: measure_index,
                 chord_symbols: super::chord_symbols::visible_global_chord_symbols(
                     score,

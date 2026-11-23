@@ -261,10 +261,15 @@ fn system_staff_bounds(
             .iter_mut()
             .find(|(system, _, _, _)| *system == bound.system_index)
         {
-            *left = left.min(bound.x);
+            *left = left.min(bound.x + bound.prefix_width);
             *right = right.max(bound.x + bound.width);
         } else {
-            systems.push((bound.system_index, bound.x, bound.x + bound.width, bound.y));
+            systems.push((
+                bound.system_index,
+                bound.x + bound.prefix_width,
+                bound.x + bound.width,
+                bound.y,
+            ));
         }
     }
     systems

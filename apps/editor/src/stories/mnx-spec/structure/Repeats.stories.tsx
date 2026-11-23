@@ -164,6 +164,38 @@ export const EndingAcrossSystems: StoryObj = {
   name: "Ending continues across systems to the repeat barline",
 };
 
+export const EndingAtSystemStart: StoryObj = {
+  render: () => {
+    const mnx = buildMnx({
+      measures: [
+        {
+          time: { count: 4, unit: 4 },
+          key: { fifths: -2 },
+          ending: { duration: 2, numbers: [1] },
+          tempos: [
+            {
+              bpm: 120,
+              value: { base: "quarter" },
+              _x: { viritura: { text: [{ text: "Beat-one anchor" }] } },
+            },
+          ],
+          fullMeasure: {},
+        },
+        {
+          repeatEnd: true,
+          voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
+        },
+        {
+          ending: { duration: 1, numbers: [2], open: true },
+          voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
+        },
+      ],
+    });
+    return <ScorePreview mnxJson={mnx} viewMode="page" />;
+  },
+  name: "System-start ending aligns with beat one after the signatures",
+};
+
 /**
  * Repeat with explicit play count � `repeatEnd.times` controls how many
  * times the section is played (default 2 when omitted). Here we test 3� and 4�.

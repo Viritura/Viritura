@@ -262,6 +262,7 @@ pub(crate) fn resolve_measures_for_staff(
 
             ResolvedMeasure {
                 index: rm.index,
+                use_beams: rm.use_beams,
                 global: rm.global,
                 part: split,
                 chord_symbols: if staff_num == 1 {

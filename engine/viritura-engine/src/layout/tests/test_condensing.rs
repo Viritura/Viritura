@@ -921,6 +921,112 @@ fn test_condensed_auto_produces_player_labels() {
 }
 
 #[test]
+fn condensed_player_labels_follow_the_first_sounding_note() {
+    use serde_json::json;
+
+    let note = |base| json!({"duration":{"base":base},"notes":[{"pitch":{"step":"C","octave":5}}]});
+    for (count, unit, content, entry_beat, silent_duration) in [
+        (4, 4, json!([note("whole")]), 0.0, json!({"base":"whole"})),
+        (
+            4,
+            4,
+            json!([{"duration":{"base":"quarter"},"rest":{}}, note("half"),
+                {"duration":{"base":"quarter"},"rest":{}}]),
+            1.0,
+            json!({"base":"whole"}),
+        ),
+        (
+            3,
+            8,
+            json!([{"duration":{"base":"eighth"},"rest":{}}, note("quarter")]),
+            0.5,
+            json!({"base":"quarter","dots":1}),
+        ),
+        (
+            1,
+            4,
+            json!([{
+                "type":"tuplet",
+                "inner":{"multiple":3,"duration":{"base":"eighth"}},
+                "outer":{"multiple":2,"duration":{"base":"eighth"}},
+                "content":[{"duration":{"base":"eighth"},"rest":{}}, note("eighth"), note("eighth")]
+            }]),
+            1.0 / 3.0,
+            json!({"base":"quarter"}),
+        ),
+    ] {
+        for (playing, expected) in [(0, "1."), (1, "2."), (2, "a 2")] {
+            for authored in [false, true] {
+                let measures = |source| {
+                    if playing == source || playing == 2 {
+                        json!([{"sequences":[{"content":content}]}])
+                    } else {
+                        json!([{"sequences":[{"content":[{"duration":silent_duration,"rest":{}}]}]}])
+                    }
+                };
+                let mut document = json!({
+                    "mnx":{"version":1},
+                    "global":{"measures":[{"id":"m1","time":{"count":count,"unit":unit}}]},
+                    "parts":[
+                        {"id":"fl1","name":"Flute","measures":measures(0)},
+                        {"id":"fl2","name":"Flute","measures":measures(1)}
+                    ],
+                    "layouts":[{"id":"condensed","content":[{
+                        "type":"staff","sources":[{"part":"fl1"},{"part":"fl2"}]
+                    }]}],
+                    "scores":[{"name":"Condensed","layout":"condensed"}]
+                });
+                if authored {
+                    document["scores"][0]["pages"] = json!([{"systems":[{"measure":"m1"}]}]);
+                }
+                let score = parse_mnx(&document.to_string()).unwrap();
+                let config = default_config();
+                let mut cache = LayoutCache::new();
+                for display in [
+                    layout_with_mnx_scores(&score, &config, 0),
+                    layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache)),
+                    layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache)),
+                ] {
+                    let labels: Vec<_> = display
+                        .commands
+                        .iter()
+                        .filter_map(|command| match command {
+                            RenderCommand::DrawText { x, text, .. } if text == expected => Some(*x),
+                            _ => None,
+                        })
+                        .collect();
+                    assert_eq!(labels.len(), 1, "{expected}, authored={authored}");
+                    let first_note_x = display
+                        .commands
+                        .iter()
+                        .filter_map(|command| match command {
+                            RenderCommand::DrawGlyph { x, codepoint, .. }
+                                if smufl::is_notehead(*codepoint) =>
+                            {
+                                Some(*x)
+                            }
+                            _ => None,
+                        })
+                        .min_by(f64::total_cmp)
+                        .expect("first sounding note");
+                    assert!(
+                        (labels[0] - first_note_x).abs() < 0.01,
+                        "{expected}, authored={authored}, entry={entry_beat}: label x={} \
+                         must match first note x={first_note_x}",
+                        labels[0]
+                    );
+                    assert!(display.measure_bounds[0]
+                        .beat_anchors
+                        .iter()
+                        .any(|(beat, x)| (beat - entry_beat).abs() < 1e-6
+                            && (x - first_note_x).abs() < 0.01));
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn test_condensing_player_label_clears_actual_notehead_ink() {
     let mut value: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../../packages/format/fixtures/mnx/condensing-test.mnx"

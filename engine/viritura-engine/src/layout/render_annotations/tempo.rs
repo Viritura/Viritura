@@ -268,7 +268,7 @@ fn tempo_anchor_x(ml: &MeasureLayout, tempo: &Tempo, sp: f64) -> f64 {
 }
 
 fn beat_anchor_x(ml: &MeasureLayout, beat: f64, sp: f64) -> f64 {
-    let x_origin = ml.x + ml.prefix_width;
+    let x_origin = ml.beat_one_x();
     if beat == 0.0 {
         return x_origin;
     }

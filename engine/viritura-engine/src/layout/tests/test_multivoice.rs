@@ -11,6 +11,232 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 
 #[test]
+fn test_multivoice_rests_clear_opposing_ink_in_voice_order() {
+    use serde_json::json;
+
+    for upper_rest in [true, false] {
+        for octave in [0, 4, 7] {
+            for (beamed, use_beams) in [(false, false), (false, true), (true, false), (true, true)]
+            {
+                for condensed in [false, true] {
+                    let rest_index = usize::from(beamed);
+                    let note = |id: String| {
+                        json!({
+                            "id":id,"duration":{"base":"eighth"},
+                            "notes":[{"pitch":{"step":"C","octave":octave}}]
+                        })
+                    };
+                    let rest_content: Vec<_> = (0..8)
+                        .map(|index| {
+                            if index == rest_index {
+                                json!({"id":"rest","duration":{"base":"eighth"},"rest":{}})
+                            } else {
+                                note(format!("r{index}"))
+                            }
+                        })
+                        .collect();
+                    let other_content: Vec<_> =
+                        (0..8).map(|index| note(format!("n{index}"))).collect();
+                    let rest_sequence = json!({"content":rest_content});
+                    let other_sequence = json!({"content":other_content});
+                    let sequences = if upper_rest {
+                        vec![rest_sequence, other_sequence]
+                    } else {
+                        vec![other_sequence, rest_sequence]
+                    };
+                    let mut beams = if beamed {
+                        json!([{"events":(0..8).map(|index|format!("n{index}")).collect::<Vec<_>>()}])
+                    } else {
+                        json!([])
+                    };
+                    let own_beam = json!({"events":(0..8)
+                        .filter(|index| *index != rest_index)
+                        .map(|index|format!("r{index}")).collect::<Vec<_>>()});
+                    let other_beams = beams.clone();
+                    let own_beams = if beamed {
+                        json!([own_beam.clone()])
+                    } else {
+                        json!([])
+                    };
+                    if beamed {
+                        beams.as_array_mut().unwrap().push(own_beam.clone());
+                    }
+                    let clefs = json!([{"clef":{"sign":"G","staffPosition":-2}}]);
+                    let mut document = json!({
+                        "mnx":{"version":1,"support":{"useBeams":use_beams}},
+                        "global":{"measures":[{"time":{"count":4,"unit":4}}]},
+                        "parts":[{"measures":[{"clefs":clefs,"sequences":sequences,"beams":beams}]}]
+                    });
+                    if condensed {
+                        document["parts"] = json!([
+                            {"id":"p1","measures":[{"clefs":clefs,"sequences":[sequences[0]],
+                                "beams":if upper_rest {own_beams.clone()} else {other_beams.clone()}}]},
+                            {"id":"p2","measures":[{"clefs":clefs,"sequences":[sequences[1]],
+                                "beams":if upper_rest {other_beams.clone()} else {own_beams.clone()}}]}
+                        ]);
+                        document["layouts"] = json!([{"id":"condensed","content":[{
+                            "type":"staff","sources":[
+                                {"part":"p1","stem":"up"},{"part":"p2","stem":"down"}
+                            ]
+                        }]}]);
+                        document["scores"] = json!([{"name":"Condensed","layout":"condensed"}]);
+                    }
+                    let score = parse_mnx(&document.to_string()).unwrap();
+                    let config = LayoutConfig::default();
+                    let display = if condensed {
+                        crate::layout::layout_with_mnx_scores(&score, &config, 0)
+                    } else {
+                        layout_score(&score, 0, &config)
+                    };
+                    let rest = display
+                        .commands
+                        .iter()
+                        .find_map(|command| match command {
+                            RenderCommand::DrawGlyph { codepoint, .. }
+                                if *codepoint
+                                    == smufl::rest_glyph(&crate::model::NoteValueBase::Eighth) =>
+                            {
+                                command.bbox()
+                            }
+                            _ => None,
+                        })
+                        .expect("visible eighth rest");
+                    let mut overlaps = 0;
+                    let mut inward_collides = false;
+                    for (index, command) in display.commands.iter().enumerate() {
+                        let id = display.element_ids[index].as_deref().unwrap_or("");
+                        let beam_group = display
+                            .selection_groups
+                            .iter()
+                            .find(|group| group.element_id == id);
+                        let music = match command {
+                            RenderCommand::DrawGlyph { codepoint, .. } => {
+                                smufl::is_notehead(*codepoint)
+                                    || (1..=5).any(|count| {
+                                        [true, false].into_iter().any(|up| {
+                                            smufl::flag_glyph(count, up) == Some(*codepoint)
+                                        })
+                                    })
+                            }
+                            RenderCommand::DrawPolygon { .. } => true,
+                            RenderCommand::DrawLine { .. } => {
+                                id.contains("/s") || beam_group.is_some()
+                            }
+                            _ => false,
+                        };
+                        if !music {
+                            continue;
+                        }
+                        let bounds = command.bbox().expect("music bounds");
+                        if bounds.x >= rest.x + rest.width || bounds.x + bounds.width <= rest.x {
+                            continue;
+                        }
+                        overlaps += 1;
+                        let own_voice = id.contains("/r")
+                            || beam_group.is_some_and(|group| {
+                                group.member_ids.iter().any(|member| member.contains("/r"))
+                            });
+                        let gap = if own_voice {
+                            (bounds.y - rest.y - rest.height).max(rest.y - bounds.y - bounds.height)
+                        } else if upper_rest {
+                            bounds.y - rest.y - rest.height
+                        } else {
+                            rest.y - bounds.y - bounds.height
+                        };
+                        let inward_y = rest.y + if upper_rest { config.sp } else { -config.sp };
+                        let inward_gap = if own_voice {
+                            (bounds.y - inward_y - rest.height)
+                                .max(inward_y - bounds.y - bounds.height)
+                        } else if upper_rest {
+                            bounds.y - inward_y - rest.height
+                        } else {
+                            inward_y - bounds.y - bounds.height
+                        };
+                        inward_collides |= inward_gap < 0.35 * config.sp - 0.01;
+                        assert!(gap >= 0.35 * config.sp - 0.01,
+                            "upper={upper_rest}, octave={octave}, beamed={beamed}, useBeams={use_beams}, condensed={condensed}: \
+                             gap={gap}, rest={rest:?}, music={bounds:?}");
+                    }
+                    assert!(
+                        overlaps > 0,
+                        "test must measure horizontally overlapping ink"
+                    );
+                    let staff_y = display
+                        .commands
+                        .iter()
+                        .find_map(|command| match command {
+                            RenderCommand::DrawLine { y1, y2, .. } if (y1 - y2).abs() < 0.01 => {
+                                Some(*y1)
+                            }
+                            _ => None,
+                        })
+                        .expect("staff line");
+                    let (_, glyph_y, _, _) =
+                        smufl::glyph_bbox(smufl::rest_glyph(&crate::model::NoteValueBase::Eighth));
+                    let default_top = staff_y + (2.0 + glyph_y) * config.sp;
+                    assert!((rest.y - default_top).abs() < 0.01 || inward_collides,
+                        "rest should not move farther than required: upper={upper_rest}, \
+                         octave={octave}, beamed={beamed}, useBeams={use_beams}, condensed={condensed}");
+                    let shape = display
+                        .element_shapes
+                        .iter()
+                        .find(|shape| matches!(shape.kind, ElementKind::Rest))
+                        .expect("selectable rest");
+                    let shape_bounds = shape.bbox(&display.commands).expect("rest shape bounds");
+                    assert_eq!(
+                        shape_bounds, rest,
+                        "selection must follow displaced rest ink"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn test_multivoice_beams_preserve_authored_rest_positions() {
+    let score = parse_mnx(r#"{
+        "mnx":{"version":1},
+        "global":{"measures":[{"time":{"count":3,"unit":8}}]},
+        "parts":[{"measures":[{
+            "clefs":[{"clef":{"sign":"G","staffPosition":-2}}],
+            "sequences":[{"content":[
+                {"id":"before","duration":{"base":"eighth"},"notes":[{"pitch":{"step":"C","octave":5}}]},
+                {"duration":{"base":"eighth"},"rest":{"staffPosition":8}},
+                {"id":"after","duration":{"base":"eighth"},"notes":[{"pitch":{"step":"D","octave":5}}]}
+            ]}],
+            "beams":[{"events":["before","after"]}]
+        }]}]
+    }"#).unwrap();
+    let config = LayoutConfig::default();
+    let display = layout_score(&score, 0, &config);
+    let staff_y = display
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawLine { y1, y2, .. } if (y1 - y2).abs() < 0.01 => Some(*y1),
+            _ => None,
+        })
+        .expect("staff line");
+    let rest_y = display
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawGlyph { y, codepoint, .. }
+                if *codepoint == smufl::rest_glyph(&crate::model::NoteValueBase::Eighth) =>
+            {
+                Some(*y)
+            }
+            _ => None,
+        })
+        .expect("authored rest");
+    assert!(
+        (rest_y - (staff_y - 2.0 * config.sp)).abs() < 0.01,
+        "beam rendering must preserve the authored rest position"
+    );
+}
+
+#[test]
 fn test_count_leaf_events() {
     use crate::model::duration::{Duration, NoteValueBase};
     use crate::model::event::*;

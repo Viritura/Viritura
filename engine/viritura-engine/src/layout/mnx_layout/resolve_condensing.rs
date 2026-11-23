@@ -614,6 +614,7 @@ pub(super) fn resolve_one_measure_phase1(
         measure_barline_context(&score.global.measures, mi);
     let rm = ResolvedMeasure {
         system_end: Default::default(),
+        use_beams: super::super::support_flags::engraving_flags(score).0,
         index: mi,
         chord_symbols: {
             let mut chord_staff = flat_staff.clone();
@@ -764,6 +765,11 @@ pub(super) fn apply_condensing_labels(
                         false
                     };
                     if !placed_early {
+                        let ratio = resolved[mi]
+                            .effective_staff_meter
+                            .as_ref()
+                            .map_or(1.0, |meter| meter.ratio_to_global.as_f64());
+                        let position = first_sounding_position(&resolved[mi].part, ratio);
                         resolved[mi]
                             .part
                             .expressions
@@ -773,7 +779,7 @@ pub(super) fn apply_condensing_labels(
                                 id: None,
                                 text_type: crate::model::PositionedTextType::Expression,
                                 frame: None,
-                                position: RhythmicPosition { fraction: (0, 1) },
+                                position,
                                 placement: Some(ExpressionPlacement::Above),
                                 staff: None,
                                 voice: None,
