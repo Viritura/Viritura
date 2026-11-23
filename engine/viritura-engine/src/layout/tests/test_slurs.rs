@@ -9,6 +9,69 @@ use crate::render::*;
 
 // ---- Slur rendering tests ----
 #[test]
+fn test_auto_flow_slur_continuation_keeps_receiving_system_context() {
+    use crate::layout::cache::LayoutCache;
+    use crate::layout::layout_with_mnx_scores_cached;
+
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m1", "time": {"count": 4, "unit": 4}},
+            {"id": "m2"}
+        ]},
+        "parts": [{"id": "flute", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+             "sequences": [{"content": [
+                {"id": "source", "duration": {"base": "whole"},
+                 "notes": [{"pitch": {"step": "B", "octave": 4}}],
+                 "slurs": [{"target": "target"}]}
+             ]}]},
+            {"sequences": [{"content": [
+                {"id": "first", "duration": {"base": "quarter"},
+                 "notes": [{"pitch": {"step": "D", "octave": 6}}]},
+                {"id": "second", "duration": {"base": "quarter"},
+                 "notes": [{"pitch": {"step": "A", "octave": 5}}]},
+                {"id": "third", "duration": {"base": "quarter"},
+                 "notes": [{"pitch": {"step": "C", "octave": 6}}]},
+                {"id": "target", "duration": {"base": "quarter"},
+                 "notes": [{"pitch": {"step": "B", "octave": 5}}]}
+             ]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [
+            {"type": "staff", "sources": [{"part": "flute"}]}
+        ]}],
+        "scores": [{"name": "Flute", "layout": "L", "_x": {"viritura": {
+            "layoutBreaks": [{"measure": "m2", "kind": "system"}]
+        }}}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(1000.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = LayoutCache::new();
+    for pass in 0..2 {
+        let display = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let first = display
+            .element_bboxes
+            .iter()
+            .find(|entry| entry.element_id == "p0/m1/s0/first/n0")
+            .expect("first receiving-system note");
+        let incoming = display
+            .slur_geometries
+            .iter()
+            .find(|geometry| geometry.element_id == "slur/source/target/rh")
+            .expect("incoming continuation");
+        assert!(
+            incoming.p0_x < first.bbox.x,
+            "pass {pass}: continuation must begin before the first note, not near its target: start={}, first={}",
+            incoming.p0_x,
+            first.bbox.x
+        );
+    }
+}
+
+#[test]
 fn test_enclosing_slur_clears_tuplet_number() {
     let json = r#"{
         "mnx": {"version": 1},

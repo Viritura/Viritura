@@ -87,9 +87,9 @@ pub(super) fn splice_retained_slur_data(
 }
 
 /// Reduce cross-system dependency snapshots to the graph nodes the overlay can
-/// actually query: outgoing spanner sources plus their referenced event/note
-/// targets. Collection initially sees every ID so targets can be resolved; the
-/// compacted retained form makes subsequent edits O(spanners), not O(events).
+/// actually query: spanner endpoints and the staff context of cross-system
+/// slurs. Those slurs also query boundary notes and intervening obstacles, so
+/// their systems must survive compaction in both fresh and retained snapshots.
 pub(super) fn compact_cross_system_dependencies(
     events: &mut Vec<super::super::slurs::GlobalSlurEvent>,
     notes: &mut Vec<super::super::ties::GlobalTieNote>,
@@ -109,6 +109,32 @@ pub(super) fn compact_cross_system_dependencies(
             }
         }
     }
+    let mut target_locations: HashMap<&str, Vec<(usize, usize, usize)>> = HashMap::new();
+    for event in events.iter() {
+        if target_events.contains(event.event_id.as_ref()) {
+            target_locations
+                .entry(event.event_id.as_ref())
+                .or_default()
+                .push((event.system_idx, event.part_index, event.staff_idx));
+        }
+    }
+    let mut slur_context_staves = HashSet::new();
+    for event in events.iter() {
+        for slur in &event.slurs {
+            let Some(targets) = target_locations.get(slur.target.as_str()) else {
+                continue;
+            };
+            for &(target_system, target_part, target_staff) in targets {
+                if target_system <= event.system_idx {
+                    continue;
+                }
+                for system in event.system_idx..=target_system {
+                    slur_context_staves.insert((system, event.part_index, event.staff_idx));
+                    slur_context_staves.insert((system, target_part, target_staff));
+                }
+            }
+        }
+    }
     let mut target_tie_notes: HashSet<String> = HashSet::new();
     for note in notes.iter() {
         for tie in &note.ties {
@@ -119,7 +145,8 @@ pub(super) fn compact_cross_system_dependencies(
     }
 
     let keep_event = |event: &super::super::slurs::GlobalSlurEvent| {
-        !event.slurs.is_empty()
+        slur_context_staves.contains(&(event.system_idx, event.part_index, event.staff_idx))
+            || !event.slurs.is_empty()
             || target_events.contains(event.event_id.as_ref())
             || event
                 .note_positions
