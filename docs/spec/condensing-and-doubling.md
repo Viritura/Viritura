@@ -414,6 +414,10 @@ When sources amalgamate (same rhythm, different pitches, same markings), the mar
 
 **Rest hiding rule.** Greedily prefer hiding rests by showing a player label (`1.`) instead. At the next beam break, if the other voice can't amalgamate, start showing explicit rests with divisi voices.
 
+In divisi mode, only entirely resting sequences are suppressed. Notes inside
+tuplets (including nested tuplets) and multi-note tremolos count as active music;
+a sequence containing those notes plus ordinary rests must remain visible.
+
 ### Transposition constraints
 
 Instruments of different transpositions **cannot share a staff** — they produce different key signatures in written pitch mode.

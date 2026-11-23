@@ -245,6 +245,41 @@ export const Divisi: StoryObj = {
   name: "Divisi — different rhythms, separate voices",
 };
 
+const tripletHandoffMnx = JSON.stringify({
+  mnx: { version: 1 },
+  global: { measures: [{ id: "m1", time: { count: 4, unit: 4 }, key: { fifths: 0 } }] },
+  parts: [5, 4].map((octave, index) => {
+    const run = Array.from({ length: 4 }, (_, group) => ({
+      type: "tuplet",
+      inner: { multiple: 3, duration: { base: "16th" } },
+      outer: { multiple: 2, duration: { base: "16th" } },
+      content: ["C", "D", "E"].map((step) => ({
+        id: `cl${index + 1}-triplet${group}-${step}`,
+        duration: { base: "16th" },
+        notes: [{ pitch: { step, octave } }],
+      })),
+    }));
+    const rest = { duration: { base: "half" }, rest: {} };
+    return {
+      id: `cl${index + 1}`,
+      name: "Clarinet",
+      measures: [{ sequences: [{ content: index === 0 ? [...run, rest] : [rest, ...run] }] }],
+    };
+  }),
+  layouts: [
+    {
+      id: "cond",
+      content: [{ type: "staff", label: "Cl. 1, 2", sources: [{ part: "cl1" }, { part: "cl2" }] }],
+    },
+  ],
+  scores: [{ name: "Condensed", layout: "cond" }],
+});
+
+export const TripletHandoff: StoryObj = {
+  render: () => <ScorePreview mnxJson={tripletHandoffMnx} />,
+  name: "Divisi triplet handoff with leading and trailing rests",
+};
+
 // ═══════════════════════════════════════════════════
 // Solo — one part rests
 // ═══════════════════════════════════════════════════
