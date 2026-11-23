@@ -1,8 +1,8 @@
 import { Metronome, type ClickProgramEvent } from "@viritura/audio";
 import type { MidiTimeline, PlayedMeasureSpan } from "@viritura/midi";
 
-/** Tempo and meter structure needed to compile a recording click program. */
-export type RecordingClickSource = Pick<
+/** Tempo and meter structure needed to compile a click session program. */
+export type ClickSessionSource = Pick<
   MidiTimeline,
   "model" | "measureStartBeats" | "measureTimeSignatures" | "playedSpans" | "expandedMeasureToOriginal"
 >;
@@ -15,7 +15,7 @@ export interface ClickResolutionRule {
   readonly subdivision: number;
 }
 
-export interface RecordingClickOptions {
+export interface ClickSessionOptions {
   /** 0-based score measure to start at (its first performance). Default 0. */
   readonly startMeasure?: number;
   /** Session tempo as a percentage of the written tempo. Default 100. */
@@ -25,7 +25,7 @@ export interface RecordingClickOptions {
   readonly resolutions?: readonly ClickResolutionRule[];
 }
 
-export interface RecordingClickProgram {
+export interface ClickSessionProgram {
   /** Clicks in program seconds; program time 0 is the first countoff click. */
   readonly events: ClickProgramEvent[];
   /** Number of countoff clicks before the start bar ("4 clicks free"). */
@@ -41,16 +41,16 @@ export interface RecordingClickProgram {
 const MAX_SUBDIVISION = 12;
 
 /**
- * Compile a click-only recording program. The countoff is a fresh bar in the
+ * Compile a click-only session program. The countoff is a fresh bar in the
  * start bar's meter and tempo (never a replay of the previous bar), and every
  * score click is timed through the continuous tempo model so ramps, sub-bar
  * tempo changes, and holds stay exact. The tempo percentage scales elapsed time
  * uniformly, preserving every relative tempo relationship in the score.
  */
-export function buildRecordingClickProgram(
-  source: RecordingClickSource,
-  options: RecordingClickOptions = {},
-): RecordingClickProgram {
+export function buildClickSessionProgram(
+  source: ClickSessionSource,
+  options: ClickSessionOptions = {},
+): ClickSessionProgram {
   const { model, measureStartBeats, measureTimeSignatures, playedSpans, expandedMeasureToOriginal } = source;
   const tempoPercent = options.tempoPercent ?? 100;
   if (!Number.isFinite(tempoPercent) || tempoPercent <= 0) throw new RangeError("Tempo percentage must be positive");

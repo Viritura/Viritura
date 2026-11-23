@@ -1,37 +1,37 @@
 import { ClickEngine, type ClickEngineEvent, type ClickStartReceipt } from "@viritura/audio";
-import type { RecordingClickProgram } from "./recordingClickProgram";
+import type { ClickSessionProgram } from "./clickSessionProgram";
 
 /** The click-engine surface the transport drives (a {@link ClickEngine} in production). */
-export type RecordingClickEngine = Pick<ClickEngine, "load" | "start" | "stop" | "dispose" | "onEvent">;
+export type ClickSessionEngine = Pick<ClickEngine, "load" | "start" | "stop" | "dispose" | "onEvent">;
 
-export interface RecordingClickTransportOptions {
+export interface ClickSessionTransportOptions {
   /** Tears down score playback (samplers, synths, native hosts) so only the click runs. */
   readonly releaseScoreAudio: () => Promise<void>;
-  readonly createEngine?: () => Promise<RecordingClickEngine>;
+  readonly createEngine?: () => Promise<ClickSessionEngine>;
   readonly onEvent?: (event: ClickEngineEvent) => void;
 }
 
-export type RecordingClickStatus = "idle" | "ready" | "playing" | "paused";
+export type ClickSessionStatus = "idle" | "ready" | "playing" | "paused";
 
 /**
- * Click-only transport for recording sessions. Preparing a program first
+ * Click-only transport for practice and studio click sessions. Preparing a program first
  * releases every score-playback resource, then hands the complete program to a
  * dedicated click engine. Play always restarts with the countoff; Resume
  * continues from the paused position without one.
  */
-export class RecordingClickTransport {
-  private engine: RecordingClickEngine | undefined;
+export class ClickSessionTransport {
+  private engine: ClickSessionEngine | undefined;
   private unsubscribe: (() => void) | undefined;
   private pausedAt = 0;
-  private currentStatus: RecordingClickStatus = "idle";
+  private currentStatus: ClickSessionStatus = "idle";
 
-  constructor(private readonly options: RecordingClickTransportOptions) {}
+  constructor(private readonly options: ClickSessionTransportOptions) {}
 
-  get status(): RecordingClickStatus {
+  get status(): ClickSessionStatus {
     return this.currentStatus;
   }
 
-  async prepare(program: RecordingClickProgram): Promise<void> {
+  async prepare(program: ClickSessionProgram): Promise<void> {
     if (this.engine && this.currentStatus === "playing") await this.engine.stop();
     await this.options.releaseScoreAudio();
     const engine = await this.ensureEngine();
@@ -75,7 +75,7 @@ export class RecordingClickTransport {
     await engine?.dispose();
   }
 
-  private async ensureEngine(): Promise<RecordingClickEngine> {
+  private async ensureEngine(): Promise<ClickSessionEngine> {
     if (!this.engine) {
       const engine = await (this.options.createEngine ?? (() => ClickEngine.create()))();
       this.engine = engine;
@@ -87,7 +87,7 @@ export class RecordingClickTransport {
     return this.engine;
   }
 
-  private requireEngine(): RecordingClickEngine {
+  private requireEngine(): ClickSessionEngine {
     if (!this.engine || this.currentStatus === "idle") throw new Error("Prepare a click program first");
     return this.engine;
   }

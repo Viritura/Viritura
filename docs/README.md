@@ -35,7 +35,7 @@ guides, and operational runbooks.
 - **Working on the editor UI:** [spec/engrave-mode.md](spec/engrave-mode.md), [spec/keyboard-shortcuts.md](spec/keyboard-shortcuts.md), [plans/score-and-parts.md](plans/score-and-parts.md).
 - **Working on external MCP integration:** [spec/mcp-integration.md](spec/mcp-integration.md).
 - **Working on film/video scoring:** [plans/video-sync.md](plans/video-sync.md) — native Picture-in-Picture, shared transport synchronization, and the boundary between Video Reference and Advanced Scoring to Picture.
-- **Planning recording-session clicktracks:** [plans/clicktrack-recording-sessions.md](plans/clicktrack-recording-sessions.md) — multi-MNX project picker, programmable subdivisions, one-bar countoff, and a session-wide tempo percentage.
+- **Planning click sessions (`/click`):** [plans/click-sessions.md](plans/click-sessions.md) — standalone practice/studio click page, multi-MNX setlist, programmable subdivisions, one-bar countoff, and a session-wide tempo percentage.
 - **Reviewing the server-synchronized click track experiment:** [experiments/server-synchronized-click-track.md](experiments/server-synchronized-click-track.md).
 - **Embedding Viritura's renderer in another app:** read [developers/overview.md](developers/overview.md).
 - **Looking at what's next:** browse [plans/](plans/) for in-flight work.

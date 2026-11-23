@@ -2,12 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { generateTimeline } from "@viritura/midi";
 import type { Score } from "@viritura/core";
 import type { ClickEngineEvent, ClickProgramEvent } from "@viritura/audio";
-import {
-  buildRecordingClickProgram,
-  describeRecordingCue,
-  RecordingClickTransport,
-  type RecordingClickEngine,
-} from "./index";
+import { buildClickSessionProgram, describeClickCue, ClickSessionTransport, type ClickSessionEngine } from "./index";
 
 type MeasureSpec = { time?: { count: number; unit: number }; bpm?: number };
 
@@ -28,13 +23,13 @@ function timelineFor(measures: MeasureSpec[]) {
 const times = (events: readonly ClickProgramEvent[]) => events.map((event) => Number(event.time.toFixed(6)));
 const levels = (events: readonly ClickProgramEvent[]) => events.map((event) => event.level);
 
-describe("buildRecordingClickProgram", () => {
+describe("buildClickSessionProgram", () => {
   it("counts off one fresh bar in the start bar's meter and tempo, not a replay of the previous bar", () => {
     const timeline = timelineFor([
       { time: { count: 4, unit: 4 }, bpm: 60 },
       { time: { count: 5, unit: 8 }, bpm: 120 },
     ]);
-    const program = buildRecordingClickProgram(timeline, { startMeasure: 1 });
+    const program = buildClickSessionProgram(timeline, { startMeasure: 1 });
 
     expect(program.countoffClicks).toBe(5);
     expect(program.countoffSeconds).toBeCloseTo(1.25);
@@ -45,7 +40,7 @@ describe("buildRecordingClickProgram", () => {
 
   it("scales the whole take, countoff included, by the session tempo percentage", () => {
     const timeline = timelineFor([{ time: { count: 2, unit: 4 }, bpm: 120 }, { bpm: 60 }]);
-    const program = buildRecordingClickProgram(timeline, { tempoPercent: 50 });
+    const program = buildClickSessionProgram(timeline, { tempoPercent: 50 });
 
     expect(program.startBpm).toBeCloseTo(60);
     // Countoff 2×1 s, bar 1 at 60 BPM (1 s beats), bar 2 at 30 BPM (2 s beats).
@@ -54,7 +49,7 @@ describe("buildRecordingClickProgram", () => {
 
   it("applies each resolution rule from its measure onward", () => {
     const timeline = timelineFor([{ time: { count: 2, unit: 4 }, bpm: 120 }, {}, {}]);
-    const program = buildRecordingClickProgram(timeline, {
+    const program = buildClickSessionProgram(timeline, {
       countoff: false,
       resolutions: [
         { fromMeasure: 2, subdivision: 1 },
@@ -75,7 +70,7 @@ describe("buildRecordingClickProgram", () => {
 
   it("subdivides compound beats across the full dotted-quarter pulse", () => {
     const timeline = timelineFor([{ time: { count: 6, unit: 8 }, bpm: 120 }]);
-    const program = buildRecordingClickProgram(timeline, {
+    const program = buildClickSessionProgram(timeline, {
       countoff: false,
       resolutions: [{ fromMeasure: 0, subdivision: 3 }],
     });
@@ -93,25 +88,25 @@ describe("buildRecordingClickProgram", () => {
 
   it("rejects invalid tempo percentages, subdivisions, and unperformed start bars", () => {
     const timeline = timelineFor([{ time: { count: 4, unit: 4 }, bpm: 120 }]);
-    expect(() => buildRecordingClickProgram(timeline, { tempoPercent: 0 })).toThrow(RangeError);
-    expect(() => buildRecordingClickProgram(timeline, { resolutions: [{ fromMeasure: 0, subdivision: 1.5 }] })).toThrow(
+    expect(() => buildClickSessionProgram(timeline, { tempoPercent: 0 })).toThrow(RangeError);
+    expect(() => buildClickSessionProgram(timeline, { resolutions: [{ fromMeasure: 0, subdivision: 1.5 }] })).toThrow(
       RangeError,
     );
-    expect(() => buildRecordingClickProgram(timeline, { startMeasure: 4 })).toThrow(RangeError);
+    expect(() => buildClickSessionProgram(timeline, { startMeasure: 4 })).toThrow(RangeError);
   });
 });
 
-describe("describeRecordingCue", () => {
+describe("describeClickCue", () => {
   it("states where the take starts and how many countoff clicks precede it", () => {
-    expect(describeRecordingCue({ rehearsal: "O", measureNumber: 112, countoffClicks: 4 })).toBe(
+    expect(describeClickCue({ rehearsal: "O", measureNumber: 112, countoffClicks: 4 })).toBe(
       "Rehearsal O, 4 clicks free",
     );
-    expect(describeRecordingCue({ measureNumber: 37, countoffClicks: 1 })).toBe("Bar 37, 1 click free");
-    expect(describeRecordingCue({ rehearsal: " ", measureNumber: 9, countoffClicks: 0 })).toBe("Bar 9, no countoff");
+    expect(describeClickCue({ measureNumber: 37, countoffClicks: 1 })).toBe("Bar 37, 1 click free");
+    expect(describeClickCue({ rehearsal: " ", measureNumber: 9, countoffClicks: 0 })).toBe("Bar 9, no countoff");
   });
 });
 
-describe("RecordingClickTransport", () => {
+describe("ClickSessionTransport", () => {
   function fakeEngine() {
     let listener: ((event: ClickEngineEvent) => void) | undefined;
     const engine = {
@@ -125,7 +120,7 @@ describe("RecordingClickTransport", () => {
           listener = undefined;
         };
       }),
-    } satisfies RecordingClickEngine;
+    } satisfies ClickSessionEngine;
     return { engine, emit: (event: ClickEngineEvent) => listener?.(event) };
   }
 
@@ -139,8 +134,8 @@ describe("RecordingClickTransport", () => {
       order.push("load");
       return events.length;
     });
-    const transport = new RecordingClickTransport({ releaseScoreAudio, createEngine: async () => engine });
-    const program = buildRecordingClickProgram(timelineFor([{ time: { count: 4, unit: 4 }, bpm: 120 }]));
+    const transport = new ClickSessionTransport({ releaseScoreAudio, createEngine: async () => engine });
+    const program = buildClickSessionProgram(timelineFor([{ time: { count: 4, unit: 4 }, bpm: 120 }]));
 
     await expect(transport.play()).rejects.toThrow("Prepare");
     await transport.prepare(program);

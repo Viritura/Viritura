@@ -58,15 +58,15 @@ export {
 export type { VstTransport, VstPartAssignment, Sf2PartAssignment, VstPreparePlan } from "./vstTransport";
 
 export {
-  buildRecordingClickProgram,
-  describeRecordingCue,
-  RecordingClickTransport,
+  buildClickSessionProgram,
+  describeClickCue,
+  ClickSessionTransport,
   type ClickResolutionRule,
-  type RecordingClickEngine,
-  type RecordingClickOptions,
-  type RecordingClickProgram,
-  type RecordingClickSource,
-  type RecordingClickStatus,
-  type RecordingClickTransportOptions,
-  type RecordingCueInput,
-} from "./recordingClick";
+  type ClickSessionEngine,
+  type ClickSessionOptions,
+  type ClickSessionProgram,
+  type ClickSessionSource,
+  type ClickSessionStatus,
+  type ClickSessionTransportOptions,
+  type ClickCueInput,
+} from "./clickSession";
