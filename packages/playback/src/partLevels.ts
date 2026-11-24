@@ -89,6 +89,66 @@ export function normalizedPartVolume(outputGain: number, sectionPeak: number): n
   return Math.max(1 / 0x3fff, Math.sqrt(linearRatio));
 }
 
+/** One part's seat and mixer state as seen by the stage level resolver. */
+export interface StagePartInput {
+  position: SpatialPosition;
+  refDistance: number;
+  stageDepthEnabled: boolean;
+  /** Mixer gain, already 0 when muted. */
+  mixerVolume: number;
+  mixerPan: number;
+}
+
+export interface StagePartLevel {
+  outputGain: number;
+  pan: number;
+  basePan: number;
+}
+
+/**
+ * Resolve a part's continuous output gain and pan from listener geometry and
+ * mixer state. `sectionMembers` lists the section's seated parts (including
+ * this one), or is null when the part has no orchestra section.
+ *
+ * Combines:
+ *   - per-part proximity (relative to section max so the section gain
+ *     handles absolute level and CC7 handles per-part balance inside it)
+ *   - pan compensation (restores the equal-power loss when pan centers)
+ *   - mixer volume / mute
+ *   - mixer pan offset
+ */
+export function resolveStagePartLevel(
+  part: StagePartInput,
+  sectionMembers: readonly StagePartInput[] | null,
+  listener: SpatialPosition,
+): StagePartLevel {
+  const proximity = (p: StagePartInput) =>
+    proximityVolume(Math.hypot(p.position.x - listener.x, p.position.y - listener.y), p.refDistance);
+  const prox = proximity(part);
+  let spatialGain = 1;
+  if (part.stageDepthEnabled) {
+    // The section GainNode supplies the absolute level for the loudest
+    // member, so per-part CC7 = relative loudness within the section.
+    let sectionMax = prox;
+    for (const member of sectionMembers ?? []) {
+      if (member.stageDepthEnabled) sectionMax = Math.max(sectionMax, proximity(member));
+    }
+    const secGain = sectionMembers ? sectionGainTarget(sectionMax) : 1;
+    spatialGain = partSpatialGain(true, secGain, partDepthGain(true, prox, sectionMax, secGain));
+  }
+  const basePan = Math.max(-1, Math.min(1, (part.position.x - listener.x) / PAN_RANGE));
+  const pan = Math.max(-1, Math.min(1, basePan + part.mixerPan));
+  const outputGain = webPartOutputGain(part.mixerVolume, spatialGain, panCompensation(pan));
+  return { outputGain, pan, basePan };
+}
+
+/** The shared section bus level: its loudest member, or unity when all are silent. */
+export function sectionBusGain(memberGains: Iterable<number>): number {
+  let peak = 0;
+  for (const gain of memberGains) peak = Math.max(peak, gain);
+  return peak > 0 ? peak : 1;
+}
+
 /** Refs the level-recompute functions read from. Bundled to avoid a 10-arg
  *  signature; PlaybackProvider passes its own ref objects in. */
 export interface PartLevelRefs {
@@ -125,12 +185,7 @@ export interface PartLevelRefs {
 export function recomputeSectionGain(section: OrchestraSection, refs: PartLevelRefs): void {
   const entry = refs.sectionSynthsRef.current.get(section);
   if (!entry) return;
-  let target = 0;
-  for (const part of entry.parts) {
-    target = Math.max(target, resolvePartLevel(part.index, refs).outputGain);
-  }
-
-  if (target <= 0) target = 1;
+  const target = sectionBusGain(entry.parts.map((part) => resolvePartLevel(part.index, refs).outputGain));
   // CC7 ratios are updated synchronously immediately after this. Keep the
   // shared normalization gain on the same timeline so channels cannot spike
   // or dip while a previous gain target is still converging.
@@ -155,12 +210,7 @@ export function applySectionLevels(section: OrchestraSection, refs: PartLevelRef
 
 /**
  * Recompute a single part's CC7 (volume) and CC10 (pan) from listener
- * geometry + mixer state. Combines:
- *   - per-part proximity (relative to section max so the section gain
- *     handles absolute level and CC7 handles per-part balance inside it)
- *   - pan compensation (restores the equal-power loss when pan centers)
- *   - mixer volume / mute
- *   - mixer pan offset
+ * geometry + mixer state. See `resolveStagePartLevel`.
  */
 export function applyPartLevel(partIndex: number, refs: PartLevelRefs): void {
   const sampler = refs.samplersRef.current.get(partIndex);
@@ -174,61 +224,35 @@ export function applyPartLevel(partIndex: number, refs: PartLevelRefs): void {
   if ("setPan" in sampler) (sampler as { setPan(p: number): void }).setPan(resolved.pan);
 }
 
+function stagePartInput(partIndex: number, node: SpatialNode, refs: PartLevelRefs): StagePartInput {
+  return {
+    position: node.getPosition(),
+    refDistance: refs.partRefDistRef.current.get(partIndex) ?? 1,
+    stageDepthEnabled: refs.stageDepthEnabledRef.current.get(partIndex) ?? true,
+    mixerVolume: refs.mixerVolumeRef.current.get(partIndex) ?? 1,
+    mixerPan: refs.mixerPanRef.current.get(partIndex) ?? 0,
+  };
+}
+
 function resolvePartLevel(partIndex: number, refs: PartLevelRefs): { outputGain: number; pan: number } {
   const node = refs.spatialNodesRef.current.get(partIndex);
   if (!node) return { outputGain: 0, pan: 0 };
-  const pos = node.getPosition();
-  const lx = refs.listenerPosRef.current.x;
-  const ly = refs.listenerPosRef.current.y;
-  const dist = Math.hypot(pos.x - lx, pos.y - ly);
-  const refDist = refs.partRefDistRef.current.get(partIndex) ?? 1;
-  const prox = proximityVolume(dist, refDist);
-
-  const stageDepthEnabled = refs.stageDepthEnabledRef.current.get(partIndex) ?? true;
-  let spatialGain = 1;
-  if (stageDepthEnabled) {
-    // Find the section's max proximity to normalize per-part CC7. The
-    // section GainNode already supplies the absolute level for that max,
-    // so per-part CC7 = relative loudness within the section (0..1).
-    const section = refs.partSectionRef.current.get(partIndex);
-    let sectionMax = prox;
-    if (section) {
-      const entry = refs.sectionSynthsRef.current.get(section);
-      if (entry) {
-        for (const p of entry.parts) {
-          if (!(refs.stageDepthEnabledRef.current.get(p.index) ?? true)) continue;
-          const n = refs.spatialNodesRef.current.get(p.index);
-          if (!n) continue;
-          const pp = n.getPosition();
-          const d = Math.hypot(pp.x - lx, pp.y - ly);
-          const r = refs.partRefDistRef.current.get(p.index) ?? 1;
-          const pv = proximityVolume(d, r);
-          if (pv > sectionMax) sectionMax = pv;
-        }
-      }
+  const section = refs.partSectionRef.current.get(partIndex);
+  let members: StagePartInput[] | null = null;
+  if (section) {
+    members = [];
+    for (const p of refs.sectionSynthsRef.current.get(section)?.parts ?? []) {
+      const memberNode = refs.spatialNodesRef.current.get(p.index);
+      if (memberNode) members.push(stagePartInput(p.index, memberNode, refs));
     }
-    const secGain = section ? sectionGainTarget(sectionMax) : 1;
-    spatialGain = partSpatialGain(true, secGain, partDepthGain(true, prox, sectionMax, secGain));
   }
-
-  // Pan: listener-relative X offset.
-  const basePan = Math.max(-1, Math.min(1, (pos.x - lx) / PAN_RANGE));
-  refs.basePanRef.current.set(partIndex, basePan);
-  const mixerPan = refs.mixerPanRef.current.get(partIndex) ?? 0;
-  const combinedPan = Math.max(-1, Math.min(1, basePan + mixerPan));
-
-  // Volume: mixer * relative-proximity * pan-compensation, clamped to CC7.
-  const mixerVol = refs.mixerVolumeRef.current.get(partIndex) ?? 1;
-  const outputGain = webPartOutputGain(mixerVol, spatialGain, panCompensation(combinedPan));
-  return { outputGain, pan: combinedPan };
+  const level = resolveStagePartLevel(stagePartInput(partIndex, node, refs), members, refs.listenerPosRef.current);
+  refs.basePanRef.current.set(partIndex, level.basePan);
+  return { outputGain: level.outputGain, pan: level.pan };
 }
 
 function sectionPeakGain(section: OrchestraSection, refs: PartLevelRefs): number {
   const entry = refs.sectionSynthsRef.current.get(section);
   if (!entry) return 1;
-  let peak = 0;
-  for (const part of entry.parts) {
-    peak = Math.max(peak, resolvePartLevel(part.index, refs).outputGain);
-  }
-  return peak > 0 ? peak : 1;
+  return sectionBusGain(entry.parts.map((part) => resolvePartLevel(part.index, refs).outputGain));
 }

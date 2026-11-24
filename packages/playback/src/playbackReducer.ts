@@ -5,6 +5,7 @@
  */
 
 import type { ChordSymbol, Score } from "@viritura/core";
+import type { AudioExportSettings } from "./audioExport";
 import type { PlaybackPreviewPosition } from "./soundProfileRuntime";
 
 // ═══════════════════════════════════════════
@@ -156,6 +157,8 @@ export interface PlaybackActions {
   setLimiterRatio(ratio: number): void;
   /** Set absolute pan on a layer's sampler (listener-relative, computed from child node position). */
   applyLayerPan(partIndex: number, layerIndex: number, pan: number): void;
+  /** Snapshot the stage, room, and master settings that offline audio export reproduces. */
+  getAudioExportSettings(partCount: number): AudioExportSettings;
 }
 
 // ═══════════════════════════════════════════

@@ -46,6 +46,12 @@ test("pnpm patches are available to the dev image and included in its dependency
   }
 });
 
+test("the dev dependency image copies and hashes pnpm patches", () => {
+  const patch = join(repositoryRoot, "patches", "isomorphic-git@1.44.3.patch");
+  assert.ok(dockerfile.includes("COPY patches/ ./patches/"));
+  assert.ok(getNodeDependencyInputs(repositoryRoot).includes(patch));
+});
+
 test("every workspace package mounts its image node_modules", () => {
   for (const directory of workspacePackages()) {
     assert.ok(

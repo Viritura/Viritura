@@ -37,6 +37,7 @@ export function buildPublishMode(args: BuildPublishModeArgs): WorkspaceMode {
         selectedIndices={publish.selectedIndices}
         focusedIndex={publish.focusedIndex}
         exporting={publish.exporting}
+        format={publish.format}
         width={publish.leftWidth}
         onResize={publish.setLeftWidth}
         onCollapse={() => publish.setLeftCollapsed(true)}
@@ -56,6 +57,10 @@ export function buildPublishMode(args: BuildPublishModeArgs): WorkspaceMode {
       exporting={publish.exporting}
       scoreLoaded={publish.scoreLoaded}
       orderedSelectedCount={publish.orderedSelectedCount}
+      format={publish.format}
+      onFormatChange={publish.onFormatChange}
+      audioQuality={publish.audioQuality}
+      onAudioQualityChange={publish.onAudioQualityChange}
       bundleMode={publish.bundleMode}
       onBundleModeChange={publish.onBundleModeChange}
       folderSupported={publish.folderSupported}
@@ -71,6 +76,7 @@ export function buildPublishMode(args: BuildPublishModeArgs): WorkspaceMode {
       progress={publish.progress}
       statusMessage={publish.statusMessage}
       onExport={publish.onExport}
+      onCancelExport={publish.onCancelExport}
     />,
   );
 

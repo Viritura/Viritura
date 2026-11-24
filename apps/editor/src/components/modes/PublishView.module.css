@@ -586,21 +586,20 @@
    language consistent. */
 
 .exportButtonWrap {
-  padding: var(--space-1) var(--space-3) var(--space-2);
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  gap: var(--space-2);
 }
 
 /* ── Progress / status messages ──────────────────────────────── */
 
 .progressBox,
-.statusOk,
 .statusErr {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-xl);
   font-size: var(--type-small-size);
@@ -613,66 +612,10 @@
   border: 1px solid rgba(42, 123, 200, 0.25);
 }
 
-.statusOk {
-  background: linear-gradient(135deg, rgba(80, 200, 120, 0.18), rgba(120, 200, 100, 0.14));
-  color: var(--accent);
-  border: 1px solid rgba(26, 136, 56, 0.28);
-}
-
 .statusErr {
   background: linear-gradient(135deg, rgba(220, 80, 80, 0.18), rgba(220, 100, 60, 0.14));
   color: var(--error);
   border: 1px solid rgba(196, 43, 43, 0.28);
-}
-
-/* ── "Coming soon" — delight list ────────────────────────────── */
-
-.comingSoon {
-  margin: var(--space-3) var(--space-3) var(--space-1);
-  padding: var(--space-4) var(--space-4);
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb, 33, 94, 78), 0.08) 0%, rgba(58, 70, 82, 0.05) 100%);
-  border: 1px dashed rgba(var(--accent-rgb, 33, 94, 78), 0.28);
-}
-
-[data-theme="dark"] .comingSoon,
-[data-theme="midnight"] .comingSoon {
-  background: linear-gradient(135deg, rgba(var(--accent-rgb, 33, 94, 78), 0.1) 0%, rgba(200, 210, 220, 0.04) 100%);
-  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.32);
-}
-
-.comingSoonHeader {
-  margin: 0 0 var(--space-2);
-  font-size: var(--type-eyebrow-size);
-  font-weight: var(--type-heading-weight);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.comingSoonList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.comingSoonList li {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--type-small-size);
-  color: var(--text-muted);
-  transition:
-    color var(--motion-fast) var(--ease-standard),
-    transform var(--motion-base) var(--ease-enter);
-}
-
-.comingSoonList li:hover {
-  color: var(--text);
-  transform: translateX(2px);
 }
 
 /* ── Floating status bar at the bottom ───────────────────────── */
