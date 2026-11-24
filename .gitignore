@@ -27,6 +27,8 @@ apps/editor/public/viritura-logo.svg
 apps/editor/public/viritura-mark.svg
 apps/editor/public/wasm/
 apps/editor/public/denigma/
+apps/editor/public/LICENSES/
+apps/editor/public/THIRD_PARTY_NOTICES.md
 apps/editor/public/mnx-schema.json
 apps/editor/public/scores/
 apps/editor/public/sounds/

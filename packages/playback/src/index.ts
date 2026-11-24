@@ -70,3 +70,16 @@ export {
   type ClickSessionTransportOptions,
   type ClickCueInput,
 } from "./clickSession";
+
+export {
+  exportScoreAudio,
+  MP3_BITRATES,
+  WAV_BIT_DEPTHS,
+  type AudioEncoding,
+  type AudioExportOptions,
+  type AudioExportResult,
+  type AudioExportSettings,
+  type AudioPartMix,
+  type Mp3Bitrate,
+  type WavBitDepth,
+} from "./audioExport";

@@ -196,7 +196,7 @@ export default defineConfig(({ command, mode }) => ({
   },
   optimizeDeps: {
     exclude: ["@viritura/engine-wasm"],
-    include: ["spessasynth_core", "spessasynth_lib"],
+    include: ["spessasynth_core", "spessasynth_lib", "@viritura/playback > @audio/encode-mp3"],
     esbuildOptions: { target: "es2022" },
   },
 }));

@@ -88,6 +88,17 @@ describe("Sf2Synth memory accounting", () => {
 });
 
 describe("Sf2Sampler", () => {
+  it("uses the correct MIDI port for programs and pitch bends above channel 15", () => {
+    const { synth, sf2Synth } = createMockSf2Synth();
+    const sampler = new Sf2Sampler(sf2Synth, 19, 0);
+
+    sampler.setProgram(41, 10.2);
+    sampler.sendPitchBend(12288, 10.3);
+
+    expect(synth.sendMessage).toHaveBeenCalledWith([0xc3, 41], 16, { time: 10.2 });
+    expect(synth.sendMessage).toHaveBeenCalledWith([0xe3, 0, 96], 16, { time: 10.3 });
+  });
+
   it("schedules 14-bit pitch bends and restores neutral pitch on panic", () => {
     const { synth, sf2Synth } = createMockSf2Synth();
     const sampler = new Sf2Sampler(sf2Synth, 3, 0);

@@ -45,7 +45,12 @@ export function getNodeDependencyInputs(repositoryRoot: string): string[] {
     .map((path) => resolve(repositoryRoot, path))
     .concat(packageManifests(repositoryRoot, "apps"))
     .concat(packageManifests(repositoryRoot, "packages"))
-    .concat(packageManifests(repositoryRoot, "examples"));
+    .concat(packageManifests(repositoryRoot, "examples"))
+    .concat(
+      readdirSync(resolve(repositoryRoot, "patches"), { withFileTypes: true })
+        .filter((entry) => entry.isFile() && entry.name.endsWith(".patch"))
+        .map((entry) => resolve(repositoryRoot, "patches", entry.name)),
+    );
 }
 
 export function getApiRestoreInputs(repositoryRoot: string): string[] {

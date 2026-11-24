@@ -272,6 +272,18 @@ Every signal — direct and reverb return — converges on `masterOut`, then:
 | `limiter`     | `DynamicsCompressorNode`         | threshold −8 dB, ratio 12, knee 6, attack 2 ms, release 180 ms | Prevents clipping when reverb + air EQ push the sum above 0 dBFS; gentle glue.    |
 | `destination` | `ctx.destination`                | —                                                              | The output device.                                                                |
 
+### Offline audio export
+
+MP3/WAV export (`packages/playback/src/audioExport/`) renders the same chain in a
+Worker without Web Audio. `stagePlan.ts` reproduces section pooling, part levels,
+EQ color buses, reverb sends, and pre-delay from the shared math in
+`partLevels.ts` and `mixChain.ts`; `mixGraph.ts` runs the buses, the convolution
+reverb, the air EQ, and the limiter with the pure DSP in
+`packages/audio/src/offlineDsp/`. The export snapshots playback's seating,
+listener, reverb, and master settings through `getAudioExportSettings`. The
+limiter envelope approximates `DynamicsCompressorNode`, the transport volume is
+fixed at its default, and VST3 instruments are not rendered.
+
 ---
 
 ## Pooling & performance trade-offs

@@ -392,7 +392,8 @@ Example diff (user forces a system break after measure 4 on the full score):
 | **MIDI**                     | 🟡 Planned | 🟡 Planned | Not yet wired into the editor.                                                     |
 | **PDF**                      | ❌         | 🟡 Planned | Vector export (server-side Skia or client Canvas). Not yet shipped.                |
 | **PNG / SVG**                | ❌         | 🟡 Planned | Same renderer path as PDF.                                                         |
-| **WAV / MP3**                | ❌         | 🟡 Planned | Render of playback output. Not yet shipped.                                        |
+| **MP3**                      | ❌         | ✅         | Whole-document offline render with built-in SoundFont sounds; 128–320 kbps.        |
+| **WAV**                      | ❌         | ✅         | Same render as MP3; 16-bit or 24-bit PCM, or 32-bit float.                         |
 | **MEI / ABC / .musx / .sib** | 🔲 Future  | ❌         | No active work.                                                                    |
 
 For the MusicXML importer's coverage detail, see

@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { getNodeDependencyInputs } from "./contentHash.ts";
 import { dependencyVolumeSuffixes } from "./stack.ts";
 
 const worktreeDirectory = dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,12 @@ test("every workspace package is installed into the dev image", () => {
       `dev.Dockerfile does not copy ${directory}/package.json`,
     );
   }
+});
+
+test("the dev dependency image copies and hashes pnpm patches", () => {
+  const patch = join(repositoryRoot, "patches", "isomorphic-git@1.44.3.patch");
+  assert.ok(dockerfile.includes("COPY patches/ ./patches/"));
+  assert.ok(getNodeDependencyInputs(repositoryRoot).includes(patch));
 });
 
 test("every workspace package mounts its image node_modules", () => {
