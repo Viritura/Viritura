@@ -34,6 +34,34 @@ public sealed class InfrastructureSmokeTests : IClassFixture<WebApplicationFacto
     }
 
     [Fact]
+    public async Task ParallelDefaultFactories_DoNotShareDatabaseState()
+    {
+        using var first = new IsolatedApiFactory();
+        using var second = new IsolatedApiFactory();
+#pragma warning disable CA2025 // Both startup tasks finish before either factory is disposed.
+        var firstStartup = Task.Run(() => first.CreateClient());
+        var secondStartup = Task.Run(() => second.CreateClient());
+#pragma warning restore CA2025
+        await Task.WhenAll(firstStartup, secondStartup);
+        using var firstClient = await firstStartup;
+        using var secondClient = await secondStartup;
+        using var firstScope = first.Services.CreateScope();
+        using var secondScope = second.Services.CreateScope();
+        var firstDb = firstScope.ServiceProvider.GetRequiredService<VirituraDbContext>();
+        var secondDb = secondScope.ServiceProvider.GetRequiredService<VirituraDbContext>();
+        Assert.NotEqual(
+            firstDb.Database.GetDbConnection().DataSource,
+            secondDb.Database.GetDbConnection().DataSource);
+
+        var email = $"isolation.{Guid.NewGuid():N}@viritura.test";
+        var firstUsers = firstScope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var created = await firstUsers.CreateAsync(new AppUser { UserName = email, Email = email });
+        Assert.True(created.Succeeded, string.Join(", ", created.Errors.Select(error => error.Description)));
+        var secondUsers = secondScope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        Assert.Null(await secondUsers.FindByEmailAsync(email));
+    }
+
+    [Fact]
     public async Task IdentityRoundTrip_CreateUser_ThenFindByEmail()
     {
         using var _ = _factory.CreateClient();
