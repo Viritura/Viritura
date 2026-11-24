@@ -104,7 +104,7 @@ export function RightExportPanel(props: RightExportPanelProps) {
               disabled={!scoreLoaded || (format === "pdf" && orderedSelectedCount === 0) || exporting}
             >
               <Download size={18} />
-              {isAudioFormat(format)
+              {format !== "pdf"
                 ? `Export ${format.toUpperCase()}`
                 : `Export ${orderedSelectedCount} layout${orderedSelectedCount === 1 ? "" : "s"}`}
               {exportFolder ? ` to "${exportFolder.name}"` : ""}
@@ -146,7 +146,7 @@ export function RightExportPanel(props: RightExportPanelProps) {
             )}
           </div>
         </Section>
-      ) : (
+      ) : format === "pdf" ? (
         <Section label="Bundle">
           <RadioGroup
             value={bundleMode}
@@ -175,7 +175,7 @@ export function RightExportPanel(props: RightExportPanelProps) {
             </div>
           )}
         </Section>
-      )}
+      ) : null}
 
       <Section label="Destination">
         <DestinationRow
@@ -198,7 +198,7 @@ export function RightExportPanel(props: RightExportPanelProps) {
           disabled={exporting}
         />
         <div className={styles.fieldHint}>
-          {isAudioFormat(format) ? (
+          {format !== "pdf" ? (
             <>
               Tokens: <code>%TITLE%</code> (document title), <code>%PART%</code> (Full Score),{" "}
               <code>%PART_NUMBER%</code> (All). The extension is added automatically.
@@ -314,11 +314,13 @@ function ProgressOrStatus({ exporting, progress, statusMessage, format }: Progre
       <div className={styles.progressBox} role="status">
         <Loader2 size={14} className="spin" />
         <span>
-          {isAudioFormat(format)
-            ? progress.done === 100
-              ? `Saving ${format.toUpperCase()}`
-              : `Rendering ${format.toUpperCase()}: ${progress.done}%`
-            : `Rendering ${progress.done} of ${progress.total}${progress.name ? ` · ${progress.name}` : ""}`}
+          {format === "midi"
+            ? "Exporting MIDI"
+            : isAudioFormat(format)
+              ? progress.done === 100
+                ? `Saving ${format.toUpperCase()}`
+                : `Rendering ${format.toUpperCase()}: ${progress.done}%`
+              : `Rendering ${progress.done} of ${progress.total}${progress.name ? ` · ${progress.name}` : ""}`}
         </span>
       </div>
     );

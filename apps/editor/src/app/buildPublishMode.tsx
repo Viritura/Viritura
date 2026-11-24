@@ -8,7 +8,6 @@ import type { ReactNode, RefObject } from "react";
 import { PreviewStatusBar, type PreviewViewMode } from "@viritura/ui";
 import { LeftLayoutsPanel } from "../components/modes/publishView/LeftLayoutsPanel";
 import { RightExportPanel } from "../components/modes/publishView/RightExportPanel";
-import { isAudioFormat } from "../components/modes/publishView/audioFormats";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import { formatZoomPercent } from "../zoomScale";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
@@ -38,7 +37,7 @@ export function buildPublishMode(args: BuildPublishModeArgs): WorkspaceMode {
         selectedIndices={publish.selectedIndices}
         focusedIndex={publish.focusedIndex}
         exporting={publish.exporting}
-        audioExport={isAudioFormat(publish.format)}
+        format={publish.format}
         width={publish.leftWidth}
         onResize={publish.setLeftWidth}
         onCollapse={() => publish.setLeftCollapsed(true)}

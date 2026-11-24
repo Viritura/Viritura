@@ -15,6 +15,7 @@ export { PlaybackProvider } from "./PlaybackContext";
 export type { SoundfontLoader } from "./soundfont";
 export type { PlaybackPreviewPosition } from "./soundProfileRuntime";
 export { getChordPlaybackPart } from "@viritura/midi";
+export { exportScoreMidi } from "./midiExport";
 export { getPlaybackSnapshot, subscribePlaybackStatus, usePlaybackActions, usePlaybackState } from "./usePlayback";
 export {
   PAN_RANGE,

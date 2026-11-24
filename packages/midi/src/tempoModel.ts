@@ -316,6 +316,11 @@ export class TempoModel {
     return 60 / this.spbAtBeat(beat);
   }
 
+  /** Tempo boundaries and point insertions on the performance beat axis. */
+  breakpoints(): readonly { beat: number; insertionSeconds: number }[] {
+    return this.knots.map(({ beat, insertBefore }) => ({ beat, insertionSeconds: insertBefore }));
+  }
+
   /**
    * Generate click times (seconds) for a metronome / studio click track over
    * `[startBeat, endBeat)`. `clickBeats` are the beat positions to click,

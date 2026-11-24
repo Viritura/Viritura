@@ -3,7 +3,7 @@
 The **Publish** activity prepares one or more scores and instrumental parts for
 delivery.
 It combines layout selection, page-format review, naming, batch PDF export,
-and whole-document MP3 or WAV audio export.
+whole-document MP3 or WAV audio export, and MIDI export.
 
 The export actions stay at the bottom of the panel while its settings scroll.
 Completed exports appear in the global notifications; progress and errors
@@ -34,8 +34,20 @@ Select **PDF**, then choose a bundle mode:
   This option is only available with a folder destination: browsers can block
   batches of separate downloads.
 
-MusicXML, MNX, and MIDI export entries are visible but cannot currently be
-selected.
+MusicXML export is visible but cannot currently be selected.
+
+## Export MIDI
+
+Select **MIDI** to save the entire document as a `.mid` file for a notation
+program or digital audio workstation. The file includes instrument tracks,
+tempo, meter, repeats, dynamics, and articulation. It removes random timing
+variation while retaining performance markings. The generated Chords track
+and Play mixer settings are not included, so muted instruments are exported.
+Layout selection does not limit the export.
+
+MIDI has limited channels and instrument sounds; export reports warnings when
+the score exceeds those limits. Gradual tempo changes are approximated, and
+holds may add beats to preserve their duration.
 
 ## Export audio
 
@@ -77,7 +89,7 @@ When available, **Choose folder** selects a folder you approve. If a local
 project folder is open, its root is selected by default; after choosing another
 folder or clearing it, **Use project folder** selects it again. Selecting either
 folder destination switches PDF export
-to **Separate files**. PDFs and audio files are then saved directly to disk without
+to **Separate files**. PDFs, MIDI, and audio files are then saved directly to disk without
 browser downloads. Files with matching names are replaced.
 
 Use **Clear** to return to browser downloads; separate-file output switches
@@ -102,7 +114,7 @@ For example, `%PART_NUMBER% - %TITLE% - %PART%` sorts exported PDFs by score
 order when sorted by filename. ZIP entries and direct folder writes are also
 produced in that order. In the name of a ZIP or combined PDF, `%PART_NUMBER%`
 becomes `All`; a combined PDF keeps the Publish layout-list order. The correct
-extension is added automatically. For audio export, `%PART%` becomes `Full Score`
+extension is added automatically. For MIDI and audio export, `%PART%` becomes `Full Score`
 and `%PART_NUMBER%` becomes `All`.
 
 ## Embed the source

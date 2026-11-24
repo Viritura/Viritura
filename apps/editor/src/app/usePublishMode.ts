@@ -24,6 +24,7 @@ import { getLifeSizeZoom, isCalibrated, onCalibrationChange } from "../zoomScale
 import { buildLayoutEntries, type LayoutEntry } from "../components/modes/publishView/layoutEntries";
 import { runPublishExport, type BundleMode } from "../components/modes/publishView/runPublishExport";
 import { runAudioExport } from "../components/modes/publishView/runAudioExport";
+import { runMidiExport } from "../components/modes/publishView/runMidiExport";
 import {
   audioEncoding,
   DEFAULT_AUDIO_QUALITY,
@@ -225,7 +226,11 @@ export function usePublishMode({
     if (!score || exportAbortRef.current || (format === "pdf" && orderedSelected.length === 0)) return;
     setExporting(true);
     setStatusMessage(null);
-    setProgress({ done: 0, total: isAudioFormat(format) ? 100 : orderedSelected.length, name: "" });
+    setProgress({
+      done: 0,
+      total: isAudioFormat(format) ? 100 : format === "midi" ? 1 : orderedSelected.length,
+      name: "",
+    });
     const controller = new AbortController();
     exportAbortRef.current = controller;
     try {
@@ -241,15 +246,17 @@ export function usePublishMode({
             signal: controller.signal,
             onProgress: (fraction) => setProgress({ done: Math.round(fraction * 100), total: 100, name: "" }),
           })
-        : await runPublishExport({
-            score,
-            scoreIndices: orderedSelected,
-            bundleMode,
-            filenamePattern,
-            embedMnx,
-            exportFolder,
-            onProgress: (done, total, name) => setProgress({ done, total, name }),
-          });
+        : format === "midi"
+          ? await runMidiExport({ score, filenamePattern, exportFolder, signal: controller.signal })
+          : await runPublishExport({
+              score,
+              scoreIndices: orderedSelected,
+              bundleMode,
+              filenamePattern,
+              embedMnx,
+              exportFolder,
+              onProgress: (done, total, name) => setProgress({ done, total, name }),
+            });
       toast.success(result.text);
     } catch (err) {
       if (controller.signal.aborted) {
