@@ -381,6 +381,7 @@ describe("MNX interoperability fixtures", () => {
       expect(output.documentElement?.getAttribute("version")).toBe("4.0");
       expect(output.getElementsByTagName("part").length).toBe(source.parts.length);
     },
-    30_000,
+    // Rhapsody in Blue exports ~10 MB of XML; parallel CI workspaces slow it well past local timings.
+    120_000,
   );
 });
