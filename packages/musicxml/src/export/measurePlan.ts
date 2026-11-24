@@ -43,6 +43,19 @@ export function preparePart(score: Score, original: ExportPart, diagnostics: Dia
     globalState.map((state) => state.time),
   );
   if (meters.issues.length) throw meters.issues[0]!.error;
+  const staffMetersByPart = globalState.some(
+    (state, mi) => (mi === 0 && state.global.number === 0) || state.time.display === "senzaMisura",
+  )
+    ? score.parts.map((part, partIndex) => {
+        if (partIndex === selection.sourceIndex) return meters.table;
+        const timeline = resolveStaffMeterTimeline(
+          part.measures.map((measure) => measure.staffMeters),
+          globalState.map((state) => state.time),
+        );
+        if (timeline.issues.length) throw timeline.issues[0]!.error;
+        return timeline.table;
+      })
+    : undefined;
   if (meters.table.some((row) => [...row.values()].some((meter) => meter.synchronization === "fitMeasure"))) {
     diagnostics.warn(
       `/parts/${selection.sourceIndex}`,
@@ -89,9 +102,12 @@ export function preparePart(score: Score, original: ExportPart, diagnostics: Dia
     let actual = ZERO;
     const pickup = mi === 0 && state.global.number === 0;
     if (pickup || state.time.display === "senzaMisura") {
-      for (const part of score.parts) {
+      if (!staffMetersByPart) throw new Error("Missing staff-meter timelines for a variable-length measure.");
+      for (const [partIndex, sourcePart] of score.parts.entries()) {
+        const part = partIndex === selection.sourceIndex ? selection.part : sourcePart;
         for (const sequence of part.measures[mi]!.sequences) {
-          const length = timeSequence(sequence).duration;
+          const ratio = staffMetersByPart[partIndex]![mi]!.get(sequence.staff ?? 1)?.ratioToGlobal;
+          const length = timeSequence(sequence, ratio ? rational(ratio.num, ratio.den) : ONE).duration;
           if (compare(length, actual) > 0) actual = length;
         }
       }

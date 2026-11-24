@@ -171,6 +171,28 @@ describe("MusicXML export", () => {
     expect(texts(xml, "duration")).toEqual(["1", "1"]);
   });
 
+  it("applies fitted staff-meter scaling when calculating pickup duration", () => {
+    const source = score();
+    source.global.measures[0]!.number = 0;
+    source.global.measures[0]!.time = { count: 2, unit: 4 };
+    source.parts[0]!.measures[0]!.staffMeters = [
+      { staff: 1, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" },
+    ];
+    source.parts[0]!.measures[0]!.sequences = [
+      { content: [{ ...whole("fitted-pickup"), duration: { base: "half", dots: 1 } }] },
+    ];
+    source.parts[1]!.measures[0]!.sequences = [
+      { content: [{ ...whole("short-pickup"), duration: { base: "quarter" } }] },
+    ];
+
+    const xml = convertScoreToMusicXml(source, { scoreIndex: 0 }).xml;
+    const firstMeasure = document(xml).getElementsByTagName("part")[0]!.getElementsByTagName("measure")[0]!;
+    expect(firstMeasure.getElementsByTagName("forward")).toHaveLength(0);
+    expect(Array.from(firstMeasure.getElementsByTagName("duration")).map((duration) => duration.textContent)).toEqual([
+      "2",
+    ]);
+  });
+
   it("materializes chained similes without duplicate event IDs", () => {
     const source = score();
     source.global.measures.push({ id: "m2" }, { id: "m3" });
