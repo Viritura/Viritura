@@ -70,19 +70,27 @@ function chordDegrees(
   return degrees;
 }
 
+function resolvedDegrees(chord: ChordSymbol, modifiers?: ChordModifiers): Map<number, number[]> | undefined {
+  const quality = chord.quality ?? "major";
+  if (quality === "other") return undefined;
+  const triad = TRIADS[quality];
+  if (!Array.isArray(triad)) return undefined;
+  const impliedSeventh = quality === "dominant" || quality === "half-diminished" || quality === "minor-major";
+  const extension = chord.extension ?? (impliedSeventh ? 7 : undefined);
+  if (extension !== undefined && ![6, 7, 9, 11, 13].includes(extension)) return undefined;
+  if (quality === "power" && extension !== undefined) return undefined;
+  const degrees = chordDegrees(quality, triad, extension);
+  applyModifiers(degrees, modifiers);
+  return degrees;
+}
+
 function resolveBase(chord: ChordSymbol, modifiers?: ChordModifiers): ChordSymbolResolution {
   if (!chord.root) return unsupported();
   const rootPitchClass = pitchClass(chord.root);
   const bassPitchClass = chord.bass ? pitchClass(chord.bass) : rootPitchClass;
-  const quality = chord.quality ?? "major";
-  if (rootPitchClass === undefined || bassPitchClass === undefined || quality === "other") return unsupported();
-  const triad = TRIADS[quality];
-  if (!Array.isArray(triad)) return unsupported();
-  const impliedSeventh = quality === "dominant" || quality === "half-diminished" || quality === "minor-major";
-  const extension = chord.extension ?? (impliedSeventh ? 7 : undefined);
-  if (extension !== undefined && ![6, 7, 9, 11, 13].includes(extension)) return unsupported();
-  if (quality === "power" && extension !== undefined) return unsupported();
-  const intervals = applyModifiers(chordDegrees(quality, triad, extension), modifiers);
+  const degrees = resolvedDegrees(chord, modifiers);
+  if (rootPitchClass === undefined || bassPitchClass === undefined || !degrees) return unsupported();
+  const intervals = [...degrees.values()].flat();
   return {
     status: "supported",
     rootPitchClass,
@@ -141,11 +149,23 @@ export function resolveChordSymbol(chord: ChordSymbol): ChordSymbolResolution {
     ) {
       return unsupported();
     }
+
     result = resolveText(chord.rawText, chord);
   }
   if (chord.textOverride !== undefined && !equivalent(result, resolveText(chord.textOverride, chord)))
     return unsupported();
   return result;
+}
+
+/** Degree ownership and intervals for interchange, using the playback interpretation. */
+export function resolveChordSymbolDegrees(chord: ChordSymbol): ReadonlyMap<number, readonly number[]> {
+  if (resolveChordSymbol(chord).status !== "supported")
+    throw new Error("Cannot resolve degrees for an unsupported or silent chord.");
+  const structured = chord.root ? chord : parseChordSymbolText(chord.rawText!, chord.position);
+  const modifiers = structured.kindText === undefined ? undefined : parseQuality(structured.kindText)?.modifiers;
+  const degrees = resolvedDegrees(structured, modifiers);
+  if (!degrees) throw new Error("Chord degree resolution failed.");
+  return degrees;
 }
 
 /** Unsupported/NC symbols produce no notes; callers display resolver diagnostics separately. */

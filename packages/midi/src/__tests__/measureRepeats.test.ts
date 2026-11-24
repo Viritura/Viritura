@@ -108,6 +108,29 @@ describe("expandMeasureRepeats", () => {
     const expanded = expandMeasureRepeats(part);
     expect(expanded.measures[0]!.sequences[0]!.content).toHaveLength(0);
   });
+
+  it("relinks beams and musical measure anchors without rewriting literal lyric text", () => {
+    const first = noteMeasure("C", "e1");
+    const event = first.sequences[0]!.content[0]!;
+    if (event.type !== "event") throw new Error("Expected a note event.");
+    event.duration = { base: "eighth" };
+    event.lyrics = { lines: { one: { text: "e2", type: "whole", extender: { target: "e2" } } } };
+    first.beams = [{ events: ["e1"], direction: "right" }];
+    first.ottavas = [
+      { value: 1, position: { fraction: [0, 1] }, end: { measure: "m2", position: { fraction: [1, 1] } } },
+    ];
+    const part = buildScore([first, noteMeasure("D", "e2"), repeatMeasure({ number: 2 }), { sequences: [] }]).parts[0]!;
+    const expanded = expandMeasureRepeats(part, ["m1", "m2", "m3", "m4"]);
+    const repeated = expanded.measures[2]!;
+    const repeatedEvent = repeated.sequences[0]!.content[0]!;
+    expect(repeatedEvent).toMatchObject({
+      id: "e1~r2",
+      lyrics: { lines: { one: { text: "e2", extender: { target: "e2~r3" } } } },
+    });
+    expect(repeated.beams?.[0]?.events).toEqual(["e1~r2"]);
+    expect(repeated.ottavas?.[0]?.end.measure).toBe("m4");
+    expect(first.ottavas[0]!.end.measure).toBe("m2");
+  });
 });
 
 describe("generateTimeline with measure repeats", () => {

@@ -512,7 +512,8 @@ unsupported scope. Staff-specific tempo ownership and inspector scope controls
 are not implemented in this slice. Disabling vendor extensions reports explicit
 swing loss through the existing import diagnostics.
 
-MusicXML conversion is import-only. The existing MuseScore clipboard adapter
+MusicXML export writes explicit swing instructions in tempo sound elements.
+The existing MuseScore clipboard adapter
 does not transport tempo directions; this change does not invent clipboard
 source encodings. Native MNX persistence retains the full unified collection.
 
@@ -1524,8 +1525,9 @@ MuseScore StaffList clipboard harmony uses concert-pitch root and bass TPCs;
 the receiving application applies destination written transposition. Unsupported
 content exports with preservation warnings, using raw text or disambiguating
 root/bass structure. Conversion fails if that representation would silently
-change the harmony's meaning. MusicXML/MXL support here is import, not a
-MusicXML export contract.
+change the harmony's meaning. MusicXML/MXL export projects root and bass for the
+selected score view, uses standard chord kinds and degree operations where
+representable, and retains unsupported harmony as text with diagnostics.
 
 #### Derived playback
 

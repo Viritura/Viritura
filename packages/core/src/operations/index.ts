@@ -32,6 +32,7 @@ export {
   formatChordSymbolText,
   rewriteChordSymbolBase,
   resolveChordSymbol,
+  resolveChordSymbolDegrees,
   transposeChordSymbol,
   voiceChordSymbol,
   compareChordSymbolPositions,
@@ -56,3 +57,4 @@ export {
 } from "./lyricExtenders";
 export { pruneMixerSettings } from "./mixer";
 export { removeGlobalMeasures } from "./measureDeletion";
+export { expandMeasureRepeats, expandScoreMeasureRepeats } from "./measureRepeats";

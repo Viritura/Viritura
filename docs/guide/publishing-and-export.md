@@ -2,7 +2,7 @@
 
 The **Publish** activity prepares one or more scores and instrumental parts for
 delivery.
-It combines layout selection, page-format review, naming, batch PDF export,
+It combines layout selection, page-format review, naming, batch PDF and MusicXML export,
 whole-document MP3 or WAV audio export, and MIDI export.
 
 The export actions stay at the bottom of the panel while its settings scroll.
@@ -34,7 +34,31 @@ Select **PDF**, then choose a bundle mode:
   This option is only available with a folder destination: browsers can block
   batches of separate downloads.
 
-MusicXML export is visible but cannot currently be selected.
+## Export MusicXML
+
+Select **MusicXML (.musicxml)** for an editable file that another notation
+program can open, or **MusicXML, compressed (.mxl)** for the same music in a
+smaller file.
+You can cancel between scores while a batch is being prepared or saved.
+
+The checked scores and instrumental parts determine what is exported. Each
+selected view produces its own file containing its instruments, selected
+staves and voices, and concert or written pitches. A full score contains
+several instruments in one file; selecting an instrumental part exports only
+that part's music.
+
+- With browser downloads, one selected view downloads directly; several
+  selected views are packaged in a ZIP.
+- **Separate files** saves each selected score or part directly to the
+  chosen folder. MusicXML files cannot be concatenated using **Single PDF**.
+
+MusicXML preserves musical notation rather than an exact copy of the printed
+pages. The receiving program may reflow typography, condensing, and page
+layout. Export notifications report approximations, such as nonportable
+tempo ramps and playback settings. Keep the original score for Viritura's
+sound profiles, mixing, video synchronization, and editable engraving settings.
+Open a representative exported file in the receiving notation program before
+delivering a large batch.
 
 ## Export MIDI
 
@@ -88,9 +112,11 @@ warning. You can cancel while the audio is being rendered.
 When available, **Choose folder** selects a folder you approve. If a local
 project folder is open, its root is selected by default; after choosing another
 folder or clearing it, **Use project folder** selects it again. Selecting either
-folder destination switches PDF export
-to **Separate files**. PDFs, MIDI, and audio files are then saved directly to disk without
-browser downloads. Files with matching names are replaced.
+folder destination switches PDF and MusicXML export
+to **Separate files**. PDFs, MusicXML, MIDI, and audio files are then saved directly to disk without
+browser downloads. Existing files with matching names are replaced. Matching
+names within one MusicXML batch receive numeric suffixes so no selected score
+is overwritten by another.
 
 Use **Clear** to return to browser downloads; separate-file output switches
 back to ZIP automatically.
@@ -110,7 +136,7 @@ If no full score can be identified, the instrument list supplies the order.
 Parts absent from the full score follow the instrument list; other layouts
 without identifiable instruments come last.
 
-For example, `%PART_NUMBER% - %TITLE% - %PART%` sorts exported PDFs by score
+For example, `%PART_NUMBER% - %TITLE% - %PART%` sorts exported PDFs and MusicXML by score
 order when sorted by filename. ZIP entries and direct folder writes are also
 produced in that order. In the name of a ZIP or combined PDF, `%PART_NUMBER%`
 becomes `All`; a combined PDF keeps the Publish layout-list order. The correct
