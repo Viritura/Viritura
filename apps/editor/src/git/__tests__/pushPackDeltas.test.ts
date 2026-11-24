@@ -3,11 +3,13 @@
  * delta-compress revised files, and native `git receive-pack` accepts them.
  */
 
-import git, { type GitHttpRequest, type GitHttpResponse, type HttpClient } from "isomorphic-git";
+import nodeGit, { type GitHttpRequest, type GitHttpResponse, type HttpClient } from "isomorphic-git";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { InMemoryFs } from "../fs/inMemoryFs";
 
@@ -70,7 +72,15 @@ function makeScore(lines: number): string[] {
   return result;
 }
 
-describe("push packfile delta compression", () => {
+const browserEntry = join(dirname(createRequire(import.meta.url).resolve("isomorphic-git")), "index.js");
+const browserGit = (
+  (await import(/* @vite-ignore */ pathToFileURL(browserEntry).href)) as typeof import("isomorphic-git")
+).default;
+
+describe.each([
+  ["node", nodeGit],
+  ["browser", browserGit],
+])("push packfile delta compression (%s)", (_runtime, git) => {
   let bareDir: string;
   let fs: InMemoryFs;
   let pushedPackBytes: number[];
@@ -113,6 +123,14 @@ describe("push packfile delta compression", () => {
     expect(bareGit("show", `main:${SCORE_PATH}`)).toBe(score.join("\n"));
     bareGit("fsck", "--strict", "--no-dangling");
   }
+
+  it("creates standalone packfiles without delta bases", async () => {
+    const head = await commitRevision(0);
+    const { packfile } = await git.packObjects({ fs, dir: DIR, oids: [head] });
+    if (!packfile) throw new Error("Expected a packfile");
+    execFileSync("git", ["--git-dir", bareDir, "index-pack", "--stdin"], { input: packfile });
+    expect(bareGit("cat-file", "-t", head).trim()).toBe("commit");
+  });
 
   it("deltas revisions against objects within the same pack", async () => {
     await commitRevision(0);
