@@ -70,11 +70,22 @@ function freshWorkerBytes(sample: MemorySample): number | null {
     : null;
 }
 
-const GROWTH_READINGS = [
-  (sample: MemorySample) => sample.heapUsedBytes,
-  (sample: MemorySample) => sample.mainWasmBytes,
-  freshWorkerBytes,
-] as const;
+interface GrowthReading {
+  read: (sample: MemorySample) => number | null;
+  /**
+   * WASM linear memory never shrinks within one instance, so a lower reading
+   * means the module was recreated (for example, the layout worker restarting
+   * when the score canvas remounts). The fresh instance's first layout regrows
+   * to the document's working set, which is not a leak.
+   */
+  wasm: boolean;
+}
+
+const GROWTH_READINGS: readonly GrowthReading[] = [
+  { read: (sample) => sample.heapUsedBytes, wasm: false },
+  { read: (sample) => sample.mainWasmBytes, wasm: true },
+  { read: freshWorkerBytes, wasm: true },
+];
 
 export class MemoryRecorder {
   private samples: MemorySample[] = [];
@@ -84,6 +95,9 @@ export class MemoryRecorder {
   private lastWarningAt = -Infinity;
   private documentStartedAt = 0;
   private documentHeapFloor: number | null = null;
+  /** Per growth reading: last WASM capacity seen, and the peak of earlier instances for this document. */
+  private lastWasmBytes: (number | null)[] = GROWTH_READINGS.map(() => null);
+  private priorInstancePeaks: number[] = GROWTH_READINGS.map(() => 0);
 
   constructor(
     private readonly build: string,
@@ -120,12 +134,15 @@ export class MemoryRecorder {
         earlier.documentGeneration === sample.documentGeneration &&
         sample.timestamp - earlier.timestamp >= GROWTH_WINDOW_MS,
     );
+    this.trackWasmInstances(sample, previous);
     const rapid =
       baseline !== undefined &&
-      GROWTH_READINGS.some((read) => {
-        const before = read(baseline);
+      GROWTH_READINGS.some(({ read, wasm }, index) => {
+        const reading = read(baseline);
         const after = read(sample);
-        return before !== null && after !== null && after - before >= 128 * MIB && after >= before * 1.5;
+        if (reading === null || after === null) return false;
+        const before = wasm ? Math.max(reading, this.priorInstancePeaks[index] ?? 0) : reading;
+        return after - before >= 128 * MIB && after >= before * 1.5;
       });
     const sustained = this.trackSustainedGrowth(sample, previous);
 
@@ -134,6 +151,22 @@ export class MemoryRecorder {
     }
     this.lastWarningAt = sample.timestamp;
     return this.report(this.highSamples >= 3 ? "high-memory" : rapid ? "rapid-growth" : "sustained-growth");
+  }
+
+  private trackWasmInstances(sample: MemorySample, previous: MemorySample | undefined): void {
+    if (!previous || previous.documentGeneration !== sample.documentGeneration) {
+      this.lastWasmBytes = GROWTH_READINGS.map(() => null);
+      this.priorInstancePeaks = GROWTH_READINGS.map(() => 0);
+    }
+    GROWTH_READINGS.forEach(({ read, wasm }, index) => {
+      const bytes = wasm ? read(sample) : null;
+      if (bytes === null) return;
+      const last = this.lastWasmBytes[index] ?? null;
+      if (last !== null && bytes < last) {
+        this.priorInstancePeaks[index] = Math.max(this.priorInstancePeaks[index] ?? 0, last);
+      }
+      this.lastWasmBytes[index] = bytes;
+    });
   }
 
   /**
