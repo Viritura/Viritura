@@ -40,6 +40,7 @@ const config: KnipConfig = {
     "apps/editor": {
       entry: [
         "index.html",
+        "click/index.html",
         "buildAssets.ts",
         "src/stories/**/*.stories.@(ts|tsx)",
         ".storybook/*.@(ts|tsx)",
@@ -54,7 +55,14 @@ const config: KnipConfig = {
         // the API declared while the UI that will call it is still in flight.
         "src/instrumentProfiles/index.ts",
       ],
-      project: ["buildAssets.ts", "pwa/**/*.ts", ".storybook-mnx/**/*.ts", "scripts/**/*.ts", "src/**/*.{ts,tsx,mdx}"],
+      project: [
+        "buildAssets.ts",
+        "click/**/*.ts",
+        "pwa/**/*.ts",
+        ".storybook-mnx/**/*.ts",
+        "scripts/**/*.ts",
+        "src/**/*.{ts,tsx,mdx}",
+      ],
     },
     "packages/ui": {
       entry: ["src/**/*.stories.@(ts|tsx)", "src/**/*.mdx", ".storybook/*.@(ts|tsx)"],

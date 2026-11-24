@@ -1,0 +1,286 @@
+.page {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.header[hidden] {
+  display: none;
+}
+
+.header a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.header h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header button {
+  flex-shrink: 0;
+  min-height: 44px;
+}
+
+.viewControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.scoreSelect {
+  min-width: 120px;
+  max-width: 220px;
+}
+
+.zoomValue {
+  min-width: 4ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 800px) {
+  .viewControls {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+
+  .scoreSelect {
+    flex: 1;
+    max-width: none;
+  }
+}
+
+.workspace {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.score {
+  position: absolute;
+  inset: 0;
+}
+
+.viewer {
+  height: 100%;
+  min-height: 0;
+}
+
+.scoreStatus {
+  margin: 0;
+  padding: var(--space-3);
+}
+
+.readerAdvance {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  background: #fff;
+}
+
+.floatingTransport {
+  --expanded-width: min(560px, calc(100% - 24px));
+  position: absolute;
+  z-index: 10;
+  right: calc((100% - var(--expanded-width)) / 2);
+  bottom: 12px;
+  width: var(--expanded-width);
+  max-height: calc(100% - 16px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 18%);
+  cursor: grab;
+  user-select: none;
+}
+
+.dragSurface {
+  position: absolute;
+  inset: 0;
+  /* Keep touch-action off the ancestor so each dial controls its own gestures. */
+  touch-action: none;
+}
+
+.floatingTransport:active {
+  cursor: grabbing;
+}
+
+.floatingTransport:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.transportContent {
+  position: relative;
+  padding: 10px 12px 12px;
+  pointer-events: none;
+}
+
+.transportContent
+  :is(button, input, select, textarea, a, label, [role="listbox"], [contenteditable="true"], [tabindex]) {
+  pointer-events: auto;
+}
+
+.transportContent button {
+  min-height: 44px;
+}
+
+.navigation {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  cursor: auto;
+}
+
+.startDetails {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.controlStrip {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.navigation + .controlStrip {
+  margin-top: var(--space-3);
+}
+
+.settings {
+  flex: 1;
+  min-width: 0;
+}
+
+.countoff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+}
+
+.tempo {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 1 300px;
+}
+
+.tempo input {
+  flex: 1;
+  min-width: 70px;
+  min-height: 44px;
+  accent-color: var(--accent);
+}
+
+.tempo output {
+  min-width: 4ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.transport {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.transport button {
+  min-width: 100px;
+  min-height: 56px;
+}
+
+.floatingTransport[data-compact="true"] {
+  width: max-content;
+  max-width: calc(100% - 24px);
+}
+
+.compactControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.currentBar {
+  flex: 0 0 auto;
+  min-width: 1ch;
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.compactControls .transport,
+.compactControls .transport button {
+  width: auto;
+}
+
+@media (max-width: 480px) {
+  .controlStrip {
+    flex-wrap: wrap;
+  }
+
+  .settings {
+    flex-basis: 100%;
+  }
+
+  .transport {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.error {
+  padding: var(--space-4);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-md);
+  color: var(--danger, #b42318);
+  overflow-wrap: anywhere;
+}

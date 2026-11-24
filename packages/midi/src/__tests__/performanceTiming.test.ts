@@ -7,7 +7,7 @@ import {
   type NoteEvent,
   type Score,
 } from "@viritura/core";
-import { generatePerformanceEvents, generateTimeline } from "../index";
+import { compilePlaybackTiming, generatePerformanceEvents, generateTimeline } from "../index";
 import { playbackGlobalMeasures } from "../cadenzaTiming";
 
 it("inherits system-instruction tempo across discontinuous navigation without duplicating mid-bar anchors", () => {
@@ -150,6 +150,19 @@ function timingScore(testCase: TimingCase): Score {
     ],
   };
 }
+
+describe("timing-only compilation", () => {
+  it.each(cases)("retains $name timing without generating instrument events", (testCase) => {
+    const score = timingScore(testCase);
+    const timing = compilePlaybackTiming(score);
+    const timeline = generateTimeline(score);
+    expect(timing).not.toHaveProperty("events");
+    expect(timing.measureStartTimes[1]).toBeCloseTo(testCase.nextStart);
+    expect(timing.measureStartTimes).toEqual(timeline.measureStartTimes);
+    expect(timing.duration).toBe(timeline.duration);
+    expect(timing.playedSpans).toEqual(timeline.playedSpans);
+  });
+});
 
 describe("native chord and instrument timing integration", () => {
   it.each(["simile", "simile with repeat", "simile with D.S. al Fine"])(

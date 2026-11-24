@@ -1,0 +1,99 @@
+.dial {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.marker {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 80px;
+  transform: translateX(-50%);
+  border-inline: 2px solid var(--accent);
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.1);
+  pointer-events: none;
+}
+
+.viewport {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+  cursor: grab;
+  mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
+}
+
+.viewport[aria-readonly="true"] {
+  cursor: default;
+}
+
+.viewport[data-dragging] {
+  cursor: grabbing;
+}
+
+.viewport[data-dragging] .entry {
+  pointer-events: none;
+}
+
+.viewport:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.track {
+  position: relative;
+  height: 60px;
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    transition: none;
+  }
+}
+
+.track .entry {
+  position: absolute;
+  top: 0;
+  height: 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 0;
+  cursor: inherit;
+  opacity: 1;
+}
+
+.track .entry[aria-selected="true"] {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.track .entry:disabled {
+  opacity: 1;
+}
+
+.label {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visit {
+  min-height: 1em;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -75,6 +75,10 @@ export interface PlaybackActions {
   pause(): void;
   /** Stop playback (resets position to start). */
   stop(): void;
+  /** Stop and tear down every score-playback resource (samplers, SF2 synths, native hosts)
+   * and suspend the score audio graph, e.g. so a click-only recording engine runs alone.
+   * The next play() rebuilds instruments. */
+  releaseAudio(): Promise<void>;
   /** Seek to an absolute score time in seconds. */
   seek(seconds: number): void;
   /** Temporary source-part eligibility. Null clears; [] silences all.

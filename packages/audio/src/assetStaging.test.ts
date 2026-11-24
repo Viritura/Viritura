@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { syncSoundAssets } from "./assetStaging";
+import { buildClickWorklet } from "./clickEngine";
 import { buildSchedulingWorklet } from "./sf2Scheduling";
 
 vi.mock("node:fs", () => ({
@@ -18,6 +19,7 @@ const audioRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRoot = dirname(fileURLToPath(import.meta.resolve("spessasynth_lib/package.json")));
 const destination = resolve(audioRoot, "dist", "sounds");
 const workletPath = resolve(destination, "viritura-sf2-processor.js");
+const clickWorkletPath = resolve(destination, "viritura-click-processor.js");
 const vendorPath = resolve(packageRoot, "dist", "spessasynth_processor.min.js");
 const vendorSource =
   'registerProcessor("vendor", class extends AudioWorkletProcessor { process() { return true; } });\n';
@@ -60,7 +62,9 @@ describe("sound asset staging", () => {
     expect(files.get(workletPath)?.toString("utf8")).toBe(buildSchedulingWorklet(vendorSource));
     expect(files.get(workletPath)?.toString("utf8")).toContain(vendorSource);
     expect(files.get(workletPath)?.toString("utf8")).toContain("viritura:cancelScheduledNotes");
-    expect(writeFileSync).toHaveBeenCalledExactlyOnceWith(workletPath, buildSchedulingWorklet(vendorSource), "utf8");
+    expect(writeFileSync).toHaveBeenCalledWith(workletPath, buildSchedulingWorklet(vendorSource), "utf8");
+    expect(writeFileSync).toHaveBeenCalledWith(clickWorkletPath, buildClickWorklet(), "utf8");
+    expect(writeFileSync).toHaveBeenCalledTimes(2);
     for (const asset of assets) {
       expect(files.get(resolve(destination, asset))).toEqual(files.get(resolve(audioRoot, "assets", "sounds", asset)));
     }

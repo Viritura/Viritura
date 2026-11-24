@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { NoteEvent, Score, Tempo } from "@viritura/core";
-import { DEFAULT_BPM, generateTimeline, generatePerformanceEvents } from "../index";
+import { compilePlaybackTiming, DEFAULT_BPM, generateTimeline, generatePerformanceEvents } from "../index";
 
 function wholeNoteScore(measures: Score["global"]["measures"]): Score {
   return {
@@ -63,6 +63,20 @@ function navigationScore(): Score {
 }
 
 describe("location-aware navigation timing", () => {
+  it("compiles click timing through partial-bar jumps without instrument events", () => {
+    const score = navigationScore();
+    const timing = compilePlaybackTiming(score);
+    const timeline = generateTimeline(score);
+    expect(timing).not.toHaveProperty("events");
+    expect(timing.measureStartBeats).toEqual(timeline.measureStartBeats);
+    expect(timing.measureStartTimes).toEqual(timeline.measureStartTimes);
+    expect(timing.playedSpans).toEqual(timeline.playedSpans);
+    expect(timing.duration).toBe(timeline.duration);
+    for (let beat = 0; beat < timing.totalBeats; beat += 0.25) {
+      expect(timing.model.timeAtBeat(beat)).toBeCloseTo(timeline.model.timeAtBeat(beat), 9);
+    }
+  });
+
   it.each<{ initial: Tempo[] | undefined; bpm: number }>([
     { initial: undefined, bpm: DEFAULT_BPM },
     { initial: [{ bpm: 90, value: { base: "quarter" } }], bpm: 90 },

@@ -56,3 +56,17 @@ export {
 } from "./soundProfileRuntime";
 
 export type { VstTransport, VstPartAssignment, Sf2PartAssignment, VstPreparePlan } from "./vstTransport";
+
+export {
+  buildClickSessionProgram,
+  describeClickCue,
+  ClickSessionTransport,
+  type ClickResolutionRule,
+  type ClickSessionEngine,
+  type ClickSessionOptions,
+  type ClickSessionProgram,
+  type ClickSessionSource,
+  type ClickSessionStatus,
+  type ClickSessionTransportOptions,
+  type ClickCueInput,
+} from "./clickSession";

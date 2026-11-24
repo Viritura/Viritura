@@ -6,7 +6,7 @@ import {
   type ScoreMeasurements,
 } from "@viritura/score-engine";
 import { layoutOptionsFor } from "./layoutRequest";
-import { arrangePages, contentOffset } from "./pageArrangement";
+import { arrangePages, contentOffset, pageFrame, pageFrameGap } from "./pageArrangement";
 import { followOffset } from "./playheadFollow";
 import { needsArrangement, needsLayout } from "./presentationChanges";
 import type { ScoreArrangement, ScoreViewerHandle, ScoreViewerOptions } from "./types";
@@ -93,21 +93,50 @@ export function mountScore(
   /** Size the surface and offset it for `contentAlign`. `horizonHeight` is null outside horizon mode. */
   function placeSurface(horizonHeight: number | null): void {
     const centered = options.contentAlign === "center";
+    const framed = options.contentAlign === "page" && horizonHeight == null;
     const inner = {
       width: Math.max(0, viewport.clientWidth - 2 * viewportPadding()),
       height: Math.max(0, viewport.clientHeight - 2 * viewportPadding()),
     };
-    const contentHeight = horizonHeight ?? arrangement.height;
-    const offset = contentOffset(options.contentAlign, inner, { width: arrangement.width, height: contentHeight });
+    let contentWidth = arrangement.width;
+    let contentHeight = horizonHeight ?? arrangement.height;
+    const spread = options.viewMode === "spread" || options.viewMode === "spread-horizontal";
+    const frameWidth =
+      Math.max(0, ...arrangement.positions.map((page) => page.width)) * (spread ? 2 : 1) +
+      (spread ? (options.pageGap ?? 16) : 0);
+    const frameHeight = Math.max(0, ...arrangement.positions.map((page) => page.height));
+    if (framed) {
+      const last = pageFrame(
+        arrangement.positions,
+        arrangement.positions.length - 1,
+        options.viewMode ?? "page",
+        options.spreadFirstPage,
+      );
+      if (last) {
+        contentWidth = Math.max(contentWidth, last.x + last.width / 2 + frameWidth / 2);
+        contentHeight = Math.max(contentHeight, last.y + last.height / 2 + frameHeight / 2);
+      }
+    }
+    const offset = contentOffset(
+      framed ? "center" : options.contentAlign,
+      inner,
+      framed ? { width: frameWidth, height: frameHeight } : { width: contentWidth, height: contentHeight },
+    );
     surfaceOffsetX = offset.x;
     surfaceOffsetY = offset.y;
-    surface.style.width = pixel(arrangement.width);
+    surface.style.width = pixel(contentWidth);
     surface.style.height = pixel(
       horizonHeight != null && !centered ? Math.max(contentHeight, inner.height) : contentHeight,
     );
     const flush =
       horizonHeight != null || options.viewMode === "horizontal" || options.viewMode === "spread-horizontal";
-    surface.style.margin = centered ? `${pixel(offset.y)} 0 0 ${pixel(offset.x)}` : flush ? "0" : "0 auto";
+    surface.style.margin = framed
+      ? `${pixel(offset.y)} ${pixel(offset.x)}`
+      : centered
+        ? `${pixel(offset.y)} 0 0 ${pixel(offset.x)}`
+        : flush
+          ? "0"
+          : "0 auto";
   }
 
   function arrange(): void {
@@ -124,6 +153,13 @@ export function mountScore(
             options.pageGap ?? 16,
           );
     zoom = Math.max(0.01, zoom);
+    const frameGap =
+      options.contentAlign === "page" && options.viewMode !== "horizon"
+        ? pageFrameGap(measurements.pages, zoom, options.pageGap ?? 16, options.viewMode ?? "page", {
+            width: viewport.clientWidth - 2 * viewportPadding(),
+            height: viewport.clientHeight - 2 * viewportPadding(),
+          })
+        : undefined;
     arrangement = arrangePages({
       pages: measurements.pages,
       zoom,
@@ -131,6 +167,7 @@ export function mountScore(
       viewMode: options.viewMode ?? "page",
       pagesPerRow: options.pagesPerRow,
       spreadFirstPage: options.spreadFirstPage,
+      frameGap,
     });
     const horizon = options.viewMode === "horizon";
     const paper = horizon ? engine.horizonPaper(displayList) : null;
@@ -221,10 +258,10 @@ export function mountScore(
       else options.onPaint?.();
       return;
     }
-    const minX = viewport.scrollLeft - 100;
-    const maxX = viewport.scrollLeft + viewport.clientWidth + 100;
-    const minY = viewport.scrollTop - 100;
-    const maxY = viewport.scrollTop + viewport.clientHeight + 100;
+    const minX = viewport.scrollLeft - surfaceOffsetX - viewportPadding() - 100;
+    const maxX = minX + viewport.clientWidth + 200;
+    const minY = viewport.scrollTop - surfaceOffsetY - viewportPadding() - 100;
+    const maxY = minY + viewport.clientHeight + 200;
     for (const page of arrangement.positions) {
       const visible = page.x + page.width >= minX && page.x <= maxX && page.y + page.height >= minY && page.y <= maxY;
       let canvas = pageElements.get(page.page);
@@ -383,6 +420,15 @@ export function mountScore(
       if (!point || !page) return;
       viewport.scrollLeft = Math.max(0, page.x + point.x * zoom - viewport.clientWidth / 3);
       viewport.scrollTop = Math.max(0, page.y + point.y * zoom - viewport.clientHeight / 2);
+    },
+    scrollToPage(page) {
+      const frame = pageFrame(arrangement.positions, page, options.viewMode ?? "page", options.spreadFirstPage);
+      if (!frame) throw new RangeError(`Missing score page ${page}`);
+      viewport.scrollTo({
+        left: Math.max(0, viewportPadding() + surfaceOffsetX + frame.x + frame.width / 2 - viewport.clientWidth / 2),
+        top: Math.max(0, viewportPadding() + surfaceOffsetY + frame.y + frame.height / 2 - viewport.clientHeight / 2),
+        behavior: "instant",
+      });
     },
     playheadGeometry() {
       return engine && displayList && options.playhead ? engine.playhead(displayList, options.playhead) : null;

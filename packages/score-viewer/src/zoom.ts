@@ -10,7 +10,7 @@ export function fitZoom(
   const usableWidth = Math.max(1, viewport.width - 48);
   const usableHeight = Math.max(1, viewport.height - 48);
   const spread = viewMode === "spread" || viewMode === "spread-horizontal";
-  const width = page.width * (spread ? 2 : 1) + (spread ? gap : 0);
-  const widthZoom = usableWidth / Math.max(1, width);
+  const width = page.width * (spread ? 2 : 1);
+  const widthZoom = Math.max(1, usableWidth - (spread ? gap : 0)) / Math.max(1, width);
   return mode === "fit-page" ? Math.min(widthZoom, usableHeight / Math.max(1, page.height)) : widthZoom;
 }
