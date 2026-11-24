@@ -10,6 +10,7 @@ import type { Plugin } from "vite";
 import { syncMnxFixtures, syncMnxSchema, syncMusxImporter, syncSharedAssets, syncSounds } from "./buildAssets.ts";
 import { VitePWA } from "vite-plugin-pwa";
 import { pwaOptions, createPwaOptions } from "./pwa/index.ts";
+import { clickPagePlugin } from "./click/pagePlugin.ts";
 
 syncSharedAssets();
 syncSounds();
@@ -116,6 +117,7 @@ export default defineConfig(({ command, mode }) => ({
     __VIRITURA_WASM_ASSET_HASH__: JSON.stringify(command === "build" ? wasmAssetHash : ""),
   },
   plugins: [
+    clickPagePlugin(),
     serveContainerPublicFiles(),
     // Vite 8's plugin-react handles JSX + Fast Refresh via Oxc; the React
     // Compiler still runs through Babel, wired in with @rolldown/plugin-babel
@@ -150,6 +152,12 @@ export default defineConfig(({ command, mode }) => ({
     outDir: "dist",
     target: "es2022",
     sourcemap: false,
+    rolldownOptions: {
+      input: {
+        editor: resolve(configDirectory, "index.html"),
+        click: resolve(configDirectory, "click/index.html"),
+      },
+    },
   },
   server: {
     port: 5173,

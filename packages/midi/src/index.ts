@@ -16,6 +16,7 @@ export { NavigationError } from "./navigation";
 export type { PlayedMeasureSpan } from "./navigation";
 export { expandMeasureRepeats, expandScoreMeasureRepeats } from "./measureRepeats";
 export type { TimelineOptions } from "./timeline";
+export { compilePlaybackTiming, type PlaybackTiming } from "./playbackTiming";
 export { playbackInstruments, instrumentSamplerKey } from "./instrumentPlayback";
 export type { PlaybackInstrument, InstrumentPrograms } from "./instrumentPlayback";
 export { getChordPlaybackPart } from "./chordPlayback";

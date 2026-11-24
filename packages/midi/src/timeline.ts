@@ -346,7 +346,7 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   // Active time signature per expanded measure (for the metronome click grid).
   const measureTimeSignatures = measureOrder.map((origIdx) => {
     const ts = resolveActiveTime(globalMeasures, origIdx);
-    return { count: ts.count, unit: ts.unit };
+    return ts;
   });
 
   const result: MidiTimeline = {

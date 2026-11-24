@@ -38,8 +38,10 @@ first mount; subsequent instances share the same engine.
 Use `<ScoreViewer>` when you want the complete embeddable viewer with zoom,
 fit, view-mode controls, and Ctrl-scroll zoom. Use `<ScoreView>` when you want
 only the score canvases and plan to provide your own chrome.
-For cropped fragments embedded in tight panels, pass `bare` to remove the
+For cropped fragments or edge-to-edge surfaces, pass `bare` to either component to remove the
 viewer's default viewport padding (the Drum Kit editor uses this mode).
+Pass `useWorker` to either component to run layout in a dedicated Web Worker
+rather than on the main thread. Canvas painting still runs on the main thread.
 
 ## View Modes
 
@@ -55,6 +57,9 @@ viewer's default viewport padding (the Drum Kit editor uses this mode).
 
 `horizon` uses the same continuous, unpaginated layout as the Viritura editor
 and renders only the visible tiles so very long scores remain browser-safe.
+Hosts can set `fitMode="height"` to fit the score vertically while preserving
+horizontal scrolling. In Horizon this uses the engraved content/paper height,
+not the width of the entire piece.
 
 Hosts can expose page and staff-size selectors with `pageSizeOptions`,
 `staffSizeOptions`, and the corresponding `controls` flags. These selectors are
@@ -142,6 +147,7 @@ function CustomViewer({ mnx }: { mnx: string }) {
 | `viewMode`        | `ScoreViewMode`                                               | `"page"` | `page`, `horizontal`, `spread`, `spread-horizontal` or `horizon` |
 | `gap`             | `number`                                                      | `16`     | CSS px between pages                                             |
 | `assetBaseUrl`    | `string`                                                      | —        | Base URL of the engine's `wasm/`, `fonts/` and worker            |
+| `useWorker`       | `boolean`                                                     | `false`  | Run layout in a dedicated Web Worker                             |
 | `pagesPerRow`     | `number`                                                      | `1`      | Multi-page layout                                                |
 | `onReady`         | `(info: { engine, displayList }) => void`                     | —        |                                                                  |
 | `onError`         | `(err: EngineLoadError \| ParseError \| LayoutError) => void` | —        |                                                                  |

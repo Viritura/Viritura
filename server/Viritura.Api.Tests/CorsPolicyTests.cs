@@ -6,11 +6,11 @@ using Xunit;
 
 namespace Viritura.Api.Tests;
 
-public sealed class CorsPolicyTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class CorsPolicyTests : IClassFixture<IsolatedApiFactory>
 {
     private readonly WebApplicationFactory<Program> _factory;
 
-    public CorsPolicyTests(WebApplicationFactory<Program> factory) => _factory = factory;
+    public CorsPolicyTests(IsolatedApiFactory factory) => _factory = factory;
 
     [Fact]
     public async Task MarketingOrigin_CanCallPublicAuthController()

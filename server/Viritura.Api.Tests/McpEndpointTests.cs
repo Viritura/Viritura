@@ -17,14 +17,14 @@ using Xunit;
 
 namespace Viritura.Api.Tests;
 
-public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class McpEndpointTests : IClassFixture<IsolatedApiFactory>
 {
     private static readonly string[] CapacityTestRedirectUris = ["http://127.0.0.1:43129/callback"];
     private static readonly string[] RefreshReplayTestRedirectUris = ["http://127.0.0.1:43130/callback"];
     private static readonly string[] NonObjectPayload = ["not", "an", "object"];
     private readonly WebApplicationFactory<Program> _factory;
 
-    public McpEndpointTests(WebApplicationFactory<Program> factory)
+    public McpEndpointTests(IsolatedApiFactory factory)
     {
         _factory = factory;
     }

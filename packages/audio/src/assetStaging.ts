@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildClickWorklet } from "./clickEngine";
 import { buildSchedulingWorklet } from "./sf2Scheduling";
 
 const audioRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -34,12 +35,15 @@ export function syncSoundAssets(destination: string): void {
       copyIfChanged(resolve(packageRoot, "dist", asset), resolve(destinationRoot, asset));
     }
     const vendorSource = readFileSync(resolve(packageRoot, "dist", "spessasynth_processor.min.js"), "utf8");
-    const workletSource = buildSchedulingWorklet(vendorSource);
-    const workletPath = resolve(destinationRoot, "viritura-sf2-processor.js");
-    if (!existsSync(workletPath) || readFileSync(workletPath, "utf8") !== workletSource) {
-      writeFileSync(workletPath, workletSource, "utf8");
-    }
+    writeIfChanged(resolve(destinationRoot, "viritura-sf2-processor.js"), buildSchedulingWorklet(vendorSource));
+    writeIfChanged(resolve(destinationRoot, "viritura-click-processor.js"), buildClickWorklet());
   });
+}
+
+function writeIfChanged(path: string, content: string): void {
+  if (!existsSync(path) || readFileSync(path, "utf8") !== content) {
+    writeFileSync(path, content, "utf8");
+  }
 }
 
 function copyIfChanged(source: string, destination: string): void {

@@ -35,7 +35,7 @@
     "test:rust:wasm": "cd engine && cargo test -p viritura-wasm --lib",
     "test:desktop": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked",
     "test:vst-probe": "cargo test --manifest-path tools/vst-reverb-probe/Cargo.toml --locked",
-    "test:dotnet": "dotnet test server/Viritura.Api.Tests/Viritura.Api.Tests.csproj --configuration Release --nologo && dotnet test server/Viritura.GitHub.Tests/Viritura.GitHub.Tests.csproj --configuration Release --nologo --no-restore",
+    "test:dotnet": "dotnet test server/Viritura.Api.Tests/Viritura.Api.Tests.csproj --configuration Release --nologo --blame-hang --blame-hang-timeout 2m --blame-hang-dump-type mini --results-directory test-results/dotnet/api --logger \"trx;LogFileName=tests.trx\" && dotnet test server/Viritura.GitHub.Tests/Viritura.GitHub.Tests.csproj --configuration Release --nologo --no-restore --blame-hang --blame-hang-timeout 2m --blame-hang-dump-type mini --results-directory test-results/dotnet/github --logger \"trx;LogFileName=tests.trx\"",
     "test:perf": "pnpm wasm:build && pnpm --filter @viritura/editor test:perf",
     "test:perf:browser:build": "pnpm wasm:build && pnpm --filter @viritura/editor build",
     "test:perf:browser": "playwright test --config playwright.performance.config.ts",

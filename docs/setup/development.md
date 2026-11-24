@@ -114,6 +114,20 @@ suite exits instead of competing for Cargo artifacts or process-global test
 state. Use this command for full and focused engine tests rather than creating
 an alternate `CARGO_TARGET_DIR`.
 
+### .NET test hang diagnostics
+
+`pnpm test:dotnet` aborts a test host after two minutes without test progress,
+capturing a minidump, the active-test sequence, and TRX results under
+`test-results/dotnet`. PR and API deployment validation jobs have a twenty-minute
+outer limit and upload diagnostics on failure or cancellation. Tests are not
+automatically retried: inspect the sequence and dump before rerunning a hung job.
+
+API fixtures that otherwise use the default development database use
+`IsolatedApiFactory` instead. Each factory owns a temporary SQLite database with
+connection pooling disabled, so parallel host startups do not compete for the
+development database's migration lock or share authentication state. Existing
+fixtures with explicit database configuration keep their own isolation.
+
 ### Browser memory diagnostics
 
 The editor samples memory estimates and numeric editor counters every 10 seconds,

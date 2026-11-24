@@ -28,6 +28,14 @@ function noise(frames: number, seed: number): Float32Array {
 }
 
 describe("offline DSP", () => {
+  it("uses the linear Web Audio Q factor for the high-pass cutoff", () => {
+    const frequency = 1_000;
+    const input = sine(frequency, RATE);
+    const right = input.slice();
+    new StereoBiquad({ type: "highpass", frequency, Q: Math.SQRT1_2 }, RATE).process(input, right);
+    expect(db(rms(input.subarray(RATE / 2)) / rms(sine(frequency, RATE).subarray(RATE / 2)))).toBeCloseTo(-3, 0);
+  });
+
   it("boosts only the treble with the air EQ high shelf", () => {
     const gainAt = (frequency: number) => {
       const left = sine(frequency, RATE);
