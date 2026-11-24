@@ -289,6 +289,7 @@ jobs:
 
   dotnet:
     name: .NET build and test
+    timeout-minutes: 20
     needs: changes
     if: needs.changes.outputs.dotnet == 'true'
     runs-on: ubuntu-latest
@@ -321,6 +322,15 @@ jobs:
 
       - name: Test
         run: pnpm test:dotnet
+
+      - name: Upload .NET test diagnostics
+        if: ${{ failure() || cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dotnet-test-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/dotnet
+          if-no-files-found: warn
+          retention-days: 7
 
   desktop:
     name: Desktop tests

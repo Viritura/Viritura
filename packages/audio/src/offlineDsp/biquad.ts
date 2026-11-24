@@ -4,7 +4,7 @@ export interface BiquadSpec {
   frequency: number;
   /** Shelf or peak gain in dB. */
   gain?: number;
-  /** Web Audio semantics: dB for highpass, linear for peaking, ignored by shelves. */
+  /** Web Audio Q factor, in linear units for highpass and peaking; ignored by shelves. */
   Q?: number;
 }
 
@@ -26,7 +26,7 @@ export function biquadCoefficients(spec: BiquadSpec, sampleRate: number): Coeffi
   let b0: number, b1: number, b2: number, a0: number, a1: number, a2: number;
   switch (spec.type) {
     case "highpass": {
-      const alpha = sin / (2 * 10 ** (Q / 20));
+      const alpha = sin / (2 * Q);
       b0 = (1 + cos) / 2;
       b1 = -(1 + cos);
       b2 = (1 + cos) / 2;

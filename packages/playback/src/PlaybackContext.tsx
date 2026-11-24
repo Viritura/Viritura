@@ -845,6 +845,20 @@ export function PlaybackProvider({
     dispatchPlayback({ type: "STOP" });
   }, [chordPreview, stopNativeHost]);
 
+  const releaseAudio = useCallback(async () => {
+    stop();
+    disposeAllSamplers();
+    vstOwnedPartsRef.current = new Set<number>();
+    const transport = vstTransportRef.current;
+    const ctx = audioCtxRef.current;
+    await Promise.all([
+      transport?.release().catch((error: unknown) => {
+        console.warn("[Audio] Native host release failed:", error);
+      }),
+      ctx?.state === "running" ? ctx.suspend() : undefined,
+    ]);
+  }, [stop, disposeAllSamplers]);
+
   const seek = useCallback(
     (seconds: number) => {
       void chordPreview.cancel();
@@ -1524,6 +1538,7 @@ export function PlaybackProvider({
       play,
       pause,
       stop,
+      releaseAudio,
       seek,
       setSelectionPartIds,
       setSelectionStaffCount,
@@ -1558,6 +1573,7 @@ export function PlaybackProvider({
       play,
       pause,
       stop,
+      releaseAudio,
       seek,
       setSelectionPartIds,
       setSelectionStaffCount,

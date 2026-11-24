@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Score, TempoRampCurve } from "@viritura/core";
-import { generateTimeline, generatePerformanceEvents } from "../index";
+import { compilePlaybackTiming, generateTimeline, generatePerformanceEvents } from "../index";
 import { buildTempoModel } from "../tempoMap";
 
 function source(curve: TempoRampCurve): Score {
@@ -51,6 +51,9 @@ describe("native tempo ramps follow the playback itinerary", () => {
       const score = source(curve);
       const canonical = buildTempoModel(score.global.measures);
       const timeline = generateTimeline(score);
+      const timing = compilePlaybackTiming(score);
+      expect(timing.measureStartTimes).toEqual(timeline.measureStartTimes);
+      expect(timing.duration).toBe(timeline.duration);
       expect(timeline.expandedMeasureToOriginal).toEqual([0, 1, 0, 1, 2]);
       const starts = [0, 4, 0, 4, 8];
       let expectedTime = 0;

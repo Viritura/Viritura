@@ -8,6 +8,7 @@ import type {
   ScoreMeasurements,
 } from "@viritura/score-engine";
 import { ScoreView } from "./ScoreView";
+import { useScoreView } from "./scoreViewContext";
 import type { ScoreContentAlign, ScorePageMargins, ScoreSpreadFirstPage, ScoreViewMode } from "@viritura/score-viewer";
 import {
   ScoreViewerControls,
@@ -24,6 +25,8 @@ import { useViewerLayoutControls } from "./viewerLayoutControls";
 export interface ScoreViewerProps {
   readonly mnx: string | object;
   readonly assetBaseUrl?: string;
+  readonly useWorker?: boolean;
+  readonly bare?: boolean;
   readonly pageWidth?: number;
   readonly pageHeight?: number;
   readonly pageMargins?: ScorePageMargins;
@@ -66,7 +69,7 @@ export interface ScoreViewerProps {
   readonly pageClassName?: string;
   readonly pageStyle?: CSSProperties;
   readonly pageBackground?: string;
-  /** Where the score sits when it is smaller than the viewport. Default `"start"`. */
+  /** `"center"` centers small content; `"page"` centers and separates page/spread frames. Default `"start"`. */
   readonly contentAlign?: ScoreContentAlign;
   readonly loadingFallback?: ReactNode;
   readonly errorFallback?: (err: Error) => ReactNode;
@@ -79,6 +82,19 @@ export interface ScoreViewerProps {
 interface ViewportSize {
   readonly width: number;
   readonly height: number;
+}
+
+function ViewportObserver({ onResize }: { readonly onResize: (size: ViewportSize) => void }) {
+  const { viewer } = useScoreView();
+  useEffect(() => {
+    if (!viewer) return;
+    const report = () => onResize({ width: viewer.viewport.clientWidth, height: viewer.viewport.clientHeight });
+    const observer = new ResizeObserver(report);
+    observer.observe(viewer.viewport);
+    report();
+    return () => observer.disconnect();
+  }, [viewer, onResize]);
+  return null;
 }
 
 const defaultAvailableViewModes: readonly ScoreViewMode[] = [
@@ -97,10 +113,6 @@ function getPrimaryPageHeight(measurements: ScoreMeasurements | null, pageHeight
   return measurements?.pages[0]?.height ?? pageHeight;
 }
 
-function getFitContentWidth(viewMode: ScoreViewMode, pageWidth: number, gap: number): number {
-  return viewMode === "spread" || viewMode === "spread-horizontal" ? pageWidth * 2 + gap : pageWidth;
-}
-
 function getViewportPadding(): number {
   return 48;
 }
@@ -109,6 +121,8 @@ function computeFitZoom(args: {
   readonly fitMode: ScoreFitMode;
   readonly viewportSize: ViewportSize;
   readonly measurements: ScoreMeasurements | null;
+  readonly horizonHeight: number | null;
+  readonly bare?: boolean;
   readonly pageWidth: number;
   readonly pageHeight: number;
   readonly viewMode: ScoreViewMode;
@@ -118,13 +132,18 @@ function computeFitZoom(args: {
 }): number | null {
   const { fitMode, viewportSize, measurements, pageWidth, pageHeight, viewMode, gap, minZoom, maxZoom } = args;
   if (fitMode === "none" || viewportSize.width <= 0 || viewportSize.height <= 0) return null;
-  const padding = getViewportPadding();
+  const padding = args.bare ? 0 : getViewportPadding();
   const usableWidth = Math.max(1, viewportSize.width - padding);
   const usableHeight = Math.max(1, viewportSize.height - padding);
   const layoutWidth = measurements?.pages[0]?.width ?? Math.max(1, pageWidth);
-  const contentWidth = getFitContentWidth(viewMode, layoutWidth, gap);
+  const spread = viewMode === "spread" || viewMode === "spread-horizontal";
+  const contentWidth = layoutWidth * (spread ? 2 : 1);
   const primaryPageHeight = getPrimaryPageHeight(measurements, pageHeight);
-  const widthZoom = usableWidth / contentWidth;
+  if (fitMode === "height") {
+    const height = viewMode === "horizon" ? args.horizonHeight : primaryPageHeight;
+    return height == null ? null : clamp(usableHeight / Math.max(1, height), minZoom, maxZoom);
+  }
+  const widthZoom = Math.max(1, usableWidth - (spread ? gap : 0)) / contentWidth;
   const pageZoom = Math.min(widthZoom, usableHeight / primaryPageHeight);
   return clamp(fitMode === "page" ? pageZoom : widthZoom, minZoom, maxZoom);
 }
@@ -141,7 +160,7 @@ function clearFitForHorizon(args: {
   readonly onFitModeChange?: (fitMode: ScoreFitMode) => void;
 }): void {
   const { nextViewMode, fitMode, controlledFitMode, setUncontrolledFitMode, onFitModeChange } = args;
-  if (nextViewMode !== "horizon" || fitMode === "none") return;
+  if (nextViewMode !== "horizon" || fitMode === "none" || fitMode === "height") return;
   if (controlledFitMode == null) setUncontrolledFitMode("none");
   onFitModeChange?.("none");
 }
@@ -150,6 +169,8 @@ function clearFitForHorizon(args: {
 export function ScoreViewer({
   mnx,
   assetBaseUrl,
+  useWorker,
+  bare,
   pageWidth = 800,
   pageHeight = pageWidth * (297 / 210),
   pageMargins,
@@ -201,13 +222,13 @@ export function ScoreViewer({
   children,
 }: ScoreViewerProps) {
   const viewerRef = useRef<HTMLDivElement | null>(null);
-  const viewportRef = useRef<HTMLDivElement | null>(null);
   const [uncontrolledScoreIndex, setUncontrolledScoreIndex] = useState(defaultScoreIndex);
   const [uncontrolledViewMode, setUncontrolledViewMode] = useState(defaultViewMode);
   const [uncontrolledZoom, setUncontrolledZoom] = useState(defaultZoom);
   const [uncontrolledFitMode, setUncontrolledFitMode] = useState(defaultFitMode);
   const [viewportSize, setViewportSize] = useState<ViewportSize>({ width: 0, height: 0 });
   const [measurements, setMeasurements] = useState<ScoreMeasurements | null>(null);
+  const [horizonHeight, setHorizonHeight] = useState<number | null>(null);
 
   const scoreIndex = controlledScoreIndex ?? uncontrolledScoreIndex;
   const viewMode = controlledViewMode ?? uncontrolledViewMode;
@@ -280,18 +301,6 @@ export function ScoreViewer({
   );
 
   useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      setViewportSize({ width: entry.contentRect.width, height: entry.contentRect.height });
-    });
-    observer.observe(viewport);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
     if (scoreOptions.length === 0) return;
     if (scoreOptions.some((option) => option.index === scoreIndex)) return;
     setScoreIndex(scoreOptions[0]?.index ?? 0);
@@ -303,6 +312,8 @@ export function ScoreViewer({
         fitMode,
         viewportSize,
         measurements,
+        horizonHeight,
+        bare,
         pageWidth: effectivePageWidth,
         pageHeight: effectivePageHeight,
         viewMode,
@@ -310,7 +321,19 @@ export function ScoreViewer({
         minZoom,
         maxZoom,
       }),
-    [measurements, effectivePageHeight, effectivePageWidth, fitMode, gap, maxZoom, minZoom, viewMode, viewportSize],
+    [
+      measurements,
+      horizonHeight,
+      bare,
+      effectivePageHeight,
+      effectivePageWidth,
+      fitMode,
+      gap,
+      maxZoom,
+      minZoom,
+      viewMode,
+      viewportSize,
+    ],
   );
 
   useEffect(() => {
@@ -324,9 +347,11 @@ export function ScoreViewer({
   const handleReady = useCallback(
     (info: { engine: Engine; displayList: DisplayList }) => {
       setMeasurements(info.engine.measure(info.displayList));
+      const paper = viewMode === "horizon" ? info.engine.horizonPaper(info.displayList) : null;
+      setHorizonHeight(paper ? Math.max(paper.height, paper.contentHeight) : null);
       onReady?.(info);
     },
-    [onReady],
+    [onReady, viewMode],
   );
 
   useNativeWheelZoom({ viewerRef, enabled: enableCtrlWheelZoom, zoom, zoomStep, setZoom });
@@ -358,10 +383,12 @@ export function ScoreViewer({
 
   return (
     <div ref={viewerRef} className={className} style={viewerStyle}>
-      <div ref={viewportRef} className={viewportClassName} style={viewportBaseStyle}>
+      <div className={viewportClassName} style={viewportBaseStyle}>
         <ScoreView
           mnx={mnx}
           assetBaseUrl={assetBaseUrl}
+          useWorker={useWorker}
+          bare={bare}
           pageWidth={effectivePageWidth}
           pageHeight={effectivePageHeight}
           pageMargins={pageMargins}
@@ -383,6 +410,7 @@ export function ScoreViewer({
           onPaint={onPaint}
           onError={onError}
         >
+          <ViewportObserver onResize={setViewportSize} />
           {children}
         </ScoreView>
       </div>

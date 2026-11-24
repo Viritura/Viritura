@@ -1,7 +1,7 @@
 import type { DisplayList, Engine, PlayheadGeometry, ScoreMeasurements, ScorePosition } from "@viritura/score-engine";
 
 export type ScoreViewMode = "page" | "horizontal" | "spread" | "spread-horizontal" | "horizon";
-export type ScoreContentAlign = "start" | "center";
+export type ScoreContentAlign = "start" | "center" | "page";
 export type ScoreSpreadFirstPage = "single" | "paired";
 
 export interface ScorePageMargins {
@@ -40,7 +40,7 @@ export interface ScoreViewerOptions {
   pagesPerRow?: number;
   spreadFirstPage?: ScoreSpreadFirstPage;
   pageBackground?: string;
-  /** Where the score sits when it is smaller than the viewport. Default `"start"`. */
+  /** `"center"` centers small content; `"page"` centers and separates page/spread frames. Default `"start"`. */
   contentAlign?: ScoreContentAlign;
   ink?: string;
   background?: string;
@@ -65,6 +65,7 @@ export interface ScoreViewerHandle {
   setOptions(options: Partial<ScoreViewerOptions>): void;
   zoomTo(zoom: number | "fit-width" | "fit-page"): void;
   scrollToPosition(position: ScorePosition): void;
+  scrollToPage(page: number): void;
   playheadGeometry(): PlayheadGeometry | null;
   destroy(): void;
 }
