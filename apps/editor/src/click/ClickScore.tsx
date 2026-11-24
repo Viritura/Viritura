@@ -6,7 +6,7 @@ import type { ClickScoreSettings } from "./ClickScoreControls";
 import { clickPartMnx } from "./scoreViews";
 import { ClickScoreInteractions } from "./ClickScoreInteractions";
 import { ClickReaderAdvance } from "./ClickReaderAdvance";
-import styles from "./ClickPage.module.css";
+import styles from "./ClickView.module.css";
 
 const SCORE_STYLE = { minHeight: 0 };
 const VIEWER_STYLE = { background: "#fff" };

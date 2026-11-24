@@ -16,13 +16,18 @@ import { WriteView } from "./components/modes/WriteView";
 import { ActivityBar, type ActivityView } from "./components/ActivityBar";
 import { AppShell } from "./components/AppShell";
 import { PersistentJumpBarHost } from "./app/PersistentJumpBarHost";
-import { PlayView } from "./components/modes/PlayView";
-import { PictureView } from "./components/modes/PictureView";
 import { DocumentMixerBridge } from "./components/DocumentMixerBridge";
 import { VideoSyncBridge } from "./components/VideoSyncBridge";
 import { SelectionPlaybackBridge } from "./components/playbackSelection";
-import { RollView } from "./components/modes/RollView";
-import { ReviewView } from "./components/modes/ReviewView";
+import {
+  LazyActivity,
+  LazyClickView,
+  LazyPictureView,
+  LazyPlayView,
+  LazyReviewView,
+  LazyRollView,
+} from "./app/lazyActivities";
+import { preloadActivity } from "./app/activityLoaders";
 import {
   SettingsDialog,
   closeSettings,
@@ -253,6 +258,7 @@ function AppWithActivityBar() {
                 settingsOpen={settingsOpen}
                 onToggleSettings={toggleSettings}
                 onOpenAccountSettings={() => openSettings("account")}
+                onPreloadView={preloadActivity}
               />
               <div style={APP_MAIN_COL_STYLE}>
                 {/* Setup + Write + Engrave + Publish share Write's persistent
@@ -292,12 +298,34 @@ function AppWithActivityBar() {
                     onOpenActivity={handleViewChange}
                   />
                 </div>
-                {activeView === "play" && <PlayView score={currentScore} />}
-                {activeView === "roll" && <RollView score={currentScore} />}
-                {activeView === "picture" && <PictureView score={currentScore} />}
+                {activeView === "play" && (
+                  <LazyActivity label="Play">
+                    <LazyPlayView score={currentScore} />
+                  </LazyActivity>
+                )}
+                {activeView === "click" && (
+                  <LazyActivity label="Click">
+                    <LazyClickView mnx={mnxJson} />
+                  </LazyActivity>
+                )}
+                {activeView === "roll" && (
+                  <LazyActivity label="Roll">
+                    <LazyRollView score={currentScore} />
+                  </LazyActivity>
+                )}
+                {activeView === "picture" && (
+                  <LazyActivity label="Picture">
+                    <LazyPictureView score={currentScore} />
+                  </LazyActivity>
+                )}
                 {activeView === "review" && (
-                  // eslint-disable-next-line react-hooks/refs -- intentional ref-bag pattern; refs hold stable identity, not render-time state
-                  <ReviewView originalJson={prettyJson(baselineMnx)} modifiedJson={prettyJson(currentMnxRef.current)} />
+                  <LazyActivity label="Review">
+                    <LazyReviewView
+                      originalJson={prettyJson(baselineMnx)}
+                      // eslint-disable-next-line react-hooks/refs -- intentional ref-bag pattern; refs hold stable identity, not render-time state
+                      modifiedJson={prettyJson(currentMnxRef.current)}
+                    />
+                  </LazyActivity>
                 )}
               </div>
             </div>

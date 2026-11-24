@@ -1,6 +1,24 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+type ScoreFile = string | { name: string; mimeType: string; buffer: Buffer };
+
+/** Opens a score through the editor's File menu, then switches to the Click activity. */
+async function openClick(page: Page, file: ScoreFile): Promise<void> {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("viritura.startCenter.suppress", "1");
+    Reflect.deleteProperty(window, "showOpenFilePicker");
+  });
+  await page.goto("/");
+  await expect(page.locator('canvas[tabindex="0"]')).toBeVisible({ timeout: 45_000 });
+  const chooser = page.waitForEvent("filechooser");
+  await page.keyboard.press("ControlOrMeta+Shift+O");
+  await (await chooser).setFiles(file);
+  await expect(page.getByText("Laying out score")).toHaveCount(0, { timeout: 45_000 });
+  await page.getByRole("button", { name: "Click", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Click player" })).toHaveAttribute("aria-busy", "false");
+}
 
 for (const mode of ["Page", "Spread", "Spread (H)"]) {
   test(`${mode} previews the next flow during playback and restores it on Stop`, async ({ page }) => {
@@ -41,8 +59,7 @@ for (const mode of ["Page", "Spread", "Spread (H)"]) {
         },
       ],
     };
-    await page.goto("/click");
-    await page.getByLabel("MNX file").setInputFiles({
+    await openClick(page, {
       name: "reader-turns.mnx",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(mnx)),
@@ -91,20 +108,18 @@ for (const mode of ["Page", "Spread", "Spread (H)"]) {
 
 for (const mode of ["Page", "Spread", "Spread (H)"]) {
   test(`${mode} follows the playhead with a whole centered page frame`, async ({ page }) => {
-    await page.goto("/click");
-    await page
-      .getByLabel("MNX file")
-      .setInputFiles(
-        resolve(
-          import.meta.dirname,
-          "..",
-          "packages",
-          "format",
-          "fixtures",
-          "mnx",
-          "beethoven-symphony-5-movement-1.mnx",
-        ),
-      );
+    await openClick(
+      page,
+      resolve(
+        import.meta.dirname,
+        "..",
+        "packages",
+        "format",
+        "fixtures",
+        "mnx",
+        "beethoven-symphony-5-movement-1.mnx",
+      ),
+    );
     await page.getByRole("combobox", { name: "View mode" }).click();
     await page.getByRole("option", { name: mode, exact: true }).click();
     const score = page.getByRole("region", { name: "Score", exact: true });
@@ -175,10 +190,10 @@ for (const mode of ["Page", "Spread", "Spread (H)"]) {
     await expect.poll(async () => (await frame()).pages).toEqual(selectedPages);
     await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
     await page.getByRole("button", { name: "Start", exact: true }).click();
-    await expect(page.getByRole("banner")).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Click settings" })).toHaveCount(0);
     await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
     await page.getByRole("button", { name: "Stop", exact: true }).click();
-    await expect(page.getByRole("banner")).toBeVisible();
+    await expect(page.getByRole("group", { name: "Click settings" })).toBeVisible();
     await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
   });
 }
@@ -217,8 +232,7 @@ test("click pages honor MNX page and staff sizes when switching score views", as
       },
     ],
   };
-  await page.goto("/click");
-  await page.getByLabel("MNX file").setInputFiles({
+  await openClick(page, {
     name: "engraving-sizes.mnx",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(mnx)),
@@ -252,20 +266,10 @@ test("click pages honor MNX page and staff sizes when switching score views", as
 });
 
 test("click score view modes arrange pages vertically and horizontally", async ({ page }) => {
-  await page.goto("/click");
-  await page
-    .getByLabel("MNX file")
-    .setInputFiles(
-      resolve(
-        import.meta.dirname,
-        "..",
-        "packages",
-        "format",
-        "fixtures",
-        "mnx",
-        "beethoven-symphony-5-movement-1.mnx",
-      ),
-    );
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "beethoven-symphony-5-movement-1.mnx"),
+  );
   const selector = page.getByRole("combobox", { name: "View mode" });
   const surface = page.locator('[data-score-playhead="true"]').locator("..");
   async function dimensions() {
@@ -318,10 +322,10 @@ test("click score view modes arrange pages vertically and horizontally", async (
 });
 
 test("dragging the click transport does not select its text", async ({ page }) => {
-  await page.goto("/click");
-  await page
-    .getByLabel("MNX file")
-    .setInputFiles(resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"));
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+  );
 
   const panel = page.getByRole("region", { name: "Click player" });
   const details = panel.getByRole("group", { name: "Selected start" });
@@ -347,10 +351,10 @@ test("dragging the click transport does not select its text", async ({ page }) =
 });
 
 test("dragging a navigation dial horizontally selects a later bar", async ({ page }) => {
-  await page.goto("/click");
-  await page
-    .getByLabel("MNX file")
-    .setInputFiles(resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"));
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+  );
 
   const panel = page.getByRole("region", { name: "Click player" });
   await expect(panel.getByRole("option", { name: "Bar 1, rehearsal A" })).toHaveAttribute("aria-selected", "true");
@@ -376,14 +380,13 @@ for (const viewport of [
 ]) {
   test(`playback shrinks the transport and Stop restores it at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
-    await page.goto("/click");
     const fixture = await readFile(
       resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
       "utf8",
     );
     const score = JSON.parse(fixture) as { global: { measures: { number?: number }[] } };
     score.global.measures[2]!.number = viewport.barNumber;
-    await page.getByLabel("MNX file").setInputFiles({
+    await openClick(page, {
       name: "rehearsal-marks.mnx",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(score)),
@@ -409,7 +412,7 @@ for (const viewport of [
     const stop = panel.getByRole("button", { name: "Stop", exact: true });
     const bar = panel.getByRole("status", { name: "Current bar" });
     await expect(stop).toBeEnabled();
-    await expect(page.getByRole("banner")).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Click settings" })).toHaveCount(0);
     await expect
       .poll(async () => {
         const playingScore = await scoreView.boundingBox();
@@ -455,7 +458,7 @@ for (const viewport of [
 
     const start = panel.getByRole("button", { name: "Start", exact: true });
     await expect(start).toBeEnabled();
-    await expect(page.getByRole("banner")).toBeVisible();
+    await expect(page.getByRole("group", { name: "Click settings" })).toBeVisible();
     await expect
       .poll(async () => {
         const restoredScore = await scoreView.boundingBox();
@@ -500,12 +503,10 @@ test.describe("compact transport touch movement", () => {
   test.use({ hasTouch: true });
 
   test("the narrower bar display still supports vertical dragging", async ({ page, context }) => {
-    await page.goto("/click");
-    await page
-      .getByLabel("MNX file")
-      .setInputFiles(
-        resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
-      );
+    await openClick(
+      page,
+      resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+    );
     const panel = page.getByRole("region", { name: "Click player" });
     await panel.getByRole("button", { name: "Start", exact: true }).focus();
     await page.keyboard.press("Enter");
@@ -543,7 +544,6 @@ test.describe("score browsing", () => {
     context,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/click");
     const fixture = await readFile(
       resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
       "utf8",
@@ -553,7 +553,7 @@ test.describe("score browsing", () => {
     };
     score.global.measures[0]!.repeatStart = {};
     score.global.measures[1]!.repeatEnd = {};
-    await page.getByLabel("MNX file").setInputFiles({
+    await openClick(page, {
       name: "repeated.mnx",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(score)),

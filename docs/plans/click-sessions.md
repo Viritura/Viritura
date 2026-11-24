@@ -1,7 +1,7 @@
-# Click sessions (`/click`)
+# Click sessions (Click activity)
 
 > **Status:** In progress, November 2026. The click-only audio engine and
-> click session program compiler and standalone single-file page are implemented
+> click session program compiler and the single-document **Click** activity are implemented
 > (see [Implementation status](#implementation-status)); the setlist, detached
 > controller window, and subdivision persistence remain proposed. Confirmed requirements and proposed defaults are
 > distinguished below.
@@ -14,16 +14,20 @@
 
 Implemented:
 
-- **Standalone single-file page** —
-  [`ClickPage`](../../apps/editor/src/click/ClickPage.tsx) opens one ordinary MNX
-  locally at `/click`, with a single Start/Stop button, a selectable one- or two-bar countoff preview
+- **Click activity** —
+  [`ClickView`](../../apps/editor/src/click/ClickView.tsx) is an Activity Bar
+  view in the editor that plays the open document, with a single Start/Stop
+  button (also **Space**), a selectable one- or two-bar countoff preview
   and status, and a stopped-only session tempo percentage. Audio is created only
-  from Start; opening a file does not create instrument or click audio. File,
-  worklet, and context-interruption failures are visible. No upload or editor
-  bootstrap is needed. The filename, Open MNX action, and session tempo live
-  in a compact top bar. During playback (including countoff), the top bar is
-  hidden so the score fills the available height and height-fit zoom adapts.
-  Stopping, finishing, or an audio interruption restores the bar and its settings.
+  from Start; opening the activity does not create click audio. Document,
+  worklet, and context-interruption failures are visible. Session tempo and
+  score view controls live in a compact settings bar. During playback (including
+  countoff), the settings bar is hidden so the score fills the available height
+  and height-fit zoom adapts. Stopping, finishing, or an audio interruption
+  restores the bar and its settings. Document edits (for example from MCP or
+  collaborators) are adopted only while stopped, so a running take never
+  changes program or bar numbering; the selected start bar is kept when it
+  remains valid. With no document open, the activity shows an empty state.
 - **Score-first surface and floating transport** —
   `@viritura/score-viewer-react` displays the opened MNX in a continuous,
   horizontally scrolling score, with layout in a dedicated worker and
@@ -55,7 +59,7 @@ Implemented:
   spreads), and **Horizon**, matching the main app. Horizon remains the default.
   Score/part and view-mode selection do not change the click itinerary or
   initialize audio. The selected mode persists while the navigation is hidden
-  during playback; opening another file resets it to Horizon.
+  during playback and across document edits.
   Engraving uses the MNX project score/part page-setup defaults and each authored
   score's overrides, resolved by the same helper as the main editor. Page size,
   margins, and staff size follow the selected view; source-part views use the
@@ -92,12 +96,16 @@ Implemented:
   before playback.
   During playback the compact bar display follows the current performed bar without seeking or
   rescheduling audio.
-- **Isolated entry** — [`click/index.html`](../../apps/editor/click/index.html)
-  is built separately from the editor, with development and deployed `/click`
-  routing. The build traverses the click entry's output chunks and rejects
-  collaboration, MCP, sampler, editor canvas/store, or editor-playback code.
-  Standalone engraving and rendering are allowed for the score viewer.
-  Explicit public `@viritura/audio/click`,
+- **Lazy activity and audio exclusivity** — the Click activity is a lazily
+  loaded chunk (as are Play, Roll, Picture, and Review; see
+  [`lazyActivities`](../../apps/editor/src/app/lazyActivities.tsx)), so its
+  code downloads only when opened or when its Activity Bar entry is hovered or
+  focused. Exclusivity is enforced at runtime instead of by a separate build:
+  entering the activity, and every Start, awaits the editor's `releaseAudio()`
+  before the click engine is created, and any editor transport start while the
+  activity is open (MCP, selection playback) is released again. A high-priority
+  **Space** binding drives the click transport so the hidden Write canvas's
+  play/pause shortcut cannot start instrument playback. Explicit public `@viritura/audio/click`,
   `@viritura/playback/click`, and `@viritura/midi/timing` barrels avoid importing
   the broad package barrels in development as well as production; these are
   declared package exports, not access to private files.
@@ -135,9 +143,9 @@ Remaining: measure-position resolution rules and MNX subdivision metadata,
 the project setlist picker, persisted click settings, the detached controller,
 additional rehearsal navigation, and the release gates below.
 
-Single-file smoke check: start the UI through `pnpm dev:stack up ui`, obtain
-the editor origin with `pnpm dev:stack url`, and visit its `/click` route.
-Choose **Open MNX**, select a local file, then **Start**. The first bar is a
+Single-document smoke check: start the UI through `pnpm dev:stack up ui`, open
+the editor origin from `pnpm dev:stack url`, open a score, choose **Click** in
+the Activity Bar, then **Start**. The first bar is a
 synthetic countoff before the selected bar; Stop then Start begins a fresh
 countoff. This initial browser check is not
 studio-output qualification or a hard real-time guarantee.
@@ -146,7 +154,7 @@ studio-output qualification or a hard real-time guarantee.
 
 Make Viritura useful as a click source for practice sessions and for external
 DAW recording sessions. Viritura never records audio itself, so the surface is
-named for what it plays — **Click** at `/click` — not for recording:
+named for what it plays — the **Click** activity — not for recording:
 
 - Open one project folder containing multiple independent `.mnx` files.
 - Use a global picker to choose the active file without repeatedly opening files.
@@ -161,7 +169,7 @@ named for what it plays — **Click** at `/click` — not for recording:
   unambiguous countoff preview such as **4 clicks free**.
 - Treat click accuracy as a release requirement: a dedicated click-only engine,
   no muted-score playback, and no dependence on UI timers to deliver each click.
-  Run sessions on a standalone `/click` page that never loads the editor.
+  Run sessions in a Click activity that releases editor instrument audio.
 
 Here, "clicks free" means the counted beats in the automatic countoff bar,
 not extra silence, an additional pre-roll, or a free-time passage. Generate
@@ -179,8 +187,8 @@ and network clock synchronization are outside this first delivery.
    **Track** picker beside the project name, available across editor modes.
 3. Choose **Open click session**. Resolve pending edits through the existing
    save/discard/cancel workflow and hand off the MNX setlist
-   (see [Standalone `/click` page](#standalone-click-page)), then
-   navigates to `/click`, which shows:
+   (see [Click activity](#click-activity)), then
+   switches to the **Click** activity, which shows:
    - Track picker, ordered track list, and **Previous** / **Next** actions.
    - A large **Start** / **Stop** control.
    - Current track, bar/beat, meter, written tempo, and effective tempo.
@@ -205,45 +213,43 @@ click track** and **Add MNX files**. Creating a click track produces an ordinary
 schema-valid MNX document with explicit meter, length, and tempo, using the
 existing score-creation conventions.
 
-## Standalone click page
+## Click activity
 
-Click sessions run on `/click` (for example `app.viritura.com/click`), reached
-by a full document navigation rather than an in-app activity. Switching
-activities inside the editor cannot release the editor's resources: loaded
-modules stay resident, WebAssembly memory never shrinks, and the playback
-provider, layout, autosave, collaboration, and MCP surfaces stay mounted.
-A fresh document removes those editor-owned resources. The standalone score
-viewer is loaded independently and does not create instrument audio.
+Click sessions run in the editor's **Click** activity rather than on a
+separate page. The original standalone `/click` page avoided loading the editor
+at all, but it duplicated document opening, project access, and navigation, and
+could not follow edits made in the editor. The activity instead reuses the open
+document and keeps runtime isolation where it matters for timing:
 
-- **Separate build entry.** Add a `click.html` Vite entry (with the hosting
-  rewrite for `/click`) so the editor bundle can never be pulled in. Its
-  import graph is limited to the click engine, timing-only compiler, MNX
-  reader, standalone score viewer, project access, the controller, and UI primitives.
-  A bundle check rejects the editor canvas/stores, CRDT, MCP, SF2, VST, and
-  non-click audio modules while allowing the viewer's engraving/rendering code.
-- **MNX is the only track format.** Open ordinary `.mnx` files directly on
-  `/click`; using the editor first is optional. Do not introduce prepared click
-  files, exported event lists, or a second saved representation of musical
-  timing. Compile the selected MNX into transient click events and bar-wheel
-  metadata before Play, using the timing-only compiler without instrument MIDI
-  generation. The same MNX works for practice and studio sessions.
-- **Project access.** Persist the project directory handle in IndexedDB and
-  request permission again from a user gesture on `/click`. Without File System
-  Access, accept a dropped folder or files for read-only use.
-- **Limited editing.** `/click` does not mount notation editing. Explicit
+- **Lazy loading.** The activity's code is a separate chunk loaded on first use.
+  Activities that do not share Write's canvas (Play, Roll, Picture, Review,
+  Click) are likewise lazy so the initial editor load does not pay for them.
+- **Exclusive audio.** The click engine owns a private AudioContext containing
+  only the click worklet. Before the engine is created, the editor's
+  `releaseAudio()` stops playback, disposes samplers and native hosts, and
+  suspends the score context; editor playback started while the activity is
+  open is released again.
+- **MNX is the only track format.** The activity compiles the open document
+  into transient click events and bar-wheel metadata before Start, using the
+  timing-only compiler without instrument MIDI generation. Do not introduce
+  prepared click files, exported event lists, or a second saved representation
+  of musical timing. The same MNX works for practice and studio sessions.
+- **Project access.** Track selection uses the editor's project folder and
+  document switching rather than a second file-access path.
+- **Limited editing.** The activity does not expose notation editing. Explicit
   subdivision changes are musical settings saved into the selected MNX through
-  the narrow format/persistence path; read-only sources require an explicit
-  download. Session tempo percentage, click volume, and the last selected start
-  are session/UI settings, not document edits. **Back to editor** navigates back
-  and restores the project.
-- **Desktop.** The Tauri shell opens `/click` in its own window so the editor
-  window can be closed while the click plays.
-- **Controller hosts.** On `/click` the score is the main surface, with a
-  movable, touch-first floating transport. Document Picture-in-Picture remains
-  proposed for keeping controls above a DAW.
+  the normal document path. Session tempo percentage, click volume, and the last
+  selected start are session/UI settings, not document edits.
+- **Controller hosts.** The score is the main surface, with a movable,
+  touch-first floating transport. While playing, the activity covers the editor
+  chrome so the score fills the screen; the transport keeps its on-screen
+  position across that switch so Stop stays under the performer's finger.
+  Document Picture-in-Picture remains proposed for keeping controls above a DAW.
 
-The in-editor `releaseAudio` path stays as a quick click-only check while
-editing. It is not the qualified session surface.
+Known trade-offs: Write's canvas stays mounted (hidden) so the open document
+keeps syncing; the editor's instrument context is suspended rather than closed;
+and the click score uses `@viritura/score-viewer-react` rather than the editor's
+own canvas. Sharing the editor canvas is a follow-up.
 
 ## Movable session controller
 
@@ -410,8 +416,8 @@ Do not close a shared context or unrelated native resource behind another owner'
 back; separate ownership or suspend the score context while the click context is
 active. Mere disconnection is not proof that a processor has stopped.
 
-The `/click` page must not load the editor's engraving canvas, piano roll, video
-decoder, or ordinary score-playback provider. The standalone viewer runs layout
+The Click activity must not mount the piano roll or video decoder, or create
+instrument audio. Write's canvas stays mounted but hidden. The click viewer runs layout
 in a worker and paints visible score tiles; its playhead reads the click clock
 without driving audio. Do not mount editor layout/render subscriptions,
 animation loops, or automatic instrument preloads.
@@ -711,8 +717,8 @@ At 1–100%, compile the corresponding tempo without rewriting the MNX.
    session percentage. Meet the deterministic audio and live-stall gates before
    treating the UI as recording-ready. Missing soundfonts and VST hosts cannot
    block click playback.
-4. **Session surface and validation.** Add the `/click` build entry with its
-   bundle-boundary check, direct MNX loading, the shared floating/Document
+4. **Session surface and validation.** Add the lazily loaded Click activity
+   with runtime audio exclusivity, open-document loading, the shared floating/Document
    PiP controller, touch bar wheel, rehearsal navigation, and countoff preview.
    Cover them in the composed app Storybook story, including narrow windows,
    missing PiP support, errors, and countoff state. Run wired-output manual

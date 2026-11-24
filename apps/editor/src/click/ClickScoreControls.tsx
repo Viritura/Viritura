@@ -2,7 +2,7 @@ import { Minus, Plus } from "lucide-react";
 import { Button, Select } from "@viritura/ui";
 import type { ScoreFitMode, ScoreViewMode } from "@viritura/score-viewer-react";
 import type { ClickScoreView } from "./scoreViews";
-import styles from "./ClickPage.module.css";
+import styles from "./ClickView.module.css";
 
 export interface ClickScoreSettings {
   readonly viewIndex: number;

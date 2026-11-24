@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import styles from "./ClickPage.module.css";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import styles from "./ClickView.module.css";
 
 interface Position {
   readonly right: number;
@@ -31,6 +31,24 @@ export function FloatingTransport({ busy, compact, children }: FloatingTransport
   const ref = useRef<HTMLElement>(null);
   const drag = useRef<{ pointerId: number; offset: Position } | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
+  const screenEdges = useRef<{ right: number; bottom: number } | null>(null);
+  const previousCompact = useRef(compact);
+
+  // Entering or leaving playback can move the parent (the Click view goes full-screen), so keep the
+  // transport's on-screen edges where they were and Stop stays under the performer's finger.
+  useLayoutEffect(() => {
+    const element = ref.current;
+    const edges = screenEdges.current;
+    if (previousCompact.current === compact || !element?.parentElement || !edges) return;
+    previousCompact.current = compact;
+    const parent = element.parentElement.getBoundingClientRect();
+    setPosition(bounded({ right: parent.right - edges.right, bottom: parent.bottom - edges.bottom }, element));
+  }, [compact]);
+
+  useLayoutEffect(() => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (rect) screenEdges.current = { right: rect.right, bottom: rect.bottom };
+  });
 
   useEffect(() => {
     const element = ref.current;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useScoreView, type ScorePosition } from "@viritura/score-viewer-react";
 import { readerAdvance } from "./readerAdvance";
-import styles from "./ClickPage.module.css";
+import styles from "./ClickView.module.css";
 
 interface ClickReaderAdvanceProps {
   readonly active: boolean;

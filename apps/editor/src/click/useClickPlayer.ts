@@ -1,23 +1,59 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClickEngine } from "@viritura/audio/click";
 import { buildClickSessionProgram, type ClickSessionProgram } from "@viritura/playback/click";
 import { readClickDocument, type ClickDocument } from "./clickDocument";
-import { clickBarAtTime, clickBarForMeasure } from "./barNavigation";
+import { clickBarAtTime, clickBarForMeasure, type ClickBar } from "./barNavigation";
 
 type Phase = "empty" | "ready" | "playing" | "complete";
+
+interface ClickPlayerOptions {
+  /** Releases every other audio graph before the click engine starts. */
+  readonly releaseOtherAudio?: () => Promise<void>;
+}
+
+const noRelease = async (): Promise<void> => {};
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function useClickPlayer() {
-  const [document, setDocument] = useState<ClickDocument>();
+function readSource(mnx: string): { document?: ClickDocument; error: string } {
+  if (!mnx) return { error: "" };
+  try {
+    return { document: readClickDocument(mnx), error: "" };
+  } catch (failure) {
+    return { error: message(failure) };
+  }
+}
+
+function firstStartable(bars: readonly ClickBar[]): number {
+  return bars.findIndex((bar) => bar.startable);
+}
+
+/**
+ * Click-only transport for the open document. Document edits are adopted only
+ * while stopped, so a running take never switches program or bar numbering.
+ */
+export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: ClickPlayerOptions = {}) {
   const [tempoPercent, setTempoPercent] = useState(100);
   const [countoffBars, setCountoffBars] = useState<1 | 2>(1);
   const [startBar, setStartBar] = useState(0);
-  const [phase, setPhase] = useState<Phase>("empty");
+  const [transportPhase, setPhase] = useState<Exclude<Phase, "empty">>("ready");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [sourceMnx, setSourceMnx] = useState(mnx);
+  if (mnx !== sourceMnx && transportPhase !== "playing" && !busy) setSourceMnx(mnx);
+  const source = useMemo(() => readSource(sourceMnx), [sourceMnx]);
+  const document = source.document;
+  const [barsDocument, setBarsDocument] = useState<ClickDocument>();
+  if (barsDocument !== document) {
+    setBarsDocument(document);
+    if (document) {
+      const kept = document.bars[startBar]?.startable ? startBar : firstStartable(document.bars);
+      if (kept !== startBar) setStartBar(kept);
+    }
+  }
+  const phase: Phase = document ? transportPhase : "empty";
   const [elapsed, setElapsed] = useState(0);
   const [program, setProgram] = useState<ClickSessionProgram>();
   const engineRef = useRef<ClickEngine | undefined>(undefined);
@@ -76,20 +112,6 @@ export function useClickPlayer() {
     }
   }
 
-  function open(file: File): Promise<void> {
-    return run(async () => {
-      await closeEngine();
-      setDocument(undefined);
-      setProgram(undefined);
-      setElapsed(0);
-      const next = readClickDocument(file.name, await file.text());
-      if (!mounted.current) return;
-      setDocument(next);
-      setStartBar(next.bars.findIndex((bar) => bar.startable));
-      setPhase("ready");
-    });
-  }
-
   async function getEngine(): Promise<ClickEngine | undefined> {
     if (engineRef.current) return engineRef.current;
     const engine = await ClickEngine.create();
@@ -123,14 +145,17 @@ export function useClickPlayer() {
 
   function play(): Promise<void> {
     return run(async () => {
-      if (!document) throw new Error("Open an MNX file first");
+      if (!document) throw new Error("Open a score first");
       const next = buildClickSessionProgram(document.timing, {
         tempoPercent,
         countoffBars,
         startTimelineMeasure: startBar,
       });
       setProgram(next);
-      // Creation happens inside the Start gesture, not while opening a file.
+      // Instrument playback and previews must be silent before a recording take.
+      await releaseOtherAudio();
+      if (!mounted.current) return;
+      // Creation happens inside the Start gesture, not while opening a score.
       const engine = await getEngine();
       if (!engine) return;
       await engine.context.resume();
@@ -180,10 +205,9 @@ export function useClickPlayer() {
     selectScoreMeasure,
     phase,
     busy,
-    error,
+    error: error || source.error,
     elapsed,
     program,
-    open,
     play,
     stop,
   };
