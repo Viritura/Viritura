@@ -9,6 +9,7 @@ interface LeftLayoutsPanelProps {
   selectedIndices: Set<number>;
   focusedIndex: number | null;
   exporting: boolean;
+  audioExport: boolean;
   /** Panel positioning props — surfaced here so WorkspaceShell can detect
    * this wrapper as Panel-like and inject `shellStyle`. */
   side?: "left";
@@ -28,6 +29,7 @@ export function LeftLayoutsPanel({
   selectedIndices,
   focusedIndex,
   exporting,
+  audioExport,
   width,
   onResize,
   onCollapse,
@@ -47,13 +49,15 @@ export function LeftLayoutsPanel({
       onCollapse={onCollapse}
       shellStyle={shellStyle}
       title="Layouts"
-      subtitle="Pick which layouts to include in the export."
+      subtitle={
+        audioExport ? "Audio export includes the whole document." : "Pick which layouts to include in the export."
+      }
       actions={
         <>
-          <PanelActionButton onClick={onSelectAll} disabled={!layouts.length || exporting}>
+          <PanelActionButton onClick={onSelectAll} disabled={!layouts.length || exporting || audioExport}>
             All
           </PanelActionButton>
-          <PanelActionButton onClick={onClearSelection} disabled={!layouts.length || exporting}>
+          <PanelActionButton onClick={onClearSelection} disabled={!layouts.length || exporting || audioExport}>
             None
           </PanelActionButton>
         </>
@@ -66,7 +70,9 @@ export function LeftLayoutsPanel({
       }
     >
       {layouts.length === 0 ? (
-        <div className={styles.previewEmpty}>No score loaded.</div>
+        <div className={styles.previewEmpty}>
+          {audioExport ? "Layouts are not required for audio export." : "No score loaded."}
+        </div>
       ) : (
         <div className={styles.layoutList}>
           {layouts.map((l) => (
@@ -75,7 +81,7 @@ export function LeftLayoutsPanel({
               layout={l}
               checked={selectedIndices.has(l.index)}
               focused={focusedIndex === l.index}
-              exporting={exporting}
+              exporting={exporting || audioExport}
               onToggle={() => onToggleIndex(l.index)}
               onFocus={() => onFocusIndex(l.index)}
             />

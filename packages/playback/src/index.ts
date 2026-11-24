@@ -56,3 +56,15 @@ export {
 } from "./soundProfileRuntime";
 
 export type { VstTransport, VstPartAssignment, Sf2PartAssignment, VstPreparePlan } from "./vstTransport";
+export {
+  exportScoreAudio,
+  MP3_BITRATES,
+  WAV_BIT_DEPTHS,
+  type AudioEncoding,
+  type AudioExportOptions,
+  type AudioExportResult,
+  type AudioExportSettings,
+  type AudioPartMix,
+  type Mp3Bitrate,
+  type WavBitDepth,
+} from "./audioExport";

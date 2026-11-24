@@ -1,5 +1,6 @@
 import { Scheduler } from "./Scheduler";
 import { FilterContinuity } from "./filterContinuity";
+import { dispatchSamplerEvent, samplerRoutingKey } from "./samplerEvents";
 import type {
   ISampler,
   MidiEvent,
@@ -580,8 +581,7 @@ export class PlaybackEngine {
   }
 
   private routingKeyForEvent(event: MidiEvent): string | number {
-    const lane = event.playbackLaneId ?? event.partIndex;
-    return event.playbackInstrumentKey === undefined ? lane : JSON.stringify([lane, event.playbackInstrumentKey]);
+    return samplerRoutingKey(event);
   }
 
   private dispatchEvent = (event: MidiEvent, audioTime: number): void => {
@@ -603,28 +603,8 @@ export class PlaybackEngine {
     }
 
     try {
-      if (event.type === "noteOn") {
-        sampler.noteOn(event.midiNote, event.velocity, audioTime, event.drumKitProgram);
-      } else if (event.type === "programChange") {
-        if (event.instrumentChange) {
-          sampler.resetInstrument?.(audioTime);
-          return;
-        }
-        if (sampler.setProgram && event.program !== undefined) {
-          sampler.setProgram(event.program, audioTime);
-        }
-      } else if (event.type === "controlChange") {
-        if (sampler.sendControl && event.cc !== undefined && event.value !== undefined) {
-          sampler.sendControl(event.cc, event.value, audioTime);
-        }
-      } else if (event.type === "pitchBend") {
-        if (!sampler.sendPitchBend || event.value === undefined) {
-          throw new Error("Sampler does not support pitch-bend playback.");
-        }
-        sampler.sendPitchBend(event.value, audioTime, event.bendRange);
-      } else {
-        sampler.noteOff(event.midiNote, audioTime, event.drumKitProgram);
-      }
+      dispatchSamplerEvent(sampler, event, audioTime);
+      if (event.type === "programChange" && event.instrumentChange) return;
       this.filterContinuity.record(event, audioTime, true);
     } catch (err) {
       this.emit("error", {

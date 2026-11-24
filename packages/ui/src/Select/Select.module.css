@@ -23,11 +23,12 @@
 }
 
 .item {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-5) var(--space-1) var(--space-3);
+  /* Reserve the check's space on every row so its contents do not shift. */
+  padding: var(--space-1) var(--space-6) var(--space-1) var(--space-3);
   border-radius: var(--radius-md);
   font-size: var(--type-small-size);
   font-family: inherit;
@@ -57,8 +58,12 @@
 }
 
 .indicator {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  display: inline-flex;
   color: rgb(var(--accent-rgb, 33, 94, 78));
-  flex-shrink: 0;
+  transform: translateY(-50%);
 }
 
 .badge {

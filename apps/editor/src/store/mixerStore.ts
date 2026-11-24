@@ -93,6 +93,22 @@ export function getMixerMutedParts(mixer: MixerState): ReadonlySet<number> {
   return muted;
 }
 
+/** Resolve the shared channel/group/master settings for playback and export. */
+export function getMixerPartMixes(mixer: MixerState) {
+  const mutedParts = getMixerMutedParts(mixer);
+  return mixer.channels.map((channel, index) => {
+    const groupId = index === mixer.chordsPartIndex ? "" : (mixer.partGroups[index] ?? "");
+    const group = groupId ? mixer.groups[groupId] : undefined;
+    return {
+      volume: channel.volume * (group?.volume ?? 1) * mixer.masterVolume,
+      pan: channel.pan,
+      muted: mutedParts.has(index),
+      ensembleEnabled: channel.ensembleEnabled,
+      stageDepthEnabled: channel.spatialMode === "stage",
+    };
+  });
+}
+
 // ═════════════════════════════════════════════
 // Actions
 // ═════════════════════════════════════════════

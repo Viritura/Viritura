@@ -21,11 +21,10 @@ interface SynthEventOptions {
   time: number;
 }
 
-interface SpessaSynthLike {
+interface SamplerSynthLike {
   noteOn(channel: number, midiNote: number, velocity: number, eventOptions?: SynthEventOptions): void;
   noteOff(channel: number, midiNote: number, eventOptions?: SynthEventOptions): void;
   programChange(channel: number, programNumber: number): void;
-  stopAll(force?: boolean): void;
   controllerChange(channel: number, cc: number, value: number, eventOptions?: SynthEventOptions): void;
   /** Send raw MIDI bytes with optional timing (used for timed program changes). */
   sendMessage(message: Iterable<number>, channelOffset?: number, eventOptions?: SynthEventOptions): void;
@@ -36,6 +35,10 @@ interface SpessaSynthLike {
     setDrums(isDrum: boolean): void;
     setSystemParameter(parameter: "isMuted", value: boolean): void;
   }[];
+}
+
+interface SpessaSynthLike extends SamplerSynthLike {
+  stopAll(force?: boolean): void;
   connect(node: AudioNode): AudioNode;
   isReady: Promise<unknown>;
   soundBankManager: {
@@ -43,6 +46,12 @@ interface SpessaSynthLike {
   };
   presetList: unknown[];
   destroy?(): void;
+}
+
+export interface Sf2SamplerBackend {
+  readonly synth: SamplerSynthLike;
+  readonly context?: Pick<AudioContext, "state" | "resume">;
+  cancelScheduledNotes(channels: readonly number[], fromAudioTime: number, allMidi?: boolean): void;
 }
 
 /** Track per-synth channel configuration so multiple Sf2Sampler instances
@@ -288,8 +297,8 @@ export interface Sf2SamplerOptions {
  * Each instance uses a dedicated MIDI channel with a specific GM program.
  */
 export class Sf2Sampler implements ISampler {
-  private readonly synth: SpessaSynthLike;
-  private readonly sf2Synth: Sf2Synth;
+  private readonly synth: SamplerSynthLike;
+  private readonly sf2Synth: Sf2SamplerBackend;
   private readonly channel: number;
   /** Baseline GM program this part was created with. Restored by
    *  {@link resetTechniqueState} to undo a pizz/arco program swap. */
@@ -309,7 +318,7 @@ export class Sf2Sampler implements ISampler {
   private rpnLsb = 127;
 
   constructor(
-    sf2Synth: Sf2Synth,
+    sf2Synth: Sf2SamplerBackend,
     channel: number,
     gmProgram: number,
     fixedMidiNoteOrOptions?: number | Sf2SamplerOptions,
@@ -397,8 +406,8 @@ export class Sf2Sampler implements ISampler {
   }
 
   noteOn(midiNote: number, velocity: number, time?: number, altKitProgram?: number): void {
-    if (this.sf2Synth.context.state === "suspended") {
-      void (this.sf2Synth.context as AudioContext).resume();
+    if (this.sf2Synth.context?.state === "suspended") {
+      void this.sf2Synth.context.resume();
     }
     const note = this.fixedMidiNote ?? midiNote;
     const channel = this.resolveChannel(altKitProgram);
@@ -467,7 +476,7 @@ export class Sf2Sampler implements ISampler {
   setProgram(program: number, time?: number): void {
     if (this.isDrum) return;
     if (time !== undefined) {
-      this.synth.sendMessage([0xc0 | this.channel, program], 0, { time });
+      this.synth.sendMessage([0xc0 | (this.channel % 16), program], this.channel - (this.channel % 16), { time });
     } else {
       this.synth.programChange(this.channel, program);
     }
@@ -500,8 +509,8 @@ export class Sf2Sampler implements ISampler {
     }
     const bend = Math.max(0, Math.min(16383, Math.round(value + (this.detuneCents * 8192) / (100 * this.bendRange))));
     this.synth.sendMessage(
-      [0xe0 | this.channel, bend & 0x7f, (bend >> 7) & 0x7f],
-      0,
+      [0xe0 | (this.channel % 16), bend & 0x7f, (bend >> 7) & 0x7f],
+      this.channel - (this.channel % 16),
       time === undefined ? undefined : { time },
     );
   }

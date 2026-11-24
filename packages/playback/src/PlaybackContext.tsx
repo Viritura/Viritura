@@ -34,7 +34,7 @@ import {
   type PlaybackState,
 } from "./playbackReducer";
 import { applyPartLevel, applySectionLevels, recomputeSectionGain, type PartLevelRefs } from "./partLevels";
-import { applyNativeMixer, applySamplerSettings, createMixerSettings } from "./mixerSettings";
+import { applyNativeMixer, applySamplerSettings, audioExportSettings, createMixerSettings } from "./mixerSettings";
 import {
   applyDetuneSpread,
   buildEqColorBuses,
@@ -90,6 +90,15 @@ import { useSoundfontBuffer } from "./useSoundfontBuffer";
 import { createPublishedChordPreview } from "./chordPreview";
 import { createMixerIdentity, playbackPartIds } from "./mixerIdentity";
 import { applyMasterVolume } from "./masterVolume";
+import {
+  AIR_EQ_FREQUENCY,
+  LIMITER_ATTACK_SECONDS,
+  LIMITER_KNEE_DB,
+  LIMITER_RELEASE_SECONDS,
+  sectionListenerDistance,
+  sectionPredelaySeconds,
+  sectionReverbSend,
+} from "./mixChain";
 
 // ═══════════════════════════════════════════
 // Provider
@@ -358,16 +367,16 @@ export function PlaybackProvider({
       // Air EQ: gentle high-shelf boost to add presence/shimmer to GM instruments
       const airEQ = ctx.createBiquadFilter();
       airEQ.type = "highshelf";
-      airEQ.frequency.value = 8000;
+      airEQ.frequency.value = AIR_EQ_FREQUENCY;
       airEQ.gain.value = mixerSettingsRef.current.airEQGain;
 
       // Limiter: prevent clipping, gentle glue compression
       const limiter = ctx.createDynamicsCompressor();
       limiter.threshold.value = mixerSettingsRef.current.limiterThreshold;
       limiter.ratio.value = mixerSettingsRef.current.limiterRatio;
-      limiter.knee.value = 6;
-      limiter.attack.value = 0.002;
-      limiter.release.value = 0.18;
+      limiter.knee.value = LIMITER_KNEE_DB;
+      limiter.attack.value = LIMITER_ATTACK_SECONDS;
+      limiter.release.value = LIMITER_RELEASE_SECONDS;
 
       masterOut.connect(airEQ);
       airEQ.connect(limiter);
@@ -990,6 +999,11 @@ export function PlaybackProvider({
     }
   }, []);
 
+  const getAudioExportSettings = useCallback(
+    (partCount: number) => audioExportSettings(mixerSettingsRef.current, listenerPosRef.current, partCount),
+    [],
+  );
+
   /**
    * Scale a part's reverb send gain based on distance from the listener.
    * Closer instruments sound drier (intimate/present); farther instruments
@@ -1039,18 +1053,12 @@ export function PlaybackProvider({
       // by design). The dry section gain is normalized separately against its
       // loudest current member.
       for (const [section, entry] of sectionSynthsRef.current) {
-        const dx = entry.position.x - x;
-        const dy = entry.position.y - y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dist = sectionListenerDistance(entry.position, { x, y });
         if (entry.reverbSend) {
-          const target = Math.max(0.05, Math.min(0.9, 0.05 + dist * 0.075));
-          entry.reverbSend.gain.setTargetAtTime(target, ctx?.currentTime ?? 0, 0.05);
+          entry.reverbSend.gain.setTargetAtTime(sectionReverbSend(dist), ctx?.currentTime ?? 0, 0.05);
         }
         if (entry.predelay) {
-          // 3 ms/m, capped at 40 ms. Front desks: ~0 ms (in your face);
-          // back of stage at 12-14 m: ~36-40 ms (sits behind the room).
-          const target = Math.min(0.04, dist * 0.003);
-          entry.predelay.delayTime.setTargetAtTime(target, ctx?.currentTime ?? 0, 0.05);
+          entry.predelay.delayTime.setTargetAtTime(sectionPredelaySeconds(dist), ctx?.currentTime ?? 0, 0.05);
         }
         recomputeSectionGain(section, levelRefs);
       }
@@ -1544,6 +1552,7 @@ export function PlaybackProvider({
       setLimiterThreshold,
       setLimiterRatio,
       applyLayerPan,
+      getAudioExportSettings,
     }),
     [
       play,
@@ -1577,6 +1586,7 @@ export function PlaybackProvider({
       setLimiterThreshold,
       setLimiterRatio,
       applyLayerPan,
+      getAudioExportSettings,
     ],
   );
 

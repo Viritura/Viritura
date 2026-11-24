@@ -45,6 +45,8 @@ export {
 export { LayeredSampler } from "./LayeredSampler";
 export type { LayerConfig } from "./LayeredSampler";
 export { SamplerGroup } from "./SamplerGroup";
+export { OfflineSf2Synth } from "./offlineSynth";
+export { dispatchSamplerEvent, samplerRoutingKey } from "./samplerEvents";
 
 // GM program mapping
 export {
@@ -72,8 +74,31 @@ export {
 export type { SpatialPosition, SpatialConfig, OrchestraSection } from "./SpatialNode";
 
 // Reverb engine
-export { ReverbEngine, REVERB_PRESETS } from "./ReverbEngine";
+export {
+  ReverbEngine,
+  REVERB_PRESETS,
+  REVERB_RETURN_HIGHPASS,
+  REVERB_SEND_INPUT_GAIN,
+  reverbPresetWetLevel,
+} from "./ReverbEngine";
 export type { ReverbPreset } from "./ReverbEngine";
+
+// Offline DSP equivalents of the Web Audio nodes used by playback
+export {
+  CompressorCurve,
+  PartitionedConvolver,
+  StereoBiquad,
+  StereoCompressor,
+  StereoDelay,
+  biquadCoefficients,
+  convolverNormalizationScale,
+  decodeWav,
+  resampleChannels,
+  type BiquadSpec,
+  type CompressorSpec,
+  type DecodedWav,
+  type ImpulseResponse,
+} from "./offlineDsp";
 
 // SoundFont capability manifests (what a font can play; drives percussion
 // sound resolution + the editor's drum-kit mapping UI)

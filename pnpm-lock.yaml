@@ -505,6 +505,9 @@ importers:
 
   packages/audio:
     dependencies:
+      spessasynth_core:
+        specifier: ^4.4.10
+        version: 4.4.10
       spessasynth_lib:
         specifier: ^4.4.7
         version: 4.4.8
@@ -711,6 +714,9 @@ importers:
 
   packages/playback:
     dependencies:
+      '@audio/encode-mp3':
+        specifier: ^2.0.1
+        version: 2.0.1
       '@viritura/audio':
         specifier: workspace:*
         version: link:../audio
@@ -757,6 +763,9 @@ importers:
       happy-dom:
         specifier: ^21.0.4
         version: 21.0.4
+      spessasynth_core:
+        specifier: ^4.4.10
+        version: 4.4.10
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -1116,6 +1125,10 @@ packages:
 
   '@astrojs/yaml2ts@0.2.4':
     resolution: {integrity: sha512-8oddpOae35pJsXPQXhTkM0ypfKPskVsh2bCxRtbf7e+/Epw2nReakFYpLKjZMEr75CsoF203PMnCocpfz0s69A==}
+
+  '@audio/encode-mp3@2.0.1':
+    resolution: {integrity: sha512-hCOPSgzr5aw268HpHxALGP1bctI16wBODQ0+h/d35B8TjiSCDNoUKyIbhXI+xEHoGX4te+PlwEuaXytGJWZOiQ==}
+    engines: {node: '>=18'}
 
   '@azure/abort-controller@2.2.0':
     resolution: {integrity: sha512-fNAjWnA/nZ2jz31kxR/AqRaUT8ewHBw/WuBIosK0moMy1C9e5ValbDfFdIxJzVOOYaYkV/b2F1S4H/aHiqfVQg==}
@@ -7039,6 +7052,7 @@ packages:
 
   spessasynth_core@4.4.10:
     resolution: {integrity: sha512-v5PjNvBiqfHsXriDQJraeVwVXThgy0Ll60NaTsUwp2NNClUR0a3fgiRRZtJDm3WJv+a2wi19w9ZTzboBQ0V7sw==}
+    deprecated: Only the latest version of spessasynth_core is supported.
 
   spessasynth_lib@4.4.8:
     resolution: {integrity: sha512-523Hxmb7ORReUnaowN2/0Kugwk6vm1SXylkIrsqd+yC9wxJD19+A8dHRbzMR8eRzNx88E1Vo1lu/eSOpicz+1A==}
@@ -8262,6 +8276,8 @@ snapshots:
   '@astrojs/yaml2ts@0.2.4':
     dependencies:
       yaml: 2.9.1
+
+  '@audio/encode-mp3@2.0.1': {}
 
   '@azure/abort-controller@2.2.0':
     dependencies:

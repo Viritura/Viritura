@@ -17,6 +17,7 @@
     "vitest": "^5.1.0"
   },
   "dependencies": {
+    "spessasynth_core": "^4.4.10",
     "spessasynth_lib": "^4.4.7"
   }
 }

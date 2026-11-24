@@ -246,6 +246,7 @@ export function triggerDownload(bytes: Uint8Array, filename: string, mime: strin
 interface FsWritable {
   write(data: Uint8Array<ArrayBuffer> | Blob): Promise<void>;
   close(): Promise<void>;
+  abort(): Promise<void>;
 }
 interface FsFileHandle {
   createWritable(): Promise<FsWritable>;
@@ -285,10 +286,28 @@ export async function pickExportDirectory(): Promise<FsDirectoryHandle | null> {
 /**
  * Write a file into the picked directory, creating or overwriting it.
  */
-export async function writeFileToDirectory(dir: FsDirectoryHandle, filename: string, bytes: Uint8Array): Promise<void> {
+export async function writeFileToDirectory(
+  dir: FsDirectoryHandle,
+  filename: string,
+  bytes: Uint8Array,
+  signal?: AbortSignal,
+): Promise<void> {
+  signal?.throwIfAborted();
   const handle = await dir.getFileHandle(filename, { create: true });
+  signal?.throwIfAborted();
   const writable = await handle.createWritable();
-  await writable.write(new Uint8Array(bytes));
+  try {
+    signal?.throwIfAborted();
+    await writable.write(new Uint8Array(bytes));
+    signal?.throwIfAborted();
+  } catch (error) {
+    try {
+      await writable.abort();
+    } catch (abortError) {
+      throw new AggregateError([error, abortError], "Failed to write or cancel the export.");
+    }
+    throw error;
+  }
   await writable.close();
 }
 

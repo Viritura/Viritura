@@ -83,4 +83,21 @@ describe("built-in SoundFont source", () => {
     expect(await loadSoundfont()).toBeNull();
     expect(toast.warning).toHaveBeenCalledWith("Sound library failed to load", expect.any(Object));
   });
+
+  it("cancels the browser download without reporting a sound-library failure", async () => {
+    const controller = new AbortController();
+    vi.mocked(fetch).mockImplementation(
+      (_url, init) =>
+        new Promise((_, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal!.reason), { once: true });
+        }),
+    );
+    const result = loadSoundfont(undefined, controller.signal);
+    const rejection = expect(result).rejects.toMatchObject({ name: "AbortError" });
+    controller.abort();
+
+    await rejection;
+    expect(fetch).toHaveBeenCalledWith(expect.any(String), { signal: controller.signal });
+    expect(toast.warning).not.toHaveBeenCalled();
+  });
 });

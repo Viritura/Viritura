@@ -1,23 +1,16 @@
-import {
-  Download,
-  FileAudio,
-  Globe,
-  Link as LinkIcon,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  Sparkles,
-} from "lucide-react";
+import { Download, Loader2, AlertCircle } from "lucide-react";
 import { Button, Checkbox, FormInput, Panel, Radio, RadioGroup } from "@viritura/ui";
 import styles from "../PublishView.module.css";
 import type { CSSProperties } from "react";
 
 const FLEX_COL_STYLE: CSSProperties = { display: "flex", flexDirection: "column" };
 const DEST_COL_STYLE: CSSProperties = { display: "flex", flexDirection: "column", minWidth: 0 };
-const SPARKLES_INLINE_STYLE: CSSProperties = { verticalAlign: "-1px", marginRight: 4 };
 import type { FsDirectoryHandle } from "../../../publish/batchRender";
 import type { BundleMode } from "./runPublishExport";
-import { FormatSelect, Section } from "./FormatPickers";
+import { AudioQualitySelect, FormatSelect, Section } from "./FormatPickers";
+import { isAudioFormat, type AudioQuality, type ExportFormat } from "./audioFormats";
+
+const WAV_MEGABYTES_PER_MINUTE: Record<AudioQuality["wavBitDepth"], number> = { 16: 11, 24: 16, 32: 21 };
 
 interface RightExportPanelProps {
   /** Panel positioning props — surfaced here so WorkspaceShell can detect
@@ -28,6 +21,10 @@ interface RightExportPanelProps {
   exporting: boolean;
   scoreLoaded: boolean;
   orderedSelectedCount: number;
+  format: ExportFormat;
+  onFormatChange: (format: ExportFormat) => void;
+  audioQuality: AudioQuality;
+  onAudioQualityChange: (quality: AudioQuality) => void;
 
   bundleMode: BundleMode;
   onBundleModeChange: (mode: BundleMode) => void;
@@ -46,9 +43,10 @@ interface RightExportPanelProps {
   onEmbedMnxChange: (v: boolean) => void;
 
   progress: { done: number; total: number; name: string } | null;
-  statusMessage: { kind: "ok" | "err"; text: string } | null;
+  statusMessage: { kind: "err"; text: string } | null;
 
   onExport: () => void;
+  onCancelExport: () => void;
   /** Injected by WorkspaceShell via cloneElement — forward to inner Panel. */
   shellStyle?: CSSProperties;
 }
@@ -60,6 +58,10 @@ export function RightExportPanel(props: RightExportPanelProps) {
     exporting,
     scoreLoaded,
     orderedSelectedCount,
+    format,
+    onFormatChange,
+    audioQuality,
+    onAudioQualityChange,
     bundleMode,
     onBundleModeChange,
     folderSupported,
@@ -75,6 +77,7 @@ export function RightExportPanel(props: RightExportPanelProps) {
     progress,
     statusMessage,
     onExport,
+    onCancelExport,
     shellStyle,
   } = props;
 
@@ -87,41 +90,92 @@ export function RightExportPanel(props: RightExportPanelProps) {
       max={600}
       shellStyle={shellStyle}
       title="Export"
-      subtitle="Choose what to export and where it goes. Renders use the same engine as the editor."
+      subtitle="Choose what to export and where it goes."
       scrollBody
+      footer={
+        <>
+          <ProgressOrStatus exporting={exporting} progress={progress} statusMessage={statusMessage} format={format} />
+          <div className={styles.exportButtonWrap}>
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              onClick={onExport}
+              disabled={!scoreLoaded || (format === "pdf" && orderedSelectedCount === 0) || exporting}
+            >
+              <Download size={18} />
+              {isAudioFormat(format)
+                ? `Export ${format.toUpperCase()}`
+                : `Export ${orderedSelectedCount} layout${orderedSelectedCount === 1 ? "" : "s"}`}
+              {exportFolder ? ` to "${exportFolder.name}"` : ""}
+            </Button>
+            {isAudioFormat(format) && exporting && (
+              <Button size="sm" onClick={onCancelExport} label="Cancel export" disabled={progress?.done === 100} />
+            )}
+          </div>
+        </>
+      }
     >
       <Section label="Format">
-        <FormatSelect />
+        <FormatSelect value={format} onChange={onFormatChange} disabled={exporting} />
       </Section>
 
-      <Section label="Bundle">
-        <RadioGroup
-          value={bundleMode}
-          onChange={(v) => onBundleModeChange(v as typeof bundleMode)}
-          disabled={exporting}
-        >
-          <Radio value="zip" variant="card" label="ZIP archive" description="One ZIP containing all PDFs" />
-          {exportFolder && (
-            <Radio
-              value="separate"
-              variant="card"
-              label="Separate files"
-              description="One PDF per layout, saved directly to the folder"
-            />
-          )}
-          <Radio
-            value="single-pdf"
-            variant="card"
-            label="Single PDF"
-            description="Concatenate every layout into one PDF"
+      {isAudioFormat(format) ? (
+        <Section label="Audio">
+          <AudioQualitySelect
+            format={format}
+            quality={audioQuality}
+            onChange={onAudioQualityChange}
+            disabled={exporting}
           />
-        </RadioGroup>
-        {!exportFolder && (
           <div className={styles.fieldHint}>
-            Downloads use one ZIP or PDF to avoid browser limits on multiple downloads.
+            {format === "wav"
+              ? `Stereo, 44.1 kHz, about ${WAV_MEGABYTES_PER_MINUTE[audioQuality.wavBitDepth]} MB/min. `
+              : "Stereo, 44.1 kHz. "}
+            {format === "mp3" && (
+              <>
+                {" "}
+                <a
+                  href="https://github.com/Viritura/Viritura/blob/main/THIRD_PARTY_NOTICES.md#mp3-encoding"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  MP3 encoder licenses
+                </a>
+              </>
+            )}
           </div>
-        )}
-      </Section>
+        </Section>
+      ) : (
+        <Section label="Bundle">
+          <RadioGroup
+            value={bundleMode}
+            onChange={(v) => onBundleModeChange(v as typeof bundleMode)}
+            disabled={exporting}
+          >
+            <Radio value="zip" variant="card" label="ZIP archive" description="One ZIP containing all PDFs" />
+            {exportFolder && (
+              <Radio
+                value="separate"
+                variant="card"
+                label="Separate files"
+                description="One PDF per layout, saved directly to the folder"
+              />
+            )}
+            <Radio
+              value="single-pdf"
+              variant="card"
+              label="Single PDF"
+              description="Concatenate every layout into one PDF"
+            />
+          </RadioGroup>
+          {!exportFolder && (
+            <div className={styles.fieldHint}>
+              Downloads use one ZIP or PDF to avoid browser limits on multiple downloads.
+            </div>
+          )}
+        </Section>
+      )}
 
       <Section label="Destination">
         <DestinationRow
@@ -137,49 +191,44 @@ export function RightExportPanel(props: RightExportPanelProps) {
 
       <Section label="Filename">
         <FormInput
+          aria-label="Filename pattern"
           className={styles.inputField}
           value={filenamePattern}
           onChange={(e) => onFilenamePatternChange(e.target.value)}
           disabled={exporting}
         />
         <div className={styles.fieldHint}>
-          Tokens: <code>%TITLE%</code> (document title), <code>%PART%</code> (layout name), <code>%PART_NUMBER%</code>{" "}
-          (padded score-order position). Scores are numbered first; unselected layouts still count. ZIP and combined PDF
-          filenames use “All” for the number. The extension is added automatically.
+          {isAudioFormat(format) ? (
+            <>
+              Tokens: <code>%TITLE%</code> (document title), <code>%PART%</code> (Full Score),{" "}
+              <code>%PART_NUMBER%</code> (All). The extension is added automatically.
+            </>
+          ) : (
+            <>
+              Tokens: <code>%TITLE%</code> (document title), <code>%PART%</code> (layout name),{" "}
+              <code>%PART_NUMBER%</code> (padded score-order position). Scores are numbered first; unselected layouts
+              still count. ZIP and combined PDF filenames use “All” for the number. The extension is added
+              automatically.
+            </>
+          )}
         </div>
       </Section>
 
-      <Section label="Options">
-        <Checkbox
-          checked={embedMnx}
-          onChange={(e) => onEmbedMnxChange(e.target.checked)}
-          disabled={exporting}
-          label={
-            <div style={FLEX_COL_STYLE}>
-              <span className={styles.radioRowTitle}>Embed MNX source</span>
-              <span className={styles.radioRowDesc}>Attach the MNX JSON inside each PDF for round-trip.</span>
-            </div>
-          }
-        />
-      </Section>
-
-      <ProgressOrStatus exporting={exporting} progress={progress} statusMessage={statusMessage} />
-
-      <div className={styles.exportButtonWrap}>
-        <Button
-          variant="primary"
-          size="lg"
-          fullWidth
-          onClick={onExport}
-          disabled={!scoreLoaded || orderedSelectedCount === 0 || exporting}
-        >
-          <Download size={18} />
-          Export {orderedSelectedCount} layout{orderedSelectedCount === 1 ? "" : "s"}
-          {exportFolder ? ` to "${exportFolder.name}"` : ""}
-        </Button>
-      </div>
-
-      <ComingSoon />
+      {format === "pdf" && (
+        <Section label="Options">
+          <Checkbox
+            checked={embedMnx}
+            onChange={(e) => onEmbedMnxChange(e.target.checked)}
+            disabled={exporting}
+            label={
+              <div style={FLEX_COL_STYLE}>
+                <span className={styles.radioRowTitle}>Embed MNX source</span>
+                <span className={styles.radioRowDesc}>Attach the MNX JSON inside each PDF for round-trip.</span>
+              </div>
+            }
+          />
+        </Section>
+      )}
     </Panel>
   );
 }
@@ -255,50 +304,32 @@ function DestinationRow({
 interface ProgressOrStatusProps {
   exporting: boolean;
   progress: { done: number; total: number; name: string } | null;
-  statusMessage: { kind: "ok" | "err"; text: string } | null;
+  statusMessage: { kind: "err"; text: string } | null;
+  format: ExportFormat;
 }
 
-function ProgressOrStatus({ exporting, progress, statusMessage }: ProgressOrStatusProps) {
+function ProgressOrStatus({ exporting, progress, statusMessage, format }: ProgressOrStatusProps) {
   if (exporting && progress) {
     return (
-      <div className={styles.progressBox}>
+      <div className={styles.progressBox} role="status">
         <Loader2 size={14} className="spin" />
         <span>
-          Rendering {progress.done} of {progress.total}
-          {progress.name ? ` · ${progress.name}` : ""}
+          {isAudioFormat(format)
+            ? progress.done === 100
+              ? `Saving ${format.toUpperCase()}`
+              : `Rendering ${format.toUpperCase()}: ${progress.done}%`
+            : `Rendering ${progress.done} of ${progress.total}${progress.name ? ` · ${progress.name}` : ""}`}
         </span>
       </div>
     );
   }
   if (statusMessage && !exporting) {
     return (
-      <div className={statusMessage.kind === "ok" ? styles.statusOk : styles.statusErr}>
-        {statusMessage.kind === "ok" ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+      <div className={styles.statusErr} role="status">
+        <AlertCircle size={14} />
         <span>{statusMessage.text}</span>
       </div>
     );
   }
   return null;
-}
-
-function ComingSoon() {
-  return (
-    <div className={styles.comingSoon}>
-      <h3 className={styles.comingSoonHeader}>
-        <Sparkles size={11} style={SPARKLES_INLINE_STYLE} />
-        Coming soon
-      </h3>
-      <ul className={styles.comingSoonList}>
-        <li>
-          <LinkIcon size={12} /> Share link with permissions
-        </li>
-        <li>
-          <Globe size={12} /> Public score page with embedded player
-        </li>
-        <li>
-          <FileAudio size={12} /> Bounce to WAV/MP3 with per-part stems
-        </li>
-      </ul>
-    </div>
-  );
 }
