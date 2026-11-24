@@ -10,7 +10,7 @@ import type { PartPlan } from "./types";
 import { compare, type Rational } from "./rhythm";
 import type { XmlAttributes } from "./xml";
 
-export interface Boundary {
+interface Boundary {
   name: string;
   attributes: XmlAttributes;
   text?: string;
@@ -19,7 +19,7 @@ export interface Boundary {
   ornament?: boolean;
 }
 
-export interface TieBoundary {
+interface TieBoundary {
   type: "start" | "stop" | "let-ring";
   side?: string;
 }

@@ -52,7 +52,7 @@ export interface ExportSequence extends TimedSequence {
   staff: number;
 }
 
-export interface MeasurePlan {
+interface MeasurePlan {
   global: GlobalMeasure;
   time: TimeSignature;
   key: KeySignature;

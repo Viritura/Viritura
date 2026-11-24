@@ -336,4 +336,6 @@ export async function zipFiles(files: readonly { name: string; bytes: Uint8Array
   return blob;
 }
 
-export const zipPdfs = zipFiles;
+export async function zipPdfs(pdfs: readonly { name: string; bytes: Uint8Array }[]): Promise<Uint8Array> {
+  return zipFiles(pdfs);
+}

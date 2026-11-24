@@ -98,7 +98,7 @@ export interface TimedEvent {
   fullMeasure?: boolean;
 }
 
-export interface TimedSpace {
+interface TimedSpace {
   position: Rational;
   duration: Rational;
 }
