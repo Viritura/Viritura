@@ -3,6 +3,7 @@ import {
   Pencil,
   Ruler,
   Play,
+  Metronome,
   Piano,
   Clapperboard,
   FileDiff,
@@ -10,7 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type ActivityView = "setup" | "write" | "engrave" | "play" | "roll" | "picture" | "review" | "publish";
+export type ActivityView = "setup" | "write" | "engrave" | "play" | "click" | "roll" | "picture" | "review" | "publish";
 
 export interface ActivityDefinition {
   readonly view: ActivityView;
@@ -25,6 +26,12 @@ export const ACTIVITY_DEFINITIONS: readonly ActivityDefinition[] = [
   { view: "write", label: "Write", icon: Pencil, keywords: ["notation", "note entry", "edit"] },
   { view: "engrave", label: "Engrave", icon: Ruler, keywords: ["layout", "house style", "page"] },
   { view: "play", label: "Play", icon: Play, keywords: ["playback", "mixer", "audio"] },
+  {
+    view: "click",
+    label: "Click",
+    icon: Metronome,
+    keywords: ["click track", "metronome", "recording", "countoff", "rehearsal"],
+  },
   { view: "roll", label: "Roll", icon: Piano, keywords: ["piano roll", "visualization"] },
   { view: "picture", label: "Picture", icon: Clapperboard, keywords: ["video", "timecode", "spotting"] },
   { view: "review", label: "Review", icon: FileDiff, keywords: ["history", "diff", "git"] },

@@ -201,6 +201,8 @@
 
   --accent: #215e4e;
   --accent-rgb: 33, 94, 78;
+  /* Text on solid accent fills; redeclare with every --accent-rgb override. */
+  --on-accent: #fff;
   --error: #c42b2b;
   --error-rgb: 196, 43, 43;
   --warning: #b85a1a;
@@ -335,6 +337,7 @@
   /* Accessible tint of the deep brand viridian for dark surfaces. */
   --accent: #83c8b3;
   --accent-rgb: 131, 200, 179;
+  --on-accent: #12352d;
   --error: #ff6b6b;
   --error-rgb: 255, 107, 107;
   --warning: #ff9b7a;
@@ -427,6 +430,7 @@
 
   --accent: #83c8b3;
   --accent-rgb: 131, 200, 179;
+  --on-accent: #12352d;
   --error: #ff6b6b;
   --error-rgb: 255, 107, 107;
   --warning: #ff9b7a;

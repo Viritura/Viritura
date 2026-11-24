@@ -36,10 +36,9 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     skipWaiting: false,
     navigateFallback: "index.html",
     // Never serve the editor HTML in place of an asset or an API response.
-    navigateFallbackDenylist: [/^\/(?:api|assets|wasm|fonts|sounds|denigma|scores|pwa-icons|click)(?:\/|$)/],
+    navigateFallbackDenylist: [/^\/(?:api|assets|wasm|fonts|sounds|denigma|scores|pwa-icons)(?:\/|$)/],
     globPatterns: [
       "index.html",
-      "click/index.html",
       "assets/**/*.{js,css,wasm,woff,woff2,ttf,otf}",
       "wasm/*.{js,wasm,json}",
       "fonts/*.{otf,ttf,json}",
@@ -52,12 +51,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     // Engraving WASM and bundled editor chunks exceed Workbox's 2 MiB default.
     maximumFileSizeToCacheInBytes: 32 * 1024 * 1024,
     // Account/API traffic and user documents are not cached.
-    runtimeCaching: [
-      {
-        urlPattern: ({ url, request }) => request.mode === "navigate" && /^\/click\/?$/.test(url.pathname),
-        handler: "NetworkOnly",
-      },
-    ],
+    runtimeCaching: [],
   },
   devOptions: { enabled: false },
 };

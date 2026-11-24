@@ -277,6 +277,7 @@ export function resolveChordSymbolTarget(
 
 export interface AppKeyboardWiringDeps {
   canvasRef: RefObject<ScoreCanvasHandle | null>;
+  suspendEditorInput?: boolean;
   leftPanelRef: RefObject<PanelImperativeHandle | null>;
   rightPanelRef: RefObject<PanelImperativeHandle | null>;
   mousePositionRef: MutableRefObject<{ x: number; y: number }>;
@@ -340,6 +341,7 @@ export function togglePanels(
 export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboardActions {
   const {
     canvasRef,
+    suspendEditorInput,
     mousePositionRef,
     store,
     selection,
@@ -460,6 +462,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
 
   return useEditorKeyboard({
     canvasRef,
+    suspendEditorInput,
     currentZoom,
     selectedScoreIndex,
     onNewScore: () => onNewScore(),

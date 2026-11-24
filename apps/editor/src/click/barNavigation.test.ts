@@ -15,7 +15,7 @@ import { readClickDocument } from "./clickDocument";
 
 describe("click bar navigation", () => {
   it("keeps authored rehearsal marks and context on their score bars", () => {
-    const document = readClickDocument("rehearsals.mnx", rehearsalMarks);
+    const document = readClickDocument(rehearsalMarks);
     expect(document.bars.map((bar) => bar.rehearsal)).toEqual(["A", undefined, "B", "C", "D"]);
     expect(document.bars[1]?.rehearsalContext).toBe("A + 1 bar");
     expect(document.bars[2]?.rehearsalContext).toBe("B");

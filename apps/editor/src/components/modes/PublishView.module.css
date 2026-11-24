@@ -31,6 +31,7 @@
   /* Accent color tokens — drive every selection/hover/focus tint and the
      checkbox/radio fill gradient. Editorial Cool palette uses Viridian. */
   --accent-rgb: 33, 94, 78;
+  --on-accent: #fff;
   --accent-grad: linear-gradient(135deg, #215e4e 0%, #3f8a74 100%);
 }
 

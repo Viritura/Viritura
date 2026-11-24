@@ -1,23 +1,22 @@
-import { useEffect } from "react";
-import { useScoreView } from "@viritura/score-viewer-react";
+import { useEffect, type RefObject } from "react";
+import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 
 const DRAG_THRESHOLD = 6;
 
 interface ClickScoreInteractionsProps {
+  readonly canvasRef: RefObject<Pick<ScoreCanvasHandle, "getViewportElement" | "getViewport" | "setScroll"> | null>;
   readonly enabled: boolean;
-  readonly onSelectMeasure: (measureIndex: number) => void;
 }
 
-export function ClickScoreInteractions({ enabled, onSelectMeasure }: ClickScoreInteractionsProps) {
-  const { viewer, engine, displayList, pagePositions, zoom } = useScoreView();
-
+export function ClickScoreInteractions({ canvasRef, enabled }: ClickScoreInteractionsProps) {
   useEffect(() => {
-    if (!viewer) return;
-    const { viewport, surface } = viewer;
+    const viewportElement = canvasRef.current?.getViewportElement();
+    if (!viewportElement) return;
+    const viewport: HTMLElement = viewportElement;
     const previousCursor = viewport.style.cursor;
     const previousTouchAction = viewport.style.touchAction;
-    viewport.style.setProperty("cursor", enabled ? "grab" : "default");
-    viewport.style.setProperty("touch-action", "none");
+    viewport.style.cursor = enabled ? "grab" : "default";
+    viewport.style.touchAction = enabled ? "none" : previousTouchAction;
     let drag:
       | {
           pointerId: number;
@@ -25,30 +24,40 @@ export function ClickScoreInteractions({ enabled, onSelectMeasure }: ClickScoreI
           y: number;
           left: number;
           top: number;
+          zoom: number;
           moved: boolean;
         }
       | undefined;
+    let suppressClick = false;
 
     function finish(): void {
       const current = drag;
       drag = undefined;
-      viewport.style.setProperty("cursor", enabled ? "grab" : "default");
+      viewport.style.cursor = enabled ? "grab" : "default";
       if (current && viewport.hasPointerCapture(current.pointerId)) {
         viewport.releasePointerCapture(current.pointerId);
       }
     }
 
     function down(event: PointerEvent): void {
+      if (event.pointerType === "touch" && !event.isPrimary && drag) {
+        finish();
+        suppressClick = true;
+        return;
+      }
       if (!enabled || !event.isPrimary || event.button !== 0 || drag) return;
+      const current = canvasRef.current?.getViewport();
+      if (!current) return;
+      suppressClick = false;
       drag = {
         pointerId: event.pointerId,
         x: event.clientX,
         y: event.clientY,
-        left: viewport.scrollLeft,
-        top: viewport.scrollTop,
+        left: current.scrollX,
+        top: current.scrollY,
+        zoom: current.zoom,
         moved: false,
       };
-      viewport.setPointerCapture(event.pointerId);
     }
 
     function move(event: PointerEvent): void {
@@ -56,9 +65,10 @@ export function ClickScoreInteractions({ enabled, onSelectMeasure }: ClickScoreI
       const dx = event.clientX - drag.x;
       const dy = event.clientY - drag.y;
       if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      if (!drag.moved) viewport.setPointerCapture(event.pointerId);
       drag.moved = true;
-      viewport.style.setProperty("cursor", "grabbing");
-      viewport.scrollTo({ left: drag.left - dx, top: drag.top - dy });
+      viewport.style.cursor = "grabbing";
+      canvasRef.current?.setScroll(drag.left - dx / drag.zoom, drag.top - dy / drag.zoom);
       event.preventDefault();
     }
 
@@ -66,20 +76,10 @@ export function ClickScoreInteractions({ enabled, onSelectMeasure }: ClickScoreI
       if (!drag || event.pointerId !== drag.pointerId) return;
       const moved = drag.moved || Math.hypot(event.clientX - drag.x, event.clientY - drag.y) >= DRAG_THRESHOLD;
       finish();
-      if (moved || !engine || !displayList) return;
-      const rect = surface.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      const page = pagePositions.find(
-        (candidate) =>
-          x >= candidate.x &&
-          x <= candidate.x + candidate.width &&
-          y >= candidate.y &&
-          y <= candidate.y + candidate.height,
-      );
-      if (!page) return;
-      const hit = engine.canvasToBeat(displayList, page.page, (x - page.x) / zoom, (y - page.y) / zoom);
-      if (hit) onSelectMeasure(hit.measureIndex);
+      if (moved) {
+        suppressClick = true;
+        event.preventDefault();
+      }
     }
 
     function cancel(event: PointerEvent): void {
@@ -90,12 +90,20 @@ export function ClickScoreInteractions({ enabled, onSelectMeasure }: ClickScoreI
       if (event.target === viewport) cancel(event);
     }
 
+    function click(event: MouseEvent): void {
+      if (!suppressClick) return;
+      suppressClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
     if (enabled) {
       viewport.addEventListener("pointerdown", down);
       viewport.addEventListener("pointermove", move);
       viewport.addEventListener("pointerup", up);
       viewport.addEventListener("pointercancel", cancel);
       viewport.addEventListener("lostpointercapture", lostCapture);
+      viewport.addEventListener("click", click, true);
     }
     return () => {
       finish();
@@ -104,10 +112,11 @@ export function ClickScoreInteractions({ enabled, onSelectMeasure }: ClickScoreI
       viewport.removeEventListener("pointerup", up);
       viewport.removeEventListener("pointercancel", cancel);
       viewport.removeEventListener("lostpointercapture", lostCapture);
-      viewport.style.setProperty("cursor", previousCursor);
-      viewport.style.setProperty("touch-action", previousTouchAction);
+      viewport.removeEventListener("click", click, true);
+      viewport.style.cursor = previousCursor;
+      viewport.style.touchAction = previousTouchAction;
     };
-  }, [viewer, engine, displayList, pagePositions, zoom, enabled, onSelectMeasure]);
+  }, [canvasRef, enabled]);
 
   return null;
 }

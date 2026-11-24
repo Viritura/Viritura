@@ -35,7 +35,10 @@ import { buildWriteMode } from "../../app/buildWriteMode";
 import { buildSetupMode } from "../../app/buildSetupMode";
 import { buildEngraveMode } from "../../app/buildEngraveMode";
 import { buildPublishMode } from "../../app/buildPublishMode";
+import { buildClickMode } from "../../app/buildClickMode";
 import type { WorkspaceMode, WorkspaceModeKind } from "../../app/workspaceMode";
+import { useClickCanvasConfig } from "../../store/clickCanvasStore";
+import { useClickCanvasViewport } from "./useClickCanvasViewport";
 import type { WriteViewMode as ViewMode, PreviewViewMode } from "@viritura/ui";
 import { useMenuBarWiring } from "../../app/useMenuBarWiring";
 import { useInteractionHandlers } from "../../app/useInteractionHandlers";
@@ -298,13 +301,17 @@ function AppInner({
   );
   // Viewport / Zoom canvas ref
   const canvasRef = useRef<ScoreCanvasHandle>(null);
+  useClickCanvasViewport(canvasRef, modeKind);
 
   // ─── Engrave mode (hybrid) ────────────────────────────────────
   // The mode hooks are always called (rules of hooks); each is only `active`
   // when its mode is selected, and the result is woven into the shared canvas +
   // chrome by the matching `build*Mode` builder below. Because the canvas
   // instance is never unmounted across mode switches, scroll/zoom persist.
-  const documentScore = useDocumentStore((s) => s.score);
+  const { documentScore, clickMnx } = useDocumentStore(
+    useShallow((s) => ({ documentScore: s.score, clickMnx: s.mnxJson })),
+  );
+  const clickCanvasConfig = useClickCanvasConfig();
   const isEngrave = modeKind === "engrave";
   const isPublish = modeKind === "publish";
   const isSetup = modeKind === "setup";
@@ -505,6 +512,7 @@ function AppInner({
     onSwitchScore: handleSelectScore,
     noteInputState,
     lyricEntryEnabled: modeKind === "write",
+    suspendEditorInput: modeKind === "click",
     getSelectedMeasureIndex,
     getSelectedPartIndex,
     selectRange,
@@ -640,94 +648,103 @@ function AppInner({
   const previewViewMode: PreviewViewMode = effectiveViewMode === "horizon" ? "spread-h" : effectiveViewMode;
 
   /* eslint-disable react-hooks/refs -- the build*Mode helpers capture canvasRef/rightPanelRef into event-handler closures (onClick/onResize/imperative status-bar actions); they never read `.current` during render. */
-  const mode: WorkspaceMode = isSetup
-    ? buildSetupMode({
-        canvasRef,
-        onTogglePanels: () => togglePanels(leftPanelRef, rightPanelRef),
-        leftFloat,
-        selectedScoreIndex,
-        selectedPartIds,
-        setSelectedPartIds,
-        viewMode,
-        setViewMode,
-        currentZoom,
-        useWritten,
-        handleConcertPitchToggle,
-        resolvedScoreDefs,
-        handleSelectScore,
-        handleLayoutChange,
-        handleAddInstrument,
-        handleAddEnsemble,
-        handleRemoveInstrument,
-        handleAddInstrumentToScore,
-        handleRemoveInstrumentFromScore,
-        handleCreateSectionScore,
-        handleSetScoreMembership,
-        handleReorderInstrument,
-        handleAddDoubling,
-        handleRemoveDoubling,
-        handlePartUpdate,
-        handleAddScore,
-        handleDeleteScore,
-        handleRenameScore,
-        handleDuplicateScore,
-        handleResetLayout,
-        handleReorderScores,
-        handleExpandCondensingStave,
-        expandedCondensingStaves,
-      })
-    : isEngrave
-      ? buildEngraveMode({
-          engrave: engraveBag,
-          selection,
-          onTogglePanels: () => togglePanels(leftPanelRef, rightPanelRef),
-          leftFloat,
-          rightFloat,
+  const mode: WorkspaceMode =
+    modeKind === "click"
+      ? buildClickMode({
           canvasRef,
-          currentZoom,
-          previewViewMode,
-          setViewMode,
-          useWritten,
-          handleConcertPitchToggle,
-          expandedCondensingStaves,
-          handleExpandCondensingStave,
+          config: clickCanvasConfig,
+          mnx: clickMnx,
+          canvasZoom: currentZoom,
+          onTogglePanels: () => togglePanels(leftPanelRef, rightPanelRef),
         })
-      : isPublish
-        ? buildPublishMode({
-            publish: publishBag,
-            canvasRef,
-            currentZoom,
-            previewViewMode,
-            setViewMode,
-          })
-        : buildWriteMode({
+      : isSetup
+        ? buildSetupMode({
             canvasRef,
             onTogglePanels: () => togglePanels(leftPanelRef, rightPanelRef),
             leftFloat,
-            sourceFloat,
-            chordSettingsOpen,
-            chordSettingsWidth,
             selectedScoreIndex,
             selectedPartIds,
-            handleSelectScore,
-            expandedCondensingStaves,
-            handleExpandCondensingStave,
-            buildSelectionMenuItems,
+            setSelectedPartIds,
             viewMode,
             setViewMode,
             currentZoom,
             useWritten,
             handleConcertPitchToggle,
-            beatCountIssueCount: beatCountIssues.length,
-            onRepairMeasures: repairMeasures,
-            onDismissBeatCountWarnings: dismissBeatCountWarnings,
-            inspectorFocus,
-            selection,
-            dialogs,
-            writeLeftTab,
-            setWriteLeftTab,
-            paletteSectionRequest,
-          });
+            resolvedScoreDefs,
+            handleSelectScore,
+            handleLayoutChange,
+            handleAddInstrument,
+            handleAddEnsemble,
+            handleRemoveInstrument,
+            handleAddInstrumentToScore,
+            handleRemoveInstrumentFromScore,
+            handleCreateSectionScore,
+            handleSetScoreMembership,
+            handleReorderInstrument,
+            handleAddDoubling,
+            handleRemoveDoubling,
+            handlePartUpdate,
+            handleAddScore,
+            handleDeleteScore,
+            handleRenameScore,
+            handleDuplicateScore,
+            handleResetLayout,
+            handleReorderScores,
+            handleExpandCondensingStave,
+            expandedCondensingStaves,
+          })
+        : isEngrave
+          ? buildEngraveMode({
+              engrave: engraveBag,
+              selection,
+              onTogglePanels: () => togglePanels(leftPanelRef, rightPanelRef),
+              leftFloat,
+              rightFloat,
+              canvasRef,
+              currentZoom,
+              previewViewMode,
+              setViewMode,
+              useWritten,
+              handleConcertPitchToggle,
+              expandedCondensingStaves,
+              handleExpandCondensingStave,
+            })
+          : isPublish
+            ? buildPublishMode({
+                publish: publishBag,
+                canvasRef,
+                currentZoom,
+                previewViewMode,
+                setViewMode,
+              })
+            : buildWriteMode({
+                canvasRef,
+                onTogglePanels: () => togglePanels(leftPanelRef, rightPanelRef),
+                leftFloat,
+                sourceFloat,
+                chordSettingsOpen,
+                chordSettingsWidth,
+                selectedScoreIndex,
+                selectedPartIds,
+                handleSelectScore,
+                expandedCondensingStaves,
+                handleExpandCondensingStave,
+                buildSelectionMenuItems,
+                viewMode,
+                setViewMode,
+                currentZoom,
+                useWritten,
+                handleConcertPitchToggle,
+                beatCountIssueCount: beatCountIssues.length,
+                onRepairMeasures: repairMeasures,
+                onDismissBeatCountWarnings: dismissBeatCountWarnings,
+                inspectorFocus,
+                selection,
+                dialogs,
+                writeLeftTab,
+                setWriteLeftTab,
+                paletteSectionRequest,
+              });
   /* eslint-enable react-hooks/refs */
 
   const workspace = {
@@ -738,7 +755,7 @@ function AppInner({
     handleViewportChange,
     handleLayoutsChange,
     handlePrintOverflowChange: setPrintOverflowPages,
-    statusVisible,
+    statusVisible: modeKind === "click" || statusVisible,
     mode,
   };
   const overlays = {

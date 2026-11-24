@@ -94,6 +94,19 @@ describe("floating click transport", () => {
     expect(transport.style.bottom).toBe("42px");
   });
 
+  it("keeps the transport above the status controls even when dragged down", () => {
+    const { transport } = setup();
+    transport.style.setProperty("--workspace-status-zone-height", "56px");
+    fireEvent.pointerDown(screen.getByText("4 clicks free"), {
+      pointerId: 1,
+      button: 0,
+      clientX: 250,
+      clientY: 460,
+    });
+    fireEvent.pointerMove(transport, { pointerId: 1, clientX: 1000, clientY: 1000 });
+    expect(transport.style.bottom).toBe("64px");
+  });
+
   it("does not drag or consume arrow keys from controls or either dial's contents", () => {
     const { transport } = setup();
     for (const target of [screen.getByRole("button", { name: "Start" }), screen.getByText("Bar 1")]) {

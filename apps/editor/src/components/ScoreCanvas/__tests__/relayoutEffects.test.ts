@@ -1,7 +1,8 @@
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PatchReconstructor,
+  EMPTY_LAYOUT_METRICS,
   PerfTracker,
   SpatialIndex,
   type DecodedFrame,
@@ -9,10 +10,11 @@ import {
   type Placement,
   type ScoreInfo,
 } from "@viritura/renderer";
-import type { Score } from "@viritura/core";
+import { DEFAULT_PART_PAGE_SETUP, type Score } from "@viritura/core";
 
 import { runFastLayoutAndPaint } from "../fastLayout";
-import { runSecondaryRelayout, useFastLayoutCallback } from "../relayoutEffects";
+import { runSecondaryRelayout, useFastLayoutCallback, useScoreViewRelayout } from "../relayoutEffects";
+import type { LayoutBackend } from "../layoutBackend";
 
 const SCORE_INFO = {
   partCount: 1,
@@ -320,6 +322,61 @@ describe("runSecondaryRelayout", () => {
     expect(paintNow).toHaveBeenCalledTimes(1);
     expect(spatialIndexRef.current?.hitTest(245, 105)).toBe("next");
     expect(paintNow).toHaveBeenCalledTimes(1);
+  });
+
+  describe("useScoreViewRelayout", () => {
+    it("recomputes the requested view without a retained backend score", async () => {
+      installAnimationFrameQueue();
+      const backend: LayoutBackend = {
+        isWorker: true,
+        isReady: () => true,
+        hasRetainedScore: () => false,
+        cacheStats: () => [0, 0],
+        layoutMetrics: () => ({ ...EMPTY_LAYOUT_METRICS }),
+        getScoreInfo: vi.fn(),
+        computeMnxScoreLayout: vi.fn(),
+        computeLayout: vi.fn(),
+        computeFullScoreLayout: vi.fn(),
+        relayoutRetainedScore: vi.fn(),
+        applyPatchAndLayout: vi.fn(),
+        fullLayout: vi.fn(),
+        invalidateCache: vi.fn(),
+        setEmitLayoutDebug: vi.fn(),
+        dispose: vi.fn(),
+      };
+      const next = displayList("horizon", 240);
+      const computeDisplayList = vi.fn().mockResolvedValue(next);
+      const displayListRef = { current: displayList("paged", 80) as DisplayList | null };
+      renderHook(() =>
+        useScoreViewRelayout({
+          selectedScoreIndex: 0,
+          scoreDefinitions: ["Score"],
+          wasmReady: true,
+          mnxJson: "{}",
+          viewMode: "horizon",
+          selectedPartIds: undefined,
+          expandedCondensingStaves: undefined,
+          computeDisplayList,
+          backendRef: { current: backend },
+          docScoreRef: { current: null },
+          pageSetupRef: { current: DEFAULT_PART_PAGE_SETUP },
+          cachedScoreInfoRef: { current: SCORE_INFO },
+          displayListRef,
+          displayListVersion: 1,
+          displayListVersionRef: { current: 1 },
+          spatialIndexRef: { current: null },
+          paintNowRef: { current: vi.fn() },
+          lastRelayoutKeyRef: { current: "0|paged|Score|||" },
+          lastRelayoutJsonRef: { current: "{}" },
+          viewSwitchTokenRef: { current: 0 },
+          setContentSize: vi.fn(),
+          setDisplayListVersion: vi.fn(),
+        }),
+      );
+      await waitFor(() => expect(displayListRef.current).toBe(next));
+      expect(computeDisplayList).toHaveBeenCalledWith("{}", SCORE_INFO, 0);
+      expect(backend.relayoutRetainedScore).not.toHaveBeenCalled();
+    });
   });
 
   it("does not install an index rebuilt for a superseded display list", async () => {

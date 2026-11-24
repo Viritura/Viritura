@@ -131,11 +131,10 @@ describe("production PWA assets", () => {
       const root = mkdtempSync(resolve(tmpdir(), "viritura-pwa-test-"));
       try {
         const publicRoot = resolve(root, "public");
-        for (const directory of ["wasm", "fonts", "scores", "sounds/ir", "denigma", "click"]) {
+        for (const directory of ["wasm", "fonts", "scores", "sounds/ir", "denigma"]) {
           mkdirSync(resolve(publicRoot, directory), { recursive: true });
         }
         writeFileSync(resolve(root, "index.html"), "<html><head></head><body>Viritura</body></html>");
-        writeFileSync(resolve(publicRoot, "click", "index.html"), "<html><body>Click player</body></html>");
         writeFileSync(resolve(publicRoot, "wasm", "engine.wasm"), new Uint8Array(3 * 1024 * 1024));
         writeFileSync(resolve(publicRoot, "wasm", "engine.js"), "export default {}");
         writeFileSync(resolve(publicRoot, "fonts", "Bravura.otf"), "test font");
@@ -190,7 +189,6 @@ describe("production PWA assets", () => {
         const worker = readFileSync(resolve(dist, "sw.js"), "utf8");
         for (const asset of [
           "index.html",
-          "click/index.html",
           "wasm/engine.wasm",
           "wasm/engine.js",
           "fonts/Bravura.otf",
@@ -213,7 +211,6 @@ describe("production PWA assets", () => {
             cleanupOutdatedCaches: vi.fn(),
             registerRoute: vi.fn(),
             NavigationRoute: vi.fn(),
-            NetworkOnly: class {},
             createHandlerBoundToURL: vi.fn(),
           });
         };
@@ -221,9 +218,7 @@ describe("production PWA assets", () => {
         expect(skipWaiting).not.toHaveBeenCalled();
         expect(addEventListener).toHaveBeenCalledWith("message", expect.any(Function));
         expect(pwaOptions.workbox?.skipWaiting).toBe(false);
-        expect(pwaOptions.workbox?.runtimeCaching).toEqual([
-          expect.objectContaining({ urlPattern: expect.any(Function), handler: "NetworkOnly" }),
-        ]);
+        expect(pwaOptions.workbox?.runtimeCaching).toEqual([]);
         expect(pwaOptions.devOptions?.enabled).toBe(false);
 
         const caches = workerCaches();
@@ -231,9 +226,7 @@ describe("production PWA assets", () => {
           const url = new URL(request.url);
           const path = url.pathname.endsWith(".sf2")
             ? soundfontPath
-            : /^\/click\/?$/.test(url.pathname)
-              ? resolve(dist, "click", "index.html")
-              : resolve(dist, ...url.pathname.slice(1).split("/"));
+            : resolve(dist, ...url.pathname.slice(1).split("/"));
           return new Response(readFileSync(path), {
             headers: { "Cross-Origin-Resource-Policy": "cross-origin" },
           });
@@ -244,15 +237,6 @@ describe("production PWA assets", () => {
         expect(fetchAsset.mock.calls.map(([request]) => new URL(request.url).pathname)).toContain(
           "/sounds/Shan-SGM-Pro-15.sf2",
         );
-        for (const path of ["/click", "/click/?test=1"]) {
-          fetchAsset.mockClear();
-          const clickNavigation = new Request(`https://app.viritura.test${path}`);
-          Object.defineProperty(clickNavigation, "mode", { value: "navigate" });
-          const clickPage = await initial.dispatch("fetch", clickNavigation);
-          expect(await clickPage?.text()).toContain("Click player");
-          expect(fetchAsset).toHaveBeenCalledOnce();
-          expect(new URL(fetchAsset.mock.calls[0]![0].url).pathname).toBe(path.split("?")[0]);
-        }
         fetchAsset.mockClear();
         fetchAsset.mockRejectedValue(new Error("offline"));
         // A fresh worker realm shares only persistent CacheStorage, not an in-memory SF2 buffer.

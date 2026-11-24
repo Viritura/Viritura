@@ -3,7 +3,7 @@
  * Kept here (not in `ScoreCanvas.tsx`) so the `.tsx` file exports components
  * only, per the `react-refresh/only-export-components` rule and AGENTS.md.
  */
-import type { SlurShape } from "@viritura/core";
+import type { PageSetup, SlurShape } from "@viritura/core";
 import type { WriteViewMode as ViewMode, MenuItemDef } from "@viritura/ui";
 import type { ScrollAnchor, ScrollAnchorAxes } from "../../viewport";
 
@@ -127,6 +127,8 @@ export interface EngraveClickModifiers {
 
 export interface ScoreCanvasProps {
   partIndex?: number;
+  /** Render a written-pitch source part independently of authored score layouts. */
+  sourcePartIndex?: number;
   /** Keep the layout backend briefly available across Storybook-style remounts. */
   keepLayoutBackendAlive?: boolean;
   /** Currently selected score/layout index (0 = full score) */
@@ -162,6 +164,12 @@ export interface ScoreCanvasProps {
   onPrintOverflowChange?: (pages: number[]) => void;
   /** View mode: "page" (paper layout with system breaks) or "horizon" (continuous, no breaks) */
   viewMode?: ViewMode;
+  /** Override page geometry for activity-specific score projections. */
+  pageSetupOverride?: PageSetup;
+  /** Keep the current page/spread, or Horizon staff height, fitted to the viewport. */
+  fitToView?: boolean;
+  /** Reapply view fitting even when fitToView is already enabled. */
+  fitRequest?: number;
   /** Initial zoom level (default: LIFE_SIZE_ZOOM ≈ 0.315 → "100%" in the UI). */
   initialZoom?: number;
   /**
@@ -206,7 +214,9 @@ export interface ScoreCanvasProps {
    * "engrave" suppresses element/measure selection on click and instead
    * routes pointer events through engrave callbacks. Used by Engrave mode.
    */
-  interactionMode?: "write" | "engrave";
+  interactionMode?: "write" | "engrave" | "click";
+  /** Fired when Click mode selects a measure on the score canvas. */
+  onClickMeasure?: (measureIndex: number) => void;
   /** Engrave-mode adornments (break markers, future: ghost staves). */
   engraveAdornments?: EngraveAdornments;
   /** Currently selected marker id (highlighted on the canvas). */

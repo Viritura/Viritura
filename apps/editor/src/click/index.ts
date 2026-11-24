@@ -1,1 +1,1 @@
-export { ClickPage } from "./ClickPage";
+export { ClickView } from "./ClickView";

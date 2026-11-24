@@ -2,11 +2,8 @@
  * Playhead Painter — renders a vertical playhead cursor line during playback.
  *
  * Maps a beat position to an X coordinate using the layout engine's
- * MeasureBounds.beatAnchors, then draws a semi-transparent vertical line
+ * MeasureBounds.beatAnchors, then draws a vertical line
  * spanning all staves in the current system.
- *
- * standard engraving practice draws a similar blue playhead line spanning
- * all staves in the system during playback (ScoreView::setPlayPos).
  */
 
 import type { MeasureBounds, DisplayList } from "./wasm";
@@ -32,8 +29,8 @@ export interface PlayheadDraw {
   yBottom: number;
 }
 
-/** Default playhead color: semi-transparent blue, matching standard practice. */
-const PLAYHEAD_COLOR = "rgba(33, 150, 243, 0.6)";
+/** Brand viridian, matching the score viewers' --brand fallback. */
+const PLAYHEAD_COLOR = "#215e4e";
 /** Default playhead line width in score-space pixels. */
 const PLAYHEAD_WIDTH = 2;
 

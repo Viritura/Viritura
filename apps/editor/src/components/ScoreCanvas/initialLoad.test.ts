@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { getGlobalPerfTracker, type DisplayList, type ScoreInfo } from "@viritura/renderer";
-import { runInitialLoad } from "./initialLoad";
+import { runInitialLoad, scoreViewRelayoutKey } from "./initialLoad";
 
 const info: ScoreInfo = {
   partCount: 1,
@@ -62,8 +62,13 @@ describe("initial layout publication after undo or document changes", () => {
 
   it("publishes current layouts normally", async () => {
     const args = loadArgs(() => false);
+    args.selectedPartIds = ["piano"];
+    args.expandedCondensingStaves = new Set(["staff"]);
     await runInitialLoad(args);
     expect(args.displayListRef.current).toBe(displayList);
+    expect(args.lastScoreDefinitionRelayoutKeyRef.current).toBe(
+      scoreViewRelayoutKey(0, "horizon", [], ["piano"], new Set(["staff"])),
+    );
     expect(args.clearSelection).toHaveBeenCalledOnce();
   });
 });

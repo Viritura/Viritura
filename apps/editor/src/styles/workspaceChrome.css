@@ -39,6 +39,7 @@
   overflow: hidden;
   /* Accent tokens — descendant glass tints, focus rings, selection. */
   --accent-rgb: 33, 94, 78;
+  --on-accent: #fff;
   --accent-grad: linear-gradient(135deg, #215e4e 0%, #3f8a74 100%);
   /* Workspace mesh — viridian leads, with warm bone, cool sky, and a
    * lavender backstop. Saturated enough to read as a designed surface

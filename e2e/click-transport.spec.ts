@@ -1,6 +1,195 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+type ScoreFile = string | { name: string; mimeType: string; buffer: Buffer };
+
+/** Opens a score through the editor's File menu, then switches to the Click activity. */
+async function openClick(
+  page: Page,
+  file: ScoreFile,
+  noteInput = false,
+  beforeClick?: () => Promise<void>,
+): Promise<void> {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("viritura.startCenter.suppress", "1");
+    Reflect.deleteProperty(window, "showOpenFilePicker");
+  });
+  await page.goto("/");
+  await expect(page.locator('canvas[tabindex="0"]')).toBeVisible({ timeout: 45_000 });
+  const chooser = page.waitForEvent("filechooser");
+  await page.keyboard.press("ControlOrMeta+Shift+O");
+  await (await chooser).setFiles(file);
+  await expect(page.getByText("Laying out score")).toHaveCount(0, { timeout: 45_000 });
+  if (noteInput) {
+    const toggle = page.getByRole("button", { name: "Toggle note input (N)" });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  }
+  await beforeClick?.();
+  await page.getByRole("button", { name: "Click", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Click player" })).toHaveAttribute("aria-busy", "false");
+}
+
+test("note-input keystrokes do not edit the score during a Click take", async ({ page }) => {
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+    true,
+  );
+  const player = page.getByRole("region", { name: "Click player" });
+  await player.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(player.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+  await page.getByRole("application", { name: "Interactive music score" }).focus();
+  await page.keyboard.press("C");
+  await page.waitForTimeout(1000);
+  await expect(player.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await player.getByRole("button", { name: "Stop", exact: true }).click();
+});
+
+test("returning from Click restores a distant Write Horizon position", async ({ page }) => {
+  let distant = "";
+  const canvas = page.getByRole("application", { name: "Interactive music score" });
+  const image = () => canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL());
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "beethoven-symphony-5-movement-1.mnx"),
+    false,
+    async () => {
+      const original = await image();
+      await canvas.hover();
+      await page.mouse.wheel(12000, 0);
+      await expect.poll(image).not.toBe(original);
+      distant = await image();
+    },
+  );
+  await page.getByRole("button", { name: "View mode", exact: true }).click();
+  await page.getByRole("option", { name: "Page", exact: true }).click();
+  await page.getByRole("button", { name: "Write", exact: true }).click();
+  await expect.poll(image, { timeout: 45_000 }).toBe(distant);
+});
+
+async function scoreFrame(page: Page) {
+  return page.getByRole("application", { name: "Interactive music score" }).evaluate((canvas) => {
+    const element = canvas.parentElement!;
+    const match = /^inset\(([^)]+)\)$/.exec(element.style.clipPath);
+    if (!match) return null;
+    const values = match[1]!.split(/\s+/).map(Number.parseFloat);
+    const [top, right = top, bottom = top, left = right] = values;
+    if (top === undefined || right === undefined || bottom === undefined || left === undefined) return null;
+    const box = element.getBoundingClientRect();
+    return {
+      x: box.x + left,
+      y: box.y + top,
+      width: box.width - left - right,
+      height: box.height - top - bottom,
+    };
+  });
+}
+
+async function playheadBounds(page: Page) {
+  return page.getByTestId("playhead-overlay").evaluate((canvas: HTMLCanvasElement) => {
+    const context = canvas.getContext("2d");
+    if (!context || !canvas.width || !canvas.height) return null;
+    const { width, height } = canvas;
+    const pixels = context.getImageData(0, 0, width, height).data;
+    let left = width;
+    let right = -1;
+    let top = height;
+    let bottom = -1;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (pixels[(y * width + x) * 4 + 3] === 0) continue;
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+        top = Math.min(top, y);
+        bottom = Math.max(bottom, y);
+      }
+    }
+    if (right < 0) return null;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: rect.x + (left * rect.width) / width,
+      y: rect.y + (top * rect.height) / height,
+      width: ((right - left + 1) * rect.width) / width,
+      height: ((bottom - top + 1) * rect.height) / height,
+    };
+  });
+}
+
+for (const fixture of ["c-major-scale.mnx", "beethoven-symphony-5-movement-1.mnx"]) {
+  test(`Click status controls receive mouse clicks and fit the shared score view (${fixture})`, async ({ page }) => {
+    await openClick(page, resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", fixture));
+    const canvas = page.getByRole("application", { name: "Interactive music score" });
+    const zoom = page.getByLabel("Score zoom", { exact: true });
+    const fit = page.getByRole("button", { name: "Zoom to fit" });
+    await page.getByRole("button", { name: "Reset zoom" }).click();
+    await expect(zoom).toHaveText("100%");
+    await fit.click();
+    await expect(zoom).not.toHaveText("100%");
+    await expect.poll(async () => Number.parseInt((await zoom.textContent()) ?? "0", 10)).toBeGreaterThan(5);
+    const horizonZoom = await zoom.textContent();
+    const horizonImage = await canvas.screenshot();
+    await fit.click();
+    await expect(zoom).toHaveText(horizonZoom!);
+    for (const mode of ["Page", "Spread", "Spread (H)"]) {
+      await page.getByRole("button", { name: "View mode", exact: true }).click();
+      await page.getByRole("option", { name: mode, exact: true }).click();
+      await expect(page.getByRole("button", { name: "View mode", exact: true })).toHaveText(mode);
+      await expect.poll(async () => (await canvas.screenshot()).equals(horizonImage)).toBe(false);
+    }
+    await page.getByRole("button", { name: "View mode", exact: true }).click();
+    await page.getByRole("option", { name: "Horizon", exact: true }).click();
+    await expect(zoom).toHaveText(horizonZoom!);
+  });
+}
+
+test("Click follows selected bars across page, spread and Horizon views", async ({ page }) => {
+  test.setTimeout(120_000);
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "beethoven-symphony-5-movement-1.mnx"),
+  );
+  const canvas = page.getByRole("application", { name: "Interactive music score" });
+  const bars = page.getByRole("listbox", { name: "Start bar" });
+  const selector = page.getByRole("button", { name: "View mode", exact: true });
+  async function cursorVisible() {
+    return page.getByTestId("playhead-overlay").evaluate((element: HTMLCanvasElement) => {
+      const context = element.getContext("2d");
+      if (!context) return false;
+      const { width, height } = element;
+      if (!width || !height) return false;
+      const data = context.getImageData(0, 0, width, height).data;
+      for (let y = 12; y < height - 66; y++) {
+        for (let x = 42; x < width - 12; x++) {
+          if (data[(y * width + x) * 4 + 3]! > 0) return true;
+        }
+      }
+      return false;
+    });
+  }
+  for (const mode of ["Page", "Spread", "Spread (H)"]) {
+    await selector.click();
+    await page.getByRole("option", { name: mode, exact: true }).click();
+    await bars.press("Home");
+    await expect.poll(cursorVisible, { timeout: 45_000 }).toBe(true);
+    const firstPage = await canvas.screenshot();
+    await bars.press("End");
+    await expect.poll(async () => (await canvas.screenshot()).equals(firstPage), { timeout: 45_000 }).toBe(false);
+    await expect.poll(cursorVisible, { timeout: 45_000 }).toBe(true);
+    const lastPage = await canvas.screenshot();
+    await bars.press("Home");
+    await expect.poll(async () => (await canvas.screenshot()).equals(lastPage), { timeout: 45_000 }).toBe(false);
+    await expect.poll(cursorVisible).toBe(true);
+  }
+  await selector.click();
+  await page.getByRole("option", { name: "Horizon", exact: true }).click();
+  await expect
+    .poll(async () => Number.parseInt((await page.getByLabel("Score zoom", { exact: true }).textContent()) ?? "0", 10))
+    .toBeGreaterThan(5);
+  await expect.poll(cursorVisible).toBe(true);
+});
 
 for (const mode of ["Page", "Spread", "Spread (H)"]) {
   test(`${mode} previews the next flow during playback and restores it on Stop`, async ({ page }) => {
@@ -41,13 +230,12 @@ for (const mode of ["Page", "Spread", "Spread (H)"]) {
         },
       ],
     };
-    await page.goto("/click");
-    await page.getByLabel("MNX file").setInputFiles({
+    await openClick(page, {
       name: "reader-turns.mnx",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(mnx)),
     });
-    await page.getByRole("combobox", { name: "View mode" }).click();
+    await page.getByRole("button", { name: "View mode" }).click();
     await page.getByRole("option", { name: mode, exact: true }).click();
     const bars = page.getByRole("listbox", { name: "Start bar" });
     await bars.press("Home");
@@ -64,16 +252,17 @@ for (const mode of ["Page", "Spread", "Spread (H)"]) {
         : '[data-reader-source-page="3"][data-reader-target-page="1"]',
     );
     await expect(preview).toBeVisible();
-    const target = page.locator(single ? 'canvas[data-page="0"]' : 'canvas[data-page="1"]');
+    const target = page.getByRole("application", { name: "Interactive music score" });
     await expect
       .poll(async () => {
         const [pageBox, previewBox] = await Promise.all([target.boundingBox(), preview.boundingBox()]);
         return (
           pageBox !== null &&
           previewBox !== null &&
-          Math.abs(previewBox.x - pageBox.x) < 1 &&
-          Math.abs(previewBox.y - pageBox.y) < 1 &&
-          Math.abs(previewBox.height - pageBox.height * (single ? 0.5 : 1)) < 1
+          previewBox.x >= pageBox.x &&
+          previewBox.y >= pageBox.y &&
+          previewBox.x + previewBox.width <= pageBox.x + pageBox.width &&
+          previewBox.y + previewBox.height <= pageBox.y + pageBox.height
         );
       })
       .toBe(true);
@@ -81,105 +270,115 @@ for (const mode of ["Page", "Spread", "Spread (H)"]) {
     await expect(preview).toHaveCount(0);
     await page.getByRole("button", { name: "Start", exact: true }).click();
     await expect(preview).toBeVisible();
+    await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>('canvas[aria-label="Interactive music score"]');
+      if (!canvas?.parentElement) throw new Error("Score canvas is not available");
+      const oldFrame = canvas.toDataURL();
+      const observer = new MutationObserver(() => {
+        if (canvas.parentElement?.querySelector("[data-reader-source-page]")) return;
+        document.documentElement.dataset.readerTurnStale = String(canvas.toDataURL() === oldFrame);
+        observer.disconnect();
+      });
+      observer.observe(canvas.parentElement, { childList: true });
+    });
     await expect(page.getByRole("status", { name: "Current bar" })).toHaveText(single ? "9" : "13", { timeout: 10000 });
     await expect(preview).toHaveCount(0);
-    await expect(page.locator(single ? 'canvas[data-page="1"]' : 'canvas[data-page="3"]')).toBeVisible();
-    if (!single) await expect(page.locator('canvas[data-page="4"]')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.readerTurnStale)).toBe("false");
     await page.getByRole("button", { name: "Stop", exact: true }).click();
   });
 }
 
 for (const mode of ["Page", "Spread", "Spread (H)"]) {
   test(`${mode} follows the playhead with a whole centered page frame`, async ({ page }) => {
-    await page.goto("/click");
-    await page
-      .getByLabel("MNX file")
-      .setInputFiles(
-        resolve(
-          import.meta.dirname,
-          "..",
-          "packages",
-          "format",
-          "fixtures",
-          "mnx",
-          "beethoven-symphony-5-movement-1.mnx",
-        ),
-      );
-    await page.getByRole("combobox", { name: "View mode" }).click();
+    const measures = Array.from({ length: 16 }, (_, index) => ({
+      id: `m${index}`,
+      number: index + 1,
+      ...(index === 0 ? { time: { count: 1, unit: 4 }, tempos: [{ bpm: 60, value: { base: "quarter" } }] } : {}),
+    }));
+    await openClick(page, {
+      name: "four-pages.mnx",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          mnx: { version: 7 },
+          global: { measures },
+          layouts: [{ id: "layout", content: [{ type: "staff", sources: [{ part: "p1" }] }] }],
+          parts: [
+            {
+              id: "p1",
+              measures: measures.map(() => ({
+                sequences: [
+                  { content: [{ duration: { base: "quarter" }, notes: [{ pitch: { step: "C", octave: 4 } }] }] },
+                ],
+              })),
+            },
+          ],
+          scores: [
+            {
+              name: "Four pages",
+              layout: "layout",
+              _x: {
+                viritura: {
+                  pageSetupRole: "score",
+                  pageSetup: { width: 140, height: 200, spatiumMm: 1.5 },
+                  layoutBreaks: measures
+                    .filter((_, index) => index > 0 && index % 4 === 0)
+                    .map((measure) => ({ measure: measure.id, kind: "page" })),
+                },
+              },
+            },
+          ],
+        }),
+      ),
+    });
+    await page.getByRole("button", { name: "View mode" }).click();
     await page.getByRole("option", { name: mode, exact: true }).click();
-    const score = page.getByRole("region", { name: "Score", exact: true });
-    async function frame() {
-      const viewport = await score.boundingBox();
-      if (!viewport) throw new Error("Score viewport is not visible");
-      return page.locator("canvas[data-page]").evaluateAll((canvases, viewport) => {
-        const visible = canvases
-          .map((canvas) => ({ page: Number(canvas.getAttribute("data-page")), box: canvas.getBoundingClientRect() }))
-          .filter(
-            ({ box }) =>
-              box.right > viewport.x + 1 &&
-              box.left < viewport.x + viewport.width - 1 &&
-              box.bottom > viewport.y + 1 &&
-              box.top < viewport.y + viewport.height - 1,
-          );
-        return {
-          pages: visible.map(({ page }) => page).sort((a, b) => a - b),
-          fitted: visible.every(
-            ({ box }) =>
-              box.left >= viewport.x - 1 &&
-              box.right <= viewport.x + viewport.width + 1 &&
-              box.top >= viewport.y - 1 &&
-              box.bottom <= viewport.y + viewport.height + 1,
-          ),
-          centered:
-            visible.length > 0 &&
-            Math.abs(
-              (Math.min(...visible.map(({ box }) => box.left)) + Math.max(...visible.map(({ box }) => box.right))) / 2 -
-                viewport.x -
-                viewport.width / 2,
-            ) < 2 &&
-            Math.abs(
-              (Math.min(...visible.map(({ box }) => box.top)) + Math.max(...visible.map(({ box }) => box.bottom))) / 2 -
-                viewport.y -
-                viewport.height / 2,
-            ) < 2,
-        };
-      }, viewport);
-    }
-    const first = [0];
-    const frameSize = mode === "Page" ? 1 : 2;
-    await expect.poll(async () => (await frame()).pages).toEqual(first);
-    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
     const bars = page.getByRole("listbox", { name: "Start bar" });
-    if (mode !== "Page") {
-      for (let step = 0; step < 100 && (await frame()).pages[0] === 0; step++) await bars.press("ArrowRight");
-      await expect.poll(async () => (await frame()).pages).toEqual([1, 2]);
-      await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
-    }
-    await bars.press("End");
-    await expect.poll(async () => (await frame()).pages[0] ?? 0).toBeGreaterThan(first.at(-1)!);
-    await expect.poll(async () => (await frame()).pages.length).toBeGreaterThanOrEqual(1);
-    expect((await frame()).pages.length).toBeLessThanOrEqual(frameSize);
-    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    const canvas = page.getByRole("application", { name: "Interactive music score" });
     await bars.press("Home");
-    await expect.poll(async () => (await frame()).pages).toEqual(first);
-    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    await expect.poll(async () => (await scoreFrame(page))?.width ?? 0).toBeGreaterThan(0);
+    await expect.poll(async () => (await playheadBounds(page)) !== null).toBe(true);
+    const first = (await scoreFrame(page))!;
+    const firstImage = await canvas.screenshot();
+    await expect
+      .poll(async () => {
+        const frame = await scoreFrame(page);
+        return frame ? frame.width / frame.height : 0;
+      })
+      .toBeCloseTo(0.7, 1);
+    for (let step = 0; step < 4; step++) await bars.press("ArrowRight");
+    await expect(page.getByRole("option", { name: "Bar 5", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect.poll(async () => (await canvas.screenshot()).equals(firstImage)).toBe(false);
+    await expect
+      .poll(async () => {
+        const frame = await scoreFrame(page);
+        return frame ? frame.width / frame.height : 0;
+      })
+      .toBeCloseTo(mode === "Page" ? 0.7 : 1.4, 1);
+    const paired = (await scoreFrame(page))!;
+    expect(paired.x + paired.width / 2).toBeCloseTo(first.x + first.width / 2, 0);
+    expect(paired.y + paired.height / 2).toBeCloseTo(first.y + first.height / 2, 0);
     await bars.press("End");
-    for (let step = 0; step < 10; step++) await bars.press("ArrowLeft");
-    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
-    const selectedPages = (await frame()).pages;
-    if (mode !== "Page" && selectedPages.length === 2) {
-      expect(selectedPages[0]! % 2).toBe(1);
-      expect(selectedPages[1]).toBe(selectedPages[0]! + 1);
-    }
+    await expect(page.getByRole("option", { name: "Bar 16", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect
+      .poll(async () => {
+        const frame = await scoreFrame(page);
+        return frame ? frame.width / frame.height : 0;
+      })
+      .toBeCloseTo(0.7, 1);
+    await expect.poll(async () => (await playheadBounds(page)) !== null).toBe(true);
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect.poll(async () => (await frame()).pages).toEqual(selectedPages);
-    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    await expect
+      .poll(async () => {
+        const frame = await scoreFrame(page);
+        return frame ? frame.width / frame.height : 0;
+      })
+      .toBeCloseTo(0.7, 1);
     await page.getByRole("button", { name: "Start", exact: true }).click();
-    await expect(page.getByRole("banner")).toHaveCount(0);
-    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    await expect(page.getByRole("group", { name: "Click settings" })).toHaveCount(0);
+    await expect.poll(async () => (await playheadBounds(page)) !== null).toBe(true);
     await page.getByRole("button", { name: "Stop", exact: true }).click();
-    await expect(page.getByRole("banner")).toBeVisible();
-    await expect.poll(async () => (await frame()).fitted && (await frame()).centered).toBe(true);
+    await expect(page.getByRole("group", { name: "Click settings" })).toBeVisible();
   });
 }
 
@@ -217,32 +416,30 @@ test("click pages honor MNX page and staff sizes when switching score views", as
       },
     ],
   };
-  await page.goto("/click");
-  await page.getByLabel("MNX file").setInputFiles({
+  await openClick(page, {
     name: "engraving-sizes.mnx",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(mnx)),
   });
-  await page.getByRole("combobox", { name: "View mode" }).click();
+  await page.getByRole("button", { name: "View mode" }).click();
   await page.getByRole("option", { name: "Page", exact: true }).click();
-  const canvas = page.locator('canvas[data-page="0"]');
-  const marker = page.locator('[data-score-playhead="true"]');
   async function pageAspect() {
-    const box = await canvas.boundingBox();
-    return box === null ? 0 : box.width / box.height;
+    const frame = await scoreFrame(page);
+    return frame === null ? 0 : frame.width / frame.height;
   }
   async function staffHeight() {
-    return (await marker.boundingBox())?.height ?? 0;
+    const zoom = Number.parseInt((await page.getByLabel("Score zoom", { exact: true }).textContent()) ?? "0", 10);
+    return ((await playheadBounds(page))?.height ?? 0) / zoom;
   }
   await expect.poll(pageAspect).toBeCloseTo(1.5, 2);
-  await expect.poll(staffHeight).toBeGreaterThan(1);
+  await expect.poll(staffHeight).toBeGreaterThan(0);
   const originalHeight = await staffHeight();
   async function selectScore(name: string) {
-    await page.getByRole("combobox", { name: "Score or part" }).click();
-    await page.getByRole("option", { name, exact: true }).click();
+    await page.getByRole("button", { name: /^Select score or part:/ }).click();
+    await page.getByRole("button", { name, exact: true }).click();
   }
   await selectScore("Large staff");
-  await expect.poll(async () => (await staffHeight()) / originalHeight).toBeCloseTo(2, 1);
+  await expect.poll(async () => Math.abs((await staffHeight()) / originalHeight - 2)).toBeLessThan(0.1);
   await expect.poll(pageAspect).toBeCloseTo(1.5, 2);
   await selectScore("Portrait");
   await expect.poll(pageAspect).toBeCloseTo(180 / 260, 2);
@@ -251,61 +448,18 @@ test("click pages honor MNX page and staff sizes when switching score views", as
   await expect.poll(async () => (await staffHeight()) / originalHeight).toBeCloseTo(1, 1);
 });
 
-test("click score view modes arrange pages vertically and horizontally", async ({ page }) => {
-  await page.goto("/click");
-  await page
-    .getByLabel("MNX file")
-    .setInputFiles(
-      resolve(
-        import.meta.dirname,
-        "..",
-        "packages",
-        "format",
-        "fixtures",
-        "mnx",
-        "beethoven-symphony-5-movement-1.mnx",
-      ),
-    );
-  const selector = page.getByRole("combobox", { name: "View mode" });
-  const surface = page.locator('[data-score-playhead="true"]').locator("..");
-  async function dimensions() {
-    return surface.evaluate((element) => ({ width: element.clientWidth, height: element.clientHeight }));
-  }
-  async function selectMode(label: string) {
-    await selector.click();
-    await page.getByRole("option", { name: label, exact: true }).click();
-  }
-
-  await selectMode("Page");
-  await expect(page.locator('canvas[data-page="0"]')).toBeVisible();
-  await expect.poll(async () => (await dimensions()).height / (await dimensions()).width).toBeGreaterThan(4);
-  const single = await dimensions();
-
-  await selectMode("Spread");
-  await expect.poll(async () => (await dimensions()).width).toBeGreaterThan(single.width * 1.9);
-  await expect.poll(async () => (await dimensions()).height).toBeLessThan(single.height / 1.2);
-  const spread = await dimensions();
-
-  await selectMode("Spread (H)");
-  await expect.poll(async () => (await dimensions()).width).toBeGreaterThan(spread.width * 1.5);
-  await expect.poll(async () => (await dimensions()).height).toBeLessThan(spread.height / 1.5);
-
-  await selectMode("Horizon");
-  await expect(page.locator("canvas[data-page]")).toHaveCount(0);
-  const viewport = page.getByRole("region", { name: "Score", exact: true });
-  await expect
-    .poll(async () => {
-      const box = await viewport.boundingBox();
-      return box === null ? Infinity : Math.abs((await dimensions()).height - box.height);
-    })
-    .toBeLessThan(2);
-
+test("click score view controls remain usable on a narrow viewport", async ({ page }) => {
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "beethoven-symphony-5-movement-1.mnx"),
+  );
+  const selector = page.getByRole("button", { name: "View mode" });
   await page.setViewportSize({ width: 390, height: 844 });
   for (const control of [
     selector,
-    page.getByRole("combobox", { name: "Score or part" }),
-    page.getByRole("button", { name: "Zoom out", exact: true }),
-    page.getByRole("button", { name: "Zoom in", exact: true }),
+    page.getByRole("button", { name: /^Select score or part:/ }),
+    page.getByRole("slider", { name: "Zoom slider", exact: true }),
+    page.getByRole("button", { name: "Reset zoom", exact: true }),
     page.getByRole("button", { name: "Zoom to fit", exact: true }),
   ]) {
     await expect(control).toBeVisible();
@@ -315,13 +469,20 @@ test("click score view modes arrange pages vertically and horizontally", async (
     expect(box.x + box.width).toBeLessThanOrEqual(390);
     expect(box.height).toBeGreaterThanOrEqual(44);
   }
+  const picker = await page.getByRole("button", { name: /^Select score or part:/ }).boundingBox();
+  const menu = await page.getByRole("menubar", { name: "Menu bar" }).boundingBox();
+  const status = await page.getByRole("status", { name: "Click score view" }).boundingBox();
+  const transport = await page.getByRole("region", { name: "Click player" }).boundingBox();
+  if (!picker || !menu || !status || !transport) throw new Error("Click chrome is not visible");
+  expect(picker.x).toBeGreaterThanOrEqual(menu.x + menu.width);
+  expect(transport.y + transport.height).toBeLessThanOrEqual(status.y);
 });
 
 test("dragging the click transport does not select its text", async ({ page }) => {
-  await page.goto("/click");
-  await page
-    .getByLabel("MNX file")
-    .setInputFiles(resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"));
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+  );
 
   const panel = page.getByRole("region", { name: "Click player" });
   const details = panel.getByRole("group", { name: "Selected start" });
@@ -347,10 +508,10 @@ test("dragging the click transport does not select its text", async ({ page }) =
 });
 
 test("dragging a navigation dial horizontally selects a later bar", async ({ page }) => {
-  await page.goto("/click");
-  await page
-    .getByLabel("MNX file")
-    .setInputFiles(resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"));
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+  );
 
   const panel = page.getByRole("region", { name: "Click player" });
   await expect(panel.getByRole("option", { name: "Bar 1, rehearsal A" })).toHaveAttribute("aria-selected", "true");
@@ -376,14 +537,13 @@ for (const viewport of [
 ]) {
   test(`playback shrinks the transport and Stop restores it at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
-    await page.goto("/click");
     const fixture = await readFile(
       resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
       "utf8",
     );
     const score = JSON.parse(fixture) as { global: { measures: { number?: number }[] } };
     score.global.measures[2]!.number = viewport.barNumber;
-    await page.getByLabel("MNX file").setInputFiles({
+    await openClick(page, {
       name: "rehearsal-marks.mnx",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(score)),
@@ -393,10 +553,13 @@ for (const viewport of [
     const barName = `Bar ${viewport.barNumber}, rehearsal B`;
     await panel.getByRole("option", { name: barName }).click();
     await panel.getByRole("radio", { name: "2 bars" }).click();
+    const tempo = page.getByRole("slider", { name: "Session tempo %" });
+    await tempo.press("Home");
+    for (let step = 0; step < 10; step++) await tempo.press("ArrowRight");
     const zoom = page.getByLabel("Score zoom");
     await expect.poll(async () => Number.parseInt((await zoom.textContent()) ?? "0", 10)).toBeGreaterThan(100);
     const initialZoom = Number.parseInt((await zoom.textContent()) ?? "0", 10);
-    const scoreView = page.getByRole("region", { name: "Score", exact: true });
+    const scoreView = page.getByRole("application", { name: "Interactive music score" });
     const initialScore = await scoreView.boundingBox();
     if (!initialScore) throw new Error("Score view is not visible");
     const expanded = await panel.boundingBox();
@@ -409,19 +572,13 @@ for (const viewport of [
     const stop = panel.getByRole("button", { name: "Stop", exact: true });
     const bar = panel.getByRole("status", { name: "Current bar" });
     await expect(stop).toBeEnabled();
-    await expect(page.getByRole("banner")).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Click settings" })).toHaveCount(0);
     await expect
       .poll(async () => {
         const playingScore = await scoreView.boundingBox();
-        return playingScore !== null && playingScore.y < 1 && Math.abs(playingScore.height - viewport.height) < 1;
+        return playingScore !== null && Math.abs(playingScore.height - initialScore.height) < 1;
       })
       .toBe(true);
-    await expect
-      .poll(async () => {
-        const playingZoom = Number.parseInt((await zoom.textContent()) ?? "0", 10);
-        return Math.abs(playingZoom / initialZoom - viewport.height / initialScore.height);
-      })
-      .toBeLessThan(0.02);
     const compactButton = await stop.boundingBox();
     if (!compactButton) throw new Error("Stop button is not visible");
     expect(Math.abs(compactButton.x - expandedButton.x)).toBeLessThan(1);
@@ -455,7 +612,7 @@ for (const viewport of [
 
     const start = panel.getByRole("button", { name: "Start", exact: true });
     await expect(start).toBeEnabled();
-    await expect(page.getByRole("banner")).toBeVisible();
+    await expect(page.getByRole("group", { name: "Click settings" })).toBeVisible();
     await expect
       .poll(async () => {
         const restoredScore = await scoreView.boundingBox();
@@ -500,12 +657,10 @@ test.describe("compact transport touch movement", () => {
   test.use({ hasTouch: true });
 
   test("the narrower bar display still supports vertical dragging", async ({ page, context }) => {
-    await page.goto("/click");
-    await page
-      .getByLabel("MNX file")
-      .setInputFiles(
-        resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
-      );
+    await openClick(
+      page,
+      resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+    );
     const panel = page.getByRole("region", { name: "Click player" });
     await panel.getByRole("button", { name: "Start", exact: true }).focus();
     await page.keyboard.press("Enter");
@@ -542,8 +697,8 @@ test.describe("score browsing", () => {
     page,
     context,
   }) => {
+    test.setTimeout(120_000);
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/click");
     const fixture = await readFile(
       resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
       "utf8",
@@ -553,7 +708,7 @@ test.describe("score browsing", () => {
     };
     score.global.measures[0]!.repeatStart = {};
     score.global.measures[1]!.repeatEnd = {};
-    await page.getByLabel("MNX file").setInputFiles({
+    await openClick(page, {
       name: "repeated.mnx",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(score)),
@@ -564,89 +719,85 @@ test.describe("score browsing", () => {
     await expect
       .poll(async () => Number.parseInt((await page.getByLabel("Score zoom").textContent()) ?? "0", 10))
       .toBeGreaterThan(100);
-    await target.click();
-    await expect(target).toHaveAttribute("aria-selected", "true");
-    const marker = page.locator('[data-score-playhead="true"]');
-    await expect(marker).toBeVisible();
-    const surface = marker.locator("..");
-    const viewport = surface.locator("..");
-    const targetOffset = await marker.evaluate((element) => {
-      const bar = element.getBoundingClientRect();
-      const parent = element.parentElement!.getBoundingClientRect();
-      return { x: bar.x - parent.x + 8, y: bar.y - parent.y + bar.height / 2 };
-    });
+    const dial = panel.getByRole("listbox", { name: "Start bar" });
+    async function selectTarget() {
+      await dial.press("Home");
+      await dial.press("ArrowRight");
+      await dial.press("ArrowRight");
+      await expect(target).toHaveAttribute("aria-selected", "true");
+    }
+    await selectTarget();
+    await page.getByRole("button", { name: "View mode" }).click();
+    await page.getByRole("option", { name: "Page", exact: true }).click();
+    await expect.poll(async () => (await playheadBounds(page)) !== null).toBe(true);
+    const targetHead = (await playheadBounds(page))!;
+    const targetPoint = { x: targetHead.x + targetHead.width + 3, y: targetHead.y + targetHead.height / 2 };
+    const canvas = page.getByRole("application", { name: "Interactive music score" });
     const touch = await context.newCDPSession(page);
 
-    async function revealTarget(useTouch: boolean) {
-      for (let attempt = 0; attempt < 6; attempt++) {
-        const point = await surface.evaluate((element, offset) => {
-          const rect = element.getBoundingClientRect();
-          return { x: rect.x + offset.x, y: rect.y + offset.y };
-        }, targetOffset);
-        const area = await viewport.boundingBox();
-        if (!area) throw new Error("Score viewport is not visible");
-        if (point.x > area.x + 20 && point.x < area.x + area.width - 20) return point;
-        const delta = Math.max(-area.width * 0.6, Math.min(area.width * 0.6, point.x - area.x - area.width / 2));
-        const x = area.x + area.width * (delta > 0 ? 0.8 : 0.2);
-        if (useTouch) {
-          await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y: point.y }] });
-          for (let step = 1; step <= 6; step++) {
-            await touch.send("Input.dispatchTouchEvent", {
-              type: "touchMove",
-              touchPoints: [{ x: x - (delta * step) / 6, y: point.y }],
-            });
-            await page.waitForTimeout(20);
-          }
-          await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-        } else {
-          await page.mouse.move(x, point.y);
-          await page.mouse.down();
-          await page.mouse.move(x - delta, point.y, { steps: 8 });
-          await page.mouse.up();
+    async function drag(useTouch: boolean, point: { x: number; y: number }) {
+      if (useTouch) {
+        await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+        for (let step = 1; step <= 6; step++) {
+          await touch.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [{ x: point.x + step * 20, y: point.y }],
+          });
         }
+        await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      } else {
+        await page.mouse.move(point.x, point.y);
+        await page.mouse.down();
+        await page.mouse.move(point.x + 120, point.y, { steps: 8 });
+        await page.mouse.up();
       }
-      throw new Error("Dragging did not reveal the target score bar");
     }
 
     try {
       for (const useTouch of [false, true]) {
         await first.click();
         await expect(first).toHaveAttribute("aria-selected", "true");
-        const point = await revealTarget(useTouch);
-        await expect(first).toHaveAttribute("aria-selected", "true");
+        await expect
+          .poll(async () => Math.abs(((await playheadBounds(page))?.x ?? targetHead.x) - targetHead.x))
+          .toBeGreaterThan(2);
         if (useTouch) {
-          await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+          await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [targetPoint] });
           await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
         } else {
-          await page.mouse.click(point.x, point.y);
+          await page.mouse.click(targetPoint.x, targetPoint.y);
         }
         await expect(target).toHaveAttribute("aria-selected", "true");
       }
 
+      await page.getByRole("button", { name: "View mode" }).click();
+      await page.getByRole("option", { name: "Horizon", exact: true }).click();
+      const box = await canvas.boundingBox();
+      if (!box) throw new Error("Score canvas is not visible");
+      const dragPoint = { x: box.x + box.width / 2, y: box.y + 120 };
+      for (const useTouch of [false, true]) {
+        await first.click();
+        await expect(first).toHaveAttribute("aria-selected", "true");
+        const before = await canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL());
+        await drag(useTouch, dragPoint);
+        await expect
+          .poll(async () => (await canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL())) !== before)
+          .toBe(true);
+        await expect(first).toHaveAttribute("aria-selected", "true");
+        await selectTarget();
+      }
+
       await panel.getByRole("radio", { name: "2 bars" }).click();
-      const initialZoom = Number.parseInt((await page.getByLabel("Score zoom").textContent()) ?? "0", 10);
+      const tempo = page.getByRole("slider", { name: "Session tempo %" });
+      await tempo.press("Home");
+      for (let step = 0; step < 10; step++) await tempo.press("ArrowRight");
       await panel.getByRole("button", { name: "Start", exact: true }).focus();
       await page.keyboard.press("Enter");
       await expect(panel.getByRole("status", { name: "Current bar" })).toHaveText("1");
-      await expect
-        .poll(async () => Number.parseInt((await page.getByLabel("Score zoom").textContent()) ?? "0", 10))
-        .toBeGreaterThan(initialZoom);
-      const before = await viewport.evaluate((element) => element.scrollLeft);
-      const area = await viewport.boundingBox();
-      if (!area) throw new Error("Playing score viewport is not visible");
-      const point = { x: area.x + area.width / 2, y: area.y + area.height / 2 };
-      await page.mouse.move(point.x, point.y);
-      await page.mouse.down();
-      await page.mouse.move(point.x - 100, point.y, { steps: 5 });
-      await page.mouse.up();
-      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
-      await touch.send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x: point.x - 100, y: point.y }],
-      });
-      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-      expect(await viewport.evaluate((element) => element.scrollLeft)).toBe(before);
-      await page.mouse.click(point.x, point.y);
+      const before = await canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL());
+      await drag(false, dragPoint);
+      await drag(true, dragPoint);
+      expect(await canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL())).toBe(before);
+      await page.mouse.click(targetPoint.x, targetPoint.y);
       await panel.getByRole("button", { name: "Stop", exact: true }).click();
       await expect(target).toHaveAttribute("aria-selected", "true");
     } finally {

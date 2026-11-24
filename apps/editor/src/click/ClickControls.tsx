@@ -5,7 +5,7 @@ import { BarDial } from "./BarDial";
 import { RehearsalDial } from "./RehearsalDial";
 import { describeClickBar } from "./barNavigation";
 import type { useClickPlayer } from "./useClickPlayer";
-import styles from "./ClickPage.module.css";
+import styles from "./ClickView.module.css";
 
 interface ClickControlsProps {
   readonly player: ReturnType<typeof useClickPlayer>;

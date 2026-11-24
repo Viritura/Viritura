@@ -1,4 +1,5 @@
 import type { DisplayList, SpatialIndex } from "@viritura/renderer";
+import { computeHorizonPaperGeometry } from "@viritura/renderer";
 import { computePagePlacements, PAGE_STACK_GAP } from "./viewportGeometry";
 import { defaultPageSetupForScore } from "@viritura/core";
 import type { PageSetup, Score } from "@viritura/core";
@@ -6,6 +7,7 @@ import type { PageSetup, Score } from "@viritura/core";
 interface ImperativeHandleArgs {
   setZoom: (z: number) => void;
   setScroll: (x: number, y: number) => void;
+  restoreViewport: (viewport: { zoom: number; scrollX: number; scrollY: number }) => void;
   resetViewport: () => void;
   scoreDefinitions: string[];
   selectedScoreIndex: number;
@@ -20,12 +22,15 @@ interface ImperativeHandleArgs {
 
 export interface ScoreCanvasHandle {
   setZoom: (z: number) => void;
+  setScroll: (x: number, y: number) => void;
+  restoreViewport: (viewport: { zoom: number; scrollX: number; scrollY: number }) => void;
   resetViewport: () => void;
   scoreDefinitions: string[];
   getDisplayList: () => DisplayList | null;
   getPageSetup: () => PageSetup;
   getSpatialIndex: () => SpatialIndex | null;
   getCanvasElement: () => HTMLCanvasElement | null;
+  getViewportElement: () => HTMLElement | null;
   getViewport: () => { zoom: number; scrollX: number; scrollY: number };
   getPageCount: () => number;
   scrollToPage: (index: number) => void;
@@ -40,6 +45,7 @@ export function buildScoreCanvasHandle(args: ImperativeHandleArgs): ScoreCanvasH
   const {
     setZoom,
     setScroll,
+    restoreViewport,
     resetViewport,
     scoreDefinitions,
     selectedScoreIndex,
@@ -53,6 +59,8 @@ export function buildScoreCanvasHandle(args: ImperativeHandleArgs): ScoreCanvasH
   } = args;
   return {
     setZoom,
+    setScroll,
+    restoreViewport,
     resetViewport,
     scoreDefinitions,
     getDisplayList: () => displayListRef.current,
@@ -74,13 +82,22 @@ export function buildScoreCanvasHandle(args: ImperativeHandleArgs): ScoreCanvasH
     },
     getSpatialIndex: () => spatialIndexRef.current,
     getCanvasElement: () => canvasRef.current,
+    getViewportElement: () => containerRef.current,
     getViewport: () => ({ zoom: viewport.zoom, scrollX: viewport.scrollX, scrollY: viewport.scrollY }),
     getPageCount: () => displayListRef.current?.pages?.length ?? 0,
     scrollToPage: (index: number) => scrollToPage(index, displayListRef, setScroll),
     scrollToMeasure: (measureIndex: number) =>
       scrollToMeasure(measureIndex, displayListRef, containerRef, viewport, viewMode, setScroll),
     getCurrentPageIndex: () => currentPageIndex(displayListRef, containerRef, viewport, viewMode),
-    fitPage: () => fitPageImpl(displayListRef, containerRef, setZoom),
+    fitPage: () =>
+      fitScoreView({
+        displayList: displayListRef.current,
+        container: containerRef.current,
+        viewport,
+        viewMode,
+        setZoom,
+        setScroll,
+      }),
     fitWidth: () => fitWidthImpl(displayListRef, containerRef, setZoom),
   };
 }
@@ -177,19 +194,70 @@ function currentPageIndex(
   return best;
 }
 
-function fitPageImpl(
-  displayListRef: { current: DisplayList | null },
-  containerRef: { current: HTMLElement | null },
-  setZoom: (z: number) => void,
-): void {
-  const dl = displayListRef.current;
-  const el = containerRef.current;
-  if (!dl || !dl.pages || dl.pages.length === 0 || !el) return;
-  const page = dl.pages[0]!;
-  const margin = 24; // breathing room so the page edge isn't flush
-  const fitW = (el.clientWidth - margin * 2) / dl.width;
-  const fitH = (el.clientHeight - margin * 2) / page.height;
-  setZoom(Math.max(0.05, Math.min(fitW, fitH)));
+interface FitScoreViewArgs {
+  displayList: DisplayList | null;
+  container: HTMLElement | null;
+  viewport: ImperativeHandleArgs["viewport"];
+  viewMode: ImperativeHandleArgs["viewMode"];
+  setZoom: (zoom: number) => void;
+  setScroll: (x: number, y: number) => void;
+  safeArea?: { left?: number; right?: number; top?: number; bottom?: number };
+  margin?: number;
+}
+
+export function scorePageFrame(
+  dl: DisplayList,
+  viewMode: ImperativeHandleArgs["viewMode"],
+  index: number,
+): { x: number; y: number; width: number; height: number } | null {
+  const first = viewMode === "page" || index === 0 ? index : index % 2 === 1 ? index : index - 1;
+  const frame = computePagePlacements(dl, viewMode).filter(
+    (page) => page.pageIndex === first || (viewMode !== "page" && first > 0 && page.pageIndex === first + 1),
+  );
+  if (frame.length === 0) return null;
+  const x = Math.min(...frame.map((page) => page.x));
+  const y = Math.min(...frame.map((page) => page.y));
+  return {
+    x,
+    y,
+    width: Math.max(...frame.map((page) => page.x + page.width)) - x,
+    height: Math.max(...frame.map((page) => page.y + page.height)) - y,
+  };
+}
+
+export function fitScoreView({
+  displayList: dl,
+  container: el,
+  viewport,
+  viewMode,
+  setZoom,
+  setScroll,
+  safeArea,
+  margin = 24,
+}: FitScoreViewArgs): void {
+  if (!dl || !el || el.clientWidth <= 0 || el.clientHeight <= 0) return;
+  const { left = 0, right = 0, top = 0, bottom = 0 } = safeArea ?? {};
+  const usableWidth = Math.max(1, el.clientWidth - left - right - margin * 2);
+  const usableHeight = Math.max(1, el.clientHeight - top - bottom - margin * 2);
+  const centerX = (el.clientWidth + left - right) / 2;
+  const centerY = (el.clientHeight + top - bottom) / 2;
+  if (viewMode === "horizon") {
+    const height = computeHorizonPaperGeometry(dl).contentHeight;
+    if (height <= 0) return;
+    const zoom = Math.max(0.05, Math.min(16, usableHeight / height));
+    setZoom(zoom);
+    setScroll(viewport.scrollX, height / 2 - centerY / zoom);
+    return;
+  }
+  const index = currentPageIndex({ current: dl }, { current: el }, viewport, viewMode);
+  const frame = scorePageFrame(dl, viewMode, index);
+  if (!frame) return;
+  const { x, y, width, height } = frame;
+  if (width <= 0 || height <= 0) return;
+  const fitWidth = viewMode === "page" ? width : Math.max(width, dl.width * 2);
+  const zoom = Math.max(0.05, Math.min(16, usableWidth / fitWidth, usableHeight / height));
+  setZoom(zoom);
+  setScroll(x + width / 2 - centerX / zoom, y + height / 2 - centerY / zoom);
 }
 
 function fitWidthImpl(
