@@ -667,6 +667,9 @@ importers:
         specifier: ^3.10.2
         version: 3.10.2
     devDependencies:
+      '@viritura/format':
+        specifier: workspace:*
+        version: link:../format
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

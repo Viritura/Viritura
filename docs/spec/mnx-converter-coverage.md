@@ -132,6 +132,39 @@ written-pitch score preserves its authored written clefs through the existing
 
 **Test coverage:** 148 package tests across [`packages/musicxml/src/__tests__/`](../../packages/musicxml/src/__tests__/) covering the feature areas above with focused synthetic XML fixtures.
 
+### Score → MusicXML export (`packages/musicxml`)
+
+`convertScoreToMusicXml(score, { scoreIndex })` returns MusicXML 4.0 XML and
+shared conversion diagnostics. `convertScoreToMxl` returns compressed archive
+bytes and the same diagnostics. Both accept the typed in-memory `Score`;
+omitting `scoreIndex` exports all instruments at written pitch.
+
+Publish uses the selected score definitions, with one file per selected view.
+Layout sources determine instrument order and staff/voice filtering. Multiple
+browser outputs use a ZIP; approved folder destinations receive separate files.
+The compressed reader follows `META-INF/container.xml`, including nested
+`.musicxml` root files; legacy single-file archives remain importable with a
+diagnostic, while ambiguous archives fail.
+
+Export covers exact rational rhythm, polyphony, chords, spaces, pickups,
+full-measure rests, nested tuplets, tremolos, percussion, transposition and
+key spelling, instrument changes, notation spanners, lyrics, harmony, tempo,
+dynamics, shared caesuras, pedals, navigation, metadata, and page defaults. MusicXML's transpose
+direction is the inverse of the native sounding-to-written interval.
+Authored enharmonic key flips adjust the written key and diatonic transpose together.
+Octave shifts serialize displayed pitches while retaining sounding playback.
+Import resolves transpose and octave-shift changes in musical time, independently
+of XML voice order, and respects positioned direction offsets.
+Harmony degree alterations use MusicXML's kind-relative conventions, while added
+degrees use its dominant-based intervals. Hexadecimal CSS colors are normalized
+to uppercase RGB or ARGB. Specialized ornaments retain their canonical SMuFL glyphs.
+
+Diagnostics explain nonportable playback curves and editor data, unsupported
+ornament spellings or note values, missing extract endpoints, and layout
+reflow. Invalid selections, rhythm, or references fail explicitly; overfilled
+ordinary measures are not silently truncated. Output is not an exact printed
+layout or a lossless native-document round trip.
+
 ### Public converter UI (`apps/website/src/routes/mnx-converter/`)
 
 Lazy-loaded and prerendered route at `/mnx/mxl-converter` on the website. Components:

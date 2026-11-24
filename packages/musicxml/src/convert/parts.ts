@@ -25,6 +25,7 @@ import type { Interval, TextContent } from "@viritura/core";
 import type { ImportedHarmonySource } from "./harmonyConsolidation";
 import type { OpenLyricExtender } from "./lyricExtenders";
 import { nativeFormattedText } from "./textRuns";
+import { sourcePitchTimeline } from "./pitchTimeline";
 
 function readTransposeInterval(transpose: Element | null): TransposeInterval | undefined {
   if (!transpose) return undefined;
@@ -54,9 +55,13 @@ function parsePartTransposition(
   transposition?: MnxPart["transposition"];
 } {
   const m1 = findChild(partEl, "measure");
-  const a = m1 ? findChild(m1, "attributes") : null;
-  const partTranspose = readTransposeInterval(a ? findChild(a, "transpose") : null);
-  const forPart = concertScore && a ? findChild(a, "for-part") : null;
+  const attributes = m1 ? findChildren(m1, "attributes") : [];
+  const partTranspose = readTransposeInterval(
+    attributes.map((a) => findChild(a, "transpose")).find((element) => element !== null) ?? null,
+  );
+  const forPart = concertScore
+    ? (attributes.map((a) => findChild(a, "for-part")).find((element) => element !== null) ?? null)
+    : null;
   const writtenTranspose =
     readTransposeInterval(forPart ? findChild(forPart, "part-transpose") : null) ?? partTranspose;
   if (!writtenTranspose) return {};
@@ -250,6 +255,7 @@ export function buildParts(
     }
 
     const { partTranspose, transposition } = parsePartTransposition(partEl, concertScore);
+    const noteTranspositions = sourcePitchTimeline(partEl);
     if (transposition) mnxPart.transposition = transposition;
 
     // Multi-staff detection from the first measure's attributes.
@@ -337,7 +343,7 @@ export function buildParts(
         partMeasureEls.length,
         vendorExt,
         partTranspose,
-        { ...flags, harmonyTranspositions },
+        { ...flags, harmonyTranspositions, noteTranspositions },
         activeClefs,
         activeTuplets,
         activeBeams,

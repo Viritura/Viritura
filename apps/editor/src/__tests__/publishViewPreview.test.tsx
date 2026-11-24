@@ -67,6 +67,7 @@ import { buildPublishMode } from "../app/buildPublishMode";
 import * as publishExport from "../components/modes/publishView/runPublishExport";
 import * as audioExport from "../components/modes/publishView/runAudioExport";
 import * as midiExport from "../components/modes/publishView/runMidiExport";
+import * as musicXmlExport from "../components/modes/publishView/runMusicXmlExport";
 
 /**
  * Mirrors how AppInner wires the publish branch around the shared canvas:
@@ -132,7 +133,7 @@ afterEach(() => {
 });
 
 describe("Publish destinations", () => {
-  it.each(["PDF", "MIDI", "MP3", "WAV"])(
+  it.each(["PDF", "MusicXML (.musicxml)", "MusicXML, compressed (.mxl)", "MIDI", "MP3", "WAV"])(
     "reports successful %s exports only through the global toast",
     async (format) => {
       const user = userEvent.setup();
@@ -141,13 +142,20 @@ describe("Publish destinations", () => {
       vi.spyOn(publishExport, "runPublishExport").mockResolvedValue({ kind: "ok", text: message });
       vi.spyOn(audioExport, "runAudioExport").mockResolvedValue({ kind: "ok", text: message });
       vi.spyOn(midiExport, "runMidiExport").mockResolvedValue({ kind: "ok", text: message });
+      vi.spyOn(musicXmlExport, "runMusicXmlExport").mockResolvedValue({ kind: "ok", text: message });
       renderWithTooltips(<PublishHarness score={sampleScore} />);
       if (format !== "PDF") {
         await user.click(screen.getByRole("combobox", { name: "Export format" }));
         await user.click(screen.getByRole("option", { name: format }));
       }
       await user.click(
-        screen.getByRole("button", { name: format === "PDF" ? "Export 2 layouts" : `Export ${format}` }),
+        screen.getByRole("button", {
+          name: format.startsWith("MusicXML")
+            ? "Export MusicXML"
+            : format === "PDF"
+              ? "Export 2 layouts"
+              : `Export ${format}`,
+        }),
       );
       expect(success).toHaveBeenCalledExactlyOnceWith(message);
       expect(screen.queryByText(message)).toBeNull();
@@ -188,20 +196,83 @@ describe("Publish destinations", () => {
     expect(success).not.toHaveBeenCalled();
   });
 
-  it("shows plain format names and keeps unsupported formats disabled", async () => {
+  it("offers plain and compressed MusicXML alongside existing export formats", async () => {
     const user = userEvent.setup();
     renderWithTooltips(<PublishHarness score={sampleScore} />);
     await user.click(screen.getByRole("combobox", { name: "Export format" }));
 
     const options = screen.getAllByRole("option");
-    expect(options.map((option) => option.textContent)).toEqual(["PDF", "MusicXML", "MIDI", "MP3", "WAV"]);
-    expect(screen.getByRole("option", { name: "MusicXML" }).getAttribute("aria-disabled")).toBe("true");
+    expect(options.map((option) => option.textContent)).toEqual([
+      "PDF",
+      "MusicXML (.musicxml)",
+      "MusicXML, compressed (.mxl)",
+      "MIDI",
+      "MP3",
+      "WAV",
+    ]);
+    expect(screen.getByRole("option", { name: "MusicXML (.musicxml)" }).getAttribute("aria-disabled")).not.toBe("true");
     expect(screen.getByRole("option", { name: "MIDI" }).getAttribute("aria-disabled")).not.toBe("true");
     expect(screen.getByRole("option", { name: "PDF" }).querySelectorAll("svg")).toHaveLength(1);
-    for (const name of ["MusicXML", "MIDI", "MP3", "WAV"]) {
+    for (const name of ["MusicXML (.musicxml)", "MusicXML, compressed (.mxl)", "MIDI", "MP3", "WAV"]) {
       expect(screen.getByRole("option", { name }).querySelectorAll("svg")).toHaveLength(0);
     }
   });
+
+  it.each(["MusicXML (.musicxml)", "MusicXML, compressed (.mxl)"])(
+    "routes %s through selected-score export and retains PDF selection",
+    async (label) => {
+      const user = userEvent.setup();
+      const run = vi
+        .spyOn(musicXmlExport, "runMusicXmlExport")
+        .mockResolvedValue({ kind: "ok", text: "Exported MusicXML.", warnings: ["Layout will reflow."] });
+      const warning = vi.spyOn(toast, "warning").mockReturnValue("warning");
+      const pdf = vi.spyOn(publishExport, "runPublishExport");
+      renderWithTooltips(<PublishHarness score={sampleScore} />);
+      await user.click(screen.getByRole("button", { name: "None" }));
+      await user.click(screen.getByRole("combobox", { name: "Export format" }));
+      await user.click(screen.getByRole("option", { name: label }));
+      expect(screen.getByRole<HTMLButtonElement>("button", { name: "Export MusicXML" }).disabled).toBe(true);
+      expect(screen.queryByRole("radio", { name: /Single PDF/ })).toBeNull();
+      await user.click(screen.getByRole("checkbox", { name: "Include Violin I in export" }));
+      await user.click(screen.getByRole("button", { name: "Export MusicXML" }));
+      expect(run).toHaveBeenCalledWith(
+        expect.objectContaining({
+          score: sampleScore,
+          scoreIndices: [1],
+          format: label.includes(".mxl") ? "mxl" : "musicxml",
+        }),
+      );
+      expect(pdf).not.toHaveBeenCalled();
+      expect(warning).toHaveBeenCalledWith("Layout will reflow.", { duration: 12000 });
+      await user.click(screen.getByRole("combobox", { name: "Export format" }));
+      await user.click(screen.getByRole("option", { name: "PDF" }));
+      expect(screen.getByRole("button", { name: "Export 1 layout" })).toBeTruthy();
+    },
+  );
+
+  it.each(["MusicXML (.musicxml)", "MusicXML, compressed (.mxl)"])(
+    "can cancel %s without reporting success",
+    async (label) => {
+      const user = userEvent.setup();
+      const run = vi
+        .spyOn(musicXmlExport, "runMusicXmlExport")
+        .mockImplementation(
+          ({ signal }) =>
+            new Promise((_resolve, reject) =>
+              signal.addEventListener("abort", () => reject(new DOMException("Cancelled", "AbortError"))),
+            ),
+        );
+      const success = vi.spyOn(toast, "success").mockReturnValue("success");
+      renderWithTooltips(<PublishHarness score={sampleScore} />);
+      await user.click(screen.getByRole("combobox", { name: "Export format" }));
+      await user.click(screen.getByRole("option", { name: label }));
+      await user.click(screen.getByRole("button", { name: "Export MusicXML" }));
+      await user.click(screen.getByRole("button", { name: "Cancel export" }));
+      expect(run.mock.calls[0]![0].signal.aborted).toBe(true);
+      expect(success).not.toHaveBeenCalled();
+      expect(screen.getByRole<HTMLButtonElement>("button", { name: "Export MusicXML" }).disabled).toBe(false);
+    },
+  );
 
   it("exports MIDI without layout selection or mixer settings", async () => {
     const user = userEvent.setup();

@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
-import { convertMxlToMnx } from "../index";
+import { convertMxlToMnx, DiagnosticCollector } from "../index";
 
 const MUSIC_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="4.0">
@@ -22,6 +22,32 @@ const MUSIC_XML = `<?xml version="1.0" encoding="UTF-8"?>
 </score-partwise>`;
 
 describe("convertMxlToMnx", () => {
+  it("follows a nested .musicxml root instead of choosing an incidental XML file", async () => {
+    const zip = new JSZip();
+    zip.file("other.xml", "<not-a-score/>");
+    zip.file("scores/main.musicxml", MUSIC_XML);
+    zip.file(
+      "META-INF/container.xml",
+      '<container><rootfiles><rootfile full-path="scores/main.musicxml" media-type="application/vnd.recordare.musicxml+xml"/></rootfiles></container>',
+    );
+    expect((await convertMxlToMnx(await zip.generateAsync({ type: "uint8array" }))).parts[0]!.name).toBe("Piano");
+  });
+
+  it("diagnoses legacy archives and rejects ambiguous or missing root files", async () => {
+    const zip = new JSZip();
+    zip.file("score.xml", MUSIC_XML);
+    const diagnostics = new DiagnosticCollector();
+    await convertMxlToMnx(await zip.generateAsync({ type: "uint8array" }), { diagnostics });
+    expect(diagnostics.all()).toContainEqual(expect.objectContaining({ code: "mxl-legacy-container" }));
+    zip.file("another.musicxml", MUSIC_XML);
+    await expect(convertMxlToMnx(await zip.generateAsync({ type: "uint8array" }))).rejects.toThrow(/multiple/);
+    zip.file(
+      "META-INF/container.xml",
+      '<container><rootfiles><rootfile full-path="missing.musicxml"/></rootfiles></container>',
+    );
+    await expect(convertMxlToMnx(await zip.generateAsync({ type: "uint8array" }))).rejects.toThrow(/missing/);
+  });
+
   it.each([true, false])("imports clarinet pitches from an archive with concert pitch %s", async (concertPitch) => {
     const transpose = "<diatonic>-1</diatonic><chromatic>-2</chromatic>";
     const xml = `<score-partwise version="4.0">

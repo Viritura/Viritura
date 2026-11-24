@@ -28,7 +28,7 @@ packages/core/              # Data model types, enums, and constants (TS)
 packages/format/            # MNX parser/serializer (TS, split into 5 modules)
    fixtures/mnx/              # 71 upstream examples + 15 local fixtures
   schemas/                   # viritura-extensions.json schema
-packages/musicxml/          # MusicXML → MNX converter (TS, isomorphic)
+packages/musicxml/          # MusicXML import/export (TS, isomorphic)
 packages/crdt/              # Yjs bridge, live session, awareness
 packages/playback/          # Playback context + transport
 packages/video-sync/        # Score-to-picture sync (video, native PiP)

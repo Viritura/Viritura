@@ -18,7 +18,7 @@ interface ChordKindMapping {
   extension?: ChordSymbol["extension"];
 }
 
-const CHORD_KIND_MAP: Record<string, ChordKindMapping> = {
+export const CHORD_KIND_MAP: Readonly<Record<string, ChordKindMapping>> = {
   major: { quality: "major" },
   minor: { quality: "minor" },
   augmented: { quality: "augmented" },

@@ -8,7 +8,7 @@ const DEST_COL_STYLE: CSSProperties = { display: "flex", flexDirection: "column"
 import type { FsDirectoryHandle } from "../../../publish/batchRender";
 import type { BundleMode } from "./runPublishExport";
 import { AudioQualitySelect, FormatSelect, Section } from "./FormatPickers";
-import { isAudioFormat, type AudioQuality, type ExportFormat } from "./audioFormats";
+import { isAudioFormat, isLayoutFormat, isMusicXmlFormat, type AudioQuality, type ExportFormat } from "./audioFormats";
 
 const WAV_MEGABYTES_PER_MINUTE: Record<AudioQuality["wavBitDepth"], number> = { 16: 11, 24: 16, 32: 21 };
 
@@ -49,6 +49,10 @@ interface RightExportPanelProps {
   onCancelExport: () => void;
   /** Injected by WorkspaceShell via cloneElement — forward to inner Panel. */
   shellStyle?: CSSProperties;
+}
+
+function supportsCancellation(format: ExportFormat): boolean {
+  return isAudioFormat(format) || isMusicXmlFormat(format);
 }
 
 export function RightExportPanel(props: RightExportPanelProps) {
@@ -101,16 +105,23 @@ export function RightExportPanel(props: RightExportPanelProps) {
               size="lg"
               fullWidth
               onClick={onExport}
-              disabled={!scoreLoaded || (format === "pdf" && orderedSelectedCount === 0) || exporting}
+              disabled={!scoreLoaded || (isLayoutFormat(format) && orderedSelectedCount === 0) || exporting}
             >
               <Download size={18} />
-              {format !== "pdf"
-                ? `Export ${format.toUpperCase()}`
-                : `Export ${orderedSelectedCount} layout${orderedSelectedCount === 1 ? "" : "s"}`}
+              {isMusicXmlFormat(format)
+                ? "Export MusicXML"
+                : format !== "pdf"
+                  ? `Export ${format.toUpperCase()}`
+                  : `Export ${orderedSelectedCount} layout${orderedSelectedCount === 1 ? "" : "s"}`}
               {exportFolder ? ` to "${exportFolder.name}"` : ""}
             </Button>
-            {isAudioFormat(format) && exporting && (
-              <Button size="sm" onClick={onCancelExport} label="Cancel export" disabled={progress?.done === 100} />
+            {supportsCancellation(format) && exporting && (
+              <Button
+                size="sm"
+                onClick={onCancelExport}
+                label="Cancel export"
+                disabled={isAudioFormat(format) && progress?.done === 100}
+              />
             )}
           </div>
         </>
@@ -146,32 +157,47 @@ export function RightExportPanel(props: RightExportPanelProps) {
             )}
           </div>
         </Section>
-      ) : format === "pdf" ? (
+      ) : isLayoutFormat(format) ? (
         <Section label="Bundle">
           <RadioGroup
-            value={bundleMode}
+            value={isMusicXmlFormat(format) && bundleMode === "single-pdf" ? "zip" : bundleMode}
             onChange={(v) => onBundleModeChange(v as typeof bundleMode)}
             disabled={exporting}
           >
-            <Radio value="zip" variant="card" label="ZIP archive" description="One ZIP containing all PDFs" />
+            <Radio
+              value="zip"
+              variant="card"
+              label="ZIP archive"
+              description={
+                isMusicXmlFormat(format)
+                  ? "One MusicXML file, or a ZIP for multiple selected scores and parts"
+                  : "One ZIP containing all PDFs"
+              }
+            />
             {exportFolder && (
               <Radio
                 value="separate"
                 variant="card"
                 label="Separate files"
-                description="One PDF per layout, saved directly to the folder"
+                description={
+                  isMusicXmlFormat(format)
+                    ? "One MusicXML file per selected score or part, saved to the folder"
+                    : "One PDF per layout, saved directly to the folder"
+                }
               />
             )}
-            <Radio
-              value="single-pdf"
-              variant="card"
-              label="Single PDF"
-              description="Concatenate every layout into one PDF"
-            />
+            {format === "pdf" && (
+              <Radio
+                value="single-pdf"
+                variant="card"
+                label="Single PDF"
+                description="Concatenate every layout into one PDF"
+              />
+            )}
           </RadioGroup>
           {!exportFolder && (
             <div className={styles.fieldHint}>
-              Downloads use one ZIP or PDF to avoid browser limits on multiple downloads.
+              Downloads use one file or archive to avoid browser limits on multiple downloads.
             </div>
           )}
         </Section>
@@ -198,7 +224,7 @@ export function RightExportPanel(props: RightExportPanelProps) {
           disabled={exporting}
         />
         <div className={styles.fieldHint}>
-          {format !== "pdf" ? (
+          {!isLayoutFormat(format) ? (
             <>
               Tokens: <code>%TITLE%</code> (document title), <code>%PART%</code> (Full Score),{" "}
               <code>%PART_NUMBER%</code> (All). The extension is added automatically.
@@ -314,13 +340,15 @@ function ProgressOrStatus({ exporting, progress, statusMessage, format }: Progre
       <div className={styles.progressBox} role="status">
         <Loader2 size={14} className="spin" />
         <span>
-          {format === "midi"
-            ? "Exporting MIDI"
-            : isAudioFormat(format)
-              ? progress.done === 100
-                ? `Saving ${format.toUpperCase()}`
-                : `Rendering ${format.toUpperCase()}: ${progress.done}%`
-              : `Rendering ${progress.done} of ${progress.total}${progress.name ? ` · ${progress.name}` : ""}`}
+          {isMusicXmlFormat(format)
+            ? `Exporting MusicXML: ${progress.done} of ${progress.total}${progress.name ? ` · ${progress.name}` : ""}`
+            : format === "midi"
+              ? "Exporting MIDI"
+              : isAudioFormat(format)
+                ? progress.done === 100
+                  ? `Saving ${format.toUpperCase()}`
+                  : `Rendering ${format.toUpperCase()}: ${progress.done}%`
+                : `Rendering ${progress.done} of ${progress.total}${progress.name ? ` · ${progress.name}` : ""}`}
         </span>
       </div>
     );
