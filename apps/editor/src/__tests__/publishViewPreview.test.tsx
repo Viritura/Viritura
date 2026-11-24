@@ -66,6 +66,7 @@ import { usePublishMode } from "../app/usePublishMode";
 import { buildPublishMode } from "../app/buildPublishMode";
 import * as publishExport from "../components/modes/publishView/runPublishExport";
 import * as audioExport from "../components/modes/publishView/runAudioExport";
+import * as midiExport from "../components/modes/publishView/runMidiExport";
 
 /**
  * Mirrors how AppInner wires the publish branch around the shared canvas:
@@ -131,21 +132,27 @@ afterEach(() => {
 });
 
 describe("Publish destinations", () => {
-  it.each(["PDF", "MP3", "WAV"])("reports successful %s exports only through the global toast", async (format) => {
-    const user = userEvent.setup();
-    const message = `Exported ${format}. Playback warning.`;
-    const success = vi.spyOn(toast, "success").mockReturnValue("export-success");
-    vi.spyOn(publishExport, "runPublishExport").mockResolvedValue({ kind: "ok", text: message });
-    vi.spyOn(audioExport, "runAudioExport").mockResolvedValue({ kind: "ok", text: message });
-    renderWithTooltips(<PublishHarness score={sampleScore} />);
-    if (format !== "PDF") {
-      await user.click(screen.getByRole("combobox", { name: "Export format" }));
-      await user.click(screen.getByRole("option", { name: format }));
-    }
-    await user.click(screen.getByRole("button", { name: format === "PDF" ? "Export 2 layouts" : `Export ${format}` }));
-    expect(success).toHaveBeenCalledExactlyOnceWith(message);
-    expect(screen.queryByText(message)).toBeNull();
-  });
+  it.each(["PDF", "MIDI", "MP3", "WAV"])(
+    "reports successful %s exports only through the global toast",
+    async (format) => {
+      const user = userEvent.setup();
+      const message = `Exported ${format}. Playback warning.`;
+      const success = vi.spyOn(toast, "success").mockReturnValue("export-success");
+      vi.spyOn(publishExport, "runPublishExport").mockResolvedValue({ kind: "ok", text: message });
+      vi.spyOn(audioExport, "runAudioExport").mockResolvedValue({ kind: "ok", text: message });
+      vi.spyOn(midiExport, "runMidiExport").mockResolvedValue({ kind: "ok", text: message });
+      renderWithTooltips(<PublishHarness score={sampleScore} />);
+      if (format !== "PDF") {
+        await user.click(screen.getByRole("combobox", { name: "Export format" }));
+        await user.click(screen.getByRole("option", { name: format }));
+      }
+      await user.click(
+        screen.getByRole("button", { name: format === "PDF" ? "Export 2 layouts" : `Export ${format}` }),
+      );
+      expect(success).toHaveBeenCalledExactlyOnceWith(message);
+      expect(screen.queryByText(message)).toBeNull();
+    },
+  );
 
   it("keeps export failures visible without reporting success", async () => {
     const user = userEvent.setup();
@@ -187,14 +194,42 @@ describe("Publish destinations", () => {
     await user.click(screen.getByRole("combobox", { name: "Export format" }));
 
     const options = screen.getAllByRole("option");
-    expect(options.map((option) => option.textContent)).toEqual(["PDF", "MusicXML", "MNX", "MIDI", "MP3", "WAV"]);
-    for (const name of ["MusicXML", "MNX", "MIDI"]) {
-      expect(screen.getByRole("option", { name }).getAttribute("aria-disabled")).toBe("true");
-    }
+    expect(options.map((option) => option.textContent)).toEqual(["PDF", "MusicXML", "MIDI", "MP3", "WAV"]);
+    expect(screen.getByRole("option", { name: "MusicXML" }).getAttribute("aria-disabled")).toBe("true");
+    expect(screen.getByRole("option", { name: "MIDI" }).getAttribute("aria-disabled")).not.toBe("true");
     expect(screen.getByRole("option", { name: "PDF" }).querySelectorAll("svg")).toHaveLength(1);
-    for (const name of ["MusicXML", "MNX", "MIDI", "MP3", "WAV"]) {
+    for (const name of ["MusicXML", "MIDI", "MP3", "WAV"]) {
       expect(screen.getByRole("option", { name }).querySelectorAll("svg")).toHaveLength(0);
     }
+  });
+
+  it("exports MIDI without layout selection or mixer settings", async () => {
+    const user = userEvent.setup();
+    const runMidi = vi.spyOn(midiExport, "runMidiExport").mockResolvedValue({ kind: "ok", text: "Exported MIDI." });
+    renderWithTooltips(<PublishHarness score={sampleScore} />);
+    await user.click(screen.getByRole("button", { name: "None" }));
+    await user.click(screen.getByRole("combobox", { name: "Export format" }));
+    await user.click(screen.getByRole("option", { name: "MIDI" }));
+    expect(screen.queryByText("Bundle")).toBeNull();
+    expect(screen.getByText("MIDI export includes the whole document.")).toBeTruthy();
+    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Include Full Score in export" }).disabled).toBe(
+      true,
+    );
+    await user.click(screen.getByRole("button", { name: "Export MIDI" }));
+    expect(runMidi).toHaveBeenCalledWith(expect.objectContaining({ score: sampleScore, exportFolder: null }));
+    expect(runMidi.mock.calls[0]![0]).not.toHaveProperty("mix");
+  });
+
+  it("uses the project folder for MIDI by default", async () => {
+    const user = userEvent.setup();
+    const projectFolder = { name: "Quartet project" } as FileSystemDirectoryHandle;
+    useProjectStore.setState({ projectFolder });
+    const runMidi = vi.spyOn(midiExport, "runMidiExport").mockResolvedValue({ kind: "ok", text: "Exported MIDI." });
+    renderWithTooltips(<PublishHarness score={sampleScore} />);
+    await user.click(screen.getByRole("combobox", { name: "Export format" }));
+    await user.click(screen.getByRole("option", { name: "MIDI" }));
+    await user.click(screen.getByRole("button", { name: 'Export MIDI to "Quartet project"' }));
+    expect(runMidi).toHaveBeenCalledWith(expect.objectContaining({ exportFolder: projectFolder }));
   });
 
   it("exports the latest mixer snapshot including a muted Chords channel", async () => {

@@ -137,6 +137,8 @@ export interface TimelineOptions {
   includeGlobalChords?: boolean;
   /** Expand playback repeats and jumps (default true); false plays measures once in score order. */
   expandRepeats?: boolean;
+  /** Disable random attack timing offsets while retaining notation performance. */
+  humanizeTiming?: boolean;
 }
 
 /**
@@ -150,6 +152,7 @@ export interface TimelineOptions {
  * mutates per recursion step.
  */
 export interface PartCtx {
+  readonly humanizeTiming: boolean;
   rhythm?: RhythmTimings;
   readonly playedSpan?: PlayedMeasureSpan;
   /** Grace anticipation may cross continuous barlines, but not a route entry. */
@@ -625,6 +628,7 @@ function processPart(
       }));
 
     const ctx: PartCtx = {
+      humanizeTiming: options?.humanizeTiming !== false,
       playedSpan: timing.playedSpans?.[expandedIdx],
       graceBoundaryBeat:
         timing.playedSpans &&
@@ -966,6 +970,7 @@ function processNoteEvent(
     notes: event.notes ?? [],
     soundingOnset: startTime,
     soundingDuration: naturalDurationSec,
+    humanizeTiming: ctx.humanizeTiming,
   });
 
   // Special playback modes (percussion roll / pitched tremolo / trill) handle
@@ -973,7 +978,7 @@ function processNoteEvent(
   const specialBeats = tryProcessSpecialEvent(ctx, event, measureStartTime, beatOffset, baseVelocity, beats);
   if (specialBeats !== null) return specialBeats;
 
-  const timingOffset = timingHumanize(measureStartTime, beatOffset, partIndex);
+  const timingOffset = ctx.humanizeTiming ? timingHumanize(measureStartTime, beatOffset, partIndex) : 0;
   // A fermata holds the note in place (see resolveFermataDuration); otherwise
   // normal articulation scaling applies.
   const {
@@ -1234,7 +1239,7 @@ function processKitRoll(
   if (!kitMidiMap) return beats;
 
   const startTime = eventTime(ctx, beatOffset);
-  const timingOffset = timingHumanize(measureStartTime, beatOffset, partIndex);
+  const timingOffset = ctx.humanizeTiming ? timingHumanize(measureStartTime, beatOffset, partIndex) : 0;
   const jitteredStart = Math.max(0, startTime + timingOffset);
   const durationSec = eventSeconds(ctx, beatOffset, beats);
   const velocity = Math.min(
@@ -1313,7 +1318,7 @@ function processSingleNoteTremolo(
   // 3-slash tremolo on solo strings: use Tremolo Strings GM patch
   if (marks === 3 && gmProgram >= STRING_SOLO_RANGE_LO && gmProgram <= STRING_SOLO_RANGE_HI) {
     const startTime = eventTime(ctx, beatOffset);
-    const tremTimingOffset = timingHumanize(measureStartTime, beatOffset, partIndex);
+    const tremTimingOffset = ctx.humanizeTiming ? timingHumanize(measureStartTime, beatOffset, partIndex) : 0;
     const jitteredTremStart = Math.max(0, startTime + tremTimingOffset);
     const durationSec = eventSeconds(ctx, beatOffset, totalBeats);
 
@@ -1377,7 +1382,7 @@ function processSingleNoteTremolo(
   for (let s = 0; s < numSubdivisions; s++) {
     const subBeatOffset = beatOffset + s * actualSubdivBeats;
     const subStartTime = eventTime(ctx, subBeatOffset);
-    const subTimingOffset = timingHumanize(measureStartTime, subBeatOffset, partIndex);
+    const subTimingOffset = ctx.humanizeTiming ? timingHumanize(measureStartTime, subBeatOffset, partIndex) : 0;
     const jitteredSubStart = Math.max(0, subStartTime + subTimingOffset);
     const subDurationSec = eventSeconds(ctx, subBeatOffset, actualSubdivBeats);
 
@@ -1508,7 +1513,7 @@ function tryProcessTrill(
     const useUpper = s % 2 === 1;
     const subBeatOffset = beatOffset + s * subBeats;
     const subStartTime = eventTime(ctx, subBeatOffset);
-    const subTimingOffset = timingHumanize(measureStartTime, subBeatOffset, partIndex);
+    const subTimingOffset = ctx.humanizeTiming ? timingHumanize(measureStartTime, subBeatOffset, partIndex) : 0;
     const jitteredStart = Math.max(0, subStartTime + subTimingOffset);
     const subDurationSec = eventSeconds(ctx, subBeatOffset, subBeats);
 

@@ -3,13 +3,14 @@ import { Checkbox, Panel, PanelActionButton } from "@viritura/ui";
 import styles from "../PublishView.module.css";
 import type { CSSProperties } from "react";
 import type { LayoutEntry } from "./layoutEntries";
+import type { ExportFormat } from "./audioFormats";
 
 interface LeftLayoutsPanelProps {
   layouts: LayoutEntry[];
   selectedIndices: Set<number>;
   focusedIndex: number | null;
   exporting: boolean;
-  audioExport: boolean;
+  format: ExportFormat;
   /** Panel positioning props — surfaced here so WorkspaceShell can detect
    * this wrapper as Panel-like and inject `shellStyle`. */
   side?: "left";
@@ -29,7 +30,7 @@ export function LeftLayoutsPanel({
   selectedIndices,
   focusedIndex,
   exporting,
-  audioExport,
+  format,
   width,
   onResize,
   onCollapse,
@@ -39,6 +40,8 @@ export function LeftLayoutsPanel({
   onFocusIndex,
   shellStyle,
 }: LeftLayoutsPanelProps) {
+  const wholeDocument = format !== "pdf";
+  const exportLabel = format === "midi" ? "MIDI" : "Audio";
   return (
     <Panel
       side="left"
@@ -50,14 +53,16 @@ export function LeftLayoutsPanel({
       shellStyle={shellStyle}
       title="Layouts"
       subtitle={
-        audioExport ? "Audio export includes the whole document." : "Pick which layouts to include in the export."
+        wholeDocument
+          ? `${exportLabel} export includes the whole document.`
+          : "Pick which layouts to include in the export."
       }
       actions={
         <>
-          <PanelActionButton onClick={onSelectAll} disabled={!layouts.length || exporting || audioExport}>
+          <PanelActionButton onClick={onSelectAll} disabled={!layouts.length || exporting || wholeDocument}>
             All
           </PanelActionButton>
-          <PanelActionButton onClick={onClearSelection} disabled={!layouts.length || exporting || audioExport}>
+          <PanelActionButton onClick={onClearSelection} disabled={!layouts.length || exporting || wholeDocument}>
             None
           </PanelActionButton>
         </>
@@ -71,7 +76,9 @@ export function LeftLayoutsPanel({
     >
       {layouts.length === 0 ? (
         <div className={styles.previewEmpty}>
-          {audioExport ? "Layouts are not required for audio export." : "No score loaded."}
+          {wholeDocument
+            ? `Layouts are not required for ${format === "midi" ? "MIDI" : "audio"} export.`
+            : "No score loaded."}
         </div>
       ) : (
         <div className={styles.layoutList}>
@@ -81,7 +88,7 @@ export function LeftLayoutsPanel({
               layout={l}
               checked={selectedIndices.has(l.index)}
               focused={focusedIndex === l.index}
-              exporting={exporting || audioExport}
+              exporting={exporting || wholeDocument}
               onToggle={() => onToggleIndex(l.index)}
               onFocus={() => onFocusIndex(l.index)}
             />

@@ -183,6 +183,7 @@ export interface ResolveVoiceLegatoArgs {
   notes: readonly Note[];
   soundingOnset?: number;
   soundingDuration?: number;
+  humanizeTiming?: boolean;
 }
 
 /**
@@ -196,7 +197,7 @@ export function resolveVoiceLegato(a: ResolveVoiceLegatoArgs): void {
   const onset = Math.max(
     0,
     (a.soundingOnset ?? a.model.timeAtBeat(a.measureStartBeat + a.beatOffset)) +
-      timingHumanize(a.measureStartTime, a.beatOffset, a.partIndex),
+      (a.humanizeTiming === false ? 0 : timingHumanize(a.measureStartTime, a.beatOffset, a.partIndex)),
   );
   const nextDur = a.soundingDuration ?? a.model.secondsForBeats(a.measureStartBeat + a.beatOffset, a.beats);
   resolveLegato(bucket, a.out, onset, nextDur, a.notes);
