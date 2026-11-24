@@ -59,7 +59,7 @@ export function mountScore(
   surface.style.cssText = "position:relative;";
   pages.style.cssText = "position:absolute;inset:0;pointer-events:none;";
   paperSheet.style.cssText = "position:absolute;pointer-events:none;";
-  cursor.style.cssText = "position:absolute;width:2px;background:#e34935;pointer-events:none;z-index:5;";
+  cursor.style.cssText = "position:absolute;width:2px;background:var(--brand, #215e4e);pointer-events:none;z-index:5;";
   status.style.cssText = "padding:16px;color:#666;";
   horizonCanvas.style.cssText = "position:absolute;pointer-events:none;";
   surface.append(paperSheet, pages, horizonCanvas, cursor);

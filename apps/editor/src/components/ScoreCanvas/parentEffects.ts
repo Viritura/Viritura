@@ -1,8 +1,56 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 import type { DisplayList } from "@viritura/renderer";
 import type { PageSetup } from "@viritura/core";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import { PX_PER_MM } from "./constants";
+import { fitScoreView } from "./imperativeHandle";
+
+interface FitToViewArgs {
+  enabled: boolean | undefined;
+  request: number | undefined;
+  displayListRef: { current: DisplayList | null };
+  displayListVersion: number;
+  containerRef: { current: HTMLElement | null };
+  viewport: { zoom: number; scrollX: number; scrollY: number };
+  viewMode: ViewMode;
+  setZoom: (zoom: number) => void;
+  setScroll: (x: number, y: number) => void;
+  safeArea?: { left?: number; right?: number; top?: number; bottom?: number };
+}
+
+export function useFitToViewZoom(args: FitToViewArgs): void {
+  const { enabled, request, displayListVersion, containerRef, viewMode, safeArea } = args;
+  const fit = useEffectEvent(() => {
+    fitScoreView({
+      displayList: args.displayListRef.current,
+      container: containerRef.current,
+      viewport: args.viewport,
+      viewMode,
+      setZoom: args.setZoom,
+      setScroll: args.setScroll,
+      safeArea,
+      margin: 0,
+    });
+  });
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!enabled || !element) return;
+    fit();
+    const observer = new ResizeObserver(() => fit());
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [
+    enabled,
+    request,
+    displayListVersion,
+    containerRef,
+    viewMode,
+    safeArea?.left,
+    safeArea?.right,
+    safeArea?.top,
+    safeArea?.bottom,
+  ]);
+}
 
 interface FitToWidthArgs {
   fitToWidth: boolean | undefined;

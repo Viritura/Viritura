@@ -143,6 +143,9 @@ A position is either a global quarter-note beat or a measure index and a beat
 within that measure. `partId` picks the staff the cursor aligns to. With
 `follow: true`, the viewer scrolls to keep the playhead in view.
 
+The cursor uses the host's `--brand` color, falling back to Viritura viridian
+(`#215e4e`) in standalone embeds.
+
 `viewer.playheadGeometry()` returns the current cursor rectangle if you want to
 draw your own. `viewer.scrollToPosition(position)` scrolls to a position
 without showing a playhead.

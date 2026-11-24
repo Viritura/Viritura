@@ -25,7 +25,6 @@ const SCOREVIEW_CAPTION_STYLE: CSSProperties = {
   color: "#444",
 };
 const SCOREVIEW_TRANSPARENT_STYLE: CSSProperties = { background: "transparent" };
-const SCOREVIEW_PLAYHEAD_STYLE: CSSProperties = { color: "#e34935" };
 
 interface ScoreViewDemoProps {
   scoreFile: string;
@@ -65,7 +64,7 @@ function ScoreViewDemo({ scoreFile, pageWidth, zoom, pagesPerRow, showPlayhead, 
         pagesPerRow={pagesPerRow}
         style={SCOREVIEW_TRANSPARENT_STYLE}
       >
-        {showPlayhead && <ScoreView.Playhead beat={playheadBeat} style={SCOREVIEW_PLAYHEAD_STYLE} />}
+        {showPlayhead && <ScoreView.Playhead beat={playheadBeat} />}
       </ScoreView>
     </div>
   );

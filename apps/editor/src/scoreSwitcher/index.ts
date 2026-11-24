@@ -1,1 +1,1 @@
-export { ScoreSwitcher } from "./ScoreSwitcher";
+export { ScoreSwitcher, ScoreSwitcherPicker } from "./ScoreSwitcher";

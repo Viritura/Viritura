@@ -213,8 +213,10 @@ interface ScoreViewRelayoutArgs {
   backendRef: { current: LayoutBackend | null };
   docScoreRef: { current: Score | null };
   pageSetupRef: { current: PageSetup };
+  pageSetupOverride?: PageSetup;
   cachedScoreInfoRef: { current: ScoreInfo | null };
   displayListRef: { current: DisplayList | null };
+  displayListVersion: number;
   displayListVersionRef: { current: number };
   spatialIndexRef: { current: SpatialIndex | null };
   paintNowRef: { current: (forceDirect?: boolean) => void };
@@ -238,8 +240,10 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
     backendRef,
     docScoreRef,
     pageSetupRef,
+    pageSetupOverride,
     cachedScoreInfoRef,
     displayListRef,
+    displayListVersion,
     displayListVersionRef,
     spatialIndexRef,
     paintNowRef,
@@ -253,11 +257,12 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
   useEffect(() => {
     if (!wasmReady || !mnxJson) return;
     const backend = backendRef.current;
-    if (!backend || !backend.hasRetainedScore()) return;
+    if (!backend || !displayListRef.current) return;
     const layoutClass = viewMode === "horizon" ? "horizon" : "paged";
     const partFilterKey = (selectedPartIds ?? []).join(",");
     const expandedKey = expandedCondensingStaves ? [...expandedCondensingStaves].sort().join(",") : "";
-    const relayoutKey = `${selectedScoreIndex}|${layoutClass}|${scoreDefinitions.join("\u001f")}|${partFilterKey}|${expandedKey}`;
+    const pageSetupKey = pageSetupOverride ? JSON.stringify(pageSetupOverride) : "";
+    const relayoutKey = `${selectedScoreIndex}|${layoutClass}|${scoreDefinitions.join("\u001f")}|${partFilterKey}|${expandedKey}|${pageSetupKey}`;
     if (lastRelayoutKeyRef.current === relayoutKey) {
       const displayList = displayListRef.current;
       if (displayList) setContentSize(contentSizeForMode(displayList, viewMode));
@@ -274,6 +279,7 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
         score: docScoreRef.current,
         engine: backend,
         pageSetupRef,
+        pageSetupOverride,
       }).then((precomputedDisplayList) =>
         runSecondaryRelayout({
           mnxJson,
@@ -306,5 +312,6 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
     viewMode,
     selectedPartIds,
     expandedCondensingStaves,
+    displayListVersion,
   ]);
 }

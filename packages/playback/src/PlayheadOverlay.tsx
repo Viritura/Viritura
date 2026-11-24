@@ -67,6 +67,10 @@ interface PlayheadOverlayProps {
   onPlayheadRect?: (rect: PlayheadRect | null) => void;
   /** Current view mode — affects coordinate transforms for spread layout. */
   viewMode?: ViewMode;
+  /** Visual page-stack offset in score coordinates. */
+  pageOffsetY?: number;
+  /** Avoid a continuous animation loop when showing a stationary cursor. */
+  animate?: boolean;
 }
 
 /**
@@ -85,6 +89,8 @@ export function PlayheadOverlay({
   color,
   onPlayheadRect,
   viewMode = "horizon",
+  pageOffsetY = 0,
+  animate = true,
 }: PlayheadOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stavesRef = useRef<StaffInfo[]>([]);
@@ -133,8 +139,9 @@ export function PlayheadOverlay({
       onPlayheadRect?.(rect);
     } else {
       // Horizon and page view: engine coordinates match visual coordinates
+      ctx.translate(0, pageOffsetY);
       const draw = paintPlayheadAtPosition(ctx, playheadPosition, displayList, stavesRef.current, color);
-      onPlayheadRect?.(draw);
+      onPlayheadRect?.(draw && { ...draw, yTop: draw.yTop + pageOffsetY, yBottom: draw.yBottom + pageOffsetY });
     }
   });
 
@@ -143,10 +150,7 @@ export function PlayheadOverlay({
   // Effect Event above without restarting the loop.
   const playheadActive = playheadPosition !== null;
   useEffect(() => {
-    if (!playheadActive) {
-      onPaintFrame();
-      return;
-    }
+    if (!playheadActive || !animate) return;
 
     let running = true;
     let rafId: number;
@@ -161,7 +165,11 @@ export function PlayheadOverlay({
       running = false;
       cancelAnimationFrame(rafId);
     };
-  }, [playheadActive]);
+  }, [playheadActive, animate]);
+
+  useEffect(() => {
+    if (!playheadActive || !animate) onPaintFrame();
+  }, [playheadActive, animate, playheadPosition, displayList, scrollX, scrollY, zoom, viewMode, pageOffsetY]);
 
   return <canvas ref={canvasRef} data-testid="playhead-overlay" style={PLAYHEAD_CANVAS_STYLE} />;
 }

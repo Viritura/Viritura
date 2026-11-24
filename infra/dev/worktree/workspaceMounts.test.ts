@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { getNodeDependencyInputs } from "./contentHash.ts";
 import { dependencyVolumeSuffixes } from "./stack.ts";
 
 const worktreeDirectory = dirname(fileURLToPath(import.meta.url));
@@ -26,6 +27,22 @@ test("every workspace package is installed into the dev image", () => {
       dockerfile.includes(`COPY ${directory}/package.json ./${directory}/package.json`),
       `dev.Dockerfile does not copy ${directory}/package.json`,
     );
+  }
+});
+
+test("pnpm patches are available to the dev image and included in its dependency hash", () => {
+  const manifest = JSON.parse(readFileSync(join(repositoryRoot, "package.json"), "utf8")) as {
+    pnpm?: { patchedDependencies?: Record<string, string> };
+  };
+  const inputs = getNodeDependencyInputs(repositoryRoot);
+  for (const patch of Object.values(manifest.pnpm?.patchedDependencies ?? {})) {
+    assert.ok(patch.startsWith("patches/"), `patch path ${patch} is outside the directory copied into the dev image`);
+    const copyIndex = dockerfile.indexOf("COPY patches/ ./patches/");
+    assert.ok(
+      copyIndex >= 0 && copyIndex < dockerfile.indexOf("RUN pnpm install"),
+      `${patch} is not copied before install`,
+    );
+    assert.ok(inputs.includes(resolve(repositoryRoot, patch)), `${patch} is missing from dependency hash inputs`);
   }
 });
 

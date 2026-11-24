@@ -28,10 +28,10 @@ Implemented:
   collaborators) are adopted only while stopped, so a running take never
   changes program or bar numbering; the selected start bar is kept when it
   remains valid. With no document open, the activity shows an empty state.
-- **Score-first surface and floating transport** —
-  `@viritura/score-viewer-react` displays the opened MNX in a continuous,
-  horizontally scrolling score, with layout in a dedicated worker and
-  viewport-tiled painting. A playhead follows the click audio clock through
+- **Shared score surface and floating transport** — Click reuses the editor's
+  already-mounted `ScoreCanvas`; score/part selection, view mode, bar taps, and
+  click playhead overlays all use that surface rather than mounting a second
+  score viewer. A playhead follows the click audio clock through
   countoff, tempo scaling, repeats, and partial-bar jumps; it does not schedule
   audio. Stopping selects the current performed bar visit using the audio
   thread's acknowledged position; the next Start plays a fresh countoff
@@ -81,11 +81,14 @@ Implemented:
   last system triggers a clipped top-half preview of the next page over the
   current top half; entering the next page restores its full display.
   Skip this preview if the active last system starts above the halfway line.
-  Stop restores normal pages. Previews reuse the existing layout and paint
+  The followed frame is painted before its preview is removed, avoiding a
+  flash of the previous page. Stop restores normal pages. Previews reuse the existing layout and paint
   only when their page or scale changes, without another engraving/audio engine.
   Fit adapts to viewport and selected-score changes; manual zoom exits fit.
-  The click viewer defaults to fit-height and an edge-to-edge white surface,
-  without the viewer's paper shadow, gray backdrop, or viewport padding.
+  Fit requests are reapplied after the shared canvas finishes layout, and the
+  status percentage reports the canvas's actual zoom. Repeated Fit presses
+  reapply the current frame even when fitting is already enabled.
+  The shared canvas defaults to fit-height in Click mode.
 - **Horizontal navigation dials** — choose a start from independently scrollable
   rehearsal and bar-number tracks with touch, scrolling, tapping, or keyboard.
   The upper track contains only rehearsal marks, so distant marks are adjacent;
@@ -104,8 +107,8 @@ Implemented:
   entering the activity, and every Start, awaits the editor's `releaseAudio()`
   before the click engine is created, and any editor transport start while the
   activity is open (MCP, selection playback) is released again. A high-priority
-  **Space** binding drives the click transport so the hidden Write canvas's
-  play/pause shortcut cannot start instrument playback. Explicit public `@viritura/audio/click`,
+  **Space** binding drives the click transport so the editor's play/pause
+  shortcut cannot start instrument playback. Explicit public `@viritura/audio/click`,
   `@viritura/playback/click`, and `@viritura/midi/timing` barrels avoid importing
   the broad package barrels in development as well as production; these are
   declared package exports, not access to private files.
@@ -221,9 +224,10 @@ at all, but it duplicated document opening, project access, and navigation, and
 could not follow edits made in the editor. The activity instead reuses the open
 document and keeps runtime isolation where it matters for timing:
 
-- **Lazy loading.** The activity's code is a separate chunk loaded on first use.
-  Activities that do not share Write's canvas (Play, Roll, Picture, Review,
-  Click) are likewise lazy so the initial editor load does not pay for them.
+- **Lazy loading.** The Click controller and audio code are a separate chunk
+  loaded on first use, while its score uses Write's already-mounted canvas.
+  Activities with separate surfaces (Play, Roll, Picture, Review) remain lazy
+  so the initial editor load does not pay for them.
 - **Exclusive audio.** The click engine owns a private AudioContext containing
   only the click worklet. Before the engine is created, the editor's
   `releaseAudio()` stops playback, disposes samplers and native hosts, and
@@ -241,15 +245,17 @@ document and keeps runtime isolation where it matters for timing:
   the normal document path. Session tempo percentage, click volume, and the last
   selected start are session/UI settings, not document edits.
 - **Controller hosts.** The score is the main surface, with a movable,
-  touch-first floating transport. While playing, the activity covers the editor
+  touch-first floating transport. Session tempo and the shared searchable
+  score/part picker live in the app toolbar. View mode, zoom, and fit use the
+  shared status-bar controls at the bottom, visible while stopped and clear of
+  the transport's initial position. While playing, the activity covers the editor
   chrome so the score fills the screen; the transport keeps its on-screen
   position across that switch so Stop stays under the performer's finger.
   Document Picture-in-Picture remains proposed for keeping controls above a DAW.
 
-Known trade-offs: Write's canvas stays mounted (hidden) so the open document
-keeps syncing; the editor's instrument context is suspended rather than closed;
-and the click score uses `@viritura/score-viewer-react` rather than the editor's
-own canvas. Sharing the editor canvas is a follow-up.
+The Click activity reconfigures the shared canvas for click navigation and
+playhead overlays; it does not mount a second score viewer or engraving engine.
+The editor's instrument context is suspended rather than closed.
 
 ## Movable session controller
 
@@ -417,10 +423,10 @@ back; separate ownership or suspend the score context while the click context is
 active. Mere disconnection is not proof that a processor has stopped.
 
 The Click activity must not mount the piano roll or video decoder, or create
-instrument audio. Write's canvas stays mounted but hidden. The click viewer runs layout
-in a worker and paints visible score tiles; its playhead reads the click clock
-without driving audio. Do not mount editor layout/render subscriptions,
-animation loops, or automatic instrument preloads.
+instrument audio. Reuse the already-mounted `ScoreCanvas` and its layout/render
+path; do not mount a second score viewer, engraving engine, or playback
+scheduler. The Click playhead reads the click clock without driving audio.
+Avoid automatic instrument preloads.
 Retain unsaved document data and lightweight track/rehearsal metadata; do not
 discard edits or clear shared caches indiscriminately. Load/compile only the
 selected track, with no background preparation of the next score during a take.
@@ -515,10 +521,10 @@ These are proposed qualification workloads, not claims about current behavior:
   for measurement uncertainty and independently measured clock-rate differences.
   Report raw results too; do not fit away intermittent timing errors or call
   relative loopback measurements absolute latency/DAW sample-lock proof.
-- Instrumentation confirms zero live instrument synth processors, no score
-  note/control dispatch, no soundfont fetch/decode, and no editor-owned engraving
-  or video work during a click session. Qualify timing with standalone viewer
-  scrolling and tile painting active. Heap snapshots should show released application-owned
+- Instrumentation confirms one shared score surface, zero live instrument synth
+  processors, no score note/control dispatch, and no soundfont fetch/decode
+  during a click session. Qualify timing with shared-canvas scrolling and
+  painting active. Heap snapshots should show released application-owned
   instrument buffers after collection; do not promise immediate OS memory return.
 - Forced worklet failure, context suspension, denied audio startup, stale program
   acknowledgments, and device changes produce explicit non-ready/interrupted

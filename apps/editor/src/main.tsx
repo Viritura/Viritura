@@ -19,14 +19,7 @@ import { PersistentJumpBarHost } from "./app/PersistentJumpBarHost";
 import { DocumentMixerBridge } from "./components/DocumentMixerBridge";
 import { VideoSyncBridge } from "./components/VideoSyncBridge";
 import { SelectionPlaybackBridge } from "./components/playbackSelection";
-import {
-  LazyActivity,
-  LazyClickView,
-  LazyPictureView,
-  LazyPlayView,
-  LazyReviewView,
-  LazyRollView,
-} from "./app/lazyActivities";
+import { LazyActivity, LazyPictureView, LazyPlayView, LazyReviewView, LazyRollView } from "./app/lazyActivities";
 import { preloadActivity } from "./app/activityLoaders";
 import {
   SettingsDialog,
@@ -271,7 +264,8 @@ function AppWithActivityBar() {
                     activeView === "setup" ||
                       activeView === "write" ||
                       activeView === "engrave" ||
-                      activeView === "publish",
+                      activeView === "publish" ||
+                      activeView === "click",
                   )}
                 >
                   <WriteView
@@ -282,16 +276,19 @@ function AppWithActivityBar() {
                       activeView === "setup" ||
                       activeView === "write" ||
                       activeView === "engrave" ||
-                      activeView === "publish"
+                      activeView === "publish" ||
+                      activeView === "click"
                     }
                     mode={
-                      activeView === "setup"
-                        ? "setup"
-                        : activeView === "engrave"
-                          ? "engrave"
-                          : activeView === "publish"
-                            ? "publish"
-                            : "write"
+                      activeView === "click"
+                        ? "click"
+                        : activeView === "setup"
+                          ? "setup"
+                          : activeView === "engrave"
+                            ? "engrave"
+                            : activeView === "publish"
+                              ? "publish"
+                              : "write"
                     }
                     onOpenPublish={() => setActiveView("publish")}
                     onOpenSetup={() => setActiveView("setup")}
@@ -301,11 +298,6 @@ function AppWithActivityBar() {
                 {activeView === "play" && (
                   <LazyActivity label="Play">
                     <LazyPlayView score={currentScore} />
-                  </LazyActivity>
-                )}
-                {activeView === "click" && (
-                  <LazyActivity label="Click">
-                    <LazyClickView mnx={mnxJson} />
                   </LazyActivity>
                 )}
                 {activeView === "roll" && (

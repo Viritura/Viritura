@@ -76,7 +76,7 @@ function ScorePlayhead({ beat, position, partId, follow, render, className, styl
     top,
     height,
     zIndex: 5,
-    color: "#e34935",
+    color: "var(--brand, #215e4e)",
     pointerEvents: "none",
     ...style,
   };

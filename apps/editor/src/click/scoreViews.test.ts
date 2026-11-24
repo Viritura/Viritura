@@ -42,6 +42,9 @@ describe("click score views", () => {
     ]);
     expect(views[3]?.scoreIndex).toBe(3);
     expect(views[3]?.partIndex).toBeUndefined();
+    expect(views[0]?.isScore).toBe(true);
+    expect(views[3]?.isScore).toBe(false);
+    expect(views[4]?.isScore).toBe(false);
     expect(views[4]).toMatchObject({ scoreIndex: 0, partIndex: 1 });
   });
 

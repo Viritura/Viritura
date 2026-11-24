@@ -1,6 +1,16 @@
 /* eslint-disable max-lines -- component shell after 25+ sibling extractions (canvasHandlers, paintScoreFrame, paintEngraveAdornments, repaintCanvas, computeDisplayList, hitTesting, layoutHelpers, viewportGeometry, ...). The remainder is React glue that does not decompose cleanly: state/ref declarations, useImperativeHandle, prop-mirror refs for engrave callbacks, effect orchestration coordinating WASM/fast-layout/relayout, and JSX. Splitting further would scatter cross-effect dependencies into argument bundles. */
 import { markPerformance, measurePerformance } from "@viritura/renderer";
-import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import {
   GlyphAtlas,
@@ -90,7 +100,7 @@ import { useEngraveHoverFade } from "./useEngraveHoverFade";
 import { useFastLayoutCallback, runSecondaryRelayout, useScoreViewRelayout } from "./relayoutEffects";
 import { usePlayPauseShortcut } from "./usePlayPauseShortcut";
 import { useInputCursorViewportFollow } from "./useInputCursorViewportFollow";
-import { useFitToWidthZoom, useParentNotifications } from "./parentEffects";
+import { useFitToViewZoom, useFitToWidthZoom, useParentNotifications } from "./parentEffects";
 import { useRenderedStaffSources } from "./renderedStaffSources";
 import { useDocumentScoreRefs } from "./documentScoreRefs";
 import {
@@ -105,6 +115,7 @@ import {
 } from "./canvasHandlers";
 import { selectionAnnouncement } from "./selectionAnnouncement";
 import { UnsupportedChordOverlay } from "./UnsupportedChordOverlay";
+import { ClickCanvasOverlays } from "./clickOverlays";
 import { ChordTrack, CHORD_TRACK_INSET, chordTrackScale } from "../ChordTrack";
 import { withoutStaffChordHits, withoutStaffChordInk } from "./chordTrackProjection";
 import { useViewStateStore } from "../../store/viewStateStore";
@@ -137,6 +148,10 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       safeArea,
       fitToWidth = false,
       interactionMode = "write",
+      onClickMeasure,
+      pageSetupOverride,
+      fitToView,
+      fitRequest,
       engraveAdornments,
       selectedEngraveMarkerId = null,
       onEngraveBarlineClick,
@@ -191,8 +206,10 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     const paintNowRef = useRef<(forceDirect?: boolean) => void>(() => {});
 
     // ─── Engrave-mode state (refs to avoid re-binding handlers) ────
-    const interactionModeRef = useRef<"write" | "engrave">(interactionMode);
+    const interactionModeRef = useRef<"write" | "engrave" | "click">(interactionMode);
     interactionModeRef.current = interactionMode;
+    const onClickMeasureRef = useRef(onClickMeasure);
+    onClickMeasureRef.current = onClickMeasure;
     const engraveAdornmentsRef = useRef<EngraveAdornments | undefined>(engraveAdornments);
     engraveAdornmentsRef.current = engraveAdornments;
     const selectedEngraveMarkerIdRef = useRef<string | null>(selectedEngraveMarkerId);
@@ -325,11 +342,15 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     // intentional turn space before the first painted page. Exclude that
     // leading blank region from the horizontal scroll cap.
     const contentStartX =
-      viewMode === "spread-h" && displayListRef.current?.pages && displayListRef.current.pages.length > 0
+      interactionMode !== "click" &&
+      viewMode === "spread-h" &&
+      displayListRef.current?.pages &&
+      displayListRef.current.pages.length > 0
         ? displayListRef.current.width
         : 0;
 
     const { viewport, containerRef, isDragging, resetViewport, setZoom, setScroll, dragLockRef } = useViewport({
+      mouseDragEnabled: interactionMode !== "click",
       contentWidth: contentSize.width,
       contentHeight:
         contentSize.height +
@@ -441,6 +462,18 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       onPrintOverflowChange,
       pageSetupRef,
       viewMode,
+    });
+    useFitToViewZoom({
+      enabled: fitToView,
+      request: fitRequest,
+      displayListRef,
+      displayListVersion,
+      containerRef,
+      viewport,
+      viewMode,
+      setZoom,
+      setScroll,
+      safeArea,
     });
     useFitToWidthZoom({
       fitToWidth,
@@ -560,9 +593,10 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           perfTracker: perfTrackerRef.current,
           setLayoutPerfDebug,
           pageSetupRef,
+          pageSetupOverride,
           showHiddenRests,
         }),
-      [partIndex, viewMode, selectedPartIds, expandedCondensingStaves, docScoreRef, showHiddenRests],
+      [partIndex, viewMode, selectedPartIds, expandedCondensingStaves, docScoreRef, showHiddenRests, pageSetupOverride],
     );
 
     // Cached ScoreInfo to avoid re-calling WASM getScoreInfo on every edit
@@ -837,8 +871,10 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       backendRef,
       docScoreRef,
       pageSetupRef,
+      pageSetupOverride,
       cachedScoreInfoRef,
       displayListRef,
+      displayListVersion,
       displayListVersionRef,
       spatialIndexRef,
       paintNowRef,
@@ -1052,10 +1088,11 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           selection,
           viewMode,
           printPreview,
+          bare: interactionModeRef.current === "click",
           safeAreaLeft: safeArea?.left ?? 0,
           hitboxOverlayEnabled,
           performanceOverlayEnabled,
-          interactionMode: interactionModeRef.current,
+          interactionMode: interactionModeRef.current === "engrave" ? "engrave" : "write",
           perfTracker: perfTrackerRef.current,
           tileCache: tileCacheRef.current,
           glyphAtlas: glyphAtlasRef.current,
@@ -1095,6 +1132,21 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     );
 
     paintNowRef.current = paintNow;
+
+    const clickFollowPaintRef = useRef(false);
+    const setClickFollowScroll = useCallback(
+      (x: number, y: number) => {
+        clickFollowPaintRef.current = true;
+        setScroll(x, y);
+      },
+      [setScroll],
+    );
+    useLayoutEffect(() => {
+      if (!clickFollowPaintRef.current) return;
+      clickFollowPaintRef.current = false;
+      // Paint the followed frame before removing its reader-turn preview.
+      if (!loading && displayListRef.current) paintNow();
+    }, [loading, paintNow]);
 
     /** Schedule a repaint on the next animation frame (for scroll/zoom/selection changes). */
     const repaint = useCallback(() => {
@@ -1238,6 +1290,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         slurHandleDragRef,
         textExpressionDragRef,
         interactionModeRef,
+        onClickMeasureRef,
         pageSetupRef,
         engraveAdornmentsRef,
         partIdByIndexRef,
@@ -1348,8 +1401,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       });
     }, []);
 
+    const rootStyle = interactionMode === "click" ? { ...SCORE_ROOT_STYLE, background: "#fff" } : SCORE_ROOT_STYLE;
     return (
-      <div ref={containerRef} style={SCORE_ROOT_STYLE}>
+      <div ref={containerRef} style={rootStyle}>
         {!wasmReady && !isWasmReady() && <div style={SCORE_LOADING_STYLE}>Loading WASM engine...</div>}
         {loading && wasmReady && <div style={SCORE_LOADING_STYLE}>Loading score...</div>}
         {error && <div style={SCORE_ERROR_STYLE}>Error loading score: {error}</div>}
@@ -1433,18 +1487,38 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
               onHoverBeat={onHoverBeat}
             />
           )}
-          <PlayheadOverlay
-            playheadPosition={
-              playback.status === "playing" && !loading && wasmReady && !error ? playback.playheadPosition : null
-            }
-            displayList={displayListRef.current}
-            scrollX={viewport.scrollX}
-            scrollY={viewport.scrollY}
-            zoom={viewport.zoom}
-            viewMode={viewMode}
-            onPlayheadRect={follow.onPlayheadRect}
-          />
-          <FollowPlayheadButton visible={playback.status === "playing" && follow.detached} onClick={follow.reengage} />
+          {interactionMode !== "click" && (
+            <PlayheadOverlay
+              playheadPosition={
+                playback.status === "playing" && !loading && wasmReady && !error ? playback.playheadPosition : null
+              }
+              displayList={displayListRef.current}
+              scrollX={viewport.scrollX}
+              scrollY={viewport.scrollY}
+              zoom={viewport.zoom}
+              viewMode={viewMode}
+              onPlayheadRect={follow.onPlayheadRect}
+            />
+          )}
+          {interactionMode === "click" && (
+            <ClickCanvasOverlays
+              displayList={displayListRef.current}
+              scrollX={viewport.scrollX}
+              scrollY={viewport.scrollY}
+              zoom={viewport.zoom}
+              viewMode={viewMode}
+              containerRef={containerRef}
+              canvasRef={canvasRef}
+              setScroll={setClickFollowScroll}
+              safeArea={safeArea}
+            />
+          )}
+          {interactionMode !== "click" && (
+            <FollowPlayheadButton
+              visible={playback.status === "playing" && follow.detached}
+              onClick={follow.reengage}
+            />
+          )}
           {!printPreview && onToggleCondensedStaff && (
             <CondensedStaffToggles
               score={docScore}

@@ -1,4 +1,17 @@
-import type { MeasureGeometry, PlayheadGeometry, ScoreViewMode, SystemGeometry } from "@viritura/score-viewer-react";
+export type ReaderViewMode = "page" | "spread" | "spread-h" | "horizon";
+
+export interface ReaderMeasure {
+  readonly index: number;
+  readonly page: number;
+  readonly systemIndex: number;
+}
+
+export interface ReaderSystem {
+  readonly index: number;
+  readonly page: number;
+  readonly y: number;
+  readonly height: number;
+}
 
 export interface ReaderAdvance {
   readonly sourcePage: number;
@@ -7,16 +20,16 @@ export interface ReaderAdvance {
 }
 
 export function readerAdvance(
-  mode: ScoreViewMode,
-  position: Pick<PlayheadGeometry, "page" | "systemIndex">,
+  mode: ReaderViewMode,
+  position: { readonly page: number; readonly systemIndex: number },
   measureIndex: number,
-  measures: readonly MeasureGeometry[],
-  systems: readonly SystemGeometry[],
+  measures: readonly ReaderMeasure[],
+  systems: readonly ReaderSystem[],
   pageHeights: readonly number[],
 ): ReaderAdvance | undefined {
   const page = position.page;
   if (pageHeights[page + 1] === undefined) return undefined;
-  if (mode === "spread" || mode === "spread-horizontal") {
+  if (mode === "spread" || mode === "spread-h") {
     if (page === 0 || page % 2 !== 0) return undefined;
     const bars = [...new Set(measures.filter((measure) => measure.page === page).map((measure) => measure.index))].sort(
       (a, b) => a - b,

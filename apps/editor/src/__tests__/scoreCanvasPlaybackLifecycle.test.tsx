@@ -118,6 +118,7 @@ function displayList(pageCount: number): DisplayList {
       yOffset: pageNumber * 1000,
       width: 800,
       height: 1000,
+      systemIndices: [],
     })),
   };
 }
@@ -278,6 +279,34 @@ describe("ScoreCanvas playback lifecycle", () => {
     render(<ScoreCanvas viewMode="page" />);
     expect(latestOverlay().playheadPosition).toBeNull();
     expect(mocks.computeDisplayList).not.toHaveBeenCalled();
+  });
+
+  it("uses only the click playhead overlay in click interaction mode", async () => {
+    mocks.computeDisplayList.mockResolvedValue(displayList(2));
+    render(<ScoreCanvas viewMode="page" interactionMode="click" />);
+    await waitFor(() => expect(mocks.computeDisplayList).toHaveBeenCalled());
+
+    expect(mocks.overlay.mock.calls.filter(([props]) => props.onPlayheadRect !== undefined)).toHaveLength(0);
+    expect(mocks.overlay).toHaveBeenCalled();
+    expect(latestOverlay().playheadPosition).toBeNull();
+    expect(screen.queryByRole("button", { name: /follow/i })).toBeNull();
+  });
+
+  it("fits after asynchronous layout finishes and reapplies an explicit Fit request", async () => {
+    const pendingLayout = deferred<DisplayList>();
+    mocks.computeDisplayList.mockReturnValue(pendingLayout.promise);
+    const mounted = render(<ScoreCanvas viewMode="page" fitToView fitRequest={0} />);
+    const viewport = screen.getByLabelText("Interactive music score").parentElement!.parentElement!;
+    Object.defineProperties(viewport, {
+      clientWidth: { configurable: true, value: 800 },
+      clientHeight: { configurable: true, value: 600 },
+    });
+    await act(async () => pendingLayout.resolve(displayList(2)));
+    expect(mocks.setZoom).toHaveBeenLastCalledWith(0.6);
+
+    Object.defineProperty(viewport, "clientHeight", { value: 900 });
+    mounted.rerender(<ScoreCanvas viewMode="page" fitToView fitRequest={1} />);
+    expect(mocks.setZoom).toHaveBeenLastCalledWith(0.9);
   });
 
   it("suppresses the retained position when asynchronous initial layout fails", async () => {

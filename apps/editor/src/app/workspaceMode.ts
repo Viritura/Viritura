@@ -24,7 +24,7 @@
 import type { ReactNode } from "react";
 import type { ScoreCanvasProps } from "../components/ScoreCanvas";
 
-export type WorkspaceModeKind = "setup" | "write" | "engrave" | "publish";
+export type WorkspaceModeKind = "setup" | "write" | "engrave" | "publish" | "click";
 
 export interface WorkspaceMode {
   readonly kind: WorkspaceModeKind;

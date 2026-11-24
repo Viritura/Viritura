@@ -23,6 +23,7 @@ interface ComputeDisplayListArgs {
   perfTracker: PerfTracker;
   setLayoutPerfDebug: (info: Record<string, unknown>) => void;
   pageSetupRef: { current: PageSetup };
+  pageSetupOverride?: PageSetup;
   showHiddenRests: boolean;
 }
 
@@ -50,8 +51,9 @@ function resolvePageSetup(
   scoreIdx: number,
   viewMode: ViewMode,
   pageSetupRef: { current: PageSetup },
+  pageSetupOverride?: PageSetup,
 ): { sp: number; pageWidthPx: number; pageSetupJson: string } {
-  const ps = resolveScorePageSetup(score, scoreIdx);
+  const ps = pageSetupOverride ?? resolveScorePageSetup(score, scoreIdx);
   pageSetupRef.current = ps;
 
   const sp = ps.spatiumMm * PX_PER_MM;
@@ -84,13 +86,29 @@ export function tryRelayoutScoreView(args: {
   score: Score | null;
   engine: LayoutBackend | null;
   pageSetupRef: { current: PageSetup };
+  pageSetupOverride?: PageSetup;
 }): Promise<DisplayList | null> {
-  const { scoreIdx, viewMode, selectedPartIds, expandedCondensingStaves, score, engine, pageSetupRef } = args;
+  const {
+    scoreIdx,
+    viewMode,
+    selectedPartIds,
+    expandedCondensingStaves,
+    score,
+    engine,
+    pageSetupRef,
+    pageSetupOverride,
+  } = args;
   if (!engine || !engine.hasRetainedScore()) return Promise.resolve(null);
   if (scoreHasHiddenRests(score)) return Promise.resolve(null);
   if (selectedPartIds && selectedPartIds.length >= 1) return Promise.resolve(null);
   if (expandedCondensingStaves && expandedCondensingStaves.size > 0) return Promise.resolve(null);
-  const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(score, scoreIdx, viewMode, pageSetupRef);
+  const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(
+    score,
+    scoreIdx,
+    viewMode,
+    pageSetupRef,
+    pageSetupOverride,
+  );
   return engine
     .relayoutRetainedScore(sp, pageWidthPx, pageSetupJson, scoreIdx)
     .then((displayList) => (displayList ? recordRenderedStaffSources(displayList, score) : null));
@@ -156,10 +174,17 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
     perfTracker,
     setLayoutPerfDebug,
     pageSetupRef,
+    pageSetupOverride,
     showHiddenRests,
   } = args;
 
-  const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(score, scoreIdx, viewMode, pageSetupRef);
+  const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(
+    score,
+    scoreIdx,
+    viewMode,
+    pageSetupRef,
+    pageSetupOverride,
+  );
 
   if (!engine) {
     return Promise.reject(new Error("Layout backend not ready"));
