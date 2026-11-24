@@ -132,14 +132,14 @@ export function PlayheadOverlay({
       return;
     }
 
-    ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, -scrollX * dpr * zoom, -scrollY * dpr * zoom);
-
+    const scale = dpr * zoom;
     if ((viewMode === "spread" || viewMode === "spread-h") && displayList.pages && displayList.pages.length > 0) {
+      ctx.setTransform(scale, 0, 0, scale, -scrollX * scale, -scrollY * scale);
       const rect = paintPlayheadInSpread(ctx, displayList, playheadPosition, stavesRef.current, viewMode, color);
       onPlayheadRect?.(rect);
     } else {
       // Horizon and page view: engine coordinates match visual coordinates
-      ctx.translate(0, pageOffsetY);
+      ctx.setTransform(scale, 0, 0, scale, -scrollX * scale, (pageOffsetY - scrollY) * scale);
       const draw = paintPlayheadAtPosition(ctx, playheadPosition, displayList, stavesRef.current, color);
       onPlayheadRect?.(draw && { ...draw, yTop: draw.yTop + pageOffsetY, yBottom: draw.yBottom + pageOffsetY });
     }
