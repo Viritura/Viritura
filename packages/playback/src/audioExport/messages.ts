@@ -36,12 +36,12 @@ export type Mp3Bitrate = (typeof MP3_BITRATES)[number];
 /** 16- and 24-bit are integer PCM; 32-bit is IEEE floating point. */
 export type WavBitDepth = (typeof WAV_BIT_DEPTHS)[number];
 
-export interface Mp3Encoding {
+interface Mp3Encoding {
   format: "mp3";
   bitrate: Mp3Bitrate;
 }
 
-export interface WavEncoding {
+interface WavEncoding {
   format: "wav";
   bitDepth: WavBitDepth;
 }

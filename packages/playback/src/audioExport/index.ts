@@ -15,7 +15,6 @@ export {
   WAV_BIT_DEPTHS,
   type AudioEncoding,
   type AudioPartMix,
-  type AudioStage,
   type Mp3Bitrate,
   type WavBitDepth,
 } from "./messages";
