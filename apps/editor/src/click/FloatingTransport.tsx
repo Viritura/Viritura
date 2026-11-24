@@ -21,9 +21,13 @@ const DIRECTIONS: Readonly<Record<string, Position>> = {
 
 function bounded(position: Position, element: HTMLElement): Position {
   const parent = element.parentElement!;
+  const maxBottom = Math.max(8, parent.clientHeight - element.offsetHeight - 8);
+  const statusHeight =
+    Number.parseFloat(getComputedStyle(element).getPropertyValue("--workspace-status-zone-height")) || 0;
+  const minBottom = Math.min(maxBottom, Math.max(8, statusHeight + 8));
   return {
     right: Math.max(8, Math.min(Math.max(8, parent.clientWidth - element.offsetWidth - 8), position.right)),
-    bottom: Math.max(8, Math.min(Math.max(8, parent.clientHeight - element.offsetHeight - 8), position.bottom)),
+    bottom: Math.max(minBottom, Math.min(maxBottom, position.bottom)),
   };
 }
 

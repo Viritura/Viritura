@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readerAdvance, type ReaderMeasure, type ReaderSystem } from "../components/ScoreCanvas";
+import { readerAdvance, readerGeometry, type ReaderMeasure, type ReaderSystem } from "../components/ScoreCanvas";
 
 const measures: ReaderMeasure[] = [10, 11, 12, 13, 14].flatMap((index) =>
   [0, 1].map(() => ({ index, page: 2, systemIndex: 2 })),
@@ -50,5 +50,36 @@ describe("reader advance", () => {
       ),
     ).toBeUndefined();
     expect(readerAdvance("horizon", position, 12, measures, systems, heights)).toBeUndefined();
+  });
+
+  it("uses page-local system coordinates when deciding whether a later page can be previewed", () => {
+    const geometry = readerGeometry({
+      commands: [],
+      width: 600,
+      height: 3000,
+      pages: [
+        { pageNumber: 1, yOffset: 0, height: 1000, systemIndices: [] },
+        { pageNumber: 2, yOffset: 1000, height: 1000, systemIndices: [1] },
+        { pageNumber: 3, yOffset: 2000, height: 1000, systemIndices: [] },
+      ],
+      measureBounds: [
+        {
+          index: 12,
+          partIndex: 0,
+          staffIndex: 0,
+          systemIndex: 1,
+          x: 0,
+          y: 1050,
+          width: 200,
+          height: 100,
+          prefixWidth: 0,
+          totalBeats: 4,
+          beatAnchors: [],
+        },
+      ],
+    });
+    expect(
+      readerAdvance("page", { page: 1, systemIndex: 1 }, 12, geometry.measures, geometry.systems, [1000, 1000, 1000]),
+    ).toBeUndefined();
   });
 });

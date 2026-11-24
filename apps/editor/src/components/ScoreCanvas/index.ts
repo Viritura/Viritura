@@ -10,7 +10,8 @@ export {
 } from "./ScoreCanvas";
 export type { SelectionMenuContext } from "./types";
 export type { ViewportInfo } from "./types";
-export { readerAdvance } from "./readerAdvance";
+export { readerAdvance, readerGeometry } from "./readerAdvance";
 export type { ReaderAdvance, ReaderMeasure, ReaderSystem, ReaderViewMode } from "./readerAdvance";
 export { computePagePlacements } from "./viewportGeometry";
 export type { PagePlacement } from "./viewportGeometry";
+export { sourcePartMnx } from "./sourcePartProjection";

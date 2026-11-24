@@ -28,6 +28,7 @@ export function buildClickMode({
       interactionMode: "click",
       selectedScoreIndex: config.selectedScoreIndex,
       selectedPartIds: config.selectedPartIds,
+      sourcePartIndex: config.sourcePartIndex,
       onClickMeasure: config.onSelectMeasure,
       viewMode: config.viewMode,
       pageSetupOverride: config.pageSetup,

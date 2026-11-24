@@ -8,6 +8,7 @@ import { PX_PER_MM } from "./constants";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import { projectHiddenRestsForWrite, scoreHasHiddenRests, tintHiddenRestPlaceholders } from "./hiddenRestProjection";
 import { recordRenderedStaffSources } from "./renderedStaffSources";
+import { sourcePartMnx } from "./sourcePartProjection";
 
 interface ComputeDisplayListArgs {
   mnxJson: string;
@@ -15,6 +16,7 @@ interface ComputeDisplayListArgs {
   scoreIdx: number;
   patchInfo?: PatchInfo;
   partIndex: number;
+  sourcePartIndex?: number;
   viewMode: ViewMode;
   selectedPartIds: string[] | undefined;
   expandedCondensingStaves: Set<string> | undefined;
@@ -87,6 +89,7 @@ export function tryRelayoutScoreView(args: {
   engine: LayoutBackend | null;
   pageSetupRef: { current: PageSetup };
   pageSetupOverride?: PageSetup;
+  sourcePartIndex?: number;
 }): Promise<DisplayList | null> {
   const {
     scoreIdx,
@@ -97,8 +100,10 @@ export function tryRelayoutScoreView(args: {
     engine,
     pageSetupRef,
     pageSetupOverride,
+    sourcePartIndex,
   } = args;
   if (!engine || !engine.hasRetainedScore()) return Promise.resolve(null);
+  if (sourcePartIndex !== undefined) return Promise.resolve(null);
   if (scoreHasHiddenRests(score)) return Promise.resolve(null);
   if (selectedPartIds && selectedPartIds.length >= 1) return Promise.resolve(null);
   if (expandedCondensingStaves && expandedCondensingStaves.size > 0) return Promise.resolve(null);
@@ -166,6 +171,7 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
     scoreIdx,
     patchInfo,
     partIndex,
+    sourcePartIndex,
     viewMode,
     selectedPartIds,
     expandedCondensingStaves,
@@ -196,6 +202,7 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
   // condensed expansion) need that complete document before they can inject
   // synthetic layout content.
   const needsFullJson =
+    sourcePartIndex !== undefined ||
     (selectedPartIds?.length ?? 0) > 0 ||
     (expandedCondensingStaves?.size ?? 0) > 0 ||
     (patchInfo !== undefined && patchInfo.prebuiltPatchJson === undefined);
@@ -217,6 +224,19 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
     promise.then((displayList) =>
       recordRenderedStaffSources(showHiddenRests ? tintHiddenRestPlaceholders(displayList) : displayList, score),
     );
+
+  if (sourcePartIndex !== undefined) {
+    const json = sourcePartMnx(layoutJson, sourcePartIndex);
+    const part = score?.parts[sourcePartIndex];
+    return engine
+      .computeMnxScoreLayout(json, sp, pageWidthPx, 0, pageSetupJson)
+      .then((displayList) =>
+        recordRenderedStaffSources(
+          showHiddenRests ? tintHiddenRestPlaceholders(displayList) : displayList,
+          score && part ? { ...score, parts: [part] } : null,
+        ),
+      );
+  }
 
   // Staff filter: inject synthetic layout when staves are ctrl/shift-selected
   if (selectedPartIds && selectedPartIds.length >= 1) {

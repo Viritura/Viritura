@@ -127,6 +127,8 @@ export interface EngraveClickModifiers {
 
 export interface ScoreCanvasProps {
   partIndex?: number;
+  /** Render a written-pitch source part independently of authored score layouts. */
+  sourcePartIndex?: number;
   /** Keep the layout backend briefly available across Storybook-style remounts. */
   keepLayoutBackendAlive?: boolean;
   /** Currently selected score/layout index (0 = full score) */

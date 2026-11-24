@@ -336,18 +336,59 @@ describe("click activity", () => {
     expect(screen.queryByRole("group", { name: "Click settings" })).toBeNull();
   });
 
-  it("adopts document edits only while stopped and keeps a valid start bar", async () => {
+  it("stops and reports a document edit during playback before adopting it", async () => {
     const { rerender } = await renderClick(rehearsals);
     fireEvent.click(screen.getByRole("option", { name: "Bar 3, rehearsal B" }));
     fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
     await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
     const edited = JSON.stringify(JSON.parse(rehearsals));
     rerender(<ClickView mnx={edited} />);
-    fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
+    await waitFor(() => expect(audio.stop).toHaveBeenCalledOnce());
     await waitFor(() => expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Ready"));
+    expect(screen.getByRole("alert").textContent).toContain("score changed");
     expect(screen.getByRole("option", { name: "Bar 3, rehearsal B" }).getAttribute("aria-selected")).toBe("true");
     rerender(<ClickView mnx={score} />);
     expect(screen.getByRole("option", { name: "Bar 1" }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("does not start a program if the document changes during preparation", async () => {
+    let finishLoad!: (count: number) => void;
+    audio.load.mockReturnValueOnce(new Promise<number>((resolve) => (finishLoad = resolve)));
+    const { rerender } = await renderClick(rehearsals);
+    fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(audio.load).toHaveBeenCalledOnce());
+    rerender(<ClickView mnx={score} />);
+    await act(async () => finishLoad(0));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("score changed"));
+    expect(audio.start).not.toHaveBeenCalled();
+    expect(audio.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("stops an acknowledged start when the document changes while start is pending", async () => {
+    let finishStart!: (receipt: { contextTime: number }) => void;
+    audio.start.mockReturnValueOnce(new Promise((resolve) => (finishStart = resolve)));
+    const { rerender } = await renderClick(rehearsals);
+    fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
+    rerender(<ClickView mnx={score} />);
+    await act(async () => finishStart({ contextTime: 1 }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("score changed"));
+    expect(audio.stop).toHaveBeenCalledOnce();
+    expect(audio.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("reports a document change while a user-requested stop is pending", async () => {
+    let finishStop!: (elapsed: number) => void;
+    audio.stop.mockReturnValueOnce(new Promise((resolve) => (finishStop = resolve)));
+    const { rerender } = await renderClick(rehearsals);
+    fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Stop", exact: true })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
+    await waitFor(() => expect(audio.stop).toHaveBeenCalledOnce());
+    rerender(<ClickView mnx={score} />);
+    await act(async () => finishStop(0.75));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("score changed"));
+    expect(audio.stop).toHaveBeenCalledOnce();
   });
 
   it("releases editor audio before the click engine is created", async () => {

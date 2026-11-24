@@ -90,7 +90,7 @@ import { planEndingDrag } from "./endingDrag";
 import { runFastLayoutAndPaint } from "./fastLayout";
 import { computeSelectedIds } from "./computeSelectedIds";
 import { buildScoreCanvasHandle } from "./imperativeHandle";
-import { runInitialLoad, contentSizeForMode } from "./initialLoad";
+import { runInitialLoad, contentSizeForMode, scoreViewRelayoutKey } from "./initialLoad";
 import { computeDisplayListImpl, prewarmPatchChain } from "./computeDisplayList";
 import { initWasmAndFont } from "./initWasmAndFont";
 import type { LayoutBackend } from "./layoutBackend";
@@ -127,6 +127,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
   function ScoreCanvas(
     {
       partIndex = 0,
+      sourcePartIndex,
       keepLayoutBackendAlive = false,
       selectedScoreIndex = 0,
       selectedPartIds,
@@ -183,6 +184,11 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const [displayListVersion, setDisplayListVersion] = useState(0);
     const displayListVersionRef = useRef(0);
+    const completedLayoutKeyRef = useRef("");
+    const pendingViewportRef = useRef<{
+      key: string;
+      viewport: { zoom: number; scrollX: number; scrollY: number };
+    } | null>(null);
     const publishStaffSources = useRenderedStaffSources(displayListRef, displayListVersion, printPreview);
     const spatialIndexRef = useRef<SpatialIndex | null>(null);
     const interactionSpatialIndexRef = useRef<SpatialIndex | null>(null);
@@ -337,7 +343,10 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     // follow-playhead controller (created after useViewport, since it needs
     // setScroll) installs its detach handler into this ref.
     const followInteractRef = useRef<() => void>(() => {});
-    const handleUserInteract = useCallback(() => followInteractRef.current(), []);
+    const handleUserInteract = useCallback(() => {
+      pendingViewportRef.current = null;
+      followInteractRef.current();
+    }, []);
     // Horizontal spreads place the opening page at one page-width, leaving
     // intentional turn space before the first painted page. Exclude that
     // leading blank region from the horizontal scroll cap.
@@ -374,6 +383,46 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       onUserInteract: handleUserInteract,
     });
 
+    const layoutKey = scoreViewRelayoutKey(
+      selectedScoreIndex,
+      viewMode,
+      scoreDefinitions,
+      selectedPartIds,
+      expandedCondensingStaves,
+      pageSetupOverride,
+      sourcePartIndex,
+    );
+    const restoreViewport = useCallback(
+      (saved: { zoom: number; scrollX: number; scrollY: number }) => {
+        setZoom(saved.zoom);
+        setScroll(saved.scrollX, saved.scrollY);
+        const displayList = displayListRef.current;
+        const targetSize = displayList && contentSizeForMode(displayList, viewMode);
+        pendingViewportRef.current =
+          displayList &&
+          (completedLayoutKeyRef.current !== layoutKey ||
+            targetSize?.width !== contentSize.width ||
+            targetSize.height !== contentSize.height)
+            ? { key: layoutKey, viewport: saved }
+            : null;
+      },
+      [setZoom, setScroll, layoutKey, viewMode, contentSize],
+    );
+    useEffect(() => {
+      const pending = pendingViewportRef.current;
+      const displayList = displayListRef.current;
+      if (!pending) return;
+      if (pending.key !== layoutKey) {
+        pendingViewportRef.current = null;
+        return;
+      }
+      if (completedLayoutKeyRef.current !== pending.key || !displayList) return;
+      const targetSize = contentSizeForMode(displayList, viewMode);
+      if (targetSize.width !== contentSize.width || targetSize.height !== contentSize.height) return;
+      pendingViewportRef.current = null;
+      setScroll(pending.viewport.scrollX, pending.viewport.scrollY);
+    }, [layoutKey, viewMode, contentSize, displayListVersion, setScroll]);
+
     // Playback state for playhead overlay + keyboard shortcuts
     const playback = usePlaybackState();
     const playbackActions = usePlaybackActions();
@@ -395,7 +444,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     followInteractRef.current = follow.onUserInteract;
 
     useInputCursorViewportFollow({
-      active: noteInputState.active,
+      active: interactionMode !== "click" && noteInputState.active,
       cursor: noteInputState.cursorPosition,
       score: docScore,
       displayList: displayListRef.current,
@@ -421,9 +470,19 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       ref,
       () =>
         buildScoreCanvasHandle({
-          setZoom,
-          setScroll,
-          resetViewport,
+          setZoom: (zoom) => {
+            pendingViewportRef.current = null;
+            setZoom(zoom);
+          },
+          setScroll: (x, y) => {
+            pendingViewportRef.current = null;
+            setScroll(x, y);
+          },
+          restoreViewport,
+          resetViewport: () => {
+            pendingViewportRef.current = null;
+            resetViewport();
+          },
           scoreDefinitions,
           selectedScoreIndex,
           viewport,
@@ -437,6 +496,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       [
         setZoom,
         setScroll,
+        restoreViewport,
         resetViewport,
         scoreDefinitions,
         selectedScoreIndex,
@@ -585,6 +645,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           scoreIdx,
           patchInfo,
           partIndex,
+          sourcePartIndex,
           viewMode,
           selectedPartIds,
           expandedCondensingStaves,
@@ -596,7 +657,16 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           pageSetupOverride,
           showHiddenRests,
         }),
-      [partIndex, viewMode, selectedPartIds, expandedCondensingStaves, docScoreRef, showHiddenRests, pageSetupOverride],
+      [
+        partIndex,
+        sourcePartIndex,
+        viewMode,
+        selectedPartIds,
+        expandedCondensingStaves,
+        docScoreRef,
+        showHiddenRests,
+        pageSetupOverride,
+      ],
     );
 
     // Cached ScoreInfo to avoid re-calling WASM getScoreInfo on every edit
@@ -780,6 +850,10 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           containerWidth,
           debugEnabled,
           selectedScoreIndex: selectedScoreIndexRef.current,
+          selectedPartIds,
+          expandedCondensingStaves,
+          pageSetupOverride,
+          sourcePartIndex,
           cachedScoreInfoRef,
           displayListRef,
           spatialIndexRef,
@@ -793,6 +867,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           setScoreDefinitions,
           setContentSize,
           clearSelection,
+          onLayoutCommitted: (key) => {
+            completedLayoutKeyRef.current = key;
+          },
         }),
       )
         .then(() => {
@@ -848,6 +925,10 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       mnxJson,
       documentStore,
       partIndex,
+      sourcePartIndex,
+      selectedPartIds,
+      expandedCondensingStaves,
+      pageSetupOverride,
       wasmReady,
       computeDisplayList,
       clearSelection,
@@ -872,6 +953,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       docScoreRef,
       pageSetupRef,
       pageSetupOverride,
+      sourcePartIndex,
       cachedScoreInfoRef,
       displayListRef,
       displayListVersion,
@@ -883,6 +965,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       viewSwitchTokenRef,
       setContentSize,
       setDisplayListVersion,
+      onLayoutCommitted: (key) => {
+        completedLayoutKeyRef.current = key;
+      },
     });
 
     // React to container-width changes (responsive resize). The engine layout
@@ -1474,7 +1559,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           <span id={selectionStatusId} aria-live="polite" style={SCREEN_READER_ONLY_STYLE}>
             {selectionStatus}
           </span>
-          {!printPreview && (
+          {!printPreview && interactionMode !== "click" && (
             <InputCursor
               displayList={displayListRef.current}
               scrollX={viewport.scrollX}

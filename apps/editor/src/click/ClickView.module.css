@@ -8,7 +8,6 @@
 /* Keep the shared canvas visible while hiding the app chrome during a take. */
 .performing {
   z-index: 500;
-  --workspace-status-zone-height: 0px;
 }
 
 .toolbar {

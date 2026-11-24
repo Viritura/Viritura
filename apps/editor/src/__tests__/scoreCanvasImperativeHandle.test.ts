@@ -47,6 +47,7 @@ describe("current viewport page", () => {
     const handle = buildScoreCanvasHandle({
       setZoom: () => {},
       setScroll: () => {},
+      restoreViewport: () => {},
       resetViewport: () => {},
       scoreDefinitions: [],
       selectedScoreIndex: 0,

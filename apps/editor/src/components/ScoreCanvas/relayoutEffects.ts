@@ -6,7 +6,7 @@ import type { PageSetup, Score } from "@viritura/core";
 import { runBackgroundTask } from "../../store/backgroundTaskStore";
 import { tryRelayoutScoreView } from "./computeDisplayList";
 import { runFastLayoutAndPaint } from "./fastLayout";
-import { contentSizeForMode } from "./initialLoad";
+import { contentSizeForMode, scoreViewRelayoutKey } from "./initialLoad";
 import type { LayoutBackend } from "./layoutBackend";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 
@@ -150,6 +150,7 @@ interface SecondaryRelayoutArgs {
    *  async layout resolves; when stale, the result is discarded instead of
    *  committed so it can't clobber the current view. */
   isStale?: () => boolean;
+  onLayoutCommitted?: () => void;
 }
 
 /**
@@ -193,6 +194,7 @@ export async function runSecondaryRelayout(args: SecondaryRelayoutArgs): Promise
   if (setContentSize) {
     setContentSize(contentSizeForMode(displayList, viewMode));
   }
+  args.onLayoutCommitted?.();
   displayListVersionRef.current += 1;
   setDisplayListVersion((v) => v + 1);
   requestAnimationFrame(() => {
@@ -214,6 +216,7 @@ interface ScoreViewRelayoutArgs {
   docScoreRef: { current: Score | null };
   pageSetupRef: { current: PageSetup };
   pageSetupOverride?: PageSetup;
+  sourcePartIndex?: number;
   cachedScoreInfoRef: { current: ScoreInfo | null };
   displayListRef: { current: DisplayList | null };
   displayListVersion: number;
@@ -225,6 +228,7 @@ interface ScoreViewRelayoutArgs {
   viewSwitchTokenRef: { current: number };
   setContentSize: (size: { width: number; height: number }) => void;
   setDisplayListVersion: (updater: (version: number) => number) => void;
+  onLayoutCommitted?: (key: string) => void;
 }
 
 export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
@@ -241,6 +245,7 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
     docScoreRef,
     pageSetupRef,
     pageSetupOverride,
+    sourcePartIndex,
     cachedScoreInfoRef,
     displayListRef,
     displayListVersion,
@@ -258,11 +263,15 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
     if (!wasmReady || !mnxJson) return;
     const backend = backendRef.current;
     if (!backend || !displayListRef.current) return;
-    const layoutClass = viewMode === "horizon" ? "horizon" : "paged";
-    const partFilterKey = (selectedPartIds ?? []).join(",");
-    const expandedKey = expandedCondensingStaves ? [...expandedCondensingStaves].sort().join(",") : "";
-    const pageSetupKey = pageSetupOverride ? JSON.stringify(pageSetupOverride) : "";
-    const relayoutKey = `${selectedScoreIndex}|${layoutClass}|${scoreDefinitions.join("\u001f")}|${partFilterKey}|${expandedKey}|${pageSetupKey}`;
+    const relayoutKey = scoreViewRelayoutKey(
+      selectedScoreIndex,
+      viewMode,
+      scoreDefinitions,
+      selectedPartIds,
+      expandedCondensingStaves,
+      pageSetupOverride,
+      sourcePartIndex,
+    );
     if (lastRelayoutKeyRef.current === relayoutKey) {
       const displayList = displayListRef.current;
       if (displayList) setContentSize(contentSizeForMode(displayList, viewMode));
@@ -280,6 +289,7 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
         engine: backend,
         pageSetupRef,
         pageSetupOverride,
+        sourcePartIndex,
       }).then((precomputedDisplayList) =>
         runSecondaryRelayout({
           mnxJson,
@@ -298,6 +308,7 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
           forceDirectPaint: true,
           precomputedDisplayList,
           isStale: () => viewSwitchTokenRef.current !== relayoutToken,
+          onLayoutCommitted: () => args.onLayoutCommitted?.(relayoutKey),
         }),
       ),
     );
@@ -312,6 +323,8 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
     viewMode,
     selectedPartIds,
     expandedCondensingStaves,
+    pageSetupOverride,
+    sourcePartIndex,
     displayListVersion,
   ]);
 }

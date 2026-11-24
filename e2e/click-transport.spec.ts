@@ -5,7 +5,12 @@ import { expect, test, type Page } from "@playwright/test";
 type ScoreFile = string | { name: string; mimeType: string; buffer: Buffer };
 
 /** Opens a score through the editor's File menu, then switches to the Click activity. */
-async function openClick(page: Page, file: ScoreFile): Promise<void> {
+async function openClick(
+  page: Page,
+  file: ScoreFile,
+  noteInput = false,
+  beforeClick?: () => Promise<void>,
+): Promise<void> {
   await page.addInitScript(() => {
     window.localStorage.setItem("viritura.startCenter.suppress", "1");
     Reflect.deleteProperty(window, "showOpenFilePicker");
@@ -16,9 +21,54 @@ async function openClick(page: Page, file: ScoreFile): Promise<void> {
   await page.keyboard.press("ControlOrMeta+Shift+O");
   await (await chooser).setFiles(file);
   await expect(page.getByText("Laying out score")).toHaveCount(0, { timeout: 45_000 });
+  if (noteInput) {
+    const toggle = page.getByRole("button", { name: "Toggle note input (N)" });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  }
+  await beforeClick?.();
   await page.getByRole("button", { name: "Click", exact: true }).click();
   await expect(page.getByRole("region", { name: "Click player" })).toHaveAttribute("aria-busy", "false");
 }
+
+test("note-input keystrokes do not edit the score during a Click take", async ({ page }) => {
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+    true,
+  );
+  const player = page.getByRole("region", { name: "Click player" });
+  await player.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(player.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+  await page.getByRole("application", { name: "Interactive music score" }).focus();
+  await page.keyboard.press("C");
+  await page.waitForTimeout(1000);
+  await expect(player.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await player.getByRole("button", { name: "Stop", exact: true }).click();
+});
+
+test("returning from Click restores a distant Write Horizon position", async ({ page }) => {
+  let distant = "";
+  const canvas = page.getByRole("application", { name: "Interactive music score" });
+  const image = () => canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL());
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "beethoven-symphony-5-movement-1.mnx"),
+    false,
+    async () => {
+      const original = await image();
+      await canvas.hover();
+      await page.mouse.wheel(12000, 0);
+      await expect.poll(image).not.toBe(original);
+      distant = await image();
+    },
+  );
+  await page.getByRole("button", { name: "View mode", exact: true }).click();
+  await page.getByRole("option", { name: "Page", exact: true }).click();
+  await page.getByRole("button", { name: "Write", exact: true }).click();
+  await expect.poll(image, { timeout: 45_000 }).toBe(distant);
+});
 
 async function scoreFrame(page: Page) {
   return page.getByRole("application", { name: "Interactive music score" }).evaluate((canvas) => {

@@ -5,6 +5,7 @@ import type { PageSetup } from "@viritura/core";
 export interface ClickCanvasConfig {
   readonly selectedScoreIndex: number;
   readonly selectedPartIds?: string[];
+  readonly sourcePartIndex?: number;
   readonly viewMode: WriteViewMode;
   readonly pageSetup?: PageSetup;
   readonly fitToView?: boolean;

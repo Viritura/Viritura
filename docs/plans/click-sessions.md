@@ -25,9 +25,9 @@ Implemented:
   countoff), the settings bar is hidden so the score fills the available height
   and height-fit zoom adapts. Stopping, finishing, or an audio interruption
   restores the bar and its settings. Document edits (for example from MCP or
-  collaborators) are adopted only while stopped, so a running take never
-  changes program or bar numbering; the selected start bar is kept when it
-  remains valid. With no document open, the activity shows an empty state.
+  collaborators) interrupt an active or preparing take with a visible message;
+  the updated document is adopted after stopping. The selected start bar is
+  kept when it remains valid. With no document open, the activity shows an empty state.
 - **Shared score surface and floating transport** — Click reuses the editor's
   already-mounted `ScoreCanvas`; score/part selection, view mode, bar taps, and
   click playhead overlays all use that surface rather than mounting a second

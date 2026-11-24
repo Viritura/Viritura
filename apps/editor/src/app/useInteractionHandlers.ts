@@ -56,6 +56,7 @@ interface UseInteractionHandlersParams {
   onSwitchScore: (index: number) => void;
   noteInputState: NoteInputState;
   lyricEntryEnabled: boolean;
+  suspendEditorInput?: boolean;
   // editing helpers
   getSelectedMeasureIndex: () => number | null;
   getSelectedPartIndex: () => number | null;
@@ -146,6 +147,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     selectedScoreIndex,
     onSwitchScore,
     noteInputState,
+    suspendEditorInput,
     lyricEntryEnabled,
     getSelectedMeasureIndex,
     getSelectedPartIndex,
@@ -209,6 +211,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
 
   const { enterMidiNotes, moveMidiCursor } = useAppKeyboardWiring({
     canvasRef,
+    suspendEditorInput,
     leftPanelRef,
     rightPanelRef,
     mousePositionRef,

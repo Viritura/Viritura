@@ -512,6 +512,7 @@ function AppInner({
     onSwitchScore: handleSelectScore,
     noteInputState,
     lyricEntryEnabled: modeKind === "write",
+    suspendEditorInput: modeKind === "click",
     getSelectedMeasureIndex,
     getSelectedPartIndex,
     selectRange,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { ClickEngine } from "@viritura/audio/click";
 import { buildClickSessionProgram, type ClickSessionProgram } from "@viritura/playback/click";
 import { readClickDocument, type ClickDocument } from "./clickDocument";
@@ -12,6 +12,7 @@ interface ClickPlayerOptions {
 }
 
 const noRelease = async (): Promise<void> => {};
+const DOCUMENT_CHANGED = "Click stopped because the score changed. Press Start for a fresh countoff.";
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -31,8 +32,8 @@ function firstStartable(bars: readonly ClickBar[]): number {
 }
 
 /**
- * Click-only transport for the open document. Document edits are adopted only
- * while stopped, so a running take never switches program or bar numbering.
+ * Click-only transport for the open document. A document change interrupts a
+ * take rather than letting its score diverge from the loaded click program.
  */
 export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: ClickPlayerOptions = {}) {
   const [tempoPercent, setTempoPercent] = useState(100);
@@ -59,6 +60,7 @@ export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: C
   const engineRef = useRef<ClickEngine | undefined>(undefined);
   const mounted = useRef(true);
   const locked = useRef(false);
+  const documentChanged = useRef(false);
   const anchor = useRef(0);
 
   useEffect(() => {
@@ -112,6 +114,25 @@ export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: C
     }
   }
 
+  const interruptForDocumentChange = useEffectEvent(() => {
+    documentChanged.current = true;
+    if (locked.current || transportPhase !== "playing") return;
+    void run(async () => {
+      const engine = engineRef.current;
+      if (!engine || !document || !program) throw new Error(DOCUMENT_CHANGED);
+      const stoppedElapsed = await engine.stop();
+      if (!mounted.current || engineRef.current !== engine) return;
+      setStartBar(clickBarAtTime(document.timing, program, stoppedElapsed, tempoPercent));
+      setElapsed(0);
+      setPhase("ready");
+      setError(DOCUMENT_CHANGED);
+    });
+  });
+
+  useEffect(() => {
+    if (mnx !== sourceMnx && (transportPhase === "playing" || busy)) interruptForDocumentChange();
+  }, [mnx, sourceMnx, transportPhase, busy]);
+
   async function getEngine(): Promise<ClickEngine | undefined> {
     if (engineRef.current) return engineRef.current;
     const engine = await ClickEngine.create();
@@ -145,6 +166,7 @@ export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: C
 
   function play(): Promise<void> {
     return run(async () => {
+      documentChanged.current = false;
       if (!document) throw new Error("Open a score first");
       const next = buildClickSessionProgram(document.timing, {
         tempoPercent,
@@ -155,13 +177,21 @@ export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: C
       // Instrument playback and previews must be silent before a recording take.
       await releaseOtherAudio();
       if (!mounted.current) return;
+      if (documentChanged.current) throw new Error(DOCUMENT_CHANGED);
       // Creation happens inside the Start gesture, not while opening a score.
       const engine = await getEngine();
       if (!engine) return;
+      if (documentChanged.current) throw new Error(DOCUMENT_CHANGED);
       await engine.context.resume();
+      if (documentChanged.current) throw new Error(DOCUMENT_CHANGED);
       await engine.load(next.events, next.duration);
+      if (documentChanged.current) throw new Error(DOCUMENT_CHANGED);
       const receipt = await engine.start();
       if (!mounted.current || engineRef.current !== engine) return;
+      if (documentChanged.current) {
+        await engine.stop();
+        throw new Error(DOCUMENT_CHANGED);
+      }
       anchor.current = receipt.contextTime;
       setElapsed(0);
       setPhase("playing");
@@ -177,6 +207,7 @@ export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: C
       setStartBar(clickBarAtTime(document.timing, program, stoppedElapsed, tempoPercent));
       setElapsed(0);
       setPhase("ready");
+      if (documentChanged.current) setError(DOCUMENT_CHANGED);
     });
   }
 

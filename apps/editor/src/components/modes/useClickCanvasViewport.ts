@@ -18,8 +18,7 @@ export function useClickCanvasViewport(
     } else if (previous === "click" && modeKind !== "click") {
       const viewport = writeViewportBeforeClick.current;
       if (viewport) {
-        canvasRef.current?.setZoom(viewport.zoom);
-        canvasRef.current?.setScroll(viewport.scrollX, viewport.scrollY);
+        canvasRef.current?.restoreViewport(viewport);
       }
       writeViewportBeforeClick.current = null;
     }

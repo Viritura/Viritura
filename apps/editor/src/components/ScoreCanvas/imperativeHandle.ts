@@ -7,6 +7,7 @@ import type { PageSetup, Score } from "@viritura/core";
 interface ImperativeHandleArgs {
   setZoom: (z: number) => void;
   setScroll: (x: number, y: number) => void;
+  restoreViewport: (viewport: { zoom: number; scrollX: number; scrollY: number }) => void;
   resetViewport: () => void;
   scoreDefinitions: string[];
   selectedScoreIndex: number;
@@ -22,6 +23,7 @@ interface ImperativeHandleArgs {
 export interface ScoreCanvasHandle {
   setZoom: (z: number) => void;
   setScroll: (x: number, y: number) => void;
+  restoreViewport: (viewport: { zoom: number; scrollX: number; scrollY: number }) => void;
   resetViewport: () => void;
   scoreDefinitions: string[];
   getDisplayList: () => DisplayList | null;
@@ -43,6 +45,7 @@ export function buildScoreCanvasHandle(args: ImperativeHandleArgs): ScoreCanvasH
   const {
     setZoom,
     setScroll,
+    restoreViewport,
     resetViewport,
     scoreDefinitions,
     selectedScoreIndex,
@@ -57,6 +60,7 @@ export function buildScoreCanvasHandle(args: ImperativeHandleArgs): ScoreCanvasH
   return {
     setZoom,
     setScroll,
+    restoreViewport,
     resetViewport,
     scoreDefinitions,
     getDisplayList: () => displayListRef.current,

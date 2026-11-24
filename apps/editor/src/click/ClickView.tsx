@@ -164,6 +164,7 @@ export function ClickView({ mnx, canvasRef, canvasZoom }: ClickViewProps) {
     publishClickCanvasConfig({
       selectedScoreIndex: selectedView?.scoreIndex ?? 0,
       selectedPartIds: selectedView?.partId ? [selectedView.partId] : undefined,
+      sourcePartIndex: selectedView?.partIndex,
       viewMode:
         scoreSettings.viewMode === "spread-horizontal" || scoreSettings.viewMode === "horizontal"
           ? "spread-h"

@@ -4,7 +4,7 @@ import { PlayheadOverlay } from "@viritura/playback";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import { useClickCanvasPlayback } from "../../store/clickCanvasStore";
 import { computePagePlacements, PAGE_STACK_GAP } from "./viewportGeometry";
-import { readerAdvance, type ReaderMeasure, type ReaderSystem } from "./readerAdvance";
+import { readerAdvance, readerGeometry } from "./readerAdvance";
 import { clickFollowScroll, clickFrameClip } from "./clickViewport";
 import { scorePageFrame } from "./imperativeHandle";
 
@@ -18,34 +18,6 @@ interface ClickCanvasOverlaysProps {
   readonly canvasRef: RefObject<HTMLCanvasElement | null>;
   readonly setScroll: (x: number, y: number) => void;
   readonly safeArea?: { left?: number; top?: number; right?: number; bottom?: number };
-}
-
-interface ReaderGeometry {
-  readonly measures: ReaderMeasure[];
-  readonly systems: ReaderSystem[];
-}
-
-function readerGeometry(displayList: DisplayList): ReaderGeometry {
-  const pages = displayList.pages ?? [];
-  const pageBySystem = new Map<number, number>();
-  pages.forEach((page, pageIndex) => {
-    page.systemIndices.forEach((systemIndex) => pageBySystem.set(systemIndex, pageIndex));
-  });
-  const measures = new Map<string, ReaderMeasure>();
-  const systems = new Map<number, ReaderSystem>();
-  for (const bound of displayList.measureBounds ?? []) {
-    const systemIndex = bound.systemIndex;
-    if (systemIndex === undefined) continue;
-    const page = pageBySystem.get(systemIndex);
-    if (page === undefined) continue;
-    const measure = { index: bound.index, page, systemIndex };
-    measures.set(`${measure.index}:${page}:${systemIndex}`, measure);
-    const current = systems.get(systemIndex);
-    const top = current ? Math.min(current.y, bound.y) : bound.y;
-    const bottom = current ? Math.max(current.y + current.height, bound.y + bound.height) : bound.y + bound.height;
-    systems.set(systemIndex, { index: systemIndex, page, y: top, height: bottom - top });
-  }
-  return { measures: [...measures.values()], systems: [...systems.values()] };
 }
 
 interface AdvanceCanvasProps {
