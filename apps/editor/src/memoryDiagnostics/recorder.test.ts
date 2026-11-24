@@ -99,6 +99,34 @@ describe("memory pressure recorder", () => {
     },
   );
 
+  it("ignores a recycled layout worker regrowing to the document's working set", () => {
+    const recorder = new MemoryRecorder("test");
+    // Mirrors a large orchestral score: the worker reaches ~360 MiB, is
+    // recreated by a canvas remount, then regrows on its first layout.
+    const readings = [3.375, 359, 359, 359, null, ...Array<number>(14).fill(3.375), 216];
+    readings.forEach((worker, index) => {
+      expect(
+        recorder.sample({
+          ...INITIAL,
+          timestamp: index * 10000,
+          heapUsedBytes: 400 * MIB,
+          workerWasmBytes: worker === null ? null : worker * MIB,
+          workerSampleAgeMs: worker === null ? null : 0,
+        }),
+      ).toBeNull();
+    });
+  });
+
+  it("still detects a recycled worker growing well past its predecessor's peak", () => {
+    const recorder = new MemoryRecorder("test");
+    const readings = [256, 256, ...Array<number>(12).fill(4), 640];
+    const reasons = readings.map(
+      (worker, index) =>
+        recorder.sample({ ...INITIAL, timestamp: index * 10000, workerWasmBytes: worker * MIB })?.reason,
+    );
+    expect(reasons.at(-1)).toBe("rapid-growth");
+  });
+
   it("ignores stale worker readings for pressure and growth", () => {
     const stale = STALE_WORKER_SAMPLE_MS + 1;
     const pressure = new MemoryRecorder("test");
