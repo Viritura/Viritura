@@ -56,6 +56,6 @@ export async function convertMxlToMnx(
   buffer: ArrayBuffer | Uint8Array,
   options?: ConvertOptions,
 ): Promise<MnxDocument> {
-  const xmlString = await unpackMusicXml(buffer, options?.diagnostics);
+  const xmlString = await unpackMusicXml(buffer);
   return convertMusicXmlToMnx(xmlString, options);
 }

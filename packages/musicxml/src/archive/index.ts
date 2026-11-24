@@ -1,6 +1,5 @@
 import JSZip from "jszip";
 import { DOMParser } from "@xmldom/xmldom";
-import type { DiagnosticCollector } from "@viritura/core";
 
 export const MUSICXML_MIME = "application/vnd.recordare.musicxml+xml";
 export const MXL_MIME = "application/vnd.recordare.musicxml";
@@ -17,10 +16,7 @@ export async function packMusicXml(xml: string): Promise<Uint8Array> {
   return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 }
 
-export async function unpackMusicXml(
-  buffer: ArrayBuffer | Uint8Array,
-  diagnostics?: DiagnosticCollector,
-): Promise<string> {
+export async function unpackMusicXml(buffer: ArrayBuffer | Uint8Array): Promise<string> {
   const zip = await JSZip.loadAsync(buffer);
   const manifest = zip.file("META-INF/container.xml");
   if (manifest) {
@@ -52,10 +48,5 @@ export async function unpackMusicXml(
         ? "The MXL archive has multiple score files but no root-file manifest."
         : "No XML file found in .mxl archive",
     );
-  diagnostics?.warn(
-    "",
-    "The MXL archive has no declared root file; its only score file was imported.",
-    "mxl-legacy-container",
-  );
   return candidates[0]!.async("string");
 }

@@ -33,12 +33,12 @@ describe("convertMxlToMnx", () => {
     expect((await convertMxlToMnx(await zip.generateAsync({ type: "uint8array" }))).parts[0]!.name).toBe("Piano");
   });
 
-  it("diagnoses legacy archives and rejects ambiguous or missing root files", async () => {
+  it("imports unambiguous legacy archives silently and rejects ambiguous or missing root files", async () => {
     const zip = new JSZip();
     zip.file("score.xml", MUSIC_XML);
     const diagnostics = new DiagnosticCollector();
     await convertMxlToMnx(await zip.generateAsync({ type: "uint8array" }), { diagnostics });
-    expect(diagnostics.all()).toContainEqual(expect.objectContaining({ code: "mxl-legacy-container" }));
+    expect(diagnostics.all()).toEqual([]);
     zip.file("another.musicxml", MUSIC_XML);
     await expect(convertMxlToMnx(await zip.generateAsync({ type: "uint8array" }))).rejects.toThrow(/multiple/);
     zip.file(
