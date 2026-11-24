@@ -94,10 +94,10 @@ pub mod smufl {
     pub const NOTEHEAD_TRIANGLE_DOWN_WHOLE: u32 = 0xE0C4;
     pub const NOTEHEAD_TRIANGLE_DOWN_HALF: u32 = 0xE0C5;
     pub const NOTEHEAD_TRIANGLE_DOWN_BLACK: u32 = 0xE0C7;
-    pub const NOTEHEAD_SLASH_VERTICAL_DOUBLE_WHOLE: u32 = 0xE100;
-    pub const NOTEHEAD_SLASH_VERTICAL_WHOLE: u32 = 0xE101;
-    pub const NOTEHEAD_SLASH_VERTICAL_HALF: u32 = 0xE102;
-    pub const NOTEHEAD_SLASH_VERTICAL_BLACK: u32 = 0xE103;
+    pub const NOTEHEAD_SLASH_DOUBLE_WHOLE: u32 = 0xE10A;
+    pub const NOTEHEAD_SLASH_WHOLE: u32 = 0xE102;
+    pub const NOTEHEAD_SLASH_HALF: u32 = 0xE103;
+    pub const NOTEHEAD_SLASH_BLACK: u32 = 0xE101;
 
     // ═══════════════════════════════════════
     // Notehead anchor points (from Bravura glyphsWithAnchors)
@@ -173,9 +173,13 @@ pub mod smufl {
                 up_se: (1.14, -0.464),
                 down_nw: (0.0, -0.464),
             },
-            NOTEHEAD_SLASH_VERTICAL_BLACK | NOTEHEAD_SLASH_VERTICAL_HALF => StemAnchors {
-                up_se: (1.46, -0.656),
-                down_nw: (0.0, 0.664),
+            NOTEHEAD_SLASH_BLACK => StemAnchors {
+                up_se: (2.12, -1.0),
+                down_nw: (0.0, 1.0),
+            },
+            NOTEHEAD_SLASH_HALF => StemAnchors {
+                up_se: (3.12, -1.0),
+                down_nw: (0.0, 1.0),
             },
             _ => STEM_ANCHORS_DEFAULT,
         }
@@ -970,13 +974,13 @@ pub mod smufl {
             }
             NoteheadShape::Slash => {
                 if is_double_whole {
-                    NOTEHEAD_SLASH_VERTICAL_DOUBLE_WHOLE
+                    NOTEHEAD_SLASH_DOUBLE_WHOLE
                 } else if is_whole {
-                    NOTEHEAD_SLASH_VERTICAL_WHOLE
+                    NOTEHEAD_SLASH_WHOLE
                 } else if is_half {
-                    NOTEHEAD_SLASH_VERTICAL_HALF
+                    NOTEHEAD_SLASH_HALF
                 } else {
-                    NOTEHEAD_SLASH_VERTICAL_BLACK
+                    NOTEHEAD_SLASH_BLACK
                 }
             }
             NoteheadShape::TriangleUp => {
@@ -1718,6 +1722,10 @@ pub mod smufl {
             NOTEHEAD_HALF => (0.0, -0.5, 1.18, 1.0),
             NOTEHEAD_WHOLE => (0.0, -0.5, 1.66, 1.0),
             NOTEHEAD_DOUBLE_WHOLE => (-0.18, -0.5, 2.02, 1.0),
+            NOTEHEAD_SLASH_BLACK => (0.0, -1.0, 2.12, 2.0),
+            NOTEHEAD_SLASH_HALF => (0.0, -1.0, 3.12, 2.0),
+            NOTEHEAD_SLASH_WHOLE => (0.0, -1.0, 3.92, 2.0),
+            NOTEHEAD_SLASH_DOUBLE_WHOLE => (0.0, -1.0, 4.644, 2.0),
 
             // Rests
             REST_WHOLE => (0.0, -0.036, 1.128, 0.576),
@@ -2072,7 +2080,7 @@ pub mod smufl {
             "noteheadDiamondBlack" => Some(NOTEHEAD_DIAMOND_BLACK),
             "noteheadTriangleUpBlack" => Some(NOTEHEAD_TRIANGLE_UP_BLACK),
             "noteheadTriangleDownBlack" => Some(NOTEHEAD_TRIANGLE_DOWN_BLACK),
-            "noteheadSlashVerticalBlack" => Some(NOTEHEAD_SLASH_VERTICAL_BLACK),
+            "noteheadSlashHorizontalEnds" => Some(NOTEHEAD_SLASH_BLACK),
             // Dynamics — individual letters
             "dynamicPiano" => Some(DYNAMIC_PIANO),
             "dynamicMezzo" => Some(DYNAMIC_MEZZO),
@@ -2220,7 +2228,7 @@ mod tests {
             smufl::NOTEHEAD_X_BLACK,
             smufl::NOTEHEAD_DIAMOND_BLACK,
             smufl::NOTEHEAD_TRIANGLE_UP_BLACK,
-            smufl::NOTEHEAD_SLASH_VERTICAL_BLACK,
+            smufl::NOTEHEAD_SLASH_BLACK,
         ] {
             assert_eq!(smufl::stem_anchors(cp).down_nw.0, 0.0);
         }
