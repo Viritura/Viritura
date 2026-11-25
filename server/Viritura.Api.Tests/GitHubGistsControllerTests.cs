@@ -1,6 +1,8 @@
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Text;
 
 using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Identity;
@@ -146,6 +148,38 @@ public sealed class GitHubGistsControllerTests : IClassFixture<WebApplicationFac
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Contains("Gists read and write permission", error, StringComparison.Ordinal);
         Assert.Contains("Reconnect GitHub", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Create_AcceptsGzipBase64FilesAndRejectsInvalidCompressedContent()
+    {
+        using var client = CreateClient();
+        var userId = await RegisterAsync(client);
+        await SeedInstallationAsync(userId);
+        var csrf = await client.GetFromJsonAsync<CsrfResponse>("/auth/csrf");
+        using var compressedStream = new MemoryStream();
+        using (var gzip = new GZipStream(compressedStream, CompressionLevel.Fastest, leaveOpen: true))
+        {
+            gzip.Write(Encoding.UTF8.GetBytes("{}"));
+        }
+        var encoded = Convert.ToBase64String(compressedStream.ToArray());
+
+        async Task<HttpResponseMessage> SendAsync(string content)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/github/gists")
+            {
+                Content = JsonContent.Create(new { files = new Dictionary<string, string> { ["01 - large.mnx.gz.b64"] = content } })
+            };
+            request.Headers.Add(csrf!.HeaderName, csrf.Token);
+            return await client.SendAsync(request);
+        }
+
+        using var accepted = await SendAsync(encoded);
+        using var rejected = await SendAsync(Convert.ToBase64String(Encoding.UTF8.GetBytes("{}")));
+
+        Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        Assert.Contains("base64-encoded gzip", await rejected.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
     [Fact]

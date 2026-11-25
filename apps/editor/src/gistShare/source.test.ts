@@ -8,6 +8,7 @@ import {
   readGistSetlistLocation,
   readGistShareLocation,
 } from ".";
+import { compressMnx, decompressMnx } from "./compressedMnx";
 
 const GIST_ID = "0123456789abcdef0123456789abcdef";
 const REVISION = "0123456789abcdef0123456789abcdef01234567";
@@ -119,6 +120,28 @@ describe("Gist sharing source", () => {
     const fetchImpl = vi.fn(async () => gistResponse({ "score.mnx": mnxFile(mnx) }));
     const result = await loadGistSetlist({ gistId: GIST_ID }, fetchImpl);
     expect(result.files[0]?.mnx).toHaveLength(16 * 1024 * 1024);
+  });
+
+  it("decompresses gzip-stored files in order and reports them by their MNX name", async () => {
+    const fetchImpl = vi.fn(async () =>
+      gistResponse({
+        "02 - large.mnx.gz.b64": { ...mnxFile(await compressMnx(VALID_MNX)), filename: "02 - large.mnx.gz.b64" },
+        "01 - small.mnx": { ...mnxFile(), filename: "01 - small.mnx" },
+      }),
+    );
+
+    const result = await loadGistSetlist({ gistId: GIST_ID }, fetchImpl);
+
+    expect(result.files.map((file) => file.fileName)).toEqual(["01 - small.mnx", "02 - large.mnx"]);
+    expect(result.files[1]?.mnx).toBe(VALID_MNX);
+  });
+
+  it("stops decompressing once the uncompressed budget is exceeded", async () => {
+    const encoded = await compressMnx("x".repeat(1024 * 1024));
+    await expect(decompressMnx(encoded, 64 * 1024, "bomb.mnx.gz.b64", "too large")).rejects.toThrow("too large");
+    await expect(decompressMnx("not base64!", 1024, "bad.mnx.gz.b64", "too large")).rejects.toThrow(
+      "bad.mnx.gz.b64 is not valid compressed MNX",
+    );
   });
 
   it("loads truncated content from GitHub's validated raw URL", async () => {

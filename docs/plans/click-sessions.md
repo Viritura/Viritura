@@ -670,7 +670,9 @@ authenticated API or turn an existing Gist URL into a setlist link. Project
 sharing scans all nested MNX files at share time, including the open score's
 unsaved edits, and standalone sharing includes the current file. Sharing fails
 if a directory cannot be read, the open score is missing, or the setlist exceeds
-50 files or 16 MiB. The link opens the first file in Click mode; the project-file
+50 files, 512 MiB of MNX, or 64 MiB as stored. GitHub serves raw Gist files only
+up to 10 MB, so MNX files over 8 MiB are stored as base64-encoded gzip with a
+`.mnx.gz.b64` suffix and decompressed on load. The link opens the first file in Click mode; the project-file
 picker switches among the in-memory Gist files using the normal
 save/discard/cancel safeguards. The GitHub App must have the
 `Gists: Read and write` account permission, which existing users must approve

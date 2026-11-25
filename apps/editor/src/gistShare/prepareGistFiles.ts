@@ -1,9 +1,13 @@
 import { parseMnx } from "@viritura/format";
 import { scanForMnxFiles } from "../store/folderScan";
-
-const MAX_GIST_FILES = 50;
-const MAX_GIST_TOTAL_BYTES = 16 * 1024 * 1024;
-const MAX_GIST_FILE_BYTES = 16 * 1024 * 1024;
+import { COMPRESSED_MNX_SUFFIX, compressMnx } from "./compressedMnx";
+import {
+  formatMiB,
+  MAX_GIST_FILES,
+  MAX_GIST_MNX_TOTAL_BYTES,
+  MAX_GIST_STORED_FILE_BYTES,
+  MAX_GIST_STORED_TOTAL_BYTES,
+} from "./shareLimits";
 
 interface PrepareGistFilesOptions {
   readonly projectFolder: FileSystemDirectoryHandle | null;
@@ -40,6 +44,7 @@ export async function prepareGistFiles({
 
   const files: Record<string, string> = {};
   let totalBytes = 0;
+  let storedBytes = 0;
   const sources = projectFolder ? projectFiles : [{ relativePath: fileName, name: fileName, handle: null }];
 
   for (const [index, source] of sources.entries()) {
@@ -52,18 +57,30 @@ export async function prepareGistFiles({
       mnx = await (await handle.getFile()).text();
     }
 
-    validateMnx(mnx, source.name);
     const bytes = new TextEncoder().encode(mnx).byteLength;
-    if (bytes > MAX_GIST_FILE_BYTES) {
-      throw new Error(`${source.name} exceeds the 16 MiB per-file share limit.`);
-    }
     totalBytes += bytes;
-    if (totalBytes > MAX_GIST_TOTAL_BYTES) {
-      throw new Error("The setlist exceeds the 16 MiB total share limit.");
+    if (totalBytes > MAX_GIST_MNX_TOTAL_BYTES) {
+      throw new Error(`The setlist exceeds the ${formatMiB(MAX_GIST_MNX_TOTAL_BYTES)} total share limit.`);
     }
+    validateMnx(mnx, source.name);
 
     const gistName = projectFiles.length > 0 ? numberedMnxName(source.name, index) : singleMnxName(source.name);
-    files[gistName] = mnx;
+    let storedName = gistName;
+    let stored = mnx;
+    let storedFileBytes = bytes;
+    if (bytes > MAX_GIST_STORED_FILE_BYTES) {
+      storedName = `${gistName}${COMPRESSED_MNX_SUFFIX}`;
+      stored = await compressMnx(mnx);
+      storedFileBytes = stored.length;
+      if (storedFileBytes > MAX_GIST_STORED_FILE_BYTES) {
+        throw new Error(`${source.name} is too large to share, even after compression.`);
+      }
+    }
+    storedBytes += storedFileBytes;
+    if (storedBytes > MAX_GIST_STORED_TOTAL_BYTES) {
+      throw new Error(`The setlist exceeds the ${formatMiB(MAX_GIST_STORED_TOTAL_BYTES)} stored share limit.`);
+    }
+    files[storedName] = stored;
   }
 
   return files;

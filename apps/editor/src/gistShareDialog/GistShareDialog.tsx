@@ -101,7 +101,8 @@ export function GistShareDialog({ open, onClose }: GistShareDialogProps) {
             ? "Create a secret Gist with all MNX files in this project folder."
             : "Create a secret Gist with the currently open MNX file."}{" "}
           The link opens the setlist in Click mode. Secret Gists are unlisted, not private, and anyone with the link can
-          forward it. A setlist can contain up to 50 MNX files and 16 MiB in total.
+          forward it. A setlist can contain up to 50 MNX files and 512 MiB in total. Files over 8 MiB are stored
+          compressed.
         </p>
         {connected ? (
           <p className={styles.hint}>Connected to GitHub as @{githubAccount.session?.viewer?.login}.</p>
