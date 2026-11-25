@@ -260,8 +260,9 @@ public sealed class McpSessionRegistryTests
             bool endOfMessage,
             CancellationToken cancellationToken)
         {
+            var pauseSend = Interlocked.Exchange(ref _pauseNextSend, 0) == 1;
             _outgoing.Writer.TryWrite(Encoding.UTF8.GetString(buffer));
-            return Interlocked.Exchange(ref _pauseNextSend, 0) == 1 ? _resumeSend.Task : Task.CompletedTask;
+            return pauseSend ? _resumeSend.Task : Task.CompletedTask;
         }
 
         public override Task CloseAsync(WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken)

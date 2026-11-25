@@ -26,14 +26,30 @@ impl TrailingSpace {
     fn for_measure(measure: &ResolvedMeasure, config: &LayoutConfig) -> Self {
         let barline_buffer =
             super::super::render_barlines::trailing_barline_content_buffer_sp(measure, config);
-        let Some(caesura) = &measure.global.caesura else {
+        let global = measure
+            .global
+            .caesura
+            .as_ref()
+            .map(|caesura| &caesura.marking);
+        let local = measure
+            .part
+            .sequences
+            .iter()
+            .filter_map(|sequence| sequence.full_measure.as_ref()?.caesura.as_ref());
+        let width = global
+            .into_iter()
+            .chain(local)
+            .map(|caesura| {
+                let glyph = smufl::caesura_glyph(&caesura.style, caesura.marks);
+                smufl::glyph_bbox(glyph).2
+            })
+            .reduce(f64::max);
+        let Some(width) = width else {
             return Self {
                 buffer_sp: barline_buffer,
                 has_caesura: false,
             };
         };
-        let glyph = smufl::caesura_glyph(&caesura.marking.style, caesura.marking.marks);
-        let (_, _, width, _) = smufl::glyph_bbox(glyph);
         let caesura_buffer = super::super::measure::MEASURE_TRAILING_PADDING_SP
             + super::super::render_barlines::trailing_barline_extra_width(measure, config, 1.0)
             - width

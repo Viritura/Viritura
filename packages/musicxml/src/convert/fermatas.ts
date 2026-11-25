@@ -44,10 +44,15 @@ export function consolidateImportedFermatas(
     }
     for (const span of rows[measureIndex]!) {
       const sequence = document.parts[span.partIndex]?.measures[measureIndex]?.sequences?.[span.sequenceIndex];
-      if (!sequence || !span.event) continue;
-      const event = eventAt(sequence.content, span.contentPath);
-      if (span.event.fermata) event.fermata = span.event.fermata;
-      else delete event.fermata;
+      if (!sequence) continue;
+      if (span.event) {
+        const event = eventAt(sequence.content, span.contentPath);
+        if (span.event.fermata) event.fermata = span.event.fermata;
+        else delete event.fermata;
+      } else if (sequence.fullMeasure) {
+        if (span.sequence.fullMeasure?.fermata) sequence.fullMeasure.fermata = span.sequence.fullMeasure.fermata;
+        else delete sequence.fullMeasure.fermata;
+      }
     }
   });
   for (const notice of parsed.diagnostics) {

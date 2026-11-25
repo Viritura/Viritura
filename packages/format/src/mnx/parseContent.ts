@@ -74,6 +74,7 @@ import type {
 import type {
   EventExtensions as RawEventExt,
   EventMarkingsExtensions as RawEventMarkingsExt,
+  FullMeasureRestExtensions as RawFullMeasureRestExt,
   SlurExtensions as RawSlurExt,
   NoteExtensions as RawNoteExt,
   TupletExtensions as RawTupletExt,
@@ -104,10 +105,19 @@ function parseSequence(raw: RawSequence): Sequence {
     seq.fullMeasure = {
       visualDuration: fm.visualDuration ? parseDuration(fm.visualDuration) : { base: "whole" },
     };
+    if (fm.id) seq.fullMeasure.id = fm.id;
     if (fm.staffPosition !== undefined) {
       seq.fullMeasure.staffPosition = fm.staffPosition;
     }
     if (fm.fermata) seq.fullMeasure.fermata = structuredClone(fm.fermata);
+    const extension = fm._x?.viritura as RawFullMeasureRestExt | undefined;
+    if (extension?.caesura) {
+      const { shape, marks } = extension.caesura;
+      seq.fullMeasure.caesura = {
+        ...(shape === undefined ? {} : { style: shape }),
+        ...(marks === undefined ? {} : { marks }),
+      };
+    }
   }
   if (raw.staff !== undefined) seq.staff = raw.staff;
   if (raw.voice !== undefined) seq.voice = raw.voice;

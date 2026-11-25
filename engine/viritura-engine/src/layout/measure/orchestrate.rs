@@ -506,7 +506,7 @@ pub(super) fn layout_voice_for_measure(
     } else if let Some(ref fm) = seq.full_measure {
         let rest_event = Event {
             duration: fm.visual_duration.clone(),
-            id: None,
+            id: fm.id.clone(),
             notes: None,
             rest: Some(Rest {
                 staff_position: fm.staff_position,
@@ -514,7 +514,10 @@ pub(super) fn layout_voice_for_measure(
             staff: None,
             slurs: None,
             glissandos: None,
-            markings: None,
+            markings: fm.caesura.as_ref().map(|caesura| Markings {
+                caesura: Some(caesura.clone()),
+                ..Markings::default()
+            }),
             fermata: fm.fermata.clone(),
             lyrics: None,
             stem_direction: None,
@@ -528,7 +531,7 @@ pub(super) fn layout_voice_for_measure(
             shared_rest: false,
             display_pitches: vec![],
             stem_up: true,
-            id: None,
+            id: fm.id.clone(),
             grace_notes: Vec::new(),
             num_voices,
             sequence_staff: seq_staff,

@@ -62,6 +62,36 @@ describe("MNX percussion semantic validation", () => {
   });
 
   describe("Viritura extension validation", () => {
+    it("validates the full-measure rest caesura at its local extension path", () => {
+      const score = {
+        mnx: { version: 1 },
+        global: { measures: [{}] },
+        parts: [
+          {
+            measures: [
+              {
+                sequences: [
+                  {
+                    content: [],
+                    fullMeasure: { _x: { viritura: { caesura: { shape: "short", marks: 1 } } } },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      expect(validateRawScore(score).ok).toBe(true);
+      score.parts[0]!.measures[0]!.sequences[0]!.fullMeasure._x.viritura.caesura.marks = 3;
+      const result = validateRawScore(score);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toContainEqual(
+          expect.objectContaining({ pointer: expect.stringContaining("/fullMeasure/_x/viritura/caesura/marks") }),
+        );
+      }
+    });
+
     it("rejects an incomplete cross-barline tuplet span", () => {
       const score = percussionScore();
       score.parts[0]!.measures[0]!.sequences[0]!.content = [

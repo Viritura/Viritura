@@ -169,7 +169,7 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     expect(serializeMnx(parsed).parts[0]!.measures).toEqual(source.parts[0]!.measures);
   });
 
-  it("preserves a fermata on a full-measure rest without creating events", () => {
+  it("preserves a full-measure rest's ID, fermata and local caesura without creating events", () => {
     const source = {
       mnx: { version: 1 },
       global: { measures: [{ time: { count: 5, unit: 2 } }] },
@@ -180,7 +180,11 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
               sequences: [
                 {
                   content: [],
-                  fullMeasure: { fermata: { symbol: "square" } },
+                  fullMeasure: {
+                    id: "rest1",
+                    fermata: { symbol: "square" },
+                    _x: { viritura: { caesura: { shape: "short", marks: 1 } } },
+                  },
                 },
               ],
             },
@@ -193,9 +197,15 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     expect(parsed.parts[0]!.measures[0]!.sequences[0]).toMatchObject({
       content: [],
       fullMeasure: {
+        id: "rest1",
         visualDuration: { base: "whole" },
         fermata: { symbol: "square" },
+        caesura: { style: "short", marks: 1 },
       },
+    });
+    expect(serializeMnx(parsed).parts[0]!.measures[0]!.sequences![0]!.fullMeasure).toMatchObject({
+      id: "rest1",
+      _x: { viritura: { caesura: { shape: "short", marks: 1 } } },
     });
     expect(parseMnx(serializeMnx(parsed))).toEqual(parsed);
   });

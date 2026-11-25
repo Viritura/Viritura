@@ -352,6 +352,40 @@ describe("global fermata holds", () => {
 });
 
 describe("generateTimeline - caesura pauses", () => {
+  it("places a 7/8 bar-rest caesura at the measure end and merges simultaneous pauses", () => {
+    const score = buildScore(
+      [[], [note("D", 5, "quarter")]],
+      [{ time: { count: 7, unit: 8 } }, { time: { count: 7, unit: 8 } }],
+    );
+    score.parts[0]!.measures[0]!.sequences = [
+      {
+        content: [],
+        fullMeasure: { visualDuration: { base: "whole" }, caesura: { style: "short" } },
+      },
+    ];
+    score.parts.push({
+      name: "Other voice",
+      measures: [
+        {
+          sequences: [
+            {
+              content: [
+                note("C", 4, "half", {
+                  duration: { base: "half", dots: 2 },
+                  markings: { caesura: { style: "short" } },
+                }),
+              ],
+            },
+          ],
+        },
+        { sequences: [{ content: [] }] },
+      ],
+    });
+
+    expect(holds(score)[0]).toEqual([{ atBeat: 3.5, extraBeats: 0.5, kind: "caesura" }]);
+    expect(noteOns(generateTimeline(score)).find((event) => event.midiNote === 74)!.time).toBeCloseTo(2, PREC);
+  });
+
   it("max-merges coincident global/event caesuras across parts and both grand staves", () => {
     const score = buildScore(
       [[note("C", 4, "whole", { markings: { caesura: { style: "short", marks: 1 } } })]],

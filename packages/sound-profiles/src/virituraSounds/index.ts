@@ -2,6 +2,7 @@ import type {
   MidiSoundSourceDefinition,
   PlaybackCapabilities,
   ProfileResolveInput,
+  PartRoutingDefaults,
   ResolvedPartSound,
   SoundProfile,
   SoundLayeringDefaults,
@@ -10,7 +11,7 @@ import type {
   SourceCatalogEntry,
 } from "../types";
 import { VIRITURA_SOUNDS_INSTRUMENT_RULES, type EnsembleLayerRule, type InstrumentSoundRule } from "./instrumentRules";
-import { resolveLegacySound } from "./legacyFallback";
+import { legacyRouting, resolveLegacySound } from "./legacyFallback";
 import { DEFAULT_LISTENER_POSITION } from "./routingDefaults";
 import { virituraSoundsSourceId } from "./sourceIds";
 import { VIRITURA_SOUNDS_SOURCE_OPTIONS } from "./sourceOptions";
@@ -91,15 +92,18 @@ function resolvedCanonicalSound(args: {
   rule: InstrumentSoundRule;
   notationInstrumentId: string | undefined;
   explicitMidiProgram?: number;
+  routingOverride?: PartRoutingDefaults;
+  solo?: boolean;
   resolution: "canonical" | "selected" | "explicit" | "legacy";
 }): ResolvedPartSound {
-  const { rule, notationInstrumentId, explicitMidiProgram, resolution } = args;
+  const { rule, notationInstrumentId, explicitMidiProgram, routingOverride, solo, resolution } = args;
   // Existing scores persist an explicit MIDI program. It has always taken
   // precedence over catalog/name lookup for melodic parts, so preserve that
   // behavior until it is migrated to a profile-defined source override.
   const useExplicitProgram = rule.source.bankMsb !== 128 && isValidMidiProgram(explicitMidiProgram);
   const primarySource = useExplicitProgram ? { ...rule.source, program: explicitMidiProgram } : rule.source;
-  const ensembleLayering = ensembleLayeringFor(rule, primarySource.program);
+  const ensembleLayering =
+    solo && isSoloStringProgram(primarySource.program) ? undefined : ensembleLayeringFor(rule, primarySource.program);
   const sources: SoundSourceDefinition[] = [sourceFor(rule.instrumentId, primarySource, "primary")];
   for (let index = 0; index < (ensembleLayering?.length ?? 0); index++) {
     sources.push(sourceFor(rule.instrumentId, ensembleLayering![index]!.source, `layer-${index + 1}`));
@@ -114,6 +118,7 @@ function resolvedCanonicalSound(args: {
         })),
       }
     : undefined;
+  const routing = routingOverride ?? rule.routing;
   return {
     profileId: VIRITURA_SOUNDS_PROFILE_ID,
     profileVersion: 1,
@@ -121,8 +126,8 @@ function resolvedCanonicalSound(args: {
     instrumentId: notationInstrumentId,
     sources,
     routing: {
-      ...rule.routing,
-      stagePosition: { ...rule.routing.stagePosition },
+      ...routing,
+      stagePosition: { ...routing.stagePosition },
     },
     capabilities: MIDI_CAPABILITIES,
     layering,
@@ -149,7 +154,8 @@ function resolvedLegacySound(input: ProfileResolveInput): ResolvedPartSound {
 
 /**
  * The built-in MIDI/SF2 compatibility profile. Its canonical rules are keyed
- * exclusively by MusicXML standard sound IDs; names are consulted only for old scores.
+ * by MusicXML standard sound IDs. Names provide legacy lookup and seating for
+ * the generic strings.group identity.
  */
 export const virituraSoundsProfile: SoundProfile = {
   id: VIRITURA_SOUNDS_PROFILE_ID,
@@ -162,17 +168,22 @@ export const virituraSoundsProfile: SoundProfile = {
       return resolvedCanonicalSound({
         rule: selectedRule,
         notationInstrumentId: input.instrumentId,
+        solo: input.solo,
         resolution: "selected",
       });
     }
     if (input.selectedSourceId) return null;
     const notationRule = input.instrumentId ? rulesByInstrumentId.get(input.instrumentId) : undefined;
     const inferredStringRule = input.instrumentId ? undefined : legacyStringRule(input.legacyName);
+    const groupRouting =
+      notationRule?.instrumentId === "strings.group" ? legacyRouting(input.legacyName ?? "") : undefined;
     return notationRule || inferredStringRule
       ? resolvedCanonicalSound({
           rule: notationRule ?? inferredStringRule!,
           notationInstrumentId: input.instrumentId,
           explicitMidiProgram: input.explicitMidiProgram,
+          routingOverride: groupRouting?.section === "strings" ? groupRouting : undefined,
+          solo: input.solo,
           resolution: notationRule ? "canonical" : "legacy",
         })
       : resolvedLegacySound(input);

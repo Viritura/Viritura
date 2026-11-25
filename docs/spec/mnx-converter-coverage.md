@@ -82,6 +82,11 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 **Features attached to native MNX output:**
 
 - Notes (pitch, octave, alter), rests, chords, grace notes, dotted notes, accidental display
+- Full-measure rests (`<rest measure="yes">`), including their visual value,
+  staff position, fermata, and local caesura when vendor extensions are enabled.
+  Pickup rests, conflicting voice content, and unsupported event-anchored
+  notation are retained as ordinary events with an import warning. A rest with
+  a local caesura also uses that fallback when extensions are disabled.
 - Multiple voices, ties (with IDs and `side`; `<tied placement>` → `tie.side`; `<tied type="let-ring">` → `tie.lv`), articulations (full SMuFL-aware mapping table)
 - Fermatas, bow directions, and single-note and multi-note tremolos
 - Non-arpeggiate chord brackets

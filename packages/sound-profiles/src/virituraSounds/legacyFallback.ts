@@ -108,7 +108,7 @@ const LEGACY_ROUTING_RULES: readonly [RegExp, PartRoutingDefaults][] = [
   [/bass/i, routing("other", 3, 11, 1)],
 ];
 
-function legacyRouting(name: string): PartRoutingDefaults {
+export function legacyRouting(name: string): PartRoutingDefaults {
   return LEGACY_ROUTING_RULES.find(([pattern]) => pattern.test(name))?.[1] ?? FALLBACK_ROUTING;
 }
 

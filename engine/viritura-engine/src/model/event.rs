@@ -7,6 +7,9 @@ use super::pitch::Pitch;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+mod full_measure_rest;
+pub use full_measure_rest::FullMeasure;
+
 /// A rest marker with optional staff position override.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Rest {
@@ -983,21 +986,6 @@ pub struct MultiNoteTremolo {
     /// Alternate duration for individual notes within the tremolo (MNX `individualDuration`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub individual_duration: Option<Duration>,
-}
-
-/// Visual duration for a full-measure rest (MNX fullMeasure).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct FullMeasure {
-    /// The visual duration to display (e.g., whole rest)
-    #[serde(rename = "visualDuration")]
-    pub visual_duration: Duration,
-    /// Explicit staff position override (MNX staffPosition).
-    /// 0 = middle line, positive = up, negative = down.
-    #[serde(skip_serializing_if = "Option::is_none", rename = "staffPosition")]
-    pub staff_position: Option<i32>,
-    /// Fermata attached to this meter-independent bar rest.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fermata: Option<Fermata>,
 }
 
 /// A sequence (voice) within a measure.

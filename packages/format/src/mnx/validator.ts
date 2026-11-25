@@ -30,6 +30,7 @@ import {
   tupletExtensions,
   positionedStaffConfigExtensions,
   dynamicGroupExtensions,
+  fullMeasureRestExtensions,
   eventExtensions,
   fermataExtensions,
   eventMarkingsExtensions,
@@ -54,6 +55,7 @@ type ExtensionDefinition =
   | "tuplet-extensions"
   | "positioned-staff-config-extensions"
   | "dynamic-group-extensions"
+  | "full-measure-rest-extensions"
   | "event-extensions"
   | "fermata-extensions"
   | "event-markings-extensions"
@@ -79,6 +81,7 @@ const extensionValidators: Record<ExtensionDefinition, StandaloneValidateFunctio
   "tuplet-extensions": tupletExtensions,
   "positioned-staff-config-extensions": positionedStaffConfigExtensions,
   "dynamic-group-extensions": dynamicGroupExtensions,
+  "full-measure-rest-extensions": fullMeasureRestExtensions,
   "event-extensions": eventExtensions,
   "fermata-extensions": fermataExtensions,
   "event-markings-extensions": eventMarkingsExtensions,
@@ -298,9 +301,11 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
         );
       });
       asObjects(measure["sequences"]).forEach((sequence, sequenceIndex) => {
+        const fullMeasurePointer = `${measurePointer}/sequences/${sequenceIndex}/fullMeasure`;
+        validateAt(asObject(sequence["fullMeasure"]), fullMeasurePointer, "full-measure-rest-extensions");
         validateAt(
           asObject(asObject(sequence["fullMeasure"])?.["fermata"]),
-          `${measurePointer}/sequences/${sequenceIndex}/fullMeasure/fermata`,
+          `${fullMeasurePointer}/fermata`,
           "fermata-extensions",
         );
         visitContent(sequence["content"], `${measurePointer}/sequences/${sequenceIndex}/content`);

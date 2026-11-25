@@ -87,6 +87,8 @@ export interface ProfileResolveInput {
   readonly legacyName?: string;
   /** Existing Viritura MIDI metadata, honored for legacy compatibility. */
   readonly explicitMidiProgram?: number;
+  /** Whether the active instrument is explicitly a soloist. */
+  readonly solo?: boolean;
   /** Whether a legacy part has an authored drum-kit component map. */
   readonly hasKit?: boolean;
 }

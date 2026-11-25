@@ -23,6 +23,7 @@ const extensionDefinitions = [
   "tuplet-extensions",
   "positioned-staff-config-extensions",
   "dynamic-group-extensions",
+  "full-measure-rest-extensions",
   "event-extensions",
   "fermata-extensions",
   "event-markings-extensions",

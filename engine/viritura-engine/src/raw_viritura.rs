@@ -1955,6 +1955,261 @@ impl ::std::convert::TryFrom<::std::string::String> for FontFamily {
         value.parse()
     }
 }
+///Viritura extensions on a full-measure rest.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Viritura extensions on a full-measure rest.",
+///  "type": "object",
+///  "properties": {
+///    "caesura": {
+///      "description": "A caesura attached to this rest at the end of the measure.",
+///      "type": "object",
+///      "properties": {
+///        "marks": {
+///          "type": "integer",
+///          "enum": [
+///            1,
+///            2
+///          ]
+///        },
+///        "shape": {
+///          "type": "string",
+///          "enum": [
+///            "normal",
+///            "thick",
+///            "short",
+///            "curved"
+///          ]
+///        }
+///      },
+///      "additionalProperties": false
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FullMeasureRestExtensions {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub caesura: ::std::option::Option<FullMeasureRestExtensionsCaesura>,
+}
+impl ::std::convert::From<&FullMeasureRestExtensions> for FullMeasureRestExtensions {
+    fn from(value: &FullMeasureRestExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for FullMeasureRestExtensions {
+    fn default() -> Self {
+        Self {
+            caesura: Default::default(),
+        }
+    }
+}
+///A caesura attached to this rest at the end of the measure.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "A caesura attached to this rest at the end of the measure.",
+///  "type": "object",
+///  "properties": {
+///    "marks": {
+///      "type": "integer",
+///      "enum": [
+///        1,
+///        2
+///      ]
+///    },
+///    "shape": {
+///      "type": "string",
+///      "enum": [
+///        "normal",
+///        "thick",
+///        "short",
+///        "curved"
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FullMeasureRestExtensionsCaesura {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub marks: ::std::option::Option<FullMeasureRestExtensionsCaesuraMarks>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub shape: ::std::option::Option<FullMeasureRestExtensionsCaesuraShape>,
+}
+impl ::std::convert::From<&FullMeasureRestExtensionsCaesura>
+for FullMeasureRestExtensionsCaesura {
+    fn from(value: &FullMeasureRestExtensionsCaesura) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for FullMeasureRestExtensionsCaesura {
+    fn default() -> Self {
+        Self {
+            marks: Default::default(),
+            shape: Default::default(),
+        }
+    }
+}
+///`FullMeasureRestExtensionsCaesuraMarks`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "integer",
+///  "enum": [
+///    1,
+///    2
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct FullMeasureRestExtensionsCaesuraMarks(i64);
+impl ::std::ops::Deref for FullMeasureRestExtensionsCaesuraMarks {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<FullMeasureRestExtensionsCaesuraMarks> for i64 {
+    fn from(value: FullMeasureRestExtensionsCaesuraMarks) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&FullMeasureRestExtensionsCaesuraMarks>
+for FullMeasureRestExtensionsCaesuraMarks {
+    fn from(value: &FullMeasureRestExtensionsCaesuraMarks) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::TryFrom<i64> for FullMeasureRestExtensionsCaesuraMarks {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![1_i64, 2_i64].contains(&value) {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for FullMeasureRestExtensionsCaesuraMarks {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
+    }
+}
+///`FullMeasureRestExtensionsCaesuraShape`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "normal",
+///    "thick",
+///    "short",
+///    "curved"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum FullMeasureRestExtensionsCaesuraShape {
+    #[serde(rename = "normal")]
+    Normal,
+    #[serde(rename = "thick")]
+    Thick,
+    #[serde(rename = "short")]
+    Short,
+    #[serde(rename = "curved")]
+    Curved,
+}
+impl ::std::convert::From<&Self> for FullMeasureRestExtensionsCaesuraShape {
+    fn from(value: &FullMeasureRestExtensionsCaesuraShape) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for FullMeasureRestExtensionsCaesuraShape {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Normal => f.write_str("normal"),
+            Self::Thick => f.write_str("thick"),
+            Self::Short => f.write_str("short"),
+            Self::Curved => f.write_str("curved"),
+        }
+    }
+}
+impl ::std::str::FromStr for FullMeasureRestExtensionsCaesuraShape {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "normal" => Ok(Self::Normal),
+            "thick" => Ok(Self::Thick),
+            "short" => Ok(Self::Short),
+            "curved" => Ok(Self::Curved),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for FullMeasureRestExtensionsCaesuraShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for FullMeasureRestExtensionsCaesuraShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for FullMeasureRestExtensionsCaesuraShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///A glissando or portamento connecting this event to a target event.
 ///
 /// <details><summary>JSON schema</summary>
@@ -3722,6 +3977,10 @@ impl<'de> ::serde::Deserialize<'de> for InstrumentChangeInstrument {
 ///      "description": "Abbreviated display name while this instrument is active (e.g. 'Picc.'). Falls back to the part short name.",
 ///      "type": "string"
 ///    },
+///    "solo": {
+///      "description": "This instrument is a soloist rather than an ensemble section; independent of mixer solo.",
+///      "type": "boolean"
+///    },
 ///    "transposition": {
 ///      "description": "Default transposition while this instrument is active. Absent means concert pitch. For the initial instrument, it must match the MNX part transposition.",
 ///      "$ref": "#/$defs/instrument-transposition"
@@ -3754,6 +4013,9 @@ pub struct InstrumentDefinition {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub short_name: ::std::option::Option<::std::string::String>,
+    ///This instrument is a soloist rather than an ensemble section; independent of mixer solo.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub solo: ::std::option::Option<bool>,
     ///Default transposition while this instrument is active. Absent means concert pitch. For the initial instrument, it must match the MNX part transposition.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub transposition: ::std::option::Option<InstrumentTransposition>,
@@ -6571,6 +6833,10 @@ impl ::std::default::Default for PageTurnWeights {
 ///      "description": "General-MIDI program (0..127). Used directly by the audio engine.",
 ///      "type": "integer"
 ///    },
+///    "solo": {
+///      "description": "The part's instrument is a soloist rather than an ensemble section; independent of mixer solo. With instruments, use the active instrument definition instead.",
+///      "type": "boolean"
+///    },
 ///    "spatial": {
 ///      "description": "Spatial-audio stage position in concert-hall meters, persisted from Play mode so a user's instrument arrangement survives reload.",
 ///      "$ref": "#/$defs/stage-position"
@@ -6622,6 +6888,9 @@ pub struct PartExtensions {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub midi_program: ::std::option::Option<i64>,
+    ///The part's instrument is a soloist rather than an ensemble section; independent of mixer solo. With instruments, use the active instrument definition instead.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub solo: ::std::option::Option<bool>,
     ///Spatial-audio stage position in concert-hall meters, persisted from Play mode so a user's instrument arrangement survives reload.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub spatial: ::std::option::Option<StagePosition>,
@@ -6640,6 +6909,7 @@ impl ::std::default::Default for PartExtensions {
             instrument_id: Default::default(),
             instruments: Default::default(),
             midi_program: Default::default(),
+            solo: Default::default(),
             spatial: Default::default(),
         }
     }
@@ -16336,6 +16606,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "font-family": {
 ///      "$ref": "#/$defs/font-family"
 ///    },
+///    "full-measure-rest-extensions": {
+///      "$ref": "#/$defs/full-measure-rest-extensions"
+///    },
 ///    "glissando": {
 ///      "$ref": "#/$defs/glissando"
 ///    },
@@ -16702,6 +16975,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub font_family: ::std::option::Option<FontFamily>,
+    #[serde(
+        rename = "full-measure-rest-extensions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub full_measure_rest_extensions: ::std::option::Option<FullMeasureRestExtensions>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub glissando: ::std::option::Option<Glissando>,
     #[serde(
@@ -17301,6 +17580,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             fermata_extensions: Default::default(),
             fingering: Default::default(),
             font_family: Default::default(),
+            full_measure_rest_extensions: Default::default(),
             glissando: Default::default(),
             glissando_kind: Default::default(),
             glissando_style: Default::default(),

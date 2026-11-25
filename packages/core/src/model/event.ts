@@ -432,12 +432,16 @@ export interface MultiNoteTremolo {
  * Visual duration for a full-measure rest (MNX fullMeasure).
  */
 export interface FullMeasure {
+  /** Stable identifier of the rest, when present. */
+  id?: string;
   /** The visual duration to display (e.g., whole rest) */
   visualDuration: Duration;
   /** Explicit staff position override (MNX staffPosition). 0 = middle line, positive = up. */
   staffPosition?: number;
   /** Native MNX fermata on this meter-independent bar rest. */
   fermata?: Fermata;
+  /** Caesura attached to this rest at the end of the measure. */
+  caesura?: Caesura;
 }
 
 /**

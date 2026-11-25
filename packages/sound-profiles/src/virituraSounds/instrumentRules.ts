@@ -214,6 +214,7 @@ export const VIRITURA_SOUNDS_INSTRUMENT_RULES: readonly InstrumentSoundRule[] = 
   ),
   ...rules([["pluck.guitar.electric", "Electric Guitar"]], midi(27), keys.other),
   ...rules([["pluck.bass.electric", "Bass Guitar"]], midi(33), keys.bassGuitar),
+  ...rules([["strings.group", "String Ensemble"]], midi(48), routing("strings", 0, 0, 1)),
   soloStringRule("strings.violin", "Violin", 40, strings.violin, [
     { x: 0, y: 1 },
     { x: -1.5, y: 0.5 },

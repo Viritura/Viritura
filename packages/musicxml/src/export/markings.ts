@@ -1,4 +1,4 @@
-import type { DiagnosticCollector, Fermata, Note, NoteEvent } from "@viritura/core";
+import type { Caesura, DiagnosticCollector, Fermata, Note, NoteEvent } from "@viritura/core";
 import { node, placement, type XmlContext, type XmlElement } from "./xml";
 import { noteType, type TimedEvent, type TupletBoundary } from "./rhythm";
 
@@ -32,7 +32,25 @@ export function fermataElement(context: XmlContext, fermata: Fermata): XmlElemen
   });
 }
 
-export function articulationElements(context: XmlContext, event: NoteEvent, note?: Note): XmlElement[] {
+export function caesuraValue(caesura: Caesura, diagnostics: DiagnosticCollector, pointer: string): string {
+  if (caesura.marks === 1) {
+    if (!caesura.style || caesura.style === "normal") return "single";
+    diagnostics.warn(
+      pointer,
+      "MusicXML cannot combine a single-stroke caesura with a non-default shape; the shape is preserved.",
+      "musicxml-caesura",
+    );
+  }
+  return caesura.style ?? "normal";
+}
+
+export function articulationElements(
+  context: XmlContext,
+  event: NoteEvent,
+  diagnostics: DiagnosticCollector,
+  pointer: string,
+  note?: Note,
+): XmlElement[] {
   const marks = event.markings;
   const elements: XmlElement[] = [];
   for (const [key, tag] of Object.entries(ARTICULATIONS)) {
@@ -51,7 +69,7 @@ export function articulationElements(context: XmlContext, event: NoteEvent, note
         placement: placement(marks.breath.placement),
       }),
     );
-  if (marks?.caesura) elements.push(node(context, "caesura", marks.caesura.style ?? "normal"));
+  if (marks?.caesura) elements.push(node(context, "caesura", caesuraValue(marks.caesura, diagnostics, pointer)));
   if (note?.markings?.slideIn) elements.push(node(context, note.markings.slideIn.type === "plop" ? "plop" : "scoop"));
   if (note?.markings?.slideOut)
     elements.push(node(context, note.markings.slideOut.type === "doit" ? "doit" : "falloff"));

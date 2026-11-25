@@ -5,6 +5,23 @@
   "description": "Schema for _x.viritura vendor dict properties used across MNX objects. These extensions add musical notation features not yet covered by the MNX specification.",
 
   "$defs": {
+    "full-measure-rest-extensions": {
+      "type": "object",
+      "description": "Viritura extensions on a full-measure rest.",
+      "properties": {
+        "caesura": {
+          "type": "object",
+          "description": "A caesura attached to this rest at the end of the measure.",
+          "properties": {
+            "shape": { "type": "string", "enum": ["normal", "thick", "short", "curved"] },
+            "marks": { "type": "integer", "enum": [1, 2] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+
     "rhythmic-position": {
       "type": "object",
       "description": "A rhythmic position within a measure, expressed as a fraction of the measure duration.",
@@ -993,6 +1010,10 @@
           "minimum": 0,
           "maximum": 127,
           "description": "General-MIDI program fallback when the standard sound ID cannot be resolved."
+        },
+        "solo": {
+          "type": "boolean",
+          "description": "This instrument is a soloist rather than an ensemble section; independent of mixer solo."
         }
       },
       "additionalProperties": false
@@ -1230,6 +1251,10 @@
           "minimum": 0,
           "maximum": 127,
           "description": "General-MIDI program (0..127). Used directly by the audio engine."
+        },
+        "solo": {
+          "type": "boolean",
+          "description": "The part's instrument is a soloist rather than an ensemble section; independent of mixer solo. With instruments, use the active instrument definition instead."
         },
         "family": {
           "type": "string",

@@ -201,6 +201,13 @@ export interface MnxBeam {
 
 export interface MnxSequence {
   content: MnxSequenceContent[];
+  fullMeasure?: {
+    id?: string;
+    visualDuration: MnxDuration;
+    staffPosition?: number;
+    fermata?: Fermata;
+    _x?: { viritura: { caesura: NonNullable<MnxEventMarkings["caesura"]> } };
+  };
   voice?: string;
   staff?: number;
   directionHint?: string;
