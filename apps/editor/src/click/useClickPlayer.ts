@@ -37,18 +37,28 @@ function firstStartable(bars: readonly ClickBar[]): number {
 
 /** Edits keep the chosen start bar when still startable; another score starts from its own beginning. */
 function useDocumentStartBar(document: ClickDocument | undefined, scoreKey: string | null | undefined) {
-  const [startBar, setStartBar] = useState(0);
+  const [startBar, setStartBarState] = useState(0);
   const [barsDocument, setBarsDocument] = useState<ClickDocument>();
   const [barsScoreKey, setBarsScoreKey] = useState(scoreKey);
-  if (barsDocument !== document) {
+  // The active path and the new score's MNX can arrive in separate renders, and
+  // identical files never change the document, so a switch restarts on both sides.
+  const [restartPending, setRestartPending] = useState(false);
+  const keyChanged = barsScoreKey !== scoreKey;
+  const documentChanged = barsDocument !== document;
+  if (keyChanged || documentChanged) {
+    setBarsScoreKey(scoreKey);
     setBarsDocument(document);
+    const restart = keyChanged || (documentChanged && restartPending);
+    setRestartPending(documentChanged && document ? false : restartPending || keyChanged);
     if (document) {
-      const sameScore = barsScoreKey === scoreKey;
-      setBarsScoreKey(scoreKey);
-      const kept = sameScore && document.bars[startBar]?.startable ? startBar : firstStartable(document.bars);
-      if (kept !== startBar) setStartBar(kept);
+      const kept = !restart && document.bars[startBar]?.startable ? startBar : firstStartable(document.bars);
+      if (kept !== startBar) setStartBarState(kept);
     }
   }
+  const setStartBar = useCallback((bar: number) => {
+    setRestartPending(false);
+    setStartBarState(bar);
+  }, []);
   return [startBar, setStartBar] as const;
 }
 

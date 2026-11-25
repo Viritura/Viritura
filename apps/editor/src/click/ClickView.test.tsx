@@ -174,9 +174,10 @@ describe("click activity", () => {
     rerender({ mnx: `${rehearsals} `, scoreKey: "one.mnx" });
     expect(result.current.startBar).toBe(2);
     rerender({ mnx: `${rehearsals} `, scoreKey: "two.mnx" });
-    expect(result.current.startBar).toBe(2);
-    rerender({ mnx: rehearsals, scoreKey: "two.mnx" });
     expect(result.current.startBar).toBe(0);
+    act(() => result.current.setStartBar(2));
+    rerender({ mnx: rehearsals, scoreKey: "two.mnx" });
+    expect(result.current.startBar).toBe(2);
   });
 
   it("uses the app toolbar's shared score picker and preserves the selected view during playback", async () => {
