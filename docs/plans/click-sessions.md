@@ -562,6 +562,8 @@ Keep the project root and active document separate:
 - Document scope owns the selected MNX, its undo history, save target, disk
   baseline, and score-specific playback program.
 - Existing standalone-file opening remains available and unchanged.
+- Opening a folder without Git offers **Initialize Git project** or **Open
+  without Git**, with cancellation leaving the current document unchanged.
 - Versioned folders retain path-correct save, history, review, and commit behavior.
   Switching tracks must not reinitialize a repository or automatically commit.
 

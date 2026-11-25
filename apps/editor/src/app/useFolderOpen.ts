@@ -31,7 +31,7 @@ export interface FolderOpenDeps {
 }
 
 export interface FolderOpenActions {
-  openFolderHandle: (handle: FileSystemDirectoryHandle, allowInitialize?: boolean) => Promise<void>;
+  openFolderHandle: (handle: FileSystemDirectoryHandle) => Promise<void>;
   handleOpenProject: () => Promise<void>;
   handleTrackWithGit: () => Promise<void>;
   /**
@@ -50,17 +50,8 @@ interface ProjectScoreRequest {
 
 async function inspectProjectFolder(
   handle: FileSystemDirectoryHandle,
-  allowInitialize: boolean,
 ): Promise<{ hasGit: boolean; scores: DiscoveredScore[] } | null> {
   const hasGit = await directoryHasEntry(handle, ".git");
-  if (!hasGit && !allowInitialize) {
-    toast.error(
-      `“${handle.name}” is not a Viritura project folder. Choose a folder containing .git, or use Open MNX Score for a standalone file.`,
-      { duration: 7000 },
-    );
-    return null;
-  }
-
   const scores = await scanForMnxFiles(handle);
   if (scores.length === 0) {
     toast.error(`No .mnx scores found in ${handle.name}.`);
@@ -144,8 +135,8 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
   );
 
   const openFolderHandle = useCallback(
-    async (handle: FileSystemDirectoryHandle, allowInitialize = false) => {
-      const inspection = await inspectProjectFolder(handle, allowInitialize);
+    async (handle: FileSystemDirectoryHandle) => {
+      const inspection = await inspectProjectFolder(handle);
       if (!inspection) return;
       const { hasGit, scores } = inspection;
 
@@ -239,7 +230,7 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
     }
     try {
       const handle = await picker({ mode: "readwrite" });
-      await openFolderHandle(handle, true);
+      await openFolderHandle(handle);
       setTrackBannerFile(null);
     } catch (err) {
       if ((err as DOMException)?.name === "AbortError") return;
