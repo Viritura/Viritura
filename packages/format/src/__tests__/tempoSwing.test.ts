@@ -14,6 +14,55 @@ function document(measure: object) {
 const swing = { mode: "swing", subdivision: "16th", ratio: [3, 2] };
 
 describe("tempo-owned swing persistence", () => {
+  it.each([1, 2, 3, 4, 5])("round-trips click subdivision %i on standard and vendor tempos", (clickSubdivision) => {
+    for (const measure of [
+      { tempos: [{ bpm: 90, value: { base: "quarter" }, _x: { viritura: { clickSubdivision } } }] },
+      { _x: { viritura: { tempos: [{ text: [{ text: "Subdivide" }], clickSubdivision }] } } },
+    ]) {
+      const score = parseMnx(document(measure));
+      expect(score.global.measures[0].tempos?.[0].clickSubdivision).toBe(clickSubdivision);
+      expect(parseMnx(serializeMnx(score)).global.measures[0].tempos).toEqual(score.global.measures[0].tempos);
+    }
+  });
+
+  it("round-trips a click-only system instruction without inventing BPM", () => {
+    const systemText = [
+      {
+        id: "click",
+        text: [{ text: "Click triplets" }],
+        position: { fraction: [1, 8] },
+        tempo: { clickSubdivision: 3 },
+      },
+    ];
+    const score = parseMnx(document({ _x: { viritura: { systemText } } }));
+    expect(score.global.measures[0].systemText?.[0].tempo).toEqual({ clickSubdivision: 3 });
+    expect(parseMnx(serializeMnx(score)).global.measures[0].systemText).toEqual(score.global.measures[0].systemText);
+  });
+
+  it.each([0, 6, 1.5, null, "2", Infinity])(
+    "rejects invalid click subdivision %j on strict and recovery paths",
+    (clickSubdivision) => {
+      for (const measure of [
+        { tempos: [{ bpm: 90, value: { base: "quarter" }, _x: { viritura: { clickSubdivision } } }] },
+        { _x: { viritura: { tempos: [{ bpm: 90, value: { base: "quarter" }, clickSubdivision }] } } },
+        {
+          _x: {
+            viritura: {
+              systemText: [
+                { id: "click", text: [{ text: "Click" }], position: { fraction: [0, 1] }, tempo: { clickSubdivision } },
+              ],
+            },
+          },
+        },
+      ]) {
+        const source = document(measure);
+        expect(validateRawScore(source).ok).toBe(false);
+        expect(() => parseMnx(source)).toThrow();
+        expect(() => parseMnxUnvalidated(source)).toThrow();
+      }
+    },
+  );
+
   it.each([
     { mode: "straight" },
     swing,

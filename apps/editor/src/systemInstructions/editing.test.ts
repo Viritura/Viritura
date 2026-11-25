@@ -56,6 +56,22 @@ describe("bounded system instruction editing", () => {
     ).toEqual({ swing });
   });
 
+  it("preserves click subdivisions through legacy migration and toggling BPM", () => {
+    const converted = instructionFromTempo({
+      bpm: 84,
+      value: { base: "quarter" },
+      clickSubdivision: 4,
+    });
+    expect(converted.tempo?.clickSubdivision).toBe(4);
+    const clickOnly = withInstructionBpm(converted, undefined);
+    expect(clickOnly.tempo).toEqual({ clickSubdivision: 4 });
+    expect(withInstructionBpm(clickOnly, 100).tempo).toMatchObject({
+      bpm: 100,
+      value: { base: "quarter" },
+      clickSubdivision: 4,
+    });
+  });
+
   it("migrates only the selected legacy tempo and preserves all other anchors and page frames", () => {
     const legacy = {
       bpm: 84,

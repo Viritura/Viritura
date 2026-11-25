@@ -39,10 +39,13 @@ export function instructionFromTempo(tempo: Tempo, id = generateId(), textStyles
           value: tempo.value,
           swing: tempo.swing,
           showMetronomeMark: tempo.showMetronomeMark,
+          clickSubdivision: tempo.clickSubdivision,
         }
       : tempo.swing
-        ? { swing: tempo.swing }
-        : undefined;
+        ? { swing: tempo.swing, clickSubdivision: tempo.clickSubdivision }
+        : tempo.clickSubdivision !== undefined
+          ? { clickSubdivision: tempo.clickSubdivision }
+          : undefined;
   const role = { ...DEFAULT_TEXT_STYLES.tempo!, ...textStyles?.tempo };
   const text = tempo.text?.length
     ? tempo.text
@@ -85,11 +88,15 @@ export function withInstructionBpm(instruction: SystemText, bpm: number | undefi
         value: current?.value ?? { base: "quarter" },
         swing: current?.swing,
         showMetronomeMark: current?.showMetronomeMark,
+        clickSubdivision: current?.clickSubdivision,
       },
     };
   }
   const { tempo: _tempo, ...text } = instruction;
-  return current?.swing ? { ...text, tempo: { swing: current.swing } } : text;
+  if (current?.swing) return { ...text, tempo: { swing: current.swing, clickSubdivision: current.clickSubdivision } };
+  return current?.clickSubdivision !== undefined
+    ? { ...text, tempo: { clickSubdivision: current.clickSubdivision } }
+    : text;
 }
 
 export function saveSystemInstruction(

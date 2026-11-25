@@ -384,6 +384,30 @@ restores both the bars and their ramp.
 MusicXML/MXL import and reconstruction of sampled tempo automation are outside
 this feature's scope. Ramps do not imply MIDI velocity or dynamics changes.
 
+### Tempo-owned click subdivisions
+
+Tempo markings carry optional `_x.viritura.clickSubdivision`, an integer from
+1 to 5. Unified vendor tempo entries and `systemText[].tempo` carry the same
+property directly. It specifies evenly spaced clicks per meter-grouped beat,
+not per metronome note value. For example, 3 splits each dotted-quarter beat of
+6/8 into three eighth-note clicks.
+
+Omission inherits the previous written setting, initially 1. Explicit 1 resets
+to beats only. Changes take effect at the marking's exact rhythmic position;
+inside a grouped beat, the new subdivision grid begins at that position and
+resets at the next grouped-beat boundary. Repeats and jumps use the setting
+effective at the destination in the written score. Starting partway through
+the score uses that position's setting for the synthetic countoff too, and
+the countoff cue reports the actual number of clicks, including subdivisions.
+
+These settings affect the Click activity only. They do not change note timing,
+swing, printed tempo markings, or the continuous tempo model; click timestamps
+still follow tempo changes and ramps. Existing explicit session resolution
+rules override score-owned subdivisions from their starting measure onward.
+
+Edit **Clicks per beat** in the selected tempo's Notation Properties.
+**Inherit** removes the explicit setting without changing the marking's BPM.
+
 ### Tempo-owned swing instructions
 
 Tempo markings carry optional `_x.viritura.swing`:

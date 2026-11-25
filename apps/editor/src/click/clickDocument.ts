@@ -1,5 +1,5 @@
 import { parseMnx } from "@viritura/format";
-import { resolveMeter } from "@viritura/core";
+import { resolveMeter, type GlobalMeasure } from "@viritura/core";
 import { compilePlaybackTiming, type PlaybackTiming } from "@viritura/midi/timing";
 import { collectClickBars, type ClickBar } from "./barNavigation";
 import { clickScoreViews, type ClickScoreView } from "./scoreViews";
@@ -7,7 +7,7 @@ import { clickScoreViews, type ClickScoreView } from "./scoreViews";
 export interface ClickDocument {
   readonly mnx: string;
   readonly scoreViews: readonly ClickScoreView[];
-  readonly timing: PlaybackTiming;
+  readonly timing: PlaybackTiming & { readonly globalMeasures: readonly GlobalMeasure[] };
   readonly bars: readonly ClickBar[];
 }
 
@@ -20,7 +20,7 @@ export function readClickDocument(text: string): ClickDocument {
   return {
     mnx: text,
     scoreViews: clickScoreViews(score),
-    timing,
+    timing: { ...timing, globalMeasures: score.global.measures },
     bars,
   };
 }

@@ -30,6 +30,7 @@ export interface TempoSectionProps {
   tempo: Tempo;
   effectiveSwing?: ResolvedTempoSwing;
   onSwingChange: (swing: Swing | undefined) => void;
+  onClickSubdivisionChange?: (subdivision: Tempo["clickSubdivision"]) => void;
   onBpmChange: (bpm: number) => void;
   onValueBaseChange: (base: NoteValueBase) => void;
   onDotsChange: (dots: number) => void;
@@ -48,6 +49,7 @@ export function TempoSection({
   tempo,
   effectiveSwing,
   onSwingChange,
+  onClickSubdivisionChange,
   onBpmChange,
   onValueBaseChange,
   onDotsChange,
@@ -119,6 +121,33 @@ export function TempoSection({
         </div>
       )}
       <SwingControls swing={tempo.swing} effective={effectiveSwing} onChange={onSwingChange} />
+      {onClickSubdivisionChange && (
+        <FormField label="Clicks per beat">
+          <Select
+            value={String(tempo.clickSubdivision ?? "inherit")}
+            options={[
+              { value: "inherit", label: "Inherit" },
+              ...[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) })),
+            ]}
+            onValueChange={(value) => {
+              if (value === "inherit") onClickSubdivisionChange(undefined);
+              else {
+                const subdivision = Number(value);
+                if (
+                  subdivision !== 1 &&
+                  subdivision !== 2 &&
+                  subdivision !== 3 &&
+                  subdivision !== 4 &&
+                  subdivision !== 5
+                ) {
+                  throw new RangeError("Click subdivision must be an integer from 1 to 5.");
+                }
+                onClickSubdivisionChange(subdivision);
+              }
+            }}
+          />
+        </FormField>
+      )}
       <div className={styles.group} role="group" aria-label="Appearance">
         <SectionLabel className={styles.groupTitle} label="Appearance" />
         <div className={styles.textField}>

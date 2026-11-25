@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { generateTimeline } from "@viritura/midi";
+import { compilePlaybackTiming } from "@viritura/midi/timing";
 import type { Score } from "@viritura/core";
 import type { ClickEngineEvent, ClickProgramEvent } from "@viritura/audio";
 import { buildClickSessionProgram, describeClickCue, ClickSessionTransport, type ClickSessionEngine } from "./index";
@@ -92,6 +93,134 @@ describe("buildClickSessionProgram", () => {
     ]);
   });
 
+  it("inherits tempo subdivisions, resets explicitly, and counts every countoff tick", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          { time: { count: 2, unit: 4 }, tempos: [{ bpm: 120, value: { base: "quarter" }, clickSubdivision: 2 }] },
+          { tempos: [{ bpm: 60, value: { base: "quarter" } }] },
+          { tempos: [{ bpm: 120, value: { base: "quarter" }, clickSubdivision: 1 }] },
+        ],
+      },
+      parts: [],
+    };
+    const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
+    const program = buildClickSessionProgram(source, { startMeasure: 1 });
+    expect(program.countoffClicks).toBe(4);
+    expect(program.countoffSeconds).toBe(2);
+    expect(times(program.events)).toEqual([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5]);
+  });
+
+  it("changes subdivisions inside a grouped beat exactly once without interrupting a tempo ramp", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            time: { count: 2, unit: 4 },
+            tempos: [{ bpm: 120, value: { base: "quarter" }, clickSubdivision: 2 }],
+            gradualTempo: {
+              position: { fraction: [0, 1] },
+              end: { measure: "1", position: { fraction: [0, 1] } },
+              endBpm: 60,
+            },
+            systemText: [
+              {
+                id: "subdivision",
+                text: [{ text: "Click triplets" }],
+                position: { fraction: [1, 8] },
+                tempo: { clickSubdivision: 3 },
+              },
+            ],
+          },
+          {},
+        ],
+      },
+      parts: [],
+    };
+    const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
+    const program = buildClickSessionProgram(source, { countoff: false });
+    const beats = [0, 0.5, 5 / 6, 1, 4 / 3, 5 / 3, 2, 7 / 3, 8 / 3, 3, 10 / 3, 11 / 3];
+    expect(program.events.map((event) => event.time)).toEqual(beats.map((beat) => source.model.timeAtBeat(beat)));
+    expect(program.events.filter((event) => event.time === source.model.timeAtBeat(0.5))).toHaveLength(1);
+    expect(program.events[1]!.level).toBe("subdivision");
+    const intervals = program.events.slice(4, 6).map((event, index) => event.time - program.events[index + 3]!.time);
+    expect(intervals[1]).toBeGreaterThan(intervals[0]!);
+  });
+
+  it("uses each repeated destination's written subdivision rather than carrying the previous pass's setting", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          { time: { count: 1, unit: 4 }, tempos: [{ bpm: 60, value: { base: "quarter" } }], repeatStart: {} },
+          { tempos: [{ bpm: 60, value: { base: "quarter" }, clickSubdivision: 2 }], repeatEnd: {} },
+        ],
+      },
+      parts: [],
+    };
+    const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
+    const program = buildClickSessionProgram(source, { countoff: false });
+    expect(times(program.events)).toEqual([0, 1, 1.5, 2, 3, 3.5]);
+    expect(buildClickSessionProgram(source, { startTimelineMeasure: 2 }).countoffClicks).toBe(1);
+  });
+
+  it("subdivides authored compound meter groups by five and applies tempo percentage to all ticks", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            time: { count: 6, unit: 8 },
+            tempos: [{ bpm: 120, value: { base: "quarter" }, clickSubdivision: 5 }],
+          },
+        ],
+      },
+      parts: [],
+    };
+    const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
+    const program = buildClickSessionProgram(source, { tempoPercent: 50 });
+    expect(program.countoffClicks).toBe(10);
+    expect(program.countoffSeconds).toBe(3);
+    expect(times(program.events)).toEqual(Array.from({ length: 20 }, (_, index) => Number((index * 0.3).toFixed(6))));
+    expect(program.events.filter((event) => event.level === "accent")).toHaveLength(2);
+  });
+
+  it("restores inherited subdivisions at an intra-bar jump destination", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          { time: { count: 4, unit: 4 }, tempos: [{ bpm: 120, value: { base: "quarter" } }] },
+          {
+            segno: { location: { fraction: [1, 4] } },
+            systemText: [
+              {
+                id: "triplets",
+                text: [{ text: "Click triplets" }],
+                position: { fraction: [1, 8] },
+                tempo: { clickSubdivision: 3 },
+              },
+            ],
+          },
+          { fine: { location: { fraction: [1, 2] } } },
+          {
+            jump: { type: "dsAlFine", location: { fraction: [3, 4] } },
+            tempos: [{ bpm: 120, value: { base: "quarter" }, clickSubdivision: 5 }],
+          },
+        ],
+      },
+      parts: [],
+    };
+    const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
+    const partialIndex = source.playedSpans!.findIndex((span) => span.startBeat > 0);
+    expect(partialIndex).toBeGreaterThan(0);
+    const program = buildClickSessionProgram(source, { startTimelineMeasure: partialIndex });
+    expect(program.countoffClicks).toBe(12);
+    expect(times(program.events.slice(12, 15))).toEqual([2, 2.166667, 2.333333]);
+  });
+
   it("subdivides compound beats across the full dotted-quarter pulse", () => {
     const timeline = timelineFor([{ time: { count: 6, unit: 8 }, bpm: 120 }]);
     const program = buildClickSessionProgram(timeline, {
@@ -125,7 +254,7 @@ describe("buildClickSessionProgram", () => {
     const program = buildClickSessionProgram(timeline, {
       resolutions: [{ fromMeasure: 0, subdivision: 2 }],
     });
-    expect(program.countoffClicks).toBe(3);
+    expect(program.countoffClicks).toBe(6);
     expect(program.countoffSeconds).toBe(1.75);
     expect(program.duration).toBe(3.5);
     expect(times(program.events)).toEqual([0, 0.25, 0.5, 0.875, 1.25, 1.5, 1.75, 2, 2.25, 2.625, 3, 3.25]);

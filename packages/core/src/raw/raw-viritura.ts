@@ -128,6 +128,8 @@ export interface components {
                 ];
             };
             swing?: components["schemas"]["swing"];
+            /** @enum {integer} */
+            clickSubdivision?: 1 | 2 | 3 | 4 | 5;
             text?: components["schemas"]["text-content"];
             showMetronomeMark?: boolean;
             showText?: boolean;
@@ -139,6 +141,8 @@ export interface components {
         /** @description Viritura display and placement extensions on a standard MNX tempo object. */
         "tempo-extensions": {
             swing?: components["schemas"]["swing"];
+            /** @enum {integer} */
+            clickSubdivision?: 1 | 2 | 3 | 4 | 5;
             text?: components["schemas"]["text-content"];
             showMetronomeMark?: boolean;
             showText?: boolean;
@@ -237,8 +241,10 @@ export interface components {
             bpm?: number;
             value?: components["schemas"]["tempo-instruction"]["value"];
             swing?: components["schemas"]["swing"];
+            /** @enum {integer} */
+            clickSubdivision?: 1 | 2 | 3 | 4 | 5;
             showMetronomeMark?: boolean;
-        } & (unknown | unknown);
+        } & (unknown | unknown | unknown);
         /** @description One globally owned music-relative instruction displayed once above or below the visible system in every score/part view. No staff/voice or page coordinates. */
         "system-text": {
             id: string;

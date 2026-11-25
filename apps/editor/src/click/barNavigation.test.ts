@@ -14,6 +14,27 @@ import {
 import { readClickDocument } from "./clickDocument";
 
 describe("click bar navigation", () => {
+  it("loads saved subdivision settings into the activity's program and countoff", () => {
+    const document = readClickDocument(
+      JSON.stringify({
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            {
+              time: { count: 4, unit: 4 },
+              tempos: [{ bpm: 120, value: { base: "quarter" }, _x: { viritura: { clickSubdivision: 2 } } }],
+            },
+          ],
+        },
+        parts: [{ measures: [{ sequences: [{ content: [] }] }] }],
+      }),
+    );
+    const program = buildClickSessionProgram(document.timing);
+    expect(program.countoffClicks).toBe(8);
+    expect(program.events.map((event) => event.time)).toEqual(Array.from({ length: 16 }, (_, index) => index / 4));
+    expect(clickScorePosition(document.timing, program, 2.75, 100)).toEqual({ measureIndex: 0, beat: 1.5 });
+  });
+
   it("keeps authored rehearsal marks and context on their score bars", () => {
     const document = readClickDocument(rehearsalMarks);
     expect(document.bars.map((bar) => bar.rehearsal)).toEqual(["A", undefined, "B", "C", "D"]);

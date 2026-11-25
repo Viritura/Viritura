@@ -87,6 +87,8 @@ export type Swing = { mode: "straight" } | { mode: "swing"; subdivision: "eighth
 
 /** Shared presentation of metronomic and swing-only tempo markings. */
 export interface TempoPresentation {
+  /** Clicks per meter-grouped beat. Omission inherits; 1 resets to beats only. */
+  clickSubdivision?: 1 | 2 | 3 | 4 | 5;
   location?: RhythmicPosition;
   /** Optional text label (e.g. "Allegro"). Viritura extension (_x.viritura.text). */
   text?: TextContent;
@@ -278,7 +280,7 @@ export interface SystemText extends MusicText {
 }
 
 /** Playback properties of a music-anchored system instruction, never a page frame. */
-export type SystemTempo =
+export type SystemTempo = { clickSubdivision?: TempoPresentation["clickSubdivision"] } & (
   | {
       bpm: number;
       value: TempoNoteValue;
@@ -290,7 +292,15 @@ export type SystemTempo =
       value?: never;
       swing: Swing;
       showMetronomeMark?: never;
-    };
+    }
+  | {
+      bpm?: never;
+      value?: never;
+      swing?: never;
+      showMetronomeMark?: never;
+      clickSubdivision: NonNullable<TempoPresentation["clickSubdivision"]>;
+    }
+);
 
 /** Tempo instructions from both legacy tempo markings and shared system instructions. */
 export function measureTempoInstructions(measure: GlobalMeasure): Tempo[] {

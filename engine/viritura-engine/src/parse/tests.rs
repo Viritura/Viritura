@@ -3,6 +3,28 @@
 use super::*;
 
 #[test]
+fn test_parse_click_only_system_instruction() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "time": {"count": 4, "unit": 4},
+            "_x": {"viritura": {"systemText": [{
+                "id": "click", "text": [{"text": "Click triplets"}],
+                "position": {"fraction": [1, 8]},
+                "tempo": {"clickSubdivision": 3}
+            }]}}
+        }]},
+        "parts": []
+    }"#;
+    let score = parse_mnx(json).expect("click-only instructions must parse without a BPM");
+    let instructions = score.global.measures[0].system_text().unwrap();
+    let instruction = &instructions[0];
+    let tempo = instruction.tempo.as_ref().unwrap();
+    assert_eq!(tempo.click_subdivision, Some(3));
+    assert!(tempo.bpm.is_none());
+}
+
+#[test]
 fn test_parse_hello_world() {
     let json = r#"{
         "mnx": {"version": 1},

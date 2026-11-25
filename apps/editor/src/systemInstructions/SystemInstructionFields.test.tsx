@@ -7,6 +7,33 @@ import { SystemInstructionFields } from "./SystemInstructionFields";
 
 afterEach(cleanup);
 
+it("sets and clears click-only subdivisions without fabricating BPM", async () => {
+  const user = userEvent.setup();
+  const instruction: SystemText = {
+    id: "click",
+    text: [{ text: "Click triplets" }],
+    position: { fraction: [1, 8] },
+  };
+  const change = vi.fn<(instruction: SystemText) => void>();
+  const { rerender } = render(
+    <TooltipPrimitives.Provider>
+      <SystemInstructionFields instruction={instruction} onChange={change} />
+    </TooltipPrimitives.Provider>,
+  );
+  await user.click(screen.getByRole("combobox", { name: "Clicks per beat" }));
+  await user.click(screen.getByRole("option", { name: "3", exact: true }));
+  expect(change).toHaveBeenLastCalledWith({ ...instruction, tempo: { clickSubdivision: 3 } });
+  rerender(
+    <TooltipPrimitives.Provider>
+      <SystemInstructionFields instruction={{ ...instruction, tempo: { clickSubdivision: 3 } }} onChange={change} />
+    </TooltipPrimitives.Provider>,
+  );
+  expect(screen.queryByRole("spinbutton", { name: "BPM" })).toBeNull();
+  await user.click(screen.getByRole("combobox", { name: "Clicks per beat" }));
+  await user.click(screen.getByRole("option", { name: "Inherit" }));
+  expect(change).toHaveBeenLastCalledWith({ ...instruction, tempo: undefined });
+});
+
 it("shares tempo controls with system text without inferring BPM or losing presentation", async () => {
   const user = userEvent.setup();
   const change = vi.fn<(instruction: SystemText) => void>();

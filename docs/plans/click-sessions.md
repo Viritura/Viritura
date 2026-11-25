@@ -3,7 +3,7 @@
 > **Status:** In progress, November 2026. The click-only audio engine and
 > click session program compiler and the single-document **Click** activity are implemented
 > (see [Implementation status](#implementation-status)); the setlist, detached
-> controller window, and subdivision persistence remain proposed. Confirmed requirements and proposed defaults are
+> controller window remain proposed. Confirmed requirements and proposed defaults are
 > distinguished below.
 >
 > **Related:** [File format](../spec/file-format.md),
@@ -142,8 +142,13 @@ Implemented:
   AudioContext. `ClickSessionTransport` calls it before loading a program;
   Play restarts with the countoff and Resume continues without one.
 
-Remaining: measure-position resolution rules and MNX subdivision metadata,
-the project setlist picker, persisted click settings, the detached controller,
+Tempo markings now persist `clickSubdivision` (1-5), with inheritance and exact
+mid-bar positions, through standard MNX tempo extensions and shared system
+instructions. The tempo inspector edits **Clicks per beat**. The Click activity
+uses these settings for score clicks and the starting countoff, including
+source-position restoration on repeated visits and jumps.
+
+Remaining: the project setlist picker, persisted session settings, the detached controller,
 additional rehearsal navigation, and the release gates below.
 
 Single-document smoke check: start the UI through `pnpm dev:stack up ui`, open
@@ -582,10 +587,10 @@ Reuse `TimeSignature.beatStructure` and `resolveMeter` from the
 irregular grouping. The only new musical metadata needed for this delivery is
 an explicit click-subdivision override at a rhythmic location:
 
-- Proposed tempo extension: `_x.viritura.click: { subdivision: 2 }`, alongside
-  the existing tempo metadata. Exact naming remains provisional.
+- Implemented tempo extension: `_x.viritura.clickSubdivision: 2`, alongside
+  the existing tempo metadata (integer 1-5).
 - With no override anywhere, click once per resolved meter beat.
-- Omitted metadata inherits the preceding subdivision; `subdivision: 1`
+- Omitted metadata inherits the preceding subdivision; `clickSubdivision: 1`
   explicitly returns to beat-only clicks.
 - Allow an override at a ritardando's start, its end, or another rhythmic
   position without requiring a new BPM or a visible metronome marking. Finalize
@@ -594,10 +599,9 @@ an explicit click-subdivision override at a rhythmic location:
 - Do not add independent click beat/grouping definitions that could disagree
   with the existing meter.
 
-The exact field names and schema are proposals to finalize during implementation.
-Update the extension schema, generated bindings/validators, model, parser,
-serializer, editing patches, and collaboration bridge together. Preserve these
-extensions through normal score editing and round-trip tests.
+The field is also supported directly on unified vendor tempo entries and
+`systemText[].tempo`. Click-only system instructions do not fabricate BPM.
+See [the extension contract](../spec/viritura-extensions.md#tempo-owned-click-subdivisions).
 
 Use an optional, documented `session.viritura.json` sidecar in the folder for
 session-only state: format version, ordered relative MNX paths, and
@@ -634,7 +638,7 @@ second grouping control. The click session compiler uses the shared meter
 resolver for both countoff and playback.
 
 Proposed controls: **Inherit**, **On the beat**, or an explicit subdivision
-(initial choices: 2, 3, or 4 equally spaced clicks per resolved beat). Distinguish
+(choices: 2, 3, 4, or 5 equally spaced clicks per resolved beat). Distinguish
 bar downbeat, beat/group starts, and subdivisions with accents. Dividing unequal
 groups equally per beat produces unequal tick spacing across groups; the UI
 must describe this rather than implying a uniform denominator-note grid.
@@ -651,7 +655,7 @@ Examples:
 
 Resolve each pattern to rational musical positions, then use the existing tempo
 model to obtain seconds. Anchor the grid to the bar; a mid-bar change applies at
-its exact location and starts the new grid there until the next bar. Assign a
+its exact location and starts the new grid there until the next grouped-beat boundary. Assign a
 boundary click to the new region exactly once. Never infer resolution from BPM.
 Subdivision stays straight unless the author explicitly programs a different
 pattern; score swing must not silently alter a recording click.

@@ -9791,11 +9791,50 @@ impl ::std::default::Default for SystemLayoutExtensions {
 ///      "required": [
 ///        "swing"
 ///      ]
+///    },
+///    {
+///      "not": {
+///        "anyOf": [
+///          {
+///            "required": [
+///              "bpm"
+///            ]
+///          },
+///          {
+///            "required": [
+///              "value"
+///            ]
+///          },
+///          {
+///            "required": [
+///              "swing"
+///            ]
+///          },
+///          {
+///            "required": [
+///              "showMetronomeMark"
+///            ]
+///          }
+///        ]
+///      },
+///      "required": [
+///        "clickSubdivision"
+///      ]
 ///    }
 ///  ],
 ///  "properties": {
 ///    "bpm": {
 ///      "type": "number"
+///    },
+///    "clickSubdivision": {
+///      "type": "integer",
+///      "enum": [
+///        1,
+///        2,
+///        3,
+///        4,
+///        5
+///      ]
 ///    },
 ///    "showMetronomeMark": {
 ///      "type": "boolean"
@@ -9816,6 +9855,7 @@ impl ::std::default::Default for SystemLayoutExtensions {
 pub enum SystemTempo {
     Variant0(SystemTempoVariant0),
     Variant1 { swing: Swing },
+    Variant2(SystemTempoVariant2),
 }
 impl ::std::convert::From<&Self> for SystemTempo {
     fn from(value: &SystemTempo) -> Self {
@@ -9825,6 +9865,11 @@ impl ::std::convert::From<&Self> for SystemTempo {
 impl ::std::convert::From<SystemTempoVariant0> for SystemTempo {
     fn from(value: SystemTempoVariant0) -> Self {
         Self::Variant0(value)
+    }
+}
+impl ::std::convert::From<SystemTempoVariant2> for SystemTempo {
+    fn from(value: SystemTempoVariant2) -> Self {
+        Self::Variant2(value)
     }
 }
 ///`SystemTempoVariant0`
@@ -9839,6 +9884,16 @@ impl ::std::convert::From<SystemTempoVariant0> for SystemTempo {
 ///      "properties": {
 ///        "bpm": {
 ///          "type": "number"
+///        },
+///        "clickSubdivision": {
+///          "type": "integer",
+///          "enum": [
+///            1,
+///            2,
+///            3,
+///            4,
+///            5
+///          ]
 ///        },
 ///        "showMetronomeMark": {
 ///          "type": "boolean"
@@ -9883,39 +9938,62 @@ impl ::std::convert::From<SystemTempoVariant0> for SystemTempo {
 ///          "swing"
 ///        ]
 ///      }
+///    },
+///    {
+///      "not": {
+///        "not": {
+///          "anyOf": [
+///            {
+///              "required": [
+///                "bpm"
+///              ]
+///            },
+///            {
+///              "required": [
+///                "value"
+///              ]
+///            },
+///            {
+///              "required": [
+///                "swing"
+///              ]
+///            },
+///            {
+///              "required": [
+///                "showMetronomeMark"
+///              ]
+///            }
+///          ]
+///        },
+///        "required": [
+///          "clickSubdivision"
+///        ]
+///      }
 ///    }
 ///  ]
 ///}
 /// ```
 /// </details>
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(untagged)]
-pub enum SystemTempoVariant0 {
-    Variant0(SystemTempoVariant0Variant0),
-    Variant1(SystemTempoVariant0Variant1),
-    Variant2(SystemTempoVariant0Variant2),
-}
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+#[serde(deny_unknown_fields)]
+pub enum SystemTempoVariant0 {}
 impl ::std::convert::From<&Self> for SystemTempoVariant0 {
     fn from(value: &SystemTempoVariant0) -> Self {
         value.clone()
     }
 }
-impl ::std::convert::From<SystemTempoVariant0Variant0> for SystemTempoVariant0 {
-    fn from(value: SystemTempoVariant0Variant0) -> Self {
-        Self::Variant0(value)
-    }
-}
-impl ::std::convert::From<SystemTempoVariant0Variant1> for SystemTempoVariant0 {
-    fn from(value: SystemTempoVariant0Variant1) -> Self {
-        Self::Variant1(value)
-    }
-}
-impl ::std::convert::From<SystemTempoVariant0Variant2> for SystemTempoVariant0 {
-    fn from(value: SystemTempoVariant0Variant2) -> Self {
-        Self::Variant2(value)
-    }
-}
-///`SystemTempoVariant0Variant0`
+///`SystemTempoVariant2`
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -9924,18 +10002,26 @@ impl ::std::convert::From<SystemTempoVariant0Variant2> for SystemTempoVariant0 {
 ///  "allOf": [
 ///    {
 ///      "type": "object",
-///      "required": [
-///        "bpm",
-///        "value"
-///      ],
 ///      "properties": {
 ///        "bpm": {
 ///          "type": "number"
 ///        },
+///        "clickSubdivision": {
+///          "type": "integer",
+///          "enum": [
+///            1,
+///            2,
+///            3,
+///            4,
+///            5
+///          ]
+///        },
 ///        "showMetronomeMark": {
 ///          "type": "boolean"
 ///        },
-///        "swing": false,
+///        "swing": {
+///          "$ref": "#/$defs/swing"
+///        },
 ///        "value": {
 ///          "$ref": "#/$defs/tempo-instruction/properties/value"
 ///        }
@@ -9943,21 +10029,65 @@ impl ::std::convert::From<SystemTempoVariant0Variant2> for SystemTempoVariant0 {
 ///      "additionalProperties": false
 ///    },
 ///    {
+///      "not": {
+///        "anyOf": [
+///          {
+///            "required": [
+///              "bpm"
+///            ]
+///          },
+///          {
+///            "required": [
+///              "value"
+///            ]
+///          },
+///          {
+///            "required": [
+///              "swing"
+///            ]
+///          },
+///          {
+///            "required": [
+///              "showMetronomeMark"
+///            ]
+///          }
+///        ]
+///      },
 ///      "required": [
-///        "bpm"
+///        "clickSubdivision"
 ///      ]
 ///    },
 ///    {
 ///      "not": {
 ///        "required": [
+///          "bpm",
 ///          "value"
 ///        ]
 ///      }
 ///    },
 ///    {
 ///      "not": {
+///        "not": {
+///          "anyOf": [
+///            {
+///              "required": [
+///                "bpm"
+///              ]
+///            },
+///            {
+///              "required": [
+///                "value"
+///              ]
+///            },
+///            {
+///              "required": [
+///                "showMetronomeMark"
+///              ]
+///            }
+///          ]
+///        },
 ///        "required": [
-///          "showMetronomeMark"
+///          "swing"
 ///        ]
 ///      }
 ///    }
@@ -9978,147 +10108,9 @@ impl ::std::convert::From<SystemTempoVariant0Variant2> for SystemTempoVariant0 {
     PartialOrd
 )]
 #[serde(deny_unknown_fields)]
-pub enum SystemTempoVariant0Variant0 {}
-impl ::std::convert::From<&Self> for SystemTempoVariant0Variant0 {
-    fn from(value: &SystemTempoVariant0Variant0) -> Self {
-        value.clone()
-    }
-}
-///`SystemTempoVariant0Variant1`
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "allOf": [
-///    {
-///      "type": "object",
-///      "required": [
-///        "bpm",
-///        "value"
-///      ],
-///      "properties": {
-///        "bpm": {
-///          "type": "number"
-///        },
-///        "showMetronomeMark": {
-///          "type": "boolean"
-///        },
-///        "swing": false,
-///        "value": {
-///          "$ref": "#/$defs/tempo-instruction/properties/value"
-///        }
-///      },
-///      "additionalProperties": false
-///    },
-///    {
-///      "required": [
-///        "value"
-///      ]
-///    },
-///    {
-///      "not": {
-///        "required": [
-///          "bpm"
-///        ]
-///      }
-///    },
-///    {
-///      "not": {
-///        "required": [
-///          "showMetronomeMark"
-///        ]
-///      }
-///    }
-///  ]
-///}
-/// ```
-/// </details>
-#[derive(
-    ::serde::Deserialize,
-    ::serde::Serialize,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd
-)]
-#[serde(deny_unknown_fields)]
-pub enum SystemTempoVariant0Variant1 {}
-impl ::std::convert::From<&Self> for SystemTempoVariant0Variant1 {
-    fn from(value: &SystemTempoVariant0Variant1) -> Self {
-        value.clone()
-    }
-}
-///`SystemTempoVariant0Variant2`
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "allOf": [
-///    {
-///      "type": "object",
-///      "required": [
-///        "bpm",
-///        "value"
-///      ],
-///      "properties": {
-///        "bpm": {
-///          "type": "number"
-///        },
-///        "showMetronomeMark": {
-///          "type": "boolean"
-///        },
-///        "swing": false,
-///        "value": {
-///          "$ref": "#/$defs/tempo-instruction/properties/value"
-///        }
-///      },
-///      "additionalProperties": false
-///    },
-///    {
-///      "required": [
-///        "showMetronomeMark"
-///      ]
-///    },
-///    {
-///      "not": {
-///        "required": [
-///          "bpm"
-///        ]
-///      }
-///    },
-///    {
-///      "not": {
-///        "required": [
-///          "value"
-///        ]
-///      }
-///    }
-///  ]
-///}
-/// ```
-/// </details>
-#[derive(
-    ::serde::Deserialize,
-    ::serde::Serialize,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd
-)]
-#[serde(deny_unknown_fields)]
-pub enum SystemTempoVariant0Variant2 {}
-impl ::std::convert::From<&Self> for SystemTempoVariant0Variant2 {
-    fn from(value: &SystemTempoVariant0Variant2) -> Self {
+pub enum SystemTempoVariant2 {}
+impl ::std::convert::From<&Self> for SystemTempoVariant2 {
+    fn from(value: &SystemTempoVariant2) -> Self {
         value.clone()
     }
 }
@@ -10312,6 +10304,16 @@ impl<'de> ::serde::Deserialize<'de> for SystemTextId {
 ///    "avoidCollisions": {
 ///      "type": "boolean"
 ///    },
+///    "clickSubdivision": {
+///      "type": "integer",
+///      "enum": [
+///        1,
+///        2,
+///        3,
+///        4,
+///        5
+///      ]
+///    },
 ///    "manualOffset": {
 ///      "$ref": "#/$defs/sp-delta"
 ///    },
@@ -10341,6 +10343,12 @@ pub struct TempoExtensions {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub avoid_collisions: ::std::option::Option<bool>,
+    #[serde(
+        rename = "clickSubdivision",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub click_subdivision: ::std::option::Option<TempoExtensionsClickSubdivision>,
     #[serde(
         rename = "manualOffset",
         default,
@@ -10373,12 +10381,71 @@ impl ::std::default::Default for TempoExtensions {
     fn default() -> Self {
         Self {
             avoid_collisions: Default::default(),
+            click_subdivision: Default::default(),
             manual_offset: Default::default(),
             show_metronome_mark: Default::default(),
             show_text: Default::default(),
             swing: Default::default(),
             text: Default::default(),
         }
+    }
+}
+///`TempoExtensionsClickSubdivision`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "integer",
+///  "enum": [
+///    1,
+///    2,
+///    3,
+///    4,
+///    5
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct TempoExtensionsClickSubdivision(i64);
+impl ::std::ops::Deref for TempoExtensionsClickSubdivision {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<TempoExtensionsClickSubdivision> for i64 {
+    fn from(value: TempoExtensionsClickSubdivision) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&TempoExtensionsClickSubdivision>
+for TempoExtensionsClickSubdivision {
+    fn from(value: &TempoExtensionsClickSubdivision) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::TryFrom<i64> for TempoExtensionsClickSubdivision {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![1_i64, 2_i64, 3_i64, 4_i64, 5_i64].contains(&value) {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TempoExtensionsClickSubdivision {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///Unified tempo marking. BPM and value occur together; BPM-free markings carry explicit swing or nonempty cosmetic text.
@@ -10451,6 +10518,16 @@ impl ::std::default::Default for TempoExtensions {
 ///    },
 ///    "bpm": {
 ///      "type": "number"
+///    },
+///    "clickSubdivision": {
+///      "type": "integer",
+///      "enum": [
+///        1,
+///        2,
+///        3,
+///        4,
+///        5
+///      ]
 ///    },
 ///    "location": {
 ///      "type": "object",
@@ -10540,6 +10617,14 @@ pub enum TempoInstruction {
             skip_serializing_if = "::std::option::Option::is_none"
         )]
         avoid_collisions: ::std::option::Option<bool>,
+        #[serde(
+            rename = "clickSubdivision",
+            default,
+            skip_serializing_if = "::std::option::Option::is_none"
+        )]
+        click_subdivision: ::std::option::Option<
+            TempoInstructionVariant1ClickSubdivision,
+        >,
         #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
         location: ::std::option::Option<TempoInstructionVariant1Location>,
         #[serde(
@@ -10596,6 +10681,16 @@ impl ::std::convert::From<TempoInstructionVariant2> for TempoInstruction {
 ///        },
 ///        "bpm": {
 ///          "type": "number"
+///        },
+///        "clickSubdivision": {
+///          "type": "integer",
+///          "enum": [
+///            1,
+///            2,
+///            3,
+///            4,
+///            5
+///          ]
 ///        },
 ///        "location": {
 ///          "type": "object",
@@ -10753,6 +10848,64 @@ impl ::std::convert::From<&Self> for TempoInstructionVariant0 {
         value.clone()
     }
 }
+///`TempoInstructionVariant1ClickSubdivision`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "integer",
+///  "enum": [
+///    1,
+///    2,
+///    3,
+///    4,
+///    5
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct TempoInstructionVariant1ClickSubdivision(i64);
+impl ::std::ops::Deref for TempoInstructionVariant1ClickSubdivision {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<TempoInstructionVariant1ClickSubdivision> for i64 {
+    fn from(value: TempoInstructionVariant1ClickSubdivision) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&TempoInstructionVariant1ClickSubdivision>
+for TempoInstructionVariant1ClickSubdivision {
+    fn from(value: &TempoInstructionVariant1ClickSubdivision) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::TryFrom<i64> for TempoInstructionVariant1ClickSubdivision {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![1_i64, 2_i64, 3_i64, 4_i64, 5_i64].contains(&value) {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TempoInstructionVariant1ClickSubdivision {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
+    }
+}
 ///`TempoInstructionVariant1Location`
 ///
 /// <details><summary>JSON schema</summary>
@@ -10836,6 +10989,16 @@ impl ::std::convert::From<&Self> for TempoInstructionVariant1LocationFractionIte
 ///        },
 ///        "bpm": {
 ///          "type": "number"
+///        },
+///        "clickSubdivision": {
+///          "type": "integer",
+///          "enum": [
+///            1,
+///            2,
+///            3,
+///            4,
+///            5
+///          ]
 ///        },
 ///        "location": {
 ///          "type": "object",

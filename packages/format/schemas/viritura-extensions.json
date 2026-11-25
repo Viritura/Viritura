@@ -284,6 +284,7 @@
           "additionalProperties": false
         },
         "swing": { "$ref": "#/$defs/swing" },
+        "clickSubdivision": { "type": "integer", "enum": [1, 2, 3, 4, 5] },
         "text": { "$ref": "#/$defs/text-content" },
         "showMetronomeMark": { "type": "boolean" },
         "showText": { "type": "boolean" },
@@ -310,6 +311,7 @@
       "description": "Viritura display and placement extensions on a standard MNX tempo object.",
       "properties": {
         "swing": { "$ref": "#/$defs/swing" },
+        "clickSubdivision": { "type": "integer", "enum": [1, 2, 3, 4, 5] },
         "text": { "$ref": "#/$defs/text-content" },
         "showMetronomeMark": { "type": "boolean" },
         "showText": { "type": "boolean" },
@@ -500,6 +502,7 @@
         "bpm": { "type": "number", "exclusiveMinimum": 0 },
         "value": { "$ref": "#/$defs/tempo-instruction/properties/value" },
         "swing": { "$ref": "#/$defs/swing" },
+        "clickSubdivision": { "type": "integer", "enum": [1, 2, 3, 4, 5] },
         "showMetronomeMark": { "type": "boolean" }
       },
       "oneOf": [
@@ -508,6 +511,17 @@
           "required": ["swing"],
           "not": {
             "anyOf": [{ "required": ["bpm"] }, { "required": ["value"] }, { "required": ["showMetronomeMark"] }]
+          }
+        },
+        {
+          "required": ["clickSubdivision"],
+          "not": {
+            "anyOf": [
+              { "required": ["bpm"] },
+              { "required": ["value"] },
+              { "required": ["swing"] },
+              { "required": ["showMetronomeMark"] }
+            ]
           }
         }
       ],
