@@ -633,6 +633,57 @@ directory picker. Offer multi-file selection as an in-memory session fallback,
 with explicit manifest/MNX download and file-reassociation steps on reopening.
 Do not make the ZIP-container project a prerequisite.
 
+### Sharing a setlist by Gist link (proposed)
+
+Musicians often need to practice with a setlist without being added to a
+private repository. A secret GitHub Gist with several files is a link-only
+setlist source:
+
+- The Gist mirrors the session folder: one flat directory of `.mnx` files plus
+  an optional `session.viritura.json`. Use the same manifest rules as a local
+  folder: preserve manifest order, add other files sorted by filename, show
+  missing entries as unavailable, and reject unsafe paths. Gists have no
+  subfolders, so relative paths are file names only.
+- The existing `/s/gist` link is not enough. `main.tsx` renders the standalone
+  `GistShareViewer` for that path instead of the main app shell, and
+  [`gistShare/source.ts`](../../apps/editor/src/gistShare/source.ts) accepts
+  exactly one `.mnx` file. The Click activity, track picker, and shared score
+  canvas exist only inside the main shell.
+- Add a setlist source abstraction in the main app. A local folder, a
+  multi-file selection, and a Gist each provide an ordered list of tracks, an
+  optional manifest, and a way to read one MNX file. The track picker and Click
+  activity use only this interface, so they do not need to know where tracks
+  come from. The Gist source reuses and generalizes the existing ID/revision
+  validation, size limits, truncated-file handling, and rate-limit errors.
+- Boot the main app from a setlist link, for example
+  `/?open=gist-setlist#id=<gist>`, with an optional pinned revision. It loads the Gist
+  through that source, opens the first or manifest-selected track, and goes
+  straight to the Click activity. Also offer **Open setlist link** inside the
+  app, so a player can switch setlists without leaving it.
+- A Gist session is read-only. Editing, saving, committing, recent-file
+  bookkeeping, and collaboration are disabled or offer **Download** / **Save a
+  copy** instead. A track switch loads the selected MNX into the same document
+  pipeline that a local track uses, without prompting about unsaved changes.
+- Fetch the Gist once per load and keep each file's content in memory for that
+  revision, so switching tracks costs no extra requests. The existing
+  single-score `/s/gist` viewer keeps working, and a multi-file Gist opened there
+  should offer to open it as a setlist.
+- Keep the Gist ID in the URL fragment so it is not sent to Viritura servers.
+  Links follow the latest revision by default. A pinned revision gives
+  everyone the same version for a rehearsal.
+- Listeners do not need GitHub accounts. A listener's tempo percentage and
+  selected track are saved only on their device and never written back.
+- Limits to state in the share dialog: a secret Gist is unlisted, not private.
+  Anyone with the link can open or forward it, and the owner's username and
+  revision history are visible. You cannot revoke one person's access; you
+  must delete the Gist or replace it with a new link. Anonymous GitHub API
+  requests are limited to 60 per hour per IP address, and players on shared
+  rehearsal Wi-Fi share that limit. Cache each loaded revision and report
+  rate limiting clearly.
+- The first version accepts a Gist the user created manually. Creating or
+  updating the Gist from Viritura is a later step. Revocable, Viritura-hosted
+  setlist links belong with [read-only sharing](./read-only-sharing.md).
+
 ## Programmable resolution
 
 The tempo table shows every actual tempo change, its bar/beat, written beat unit,
