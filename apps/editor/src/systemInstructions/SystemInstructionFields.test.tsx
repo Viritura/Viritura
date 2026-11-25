@@ -31,7 +31,33 @@ it("sets and clears click-only subdivisions without fabricating BPM", async () =
   expect(screen.queryByRole("spinbutton", { name: "BPM" })).toBeNull();
   await user.click(screen.getByRole("combobox", { name: "Clicks per beat" }));
   await user.click(screen.getByRole("option", { name: "1", exact: true }));
+  expect(change).toHaveBeenLastCalledWith({ ...instruction, tempo: { clickSubdivision: 1 } });
+  await user.click(screen.getByRole("combobox", { name: "Clicks per beat" }));
+  await user.click(screen.getByRole("option", { name: "Follow tempo" }));
   expect(change).toHaveBeenLastCalledWith({ ...instruction, tempo: undefined });
+});
+
+it("stores one click per beat on a tempo by omission and offers no follow option", async () => {
+  const user = userEvent.setup();
+  const instruction: SystemText = {
+    id: "tempo",
+    text: [{ text: "Allegro" }],
+    position: { fraction: [0, 1] },
+    tempo: { bpm: 120, value: { base: "quarter" }, clickSubdivision: 3 },
+  };
+  const change = vi.fn<(instruction: SystemText) => void>();
+  render(
+    <TooltipPrimitives.Provider>
+      <SystemInstructionFields instruction={instruction} onChange={change} />
+    </TooltipPrimitives.Provider>,
+  );
+  await user.click(screen.getByRole("combobox", { name: "Clicks per beat" }));
+  expect(screen.queryByRole("option", { name: "Follow tempo" })).toBeNull();
+  await user.click(screen.getByRole("option", { name: "1", exact: true }));
+  expect(change).toHaveBeenLastCalledWith({
+    ...instruction,
+    tempo: { bpm: 120, value: { base: "quarter" }, clickSubdivision: undefined },
+  });
 });
 
 it("shares tempo controls with system text without inferring BPM or losing presentation", async () => {

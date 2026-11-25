@@ -25,12 +25,15 @@ const DOTS_OPTIONS: { value: "0" | "1" | "2"; label: string }[] = [
 // Stable identity so an absent tempo text does not look like a new value on
 // every render, which would make the debounced input reset in a loop.
 const NO_TEXT: TextContent = [];
+const FOLLOW = "follow";
 
 export interface TempoSectionProps {
   tempo: Tempo;
   effectiveSwing?: ResolvedTempoSwing;
   onSwingChange: (swing: Swing | undefined) => void;
   onClickSubdivisionChange?: (subdivision: Tempo["clickSubdivision"]) => void;
+  /** Offer "Follow tempo" for instructions that do not set a tempo themselves. */
+  clickSubdivisionCanFollow?: boolean;
   onBpmChange: (bpm: number) => void;
   onValueBaseChange: (base: NoteValueBase) => void;
   onDotsChange: (dots: number) => void;
@@ -50,6 +53,7 @@ export function TempoSection({
   effectiveSwing,
   onSwingChange,
   onClickSubdivisionChange,
+  clickSubdivisionCanFollow = false,
   onBpmChange,
   onValueBaseChange,
   onDotsChange,
@@ -124,9 +128,16 @@ export function TempoSection({
       {onClickSubdivisionChange && (
         <FormField label="Clicks per beat">
           <Select
-            value={String(tempo.clickSubdivision ?? 1)}
-            options={[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))}
+            value={tempo.clickSubdivision ? String(tempo.clickSubdivision) : clickSubdivisionCanFollow ? FOLLOW : "1"}
+            options={[
+              ...(clickSubdivisionCanFollow ? [{ value: FOLLOW, label: "Follow tempo" }] : []),
+              ...[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) })),
+            ]}
             onValueChange={(value) => {
+              if (value === FOLLOW) {
+                onClickSubdivisionChange(undefined);
+                return;
+              }
               const subdivision = Number(value);
               if (
                 subdivision !== 1 &&
@@ -137,8 +148,7 @@ export function TempoSection({
               ) {
                 throw new RangeError("Click subdivision must be an integer from 1 to 5.");
               }
-              // Omission means one click per beat.
-              onClickSubdivisionChange(subdivision === 1 ? undefined : subdivision);
+              onClickSubdivisionChange(subdivision);
             }}
           />
         </FormField>

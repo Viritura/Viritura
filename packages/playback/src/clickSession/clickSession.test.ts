@@ -115,6 +115,41 @@ describe("buildClickSessionProgram", () => {
     ]);
   });
 
+  it("resets to one click per beat at an explicit mid-tempo instruction but not at swing-only text", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            time: { count: 2, unit: 4 },
+            tempos: [{ bpm: 60, value: { base: "quarter" }, clickSubdivision: 2 }],
+            systemText: [
+              {
+                id: "swing",
+                text: [{ text: "Swing" }],
+                position: { fraction: [1, 4] },
+                tempo: { swing: { mode: "swing", subdivision: "eighth", ratio: [2, 1] } },
+              },
+            ],
+          },
+          {
+            systemText: [
+              {
+                id: "reset",
+                text: [{ text: "Quarters" }],
+                position: { fraction: [1, 4] },
+                tempo: { clickSubdivision: 1 },
+              },
+            ],
+          },
+        ],
+      },
+      parts: [],
+    };
+    const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
+    expect(times(buildClickSessionProgram(source, { countoff: false }).events)).toEqual([0, 0.5, 1, 1.5, 2, 2.5, 3]);
+  });
+
   it("changes subdivisions inside a grouped beat exactly once without interrupting a tempo ramp", () => {
     const score: Score = {
       mnx: { version: 1 },

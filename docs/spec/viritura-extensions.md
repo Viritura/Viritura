@@ -392,9 +392,12 @@ property directly. It specifies evenly spaced clicks per meter-grouped beat,
 not per metronome note value. For example, 3 splits each dotted-quarter beat of
 6/8 into three eighth-note clicks.
 
-Omission means 1 (beats only): each tempo instruction sets the subdivision
-only until the next tempo instruction, so a subdivision never carries into a
-following tempo. Co-located instructions use the last explicit setting. Changes
+Omission on a tempo with BPM means 1 (beats only): each such tempo sets the
+subdivision only until the next one, so a subdivision never carries into a
+following tempo. Instructions without BPM (click-only or swing-only system
+text) change the subdivision only when they set it; an explicit 1 there resets
+to beats only until the next tempo. Co-located instructions use the last
+explicit setting. Changes
 take effect at the marking's exact rhythmic position;
 inside a grouped beat, the new subdivision grid begins at that position and
 resets at the next grouped-beat boundary. Repeats and jumps use the setting
@@ -408,8 +411,10 @@ still follow tempo changes and ramps. Existing explicit session resolution
 rules override score-owned subdivisions from their starting measure onward.
 
 Edit **Clicks per beat** (1 to 5, default 1) in the selected tempo's Notation
-Properties. Choosing 1 removes the stored setting without changing the
-marking's BPM; a click-only system instruction set to 1 becomes ordinary text.
+Properties. On a tempo with BPM, choosing 1 removes the stored setting. System
+text without BPM also offers **Follow tempo**, which removes the click change
+and returns click-only text to ordinary text; choosing 1 there stores an
+explicit reset.
 
 ### Tempo-owned swing instructions
 

@@ -42,13 +42,18 @@ export function SystemInstructionFields({
         onTempoEnabledChange={(enabled) => onChange(withInstructionBpm(instruction, enabled ? 120 : undefined))}
         onBpmChange={(bpm) => onChange(withInstructionBpm(instruction, bpm))}
         onSwingChange={setSwing}
+        clickSubdivisionCanFollow={playback?.bpm === undefined}
         onClickSubdivisionChange={(clickSubdivision) => {
+          // A tempo already means one click per beat, so 1 is stored by omission;
+          // without BPM, an explicit 1 is a mid-tempo reset.
           const tempo =
-            playback?.bpm !== undefined || playback?.swing
-              ? { ...playback, clickSubdivision }
-              : clickSubdivision === undefined
-                ? undefined
-                : { clickSubdivision };
+            playback?.bpm !== undefined
+              ? { ...playback, clickSubdivision: clickSubdivision === 1 ? undefined : clickSubdivision }
+              : playback?.swing
+                ? { ...playback, clickSubdivision }
+                : clickSubdivision === undefined
+                  ? undefined
+                  : { clickSubdivision };
           onChange({ ...instruction, tempo });
         }}
         onValueBaseChange={(base) => {

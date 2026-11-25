@@ -87,7 +87,7 @@ export type Swing = { mode: "straight" } | { mode: "swing"; subdivision: "eighth
 
 /** Shared presentation of metronomic and swing-only tempo markings. */
 export interface TempoPresentation {
-  /** Clicks per meter-grouped beat. Omission inherits; 1 resets to beats only. */
+  /** Clicks per meter-grouped beat. Omission on a BPM tempo means 1; elsewhere it leaves the click unchanged. */
   clickSubdivision?: 1 | 2 | 3 | 4 | 5;
   location?: RhythmicPosition;
   /** Optional text label (e.g. "Allegro"). Viritura extension (_x.viritura.text). */

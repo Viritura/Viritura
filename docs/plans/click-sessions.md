@@ -591,8 +591,9 @@ an explicit click-subdivision override at a rhythmic location:
 - Implemented tempo extension: `_x.viritura.clickSubdivision: 2`, alongside
   the existing tempo metadata (integer 1-5).
 - With no override anywhere, click once per resolved meter beat.
-- Omitted metadata means 1: a subdivision lasts only until the next tempo
-  instruction and never carries into the following tempo.
+- Omitted metadata on a BPM tempo means 1: a subdivision lasts only until the
+  next tempo and never carries into the following tempo. Click-only
+  instructions store an explicit 1 to reset mid-tempo.
 - Allow an override at a ritardando's start, its end, or another rhythmic
   position without requiring a new BPM or a visible metronome marking. Finalize
   the positioned instruction representation during implementation; do not

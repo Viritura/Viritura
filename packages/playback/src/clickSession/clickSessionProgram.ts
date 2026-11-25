@@ -201,8 +201,10 @@ interface MeasureResolution {
 }
 
 /**
- * Each tempo instruction sets the click subdivision until the next one;
+ * Each BPM-bearing tempo sets the click subdivision until the next one;
  * omission means 1, so a subdivision never carries into the next tempo.
+ * Instructions without BPM (click-only or swing-only text) change the
+ * subdivision only when they set it explicitly.
  */
 function compileTempoResolutions(measures: readonly GlobalMeasure[]): MeasureResolution[] {
   let subdivision = 1;
@@ -217,7 +219,9 @@ function compileTempoResolutions(measures: readonly GlobalMeasure[]): MeasureRes
       const atBeat = (fraction[0]! / fraction[1]!) * 4;
       // Co-located instructions: the last explicit setting wins over defaults.
       if (value !== undefined) byPosition.set(atBeat, { subdivision: value, explicit: true });
-      else if (!byPosition.get(atBeat)?.explicit) byPosition.set(atBeat, { subdivision: 1, explicit: false });
+      else if (tempo.bpm !== undefined && !byPosition.get(atBeat)?.explicit) {
+        byPosition.set(atBeat, { subdivision: 1, explicit: false });
+      }
     }
     const changes = [...byPosition]
       .map(([atBeat, entry]) => ({ atBeat, subdivision: entry.subdivision }))
