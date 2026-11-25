@@ -17,6 +17,7 @@ import { useViewStateStore } from "../store/viewStateStore";
 import { Toolbar } from "../components/Toolbar";
 import { WorkspaceToolbar } from "../components/WorkspaceToolbar";
 import { ScoreSwitcher } from "../scoreSwitcher";
+import { ProjectFileSwitcher } from "../projectFiles";
 import { LeftPanel, type WriteLeftTab } from "../components/LeftPanel";
 import { NotationInspector } from "../components/NotationInspector";
 import { MnxSourcePanel } from "../components/MnxSourcePanel";
@@ -137,7 +138,12 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
     panels,
     toolbar: (
       <WorkspaceToolbar
-        left={<ScoreSwitcher selectedScoreIndex={args.selectedScoreIndex} onSelectScore={args.handleSelectScore} />}
+        left={
+          <>
+            <ProjectFileSwitcher />
+            <ScoreSwitcher selectedScoreIndex={args.selectedScoreIndex} onSelectScore={args.handleSelectScore} />
+          </>
+        }
         center={<Toolbar />}
         right={<TransportBar />}
       />

@@ -3,6 +3,7 @@ import { Slider } from "@viritura/ui";
 import { ToolbarPortal } from "../components/AppShell";
 import { WorkspaceToolbar } from "../components/WorkspaceToolbar";
 import { ScoreSwitcherPicker } from "../scoreSwitcher";
+import { ProjectFileSwitcher } from "../projectFiles";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import { ClickControls } from "./ClickControls";
 import { ClickScoreControls, type ClickScoreSettings } from "./ClickScoreControls";
@@ -12,6 +13,7 @@ import { useClickPlayer } from "./useClickPlayer";
 import { useClickSpaceShortcut } from "./useClickSpaceShortcut";
 import { useExclusiveClickAudio } from "./useExclusiveClickAudio";
 import { publishClickCanvasConfig, publishClickCanvasPlayback } from "../store/clickCanvasStore";
+import { useProjectStore } from "../store/projectStore";
 import { ClickScoreInteractions } from "./ClickScoreInteractions";
 import styles from "./ClickView.module.css";
 
@@ -72,14 +74,17 @@ function ClickSettingsBar({ player, views, hidden, statusId, settings, onSetting
       <div className={styles.toolbar} role="group" aria-label="Click settings" hidden={hidden}>
         <WorkspaceToolbar
           left={
-            <div className={styles.scorePicker}>
-              <ScoreSwitcherPicker
-                entries={entries}
-                selectedScoreIndex={settings.viewIndex}
-                onSelectScore={(viewIndex) => onSettingsChange({ ...settings, viewIndex })}
-                disabled={hidden || player.busy}
-              />
-            </div>
+            <>
+              <ProjectFileSwitcher className={styles.filePicker} disabled={hidden || player.busy} />
+              <div className={styles.scorePicker}>
+                <ScoreSwitcherPicker
+                  entries={entries}
+                  selectedScoreIndex={settings.viewIndex}
+                  onSelectScore={(viewIndex) => onSettingsChange({ ...settings, viewIndex })}
+                  disabled={hidden || player.busy}
+                />
+              </div>
+            </>
           }
           right={
             <fieldset className={styles.tempo} disabled={hidden || player.busy}>
@@ -138,7 +143,8 @@ export function ClickView({ mnx, canvasRef, canvasZoom }: ClickViewProps) {
   const fallbackCanvasRef = useRef<ScoreCanvasHandle | null>(null);
   const activeCanvasRef = canvasRef ?? fallbackCanvasRef;
   const releaseOtherAudio = useExclusiveClickAudio();
-  const player = useClickPlayer(mnx, { releaseOtherAudio });
+  const scoreKey = useProjectStore((state) => state.activeScorePath);
+  const player = useClickPlayer(mnx, { releaseOtherAudio, scoreKey });
   const [dialSettling, setDialSettling] = useState(false);
   const [storedScoreSettings, setScoreSettings] = useState(DEFAULT_SCORE_SETTINGS);
   const scoreSettings = { ...storedScoreSettings, zoom: canvasZoom ?? storedScoreSettings.zoom };

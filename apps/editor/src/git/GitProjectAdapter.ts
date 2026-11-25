@@ -207,7 +207,8 @@ export class GitProjectAdapter implements ProjectAdapter {
   }
 
   async log(limit: number = 100): Promise<CommitInfo[]> {
-    const commits = await this.readCommitLog(limit);
+    // Other scores in the same folder share this repository; their commits are not this score's history.
+    const commits = await this.readCommitLog(limit, this.scorePath);
 
     // Build an SHA → refs map so we can decorate entries with branch/tag chips.
     const refMap: Record<string, string[]> = {};
@@ -415,9 +416,9 @@ export class GitProjectAdapter implements ProjectAdapter {
     return branch;
   }
 
-  private async readCommitLog(limit: number): Promise<Awaited<ReturnType<typeof git.log>>> {
+  private async readCommitLog(limit: number, filepath?: string): Promise<Awaited<ReturnType<typeof git.log>>> {
     try {
-      return await git.log({ fs: this.fs, dir: "/", depth: limit });
+      return await git.log({ fs: this.fs, dir: "/", depth: limit, ...(filepath ? { filepath } : {}) });
     } catch {
       return [];
     }

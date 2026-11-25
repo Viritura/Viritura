@@ -9,7 +9,7 @@
  *
  * We deliberately keep the scan shallow + capped so a user who picks their
  * home directory by mistake doesn't hang the UI. If the limit is reached we
- * surface what we found and let the user pick.
+ * surface what we found in the project file switcher.
  */
 
 /** A single `.mnx` file discovered inside a project folder. */
@@ -91,4 +91,22 @@ export async function scanForMnxFiles(
 
   await visit(root, [], 0);
   return results;
+}
+
+/**
+ * Choose which score opens with a project folder: the one last opened from a
+ * folder of the same name, otherwise the first in scan order. Folder handles
+ * are matched by name because handle identity checks can stall indefinitely.
+ */
+export function pickDefaultScore<T extends { relativePath: string }>(
+  folderName: string,
+  scores: readonly T[],
+  recents: readonly { vcs?: { rootName: string; scoreRelPath: string } }[],
+): T | undefined {
+  for (const recent of recents) {
+    if (recent.vcs?.rootName !== folderName) continue;
+    const match = scores.find((score) => score.relativePath === recent.vcs!.scoreRelPath);
+    if (match) return match;
+  }
+  return scores[0];
 }

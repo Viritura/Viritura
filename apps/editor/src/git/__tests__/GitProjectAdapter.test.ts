@@ -154,6 +154,23 @@ describe("GitProjectAdapter end-to-end", () => {
     expect(v2).toBe(SCORE_V2);
   });
 
+  it("lists only commits that changed its own score when the folder holds several", async () => {
+    const fs = new InMemoryFs();
+    const first = await initRepo({ fs, name: "p", scorePath: "first.mnx", initialJson: SCORE_V1 });
+    await fs.mkdir("/sets", { recursive: true });
+    const second = await openRepo({ fs, name: "p", scorePath: "sets/second.mnx" });
+    expect(await second.log()).toEqual([]);
+
+    await second.writeScore(SCORE_V1);
+    await second.commit("Add second");
+    await first.writeScore(SCORE_V2);
+    await first.commit("Edit first");
+
+    expect((await first.log()).map((c) => c.subject)).toEqual(["Edit first", "Initial draft"]);
+    expect((await second.log()).map((c) => c.subject)).toEqual(["Add second"]);
+    expect((await second.status()).commitCount).toBe(3);
+  });
+
   it("caches repeated reads of the same historical score", async () => {
     const fs = new InMemoryFs();
     const adapter = await initRepo({

@@ -1,33 +1,26 @@
 /**
- * Modal-flow service for the score-chooser and folder-confirm dialogs.
+ * Modal-flow service for promise-returning dialogs.
  *
- * Both dialogs are surfaced as part of the "open a folder project" pipeline
- * inside App.tsx. Previously they lived as a useState + useRef pair per
- * dialog, with a `prompt*` useCallback returning a Promise resolved from
- * the dialog's onConfirm/onCancel handlers.
+ * Each helper stores its request in a standalone zustand store and resolves
+ * when the user answers, for example:
  *
- * Phase A4 of the App state-extraction sweep moves all of that into a
- * standalone zustand store with two promise-returning helpers:
- *
- *     await openScoreChooser(folderName, scores) // -> DiscoveredScore | null
  *     await openFolderConfirm(folderName, count) // -> FolderConfirmChoice | null
+ *     await openUnsavedChangesConfirm(fileName)  // -> UnsavedChangesChoice | null
  *
- * The signature is identical to the old `promptScoreChoice` /
- * `promptFolderConfirm` so call sites in openFolderHandle don't move.
  * The actual dialog rendering lives in `<ModalFlowHost />`, mounted once
- * at the App shell so any caller can `await openScoreChooser(...)` from
- * anywhere without prop-drilling state.
+ * at the App shell so any caller can await a dialog from anywhere without
+ * prop-drilling state.
  */
 
 import { create } from "zustand";
 
-import { type DiscoveredScore } from "../store/folderScan";
 import { type FolderConfirmChoice } from "../components/FolderConfirmDialog";
 
-interface ScoreChooserState {
-  folderName: string;
-  scores: DiscoveredScore[];
-  resolve: (chosen: DiscoveredScore | null) => void;
+export type UnsavedChangesChoice = "save" | "discard";
+
+interface UnsavedChangesState {
+  fileName: string;
+  resolve: (choice: UnsavedChangesChoice | null) => void;
 }
 
 interface FolderConfirmState {
@@ -53,12 +46,12 @@ interface ExternalChangeState {
 }
 
 interface ModalFlowStore {
-  scoreChooser: ScoreChooserState | null;
+  unsavedChanges: UnsavedChangesState | null;
   folderConfirm: FolderConfirmState | null;
   projectName: ProjectNameState | null;
   pickupDuration: PickupDurationState | null;
   externalChange: ExternalChangeState | null;
-  _setScoreChooser: (next: ScoreChooserState | null) => void;
+  _setUnsavedChanges: (next: UnsavedChangesState | null) => void;
   _setFolderConfirm: (next: FolderConfirmState | null) => void;
   _setProjectName: (next: ProjectNameState | null) => void;
   _setPickupDuration: (next: PickupDurationState | null) => void;
@@ -66,12 +59,12 @@ interface ModalFlowStore {
 }
 
 export const useModalFlowStore = create<ModalFlowStore>((set) => ({
-  scoreChooser: null,
+  unsavedChanges: null,
   folderConfirm: null,
   projectName: null,
   pickupDuration: null,
   externalChange: null,
-  _setScoreChooser: (next) => set({ scoreChooser: next }),
+  _setUnsavedChanges: (next) => set({ unsavedChanges: next }),
   _setFolderConfirm: (next) => set({ folderConfirm: next }),
   _setProjectName: (next) => set({ projectName: next }),
   _setPickupDuration: (next) => set({ pickupDuration: next }),
@@ -79,17 +72,12 @@ export const useModalFlowStore = create<ModalFlowStore>((set) => ({
 }));
 
 /**
- * Show the score chooser dialog and await the user's selection. Resolves
- * with the chosen score, or null if the user cancels. Safe to call from
- * any async flow — the dialog renders inside `<ModalFlowHost />`.
+ * Ask whether to save or discard unsaved changes before the open score is
+ * replaced. Resolves with the choice, or null when the user cancels.
  */
-export function openScoreChooser(folderName: string, scores: DiscoveredScore[]): Promise<DiscoveredScore | null> {
+export function openUnsavedChangesConfirm(fileName: string): Promise<UnsavedChangesChoice | null> {
   return new Promise((resolve) => {
-    useModalFlowStore.getState()._setScoreChooser({
-      folderName,
-      scores,
-      resolve,
-    });
+    useModalFlowStore.getState()._setUnsavedChanges({ fileName, resolve });
   });
 }
 

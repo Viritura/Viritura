@@ -166,6 +166,19 @@ describe("click activity", () => {
     expect(audio.create).not.toHaveBeenCalled();
   });
 
+  it("keeps the start bar through edits but starts another project score from its beginning", () => {
+    const { result, rerender } = renderHook(({ mnx, scoreKey }) => useClickPlayer(mnx, { scoreKey }), {
+      initialProps: { mnx: rehearsals, scoreKey: "one.mnx" },
+    });
+    act(() => result.current.setStartBar(2));
+    rerender({ mnx: `${rehearsals} `, scoreKey: "one.mnx" });
+    expect(result.current.startBar).toBe(2);
+    rerender({ mnx: `${rehearsals} `, scoreKey: "two.mnx" });
+    expect(result.current.startBar).toBe(2);
+    rerender({ mnx: rehearsals, scoreKey: "two.mnx" });
+    expect(result.current.startBar).toBe(0);
+  });
+
   it("uses the app toolbar's shared score picker and preserves the selected view during playback", async () => {
     const user = userEvent.setup();
     await renderClick(multipleLayouts);

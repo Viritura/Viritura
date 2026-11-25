@@ -11,6 +11,8 @@ type Phase = "empty" | "ready" | "playing" | "complete";
 interface ClickPlayerOptions {
   /** Releases every other audio graph before the click engine starts. */
   readonly releaseOtherAudio?: () => Promise<void>;
+  /** Identifies which score `mnx` belongs to, so switching scores resets the start bar. */
+  readonly scoreKey?: string | null;
 }
 
 const noRelease = async (): Promise<void> => {};
@@ -33,14 +35,30 @@ function firstStartable(bars: readonly ClickBar[]): number {
   return bars.findIndex((bar) => bar.startable);
 }
 
+/** Edits keep the chosen start bar when still startable; another score starts from its own beginning. */
+function useDocumentStartBar(document: ClickDocument | undefined, scoreKey: string | null | undefined) {
+  const [startBar, setStartBar] = useState(0);
+  const [barsDocument, setBarsDocument] = useState<ClickDocument>();
+  const [barsScoreKey, setBarsScoreKey] = useState(scoreKey);
+  if (barsDocument !== document) {
+    setBarsDocument(document);
+    if (document) {
+      const sameScore = barsScoreKey === scoreKey;
+      setBarsScoreKey(scoreKey);
+      const kept = sameScore && document.bars[startBar]?.startable ? startBar : firstStartable(document.bars);
+      if (kept !== startBar) setStartBar(kept);
+    }
+  }
+  return [startBar, setStartBar] as const;
+}
+
 /**
  * Click-only transport for the open document. A document change interrupts a
  * take rather than letting its score diverge from the loaded click program.
  */
-export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: ClickPlayerOptions = {}) {
+export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease, scoreKey }: ClickPlayerOptions = {}) {
   const [tempoPercent, setTempoPercent] = useState(100);
   const [countoffBars, setCountoffBars] = useState<1 | 2>(1);
-  const [startBar, setStartBar] = useState(0);
   const [transportPhase, setPhase] = useState<Exclude<Phase, "empty">>("ready");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -48,14 +66,7 @@ export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: C
   if (mnx !== sourceMnx && transportPhase !== "playing" && !busy) setSourceMnx(mnx);
   const source = useMemo(() => readSource(sourceMnx), [sourceMnx]);
   const document = source.document;
-  const [barsDocument, setBarsDocument] = useState<ClickDocument>();
-  if (barsDocument !== document) {
-    setBarsDocument(document);
-    if (document) {
-      const kept = document.bars[startBar]?.startable ? startBar : firstStartable(document.bars);
-      if (kept !== startBar) setStartBar(kept);
-    }
-  }
+  const [startBar, setStartBar] = useDocumentStartBar(document, scoreKey);
   const phase: Phase = document ? transportPhase : "empty";
   const [elapsed, setElapsed] = useState(0);
   const [program, setProgram] = useState<ClickSessionProgram>();
