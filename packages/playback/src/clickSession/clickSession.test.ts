@@ -25,6 +25,43 @@ const levels = (events: readonly ClickProgramEvent[]) => events.map((event) => e
 
 describe("buildClickSessionProgram", () => {
   it.each(["silent", "keepClicking"] as const)(
+    "keeps coincident hold policies separate from each other and a caesura (%s first)",
+    (firstPolicy) => {
+      const score: Score = {
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            {
+              time: { count: 4, unit: 4 },
+              tempos: [{ bpm: 120, value: { base: "quarter" } }],
+              fermatas: [
+                { id: "first", position: { fraction: [0, 1] }, clickBehavior: firstPolicy },
+                { id: "second", position: { fraction: [1, 4] }, clickBehavior: "keepClicking" },
+              ],
+              caesura: {},
+            },
+            {},
+          ],
+        },
+        parts: [
+          {
+            name: "Rest",
+            measures: Array.from({ length: 2 }, () => ({
+              sequences: [{ content: [], fullMeasure: { visualDuration: { base: "whole" as const } } }],
+            })),
+          },
+        ],
+      };
+      const timeline = generateTimeline(score);
+      const program = buildClickSessionProgram(timeline, { countoff: false });
+      const begin = timeline.model.timeAtBeat(4, "release");
+      const resume = timeline.model.timeAtBeat(4);
+      expect(resume).toBeCloseTo(6.5);
+      const during = program.events.filter((event) => event.time >= begin && event.time < resume);
+      expect(times(during)).toEqual(firstPolicy === "silent" ? [4, 4.5, 5, 5.5] : [2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5]);
+    },
+  );
+  it.each(["silent", "keepClicking"] as const)(
     "honors %s global holds through a ritardando and session tempo scaling",
     (clickBehavior) => {
       const score: Score = {
@@ -47,6 +84,7 @@ describe("buildClickSessionProgram", () => {
         },
         parts: [
           {
+            name: "Silent staff",
             measures: [
               {
                 sequences: [

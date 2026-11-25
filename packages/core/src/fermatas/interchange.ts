@@ -15,6 +15,17 @@ function vendor(fermata: Fermata | undefined): Record<string, unknown> | undefin
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 }
 
+function hasLocalPresentation(fermata: Fermata | undefined): boolean {
+  return (
+    !!fermata &&
+    ((fermata.symbol !== undefined && fermata.symbol !== "normal") ||
+      (fermata.placement !== undefined && fermata.placement !== "auto") ||
+      (fermata.pointing !== undefined && fermata.pointing !== "auto") ||
+      fermata.id !== undefined ||
+      fermata._c !== undefined)
+  );
+}
+
 function durationHint(multiplier: number): Fermata["duration"] {
   if (multiplier <= 1) return "none";
   if (multiplier <= 1.25) return "veryShort";
@@ -92,10 +103,11 @@ export function mergeImportedFermatas(score: Score, diagnostics = new Diagnostic
       const beat = group[0]!.onset;
       const sounding = spans.filter((s) => s.onset <= beat + 1e-9 && s.end > beat + 1e-9);
       const candidateStaves = new Set(group.map((s) => `${s.partIndex}:${s.staff}`));
-      const allActiveAligned = sounding.every(
-        (s) => (!s.event?.notes?.length && !s.event?.kitNotes?.length) || group.some((candidate) => candidate === s),
+      const otherStavesResting = sounding.every(
+        (s) =>
+          candidateStaves.has(`${s.partIndex}:${s.staff}`) || (!s.event?.notes?.length && !s.event?.kitNotes?.length),
       );
-      if (candidateStaves.size > 1 || allActiveAligned) {
+      if (candidateStaves.size > 1 || otherStavesResting) {
         const position = positionAt(beat);
         const existing = measure.fermatas?.find((f) => fermataPositionKey(f.position) === fermataPositionKey(position));
         const driver = [...group].sort((a, b) => a.duration - b.duration || a.partIndex - b.partIndex)[0]!;
@@ -107,7 +119,7 @@ export function mergeImportedFermatas(score: Score, diagnostics = new Diagnostic
         measure.fermatas = canonicalGlobalFermatas([...(measure.fermatas ?? []), fermata]);
         for (const span of group) {
           const target = carrier(span);
-          if (target.fermata?.symbol && target.fermata.symbol !== "normal") {
+          if (target.fermata && hasLocalPresentation(target.fermata)) {
             target.fermata._x = { ...target.fermata._x, viritura: { ...vendor(target.fermata), localOnly: true } };
           } else {
             delete target.fermata;

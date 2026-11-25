@@ -104,9 +104,12 @@ describe("global fermata interchange", () => {
                     {
                       duration: { base: "whole" },
                       notes: [{ pitch: { step: "C", octave: 4 } }],
-                      fermata: { duration: "veryShort" },
+                      fermata: { duration: "veryShort", placement: "below" },
                     },
                   ],
+                },
+                {
+                  content: [{ duration: { base: "whole" }, notes: [{ pitch: { step: "E", octave: 4 } }] }],
                 },
               ],
             },
@@ -115,7 +118,11 @@ describe("global fermata interchange", () => {
         { measures: [{ sequences: [{ content: [], fullMeasure: { visualDuration: { base: "whole" } } }] }] },
       ],
     };
-    expect(parseMnx(raw).global.measures[0]!.fermatas).toMatchObject([{ multiplier: 1.25 }]);
+    const parsed = parseMnx(raw);
+    expect(parsed.global.measures[0]!.fermatas).toMatchObject([{ multiplier: 1.25 }]);
+    expect(parsed.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+      fermata: { placement: "below", _x: { viritura: { localOnly: true } } },
+    });
   });
 
   it.each([0, -1, Infinity, NaN])("rejects invalid global multipliers %s", (multiplier) => {

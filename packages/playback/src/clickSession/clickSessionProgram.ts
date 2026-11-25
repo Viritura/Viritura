@@ -96,8 +96,13 @@ export function buildClickSessionProgram(
     const subdivision = resolutionAt(resolutions, expandedMeasureToOriginal[index] ?? 0);
     pushMeasureClicks(events, { measureBeat, meter, span: playedSpans?.[index], subdivision, timeAtBeat });
   }
+  const holdOffsets = new Map<number, number>();
   for (const hold of source.fermataHolds ?? []) {
-    if (hold.clickBehavior !== "keepClicking" || hold.beat <= startBeat) continue;
+    if (hold.beat <= startBeat) continue;
+    const offset = holdOffsets.get(hold.beat) ?? 0;
+    const seconds = hold.extraBeats * model.spbAtBeat(hold.beat);
+    holdOffsets.set(hold.beat, offset + seconds);
+    if (hold.clickBehavior !== "keepClicking") continue;
     const index = measureStartBeats.findLastIndex((beat) => beat < hold.beat - 1e-9);
     const meter = measureTimeSignatures[index];
     if (!meter) throw new Error("Fermata click hold has no active meter.");
@@ -110,8 +115,8 @@ export function buildClickSessionProgram(
     );
     const pulse = boundaries[pulseIndex + 1]! - boundaries[pulseIndex]!;
     const stepSeconds = (pulse * model.spbAtBeat(hold.beat)) / subdivision;
-    const gapStart = model.timeAtBeat(hold.beat, "release");
-    const gapEnd = model.timeAtBeat(hold.beat);
+    const gapStart = model.timeAtBeat(hold.beat, "release") + offset;
+    const gapEnd = gapStart + seconds;
     for (let step = 0; gapStart + step * stepSeconds < gapEnd - 1e-9; step++) {
       events.push({
         time: countoff.seconds + (gapStart + step * stepSeconds - startTime) * scale,

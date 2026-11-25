@@ -292,7 +292,7 @@ describe("global fermata holds", () => {
       );
       const timing = compilePlaybackTiming(score);
       expect(holds(score)[0]![0]!.clickBehavior).toBe(clickBehavior);
-      expect(timing.fermataHolds).toEqual([{ beat: 4, clickBehavior }]);
+      expect(timing.fermataHolds).toEqual([{ beat: 4, extraBeats: 4, clickBehavior }]);
       expect(generateTimeline(score).fermataHolds).toEqual(timing.fermataHolds);
     },
   );

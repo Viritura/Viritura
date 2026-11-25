@@ -1334,7 +1334,7 @@ fermata is promoted only when every other sounding staff is silent or resting.
 Non-aligned annotations remain local with `unmerged-local-fermata` notices.
 MNX duration hints seed multipliers: `none` 1, `veryShort` 1.25, `short` 1.5,
 `normal`/`auto`/omitted 2, `long` 2.5, `veryLong` 3. Imported non-normal symbols
-remain local overrides after promotion.
+and explicit placement/pointing remain local overrides after promotion.
 
 MNX export retains the global array and materializes notation on every
 projected event/full-measure rest. On the **fermata object**,

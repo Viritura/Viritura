@@ -217,12 +217,8 @@ export interface PartCtx {
   sequenceVoice: string;
   /** Seconds per quarter-note beat at this measure's start (for fermata resume). */
   readonly measureSpq: number;
-  /** Fermata groups in this measure (from the hold schedule). The hold's time
-   *  insertion is baked into the tempo model at `insertBeat`, so a carrier whose
-   *  onset falls in [startBeat, spanEndBeat) rings through the gap automatically
-   *  (its model duration already spans the insertion); we only force-extend a
-   *  member that ends BEFORE `insertBeat` up to the group's resume time. Beats
-   *  are measure-relative. Empty when the measure has no fermata. */
+  /** Global holds in measure-relative beats. Carriers overlap the exact
+   *  `startBeat` anchor and ring until their last projected hold resumes. */
   readonly fermataGroups: readonly MeasureHold[];
 }
 
@@ -352,6 +348,7 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
         .filter((hold) => hold.kind === "fermata")
         .map((hold) => ({
           beat: measureStartBeats[index]! + hold.atBeat,
+          extraBeats: hold.extraBeats,
           clickBehavior: hold.clickBehavior ?? "silent",
         })),
     ),
@@ -620,10 +617,6 @@ function processPart(
     // Fermata/caesura holds for this measure shift later events within it.
     const measureHolds = holdSchedule[expandedIdx] ?? [];
     const measureSpq = model.spbAtBeat(measureStartBeat);
-    // Each fermata hold is a merged span [startBeat, spanEndBeat) whose time
-    // insertion lives in the tempo model at the driver-end beat (`atBeat`). A
-    // carrier in the span rings through the gap automatically; the group bounds
-    // let resolveFermataDuration force-extend a member that ends early.
     const fermataGroups = measureHolds.filter((h) => h.kind === "fermata");
 
     const ctx: PartCtx = {
@@ -845,13 +838,9 @@ function processContentItem(
 /**
  * Resolve a note's sounding duration and articulation gap scale.
  *
- * The fermata's time insertion lives in the tempo model at the group's
- * driving-note end, so a held carrier's MODEL duration already spans the gap —
- * it rings through automatically (the followers shifted with it at any nesting
- * depth, so there is no "bleed"). We only force-extend a group member that ends
- * BEFORE the insertion beat up to the group's resume time, so staggered-end
- * fermatas still release together. A bar may have several disjoint groups; the
- * carrier is matched by onset beat. A held note isn't detached → gap scale 1.
+ * The tempo model includes holds strictly inside a note's span. Extend
+ * projected carriers through the final driver-end insertion too, which a
+ * natural release endpoint excludes. Local fermatas never affect timing.
  */
 function resolveFermataDuration(
   ctx: PartCtx,
@@ -868,10 +857,6 @@ function resolveFermataDuration(
     const globalEnd = globalBeatOffset + notatedBeats * ctx.staffMeterRatio;
     const resumeBeat = fermataResumeBeat(ctx.fermataGroups, globalBeatOffset, globalEnd);
     if (resumeBeat !== undefined) {
-      // Resume time = model time at the (post-insertion) driver-end beat. For
-      // the driver and any member ending at/after it, naturalDurationSec already
-      // reaches this (the gap is inside its span); a member ending earlier is
-      // extended up to it so the group releases together.
       const startTime = eventTime(ctx, soundingBeatOffset);
       const resumeTime = ctx.model.timeAtBeat(ctx.measureStartBeat + resumeBeat);
       return { durationSec: Math.max(naturalDurationSec, resumeTime - startTime), durationScale: 1, held: true };

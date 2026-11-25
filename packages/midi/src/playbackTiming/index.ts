@@ -27,6 +27,7 @@ export function compilePlaybackTiming(input: Score): PlaybackTiming {
         .filter((hold) => hold.kind === "fermata")
         .map((hold) => ({
           beat: timing.measureStartBeats[index]! + hold.atBeat,
+          extraBeats: hold.extraBeats,
           clickBehavior: hold.clickBehavior ?? "silent",
         })),
     ),
