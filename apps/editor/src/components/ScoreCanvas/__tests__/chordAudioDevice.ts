@@ -37,6 +37,7 @@ function audioNode(context: object) {
 
 export class ChordAudioDevice {
   currentTime = 10;
+  sampleRate = 48000;
   state = "running";
   destination = {};
   listener = {};
@@ -47,6 +48,11 @@ export class ChordAudioDevice {
   createPanner = (): ReturnType<typeof audioNode> => audioNode(this);
   createConvolver = (): ReturnType<typeof audioNode> => audioNode(this);
   createOscillator = (): ReturnType<typeof audioNode> => audioNode(this);
+  createBuffer = (_channels: number, length: number) => {
+    const data = new Float32Array(length);
+    return { getChannelData: () => data };
+  };
+  createBufferSource = (): ReturnType<typeof audioNode> => audioNode(this);
   decodeAudioData = async () => ({ duration: 1, sampleRate: 48000 });
   resume = async () => {};
   close = vi.fn(async () => {
