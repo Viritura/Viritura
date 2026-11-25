@@ -317,32 +317,18 @@ pub(crate) fn render_cross_barline_beams(
                 .max()
                 .unwrap_or(1);
 
-            let note_info_cb: Vec<(f64, f64)> = beam_events
+            let stem_anchors: Vec<_> = beam_events
                 .iter()
                 .map(|el| {
-                    let top_pos = el
-                        .note_positions
-                        .iter()
-                        .cloned()
-                        .fold(f64::INFINITY, f64::min);
-                    let bottom_pos = el
-                        .note_positions
-                        .iter()
-                        .cloned()
-                        .fold(f64::NEG_INFINITY, f64::max);
-                    if stem_up {
-                        (
-                            el.x + smufl::STEM_UP_SE.0 * sp - stem_w_cb * 0.5,
-                            staff_y + top_pos * sp * 0.5,
-                        )
-                    } else {
-                        (
-                            el.x + smufl::STEM_DOWN_NW.0 * sp + stem_w_cb * 0.5,
-                            staff_y + bottom_pos * sp * 0.5,
-                        )
-                    }
+                    crate::layout::render_events::event_stem_anchors(
+                        el,
+                        stem_up,
+                        ml.resolved.kit.as_ref(),
+                    )
                 })
                 .collect();
+            let note_info_cb =
+                stem_attachments(&beam_events, &stem_anchors, stem_up, staff_y, sp, stem_w_cb);
 
             let (_beam_y_first, slope, stem_tips) =
                 compute_quantized_beam(&note_info_cb, stem_up, sp, config, staff_y, max_beam_level);
@@ -366,11 +352,12 @@ pub(crate) fn render_cross_barline_beams(
                     .fold(f64::NEG_INFINITY, f64::max);
 
                 if stem_up {
-                    let stem_bottom = staff_y + bottom_pos * sp * 0.5;
+                    let stem_bottom =
+                        staff_y + bottom_pos * sp * 0.5 + stem_anchors[i].up_se.1 * sp;
                     let stem_end = beam_y_at_stem + beam_center_offset;
                     dl.stem(stem_x, stem_end, stem_bottom, config.stem_width * sp);
                 } else {
-                    let stem_top = staff_y + top_pos * sp * 0.5;
+                    let stem_top = staff_y + top_pos * sp * 0.5 + stem_anchors[i].down_nw.1 * sp;
                     let stem_end = beam_y_at_stem - beam_center_offset;
                     dl.stem(stem_x, stem_top, stem_end, config.stem_width * sp);
                 }
@@ -472,6 +459,44 @@ pub(crate) fn render_cross_barline_beams(
             }
         }
     }
+}
+
+/// Where each event's stem meets its notehead nearest the beam, for quanting.
+fn stem_attachments(
+    beam_events: &[&EventLayout],
+    stem_anchors: &[smufl::StemAnchors],
+    stem_up: bool,
+    staff_y: f64,
+    sp: f64,
+    stem_w: f64,
+) -> Vec<(f64, f64)> {
+    beam_events
+        .iter()
+        .zip(stem_anchors)
+        .map(|(el, anchors)| {
+            let top_pos = el
+                .note_positions
+                .iter()
+                .cloned()
+                .fold(f64::INFINITY, f64::min);
+            let bottom_pos = el
+                .note_positions
+                .iter()
+                .cloned()
+                .fold(f64::NEG_INFINITY, f64::max);
+            if stem_up {
+                (
+                    el.x + anchors.up_se.0 * sp - stem_w * 0.5,
+                    staff_y + top_pos * sp * 0.5,
+                )
+            } else {
+                (
+                    el.x + anchors.down_nw.0 * sp + stem_w * 0.5,
+                    staff_y + bottom_pos * sp * 0.5,
+                )
+            }
+        })
+        .collect()
 }
 
 /// Draw stems (and optional acciaccatura slash) for one grace-beam group.

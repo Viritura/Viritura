@@ -54,15 +54,20 @@ pub(super) fn render_between_staff_beam(
             .iter()
             .copied()
             .fold(f64::NEG_INFINITY, f64::max);
+        let anchors = crate::layout::render_events::event_stem_anchors(
+            event,
+            stem_up,
+            ml.resolved.kit.as_ref(),
+        );
         let (stem_x, notehead_y) = if stem_up {
             (
-                event.x + smufl::STEM_UP_SE.0 * sp - stem_width * 0.5,
-                event_y + bottom * sp * 0.5,
+                event.x + anchors.up_se.0 * sp - stem_width * 0.5,
+                event_y + bottom * sp * 0.5 + anchors.up_se.1 * sp,
             )
         } else {
             (
-                event.x + smufl::STEM_DOWN_NW.0 * sp + stem_width * 0.5,
-                event_y + top * sp * 0.5,
+                event.x + anchors.down_nw.0 * sp + stem_width * 0.5,
+                event_y + top * sp * 0.5 + anchors.down_nw.1 * sp,
             )
         };
         stems.push((stem_x, stem_up, notehead_y));
