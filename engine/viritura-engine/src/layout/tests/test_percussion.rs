@@ -197,7 +197,7 @@ fn test_shaped_notehead_glyph_selector() {
     );
     assert_eq!(
         smufl::shaped_notehead_glyph(Some(&NoteheadShape::Slash), &Quarter),
-        smufl::NOTEHEAD_SLASH_VERTICAL_BLACK
+        smufl::NOTEHEAD_SLASH_BLACK
     );
     assert_eq!(
         smufl::shaped_notehead_glyph(Some(&NoteheadShape::TriangleUp), &Quarter),

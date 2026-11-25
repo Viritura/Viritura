@@ -8,7 +8,7 @@ export const NOTEHEAD_GLYPHS: Record<NoteheadShape, { glyph: string; label: stri
   x: { glyph: "\uE0A9", label: "Cross" },
   circleX: { glyph: "\uE0B3", label: "Circle-X" },
   diamond: { glyph: "\uE0DB", label: "Diamond" },
-  slash: { glyph: "\uE103", label: "Slash" },
+  slash: { glyph: "\uE101", label: "Slash" },
   triangleUp: { glyph: "\uE0BF", label: "Triangle up" },
   triangleDown: { glyph: "\uE0C7", label: "Triangle down" },
   plus: { glyph: "\uE0AF", label: "Plus" },
