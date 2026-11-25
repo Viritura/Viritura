@@ -1067,6 +1067,14 @@ export function PalettePanel({
     [applySelectionScore, selectedScoreIndex],
   );
 
+  const handleLocalFermata = useCallback(
+    () =>
+      applySelectionScore((score, sel) =>
+        applyBreathFermata(score, sel, { kind: "fermata", shape: "normal" }, selectedScoreIndex, true),
+      ),
+    [applySelectionScore, selectedScoreIndex],
+  );
+
   const handleOrnament = useCallback(
     // Match semantics: a mixed selection unifies to ON, a second press clears it.
     (ornament: string) => () =>
@@ -1762,42 +1770,8 @@ export function PalettePanel({
             useBravura
             onClick={handleBreathMark("salzedo")}
           />
-          <PaletteButton
-            label={SMUFL.fermataAbove}
-            title="Normal fermata"
-            useBravura
-            onClick={handleFermata("normal")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataVeryShortAbove}
-            title="Very short fermata"
-            useBravura
-            onClick={handleFermata("doubleAngled")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataShortAbove}
-            title="Short fermata"
-            useBravura
-            onClick={handleFermata("angled")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataLongAbove}
-            title="Long fermata"
-            useBravura
-            onClick={handleFermata("square")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataVeryLongAbove}
-            title="Very long fermata"
-            useBravura
-            onClick={handleFermata("doubleSquare")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataLongHenzeAbove}
-            title="Long Henze fermata"
-            useBravura
-            onClick={handleFermata("doubleDot")}
-          />
+          <PaletteButton label={SMUFL.fermataAbove} title="Fermata" useBravura onClick={handleFermata("normal")} />
+          <PaletteButton label="Local fermata" title="Local fermata" onClick={handleLocalFermata} />
           <PaletteButton label={SMUFL.caesura} title="Caesura" useBravura onClick={handleSetCaesura} />
         </div>
       ),

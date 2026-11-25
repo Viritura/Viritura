@@ -5,7 +5,13 @@ import type { MidiTimeline, PlayedMeasureSpan } from "@viritura/midi";
 /** Tempo and meter structure needed to compile a click session program. */
 export interface ClickSessionSource extends Pick<
   MidiTimeline,
-  "model" | "duration" | "measureStartBeats" | "measureTimeSignatures" | "playedSpans" | "expandedMeasureToOriginal"
+  | "model"
+  | "duration"
+  | "measureStartBeats"
+  | "measureTimeSignatures"
+  | "playedSpans"
+  | "expandedMeasureToOriginal"
+  | "fermataHolds"
 > {
   /** Written tempo instructions, before repeat/jump expansion, for persisted subdivisions. */
   readonly globalMeasures?: readonly GlobalMeasure[];
@@ -99,6 +105,16 @@ export function buildClickSessionProgram(
       timeAtBeat,
     });
   }
+  pushFermataClicks(events, {
+    source,
+    startBeat,
+    startTime,
+    scale,
+    countoffSeconds: countoff.seconds,
+    resolutions,
+    tempoResolutions,
+  });
+  events.sort((a, b) => a.time - b.time);
 
   return {
     duration: countoff.seconds + (source.duration - startTime) * scale,
@@ -108,6 +124,52 @@ export function buildClickSessionProgram(
     startBpm: 60 / quarterSeconds,
     startTimelineMeasure: startIndex,
   };
+}
+
+interface FermataClickContext {
+  readonly source: ClickSessionSource;
+  readonly startBeat: number;
+  readonly startTime: number;
+  readonly scale: number;
+  readonly countoffSeconds: number;
+  readonly resolutions: readonly ClickResolutionRule[];
+  readonly tempoResolutions: readonly MeasureResolution[];
+}
+
+function pushFermataClicks(events: ClickProgramEvent[], context: FermataClickContext): void {
+  const { source, startBeat, startTime, scale, countoffSeconds, resolutions, tempoResolutions } = context;
+  const { model, measureStartBeats, measureTimeSignatures, playedSpans, expandedMeasureToOriginal } = source;
+  const holdOffsets = new Map<number, number>();
+  for (const hold of source.fermataHolds ?? []) {
+    if (hold.beat <= startBeat) continue;
+    const offset = holdOffsets.get(hold.beat) ?? 0;
+    const seconds = hold.extraBeats * model.spbAtBeat(hold.beat);
+    holdOffsets.set(hold.beat, offset + seconds);
+    if (hold.clickBehavior !== "keepClicking") continue;
+    const index = measureStartBeats.findLastIndex((beat) => beat < hold.beat - 1e-9);
+    const meter = measureTimeSignatures[index];
+    if (!meter) throw new Error("Fermata click hold has no active meter.");
+    const tempoIndex = measureStartBeats.findLastIndex((beat) => beat <= hold.beat + 1e-9);
+    const tempoBeat = hold.beat - measureStartBeats[tempoIndex]! + (playedSpans?.[tempoIndex]?.startBeat ?? 0);
+    const resolution = measureResolution(tempoResolutions, resolutions, expandedMeasureToOriginal[tempoIndex]!);
+    const subdivision = subdivisionAt(resolution, tempoBeat);
+    const boundaries = resolveMeter(meter).beatBoundaries;
+    const localBeat = hold.beat - measureStartBeats[index]! + (playedSpans?.[index]?.startBeat ?? 0);
+    const pulseIndex = Math.max(
+      0,
+      boundaries.findLastIndex((beat) => beat < localBeat - 1e-9),
+    );
+    const pulse = boundaries[pulseIndex + 1]! - boundaries[pulseIndex]!;
+    const stepSeconds = (pulse * model.spbAtBeat(hold.beat)) / subdivision;
+    const gapStart = model.timeAtBeat(hold.beat, "release") + offset;
+    const gapEnd = gapStart + seconds;
+    for (let step = 0; gapStart + step * stepSeconds < gapEnd - 1e-9; step++) {
+      events.push({
+        time: countoffSeconds + (gapStart + step * stepSeconds - startTime) * scale,
+        level: step % subdivision === 0 ? "beat" : "subdivision",
+      });
+    }
+  }
 }
 
 function resolveStartIndex(measureOrder: readonly number[], options: ClickSessionOptions): number {

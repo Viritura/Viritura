@@ -138,7 +138,8 @@ Implemented:
   [`buildClickSessionProgram`](../../packages/playback/src/clickSession/clickSessionProgram.ts)
   compiles a start bar, a fresh one- or two-bar countoff in that bar's meter and tempo,
   existing irregular beat grouping, per-measure subdivision rules, and the session tempo percentage through the
-  continuous tempo model. `describeClickCue` produces strings such as
+  continuous tempo model. Global fermatas can silence clicks or keep the active
+  subdivision through the hold; caesura gaps remain silent. `describeClickCue` produces strings such as
   "Rehearsal O, 4 clicks free". The worklet receives the complete endpoint so
   playback includes the final beat's duration rather than ending at its onset.
 - **Score audio release** — `PlaybackActions.releaseAudio()` stops playback,

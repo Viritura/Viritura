@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
-import { getMeasureSlice } from "./scoreQueries";
+import { getMeasureSlice, getSelectionContext } from "./scoreQueries";
 import { searchAnnotations } from "./annotationSearch";
 import { getNoteTable } from "./noteTable";
 import { getSectionTimings } from "./scoreTimeline";
@@ -97,6 +97,23 @@ function scoreWithMusic(): Score {
 }
 
 describe("bounded MCP score queries", () => {
+  it("surfaces shared fermatas with default playback settings and all-staff selection context", () => {
+    const score = scoreWithMusic();
+    score.global.measures[0]!.fermatas = [{ id: "global-hold", position: { fraction: [0, 1] } }];
+    const annotations = searchAnnotations(score, { kinds: ["fermata"] });
+    expect(annotations.annotations).toEqual([
+      expect.objectContaining({
+        kind: "fermata",
+        id: "global-hold",
+        position: { fraction: [0, 1] },
+        multiplier: 2,
+        clickBehavior: "silent",
+        appliesTo: "allStaves",
+      }),
+    ]);
+    const context = getSelectionContext(score, { kind: "single", elementId: "m0/fermata/global-hold" });
+    expect(context.music).toMatchObject({ parts: [expect.objectContaining({ id: "flute" })] });
+  });
   it("resolves stable measure IDs and distinguishes pickup numbers from ordinals", () => {
     const score = scoreWithMusic();
     const result = getMeasureSlice(score, { startMeasureId: "pickup", endMeasureId: "second" });

@@ -1,9 +1,12 @@
-import JSZip from "jszip";
+import { unpackMusicXml } from "./archive";
 import { convertMusicXmlToMnx } from "./convert";
 import type { ConvertOptions } from "./convert";
 import type { MnxDocument } from "./types";
 
 export { convertMusicXmlToMnx } from "./convert";
+export { convertScoreToMusicXml, convertScoreToMxl } from "./export";
+export { MUSICXML_MIME, MXL_MIME } from "./archive";
+export type { MusicXmlExportOptions, MusicXmlExportResult, MxlExportResult } from "./export";
 export type { ConvertOptions, PercussionImportReview } from "./convert";
 // Re-export the shared diagnostics surface so consumers don't have to add
 // @viritura/core as a separate dep.
@@ -53,11 +56,6 @@ export async function convertMxlToMnx(
   buffer: ArrayBuffer | Uint8Array,
   options?: ConvertOptions,
 ): Promise<MnxDocument> {
-  const zip = await JSZip.loadAsync(buffer);
-  const xmlFiles = Object.keys(zip.files).filter((name) => name.endsWith(".xml") && !name.startsWith("META-INF"));
-  if (xmlFiles.length === 0) {
-    throw new Error("No XML file found in .mxl archive");
-  }
-  const xmlString = await zip.files[xmlFiles[0]!]!.async("string");
+  const xmlString = await unpackMusicXml(buffer);
   return convertMusicXmlToMnx(xmlString, options);
 }

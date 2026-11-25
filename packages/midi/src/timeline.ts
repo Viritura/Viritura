@@ -44,8 +44,8 @@ import { applyGlissandoPlayback } from "./glissandoPlayback";
 import { withSoundingNotes } from "./unpitchedNoteheads";
 import { compileChordPlayback, chordMidiEvents } from "./chordPlayback";
 import { analyzeImpliedSectionDynamics, type ImpliedSectionDynamicAnchor } from "./sectionDynamics";
-import { buildHoldSchedule, type HoldSchedule, type MeasureHold } from "./holds";
-import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "./cadenzaTiming";
+import { buildHoldSchedule, fermataResumeBeat, type HoldSchedule, type MeasureHold } from "./holds";
+import { playbackGlobalMeasures } from "./cadenzaTiming";
 import { collectPartLegatoOut, flushVoiceLegato, flushAllLegato, pushVoiceLegato, resolveVoiceLegato } from "./legato";
 import { ARCO_CAPABLE_PROGRAMS, muteFamilyForProgram, applyMeasureTechniques, type TechniqueState } from "./technique";
 import {
@@ -217,13 +217,9 @@ export interface PartCtx {
   sequenceVoice: string;
   /** Seconds per quarter-note beat at this measure's start (for fermata resume). */
   readonly measureSpq: number;
-  /** Fermata groups in this measure (from the hold schedule). The hold's time
-   *  insertion is baked into the tempo model at `insertBeat`, so a carrier whose
-   *  onset falls in [startBeat, spanEndBeat) rings through the gap automatically
-   *  (its model duration already spans the insertion); we only force-extend a
-   *  member that ends BEFORE `insertBeat` up to the group's resume time. Beats
-   *  are measure-relative. Empty when the measure has no fermata. */
-  readonly fermataGroups: readonly { startBeat: number; spanEndBeat: number; insertBeat: number }[];
+  /** Global holds in measure-relative beats. Carriers overlap the exact
+   *  `startBeat` anchor and ring until their last projected hold resumes. */
+  readonly fermataGroups: readonly MeasureHold[];
 }
 
 /** An empty timeline (no measures / no playable content). */
@@ -274,10 +270,7 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   // schedule shifts every later measure's start time so holds keep all parts
   // aligned through the pause.
   const expandedGlobal = playbackGlobalMeasures(score, measureOrder);
-  const holdSchedule = suppressCadenzaFermataHolds(
-    expandedGlobal,
-    buildHoldSchedule(score, measureOrder, globalMeasures),
-  );
+  const holdSchedule = buildHoldSchedule(score, measureOrder, globalMeasures);
   // Continuous tempo model + global beat axis (single source of event timing).
   // `measureStartTimes` is derived FROM the model so it matches event timing
   // through sub-bar tempo changes / holds. The legacy `tempoMap` entry array is
@@ -350,6 +343,15 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   });
 
   const result: MidiTimeline = {
+    fermataHolds: holdSchedule.flatMap((holds, index) =>
+      holds
+        .filter((hold) => hold.kind === "fermata")
+        .map((hold) => ({
+          beat: measureStartBeats[index]! + hold.atBeat,
+          extraBeats: hold.extraBeats,
+          clickBehavior: hold.clickBehavior ?? "silent",
+        })),
+    ),
     events: allEvents,
     duration,
     tempoMap,
@@ -615,17 +617,7 @@ function processPart(
     // Fermata/caesura holds for this measure shift later events within it.
     const measureHolds = holdSchedule[expandedIdx] ?? [];
     const measureSpq = model.spbAtBeat(measureStartBeat);
-    // Each fermata hold is a merged span [startBeat, spanEndBeat) whose time
-    // insertion lives in the tempo model at the driver-end beat (`atBeat`). A
-    // carrier in the span rings through the gap automatically; the group bounds
-    // let resolveFermataDuration force-extend a member that ends early.
-    const fermataGroups = measureHolds
-      .filter((h) => h.kind === "fermata")
-      .map((h) => ({
-        startBeat: h.startBeat ?? h.atBeat,
-        spanEndBeat: h.spanEndBeat ?? h.atBeat,
-        insertBeat: h.atBeat,
-      }));
+    const fermataGroups = measureHolds.filter((h) => h.kind === "fermata");
 
     const ctx: PartCtx = {
       humanizeTiming: options?.humanizeTiming !== false,
@@ -846,13 +838,9 @@ function processContentItem(
 /**
  * Resolve a note's sounding duration and articulation gap scale.
  *
- * The fermata's time insertion lives in the tempo model at the group's
- * driving-note end, so a held carrier's MODEL duration already spans the gap —
- * it rings through automatically (the followers shifted with it at any nesting
- * depth, so there is no "bleed"). We only force-extend a group member that ends
- * BEFORE the insertion beat up to the group's resume time, so staggered-end
- * fermatas still release together. A bar may have several disjoint groups; the
- * carrier is matched by onset beat. A held note isn't detached → gap scale 1.
+ * The tempo model includes holds strictly inside a note's span. Extend
+ * projected carriers through the final driver-end insertion too, which a
+ * natural release endpoint excludes. Local fermatas never affect timing.
  */
 function resolveFermataDuration(
   ctx: PartCtx,
@@ -860,21 +848,17 @@ function resolveFermataDuration(
   naturalDurationSec: number,
   beatOffset: number,
   soundingBeatOffset = beatOffset,
+  notatedBeats = durationBeats(event.duration),
 ): { durationSec: number; durationScale: number; held: boolean } {
-  if (event.fermata && event.fermata.duration !== "none" && ctx.fermataGroups.length > 0) {
+  if (ctx.fermataGroups.length > 0) {
     // Hold groups are expressed on the shared global axis. Convert this
     // staff's written onset before matching it to its ensemble group.
     const globalBeatOffset = beatOffset * ctx.staffMeterRatio;
-    const group = ctx.fermataGroups.find(
-      (g) => globalBeatOffset >= g.startBeat - 1e-9 && globalBeatOffset < g.spanEndBeat - 1e-9,
-    );
-    if (group) {
-      // Resume time = model time at the (post-insertion) driver-end beat. For
-      // the driver and any member ending at/after it, naturalDurationSec already
-      // reaches this (the gap is inside its span); a member ending earlier is
-      // extended up to it so the group releases together.
+    const globalEnd = globalBeatOffset + notatedBeats * ctx.staffMeterRatio;
+    const resumeBeat = fermataResumeBeat(ctx.fermataGroups, globalBeatOffset, globalEnd);
+    if (resumeBeat !== undefined) {
       const startTime = eventTime(ctx, soundingBeatOffset);
-      const resumeTime = ctx.model.timeAtBeat(ctx.measureStartBeat + group.insertBeat);
+      const resumeTime = ctx.model.timeAtBeat(ctx.measureStartBeat + resumeBeat);
       return { durationSec: Math.max(naturalDurationSec, resumeTime - startTime), durationScale: 1, held: true };
     }
   }
@@ -985,7 +969,7 @@ function processNoteEvent(
     durationSec,
     durationScale,
     held: fermataHeld,
-  } = resolveFermataDuration(ctx, event, naturalDurationSec, beatOffset, realized.start);
+  } = resolveFermataDuration(ctx, event, naturalDurationSec, beatOffset, realized.start, beats);
   const velocity = Math.min(
     127,
     Math.max(
@@ -1579,7 +1563,7 @@ function processGrace(
   if (!beatInPlayedSpan(principalBeat * ctx.staffMeterRatio, ctx.playedSpan)) {
     return following ? totalGraceBeats : 0;
   }
-  const graceCtx: PartCtx = { ...ctx, playedSpan: undefined };
+  const graceCtx: PartCtx = { ...ctx, playedSpan: undefined, fermataGroups: [] };
 
   if (following) {
     // Play at current position — main note is pushed later

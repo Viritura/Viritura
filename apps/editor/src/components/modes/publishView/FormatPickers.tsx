@@ -14,7 +14,8 @@ export function Section({ label, children }: { label: string; children: React.Re
 
 const FORMAT_OPTIONS: ReadonlyArray<SelectOption> = [
   { value: "pdf", label: "PDF" },
-  { value: "musicxml", label: "MusicXML", disabled: true },
+  { value: "musicxml", label: "MusicXML (.musicxml)" },
+  { value: "mxl", label: "MusicXML, compressed (.mxl)" },
   { value: "midi", label: "MIDI" },
   { value: "mp3", label: "MP3" },
   { value: "wav", label: "WAV" },
@@ -83,7 +84,15 @@ export function FormatSelect({
       aria-label="Export format"
       value={value}
       onValueChange={(next) => {
-        if (next === "pdf" || next === "midi" || next === "mp3" || next === "wav") onChange(next);
+        if (
+          next === "pdf" ||
+          next === "musicxml" ||
+          next === "mxl" ||
+          next === "midi" ||
+          next === "mp3" ||
+          next === "wav"
+        )
+          onChange(next);
       }}
       options={FORMAT_OPTIONS}
       disabled={disabled}

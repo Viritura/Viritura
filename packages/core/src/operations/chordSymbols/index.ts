@@ -3,6 +3,7 @@ export {
   CHORDS_PART_ID,
   UNSUPPORTED_CHORD_MESSAGE,
   resolveChordSymbol,
+  resolveChordSymbolDegrees,
   voiceChordSymbol,
   type ChordSymbolResolution,
   type SupportedChordSymbol,

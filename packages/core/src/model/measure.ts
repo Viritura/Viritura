@@ -465,12 +465,25 @@ export interface GlobalMeasure {
   coda?: Coda;
   /** Native MNX caesura shared by every staff at the ending barline. */
   caesura?: GlobalCaesura;
+  /** Time-anchored ensemble holds, stored in `_x.viritura.fermatas`. */
+  fermatas?: GlobalFermata[];
   /** Gradual tempo change (rit./accel.) playback curve (Viritura extension) */
   gradualTempo?: GradualTempo;
   /** Score-wide harmony events at rhythmic positions in this measure. */
   chordSymbols?: ChordSymbol[];
   /** Shared music-relative text, independent of any source part or staff. */
   systemText?: SystemText[];
+}
+
+/** One ensemble hold projected onto every voice sounding at its position. */
+export interface GlobalFermata {
+  id: string;
+  /** Fraction of a whole note from the measure start. */
+  position: RhythmicPosition;
+  /** Total duration factor; omission means 2. Must be finite and at least 1. */
+  multiplier?: number;
+  /** Click behavior during the inserted hold; omission means silent. */
+  clickBehavior?: "silent" | "keepClicking";
 }
 
 export interface GlobalCaesura extends Caesura {

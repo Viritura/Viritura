@@ -79,16 +79,19 @@ function selectionMeasureRange(
         : selection.kind === "multi"
           ? [...selection.elementIds]
           : [];
-  const measures = ids.map(extractMeasureIndex).filter((value): value is number => value !== null);
-  const parts = ids.map(extractPartIndex).filter((value): value is number => value !== null);
+  const measures = ids.map(extractMeasureIndex).filter((value): value is number => value !== undefined);
+  const parts = ids.map(extractPartIndex).filter((value): value is number => value !== undefined);
   if (measures.length === 0) return null;
   return {
     startMeasure: Math.min(...measures),
     endMeasure: Math.max(...measures),
-    partIds: [...new Set(parts)].flatMap((index) => {
-      const partId = score.parts[index]?.id;
-      return partId ? [partId] : [];
-    }),
+    partIds:
+      parts.length === 0
+        ? undefined
+        : [...new Set(parts)].flatMap((index) => {
+            const partId = score.parts[index]?.id;
+            return partId ? [partId] : [];
+          }),
   };
 }
 

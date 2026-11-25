@@ -34,6 +34,7 @@ import type { ExpressionToken, MixedExpressionToken } from "./dynamicExpressionP
 import { firstTupletEventLocation, resolveTupletSelectionLocation } from "./tupletSelection";
 import { beatPositionToFraction, eventBeatPosition, eventEndBeatPosition } from "../app/timedAnnotationPosition";
 import { caesuraBarlineMeasure, selectedLocalCaesuraTargets } from "../commands/caesura";
+import { applyGlobalFermata } from "../commands/globalFermatas";
 
 // ═══════════════════════════════════════════
 // Position helpers
@@ -651,6 +652,8 @@ export function applyOrnament(
   resolved: OrnamentSelection,
   selectedScoreIndex?: number,
 ): Score | null {
+  if (resolved.kind === "fermata")
+    return applyGlobalFermata(score, selection, selectedScoreIndex, { symbol: resolved.shape });
   const events =
     selectedScoreIndex === undefined
       ? resolveSelectionEvents(selection, score)
@@ -683,17 +686,6 @@ export function applyOrnament(
           tupletIndex,
         );
         break;
-      case "fermata":
-        result = setFermataShape(
-          result,
-          partIndex,
-          measureIndex,
-          sequenceIndex,
-          eventIndex,
-          resolved.shape,
-          tupletIndex,
-        );
-        break;
     }
   }
   return result;
@@ -709,7 +701,13 @@ export function applyBreathFermata(
   selection: Selection,
   resolved: BreathFermataSelection,
   selectedScoreIndex?: number,
+  localFermata = false,
 ): Score | null {
+  if (resolved.kind === "fermata" && !localFermata)
+    return applyGlobalFermata(score, selection, selectedScoreIndex, {
+      symbol: resolved.shape,
+      duration: resolved.duration,
+    });
   const result = structuredClone(score);
   if (resolved.kind === "caesura" && selection.kind === "single") {
     const measureIndex = caesuraBarlineMeasure(selection.elementId);
@@ -756,6 +754,16 @@ export function applyBreathFermata(
           resolved.shape,
           tupletIndex,
         );
+        if (updated) {
+          const event = getEventAtLocation(updated, {
+            partIndex,
+            measureIndex,
+            sequenceIndex,
+            eventIndex,
+            tupletIndex,
+          });
+          if (event?.type === "event" && event.fermata) event.fermata._x = { viritura: { localOnly: true } };
+        }
         break;
       case "caesura":
         updated = setCaesura(updated, partIndex, measureIndex, sequenceIndex, eventIndex, "normal", tupletIndex);
@@ -823,7 +831,10 @@ function applyFermataToSelectedFullMeasureRests(
     const sequence =
       score.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex];
     if (!sequence?.fullMeasure) continue;
-    sequence.fullMeasure.fermata = shape === "normal" ? {} : { symbol: shape };
+    sequence.fullMeasure.fermata = {
+      ...(shape === "normal" ? {} : { symbol: shape }),
+      _x: { viritura: { localOnly: true } },
+    };
     changed = true;
   }
   return changed;

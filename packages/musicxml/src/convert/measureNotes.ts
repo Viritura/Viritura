@@ -52,6 +52,7 @@ export interface ConvertFlags {
   discardStemDirections?: boolean;
   /** Persistent source representation metadata; not part of the output model. */
   harmonyTranspositions?: Map<number, Interval>;
+  noteTranspositions?: ReadonlyMap<Element, TransposeInterval>;
   diagnostics?: DiagnosticCollector;
 }
 
@@ -417,7 +418,7 @@ export function processMeasureNotes(
         }
 
         if (lastEvent?.notes) {
-          const noteObj = buildNote(el, voiceNum, tieIds, ids, transpose);
+          const noteObj = buildNote(el, voiceNum, tieIds, ids, flags.noteTranspositions?.get(el) ?? transpose);
           lastEvent.notes.push(noteObj);
           processGlissandoBoundaries(el, lastEvent, openGlissandos, vendorExt);
         }
@@ -442,7 +443,9 @@ export function processMeasureNotes(
           if (findChild(gel, "chord") !== null) {
             const lastGrace = graceNotes[graceNotes.length - 1];
             if (lastGrace?.notes) {
-              lastGrace.notes.push(buildNote(gel, voiceNum, tieIds, ids, transpose));
+              lastGrace.notes.push(
+                buildNote(gel, voiceNum, tieIds, ids, flags.noteTranspositions?.get(gel) ?? transpose),
+              );
               processGlissandoBoundaries(gel, lastGrace, openGlissandos, vendorExt);
             }
             i++;
@@ -464,7 +467,7 @@ export function processMeasureNotes(
 
           const graceEvent: MnxEvent = { duration: gdur, id: graceId };
           if (gpitch) {
-            const noteObj = buildNote(gel, voiceNum, tieIds, ids, transpose);
+            const noteObj = buildNote(gel, voiceNum, tieIds, ids, flags.noteTranspositions?.get(gel) ?? transpose);
             graceEvent.notes = [noteObj];
           } else {
             graceEvent.rest = {};
@@ -473,7 +476,7 @@ export function processMeasureNotes(
           // Markings on grace notes
           const graceMarkings = extractMarkings(gel, vendorExt);
           if (graceMarkings) graceEvent.markings = graceMarkings;
-          const graceFermata = extractFermata(gel);
+          const graceFermata = extractFermata(gel, vendorExt);
           if (graceFermata) graceEvent.fermata = graceFermata;
 
           // Slurs anchored on the grace note.
@@ -607,7 +610,7 @@ export function processMeasureNotes(
             : displayPitchToStaffPosition(displayStep, displayOctave, clefAt(staffNum, currentPos));
         event.rest = staffPosition === undefined ? {} : { staffPosition };
       } else {
-        const noteObj = buildNote(el, voiceNum, tieIds, ids, transpose);
+        const noteObj = buildNote(el, voiceNum, tieIds, ids, flags.noteTranspositions?.get(el) ?? transpose);
         event.notes = [noteObj];
       }
 
@@ -616,7 +619,7 @@ export function processMeasureNotes(
       if (markings) event.markings = markings;
 
       // Native MNX fermata (event-level since v15).
-      const fermata = extractFermata(el);
+      const fermata = extractFermata(el, vendorExt);
       if (fermata) event.fermata = fermata;
 
       // Staff assignment on event. The sequence carries the voice's *home*
@@ -745,6 +748,7 @@ export function processMeasureNotes(
         if (currentPos.isNegative()) currentPos = Fraction.ZERO;
       }
     } else if (el.tagName === "direction") {
+      const directionPosition = currentPos.add(durationFraction(Number(childText(el, "offset") ?? "0"), divisions));
       const staffEl = findChild(el, "staff");
       const dirStaff = staffEl ? parseInt(staffEl.textContent ?? "1", 10) : undefined;
       const systemRelation = el.getAttribute("system");
@@ -767,7 +771,7 @@ export function processMeasureNotes(
           if (firstChild) {
             const dynObj: MnxDynamic = createDynamicGroup(
               firstChild.tagName,
-              makePosition(currentPos),
+              makePosition(directionPosition),
               undefined,
               "automatic",
             );
@@ -795,13 +799,13 @@ export function processMeasureNotes(
             ottavaEvents.push({
               action: "start",
               value: ottavaValue,
-              position: makePosition(currentPos),
+              position: makePosition(directionPosition),
               staff: dirStaff,
             });
           } else if (shiftType === "stop") {
             ottavaEvents.push({
               action: "stop",
-              position: makePosition(currentPos),
+              position: makePosition(directionPosition),
               staff: dirStaff,
             });
           }
@@ -816,7 +820,7 @@ export function processMeasureNotes(
             const markStyle = rehearsalStyleFromDirectionType(dt);
             rehearsals.push({
               text: rehearsalText,
-              position: makePosition(currentPos),
+              position: makePosition(directionPosition),
               ...(markStyle ? { style: markStyle } : {}),
             });
           }
@@ -836,12 +840,15 @@ export function processMeasureNotes(
           if (content && text && el.getAttribute("directive") !== "yes" && !seenWords.has(key)) {
             seenWords.add(key);
             const placementAttr = el.getAttribute("placement");
-            const expr: MeasureResult["expressions"][number] = { text: content, position: makePosition(currentPos) };
+            const expr: MeasureResult["expressions"][number] = {
+              text: content,
+              position: makePosition(directionPosition),
+            };
             if (placementAttr === "above" || placementAttr === "below") expr.placement = placementAttr;
             const isSupportedTopRelation =
               systemRelation === "only-top" && (placementAttr === null || placementAttr === "above");
             if (isSupportedTopRelation) {
-              systemTexts.push({ text: content, position: makePosition(currentPos), placement: "above" });
+              systemTexts.push({ text: content, position: makePosition(directionPosition), placement: "above" });
             } else {
               if (systemRelation === "only-top") {
                 flags.diagnostics?.warn(
@@ -875,7 +882,7 @@ export function processMeasureNotes(
         const pedalEl = findChild(dt, "pedal");
         if (pedalEl) {
           const pedalType = pedalEl.getAttribute("type") ?? "start";
-          const position = makePosition(currentPos);
+          const position = makePosition(directionPosition);
           if (pedalType === "start") {
             pedalEvents.push({ action: "start", pedalType: "sustain", position, staff: dirStaff });
           } else if (pedalType === "sostenuto") {
@@ -895,7 +902,7 @@ export function processMeasureNotes(
         const wedgeEl = findChild(dt, "wedge");
         if (wedgeEl) {
           const wedgeType = wedgeEl.getAttribute("type") ?? "crescendo";
-          const position = makePosition(currentPos);
+          const position = makePosition(directionPosition);
           if (wedgeType === "crescendo") {
             hairpinEvents.push({
               action: "start",

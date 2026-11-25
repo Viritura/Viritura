@@ -612,6 +612,7 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
         coda: None,
         extensions: with_mark.then(|| VendorExtensions {
             viritura: Some(GlobalMeasureExtensions {
+                fermatas: None,
                 rehearsal_mark: Some(RehearsalMark {
                     text: "30".to_string().into(),
                     style: Some(RehearsalMarkStyle::Boxed),

@@ -346,12 +346,13 @@ describe("parseMnx", () => {
     const content = score.parts[0]?.measures[0]?.sequences[0]?.content;
 
     if (content?.[0]?.type === "event") {
-      expect(content[0].fermata).toEqual({});
+      expect(content[0].fermata).toBeUndefined();
     }
 
     if (content?.[1]?.type === "event") {
       expect(content[1].fermata).toBeUndefined();
     }
+    expect(score.global.measures[0]?.fermatas).toMatchObject([{ position: { fraction: [0, 1] }, multiplier: 2 }]);
   });
 
   it("should parse fermata marking with symbol and duration", () => {
@@ -395,14 +396,15 @@ describe("parseMnx", () => {
     const content = score.parts[0]?.measures[0]?.sequences[0]?.content;
 
     if (content?.[0]?.type === "event") {
-      expect(content[0].fermata).toEqual({ symbol: "angled" });
+      expect(content[0].fermata).toMatchObject({ symbol: "angled" });
     }
     if (content?.[1]?.type === "event") {
-      expect(content[1].fermata).toEqual({ symbol: "square", placement: "below" });
+      expect(content[1].fermata).toMatchObject({ symbol: "square", placement: "below" });
     }
     if (content?.[2]?.type === "event") {
-      expect(content[2].fermata).toEqual({ duration: "veryLong" });
+      expect(content[2].fermata).toBeUndefined();
     }
+    expect(score.global.measures[0]?.fermatas?.map((fermata) => fermata.multiplier)).toEqual([2, 2, 3]);
   });
   it("should parse spiccato marking", () => {
     const mnx = {

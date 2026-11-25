@@ -265,7 +265,11 @@ describe("notationInspectorCommands", () => {
     expect(history.getState().undo()).toBe(initialJson);
     const reopenedInitial = parseMnx(JSON.parse(initialJson));
     const initialEvent = reopenedInitial.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
-    expect(initialEvent.type === "event" ? initialEvent.fermata : undefined).toEqual({ symbol: "normal" });
+    expect(initialEvent.type === "event" ? initialEvent.fermata : undefined).toEqual({
+      symbol: "normal",
+      _x: { viritura: { localOnly: true } },
+    });
+    expect(reopenedInitial.global.measures[0]!.fermatas).toBeUndefined();
 
     const reopenedEdited = parseMnx(JSON.parse(history.getState().redo()!));
     const editedEvent = reopenedEdited.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
@@ -273,6 +277,8 @@ describe("notationInspectorCommands", () => {
       symbol: "doubleSquare",
       duration: "veryLong",
       placement: "below",
+      _x: { viritura: { localOnly: true } },
     });
+    expect(reopenedEdited.global.measures[0]!.fermatas).toBeUndefined();
   });
 });

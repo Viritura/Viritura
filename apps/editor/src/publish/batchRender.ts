@@ -326,13 +326,16 @@ export async function concatPdfs(pdfs: readonly RenderedScorePdf[]): Promise<Uin
 }
 
 /**
- * Pack PDFs into a single ZIP. Uses jszip (already in the lockfile via
- * spessasynth's transitive deps — confirmed available).
+ * Pack generated files into a single ZIP.
  */
-export async function zipPdfs(pdfs: readonly { name: string; bytes: Uint8Array }[]): Promise<Uint8Array> {
+export async function zipFiles(files: readonly { name: string; bytes: Uint8Array }[]): Promise<Uint8Array> {
   const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
-  for (const p of pdfs) zip.file(p.name, p.bytes);
+  for (const file of files) zip.file(file.name, file.bytes);
   const blob = await zip.generateAsync({ type: "uint8array" });
   return blob;
+}
+
+export async function zipPdfs(pdfs: readonly { name: string; bytes: Uint8Array }[]): Promise<Uint8Array> {
+  return zipFiles(pdfs);
 }

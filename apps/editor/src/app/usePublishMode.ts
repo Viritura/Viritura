@@ -22,13 +22,20 @@ import { getPlaybackSnapshot } from "@viritura/playback";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import { getLifeSizeZoom, isCalibrated, onCalibrationChange } from "../zoomScale";
 import { buildLayoutEntries, type LayoutEntry } from "../components/modes/publishView/layoutEntries";
-import { runPublishExport, type BundleMode } from "../components/modes/publishView/runPublishExport";
+import {
+  runPublishExport,
+  type BundleMode,
+  type RunExportResult,
+} from "../components/modes/publishView/runPublishExport";
 import { runAudioExport } from "../components/modes/publishView/runAudioExport";
 import { runMidiExport } from "../components/modes/publishView/runMidiExport";
+import { runMusicXmlExport } from "../components/modes/publishView/runMusicXmlExport";
 import {
   audioEncoding,
   DEFAULT_AUDIO_QUALITY,
   isAudioFormat,
+  isLayoutFormat,
+  isMusicXmlFormat,
   type AudioQuality,
   type ExportFormat,
 } from "../components/modes/publishView/audioFormats";
@@ -57,6 +64,16 @@ interface ExportProgress {
 interface ExportStatus {
   kind: "err";
   text: string;
+}
+
+function initialExportProgress(format: ExportFormat, selectedCount: number): ExportProgress {
+  return { done: 0, total: isAudioFormat(format) ? 100 : format === "midi" ? 1 : selectedCount, name: "" };
+}
+
+function notifyExport(result: RunExportResult, format: ExportFormat): void {
+  toast.success(result.text);
+  if (isMusicXmlFormat(format) && result.warnings?.length)
+    toast.warning(result.warnings.join(" "), { duration: 12000 });
 }
 
 export interface PublishMode {
@@ -223,17 +240,14 @@ export function usePublishMode({
   }, [projectFolder]);
 
   const handleExport = useCallback(async () => {
-    if (!score || exportAbortRef.current || (format === "pdf" && orderedSelected.length === 0)) return;
+    if (!score || exportAbortRef.current || (isLayoutFormat(format) && orderedSelected.length === 0)) return;
     setExporting(true);
     setStatusMessage(null);
-    setProgress({
-      done: 0,
-      total: isAudioFormat(format) ? 100 : format === "midi" ? 1 : orderedSelected.length,
-      name: "",
-    });
+    setProgress(initialExportProgress(format, orderedSelected.length));
     const controller = new AbortController();
     exportAbortRef.current = controller;
     try {
+      const onProgress = (done: number, total: number, name: string) => setProgress({ done, total, name });
       const mix = isAudioFormat(format) ? getMixerPartMixes(mixer) : [];
       const result = isAudioFormat(format)
         ? await runAudioExport({
@@ -248,19 +262,33 @@ export function usePublishMode({
           })
         : format === "midi"
           ? await runMidiExport({ score, filenamePattern, exportFolder, signal: controller.signal })
-          : await runPublishExport({
-              score,
-              scoreIndices: orderedSelected,
-              bundleMode,
-              filenamePattern,
-              embedMnx,
-              exportFolder,
-              onProgress: (done, total, name) => setProgress({ done, total, name }),
-            });
-      toast.success(result.text);
+          : isMusicXmlFormat(format)
+            ? await runMusicXmlExport({
+                score,
+                scoreIndices: orderedSelected,
+                format,
+                bundleMode,
+                filenamePattern,
+                exportFolder,
+                signal: controller.signal,
+                onProgress,
+              })
+            : await runPublishExport({
+                score,
+                scoreIndices: orderedSelected,
+                bundleMode,
+                filenamePattern,
+                embedMnx,
+                exportFolder,
+                onProgress,
+              });
+      notifyExport(result, format);
     } catch (err) {
       if (controller.signal.aborted) {
-        setStatusMessage({ kind: "err", text: `${format.toUpperCase()} export cancelled.` });
+        setStatusMessage({
+          kind: "err",
+          text: `${isMusicXmlFormat(format) ? "MusicXML" : format.toUpperCase()} export cancelled.`,
+        });
       } else {
         console.error("Publish export failed:", err);
         setStatusMessage({ kind: "err", text: err instanceof Error ? err.message : String(err) });

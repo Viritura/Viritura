@@ -229,13 +229,25 @@ pub(crate) fn promote_staccatissimo_wedge(
 
 // ─── Fermata / Tie / AccidentalDisplay ────────────────────────────────
 
-pub(crate) fn promote_fermata(r: raw::Fermata) -> ModelFermata {
-    ModelFermata {
+pub(crate) fn promote_fermata(r: raw::Fermata) -> Option<ModelFermata> {
+    if read_viritura_ext(r.x.as_ref()).is_some_and(|vendor| {
+        vendor.contains_key("globalFermataId")
+            && vendor.get("localOnly").and_then(serde_json::Value::as_bool) != Some(true)
+    }) {
+        return None;
+    }
+    Some(ModelFermata {
+        projected_global_ids: Vec::new(),
+        id: r.id.map(String::from),
+        class: r.c.map(String::from),
+        extensions: r.x.map(|extensions| {
+            serde_json::to_value(extensions).expect("raw vendor extensions are serializable")
+        }),
         symbol: r.symbol.map(promote_fermata_symbol),
         duration: r.duration.map(promote_fermata_duration),
         placement: r.placement.map(promote_placement),
         pointing: r.pointing.map(promote_up_down_auto),
-    }
+    })
 }
 
 pub(crate) fn promote_tie(r: raw::Tie) -> ModelTie {
@@ -365,7 +377,7 @@ mod tests {
     fn promotes_fermata() {
         let json = r#"{"symbol":"angled","duration":"long"}"#;
         let r: raw::Fermata = serde_json::from_str(json).unwrap();
-        let f = promote_fermata(r);
+        let f = promote_fermata(r).unwrap();
         assert!(matches!(f.symbol, Some(ModelFermataSymbol::Angled)));
         assert!(matches!(f.duration, Some(ModelFermataDuration::Long)));
     }

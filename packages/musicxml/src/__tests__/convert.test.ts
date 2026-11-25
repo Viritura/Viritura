@@ -872,9 +872,11 @@ describe("convertMusicXmlToMnx — fermata & ornaments", () => {
         <notations><fermata type="upright"/></notations>
       </note>
     `);
-    const event = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!.sequences![0]!
-      .content[0]! as { markings: { fermata: { placement?: string } } };
-    expect(event.fermata).toEqual({});
+    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+    expect(converted.global.measures[0]!._x?.viritura["fermatas"]).toMatchObject([
+      { position: { fraction: [0, 1] }, multiplier: 2 },
+    ]);
+    expect(converted.parts[0]!.measures[0]!.sequences![0]!.content[0]).not.toHaveProperty("fermata");
   });
 
   it("converts inverted fermata to native MNX with placement=below", () => {

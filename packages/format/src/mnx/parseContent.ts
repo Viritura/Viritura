@@ -107,7 +107,7 @@ function parseSequence(raw: RawSequence): Sequence {
     if (fm.staffPosition !== undefined) {
       seq.fullMeasure.staffPosition = fm.staffPosition;
     }
-    if (fm.fermata) seq.fullMeasure.fermata = { ...fm.fermata };
+    if (fm.fermata) seq.fullMeasure.fermata = structuredClone(fm.fermata);
   }
   if (raw.staff !== undefined) seq.staff = raw.staff;
   if (raw.voice !== undefined) seq.voice = raw.voice;
@@ -264,6 +264,8 @@ function parseEvent(raw: RawEvent): NoteEvent {
     if (f.duration) fermata.duration = f.duration as FermataDuration;
     if (f.placement) fermata.placement = f.placement as Placement;
     if (f.pointing) fermata.pointing = f.pointing;
+    if (f._x) fermata._x = structuredClone(f._x);
+    if (f.id) fermata.id = f.id;
     event.fermata = fermata;
   }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
+import { serializeMnx } from "@viritura/format";
 import { compilePlaybackTiming } from "@viritura/midi/timing";
 import { buildClickSessionProgram } from "@viritura/playback/click";
 import rehearsalMarks from "../../../../packages/format/fixtures/mnx/rehearsal-marks.mnx?raw";
@@ -33,6 +34,42 @@ describe("click bar navigation", () => {
     expect(program.countoffClicks).toBe(8);
     expect(program.events.map((event) => event.time)).toEqual(Array.from({ length: 16 }, (_, index) => index / 4));
     expect(clickScorePosition(document.timing, program, 2.75, 100)).toEqual({ measureIndex: 0, beat: 1.5 });
+  });
+
+  it("plays saved fermatas with the saved tempo subdivision", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            time: { count: 4, unit: 4 },
+            tempos: [{ bpm: 120, value: { base: "quarter" }, clickSubdivision: 3 }],
+            fermatas: [{ id: "hold", position: { fraction: [1, 4] }, clickBehavior: "keepClicking" }],
+          },
+        ],
+      },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                {
+                  content: Array.from({ length: 4 }, () => ({
+                    type: "event" as const,
+                    duration: { base: "quarter" as const },
+                    rest: {},
+                  })),
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const document = readClickDocument(JSON.stringify(serializeMnx(score)));
+    const program = buildClickSessionProgram(document.timing, { countoff: false });
+    const holdClicks = program.events.filter((event) => event.time >= 1 && event.time < 1.5);
+    expect(holdClicks.map((event) => Number(event.time.toFixed(6)))).toEqual([1, 1.166667, 1.333333]);
   });
 
   it("keeps authored rehearsal marks and context on their score bars", () => {

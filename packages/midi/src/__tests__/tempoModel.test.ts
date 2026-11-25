@@ -3,6 +3,26 @@ import { TempoModel } from "../tempoModel";
 import { buildTempoMap, buildTempoModel } from "../tempoMap";
 import type { GlobalMeasure } from "@viritura/core";
 
+it("times a fermata at the end of a ritardando using the insertion tempo", () => {
+  const measures: GlobalMeasure[] = [
+    {
+      id: "rit-bar",
+      time: { count: 4, unit: 4 },
+      tempos: [{ bpm: 120, value: { base: "quarter" } }],
+      gradualTempo: {
+        position: { fraction: [0, 1] },
+        end: { measure: "rit-bar", position: { fraction: [1, 1] } },
+        endBpm: 60,
+      },
+    },
+    {},
+  ];
+  const withoutHold = buildTempoModel(measures);
+  const withHold = buildTempoModel(measures, [[{ atBeat: 4, extraBeats: 1, kind: "fermata" }], []]);
+  expect(withHold.measureStartTimes[1]! - withoutHold.measureStartTimes[1]!).toBeCloseTo(1);
+  expect(withHold.model.timeAtBeat(4) - withHold.model.timeAtBeat(4, "release")).toBeCloseTo(1);
+});
+
 it("uses the BPM, beat unit and rhythmic position of a shared system instruction", () => {
   const measures: GlobalMeasure[] = [
     {

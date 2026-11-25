@@ -3,7 +3,7 @@ import { Checkbox, Panel, PanelActionButton } from "@viritura/ui";
 import styles from "../PublishView.module.css";
 import type { CSSProperties } from "react";
 import type { LayoutEntry } from "./layoutEntries";
-import type { ExportFormat } from "./audioFormats";
+import { isLayoutFormat, type ExportFormat } from "./audioFormats";
 
 interface LeftLayoutsPanelProps {
   layouts: LayoutEntry[];
@@ -40,7 +40,7 @@ export function LeftLayoutsPanel({
   onFocusIndex,
   shellStyle,
 }: LeftLayoutsPanelProps) {
-  const wholeDocument = format !== "pdf";
+  const wholeDocument = !isLayoutFormat(format);
   const exportLabel = format === "midi" ? "MIDI" : "Audio";
   return (
     <Panel

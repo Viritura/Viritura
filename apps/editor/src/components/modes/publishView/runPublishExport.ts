@@ -25,6 +25,7 @@ export interface RunExportArgs {
 export interface RunExportResult {
   kind: "ok";
   text: string;
+  warnings?: readonly string[];
 }
 
 /**

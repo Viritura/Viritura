@@ -15,7 +15,9 @@ use super::time::{GroupingDisplay, TimeSignature};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+mod global_fermatas;
 mod tempo_wire;
+pub use global_fermatas::{GlobalFermata, GlobalFermataClickBehavior};
 
 /// Generic wrapper for the MNX `_x` vendor extension dict.
 /// `T` is the vendor-specific payload (e.g. `GlobalMeasureExtensions`).
@@ -28,6 +30,8 @@ pub struct VendorExtensions<T> {
 /// Viritura vendor extensions on a global measure (`_x.viritura`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct GlobalMeasureExtensions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fermatas: Option<Vec<GlobalFermata>>,
     /// Rehearsal mark (e.g. "A", "B")
     #[serde(skip_serializing_if = "Option::is_none", rename = "rehearsalMark")]
     pub rehearsal_mark: Option<RehearsalMark>,
@@ -112,6 +116,14 @@ pub struct GlobalCaesura {
 // patch flow). See `docs/spec/data-model-pipeline.md`.
 
 impl GlobalMeasure {
+    pub fn fermatas(&self) -> &[GlobalFermata] {
+        self.extensions
+            .as_ref()
+            .and_then(|extensions| extensions.viritura.as_ref())
+            .and_then(|vendor| vendor.fermatas.as_deref())
+            .unwrap_or_default()
+    }
+
     pub fn tempo_ramp_text_id(&self) -> Option<&str> {
         self.extensions
             .as_ref()?

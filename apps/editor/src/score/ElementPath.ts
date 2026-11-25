@@ -64,6 +64,20 @@ export function fermataId(parentEventId: string): string {
   return `${parentEventId}/ferm`;
 }
 
+export function globalFermataId(measure: number, id: string): string {
+  return `m${measure}/fermata/${sanitize(id)}`;
+}
+
+export function resolveGlobalFermata(elementId: string, score: Score) {
+  const match = /^m(\d+)\/fermata\/[^/]+$/.exec(elementId);
+  if (!match) return null;
+  const measureIndex = Number(match[1]);
+  const fermata = score.global.measures[measureIndex]?.fermatas?.find(
+    (item) => globalFermataId(measureIndex, item.id) === elementId,
+  );
+  return fermata ? { measureIndex, fermata } : null;
+}
+
 // ── Part-scoped measure elements ────────────────────────────────────
 
 export function clefId(part: number, measure: number): string {
