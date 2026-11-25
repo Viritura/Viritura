@@ -42,6 +42,9 @@ export {
   type ClickProgramEvent,
   type ClickStartReceipt,
   type CompiledClickProgram,
+  DEFAULT_CLICK_SOUND,
+  isClickSound,
+  type ClickSound,
 } from "./clickEngine";
 
 // SF2 SoundFont sampler (via spessasynth_lib)

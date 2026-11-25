@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { ClickEngine } from "@viritura/audio/click";
+import { getMetronomeSound } from "@viritura/playback";
 import { buildClickSessionProgram, type ClickSessionProgram } from "@viritura/playback/click";
 import { readClickDocument, type ClickDocument } from "./clickDocument";
 import { clickBarAtTime, clickBarForMeasure, type ClickBar } from "./barNavigation";
+import { useClickSound } from "./useClickSound";
 
 type Phase = "empty" | "ready" | "playing" | "complete";
 
@@ -77,9 +79,7 @@ export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: C
     if (phase !== "playing") return;
     const timer = setInterval(() => {
       const engine = engineRef.current;
-      if (engine) {
-        setElapsed(Math.max(0, engine.context.currentTime - anchor.current));
-      }
+      if (engine) setElapsed(Math.max(0, engine.context.currentTime - anchor.current));
     }, 75);
     return () => clearInterval(timer);
   }, [phase]);
@@ -89,6 +89,11 @@ export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: C
     engineRef.current = undefined;
     await engine?.dispose();
   }
+
+  useClickSound(engineRef, mounted, (detail) => {
+    setPhase("ready");
+    setError(detail);
+  });
 
   async function run(action: () => Promise<void>): Promise<void> {
     if (locked.current) return;
@@ -183,6 +188,8 @@ export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease }: C
       if (!engine) return;
       if (documentChanged.current) throw new Error(DOCUMENT_CHANGED);
       await engine.context.resume();
+      if (documentChanged.current) throw new Error(DOCUMENT_CHANGED);
+      await engine.setSound(getMetronomeSound());
       if (documentChanged.current) throw new Error(DOCUMENT_CHANGED);
       await engine.load(next.events, next.duration);
       if (documentChanged.current) throw new Error(DOCUMENT_CHANGED);

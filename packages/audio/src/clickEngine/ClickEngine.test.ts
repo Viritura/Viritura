@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClickEngine, ClickEngineError, type ClickEngineEvent } from "./ClickEngine";
 import { compileClickProgram } from "./clickProgram";
 import { buildClickWorklet, CLICK_PROCESSOR_NAME } from "./workletSource";
+import { synthesizeClickVoices } from "../clickSound";
 
 const SAMPLE_RATE = 48_000;
 const BLOCK = 128;
@@ -30,14 +31,14 @@ function createClickDevice() {
       queueMicrotask(() => nodePort.onmessage?.({ data: message }));
     },
   };
-  let Processor: (new () => TestProcessor) | undefined;
+  let Processor: (new (options: { processorOptions: unknown }) => TestProcessor) | undefined;
   const sandbox = createContext({
     AudioWorkletProcessor: class {
       get port() {
         return workerPort;
       }
     },
-    registerProcessor(name: string, constructor: new () => TestProcessor) {
+    registerProcessor(name: string, constructor: new (options: { processorOptions: unknown }) => TestProcessor) {
       expect(name).toBe(CLICK_PROCESSOR_NAME);
       Processor = constructor;
     },
@@ -70,9 +71,9 @@ function createClickDevice() {
       readonly port = nodePort;
       connect = vi.fn();
       disconnect = vi.fn();
-      constructor() {
+      constructor(_context: AudioContext, _name: string, options: AudioWorkletNodeOptions) {
         if (!Processor) throw new Error("Click processor was not registered");
-        processor = new Processor();
+        processor = new Processor(structuredClone({ processorOptions: options.processorOptions }));
       }
     },
   );
@@ -176,6 +177,45 @@ describe("ClickEngine", () => {
     expect(peak(480)).toBeGreaterThan(peak(2_880));
     expect(peak(2_880)).toBeGreaterThan(peak(5_280));
     expect(events).toEqual([{ type: "started", contextTime: 480 / SAMPLE_RATE }, { type: "ended" }]);
+  });
+
+  it("switches future clicks without changing their frames or interrupting an active voice", async () => {
+    const { device, engine } = await createEngine();
+    const tick = synthesizeClickVoices(SAMPLE_RATE, "tick")[0];
+    const woodblock = synthesizeClickVoices(SAMPLE_RATE, "woodblock")[1];
+    await engine.load([
+      { time: 0, level: "accent" },
+      { time: 0.07, level: "beat" },
+    ]);
+    await engine.start(0, 0.01);
+    device.render(512);
+    await engine.setSound("woodblock");
+    device.render(7_000);
+
+    expect(onsets(device.left)).toEqual([480, 480 + 3_360]);
+    expect(device.left.slice(480, 480 + tick.length).every((sample, index) => sample === tick[index])).toBe(true);
+    expect(
+      device.left.slice(3_840, 3_840 + woodblock.length).every((sample, index) => sample === woodblock[index]),
+    ).toBe(true);
+  });
+
+  it.each(["tick", "woodblock", "beep"] as const)("keeps %s on the same scheduled frames", async (sound) => {
+    const { device, engine } = await createEngine();
+    await engine.setSound(sound);
+    await engine.load([
+      { time: 0, level: "accent" },
+      { time: 0.05, level: "beat" },
+      { time: 0.1, level: "subdivision" },
+    ]);
+    await engine.start(0, 0.01);
+    device.render(8_000);
+    expect(onsets(device.left)).toEqual([480, 2_880, 5_280]);
+  });
+
+  it("rejects an unknown sound rather than silently selecting a different one", async () => {
+    const { engine } = await createEngine();
+    // @ts-expect-error Exercise validation for untyped callers.
+    await expect(engine.setSound("unknown")).rejects.toThrow("Unknown click sound");
   });
 
   it("refuses an anchor that has already passed rather than starting late", async () => {

@@ -30,21 +30,28 @@ function createMockOscillatorNode(): OscillatorNode {
 interface MockAudioContext {
   destination: AudioNode;
   currentTime: number;
+  sampleRate: number;
   createGain: ReturnType<typeof vi.fn>;
   createOscillator: ReturnType<typeof vi.fn>;
+  createBuffer: ReturnType<typeof vi.fn>;
+  createBufferSource: ReturnType<typeof vi.fn>;
   gainNodes: GainNode[];
   oscillatorNodes: OscillatorNode[];
+  bufferSources: AudioBufferSourceNode[];
 }
 
 function createMockAudioContext(): MockAudioContext {
   const gainNodes: GainNode[] = [];
   const oscillatorNodes: OscillatorNode[] = [];
+  const bufferSources: AudioBufferSourceNode[] = [];
 
   const ctx: MockAudioContext = {
     destination: {} as AudioNode,
     currentTime: 0,
+    sampleRate: 48_000,
     gainNodes,
     oscillatorNodes,
+    bufferSources,
     createGain: vi.fn(() => {
       const node = createMockGainNode();
       gainNodes.push(node);
@@ -53,6 +60,15 @@ function createMockAudioContext(): MockAudioContext {
     createOscillator: vi.fn(() => {
       const node = createMockOscillatorNode();
       oscillatorNodes.push(node);
+      return node;
+    }),
+    createBuffer: vi.fn((_channels: number, length: number) => {
+      const samples = new Float32Array(length);
+      return { getChannelData: () => samples } as unknown as AudioBuffer;
+    }),
+    createBufferSource: vi.fn(() => {
+      const node = { buffer: null, connect: vi.fn(), start: vi.fn() } as unknown as AudioBufferSourceNode;
+      bufferSources.push(node);
       return node;
     }),
   };
@@ -70,6 +86,7 @@ describe("Metronome", () => {
     ctx = createMockAudioContext();
     metronome = new Metronome({
       audioContext: ctx as unknown as AudioContext,
+      sound: "beep",
     });
   });
 
@@ -161,6 +178,26 @@ describe("Metronome", () => {
 
       expect(ctx.createOscillator).toHaveBeenCalledTimes(1);
     });
+
+    it("reuses generated voices and applies sound changes to later scheduled clicks", () => {
+      metronome.setSound("tick");
+      metronome.scheduleClick(1, true);
+      metronome.scheduleClick(2, false);
+      expect(ctx.bufferSources).toHaveLength(2);
+      expect(ctx.bufferSources[0]!.start).toHaveBeenCalledWith(1);
+      expect(ctx.bufferSources[1]!.start).toHaveBeenCalledWith(2);
+      expect(ctx.createBuffer).toHaveBeenCalledTimes(2);
+      const tick = ctx.bufferSources[0]!.buffer;
+
+      metronome.setSound("woodblock");
+      metronome.scheduleClick(3, true);
+      expect(ctx.bufferSources[2]!.buffer).not.toBe(tick);
+      expect(ctx.bufferSources[2]!.start).toHaveBeenCalledWith(3);
+      metronome.setSound("tick");
+      metronome.scheduleClick(4, true);
+      expect(ctx.bufferSources[3]!.buffer).toBe(tick);
+      expect(ctx.createBuffer).toHaveBeenCalledTimes(4);
+    });
   });
 
   // ─── Enable / Disable ─────────────────────────────────────────
@@ -176,6 +213,15 @@ describe("Metronome", () => {
 
       metronome.setEnabled(true);
       expect(metronome.isEnabled()).toBe(true);
+    });
+
+    it("prepares an initially enabled percussive sound before scheduling", () => {
+      const percussive = new Metronome({ audioContext: ctx as unknown as AudioContext, sound: "woodblock" });
+      percussive.setEnabled(true);
+      expect(ctx.createBuffer).toHaveBeenCalledTimes(2);
+      percussive.scheduleClick(1, true);
+      expect(ctx.createBuffer).toHaveBeenCalledTimes(2);
+      percussive.dispose();
     });
   });
 

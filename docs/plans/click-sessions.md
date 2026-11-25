@@ -28,6 +28,10 @@ Implemented:
   collaborators) interrupt an active or preparing take with a visible message;
   the updated document is adopted after stopping. The selected start bar is
   kept when it remains valid. With no document open, the activity shows an empty state.
+- **Click sound:** Settings → Playback offers a synthesized tick, woodblock,
+  or classic beep for both the metronome and Click activity. The preference is
+  saved on the device. Click voices are prepared before playback and selected
+  on the audio thread without changing scheduled click frames.
 - **Shared score surface and floating transport** — Click reuses the editor's
   already-mounted `ScoreCanvas`; score/part selection, view mode, bar taps, and
   click playhead overlays all use that surface rather than mounting a second

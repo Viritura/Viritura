@@ -14,3 +14,4 @@ export {
   type CompiledClickProgram,
 } from "./clickProgram";
 export { buildClickWorklet } from "./workletSource";
+export { DEFAULT_CLICK_SOUND, isClickSound, type ClickSound } from "../clickSound";

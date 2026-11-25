@@ -1,19 +1,15 @@
 /**
- * Metronome click generator using Web Audio oscillator synthesis.
+ * Metronome click generator using synthesized Web Audio voices.
  *
  * Generates accented clicks on beat 1 and lighter clicks on other beats.
  * Time-signature-aware: compound meters (6/8, 9/8, 12/8) click on
  * dotted-quarter groupings rather than every eighth note.
  *
- * Click specs (per PRD):
- *   Beat 1:     880 Hz, 50 ms, louder
- *   Other beats: 440 Hz, 30 ms, softer
- *
- * References:
- *   - Familiar notation-editor sound: woodblock with an accent on beat 1.
- *   - Standard DAW practice: oscillator-based clicks with frequency
- *     differentiation for accent vs normal.
+ * The classic beep keeps the original oscillator sound. Percussive sounds
+ * share their generated waveforms with the dedicated recording click engine.
  */
+
+import { DEFAULT_CLICK_SOUND, isClickSound, synthesizeClickVoices, type ClickSound } from "./clickSound";
 
 /** Beat position within a measure for metronome clicks. */
 export interface MetronomeBeat {
@@ -31,6 +27,7 @@ export interface MetronomeOptions {
   readonly audioContext: AudioContext;
   /** Audio destination node. Defaults to audioContext.destination. */
   readonly destination?: AudioNode;
+  readonly sound?: ClickSound;
 }
 
 /** Oscillator click parameters. */
@@ -50,11 +47,15 @@ export class Metronome {
 
   private readonly audioContext: AudioContext;
   private readonly masterGain: GainNode;
+  private readonly soundBuffers = new Map<ClickSound, readonly [AudioBuffer, AudioBuffer]>();
+  private sound: ClickSound;
   private enabled = true;
   private volume = 1.0;
 
   constructor(options: MetronomeOptions) {
     this.audioContext = options.audioContext;
+    this.sound = options.sound ?? DEFAULT_CLICK_SOUND;
+    if (!isClickSound(this.sound)) throw new RangeError(`Unknown metronome sound: ${String(this.sound)}`);
     this.masterGain = this.audioContext.createGain();
     this.masterGain.gain.value = this.volume;
     this.masterGain.connect(options.destination ?? this.audioContext.destination);
@@ -66,6 +67,15 @@ export class Metronome {
    */
   scheduleClick(time: number, accented: boolean): void {
     if (!this.enabled) return;
+
+    if (this.sound !== "beep") {
+      const buffers = this.buffersFor(this.sound);
+      const source = this.audioContext.createBufferSource();
+      source.buffer = buffers[accented ? 0 : 1];
+      source.connect(this.masterGain);
+      source.start(time);
+      return;
+    }
 
     const spec = accented ? Metronome.accentSpec() : Metronome.normalSpec();
 
@@ -87,7 +97,15 @@ export class Metronome {
 
   /** Enable or disable metronome clicks. */
   setEnabled(value: boolean): void {
+    if (value && this.sound !== "beep") this.buffersFor(this.sound);
     this.enabled = value;
+  }
+
+  /** Apply a new sound to subsequently scheduled clicks. */
+  setSound(sound: ClickSound): void {
+    if (!isClickSound(sound)) throw new RangeError(`Unknown metronome sound: ${String(sound)}`);
+    if (this.enabled && sound !== "beep") this.buffersFor(sound);
+    this.sound = sound;
   }
 
   isEnabled(): boolean {
@@ -110,6 +128,21 @@ export class Metronome {
   /** Disconnect from audio graph and release resources. */
   dispose(): void {
     this.masterGain.disconnect();
+    this.soundBuffers.clear();
+  }
+
+  private buffersFor(sound: ClickSound): readonly [AudioBuffer, AudioBuffer] {
+    const cached = this.soundBuffers.get(sound);
+    if (cached) return cached;
+    const voices = synthesizeClickVoices(this.audioContext.sampleRate, sound);
+    const makeBuffer = (samples: Float32Array) => {
+      const buffer = this.audioContext.createBuffer(1, samples.length, this.audioContext.sampleRate);
+      buffer.getChannelData(0).set(samples);
+      return buffer;
+    };
+    const buffers: readonly [AudioBuffer, AudioBuffer] = [makeBuffer(voices[0]), makeBuffer(voices[1])];
+    this.soundBuffers.set(sound, buffers);
+    return buffers;
   }
 
   // ─── Static helpers ────────────────────────────────────────────────

@@ -1,15 +1,7 @@
 import { CLICK_LEVEL_CODES } from "./clickProgram";
+import { CLICK_SOUNDS, DEFAULT_CLICK_SOUND } from "../clickSound";
 
 export const CLICK_PROCESSOR_NAME = "viritura-click";
-
-/** Synthesized click voices: [frequency Hz, duration s, peak gain] per level code. */
-const CLICK_VOICE_SPECS: readonly (readonly [number, number, number])[] = (() => {
-  const specs: [number, number, number][] = [];
-  specs[CLICK_LEVEL_CODES.accent] = [1760, 0.04, 0.9];
-  specs[CLICK_LEVEL_CODES.beat] = [880, 0.03, 0.6];
-  specs[CLICK_LEVEL_CODES.subdivision] = [660, 0.02, 0.3];
-  return specs;
-})();
 
 /**
  * Source of the dedicated click AudioWorklet. It is served as a staged,
@@ -23,17 +15,15 @@ const CLICK_VOICE_SPECS: readonly (readonly [number, number, number])[] = (() =>
  */
 export function buildClickWorklet(): string {
   return `"use strict";
-const VOICE_SPECS = ${JSON.stringify(CLICK_VOICE_SPECS)};
+const SOUNDS = ${JSON.stringify(CLICK_SOUNDS)};
+const DEFAULT_SOUND = ${JSON.stringify(DEFAULT_CLICK_SOUND)};
+const LEVEL_COUNT = ${Object.keys(CLICK_LEVEL_CODES).length};
 const MAX_ACTIVE = 16;
 
-function buildVoice(rate, frequency, duration, gain) {
-  const length = Math.max(1, Math.ceil(duration * rate));
-  const samples = new Float32Array(length);
-  const decay = Math.log(1000) / length;
-  for (let i = 0; i < length; i++) {
-    samples[i] = gain * Math.sin((2 * Math.PI * frequency * i) / rate) * Math.exp(-decay * i);
-  }
-  return samples;
+function validVoices(voices) {
+  return Array.isArray(voices) && voices.length === SOUNDS.length && voices.every((levels) =>
+    Array.isArray(levels) && levels.length === LEVEL_COUNT && levels.every((samples) =>
+      Object.prototype.toString.call(samples) === "[object Float32Array]" && samples.length > 0));
 }
 
 function lowerBound(frames, frame) {
@@ -54,16 +44,18 @@ function validProgram(frames, levels) {
   let previous = 0;
   for (let i = 0; i < frames.length; i++) {
     const frame = frames[i];
-    if (!Number.isFinite(frame) || frame < previous || levels[i] >= VOICE_SPECS.length) return false;
+    if (!Number.isFinite(frame) || frame < previous || levels[i] >= LEVEL_COUNT) return false;
     previous = frame;
   }
   return true;
 }
 
 class ClickProcessor extends AudioWorkletProcessor {
-  constructor() {
+  constructor(options) {
     super();
-    this.voices = VOICE_SPECS.map(([frequency, duration, gain]) => buildVoice(sampleRate, frequency, duration, gain));
+    this.voices = options.processorOptions.voices;
+    if (!validVoices(this.voices)) throw new Error("Invalid click voices");
+    this.sound = SOUNDS.indexOf(DEFAULT_SOUND);
     this.frames = new Float64Array(0);
     this.levels = new Uint8Array(0);
     this.running = false;
@@ -74,6 +66,7 @@ class ClickProcessor extends AudioWorkletProcessor {
     this.gain = 1;
     this.announced = false;
     this.activeVoice = new Int8Array(MAX_ACTIVE).fill(-1);
+    this.activeSound = new Int8Array(MAX_ACTIVE);
     this.activePosition = new Float64Array(MAX_ACTIVE);
     this.port.onmessage = (event) => this.receive(event.data);
   }
@@ -114,6 +107,12 @@ class ClickProcessor extends AudioWorkletProcessor {
         this.activeVoice.fill(-1);
         return this.port.postMessage({ type: "stopped", requestId, programFrame });
       }
+      case "sound": {
+        const sound = SOUNDS.indexOf(message.sound);
+        if (sound < 0) return this.port.postMessage({ type: "error", requestId, code: "invalid-sound" });
+        this.sound = sound;
+        return this.port.postMessage({ type: "sound", requestId });
+      }
       case "gain":
         this.gain = Math.min(1, Math.max(0, Number(message.gain) || 0));
         return undefined;
@@ -134,6 +133,7 @@ class ClickProcessor extends AudioWorkletProcessor {
     }
     if (slot < 0) slot = oldest;
     this.activeVoice[slot] = level;
+    this.activeSound[slot] = this.sound;
     this.activePosition[slot] = -delay;
   }
 
@@ -162,7 +162,7 @@ class ClickProcessor extends AudioWorkletProcessor {
       for (let slot = 0; slot < MAX_ACTIVE; slot++) {
         const level = this.activeVoice[slot];
         if (level < 0) continue;
-        const samples = this.voices[level];
+        const samples = this.voices[this.activeSound[slot]][level];
         const position = this.activePosition[slot];
         const first = Math.max(0, -position);
         const last = Math.min(length, samples.length - position);

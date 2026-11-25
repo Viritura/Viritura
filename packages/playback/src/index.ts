@@ -45,6 +45,12 @@ export {
   useTransportVisibilityActions,
   type TransportVisibilityPreferences,
 } from "./transportSettingsStore";
+export {
+  getMetronomeSound,
+  subscribeMetronomeSound,
+  useMetronomeSound,
+  useMetronomeSoundActions,
+} from "./metronomeSettingsStore";
 
 export type { ViewMode } from "./types";
 

@@ -24,7 +24,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { CHORDS_PART_ID, type ChordSymbol, type Score } from "@viritura/core";
 import { toast } from "sonner";
-import { dispatchPlayback, setPlaybackActions } from "./usePlayback";
+import { dispatchPlayback, getPlaybackSnapshot, setPlaybackActions } from "./usePlayback";
 import {
   computePartSignature,
   DEFAULT_VOLUME,
@@ -83,6 +83,7 @@ import { usePercussionPreview } from "./usePercussionPreview";
 import { useMelodicPreview } from "./useMelodicPreview";
 import { generateTimeline, getChordPlaybackPart, type MidiTimeline as ScoreMidiTimeline } from "@viritura/midi";
 import { buildClickTrack, countInLeadSeconds } from "./clickTrack";
+import { getMetronomeSound, subscribeMetronomeSound } from "./metronomeSettingsStore";
 import { createPlayheadResolver, sourceMeasureBeatToSeconds } from "./playheadResolver";
 import { requirePlayableTimeline, resolveTransportStart, type PendingPlaybackStart } from "./transportStart";
 import type { SoundfontLoader } from "./soundfont";
@@ -293,6 +294,7 @@ export function PlaybackProvider({
   /** Current listener position for distance-based reverb scaling. */
   const listenerPosRef = useRef<SpatialPosition>({ ...DEFAULT_LISTENER_POSITION });
   const metronomeRef = useRef<Metronome | null>(null);
+  useEffect(() => subscribeMetronomeSound((sound) => metronomeRef.current?.setSound(sound)), []);
   // Re-entrancy guard: prevents rapid Play clicks / Space presses from starting
   // multiple overlapping transports before the first play() finishes its async
   // preparation (AudioContext resume, sampler build, VST host prepare).
@@ -411,8 +413,9 @@ export function PlaybackProvider({
       metronomeRef.current = new Metronome({
         audioContext: audioCtxRef.current,
         destination: masterOutRef.current!,
+        sound: getMetronomeSound(),
       });
-      metronomeRef.current.setEnabled(false); // off by default
+      metronomeRef.current.setEnabled(getPlaybackSnapshot().state.metronomeEnabled);
     }
     if (!engineRef.current || !engineRef.current.getTimeline) {
       engineRef.current = new PlaybackEngine(audioCtxRef.current);

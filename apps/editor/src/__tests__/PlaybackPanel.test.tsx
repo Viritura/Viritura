@@ -1,12 +1,63 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ClickEngine } from "@viritura/audio/click";
 import { TransportBar } from "@viritura/playback";
-import { TooltipPrimitives } from "@viritura/ui";
+import { Button, TooltipPrimitives } from "@viritura/ui";
+import score from "../../../../packages/format/fixtures/mnx/c-major-scale.mnx?raw";
+import { useClickPlayer } from "../click/useClickPlayer";
 import { PlaybackPanel } from "../components/SettingsDialog/panels/PlaybackPanel";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+function ClickPlayerProbe() {
+  const player = useClickPlayer(score);
+  return <Button onClick={() => void player.play()}>Start click</Button>;
+}
 
 describe("PlaybackPanel", () => {
+  it("saves the chosen metronome sound and restores it when settings reopen", () => {
+    const panel = render(<PlaybackPanel />);
+    expect(screen.getByRole("radiogroup", { name: "Metronome sound" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Tick" }).getAttribute("aria-checked")).toBe("true");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Woodblock" }));
+    expect(localStorage.getItem("viritura.metronome.sound")).toBe("woodblock");
+    panel.unmount();
+    render(<PlaybackPanel />);
+    expect(screen.getByRole("radio", { name: "Woodblock" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByRole("radio", { name: "Tick" }));
+  });
+
+  it("applies the selected sound to Click playback and changes it during a take", async () => {
+    const engine = {
+      context: { currentTime: 0, state: "running", resume: vi.fn(async () => {}), onstatechange: null },
+      onEvent: vi.fn(() => () => {}),
+      setSound: vi.fn(async () => {}),
+      load: vi.fn(async () => 0),
+      start: vi.fn(async () => ({ contextTime: 0 })),
+      dispose: vi.fn(async () => {}),
+    };
+    vi.spyOn(ClickEngine, "create").mockResolvedValue(engine as unknown as ClickEngine);
+    render(
+      <>
+        <PlaybackPanel />
+        <ClickPlayerProbe />
+      </>,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Woodblock" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start click" }));
+    await waitFor(() => expect(engine.start).toHaveBeenCalledOnce());
+    expect(engine.setSound).toHaveBeenCalledWith("woodblock");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Beep" }));
+    await waitFor(() => expect(engine.setSound).toHaveBeenLastCalledWith("beep"));
+    expect(engine.start).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("radio", { name: "Tick" }));
+  });
+
   it("updates the shared transport visibility preferences", () => {
     render(
       <TooltipPrimitives.Provider>
