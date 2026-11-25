@@ -26,7 +26,7 @@ export interface LoadedGistMnx {
   readonly gistUrl: string;
 }
 
-export interface LoadedGistMnxFile {
+interface LoadedGistMnxFile {
   readonly fileName: string;
   readonly mnx: string;
   readonly score: Score;

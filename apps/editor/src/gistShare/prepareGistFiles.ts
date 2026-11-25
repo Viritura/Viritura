@@ -5,7 +5,7 @@ const MAX_GIST_FILES = 50;
 const MAX_GIST_TOTAL_BYTES = 16 * 1024 * 1024;
 const MAX_GIST_FILE_BYTES = 16 * 1024 * 1024;
 
-export interface PrepareGistFilesOptions {
+interface PrepareGistFilesOptions {
   readonly projectFolder: FileSystemDirectoryHandle | null;
   readonly activeScorePath: string | null;
   readonly fileName: string;
