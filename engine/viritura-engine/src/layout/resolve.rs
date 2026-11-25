@@ -739,23 +739,26 @@ fn has_staff_configs(measure: &PartMeasure) -> bool {
 /// or a derived advance instrument reminder.
 /// All three must isolate the bar that carries them so the performer sees the
 /// pause/hold rather than having it absorbed into a collapsed H-bar. The
-/// fermata is a top-level `Event.fermata` field (per MNX v15), while
-/// caesura/breath live under `Event.markings`.
+/// Fermatas and caesuras may be on events or full-measure rests; breaths
+/// live under `Event.markings`.
 fn part_interrupts_mmr(pm: &PartMeasure) -> bool {
     pm.expressions.as_ref().is_some_and(|expressions| {
         expressions
             .iter()
             .any(|expression| expression.instrument_reminder)
     }) || pm.sequences.iter().any(|s| {
-        s.content.iter().any(|c| match c {
-            SequenceContent::Event(e) => {
-                e.fermata.is_some()
-                    || e.markings
-                        .as_ref()
-                        .is_some_and(|mk| mk.caesura.is_some() || mk.breath.is_some())
-            }
-            _ => false,
-        })
+        s.full_measure
+            .as_ref()
+            .is_some_and(|rest| rest.fermata.is_some() || rest.caesura.is_some())
+            || s.content.iter().any(|c| match c {
+                SequenceContent::Event(e) => {
+                    e.fermata.is_some()
+                        || e.markings
+                            .as_ref()
+                            .is_some_and(|mk| mk.caesura.is_some() || mk.breath.is_some())
+                }
+                _ => false,
+            })
     })
 }
 

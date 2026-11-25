@@ -44,6 +44,35 @@ const doublingExt = {
 };
 
 describe("instrument-change extensions", () => {
+  it("validates and round-trips explicit solo settings on parts and instruments", () => {
+    const source = scoreWithInstrumentChanges({
+      partExt: {
+        instrumentId: "strings.violin",
+        solo: true,
+        initialInstrument: "section",
+        instruments: {
+          section: { instrumentId: "strings.violin", solo: false },
+          solo: { instrumentId: "strings.violin", solo: true },
+        },
+      },
+      changes: [[], [{ instrument: "solo" }], []],
+    });
+    expect(validateRawScore(source).ok).toBe(true);
+    const part = parseMnx(source).parts[0]!;
+    expect(part._x?.viritura?.solo).toBe(true);
+    expect(part._x?.viritura?.instruments?.["section"]?.solo).toBe(false);
+    expect(part._x?.viritura?.instruments?.["solo"]?.solo).toBe(true);
+    expect(serializeMnx(parseMnx(source))).toMatchObject(source);
+    expect(validateRawScore(scoreWithInstrumentChanges({ partExt: { solo: "yes" } })).ok).toBe(false);
+    expect(
+      validateRawScore(
+        scoreWithInstrumentChanges({
+          partExt: { initialInstrument: "bad", instruments: { bad: { instrumentId: "strings.violin", solo: 1 } } },
+        }),
+      ).ok,
+    ).toBe(false);
+  });
+
   it("round-trips house-style defaults and explicit per-instance visibility", () => {
     const source = {
       ...scoreWithInstrumentChanges({

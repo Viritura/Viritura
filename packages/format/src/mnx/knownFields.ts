@@ -60,7 +60,7 @@ export const KEYS = {
   ottava: new Set(["position", "end", "value", "staff", "voice"]),
   measureRhythmicPosition: new Set(["measure", "position"]),
   sequence: new Set(["content", "fullMeasure", "staff", "voice", "directionHint"]),
-  fullMeasure: new Set(["visualDuration", "staffPosition"]),
+  fullMeasure: new Set(["id", "visualDuration", "staffPosition", "fermata", "_x"]),
   duration: new Set(["base", "dots"]),
   event: new Set([
     "type",

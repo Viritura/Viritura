@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { DOMParser } from "@xmldom/xmldom";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
-import { DiagnosticCollector, type NoteEvent, type Score } from "@viritura/core";
+import { DiagnosticCollector, type Caesura, type NoteEvent, type Score } from "@viritura/core";
 import { parseMnx } from "@viritura/format";
 import { convertMusicXmlToMnx, convertMxlToMnx, convertScoreToMusicXml, convertScoreToMxl, MXL_MIME } from "../index";
 
@@ -186,6 +186,94 @@ describe("MusicXML export", () => {
     expect(document(xml).getElementsByTagName("measure")[0]!.getAttribute("implicit")).toBe("yes");
     expect(document(xml).getElementsByTagName("rest")[0]!.getAttribute("measure")).toBe("yes");
     expect(texts(xml, "duration")).toEqual(["1", "1"]);
+  });
+
+  it("round-trips an irregular-meter full-measure rest", () => {
+    const source = score();
+    source.global.measures[0]!.time = { count: 5, unit: 4 };
+    source.parts[0]!.measures[0]!.sequences = [{ content: [], fullMeasure: { visualDuration: { base: "whole" } } }];
+    source.parts[1]!.measures[0]!.sequences = [
+      { content: [whole("whole"), { ...whole("quarter"), duration: { base: "quarter" } }] },
+    ];
+
+    const xml = convertScoreToMusicXml(source, { scoreIndex: 0 }).xml;
+    const imported = parseMnx(convertMusicXmlToMnx(xml));
+    expect(imported.parts[0]!.measures[0]!.sequences[0]).toMatchObject({
+      content: [],
+      fullMeasure: { visualDuration: { base: "whole" } },
+    });
+  });
+
+  it("round-trips a local caesura on a 7/8 full-measure rest", () => {
+    const source = score();
+    source.global.measures[0]!.time = { count: 7, unit: 8 };
+    source.parts[0]!.measures[0]!.sequences = [
+      {
+        content: [],
+        fullMeasure: { visualDuration: { base: "whole" }, caesura: { style: "short" } },
+      },
+    ];
+    source.parts[1]!.measures[0]!.sequences = [
+      {
+        content: [
+          { ...whole("dotted-half"), duration: { base: "half", dots: 1 } },
+          { ...whole("eighth"), duration: { base: "eighth" } },
+        ],
+      },
+    ];
+
+    const xml = convertScoreToMusicXml(source, { scoreIndex: 0 }).xml;
+    expect(texts(xml, "caesura")).toEqual(["short"]);
+    const imported = parseMnx(convertMusicXmlToMnx(xml, { includeVendorExtensions: true }));
+    expect(imported.parts[0]!.measures[0]!.sequences[0]).toMatchObject({
+      content: [],
+      fullMeasure: { visualDuration: { base: "whole" }, caesura: { style: "short" } },
+    });
+    expect(imported.global.measures[0]!.caesura).toBeUndefined();
+  });
+
+  it.each<[Caesura, string, boolean, Caesura]>([
+    [{ marks: 1 }, "single", false, { marks: 1 }],
+    [{ style: "short", marks: 1 }, "short", true, { style: "short" }],
+  ])(
+    "exports a full-rest caesura %j without silently losing an incompatible shape",
+    (caesura, value, warning, importedCaesura) => {
+      const source = score();
+      source.parts[0]!.measures[0]!.sequences = [
+        {
+          content: [],
+          fullMeasure: { visualDuration: { base: "whole" }, caesura },
+        },
+      ];
+      const result = convertScoreToMusicXml(source, { scoreIndex: 1 });
+      expect(texts(result.xml, "caesura")).toEqual([value]);
+      expect(result.diagnostics.some((diagnostic) => diagnostic.code === "musicxml-caesura")).toBe(warning);
+      const imported = parseMnx(convertMusicXmlToMnx(result.xml, { includeVendorExtensions: true }));
+      expect(imported.parts[0]!.measures[0]!.sequences[0]!.fullMeasure?.caesura).toEqual(importedCaesura);
+    },
+  );
+
+  it.each(["event", "global"])("exports a single-stroke %s caesura", (kind) => {
+    const source = score();
+    if (kind === "global") source.global.measures[0]!.caesura = { marks: 1 };
+    else
+      source.parts[0]!.measures[0]!.sequences[0]!.content[0] = {
+        ...whole("single"),
+        markings: { caesura: { marks: 1 } },
+      };
+    expect(texts(convertScoreToMusicXml(source, { scoreIndex: 1 }).xml, "caesura")).toEqual(["single"]);
+  });
+
+  it("round-trips a shared fermata projected onto a full-measure rest", () => {
+    const source = score();
+    source.global.measures[0]!.fermatas = [{ id: "hold", position: { fraction: [1, 2] }, multiplier: 2 }];
+    source.parts[0]!.measures[0]!.sequences = [{ content: [], fullMeasure: { visualDuration: { base: "whole" } } }];
+
+    const xml = convertScoreToMusicXml(source, { scoreIndex: 0 }).xml;
+    const imported = parseMnx(convertMusicXmlToMnx(xml, { includeVendorExtensions: true }));
+
+    expect(imported.global.measures[0]!.fermatas).toEqual(source.global.measures[0]!.fermatas);
+    expect(imported.parts[0]!.measures[0]!.sequences[0]!.fullMeasure).not.toHaveProperty("fermata");
   });
 
   it("applies fitted staff-meter scaling when calculating pickup duration", () => {

@@ -9,7 +9,14 @@ import {
 import type { ExportSequence, PartPlan } from "./types";
 import { displayInterval, writtenPitch } from "./pitch";
 import { displayTransposition, instrumentAt, instrumentNoteId, sourcePosition } from "./instruments";
-import { articulationElements, fermataElement, ornamentElements, technicalElements, tupletElement } from "./markings";
+import {
+  articulationElements,
+  caesuraValue,
+  fermataElement,
+  ornamentElements,
+  technicalElements,
+  tupletElement,
+} from "./markings";
 import { add, compare, divide, durationOf, noteType, rational, ticks, type TimedEvent } from "./rhythm";
 import type { SpannerIndex } from "./spanners";
 import { node, placement, type XmlContext, type XmlElement } from "./xml";
@@ -140,7 +147,13 @@ function globalCaesura(context: NoteContext, timed: TimedEvent): XmlElement | un
     .sort((a, b) => compare(add(a.position, a.duration), add(b.position, b.duration)))
     .at(-1);
   return final === timed
-    ? node(context.xml, "articulations", [node(context.xml, "caesura", measure.global.caesura.style ?? "normal")])
+    ? node(context.xml, "articulations", [
+        node(
+          context.xml,
+          "caesura",
+          caesuraValue(measure.global.caesura, context.diagnostics, `/global/measures/${context.measureIndex}/caesura`),
+        ),
+      ])
     : undefined;
 }
 
@@ -172,6 +185,8 @@ function notationElements(
     ...articulationElements(
       context.xml,
       first ? timed.event : { ...timed.event, markings: undefined },
+      context.diagnostics,
+      `/parts/${context.plan.selection.sourceIndex}/measures/${context.measureIndex}`,
       note && "pitch" in note ? note : undefined,
     ),
   );

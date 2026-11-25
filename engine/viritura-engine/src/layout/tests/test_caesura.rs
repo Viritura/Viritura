@@ -9,6 +9,74 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 
 #[test]
+fn full_measure_caesura_stays_at_the_end_and_clears_another_voice() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 7, "unit": 8}}]},
+        "parts": [{"measures": [{"sequences": [
+            {"content": [], "fullMeasure": {
+                "id": "barrest",
+                "_x": {"viritura": {"caesura": {"shape": "thick", "marks": 2}}}
+            }},
+            {"content": [
+                {"duration": {"base": "half", "dots": 1}, "notes": [{"pitch": {"step": "C", "octave": 5}}]},
+                {"id": "last", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "D", "octave": 5}}]}
+            ]}
+        ]}]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let full = score.parts[0].measures[0].sequences[0]
+        .full_measure
+        .as_ref()
+        .unwrap();
+    let serialized = serde_json::to_value(full).unwrap();
+    assert_eq!(serialized["id"], "barrest");
+    assert_eq!(serialized["_x"]["viritura"]["caesura"]["shape"], "thick");
+    assert_eq!(serialized["_x"]["viritura"]["caesura"]["marks"], 2);
+
+    for page_width in [None, Some(450.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let dl = layout_score(&score, 0, &config);
+        let pause = &dl
+            .element_bboxes
+            .iter()
+            .find(|bbox| bbox.element_id == "p0/m0/s0/barrest/caesura")
+            .expect("full-measure rest caesura")
+            .bbox;
+        let last = &dl
+            .element_bboxes
+            .iter()
+            .find(|bbox| bbox.element_id == "p0/m0/s1/last/n0")
+            .expect("final note of the other voice")
+            .bbox;
+        let bound = &dl.measure_bounds[0];
+        assert!(
+            (bound.x + bound.width - pause.x - pause.width - 0.25 * config.sp).abs() < 1e-6,
+            "caesura must be anchored to the barline: {pause:?}"
+        );
+        assert!(
+            pause.x - last.x - last.width >= 0.3 * config.sp - 1e-6,
+            "caesura must clear the final note: pause={pause:?}, note={last:?}"
+        );
+    }
+}
+
+#[test]
+fn full_measure_caesura_rejects_invalid_marks() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{}]},
+        "parts": [{"measures": [{"sequences": [
+            {"content": [], "fullMeasure": {"_x": {"viritura": {"caesura": {"marks": 3}}}}}
+        ]}]}]
+    }"#;
+    assert!(parse_mnx(json).is_err());
+}
+
+#[test]
 fn global_caesura_system_final_barline_anchor() {
     let mut value = serde_json::to_value(global_caesura_score()).unwrap();
     value["scores"][0]["pages"] = serde_json::json!([{"systems": [

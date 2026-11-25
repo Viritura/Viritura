@@ -557,12 +557,14 @@ mod tests {
         let mut seq = Sequence {
             content: vec![],
             full_measure: Some(FullMeasure {
+                id: None,
                 visual_duration: Duration {
                     base: NoteValueBase::Whole,
                     dots: None,
                 },
                 staff_position: None,
                 fermata: None,
+                caesura: None,
             }),
             staff: None,
             voice: None,

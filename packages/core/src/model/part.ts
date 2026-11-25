@@ -36,6 +36,8 @@ export interface PartVirituraExt {
   instrumentId?: string;
   /** General-MIDI program (0..127). Used directly by the audio engine. */
   midiProgram?: number;
+  /** This instrument is a soloist, not an ensemble section. */
+  solo?: boolean;
   /** Instrument family for spatial placement / catalog routing. */
   family?: string;
   /** Spatial-audio stage position in concert-hall meters. Persisted from Play

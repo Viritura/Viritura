@@ -92,6 +92,7 @@ export interface OttavaEvent {
 export interface MeasureResult {
   voices: Map<string, MnxSequenceContent[]>;
   voiceStaves: Map<string, number>;
+  fullMeasureRests: Map<MnxEvent, { visualDuration: MnxDuration; hasEventAnchors: boolean }>;
   clefs: MnxPositionedClef[];
   dynamics: MnxDynamic[];
   ottavaEvents: OttavaEvent[];
@@ -311,6 +312,7 @@ export function processMeasureNotes(
 ): MeasureResult {
   const voices = new Map<string, MnxSequenceContent[]>();
   const voiceStaves = new Map<string, number>();
+  const fullMeasureRests: MeasureResult["fullMeasureRests"] = new Map();
   const clefs: MnxPositionedClef[] = [];
   const dynamics: MnxDynamic[] = [];
   const ottavaEvents: OttavaEvent[] = [];
@@ -609,6 +611,14 @@ export function processMeasureNotes(
             ? undefined
             : displayPitchToStaffPosition(displayStep, displayOctave, clefAt(staffNum, currentPos));
         event.rest = staffPosition === undefined ? {} : { staffPosition };
+        if (restEl.getAttribute("measure") === "yes") {
+          fullMeasureRests.set(event, {
+            visualDuration: findChild(el, "type") ? durObj : { base: "whole" },
+            hasEventAnchors:
+              findChild(el, "beam") !== null ||
+              ["slur", "glissando", "slide", "non-arpeggiate"].some((name) => notationChildren(el, name).length > 0),
+          });
+        }
       } else {
         const noteObj = buildNote(el, voiceNum, tieIds, ids, flags.noteTranspositions?.get(el) ?? transpose);
         event.notes = [noteObj];
@@ -1003,6 +1013,7 @@ export function processMeasureNotes(
   return {
     voices,
     voiceStaves,
+    fullMeasureRests,
     clefs,
     dynamics: dedupedDynamics,
     ottavaEvents,

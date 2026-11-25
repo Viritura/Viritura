@@ -19,6 +19,7 @@ const DEFINITIONS: &[&str] = &[
     "kit-component-extensions",
     "part-measure-extensions",
     "dynamic-group-extensions",
+    "full-measure-rest-extensions",
     "event-extensions",
     "fermata-extensions",
     "event-markings-extensions",
@@ -327,6 +328,15 @@ pub(super) fn extension_errors(root: &Value) -> Vec<RawScoreValidationError> {
                 );
             }
             for (sequence_index, sequence) in array(measure, "sequences").iter().enumerate() {
+                let full_measure_pointer =
+                    format!("{measure_pointer}/sequences/{sequence_index}/fullMeasure");
+                validate_at(
+                    sequence.get("fullMeasure"),
+                    &full_measure_pointer,
+                    "full-measure-rest-extensions",
+                    &mut consumed,
+                    &mut errors,
+                );
                 validate_at(
                     sequence
                         .get("fullMeasure")
@@ -397,6 +407,25 @@ mod tests {
         assert!(extension_errors(&root)
             .iter()
             .any(|error| error.pointer.ends_with("/localOnly")));
+    }
+
+    #[test]
+    fn full_measure_rest_caesura_extension_is_consumed_and_validated() {
+        let mut root = json!({
+            "parts": [{"measures": [{"sequences": [{
+                "fullMeasure": {
+                    "_x": {"viritura": {"caesura": {"shape": "short", "marks": 1}}}
+                },
+                "content": []
+            }]}]}]
+        });
+        assert!(extension_errors(&root).is_empty());
+
+        root["parts"][0]["measures"][0]["sequences"][0]["fullMeasure"]["_x"]["viritura"]
+            ["caesura"]["marks"] = json!(3);
+        assert!(extension_errors(&root)
+            .iter()
+            .any(|error| error.pointer.ends_with("/caesura/marks")));
     }
 
     #[test]

@@ -64,7 +64,7 @@ export function buildHoldSchedule(
     }
     const caesuras = new Map<number, number>();
     for (const span of spans) {
-      const caesura = span.event?.markings?.caesura;
+      const caesura = span.event?.markings?.caesura ?? span.sequence.fullMeasure?.caesura;
       if (caesura) caesuras.set(span.end, Math.max(caesuras.get(span.end) ?? 0, caesuraBeats(caesura.style)));
     }
     if (measure?.caesura) {

@@ -8,6 +8,16 @@ export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Viritura extensions on a full-measure rest. */
+        "full-measure-rest-extensions": {
+            /** @description A caesura attached to this rest at the end of the measure. */
+            caesura?: {
+                /** @enum {string} */
+                shape?: "normal" | "thick" | "short" | "curved";
+                /** @enum {integer} */
+                marks?: 1 | 2;
+            };
+        };
         /** @description A rhythmic position within a measure, expressed as a fraction of the measure duration. */
         "rhythmic-position": {
             /** @description Fraction as [numerator, denominator]. E.g. [1, 4] = beat 2 in 4/4 time. */
@@ -480,6 +490,8 @@ export interface components {
             transposition?: components["schemas"]["instrument-transposition"];
             /** @description General-MIDI program fallback when the standard sound ID cannot be resolved. */
             midiProgram?: number;
+            /** @description This instrument is a soloist rather than an ensemble section; independent of mixer solo. */
+            solo?: boolean;
         };
         /** @description Display control for the printed change instruction (e.g. 'To Picc.', 'in E♭'). */
         "instrument-change-instruction": {
@@ -593,6 +605,8 @@ export interface components {
             initialInstrument?: string;
             /** @description General-MIDI program (0..127). Used directly by the audio engine. */
             midiProgram?: number;
+            /** @description The part's instrument is a soloist rather than an ensemble section; independent of mixer solo. With instruments, use the active instrument definition instead. */
+            solo?: boolean;
             /** @description Instrument family for spatial placement / catalog routing. */
             family?: string;
             /** @description Spatial-audio stage position in concert-hall meters, persisted from Play mode so a user's instrument arrangement survives reload. */
@@ -1104,6 +1118,7 @@ export type operations = Record<string, never>;
 
 // ─── PascalCase aliases ─────────────────────────────────────────────
 // Auto-generated convenience aliases for every $def in viritura-extensions.json.
+export type FullMeasureRestExtensions = components["schemas"]["full-measure-rest-extensions"];
 export type RhythmicPosition = components["schemas"]["rhythmic-position"];
 export type MeasureRhythmicPosition = components["schemas"]["measure-rhythmic-position"];
 export type TimeExtensions = components["schemas"]["time-extensions"];

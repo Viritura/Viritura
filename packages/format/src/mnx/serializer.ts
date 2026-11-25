@@ -487,11 +487,15 @@ function serializeSequence(seq: Sequence): Obj {
     const fmObj: Obj = {
       visualDuration: serializeDuration(seq.fullMeasure.visualDuration),
     };
+    if (seq.fullMeasure.id) fmObj["id"] = seq.fullMeasure.id;
     if (seq.fullMeasure.staffPosition !== undefined) {
       fmObj["staffPosition"] = seq.fullMeasure.staffPosition;
     }
     if (seq.fullMeasure.fermata) {
       fmObj["fermata"] = serializeFermata(seq.fullMeasure.fermata);
+    }
+    if (seq.fullMeasure.caesura) {
+      fmObj["_x"] = { viritura: serializeGlobalCaesura(seq.fullMeasure.caesura) };
     }
     seqObj["fullMeasure"] = fmObj;
   }

@@ -169,7 +169,14 @@ pub(crate) fn reconcile_caesura_rigid_width(
     width: f64,
     rigid_width: f64,
 ) -> f64 {
-    if measure.global.caesura.is_some() {
+    if measure.global.caesura.is_some()
+        || measure.part.sequences.iter().any(|sequence| {
+            sequence
+                .full_measure
+                .as_ref()
+                .is_some_and(|rest| rest.caesura.is_some())
+        })
+    {
         width.max(rigid_width)
     } else {
         width

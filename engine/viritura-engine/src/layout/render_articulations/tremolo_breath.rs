@@ -235,7 +235,17 @@ pub(crate) fn render_caesuras(
 
             let codepoint = smufl::caesura_glyph(&caesura.style, caesura.marks);
             let (_, glyph_yoff, glyph_w, glyph_h) = smufl::glyph_bbox(codepoint);
-            let next = next_event_after(ml, vl.events.beat_position(i));
+            let full_measure = ml
+                .resolved
+                .part
+                .sequences
+                .get(vl.voice_index)
+                .is_some_and(|sequence| sequence.full_measure.is_some());
+            let next = if full_measure {
+                None
+            } else {
+                next_event_after(ml, vl.events.beat_position(i))
+            };
             let next_x = next.as_ref().map(|ev| ev.x).unwrap_or(ml.x + ml.width);
 
             // The caesura sits in the gap before the next event. That next event

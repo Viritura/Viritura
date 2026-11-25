@@ -93,6 +93,7 @@ pub enum PromoteError {
     /// A globally owned `systemText` entry is malformed or reuses an ID.
     InvalidSystemText(String),
     InvalidGlobalFermata(String),
+    InvalidFullMeasureRest(String),
     InvalidTempoInstruction(String),
     InvalidAutoHideEmptyParts(String),
 }
@@ -119,6 +120,9 @@ impl std::fmt::Display for PromoteError {
             Self::InvalidTextFrame(reason) => write!(f, "Viritura textFrames: {reason}"),
             Self::InvalidSystemText(reason) => write!(f, "Viritura systemText: {reason}"),
             Self::InvalidGlobalFermata(reason) => write!(f, "Viritura fermatas: {reason}"),
+            Self::InvalidFullMeasureRest(reason) => {
+                write!(f, "Viritura full-measure rest: {reason}")
+            }
             Self::InvalidAutoHideEmptyParts(reason) => {
                 write!(f, "Viritura autoHideEmptyParts: {reason}")
             }

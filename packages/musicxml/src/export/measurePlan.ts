@@ -84,9 +84,11 @@ export function preparePart(score: Score, original: ExportPart, diagnostics: Dia
                 content: [
                   {
                     type: "event",
+                    id: sequence.fullMeasure.id,
                     duration: sequence.fullMeasure.visualDuration,
                     rest: { staffPosition: sequence.fullMeasure.staffPosition },
                     fermata: sequence.fullMeasure.fermata,
+                    markings: sequence.fullMeasure.caesura ? { caesura: sequence.fullMeasure.caesura } : undefined,
                   },
                 ],
               }

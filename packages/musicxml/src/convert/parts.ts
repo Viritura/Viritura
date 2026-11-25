@@ -9,7 +9,7 @@ import type {
   MnxPartMeasure,
   MnxRhythmicPosition,
   MnxSystemText,
-  MnxSequenceContent,
+  MnxSequence,
   MnxSpace,
   MnxEvent,
   MnxTie,
@@ -384,7 +384,8 @@ export function buildParts(
       openOttava = pairOttavaEvents(result.ottavaEvents, mi, measureId, openOttava, ottavasByMeasure);
 
       // Build sequences from voices
-      const sequences = [];
+      const sequences: MnxSequence[] = [];
+      const unconvertedFullMeasureRests = new Set(result.fullMeasureRests.keys());
       const sortedVoiceNums = Array.from(result.voices.keys()).sort();
       // MusicXML voice numbers are unique across the whole part (a grand staff
       // typically uses 1,2 then 5,6), so the upper/lower ranking that feeds
@@ -404,12 +405,37 @@ export function buildParts(
         const events = result.voices.get(voiceNum)!;
         if (events.length === 0) continue;
 
-        const seq: {
-          content: typeof events;
-          voice?: string;
-          staff?: number;
-          directionHint?: string;
-        } = { content: events };
+        const seq: MnxSequence = { content: events };
+        const event = events.length === 1 && events[0]?.type === undefined ? events[0] : undefined;
+        const fullRest = event ? result.fullMeasureRests.get(event) : undefined;
+        const caesura = event?.markings?.caesura;
+        const preservesMarkings =
+          !event?.markings ||
+          (vendorExt && caesura !== undefined && Object.keys(event.markings).every((key) => key === "caesura"));
+        // Pickup length is inferred from written content, not fullMeasure rests.
+        const isPickup = mi === 0 && globalMeasures[mi]?.number === 0;
+        if (
+          event &&
+          fullRest &&
+          !isPickup &&
+          !fullRest.hasEventAnchors &&
+          preservesMarkings &&
+          !event.slurs &&
+          !event.lyrics &&
+          !event._x &&
+          event.staff === undefined &&
+          event.stemDirection === undefined
+        ) {
+          seq.content = [];
+          seq.fullMeasure = {
+            ...(event.id ? { id: event.id } : {}),
+            visualDuration: fullRest.visualDuration,
+            ...(event.rest?.staffPosition !== undefined ? { staffPosition: event.rest.staffPosition } : {}),
+            ...(event.fermata ? { fermata: event.fermata } : {}),
+            ...(caesura ? { _x: { viritura: { caesura } } } : {}),
+          };
+          unconvertedFullMeasureRests.delete(event);
+        }
 
         // Assign voice name if multiple voices
         if (result.voices.size > 1) {
@@ -428,14 +454,22 @@ export function buildParts(
         sequences.push(seq);
       }
 
+      if (unconvertedFullMeasureRests.size > 0) {
+        flags.diagnostics?.warn(
+          `/parts/${partIdx}/measures/${mi}/sequences`,
+          "A full-measure rest could not be represented as an MNX full-measure rest without losing timing, content, or notation.",
+          "musicxml-full-measure-rest",
+        );
+      }
+
       // Drop phantom voices that hold only `space` placeholders — leftovers
       // from the backup/forward cursor idiom (a voice positioned but never
       // given real notes). They render as empty voice slots. Only drop them
       // when at least one *real* voice survives, so a genuinely empty bar
       // (a `<forward>`-only measure) still keeps its space sequence and isn't
       // emitted bare.
-      const isSpaceOnly = (seq: { content: MnxSequenceContent[] }): boolean =>
-        seq.content.every((c) => "type" in c && c.type === "space");
+      const isSpaceOnly = (seq: MnxSequence): boolean =>
+        !seq.fullMeasure && seq.content.every((c) => "type" in c && c.type === "space");
       const realSequences = sequences.filter((s) => !isSpaceOnly(s));
       const finalSequences = realSequences.length > 0 ? realSequences : sequences;
 
