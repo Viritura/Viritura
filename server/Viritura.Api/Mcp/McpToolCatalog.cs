@@ -129,11 +129,11 @@ internal static class McpToolCatalog
         new
         {
             name = "score.search_annotations",
-            description = "Search staff/system text, rehearsal marks, tempo text, lyrics and chord symbols with locations suitable for edits. Results are paginated; partIds filters part-owned entries only.",
+            description = "Search staff/system text, rehearsal marks, tempo text, lyrics, chord symbols and shared global fermatas with locations suitable for edits. Results are paginated; partIds filters part-owned entries only.",
             inputSchema = QuerySchema("""
                 {
                     "query": { "type": "string" },
-                    "kinds": { "type": "array", "uniqueItems": true, "items": { "enum": ["staffText", "systemText", "rehearsal", "tempo", "lyric", "chordSymbol"] } },
+                    "kinds": { "type": "array", "uniqueItems": true, "items": { "enum": ["staffText", "systemText", "rehearsal", "tempo", "lyric", "chordSymbol", "fermata"] } },
                     "offset": { "type": "integer", "minimum": 0 },
                     "limit": { "type": "integer", "minimum": 1, "maximum": 200 }
                 }

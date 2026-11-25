@@ -12,6 +12,7 @@ import {
   getEventAtLocation,
   type AnnotationLocation,
   type EventLocation,
+  resolveFullMeasureRestLocation,
 } from "../score/ElementPath";
 import { resolveSelectionMeasureRange, resolveRangeElementIds } from "../store/selectionUtils";
 import type { ChordRange } from "../store/chordRange";
@@ -63,6 +64,7 @@ import { buildChordAnnotationClipboardSelection } from "./chordAnnotationSelecti
 import { getActiveClef, resolveActiveTimeKey } from "./sourceContext";
 import { buildTrackFromEvents, groupByTrack, type TrackedEvent } from "./captureTracks";
 import { captureMeasureSignatures } from "./measureSignatures";
+import { captureProjectedFermatas, projectedClipboardEvent } from "./projectedFermatas";
 export { buildClipboardSourceRef } from "./sourceContext";
 
 /**
@@ -98,9 +100,12 @@ export function buildClipboardSelection(
       ? repeatSelection
       : mergeStructuralClipboardSelection(score, regularSelection, repeatSelection);
   return combined
-    ? withClipboardLyricMetadata(
+    ? captureProjectedFermatas(
         score,
-        selection.kind === "measure" ? { ...combined, cutMeasureSelection: selection } : combined,
+        withClipboardLyricMetadata(
+          score,
+          selection.kind === "measure" ? { ...combined, cutMeasureSelection: selection } : combined,
+        ),
       )
     : null;
 }
@@ -194,7 +199,35 @@ function buildSingleClipboardSelection(
   selectedScoreIndex?: number,
 ): CapturedSelection | null {
   const loc = resolveEventLocation(selection.elementId, score);
-  if (!loc) return null;
+  if (!loc) {
+    const rest = resolveFullMeasureRestLocation(selection.elementId, score);
+    if (!rest) return null;
+    const { time, key } = resolveActiveTimeKey(score, rest.measureIndex);
+    const fullMeasure =
+      score.parts[rest.partIndex]!.measures[rest.measureIndex]!.sequences[rest.sequenceIndex]!.fullMeasure!;
+    const events = decomposeDuration(measureBeats(time)).map((duration, index) => {
+      const event = {
+        type: "event" as const,
+        duration,
+        rest: {},
+        ...(index === 0 && fullMeasure.fermata ? { fermata: structuredClone(fullMeasure.fermata) } : {}),
+      };
+      return index === 0 && score.global.measures[rest.measureIndex]?.fermatas?.length
+        ? projectedClipboardEvent(
+            event,
+            score.global.measures[rest.measureIndex]!.fermatas!.map((fermata) => fermata.position.fraction),
+          )
+        : event;
+    });
+    return {
+      ...rest,
+      eventIndex: 0,
+      events,
+      timeSignature: time,
+      keySignature: key,
+      captureOrigin: { measureIndex: rest.measureIndex, beat: 0 },
+    };
+  }
   const event = getEventAtLocation(score, loc);
   if (!event) return null;
   const routed =
@@ -685,12 +718,23 @@ function collectMeasureTracks(
         if (staffOffsets && (offset < staffOffsets.start || offset > staffOffsets.end)) continue;
         const fullMeasureRest = sequence.fullMeasure && sequence.content.length === 0;
         const content: SequenceContent[] = fullMeasureRest
-          ? decomposeDuration(measureBeats(resolveActiveTimeKey(score, measureIndex).time)).map((duration) => ({
-              type: "event",
-              id: generateEventId(),
-              duration,
-              rest: { staffPosition: sequence.fullMeasure?.staffPosition },
-            }))
+          ? decomposeDuration(measureBeats(resolveActiveTimeKey(score, measureIndex).time)).map((duration, index) => {
+              const event = {
+                type: "event" as const,
+                id: generateEventId(),
+                duration,
+                rest: { staffPosition: sequence.fullMeasure?.staffPosition },
+                ...(index === 0 && sequence.fullMeasure?.fermata
+                  ? { fermata: structuredClone(sequence.fullMeasure.fermata) }
+                  : {}),
+              };
+              return index === 0 && score.global.measures[measureIndex]?.fermatas?.length
+                ? projectedClipboardEvent(
+                    event,
+                    score.global.measures[measureIndex]!.fermatas!.map((fermata) => fermata.position.fraction),
+                  )
+                : event;
+            })
           : sequence.content;
         let sortKey = 0;
         for (let eventIndex = 0; eventIndex < content.length; eventIndex++) {

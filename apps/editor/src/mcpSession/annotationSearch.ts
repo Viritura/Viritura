@@ -2,7 +2,7 @@ import { formatChordSymbolText, plainTextContent, walkSequenceEvents, type Score
 import { measureReference, resolveMeasureRange } from "./measureReferences";
 import { pagination, selectParts } from "./queryFilters";
 
-const KINDS = ["staffText", "systemText", "rehearsal", "tempo", "lyric", "chordSymbol"] as const;
+const KINDS = ["staffText", "systemText", "rehearsal", "tempo", "lyric", "chordSymbol", "fermata"] as const;
 type AnnotationKind = (typeof KINDS)[number];
 
 export function searchAnnotations(score: Score, args: unknown): Record<string, unknown> {
@@ -24,6 +24,15 @@ export function searchAnnotations(score: Score, args: unknown): Record<string, u
   for (let index = startMeasure - 1; index < endMeasure; index++) {
     const global = score.global.measures[index]!;
     const location = measureReference(score, index);
+    global.fermatas?.forEach((fermata) =>
+      add("fermata", "Fermata", {
+        ...location,
+        ...fermata,
+        multiplier: fermata.multiplier ?? 2,
+        clickBehavior: fermata.clickBehavior ?? "silent",
+        appliesTo: "allStaves",
+      }),
+    );
     if (global.rehearsalMark) add("rehearsal", plainTextContent(global.rehearsalMark.text), { ...location });
     global.systemText?.forEach((item, systemTextIndex) =>
       add("systemText", plainTextContent(item.text), {

@@ -502,6 +502,12 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 !meter_state.compatible,
             );
             meter_state.apply_authored_change(&mut virtual_part);
+            crate::layout::resolve::project_global_fermatas_on_staff(
+                &mut virtual_part,
+                &global,
+                active_time.measure_beats(),
+                meter_state.effective.as_ref(),
+            );
             let measure_staff_lines = super::super::staff_lines::resolve_measure_staff_lines(
                 &mut active_staff_lines,
                 virtual_part.staff_configs.as_deref(),

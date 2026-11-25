@@ -330,6 +330,15 @@ pub use crate::raw::UpDown;
 /// `symbol = Normal`, `duration = Auto`, `placement = Auto`, `pointing = Auto`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Fermata {
+    /// Layout-only shared owners. Authored local notation remains unchanged.
+    #[serde(skip)]
+    pub projected_global_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_c")]
+    pub class: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_x")]
+    pub extensions: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub symbol: Option<FermataSymbol>,
     #[serde(skip_serializing_if = "Option::is_none")]

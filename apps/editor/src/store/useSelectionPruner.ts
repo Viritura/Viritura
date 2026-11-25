@@ -20,6 +20,7 @@ import {
   resolveAnnotationLocation,
   resolveGraceLocation,
   resolveFullMeasureRestLocation,
+  resolveGlobalFermata,
 } from "../score/ElementPath";
 import { articulationNamesInMarkings } from "../score/articulationNames";
 import { canonicalNavigationId } from "../navigation";
@@ -29,16 +30,23 @@ import { useViewStateStore } from "./viewStateStore";
 /** True when the element ID still resolves against the current score. */
 export function isSelectionIdValid(elementId: string, score: Score, scoreIndex?: number): boolean {
   if (!elementId.includes("/")) return false;
-  if (elementId.startsWith("text-frame/")) return textFrameExists(elementId, score, scoreIndex);
-  if (elementId.startsWith("slur/")) return slurExists(elementId, score);
-  if (elementId.startsWith("tie/")) return tieExists(elementId, score);
-  if (elementId.startsWith("gliss/")) return glissandoExists(elementId, score);
+  const standalone = standaloneSelectionValidity(elementId, score, scoreIndex);
+  if (standalone !== undefined) return standalone;
 
   const graceMatch = elementId.match(/^(p\d+\/m\d+\/s\d+\/[^/]+\/grace\/[^/]+)(?:\/(.+))?$/);
   if (graceMatch) {
     const location = resolveGraceLocation(graceMatch[1]!, score);
     const event = location ? getGraceEvent(score, location) : undefined;
     return event ? !graceMatch[2] || eventSubElementExists(graceMatch[2], event) : false;
+  }
+
+  function standaloneSelectionValidity(elementId: string, score: Score, scoreIndex?: number): boolean | undefined {
+    if (/^m\d+\/fermata\//.test(elementId)) return resolveGlobalFermata(elementId, score) !== null;
+    if (elementId.startsWith("text-frame/")) return textFrameExists(elementId, score, scoreIndex);
+    if (elementId.startsWith("slur/")) return slurExists(elementId, score);
+    if (elementId.startsWith("tie/")) return tieExists(elementId, score);
+    if (elementId.startsWith("gliss/")) return glissandoExists(elementId, score);
+    return undefined;
   }
 
   if (/^p\d+\/m\d+\/s\d+\//.test(elementId)) {

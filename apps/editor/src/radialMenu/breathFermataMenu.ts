@@ -3,13 +3,15 @@
  */
 
 import type { RadialMenuItem } from "@viritura/ui";
-import type { BreathMarkSymbol, FermataSymbol } from "@viritura/core";
+import type { BreathMarkSymbol, FermataSymbol, FermataDuration } from "@viritura/core";
 import { SMUFL } from "../components/palette/smuflGlyphs";
 import { keys } from "./types";
 
 /** Resolved breath/fermata selection. */
 export type BreathFermataSelection =
-  { kind: "breath"; symbol: BreathMarkSymbol } | { kind: "fermata"; shape: FermataSymbol } | { kind: "caesura" };
+  | { kind: "breath"; symbol: BreathMarkSymbol }
+  | { kind: "fermata"; shape: FermataSymbol; duration?: FermataDuration }
+  | { kind: "caesura" };
 
 interface BreathFermataItem {
   id: string;

@@ -183,6 +183,17 @@ pub(crate) fn render_fermatas(
             let place_below = match fermata.placement {
                 Some(crate::model::Placement::Above) => false,
                 Some(crate::model::Placement::Below) => true,
+                _ if !fermata.projected_global_ids.is_empty() => {
+                    let sequence = ml.resolved.part.sequences.get(vl.voice_index);
+                    is_multi_voice
+                        && sequence
+                            .and_then(|sequence| sequence.direction_hint)
+                            .map_or(vl.voice_index > 0, |hint| match hint {
+                                DirectionHint::Upper => false,
+                                DirectionHint::Lower => true,
+                                DirectionHint::Auto => vl.voice_index > 0,
+                            })
+                }
                 _ => is_multi_voice && !el.stem_up,
             };
             let codepoint = if place_below { below_cp } else { above_cp };
@@ -302,21 +313,31 @@ pub(crate) fn render_fermatas(
                 vl.seq_index_override.unwrap_or(vl.voice_index),
                 &event_id,
             );
-            let ferm_id = element_id::fermata(&ferm_event);
-            dl.push_selectable_command(
-                RenderCommand::DrawGlyph {
-                    x: fx,
-                    y: fy,
-                    codepoint,
-                    font: "Bravura".into(),
-                    size: glyph_size,
-                    color: "#000000".into(),
-                    rotation: 0.0,
-                },
-                ferm_id,
-                ElementKind::Fermata,
-                HitPolicy::Ink,
-            );
+            let ferm_ids = if fermata.projected_global_ids.is_empty() {
+                vec![element_id::fermata(&ferm_event)]
+            } else {
+                fermata
+                    .projected_global_ids
+                    .iter()
+                    .map(|id| element_id::global_fermata(ml.resolved.index, id))
+                    .collect()
+            };
+            for ferm_id in ferm_ids {
+                dl.push_selectable_command(
+                    RenderCommand::DrawGlyph {
+                        x: fx,
+                        y: fy,
+                        codepoint,
+                        font: "Bravura".into(),
+                        size: glyph_size,
+                        color: "#000000".into(),
+                        rotation: 0.0,
+                    },
+                    ferm_id,
+                    ElementKind::Fermata,
+                    HitPolicy::Ink,
+                );
+            }
         }
     }
 }

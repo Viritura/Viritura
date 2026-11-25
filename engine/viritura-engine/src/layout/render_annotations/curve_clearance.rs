@@ -429,7 +429,8 @@ fn shift_fermata(dl: &mut DisplayList, command_idx: usize, original: &BoundingBo
         *y -= dy;
     }
     for element_bbox in &mut dl.element_bboxes {
-        if element_bbox.element_id.ends_with("/ferm")
+        if dl.element_ids.get(command_idx).and_then(Option::as_deref)
+            == Some(element_bbox.element_id.as_str())
             && element_bbox.bbox.x == original.x
             && element_bbox.bbox.y == original.y
             && element_bbox.bbox.width == original.width

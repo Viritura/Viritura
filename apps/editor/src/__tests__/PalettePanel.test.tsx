@@ -663,7 +663,7 @@ describe("PalettePanel", () => {
     });
   });
 
-  it("offers the same standard and Henze fermata variants as the radial menu", async () => {
+  it("offers a global fermata and text-only local fermata", async () => {
     render(
       <TooltipPrimitives.Provider delayDuration={0}>
         <DocumentProvider>
@@ -674,14 +674,7 @@ describe("PalettePanel", () => {
       </TooltipPrimitives.Provider>,
     );
 
-    for (const name of [
-      "Normal fermata",
-      "Very short fermata",
-      "Short fermata",
-      "Long fermata",
-      "Very long fermata",
-      "Long Henze fermata",
-    ]) {
+    for (const name of ["Fermata", "Local fermata"]) {
       expect(await screen.findByRole("button", { name })).toBeTruthy();
     }
   });

@@ -3,6 +3,8 @@
 use super::types::*;
 use crate::model::*;
 
+mod global_fermatas;
+pub(crate) use global_fermatas::project_on_staff as project_global_fermatas_on_staff;
 mod repeat_accidentals;
 mod repeat_signatures;
 pub(crate) use repeat_accidentals::{apply_repeat_courtesy_accidentals, has_repeat_navigation};
@@ -370,6 +372,12 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         if let Some(ref k) = global.key {
             active_key = k.clone();
         }
+        global_fermatas::project(
+            &mut part_measure,
+            &global,
+            active_time.measure_beats(),
+            staff_meter_table.get(i),
+        );
 
         // Carry forward clefs across measures: if this measure has no start clef,
         // inject the last active clef with position (0,1) so it participates in
@@ -665,7 +673,8 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
     }
     let cur = &resolved[i];
     let g = &cur.global;
-    let starts_here = g.caesura.is_some()
+    let starts_here = !g.fermatas().is_empty()
+        || g.caesura.is_some()
         || g.time.is_some()
         || cur
             .chord_symbols
@@ -699,7 +708,8 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
                 | BarlineType::HeavyHeavy
         )
     );
-    let ends_prev = pg.caesura.is_some()
+    let ends_prev = !pg.fermatas().is_empty()
+        || pg.caesura.is_some()
         || prev_barline_breaks
         || pg
             .system_text()

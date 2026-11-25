@@ -51,7 +51,7 @@ pub(crate) fn promote_full_measure_rest(
     Ok(ModelFullMeasure {
         visual_duration,
         staff_position: r.staff_position.map(|p| i32::try_from(p.0).unwrap_or(0)),
-        fermata: r.fermata.map(promote_fermata),
+        fermata: r.fermata.and_then(promote_fermata),
     })
 }
 
@@ -157,7 +157,7 @@ pub(crate) fn promote_event(r: raw::Event) -> Result<ModelEvent, PromoteError> {
         slurs: (!slurs.is_empty()).then_some(slurs),
         glissandos: vendor_glissandos,
         markings: r.markings.map(promote_markings),
-        fermata: r.fermata.map(promote_fermata),
+        fermata: r.fermata.and_then(promote_fermata),
         lyrics: r.lyrics.map(promote_lyrics),
         stem_direction: r.stem_direction.map(promote_stem_direction),
     })

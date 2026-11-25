@@ -1257,6 +1257,34 @@ describe("MCP editor tool dispatch", () => {
     expect(validation.diagnostics.length).toBeGreaterThan(0);
   });
 
+  it("validates global fermata patches and reports uncovered physical staves", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    store.getState().loadScore(score, "test.mnx");
+    const patches = [
+      {
+        kind: "setGlobalMeasureField",
+        measureIndex: 0,
+        update: {
+          field: "fermatas",
+          value: [{ id: "global-hold", position: { fraction: [0, 1] }, multiplier: 3, clickBehavior: "keepClicking" }],
+        },
+      },
+    ];
+    const valid = await dispatchMcpTool(store, "score.validate", { patches });
+    expect(valid.structuredContent).toMatchObject({ valid: true, mode: "patches" });
+    score.parts[0]!.staves = 2;
+    store.getState().loadScore(score, "test.mnx");
+    const missing = await dispatchMcpTool(store, "score.validate", { patches });
+    expect(missing.structuredContent).toMatchObject({
+      valid: false,
+      diagnostics: [expect.stringContaining("staff 2")],
+    });
+    patches[0]!.update.value[0]!.multiplier = 0.5;
+    const invalid = await dispatchMcpTool(store, "score.validate", { patches });
+    expect(invalid.structuredContent).toMatchObject({ valid: false });
+  });
+
   it("rejects a validate call that supplies neither or both inputs", async () => {
     const store = createDocumentStore();
     store.getState().loadScore(makeScore(), "test.mnx");
