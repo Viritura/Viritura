@@ -26,13 +26,10 @@ vi.mock("../store/recentScores", async (importOriginal) => ({
 function mount() {
   const deps: FileMenuDeps = {
     store: createDocumentStore(),
-    loadScore: vi.fn(),
-    resetHistory: vi.fn(),
     loadDefaultScore: vi.fn(),
     loadSampleScore: vi.fn(),
     handleOpenProject: vi.fn(),
-    setSelectedScoreIndex: vi.fn(),
-    setFileHandle: vi.fn(),
+    openFolderHandle: vi.fn(),
     setOpenedFile: vi.fn(),
     setFileError: vi.fn(),
     suppressTrackBanner: true,
@@ -50,6 +47,37 @@ beforeEach(() => {
 });
 
 describe("shared validated MNX opening", () => {
+  it.each([
+    { opened: true, versioned: undefined },
+    { opened: false, versioned: undefined },
+    { opened: true, versioned: false },
+    { opened: false, versioned: false },
+  ])(
+    "reopens a recent as a folder and closes the Start Center only on success ($opened, $versioned)",
+    async ({ opened, versioned }) => {
+      const { deps, result } = mount();
+      const rootHandle = { name: "Session" } as FileSystemDirectoryHandle;
+      vi.mocked(ensureScorePermission).mockResolvedValue(true);
+      vi.mocked(deps.openFolderHandle).mockResolvedValue(opened);
+      const entry: RecentScore = {
+        id: "session",
+        scoreName: "two.mnx",
+        lastOpened: 0,
+        fileHandle: {} as FileSystemFileHandle,
+        vcs: { rootHandle, rootName: "Session", scoreRelPath: "two.mnx", versioned },
+      };
+
+      await result.current.handleSelectRecent(entry);
+
+      expect(deps.openFolderHandle).toHaveBeenCalledWith(rootHandle, {
+        scorePath: "two.mnx",
+        unversioned: versioned === false,
+      });
+      expect(deps.setOpenedFile).not.toHaveBeenCalled();
+      expect(useOnboardingStore.getState().startCenterOpen).toBe(!opened);
+    },
+  );
+
   it("offers a fresh folder picker when a recent project's permission check stalls", async () => {
     const { deps, result } = mount();
     const entry: RecentScore = {
@@ -69,7 +97,7 @@ describe("shared validated MNX opening", () => {
 
     await result.current.handleSelectRecent(entry);
 
-    expect(deps.loadScore).not.toHaveBeenCalled();
+    expect(deps.openFolderHandle).not.toHaveBeenCalled();
     expect(useOnboardingStore.getState().startCenterOpen).toBe(true);
     expect(toast.error).toHaveBeenCalledWith(error.message, {
       duration: Infinity,

@@ -1,12 +1,12 @@
 /**
- * Recent Scores — unified persistence for both folder-backed (VCS) projects
+ * Recent Scores — unified persistence for both folder-backed projects
  * and standalone (plain) MNX files.
  *
  * Replaces the earlier split between `recentProjects.ts` and
  * `recentFiles.ts`. A single store gives us:
  *   • one merged, time-ordered list in the Start Center / Open Recent menu,
  *   • a clean upgrade path: a "plain" recent can later acquire a `vcs`
- *     pointer when the user opts to track its containing folder with Git,
+ *     pointer when the user opens its containing project folder,
  *   • one source of truth for permission re-prompts and handle storage.
  *
  * The two retired DBs (`viritura-projects`, `viritura-recent-files`) are
@@ -22,7 +22,7 @@ const STORE = "recent";
 const LEGACY_PROJECTS_DB = "viritura-projects";
 const LEGACY_FILES_DB = "viritura-recent-files";
 
-/** Discriminated by the presence of `vcs`. */
+/** `vcs` identifies folder-backed projects, including unversioned folders. */
 export interface RecentScore {
   /** Stable id (display name + short hash). */
   id: string;
@@ -31,7 +31,7 @@ export interface RecentScore {
   /** Last opened timestamp (ms since epoch). */
   lastOpened: number;
   /**
-   * The score file handle. Always populated; for VCS scores it's a snapshot
+   * The score file handle. Always populated; for project scores it's a snapshot
    * captured at last open and used as a fast path / fallback. The
    * authoritative location is `vcs.rootHandle` + `vcs.scoreRelPath`.
    */
@@ -41,12 +41,14 @@ export interface RecentScore {
    * project. Absent for standalone files.
    */
   vcs?: {
-    /** Folder handle for the project root (where `.git` lives). */
+    /** Folder handle for the project root. */
     rootHandle: FileSystemDirectoryHandle;
     /** Display name for the project root folder. */
     rootName: string;
     /** POSIX path of the score relative to `rootHandle`. */
     scoreRelPath: string;
+    /** False for a folder opened without Git. Older entries are versioned. */
+    versioned?: boolean;
   };
 }
 
@@ -86,10 +88,31 @@ function makeId(name: string): string {
   return `${name}-${(h >>> 0).toString(36)}`;
 }
 
-/** Returns all stored recents, sorted newest-first. */
-export async function listRecentScores(): Promise<RecentScore[]> {
+let pendingOperation: Promise<unknown> = Promise.resolve();
+
+function runRecentOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = pendingOperation.then(operation);
+  pendingOperation = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+async function sameRecentHandle(left: FileSystemHandle, right: FileSystemHandle): Promise<boolean> {
+  if (left === right) return true;
+  if (!left.isSameEntry) return false;
+  try {
+    return await waitForHandleResult(left.isSameEntry(right), 1000, new Error("Recent location comparison timed out"));
+  } catch (error) {
+    console.warn("Could not compare recent locations:", error);
+    return false;
+  }
+}
+
+async function readRecentScores(): Promise<RecentScore[]> {
   await migrateLegacyOnce();
-  return withStore("readonly", (store) => {
+  const all = await withStore("readonly", (store) => {
     return new Promise<RecentScore[]>((resolve, reject) => {
       const req = store.getAll();
       req.onsuccess = () => {
@@ -100,71 +123,93 @@ export async function listRecentScores(): Promise<RecentScore[]> {
       req.onerror = () => reject(req.error);
     });
   });
+  const duplicates = await Promise.all(
+    all.map(async (entry, index) => {
+      const root = entry.vcs?.rootHandle;
+      if (!root) return false;
+      const matches = await Promise.all(
+        all
+          .slice(0, index)
+          .flatMap((previous) => (previous.vcs ? [sameRecentHandle(previous.vcs.rootHandle, root)] : [])),
+      );
+      return matches.some(Boolean);
+    }),
+  );
+  if (duplicates.some(Boolean)) {
+    await withStore("readwrite", (store) => {
+      all.forEach((entry, index) => {
+        if (duplicates[index]) store.delete(entry.id);
+      });
+    });
+  }
+  return all.filter((_, index) => !duplicates[index]);
 }
 
-/**
- * Insert/update a recent. Existing entries are matched by `isSameEntry()`
- * on the file handle (and, for VCS entries, also on the root handle), then
- * by name as a fallback. Returns the persisted entry.
- *
- * Pass a pre-existing `id` to reuse it (e.g. when upgrading a plain recent
- * to a VCS one without losing its position in the list).
- */
-export async function rememberScore(opts: {
+/** Returns recents newest-first, consolidating older entries for the same project. */
+export function listRecentScores(): Promise<RecentScore[]> {
+  return runRecentOperation(readRecentScores);
+}
+
+interface RememberScoreOptions {
   scoreName: string;
   fileHandle: FileSystemFileHandle;
   vcs?: RecentScore["vcs"];
   id?: string;
-}): Promise<RecentScore> {
-  const existing = await listRecentScores();
-  let matchId = opts.id;
-  if (!matchId) {
-    for (const entry of existing) {
-      try {
-        if (entry.fileHandle.isSameEntry && (await entry.fileHandle.isSameEntry(opts.fileHandle))) {
-          // For VCS entries, also require a root match; otherwise the
-          // same file appearing in two different project folders would
-          // collapse into one entry.
-          if (!opts.vcs && !entry.vcs) {
-            matchId = entry.id;
-            break;
-          }
-          if (
-            opts.vcs &&
-            entry.vcs &&
-            entry.vcs.rootHandle.isSameEntry &&
-            (await entry.vcs.rootHandle.isSameEntry(opts.vcs.rootHandle))
-          ) {
-            matchId = entry.id;
-            break;
-          }
-        }
-      } catch {
-        // Fall through to name match.
-      }
-    }
-  }
-  if (!matchId) {
-    const sameName = existing.find((e) => e.scoreName === opts.scoreName && Boolean(e.vcs) === Boolean(opts.vcs));
-    matchId = sameName?.id;
-  }
-  const id = matchId ?? makeId(opts.scoreName);
-  const entry: RecentScore = {
-    id,
-    scoreName: opts.scoreName,
-    fileHandle: opts.fileHandle,
-    lastOpened: Date.now(),
-    ...(opts.vcs ? { vcs: opts.vcs } : {}),
-  };
-  await withStore("readwrite", (store) => {
-    store.put(entry);
-  });
-  return entry;
 }
 
-export async function forgetScore(id: string): Promise<void> {
-  await withStore("readwrite", (store) => {
-    store.delete(id);
+async function matchesRecentScore(entry: RecentScore, opts: RememberScoreOptions): Promise<boolean> {
+  if (!opts.vcs) return !entry.vcs && sameRecentHandle(entry.fileHandle, opts.fileHandle);
+  const root = opts.vcs.rootHandle;
+  if (entry.vcs) return sameRecentHandle(entry.vcs.rootHandle, root);
+  if (!root.resolve) return sameRecentHandle(entry.fileHandle, opts.fileHandle);
+  try {
+    return (
+      (await waitForHandleResult(root.resolve(entry.fileHandle), 1000, new Error("Recent file lookup timed out"))) !==
+      null
+    );
+  } catch (error) {
+    console.warn("Could not locate a recent file in the project:", error);
+    return false;
+  }
+}
+
+/**
+ * Insert/update one recent per project root or standalone file. Opening a
+ * folder also absorbs older standalone recents located inside that folder.
+ * Only standalone files use the existing file-name fallback.
+ *
+ * Pass a pre-existing `id` to reuse it (e.g. when upgrading a plain recent
+ * to a VCS one without losing its position in the list).
+ */
+export function rememberScore(opts: RememberScoreOptions): Promise<RecentScore> {
+  return runRecentOperation(async () => {
+    const existing = await readRecentScores();
+    const matches = await Promise.all(existing.map((entry) => matchesRecentScore(entry, opts)));
+    const matchedEntries = existing.filter((_, index) => matches[index]);
+    const sameName = opts.vcs ? undefined : existing.find((entry) => !entry.vcs && entry.scoreName === opts.scoreName);
+    const id = opts.id ?? matchedEntries[0]?.id ?? sameName?.id ?? makeId(opts.vcs?.rootName ?? opts.scoreName);
+    const entry: RecentScore = {
+      id,
+      scoreName: opts.scoreName,
+      fileHandle: opts.fileHandle,
+      lastOpened: Date.now(),
+      ...(opts.vcs ? { vcs: opts.vcs } : {}),
+    };
+    await withStore("readwrite", (store) => {
+      for (const previous of matchedEntries) {
+        if (previous.id !== id) store.delete(previous.id);
+      }
+      store.put(entry);
+    });
+    return entry;
+  });
+}
+
+export function forgetScore(id: string): Promise<void> {
+  return runRecentOperation(async () => {
+    await withStore("readwrite", (store) => {
+      store.delete(id);
+    });
   });
 }
 
@@ -175,13 +220,13 @@ export class RecentScorePermissionTimeoutError extends Error {
   }
 }
 
-async function waitForPermission(result: Promise<PermissionState>, timeoutMs: number): Promise<PermissionState> {
+async function waitForHandleResult<T>(result: Promise<T>, timeoutMs: number, timeoutError: Error): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
       result,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new RecentScorePermissionTimeoutError()), timeoutMs);
+        timer = setTimeout(() => reject(timeoutError), timeoutMs);
       }),
     ]);
   } finally {
@@ -190,7 +235,7 @@ async function waitForPermission(result: Promise<PermissionState>, timeoutMs: nu
 }
 
 /**
- * Re-request permission. For VCS recents we ask on the root (so any score
+ * Re-request permission. For project recents we ask on the root (so any score
  * in the folder is reachable); for plain recents we ask on the file handle.
  */
 export async function ensureScorePermission(
@@ -203,12 +248,20 @@ export async function ensureScorePermission(
   };
   const target = (entry.vcs?.rootHandle ?? entry.fileHandle) as unknown as Permissioned;
   if (target.queryPermission) {
-    const current = await waitForPermission(target.queryPermission({ mode }), 5000);
+    const current = await waitForHandleResult(
+      target.queryPermission({ mode }),
+      5000,
+      new RecentScorePermissionTimeoutError(),
+    );
     if (current === "granted") return true;
   }
   if (target.requestPermission) {
     // Allow time to answer a real prompt, but do not wait forever on a stale handle.
-    const next = await waitForPermission(target.requestPermission({ mode }), 60000);
+    const next = await waitForHandleResult(
+      target.requestPermission({ mode }),
+      60000,
+      new RecentScorePermissionTimeoutError(),
+    );
     return next === "granted";
   }
   return true;

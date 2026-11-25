@@ -688,20 +688,19 @@ describe("PlaybackEngine", () => {
       const engine = new PlaybackEngine(audioCtx, { scheduleAheadTime: 10, tickIntervalMs: 25 });
       engine.loadTimeline(createTestTimeline(), new Map());
 
-      const clicks: Array<{ time: number; accented: boolean }> = [];
-      engine.setClickCallback((time, accented) => clicks.push({ time, accented }));
+      const clicks: Array<{ time: number; level: string }> = [];
+      engine.setClickCallback((time, level) => clicks.push({ time, level }));
       engine.setClickTrack([
-        { time: 0, accented: true },
-        { time: 1.0, accented: false },
-        { time: 2.0, accented: false },
+        { time: 0, level: "accent" },
+        { time: 1.0, level: "beat" },
+        { time: 2.0, level: "subdivision" },
       ]);
 
       engine.play();
 
       // All three clicks are within the 10s look-ahead window of the first tick.
       expect(clicks).toHaveLength(3);
-      expect(clicks[0]!.accented).toBe(true);
-      expect(clicks[1]!.accented).toBe(false);
+      expect(clicks.map((click) => click.level)).toEqual(["accent", "beat", "subdivision"]);
 
       engine.stop();
     });
@@ -709,7 +708,7 @@ describe("PlaybackEngine", () => {
     it("should not fire clicks when no callback is set", () => {
       const engine = new PlaybackEngine(audioCtx, { scheduleAheadTime: 10, tickIntervalMs: 25 });
       engine.loadTimeline(createTestTimeline(), new Map());
-      engine.setClickTrack([{ time: 0, accented: true }]);
+      engine.setClickTrack([{ time: 0, level: "accent" }]);
 
       // No callback wired → play must not throw.
       expect(() => engine.play()).not.toThrow();
@@ -721,7 +720,7 @@ describe("PlaybackEngine", () => {
       const engine = new PlaybackEngine(audioCtx, { scheduleAheadTime: 10, tickIntervalMs: 25 });
       const clicks: number[] = [];
       engine.setClickCallback((time) => clicks.push(time));
-      engine.setClickTrack([{ time: 0, accented: true }]);
+      engine.setClickTrack([{ time: 0, level: "accent" }]);
 
       engine.loadTimeline(createTestTimeline(), new Map());
       engine.play();

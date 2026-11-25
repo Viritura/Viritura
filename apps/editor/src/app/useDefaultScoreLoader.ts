@@ -32,6 +32,7 @@ interface UseDefaultScoreLoaderArgs {
 export interface DefaultScoreLoader {
   loadDefaultScore: () => void;
   loadSampleScore: (sample: ScoreSample) => Promise<boolean>;
+  loadOpenedFile: (file: OpenFileResult) => boolean;
 }
 
 export function useDefaultScoreLoader({
@@ -44,6 +45,7 @@ export function useDefaultScoreLoader({
   setFileError,
 }: UseDefaultScoreLoaderArgs): DefaultScoreLoader {
   const fermataNoticeFile = useRef<OpenFileResult | null>(null);
+  const lastLoadedFile = useRef<OpenFileResult | null>(null);
   const loadBundledScore = useCallback(
     async (sample: ScoreSample) => {
       const response = await fetch(`${import.meta.env.BASE_URL}scores/${sample.file}`);
@@ -93,69 +95,80 @@ export function useDefaultScoreLoader({
     });
   }, [loadBundledScore, loadScore, resetHistory, store]);
 
-  // Load opened file into document context. Sequences that fail validation are
-  // emptied so the rest of the score still opens; any error is reported in the
-  // import error log dialog.
-  useEffect(() => {
-    if (!openedFile) return;
-    const recovery =
-      openedFile.importRecovery !== undefined
-        ? { mnxJson: openedFile.mnxJson, recovered: openedFile.importRecovery }
-        : recoverImportedMnx(openedFile.mnxJson);
-    const converterWarnings = (openedFile.importDiagnostics ?? [])
-      .filter((diagnostic) => diagnostic.severity === "warning")
-      .map((diagnostic) => diagnostic.message);
-    try {
-      if (openedFile.importFailure) throw new Error(openedFile.importFailure);
-      const diagnostics = new DiagnosticCollector();
-      const parsed = parseMnx(JSON.parse(recovery.mnxJson), { diagnostics });
-      const unmerged = diagnostics
-        .all()
-        .filter((notice) => notice.code === "unmerged-local-fermata" && !converterWarnings.includes(notice.message));
-      converterWarnings.push(...unmerged.map((notice) => notice.message));
-      setSelectedScoreIndex(0);
-      loadScore(parsed, openedFile.filename);
-      resetHistory(store.getState().mnxJson || recovery.mnxJson);
-      // Never let a plain Save overwrite the source with the emptied sequences.
-      setFileHandle(recovery.recovered.length > 0 ? null : openedFile.fileHandle);
-      setFileError(null);
-      const warning = formatImportWarning({ ...openedFile, importDiagnostics: [...unmerged] });
-      if (warning && fermataNoticeFile.current !== openedFile) {
-        fermataNoticeFile.current = openedFile;
-        toast.warning(warning.message, { description: warning.description });
-      }
-      if (recovery.recovered.length > 0) {
+  const loadOpenedFile = useCallback(
+    (openedFile: OpenFileResult): boolean => {
+      const recovery =
+        openedFile.importRecovery !== undefined
+          ? { mnxJson: openedFile.mnxJson, recovered: openedFile.importRecovery }
+          : recoverImportedMnx(openedFile.mnxJson);
+      const converterWarnings = (openedFile.importDiagnostics ?? [])
+        .filter((diagnostic) => diagnostic.severity === "warning")
+        .map((diagnostic) => diagnostic.message);
+      try {
+        if (openedFile.importFailure) throw new Error(openedFile.importFailure);
+        const diagnostics = new DiagnosticCollector();
+        const parsed = parseMnx(JSON.parse(recovery.mnxJson), { diagnostics });
+        const unmerged = diagnostics
+          .all()
+          .filter((notice) => notice.code === "unmerged-local-fermata" && !converterWarnings.includes(notice.message));
+        converterWarnings.push(...unmerged.map((notice) => notice.message));
+        setSelectedScoreIndex(0);
+        loadScore(parsed, openedFile.filename);
+        resetHistory(store.getState().mnxJson || recovery.mnxJson);
+        // Never let a plain Save overwrite the source with the emptied sequences.
+        setFileHandle(recovery.recovered.length > 0 ? null : openedFile.fileHandle);
+        setFileError(null);
+        const warning = formatImportWarning({ ...openedFile, importDiagnostics: [...unmerged] });
+        if (warning && fermataNoticeFile.current !== openedFile) {
+          fermataNoticeFile.current = openedFile;
+          toast.warning(warning.message, { description: warning.description });
+        }
+        if (recovery.recovered.length > 0) {
+          showImportErrorLog(
+            buildImportErrorLog({
+              filename: openedFile.filename,
+              mnxJson: openedFile.mnxJson,
+              recovered: recovery.recovered,
+              converterWarnings,
+            }),
+          );
+        }
+        if (openedFile.percussionReviewPartIndices?.length) {
+          toast.warning(
+            `Review ${openedFile.percussionReviewPartIndices.length} percussion ${openedFile.percussionReviewPartIndices.length === 1 ? "map" : "maps"}: MusicXML did not identify every sound.`,
+            { description: openedFile.percussionReviewReasons?.join("\n") },
+          );
+          openPercussionReviewForParts(openedFile.percussionReviewPartIndices, openedFile.percussionReviewReasons);
+        }
+        lastLoadedFile.current = openedFile;
+        return true;
+      } catch (err) {
+        console.error("Failed to load opened file:", err);
+        setFileError(formatOpenedFileError(openedFile.filename, err));
+        toast.error(`Failed to open ${openedFile.filename}`);
         showImportErrorLog(
           buildImportErrorLog({
             filename: openedFile.filename,
             mnxJson: openedFile.mnxJson,
             recovered: recovery.recovered,
+            failure: err,
             converterWarnings,
           }),
         );
+        return false;
       }
-      if (openedFile.percussionReviewPartIndices?.length) {
-        toast.warning(
-          `Review ${openedFile.percussionReviewPartIndices.length} percussion ${openedFile.percussionReviewPartIndices.length === 1 ? "map" : "maps"}: MusicXML did not identify every sound.`,
-          { description: openedFile.percussionReviewReasons?.join("\n") },
-        );
-        openPercussionReviewForParts(openedFile.percussionReviewPartIndices, openedFile.percussionReviewReasons);
-      }
-    } catch (err) {
-      console.error("Failed to load opened file:", err);
-      setFileError(formatOpenedFileError(openedFile.filename, err));
-      toast.error(`Failed to open ${openedFile.filename}`);
-      showImportErrorLog(
-        buildImportErrorLog({
-          filename: openedFile.filename,
-          mnxJson: openedFile.mnxJson,
-          recovered: recovery.recovered,
-          failure: err,
-          converterWarnings,
-        }),
-      );
-    }
-  }, [openedFile, loadScore, resetHistory, store, setSelectedScoreIndex, setFileHandle, setFileError]);
+    },
+    [loadScore, resetHistory, store, setSelectedScoreIndex, setFileHandle, setFileError],
+  );
 
-  return { loadDefaultScore, loadSampleScore };
+  // Sequences that fail validation are recovered and reported in the import error log.
+  useEffect(() => {
+    if (!openedFile) {
+      lastLoadedFile.current = null;
+    } else if (lastLoadedFile.current !== openedFile) {
+      loadOpenedFile(openedFile);
+    }
+  }, [openedFile, loadOpenedFile]);
+
+  return { loadDefaultScore, loadSampleScore, loadOpenedFile };
 }

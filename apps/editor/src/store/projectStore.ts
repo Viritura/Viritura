@@ -20,7 +20,16 @@ import {
   synthesizeCommitMessage,
 } from "../git";
 import { FsaFs } from "../git/fs/fsaFs";
-import { rememberScore } from "./recentScores";
+import { listRecentScores, rememberScore } from "./recentScores";
+import { scanForMnxFiles } from "./folderScan";
+
+/** A score file inside an open project folder. */
+export interface ProjectScoreFile {
+  /** POSIX-style path relative to the project folder. */
+  readonly relativePath: string;
+  /** File name shown to the user. */
+  readonly name: string;
+}
 import { setRecentScores } from "./onboardingStore";
 
 /**
@@ -44,6 +53,10 @@ export interface ProjectState {
   projectFolder: FileSystemDirectoryHandle | null;
   /** Exact disk contents loaded or last saved for the active project. */
   projectDiskBaseline: string | null;
+  /** Every `.mnx` file discovered in `projectFolder`, in scan order. */
+  projectScores: readonly ProjectScoreFile[];
+  /** Path of the open score relative to `projectFolder`. */
+  activeScorePath: string | null;
   status: ProjectStatus | null;
   /** Commit log, newest first. Empty array in standalone mode. */
   log: CommitInfo[];
@@ -57,6 +70,17 @@ export interface ProjectState {
   /** Replace the active adapter and refresh derived state. */
   setAdapter(adapter: ProjectAdapter | null, projectFolder?: FileSystemDirectoryHandle): Promise<void>;
   setProjectDiskBaseline(adapter: ProjectAdapter, json: string): void;
+  /**
+   * Record the score files of an open project folder. Plain (unversioned)
+   * folders call this after clearing the adapter so the folder stays known.
+   */
+  setProjectScores(
+    projectFolder: FileSystemDirectoryHandle,
+    scores: readonly ProjectScoreFile[],
+    activeScorePath: string,
+  ): void;
+  /** Re-scan the project folder so newly added scores appear. */
+  rescanProjectScores(): Promise<void>;
 
   /** Re-read status + log (typically after a commit or external change). */
   refresh(): Promise<void>;
@@ -83,10 +107,14 @@ export interface ProjectState {
   swapSelection(): void;
 }
 
+let refreshSequence = 0;
+
 export const useProjectStore = create<ProjectState>((set, get) => ({
   adapter: null,
   projectFolder: null,
   projectDiskBaseline: null,
+  projectScores: [],
+  activeScorePath: null,
   status: null,
   log: [],
   selection: { from: null, to: WORKING_TREE_SHA },
@@ -97,6 +125,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       adapter,
       projectFolder: adapter ? (projectFolder ?? null) : null,
       projectDiskBaseline: null,
+      projectScores: [],
+      activeScorePath: null,
       log: [],
       status: null,
       selection: { from: null, to: WORKING_TREE_SHA },
@@ -108,7 +138,21 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (get().adapter === adapter) set({ projectDiskBaseline: json });
   },
 
+  setProjectScores(projectFolder, projectScores, activeScorePath) {
+    set({ projectFolder, projectScores: withActiveScore(projectScores, activeScorePath), activeScorePath });
+  },
+
+  async rescanProjectScores() {
+    const { projectFolder, activeScorePath, adapter } = get();
+    if (!projectFolder || !activeScorePath) return;
+    const scores = await scanForMnxFiles(projectFolder);
+    const current = get();
+    if (current.projectFolder !== projectFolder || current.adapter !== adapter) return;
+    set({ projectScores: withActiveScore(scores, current.activeScorePath ?? activeScorePath) });
+  },
+
   async refresh() {
+    const sequence = ++refreshSequence;
     const { adapter } = get();
     if (!adapter) {
       set({ status: null, log: [] });
@@ -119,6 +163,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (adapter.isVersioned()) {
       log = await adapter.log(200);
     }
+    if (get().adapter !== adapter || sequence !== refreshSequence) return;
     // Default selection: from = HEAD's parent (or HEAD itself if root commit), to = working tree
     const selection = computeDefaultSelection(log, get().selection);
     set({ status, log, selection });
@@ -262,7 +307,13 @@ export async function bootProjectFromHandle(opts: {
   rootHandle: FileSystemDirectoryHandle;
   scorePath: string;
   /** If true, initialise a new repo with `initialJson`. Otherwise open existing. */
-  init?: { initialJson: string; initialMessage?: string };
+  init?: { initialJson: string; initialMessage?: string; preserveExistingScore?: boolean };
+  /** Scores already discovered in `rootHandle`; scanned in the background when omitted. */
+  scores?: readonly ProjectScoreFile[];
+  /** Validate the exact disk contents before replacing the active project. */
+  validateScore?: (json: string) => void;
+  /** Load the validated document synchronously as the new adapter becomes active. */
+  onActivated?: () => void;
 }): Promise<GitProjectAdapter> {
   const fs = new FsaFs(opts.rootHandle);
   let adapter: GitProjectAdapter;
@@ -273,6 +324,7 @@ export async function bootProjectFromHandle(opts: {
       scorePath: opts.scorePath,
       initialJson: opts.init.initialJson,
       initialMessage: opts.init.initialMessage,
+      preserveExistingScore: opts.init.preserveExistingScore,
     });
   } else {
     adapter = await openRepo({
@@ -282,14 +334,29 @@ export async function bootProjectFromHandle(opts: {
     });
   }
   const baseline = await adapter.readScore();
-  await useProjectStore.getState().setAdapter(adapter, opts.rootHandle);
+  opts.validateScore?.(baseline);
+  const refresh = useProjectStore.getState().setAdapter(adapter, opts.rootHandle);
   useProjectStore.getState().setProjectDiskBaseline(adapter, baseline);
+  const recordScores = (scores: readonly ProjectScoreFile[]) => {
+    if (useProjectStore.getState().adapter !== adapter) return;
+    useProjectStore.getState().setProjectScores(opts.rootHandle, scores, opts.scorePath);
+  };
+  if (opts.scores) {
+    recordScores(opts.scores);
+  } else {
+    recordScores([]);
+    void scanForMnxFiles(opts.rootHandle)
+      .then(recordScores)
+      .catch((err: unknown) => console.warn("Failed to list project scores:", err));
+  }
+  opts.onActivated?.();
+  await refresh;
   // Recent-handle comparisons can stall in the browser; bookkeeping must not
   // prevent an already-read project from opening.
   void resolveFileHandle(opts.rootHandle, opts.scorePath)
     .then(async (fileHandle) => {
       if (!fileHandle) return;
-      const entry = await rememberScore({
+      await rememberScore({
         scoreName: lastSegment(opts.scorePath),
         fileHandle,
         vcs: {
@@ -298,13 +365,13 @@ export async function bootProjectFromHandle(opts: {
           scoreRelPath: opts.scorePath,
         },
       });
-      setRecentScores((previous) => [entry, ...previous.filter((recent) => recent.id !== entry.id)]);
+      setRecentScores(await listRecentScores());
     })
     .catch((err: unknown) => console.warn("Failed to record recent project score:", err));
   return adapter;
 }
 
-async function resolveFileHandle(
+export async function resolveFileHandle(
   root: FileSystemDirectoryHandle,
   relPath: string,
 ): Promise<FileSystemFileHandle | null> {
@@ -328,4 +395,10 @@ async function resolveFileHandle(
 function lastSegment(p: string): string {
   const parts = p.split("/").filter(Boolean);
   return parts[parts.length - 1] ?? p;
+}
+
+/** Keep the open score listed even when the scan cap or a race omitted it. */
+function withActiveScore(scores: readonly ProjectScoreFile[], activeScorePath: string): readonly ProjectScoreFile[] {
+  if (scores.some((score) => score.relativePath === activeScorePath)) return scores;
+  return [...scores, { relativePath: activeScorePath, name: lastSegment(activeScorePath) }];
 }

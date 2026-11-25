@@ -1,5 +1,5 @@
 /** Sounds available to both the recording click and the playback metronome. */
-export const CLICK_SOUNDS = ["tick", "woodblock", "beep"] as const;
+export const CLICK_SOUNDS = ["tick", "woodblock", "beep", "oscillator"] as const;
 export type ClickSound = (typeof CLICK_SOUNDS)[number];
 export const DEFAULT_CLICK_SOUND: ClickSound = "tick";
 
@@ -16,13 +16,20 @@ const BEEP_SPECS = [
   [880, 0.03],
   [660, 0.02],
 ] as const;
+const OSCILLATOR_SPECS = [
+  [880, 0.05, 0.8],
+  [440, 0.03, 0.4],
+  [440, 0.03, 0.2],
+] as const;
 
-function beepVoice(sampleRate: number, level: number): Float32Array {
-  const [frequency, duration] = BEEP_SPECS[level]!;
+function sineVoice(sampleRate: number, sound: "beep" | "oscillator", level: number): Float32Array {
+  const [frequency, duration] = sound === "oscillator" ? OSCILLATOR_SPECS[level]! : BEEP_SPECS[level]!;
+  const gain = sound === "oscillator" ? OSCILLATOR_SPECS[level]![2] : GAINS[level]!;
   const samples = new Float32Array(Math.max(1, Math.ceil(duration * sampleRate)));
-  const decay = Math.log(1000) / samples.length;
+  const decay =
+    sound === "oscillator" ? Math.log(gain / 0.001) / (duration * sampleRate) : Math.log(1000) / samples.length;
   for (let i = 0; i < samples.length; i++) {
-    samples[i] = GAINS[level]! * Math.sin((2 * Math.PI * frequency * i) / sampleRate) * Math.exp(-decay * i);
+    samples[i] = gain * Math.sin((2 * Math.PI * frequency * i) / sampleRate) * Math.exp(-decay * i);
   }
   return samples;
 }
@@ -70,6 +77,8 @@ export function synthesizeClickVoices(sampleRate: number, sound: ClickSound): Cl
   if (!Number.isFinite(sampleRate) || sampleRate <= 0) throw new RangeError("Click sample rate must be positive");
   if (!isClickSound(sound)) throw new RangeError(`Unknown click sound: ${String(sound)}`);
   const voice = (level: number) =>
-    sound === "beep" ? beepVoice(sampleRate, level) : percussiveVoice(sampleRate, sound, level);
+    sound === "beep" || sound === "oscillator"
+      ? sineVoice(sampleRate, sound, level)
+      : percussiveVoice(sampleRate, sound, level);
   return [voice(0), voice(1), voice(2)];
 }

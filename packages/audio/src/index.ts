@@ -27,7 +27,7 @@ export { DEFAULT_ENGINE_OPTIONS } from "./types";
 
 // Metronome
 export { Metronome } from "./Metronome";
-export type { MetronomeOptions, MetronomeBeat } from "./Metronome";
+export type { MetronomeOptions } from "./Metronome";
 
 // Click-only recording engine (dedicated AudioContext + click worklet)
 export {

@@ -8,6 +8,7 @@ import type { Score } from "@viritura/core";
 import type { OpenFileResult } from "../commands/fileCommands";
 import type { InitialScoreSettings } from "../score/ScoreBuilder";
 import { useFileLaunch } from "../pwa";
+import { useProjectFileSwitchRegistration } from "../projectFiles";
 
 type DocumentStoreApi = ReturnType<typeof useDocumentStoreApi>;
 type LoadScore = (score: Score, fileName?: string, mnxJson?: string) => void;
@@ -83,6 +84,7 @@ export function useFileHandlers(params: UseFileHandlersParams): FileHandlers {
     store,
     loadScore,
     resetHistory,
+    loadOpenedFile: defaultLoader.loadOpenedFile,
     setSelectedScoreIndex,
     setFileHandle,
     setOpenedFile,
@@ -92,13 +94,10 @@ export function useFileHandlers(params: UseFileHandlersParams): FileHandlers {
 
   const fileMenu = useFileMenuActions({
     store,
-    loadScore,
-    resetHistory,
     loadDefaultScore: defaultLoader.loadDefaultScore,
     loadSampleScore: defaultLoader.loadSampleScore,
     handleOpenProject: folder.handleOpenProject,
-    setSelectedScoreIndex,
-    setFileHandle,
+    openFolderHandle: folder.openFolderHandle,
     setOpenedFile,
     setFileError,
     suppressTrackBanner,
@@ -108,6 +107,7 @@ export function useFileHandlers(params: UseFileHandlersParams): FileHandlers {
 
   const fileSave = useFileSaveActions({ store, fileHandle, setFileHandle, openedFile, resetHistory });
   useFileLaunch({ store, handleOpenFileResult: fileMenu.handleOpenFileResult, setFileError });
+  useProjectFileSwitchRegistration({ store, openProjectScore: folder.openProjectScore, save: fileSave.handleSave });
 
   return { ...defaultLoader, ...folder, ...fileMenu, ...fileSave };
 }

@@ -21,6 +21,7 @@
 
 .left {
   justify-content: flex-start;
+  gap: var(--space-1);
 }
 
 .center {

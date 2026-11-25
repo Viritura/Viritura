@@ -1,0 +1,62 @@
+/* ProjectFileSwitcher: the open project's .mnx files, left of the score switcher. */
+
+.root {
+  position: relative;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.trigger {
+  max-width: 220px;
+}
+
+.triggerLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popover {
+  min-width: 240px;
+  max-width: 360px;
+  composes: vi-glass-floating from global;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-2);
+  padding: 6px;
+  z-index: 60;
+}
+
+.searchWrap {
+  padding: 2px 2px 6px;
+}
+
+.list {
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder {
+  margin-left: 6px;
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}
+
+.check {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.empty {
+  padding: 10px 8px;
+  font-size: var(--type-small-size);
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+}

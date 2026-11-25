@@ -36,13 +36,10 @@ function harness(route: "menu" | "start center" | "drop", extension = "musx") {
   const setFileError = vi.fn();
   const deps: FileMenuDeps = {
     store: { getState: () => ({ score: null }) } as unknown as DocumentStore,
-    loadScore: vi.fn(),
-    resetHistory: vi.fn(),
     loadDefaultScore: vi.fn(),
     loadSampleScore: vi.fn(),
     handleOpenProject: vi.fn(),
-    setSelectedScoreIndex: vi.fn(),
-    setFileHandle: vi.fn(),
+    openFolderHandle: vi.fn(),
     setOpenedFile,
     setFileError,
     suppressTrackBanner: false,

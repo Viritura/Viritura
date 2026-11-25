@@ -36,14 +36,18 @@ export async function initRepo(opts: {
   scorePath: string;
   initialJson: string;
   initialMessage?: string;
+  preserveExistingScore?: boolean;
 }): Promise<GitProjectAdapter> {
-  await git.init({ fs: opts.fs, dir: "/", defaultBranch: DEFAULT_BRANCH });
   const adapter = new GitProjectAdapter({
     fs: opts.fs,
     name: opts.name,
     scorePath: opts.scorePath,
   });
-  await adapter.writeScore(opts.initialJson);
+  if (opts.preserveExistingScore && (await adapter.readScore()) !== opts.initialJson) {
+    throw new Error("The score changed on disk while initializing. Open the folder again.");
+  }
+  await git.init({ fs: opts.fs, dir: "/", defaultBranch: DEFAULT_BRANCH });
+  if (!opts.preserveExistingScore) await adapter.writeScore(opts.initialJson);
   const sha = await adapter.commit(opts.initialMessage ?? "Initial draft");
   if (sha == null) {
     throw new Error("initial commit produced no SHA");
@@ -102,6 +106,28 @@ async function hasUnbornHead(fs: IsoGitFs): Promise<boolean> {
 
 function isMissingFile(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+
+async function hasOtherStagedChanges(fs: IsoGitFs, scorePath: string): Promise<boolean> {
+  let changed = false;
+  await git.walk({
+    fs,
+    dir: "/",
+    trees: [git.TREE({ ref: "HEAD" }), git.STAGE()],
+    map: async (filepath, [head, stage]) => {
+      if (filepath === scorePath) return;
+      const [headType, stageType] = await Promise.all([head?.type(), stage?.type()]);
+      if (headType === "tree" || stageType === "tree") return;
+      const [headOid, stageOid, headMode, stageMode] = await Promise.all([
+        head?.oid(),
+        stage?.oid(),
+        head?.mode(),
+        stage?.mode(),
+      ]);
+      if (headOid !== stageOid || headMode !== stageMode) changed = true;
+    },
+  });
+  return changed;
 }
 
 export class GitProjectAdapter implements ProjectAdapter {
@@ -195,6 +221,9 @@ export class GitProjectAdapter implements ProjectAdapter {
     }
     if (!isDirty) return null;
 
+    if (await hasOtherStagedChanges(this.fs, this.scorePath)) {
+      throw new Error("Other files are staged. Commit or unstage them before updating version history.");
+    }
     await git.add({ fs: this.fs, dir: "/", filepath: this.scorePath });
     const ident = getIdentity();
     const sha = await git.commit({
@@ -207,7 +236,8 @@ export class GitProjectAdapter implements ProjectAdapter {
   }
 
   async log(limit: number = 100): Promise<CommitInfo[]> {
-    const commits = await this.readCommitLog(limit);
+    // Other scores in the same folder share this repository; their commits are not this score's history.
+    const commits = await this.readCommitLog(limit, this.scorePath);
 
     // Build an SHA → refs map so we can decorate entries with branch/tag chips.
     const refMap: Record<string, string[]> = {};
@@ -415,9 +445,9 @@ export class GitProjectAdapter implements ProjectAdapter {
     return branch;
   }
 
-  private async readCommitLog(limit: number): Promise<Awaited<ReturnType<typeof git.log>>> {
+  private async readCommitLog(limit: number, filepath?: string): Promise<Awaited<ReturnType<typeof git.log>>> {
     try {
-      return await git.log({ fs: this.fs, dir: "/", depth: limit });
+      return await git.log({ fs: this.fs, dir: "/", depth: limit, ...(filepath ? { filepath } : {}) });
     } catch {
       return [];
     }

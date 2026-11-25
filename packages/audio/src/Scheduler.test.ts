@@ -220,8 +220,8 @@ describe("Scheduler", () => {
       getAudioTime,
       {
         events: [
-          { time: -1, accented: false },
-          { time: 0, accented: true },
+          { time: -1, level: "beat" },
+          { time: 0, level: "accent" },
         ],
         onClick: (at) => clicks.push(at),
       },
@@ -349,15 +349,15 @@ describe("Scheduler", () => {
 
   describe("click track", () => {
     it("should schedule clicks within the lookahead window at precise audio times", () => {
-      const clicked: Array<{ audioTime: number; accented: boolean }> = [];
+      const clicked: Array<{ audioTime: number; level: string }> = [];
       const scheduler = new Scheduler([], { scheduleAheadTime: 5, tickIntervalMs: 25 }, () => {}, getAudioTime, {
         events: [
-          { time: 0, accented: true },
-          { time: 1.0, accented: false },
-          { time: 2.0, accented: false },
-          { time: 6.0, accented: true },
+          { time: 0, level: "accent" },
+          { time: 1.0, level: "beat" },
+          { time: 2.0, level: "subdivision" },
+          { time: 6.0, level: "accent" },
         ],
-        onClick: (at, accented) => clicked.push({ audioTime: at, accented }),
+        onClick: (at, level) => clicked.push({ audioTime: at, level }),
       });
 
       scheduler.start(0);
@@ -368,9 +368,9 @@ describe("Scheduler", () => {
       expect(times).toContain(2.0);
       // 6.0 is beyond the 5s window
       expect(times).not.toContain(6.0);
-      // Downbeat is accented; others are not
-      expect(clicked.find((c) => c.audioTime === 0)!.accented).toBe(true);
-      expect(clicked.find((c) => c.audioTime === 1.0)!.accented).toBe(false);
+      expect(clicked.find((c) => c.audioTime === 0)!.level).toBe("accent");
+      expect(clicked.find((c) => c.audioTime === 1.0)!.level).toBe("beat");
+      expect(clicked.find((c) => c.audioTime === 2.0)!.level).toBe("subdivision");
 
       scheduler.stop();
     });
@@ -379,9 +379,9 @@ describe("Scheduler", () => {
       const clicked: number[] = [];
       const scheduler = new Scheduler([], { scheduleAheadTime: 5, tickIntervalMs: 25 }, () => {}, getAudioTime, {
         events: [
-          { time: 0, accented: true },
-          { time: 1.0, accented: false },
-          { time: 3.0, accented: false },
+          { time: 0, level: "accent" },
+          { time: 1.0, level: "beat" },
+          { time: 3.0, level: "beat" },
         ],
         onClick: (at) => clicked.push(at),
       });
@@ -397,10 +397,10 @@ describe("Scheduler", () => {
     });
 
     it("should map click score time to audio time under tempo scaling", () => {
-      const clicked: Array<{ audioTime: number; accented: boolean }> = [];
+      const clicked: Array<{ audioTime: number; level: string }> = [];
       const scheduler = new Scheduler([], { scheduleAheadTime: 10, tickIntervalMs: 25 }, () => {}, getAudioTime, {
-        events: [{ time: 4.0, accented: false }],
-        onClick: (at, accented) => clicked.push({ audioTime: at, accented }),
+        events: [{ time: 4.0, level: "beat" }],
+        onClick: (at, level) => clicked.push({ audioTime: at, level }),
       });
 
       // 2x tempo: score-time 4.0 lands at audio-time 2.0

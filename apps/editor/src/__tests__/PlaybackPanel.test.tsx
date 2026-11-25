@@ -23,11 +23,11 @@ describe("PlaybackPanel", () => {
     expect(screen.getByRole("radiogroup", { name: "Metronome sound" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "Tick" }).getAttribute("aria-checked")).toBe("true");
 
-    fireEvent.click(screen.getByRole("radio", { name: "Woodblock" }));
-    expect(localStorage.getItem("viritura.metronome.sound")).toBe("woodblock");
+    fireEvent.click(screen.getByRole("radio", { name: "Original oscillator" }));
+    expect(localStorage.getItem("viritura.metronome.sound")).toBe("oscillator");
     panel.unmount();
     render(<PlaybackPanel />);
-    expect(screen.getByRole("radio", { name: "Woodblock" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("radio", { name: "Original oscillator" }).getAttribute("aria-checked")).toBe("true");
     fireEvent.click(screen.getByRole("radio", { name: "Tick" }));
   });
 
@@ -54,6 +54,8 @@ describe("PlaybackPanel", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: "Beep" }));
     await waitFor(() => expect(engine.setSound).toHaveBeenLastCalledWith("beep"));
+    fireEvent.click(screen.getByRole("radio", { name: "Original oscillator" }));
+    await waitFor(() => expect(engine.setSound).toHaveBeenLastCalledWith("oscillator"));
     expect(engine.start).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("radio", { name: "Tick" }));
   });

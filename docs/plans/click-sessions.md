@@ -29,9 +29,24 @@ Implemented:
   the updated document is adopted after stopping. The selected start bar is
   kept when it remains valid. With no document open, the activity shows an empty state.
 - **Click sound:** Settings → Playback offers a synthesized tick, woodblock,
-  or classic beep for both the metronome and Click activity. The preference is
+  beep, or **Original oscillator** for both the metronome and Click activity. The preference is
   saved on the device. Click voices are prepared before playback and selected
-  on the audio thread without changing scheduled click frames.
+  on the audio thread without changing scheduled click frames. Editor playback
+  uses the same generated accent, beat, and subdivision voices, including Beep.
+  Original oscillator preserves the previous editor sine click: an 880 Hz,
+  50 ms accent at gain 0.8 and a 440 Hz, 30 ms beat at gain 0.4, each decaying
+  exponentially to 0.001. Subdivisions use a quieter 440 Hz voice at gain 0.2.
+  These waveforms are generated up front for both transports rather than
+  restoring a separate synthesis path.
+- **Project file picker:** Open a folder containing multiple MNX files and
+  switch between them from the toolbar, including in Click. A folder without
+  Git can be opened as-is or initialized with version history. Switching resolves
+  unsaved changes, is disabled during live sessions, and starts the new file at
+  its first bar. Opening the picker refreshes the file list. If other Git
+  changes are already staged, the score is saved but the automatic commit is
+  blocked, leaving those staged changes intact and showing a warning. Recents
+  list each project folder once, including folders opened without Git, and
+  reopen its last selected MNX file. Standalone files remain separate recents.
 - **Shared score surface and floating transport** — Click reuses the editor's
   already-mounted `ScoreCanvas`; score/part selection, view mode, bar taps, and
   click playhead overlays all use that surface rather than mounting a second
@@ -151,11 +166,17 @@ Tempo markings now persist `clickSubdivision` (1-5, default 1 at every tempo
 instruction) with exact
 mid-bar positions, through standard MNX tempo extensions and shared system
 instructions. The tempo inspector edits **Clicks per beat**. The Click activity
-uses these settings for score clicks and the starting countoff, including
-source-position restoration on repeated visits and jumps.
+and editor metronome use the same program compiler for score clicks and their
+countoff/count-in, including authored beat groups, source-position restoration
+on repeated visits and jumps, and fermata click behavior. For example, 10/8
+authored as `3+2+2+3` produces four beat clicks at subdivision 1 in either mode.
+Editor count-in is one full bar in the opening meter, not a series of
+quarter-note pulses. Its events are shifted to negative score time; score
+playback retains its existing look-ahead scheduler while recording Click keeps
+its isolated, preloaded audio worklet.
 
-Remaining: the project setlist picker, persisted session settings, the detached controller,
-additional rehearsal navigation, and the release gates below.
+Remaining: ordered and shared setlists, persisted session settings, the detached
+controller, additional rehearsal navigation, and the release gates below.
 
 Single-document smoke check: start the UI through `pnpm dev:stack up ui`, open
 the editor origin from `pnpm dev:stack url`, open a score, choose **Click** in
@@ -561,7 +582,11 @@ Keep the project root and active document separate:
 - Folder scope owns discovered paths, ordering, and session settings.
 - Document scope owns the selected MNX, its undo history, save target, disk
   baseline, and score-specific playback program.
+- Opening another document stops playback and resets the playhead to the
+  beginning. Ordinary score edits preserve the playback position.
 - Existing standalone-file opening remains available and unchanged.
+- Opening a folder without Git offers **Initialize Git project** or **Open
+  without Git**, with cancellation leaving the current document unchanged.
 - Versioned folders retain path-correct save, history, review, and commit behavior.
   Switching tracks must not reinitialize a repository or automatically commit.
 
@@ -632,6 +657,57 @@ Reuse supported storage abstractions; do not assume every browser implements a
 directory picker. Offer multi-file selection as an in-memory session fallback,
 with explicit manifest/MNX download and file-reassociation steps on reopening.
 Do not make the ZIP-container project a prerequisite.
+
+### Sharing a setlist by Gist link (proposed)
+
+Musicians often need to practice with a setlist without being added to a
+private repository. A secret GitHub Gist with several files is a link-only
+setlist source:
+
+- The Gist mirrors the session folder: one flat directory of `.mnx` files plus
+  an optional `session.viritura.json`. Use the same manifest rules as a local
+  folder: preserve manifest order, add other files sorted by filename, show
+  missing entries as unavailable, and reject unsafe paths. Gists have no
+  subfolders, so relative paths are file names only.
+- The existing `/s/gist` link is not enough. `main.tsx` renders the standalone
+  `GistShareViewer` for that path instead of the main app shell, and
+  [`gistShare/source.ts`](../../apps/editor/src/gistShare/source.ts) accepts
+  exactly one `.mnx` file. The Click activity, track picker, and shared score
+  canvas exist only inside the main shell.
+- Add a setlist source abstraction in the main app. A local folder, a
+  multi-file selection, and a Gist each provide an ordered list of tracks, an
+  optional manifest, and a way to read one MNX file. The track picker and Click
+  activity use only this interface, so they do not need to know where tracks
+  come from. The Gist source reuses and generalizes the existing ID/revision
+  validation, size limits, truncated-file handling, and rate-limit errors.
+- Boot the main app from a setlist link, for example
+  `/?open=gist-setlist#id=<gist>`, with an optional pinned revision. It loads the Gist
+  through that source, opens the first or manifest-selected track, and goes
+  straight to the Click activity. Also offer **Open setlist link** inside the
+  app, so a player can switch setlists without leaving it.
+- A Gist session is read-only. Editing, saving, committing, recent-file
+  bookkeeping, and collaboration are disabled or offer **Download** / **Save a
+  copy** instead. A track switch loads the selected MNX into the same document
+  pipeline that a local track uses, without prompting about unsaved changes.
+- Fetch the Gist once per load and keep each file's content in memory for that
+  revision, so switching tracks costs no extra requests. The existing
+  single-score `/s/gist` viewer keeps working, and a multi-file Gist opened there
+  should offer to open it as a setlist.
+- Keep the Gist ID in the URL fragment so it is not sent to Viritura servers.
+  Links follow the latest revision by default. A pinned revision gives
+  everyone the same version for a rehearsal.
+- Listeners do not need GitHub accounts. A listener's tempo percentage and
+  selected track are saved only on their device and never written back.
+- Limits to state in the share dialog: a secret Gist is unlisted, not private.
+  Anyone with the link can open or forward it, and the owner's username and
+  revision history are visible. You cannot revoke one person's access; you
+  must delete the Gist or replace it with a new link. Anonymous GitHub API
+  requests are limited to 60 per hour per IP address, and players on shared
+  rehearsal Wi-Fi share that limit. Cache each loaded revision and report
+  rate limiting clearly.
+- The first version accepts a Gist the user created manually. Creating or
+  updating the Gist from Viritura is a later step. Revocable, Viritura-hosted
+  setlist links belong with [read-only sharing](./read-only-sharing.md).
 
 ## Programmable resolution
 

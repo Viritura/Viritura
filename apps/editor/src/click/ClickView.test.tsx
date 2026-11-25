@@ -3,6 +3,7 @@ import type { PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import type { ClickEngineEvent, ClickSound } from "@viritura/audio/click";
+import { Button } from "@viritura/ui";
 import score from "../../../../packages/format/fixtures/mnx/c-major-scale.mnx?raw";
 import rehearsals from "../../../../packages/format/fixtures/mnx/rehearsal-marks.mnx?raw";
 import multipleLayouts from "../../../../packages/format/fixtures/mnx/multiple-layouts.mnx?raw";
@@ -10,6 +11,7 @@ import { ClickView } from "./index";
 import { useClickPlayer } from "./useClickPlayer";
 import { keyboardRegistry } from "../keyboard/KeyboardRegistry";
 import { AppShell } from "../components/AppShell";
+import { DocumentProvider, useDocumentStoreApi } from "../store/DocumentContext";
 import {
   publishClickCanvasConfig,
   publishClickCanvasPlayback,
@@ -76,10 +78,21 @@ function SharedCanvasProbe() {
 
 function ClickTestShell({ children }: PropsWithChildren) {
   return (
-    <AppShell>
-      {children}
-      <SharedCanvasProbe />
-    </AppShell>
+    <DocumentProvider>
+      <AppShell>
+        {children}
+        <SharedCanvasProbe />
+      </AppShell>
+    </DocumentProvider>
+  );
+}
+
+function DocumentGenerationControl() {
+  const store = useDocumentStoreApi();
+  return (
+    <Button onClick={() => store.setState((state) => ({ documentGeneration: state.documentGeneration + 1 }))}>
+      Open identical document
+    </Button>
   );
 }
 
@@ -164,6 +177,77 @@ describe("click activity", () => {
     expect(result.current.startBar).toBe(2);
     expect(result.current.error).toBe("");
     expect(audio.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps the start bar through edits but starts another project score from its beginning", () => {
+    const { result, rerender } = renderHook(
+      ({ mnx, documentGeneration }) => useClickPlayer(mnx, { documentGeneration }),
+      { initialProps: { mnx: rehearsals, documentGeneration: 1 } },
+    );
+    act(() => result.current.setStartBar(2));
+    rerender({ mnx: `${rehearsals} `, documentGeneration: 1 });
+    expect(result.current.startBar).toBe(2);
+    rerender({ mnx: `${rehearsals} `, documentGeneration: 2 });
+    expect(result.current.startBar).toBe(0);
+    act(() => result.current.setStartBar(2));
+    rerender({ mnx: rehearsals, documentGeneration: 2 });
+    expect(result.current.startBar).toBe(2);
+  });
+
+  it("stops and resets when an identical document opens during a take", async () => {
+    const { result, rerender } = renderHook(
+      ({ documentGeneration }) => useClickPlayer(rehearsals, { documentGeneration }),
+      { initialProps: { documentGeneration: 1 } },
+    );
+    act(() => result.current.setStartBar(2));
+    await act(async () => result.current.play());
+    rerender({ documentGeneration: 2 });
+    await waitFor(() => expect(audio.stop).toHaveBeenCalledOnce());
+    await waitFor(() => expect(result.current.phase).toBe("ready"));
+    expect(result.current.startBar).toBe(0);
+    expect(result.current.error).toContain("score changed");
+  });
+
+  it("observes identical-document changes from the editor store", async () => {
+    render(
+      <ClickTestShell>
+        <ClickView mnx={rehearsals} />
+        <DocumentGenerationControl />
+      </ClickTestShell>,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("region", { name: "Click player" }).getAttribute("aria-busy")).toBe("false"),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Bar 3, rehearsal B" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByRole("button", { name: "Open identical document" }));
+    await waitFor(() => expect(audio.stop).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: "Bar 1, rehearsal A" }).getAttribute("aria-selected")).toBe("true"),
+    );
+  });
+
+  it("does not start when an identical document opens during preparation", async () => {
+    let finishLoad!: (count: number) => void;
+    audio.load.mockReturnValueOnce(new Promise<number>((resolve) => (finishLoad = resolve)));
+    const { result, rerender } = renderHook(
+      ({ documentGeneration }) => useClickPlayer(rehearsals, { documentGeneration }),
+      { initialProps: { documentGeneration: 1 } },
+    );
+    let playing!: Promise<void>;
+    act(() => {
+      playing = result.current.play();
+    });
+    await waitFor(() => expect(audio.load).toHaveBeenCalledOnce());
+    rerender({ documentGeneration: 2 });
+    await act(async () => {
+      finishLoad(0);
+      await playing;
+    });
+    expect(audio.start).not.toHaveBeenCalled();
+    expect(result.current.error).toContain("score changed");
   });
 
   it("uses the app toolbar's shared score picker and preserves the selected view during playback", async () => {
@@ -369,7 +453,11 @@ describe("click activity", () => {
   });
 
   it("shows an empty state when no document is open", () => {
-    render(<ClickView mnx="" />);
+    render(
+      <DocumentProvider>
+        <ClickView mnx="" />
+      </DocumentProvider>,
+    );
     expect(screen.getByText("Open or create a score to set up a click track.")).toBeTruthy();
     expect(screen.queryByRole("region", { name: "Click player" })).toBeNull();
     expect(screen.queryByRole("group", { name: "Click settings" })).toBeNull();

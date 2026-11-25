@@ -154,7 +154,7 @@ export class PlaybackEngine {
 
   /**
    * Set the sink invoked for each scheduled click at its precise audio time —
-   * typically `(t, accented) => metronome.scheduleClick(t, accented)`. `null`
+   * typically `(t, level) => metronome.scheduleClick(t, level)`. `null`
    * disables click scheduling. Persists across {@link loadTimeline}.
    */
   setClickCallback(callback: ClickCallback | null): void {

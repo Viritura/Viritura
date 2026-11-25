@@ -9,11 +9,11 @@ afterEach(() => {
 });
 
 describe("metronome sound preference", () => {
-  it("loads the saved sound when the store is initialized", async () => {
-    localStorage.setItem("viritura.metronome.sound", "woodblock");
+  it.each(["woodblock", "oscillator"])("loads the saved %s sound when the store is initialized", async (sound) => {
+    localStorage.setItem("viritura.metronome.sound", sound);
     vi.resetModules();
     const { getMetronomeSound } = await import("./metronomeSettingsStore");
-    expect(getMetronomeSound()).toBe("woodblock");
+    expect(getMetronomeSound()).toBe(sound);
   });
 
   it("reports an invalid saved sound and uses the default", async () => {

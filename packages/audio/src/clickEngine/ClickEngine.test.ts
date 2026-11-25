@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClickEngine, ClickEngineError, type ClickEngineEvent } from "./ClickEngine";
 import { compileClickProgram } from "./clickProgram";
 import { buildClickWorklet, CLICK_PROCESSOR_NAME } from "./workletSource";
-import { synthesizeClickVoices } from "../clickSound";
+import { CLICK_SOUNDS, synthesizeClickVoices } from "../clickSound";
 
 const SAMPLE_RATE = 48_000;
 const BLOCK = 128;
@@ -199,17 +199,17 @@ describe("ClickEngine", () => {
     ).toBe(true);
   });
 
-  it.each(["tick", "woodblock", "beep"] as const)("keeps %s on the same scheduled frames", async (sound) => {
+  it.each(CLICK_SOUNDS)("keeps %s on the same scheduled frames", async (sound) => {
     const { device, engine } = await createEngine();
     await engine.setSound(sound);
     await engine.load([
       { time: 0, level: "accent" },
-      { time: 0.05, level: "beat" },
-      { time: 0.1, level: "subdivision" },
+      { time: 0.07, level: "beat" },
+      { time: 0.14, level: "subdivision" },
     ]);
     await engine.start(0, 0.01);
-    device.render(8_000);
-    expect(onsets(device.left)).toEqual([480, 2_880, 5_280]);
+    device.render(10_000);
+    expect(onsets(device.left)).toEqual([480, 3_840, 7_200]);
   });
 
   it("rejects an unknown sound rather than silently selecting a different one", async () => {

@@ -934,7 +934,7 @@ describe("global chords through the real browser provider", () => {
       const scheduled = sources.mock.results[0]!.value.buffer;
 
       const reference = new Metronome({ audioContext: context, sound: "woodblock" });
-      reference.scheduleClick(context.currentTime, true);
+      reference.scheduleClick(context.currentTime, "accent");
       const expected = sources.mock.results.at(-1)!.value.buffer;
       expect(scheduled?.getChannelData(0)).toEqual(expected?.getChannelData(0));
       reference.dispose();

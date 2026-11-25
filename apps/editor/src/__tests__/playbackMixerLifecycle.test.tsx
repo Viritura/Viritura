@@ -34,7 +34,6 @@ vi.mock("@viritura/audio", async (importOriginal) => {
     ),
     Metronome: vi.fn(
       class {
-        static getBeatsForMeasure = actual.Metronome.getBeatsForMeasure;
         setEnabled = vi.fn();
         scheduleClick = vi.fn();
         dispose = vi.fn();

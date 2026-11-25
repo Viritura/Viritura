@@ -9,6 +9,7 @@ export {
 } from "./ClickEngine";
 export {
   compileClickProgram,
+  CLICK_LEVEL_CODES,
   type ClickLevel,
   type ClickProgramEvent,
   type CompiledClickProgram,

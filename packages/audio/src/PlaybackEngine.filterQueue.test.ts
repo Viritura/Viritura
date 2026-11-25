@@ -75,7 +75,7 @@ describe.each(["parts", "lanes", "facades", "layers"] as const)("SF2 filter queu
     engine = new PlaybackEngine(worklet.sf2Synth.context, { leadInTime: 0, scheduleAheadTime: 0.2 });
     engine.loadTimeline(timeline, samplers);
     click = vi.fn();
-    engine.setClickTrack([{ time: 0.1, accented: true }]);
+    engine.setClickTrack([{ time: 0.1, level: "accent" }]);
     engine.setClickCallback(click);
   });
 
@@ -120,7 +120,7 @@ describe.each(["parts", "lanes", "facades", "layers"] as const)("SF2 filter queu
       expect(worklet.received.filter((event) => (event.data.messageData[0]! & 0xf0) === 0xb0)).toHaveLength(
         controlsBefore,
       );
-      expect(click).toHaveBeenCalledExactlyOnceWith(0.1, true);
+      expect(click).toHaveBeenCalledExactlyOnceWith(0.1, "accent");
       expect(worklet.outputNode.gain.value).toBe(0.35);
       worklet.advance(0.64);
       for (const channel of channelsForPart(1)) expect(worklet.channels[channel]!.voices).toEqual(new Set([60]));

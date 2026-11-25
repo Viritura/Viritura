@@ -31,7 +31,12 @@
   min-width: 0;
 }
 
-.scorePicker button {
+.filePicker {
+  width: clamp(64px, 25cqw, 220px);
+}
+
+.scorePicker button,
+.filePicker button {
   max-width: 100%;
 }
 
@@ -57,7 +62,8 @@
 }
 
 @container click-toolbar (max-width: 220px) {
-  .scorePicker {
+  .scorePicker,
+  .filePicker {
     width: 64px;
   }
 
@@ -72,6 +78,7 @@
 
 @media (max-width: 600px), (pointer: coarse) {
   .scorePicker button,
+  .filePicker button,
   .statusBar button {
     min-height: 44px;
   }
