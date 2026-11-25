@@ -94,13 +94,10 @@ export function useFileHandlers(params: UseFileHandlersParams): FileHandlers {
 
   const fileMenu = useFileMenuActions({
     store,
-    loadScore,
-    resetHistory,
     loadDefaultScore: defaultLoader.loadDefaultScore,
     loadSampleScore: defaultLoader.loadSampleScore,
     handleOpenProject: folder.handleOpenProject,
-    setSelectedScoreIndex,
-    setFileHandle,
+    openFolderHandle: folder.openFolderHandle,
     setOpenedFile,
     setFileError,
     suppressTrackBanner,

@@ -10,9 +10,10 @@ import {
 import type { OpenFileResult } from "../commands/fileCommands";
 import { useProjectStore } from "../store/projectStore";
 import { formatImportWarning } from "./importDiagnostics";
+import type { FolderOpenActions } from "./useFolderOpen";
 
 interface UseDragAndDropArgs {
-  openFolderHandle: (handle: FileSystemDirectoryHandle) => Promise<void>;
+  openFolderHandle: FolderOpenActions["openFolderHandle"];
   setIsDragOver: (over: boolean) => void;
   setFileError: (err: string | null) => void;
   setOpenedFile: (file: OpenFileResult | null) => void;

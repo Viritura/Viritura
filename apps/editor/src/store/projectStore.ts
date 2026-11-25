@@ -20,7 +20,7 @@ import {
   synthesizeCommitMessage,
 } from "../git";
 import { FsaFs } from "../git/fs/fsaFs";
-import { rememberScore } from "./recentScores";
+import { listRecentScores, rememberScore } from "./recentScores";
 import { scanForMnxFiles } from "./folderScan";
 
 /** A score file inside an open project folder. */
@@ -356,7 +356,7 @@ export async function bootProjectFromHandle(opts: {
   void resolveFileHandle(opts.rootHandle, opts.scorePath)
     .then(async (fileHandle) => {
       if (!fileHandle) return;
-      const entry = await rememberScore({
+      await rememberScore({
         scoreName: lastSegment(opts.scorePath),
         fileHandle,
         vcs: {
@@ -365,7 +365,7 @@ export async function bootProjectFromHandle(opts: {
           scoreRelPath: opts.scorePath,
         },
       });
-      setRecentScores((previous) => [entry, ...previous.filter((recent) => recent.id !== entry.id)]);
+      setRecentScores(await listRecentScores());
     })
     .catch((err: unknown) => console.warn("Failed to record recent project score:", err));
   return adapter;

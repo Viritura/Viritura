@@ -35,6 +35,7 @@ import type { RefObject, MutableRefObject } from "react";
 import type { useNoteInput } from "../store/noteInputStore";
 import type { EditorKeyboardActions } from "../keyboard/useEditorKeyboard";
 import { useLyricEntryCommand } from "../lyrics";
+import type { FolderOpenActions } from "./useFolderOpen";
 
 type NoteInputState = ReturnType<typeof useNoteInput>["state"];
 type JumpBarActions = ReturnType<typeof useJumpBarActions>;
@@ -104,7 +105,7 @@ interface UseInteractionHandlersParams {
   // radial menu state
   radialMenu: RadialMenuState | null;
   // drag-and-drop
-  openFolderHandle: (handle: FileSystemDirectoryHandle) => Promise<void>;
+  openFolderHandle: FolderOpenActions["openFolderHandle"];
   setIsDragOver: (over: boolean) => void;
   setFileError: (err: string | null) => void;
   setOpenedFile: (file: OpenFileResult | null) => void;

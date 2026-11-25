@@ -34,7 +34,7 @@ export interface FolderOpenDeps {
 }
 
 export interface FolderOpenActions {
-  openFolderHandle: (handle: FileSystemDirectoryHandle) => Promise<void>;
+  openFolderHandle: (handle: FileSystemDirectoryHandle, options?: RecentFolderOptions) => Promise<boolean>;
   handleOpenProject: () => Promise<void>;
   handleTrackWithGit: () => Promise<void>;
   /**
@@ -42,6 +42,11 @@ export interface FolderOpenActions {
    * document. Callers resolve unsaved changes first. Resolves true on success.
    */
   openProjectScore: (relativePath: string) => Promise<boolean>;
+}
+
+interface RecentFolderOptions {
+  scorePath: string;
+  unversioned: boolean;
 }
 
 interface ProjectScoreRequest {
@@ -87,10 +92,16 @@ async function readValidScore(handle: FileSystemFileHandle, recover: boolean): P
   }
 }
 
-async function chooseDefaultScore(
+async function chooseProjectScore(
   root: FileSystemDirectoryHandle,
   scores: DiscoveredScore[],
-): Promise<DiscoveredScore> {
+  scorePath?: string,
+): Promise<DiscoveredScore | null> {
+  if (scorePath) {
+    const chosen = scores.find((score) => score.relativePath === scorePath);
+    if (!chosen) toast.error(`${scorePath} is no longer in ${root.name}. Open the project folder again.`);
+    return chosen ?? null;
+  }
   try {
     return pickDefaultScore(root.name, scores, await listRecentScores()) ?? scores[0]!;
   } catch (error) {
@@ -155,14 +166,13 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
       void useProjectStore.getState().setAdapter(null);
       useProjectStore.getState().setProjectScores(root, scores, score.relativePath);
       setOpenedFile(openedFile);
-      rememberScore({ scoreName: file.name, fileHandle: handle })
-        .then(async () => {
-          try {
-            setRecentScores(await listRecentScores());
-          } catch (error) {
-            console.warn("Could not update recent scores:", error);
-          }
-        })
+      void rememberScore({
+        scoreName: file.name,
+        fileHandle: handle,
+        vcs: { rootHandle: root, rootName: root.name, scoreRelPath: score.relativePath, versioned: false },
+      })
+        .then(listRecentScores)
+        .then(setRecentScores)
         .catch((error: unknown) => console.warn("Could not remember the opened score:", error));
       return true;
     },
@@ -170,25 +180,28 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
   );
 
   const openFolderHandle = useCallback(
-    async (handle: FileSystemDirectoryHandle) => {
+    async (handle: FileSystemDirectoryHandle, options?: RecentFolderOptions) => {
       const inspection = await inspectProjectFolder(handle);
-      if (!inspection) return;
+      if (!inspection) return false;
       const { hasGit, scores } = inspection;
 
       let mode: "git" | "plain";
       if (hasGit) {
         mode = "git";
+      } else if (options?.unversioned) {
+        mode = "plain";
       } else {
         const choice = await openFolderConfirm(handle.name, scores.length);
-        if (!choice) return;
+        if (!choice) return false;
         mode = choice === "init" ? "git" : "plain";
       }
 
-      const chosen = await chooseDefaultScore(handle, scores);
+      const chosen = await chooseProjectScore(handle, scores, options?.scorePath);
+      if (!chosen) return false;
       const request: ProjectScoreRequest = { root: handle, score: chosen, handle: chosen.handle, scores };
       try {
         const file = await readValidScore(chosen.handle, mode === "plain");
-        if (!file) return;
+        if (!file) return false;
         if (mode === "git") {
           await loadVersionedScore(
             request,
@@ -202,12 +215,14 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
             openDialog("projectGitHubSetup");
           }
         } else {
-          if (!loadPlainScore(request, file)) return;
+          if (!loadPlainScore(request, file)) return false;
           toast.success(`Opened ${file.name}`);
         }
+        return true;
       } catch (err) {
         console.error("Open folder failed:", err);
         toast.error("Failed to open folder");
+        return false;
       }
     },
     [canSetUpGitHubRepository, loadVersionedScore, loadPlainScore],

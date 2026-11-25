@@ -1,8 +1,6 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { parseMnx } from "@viritura/format";
 import { validateMnxJson } from "../commands/fileCommands";
-import type { Score } from "@viritura/core";
 import type { OpenFileResult } from "../commands/fileCommands";
 import { importMusicFile, openMnxFile } from "../commands/fileCommands";
 import {
@@ -20,22 +18,20 @@ import {
   setSuppressTrackBanner,
   setTrackBannerFile,
 } from "../store/onboardingStore";
-import { useProjectStore, bootProjectFromHandle } from "../store/projectStore";
+import { useProjectStore } from "../store/projectStore";
 import type { DocumentStore } from "../store/documentStore";
 import type { ScoreSample } from "../scoreSamples";
 import { isFolderProjectSupported } from "./projectFolder";
 import type { InitialScoreSettings } from "../score/ScoreBuilder";
 import { formatImportWarning } from "./importDiagnostics";
+import type { FolderOpenActions } from "./useFolderOpen";
 
 export interface FileMenuDeps {
   store: DocumentStore;
-  loadScore: (score: Score, fileName?: string, mnxJson?: string) => void;
-  resetHistory: (json: string) => void;
   loadDefaultScore: () => void;
   loadSampleScore: (sample: ScoreSample) => Promise<boolean>;
   handleOpenProject: () => Promise<void>;
-  setSelectedScoreIndex: (i: number) => void;
-  setFileHandle: (h: FileSystemFileHandle | null) => void;
+  openFolderHandle: FolderOpenActions["openFolderHandle"];
   setOpenedFile: (f: OpenFileResult | null) => void;
   setFileError: (s: string | null) => void;
   suppressTrackBanner: boolean;
@@ -102,13 +98,10 @@ function reportRecentOpenError(
 export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
   const {
     store,
-    loadScore,
-    resetHistory,
     loadDefaultScore,
     loadSampleScore,
     handleOpenProject,
-    setSelectedScoreIndex,
-    setFileHandle,
+    openFolderHandle,
     setOpenedFile,
     setFileError,
     suppressTrackBanner,
@@ -130,13 +123,8 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
       setStartCenterOpen(false);
       if (result.fileHandle) {
         rememberScore({ scoreName: result.filename, fileHandle: result.fileHandle })
-          .then((entry) => {
-            setRecentScores((prev) => {
-              const next = prev.filter((f) => f.id !== entry.id);
-              next.unshift(entry);
-              return next;
-            });
-          })
+          .then(listRecentScores)
+          .then(setRecentScores)
           .catch((err) => console.warn("Failed to remember recent score:", err));
       }
       const folderPickerAvailable = isFolderProjectSupported();
@@ -193,20 +181,14 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
           return;
         }
         if (entry.vcs) {
-          const adapter = await bootProjectFromHandle({
-            rootHandle: entry.vcs.rootHandle,
-            scorePath: entry.vcs.scoreRelPath,
-          });
-          const json = await adapter.readScore();
-          const parsed = parseMnx(JSON.parse(json));
-          useProjectStore.getState().setProjectDiskBaseline(adapter, json);
-          setSelectedScoreIndex(0);
-          loadScore(parsed, entry.vcs.rootName);
-          resetHistory(store.getState().mnxJson || json);
-          setFileHandle(null);
-          setTrackBannerFile(null);
-          setStartCenterOpen(false);
-          toast.success(`Opened project ${entry.vcs.rootName}`);
+          if (
+            await openFolderHandle(entry.vcs.rootHandle, {
+              scorePath: entry.vcs.scoreRelPath,
+              unversioned: entry.vcs.versioned === false,
+            })
+          ) {
+            setStartCenterOpen(false);
+          }
         } else {
           const file = await entry.fileHandle.getFile();
           const text = await file.text();
@@ -232,17 +214,7 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
         reportRecentOpenError(err, entry, handleOpenProject, handleOpenFile);
       }
     },
-    [
-      loadScore,
-      resetHistory,
-      store,
-      suppressTrackBanner,
-      setSelectedScoreIndex,
-      setFileHandle,
-      setOpenedFile,
-      handleOpenProject,
-      handleOpenFile,
-    ],
+    [suppressTrackBanner, setOpenedFile, handleOpenProject, openFolderHandle, handleOpenFile],
   );
 
   const handleSuppressStartCenterChange = useCallback((value: boolean) => {

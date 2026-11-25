@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GitProjectAdapter, openRepo } from "../git";
 import { InMemoryFs } from "../git/fs/inMemoryFs";
 import { bootProjectFromHandle, useProjectStore } from "./projectStore";
-import { rememberScore, type RecentScore } from "./recentScores";
+import { listRecentScores, rememberScore, type RecentScore } from "./recentScores";
 import { useOnboardingStore } from "./onboardingStore";
 
 vi.mock("../git", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../git")>()),
   openRepo: vi.fn(),
 }));
-vi.mock("./recentScores", () => ({ rememberScore: vi.fn() }));
+vi.mock("./recentScores", () => ({ rememberScore: vi.fn(), listRecentScores: vi.fn(async () => []) }));
 
 const JSON_SCORE = '{"mnx":{"version":1},"global":{"measures":[]},"parts":[]}';
 const fileHandle = { name: "score.mnx" } as FileSystemFileHandle;
@@ -21,6 +21,7 @@ const rootHandle = {
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.mocked(rememberScore).mockReset();
+  vi.mocked(listRecentScores).mockReset().mockResolvedValue([]);
   useProjectStore.setState({ adapter: null, projectFolder: null, projectDiskBaseline: null });
   useOnboardingStore.setState({ recentScores: [] });
 });
@@ -69,7 +70,10 @@ describe("project opening bookkeeping", () => {
       vcs: { rootHandle, rootName: "Project", scoreRelPath: "score.mnx" },
     };
     const otherEntry = { ...entry, id: "other" };
-    useOnboardingStore.setState({ recentScores: [{ ...entry, lastOpened: 0 }, otherEntry] });
+    useOnboardingStore.setState({
+      recentScores: [{ ...entry, lastOpened: 0 }, { ...entry, id: "previous-score" }, otherEntry],
+    });
+    vi.mocked(listRecentScores).mockResolvedValue([entry, otherEntry]);
     finishRemembering(entry);
     await vi.waitFor(() => expect(useOnboardingStore.getState().recentScores).toEqual([entry, otherEntry]));
   }, 1500);

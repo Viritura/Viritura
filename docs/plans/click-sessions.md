@@ -44,7 +44,9 @@ Implemented:
   unsaved changes, is disabled during live sessions, and starts the new file at
   its first bar. Opening the picker refreshes the file list. If other Git
   changes are already staged, the score is saved but the automatic commit is
-  blocked, leaving those staged changes intact and showing a warning.
+  blocked, leaving those staged changes intact and showing a warning. Recents
+  list each project folder once, including folders opened without Git, and
+  reopen its last selected MNX file. Standalone files remain separate recents.
 - **Shared score surface and floating transport** — Click reuses the editor's
   already-mounted `ScoreCanvas`; score/part selection, view mode, bar taps, and
   click playhead overlays all use that surface rather than mounting a second

@@ -9,6 +9,7 @@ import { scanForMnxFiles } from "../store/folderScan";
 import { useLiveSessionStore } from "../live/liveSessionStore";
 import { directoryHasEntry } from "./fsHelpers";
 import { useFolderOpen, type FolderOpenDeps } from "./useFolderOpen";
+import { rememberScore } from "../store/recentScores";
 
 const mocks = vi.hoisted(() => ({
   setAdapter: vi.fn(),
@@ -122,6 +123,38 @@ it("opens without initializing when the user chooses a plain folder", async () =
   expect(mocks.setProjectScores).toHaveBeenCalledWith(root, scores, "one.mnx");
   expect(deps.loadOpenedFile).toHaveBeenCalledWith({ mnxJson: json, filename: "one.mnx", fileHandle: handle });
   expect(deps.setOpenedFile).toHaveBeenCalledWith({ mnxJson: json, filename: "one.mnx", fileHandle: handle });
+  expect(rememberScore).toHaveBeenCalledWith({
+    scoreName: "one.mnx",
+    fileHandle: handle,
+    vcs: { rootHandle: root, rootName: "Session", scoreRelPath: "one.mnx", versioned: false },
+  });
+});
+
+it("reopens the last selected score in a plain folder without prompting to initialize Git", async () => {
+  const second = { name: "two.mnx", relativePath: "nested/two.mnx", handle };
+  vi.mocked(scanForMnxFiles).mockResolvedValue([...scores, second]);
+  const { result, deps } = harness();
+
+  await act(async () => {
+    expect(await result.current.openFolderHandle(root, { scorePath: "nested/two.mnx", unversioned: true })).toBe(true);
+  });
+
+  expect(openFolderConfirm).not.toHaveBeenCalled();
+  expect(bootProjectFromHandle).not.toHaveBeenCalled();
+  expect(mocks.setProjectScores).toHaveBeenCalledWith(root, [...scores, second], "nested/two.mnx");
+  expect(deps.loadOpenedFile).toHaveBeenCalledOnce();
+});
+
+it("leaves the document alone when the last recent score is no longer in its folder", async () => {
+  const { result, deps } = harness();
+
+  await act(async () => {
+    expect(await result.current.openFolderHandle(root, { scorePath: "missing.mnx", unversioned: true })).toBe(false);
+  });
+
+  expect(deps.loadOpenedFile).not.toHaveBeenCalled();
+  expect(bootProjectFromHandle).not.toHaveBeenCalled();
+  expect(toast.error).toHaveBeenCalledWith("missing.mnx is no longer in Session. Open the project folder again.");
 });
 
 it("leaves the document and project untouched when initialization is cancelled", async () => {
