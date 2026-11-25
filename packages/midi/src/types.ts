@@ -69,6 +69,8 @@ export interface TempoMapEntry {
 
 /** The complete MIDI timeline generated from a Score. */
 export interface MidiTimeline {
+  /** Fermata insertion beats on the performed axis, with shared click policy. */
+  fermataHolds?: { beat: number; clickBehavior: "silent" | "keepClicking" }[];
   playedSpans?: PlayedMeasureSpan[];
   /** Time-ordered MIDI events (noteOn and noteOff interleaved) */
   events: MidiEvent[];

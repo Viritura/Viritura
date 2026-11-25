@@ -31,6 +31,7 @@ import {
   positionedStaffConfigExtensions,
   dynamicGroupExtensions,
   eventExtensions,
+  fermataExtensions,
   eventMarkingsExtensions,
   noteExtensions,
   slurExtensions,
@@ -54,6 +55,7 @@ type ExtensionDefinition =
   | "positioned-staff-config-extensions"
   | "dynamic-group-extensions"
   | "event-extensions"
+  | "fermata-extensions"
   | "event-markings-extensions"
   | "note-extensions"
   | "slur-extensions"
@@ -78,6 +80,7 @@ const extensionValidators: Record<ExtensionDefinition, StandaloneValidateFunctio
   "positioned-staff-config-extensions": positionedStaffConfigExtensions,
   "dynamic-group-extensions": dynamicGroupExtensions,
   "event-extensions": eventExtensions,
+  "fermata-extensions": fermataExtensions,
   "event-markings-extensions": eventMarkingsExtensions,
   "note-extensions": noteExtensions,
   "slur-extensions": slurExtensions,
@@ -221,6 +224,7 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
       const type = object["type"];
       if (type !== "grace" && type !== "tuplet" && type !== "space" && type !== "tremolo") {
         validateAt(object, itemPointer, "event-extensions");
+        validateAt(asObject(object["fermata"]), `${itemPointer}/fermata`, "fermata-extensions");
         const markings = asObject(object["markings"]);
         validateAt(markings, `${itemPointer}/markings`, "event-markings-extensions");
         asObjects(object["notes"]).forEach((note, noteIndex) =>
@@ -294,6 +298,11 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
         );
       });
       asObjects(measure["sequences"]).forEach((sequence, sequenceIndex) => {
+        validateAt(
+          asObject(asObject(sequence["fullMeasure"])?.["fermata"]),
+          `${measurePointer}/sequences/${sequenceIndex}/fullMeasure/fermata`,
+          "fermata-extensions",
+        );
         visitContent(sequence["content"], `${measurePointer}/sequences/${sequenceIndex}/content`);
       });
     });

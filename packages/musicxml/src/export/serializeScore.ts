@@ -1,4 +1,4 @@
-import { DiagnosticCollector, type Score } from "@viritura/core";
+import { DiagnosticCollector, materializeGlobalFermatas, type Score } from "@viritura/core";
 import type { ExportSequence, MusicXmlExportOptions, MusicXmlExportResult, PartPlan } from "./types";
 import { selectExport } from "./selection";
 import { preparePart } from "./measurePlan";
@@ -114,6 +114,7 @@ function renderPart(
 
 export function convertScoreToMusicXml(score: Score, options: MusicXmlExportOptions = {}): MusicXmlExportResult {
   if (score.global.measures.length === 0) throw new Error("The document has no measures to export.");
+  score = materializeGlobalFermatas(score);
   const diagnostics = options.diagnostics ?? new DiagnosticCollector();
   const selection = selectExport(score, options, diagnostics);
   const context = createXml();

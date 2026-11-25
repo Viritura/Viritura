@@ -11,7 +11,7 @@ import type {
 } from "@viritura/core";
 import { isRest, pitchToMidi, plainTextContent } from "@viritura/core";
 import { buildDynamicsEnvelope, cc11Events, sampleDynamics } from "./dynamicsEnvelope";
-import { buildHoldSchedule, type HoldSchedule, type MeasureHold } from "./holds";
+import { buildHoldSchedule, fermataResumeBeat, type HoldSchedule, type MeasureHold } from "./holds";
 import { classifyTechniqueText, type TechniqueAction } from "./technique";
 import type { TempoBuild } from "./tempoMap";
 import { buildPlaybackTempoModel } from "./playbackTempo";
@@ -20,7 +20,6 @@ import type { TempoModel } from "./tempoModel";
 import { resolvePartStaffMeterTable, staffMeterRatioAt } from "./staffMeterTiming";
 import { compileChordPlayback, realizeChordPlayback } from "./chordPlayback";
 import { expandScoreMeasureRepeats } from "./measureRepeats";
-import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "./cadenzaTiming";
 import { scorePlaybackItinerary } from "./repeatExpansion";
 import {
   crossJumpContinuationKeys,
@@ -305,17 +304,10 @@ function processNoteEvent(
   const realized = realizeRhythmEvent(ctx.rhythm, event, beatOffset, beats, ctx.playedSpan);
   const startTime = timeAt(ctx, realized.start);
   let segmentSeconds = secondsForBeats(ctx, realized.start, realized.beats);
-  if (event.fermata && event.fermata.duration !== "none") {
-    const writtenBeat = beatOffset * ctx.staffMeterRatio;
-    const group = ctx.holds.find(
-      (hold) =>
-        hold.kind === "fermata" &&
-        writtenBeat >= (hold.startBeat ?? hold.atBeat) - EPS &&
-        writtenBeat < (hold.spanEndBeat ?? hold.atBeat) - EPS,
-    );
-    if (group)
-      segmentSeconds = Math.max(segmentSeconds, ctx.model.timeAtBeat(ctx.measureStartBeat + group.atBeat) - startTime);
-  }
+  const writtenBeat = beatOffset * ctx.staffMeterRatio;
+  const resumeBeat = fermataResumeBeat(ctx.holds, writtenBeat, writtenBeat + beats * ctx.staffMeterRatio);
+  if (resumeBeat !== undefined)
+    segmentSeconds = Math.max(segmentSeconds, ctx.model.timeAtBeat(ctx.measureStartBeat + resumeBeat) - startTime);
   const articulations = emptyArticulations(event);
   const playingState = noteState(stateForEvent(ctx, realized.start), event);
 
@@ -396,7 +388,7 @@ function processTuplet(ctx: TraversalContext, tuplet: Tuplet, beatOffset: number
 function processGrace(ctx: TraversalContext, grace: Grace, beatOffset: number, tupletRatio: number): number {
   // TODO(phase5): honor grace timing modes; for now, make-time grace advances by its inner durations.
   let cursor = beatOffset;
-  for (const event of grace.content) cursor += processNoteEvent(ctx, event, cursor, tupletRatio);
+  for (const event of grace.content) cursor += processNoteEvent({ ...ctx, holds: [] }, event, cursor, tupletRatio);
   return cursor - beatOffset;
 }
 
@@ -439,11 +431,7 @@ function sortPerformanceEvents(events: readonly TimedEvent[]): PerformanceEvent[
 }
 
 function buildPerformanceTiming(score: Score, measureOrder: readonly number[]): TempoBuild & { holds: HoldSchedule } {
-  const expandedGlobal = playbackGlobalMeasures(score, measureOrder);
-  const holds = suppressCadenzaFermataHolds(
-    expandedGlobal,
-    buildHoldSchedule(score, measureOrder, score.global.measures),
-  );
+  const holds = buildHoldSchedule(score, measureOrder, score.global.measures);
   return { ...buildPlaybackTempoModel(score, measureOrder, holds), holds };
 }
 

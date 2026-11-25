@@ -155,6 +155,7 @@ describe("Standard MIDI File export", () => {
     const first = input.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
     if (first.type !== "event") throw new Error("Expected note");
     first.fermata = {};
+    input.global.measures[0]!.fermatas = [{ id: "hold", position: { fraction: [0, 1] } }];
     input.parts[0]!.measures.push({
       sequences: [
         {

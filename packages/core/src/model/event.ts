@@ -24,7 +24,7 @@ import type {
 } from "../raw";
 import type { Pitch } from "./pitch";
 import type { KitNote } from "./kit";
-import type { Narrow } from "./_derive";
+import type { Narrow, WithVendor } from "./_derive";
 
 /**
  * Duration (MNX note value).
@@ -184,7 +184,7 @@ export type UpDown = RawBowDirection["direction"];
 export type DirectionHint = import("../raw").DirectionHint;
 
 /** Fermata (hold) marking on a note or rest. Derived from MNX raw. */
-export type Fermata = RawFermata;
+export type Fermata = WithVendor<RawFermata, import("../raw/raw-viritura").FermataExtensions>;
 
 /** Wavy trill-extension line ending at another event. */
 export interface TrillExtension {

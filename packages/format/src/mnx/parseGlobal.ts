@@ -14,7 +14,7 @@
 
 import type { GlobalLyrics, LyricLineMetadataEntry } from "@viritura/core";
 import type { Sound } from "@viritura/core";
-import { generateId } from "@viritura/core";
+import { canonicalGlobalFermatas, generateId } from "@viritura/core";
 import { parseGlobalCaesura } from "./globalCaesura";
 import type {
   GlobalMeasure,
@@ -178,6 +178,7 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
   // _x.viritura vendor extensions on the global measure
   const viritura = raw._x?.["viritura"] as RawMeasureGlobalExt | undefined;
   if (viritura) {
+    applyGlobalFermatas(measure, viritura);
     if (viritura.tempos !== undefined) measure.tempos = parseVendorTempos(raw, viritura);
     if (viritura.senzaMisura && measure.time) measure.time.display = "senzaMisura";
     if (viritura.rehearsalMark) {
@@ -197,6 +198,17 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
   }
 
   return measure;
+}
+
+function applyGlobalFermatas(measure: GlobalMeasure, viritura: RawMeasureGlobalExt): void {
+  if (viritura.fermatas === undefined) return;
+  if (!measureGlobalExtensions(viritura)) throw new Error("Invalid global fermata extensions.");
+  const fermatas = viritura.fermatas.map((fermata) => ({
+    ...fermata,
+    position: parseRhythmicPosition(fermata.position),
+  }));
+  canonicalGlobalFermatas(fermatas);
+  measure.fermatas = fermatas;
 }
 
 function parseVendorTempos(raw: RawMeasureGlobal, viritura: RawMeasureGlobalExt): Tempo[] {

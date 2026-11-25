@@ -6,7 +6,6 @@ import {
   type SequenceContent,
   type TimeSignature,
 } from "@viritura/core";
-import type { HoldSchedule } from "./holds";
 import { DEFAULT_BPM } from "./tempoMap";
 
 type PlaybackGlobalMeasure = GlobalMeasure & { __playbackNominalTime?: TimeSignature };
@@ -123,13 +122,4 @@ export function playbackGlobalMeasures(score: Score, measureOrder: readonly numb
       tempos: [{ ...inheritedTempos[index]!, location: { fraction: [0, 1] } }, ...(measure.tempos ?? [])],
     };
   });
-}
-
-/** Visual fermatas in an open-meter cadenza do not introduce a second delay. */
-export function suppressCadenzaFermataHolds(measures: readonly GlobalMeasure[], holds: HoldSchedule): HoldSchedule {
-  return holds.map((measureHolds, index) =>
-    measures[index]?.time?.display === "senzaMisura"
-      ? measureHolds.filter((hold) => hold.kind !== "fermata")
-      : [...measureHolds],
-  );
 }

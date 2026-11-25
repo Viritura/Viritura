@@ -11,11 +11,11 @@
   },
   "dependencies": {
     "@viritura/core": "workspace:*",
+    "@viritura/format": "workspace:*",
     "@xmldom/xmldom": "^0.9.12",
     "jszip": "^3.10.2"
   },
   "devDependencies": {
-    "@viritura/format": "workspace:*",
     "typescript": "^5.7.0",
     "vitest": "^5.1.0"
   }

@@ -44,8 +44,8 @@ import { applyGlissandoPlayback } from "./glissandoPlayback";
 import { withSoundingNotes } from "./unpitchedNoteheads";
 import { compileChordPlayback, chordMidiEvents } from "./chordPlayback";
 import { analyzeImpliedSectionDynamics, type ImpliedSectionDynamicAnchor } from "./sectionDynamics";
-import { buildHoldSchedule, type HoldSchedule, type MeasureHold } from "./holds";
-import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "./cadenzaTiming";
+import { buildHoldSchedule, fermataResumeBeat, type HoldSchedule, type MeasureHold } from "./holds";
+import { playbackGlobalMeasures } from "./cadenzaTiming";
 import { collectPartLegatoOut, flushVoiceLegato, flushAllLegato, pushVoiceLegato, resolveVoiceLegato } from "./legato";
 import { ARCO_CAPABLE_PROGRAMS, muteFamilyForProgram, applyMeasureTechniques, type TechniqueState } from "./technique";
 import {
@@ -223,7 +223,7 @@ export interface PartCtx {
    *  (its model duration already spans the insertion); we only force-extend a
    *  member that ends BEFORE `insertBeat` up to the group's resume time. Beats
    *  are measure-relative. Empty when the measure has no fermata. */
-  readonly fermataGroups: readonly { startBeat: number; spanEndBeat: number; insertBeat: number }[];
+  readonly fermataGroups: readonly MeasureHold[];
 }
 
 /** An empty timeline (no measures / no playable content). */
@@ -274,10 +274,7 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   // schedule shifts every later measure's start time so holds keep all parts
   // aligned through the pause.
   const expandedGlobal = playbackGlobalMeasures(score, measureOrder);
-  const holdSchedule = suppressCadenzaFermataHolds(
-    expandedGlobal,
-    buildHoldSchedule(score, measureOrder, globalMeasures),
-  );
+  const holdSchedule = buildHoldSchedule(score, measureOrder, globalMeasures);
   // Continuous tempo model + global beat axis (single source of event timing).
   // `measureStartTimes` is derived FROM the model so it matches event timing
   // through sub-bar tempo changes / holds. The legacy `tempoMap` entry array is
@@ -350,6 +347,14 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   });
 
   const result: MidiTimeline = {
+    fermataHolds: holdSchedule.flatMap((holds, index) =>
+      holds
+        .filter((hold) => hold.kind === "fermata")
+        .map((hold) => ({
+          beat: measureStartBeats[index]! + hold.atBeat,
+          clickBehavior: hold.clickBehavior ?? "silent",
+        })),
+    ),
     events: allEvents,
     duration,
     tempoMap,
@@ -619,13 +624,7 @@ function processPart(
     // insertion lives in the tempo model at the driver-end beat (`atBeat`). A
     // carrier in the span rings through the gap automatically; the group bounds
     // let resolveFermataDuration force-extend a member that ends early.
-    const fermataGroups = measureHolds
-      .filter((h) => h.kind === "fermata")
-      .map((h) => ({
-        startBeat: h.startBeat ?? h.atBeat,
-        spanEndBeat: h.spanEndBeat ?? h.atBeat,
-        insertBeat: h.atBeat,
-      }));
+    const fermataGroups = measureHolds.filter((h) => h.kind === "fermata");
 
     const ctx: PartCtx = {
       humanizeTiming: options?.humanizeTiming !== false,
@@ -860,21 +859,21 @@ function resolveFermataDuration(
   naturalDurationSec: number,
   beatOffset: number,
   soundingBeatOffset = beatOffset,
+  notatedBeats = durationBeats(event.duration),
 ): { durationSec: number; durationScale: number; held: boolean } {
-  if (event.fermata && event.fermata.duration !== "none" && ctx.fermataGroups.length > 0) {
+  if (ctx.fermataGroups.length > 0) {
     // Hold groups are expressed on the shared global axis. Convert this
     // staff's written onset before matching it to its ensemble group.
     const globalBeatOffset = beatOffset * ctx.staffMeterRatio;
-    const group = ctx.fermataGroups.find(
-      (g) => globalBeatOffset >= g.startBeat - 1e-9 && globalBeatOffset < g.spanEndBeat - 1e-9,
-    );
-    if (group) {
+    const globalEnd = globalBeatOffset + notatedBeats * ctx.staffMeterRatio;
+    const resumeBeat = fermataResumeBeat(ctx.fermataGroups, globalBeatOffset, globalEnd);
+    if (resumeBeat !== undefined) {
       // Resume time = model time at the (post-insertion) driver-end beat. For
       // the driver and any member ending at/after it, naturalDurationSec already
       // reaches this (the gap is inside its span); a member ending earlier is
       // extended up to it so the group releases together.
       const startTime = eventTime(ctx, soundingBeatOffset);
-      const resumeTime = ctx.model.timeAtBeat(ctx.measureStartBeat + group.insertBeat);
+      const resumeTime = ctx.model.timeAtBeat(ctx.measureStartBeat + resumeBeat);
       return { durationSec: Math.max(naturalDurationSec, resumeTime - startTime), durationScale: 1, held: true };
     }
   }
@@ -985,7 +984,7 @@ function processNoteEvent(
     durationSec,
     durationScale,
     held: fermataHeld,
-  } = resolveFermataDuration(ctx, event, naturalDurationSec, beatOffset, realized.start);
+  } = resolveFermataDuration(ctx, event, naturalDurationSec, beatOffset, realized.start, beats);
   const velocity = Math.min(
     127,
     Math.max(
@@ -1579,7 +1578,7 @@ function processGrace(
   if (!beatInPlayedSpan(principalBeat * ctx.staffMeterRatio, ctx.playedSpan)) {
     return following ? totalGraceBeats : 0;
   }
-  const graceCtx: PartCtx = { ...ctx, playedSpan: undefined };
+  const graceCtx: PartCtx = { ...ctx, playedSpan: undefined, fermataGroups: [] };
 
   if (following) {
     // Play at current position — main note is pushed later

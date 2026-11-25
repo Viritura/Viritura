@@ -4,6 +4,7 @@ import type { MnxDocument, MnxSequenceContent } from "../types";
 import { collectLossyDiagnostics } from "./diagnostics";
 import { buildGlobalMeasures } from "./globalMeasures";
 import { consolidateImportedHarmony } from "./harmonyConsolidation";
+import { consolidateImportedFermatas } from "./fermatas";
 import { IdGenerator } from "./idGenerator";
 import { buildLayout, buildLayoutsAndScores } from "./layout";
 import { extractMetadata } from "./metadata";
@@ -169,5 +170,6 @@ export function convertMusicXmlToMnx(xmlString: string, options?: ConvertOptions
     collectLossyDiagnostics(root, opts.diagnostics, vendorExt);
   }
 
+  if (vendorExt) consolidateImportedFermatas(result, opts.diagnostics, root);
   return result;
 }

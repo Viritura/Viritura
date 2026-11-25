@@ -26,9 +26,9 @@ export function buildPlaybackTempoModel(
   let totalBeats = 0;
   intervals.forEach((interval, index) => {
     measureStartBeats.push(totalBeats);
-    const spb = realized.spbAtBeat(totalBeats);
     for (const hold of holds[index] ?? []) {
-      insertions.push({ beat: totalBeats + hold.atBeat, seconds: hold.extraBeats * spb });
+      const beat = totalBeats + hold.atBeat;
+      insertions.push({ beat, seconds: hold.extraBeats * realized.spbAtBeat(beat) });
     }
     totalBeats += interval.endBeat - interval.startBeat;
   });

@@ -63,7 +63,7 @@ const cases: TimingCase[] = [
   },
   {
     name: "pickup with an audible fermata",
-    firstMeasure: { number: 0 },
+    firstMeasure: { number: 0, fermatas: [{ id: "pickup-hold", position: { fraction: [0, 1] } }] },
     quarters: 1,
     fermata: true,
     nextStart: 1,
@@ -82,7 +82,7 @@ const cases: TimingCase[] = [
     nextStart: 3.5,
   },
   {
-    name: "cadenza retaining a caesura but suppressing its fermata",
+    name: "cadenza retaining a caesura with visual-only local fermata notation",
     firstMeasure: { time: { count: 4, unit: 4, display: "senzaMisura" } },
     quarters: 7,
     fermata: true,
@@ -91,7 +91,7 @@ const cases: TimingCase[] = [
   },
   {
     name: "ordinary measure retaining its fermata",
-    firstMeasure: {},
+    firstMeasure: { fermatas: [{ id: "ordinary-hold", position: { fraction: [0, 1] } }] },
     quarters: 4,
     fermata: true,
     nextStart: 2.5,
@@ -172,8 +172,12 @@ describe("native chord and instrument timing integration", () => {
         mnx: { version: 1 },
         global: {
           measures: [
-            { time: { count: 4, unit: 4 }, tempos: [{ bpm: 120, value: { base: "quarter" } }] },
-            {},
+            {
+              time: { count: 4, unit: 4 },
+              tempos: [{ bpm: 120, value: { base: "quarter" } }],
+              fermatas: [{ id: "source-hold", position: { fraction: [0, 1] } }],
+            },
+            { fermatas: [{ id: "simile-hold", position: { fraction: [0, 1] } }] },
             { chordSymbols: [{ root: { step: "C" }, position: { fraction: [0, 1] } }] },
           ],
         },

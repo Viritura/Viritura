@@ -14,6 +14,7 @@ import type { GlobalMeasure, PartMeasure } from "../model/measure";
 import type { Part } from "../model/part";
 import { PatchTargetMissing } from "./locate";
 import { removeGlobalMeasures } from "../operations/measureDeletion";
+import { canonicalGlobalFermatas } from "../fermatas";
 import type {
   AddMeasureExpressionPatch,
   GlobalMeasureField,
@@ -54,6 +55,10 @@ export function applySetGlobalMeasureField(draft: Draft<Score>, p: SetGlobalMeas
 function writeGlobalMeasureField(measure: GlobalMeasure, update: GlobalMeasureField): void {
   const target = measure as unknown as Record<string, unknown>;
   switch (update.field) {
+    case "fermatas":
+      if (update.value === undefined) delete measure.fermatas;
+      else measure.fermatas = canonicalGlobalFermatas(update.value);
+      return;
     case "caesura":
     case "segno":
     case "coda":

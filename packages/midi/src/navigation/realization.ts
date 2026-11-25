@@ -98,6 +98,20 @@ function pairedOnsetTime(
   return {};
 }
 
+function realizeFermataHolds(
+  timeline: MidiTimeline,
+  sourceSpans: readonly { startBeat: number; endBeat: number }[],
+): NonNullable<MidiTimeline["fermataHolds"]> {
+  let outputBeat = 0;
+  return sourceSpans.flatMap((span) => {
+    const result = (timeline.fermataHolds ?? [])
+      .filter((hold) => hold.beat > span.startBeat + 1e-9 && hold.beat <= span.endBeat + 1e-9)
+      .map((hold) => ({ ...hold, beat: outputBeat + hold.beat - span.startBeat }));
+    outputBeat += span.endBeat - span.startBeat;
+    return result;
+  });
+}
+
 export function realizeNavigation(
   timeline: MidiTimeline,
   spans: readonly PlayedMeasureSpan[],
@@ -111,6 +125,7 @@ export function realizeNavigation(
   const events: MidiEvent[] = [];
   const measureStartBeats: number[] = [];
   const tempoMap: MidiTimeline["tempoMap"] = [];
+  const fermataHolds = realizeFermataHolds(timeline, sourceSpans);
   let outputBeat = 0;
   const activeNotes = new Map<string, MidiEvent[]>();
   for (let index = 0; index < spans.length; index++) {
@@ -194,6 +209,7 @@ export function realizeNavigation(
     events,
     model,
     tempoMap,
+    fermataHolds,
     totalBeats: outputBeat,
     duration: model.timeAtBeat(outputBeat),
     measureStartBeats,
