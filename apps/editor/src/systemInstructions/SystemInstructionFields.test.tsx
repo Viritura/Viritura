@@ -30,7 +30,7 @@ it("sets and clears click-only subdivisions without fabricating BPM", async () =
   );
   expect(screen.queryByRole("spinbutton", { name: "BPM" })).toBeNull();
   await user.click(screen.getByRole("combobox", { name: "Clicks per beat" }));
-  await user.click(screen.getByRole("option", { name: "Inherit" }));
+  await user.click(screen.getByRole("option", { name: "1", exact: true }));
   expect(change).toHaveBeenLastCalledWith({ ...instruction, tempo: undefined });
 });
 

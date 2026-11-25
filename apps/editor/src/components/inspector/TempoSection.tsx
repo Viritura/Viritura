@@ -124,26 +124,21 @@ export function TempoSection({
       {onClickSubdivisionChange && (
         <FormField label="Clicks per beat">
           <Select
-            value={String(tempo.clickSubdivision ?? "inherit")}
-            options={[
-              { value: "inherit", label: "Inherit" },
-              ...[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) })),
-            ]}
+            value={String(tempo.clickSubdivision ?? 1)}
+            options={[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))}
             onValueChange={(value) => {
-              if (value === "inherit") onClickSubdivisionChange(undefined);
-              else {
-                const subdivision = Number(value);
-                if (
-                  subdivision !== 1 &&
-                  subdivision !== 2 &&
-                  subdivision !== 3 &&
-                  subdivision !== 4 &&
-                  subdivision !== 5
-                ) {
-                  throw new RangeError("Click subdivision must be an integer from 1 to 5.");
-                }
-                onClickSubdivisionChange(subdivision);
+              const subdivision = Number(value);
+              if (
+                subdivision !== 1 &&
+                subdivision !== 2 &&
+                subdivision !== 3 &&
+                subdivision !== 4 &&
+                subdivision !== 5
+              ) {
+                throw new RangeError("Click subdivision must be an integer from 1 to 5.");
               }
+              // Omission means one click per beat.
+              onClickSubdivisionChange(subdivision === 1 ? undefined : subdivision);
             }}
           />
         </FormField>

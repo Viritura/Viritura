@@ -93,23 +93,26 @@ describe("buildClickSessionProgram", () => {
     ]);
   });
 
-  it("inherits tempo subdivisions, resets explicitly, and counts every countoff tick", () => {
+  it("resets subdivisions to 1 at each tempo without its own setting and counts every countoff tick", () => {
     const score: Score = {
       mnx: { version: 1 },
       global: {
         measures: [
           { time: { count: 2, unit: 4 }, tempos: [{ bpm: 120, value: { base: "quarter" }, clickSubdivision: 2 }] },
           { tempos: [{ bpm: 60, value: { base: "quarter" } }] },
-          { tempos: [{ bpm: 120, value: { base: "quarter" }, clickSubdivision: 1 }] },
+          {},
         ],
       },
       parts: [],
     };
     const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
     const program = buildClickSessionProgram(source, { startMeasure: 1 });
-    expect(program.countoffClicks).toBe(4);
+    expect(program.countoffClicks).toBe(2);
     expect(program.countoffSeconds).toBe(2);
-    expect(times(program.events)).toEqual([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5]);
+    expect(times(program.events)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(times(buildClickSessionProgram(source, { countoff: false }).events.slice(0, 5))).toEqual([
+      0, 0.25, 0.5, 0.75, 1,
+    ]);
   });
 
   it("changes subdivisions inside a grouped beat exactly once without interrupting a tempo ramp", () => {

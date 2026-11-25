@@ -142,7 +142,8 @@ Implemented:
   AudioContext. `ClickSessionTransport` calls it before loading a program;
   Play restarts with the countoff and Resume continues without one.
 
-Tempo markings now persist `clickSubdivision` (1-5), with inheritance and exact
+Tempo markings now persist `clickSubdivision` (1-5, default 1 at every tempo
+instruction) with exact
 mid-bar positions, through standard MNX tempo extensions and shared system
 instructions. The tempo inspector edits **Clicks per beat**. The Click activity
 uses these settings for score clicks and the starting countoff, including
@@ -590,8 +591,8 @@ an explicit click-subdivision override at a rhythmic location:
 - Implemented tempo extension: `_x.viritura.clickSubdivision: 2`, alongside
   the existing tempo metadata (integer 1-5).
 - With no override anywhere, click once per resolved meter beat.
-- Omitted metadata inherits the preceding subdivision; `clickSubdivision: 1`
-  explicitly returns to beat-only clicks.
+- Omitted metadata means 1: a subdivision lasts only until the next tempo
+  instruction and never carries into the following tempo.
 - Allow an override at a ritardando's start, its end, or another rhythmic
   position without requiring a new BPM or a visible metronome marking. Finalize
   the positioned instruction representation during implementation; do not

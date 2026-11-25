@@ -200,19 +200,27 @@ interface MeasureResolution {
   readonly changes: readonly SubdivisionChange[];
 }
 
+/**
+ * Each tempo instruction sets the click subdivision until the next one;
+ * omission means 1, so a subdivision never carries into the next tempo.
+ */
 function compileTempoResolutions(measures: readonly GlobalMeasure[]): MeasureResolution[] {
   let subdivision = 1;
   return measures.map((measure) => {
-    const changes = measureTempoInstructions(measure)
-      .filter((tempo) => tempo.clickSubdivision !== undefined)
-      .map((tempo) => {
-        const value = tempo.clickSubdivision!;
-        if (!Number.isInteger(value) || value < 1 || value > 5) {
-          throw new RangeError("Tempo click subdivision must be an integer from 1 to 5.");
-        }
-        const fraction = tempo.location?.fraction ?? [0, 1];
-        return { atBeat: (fraction[0]! / fraction[1]!) * 4, subdivision: value };
-      })
+    const byPosition = new Map<number, { subdivision: number; explicit: boolean }>();
+    for (const tempo of measureTempoInstructions(measure)) {
+      const value = tempo.clickSubdivision;
+      if (value !== undefined && (!Number.isInteger(value) || value < 1 || value > 5)) {
+        throw new RangeError("Tempo click subdivision must be an integer from 1 to 5.");
+      }
+      const fraction = tempo.location?.fraction ?? [0, 1];
+      const atBeat = (fraction[0]! / fraction[1]!) * 4;
+      // Co-located instructions: the last explicit setting wins over defaults.
+      if (value !== undefined) byPosition.set(atBeat, { subdivision: value, explicit: true });
+      else if (!byPosition.get(atBeat)?.explicit) byPosition.set(atBeat, { subdivision: 1, explicit: false });
+    }
+    const changes = [...byPosition]
+      .map(([atBeat, entry]) => ({ atBeat, subdivision: entry.subdivision }))
       .sort((a, b) => a.atBeat - b.atBeat);
     const result = { subdivision, changes };
     subdivision = subdivisionAt(result, Infinity);
