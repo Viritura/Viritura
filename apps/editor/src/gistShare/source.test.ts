@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildGistShareUrl, loadGistMnx, parseGistUrl, readGistShareLocation } from ".";
+import {
+  buildGistSetlistUrl,
+  buildGistShareUrl,
+  loadGistMnx,
+  loadGistSetlist,
+  parseGistUrl,
+  readGistSetlistLocation,
+  readGistShareLocation,
+} from ".";
 
 const GIST_ID = "0123456789abcdef0123456789abcdef";
 const REVISION = "0123456789abcdef0123456789abcdef01234567";
@@ -54,6 +62,18 @@ describe("Gist sharing source", () => {
     });
   });
 
+  it("builds a main-app setlist link and recognizes its launch location", () => {
+    const url = new URL(buildGistSetlistUrl("https://app.viritura.com", GIST_ID, REVISION));
+
+    expect(url.pathname).toBe("/");
+    expect(url.searchParams.get("open")).toBe("gist-setlist");
+    expect(readGistSetlistLocation({ hash: url.hash, search: url.search })).toEqual({
+      gistId: GIST_ID,
+      revision: REVISION,
+    });
+    expect(readGistSetlistLocation({ hash: url.hash, search: "" })).toBeNull();
+  });
+
   it("loads and parses the only MNX file", async () => {
     const fetchImpl = vi.fn(async () => gistResponse({ "score.mnx": mnxFile() }));
     const result = await loadGistMnx({ gistId: GIST_ID }, fetchImpl);
@@ -78,6 +98,27 @@ describe("Gist sharing source", () => {
       }),
     );
     await expect(loadGistMnx({ gistId: GIST_ID }, two)).rejects.toThrow("exactly one");
+  });
+
+  it("loads every MNX file in stable filename order", async () => {
+    const fetchImpl = vi.fn(async () =>
+      gistResponse({
+        "02 - second.mnx": { ...mnxFile(), filename: "02 - second.mnx" },
+        "01 - first.mnx": { ...mnxFile(), filename: "01 - first.mnx" },
+      }),
+    );
+
+    const result = await loadGistSetlist({ gistId: GIST_ID }, fetchImpl);
+
+    expect(result.files.map((file) => file.fileName)).toEqual(["01 - first.mnx", "02 - second.mnx"]);
+    expect(result.files).toHaveLength(2);
+  });
+
+  it("loads a setlist at the 16 MiB limit even when JSON escaping expands the metadata", async () => {
+    const mnx = VALID_MNX + "\n".repeat(16 * 1024 * 1024 - VALID_MNX.length);
+    const fetchImpl = vi.fn(async () => gistResponse({ "score.mnx": mnxFile(mnx) }));
+    const result = await loadGistSetlist({ gistId: GIST_ID }, fetchImpl);
+    expect(result.files[0]?.mnx).toHaveLength(16 * 1024 * 1024);
   });
 
   it("loads truncated content from GitHub's validated raw URL", async () => {

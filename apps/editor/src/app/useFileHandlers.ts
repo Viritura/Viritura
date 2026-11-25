@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useDefaultScoreLoader, type DefaultScoreLoader } from "./useDefaultScoreLoader";
 import { useBootSequence } from "./useBootSequence";
 import { useFolderOpen, type FolderOpenActions } from "./useFolderOpen";
@@ -9,6 +10,7 @@ import type { OpenFileResult } from "../commands/fileCommands";
 import type { InitialScoreSettings } from "../score/ScoreBuilder";
 import { useFileLaunch } from "../pwa";
 import { useProjectFileSwitchRegistration } from "../projectFiles";
+import { useGistSetlistStore } from "../gistShare";
 
 type DocumentStoreApi = ReturnType<typeof useDocumentStoreApi>;
 type LoadScore = (score: Score, fileName?: string, mnxJson?: string) => void;
@@ -107,7 +109,27 @@ export function useFileHandlers(params: UseFileHandlersParams): FileHandlers {
 
   const fileSave = useFileSaveActions({ store, fileHandle, setFileHandle, openedFile, resetHistory });
   useFileLaunch({ store, handleOpenFileResult: fileMenu.handleOpenFileResult, setFileError });
-  useProjectFileSwitchRegistration({ store, openProjectScore: folder.openProjectScore, save: fileSave.handleSave });
+  const openGistScore = useCallback(
+    async (fileName: string) => {
+      const file = useGistSetlistStore.getState().setlist?.files.find((candidate) => candidate.fileName === fileName);
+      if (!file) throw new Error("The shared setlist file is no longer available.");
+      loadScore(structuredClone(file.score), file.fileName, file.mnx);
+      useGistSetlistStore.getState().selectFile(file.fileName, store.getState().documentGeneration);
+      resetHistory(store.getState().mnxJson);
+      setSelectedScoreIndex(0);
+      setFileHandle(null);
+      setOpenedFile(null);
+      setFileError(null);
+      return true;
+    },
+    [loadScore, resetHistory, setFileError, setFileHandle, setOpenedFile, setSelectedScoreIndex, store],
+  );
+  useProjectFileSwitchRegistration({
+    store,
+    openProjectScore: folder.openProjectScore,
+    openGistScore,
+    save: fileSave.handleSave,
+  });
 
   return { ...defaultLoader, ...folder, ...fileMenu, ...fileSave };
 }

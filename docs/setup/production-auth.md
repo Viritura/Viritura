@@ -57,8 +57,13 @@ Repository permissions:
 - Metadata: read-only
 
 Account permissions:
+- Gists: read and write
 - Email addresses: read-only (optional)
 ```
+
+The GitHub App's `Gists: read and write` account permission lets connected
+musicians create secret Gists from Share. Users with an existing authorization
+must reauthorize the app to approve the added permission.
 
 Configure these API-runtime secrets and settings in
 `/etc/viritura/api.env`. The file is root-owned with mode `0600`:

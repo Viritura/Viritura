@@ -2,8 +2,9 @@
 
 > **Status:** In progress, November 2026. The click-only audio engine and
 > click session program compiler and the single-document **Click** activity are implemented
-> (see [Implementation status](#implementation-status)); the setlist, detached
-> controller window remain proposed. Confirmed requirements and proposed defaults are
+> (see [Implementation status](#implementation-status)); basic folder and Gist
+> setlists are implemented, while the detached controller remains proposed.
+> Confirmed requirements and proposed defaults are
 > distinguished below.
 >
 > **Related:** [File format](../spec/file-format.md),
@@ -175,7 +176,7 @@ quarter-note pulses. Its events are shifted to negative score time; score
 playback retains its existing look-ahead scheduler while recording Click keeps
 its isolated, preloaded audio worklet.
 
-Remaining: ordered and shared setlists, persisted session settings, the detached
+Remaining: manifest-ordered setlists, persisted session settings, the detached
 controller, additional rehearsal navigation, and the release gates below.
 
 Single-document smoke check: start the UI through `pnpm dev:stack up ui`, open
@@ -658,12 +659,29 @@ directory picker. Offer multi-file selection as an in-memory session fallback,
 with explicit manifest/MNX download and file-reassociation steps on reopening.
 Do not make the ZIP-container project a prerequisite.
 
-### Sharing a setlist by Gist link (proposed)
+### Sharing a setlist by Gist link (initial implementation)
 
 Musicians often need to practice with a setlist without being added to a
 private repository. A secret GitHub Gist with several files is a link-only
 setlist source:
 
+**Status:** The Share dialog can create a secret Gist through Viritura's
+authenticated API or turn an existing Gist URL into a setlist link. Project
+sharing scans all nested MNX files at share time, including the open score's
+unsaved edits, and standalone sharing includes the current file. Sharing fails
+if a directory cannot be read, the open score is missing, or the setlist exceeds
+50 files or 16 MiB. The link opens the first file in Click mode; the project-file
+picker switches among the in-memory Gist files using the normal
+save/discard/cancel safeguards. The GitHub App must have the
+`Gists: Read and write` account permission, which existing users must approve
+by reauthorizing the app.
+
+- Keep the initial path read-only: editing, saving, committing, recent-file
+  bookkeeping, and collaboration must be disabled or offer **Download** /
+  **Save a copy**. This restriction is not yet enforced in the app.
+- Generalize source handling around the ordered track list and optional
+  `session.viritura.json` manifest described above. The initial implementation
+  currently sorts Gist filenames and does not read a session manifest.
 - The Gist mirrors the session folder: one flat directory of `.mnx` files plus
   an optional `session.viritura.json`. Use the same manifest rules as a local
   folder: preserve manifest order, add other files sorted by filename, show
@@ -685,10 +703,8 @@ setlist source:
   through that source, opens the first or manifest-selected track, and goes
   straight to the Click activity. Also offer **Open setlist link** inside the
   app, so a player can switch setlists without leaving it.
-- A Gist session is read-only. Editing, saving, committing, recent-file
-  bookkeeping, and collaboration are disabled or offer **Download** / **Save a
-  copy** instead. A track switch loads the selected MNX into the same document
-  pipeline that a local track uses, without prompting about unsaved changes.
+- Once the read-only restriction is enforced, a track switch can load the
+  selected MNX without prompting about unsaved changes.
 - Fetch the Gist once per load and keep each file's content in memory for that
   revision, so switching tracks costs no extra requests. The existing
   single-score `/s/gist` viewer keeps working, and a multi-file Gist opened there
@@ -705,9 +721,9 @@ setlist source:
   requests are limited to 60 per hour per IP address, and players on shared
   rehearsal Wi-Fi share that limit. Cache each loaded revision and report
   rate limiting clearly.
-- The first version accepts a Gist the user created manually. Creating or
-  updating the Gist from Viritura is a later step. Revocable, Viritura-hosted
-  setlist links belong with [read-only sharing](./read-only-sharing.md).
+- Updating an existing Gist from Viritura is a later step. Revocable,
+  Viritura-hosted setlist links belong with
+  [read-only sharing](./read-only-sharing.md).
 
 ## Programmable resolution
 

@@ -27,6 +27,27 @@
   font-size: var(--type-small-size);
 }
 
+.error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--type-small-size);
+}
+
+.manual {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.pinRevision {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}
+
 .result {
   display: grid;
   gap: 10px;
