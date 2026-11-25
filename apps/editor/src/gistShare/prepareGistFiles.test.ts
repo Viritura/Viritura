@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { prepareGistFiles } from "./prepareGistFiles";
+import { decompressMnx } from "./compressedMnx";
 
 const VALID_MNX = JSON.stringify({ mnx: { version: 1 }, global: { measures: [] }, parts: [] });
 
@@ -47,6 +48,27 @@ describe("prepareGistFiles", () => {
     });
 
     expect(files).toEqual({ "01 - two.mnx": `${VALID_MNX}\n`, "02 - one.mnx": editedMnx });
+  });
+
+  it("compresses files over 8 MiB and keeps smaller files readable", async () => {
+    const largeMnx = VALID_MNX + " ".repeat(9 * 1024 * 1024);
+    const root = folder([
+      ["large.mnx", file("large.mnx", largeMnx)],
+      ["small.mnx", file("small.mnx")],
+    ]);
+
+    const files = await prepareGistFiles({
+      projectFolder: root,
+      activeScorePath: "small.mnx",
+      fileName: "project",
+      currentMnx: VALID_MNX,
+    });
+
+    expect(Object.keys(files)).toEqual(["01 - large.mnx.gz.b64", "02 - small.mnx"]);
+    expect(files["02 - small.mnx"]).toBe(VALID_MNX);
+    const compressed = files["01 - large.mnx.gz.b64"]!;
+    expect(compressed.length).toBeLessThan(1024 * 1024);
+    await expect(decompressMnx(compressed, largeMnx.length, "large", "too large")).resolves.toBe(largeMnx);
   });
 
   it("rejects more than 50 files rather than sharing a truncated setlist", async () => {

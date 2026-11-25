@@ -1,10 +1,11 @@
 import { parseMnx } from "@viritura/format";
 import type { Score } from "@viritura/core";
+import { decompressMnx, isCompressedMnxName, isGistMnxName, mnxNameFromGistName } from "./compressedMnx";
+import { formatMiB, MAX_GIST_FILES, MAX_GIST_MNX_TOTAL_BYTES, MAX_GIST_STORED_TOTAL_BYTES } from "./shareLimits";
 
-const MAX_GIST_MNX_BYTES = 16 * 1024 * 1024;
-const MAX_GIST_SETLIST_BYTES = 16 * 1024 * 1024;
+// Plain files from earlier shares could be up to 16 MiB.
+const MAX_GIST_RAW_FILE_BYTES = 16 * 1024 * 1024;
 const MAX_GIST_METADATA_BYTES = 100 * 1024 * 1024;
-const MAX_GIST_FILES = 50;
 const GIST_ID_PATTERN = /^[0-9a-f]{20,64}$/i;
 const GIST_REVISION_PATTERN = /^[0-9a-f]{40}$/i;
 
@@ -130,7 +131,7 @@ export async function loadGistSetlist(
   const payloadText = await readBoundedText(response, MAX_GIST_METADATA_BYTES, "Gist metadata");
   const payload = parseGistPayload(payloadText);
   const mnxFiles = payload.files
-    .filter((file) => file.filename.toLowerCase().endsWith(".mnx"))
+    .filter((file) => isGistMnxName(file.filename))
     .sort((left, right) => left.filename.localeCompare(right.filename));
   if (mnxFiles.length === 0) throw new Error("This Gist does not contain an .mnx file.");
   if (mnxFiles.length > MAX_GIST_FILES) {
@@ -139,24 +140,37 @@ export async function loadGistSetlist(
 
   const files: LoadedGistMnxFile[] = [];
   let totalBytes = 0;
+  let storedBytes = 0;
+  const totalLimitMessage = `This Gist setlist exceeds the ${formatMiB(MAX_GIST_MNX_TOTAL_BYTES)} total load limit.`;
   for (const file of mnxFiles) {
-    const mnx =
+    const stored =
       file.truncated || file.content === null
         ? await loadRawGistFile(file.rawUrl, fetchImpl)
-        : ensureTextSize(file.content, MAX_GIST_MNX_BYTES, `${file.filename}`);
-    totalBytes += new TextEncoder().encode(mnx).byteLength;
-    if (totalBytes > MAX_GIST_SETLIST_BYTES) {
-      throw new Error("This Gist setlist exceeds the 16 MiB total load limit.");
+        : ensureTextSize(file.content, MAX_GIST_RAW_FILE_BYTES, `${file.filename}`);
+    storedBytes += new TextEncoder().encode(stored).byteLength;
+    if (storedBytes > MAX_GIST_STORED_TOTAL_BYTES) {
+      throw new Error(`This Gist setlist exceeds the ${formatMiB(MAX_GIST_STORED_TOTAL_BYTES)} stored load limit.`);
     }
 
+    let mnx: string;
+    if (isCompressedMnxName(file.filename)) {
+      mnx = await decompressMnx(stored, MAX_GIST_MNX_TOTAL_BYTES - totalBytes, file.filename, totalLimitMessage);
+      totalBytes += new TextEncoder().encode(mnx).byteLength;
+    } else {
+      mnx = stored;
+      totalBytes += new TextEncoder().encode(mnx).byteLength;
+      if (totalBytes > MAX_GIST_MNX_TOTAL_BYTES) throw new Error(totalLimitMessage);
+    }
+
+    const fileName = mnxNameFromGistName(file.filename);
     let score: Score;
     try {
       score = parseMnx(JSON.parse(mnx));
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Invalid JSON";
-      throw new Error(`${file.filename} does not contain valid MNX: ${detail}`);
+      throw new Error(`${fileName} does not contain valid MNX: ${detail}`);
     }
-    files.push({ fileName: file.filename, mnx, score });
+    files.push({ fileName, mnx, score });
   }
 
   return {
@@ -220,7 +234,7 @@ async function loadRawGistFile(rawUrl: string, fetchImpl: FetchLike): Promise<st
   if (!response.ok) {
     throw new Error(`GitHub could not load the MNX file (${response.status}).`);
   }
-  return readBoundedText(response, MAX_GIST_MNX_BYTES, "MNX file");
+  return readBoundedText(response, MAX_GIST_RAW_FILE_BYTES, "MNX file");
 }
 
 async function readBoundedText(response: Response, maxBytes: number, label: string): Promise<string> {
@@ -263,10 +277,6 @@ function ensureTextSize(value: string, maxBytes: number, label: string): string 
     throw new Error(`${label} exceeds the ${formatMiB(maxBytes)} limit.`);
   }
   return value;
-}
-
-function formatMiB(bytes: number): string {
-  return `${bytes / (1024 * 1024)} MiB`;
 }
 
 function parseGistPayload(value: string): GistPayload {

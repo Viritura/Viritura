@@ -26,9 +26,12 @@ public sealed class GitHubGistsController(
     IAntiforgery antiforgery) : ControllerBase
 {
     private const int MaxFiles = 50;
-    private const int MaxFileBytes = 16 * 1024 * 1024;
-    private const int MaxTotalBytes = 16 * 1024 * 1024;
+    // Stored files stay under GitHub's 10 MB raw Gist fetch limit; the editor
+    // compresses larger MNX files before upload.
+    private const int MaxStoredFileBytes = 8 * 1024 * 1024;
+    private const int MaxStoredTotalBytes = 64 * 1024 * 1024;
     private const long MaxRequestBytes = 100L * 1024 * 1024;
+    private const string CompressedMnxSuffix = ".mnx.gz.b64";
 
     public sealed record CreateGistRequest
     {
@@ -124,32 +127,45 @@ public sealed class GitHubGistsController(
         var totalBytes = 0;
         foreach (var (name, content) in files)
         {
+            var compressed = name.EndsWith(CompressedMnxSuffix, StringComparison.OrdinalIgnoreCase);
             if (string.IsNullOrWhiteSpace(name) ||
                 name.Length > 255 ||
                 name.Contains('/', StringComparison.Ordinal) ||
                 name.Contains('\\', StringComparison.Ordinal) ||
                 name.Any(char.IsControl) ||
-                !name.EndsWith(".mnx", StringComparison.OrdinalIgnoreCase))
+                !(compressed || name.EndsWith(".mnx", StringComparison.OrdinalIgnoreCase)))
             {
-                return "Gist file names must be simple .mnx file names.";
+                return "Gist file names must be simple .mnx or .mnx.gz.b64 file names.";
             }
 
             if (content is null) return "Gist file contents cannot be null.";
 
             var fileBytes = Encoding.UTF8.GetByteCount(content);
-            if (fileBytes > MaxFileBytes)
+            if (fileBytes > MaxStoredFileBytes)
             {
-                return $"Each MNX file must be at most {MaxFileBytes / (1024 * 1024)} MiB.";
+                return $"Each stored MNX file must be at most {MaxStoredFileBytes / (1024 * 1024)} MiB.";
+            }
+
+            if (compressed && !IsGzipBase64(content))
+            {
+                return "Compressed MNX files must contain base64-encoded gzip data.";
             }
 
             totalBytes += fileBytes;
-            if (totalBytes > MaxTotalBytes)
+            if (totalBytes > MaxStoredTotalBytes)
             {
-                return $"The setlist must be at most {MaxTotalBytes / (1024 * 1024)} MiB in total.";
+                return $"The stored setlist must be at most {MaxStoredTotalBytes / (1024 * 1024)} MiB in total.";
             }
         }
 
         return null;
+    }
+
+    private static bool IsGzipBase64(string content)
+    {
+        var buffer = new byte[content.Length / 4 * 3];
+        return Convert.TryFromBase64String(content, buffer, out var written) &&
+            written >= 2 && buffer[0] == 0x1f && buffer[1] == 0x8b;
     }
 
     private static bool IsTransient(HttpStatusCode? statusCode) =>
