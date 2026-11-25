@@ -1,8 +1,9 @@
 import { compileClickProgram, type ClickProgramEvent } from "./clickProgram";
 import { CLICK_PROCESSOR_NAME } from "./workletSource";
+import { CLICK_SOUNDS, isClickSound, synthesizeClickVoices, type ClickSound } from "../clickSound";
 
 export type ClickEngineErrorCode =
-  "worklet-load" | "invalid-program" | "no-program" | "busy" | "late-start" | "timeout" | "disposed";
+  "worklet-load" | "invalid-program" | "invalid-sound" | "no-program" | "busy" | "late-start" | "timeout" | "disposed";
 
 /** A click-engine failure. Recording clicks fail loudly; they never fall back to a lower-precision path. */
 export class ClickEngineError extends Error {
@@ -99,12 +100,23 @@ export class ClickEngine {
         { cause: error },
       );
     }
-    const node = new AudioWorkletNode(context, CLICK_PROCESSOR_NAME, {
-      numberOfInputs: 0,
-      numberOfOutputs: 1,
-      outputChannelCount: [2],
-    });
-    return new ClickEngine(context, node, options.ackTimeoutMs ?? DEFAULT_ACK_TIMEOUT_MS);
+    try {
+      const voices = CLICK_SOUNDS.map((sound) => synthesizeClickVoices(context.sampleRate, sound));
+      const node = new AudioWorkletNode(context, CLICK_PROCESSOR_NAME, {
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [2],
+        processorOptions: { voices },
+      });
+      return new ClickEngine(context, node, options.ackTimeoutMs ?? DEFAULT_ACK_TIMEOUT_MS);
+    } catch (error) {
+      void context.close();
+      throw new ClickEngineError(
+        "worklet-load",
+        `Failed to initialize the click processor: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
   }
 
   get sampleRate(): number {
@@ -151,6 +163,12 @@ export class ClickEngine {
   async stop(): Promise<number> {
     const reply = await this.request({ type: "stop" });
     return (reply.programFrame ?? 0) / this.sampleRate;
+  }
+
+  /** Change future clicks without changing their scheduled frames. */
+  async setSound(sound: ClickSound): Promise<void> {
+    if (!isClickSound(sound)) throw new RangeError(`Unknown click sound: ${String(sound)}`);
+    await this.request({ type: "sound", sound });
   }
 
   setGain(gain: number): void {
@@ -211,6 +229,8 @@ function clickErrorMessage(code: ClickEngineErrorCode | undefined): string {
       return "Load a click program before starting";
     case "late-start":
       return "The click start time had already passed; the take was not started";
+    case "invalid-sound":
+      return "The click audio thread rejected the selected sound";
     default:
       return "The click audio thread rejected the program";
   }

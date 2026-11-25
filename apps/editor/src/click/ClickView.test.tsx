@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } 
 import type { PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import type { ClickEngineEvent } from "@viritura/audio/click";
+import type { ClickEngineEvent, ClickSound } from "@viritura/audio/click";
 import score from "../../../../packages/format/fixtures/mnx/c-major-scale.mnx?raw";
 import rehearsals from "../../../../packages/format/fixtures/mnx/rehearsal-marks.mnx?raw";
 import multipleLayouts from "../../../../packages/format/fixtures/mnx/multiple-layouts.mnx?raw";
@@ -20,6 +20,7 @@ import {
 const audio = vi.hoisted(() => ({
   create: vi.fn(),
   load: vi.fn(async () => 0),
+  setSound: vi.fn(async (_sound: ClickSound) => {}),
   start: vi.fn(async () => ({ contextTime: 1 })),
   stop: vi.fn(async () => 0.75),
   dispose: vi.fn(async () => {}),
@@ -34,9 +35,18 @@ vi.mock("@viritura/audio/click", () => ({
 const playback = vi.hoisted(() => ({
   releaseAudio: vi.fn(async () => {}),
   statusListener: undefined as ((status: string) => void) | undefined,
+  sound: "tick" as ClickSound,
+  soundListener: undefined as ((sound: ClickSound) => void) | undefined,
 }));
 
 vi.mock("@viritura/playback", () => ({
+  getMetronomeSound: () => playback.sound,
+  subscribeMetronomeSound: (listener: (sound: ClickSound) => void) => {
+    playback.soundListener = listener;
+    return () => {
+      playback.soundListener = undefined;
+    };
+  },
   usePlaybackActions: () => ({ releaseAudio: playback.releaseAudio }),
   subscribePlaybackStatus: (listener: (status: string) => void) => {
     playback.statusListener = listener;
@@ -76,7 +86,10 @@ function ClickTestShell({ children }: PropsWithChildren) {
 beforeEach(() => {
   vi.clearAllMocks();
   audio.listener = undefined;
+  audio.setSound.mockReset().mockResolvedValue(undefined);
   audio.context.currentTime = 0;
+  playback.sound = "tick";
+  playback.soundListener = undefined;
   audio.create.mockResolvedValue({
     ...audio,
     onEvent: (listener: (event: ClickEngineEvent) => void) => {
@@ -116,6 +129,32 @@ async function holdStill(): Promise<void> {
 }
 
 describe("click activity", () => {
+  it("uses the saved sound and updates future clicks without restarting playback", async () => {
+    playback.sound = "woodblock";
+    const { result } = renderHook(() => useClickPlayer(score));
+    await act(async () => result.current.play());
+    expect(audio.setSound).toHaveBeenCalledWith("woodblock");
+    expect(audio.setSound.mock.invocationCallOrder[0]).toBeLessThan(audio.start.mock.invocationCallOrder[0]!);
+
+    act(() => {
+      playback.sound = "beep";
+      playback.soundListener?.("beep");
+    });
+    await waitFor(() => expect(audio.setSound).toHaveBeenLastCalledWith("beep"));
+    expect(audio.start).toHaveBeenCalledOnce();
+    expect(audio.stop).not.toHaveBeenCalled();
+  });
+
+  it("stops and reports a sound change that the audio thread cannot apply", async () => {
+    const { result } = renderHook(() => useClickPlayer(score));
+    await act(async () => result.current.play());
+    audio.setSound.mockRejectedValueOnce(new Error("no acknowledgement"));
+    act(() => playback.soundListener?.("woodblock"));
+    await waitFor(() => expect(result.current.error).toContain("no acknowledgement"));
+    expect(result.current.phase).toBe("ready");
+    expect(audio.dispose).toHaveBeenCalledOnce();
+  });
+
   it("reports a score bar without a full playback visit and clears the error after a valid selection", async () => {
     const { result } = renderHook(() => useClickPlayer(rehearsals));
     act(() => result.current.selectScoreMeasure(99));

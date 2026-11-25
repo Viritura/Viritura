@@ -361,6 +361,7 @@ function serializeTempo(t: Tempo): Obj {
   };
   if (t.location) tObj["location"] = t.location;
   const tempoViritura: Obj = {};
+  if (t.clickSubdivision !== undefined) tempoViritura["clickSubdivision"] = t.clickSubdivision;
   if (t.swing !== undefined) tempoViritura["swing"] = t.swing;
   if (t.text !== undefined) tempoViritura["text"] = t.text;
   if (t.showMetronomeMark !== undefined) tempoViritura["showMetronomeMark"] = t.showMetronomeMark;

@@ -1,16 +1,27 @@
 import {
   useFollowActions,
   useFollowEnabled,
+  useMetronomeSound,
+  useMetronomeSoundActions,
   useTransportVisibilityActions,
   useTransportVisibilityPreferences,
 } from "@viritura/playback";
-import { SettingsRow, Switch } from "@viritura/ui";
+import type { ClickSound } from "@viritura/audio";
+import { ButtonGroup, SettingsRow, Switch } from "@viritura/ui";
+
+const CLICK_SOUND_OPTIONS: Array<{ value: ClickSound; label: string }> = [
+  { value: "tick", label: "Tick" },
+  { value: "woodblock", label: "Woodblock" },
+  { value: "beep", label: "Beep" },
+];
 
 export function PlaybackPanel() {
   const { showTimeDisplay, showFollow, showMetronome } = useTransportVisibilityPreferences();
   const { setVisibility } = useTransportVisibilityActions();
   const followEnabled = useFollowEnabled();
   const { setEnabled: setFollowEnabled } = useFollowActions();
+  const sound = useMetronomeSound();
+  const { setSound } = useMetronomeSoundActions();
 
   return (
     <>
@@ -57,6 +68,21 @@ export function PlaybackPanel() {
             aria-describedby={descriptionId}
             checked={showMetronome}
             onCheckedChange={(checked) => setVisibility({ showMetronome: checked })}
+          />
+        )}
+      </SettingsRow>
+      <SettingsRow
+        layout="stacked"
+        label="Metronome sound"
+        description="Choose the sound used by the metronome and Click activity."
+      >
+        {({ labelId, descriptionId }) => (
+          <ButtonGroup
+            options={CLICK_SOUND_OPTIONS}
+            value={sound}
+            onChange={setSound}
+            ariaLabelledBy={labelId}
+            ariaDescribedBy={descriptionId}
           />
         )}
       </SettingsRow>

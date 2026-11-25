@@ -30,7 +30,8 @@ Instrument Profiles choose the sound sources available for document playback.
 
 **Playback** chooses which controls appear in the transport bar (the time
 display, the follow-playback-head control, and the metronome) and whether the
-view follows the playhead during playback.
+view follows the playhead during playback. **Metronome sound** selects the
+tick, woodblock, or beep used by both the metronome and the Click activity.
 
 ## MIDI input
 

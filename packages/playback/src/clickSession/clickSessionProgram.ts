@@ -1,9 +1,9 @@
 import type { ClickProgramEvent } from "@viritura/audio";
-import { resolveMeter, type TimeSignature } from "@viritura/core";
+import { measureTempoInstructions, resolveMeter, type GlobalMeasure, type TimeSignature } from "@viritura/core";
 import type { MidiTimeline, PlayedMeasureSpan } from "@viritura/midi";
 
 /** Tempo and meter structure needed to compile a click session program. */
-export type ClickSessionSource = Pick<
+export interface ClickSessionSource extends Pick<
   MidiTimeline,
   | "model"
   | "duration"
@@ -12,7 +12,10 @@ export type ClickSessionSource = Pick<
   | "playedSpans"
   | "expandedMeasureToOriginal"
   | "fermataHolds"
->;
+> {
+  /** Written tempo instructions, before repeat/jump expansion, for persisted subdivisions. */
+  readonly globalMeasures?: readonly GlobalMeasure[];
+}
 
 /** Click resolution from a score measure onward (until the next rule). */
 export interface ClickResolutionRule {
@@ -71,6 +74,10 @@ export function buildClickSessionProgram(
   const startIndex = resolveStartIndex(expandedMeasureToOriginal, options);
   const startMeasure = expandedMeasureToOriginal[startIndex]!;
   const resolutions = sortedResolutions(options.resolutions ?? []);
+  const tempoResolutions = compileTempoResolutions(source.globalMeasures ?? []);
+  const startSpan = playedSpans?.[startIndex];
+  const startResolution = measureResolution(tempoResolutions, resolutions, startMeasure);
+  const startSubdivision = subdivisionAt(startResolution, startSpan?.startBeat ?? 0);
 
   const scale = 100 / tempoPercent;
   const startBeat = measureStartBeats[startIndex]!;
@@ -78,52 +85,35 @@ export function buildClickSessionProgram(
   const quarterSeconds = model.spbAtBeat(startBeat) * scale;
   const countoff =
     (options.countoff ?? true)
-      ? countoffBar(
-          measureTimeSignatures[startIndex]!,
-          quarterSeconds,
-          resolutionAt(resolutions, startMeasure),
-          countoffBars,
-        )
-      : { events: [], seconds: 0, beats: 0 };
+      ? countoffBar(measureTimeSignatures[startIndex]!, quarterSeconds, startSubdivision, countoffBars)
+      : { events: [], seconds: 0, clicks: 0 };
   const events: ClickProgramEvent[] = countoff.events;
-  const countoffClicks = countoff.beats;
+  const countoffClicks = countoff.clicks;
   const timeAtBeat = (globalBeat: number) => countoff.seconds + (model.timeAtBeat(globalBeat) - startTime) * scale;
 
   for (let index = startIndex; index < measureStartBeats.length; index++) {
     const measureBeat = measureStartBeats[index];
     const meter = measureTimeSignatures[index];
     if (measureBeat === undefined || !meter) continue;
-    const subdivision = resolutionAt(resolutions, expandedMeasureToOriginal[index] ?? 0);
-    pushMeasureClicks(events, { measureBeat, meter, span: playedSpans?.[index], subdivision, timeAtBeat });
+    const resolution = measureResolution(tempoResolutions, resolutions, expandedMeasureToOriginal[index] ?? 0);
+    pushMeasureClicks(events, {
+      measureBeat,
+      meter,
+      span: playedSpans?.[index],
+      subdivision: resolution.subdivision,
+      changes: resolution.changes,
+      timeAtBeat,
+    });
   }
-  const holdOffsets = new Map<number, number>();
-  for (const hold of source.fermataHolds ?? []) {
-    if (hold.beat <= startBeat) continue;
-    const offset = holdOffsets.get(hold.beat) ?? 0;
-    const seconds = hold.extraBeats * model.spbAtBeat(hold.beat);
-    holdOffsets.set(hold.beat, offset + seconds);
-    if (hold.clickBehavior !== "keepClicking") continue;
-    const index = measureStartBeats.findLastIndex((beat) => beat < hold.beat - 1e-9);
-    const meter = measureTimeSignatures[index];
-    if (!meter) throw new Error("Fermata click hold has no active meter.");
-    const subdivision = resolutionAt(resolutions, expandedMeasureToOriginal[index]!);
-    const boundaries = resolveMeter(meter).beatBoundaries;
-    const localBeat = hold.beat - measureStartBeats[index]!;
-    const pulseIndex = Math.max(
-      0,
-      boundaries.findLastIndex((beat) => beat < localBeat - 1e-9),
-    );
-    const pulse = boundaries[pulseIndex + 1]! - boundaries[pulseIndex]!;
-    const stepSeconds = (pulse * model.spbAtBeat(hold.beat)) / subdivision;
-    const gapStart = model.timeAtBeat(hold.beat, "release") + offset;
-    const gapEnd = gapStart + seconds;
-    for (let step = 0; gapStart + step * stepSeconds < gapEnd - 1e-9; step++) {
-      events.push({
-        time: countoff.seconds + (gapStart + step * stepSeconds - startTime) * scale,
-        level: step % subdivision === 0 ? "beat" : "subdivision",
-      });
-    }
-  }
+  pushFermataClicks(events, {
+    source,
+    startBeat,
+    startTime,
+    scale,
+    countoffSeconds: countoff.seconds,
+    resolutions,
+    tempoResolutions,
+  });
   events.sort((a, b) => a.time - b.time);
 
   return {
@@ -134,6 +124,52 @@ export function buildClickSessionProgram(
     startBpm: 60 / quarterSeconds,
     startTimelineMeasure: startIndex,
   };
+}
+
+interface FermataClickContext {
+  readonly source: ClickSessionSource;
+  readonly startBeat: number;
+  readonly startTime: number;
+  readonly scale: number;
+  readonly countoffSeconds: number;
+  readonly resolutions: readonly ClickResolutionRule[];
+  readonly tempoResolutions: readonly MeasureResolution[];
+}
+
+function pushFermataClicks(events: ClickProgramEvent[], context: FermataClickContext): void {
+  const { source, startBeat, startTime, scale, countoffSeconds, resolutions, tempoResolutions } = context;
+  const { model, measureStartBeats, measureTimeSignatures, playedSpans, expandedMeasureToOriginal } = source;
+  const holdOffsets = new Map<number, number>();
+  for (const hold of source.fermataHolds ?? []) {
+    if (hold.beat <= startBeat) continue;
+    const offset = holdOffsets.get(hold.beat) ?? 0;
+    const seconds = hold.extraBeats * model.spbAtBeat(hold.beat);
+    holdOffsets.set(hold.beat, offset + seconds);
+    if (hold.clickBehavior !== "keepClicking") continue;
+    const index = measureStartBeats.findLastIndex((beat) => beat < hold.beat - 1e-9);
+    const meter = measureTimeSignatures[index];
+    if (!meter) throw new Error("Fermata click hold has no active meter.");
+    const tempoIndex = measureStartBeats.findLastIndex((beat) => beat <= hold.beat + 1e-9);
+    const tempoBeat = hold.beat - measureStartBeats[tempoIndex]! + (playedSpans?.[tempoIndex]?.startBeat ?? 0);
+    const resolution = measureResolution(tempoResolutions, resolutions, expandedMeasureToOriginal[tempoIndex]!);
+    const subdivision = subdivisionAt(resolution, tempoBeat);
+    const boundaries = resolveMeter(meter).beatBoundaries;
+    const localBeat = hold.beat - measureStartBeats[index]! + (playedSpans?.[index]?.startBeat ?? 0);
+    const pulseIndex = Math.max(
+      0,
+      boundaries.findLastIndex((beat) => beat < localBeat - 1e-9),
+    );
+    const pulse = boundaries[pulseIndex + 1]! - boundaries[pulseIndex]!;
+    const stepSeconds = (pulse * model.spbAtBeat(hold.beat)) / subdivision;
+    const gapStart = model.timeAtBeat(hold.beat, "release") + offset;
+    const gapEnd = gapStart + seconds;
+    for (let step = 0; gapStart + step * stepSeconds < gapEnd - 1e-9; step++) {
+      events.push({
+        time: countoffSeconds + (gapStart + step * stepSeconds - startTime) * scale,
+        level: step % subdivision === 0 ? "beat" : "subdivision",
+      });
+    }
+  }
 }
 
 function resolveStartIndex(measureOrder: readonly number[], options: ClickSessionOptions): number {
@@ -157,7 +193,7 @@ function countoffBar(
   quarterSeconds: number,
   subdivision: number,
   bars: 1 | 2,
-): { events: ClickProgramEvent[]; seconds: number; beats: number } {
+): { events: ClickProgramEvent[]; seconds: number; clicks: number } {
   const events: ClickProgramEvent[] = [];
   const barBeats = meter.count * (4 / meter.unit);
   for (let bar = 0; bar < bars; bar++) {
@@ -172,7 +208,7 @@ function countoffBar(
   return {
     events,
     seconds: bars * barBeats * quarterSeconds,
-    beats: bars * resolveMeter(meter).beatStructure.length,
+    clicks: events.length,
   };
 }
 
@@ -181,24 +217,101 @@ interface MeasureClickGrid {
   readonly meter: TimeSignature;
   readonly span: PlayedMeasureSpan | undefined;
   readonly subdivision: number;
+  readonly changes?: readonly SubdivisionChange[];
   readonly timeAtBeat: (globalBeat: number) => number;
 }
 
 function pushMeasureClicks(events: ClickProgramEvent[], grid: MeasureClickGrid): void {
-  const { measureBeat, meter, span, subdivision, timeAtBeat } = grid;
+  const { measureBeat, meter, span, subdivision, changes = [], timeAtBeat } = grid;
   const { beatBoundaries } = resolveMeter(meter);
   for (let index = 0; index < beatBoundaries.length - 1; index++) {
     const beatStart = beatBoundaries[index]!;
     const beatQuarters = beatBoundaries[index + 1]! - beatStart;
-    for (let step = 0; step < subdivision; step++) {
-      const sourceBeat = beatStart + (step * beatQuarters) / subdivision;
-      if (span && (sourceBeat < span.startBeat || sourceBeat >= span.endBeat)) continue;
-      events.push({
-        time: timeAtBeat(measureBeat + sourceBeat - (span?.startBeat ?? 0)),
-        level: step > 0 ? "subdivision" : index === 0 ? "accent" : "beat",
-      });
+    const beatEnd = beatStart + beatQuarters;
+    const boundaries = [
+      beatStart,
+      ...new Set(
+        changes.filter((change) => change.atBeat > beatStart && change.atBeat < beatEnd).map((change) => change.atBeat),
+      ),
+      beatEnd,
+    ];
+    for (let segment = 0; segment < boundaries.length - 1; segment++) {
+      const segmentStart = boundaries[segment]!;
+      const segmentEnd = boundaries[segment + 1]!;
+      const active = subdivisionAt({ subdivision, changes }, segmentStart);
+      for (let step = 0; step < active; step++) {
+        const sourceBeat = segmentStart + (step * beatQuarters) / active;
+        if (sourceBeat >= segmentEnd - 1e-9) break;
+        if (span && (sourceBeat < span.startBeat || sourceBeat >= span.endBeat)) continue;
+        events.push({
+          time: timeAtBeat(measureBeat + sourceBeat - (span?.startBeat ?? 0)),
+          level: sourceBeat > beatStart ? "subdivision" : index === 0 ? "accent" : "beat",
+        });
+      }
     }
   }
+}
+
+interface SubdivisionChange {
+  readonly atBeat: number;
+  readonly subdivision: number;
+}
+
+interface MeasureResolution {
+  readonly subdivision: number;
+  readonly changes: readonly SubdivisionChange[];
+}
+
+/**
+ * Each BPM-bearing tempo sets the click subdivision until the next one;
+ * omission means 1, so a subdivision never carries into the next tempo.
+ * Instructions without BPM (click-only or swing-only text) change the
+ * subdivision only when they set it explicitly.
+ */
+function compileTempoResolutions(measures: readonly GlobalMeasure[]): MeasureResolution[] {
+  let subdivision = 1;
+  return measures.map((measure) => {
+    const byPosition = new Map<number, { subdivision: number; explicit: boolean }>();
+    for (const tempo of measureTempoInstructions(measure)) {
+      const value = tempo.clickSubdivision;
+      if (value !== undefined && (!Number.isInteger(value) || value < 1 || value > 5)) {
+        throw new RangeError("Tempo click subdivision must be an integer from 1 to 5.");
+      }
+      const fraction = tempo.location?.fraction ?? [0, 1];
+      const atBeat = (fraction[0]! / fraction[1]!) * 4;
+      // Co-located instructions: the last explicit setting wins over defaults.
+      if (value !== undefined) byPosition.set(atBeat, { subdivision: value, explicit: true });
+      else if (tempo.bpm !== undefined && !byPosition.get(atBeat)?.explicit) {
+        byPosition.set(atBeat, { subdivision: 1, explicit: false });
+      }
+    }
+    const changes = [...byPosition]
+      .map(([atBeat, entry]) => ({ atBeat, subdivision: entry.subdivision }))
+      .sort((a, b) => a.atBeat - b.atBeat);
+    const result = { subdivision, changes };
+    subdivision = subdivisionAt(result, Infinity);
+    return result;
+  });
+}
+
+function measureResolution(
+  tempos: readonly MeasureResolution[],
+  rules: readonly ClickResolutionRule[],
+  measure: number,
+): MeasureResolution {
+  if (rules.some((rule) => rule.fromMeasure <= measure)) {
+    return { subdivision: resolutionAt(rules, measure), changes: [] };
+  }
+  return tempos[measure] ?? { subdivision: 1, changes: [] };
+}
+
+function subdivisionAt(resolution: MeasureResolution, beat: number): number {
+  let subdivision = resolution.subdivision;
+  for (const change of resolution.changes) {
+    if (change.atBeat > beat) break;
+    subdivision = change.subdivision;
+  }
+  return subdivision;
 }
 
 function sortedResolutions(rules: readonly ClickResolutionRule[]): ClickResolutionRule[] {

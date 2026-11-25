@@ -41,6 +41,7 @@ function TempoInspectorPreview({
             : (inherited ?? { swing: { mode: "straight" } })
         }
         onSwingChange={(swing) => setTempo(withTempoSwing(tempo, swing))}
+        onClickSubdivisionChange={(clickSubdivision) => setTempo({ ...tempo, clickSubdivision })}
         onBpmChange={(bpm) => {
           if (tempo.bpm !== undefined) setTempo({ ...tempo, bpm });
         }}
@@ -80,6 +81,10 @@ export const InheritedSwing: StoryObj = {
 
 export const Straight: StoryObj = {
   render: () => <TempoInspectorPreview initialTempo={{ ...METRONOME, swing: { mode: "straight" } }} />,
+};
+
+export const ClickSubdivisions: StoryObj = {
+  render: () => <TempoInspectorPreview initialTempo={{ ...METRONOME, clickSubdivision: 3 }} />,
 };
 
 export const CustomRatio: StoryObj = {

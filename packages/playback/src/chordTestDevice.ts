@@ -38,10 +38,16 @@ function audioNode(context: object) {
 
 export class ChordTestDevice {
   currentTime = 10;
+  sampleRate = 48_000;
   state = "running";
   destination = {};
   listener = {};
   createGain = (): ReturnType<typeof audioNode> => audioNode(this);
+  createBuffer = vi.fn((_channels: number, length: number) => {
+    const samples = new Float32Array(length);
+    return { getChannelData: () => samples };
+  });
+  createBufferSource = vi.fn((): ReturnType<typeof audioNode> => audioNode(this));
   createBiquadFilter = (): ReturnType<typeof audioNode> => audioNode(this);
   createDynamicsCompressor = (): ReturnType<typeof audioNode> => audioNode(this);
   createDelay = (): ReturnType<typeof audioNode> => audioNode(this);

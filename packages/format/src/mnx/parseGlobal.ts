@@ -217,6 +217,7 @@ function parseVendorTempos(raw: RawMeasureGlobal, viritura: RawMeasureGlobalExt)
   if (!viritura.tempos) throw new Error("Viritura tempo instructions are missing.");
   return viritura.tempos.map((instruction): Tempo => {
     const presentation: TempoPresentation = {
+      clickSubdivision: instruction.clickSubdivision,
       text: instruction.text,
       showText: instruction.showText,
       showMetronomeMark: instruction.showMetronomeMark,
@@ -302,6 +303,13 @@ function parseTempo(raw: RawTempo): Tempo {
   // the unvalidated parse path, where no schema validation has run.
   const viritura = raw._x?.["viritura"] as RawTempoExt | undefined;
   if (viritura) {
+    if (viritura.clickSubdivision !== undefined) {
+      const value = viritura.clickSubdivision;
+      if (!Number.isInteger(value) || value < 1 || value > 5) {
+        throw new Error("Invalid Viritura tempo click subdivision.");
+      }
+      tempo.clickSubdivision = value;
+    }
     if (viritura.swing !== undefined) {
       if (!validateSwing(viritura.swing)) throw new Error("Invalid Viritura tempo swing instruction.");
       tempo.swing = parseSwing(viritura.swing);
