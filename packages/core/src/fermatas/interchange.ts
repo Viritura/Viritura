@@ -133,7 +133,7 @@ export function mergeImportedFermatas(score: Score, diagnostics = new Diagnostic
           }
           diagnostics.warn(
             ptr("parts", span.partIndex, "measures", measureIndex, "sequences", span.sequenceIndex),
-            `Fermata at beat ${beat + 1} was retained as local because other sounding staves are not aligned.`,
+            `Fermata in measure ${measureIndex + 1}, part ${span.partIndex + 1}, staff ${span.staff}, at beat ${beat + 1} was retained as local because other sounding staves are not aligned.`,
             "unmerged-local-fermata",
           );
         }
