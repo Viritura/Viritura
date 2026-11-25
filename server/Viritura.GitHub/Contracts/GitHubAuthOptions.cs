@@ -14,8 +14,6 @@ public sealed class GitHubAuthOptions
 
     public string FrontendBaseUrl { get; set; } = "https://app.viritura.com";
 
-    public string Scope { get; set; } = string.Empty;
-
     public string AuthorizeUrl { get; set; } = "https://github.com/login/oauth/authorize";
 
     public string StateCookieName { get; set; } = "__Host-viritura-github-state";

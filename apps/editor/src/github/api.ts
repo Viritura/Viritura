@@ -57,6 +57,15 @@ export interface CreatedGitHubRepository {
   readonly defaultBranch: string;
 }
 
+export interface CreatedGitHubGist {
+  readonly id: string;
+  readonly htmlUrl: string;
+}
+
+export interface CreateGitHubGistRequest {
+  readonly files: Readonly<Record<string, string>>;
+}
+
 class GitHubApiError extends Error {
   constructor(
     message: string,
@@ -290,6 +299,25 @@ export async function createGitHubRepository(
     }),
   });
   return readRepository(payload);
+}
+
+export async function createGitHubGist(
+  request: CreateGitHubGistRequest,
+  apiBaseUrl = getVirituraApiBaseUrl(),
+): Promise<CreatedGitHubGist> {
+  const csrf = await getCsrfToken(apiBaseUrl, { force: true });
+  const payload = await apiFetch<Record<string, unknown>>(`${apiBaseUrl}/github/gists`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      [csrf.headerName]: csrf.token,
+    },
+    body: JSON.stringify({ files: request.files }),
+  });
+  return {
+    id: getString(payload, "id"),
+    htmlUrl: getString(payload, "htmlUrl"),
+  };
 }
 
 export async function findGitHubRepository(

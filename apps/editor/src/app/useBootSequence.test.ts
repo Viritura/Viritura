@@ -7,6 +7,8 @@ import { listRecentScores } from "../store/recentScores";
 import { useFileLaunch } from "../pwa";
 import { setStartCenterOpen } from "../store/onboardingStore";
 import type { OpenFileResult } from "../commands/fileCommands";
+import { useGistSetlistStore } from "../gistShare";
+import { toast } from "sonner";
 
 vi.mock("../store/recentScores", () => ({ listRecentScores: vi.fn(async () => []) }));
 
@@ -18,6 +20,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
+  useGistSetlistStore.getState().clear();
   Reflect.deleteProperty(window, "launchQueue");
   window.history.replaceState({}, "", "/");
 });
@@ -39,6 +43,108 @@ function mount(suppressStartCenter = false) {
 }
 
 describe("startup with OS-launched files", () => {
+  it("opens a shared Gist setlist without showing the Start Center", async () => {
+    const gistId = "0123456789abcdef0123456789abcdef";
+    const revision = "0123456789abcdef0123456789abcdef01234567";
+    const mnx = JSON.stringify({ mnx: { version: 1 }, global: { measures: [] }, parts: [] });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              id: gistId,
+              html_url: `https://gist.github.com/example/${gistId}`,
+              history: [{ version: revision }],
+              files: {
+                "01 - score.mnx": {
+                  filename: "01 - score.mnx",
+                  content: mnx,
+                  truncated: false,
+                  raw_url: `https://gist.githubusercontent.com/example/${gistId}/raw/${revision}/score.mnx`,
+                },
+              },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+      ),
+    );
+    window.history.replaceState({}, "", `/?open=gist-setlist#id=${gistId}`);
+    const store = createDocumentStore();
+    const loadScore = vi.fn();
+    const resetHistory = vi.fn();
+    const setFileHandle = vi.fn();
+    renderHook(() =>
+      useBootSequence({
+        store,
+        loadScore,
+        resetHistory,
+        setFileHandle,
+        loadDefaultScore: vi.fn(),
+        suppressStartCenter: false,
+      }),
+    );
+
+    await waitFor(() => expect(loadScore).toHaveBeenCalledOnce());
+    expect(loadScore).toHaveBeenCalledWith(expect.any(Object), "01 - score.mnx", mnx);
+    expect(useGistSetlistStore.getState().setlist?.files).toHaveLength(1);
+    expect(useOnboardingStore.getState().startCenterOpen).toBe(false);
+    expect(listRecentScores).not.toHaveBeenCalled();
+    expect(setFileHandle).toHaveBeenCalledWith(null);
+    expect(resetHistory).toHaveBeenCalledOnce();
+  });
+
+  it("does not replace a score opened while the shared setlist is loading", async () => {
+    const info = vi.spyOn(toast, "info");
+    const gistId = "0123456789abcdef0123456789abcdef";
+    const revision = "0123456789abcdef0123456789abcdef01234567";
+    const mnx = JSON.stringify({ mnx: { version: 1 }, global: { measures: [] }, parts: [] });
+    let finish!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            finish = resolve;
+          }),
+      ),
+    );
+    window.history.replaceState({}, "", `/?open=gist-setlist#id=${gistId}`);
+    const store = createDocumentStore();
+    const loadScore = vi.fn();
+    renderHook(() =>
+      useBootSequence({
+        store,
+        loadScore,
+        resetHistory: vi.fn(),
+        setFileHandle: vi.fn(),
+        loadDefaultScore: vi.fn(),
+        suppressStartCenter: false,
+      }),
+    );
+    store.setState({ documentGeneration: 1 });
+    finish(
+      new Response(
+        JSON.stringify({
+          id: gistId,
+          html_url: `https://gist.github.com/example/${gistId}`,
+          history: [{ version: revision }],
+          files: {
+            "score.mnx": {
+              filename: "score.mnx",
+              content: mnx,
+              truncated: false,
+              raw_url: `https://gist.githubusercontent.com/example/${gistId}/raw/${revision}/score.mnx`,
+            },
+          },
+        }),
+      ),
+    );
+    await waitFor(() => expect(info).toHaveBeenCalledWith("The open score changed while loading the shared setlist."));
+    expect(loadScore).not.toHaveBeenCalled();
+    expect(useGistSetlistStore.getState().setlist).toBeNull();
+  });
+
   it.each([false, true])(
     "shows a fallback without racing a default sample when launch data is absent (suppressed=%s)",
     async (suppressed) => {

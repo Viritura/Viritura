@@ -152,7 +152,9 @@ function Router() {
 
 /** Main app shell with VS Code-style activity bar on the left. */
 function AppWithActivityBar() {
-  const [activeView, setActiveView] = useState<ActivityView>("write");
+  const [activeView, setActiveView] = useState<ActivityView>(() =>
+    new URLSearchParams(window.location.search).get("open") === "gist-setlist" ? "click" : "write",
+  );
   const settingsOpen = useSettingsCategoryStore((state) => state.open);
   const [baselineMnx, setBaselineMnx] = useState<string>("");
   const [mnxJson, setMnxJson] = useState<string>("");

@@ -2,7 +2,9 @@ import { parseMnx } from "@viritura/format";
 import type { Score } from "@viritura/core";
 
 const MAX_GIST_MNX_BYTES = 16 * 1024 * 1024;
-const MAX_GIST_METADATA_BYTES = 2 * 1024 * 1024;
+const MAX_GIST_SETLIST_BYTES = 16 * 1024 * 1024;
+const MAX_GIST_METADATA_BYTES = 100 * 1024 * 1024;
+const MAX_GIST_FILES = 50;
 const GIST_ID_PATTERN = /^[0-9a-f]{20,64}$/i;
 const GIST_REVISION_PATTERN = /^[0-9a-f]{40}$/i;
 
@@ -21,6 +23,19 @@ export interface LoadedGistMnx {
   readonly fileName: string;
   readonly mnx: string;
   readonly score: Score;
+  readonly gistUrl: string;
+}
+
+export interface LoadedGistMnxFile {
+  readonly fileName: string;
+  readonly mnx: string;
+  readonly score: Score;
+}
+
+export interface LoadedGistSetlist {
+  readonly gistId: string;
+  readonly revision: string;
+  readonly files: readonly LoadedGistMnxFile[];
   readonly gistUrl: string;
 }
 
@@ -71,6 +86,17 @@ export function buildGistShareUrl(origin: string, gistId: string, revision?: str
   return url.toString();
 }
 
+export function buildGistSetlistUrl(origin: string, gistId: string, revision?: string): string {
+  assertGistId(gistId);
+  if (revision) assertRevision(revision);
+
+  const url = new URL("/", origin);
+  url.searchParams.set("open", "gist-setlist");
+  if (revision) url.searchParams.set("revision", revision.toLowerCase());
+  url.hash = new URLSearchParams({ id: gistId.toLowerCase() }).toString();
+  return url.toString();
+}
+
 export function readGistShareLocation(location: Pick<Location, "hash" | "search">): GistShareLocation {
   const fragment = new URLSearchParams(location.hash.replace(/^#/, ""));
   const gistId = fragment.get("id") ?? "";
@@ -80,7 +106,15 @@ export function readGistShareLocation(location: Pick<Location, "hash" | "search"
   return { gistId: gistId.toLowerCase(), ...(revision ? { revision: revision.toLowerCase() } : {}) };
 }
 
-export async function loadGistMnx(location: GistShareLocation, fetchImpl: FetchLike = fetch): Promise<LoadedGistMnx> {
+export function readGistSetlistLocation(location: Pick<Location, "hash" | "search">): GistShareLocation | null {
+  if (new URLSearchParams(location.search).get("open") !== "gist-setlist") return null;
+  return readGistShareLocation(location);
+}
+
+export async function loadGistSetlist(
+  location: GistShareLocation,
+  fetchImpl: FetchLike = fetch,
+): Promise<LoadedGistSetlist> {
   assertGistId(location.gistId);
   if (location.revision) assertRevision(location.revision);
 
@@ -95,36 +129,57 @@ export async function loadGistMnx(location: GistShareLocation, fetchImpl: FetchL
 
   const payloadText = await readBoundedText(response, MAX_GIST_METADATA_BYTES, "Gist metadata");
   const payload = parseGistPayload(payloadText);
-  const mnxFiles = payload.files.filter((file) => file.filename.toLowerCase().endsWith(".mnx"));
-  if (mnxFiles.length !== 1) {
-    throw new Error(
-      mnxFiles.length === 0
-        ? "This Gist does not contain an .mnx file."
-        : "This Gist must contain exactly one .mnx file.",
-    );
+  const mnxFiles = payload.files
+    .filter((file) => file.filename.toLowerCase().endsWith(".mnx"))
+    .sort((left, right) => left.filename.localeCompare(right.filename));
+  if (mnxFiles.length === 0) throw new Error("This Gist does not contain an .mnx file.");
+  if (mnxFiles.length > MAX_GIST_FILES) {
+    throw new Error(`This Gist has more than the ${MAX_GIST_FILES}-file setlist limit.`);
   }
 
-  const file = mnxFiles[0]!;
-  const mnx =
-    file.truncated || file.content === null
-      ? await loadRawGistFile(file.rawUrl, fetchImpl)
-      : ensureTextSize(file.content, MAX_GIST_MNX_BYTES, "MNX file");
+  const files: LoadedGistMnxFile[] = [];
+  let totalBytes = 0;
+  for (const file of mnxFiles) {
+    const mnx =
+      file.truncated || file.content === null
+        ? await loadRawGistFile(file.rawUrl, fetchImpl)
+        : ensureTextSize(file.content, MAX_GIST_MNX_BYTES, `${file.filename}`);
+    totalBytes += new TextEncoder().encode(mnx).byteLength;
+    if (totalBytes > MAX_GIST_SETLIST_BYTES) {
+      throw new Error("This Gist setlist exceeds the 16 MiB total load limit.");
+    }
 
-  let score: Score;
-  try {
-    score = parseMnx(JSON.parse(mnx));
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "Invalid JSON";
-    throw new Error(`The Gist does not contain valid MNX: ${detail}`);
+    let score: Score;
+    try {
+      score = parseMnx(JSON.parse(mnx));
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Invalid JSON";
+      throw new Error(`${file.filename} does not contain valid MNX: ${detail}`);
+    }
+    files.push({ fileName: file.filename, mnx, score });
   }
 
   return {
     gistId: payload.id,
     revision: payload.revision,
-    fileName: file.filename,
-    mnx,
-    score,
+    files,
     gistUrl: payload.htmlUrl,
+  };
+}
+
+export async function loadGistMnx(location: GistShareLocation, fetchImpl: FetchLike = fetch): Promise<LoadedGistMnx> {
+  const setlist = await loadGistSetlist(location, fetchImpl);
+  if (setlist.files.length !== 1) {
+    throw new Error("This Gist must contain exactly one .mnx file for a score preview.");
+  }
+  const file = setlist.files[0]!;
+  return {
+    gistId: setlist.gistId,
+    revision: setlist.revision,
+    fileName: file.fileName,
+    mnx: file.mnx,
+    score: file.score,
+    gistUrl: setlist.gistUrl,
   };
 }
 

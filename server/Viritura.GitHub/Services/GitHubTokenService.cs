@@ -9,6 +9,8 @@ public sealed class GitHubTokenService(
     IOptions<GitHubAuthOptions> options,
     TimeProvider timeProvider) : IGitHubTokenService
 {
+    private const string GitHubAppOAuthScope = "offline_access";
+
     public string BuildAuthorizationUrl(string state)
     {
         var authOptions = options.Value;
@@ -16,12 +18,9 @@ public sealed class GitHubTokenService(
         {
             $"client_id={Uri.EscapeDataString(authOptions.ClientId)}",
             $"redirect_uri={Uri.EscapeDataString(authOptions.RedirectUri)}",
-            $"state={Uri.EscapeDataString(state)}"
+            $"state={Uri.EscapeDataString(state)}",
+            $"scope={GitHubAppOAuthScope}"
         };
-        if (!string.IsNullOrWhiteSpace(authOptions.Scope))
-        {
-            parameters.Add($"scope={Uri.EscapeDataString(authOptions.Scope)}");
-        }
 
         return $"{authOptions.AuthorizeUrl}?{string.Join("&", parameters)}";
     }

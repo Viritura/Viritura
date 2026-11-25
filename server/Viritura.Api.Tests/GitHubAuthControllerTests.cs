@@ -435,6 +435,13 @@ public sealed class GitHubAuthControllerTests : IClassFixture<WebApplicationFact
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<GitHubCreatedGist> CreateGistAsync(
+            string accessToken,
+            string description,
+            IReadOnlyDictionary<string, string> files,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<bool> RevokeOAuthGrantAsync(string accessToken, CancellationToken cancellationToken = default) =>
             Task.FromResult(true);
     }

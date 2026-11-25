@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { useProjectStore } from "../store/projectStore";
+import { DocumentProvider } from "../store/DocumentContext";
+import { useGistSetlistStore, type LoadedGistSetlist } from "../gistShare";
 import { ProjectFileSwitcher } from "./ProjectFileSwitcher";
 import { useProjectFileSwitchStore } from "./projectFileSwitchStore";
 
@@ -16,6 +18,7 @@ afterEach(() => {
   cleanup();
   useProjectStore.setState({ projectScores: [], activeScorePath: null, rescanProjectScores: originalRescan });
   useProjectFileSwitchStore.setState({ switchTo: null, switching: false });
+  useGistSetlistStore.getState().clear();
   vi.restoreAllMocks();
 });
 
@@ -28,7 +31,11 @@ it("can discover new scores when the project initially contains only one", async
   });
   useProjectFileSwitchStore.setState({ switchTo: vi.fn(async () => true) });
   const user = userEvent.setup();
-  render(<ProjectFileSwitcher />);
+  render(
+    <DocumentProvider>
+      <ProjectFileSwitcher />
+    </DocumentProvider>,
+  );
 
   await user.click(screen.getByRole("button", { name: "Select project file: one.mnx" }));
   expect(rescan).toHaveBeenCalledOnce();
@@ -41,7 +48,11 @@ it("reports unexpected errors from a score switch", async () => {
   useProjectStore.setState({ projectScores: [first, second], activeScorePath: first.relativePath });
   useProjectFileSwitchStore.setState({ switchTo: vi.fn(async () => Promise.reject(failure)) });
   const user = userEvent.setup();
-  render(<ProjectFileSwitcher />);
+  render(
+    <DocumentProvider>
+      <ProjectFileSwitcher />
+    </DocumentProvider>,
+  );
 
   await user.click(screen.getByRole("button", { name: "Select project file: one.mnx" }));
   await user.click(screen.getByRole("option", { name: "two.mnx" }));
@@ -59,9 +70,30 @@ it("reports a failed project rescan", async () => {
   });
   useProjectFileSwitchStore.setState({ switchTo: vi.fn(async () => true) });
   const user = userEvent.setup();
-  render(<ProjectFileSwitcher />);
+  render(
+    <DocumentProvider>
+      <ProjectFileSwitcher />
+    </DocumentProvider>,
+  );
 
   await user.click(screen.getByRole("button", { name: "Select project file: one.mnx" }));
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not refresh project files"));
   expect(log).toHaveBeenCalledWith("Could not refresh project files:", failure);
+});
+
+it("routes Gist selection through the guarded file switcher", async () => {
+  const setlist = { files: [{ fileName: "one.mnx" }, { fileName: "two.mnx" }] } as LoadedGistSetlist;
+  useGistSetlistStore.getState().open(setlist, 0);
+  const switchTo = vi.fn(async () => true);
+  useProjectFileSwitchStore.setState({ switchTo });
+  const user = userEvent.setup();
+  render(
+    <DocumentProvider>
+      <ProjectFileSwitcher />
+    </DocumentProvider>,
+  );
+
+  await user.click(screen.getByRole("button", { name: "Select setlist file: one.mnx" }));
+  await user.click(screen.getByRole("option", { name: "two.mnx" }));
+  expect(switchTo).toHaveBeenCalledWith("two.mnx");
 });

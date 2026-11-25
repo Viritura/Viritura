@@ -29,6 +29,8 @@ export interface ScanOptions {
   maxResults?: number;
   /** Directory names to skip (case-sensitive). Defaults to common noise. */
   ignore?: ReadonlySet<string>;
+  /** Propagate directory read errors instead of returning partial results. */
+  failOnError?: boolean;
 }
 
 const DEFAULT_IGNORE: ReadonlySet<string> = new Set([
@@ -61,14 +63,16 @@ export async function scanForMnxFiles(
     try {
       // FSA spec: `entries()` yields [name, handle] tuples.
       entries = dir.entries() as AsyncIterable<[string, FileSystemHandle]>;
-    } catch {
+    } catch (error) {
+      if (options.failOnError) throw error;
       return;
     }
     // Collect first so we can sort children for stable output.
     const items: Array<[string, FileSystemHandle]> = [];
     try {
       for await (const item of entries) items.push(item);
-    } catch {
+    } catch (error) {
+      if (options.failOnError) throw error;
       return;
     }
     items.sort((a, b) => a[0].localeCompare(b[0]));

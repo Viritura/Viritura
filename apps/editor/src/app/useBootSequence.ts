@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { parseMnx } from "@viritura/format";
 import type { Score } from "@viritura/core";
+import { loadGistSetlist, readGistSetlistLocation, useGistSetlistStore } from "../gistShare";
 import { readHandoffFromHash, clearHandoffFromUrl } from "@viritura/core";
 import { consumeGitHubOAuthReturnIntent } from "../github/api";
 import { listRecentScores } from "../store/recentScores";
@@ -20,6 +21,38 @@ export interface BootSequenceDeps {
   setFileHandle: (h: FileSystemFileHandle | null) => void;
   loadDefaultScore: () => void;
   suppressStartCenter: boolean;
+}
+
+async function openSharedSetlist(
+  { store, loadScore, resetHistory, setFileHandle }: BootSequenceDeps,
+  isCancelled: () => boolean,
+): Promise<void> {
+  setStartCenterOpen(false);
+  const { documentGeneration, scoreRevision } = store.getState();
+  try {
+    const location = readGistSetlistLocation(window.location);
+    if (!location) throw new Error("The setlist link is missing its Gist ID.");
+    const setlist = await loadGistSetlist(location);
+    if (isCancelled()) return;
+    if (
+      store.getState().documentGeneration !== documentGeneration ||
+      store.getState().scoreRevision !== scoreRevision
+    ) {
+      toast.info("The open score changed while loading the shared setlist.");
+      return;
+    }
+    const firstFile = setlist.files[0];
+    if (!firstFile) throw new Error("The shared Gist does not contain any MNX scores.");
+    loadScore(structuredClone(firstFile.score), firstFile.fileName, firstFile.mnx);
+    useGistSetlistStore.getState().open(setlist, store.getState().documentGeneration);
+    resetHistory(store.getState().mnxJson);
+    setFileHandle(null);
+  } catch (error) {
+    if (isCancelled()) return;
+    useGistSetlistStore.getState().clear();
+    toast.error(error instanceof Error ? error.message : "The shared setlist could not be loaded.");
+    if (!store.getState().score) setStartCenterOpen(true);
+  }
 }
 
 /**
@@ -50,6 +83,11 @@ export function useBootSequence(deps: BootSequenceDeps): void {
 
     let cancelled = false;
     (async () => {
+      if (new URLSearchParams(window.location.search).get("open") === "gist-setlist") {
+        await openSharedSetlist(deps, () => cancelled);
+        return;
+      }
+
       try {
         const handoff = readHandoffFromHash(window.location.hash);
         if (handoff) {

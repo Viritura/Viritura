@@ -4,6 +4,7 @@ import { useProjectStore } from "../store/projectStore";
 import { useModalFlowStore } from "../store/modalFlowStore";
 import { useLiveSessionStore } from "../live/liveSessionStore";
 import { switchProjectScore } from "./switchProjectScore";
+import { useGistSetlistStore, type LoadedGistSetlist } from "../gistShare";
 
 const dirty = vi.hoisted(() => ({ value: false }));
 vi.mock("../store/documentStore", () => ({ hasUnsavedChanges: () => dirty.value }));
@@ -25,6 +26,7 @@ describe("switchProjectScore", () => {
     documentState.documentGeneration = 1;
     documentState.scoreRevision = "initial";
     useLiveSessionStore.setState({ status: "idle" });
+    useGistSetlistStore.getState().clear();
     useProjectStore.setState({
       activeScorePath: "one.mnx",
       projectScores: [
@@ -126,5 +128,43 @@ describe("switchProjectScore", () => {
     answerUnsavedPrompt("discard");
     await expect(pending).resolves.toBe(false);
     expect(openProjectScore).not.toHaveBeenCalled();
+  });
+
+  it("does not reload the selected Gist file or discard its edits", async () => {
+    const setlist = { files: [{ fileName: "one.mnx" }, { fileName: "two.mnx" }] } as LoadedGistSetlist;
+    useGistSetlistStore.getState().open(setlist, documentState.documentGeneration);
+    dirty.value = true;
+    const openGistScore = vi.fn(async () => true);
+    await expect(
+      switchProjectScore({ store, relativePath: "one.mnx", openProjectScore: vi.fn(), openGistScore, save: vi.fn() }),
+    ).resolves.toBe(false);
+    expect(useModalFlowStore.getState().unsavedChanges).toBeNull();
+    expect(openGistScore).not.toHaveBeenCalled();
+  });
+
+  it("resolves unsaved changes and refuses stale confirmations when switching Gist files", async () => {
+    const setlist = { files: [{ fileName: "one.mnx" }, { fileName: "two.mnx" }] } as LoadedGistSetlist;
+    useGistSetlistStore.getState().open(setlist, documentState.documentGeneration);
+    dirty.value = true;
+    const openGistScore = vi.fn(async () => true);
+    const save = vi.fn(async () => {
+      dirty.value = false;
+    });
+    const args = { store, relativePath: "two.mnx", openProjectScore: vi.fn(), openGistScore, save };
+
+    const cancelled = switchProjectScore(args);
+    answerUnsavedPrompt(null);
+    await expect(cancelled).resolves.toBe(false);
+
+    const stale = switchProjectScore(args);
+    documentState.scoreRevision = "edited";
+    answerUnsavedPrompt("discard");
+    await expect(stale).resolves.toBe(false);
+
+    const saved = switchProjectScore(args);
+    answerUnsavedPrompt("save");
+    await expect(saved).resolves.toBe(true);
+    expect(save).toHaveBeenCalledOnce();
+    expect(openGistScore).toHaveBeenCalledOnce();
   });
 });

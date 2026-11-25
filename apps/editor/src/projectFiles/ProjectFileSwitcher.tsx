@@ -9,7 +9,9 @@ import { Check, FileMusic } from "lucide-react";
 import { ListRow, SearchInput, SelectTrigger } from "@viritura/ui";
 import { toast } from "sonner";
 import { useProjectStore } from "../store/projectStore";
+import { useDocumentStore } from "../store/DocumentContext";
 import { useLiveSessionStore } from "../live/liveSessionStore";
+import { useGistSetlistStore } from "../gistShare";
 import { useProjectFileSwitchStore } from "./projectFileSwitchStore";
 import { isLiveSessionPinned } from "./switchProjectScore";
 import styles from "./ProjectFileSwitcher.module.css";
@@ -23,13 +25,27 @@ export interface ProjectFileSwitcherProps {
 }
 
 export function ProjectFileSwitcher({ disabled, className }: ProjectFileSwitcherProps) {
-  const scores = useProjectStore((s) => s.projectScores);
-  const activeScorePath = useProjectStore((s) => s.activeScorePath);
+  const projectScores = useProjectStore((s) => s.projectScores);
+  const projectActiveScorePath = useProjectStore((s) => s.activeScorePath);
+  const documentGeneration = useDocumentStore((s) => s.documentGeneration);
+  const gistSetlist = useGistSetlistStore((s) => s.setlist);
+  const gistActiveFileName = useGistSetlistStore((s) => s.activeFileName);
+  const gistDocumentGeneration = useGistSetlistStore((s) => s.documentGeneration);
   const switchTo = useProjectFileSwitchStore((s) => s.switchTo);
   const switching = useProjectFileSwitchStore((s) => s.switching);
   const livePinned = useLiveSessionStore((s) => isLiveSessionPinned(s.status));
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+
+  const gistActive = gistSetlist !== null && gistDocumentGeneration === documentGeneration;
+  const scores = useMemo(
+    () =>
+      gistActive
+        ? (gistSetlist?.files.map((file) => ({ relativePath: file.fileName, name: file.fileName })) ?? [])
+        : projectScores,
+    [gistActive, gistSetlist, projectScores],
+  );
+  const activeScorePath = gistActive ? gistActiveFileName : projectActiveScorePath;
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -45,6 +61,7 @@ export function ProjectFileSwitcher({ disabled, className }: ProjectFileSwitcher
   const select = (relativePath: string) => {
     setOpen(false);
     setQuery("");
+    if (!switchTo) return;
     void switchTo(relativePath).catch((error: unknown) => {
       console.error("Project score switch failed:", error);
       toast.error("Could not switch project scores");
@@ -57,7 +74,7 @@ export function ProjectFileSwitcher({ disabled, className }: ProjectFileSwitcher
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
-          if (next) {
+          if (next && !gistActive) {
             void useProjectStore
               .getState()
               .rescanProjectScores()
@@ -77,7 +94,7 @@ export function ProjectFileSwitcher({ disabled, className }: ProjectFileSwitcher
             aria-busy={switching || undefined}
             title={livePinned ? "End the live session to switch project files" : undefined}
             leading={<FileMusic size={13} style={ICON_STYLE} aria-hidden="true" />}
-            aria-label={`Select project file: ${currentLabel}`}
+            aria-label={`Select ${gistActive ? "setlist" : "project"} file: ${currentLabel}`}
           >
             <span className={styles.triggerLabel}>{currentLabel}</span>
           </SelectTrigger>
@@ -89,7 +106,7 @@ export function ProjectFileSwitcher({ disabled, className }: ProjectFileSwitcher
                 <SearchInput value={query} onValueChange={setQuery} placeholder="Search files…" size="sm" autoFocus />
               </div>
             )}
-            <div className={styles.list} role="listbox" aria-label="Project files">
+            <div className={styles.list} role="listbox" aria-label={gistActive ? "Setlist files" : "Project files"}>
               {visible.map((score) => {
                 const selected = score.relativePath === activeScorePath;
                 const folder = score.relativePath.slice(0, -score.name.length).replace(/\/$/, "");
