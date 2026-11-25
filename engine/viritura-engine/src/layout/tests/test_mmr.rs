@@ -8,6 +8,49 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 
 #[test]
+fn global_fermata_isolates_rest_in_auto_and_authored_multimeasure_ranges() {
+    let score = parse_mnx(&serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}}, {},
+            {"_x": {"viritura": {"fermatas": [{"id": "hold", "position": {"fraction": [1, 2]}}]}}},
+            {}, {}
+        ]},
+        "parts": [{"measures": (0..5).map(|_| serde_json::json!({
+            "sequences": [{"content": [], "fullMeasure": {}}]
+        })).collect::<Vec<_>>()}]
+    }).to_string()).unwrap();
+    let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+    assert_eq!(
+        crate::layout::resolve::detect_multimeasure_rest_groups(&resolved),
+        [(0, 2), (3, 2)]
+    );
+    let authored = std::collections::HashMap::from([(0, 5)]);
+    let (ranges, skipped) = crate::layout::resolve::split_authored_mmr_ranges(&authored, &resolved);
+    assert_eq!(ranges, std::collections::HashMap::from([(0, 2), (3, 2)]));
+    assert!(!skipped.contains(&2));
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    for display in [
+        layout_score(&score, 0, &config),
+        layout_with_mnx_scores(&score, &config, 0),
+    ] {
+        assert_eq!(hbar_count(&display, config.sp), 2);
+        assert_eq!(
+            display
+                .commands
+                .iter()
+                .zip(&display.element_ids)
+                .filter(|(_, id)| id.as_deref() == Some("m2/fermata/hold"))
+                .count(),
+            1
+        );
+    }
+}
+
+#[test]
 fn test_end_repeat_followed_by_clef_change_and_multimeasure_rest() {
     let score = parse_mnx(
         r#"{

@@ -6,6 +6,7 @@
  */
 
 import { serializeGlobalCaesura } from "./globalCaesura";
+import { canonicalGlobalFermatas, materializeGlobalFermatas } from "@viritura/core";
 import type {
   Score,
   GlobalMeasure,
@@ -39,6 +40,7 @@ type Obj = Record<string, unknown>;
  * The output is a plain JavaScript object suitable for JSON.stringify().
  */
 export function serializeMnx(score: Score): unknown {
+  if (score.global.measures.some((measure) => measure.fermatas?.length)) score = materializeGlobalFermatas(score);
   const mnxObj: Obj = { version: score.mnx.version };
   if (score.mnx.support) {
     const supportObj: Obj = {};
@@ -318,6 +320,7 @@ function collectMarkerText(gm: GlobalMeasure): Obj | undefined {
 
 function collectGlobalMeasureVendorExt(gm: GlobalMeasure): Obj {
   const ext: Obj = {};
+  if (gm.fermatas?.length) ext["fermatas"] = canonicalGlobalFermatas(gm.fermatas);
   if (gm.tempos?.some((tempo) => tempo.bpm === undefined)) ext["tempos"] = gm.tempos;
   if (gm.rehearsalMark) {
     const rm: Obj = { text: gm.rehearsalMark.text };
@@ -465,6 +468,13 @@ function serializeFermata(fermata: NonNullable<NoteEvent["fermata"]>): Obj {
   if (fermata.duration) result["duration"] = fermata.duration;
   if (fermata.placement) result["placement"] = fermata.placement;
   if (fermata.pointing) result["pointing"] = fermata.pointing;
+  if (fermata.id) result["id"] = fermata.id;
+  const vendor = fermata._x?.["viritura"];
+  const extension = vendor && typeof vendor === "object" && !Array.isArray(vendor) ? vendor : {};
+  result["_x"] = {
+    ...fermata._x,
+    viritura: "globalFermataId" in extension ? extension : { ...extension, localOnly: true },
+  };
   return result;
 }
 

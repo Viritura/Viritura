@@ -52,6 +52,23 @@ const texts = (xml: string, tag: string) =>
   Array.from(document(xml).getElementsByTagName(tag)).map((element) => element.textContent);
 
 describe("MusicXML export", () => {
+  it("round-trips shared fermata identity, exact anchor and settings across overlapping rhythms and part exports", () => {
+    const source = score();
+    source.global.measures[0]!.fermatas = [
+      { id: "shared-hold", position: { fraction: [3, 4] }, multiplier: 2.75, clickBehavior: "keepClicking" },
+    ];
+    source.parts[1]!.measures[0]!.sequences[0]!.content = [
+      { ...whole("start"), duration: { base: "half", dots: 1 } },
+      { ...whole("end"), duration: { base: "quarter" } },
+    ];
+    for (const scoreIndex of [0, 1]) {
+      const xml = convertScoreToMusicXml(source, { scoreIndex }).xml;
+      expect(texts(xml, "fermata")).toHaveLength(scoreIndex === 0 ? 2 : 1);
+      const imported = parseMnx(convertMusicXmlToMnx(xml, { includeVendorExtensions: true }));
+      expect(imported.global.measures[0]!.fermatas).toEqual(source.global.measures[0]!.fermatas);
+      expect(imported.parts[0]!.measures[0]!.sequences[0]!.content[0]).not.toHaveProperty("fermata");
+    }
+  });
   it.each<[string, string, string[][]]>([
     ["C7b9", "dominant", [["9", "-1", "add"]]],
     ["C7#5", "dominant", [["5", "1", "alter"]]],

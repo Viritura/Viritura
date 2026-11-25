@@ -24,6 +24,7 @@ const extensionDefinitions = [
   "positioned-staff-config-extensions",
   "dynamic-group-extensions",
   "event-extensions",
+  "fermata-extensions",
   "event-markings-extensions",
   "note-extensions",
   "slur-extensions",

@@ -1705,6 +1705,137 @@ impl ::std::convert::TryFrom<::std::string::String> for ExpressionPlacement {
         value.parse()
     }
 }
+///`FermataExtensions`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "properties": {
+///    "globalFermataId": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "localOnly": {
+///      "description": "Preserves intentional local notation on import, including a local override of a projected global symbol.",
+///      "type": "boolean"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FermataExtensions {
+    #[serde(
+        rename = "globalFermataId",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub global_fermata_id: ::std::option::Option<FermataExtensionsGlobalFermataId>,
+    ///Preserves intentional local notation on import, including a local override of a projected global symbol.
+    #[serde(
+        rename = "localOnly",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub local_only: ::std::option::Option<bool>,
+}
+impl ::std::convert::From<&FermataExtensions> for FermataExtensions {
+    fn from(value: &FermataExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for FermataExtensions {
+    fn default() -> Self {
+        Self {
+            global_fermata_id: Default::default(),
+            local_only: Default::default(),
+        }
+    }
+}
+///`FermataExtensionsGlobalFermataId`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct FermataExtensionsGlobalFermataId(::std::string::String);
+impl ::std::ops::Deref for FermataExtensionsGlobalFermataId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<FermataExtensionsGlobalFermataId> for ::std::string::String {
+    fn from(value: FermataExtensionsGlobalFermataId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&FermataExtensionsGlobalFermataId>
+for FermataExtensionsGlobalFermataId {
+    fn from(value: &FermataExtensionsGlobalFermataId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for FermataExtensionsGlobalFermataId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for FermataExtensionsGlobalFermataId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for FermataExtensionsGlobalFermataId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for FermataExtensionsGlobalFermataId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for FermataExtensionsGlobalFermataId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
 ///A fingering annotation on a note (digits 0–5).
 ///
 /// <details><summary>JSON schema</summary>
@@ -2153,6 +2284,224 @@ impl ::std::convert::TryFrom<::std::string::String> for GlissandoStyle {
         value: ::std::string::String,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
+    }
+}
+///`GlobalFermata`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "id",
+///    "position"
+///  ],
+///  "properties": {
+///    "clickBehavior": {
+///      "default": "silent",
+///      "type": "string",
+///      "enum": [
+///        "silent",
+///        "keepClicking"
+///      ]
+///    },
+///    "id": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "multiplier": {
+///      "default": 2,
+///      "type": "number"
+///    },
+///    "position": {
+///      "$ref": "#/$defs/rhythmic-position"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct GlobalFermata {
+    #[serde(
+        rename = "clickBehavior",
+        default = "defaults::global_fermata_click_behavior"
+    )]
+    pub click_behavior: GlobalFermataClickBehavior,
+    pub id: GlobalFermataId,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub multiplier: ::std::option::Option<f64>,
+    pub position: RhythmicPosition,
+}
+impl ::std::convert::From<&GlobalFermata> for GlobalFermata {
+    fn from(value: &GlobalFermata) -> Self {
+        value.clone()
+    }
+}
+///`GlobalFermataClickBehavior`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "default": "silent",
+///  "type": "string",
+///  "enum": [
+///    "silent",
+///    "keepClicking"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum GlobalFermataClickBehavior {
+    #[serde(rename = "silent")]
+    Silent,
+    #[serde(rename = "keepClicking")]
+    KeepClicking,
+}
+impl ::std::convert::From<&Self> for GlobalFermataClickBehavior {
+    fn from(value: &GlobalFermataClickBehavior) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for GlobalFermataClickBehavior {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Silent => f.write_str("silent"),
+            Self::KeepClicking => f.write_str("keepClicking"),
+        }
+    }
+}
+impl ::std::str::FromStr for GlobalFermataClickBehavior {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "silent" => Ok(Self::Silent),
+            "keepClicking" => Ok(Self::KeepClicking),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for GlobalFermataClickBehavior {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for GlobalFermataClickBehavior {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GlobalFermataClickBehavior {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::default::Default for GlobalFermataClickBehavior {
+    fn default() -> Self {
+        GlobalFermataClickBehavior::Silent
+    }
+}
+///`GlobalFermataId`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct GlobalFermataId(::std::string::String);
+impl ::std::ops::Deref for GlobalFermataId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<GlobalFermataId> for ::std::string::String {
+    fn from(value: GlobalFermataId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&GlobalFermataId> for GlobalFermataId {
+    fn from(value: &GlobalFermataId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for GlobalFermataId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for GlobalFermataId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for GlobalFermataId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GlobalFermataId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for GlobalFermataId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
     }
 }
 ///`GlyphRun`
@@ -4975,6 +5324,13 @@ impl ::std::default::Default for MarkerTexts {
 ///        "$ref": "#/$defs/chord-symbol"
 ///      }
 ///    },
+///    "fermatas": {
+///      "description": "Time-anchored ensemble holds. Equal positions resolve to one shared fermata.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/global-fermata"
+///      }
+///    },
 ///    "gradualTempo": {
 ///      "$ref": "#/$defs/gradual-tempo"
 ///    },
@@ -5019,6 +5375,9 @@ pub struct MeasureGlobalExtensions {
         skip_serializing_if = "::std::vec::Vec::is_empty"
     )]
     pub chord_symbols: ::std::vec::Vec<ChordSymbol>,
+    ///Time-anchored ensemble holds. Equal positions resolve to one shared fermata.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub fermatas: ::std::vec::Vec<GlobalFermata>,
     #[serde(
         rename = "gradualTempo",
         default,
@@ -5064,6 +5423,7 @@ impl ::std::default::Default for MeasureGlobalExtensions {
     fn default() -> Self {
         Self {
             chord_symbols: Default::default(),
+            fermatas: Default::default(),
             gradual_tempo: Default::default(),
             marker_text: Default::default(),
             rehearsal_mark: Default::default(),
@@ -15804,6 +16164,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "expression-placement": {
 ///      "$ref": "#/$defs/expression-placement"
 ///    },
+///    "fermata-extensions": {
+///      "$ref": "#/$defs/fermata-extensions"
+///    },
 ///    "fingering": {
 ///      "$ref": "#/$defs/fingering"
 ///    },
@@ -15818,6 +16181,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    },
 ///    "glissando-style": {
 ///      "$ref": "#/$defs/glissando-style"
+///    },
+///    "global-fermata": {
+///      "$ref": "#/$defs/global-fermata"
 ///    },
 ///    "glyph-run": {
 ///      "$ref": "#/$defs/glyph-run"
@@ -16159,6 +16525,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub expression_placement: ::std::option::Option<ExpressionPlacement>,
+    #[serde(
+        rename = "fermata-extensions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub fermata_extensions: ::std::option::Option<FermataExtensions>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub fingering: ::std::option::Option<Fingering>,
     #[serde(
@@ -16181,6 +16553,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub glissando_style: ::std::option::Option<GlissandoStyle>,
+    #[serde(
+        rename = "global-fermata",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub global_fermata: ::std::option::Option<GlobalFermata>,
     #[serde(
         rename = "glyph-run",
         default,
@@ -16757,11 +17135,13 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             event_extensions: Default::default(),
             event_markings_extensions: Default::default(),
             expression_placement: Default::default(),
+            fermata_extensions: Default::default(),
             fingering: Default::default(),
             font_family: Default::default(),
             glissando: Default::default(),
             glissando_kind: Default::default(),
             glissando_style: Default::default(),
+            global_fermata: Default::default(),
             glyph_run: Default::default(),
             gradual_tempo: Default::default(),
             grouping_display: Default::default(),
@@ -16863,5 +17243,8 @@ impl ::std::default::Default for VirituraExtensionsRoot {
 pub mod defaults {
     pub(super) fn default_bool<const V: bool>() -> bool {
         V
+    }
+    pub(super) fn global_fermata_click_behavior() -> super::GlobalFermataClickBehavior {
+        super::GlobalFermataClickBehavior::Silent
     }
 }

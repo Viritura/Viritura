@@ -140,6 +140,7 @@ pub(crate) fn promote_global_measure_with_json(
     reject_retired_navigation_extensions(original_json)?;
     let repeat_start_json = original_json.and_then(|v| v.get("repeatStart"));
     let vendor = extract_global_measure_vendor(r.x.as_ref());
+    let fermatas = super::global_fermatas::extract_fermatas(r.x.as_ref())?;
     let system_text = super::system_text::extract_system_text(r.x.as_ref())?;
     let gradual_tempo = super::vendor_ext::read_viritura_ext(r.x.as_ref())
         .and_then(|vendor| vendor.get("gradualTempo"))
@@ -182,9 +183,11 @@ pub(crate) fn promote_global_measure_with_json(
         || vendor.senza_misura.is_some()
         || vendor.chord_symbols.is_some()
         || system_text.is_some()
-        || gradual_tempo.is_some())
+        || gradual_tempo.is_some()
+        || fermatas.is_some())
     .then_some(ModelVendorExtensions {
         viritura: Some(GlobalMeasureExtensions {
+            fermatas,
             rehearsal_mark: vendor.rehearsal_mark,
             marker_text: vendor.marker_text,
             senza_misura: vendor.senza_misura,

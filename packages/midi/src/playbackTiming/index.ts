@@ -1,5 +1,5 @@
 import type { Score } from "@viritura/core";
-import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "../cadenzaTiming";
+import { playbackGlobalMeasures } from "../cadenzaTiming";
 import { buildHoldSchedule } from "../holds";
 import { expandScoreMeasureRepeats } from "../measureRepeats";
 import { realizeNavigation } from "../navigation";
@@ -19,12 +19,18 @@ export function compilePlaybackTiming(input: Score): PlaybackTiming {
   if (spans.length === 0) throw new Error("The MNX file has no playable measures");
   const measureOrder = spans.map((span) => span.measureIndex);
   const expandedGlobal = playbackGlobalMeasures(score, measureOrder);
-  const holds = suppressCadenzaFermataHolds(
-    expandedGlobal,
-    buildHoldSchedule(score, measureOrder, score.global.measures),
-  );
+  const holds = buildHoldSchedule(score, measureOrder, score.global.measures);
   const timing = buildPlaybackTempoModel(score, measureOrder, holds);
   const timeline: MidiTimeline = {
+    fermataHolds: holds.flatMap((row, index) =>
+      row
+        .filter((hold) => hold.kind === "fermata")
+        .map((hold) => ({
+          beat: timing.measureStartBeats[index]! + hold.atBeat,
+          extraBeats: hold.extraBeats,
+          clickBehavior: hold.clickBehavior ?? "silent",
+        })),
+    ),
     ...timing,
     duration: timing.model.timeAtBeat(timing.totalBeats),
     events: [],

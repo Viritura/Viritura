@@ -601,6 +601,12 @@ pub(super) fn resolve_one_measure_phase1(
     let (mut virtual_pm, condensing_mode) =
         build_virtual_part_measure(flat_staff, mi, score, !meter_state.compatible);
     meter_state.apply_authored_change(&mut virtual_pm);
+    crate::layout::resolve::project_global_fermatas_on_staff(
+        &mut virtual_pm,
+        &global,
+        state.active_time.measure_beats(),
+        meter_state.effective.as_ref(),
+    );
     let measure_staff_lines = super::super::staff_lines::resolve_measure_staff_lines(
         &mut state.active_staff_lines,
         virtual_pm.staff_configs.as_deref(),

@@ -850,10 +850,27 @@
       "additionalProperties": false
     },
 
+    "global-fermata": {
+      "type": "object",
+      "required": ["id", "position"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "position": { "$ref": "#/$defs/rhythmic-position" },
+        "multiplier": { "type": "number", "minimum": 1, "default": 2 },
+        "clickBehavior": { "type": "string", "enum": ["silent", "keepClicking"], "default": "silent" }
+      },
+      "additionalProperties": false
+    },
+
     "measure-global-extensions": {
       "type": "object",
       "description": "Viritura vendor extensions on a global measure object.",
       "properties": {
+        "fermatas": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/global-fermata" },
+          "description": "Time-anchored ensemble holds. Equal positions resolve to one shared fermata."
+        },
         "tempos": {
           "type": "array",
           "minItems": 1,
@@ -1105,6 +1122,18 @@
           "type": "array",
           "items": { "$ref": "#/$defs/glissando" },
           "description": "Glissando/portamento lines to target events."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "fermata-extensions": {
+      "type": "object",
+      "properties": {
+        "globalFermataId": { "type": "string", "minLength": 1 },
+        "localOnly": {
+          "type": "boolean",
+          "description": "Preserves intentional local notation on import, including a local override of a projected global symbol."
         }
       },
       "additionalProperties": false

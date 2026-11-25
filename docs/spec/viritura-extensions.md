@@ -1276,6 +1276,84 @@ instead of silently choosing another voice.
 
 Extensions on `global.measures[]._x.viritura`.
 
+### `fermatas`
+
+Global fermatas are shared ensemble holds, distinct from local MNX event
+fermatas. The default Fermata action creates a global object; **Local fermata**
+creates staff-only notation and never inserts playback time.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "fermatas": [
+        {
+          "id": "shared-fermata",
+          "position": { "fraction": [3, 4] },
+          "multiplier": 2,
+          "clickBehavior": "silent"
+        }
+      ]
+    }
+  }
+}
+```
+
+`position` is a fraction of a whole note from the measure start, not a fraction
+of the bar or a reference to an event. Re-rhythming does not move it. At that
+instant, every voice projects a symbol onto its sounding main event or rest,
+including events that began earlier and full-measure rests. Grace notes do not
+consume this time axis. A global fermata breaks a multi-measure rest. Missing
+carriers are reported by score validation instead of inventing a rest.
+
+The driver is the latest-onset event sounding at the position across the
+ensemble; equal onsets choose the shortest duration. Playback inserts
+`(multiplier - 1) * driverDuration` at the driver's end, using the tempo at that
+insertion beat, including within tempo ramps. The default multiplier is 2;
+finite values at least 1 are supported. Longer overlapping notes sustain
+through the hold. Explicit global holds also work in open-meter measures;
+local cadenza notation remains timing-neutral. Caesuras retain their existing
+pause behavior.
+
+`clickBehavior` defaults to `silent`. `keepClicking` continues the current
+metronome pulse/subdivision at the insertion tempo while musical position is
+held, then resumes the score grid. Session tempo scaling applies to both
+music and hold clicks. Explicit hold lengths and tap-to-resume are not
+implemented.
+
+Equal measure/position entries are one fermata, including equivalent fractions.
+The lexicographically lowest id wins with its settings, independently of CRDT
+insertion order. Projected symbols select this shared object; inspector edits
+apply to all staves. Bar insertion/removal moves or removes the containing
+global measure. Clipboard data carries presence, never the shared object:
+pasting merges with existing settings at the destination or creates a default
+global fermata at a new position.
+
+Legacy import promotes strictly same-onset fermatas across staves. A lone
+fermata is promoted only when every other sounding staff is silent or resting.
+Non-aligned annotations remain local with `unmerged-local-fermata` notices.
+MNX duration hints seed multipliers: `none` 1, `veryShort` 1.25, `short` 1.5,
+`normal`/`auto`/omitted 2, `long` 2.5, `veryLong` 3. Imported non-normal symbols
+and explicit placement/pointing remain local overrides after promotion.
+
+MNX export retains the global array and materializes notation on every
+projected event/full-measure rest. On the **fermata object**,
+`_x.viritura.globalFermataId` identifies the shared source and
+`_x.viritura.localOnly: true` preserves intentional local notation or a local
+override. Re-import removes export-only projected symbols and retains the
+exact global anchor/settings. Local-only exports use the same explicit marker
+to avoid accidental promotion. Standard duration hints approximate arbitrary
+multipliers for other readers; the extension preserves the exact value.
+
+MusicXML materializes standard `<fermata>` notation too. A
+`miscellaneous-field` named `viritura-global-fermatas` retains the global
+per-measure arrays; hidden `other-notation` records starting with
+`viritura-fermata:` retain shared/local identities. Import with vendor
+extensions enabled restores these exact anchors rather than inferring them
+from overlapping notes. Strict MusicXML-to-MNX conversion keeps standard
+local notation; Viritura's MNX parser subsequently applies the legacy
+auto-merge rules.
+
 ### `systemText`
 
 The #282 follow-up introduces globally owned music-relative text. One authored

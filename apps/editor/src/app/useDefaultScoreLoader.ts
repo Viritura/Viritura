@@ -1,5 +1,5 @@
-import { useCallback, useEffect } from "react";
-import { parseMnx } from "@viritura/format";
+import { useCallback, useEffect, useRef } from "react";
+import { DiagnosticCollector, parseMnx } from "@viritura/format";
 import { toast } from "sonner";
 import { buildBlankScore } from "../score/ScoreBuilder";
 import { createPlayer, renumberPlayers } from "../score/InstrumentCatalog";
@@ -10,6 +10,7 @@ import { buildImportErrorLog, showImportErrorLog } from "../importErrorLog";
 import type { Score } from "@viritura/core";
 import { openPercussionReviewForParts } from "../store/drumKitTargetStore";
 import { DEFAULT_SCORE_SAMPLE, type ScoreSample } from "../scoreSamples";
+import { formatImportWarning } from "./importDiagnostics";
 
 function formatOpenedFileError(filename: string, error: unknown): string {
   const detail = error instanceof Error ? error.message : String(error);
@@ -42,6 +43,7 @@ export function useDefaultScoreLoader({
   setFileHandle,
   setFileError,
 }: UseDefaultScoreLoaderArgs): DefaultScoreLoader {
+  const fermataNoticeFile = useRef<OpenFileResult | null>(null);
   const loadBundledScore = useCallback(
     async (sample: ScoreSample) => {
       const response = await fetch(`${import.meta.env.BASE_URL}scores/${sample.file}`);
@@ -105,13 +107,23 @@ export function useDefaultScoreLoader({
       .map((diagnostic) => diagnostic.message);
     try {
       if (openedFile.importFailure) throw new Error(openedFile.importFailure);
-      const parsed = parseMnx(JSON.parse(recovery.mnxJson));
+      const diagnostics = new DiagnosticCollector();
+      const parsed = parseMnx(JSON.parse(recovery.mnxJson), { diagnostics });
+      const unmerged = diagnostics
+        .all()
+        .filter((notice) => notice.code === "unmerged-local-fermata" && !converterWarnings.includes(notice.message));
+      converterWarnings.push(...unmerged.map((notice) => notice.message));
       setSelectedScoreIndex(0);
       loadScore(parsed, openedFile.filename);
       resetHistory(store.getState().mnxJson || recovery.mnxJson);
       // Never let a plain Save overwrite the source with the emptied sequences.
       setFileHandle(recovery.recovered.length > 0 ? null : openedFile.fileHandle);
       setFileError(null);
+      const warning = formatImportWarning({ ...openedFile, importDiagnostics: [...unmerged] });
+      if (warning && fermataNoticeFile.current !== openedFile) {
+        fermataNoticeFile.current = openedFile;
+        toast.warning(warning.message, { description: warning.description });
+      }
       if (recovery.recovered.length > 0) {
         showImportErrorLog(
           buildImportErrorLog({

@@ -46,6 +46,7 @@ import {
 } from "../clipboard/clipboardTrackPlacement";
 import { ensurePasteMeasure, pasteTrackIntoScore, sequenceForStaffVoice } from "../clipboard/pasteContent";
 import { applyCapturedChordSymbols } from "../clipboard/chordSymbolPlacement";
+import { materializePastedFermatas } from "../clipboard/projectedFermatas";
 import {
   capturedAnnotationDestination,
   resolvePhysicalStaffDestination,
@@ -313,6 +314,7 @@ export function applyPaste(
     );
     pasteChords();
     remapScoreLyricExtenderTargets(newScore, targetRemap);
+    materializePastedFermatas(newScore);
     return newScore;
   }
 
@@ -448,6 +450,7 @@ export function applyPaste(
   }
   pasteChords();
   remapScoreLyricExtenderTargets(newScore, targetRemap);
+  materializePastedFermatas(newScore);
   return newScore;
 
   function pasteChords(): void {

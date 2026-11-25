@@ -24,6 +24,94 @@ const times = (events: readonly ClickProgramEvent[]) => events.map((event) => Nu
 const levels = (events: readonly ClickProgramEvent[]) => events.map((event) => event.level);
 
 describe("buildClickSessionProgram", () => {
+  it.each(["silent", "keepClicking"] as const)(
+    "keeps coincident hold policies separate from each other and a caesura (%s first)",
+    (firstPolicy) => {
+      const score: Score = {
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            {
+              time: { count: 4, unit: 4 },
+              tempos: [{ bpm: 120, value: { base: "quarter" } }],
+              fermatas: [
+                { id: "first", position: { fraction: [0, 1] }, clickBehavior: firstPolicy },
+                { id: "second", position: { fraction: [1, 4] }, clickBehavior: "keepClicking" },
+              ],
+              caesura: {},
+            },
+            {},
+          ],
+        },
+        parts: [
+          {
+            name: "Rest",
+            measures: Array.from({ length: 2 }, () => ({
+              sequences: [{ content: [], fullMeasure: { visualDuration: { base: "whole" as const } } }],
+            })),
+          },
+        ],
+      };
+      const timeline = generateTimeline(score);
+      const program = buildClickSessionProgram(timeline, { countoff: false });
+      const begin = timeline.model.timeAtBeat(4, "release");
+      const resume = timeline.model.timeAtBeat(4);
+      expect(resume).toBeCloseTo(6.5);
+      const during = program.events.filter((event) => event.time >= begin && event.time < resume);
+      expect(times(during)).toEqual(firstPolicy === "silent" ? [4, 4.5, 5, 5.5] : [2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5]);
+    },
+  );
+  it.each(["silent", "keepClicking"] as const)(
+    "honors %s global holds through a ritardando and session tempo scaling",
+    (clickBehavior) => {
+      const score: Score = {
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            {
+              id: "rit",
+              time: { count: 4, unit: 4 },
+              tempos: [{ bpm: 120, value: { base: "quarter" } }],
+              gradualTempo: {
+                position: { fraction: [0, 1] },
+                end: { measure: "rit", position: { fraction: [1, 1] } },
+                endBpm: 60,
+              },
+              fermatas: [{ id: "hold", position: { fraction: [3, 4] }, clickBehavior }],
+            },
+            {},
+          ],
+        },
+        parts: [
+          {
+            name: "Silent staff",
+            measures: [
+              {
+                sequences: [
+                  {
+                    content: [
+                      { type: "event", duration: { base: "half", dots: 1 }, rest: {} },
+                      { type: "event", duration: { base: "quarter" }, rest: {} },
+                    ],
+                  },
+                ],
+              },
+              { sequences: [{ content: [], fullMeasure: { visualDuration: { base: "whole" } } }] },
+            ],
+          },
+        ],
+      };
+      const timeline = generateTimeline(score);
+      const program = buildClickSessionProgram(timeline, { countoff: false, tempoPercent: 50 });
+      const begin = timeline.model.timeAtBeat(4, "release") * 2;
+      const resume = timeline.model.timeAtBeat(4) * 2;
+      expect(resume - begin).toBeCloseTo(2);
+      const during = program.events.filter((event) => event.time >= begin - 1e-9 && event.time < resume - 1e-9);
+      expect(during).toHaveLength(clickBehavior === "silent" ? 0 : 1);
+      if (clickBehavior === "keepClicking") expect(during[0]!.time).toBeCloseTo(begin);
+      expect(program.events.some((event) => Math.abs(event.time - resume) < 1e-9)).toBe(true);
+    },
+  );
   it("counts off one fresh bar in the start bar's meter and tempo, not a replay of the previous bar", () => {
     const timeline = timelineFor([
       { time: { count: 4, unit: 4 }, bpm: 60 },

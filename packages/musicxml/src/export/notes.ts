@@ -178,7 +178,18 @@ function notationElements(
   if (first) {
     const caesura = globalCaesura(context, timed);
     if (caesura) elements.push(caesura);
-    if (timed.event.fermata) elements.push(fermataElement(context.xml, timed.event.fermata));
+    if (timed.event.fermata) {
+      elements.push(fermataElement(context.xml, timed.event.fermata));
+      const marker = timed.event.fermata._x?.viritura;
+      if (marker) {
+        elements.push(
+          node(context.xml, "other-notation", `viritura-fermata:${JSON.stringify(marker)}`, {
+            type: "single",
+            "print-object": "no",
+          }),
+        );
+      }
+    }
     elements.push(...technicalElements(context.xml, timed.event));
     for (const boundary of timed.tuplets) elements.push(tupletElement(context.xml, boundary));
   }

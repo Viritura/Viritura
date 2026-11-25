@@ -9,7 +9,7 @@
  * expose `buildTempoModel`. Payload size is bounded by a global-measure range.
  */
 
-import { plainTextContent, type Score } from "@viritura/core";
+import { plainTextContent, type GlobalFermata, type Score } from "@viritura/core";
 import { generateTimeline } from "@viritura/midi";
 import { measureReference, resolveMeasureRange, type MeasureReference } from "./measureReferences";
 import { pagination } from "./queryFilters";
@@ -27,6 +27,7 @@ interface TimelineMeasureEntry extends MeasureReference {
   /** Global quarter-note beat at this measure's start (tempo-model axis). */
   startBeat: number;
   timeSignature: { count: number; unit: number };
+  fermatas: GlobalFermata[];
 }
 
 interface TimelineTempoChange {
@@ -66,6 +67,7 @@ export function getScoreTimeline(score: Score, args: unknown): Record<string, un
       endSeconds,
       startBeat: timeline.measureStartBeats[i] ?? 0,
       timeSignature: timeline.measureTimeSignatures[i] ?? { count: 4, unit: 4 },
+      fermatas: score.global.measures[globalIdx]?.fermatas ?? [],
     });
   }
 

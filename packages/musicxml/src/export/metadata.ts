@@ -14,6 +14,23 @@ function frameCredits(context: XmlContext, selection: ExportSelection, diagnosti
     return node(context, "credit", textElements(context, frame.content, diagnostics, "credit-words"), { page });
   });
 }
+
+function globalFermataMetadata(context: XmlContext, score: Score): XmlElement[] {
+  if (!score.global.measures.some((measure) => measure.fermatas?.length)) return [];
+  return [
+    node(context, "miscellaneous", [
+      node(
+        context,
+        "miscellaneous-field",
+        JSON.stringify(score.global.measures.map((measure) => measure.fermatas ?? [])),
+        {
+          name: "viritura-global-fermatas",
+        },
+      ),
+    ]),
+  ];
+}
+
 export function scoreHeader(
   context: XmlContext,
   score: Score,
@@ -29,6 +46,7 @@ export function scoreHeader(
     if (metadata?.[role]) identification.push(node(context, "creator", metadata[role], { type: role }));
   if (metadata?.copyright) identification.push(node(context, "rights", metadata.copyright));
   identification.push(node(context, "encoding", [node(context, "software", "Viritura")]));
+  identification.push(...globalFermataMetadata(context, score));
   result.push(node(context, "identification", identification));
   const setup = selection.definition
     ? resolveScorePageSetup(score, score.scores!.indexOf(selection.definition))

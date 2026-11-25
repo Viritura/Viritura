@@ -2,10 +2,345 @@
 // `symbol` (visual shape) is independent of `duration` (pause length).
 
 use crate::layout::config::LayoutConfig;
-use crate::layout::{layout_full_score, layout_score};
+use crate::layout::{layout_full_score, layout_score, layout_with_mnx_scores};
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
+use serde_json::{json, Value};
+
+fn global_fermata_score(position: [u32; 2], sequences: Value) -> crate::model::Score {
+    parse_mnx(
+        &json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [{
+                "time": {"count": 4, "unit": 4},
+                "_x": {"viritura": {"fermatas": [{
+                    "id": "hold/shared", "position": {"fraction": position}
+                }]}}
+            }]},
+            "parts": [{"measures": [{
+                "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+                "sequences": sequences
+            }]}]
+        })
+        .to_string(),
+    )
+    .unwrap()
+}
+
+fn global_glyphs(display: &DisplayList) -> Vec<(u32, f64, f64)> {
+    display
+        .commands
+        .iter()
+        .zip(&display.element_ids)
+        .filter_map(|(command, id)| {
+            if id.as_deref() != Some("m0/fermata/hold_shared") {
+                return None;
+            }
+            match command {
+                RenderCommand::DrawGlyph {
+                    codepoint, x, y, ..
+                } => Some((*codepoint, *x, *y)),
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn global_fermata_projects_latest_overlapping_note_and_excludes_ended_notes() {
+    let score = global_fermata_score(
+        [3, 8],
+        json!([{"content": [
+            {"id": "ended", "duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]},
+            {"id": "held", "duration": {"base": "half"}, "notes": [{"pitch": {"step": "D", "octave": 5}}]},
+            {"id": "future", "duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "E", "octave": 5}}]}
+        ]}]),
+    );
+    let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+    let content = &resolved[0].part.sequences[0].content;
+    assert!(content[0].as_event().unwrap().fermata.is_none());
+    assert_eq!(
+        content[1]
+            .as_event()
+            .unwrap()
+            .fermata
+            .as_ref()
+            .unwrap()
+            .projected_global_ids,
+        ["hold/shared"]
+    );
+    assert!(content[2].as_event().unwrap().fermata.is_none());
+    assert!(score.parts[0].measures[0].sequences[0].content[1]
+        .as_event()
+        .unwrap()
+        .fermata
+        .is_none());
+    assert_eq!(
+        global_glyphs(&layout_score(&score, 0, &LayoutConfig::default())).len(),
+        1
+    );
+}
+
+#[test]
+fn global_fermata_projects_all_voices_and_preserves_local_style() {
+    let score = global_fermata_score(
+        [1, 2],
+        json!([
+            {"directionHint": "upper", "content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}],
+                 "fermata": {"symbol": "angled", "_x": {"viritura": {"localOnly": true}}}}
+            ]},
+            {"directionHint": "lower", "content": [
+                {"duration": {"base": "half"}, "rest": {}},
+                {"duration": {"base": "half"}, "rest": {}}
+            ]}
+        ]),
+    );
+    let config = LayoutConfig::default();
+    for display in [
+        layout_score(&score, 0, &config),
+        layout_full_score(&score, &config),
+        layout_with_mnx_scores(&score, &config, 0),
+    ] {
+        let glyphs = global_glyphs(&display);
+        assert_eq!(glyphs.len(), 2);
+        assert!(glyphs
+            .iter()
+            .any(|(cp, _, _)| *cp == smufl::FERMATA_SHORT_ABOVE));
+        assert!(glyphs.iter().any(|(cp, _, _)| *cp == smufl::FERMATA_BELOW));
+        let boxes: Vec<_> = display
+            .element_bboxes
+            .iter()
+            .filter(|bbox| bbox.element_id == "m0/fermata/hold_shared")
+            .collect();
+        assert_eq!(boxes.len(), 2);
+        assert!(display
+            .element_shapes
+            .iter()
+            .filter(|shape| shape.element_id == "m0/fermata/hold_shared")
+            .all(|shape| shape.kind == ElementKind::Fermata));
+    }
+}
+
+#[test]
+fn global_fermata_skips_grace_and_projects_tuplet_at_exact_boundary() {
+    let score = global_fermata_score(
+        [1, 12],
+        json!([{"content": [
+            {"type": "grace", "content": [
+                {"duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "B", "octave": 4}}]}
+            ]},
+            {"type": "tuplet", "inner": {"duration": {"base": "eighth"}, "multiple": 3},
+             "outer": {"duration": {"base": "eighth"}, "multiple": 2}, "content": [
+                {"duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]},
+                {"duration": {"base": "eighth"}, "rest": {}},
+                {"duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "E", "octave": 5}}]}
+             ]},
+            {"duration": {"base": "half", "dots": 1}, "rest": {}}
+        ]}]),
+    );
+    let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+    let content = &resolved[0].part.sequences[0].content;
+    let crate::model::SequenceContent::Grace(grace) = &content[0] else {
+        panic!("grace")
+    };
+    assert!(grace.content[0].fermata.is_none());
+    let crate::model::SequenceContent::Tuplet(tuplet) = &content[1] else {
+        panic!("tuplet")
+    };
+    assert!(tuplet.content[0].as_event().unwrap().fermata.is_none());
+    assert!(tuplet.content[1].as_event().unwrap().fermata.is_some());
+    assert!(tuplet.content[2].as_event().unwrap().fermata.is_none());
+    assert_eq!(
+        global_glyphs(&layout_score(&score, 0, &LayoutConfig::default())).len(),
+        1
+    );
+}
+
+#[test]
+fn global_fermata_projects_each_staff_with_fit_measure_scaling() {
+    let mut score = global_fermata_score(
+        [1, 2],
+        json!([
+            {"staff": 1, "content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}]},
+            {"staff": 2, "content": [
+                {"duration": {"base": "half"}, "rest": {}},
+                {"duration": {"base": "quarter"}, "rest": {}}
+            ]}
+        ]),
+    );
+    score.parts[0].staves = 2;
+    score.parts[0].measures[0].staff_meters = Some(vec![crate::model::StaffMeterChange::Set {
+        staff: 2,
+        meter: crate::model::StaffMeter {
+            count: 3,
+            unit: 4,
+            beat_structure: None,
+        },
+        synchronization: crate::model::StaffMeterSynchronization::FitMeasure,
+    }]);
+    let resolved = crate::layout::resolve::resolve_measures_for_staff(&score, 0, 2);
+    let content = &resolved[0].part.sequences[0].content;
+    assert!(
+        content[0].as_event().unwrap().fermata.is_some(),
+        "local half spans global beats 0..8/3"
+    );
+    assert!(content[1].as_event().unwrap().fermata.is_none());
+    let display = layout_full_score(&score, &LayoutConfig::default());
+    assert_eq!(global_glyphs(&display).len(), 2);
+}
+
+#[test]
+fn global_fermata_projects_full_measure_rests_and_no_symbol_on_space() {
+    let score = global_fermata_score(
+        [3, 4],
+        json!([
+            {"directionHint": "upper", "content": [], "fullMeasure": {}},
+            {"directionHint": "lower", "content": [], "fullMeasure": {}}
+        ]),
+    );
+    let glyphs = global_glyphs(&layout_score(&score, 0, &LayoutConfig::default()));
+    assert_eq!(glyphs.len(), 2);
+    assert!(glyphs.iter().any(|(cp, _, _)| *cp == smufl::FERMATA_BELOW));
+    let empty = global_fermata_score(
+        [1, 2],
+        json!([{"content": [
+            {"type": "space", "duration": [1, 1]}
+        ]}]),
+    );
+    assert!(global_glyphs(&layout_score(&empty, 0, &LayoutConfig::default())).is_empty());
+}
+
+#[test]
+fn global_fermata_export_projection_is_not_a_local_override() {
+    let score = global_fermata_score(
+        [1, 2],
+        json!([{"content": [
+            {"duration": {"base": "whole"}, "rest": {},
+             "fermata": {"symbol": "square", "placement": "below",
+                         "_x": {"viritura": {"globalFermataId": "hold/shared"}}}}
+        ]}]),
+    );
+    assert!(score.parts[0].measures[0].sequences[0].content[0]
+        .as_event()
+        .unwrap()
+        .fermata
+        .is_none());
+    let glyphs = global_glyphs(&layout_score(&score, 0, &LayoutConfig::default()));
+    assert_eq!(glyphs.len(), 1);
+    assert_eq!(glyphs[0].0, smufl::FERMATA_ABOVE);
+    assert_eq!(score.global.measures[0].fermatas()[0].multiplier, 2.0);
+    let wire = serde_json::to_value(&score.global.measures[0]).unwrap();
+    assert_eq!(
+        wire.pointer("/_x/viritura/fermatas/0/id").unwrap(),
+        "hold/shared"
+    );
+}
+
+#[test]
+fn global_fermata_preserves_normal_local_override_metadata_with_another_active_voice() {
+    let mut score = global_fermata_score(
+        [1, 2],
+        json!([
+            {"directionHint": "upper", "content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "G", "octave": 5}}],
+                 "fermata": {"id": "local-hold", "_c": "authored", "placement": "below", "pointing": "up",
+                    "_x": {"viritura": {"globalFermataId": "hold/shared", "localOnly": true}}}}
+            ]},
+            {"directionHint": "lower", "content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}
+            ]}
+        ]),
+    );
+    let resting = global_fermata_score([1, 2], json!([{"content": [], "fullMeasure": {}}]));
+    score.parts.push(resting.parts[0].clone());
+    let local = score.parts[0].measures[0].sequences[0].content[0]
+        .as_event()
+        .unwrap()
+        .fermata
+        .as_ref()
+        .unwrap();
+    let wire = serde_json::to_value(local).unwrap();
+    assert_eq!(wire["id"], "local-hold");
+    assert_eq!(wire["_c"], "authored");
+    assert_eq!(wire["placement"], "below");
+    assert_eq!(wire["pointing"], "up");
+    assert_eq!(wire.pointer("/_x/viritura/localOnly").unwrap(), true);
+    let display = layout_full_score(&score, &LayoutConfig::default());
+    let glyphs = global_glyphs(&display);
+    assert_eq!(glyphs.len(), 3);
+    assert_eq!(
+        glyphs
+            .iter()
+            .filter(|(cp, _, _)| *cp == smufl::FERMATA_BELOW)
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn global_fermata_shared_hitboxes_follow_independent_curve_clearance() {
+    let mut score = global_fermata_score(
+        [0, 1],
+        json!([{"content": [
+            {"id": "start", "duration": {"base": "quarter"}, "stemDirection": "down",
+             "notes": [{"pitch": {"step": "C", "octave": 6}}], "slurs": [{"target": "end", "side": "up"}]},
+            {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "G", "octave": 5}}]},
+            {"id": "end", "duration": {"base": "half"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+        ]}]),
+    );
+    let resting = global_fermata_score([0, 1], json!([{"content": [], "fullMeasure": {}}]));
+    score.parts.push(resting.parts[0].clone());
+    let display = layout_full_score(&score, &LayoutConfig::default());
+    let command_boxes: Vec<_> = display
+        .commands
+        .iter()
+        .zip(&display.element_ids)
+        .filter(|(_, id)| id.as_deref() == Some("m0/fermata/hold_shared"))
+        .filter_map(|(command, _)| command.bbox())
+        .collect();
+    let hit_boxes: Vec<_> = display
+        .element_bboxes
+        .iter()
+        .filter(|bbox| bbox.element_id == "m0/fermata/hold_shared")
+        .map(|bbox| &bbox.bbox)
+        .collect();
+    assert_eq!(command_boxes.len(), 2);
+    assert_eq!(hit_boxes.len(), 2);
+    for command in &command_boxes {
+        assert!(hit_boxes.iter().any(|bbox| **bbox == *command));
+    }
+}
+
+#[test]
+fn global_fermata_keeps_time_and_identity_in_concert_and_transposed_part_views() {
+    let score = global_fermata_score(
+        [3, 8],
+        json!([{"content": [
+            {"duration": {"base": "quarter"}, "rest": {}},
+            {"duration": {"base": "half"}, "notes": [{"pitch": {"step": "D", "octave": 4}}]},
+            {"duration": {"base": "quarter"}, "rest": {}}
+        ]}]),
+    );
+    let mut wire = serde_json::to_value(&score).unwrap();
+    wire["parts"][0]["id"] = json!("solo");
+    wire["parts"][0]["transposition"] = json!({"interval": {"halfSteps": 2, "staffDistance": 1}});
+    wire["layouts"] = json!([{
+        "id": "part-layout",
+        "content": [{"type": "staff", "sources": [{"part": "solo"}]}]
+    }]);
+    wire["scores"] = json!([
+        {"name": "Concert", "layout": "part-layout", "useWritten": false},
+        {"name": "Written", "layout": "part-layout", "useWritten": true}
+    ]);
+    let score = parse_mnx(&wire.to_string()).unwrap();
+    let config = LayoutConfig::default();
+    for score_index in 0..2 {
+        let display = layout_with_mnx_scores(&score, &config, score_index);
+        assert_eq!(global_glyphs(&display).len(), 1);
+    }
+}
 
 /// Wrap a single sequence of events in a minimal MNX score.
 fn score_with_events(events_json: &str) -> String {

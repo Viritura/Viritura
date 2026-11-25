@@ -17,8 +17,24 @@ export function eventDurationFragment(event: NoteEvent, duration: Duration, prev
     delete piece.slurs;
     delete piece.markings;
     delete piece.lyrics;
-    delete previous.fermata;
+    retainFermataOnFragment(event, previous, piece);
     delete previous.glissandos;
+  }
+
+  function retainFermataOnFragment(source: NoteEvent, previous: NoteEvent, piece: NoteEvent): void {
+    if (source.fermata?._x?.viritura?.globalFermataId !== "clipboard-projection") {
+      delete previous.fermata;
+      return;
+    }
+    if (piece.fermata?._x?.viritura?.localOnly) {
+      delete piece.fermata._x.viritura.globalFermataId;
+      delete (piece.fermata._x.viritura as Record<string, unknown>)["clipboardFermataOffsets"];
+    } else delete piece.fermata;
+    if (previous.fermata?._x?.viritura?.globalFermataId === "clipboard-projection") {
+      previous.fermata = {
+        _x: { ...previous.fermata._x, viritura: { ...previous.fermata._x.viritura, localOnly: false } },
+      };
+    } else delete previous.fermata;
   }
   return piece;
 }

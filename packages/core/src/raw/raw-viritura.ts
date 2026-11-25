@@ -407,8 +407,21 @@ export interface components {
              */
             kind?: "rit" | "accel";
         } & (unknown | unknown);
+        "global-fermata": {
+            id: string;
+            position: components["schemas"]["rhythmic-position"];
+            /** @default 2 */
+            multiplier: number;
+            /**
+             * @default silent
+             * @enum {string}
+             */
+            clickBehavior: "silent" | "keepClicking";
+        };
         /** @description Viritura vendor extensions on a global measure object. */
         "measure-global-extensions": {
+            /** @description Time-anchored ensemble holds. Equal positions resolve to one shared fermata. */
+            fermatas?: components["schemas"]["global-fermata"][];
             /** @description Unified ordered tempo collection when any marking has no BPM. Mutually exclusive with standard measure tempos; prevents fabricated BPM resets. */
             tempos?: components["schemas"]["tempo-instruction"][];
             rehearsalMark?: components["schemas"]["rehearsal-mark"];
@@ -532,6 +545,11 @@ export interface components {
         "event-extensions": {
             /** @description Glissando/portamento lines to target events. */
             glissandos?: components["schemas"]["glissando"][];
+        };
+        "fermata-extensions": {
+            globalFermataId?: string;
+            /** @description Preserves intentional local notation on import, including a local override of a projected global symbol. */
+            localOnly?: boolean;
         };
         /**
          * @description Legacy Viritura notehead shape accepted on kit components and pitched notes. New documents use the native MNX notehead object.
@@ -1125,6 +1143,7 @@ export type SlurExtensions = components["schemas"]["slur-extensions"];
 export type MarkerText = components["schemas"]["marker-text"];
 export type MarkerTexts = components["schemas"]["marker-texts"];
 export type GradualTempo = components["schemas"]["gradual-tempo"];
+export type GlobalFermata = components["schemas"]["global-fermata"];
 export type MeasureGlobalExtensions = components["schemas"]["measure-global-extensions"];
 export type PartMeasureExtensions = components["schemas"]["part-measure-extensions"];
 export type InstrumentTransposition = components["schemas"]["instrument-transposition"];
@@ -1137,6 +1156,7 @@ export type PositionedStaffConfigExtensions = components["schemas"]["positioned-
 export type EventMarkingsExtensions = components["schemas"]["event-markings-extensions"];
 export type Arpeggio = components["schemas"]["arpeggio"];
 export type EventExtensions = components["schemas"]["event-extensions"];
+export type FermataExtensions = components["schemas"]["fermata-extensions"];
 export type NoteheadShape = components["schemas"]["notehead-shape"];
 export type KitComponentExtensions = components["schemas"]["kit-component-extensions"];
 export type NoteExtensions = components["schemas"]["note-extensions"];

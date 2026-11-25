@@ -3,6 +3,7 @@
 import type {
   ChordSymbol,
   DynamicGroup,
+  Fermata,
   Jump,
   NoteMarkings,
   Notehead,
@@ -219,12 +220,7 @@ export interface MnxEvent {
   slurs?: MnxSlur[];
   markings?: MnxEventMarkings;
   /** Native MNX fermata (event-level since v15). */
-  fermata?: {
-    symbol?: string;
-    duration?: string;
-    placement?: "above" | "below" | "auto";
-    pointing?: "up" | "down" | "auto";
-  };
+  fermata?: Fermata;
   lyrics?: MnxEventLyrics;
   staff?: number;
   stemDirection?: string;

@@ -21,6 +21,11 @@ fn sanitize(mnx_id: &str) -> String {
     mnx_id.replace('/', "_")
 }
 
+/// Shared owner of all staff and voice projections of one global hold.
+pub fn global_fermata(measure: usize, id: &str) -> String {
+    format!("m{measure}/fermata/{}", sanitize(id))
+}
+
 /// Event ID suffix — uses the MNX `id` if present, otherwise `e{index}`.
 pub fn event_suffix(mnx_id: Option<&str>, index: usize) -> String {
     mnx_id

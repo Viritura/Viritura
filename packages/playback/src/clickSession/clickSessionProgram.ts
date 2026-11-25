@@ -5,7 +5,13 @@ import type { MidiTimeline, PlayedMeasureSpan } from "@viritura/midi";
 /** Tempo and meter structure needed to compile a click session program. */
 export type ClickSessionSource = Pick<
   MidiTimeline,
-  "model" | "duration" | "measureStartBeats" | "measureTimeSignatures" | "playedSpans" | "expandedMeasureToOriginal"
+  | "model"
+  | "duration"
+  | "measureStartBeats"
+  | "measureTimeSignatures"
+  | "playedSpans"
+  | "expandedMeasureToOriginal"
+  | "fermataHolds"
 >;
 
 /** Click resolution from a score measure onward (until the next rule). */
@@ -90,6 +96,35 @@ export function buildClickSessionProgram(
     const subdivision = resolutionAt(resolutions, expandedMeasureToOriginal[index] ?? 0);
     pushMeasureClicks(events, { measureBeat, meter, span: playedSpans?.[index], subdivision, timeAtBeat });
   }
+  const holdOffsets = new Map<number, number>();
+  for (const hold of source.fermataHolds ?? []) {
+    if (hold.beat <= startBeat) continue;
+    const offset = holdOffsets.get(hold.beat) ?? 0;
+    const seconds = hold.extraBeats * model.spbAtBeat(hold.beat);
+    holdOffsets.set(hold.beat, offset + seconds);
+    if (hold.clickBehavior !== "keepClicking") continue;
+    const index = measureStartBeats.findLastIndex((beat) => beat < hold.beat - 1e-9);
+    const meter = measureTimeSignatures[index];
+    if (!meter) throw new Error("Fermata click hold has no active meter.");
+    const subdivision = resolutionAt(resolutions, expandedMeasureToOriginal[index]!);
+    const boundaries = resolveMeter(meter).beatBoundaries;
+    const localBeat = hold.beat - measureStartBeats[index]!;
+    const pulseIndex = Math.max(
+      0,
+      boundaries.findLastIndex((beat) => beat < localBeat - 1e-9),
+    );
+    const pulse = boundaries[pulseIndex + 1]! - boundaries[pulseIndex]!;
+    const stepSeconds = (pulse * model.spbAtBeat(hold.beat)) / subdivision;
+    const gapStart = model.timeAtBeat(hold.beat, "release") + offset;
+    const gapEnd = gapStart + seconds;
+    for (let step = 0; gapStart + step * stepSeconds < gapEnd - 1e-9; step++) {
+      events.push({
+        time: countoff.seconds + (gapStart + step * stepSeconds - startTime) * scale,
+        level: step % subdivision === 0 ? "beat" : "subdivision",
+      });
+    }
+  }
+  events.sort((a, b) => a.time - b.time);
 
   return {
     duration: countoff.seconds + (source.duration - startTime) * scale,

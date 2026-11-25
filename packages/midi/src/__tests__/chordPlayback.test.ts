@@ -409,7 +409,10 @@ describe("derived global chord playback", () => {
   it("sustains chords through fermata holds shared by browser and native timing", () => {
     const c = major("C");
     const d = major("D");
-    const score = makeScore([{ chordSymbols: [c] }, { chordSymbols: [d] }]);
+    const score = makeScore([
+      { chordSymbols: [c], fermatas: [{ id: "hold", position: { fraction: [0, 1] } }] },
+      { chordSymbols: [d] },
+    ]);
     score.parts[0]!.measures[0]!.sequences[0]!.content = [
       {
         type: "event",

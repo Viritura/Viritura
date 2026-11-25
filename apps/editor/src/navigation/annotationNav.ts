@@ -22,6 +22,7 @@
  */
 
 import type { Score, Markings, PartMeasure, GlobalMeasure } from "@viritura/core";
+import { projectGlobalFermata } from "@viritura/core";
 import {
   extractPartIndex,
   extractMeasureIndex,
@@ -43,6 +44,7 @@ import {
   eventId as buildEventId,
   eventSuffix,
   fermataId,
+  globalFermataId,
 } from "../score/ElementPath";
 import { articulationNamesInMarkings } from "../score/articulationNames";
 import { parseElementType, isEventAttached, isMeasureLevel, isGlobalLevel } from "../score/elementTypes";
@@ -134,13 +136,25 @@ export function findAnnotationsForEvent(score: Score, eventId: string): Annotati
 
   const { partIndex, measureIndex } = loc;
   const event = getNoteEventAtLocation(score, loc);
+  const projected = (score.global.measures[measureIndex]?.fermatas ?? []).filter((fermata) =>
+    projectGlobalFermata(score, measureIndex, fermata).some(
+      (span) => span.partIndex === partIndex && span.sequenceIndex === loc.sequenceIndex && span.event === event,
+    ),
+  );
+  for (const fermata of projected)
+    annotations.push({
+      elementId: globalFermataId(measureIndex, fermata.id),
+      type: "fermata",
+      position: "above",
+      parentEventId: eventId,
+    });
 
   // 1. Event-attached markings (from event.markings)
   if (event?.markings) {
     annotations.push(...extractMarkingAnnotations(event.markings, eventId));
   }
   // Native MNX fermata (event-level since v15).
-  if (event?.fermata) {
+  if (event?.fermata && projected.length === 0) {
     annotations.push({
       elementId: fermataId(eventId),
       type: "fermata",

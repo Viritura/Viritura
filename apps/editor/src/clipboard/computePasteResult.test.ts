@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
-import { applyCut, cutToClipboard, type PasteResult } from "../commands/clipboardCommands";
+import { applyCut, applyPaste, cutToClipboard, type PasteResult } from "../commands/clipboardCommands";
 import type { SelectionState } from "../store/selectionStore";
 import { computePasteResult } from "./computePasteResult";
 import { buildClipboardSelection } from "./buildClipboardSelection";
@@ -35,6 +35,154 @@ const paste: PasteResult = {
   sourceTimeSignature: { count: 4, unit: 4 },
   sourceKeySignature: { fifths: 0 },
 };
+
+describe("global fermata clipboard intent", () => {
+  function scoreWithQuarters(): Score {
+    return {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          name: "Flute",
+          measures: [
+            {
+              sequences: [
+                {
+                  content: ["a", "b", "c", "d"].map((id) => ({
+                    type: "event" as const,
+                    id,
+                    duration: { base: "quarter" as const },
+                    notes: [{ pitch: { step: "C" as const, octave: 4 as const } }],
+                  })),
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  it.each([false, true])(
+    "pastes projected presence and preserves destination settings when existing=%s",
+    (existing) => {
+      const score = scoreWithQuarters();
+      score.global.measures[0]!.fermatas = [{ id: "source-shared-id", position: { fraction: [0, 1] }, multiplier: 5 }];
+      if (existing)
+        score.global.measures[0]!.fermatas.push({
+          id: "destination-hold",
+          position: { fraction: [1, 4] },
+          multiplier: 3,
+          clickBehavior: "keepClicking",
+        });
+      const selection = buildClipboardSelection(score, { kind: "single", elementId: "p0/m0/s0/a" })!;
+      const json = serializeFragment(selection.events, selection.timeSignature, selection.keySignature);
+      expect(json).not.toContain("source-shared-id");
+      expect(json).not.toContain("multiplier");
+      const fragment = deserializeFragment(json)!;
+      const result = applyPaste(score, pasteResultFromFragment(fragment), 0, 0, 0, 1);
+      expect(result.global.measures[0]!.fermatas).toHaveLength(2);
+      const destination = result.global.measures[0]!.fermatas![1]!;
+      expect(destination.position).toEqual({ fraction: [1, 4] });
+      expect(destination.multiplier).toBe(existing ? 3 : undefined);
+      expect(destination.clickBehavior).toBe(existing ? "keepClicking" : undefined);
+      const event = result.parts[0]!.measures[0]!.sequences[0]!.content[1]!;
+      expect(event.type === "event" ? event.fermata : null).toBeUndefined();
+    },
+  );
+
+  it("preserves copied authored local fermatas without creating a global", () => {
+    const score = scoreWithQuarters();
+    const source = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (source.type === "event") source.fermata = { symbol: "square" };
+    const selection = buildClipboardSelection(score, { kind: "single", elementId: "p0/m0/s0/a" })!;
+    const fragment = deserializeFragment(
+      serializeFragment(selection.events, selection.timeSignature, selection.keySignature),
+    )!;
+    const result = applyPaste(score, pasteResultFromFragment(fragment), 0, 0, 0, 1);
+    expect(result.global.measures[0]!.fermatas).toBeUndefined();
+    const event = result.parts[0]!.measures[0]!.sequences[0]!.content[1]!;
+    expect(event.type === "event" ? event.fermata?.symbol : null).toBe("square");
+  });
+
+  it("keeps one projected hold at the pasted onset when the note crosses a barline", () => {
+    const source = scoreWithQuarters();
+    source.parts[0]!.measures[0]!.sequences[0]!.content = [structuredClone(paste.content[0]!)];
+    source.global.measures[0]!.fermatas = [{ id: "source-hold", position: { fraction: [0, 1] } }];
+    const selection = buildClipboardSelection(source, {
+      kind: "single",
+      elementId: "p0/m0/s0/copied-lower-staff-note",
+    })!;
+    const fragment = deserializeFragment(
+      serializeFragment(selection.events, selection.timeSignature, selection.keySignature),
+    )!;
+    const result = applyPaste(scoreWithQuarters(), pasteResultFromFragment(fragment), 0, 0, 0, 3);
+    expect(result.global.measures[0]!.fermatas?.map((fermata) => fermata.position)).toEqual([{ fraction: [3, 4] }]);
+    expect(result.global.measures[1]!.fermatas).toBeUndefined();
+  });
+
+  it("copies a projected full-measure rest without the shared object's identity or settings", () => {
+    const source = scoreWithQuarters();
+    source.parts[0]!.measures[0]!.sequences[0] = { content: [], fullMeasure: {} };
+    source.global.measures[0]!.fermatas = [{ id: "shared-rest-hold", position: { fraction: [0, 1] }, multiplier: 4 }];
+    const selection = buildClipboardSelection(source, { kind: "single", elementId: "p0/m0/s0/e0" })!;
+    const json = serializeFragment(selection.events, selection.timeSignature, selection.keySignature);
+    expect(json).not.toContain("shared-rest-hold");
+    const fragment = deserializeFragment(json)!;
+    const result = applyPaste(scoreWithQuarters(), pasteResultFromFragment(fragment), 0, 0, 0, 0);
+    expect(result.global.measures[0]!.fermatas).toEqual([{ id: expect.any(String), position: { fraction: [0, 1] } }]);
+  });
+
+  it.each([false, true])(
+    "retains the relative time of a later hold on an overlapping whole-note carrier, existing=%s",
+    (existing) => {
+      const source = scoreWithQuarters();
+      source.parts[0]!.measures[0]!.sequences[0]!.content = [structuredClone(paste.content[0]!)];
+      source.global.measures[0]!.fermatas = [{ id: "source-at-three", position: { fraction: [3, 4] }, multiplier: 5 }];
+      const selection = buildClipboardSelection(source, {
+        kind: "single",
+        elementId: "p0/m0/s0/copied-lower-staff-note",
+      })!;
+      const json = serializeFragment(selection.events, selection.timeSignature, selection.keySignature);
+      expect(json).not.toContain("source-at-three");
+      expect(json).not.toContain("multiplier");
+      const destination = scoreWithQuarters();
+      if (existing)
+        destination.global.measures[0]!.fermatas = [
+          {
+            id: "existing-at-three",
+            position: { fraction: [3, 4] },
+            multiplier: 3,
+            clickBehavior: "keepClicking",
+          },
+        ];
+      const result = applyPaste(destination, pasteResultFromFragment(deserializeFragment(json)!), 0, 0, 0, 0);
+      expect(result.global.measures[0]!.fermatas).toEqual([
+        {
+          id: existing ? "existing-at-three" : expect.any(String),
+          position: { fraction: [3, 4] },
+          ...(existing ? { multiplier: 3, clickBehavior: "keepClicking" } : {}),
+        },
+      ]);
+    },
+  );
+
+  it("keeps a later carrier-relative hold at the correct time after cross-barline paste", () => {
+    const source = scoreWithQuarters();
+    source.parts[0]!.measures[0]!.sequences[0]!.content = [structuredClone(paste.content[0]!)];
+    source.global.measures[0]!.fermatas = [{ id: "source-at-three", position: { fraction: [3, 4] } }];
+    const selection = buildClipboardSelection(source, {
+      kind: "single",
+      elementId: "p0/m0/s0/copied-lower-staff-note",
+    })!;
+    const fragment = deserializeFragment(
+      serializeFragment(selection.events, selection.timeSignature, selection.keySignature),
+    )!;
+    const result = applyPaste(scoreWithQuarters(), pasteResultFromFragment(fragment), 0, 0, 0, 3);
+    expect(result.global.measures[0]!.fermatas).toBeUndefined();
+    expect(result.global.measures[1]!.fermatas?.map((fermata) => fermata.position)).toEqual([{ fraction: [1, 2] }]);
+  });
+});
 
 describe("computePasteResult grand-staff destinations", () => {
   it("uses the active input cursor after a tuplet instead of the copied selection", () => {

@@ -660,6 +660,9 @@ importers:
       '@viritura/core':
         specifier: workspace:*
         version: link:../core
+      '@viritura/format':
+        specifier: workspace:*
+        version: link:../format
       '@xmldom/xmldom':
         specifier: ^0.9.12
         version: 0.9.12
@@ -667,9 +670,6 @@ importers:
         specifier: ^3.10.2
         version: 3.10.2
     devDependencies:
-      '@viritura/format':
-        specifier: workspace:*
-        version: link:../format
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

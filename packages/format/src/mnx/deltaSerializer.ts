@@ -170,6 +170,7 @@ export class DeltaSerializer {
    * the expected number of measure-array slots (defensive; should never happen).
    */
   private assembleFullJson(score: Score): string {
+    if (score.global.measures.some((measure) => measure.fermatas?.length)) return JSON.stringify(serializeMnx(score));
     const skeleton = JSON.stringify(serializeMnxSkeleton(score));
     const contents: string[] = [
       this.globalMeasureMnxCache.join(","),

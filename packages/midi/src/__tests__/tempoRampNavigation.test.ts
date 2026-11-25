@@ -115,6 +115,7 @@ describe("native tempo ramps follow the playback itinerary", () => {
     const event = score.parts[0]!.measures[1]!.sequences[0]!.content[0]!;
     if (event.type !== "event") throw new Error("Expected note fixture");
     event.fermata = {};
+    score.global.measures[1]!.fermatas = [{ id: "hold", position: { fraction: [0, 1] } }];
     const timeline = generateTimeline(score);
     const nativeOnsets = generatePerformanceEvents(score, 0).filter((item) => item.kind === "noteOn");
     nativeOnsets.forEach((onset, beat) => expect(onset.time).toBeCloseTo(timeline.model.timeAtBeat(beat), 6));

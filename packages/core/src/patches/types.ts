@@ -305,6 +305,7 @@ export interface SpliceSequenceContentPatch {
  * and voltas all live on the shared `global.measures[i]`, not on any part.
  */
 export type GlobalMeasureField =
+  | { field: "fermatas"; value: GlobalMeasure["fermatas"] }
   | { field: "caesura"; value: GlobalMeasure["caesura"] }
   | { field: "segno"; value: GlobalMeasure["segno"] }
   | { field: "coda"; value: GlobalMeasure["coda"] }

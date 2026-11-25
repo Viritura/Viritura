@@ -8,6 +8,7 @@
  */
 
 import type { Score } from "@viritura/core";
+import { projectGlobalFermata } from "@viritura/core";
 import { parseMnx } from "@viritura/format";
 import { previewPatches, previewRepairs } from "./patchPreview";
 import { readScorePatches } from "./scorePatches";
@@ -44,10 +45,12 @@ function validatePatches(score: Score, rawPatches: unknown[]): ValidationResult 
   try {
     const patches = readScorePatches(rawPatches);
     const preview = previewPatches(score, patches);
+    const diagnostics = fermataCoverageDiagnostics(preview.score);
+    if (preview.remainingIssues.length) diagnostics.push("Some rhythmic issues could not be repaired.");
     return {
-      valid: preview.remainingIssues.length === 0,
+      valid: diagnostics.length === 0,
       mode: "patches",
-      diagnostics: preview.remainingIssues.length ? ["Some rhythmic issues could not be repaired."] : [],
+      diagnostics,
       repairs: preview.repairs,
       requiresRhythmTruncationApproval: preview.repairs.some((repair) => repair.action === "truncate"),
       splicePreviews: preview.splicePreviews,
@@ -62,10 +65,12 @@ function validateDocument(mnx: unknown): ValidationResult {
   try {
     const document = typeof mnx === "string" ? (JSON.parse(mnx) as unknown) : structuredClone(mnx);
     const preview = previewRepairs(parseMnx(document));
+    const diagnostics = fermataCoverageDiagnostics(preview.score);
+    if (preview.remainingIssues.length) diagnostics.push("Some rhythmic issues could not be repaired.");
     return {
-      valid: preview.remainingIssues.length === 0,
+      valid: diagnostics.length === 0,
       mode: "document",
-      diagnostics: preview.remainingIssues.length ? ["Some rhythmic issues could not be repaired."] : [],
+      diagnostics,
       repairs: preview.repairs,
       requiresRhythmTruncationApproval: preview.repairs.some((repair) => repair.action === "truncate"),
     };
@@ -76,6 +81,26 @@ function validateDocument(mnx: unknown): ValidationResult {
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function fermataCoverageDiagnostics(score: Score): string[] {
+  const diagnostics: string[] = [];
+  for (const [mi, measure] of score.global.measures.entries()) {
+    for (const fermata of measure.fermatas ?? []) {
+      const covered = new Set(
+        projectGlobalFermata(score, mi, fermata).map((span) => `${span.partIndex}/${span.staff}`),
+      );
+      for (const [pi, part] of score.parts.entries()) {
+        for (let staff = 1; staff <= (part.staves ?? 1); staff++) {
+          if (!covered.has(`${pi}/${staff}`))
+            diagnostics.push(
+              `Fermata ${fermata.id} in measure ${mi + 1} has no event or rest at its time on part ${pi + 1}, staff ${staff}.`,
+            );
+        }
+      }
+    }
+  }
+  return diagnostics;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

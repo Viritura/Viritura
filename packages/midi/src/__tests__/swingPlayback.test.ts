@@ -391,6 +391,7 @@ describe("shared synthetic swing realization", () => {
     const first = held.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
     if (first.type !== "event") throw new Error("Invalid fixture");
     first.fermata = {};
+    held.global.measures[0]!.fermatas = [{ id: "first-hold", position: { fraction: [0, 1] } }];
     const native = generatePerformanceEvents(held, 0).filter((event) => event.kind === "noteOn");
     expect(native[0]!.note.duration).toBeCloseTo(1 / 3, 12);
     expect(native[1]!.time).toBeCloseTo(1 / 3, 12);
@@ -400,6 +401,7 @@ describe("shared synthetic swing realization", () => {
     const second = held.parts[0]!.measures[0]!.sequences[0]!.content[1]!;
     if (second.type !== "event") throw new Error("Invalid fixture");
     second.fermata = {};
+    held.global.measures[0]!.fermatas = [{ id: "second-hold", position: { fraction: [1, 16] } }];
     const heldNative = generatePerformanceEvents(held, 0).filter((event) => event.kind === "noteOn");
     expect(heldNative[1]!.time).toBeCloseTo(0.2, 12);
     expect(heldNative[1]!.time + heldNative[1]!.note.duration).toBeCloseTo(0.5, 12);
@@ -534,6 +536,7 @@ describe("shared synthetic swing realization", () => {
     finalRight.fermata = {};
     const finalLeft = note("final-lh", "half");
     finalLeft.fermata = {};
+    score.global.measures[86]!.fermatas = [{ id: "final-hold", position: { fraction: [1, 2] } }];
     score.parts[0]!.measures[86] = {
       sequences: [
         { staff: 1, content: [finalRight] },

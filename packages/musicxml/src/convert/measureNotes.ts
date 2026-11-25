@@ -476,7 +476,7 @@ export function processMeasureNotes(
           // Markings on grace notes
           const graceMarkings = extractMarkings(gel, vendorExt);
           if (graceMarkings) graceEvent.markings = graceMarkings;
-          const graceFermata = extractFermata(gel);
+          const graceFermata = extractFermata(gel, vendorExt);
           if (graceFermata) graceEvent.fermata = graceFermata;
 
           // Slurs anchored on the grace note.
@@ -619,7 +619,7 @@ export function processMeasureNotes(
       if (markings) event.markings = markings;
 
       // Native MNX fermata (event-level since v15).
-      const fermata = extractFermata(el);
+      const fermata = extractFermata(el, vendorExt);
       if (fermata) event.fermata = fermata;
 
       // Staff assignment on event. The sequence carries the voice's *home*

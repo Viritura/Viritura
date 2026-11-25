@@ -1,12 +1,79 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
 import type { Score } from "@viritura/core";
 import { useImportErrorLogStore } from "../importErrorLog";
 import { useDefaultScoreLoader } from "./useDefaultScoreLoader";
 
+afterEach(() => vi.restoreAllMocks());
+
 describe("useDefaultScoreLoader", () => {
+  it("warns when an opened MNX fermata stays local beside another sounding staff", async () => {
+    const warning = vi.spyOn(toast, "warning").mockReturnValue("notice");
+    const loadScore = vi.fn();
+    const setFileError = vi.fn();
+    renderHook(() =>
+      useDefaultScoreLoader({
+        store: { getState: () => ({ mnxJson: "" }) } as never,
+        loadScore,
+        resetHistory: vi.fn(),
+        openedFile: {
+          filename: "local-fermata.mnx",
+          fileHandle: null,
+          mnxJson: JSON.stringify({
+            mnx: { version: 1 },
+            global: { measures: [{ time: { count: 4, unit: 4 } }] },
+            parts: [
+              {
+                measures: [
+                  {
+                    sequences: [
+                      {
+                        content: [
+                          {
+                            duration: { base: "whole" },
+                            notes: [{ pitch: { step: "C", octave: 4 } }],
+                            fermata: {},
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                measures: [
+                  {
+                    sequences: [
+                      {
+                        content: [
+                          {
+                            duration: { base: "whole" },
+                            notes: [{ pitch: { step: "E", octave: 4 } }],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+        },
+        setSelectedScoreIndex: vi.fn(),
+        setFileHandle: vi.fn(),
+        setFileError,
+      }),
+    );
+    await waitFor(() => expect(loadScore).toHaveBeenCalled());
+    expect(setFileError).toHaveBeenCalledWith(null);
+    expect(warning).toHaveBeenCalledExactlyOnceWith("Imported local-fermata.mnx with 1 warning", {
+      description: expect.stringContaining("measure 1, part 1, staff 1"),
+    });
+    expect((loadScore.mock.calls[0]![0] as Score).global.measures[0]!.fermatas).toBeUndefined();
+  });
   it("surfaces opened-file schema failures through the on-screen error state", async () => {
     const loadScore = vi.fn();
     const setFileError = vi.fn();
