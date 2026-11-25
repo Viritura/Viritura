@@ -13,7 +13,7 @@ import { useClickPlayer } from "./useClickPlayer";
 import { useClickSpaceShortcut } from "./useClickSpaceShortcut";
 import { useExclusiveClickAudio } from "./useExclusiveClickAudio";
 import { publishClickCanvasConfig, publishClickCanvasPlayback } from "../store/clickCanvasStore";
-import { useProjectStore } from "../store/projectStore";
+import { useDocumentStore } from "../store/DocumentContext";
 import { ClickScoreInteractions } from "./ClickScoreInteractions";
 import styles from "./ClickView.module.css";
 
@@ -143,8 +143,8 @@ export function ClickView({ mnx, canvasRef, canvasZoom }: ClickViewProps) {
   const fallbackCanvasRef = useRef<ScoreCanvasHandle | null>(null);
   const activeCanvasRef = canvasRef ?? fallbackCanvasRef;
   const releaseOtherAudio = useExclusiveClickAudio();
-  const scoreKey = useProjectStore((state) => state.activeScorePath);
-  const player = useClickPlayer(mnx, { releaseOtherAudio, scoreKey });
+  const documentGeneration = useDocumentStore((state) => state.documentGeneration);
+  const player = useClickPlayer(mnx, { releaseOtherAudio, documentGeneration });
   const [dialSettling, setDialSettling] = useState(false);
   const [storedScoreSettings, setScoreSettings] = useState(DEFAULT_SCORE_SETTINGS);
   const scoreSettings = { ...storedScoreSettings, zoom: canvasZoom ?? storedScoreSettings.zoom };

@@ -42,7 +42,9 @@ async function saveVersionedProject(adapter: ProjectAdapter, json: string, recor
       .commitCurrent(json, { auto: false })
       .catch((err) => {
         console.error("Background commit failed:", err);
-        toast.error("Saved, but version history could not be updated");
+        toast.error("Saved, but version history could not be updated", {
+          description: err instanceof Error ? err.message : String(err),
+        });
       });
   } catch (err) {
     console.error("Save failed:", err);

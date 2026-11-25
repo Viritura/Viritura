@@ -37,24 +37,50 @@ export async function switchProjectScore({
   openProjectScore,
   save,
 }: SwitchProjectScoreArgs): Promise<boolean> {
-  const { activeScorePath, projectScores } = useProjectStore.getState();
+  const { activeScorePath, projectScores, projectFolder, adapter } = useProjectStore.getState();
+  const documentGeneration = store.getState().documentGeneration;
   if (relativePath === activeScorePath) return false;
-  if (isLiveSessionPinned(useLiveSessionStore.getState().status)) {
-    toast.info("End the live session before switching scores.");
-    return false;
-  }
+  const isCurrent = () => {
+    if (isLiveSessionPinned(useLiveSessionStore.getState().status)) {
+      toast.info("End the live session before switching scores.");
+      return false;
+    }
+    const project = useProjectStore.getState();
+    if (
+      store.getState().documentGeneration !== documentGeneration ||
+      project.projectFolder !== projectFolder ||
+      project.adapter !== adapter ||
+      project.activeScorePath !== activeScorePath
+    ) {
+      toast.info("The open score changed. Choose a project file again.");
+      return false;
+    }
+    return true;
+  };
+  if (!isCurrent()) return false;
 
   if (hasUnsavedChanges(store.getState())) {
     const currentName = projectScores.find((score) => score.relativePath === activeScorePath)?.name ?? "This score";
+    const confirmedRevision = store.getState().scoreRevision;
     const choice = await openUnsavedChangesConfirm(currentName);
-    if (!choice) return false;
+    if (!choice || !isCurrent()) return false;
+    if (store.getState().scoreRevision !== confirmedRevision) {
+      toast.info("The score changed while switching. Please try again.");
+      return false;
+    }
     if (choice === "save") {
       await save();
-      if (hasUnsavedChanges(store.getState())) return false;
+      if (!isCurrent() || hasUnsavedChanges(store.getState())) return false;
     }
   }
 
+  const scoreRevision = store.getState().scoreRevision;
   // The previous score's background commit must finish before its adapter is replaced.
   await waitForCommitToSettle();
+  if (!isCurrent()) return false;
+  if (store.getState().scoreRevision !== scoreRevision) {
+    toast.info("The score changed while switching. Please try again.");
+    return false;
+  }
   return openProjectScore(relativePath);
 }

@@ -106,6 +106,33 @@ describe("GitProjectAdapter end-to-end", () => {
     expect(log[0].author.name).toBe("local");
   });
 
+  it("does not overwrite an existing score that changed before initialization", async () => {
+    const fs = new InMemoryFs();
+    await fs.writeFile("/score.mnx", SCORE_V2);
+
+    await expect(
+      initRepo({ fs, name: "p", scorePath: "score.mnx", initialJson: SCORE_V1, preserveExistingScore: true }),
+    ).rejects.toThrow("score changed on disk");
+    expect(await fs.readFile("/score.mnx", { encoding: "utf8" })).toBe(SCORE_V2);
+    await expect(fs.stat("/.git")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("initializes version history without rewriting the existing score", async () => {
+    const fs = new InMemoryFs();
+    await fs.writeFile("/score.mnx", SCORE_V1);
+    const write = vi.spyOn(fs, "writeFile");
+
+    const adapter = await initRepo({
+      fs,
+      name: "p",
+      scorePath: "score.mnx",
+      initialJson: SCORE_V1,
+      preserveExistingScore: true,
+    });
+    expect(write.mock.calls.some(([path]) => path === "/score.mnx")).toBe(false);
+    expect(await adapter.readScoreAtCommit((await adapter.log())[0]!.sha)).toBe(SCORE_V1);
+  });
+
   it("commit returns null when nothing changed", async () => {
     const fs = new InMemoryFs();
     const adapter = await initRepo({
@@ -169,6 +196,48 @@ describe("GitProjectAdapter end-to-end", () => {
     expect((await first.log()).map((c) => c.subject)).toEqual(["Edit first", "Initial draft"]);
     expect((await second.log()).map((c) => c.subject)).toEqual(["Add second"]);
     expect((await second.status()).commitCount).toBe(3);
+  });
+
+  it("does not include or alter other staged files when committing a score", async () => {
+    const fs = new InMemoryFs();
+    const first = await initRepo({ fs, name: "p", scorePath: "first.mnx", initialJson: SCORE_V1 });
+    const head = await git.resolveRef({ fs, dir: "/", ref: "HEAD" });
+    await fs.writeFile("/second.mnx", SCORE_V1);
+    await git.add({ fs, dir: "/", filepath: "second.mnx" });
+    await first.writeScore(SCORE_V2);
+
+    await expect(first.commit("Edit first")).rejects.toThrow("Other files are staged");
+    expect(await git.resolveRef({ fs, dir: "/", ref: "HEAD" })).toBe(head);
+    expect(await git.status({ fs, dir: "/", filepath: "second.mnx" })).toBe("added");
+    expect(await git.status({ fs, dir: "/", filepath: "first.mnx" })).toBe("*modified");
+  });
+
+  it("can commit a score while other files are untracked", async () => {
+    const fs = new InMemoryFs();
+    const first = await initRepo({ fs, name: "p", scorePath: "first.mnx", initialJson: SCORE_V1 });
+    await fs.writeFile("/second.mnx", SCORE_V1);
+    await first.writeScore(SCORE_V2);
+
+    const sha = await first.commit("Edit first");
+    expect(sha).not.toBeNull();
+    await expect(git.readBlob({ fs, dir: "/", oid: sha!, filepath: "second.mnx" })).rejects.toThrow();
+    expect(await git.status({ fs, dir: "/", filepath: "second.mnx" })).toBe("*added");
+  });
+
+  it("leaves staged changes to a tracked score intact", async () => {
+    const fs = new InMemoryFs();
+    const first = await initRepo({ fs, name: "p", scorePath: "first.mnx", initialJson: SCORE_V1 });
+    const second = await openRepo({ fs, name: "p", scorePath: "second.mnx" });
+    await second.writeScore(SCORE_V1);
+    await second.commit("Add second");
+    const head = await git.resolveRef({ fs, dir: "/", ref: "HEAD" });
+    await second.writeScore(SCORE_V2);
+    await git.add({ fs, dir: "/", filepath: "second.mnx" });
+    await first.writeScore(SCORE_V2);
+
+    await expect(first.commit("Edit first")).rejects.toThrow("Other files are staged");
+    expect(await git.resolveRef({ fs, dir: "/", ref: "HEAD" })).toBe(head);
+    expect(await git.status({ fs, dir: "/", filepath: "second.mnx" })).toBe("modified");
   });
 
   it("caches repeated reads of the same historical score", async () => {

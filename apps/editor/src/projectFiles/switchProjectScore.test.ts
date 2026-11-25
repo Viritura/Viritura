@@ -9,7 +9,8 @@ const dirty = vi.hoisted(() => ({ value: false }));
 vi.mock("../store/documentStore", () => ({ hasUnsavedChanges: () => dirty.value }));
 vi.mock("sonner", () => ({ toast: { info: vi.fn() } }));
 
-const store = { getState: () => ({}) } as unknown as DocumentStore;
+const documentState = { documentGeneration: 1, scoreRevision: "initial" };
+const store = { getState: () => documentState } as unknown as DocumentStore;
 
 function answerUnsavedPrompt(choice: "save" | "discard" | null) {
   const request = useModalFlowStore.getState().unsavedChanges;
@@ -21,6 +22,8 @@ function answerUnsavedPrompt(choice: "save" | "discard" | null) {
 describe("switchProjectScore", () => {
   beforeEach(() => {
     dirty.value = false;
+    documentState.documentGeneration = 1;
+    documentState.scoreRevision = "initial";
     useLiveSessionStore.setState({ status: "idle" });
     useProjectStore.setState({
       activeScorePath: "one.mnx",
@@ -81,6 +84,46 @@ describe("switchProjectScore", () => {
     const openProjectScore = vi.fn(async () => true);
     const pending = switchProjectScore({ store, relativePath: "set/two.mnx", openProjectScore, save: vi.fn() });
     answerUnsavedPrompt("save");
+    await expect(pending).resolves.toBe(false);
+    expect(openProjectScore).not.toHaveBeenCalled();
+  });
+
+  it("does not discard edits made while a background commit is finishing", async () => {
+    useProjectStore.setState({ committing: true });
+    const openProjectScore = vi.fn(async () => true);
+    const pending = switchProjectScore({ store, relativePath: "set/two.mnx", openProjectScore, save: vi.fn() });
+    documentState.scoreRevision = "edited";
+    useProjectStore.setState({ committing: false });
+    await expect(pending).resolves.toBe(false);
+    expect(openProjectScore).not.toHaveBeenCalled();
+  });
+
+  it("does not switch if a live session starts while confirming unsaved changes", async () => {
+    dirty.value = true;
+    const openProjectScore = vi.fn(async () => true);
+    const pending = switchProjectScore({ store, relativePath: "set/two.mnx", openProjectScore, save: vi.fn() });
+    useLiveSessionStore.setState({ status: "active" });
+    answerUnsavedPrompt("discard");
+    await expect(pending).resolves.toBe(false);
+    expect(openProjectScore).not.toHaveBeenCalled();
+  });
+
+  it("does not switch a different document after an unsaved-changes confirmation", async () => {
+    dirty.value = true;
+    const openProjectScore = vi.fn(async () => true);
+    const pending = switchProjectScore({ store, relativePath: "set/two.mnx", openProjectScore, save: vi.fn() });
+    documentState.documentGeneration++;
+    answerUnsavedPrompt("discard");
+    await expect(pending).resolves.toBe(false);
+    expect(openProjectScore).not.toHaveBeenCalled();
+  });
+
+  it("does not discard edits made while confirming unsaved changes", async () => {
+    dirty.value = true;
+    const openProjectScore = vi.fn(async () => true);
+    const pending = switchProjectScore({ store, relativePath: "set/two.mnx", openProjectScore, save: vi.fn() });
+    documentState.scoreRevision = "edited";
+    answerUnsavedPrompt("discard");
     await expect(pending).resolves.toBe(false);
     expect(openProjectScore).not.toHaveBeenCalled();
   });

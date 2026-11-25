@@ -1,15 +1,42 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import type { Score } from "@viritura/core";
+import type { OpenFileResult } from "../commands/fileCommands";
 import { useImportErrorLogStore } from "../importErrorLog";
 import { useDefaultScoreLoader } from "./useDefaultScoreLoader";
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("useDefaultScoreLoader", () => {
+  it("does not reload an immediately opened project score when its file state updates", () => {
+    const loadScore = vi.fn();
+    const file: OpenFileResult = {
+      filename: "score.mnx",
+      mnxJson: JSON.stringify({ mnx: { version: 1 }, global: { measures: [] }, parts: [] }),
+      fileHandle: null,
+    };
+    const { result, rerender } = renderHook(
+      ({ openedFile }) =>
+        useDefaultScoreLoader({
+          store: { getState: () => ({ mnxJson: "" }) } as never,
+          loadScore,
+          resetHistory: vi.fn(),
+          openedFile,
+          setSelectedScoreIndex: vi.fn(),
+          setFileHandle: vi.fn(),
+          setFileError: vi.fn(),
+        }),
+      { initialProps: { openedFile: null as OpenFileResult | null } },
+    );
+
+    act(() => expect(result.current.loadOpenedFile(file)).toBe(true));
+    rerender({ openedFile: file });
+    expect(loadScore).toHaveBeenCalledOnce();
+  });
+
   it("warns when an opened MNX fermata stays local beside another sounding staff", async () => {
     const warning = vi.spyOn(toast, "warning").mockReturnValue("notice");
     const loadScore = vi.fn();

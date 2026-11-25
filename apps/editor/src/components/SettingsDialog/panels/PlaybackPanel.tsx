@@ -13,6 +13,7 @@ const CLICK_SOUND_OPTIONS: Array<{ value: ClickSound; label: string }> = [
   { value: "tick", label: "Tick" },
   { value: "woodblock", label: "Woodblock" },
   { value: "beep", label: "Beep" },
+  { value: "oscillator", label: "Original oscillator" },
 ];
 
 export function PlaybackPanel() {

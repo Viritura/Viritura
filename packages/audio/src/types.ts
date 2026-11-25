@@ -1,3 +1,5 @@
+import type { ClickLevel, ClickProgramEvent } from "./clickEngine";
+
 // ═══════════════════════════════════════════
 // MIDI Timeline types
 // ═══════════════════════════════════════════
@@ -220,15 +222,13 @@ export type ScheduleCallback = (event: MidiEvent, audioTime: number) => void;
  * through sub-bar tempo changes / rit. / fermata holds (unlike a reactive
  * beat-crossing click, which is jittered by the playhead poll interval).
  */
-export interface ClickEvent {
+export interface ClickEvent extends ClickProgramEvent {
   /** Absolute score time (seconds) of the click. */
   readonly time: number;
-  /** Whether this click is the accented (downbeat) click of its measure. */
-  readonly accented: boolean;
 }
 
 /** Callback invoked by the Scheduler for each click within the schedule window. */
-export type ClickCallback = (audioTime: number, accented: boolean) => void;
+export type ClickCallback = (audioTime: number, level: ClickLevel) => void;
 
 /** Scheduler configuration. */
 export interface SchedulerConfig {

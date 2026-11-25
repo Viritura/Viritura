@@ -29,9 +29,22 @@ Implemented:
   the updated document is adopted after stopping. The selected start bar is
   kept when it remains valid. With no document open, the activity shows an empty state.
 - **Click sound:** Settings → Playback offers a synthesized tick, woodblock,
-  or classic beep for both the metronome and Click activity. The preference is
+  beep, or **Original oscillator** for both the metronome and Click activity. The preference is
   saved on the device. Click voices are prepared before playback and selected
-  on the audio thread without changing scheduled click frames.
+  on the audio thread without changing scheduled click frames. Editor playback
+  uses the same generated accent, beat, and subdivision voices, including Beep.
+  Original oscillator preserves the previous editor sine click: an 880 Hz,
+  50 ms accent at gain 0.8 and a 440 Hz, 30 ms beat at gain 0.4, each decaying
+  exponentially to 0.001. Subdivisions use a quieter 440 Hz voice at gain 0.2.
+  These waveforms are generated up front for both transports rather than
+  restoring a separate synthesis path.
+- **Project file picker:** Open a folder containing multiple MNX files and
+  switch between them from the toolbar, including in Click. A folder without
+  Git can be opened as-is or initialized with version history. Switching resolves
+  unsaved changes, is disabled during live sessions, and starts the new file at
+  its first bar. Opening the picker refreshes the file list. If other Git
+  changes are already staged, the score is saved but the automatic commit is
+  blocked, leaving those staged changes intact and showing a warning.
 - **Shared score surface and floating transport** — Click reuses the editor's
   already-mounted `ScoreCanvas`; score/part selection, view mode, bar taps, and
   click playhead overlays all use that surface rather than mounting a second
@@ -151,11 +164,17 @@ Tempo markings now persist `clickSubdivision` (1-5, default 1 at every tempo
 instruction) with exact
 mid-bar positions, through standard MNX tempo extensions and shared system
 instructions. The tempo inspector edits **Clicks per beat**. The Click activity
-uses these settings for score clicks and the starting countoff, including
-source-position restoration on repeated visits and jumps.
+and editor metronome use the same program compiler for score clicks and their
+countoff/count-in, including authored beat groups, source-position restoration
+on repeated visits and jumps, and fermata click behavior. For example, 10/8
+authored as `3+2+2+3` produces four beat clicks at subdivision 1 in either mode.
+Editor count-in is one full bar in the opening meter, not a series of
+quarter-note pulses. Its events are shifted to negative score time; score
+playback retains its existing look-ahead scheduler while recording Click keeps
+its isolated, preloaded audio worklet.
 
-Remaining: the project setlist picker, persisted session settings, the detached controller,
-additional rehearsal navigation, and the release gates below.
+Remaining: ordered and shared setlists, persisted session settings, the detached
+controller, additional rehearsal navigation, and the release gates below.
 
 Single-document smoke check: start the UI through `pnpm dev:stack up ui`, open
 the editor origin from `pnpm dev:stack url`, open a score, choose **Click** in
@@ -561,6 +580,8 @@ Keep the project root and active document separate:
 - Folder scope owns discovered paths, ordering, and session settings.
 - Document scope owns the selected MNX, its undo history, save target, disk
   baseline, and score-specific playback program.
+- Opening another document stops playback and resets the playhead to the
+  beginning. Ordinary score edits preserve the playback position.
 - Existing standalone-file opening remains available and unchanged.
 - Opening a folder without Git offers **Initialize Git project** or **Open
   without Git**, with cancellation leaving the current document unchanged.

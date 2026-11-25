@@ -83,6 +83,7 @@ import { usePercussionPreview } from "./usePercussionPreview";
 import { useMelodicPreview } from "./useMelodicPreview";
 import { generateTimeline, getChordPlaybackPart, type MidiTimeline as ScoreMidiTimeline } from "@viritura/midi";
 import { buildClickTrack, countInLeadSeconds } from "./clickTrack";
+import type { ClickSessionSource } from "./clickSession";
 import { getMetronomeSound, subscribeMetronomeSound } from "./metronomeSettingsStore";
 import { createPlayheadResolver, sourceMeasureBeatToSeconds } from "./playheadResolver";
 import { requirePlayableTimeline, resolveTransportStart, type PendingPlaybackStart } from "./transportStart";
@@ -157,6 +158,15 @@ function samplerSignature(score: Score, timeline: EngineMidiTimeline | null): st
   if (getChordPlaybackPart(score)) laneMap.set(score.parts.length, [CHORDS_PART_ID]);
   const lanes = [...laneMap.entries()].map(([partIndex, ids]) => `${partIndex}:${ids.join(",")}`).join("|");
   return `${computePartSignature(score)}#${playbackPartIds(score).join("|")}#${JSON.stringify(score.soundProfile ?? null)}#${lanes}`;
+}
+
+function countInLeadForStart(
+  enabled: boolean,
+  source: ClickSessionSource | null,
+  wasStopped: boolean,
+  startAt: number,
+): number | null {
+  return enabled && source && wasStopped && startAt <= 1e-6 ? countInLeadSeconds(source) : null;
 }
 
 // eslint-disable-next-line max-lines-per-function, max-statements -- audio-engine provider shell: declares ~30 refs/state for transport, scheduler, sampler, MIDI, mute/solo/level state, then wires effects for soundfont load, score-change reschedule, visible-parts gain, and tab-visibility throttle. Helpers are extracted (PartLevelRefs bundle, useFastLayoutCallback, schedulers); the remaining body is cohesive provider wiring that does not decompose cleanly.
@@ -261,12 +271,7 @@ export function PlaybackProvider({
   const clickTrackRef = useRef<readonly ClickEvent[]>([]);
   /** Tempo/meter source for (re)building the click track without a full
    *  timeline regen (e.g. when the count-in toggles). */
-  const clickSourceRef = useRef<{
-    model: import("@viritura/midi").MidiTimeline["model"];
-    measureStartBeats: number[];
-    measureTimeSignatures: { count: number; unit: number }[];
-    playedSpans?: import("@viritura/midi").PlayedMeasureSpan[];
-  } | null>(null);
+  const clickSourceRef = useRef<ClickSessionSource | null>(null);
   /** Live mirror of `countInEnabled` so play()/click rebuilds read it without a
    *  store round-trip (matches how the metronome toggle drives the engine). */
   const countInEnabledRef = useRef(false);
@@ -424,9 +429,7 @@ export function PlaybackProvider({
       // they land sample-accurately on the audio clock. Metronome.scheduleClick
       // no-ops while disabled, so toggling the metronome on/off mid-playback
       // takes effect within one schedule window without rebuilding anything.
-      engineRef.current.setClickCallback((audioTime, accented) =>
-        metronomeRef.current?.scheduleClick(audioTime, accented),
-      );
+      engineRef.current.setClickCallback((audioTime, level) => metronomeRef.current?.scheduleClick(audioTime, level));
 
       // Forward playhead events to React state.
       engineRef.current.on("playhead", (detail) => {
@@ -899,21 +902,14 @@ export function PlaybackProvider({
     }
   }, []);
 
-  /** Number of count-in beats = one bar of the first measure (default 4). */
-  const countInBeatsForScore = useCallback((): number => {
-    const ts = clickSourceRef.current?.measureTimeSignatures[0];
-    return ts ? (ts.count * 4) / ts.unit : 4;
-  }, []);
-
   /** Rebuild the click track from the cached tempo/meter source (honoring the
    *  count-in toggle) and push it to the engine. */
   const applyClickTrack = useCallback(() => {
     const src = clickSourceRef.current;
     if (!src) return;
-    const countInBeats = countInEnabledRef.current ? countInBeatsForScore() : 0;
-    clickTrackRef.current = buildClickTrack(src, { countInBeats });
+    clickTrackRef.current = buildClickTrack(src, { countIn: countInEnabledRef.current });
     engineRef.current?.setClickTrack(clickTrackRef.current);
-  }, [countInBeatsForScore]);
+  }, []);
 
   const toggleCountIn = useCallback(() => {
     dispatchPlayback({ type: "TOGGLE_COUNT_IN" });
@@ -1382,15 +1378,11 @@ export function PlaybackProvider({
         // Count-in: when enabled and starting fresh from the top (not resuming a
         // pause), begin the transport before score time 0 so the prepended
         // (negative-time) count-in clicks play into the downbeat.
-        if (countInEnabledRef.current && clickSourceRef.current && wasStopped && startAt <= 1e-6) {
-          const lead = countInLeadSeconds(clickSourceRef.current, countInBeatsForScore());
-          engine.play(-lead);
-        } else {
-          engine.play(startAt);
-        }
+        const lead = countInLeadForStart(countInEnabledRef.current, clickSourceRef.current, wasStopped, startAt);
+        engine.play(lead === null ? startAt : -lead);
         pendingStartRef.current = null;
         if (vstTransport && vstOwnedPartsRef.current.size > 0) {
-          void vstTransport.start(startAt);
+          void vstTransport.start(lead === null ? startAt : engine.getScoreTimeSeconds());
         }
       } catch (err) {
         console.error("Failed to start playback:", err);
@@ -1402,15 +1394,7 @@ export function PlaybackProvider({
         playStartInFlightRef.current = false;
       }
     },
-    [
-      ensureEngine,
-      score,
-      createSamplersForScore,
-      countInBeatsForScore,
-      prepareNativeHost,
-      applyViewPartFilter,
-      chordPreview,
-    ],
+    [ensureEngine, score, createSamplersForScore, prepareNativeHost, applyViewPartFilter, chordPreview],
   );
 
   // --- Score change → regenerate timeline only ---
@@ -1476,9 +1460,13 @@ export function PlaybackProvider({
         // full timeline regen.
         clickSourceRef.current = {
           model: midiTimeline.model,
+          duration: midiTimeline.duration,
           measureStartBeats: midiTimeline.measureStartBeats,
           measureTimeSignatures: midiTimeline.measureTimeSignatures,
           playedSpans: midiTimeline.playedSpans,
+          expandedMeasureToOriginal: midiTimeline.expandedMeasureToOriginal,
+          fermataHolds: midiTimeline.fermataHolds,
+          globalMeasures: score.global.measures,
         };
         applyClickTrack();
 

@@ -84,4 +84,86 @@ describe("project opening bookkeeping", () => {
     await vi.waitFor(() => expect(warning).toHaveBeenCalledWith("Failed to record recent project score:", error));
     expect(useProjectStore.getState().adapter).toBe(adapter);
   });
+
+  it("validates the target file before replacing the active project", async () => {
+    const previous = prepareAdapter();
+    useProjectStore.setState({ adapter: previous, projectFolder: rootHandle });
+    const target = prepareAdapter();
+    const failure = new Error("Invalid score");
+
+    await expect(
+      bootProjectFromHandle({
+        rootHandle,
+        scorePath: "score.mnx",
+        validateScore: () => {
+          throw failure;
+        },
+      }),
+    ).rejects.toBe(failure);
+    expect(useProjectStore.getState().adapter).toBe(previous);
+    expect(useProjectStore.getState().adapter).not.toBe(target);
+    expect(rememberScore).not.toHaveBeenCalled();
+  });
+
+  it("loads the validated score before waiting for project status", async () => {
+    const adapter = prepareAdapter();
+    const status = await adapter.status();
+    let finishStatus!: (status: typeof status) => void;
+    vi.mocked(adapter.status).mockReturnValue(
+      new Promise((resolve) => {
+        finishStatus = resolve;
+      }),
+    );
+    const onActivated = vi.fn();
+    const opening = bootProjectFromHandle({ rootHandle, scorePath: "score.mnx", onActivated });
+
+    await vi.waitFor(() => expect(onActivated).toHaveBeenCalledOnce());
+    expect(useProjectStore.getState()).toMatchObject({
+      adapter,
+      projectFolder: rootHandle,
+      projectDiskBaseline: JSON_SCORE,
+      activeScorePath: "score.mnx",
+    });
+    finishStatus(status);
+    await expect(opening).resolves.toBe(adapter);
+  });
+
+  it("does not publish stale status from a previously active adapter", async () => {
+    const first = prepareAdapter();
+    const firstStatus = await first.status();
+    let finishFirstStatus!: (status: typeof firstStatus) => void;
+    vi.mocked(first.status).mockReturnValue(
+      new Promise((resolve) => {
+        finishFirstStatus = resolve;
+      }),
+    );
+    const refresh = useProjectStore.getState().setAdapter(first, rootHandle);
+    const second = prepareAdapter();
+    vi.mocked(second.status).mockResolvedValue({ ...firstStatus, name: "Second" });
+    await useProjectStore.getState().setAdapter(second, rootHandle);
+
+    finishFirstStatus(firstStatus);
+    await refresh;
+    expect(useProjectStore.getState().adapter).toBe(second);
+    expect(useProjectStore.getState().status?.name).toBe("Second");
+  });
+
+  it("does not overwrite a newer refresh of the same project", async () => {
+    const adapter = prepareAdapter();
+    const oldStatus = await adapter.status();
+    let finishOldStatus!: (status: typeof oldStatus) => void;
+    vi.mocked(adapter.status)
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishOldStatus = resolve;
+        }),
+      )
+      .mockResolvedValue({ ...oldStatus, name: "Updated" });
+
+    const oldRefresh = useProjectStore.getState().setAdapter(adapter, rootHandle);
+    await useProjectStore.getState().refresh();
+    finishOldStatus(oldStatus);
+    await oldRefresh;
+    expect(useProjectStore.getState().status?.name).toBe("Updated");
+  });
 });

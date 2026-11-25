@@ -14,6 +14,7 @@ const playback = vi.hoisted(() => ({
     setSelectionStaffCount: vi.fn<(staffCount: number | null) => void>(),
     measureBeatToSeconds: vi.fn<(measure: number, beat: number) => number | null>(),
     seek: vi.fn<(seconds: number) => void>(),
+    stop: vi.fn<() => void>(),
   },
 }));
 
@@ -24,7 +25,11 @@ vi.mock("@viritura/playback", () => ({
 
 vi.mock("../../store/DocumentContext", async () => {
   const { createStore } = await import("zustand");
-  const store = createStore<{ score: Score | null; dirty: boolean }>(() => ({ score: null, dirty: false }));
+  const store = createStore<{ score: Score | null; dirty: boolean; documentGeneration: number }>(() => ({
+    score: null,
+    dirty: false,
+    documentGeneration: 0,
+  }));
   return { useDocumentStoreApi: () => store };
 });
 
@@ -106,6 +111,21 @@ describe("SelectionPlaybackBridge part filtering", () => {
     expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(null);
     expect(playback.actions.setSelectionStaffCount).toHaveBeenLastCalledWith(null);
     expect(playback.actions.setSelectionPartIds.mock.calls.every(([partIds]) => partIds === null)).toBe(true);
+    expect(playback.actions.seek).not.toHaveBeenCalled();
+  });
+
+  it("resets playback when another document opens, even with identical score content", () => {
+    render(<SelectionPlaybackBridge />);
+    act(() => {
+      documentStore.setState((state) => ({ documentGeneration: state.documentGeneration + 1 }));
+    });
+    expect(playback.actions.stop).toHaveBeenCalledOnce();
+  });
+
+  it("preserves playback position during ordinary score edits", () => {
+    render(<SelectionPlaybackBridge />);
+    act(() => documentStore.setState({ score: makeScore(), dirty: true }));
+    expect(playback.actions.stop).not.toHaveBeenCalled();
     expect(playback.actions.seek).not.toHaveBeenCalled();
   });
 

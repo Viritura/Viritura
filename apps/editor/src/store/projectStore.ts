@@ -107,6 +107,8 @@ export interface ProjectState {
   swapSelection(): void;
 }
 
+let refreshSequence = 0;
+
 export const useProjectStore = create<ProjectState>((set, get) => ({
   adapter: null,
   projectFolder: null,
@@ -150,6 +152,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   async refresh() {
+    const sequence = ++refreshSequence;
     const { adapter } = get();
     if (!adapter) {
       set({ status: null, log: [] });
@@ -160,6 +163,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (adapter.isVersioned()) {
       log = await adapter.log(200);
     }
+    if (get().adapter !== adapter || sequence !== refreshSequence) return;
     // Default selection: from = HEAD's parent (or HEAD itself if root commit), to = working tree
     const selection = computeDefaultSelection(log, get().selection);
     set({ status, log, selection });
@@ -303,9 +307,13 @@ export async function bootProjectFromHandle(opts: {
   rootHandle: FileSystemDirectoryHandle;
   scorePath: string;
   /** If true, initialise a new repo with `initialJson`. Otherwise open existing. */
-  init?: { initialJson: string; initialMessage?: string };
+  init?: { initialJson: string; initialMessage?: string; preserveExistingScore?: boolean };
   /** Scores already discovered in `rootHandle`; scanned in the background when omitted. */
   scores?: readonly ProjectScoreFile[];
+  /** Validate the exact disk contents before replacing the active project. */
+  validateScore?: (json: string) => void;
+  /** Load the validated document synchronously as the new adapter becomes active. */
+  onActivated?: () => void;
 }): Promise<GitProjectAdapter> {
   const fs = new FsaFs(opts.rootHandle);
   let adapter: GitProjectAdapter;
@@ -316,6 +324,7 @@ export async function bootProjectFromHandle(opts: {
       scorePath: opts.scorePath,
       initialJson: opts.init.initialJson,
       initialMessage: opts.init.initialMessage,
+      preserveExistingScore: opts.init.preserveExistingScore,
     });
   } else {
     adapter = await openRepo({
@@ -325,7 +334,8 @@ export async function bootProjectFromHandle(opts: {
     });
   }
   const baseline = await adapter.readScore();
-  await useProjectStore.getState().setAdapter(adapter, opts.rootHandle);
+  opts.validateScore?.(baseline);
+  const refresh = useProjectStore.getState().setAdapter(adapter, opts.rootHandle);
   useProjectStore.getState().setProjectDiskBaseline(adapter, baseline);
   const recordScores = (scores: readonly ProjectScoreFile[]) => {
     if (useProjectStore.getState().adapter !== adapter) return;
@@ -339,6 +349,8 @@ export async function bootProjectFromHandle(opts: {
       .then(recordScores)
       .catch((err: unknown) => console.warn("Failed to list project scores:", err));
   }
+  opts.onActivated?.();
+  await refresh;
   // Recent-handle comparisons can stall in the browser; bookkeeping must not
   // prevent an already-read project from opening.
   void resolveFileHandle(opts.rootHandle, opts.scorePath)

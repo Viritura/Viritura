@@ -7,6 +7,7 @@ import { useMemo, useState, type CSSProperties } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Check, FileMusic } from "lucide-react";
 import { ListRow, SearchInput, SelectTrigger } from "@viritura/ui";
+import { toast } from "sonner";
 import { useProjectStore } from "../store/projectStore";
 import { useLiveSessionStore } from "../live/liveSessionStore";
 import { useProjectFileSwitchStore } from "./projectFileSwitchStore";
@@ -35,7 +36,7 @@ export function ProjectFileSwitcher({ disabled, className }: ProjectFileSwitcher
     return q ? scores.filter((score) => score.relativePath.toLowerCase().includes(q)) : scores;
   }, [scores, query]);
 
-  if (scores.length < 2 || !switchTo) return null;
+  if (scores.length === 0 || !switchTo) return null;
 
   const current = scores.find((score) => score.relativePath === activeScorePath);
   const currentLabel = current?.name ?? "Project file";
@@ -44,7 +45,10 @@ export function ProjectFileSwitcher({ disabled, className }: ProjectFileSwitcher
   const select = (relativePath: string) => {
     setOpen(false);
     setQuery("");
-    void switchTo(relativePath);
+    void switchTo(relativePath).catch((error: unknown) => {
+      console.error("Project score switch failed:", error);
+      toast.error("Could not switch project scores");
+    });
   };
 
   return (
@@ -53,8 +57,17 @@ export function ProjectFileSwitcher({ disabled, className }: ProjectFileSwitcher
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
-          if (next) void useProjectStore.getState().rescanProjectScores();
-          else setQuery("");
+          if (next) {
+            void useProjectStore
+              .getState()
+              .rescanProjectScores()
+              .catch((error: unknown) => {
+                console.error("Could not refresh project files:", error);
+                toast.error("Could not refresh project files");
+              });
+          } else {
+            setQuery("");
+          }
         }}
       >
         <Popover.Trigger asChild>

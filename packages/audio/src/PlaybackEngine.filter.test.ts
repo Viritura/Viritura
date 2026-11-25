@@ -444,7 +444,7 @@ describe.each(["parts", "lanes", "facades"] as const)("PlaybackEngine part filte
         .sort((a, b) => a.time - b.time);
       engine.loadTimeline({ ...timeline, events }, samplers);
       const click = vi.fn();
-      engine.setClickTrack([{ time: 0.03, accented: true }]);
+      engine.setClickTrack([{ time: 0.03, level: "accent" }]);
       engine.setClickCallback(click);
       if (initiallyHidden) engine.setViewPartFilter(new Set([0]));
       engine.play();
@@ -475,7 +475,7 @@ describe.each(["parts", "lanes", "facades"] as const)("PlaybackEngine part filte
         sampler.flush();
         expect(sampler.activeNotes.size).toBe(0);
       }
-      expect(click).toHaveBeenCalledExactlyOnceWith(0.03, true);
+      expect(click).toHaveBeenCalledExactlyOnceWith(0.03, "accent");
     });
 
     it.each(["pause", "stop"] as const)("keeps queued notes silent after %s and clearing the filter", (action) => {

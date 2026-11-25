@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { parseMnx } from "@viritura/format";
-import { validateMnxJson } from "../commands/fileCommands";
+import { recoverImportedMnx, validateMnxJson } from "../commands/fileCommands";
 import type { OpenFileResult } from "../commands/fileCommands";
 import { setRecentScores, setTrackBannerFile } from "../store/onboardingStore";
 import { listRecentScores, rememberScore } from "../store/recentScores";
@@ -16,6 +16,8 @@ import {
 } from "../store/projectStore";
 import { directoryHasEntry } from "./fsHelpers";
 import { FOLDER_PROJECT_UNAVAILABLE_MESSAGE, getDirectoryPicker } from "./projectFolder";
+import { isLiveSessionPinned } from "../projectFiles";
+import { useLiveSessionStore } from "../live/liveSessionStore";
 import type { Score } from "@viritura/core";
 import type { DocumentStore } from "../store/documentStore";
 
@@ -23,6 +25,7 @@ export interface FolderOpenDeps {
   store: DocumentStore;
   loadScore: (score: Score, fileName?: string, mnxJson?: string) => void;
   resetHistory: (json: string) => void;
+  loadOpenedFile: (file: OpenFileResult) => boolean;
   setSelectedScoreIndex: (i: number) => void;
   setFileHandle: (h: FileSystemFileHandle | null) => void;
   setOpenedFile: (f: OpenFileResult | null) => void;
@@ -48,6 +51,12 @@ interface ProjectScoreRequest {
   scores: readonly ProjectScoreFile[];
 }
 
+interface ValidProjectScore {
+  json: string;
+  name: string;
+  score: Score;
+}
+
 async function inspectProjectFolder(
   handle: FileSystemDirectoryHandle,
 ): Promise<{ hasGit: boolean; scores: DiscoveredScore[] } | null> {
@@ -60,7 +69,7 @@ async function inspectProjectFolder(
   return { hasGit, scores };
 }
 
-async function readValidScore(handle: FileSystemFileHandle): Promise<{ json: string; name: string } | null> {
+async function readValidScore(handle: FileSystemFileHandle, recover: boolean): Promise<ValidProjectScore | null> {
   const file = await handle.getFile();
   const json = await file.text();
   const validationError = validateMnxJson(json);
@@ -68,7 +77,14 @@ async function readValidScore(handle: FileSystemFileHandle): Promise<{ json: str
     toast.error(`Invalid MNX: ${validationError}`);
     return null;
   }
-  return { json, name: file.name };
+  try {
+    const parsedJson = recover ? recoverImportedMnx(json).mnxJson : json;
+    return { json, name: file.name, score: parseMnx(JSON.parse(parsedJson)) };
+  } catch (error) {
+    console.error("Invalid MNX:", error);
+    toast.error(`Invalid MNX: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
 }
 
 async function chooseDefaultScore(
@@ -77,7 +93,8 @@ async function chooseDefaultScore(
 ): Promise<DiscoveredScore> {
   try {
     return pickDefaultScore(root.name, scores, await listRecentScores()) ?? scores[0]!;
-  } catch {
+  } catch (error) {
+    console.warn("Could not read recent scores:", error);
     return scores[0]!;
   }
 }
@@ -87,6 +104,7 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
     store,
     loadScore,
     resetHistory,
+    loadOpenedFile,
     setSelectedScoreIndex,
     setFileHandle,
     setOpenedFile,
@@ -95,43 +113,60 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
   } = deps;
 
   const loadVersionedScore = useCallback(
-    async ({ root, score, scores }: ProjectScoreRequest, init?: { initialJson: string; initialMessage: string }) => {
-      const adapter = await bootProjectFromHandle({
+    async (
+      { root, score, scores }: ProjectScoreRequest,
+      file: ValidProjectScore,
+      init?: { initialJson: string; initialMessage: string; preserveExistingScore: boolean },
+      ensureCurrent?: () => void,
+    ) => {
+      let headJson = file.json;
+      let parsed = file.score;
+      await bootProjectFromHandle({
         rootHandle: root,
         scorePath: score.relativePath,
         scores,
+        validateScore: (json) => {
+          ensureCurrent?.();
+          if (json !== headJson) {
+            const validationError = validateMnxJson(json);
+            if (validationError) throw new Error(`Invalid MNX: ${validationError}`);
+            parsed = parseMnx(JSON.parse(json));
+            headJson = json;
+          }
+        },
+        onActivated: () => {
+          setSelectedScoreIndex(0);
+          loadScore(parsed, root.name);
+          resetHistory(store.getState().mnxJson || headJson);
+          setFileHandle(null);
+          setOpenedFile(null);
+          setTrackBannerFile(null);
+        },
         ...(init ? { init } : {}),
       });
-      const headJson = await adapter.readScore();
-      const parsed = parseMnx(JSON.parse(headJson));
-      useProjectStore.getState().setProjectDiskBaseline(adapter, headJson);
-      setSelectedScoreIndex(0);
-      loadScore(parsed, root.name);
-      resetHistory(store.getState().mnxJson || headJson);
-      setFileHandle(null);
-      setTrackBannerFile(null);
     },
-    [loadScore, resetHistory, store, setSelectedScoreIndex, setFileHandle],
+    [loadScore, resetHistory, store, setSelectedScoreIndex, setFileHandle, setOpenedFile],
   );
 
   const loadPlainScore = useCallback(
-    async ({ root, score, handle, scores }: ProjectScoreRequest, json: string, fileName: string) => {
-      setOpenedFile({ mnxJson: json, filename: fileName, fileHandle: handle });
-      await useProjectStore.getState().setAdapter(null);
+    ({ root, score, handle, scores }: ProjectScoreRequest, file: ValidProjectScore): boolean => {
+      const openedFile = { mnxJson: file.json, filename: file.name, fileHandle: handle };
+      if (!loadOpenedFile(openedFile)) return false;
+      void useProjectStore.getState().setAdapter(null);
       useProjectStore.getState().setProjectScores(root, scores, score.relativePath);
-      rememberScore({ scoreName: fileName, fileHandle: handle })
+      setOpenedFile(openedFile);
+      rememberScore({ scoreName: file.name, fileHandle: handle })
         .then(async () => {
           try {
             setRecentScores(await listRecentScores());
-          } catch {
-            /* ignore */
+          } catch (error) {
+            console.warn("Could not update recent scores:", error);
           }
         })
-        .catch(() => {
-          /* ignore */
-        });
+        .catch((error: unknown) => console.warn("Could not remember the opened score:", error));
+      return true;
     },
-    [setOpenedFile],
+    [loadOpenedFile, setOpenedFile],
   );
 
   const openFolderHandle = useCallback(
@@ -152,19 +187,22 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
       const chosen = await chooseDefaultScore(handle, scores);
       const request: ProjectScoreRequest = { root: handle, score: chosen, handle: chosen.handle, scores };
       try {
-        const file = await readValidScore(chosen.handle);
+        const file = await readValidScore(chosen.handle, mode === "plain");
         if (!file) return;
         if (mode === "git") {
           await loadVersionedScore(
             request,
-            hasGit ? undefined : { initialJson: file.json, initialMessage: "Initial draft" },
+            file,
+            hasGit
+              ? undefined
+              : { initialJson: file.json, initialMessage: "Initial draft", preserveExistingScore: true },
           );
           toast.success(hasGit ? `Opened project ${handle.name}` : `Initialised version history for ${handle.name}`);
           if (!hasGit && canSetUpGitHubRepository) {
             openDialog("projectGitHubSetup");
           }
         } else {
-          await loadPlainScore(request, file.json, file.name);
+          if (!loadPlainScore(request, file)) return;
           toast.success(`Opened ${file.name}`);
         }
       } catch (err) {
@@ -177,32 +215,56 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
 
   const openProjectScore = useCallback(
     async (relativePath: string) => {
-      const { projectFolder: root, projectScores: scores, adapter } = useProjectStore.getState();
+      const { projectFolder: root, projectScores: scores, activeScorePath, adapter } = useProjectStore.getState();
       const score = scores.find((entry) => entry.relativePath === relativePath);
-      if (!root || !score) return false;
+      if (!root || !score) {
+        toast.error("The project score is no longer available.");
+        return false;
+      }
+      const { documentGeneration, scoreRevision } = store.getState();
+      const ensureCurrent = () => {
+        const project = useProjectStore.getState();
+        const document = store.getState();
+        if (isLiveSessionPinned(useLiveSessionStore.getState().status)) {
+          throw new Error("End the live session before switching scores.");
+        }
+        if (
+          document.documentGeneration !== documentGeneration ||
+          document.scoreRevision !== scoreRevision ||
+          project.projectFolder !== root ||
+          project.activeScorePath !== activeScorePath ||
+          project.adapter !== adapter
+        ) {
+          throw new Error("The open score changed while switching. Please try again.");
+        }
+      };
       try {
         const handle = await resolveFileHandle(root, relativePath);
         if (!handle) {
           toast.error(`${relativePath} is no longer in ${root.name}.`);
           return false;
         }
-        const file = await readValidScore(handle);
+        const versioned = adapter?.isVersioned() ?? false;
+        const file = await readValidScore(handle, !versioned);
         if (!file) return false;
+        ensureCurrent();
         const request: ProjectScoreRequest = { root, score, handle, scores };
-        if (adapter?.isVersioned()) {
-          await loadVersionedScore(request);
+        if (versioned) {
+          await loadVersionedScore(request, file, undefined, ensureCurrent);
         } else {
-          await loadPlainScore(request, file.json, file.name);
+          if (!loadPlainScore(request, file)) return false;
         }
         toast.success(`Opened ${score.name}`);
         return true;
       } catch (err) {
         console.error("Open project score failed:", err);
-        toast.error(`Failed to open ${score.name}`);
+        toast.error(`Failed to open ${score.name}`, {
+          description: err instanceof Error ? err.message : String(err),
+        });
         return false;
       }
     },
-    [loadVersionedScore, loadPlainScore],
+    [loadVersionedScore, loadPlainScore, store],
   );
 
   const handleOpenProject = useCallback(async () => {

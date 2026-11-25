@@ -84,6 +84,7 @@ export function useFileHandlers(params: UseFileHandlersParams): FileHandlers {
     store,
     loadScore,
     resetHistory,
+    loadOpenedFile: defaultLoader.loadOpenedFile,
     setSelectedScoreIndex,
     setFileHandle,
     setOpenedFile,

@@ -36,7 +36,8 @@ export function SelectionPlaybackBridge() {
       const seconds = computeSelectionStartTime(selection, documentStore.getState().score, actions);
       if (seconds !== undefined) actions.seek(seconds);
     });
-    const unsubscribeDocument = documentStore.subscribe(({ score }, previous) => {
+    const unsubscribeDocument = documentStore.subscribe(({ score, documentGeneration }, previous) => {
+      if (documentGeneration !== previous.documentGeneration) getPlaybackSnapshot().actions.stop();
       if (score !== previous.score) updatePartFilter();
     });
     const unsubscribeView = useViewStateStore.subscribe(({ selectedScoreIndex, selectedPartIds }, previous) => {

@@ -11,8 +11,8 @@ type Phase = "empty" | "ready" | "playing" | "complete";
 interface ClickPlayerOptions {
   /** Releases every other audio graph before the click engine starts. */
   readonly releaseOtherAudio?: () => Promise<void>;
-  /** Identifies which score `mnx` belongs to, so switching scores resets the start bar. */
-  readonly scoreKey?: string | null;
+  /** Changes when a different document opens, even if its MNX is identical. */
+  readonly documentGeneration?: number;
 }
 
 const noRelease = async (): Promise<void> => {};
@@ -36,17 +36,17 @@ function firstStartable(bars: readonly ClickBar[]): number {
 }
 
 /** Edits keep the chosen start bar when still startable; another score starts from its own beginning. */
-function useDocumentStartBar(document: ClickDocument | undefined, scoreKey: string | null | undefined) {
+function useDocumentStartBar(document: ClickDocument | undefined, documentGeneration: number | undefined) {
   const [startBar, setStartBarState] = useState(0);
   const [barsDocument, setBarsDocument] = useState<ClickDocument>();
-  const [barsScoreKey, setBarsScoreKey] = useState(scoreKey);
-  // The active path and the new score's MNX can arrive in separate renders, and
+  const [barsGeneration, setBarsGeneration] = useState(documentGeneration);
+  // The document generation and the new score's MNX can arrive in separate renders, and
   // identical files never change the document, so a switch restarts on both sides.
   const [restartPending, setRestartPending] = useState(false);
-  const keyChanged = barsScoreKey !== scoreKey;
+  const keyChanged = barsGeneration !== documentGeneration;
   const documentChanged = barsDocument !== document;
   if (keyChanged || documentChanged) {
-    setBarsScoreKey(scoreKey);
+    setBarsGeneration(documentGeneration);
     setBarsDocument(document);
     const restart = keyChanged || (documentChanged && restartPending);
     setRestartPending(documentChanged && document ? false : restartPending || keyChanged);
@@ -66,17 +66,24 @@ function useDocumentStartBar(document: ClickDocument | undefined, scoreKey: stri
  * Click-only transport for the open document. A document change interrupts a
  * take rather than letting its score diverge from the loaded click program.
  */
-export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease, scoreKey }: ClickPlayerOptions = {}) {
+export function useClickPlayer(
+  mnx: string,
+  { releaseOtherAudio = noRelease, documentGeneration }: ClickPlayerOptions = {},
+) {
   const [tempoPercent, setTempoPercent] = useState(100);
   const [countoffBars, setCountoffBars] = useState<1 | 2>(1);
   const [transportPhase, setPhase] = useState<Exclude<Phase, "empty">>("ready");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sourceMnx, setSourceMnx] = useState(mnx);
-  if (mnx !== sourceMnx && transportPhase !== "playing" && !busy) setSourceMnx(mnx);
+  const [sourceGeneration, setSourceGeneration] = useState(documentGeneration);
+  if ((mnx !== sourceMnx || documentGeneration !== sourceGeneration) && transportPhase !== "playing" && !busy) {
+    setSourceMnx(mnx);
+    setSourceGeneration(documentGeneration);
+  }
   const source = useMemo(() => readSource(sourceMnx), [sourceMnx]);
   const document = source.document;
-  const [startBar, setStartBar] = useDocumentStartBar(document, scoreKey);
+  const [startBar, setStartBar] = useDocumentStartBar(document, sourceGeneration);
   const phase: Phase = document ? transportPhase : "empty";
   const [elapsed, setElapsed] = useState(0);
   const [program, setProgram] = useState<ClickSessionProgram>();
@@ -156,8 +163,10 @@ export function useClickPlayer(mnx: string, { releaseOtherAudio = noRelease, sco
   });
 
   useEffect(() => {
-    if (mnx !== sourceMnx && (transportPhase === "playing" || busy)) interruptForDocumentChange();
-  }, [mnx, sourceMnx, transportPhase, busy]);
+    if ((mnx !== sourceMnx || documentGeneration !== sourceGeneration) && (transportPhase === "playing" || busy)) {
+      interruptForDocumentChange();
+    }
+  }, [mnx, sourceMnx, documentGeneration, sourceGeneration, transportPhase, busy]);
 
   async function getEngine(): Promise<ClickEngine | undefined> {
     if (engineRef.current) return engineRef.current;

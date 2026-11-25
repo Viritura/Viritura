@@ -23,7 +23,6 @@ vi.mock("@viritura/audio", async (importOriginal) => {
     ),
     Metronome: vi.fn(
       class {
-        static getBeatsForMeasure = actual.Metronome.getBeatsForMeasure;
         setEnabled = vi.fn();
         scheduleClick = vi.fn();
         dispose = vi.fn();
@@ -240,6 +239,58 @@ describe.each(["web", "native"] as const)("PlaybackProvider transport start (%s)
     await expectStartedAt(3.25);
   });
 
+  it("passes authored groups and tempo subdivisions to the metronome and full-bar count-in", async () => {
+    const setClicks = vi.spyOn(PlaybackEngine.prototype, "setClickTrack");
+    const grouped: Score = {
+      ...score,
+      global: {
+        measures: [
+          {
+            time: { count: 10, unit: 8, beatStructure: [3, 2, 2, 3] },
+            tempos: [{ bpm: 120, value: { base: "quarter" }, clickSubdivision: 2 }],
+          },
+          { tempos: [{ bpm: 60, value: { base: "quarter" } }] },
+          {},
+          {},
+        ],
+      },
+    };
+    provider.rerender(
+      <PlaybackProvider
+        score={grouped}
+        audioRenderMode={audioRenderMode}
+        vstTransport={audioRenderMode === "native" ? host : undefined}
+      >
+        <SelectionPlaybackBridge />
+      </PlaybackProvider>,
+    );
+    await act(async () => vi.advanceTimersByTimeAsync(SCORE_CHANGE_DEBOUNCE_MS));
+    act(() => actions().toggleCountIn());
+    await play();
+
+    const clicks = setClicks.mock.calls.at(-1)![0];
+    expect(clicks.slice(0, 8).map((click) => click.time)).toEqual([
+      -2.5, -2.125, -1.75, -1.5, -1.25, -1, -0.75, -0.375,
+    ]);
+    expect(clicks.slice(8, 16).map((click) => click.level)).toEqual([
+      "accent",
+      "subdivision",
+      "beat",
+      "subdivision",
+      "beat",
+      "subdivision",
+      "beat",
+      "subdivision",
+    ]);
+    expect(clicks.filter((click) => click.time >= 2.5 && click.time < 7.5).map((click) => click.time)).toEqual([
+      2.5, 4, 5, 6,
+    ]);
+    expect(engine.play).toHaveBeenLastCalledWith(-2.5);
+    if (audioRenderMode === "native") {
+      expect(host.start.mock.calls.at(-1)?.[0]).toBeCloseTo(-2.5 - DEFAULT_ENGINE_OPTIONS.leadInTime, 10);
+    }
+  });
+
   it.each(["stopped", "paused", "playing"] as const)(
     "returns to the start without changing %s transport state",
     async (status) => {
@@ -359,12 +410,12 @@ describe.each(["web", "native"] as const)("PlaybackProvider transport start (%s)
     await expectStartedAt(4.75);
   });
 
-  it("still applies count-in from the top, keeping the native musical origin at zero", async () => {
+  it("starts the native transport at the same clock position during count-in", async () => {
     act(() => actions().toggleCountIn());
 
     await play();
 
-    await expectStartedAt(-2, 0);
+    await expectStartedAt(-2, -2 - DEFAULT_ENGINE_OPTIONS.leadInTime);
   });
 
   it.each([0, 2.75])("explicit play(%s) wins over a stored seek", async (fromSeconds) => {
