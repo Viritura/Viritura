@@ -172,6 +172,99 @@ function addTextExpression(gap: DenigmaGap, expression: ExpressionPayload, index
   return formattingOutcome(expression);
 }
 
+function addSystemTextExpression(gap: DenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
+  const existing = index.byId(gap.anchor);
+  if (gap.extent === "partial" && Array.isArray(existing?.["text"])) {
+    return outcome("handled-partially", "Preserved the existing staff text but not its floating system scope.");
+  }
+  const content = expressionContent(expression);
+  if (!content) return outcome("unhandled", "System expression has no displayable text.");
+
+  const scopePlacement = expression.scope === "top-staff" ? "above" : "below";
+  const placements = gap.placements?.filter(
+    (placement) => placement.kind === "system-top" || placement.kind === "system-bottom",
+  );
+  const targets =
+    placements && placements.length > 0
+      ? placements.map((placement) => ({
+          anchor: placement.anchor,
+          placement: placement.kind === "system-top" ? "above" : "below",
+        }))
+      : [{ anchor: gap.anchor, placement: scopePlacement }];
+  const hasStaffPlacements = gap.placements?.some((placement) => placement.kind === "staff") === true;
+  const placementConflict = targets.some((target) => target.placement !== scopePlacement) && placements !== undefined;
+  const resolvedTargets = targets.map((target) => ({ ...target, measure: index.measure(target.anchor) }));
+  if (resolvedTargets.some((target) => !target.measure)) {
+    return outcome("unhandled", "System expression measure is unavailable.");
+  }
+
+  for (const target of resolvedTargets) {
+    const measure = target.measure;
+    if (!measure) throw new Error("System expression target disappeared after validation.");
+    const texts = ensureArrayProperty(ensureViritura(measure.globalMeasure), "systemText");
+    const value: JsonRecord = {
+      text: content,
+      position: gapPosition(gap),
+      placement: target.placement,
+    };
+    const duplicate = texts.some(
+      (candidate) =>
+        isRecord(candidate) &&
+        JSON.stringify(candidate["text"]) === JSON.stringify(value["text"]) &&
+        JSON.stringify(candidate["position"]) === JSON.stringify(value["position"]) &&
+        candidate["placement"] === value["placement"],
+    );
+    if (duplicate) continue;
+
+    const identity = JSON.stringify([target.anchor, value["position"], value["placement"], value["text"]]);
+    let hash = 2166136261;
+    for (let index = 0; index < identity.length; index++) {
+      hash = Math.imul(hash ^ identity.charCodeAt(index), 16777619);
+    }
+    const baseId = `denigma-${(hash >>> 0).toString(16)}`;
+    let id = baseId;
+    let suffix = 2;
+    while (texts.some((candidate) => isRecord(candidate) && candidate["id"] === id)) {
+      id = `${baseId}-${suffix++}`;
+    }
+    texts.push({ id, ...value });
+  }
+
+  if (hasStaffPlacements || placementConflict) {
+    return outcome(
+      "handled-partially",
+      "Preserved system text but not all source placements or source vertical position.",
+    );
+  }
+  return outcome(
+    "handled-partially",
+    hasUnimportedFormatting(expression.text)
+      ? "Preserved floating system text but inferred its vertical placement and omitted the source font or size."
+      : "Preserved floating system text but inferred its vertical placement.",
+  );
+}
+
+function applyGenericTextExpression(
+  gap: DenigmaGap,
+  expression: ExpressionPayload,
+  index: TargetIndex,
+): GapApplication {
+  if (expression.scope === "top-staff" || expression.scope === "bottom-staff") {
+    return addSystemTextExpression(gap, expression, index);
+  }
+  const result = addTextExpression(gap, expression, index);
+  if (result.outcome.disposition === "unhandled") return result;
+  const hasSystemPlacements =
+    gap.placements?.some((placement) => placement.kind === "system-top" || placement.kind === "system-bottom") === true;
+  if (expression.scope === "staff" && !hasSystemPlacements) return result;
+  return outcome(
+    "handled-partially",
+    expression.scope === "staff"
+      ? "Preserved staff text but not its conflicting system placement."
+      : `Preserved text but not unsupported or unspecified source scope ${JSON.stringify(expression.scope)}.`,
+  );
+}
+
 function addRehearsalMark(gap: DenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
   const target = index.measure(gap.anchor);
   const content = expressionContent(expression);
@@ -296,7 +389,7 @@ function applyExpressionGap(gap: DenigmaGap, index: TargetIndex): GapApplication
   if (!isExpressionGap(gap)) return outcome("unhandled", "Malformed expression payload.");
   switch (gap.expression.type) {
     case "generic-text":
-      return addTextExpression(gap, gap.expression, index);
+      return applyGenericTextExpression(gap, gap.expression, index);
     case "technique-text": {
       const result = addTextExpression(gap, gap.expression, index);
       return result.outcome.disposition === "unhandled"

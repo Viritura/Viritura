@@ -928,7 +928,7 @@ pub fn layout_with_mnx_scores_cached(
     if config.page_width.is_none() {
         fit_unpaged_bounds(&mut dl, margin_top, base_margin_r_sp * sp);
     }
-    append_text_frames_by_bounds(&mut dl, score, &score_def.text_frames, config);
+    append_text_frames_by_bounds(&mut dl, score, &score_def.text_frames, config, &shown_parts);
 
     dl.with_raised_text_frames()
 }

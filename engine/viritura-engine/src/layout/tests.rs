@@ -55,6 +55,7 @@ mod test_staff_lines;
 mod test_staff_text_frames;
 mod test_stem_direction;
 mod test_support_flags;
+mod test_system_text_views;
 mod test_tagging;
 mod test_tempo_jumps;
 mod test_text_directions;

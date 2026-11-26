@@ -55,8 +55,12 @@ The current adapters preserve:
   extensions, and source text provenance;
 - native MNX per-note and percussion-kit notehead shapes, with legacy
   schema-v1 notehead-gap support;
-- generic expressive text and performance instructions as expressions, with
-  per-run bold/italic/underline/strikethrough and SMuFL glyph runs preserved;
+- generic expressive text and performance instructions mapped to staff
+  expressions or music-relative system text according to available Denigma
+  scope; inferred placement and mixed/unsupported scopes receive partial
+  outcomes, while per-run bold/italic/underline/strikethrough and SMuFL glyph
+  runs are preserved. Native generic text without a scope gap remains staff
+  text;
 - rehearsal marks;
 - tempo text, metronome visibility, and playback-only tempo visibility;
 - ordinary straight and standard wavy glissandos with one plain center label;

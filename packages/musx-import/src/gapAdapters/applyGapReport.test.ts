@@ -187,6 +187,152 @@ describe("applyDenigmaGapReport", () => {
     expect(result.outcomes.map((entry) => entry.disposition)).toEqual(["handled", "handled", "handled-partially"]);
   });
 
+  it("preserves Denigma floating generic text as system text", () => {
+    const top: DenigmaGap = {
+      anchor: "m1",
+      position: { numerator: 1, denominator: 4 },
+      placements: [{ kind: "system-top", anchor: "m1" }],
+      extent: "complete",
+      type: "expression",
+      expression: {
+        type: "generic-text",
+        scope: "top-staff",
+        text: { plain: "Con brio" },
+        genericText: { text: "Con brio" },
+      },
+    };
+    const bottom: DenigmaGap = {
+      anchor: "m1",
+      position: { numerator: 1, denominator: 2 },
+      extent: "complete",
+      placements: [{ kind: "system-bottom", anchor: "m1" }],
+      type: "expression",
+      expression: {
+        type: "generic-text",
+        scope: "bottom-staff",
+        text: { plain: "Keep going" },
+        genericText: { text: "Keep going" },
+      },
+    };
+
+    const result = apply([top, bottom, top]);
+    const parsed = result.document as { global: { measures: JsonRecord[] } };
+    const texts = viritura(parsed.global.measures[0]!)["systemText"] as JsonRecord[];
+    expect(texts).toHaveLength(2);
+    expect(texts.map(({ id, text, position, placement }) => ({ id, text, position, placement }))).toEqual([
+      {
+        id: expect.stringMatching(/^denigma-[0-9a-f]+$/),
+        text: [{ text: "Con brio" }],
+        position: { fraction: [1, 4] },
+        placement: "above",
+      },
+      {
+        id: expect.stringMatching(/^denigma-[0-9a-f]+$/),
+        text: [{ text: "Keep going" }],
+        position: { fraction: [1, 2] },
+        placement: "below",
+      },
+    ]);
+    expect(result.outcomes.map(({ disposition }) => disposition)).toEqual([
+      "handled-partially",
+      "handled-partially",
+      "handled-partially",
+    ]);
+    expect(result.outcomes[0]?.reason).toContain("inferred its vertical placement");
+  });
+
+  it("uses vendor text content for styled floating text and SMuFL glyphs", () => {
+    const result = apply([
+      {
+        anchor: "m1",
+        extent: "complete",
+        type: "expression",
+        expression: {
+          type: "generic-text",
+          scope: "top-staff",
+          text: {
+            plain: "dolce",
+            runs: [
+              { text: "dolce ", font: { italic: true } },
+              { text: "", glyphs: ["dynamicPiano"], font: { bold: true } },
+            ],
+          },
+          genericText: { text: "dolce" },
+        },
+      },
+    ]);
+    const parsed = result.document as { global: { measures: JsonRecord[] } };
+    const texts = viritura(parsed.global.measures[0]!)["systemText"] as JsonRecord[];
+    expect(texts[0]?.["text"]).toEqual([
+      { text: "dolce ", style: { fontStyle: "italic" } },
+      { glyphs: ["dynamicPiano"], style: { weight: "bold" } },
+    ]);
+  });
+
+  it("retains an existing staff expression for a partial floating-scope gap", () => {
+    const source = document();
+    const parts = source["parts"] as Array<{ measures: JsonRecord[] }>;
+    parts[0]!.measures[0]!["text"] = [{ id: "expression-1", type: "expression", text: [{ text: "dolce" }] }];
+    const result = applyDenigmaGapReport(
+      JSON.stringify(source),
+      report([
+        {
+          anchor: "expression-1",
+          extent: "partial",
+          type: "expression",
+          expression: { type: "generic-text", scope: "top-staff", genericText: { text: "dolce" } },
+        },
+      ]),
+    );
+    const parsed = JSON.parse(result.mnxJson) as { global: { measures: JsonRecord[] } };
+    expect(parsed.global.measures[0]!["_x"]).toBeUndefined();
+    expect(result.outcomes[0]?.disposition).toBe("handled-partially");
+    expect(result.outcomes[0]?.reason).toContain("existing staff text");
+  });
+
+  it("reports unsupported generic-text scopes instead of claiming full fidelity", () => {
+    const result = apply([
+      {
+        anchor: "P1.m1",
+        extent: "complete",
+        type: "expression",
+        expression: {
+          type: "generic-text",
+          scope: "unassigned",
+          text: { plain: "Unplaced source text" },
+          genericText: { text: "Unplaced source text" },
+        },
+      },
+    ]);
+
+    expect(result.outcomes[0]?.disposition).toBe("handled-partially");
+    expect(result.outcomes[0]?.reason).toContain("unsupported or unspecified source scope");
+  });
+
+  it("reports mixed system and staff placements as partial", () => {
+    const result = apply([
+      {
+        anchor: "m1",
+        position: { numerator: 0, denominator: 1 },
+        placements: [
+          { kind: "system-top", anchor: "m1" },
+          { kind: "staff", anchor: "P1.m1", staff: 1 },
+        ],
+        extent: "complete",
+        type: "expression",
+        expression: {
+          type: "generic-text",
+          scope: "top-staff",
+          text: { plain: "Mixed placement" },
+          genericText: { text: "Mixed placement" },
+        },
+      },
+    ]);
+
+    expect(result.outcomes[0]?.disposition).toBe("handled-partially");
+    expect(result.outcomes[0]?.reason).toContain("not all source placements");
+  });
+
   it("preserves per-run formatting and SMuFL glyph runs in expression text", () => {
     const gap: DenigmaGap = {
       anchor: "P1.m1",

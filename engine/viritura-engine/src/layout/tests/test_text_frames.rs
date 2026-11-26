@@ -254,6 +254,45 @@ fn out_of_range_page_and_unknown_targets_are_not_drawn() {
 }
 
 #[test]
+fn event_frame_locator_must_belong_to_the_selected_score_layout() {
+    let frames = frame(
+        "p2",
+        "PARTTWOFRAME",
+        r#"{"type":"event","partId":"P2","eventId":"p2e0"}"#,
+        TOP_LEFT,
+    );
+    let mut source: serde_json::Value = serde_json::from_str(&document(&frames, "", "")).unwrap();
+    let mut second_part = source["parts"][0].clone();
+    second_part["id"] = serde_json::json!("P2");
+    second_part["name"] = serde_json::json!("Second part");
+    for (index, measure) in second_part["measures"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+    {
+        measure["sequences"][0]["content"][0]["id"] = serde_json::json!(format!("p2e{index}"));
+    }
+    source["parts"].as_array_mut().unwrap().push(second_part);
+
+    let p1_only = layout(&source.to_string(), &paged());
+    assert!(texts(&p1_only, "PARTTWOFRAME").is_empty());
+    assert!(frame_bbox(&p1_only, "text-frame/p2").is_none());
+
+    source["layouts"][0]["content"] =
+        serde_json::json!([{ "type": "staff", "sources": [{ "part": "P2" }] }]);
+    let p2_only = layout(&source.to_string(), &paged());
+    assert_eq!(texts(&p2_only, "PARTTWOFRAME").len(), 1);
+
+    source["layouts"][0]["content"] = serde_json::json!([{
+        "type": "staff",
+        "sources": [{ "part": "P1" }, { "part": "P2" }]
+    }]);
+    let condensed = layout(&source.to_string(), &paged());
+    assert_eq!(texts(&condensed, "PARTTWOFRAME").len(), 1);
+}
+
+#[test]
 fn musical_locators_follow_their_target_through_reflow() {
     let config = paged();
     let frames = [
