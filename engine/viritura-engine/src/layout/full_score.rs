@@ -899,6 +899,8 @@ pub(super) struct GroupRange {
     pub(crate) label: Option<String>,
     /// Nesting depth for line brackets (0 = first level, 1 = second level, etc.).
     pub(crate) depth: usize,
+    /// Source parts before empty staves are hidden.
+    pub(crate) source_parts: Vec<usize>,
 }
 
 /// Compute which staff indices should display system objects (tempo, rehearsal marks).

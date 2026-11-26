@@ -859,8 +859,9 @@ multimeasure rests retain their range labels rather than printing each hidden
 bar; `hidden` suppresses those labels as well.
 
 `center` uses the complete printed measure width, including its opening
-signatures. Explicit `barline` alignment follows the visible barline after any
-pre-barline clef change and also applies to multimeasure-rest ranges.
+signatures. `barline` alignment follows the visible barline after any
+pre-barline clef change. Ordinary numbers use it by default; multimeasure-rest
+ranges retain their centered default unless alignment is explicitly set.
 `distance` is the minimum gap from the musical staff to the number
 ink; collision clearance can increase it.
 
@@ -869,7 +870,8 @@ below the top instrument can be combined. A layout override can additionally
 choose individual outermost bracket groups through `aboveGroups`. These choices
 use member part IDs, not group labels or tree positions, and stay specific to
 that score view. Hidden member staves do not remove a group's numbers while
-other selected members remain visible. Coincident locations share one copy.
+other selected members remain visible. Groups with identical member part IDs
+share a selection. Coincident locations share one copy.
 An explicit empty array clears the corresponding inherited choices.
 Legacy `placement` remains supported; an explicit legacy layout placement
 replaces inherited `placements`.

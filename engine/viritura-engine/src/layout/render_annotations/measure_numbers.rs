@@ -40,12 +40,20 @@ pub(crate) fn render_measure_numbers(
     let Some(mut label) = number_label(ml, staff_y, sp, config) else {
         return;
     };
-    if config.bar_numbers.horizontal_alignment == Some(BarNumberHorizontalAlignment::Barline) {
+    if aligns_to_barline(ml, &config.bar_numbers) {
         label.x += leading_clef_gap;
         label.bbox.x += leading_clef_gap;
     }
     let eid = element_id::measure_number(ml.resolved.index);
     render_number_label(dl, label, sp, config, eid);
+}
+
+fn aligns_to_barline(ml: &MeasureLayout, settings: &BarNumberSettings) -> bool {
+    match settings.horizontal_alignment {
+        Some(BarNumberHorizontalAlignment::Barline) => true,
+        Some(BarNumberHorizontalAlignment::Center) => false,
+        None => ml.multimeasure_rest_count.is_none(),
+    }
 }
 
 fn render_number_label(
@@ -279,9 +287,7 @@ pub(crate) fn flow_bar_numbers(
             local.bar_numbers.placement = Some(placement);
             for layout in layouts {
                 if let Some(mut label) = number_label(layout, staff_y, config.sp, &local) {
-                    if local.bar_numbers.horizontal_alignment
-                        == Some(BarNumberHorizontalAlignment::Barline)
-                    {
+                    if aligns_to_barline(layout, &local.bar_numbers) {
                         let gap = render_measure::measure_leading_clef_gap(
                             layout,
                             config.sp,

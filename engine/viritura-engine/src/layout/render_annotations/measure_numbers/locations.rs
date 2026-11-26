@@ -33,9 +33,8 @@ pub(crate) fn has_multiple_number_locations(settings: &BarNumberSettings) -> boo
 }
 
 pub(crate) fn reserves_number_ink(settings: &BarNumberSettings) -> bool {
-    settings.on_staff == Some(true)
-        || settings.distance.is_some()
-        || has_multiple_number_locations(settings)
+    settings.frequency != Some(BarNumberFrequency::Hidden)
+        && *settings != BarNumberSettings::default()
 }
 
 pub(crate) fn simple_number_locations(
@@ -98,16 +97,16 @@ pub(crate) fn number_staff_context(
             {
                 return false;
             }
-            let members: Vec<_> = staves[group.first_staff..=group.last_staff]
+            let members: Vec<_> = group
+                .source_parts
                 .iter()
-                .flat_map(|staff| &staff.sources)
-                .filter_map(|source| score.parts.get(source.part_index))
+                .filter_map(|&part_index| score.parts.get(part_index))
                 .filter_map(|part| part.id.as_ref())
                 .collect();
             !members.is_empty()
-                && selected
-                    .iter()
-                    .any(|parts| members.iter().all(|id| parts.contains(id)))
+                && selected.iter().any(|parts| {
+                    parts.len() == members.len() && members.iter().all(|id| parts.contains(id))
+                })
         });
         if above_group && !placements.contains(&BarNumberPlacement::AboveSystem) {
             placements.push(BarNumberPlacement::AboveSystem);

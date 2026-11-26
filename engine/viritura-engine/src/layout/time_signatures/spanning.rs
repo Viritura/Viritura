@@ -203,6 +203,7 @@ mod tests {
             symbol: symbol.into(),
             label: None,
             depth: 0,
+            source_parts: Vec::new(),
         }
     }
 

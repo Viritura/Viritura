@@ -76,7 +76,7 @@ function NumberSetting({ label, name, value, min, max, error, onCommit }: Number
 }
 
 export function BarNumbersPanel() {
-  const score = useDocumentStore((state) => state.score);
+  const score = useDocumentStore((state) => state.workingScore ?? state.score);
   const store = useDocumentStoreApi();
   const scoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
   const [requestedScope, setScope] = useState<"document" | "layout">("document");
@@ -165,9 +165,9 @@ export function BarNumbersPanel() {
             />
           ))}
           {scope === "layout" &&
-            groups.map((group) => (
+            groups.map((group, index) => (
               <Checkbox
-                key={JSON.stringify(group.parts)}
+                key={`${JSON.stringify(group.parts)}-${index}`}
                 label={`Above ${group.label} bracket`}
                 checked={settings.aboveGroups?.some((parts) => bracketMatchesSelection(group, parts)) ?? false}
                 onChange={(event) => {

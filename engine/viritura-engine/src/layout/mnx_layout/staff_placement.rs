@@ -159,7 +159,10 @@ pub(super) fn compute_staff_y_offsets_for_system(
         }
 
         if number_row.is_some()
-            || super::super::render_annotations::reserves_number_ink(&config.bar_numbers)
+            || (super::super::render_annotations::reserves_number_ink(&config.bar_numbers)
+                && super::super::render_annotations::has_multiple_number_locations(
+                    &config.bar_numbers,
+                ))
         {
             above_protrusion = above_protrusion.max(super::system_ink::staff_above_protrusion(
                 all_staff_layouts,
@@ -196,7 +199,9 @@ pub(super) fn compute_staff_y_offsets_for_system(
         }
     }
 
-    let number_staff_y = if config.bar_numbers.on_staff == Some(true) {
+    let number_staff_y = if config.bar_numbers.on_staff == Some(true)
+        && super::super::render_annotations::reserves_number_ink(&config.bar_numbers)
+    {
         (0..flat_staves.len())
             .map(|staff| {
                 super::system_ink::number_row_positions(

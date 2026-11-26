@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import type { Score } from "@viritura/core";
+import { getGlobalPerfTracker } from "@viritura/renderer";
 import { TooltipPrimitives } from "@viritura/ui";
 import { DocumentProvider, useDocumentStore, useDocumentStoreApi } from "../../../../../store/DocumentContext";
 import type { DocumentStore } from "../../../../../store/documentStore";
@@ -176,4 +177,95 @@ it("combines system placements with layout-specific outer brackets and hides onl
   expect(getScore()?.scores?.[1]?.barNumbers).toEqual({ aboveGroups: [["p"]], showStaffLine: false });
   expect(getScore()?.scores?.[2]?.barNumbers).toBeUndefined();
   expect(getScore()?.barNumbers?.onStaff).toBe(true);
+});
+
+it("keeps overlapping bracket selections independent", async () => {
+  const user = userEvent.setup();
+  const getScore = renderPanel({
+    ...SCORE,
+    parts: [
+      { id: "p", name: "Piano", staves: 2, measures: [{ sequences: [] }] },
+      { id: "v", name: "Violin", measures: [{ sequences: [] }] },
+    ],
+    layouts: [
+      {
+        id: "L",
+        content: [
+          {
+            type: "group",
+            symbol: "bracket",
+            label: "Piano",
+            content: [{ type: "staff", sources: [{ part: "p", staff: 1 }] }],
+          },
+          {
+            type: "group",
+            symbol: "bracket",
+            label: "Combined",
+            content: [
+              { type: "staff", sources: [{ part: "p", staff: 2 }] },
+              { type: "staff", sources: [{ part: "v" }] },
+            ],
+          },
+        ],
+      },
+    ],
+    scores: SCORE.scores?.map((view) => ({ ...view, layout: "L" })),
+  });
+  await user.click(await screen.findByRole("combobox", { name: "Apply to" }));
+  await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
+  const piano = screen.getByRole("checkbox", { name: "Above Piano bracket" });
+  const combined = screen.getByRole("checkbox", { name: "Above Combined bracket" });
+  await user.click(combined);
+  expect(piano).toHaveProperty("checked", false);
+  await user.click(piano);
+  expect(getScore()?.scores?.[1]?.barNumbers?.aboveGroups).toEqual([["p", "v"], ["p"]]);
+  await user.click(combined);
+  expect(piano).toHaveProperty("checked", true);
+  expect(getScore()?.scores?.[1]?.barNumbers?.aboveGroups).toEqual([["p"]]);
+});
+
+it("keeps rapid placement edits while a layout is pending", async () => {
+  const user = userEvent.setup();
+  const getScore = renderPanel({
+    ...SCORE,
+    parts: [...SCORE.parts, { id: "v", name: "Violin", measures: [{ sequences: [] }] }],
+    layouts: [
+      {
+        id: "L",
+        content: [
+          { type: "group", symbol: "bracket", label: "Piano", content: [{ type: "staff", sources: [{ part: "p" }] }] },
+          {
+            type: "group",
+            symbol: "bracket",
+            label: "Strings",
+            content: [{ type: "staff", sources: [{ part: "v" }] }],
+          },
+        ],
+      },
+    ],
+    scores: SCORE.scores?.map((view) => ({ ...view, layout: "L" })),
+  });
+  await user.click(await screen.findByRole("combobox", { name: "Apply to" }));
+  await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
+  const perf = getGlobalPerfTracker();
+  const previous = perf.fastLayoutCallback;
+  const completions: Array<() => void> = [];
+  perf.fastLayoutCallback = () => new Promise<void>((resolve) => completions.push(resolve));
+  try {
+    await user.click(screen.getByRole("checkbox", { name: "Above the whole system" }));
+    await user.click(screen.getByRole("checkbox", { name: "Below the whole system" }));
+    await user.click(screen.getByRole("checkbox", { name: "Above Piano bracket" }));
+    await user.click(screen.getByRole("checkbox", { name: "Above Strings bracket" }));
+    expect(getScore()?.scores?.[1]?.barNumbers).toEqual({
+      placements: ["belowTopInstrument", "aboveSystem", "belowSystem"],
+      aboveGroups: [["p"], ["v"]],
+    });
+    expect(screen.getByRole("checkbox", { name: "Above the whole system" })).toHaveProperty("checked", true);
+    expect(screen.getByRole("checkbox", { name: "Below the whole system" })).toHaveProperty("checked", true);
+    expect(screen.getByRole("checkbox", { name: "Above Piano bracket" })).toHaveProperty("checked", true);
+    expect(screen.getByRole("checkbox", { name: "Above Strings bracket" })).toHaveProperty("checked", true);
+  } finally {
+    perf.fastLayoutCallback = previous;
+    await act(async () => completions.forEach((complete) => complete()));
+  }
 });

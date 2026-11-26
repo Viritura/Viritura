@@ -6,7 +6,11 @@ export interface BracketPlacement {
 }
 
 export function bracketMatchesSelection(group: BracketPlacement, selected: string[]): boolean {
-  return group.parts.length > 0 && group.parts.every((part) => selected.includes(part));
+  return (
+    group.parts.length > 0 &&
+    group.parts.length === selected.length &&
+    group.parts.every((part) => selected.includes(part))
+  );
 }
 
 export function bracketPlacements(score: Score | null, scoreIndex: number): BracketPlacement[] {

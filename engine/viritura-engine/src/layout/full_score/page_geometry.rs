@@ -113,8 +113,6 @@ fn number_ink_extras(
                 &layouts, score, part_index, config,
             );
             if placement != BarNumberPlacement::BelowTopInstrument
-                || (config.bar_numbers.on_staff != Some(true)
-                    && config.bar_numbers.distance.is_none())
                 || visual_index + 1 >= resolved.len()
                 || extras.1 == 0.0
             {
@@ -278,7 +276,12 @@ pub(super) fn compute_full_score_page_layout(
             }
         }
     }
-    let inter_staff_gap = inter_staff_gap.max(between_numbers + sp);
+    let number_gap = if between_numbers > 0.0 {
+        between_numbers + sp
+    } else {
+        0.0
+    };
+    let inter_staff_gap = inter_staff_gap.max(number_gap);
     let margin_top = margin_top.max(extras.iter().map(|extra| extra.0).fold(0.0_f64, f64::max));
     let single_system_height = visual_staff_count as f64 * staff_height
         + (visual_staff_count - 1) as f64 * inter_staff_gap;
@@ -308,8 +311,11 @@ pub(super) fn compute_full_score_page_layout(
         );
         for (index, (position, (above, _))) in positions.iter_mut().zip(&extras).enumerate() {
             *position += above;
-            if config.bar_numbers.on_staff == Some(true) || config.bar_numbers.distance.is_some() {
-                gaps[index] = (inter_staff_gap + gaps[index] - 7.0 * sp).max(0.0);
+            if config.bar_numbers.on_staff == Some(true)
+                || config.bar_numbers.distance.is_some()
+                || number_gap > 7.0 * sp
+            {
+                gaps[index] = (inter_staff_gap + gaps[index] - 7.0 * sp).max(number_gap);
             }
         }
         (positions, gaps)

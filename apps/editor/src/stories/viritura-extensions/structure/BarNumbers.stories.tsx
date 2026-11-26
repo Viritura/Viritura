@@ -142,7 +142,9 @@ export const SystemAndStringsBracket: StoryObj = {
             ],
           },
         ],
-        scores: [{ layout: "L", _x: { viritura: { barNumbers: { aboveGroups: [["violin", "cello"]] } } } }],
+        scores: [
+          { name: "Full score", layout: "L", _x: { viritura: { barNumbers: { aboveGroups: [["violin", "cello"]] } } } },
+        ],
         _x: {
           viritura: {
             barNumbers: {
