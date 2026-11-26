@@ -3,7 +3,7 @@
 > **Status:** In progress, November 2026. The click-only audio engine and
 > click session program compiler and the single-document **Click** activity are implemented
 > (see [Implementation status](#implementation-status)); basic folder and Gist
-> setlists are implemented, while the detached controller remains proposed.
+> setlists and the Document Picture-in-Picture controller are implemented.
 > Confirmed requirements and proposed defaults are
 > distinguished below.
 >
@@ -66,7 +66,18 @@ Implemented:
   mouse or touch, or focus the panel and use arrow keys
   (Shift for larger steps). Movement is bounded to the score viewport and
   re-clamped on resize. Score-load errors are visible without replacing the
-  independent click engine. A detached PiP window remains future work.
+  independent click engine.
+- **Detached controller** — while stopped, **Keep above other apps** moves the
+  transport into a Document Picture-in-Picture window that stays above a DAW.
+  The opener keeps audio, selection, and scheduling; the window only renders
+  the shared controls, and Space toggles Start/Stop there too. The in-page
+  transport then shows the current bar, Start/Stop, and **Return controls**.
+  Detaching, returning, or closing the window never interrupts a take, and
+  closing it restores focus to the editor. Without Document PiP support the
+  transport stays in-page with a visible explanation. If the Picture activity
+  already owns the tab's single PiP window, the controller explains the
+  conflict and offers **Replace picture window** instead of closing it
+  silently.
 - **Score navigation** — while stopped, drag the score with a mouse or touch
   to pan, or tap/click a bar to select its start and synchronize the dials.
   Dragging does not select a bar. Score hits account for zoom and scrolling,
@@ -176,8 +187,9 @@ quarter-note pulses. Its events are shifted to negative score time; score
 playback retains its existing look-ahead scheduler while recording Click keeps
 its isolated, preloaded audio worklet.
 
-Remaining: manifest-ordered setlists, persisted session settings, the detached
-controller, additional rehearsal navigation, and the release gates below.
+Remaining: manifest-ordered setlists, persisted session settings, the
+**Previous/Next rehearsal** and **Go to bar** shortcuts, and the release gates
+below.
 
 Single-document smoke check: start the UI through `pnpm dev:stack up ui`, open
 the editor origin from `pnpm dev:stack url`, open a score, choose **Click** in
@@ -284,7 +296,7 @@ document and keeps runtime isolation where it matters for timing:
   the transport's initial position. While playing, the activity covers the editor
   chrome so the score fills the screen; the transport keeps its on-screen
   position across that switch so Stop stays under the performer's finger.
-  Document Picture-in-Picture remains proposed for keeping controls above a DAW.
+  Document Picture-in-Picture keeps the controls above a DAW (see below).
 
 The Click activity reconfigures the shared canvas for click navigation and
 playhead overlays; it does not mount a second score viewer or engraving engine.
@@ -306,14 +318,14 @@ available in-page and clearly explain that **Keep above other apps** is unavaila
 A native always-on-top desktop window is a separate future host, not a promise
 of the web fallback.
 
-There is already a closely related implementation in
-[PictureWindow](../../packages/video-sync/src/PictureWindow.tsx) and its
-[Document PiP adapter](../../packages/video-sync/src/documentPictureInPicture.ts).
-Reuse that hosting approach; extract a neutral public UI/platform surface if
-needed rather than making click playback depend on video synchronization or
-deep-importing video internals. Do not copy its lifecycle blindly: request the
-window directly from the opening user action, handle failure visibly, and use
-the target document/window for focus, events, and portal-mounted menus.
+The [Document PiP adapter](../../packages/ui/src/pictureInPicture/documentPictureInPicture.ts)
+is a neutral `@viritura/ui` platform surface shared by the video
+[PictureWindow](../../packages/video-sync/src/PictureWindow.tsx) and the click
+[controller host](../../apps/editor/src/click/ClickControllerHost.tsx). The click
+controller requests the window directly from the opening user action, handles
+failure visibly, and uses the target document/window for keyboard events and
+resize observation. Avoid tooltips and portal-mounted menus inside the window:
+they portal into the opener's document.
 
 Only one Document PiP window is available per tab. Coordinate ownership with
 the existing picture window: explain the conflict and offer an explicit switch
@@ -338,11 +350,15 @@ and [Popover](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API).
 ## Touch bar wheel and start preview
 
 The current selector has two independently scrollable horizontal tracks with
-fixed center selection lines: rehearsal marks above and bar numbers below.
-Rehearsals are adjacent entries regardless of the number of intervening bars.
-Selecting a rehearsal jumps to its bar; selecting a bar highlights its preceding
-rehearsal. Both tracks follow playback. Scores without rehearsal marks show only
-the bar track. Rehearsal letters are never inferred from bar numbering.
+fixed center selection lines: rehearsal marks and named tempo changes above,
+bar numbers below. Named tempo changes are tempo markings with visible text
+(for example "Allegro"); gradual changes such as rit. or accel. and metronome
+marks without text are excluded. A bar with both shows its rehearsal mark with
+the tempo name as detail. Entries are adjacent regardless of the number of
+intervening bars. Selecting an entry jumps to its bar; selecting a bar
+highlights its preceding entry. Both tracks follow playback. Scores without
+rehearsal marks or named tempo changes show only the bar track. Rehearsal
+letters are never inferred from bar numbering.
 
 - Swipe or scroll either track, or tap an entry to select it. Arrow keys step
   through the focused track; Home/End reach its first/last selectable entry.

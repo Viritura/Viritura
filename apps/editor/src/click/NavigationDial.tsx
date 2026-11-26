@@ -107,14 +107,16 @@ export function NavigationDial({ entries, label, index, enabled, onSelect, onSet
   useEffect(() => {
     const node = viewport.current;
     if (!node) return;
+    // The dial may be hosted in a picture-in-picture window; observe resizes in that window's realm.
+    const view = (node.ownerDocument.defaultView ?? window) as Window & typeof globalThis;
     const resize = () => setWidth(node.clientWidth);
     resize();
-    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(resize);
+    const observer = typeof view.ResizeObserver === "undefined" ? undefined : new view.ResizeObserver(resize);
     observer?.observe(node);
-    window.addEventListener("resize", resize);
+    view.addEventListener("resize", resize);
     return () => {
       observer?.disconnect();
-      window.removeEventListener("resize", resize);
+      view.removeEventListener("resize", resize);
     };
   }, []);
 

@@ -842,3 +842,84 @@ describe("click activity", () => {
     expect(screen.queryByRole("status", { name: "Current bar" })).toBeNull();
   });
 });
+
+describe("detached click controller", () => {
+  function installPictureWindow(existing: Window | null = null) {
+    const body = document.createElement("div");
+    body.dataset.pictureWindow = "";
+    document.body.append(body);
+    const doc = {
+      body,
+      head: document.createElement("div"),
+      documentElement: document.createElement("div"),
+      createElement: document.createElement.bind(document),
+      title: "",
+    } as unknown as Document;
+    const listeners = new Map<string, EventListener>();
+    const pipWindow = {
+      document: doc,
+      addEventListener: vi.fn((type: string, listener: EventListener) => listeners.set(type, listener)),
+      removeEventListener: vi.fn(),
+      focus: vi.fn(),
+      close: vi.fn(() => act(() => listeners.get("pagehide")?.(new Event("pagehide")))),
+    } as unknown as Window;
+    const api = {
+      window: existing,
+      requestWindow: vi.fn(async () => {
+        api.window = pipWindow;
+        return pipWindow;
+      }),
+    };
+    Object.defineProperty(globalThis, "documentPictureInPicture", { value: api, configurable: true });
+    return { api, pipWindow, doc, listeners };
+  }
+
+  afterEach(() => {
+    delete (globalThis as { documentPictureInPicture?: unknown }).documentPictureInPicture;
+    for (const host of document.querySelectorAll("[data-picture-window]")) host.remove();
+  });
+
+  it("explains when the browser cannot keep controls above other apps", async () => {
+    await renderClick();
+    fireEvent.click(screen.getByRole("button", { name: "Keep above other apps" }));
+    expect(screen.getByText(/can't keep the controls above other apps/).textContent).toContain("stay in this window");
+    expect(screen.getByRole("listbox", { name: "Start bar" })).toBeTruthy();
+  });
+
+  it("moves the controls to a picture window and back without interrupting the take", async () => {
+    const pip = installPictureWindow();
+    await renderClick();
+    fireEvent.click(screen.getByRole("button", { name: "Keep above other apps" }));
+    const detached = within(pip.doc.body);
+    await waitFor(() => expect(detached.getByRole("listbox", { name: "Start bar" })).toBeTruthy());
+    const inPage = within(screen.getByText("Controls are in a separate window.").closest("section")!);
+    expect(inPage.queryByRole("listbox", { name: "Start bar" })).toBeNull();
+
+    fireEvent.click(detached.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(detached.getByRole("button", { name: "Stop" })).toBeTruthy());
+    expect(inPage.getByRole("button", { name: "Stop" })).toBeTruthy();
+
+    const keyDown = pip.listeners.get("keydown")!;
+    act(() => keyDown(new KeyboardEvent("keydown", { code: "Space" })));
+    await waitFor(() => expect(audio.stop).toHaveBeenCalledOnce());
+    fireEvent.click(detached.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(audio.start).toHaveBeenCalledTimes(2));
+
+    fireEvent.click(detached.getByRole("button", { name: "Return to editor" }));
+    expect(pip.pipWindow.close).toHaveBeenCalledOnce();
+    expect(pip.doc.body.childElementCount).toBe(0);
+    expect(audio.stop).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Stop" })).toBeTruthy();
+  });
+
+  it("asks before replacing another picture window", async () => {
+    const pip = installPictureWindow({} as Window);
+    await renderClick();
+    fireEvent.click(screen.getByRole("button", { name: "Keep above other apps" }));
+    expect(pip.api.requestWindow).not.toHaveBeenCalled();
+    expect(screen.getByText(/only one window can stay above other apps/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Replace picture window" }));
+    await waitFor(() => expect(within(pip.doc.body).getByRole("listbox", { name: "Start bar" })).toBeTruthy());
+    expect(pip.api.requestWindow).toHaveBeenCalledOnce();
+  });
+});

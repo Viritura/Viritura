@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, type ReactNode } from "react";
 import { Button, ButtonGroup } from "@viritura/ui";
 import { buildClickSessionProgram } from "@viritura/playback/click";
 import { BarDial } from "./BarDial";
@@ -13,9 +13,37 @@ interface ClickControlsProps {
   readonly barIndex: number;
   readonly dialSettling: boolean;
   readonly onSettlingChange: (settling: boolean) => void;
+  /** Host-specific action beside Start/Stop, such as moving the controls to another window. */
+  readonly hostAction?: ReactNode;
 }
 
-export function ClickControls({ player, active, barIndex, dialSettling, onSettlingChange }: ClickControlsProps) {
+interface ClickStartStopProps {
+  readonly player: ReturnType<typeof useClickPlayer>;
+  readonly active: boolean;
+  readonly dialSettling: boolean;
+}
+
+export function ClickStartStop({ player, active, dialSettling }: ClickStartStopProps) {
+  return (
+    <Button
+      variant="primary"
+      size="lg"
+      disabled={player.busy || (!active && (dialSettling || player.tempoPercent === 0 || !player.document))}
+      onClick={() => void (active ? player.stop() : player.play())}
+    >
+      {active ? "Stop" : "Start"}
+    </Button>
+  );
+}
+
+export function ClickControls({
+  player,
+  active,
+  barIndex,
+  dialSettling,
+  onSettlingChange,
+  hostAction,
+}: ClickControlsProps) {
   const settling = useRef({ bars: false, rehearsals: false });
   const preview = useMemo(
     () =>
@@ -90,14 +118,8 @@ export function ClickControls({ player, active, barIndex, dialSettling, onSettli
           </div>
         )}
         <div className={styles.transport}>
-          <Button
-            variant="primary"
-            size="lg"
-            disabled={player.busy || (!active && (dialSettling || player.tempoPercent === 0))}
-            onClick={() => void (active ? player.stop() : player.play())}
-          >
-            {active ? "Stop" : "Start"}
-          </Button>
+          <ClickStartStop player={player} active={active} dialSettling={dialSettling} />
+          {hostAction}
         </div>
       </div>
     </>

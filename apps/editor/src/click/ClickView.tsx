@@ -5,9 +5,8 @@ import { WorkspaceToolbar } from "../components/WorkspaceToolbar";
 import { ScoreSwitcherPicker } from "../scoreSwitcher";
 import { ProjectFileSwitcher } from "../projectFiles";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
-import { ClickControls } from "./ClickControls";
+import { ClickControllerHost } from "./ClickControllerHost";
 import { ClickScoreControls, type ClickScoreSettings } from "./ClickScoreControls";
-import { FloatingTransport } from "./FloatingTransport";
 import { clickBarAtTime, clickScorePosition, clickStartPosition } from "./barNavigation";
 import { useClickPlayer } from "./useClickPlayer";
 import { useClickSpaceShortcut } from "./useClickSpaceShortcut";
@@ -158,10 +157,11 @@ export function ClickView({ mnx, canvasRef, canvasZoom }: ClickViewProps) {
   const statusId = useId();
   const active = player.phase === "playing";
   const canStart = canStartClick(player, dialSettling);
-  useClickSpaceShortcut(() => {
+  const toggle = () => {
     if (active && !player.busy) void player.stop();
     else if (!active && canStart) void player.play();
-  });
+  };
+  useClickSpaceShortcut(toggle);
   const { countingOff, barIndex, scorePosition } = clickCursor(player, active);
   const status = statusLabel(player.phase, player.busy, countingOff, player.tempoPercent, player.document);
   const selectedView = player.document?.scoreViews[scoreSettings.viewIndex];
@@ -217,23 +217,19 @@ export function ClickView({ mnx, canvasRef, canvasZoom }: ClickViewProps) {
           <ClickScoreInteractions canvasRef={activeCanvasRef} enabled={!active && !player.busy && !dialSettling} />
         )}
         {(player.document || player.error || player.busy) && (
-          <FloatingTransport busy={player.busy} compact={active}>
-            {player.error && (
-              <p className={styles.error} role="alert">
-                {player.error}
-              </p>
-            )}
-            <ClickControls
-              player={player}
-              active={active}
-              barIndex={barIndex}
-              dialSettling={dialSettling}
-              onSettlingChange={setDialSettling}
-            />
-            <div id={statusId} className={styles.srOnly} role="status" aria-label="Playback status">
-              {status}
-            </div>
-          </FloatingTransport>
+          <ClickControllerHost
+            player={player}
+            active={active}
+            barIndex={barIndex}
+            dialSettling={dialSettling}
+            onSettlingChange={setDialSettling}
+            toggle={toggle}
+            status={
+              <div id={statusId} className={styles.srOnly} role="status" aria-label="Playback status">
+                {status}
+              </div>
+            }
+          />
         )}
       </div>
     </>
