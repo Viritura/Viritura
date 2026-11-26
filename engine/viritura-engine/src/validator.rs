@@ -19,7 +19,8 @@
 
 mod extensions;
 pub(crate) use extensions::{
-    validate_staff_text_frame, validate_swing, validate_system_text, validate_tempo_instruction,
+    validate_staff_text_frame, validate_swing, validate_system_text, validate_tempo_extensions,
+    validate_tempo_instruction,
 };
 
 use std::collections::HashSet;

@@ -30,7 +30,10 @@ fn test_parse_grouped_and_silent_click_instructions() {
         "mnx": {"version": 1},
         "global": {"measures": [{
             "time": {"count": 6, "unit": 8},
-            "_x": {"viritura": {"systemText": [
+            "_x": {"viritura": {
+                "rehearsalMark": {"text": [{"text": "M"}]},
+                "chordSymbols": [{"position": {"fraction": [0, 1]}, "rawText": "C"}],
+                "systemText": [
                 {
                     "id": "group", "text": [{"text": "2+3"}],
                     "position": {"fraction": [0, 1]},
@@ -54,6 +57,70 @@ fn test_parse_grouped_and_silent_click_instructions() {
     assert_eq!(
         instructions[1].tempo.as_ref().unwrap().click_subdivision,
         Some(0)
+    );
+    assert_eq!(
+        score.global.measures[0]
+            .rehearsal_mark()
+            .unwrap()
+            .text
+            .plain_text(),
+        "M"
+    );
+    assert_eq!(
+        score.global.measures[0].chord_symbols().unwrap()[0].display_text(),
+        "C"
+    );
+}
+
+#[test]
+fn test_click_settings_round_trip_on_standard_and_vendor_tempos() {
+    let json = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {
+                "time": {"count": 6, "unit": 8},
+                "tempos": [{
+                    "bpm": 85.0, "value": {"base": "quarter"},
+                    "_x": {"viritura": {"clickSubdivision": 2, "clickGrouping": [3, 3, 2, 2, 2]}}
+                }]
+            },
+            {
+                "_x": {"viritura": {
+                    "rehearsalMark": {"text": [{"text": "M"}]},
+                    "tempos": [
+                        {"bpm": 85.0, "value": {"base": "quarter"},
+                         "clickSubdivision": 2, "clickGrouping": [3, 3, 2, 2, 2]},
+                        {"swing": {"mode": "straight"}, "clickSubdivision": 0}
+                    ]
+                }}
+            }
+        ]},
+        "parts": []
+    });
+    let score = parse_mnx(&json.to_string()).expect("tempo click settings must parse");
+    let standard = serde_json::to_value(&score.global.measures[0]).unwrap();
+    assert_eq!(
+        standard["tempos"][0]["_x"]["viritura"],
+        json["global"]["measures"][0]["tempos"][0]["_x"]["viritura"]
+    );
+    let vendor = serde_json::to_value(&score.global.measures[1]).unwrap();
+    assert_eq!(
+        vendor["_x"]["viritura"]["tempos"],
+        json["global"]["measures"][1]["_x"]["viritura"]["tempos"]
+    );
+    assert_eq!(
+        score.global.measures[1]
+            .rehearsal_mark()
+            .unwrap()
+            .text
+            .plain_text(),
+        "M"
+    );
+    assert_eq!(
+        crate::promote::promote_global_measure_json(&vendor)
+            .unwrap()
+            .tempos,
+        score.global.measures[1].tempos
     );
 }
 

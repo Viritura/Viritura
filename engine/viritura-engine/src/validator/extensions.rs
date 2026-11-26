@@ -88,6 +88,10 @@ pub(crate) fn validate_tempo_instruction(value: &Value) -> Result<(), String> {
     validate_definition(value, "tempo-instruction")
 }
 
+pub(crate) fn validate_tempo_extensions(value: &Value) -> Result<(), String> {
+    validate_definition(value, "tempo-extensions")
+}
+
 fn pointer_token(value: &str) -> String {
     value.replace('~', "~0").replace('/', "~1")
 }

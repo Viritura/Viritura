@@ -587,6 +587,8 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
             dots: None,
         }),
         swing: None,
+        click_subdivision: None,
+        click_grouping: None,
         location: None,
         text: Some("Grandioso ma non troppo".to_string().into()),
         show_metronome_mark: Some(false),

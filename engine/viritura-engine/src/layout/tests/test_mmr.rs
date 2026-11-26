@@ -2202,6 +2202,8 @@ fn test_tempo_text_clears_multimeasure_rest_number() {
             dots: None,
         }),
         swing: None,
+        click_subdivision: None,
+        click_grouping: None,
         location: None,
         text: Some("Allegro molto vivace".to_string().into()),
         show_metronome_mark: Some(true),
@@ -2295,6 +2297,8 @@ fn test_tempo_text_clears_neighbouring_multimeasure_rest_number() {
             dots: None,
         }),
         swing: None,
+        click_subdivision: None,
+        click_grouping: None,
         location: None,
         text: Some(
             "Allegro molto vivace ed appassionato assai"

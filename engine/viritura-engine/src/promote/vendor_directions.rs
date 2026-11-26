@@ -97,16 +97,26 @@ pub(crate) struct GlobalMeasureVendor {
 
 pub(crate) fn extract_global_measure_vendor(
     x: Option<&raw::VendorExtensions>,
-) -> GlobalMeasureVendor {
+) -> Result<GlobalMeasureVendor, PromoteError> {
     let Some(json) = read_viritura_ext(x) else {
-        return GlobalMeasureVendor::default();
+        return Ok(GlobalMeasureVendor::default());
     };
+    // Other extensions have their own decoders; typify cannot represent every
+    // schema-valid system tempo union in the generated global extension type.
+    let owned = json
+        .iter()
+        .filter(|(name, _)| {
+            matches!(
+                name.as_str(),
+                "rehearsalMark" | "markerText" | "senzaMisura" | "chordSymbols"
+            )
+        })
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .collect();
     let raw_ext: raw_viritura::MeasureGlobalExtensions =
-        match serde_json::from_value(serde_json::Value::Object(json.clone())) {
-            Ok(v) => v,
-            Err(_) => return GlobalMeasureVendor::default(),
-        };
-    GlobalMeasureVendor {
+        serde_json::from_value(serde_json::Value::Object(owned))
+            .map_err(|error| PromoteError::InvalidGlobalMeasureExtensions(error.to_string()))?;
+    Ok(GlobalMeasureVendor {
         rehearsal_mark: raw_ext.rehearsal_mark.map(promote_rehearsal_mark),
         marker_text: raw_ext.marker_text.map(promote_marker_texts),
         senza_misura: raw_ext.senza_misura,
@@ -117,7 +127,7 @@ pub(crate) fn extract_global_measure_vendor(
                 .map(promote_chord_symbol)
                 .collect(),
         ),
-    }
+    })
 }
 
 /// Extract event-level `_x.viritura.glissandos` as model glissandos.
@@ -435,7 +445,7 @@ mod tests {
                  "extension":7,"bass":{"step":"F"},"textOverride":"Bbmin7/F"}
             ]}} "#,
         );
-        let vendor = extract_global_measure_vendor(Some(&x));
+        let vendor = extract_global_measure_vendor(Some(&x)).unwrap();
         let chords = vendor.chord_symbols.expect("global harmony");
         assert_eq!(chords.len(), 4);
         for (index, text) in ["N.C.", "  H#?!  "].iter().enumerate() {
@@ -455,6 +465,17 @@ mod tests {
         assert_eq!(chords[3].extension, Some(7));
         assert_eq!(chords[3].bass.as_ref().unwrap().step, "F");
         assert_eq!(chords[3].text_override.as_deref(), Some("Bbmin7/F"));
+    }
+
+    #[test]
+    fn reports_invalid_owned_global_extensions() {
+        let measure = serde_json::json!({
+            "_x": {"viritura": {"rehearsalMark": {"text": 42}}}
+        });
+        assert!(matches!(
+            crate::promote::promote_global_measure_json(&measure),
+            Err(PromoteError::InvalidGlobalMeasureExtensions(_))
+        ));
     }
 
     #[test]
