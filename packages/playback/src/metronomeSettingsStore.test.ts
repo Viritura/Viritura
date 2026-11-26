@@ -1,6 +1,12 @@
 // @vitest-environment happy-dom
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+// Each case re-imports a fresh store; transform the module graph once so a cold
+// transform under a loaded parallel run cannot exceed the per-test timeout.
+beforeAll(async () => {
+  await import("./metronomeSettingsStore");
+}, 60_000);
 
 afterEach(() => {
   localStorage.clear();
