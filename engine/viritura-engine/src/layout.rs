@@ -105,8 +105,23 @@ use render_geometry::*;
 /// the defaults, or `None` when the document has no overrides (so the common
 /// case avoids a `LayoutConfig` clone). Currently merges `textStyles` and
 /// `placement`.
-#[allow(clippy::too_many_lines)] // single-part cached layout pipeline; staged passes share orchestration state
 pub fn layout_score_cached(
+    score: &Score,
+    part_index: usize,
+    config: &LayoutConfig,
+    cache: Option<&mut cache::LayoutCache>,
+) -> DisplayList {
+    let merged_config = config_with_document_overrides(score, config, LayoutContext::Score);
+    layout_score_with_config_cached(
+        score,
+        part_index,
+        merged_config.as_ref().unwrap_or(config),
+        cache,
+    )
+}
+
+#[allow(clippy::too_many_lines)] // single-part cached layout pipeline; staged passes share orchestration state
+fn layout_score_with_config_cached(
     score: &Score,
     part_index: usize,
     config: &LayoutConfig,
@@ -119,15 +134,6 @@ pub fn layout_score_cached(
     let _ = cache
         .as_deref_mut()
         .and_then(|c| c.take_pending_dirty_range());
-
-    // Apply per-document overrides (`_x.viritura.textStyles`, `placement`,
-    // `timeSignatures`) over the engine defaults. Done once here, the single
-    // layout chokepoint, so the merged values flow into every downstream site
-    // (including the grand-staff delegation below). This entry point renders
-    // the document itself rather than an extracted part, so it resolves the
-    // document's score-side style.
-    let merged_config = config_with_document_overrides(score, config, LayoutContext::Score);
-    let config = merged_config.as_ref().unwrap_or(config);
 
     let part = &score.parts[part_index];
 
@@ -259,21 +265,9 @@ pub fn layout_score_cached(
     );
 
     // Compute per-system below/above-staff extras from ACTUAL layouts
-    let below_staff_extras: Vec<f64> = precomp_sys_layouts
-        .iter()
-        .map(|layouts| {
-            compute_below_staff_extra_from_layouts(layouts, sp, config.stem_length, config)
-        })
-        .collect();
-
-    let above_staff_extras: Vec<f64> = precomp_sys_layouts
-        .iter()
-        .map(|layouts| {
-            let sys_measures: Vec<&ResolvedMeasure> =
-                layouts.iter().map(|ml| &ml.resolved).collect();
-            compute_above_staff_extra(&sys_measures, Some(layouts), sp, config.stem_length, config)
-        })
-        .collect();
+    let (above_staff_extras, below_staff_extras, number_above) =
+        system_spacing::system_ink_extras(&precomp_sys_layouts, score, part_index, config);
+    let margin_top = margin_top.max(number_above);
 
     // Per-system heights for page breaking
     let system_heights_px: Vec<f64> = (0..system_count)
@@ -867,8 +861,14 @@ fn render_system_contents(
     let mmr_number_extents =
         render_measure::above_measure_obstacles(measure_layouts, staff_y, sp, config);
     let shared_lane = render_measure::shared_staff_lane(staff_y, sp, shared_lane_staff_y_offsets);
-    let render_ordinary_measure_number =
-        render_measure::should_render_ordinary_measure_number(&shared_lane, staff_idx);
+    let render_ordinary_measure_number = render_measure::should_render_ordinary_measure_number(
+        &shared_lane,
+        staff_idx,
+        staff_y,
+        staff_y_offsets,
+        shared_lane_staff_y_offsets,
+        config,
+    );
 
     for (i, ml) in measure_layouts.iter().enumerate() {
         render_measure(
@@ -902,11 +902,6 @@ fn render_system_contents(
             part_idx,
             &global_beamed_ids,
             render_measure::measure_leading_clef_gap(ml, sp, clef_change_measures),
-            if ml.multimeasure_rest_count.is_some() && shared_lane.center_y.is_some() {
-                shared_lane.is_bottom
-            } else {
-                render_ordinary_measure_number
-            },
             shared_lane.is_top,
             shared_lane.center_y,
         );
@@ -1043,6 +1038,7 @@ fn render_system_contents(
     }
 
     render_repeat_counts(dl, measure_layouts, staff_y, sp);
+    render_annotations::flow_bar_numbers(dl, staff_cmd_start, config);
 }
 
 mod full_score;

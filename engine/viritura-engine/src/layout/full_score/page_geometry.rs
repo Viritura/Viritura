@@ -1,10 +1,13 @@
 //! Page and system geometry for the legacy full-score layout path.
 
 use super::super::config::LayoutConfig;
-use super::super::page::{compute_page_breaks, compute_system_y_positions, title_block_height};
+use super::super::page::{
+    compute_page_breaks_with_extras, compute_system_y_positions, title_block_height,
+};
 use super::super::render_annotations::global_tempo_widths;
 use super::super::system::{break_into_systems, enforce_tempo_system_breaks};
-use crate::model::Score;
+use super::super::types::ResolvedOttavaRange;
+use crate::model::{BarNumberPlacement, ResolvedMeasure, Score};
 use crate::render::PageLayout;
 
 /// Vertical gap between staves, scaled for collision-prone content.
@@ -46,6 +49,71 @@ pub(super) struct FullScorePageLayout {
     pub(super) pages: Vec<PageLayout>,
 }
 
+fn number_ink_extras(
+    score: &Score,
+    config: &LayoutConfig,
+    systems: &[Vec<usize>],
+    max_widths: &[f64],
+    margin_left: f64,
+    content_width: Option<f64>,
+    resolved: &[Vec<ResolvedMeasure>],
+    ottavas: &[Vec<ResolvedOttavaRange>],
+    shortest_beats: f64,
+) -> Vec<(f64, f64)> {
+    let placement = config.bar_numbers.placement.unwrap_or_default();
+    let part_index = if placement == BarNumberPlacement::BelowSystem {
+        score.parts.len() - 1
+    } else {
+        0
+    };
+    let target_staff = if placement == BarNumberPlacement::AboveSystem {
+        0
+    } else {
+        score.parts[part_index].staves.max(1) as usize - 1
+    };
+    let visual_index = score.parts[..part_index]
+        .iter()
+        .map(|part| part.staves.max(1) as usize)
+        .sum::<usize>()
+        + target_staff;
+    systems
+        .iter()
+        .enumerate()
+        .map(|(system_index, system)| {
+            let total: f64 = system.iter().map(|&index| max_widths[index]).sum();
+            let available = content_width.unwrap_or(total);
+            let preserve_natural =
+                system_index + 1 == systems.len() && systems.len() > 1 && total < available * 0.65;
+            let scale = if total > 0.0 && content_width.is_some() && !preserve_natural {
+                available / total
+            } else {
+                1.0
+            };
+            let mut cursor = margin_left;
+            let layouts: Vec<_> = system
+                .iter()
+                .enumerate()
+                .filter_map(|(index, &measure)| {
+                    let mut layout = super::super::layout_measure(
+                        resolved[visual_index].get(measure)?,
+                        config.sp,
+                        cursor,
+                        config,
+                        Some(max_widths[measure] * scale),
+                        &ottavas[visual_index],
+                        shortest_beats,
+                    );
+                    layout.is_first_on_system = index == 0;
+                    layout.part_index = part_index;
+                    cursor += layout.width;
+                    Some(layout)
+                })
+                .collect();
+            super::super::system_spacing::number_ink_extras(&layouts, score, part_index, config)
+        })
+        .collect()
+}
+
 /// Compute all page/system geometry for the legacy full-score path.
 #[allow(clippy::too_many_arguments)] // Derived page geometry consumes the complete system-size input tuple.
 pub(super) fn compute_full_score_page_layout(
@@ -57,6 +125,9 @@ pub(super) fn compute_full_score_page_layout(
     staff_height: f64,
     inter_staff_gap: f64,
     sp: f64,
+    resolved: &[Vec<ResolvedMeasure>],
+    ottavas: &[Vec<ResolvedOttavaRange>],
+    shortest_beats: f64,
 ) -> FullScorePageLayout {
     let has_names = score.parts.iter().any(|part| !part.name.is_empty());
     let has_grand_staff = score.parts.iter().any(|part| part.staves >= 2);
@@ -136,23 +207,65 @@ pub(super) fn compute_full_score_page_layout(
 
     let system_count = systems.len();
     let inter_system_gap = config.inter_system_spacing * sp;
+    let placement = config.bar_numbers.placement.unwrap_or_default();
+    let number_extras = number_ink_extras(
+        score,
+        config,
+        &systems,
+        max_widths,
+        margin_left,
+        content_width,
+        resolved,
+        ottavas,
+        shortest_beats,
+    );
+    let between_numbers = if placement == BarNumberPlacement::BelowTopInstrument {
+        number_extras
+            .iter()
+            .map(|extras| extras.1)
+            .fold(0.0_f64, f64::max)
+    } else {
+        0.0
+    };
+    let inter_staff_gap = inter_staff_gap.max(between_numbers + sp);
+    let extras: Vec<_> = number_extras
+        .iter()
+        .map(|&(above, below)| match placement {
+            BarNumberPlacement::AboveSystem => (above, 0.0),
+            BarNumberPlacement::BelowSystem => (0.0, below),
+            BarNumberPlacement::BelowTopInstrument => (0.0, 0.0),
+        })
+        .collect();
+    let margin_top = margin_top.max(extras.iter().map(|extra| extra.0).fold(0.0_f64, f64::max));
     let single_system_height = visual_staff_count as f64 * staff_height
         + (visual_staff_count - 1) as f64 * inter_staff_gap;
     let title_height_px = title_block_height(score.metadata(), config);
-    let system_heights_px = vec![single_system_height; system_count];
-    let pages = compute_page_breaks(&system_heights_px, config, title_height_px);
+    let system_heights_px: Vec<_> = extras
+        .iter()
+        .map(|(above, below)| single_system_height + above + below)
+        .collect();
+    let pages = compute_page_breaks_with_extras(
+        &system_heights_px,
+        Some(&extras),
+        config,
+        title_height_px,
+        &[],
+    );
     let staves_per_system = vec![visual_staff_count; system_count];
     let (system_y_positions, justified_gaps) = if config.page_width.is_some() {
-        let (positions, gaps, _) = compute_system_y_positions(
+        let (mut positions, gaps, _) = compute_system_y_positions(
             &staves_per_system,
             staff_height,
             &pages,
             config,
             title_height_px,
             Some(&system_heights_px),
-            None,
+            Some(&extras),
             None,
         );
+        for (position, (above, _)) in positions.iter_mut().zip(&extras) {
+            *position += above;
+        }
         (positions, gaps)
     } else {
         (
@@ -169,7 +282,9 @@ pub(super) fn compute_full_score_page_layout(
     let total_height = if config.page_width.is_some() {
         pages.last().map_or(0.0, |page| page.y_offset + page.height)
     } else {
-        margin_top * 2.0
+        margin_top
+            + (config.margin_top * sp)
+                .max(extras.iter().map(|extra| extra.1).fold(0.0_f64, f64::max))
             + system_count as f64 * single_system_height
             + system_count.saturating_sub(1) as f64 * inter_system_gap
     };

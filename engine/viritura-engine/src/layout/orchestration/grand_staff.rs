@@ -311,7 +311,14 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
                 lyric_line_order,
                 Some(staff_y_offsets),
                 Some(staff_y_offsets),
-                shared_lane.is_bottom,
+                render_measure::should_render_ordinary_measure_number(
+                    &shared_lane,
+                    Some(si),
+                    staff_y,
+                    Some(staff_y_offsets),
+                    Some(staff_y_offsets),
+                    config,
+                ),
                 use_beams,
                 use_accidental_display,
                 Some(&slur_map),
@@ -328,7 +335,6 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
                 part_index,
                 &global_beamed_ids,
                 render_measure::measure_leading_clef_gap(ml, sp, &clef_change_measures),
-                shared_lane.is_bottom,
                 shared_lane.is_top,
                 shared_lane.center_y,
             );
@@ -395,6 +401,7 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
             Some(staff_y_offsets),
         );
         render_pedals(dl, layouts, staff_y, sp, config, part_index);
+        render_annotations::flow_bar_numbers(dl, staff_cmd_start, config);
 
         collect_staff_spanner_endpoints(
             layouts,
@@ -719,6 +726,53 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         let natural_total: f64 = max_widths.iter().sum();
         margin_left + natural_total + config.margin_right * sp
     };
+    let mut prepared_systems = Vec::with_capacity(system_count);
+    for (sys_idx, sys_measures) in systems.iter().enumerate() {
+        let natural_total: f64 = sys_measures.iter().map(|&mi| max_widths[mi]).sum();
+        let avail_w = content_width.unwrap_or(natural_total);
+        let scale = if natural_total > 0.0 && config.page_width.is_some() {
+            if sys_idx == system_count - 1 && natural_total < avail_w * 0.65 && system_count > 1 {
+                1.0
+            } else {
+                avail_w / natural_total
+            }
+        } else {
+            1.0
+        };
+        let (merged_spacings, max_prefix_widths) = compute_system_spacing(
+            &all_resolved,
+            sys_measures,
+            sp,
+            common_shortest_beats,
+            config,
+            None,
+        );
+        let mut layouts = layout_grand_staff_system_measures(
+            &all_resolved,
+            &all_resolved_ottavas,
+            sys_measures,
+            systems
+                .get(sys_idx + 1)
+                .and_then(|system| system.first())
+                .copied(),
+            &max_widths,
+            &gs_content_hash_grid,
+            &merged_spacings,
+            &max_prefix_widths,
+            scale,
+            margin_left,
+            sp,
+            config,
+            common_shortest_beats,
+            part_index,
+            cache.as_deref_mut(),
+        );
+        let visual_staves: Vec<_> = (1..=num_staves)
+            .map(|staff| (part_index, staff as u32))
+            .collect();
+        fix_cross_staff_note_positions(&mut layouts, &visual_staves, sp, config);
+        prepared_systems.push(layouts);
+    }
     let page_geometry::GrandStaffPages {
         pages,
         positions,
@@ -726,12 +780,11 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         total_height,
     } = page_geometry::position_grand_staff_pages(
         config,
-        &systems,
-        &all_resolved,
-        &all_resolved_ottavas,
-        common_shortest_beats,
+        &prepared_systems,
         staff_height,
         inter_staff_gap,
+        score,
+        part_index,
     );
 
     let mut dl = DisplayList::new(page_w, total_height);
@@ -755,66 +808,16 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
     let mut slur_bounds: std::collections::HashMap<(usize, usize, usize), slurs::SystemSlurBounds> =
         std::collections::HashMap::new();
 
-    for (sys_idx, sys_measures) in systems.iter().enumerate() {
-        let natural_total: f64 = sys_measures.iter().map(|&mi| max_widths[mi]).sum();
-        let avail_w = content_width.unwrap_or(natural_total);
-        let scale = if natural_total > 0.0 && config.page_width.is_some() {
-            if sys_idx == system_count - 1 && natural_total < avail_w * 0.65 && system_count > 1 {
-                1.0
-            } else {
-                avail_w / natural_total
-            }
-        } else {
-            1.0
-        };
-
+    for (sys_idx, all_sys_layouts) in prepared_systems.iter().enumerate() {
         let staff_y_offsets: Vec<f64> = (0..num_staves)
             .map(|i| positions[sys_idx] + i as f64 * (staff_height + gaps[sys_idx]))
             .collect();
-
-        // Layout measures for each staff
-        let (merged_spacings, max_prefix_widths) = compute_system_spacing(
-            &all_resolved,
-            sys_measures,
-            sp,
-            common_shortest_beats,
-            config,
-            None,
-        );
-
-        let mut all_sys_layouts = layout_grand_staff_system_measures(
-            &all_resolved,
-            &all_resolved_ottavas,
-            sys_measures,
-            systems
-                .get(sys_idx + 1)
-                .and_then(|system| system.first())
-                .copied(),
-            &max_widths,
-            &gs_content_hash_grid,
-            &merged_spacings,
-            &max_prefix_widths,
-            scale,
-            margin_left,
-            sp,
-            config,
-            common_shortest_beats,
-            part_index,
-            cache.as_deref_mut(),
-        );
-
-        // Fix note positions for cross-staff events: recompute using the target staff's clef
-        {
-            let visual_staves: Vec<(usize, u32)> =
-                (1..=num_staves).map(|s| (part_index, s as u32)).collect();
-            fix_cross_staff_note_positions(&mut all_sys_layouts, &visual_staves, sp, config);
-        }
 
         // Draw staff lines and render each staff's contents
         let system_shape_start = dl.element_shapes.len();
         render_grand_staff_system_staves(
             &mut dl,
-            &all_sys_layouts,
+            all_sys_layouts,
             &staff_y_offsets,
             margin_left,
             sp,
@@ -845,7 +848,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
 
         render_grand_staff_system_connectors(
             &mut dl,
-            &all_sys_layouts,
+            all_sys_layouts,
             &staff_y_offsets,
             num_staves,
             margin_left,
@@ -859,7 +862,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
 
         crate::layout::time_signatures::spanning::render_grand_staff_meters(
             &mut dl,
-            &all_sys_layouts,
+            all_sys_layouts,
             &staff_y_offsets,
             config,
         );

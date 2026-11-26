@@ -77,6 +77,7 @@ export function serializeScoreDefinition(sd: ScoreDefinition): Obj {
   if (sd.useWritten !== undefined) obj["useWritten"] = sd.useWritten;
 
   const viritura: Obj = {};
+  if (sd.barNumbers) viritura["barNumbers"] = { ...sd.barNumbers };
   if (sd.pageSetupRole) viritura["pageSetupRole"] = sd.pageSetupRole;
   if (sd.instrumentNameDisplay) {
     viritura["instrumentNameDisplay"] = { ...sd.instrumentNameDisplay };

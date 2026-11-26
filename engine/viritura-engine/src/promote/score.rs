@@ -69,6 +69,10 @@ pub(crate) fn promote_score_definition(
         ));
     }
     Ok(ModelScoreDefinition {
+        bar_numbers: viritura
+            .and_then(|ext| ext.get("barNumbers"))
+            .map(crate::model::score::BarNumberSettings::parse)
+            .transpose()?,
         name: Some(r.name.0),
         layout: r.layout.map(String::from),
         multimeasure_rests: r

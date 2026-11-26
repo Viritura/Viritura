@@ -1,14 +1,24 @@
 //! House-style measure numbers and multimeasure-rest range labels.
 
 use super::super::config::LayoutConfig;
+use super::super::dependent_stacking::{resolve_stacking, StackBox, StackSide};
 use super::super::element_id;
 use super::super::render_measure;
 use super::super::render_signatures;
+use super::super::text_styles::{text_width, FontFamily, TextAlignment, TextStyle};
 use super::super::types::*;
 use crate::model::*;
 use crate::render::*;
 
-/// Render a measure number below the staff following house style.
+pub(crate) struct NumberLabel {
+    pub text: String,
+    pub x: f64,
+    pub y: f64,
+    pub align: TextAlign,
+    pub bbox: BoundingBox,
+    pub style: TextStyle,
+}
+
 pub(crate) fn render_measure_numbers(
     dl: &mut DisplayList,
     ml: &MeasureLayout,
@@ -20,33 +30,65 @@ pub(crate) fn render_measure_numbers(
     if !render_here {
         return;
     }
-    if let Some(count) = ml.multimeasure_rest_count {
-        render_multimeasure_number_range(dl, ml, staff_y, sp, count, config);
+    let Some(label) = number_label(ml, staff_y, sp, config) else {
         return;
-    }
-
-    let number = match measure_number_value(ml) {
-        Some(n) => n,
-        None => return,
     };
-
-    let font_size = 2.0 * sp;
-    let num_y = below_staff_number_top_y(ml, staff_y, sp, config);
-    let num_x = ml.x;
-
+    let eid = element_id::measure_number(ml.resolved.index);
+    let enclosure = config.bar_numbers.enclosure.unwrap_or_default();
+    let b = &label.bbox;
+    match enclosure {
+        BarNumberEnclosure::None => {}
+        BarNumberEnclosure::Box => {
+            let width = 0.12 * sp;
+            for (x1, y1, x2, y2) in [
+                (b.x, b.y, b.x + b.width, b.y),
+                (b.x, b.y + b.height, b.x + b.width, b.y + b.height),
+                (b.x, b.y, b.x, b.y + b.height),
+                (b.x + b.width, b.y, b.x + b.width, b.y + b.height),
+            ] {
+                dl.push_tagged(
+                    RenderCommand::DrawLine {
+                        x1,
+                        y1,
+                        x2,
+                        y2,
+                        width,
+                        color: "#000000".into(),
+                    },
+                    eid.clone(),
+                );
+            }
+        }
+        BarNumberEnclosure::Circle => dl.push_tagged(
+            RenderCommand::DrawEllipse {
+                cx: b.x + b.width * 0.5,
+                cy: b.y + b.height * 0.5,
+                rx: b.width * 0.5,
+                ry: b.height * 0.5,
+                angle: 0.0,
+                filled: false,
+                color: "#000000".into(),
+            },
+            eid.clone(),
+        ),
+    }
     dl.push_tagged(
         RenderCommand::DrawText {
-            x: num_x,
-            y: num_y,
-            text: number.to_string(),
-            font: "serif italic".into(),
-            size: font_size,
+            x: label.x,
+            y: label.y,
+            text: label.text,
+            font: label.style.font_string(),
+            size: label.style.size_sp * sp,
             color: "#000000".into(),
-            align: TextAlign::Left,
+            align: label.align,
             baseline: TextBaseline::Top,
         },
-        element_id::measure_number(ml.resolved.index),
+        eid.clone(),
     );
+    dl.push_element_bbox_with_shape(ElementBBox {
+        element_id: eid,
+        bbox: label.bbox,
+    });
 }
 
 /// Top edge of a below-staff bar number, clearing the system-start clef.
@@ -85,43 +127,92 @@ pub(crate) fn start_clef(ml: &MeasureLayout) -> Option<&Clef> {
     })
 }
 
-fn render_multimeasure_number_range(
-    dl: &mut DisplayList,
+pub(crate) fn number_label(
     ml: &MeasureLayout,
     staff_y: f64,
     sp: f64,
-    count: u32,
     config: &LayoutConfig,
-) {
-    let start = match ml.resolved.global.number {
-        Some(0) => return,
-        Some(n) => n,
-        None => ml.resolved.index as i32 + 1,
+) -> Option<NumberLabel> {
+    let settings = &config.bar_numbers;
+    if settings.frequency == Some(BarNumberFrequency::Hidden) {
+        return None;
+    }
+    let (text, x, centered) = if let Some(count) = ml.multimeasure_rest_count {
+        let start = ml
+            .resolved
+            .global
+            .number
+            .unwrap_or(ml.resolved.index as i32 + 1);
+        if start == 0 {
+            return None;
+        }
+        let prefix = render_measure::multimeasure_rest_structural_prefix(ml, sp, config);
+        (
+            format!("{start}\u{2013}{}", start + count as i32 - 1),
+            ml.x + (prefix + ml.width) * 0.5,
+            true,
+        )
+    } else {
+        (measure_number_value(ml, config)?.to_string(), ml.x, false)
     };
-    let end = start + count as i32 - 1;
-
-    let font_size = 2.0 * sp;
-    let prefix = render_measure::multimeasure_rest_structural_prefix(ml, sp, config);
-    let center_x = ((ml.x + prefix) + (ml.x + ml.width)) / 2.0;
-    let num_y = staff_y + 4.0 * sp + 0.5 * sp;
-
-    dl.push_tagged(
-        RenderCommand::DrawText {
-            x: center_x,
-            y: num_y,
-            text: format!("{start}\u{2013}{end}"),
-            font: "serif italic".into(),
-            size: font_size,
-            color: "#000000".into(),
-            align: TextAlign::Center,
-            baseline: TextBaseline::Top,
+    let style = TextStyle {
+        size_sp: settings.size.unwrap_or(2.0),
+        family: settings.family.unwrap_or(FontFamily::Serif),
+        bold: settings.bold.unwrap_or(false),
+        italic: settings.italic.unwrap_or(true),
+        color: "#000000".into(),
+        align: TextAlignment::Left,
+    };
+    let size = style.size_sp * sp;
+    let width = text_width(&text, size, style.family, style.bold);
+    let padding = if settings.enclosure.unwrap_or_default() == BarNumberEnclosure::None {
+        0.0
+    } else {
+        0.4 * sp
+    };
+    let (box_width, box_height) = if settings.enclosure == Some(BarNumberEnclosure::Circle) {
+        let diameter = width.hypot(size) + 2.0 * padding;
+        (diameter, diameter)
+    } else {
+        (width + 2.0 * padding, size + 2.0 * padding)
+    };
+    let top = if settings.placement == Some(BarNumberPlacement::AboveSystem) {
+        staff_y
+            - config
+                .placement
+                .resolve(ElementKind::MeasureNumber)
+                .attach_gap
+                * sp
+            - box_height
+    } else if ml.multimeasure_rest_count.is_some() {
+        staff_y + 4.0 * sp + 0.5 * sp
+    } else {
+        below_staff_number_top_y(ml, staff_y, sp, config)
+    };
+    let left = x - if centered { box_width * 0.5 } else { padding };
+    Some(NumberLabel {
+        text,
+        x: if centered {
+            left + box_width * 0.5
+        } else {
+            left + (box_width - width) * 0.5
         },
-        element_id::measure_number(ml.resolved.index),
-    );
+        y: top + (box_height - size) * 0.5,
+        align: if centered {
+            TextAlign::Center
+        } else {
+            TextAlign::Left
+        },
+        bbox: BoundingBox::new(left, top, box_width, box_height),
+        style,
+    })
 }
 
-pub(crate) fn measure_number_value(ml: &MeasureLayout) -> Option<i32> {
-    if !ml.is_first_on_system {
+pub(crate) fn measure_number_value(ml: &MeasureLayout, config: &LayoutConfig) -> Option<i32> {
+    let settings = &config.bar_numbers;
+    if settings.frequency == Some(BarNumberFrequency::Hidden)
+        || (!ml.is_first_on_system && settings.frequency != Some(BarNumberFrequency::EveryBar))
+    {
         return None;
     }
     let number = match ml.resolved.global.number {
@@ -129,5 +220,91 @@ pub(crate) fn measure_number_value(ml: &MeasureLayout) -> Option<i32> {
         Some(n) => n,
         None => ml.resolved.index as i32 + 1,
     };
-    (number > 1).then_some(number)
+    (number > 1 || (number == 1 && settings.show_first == Some(true))).then_some(number)
+}
+
+/// Bar numbers join the existing outward stacking field after musical ink settles.
+pub(crate) fn flow_bar_numbers(
+    dl: &mut DisplayList,
+    staff_cmd_start: usize,
+    config: &LayoutConfig,
+) {
+    let side = if config.bar_numbers.placement == Some(BarNumberPlacement::AboveSystem) {
+        StackSide::Above
+    } else {
+        StackSide::Below
+    };
+    let metrics = config.placement.resolve(ElementKind::MeasureNumber);
+    let sp = config.sp;
+    let mut ids = Vec::new();
+    let mut boxes = Vec::new();
+    for (index, _) in dl.commands.iter().enumerate().skip(staff_cmd_start) {
+        let id = dl.element_ids.get(index).and_then(Option::as_deref);
+        if id.is_some_and(|id| id.ends_with("/mnum")) {
+            let id = id.unwrap();
+            if ids.iter().any(|known| known == id) {
+                continue;
+            }
+            let Some((left, right, top, bottom)) = super::marking_extent(dl, staff_cmd_start, id)
+            else {
+                continue;
+            };
+            ids.push(id.to_string());
+            boxes.push(StackBox {
+                x0: left,
+                x1: right,
+                y_top: top,
+                y_bottom: bottom,
+                stack_gap: metrics.padding.vertical * sp,
+                side_bearing: metrics.padding.horizontal * sp,
+                stack_rank: metrics.stack_rank,
+                side,
+                pinned: false,
+            });
+        }
+    }
+    if ids.is_empty() {
+        return;
+    }
+    for (index, command) in dl.commands.iter().enumerate().skip(staff_cmd_start) {
+        if dl
+            .element_ids
+            .get(index)
+            .and_then(Option::as_deref)
+            .is_some_and(|id| id.ends_with("/mnum"))
+        {
+            continue;
+        }
+        let bbox = match command {
+            RenderCommand::DrawGlyph {
+                x,
+                y,
+                codepoint,
+                size,
+                ..
+            } => Some(super::glyph_screen_bbox(*x, *y, *codepoint, *size).to_bbox()),
+            RenderCommand::DrawText { .. } => {
+                super::substrate_obstacles::text_command_bbox(command)
+            }
+            RenderCommand::EraseRect { .. } => None,
+            _ => command.bbox(),
+        };
+        if let Some(bbox) = bbox {
+            boxes.push(StackBox {
+                x0: bbox.x,
+                x1: bbox.x + bbox.width,
+                y_top: bbox.y,
+                y_bottom: bbox.y + bbox.height,
+                stack_gap: 0.0,
+                side_bearing: 0.0,
+                stack_rank: 0,
+                side,
+                pinned: true,
+            });
+        }
+    }
+    let shifts = resolve_stacking(&boxes);
+    for (id, shift) in ids.iter().zip(shifts) {
+        super::shift_marking(dl, staff_cmd_start, id, -shift);
+    }
 }

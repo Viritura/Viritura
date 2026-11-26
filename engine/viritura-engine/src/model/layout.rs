@@ -121,6 +121,8 @@ pub struct MultimeasureRestRange {
 #[serde(rename_all = "camelCase")]
 pub struct ScoreDefinition {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub bar_numbers: Option<super::score::BarNumberSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// Top-level layout reference for automatic system layout.
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -22,7 +22,7 @@ use super::ties::*;
 use super::trill_lines::*;
 use super::types::*;
 use super::volta::*;
-use super::{build_beat_anchors, layout_score_cached};
+use super::{build_beat_anchors, layout_score_with_config_cached};
 use crate::model::*;
 use crate::render::*;
 use std::collections::HashSet;
@@ -73,8 +73,21 @@ pub fn layout_full_score(score: &Score, config: &LayoutConfig) -> DisplayList {
 }
 
 /// Layout all parts with an optional layout cache.
-#[allow(clippy::too_many_lines)] // single multi-part assembly pass; cohesive pipeline stage
 pub fn layout_full_score_cached(
+    score: &Score,
+    config: &LayoutConfig,
+    cache: Option<&mut super::cache::LayoutCache>,
+) -> DisplayList {
+    let merged_config = crate::layout::orchestration::config_with_document_overrides(
+        score,
+        config,
+        LayoutContext::Score,
+    );
+    layout_full_score_with_config_cached(score, merged_config.as_ref().unwrap_or(config), cache)
+}
+
+#[allow(clippy::too_many_lines)] // single multi-part assembly pass; cohesive pipeline stage
+pub(super) fn layout_full_score_with_config_cached(
     score: &Score,
     config: &LayoutConfig,
     mut cache: Option<&mut super::cache::LayoutCache>,
@@ -92,17 +105,8 @@ pub fn layout_full_score_cached(
         return DisplayList::new(0.0, 0.0);
     }
     if part_count == 1 {
-        return layout_score_cached(score, 0, config, cache);
+        return layout_score_with_config_cached(score, 0, config, cache);
     }
-
-    // Apply the document's `_x.viritura` overrides. This path (no MNX layouts
-    // or score definitions) renders every part stacked, which is a score.
-    let merged_config = crate::layout::orchestration::config_with_document_overrides(
-        score,
-        config,
-        LayoutContext::Score,
-    );
-    let config = merged_config.as_ref().unwrap_or(config);
 
     let sp = config.sp;
     let staff_height = 4.0 * sp;
@@ -211,6 +215,9 @@ pub fn layout_full_score_cached(
         staff_height,
         inter_staff_gap,
         sp,
+        &all_resolved,
+        &all_resolved_ottavas,
+        common_shortest_beats,
     );
     let FullScorePageLayout {
         margin_left,
@@ -580,10 +587,14 @@ fn render_one_staff_for_system(
         .map(|(index, _)| staff_y_offsets[index])
         .collect();
     let shared_lane = shared_staff_lane(staff_y, sp, Some(&part_staff_y_offsets));
-    let render_measure_number_here = visual_staves
-        .first()
-        .is_some_and(|(part_index, _)| *part_index == current_part_index)
-        && shared_lane.is_bottom;
+    let render_measure_number_here = should_render_ordinary_measure_number(
+        &shared_lane,
+        Some(vi),
+        staff_y,
+        Some(staff_y_offsets),
+        Some(&part_staff_y_offsets),
+        config,
+    );
     let x_end = measure_layouts
         .last()
         .map_or(margin_left, |ml| ml.x + ml.width);
@@ -764,6 +775,7 @@ fn render_one_staff_for_system(
         Some(&part_staff_y_offsets),
     );
     render_pedals(dl, measure_layouts, staff_y, sp, config, actual_part_index);
+    super::render_annotations::flow_bar_numbers(dl, staff_cmd_start, config);
 
     // Capture this staff's event positions + system bounds so the
     // cross-system slur pass below can connect endpoints that live

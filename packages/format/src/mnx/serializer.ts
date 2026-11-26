@@ -99,13 +99,7 @@ function serializeRootExtensions(score: Score): Obj {
   if (score.pageSetupDefaults) virituraExt["pageSetupDefaults"] = score.pageSetupDefaults;
 
   if (score.metadata) {
-    const metaObj: Obj = {};
-    if (score.metadata.title) metaObj["title"] = score.metadata.title;
-    if (score.metadata.subtitle) metaObj["subtitle"] = score.metadata.subtitle;
-    if (score.metadata.composer) metaObj["composer"] = score.metadata.composer;
-    if (score.metadata.lyricist) metaObj["lyricist"] = score.metadata.lyricist;
-    if (score.metadata.arranger) metaObj["arranger"] = score.metadata.arranger;
-    if (score.metadata.copyright) metaObj["copyright"] = score.metadata.copyright;
+    const metaObj = serializeScoreMetadata(score.metadata);
     if (Object.keys(metaObj).length > 0) {
       virituraExt["metadata"] = metaObj;
     }
@@ -124,6 +118,7 @@ function serializeRootExtensions(score: Score): Obj {
   if (score.instrumentChangeStyle) {
     virituraExt["instrumentChangeStyle"] = { ...score.instrumentChangeStyle };
   }
+  if (score.barNumbers) virituraExt["barNumbers"] = { ...score.barNumbers };
 
   if (score.soundProfile) {
     const parts: Obj = {};
@@ -150,6 +145,17 @@ function serializeRootExtensions(score: Score): Obj {
   }
 
   return virituraExt;
+}
+
+function serializeScoreMetadata(metadata: NonNullable<Score["metadata"]>): Obj {
+  const obj: Obj = {};
+  if (metadata.title) obj["title"] = metadata.title;
+  if (metadata.subtitle) obj["subtitle"] = metadata.subtitle;
+  if (metadata.composer) obj["composer"] = metadata.composer;
+  if (metadata.lyricist) obj["lyricist"] = metadata.lyricist;
+  if (metadata.arranger) obj["arranger"] = metadata.arranger;
+  if (metadata.copyright) obj["copyright"] = metadata.copyright;
+  return obj;
 }
 
 /** Serialize score-to-picture settings (`_x.viritura.videoSync`). */

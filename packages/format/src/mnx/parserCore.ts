@@ -577,6 +577,8 @@ function applyRootExtensions(score: Score, rootX: Obj | undefined): void {
 
   const textStyles = parseRootTextStyles(rootX);
   if (textStyles) score.textStyles = textStyles;
+  const barNumbers = (rootX?.["viritura"] as Obj | undefined)?.["barNumbers"];
+  if (barNumbers) score.barNumbers = { ...(barNumbers as NonNullable<Score["barNumbers"]>) };
 
   const timeSignatures = parseRootTimeSignatures(rootX);
   if (timeSignatures) score.timeSignatures = timeSignatures;

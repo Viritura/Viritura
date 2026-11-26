@@ -95,9 +95,84 @@ pub struct InstrumentChangeStyle {
     pub show_advance_reminder: Option<bool>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum BarNumberFrequency {
+    #[default]
+    SystemStarts,
+    EveryBar,
+    Hidden,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum BarNumberPlacement {
+    AboveSystem,
+    BelowSystem,
+    #[default]
+    BelowTopInstrument,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum BarNumberEnclosure {
+    #[default]
+    None,
+    Box,
+    Circle,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BarNumberSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frequency: Option<BarNumberFrequency>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub placement: Option<BarNumberPlacement>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_first: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub family: Option<crate::layout::text_styles::FontFamily>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bold: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub italic: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enclosure: Option<BarNumberEnclosure>,
+}
+
+impl BarNumberSettings {
+    pub fn overlay(&mut self, other: &Self) {
+        macro_rules! overlay {
+            ($($field:ident),*) => {$(
+                if other.$field.is_some() { self.$field = other.$field; }
+            )*};
+        }
+        overlay!(frequency, placement, show_first, family, size, bold, italic, enclosure);
+    }
+
+    pub(crate) fn parse(value: &serde_json::Value) -> Result<Self, crate::promote::PromoteError> {
+        let settings: Self = serde_json::from_value(value.clone())
+            .map_err(|error| crate::promote::PromoteError::InvalidBarNumbers(error.to_string()))?;
+        if settings
+            .size
+            .is_some_and(|size| !size.is_finite() || !(0.5..=8.0).contains(&size))
+        {
+            return Err(crate::promote::PromoteError::InvalidBarNumbers(
+                "size must be between 0.5 and 8 staff spaces".into(),
+            ));
+        }
+        Ok(settings)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 /// Wrapper for `_x.viritura` vendor extension at root level.
 pub struct RootVirituraExtension {
+    #[serde(rename = "barNumbers", skip_serializing_if = "Option::is_none")]
+    pub bar_numbers: Option<BarNumberSettings>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<ScoreMetadata>,
     /// Per-document text style overrides: a partial map of role name → partial

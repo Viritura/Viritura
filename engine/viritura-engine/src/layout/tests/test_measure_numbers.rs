@@ -6,6 +6,320 @@ use crate::layout::measure::*;
 use crate::layout::resolve::*;
 use crate::parse::parse_mnx;
 use crate::render::*;
+use serde_json::{json, Value};
+
+fn bar_number_fixture(count: usize) -> Value {
+    let globals: Vec<_> = (0..count)
+        .map(|index| {
+            if index == 0 {
+                json!({"id": "m0", "time": {"count": 4, "unit": 4}})
+            } else {
+                json!({"id": format!("m{index}")})
+            }
+        })
+        .collect();
+    let piano: Vec<_> = (0..count).map(|index| {
+        let mut measure = json!({"sequences": [
+            {"staff": 1, "content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}]},
+            {"staff": 2, "content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}]}
+        ]});
+        if index == 0 {
+            measure["clefs"] = json!([
+                {"staff": 1, "clef": {"sign": "G", "staffPosition": -2}},
+                {"staff": 2, "clef": {"sign": "F", "staffPosition": 2}}
+            ]);
+        }
+        measure
+    }).collect();
+    let violin: Vec<_> = (0..count).map(|_| json!({"sequences": [
+        {"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "A", "octave": 4}}]}]}
+    ]})).collect();
+    json!({
+        "mnx": {"version": 1},
+        "global": {"measures": globals},
+        "parts": [
+            {"id": "piano", "name": "Piano", "staves": 2, "measures": piano},
+            {"id": "violin", "name": "Violin", "measures": violin}
+        ],
+        "layouts": [{"id": "L", "content": [
+            {"type": "group", "symbol": "brace", "content": [
+                {"type": "staff", "sources": [{"part": "piano", "staff": 1}]},
+                {"type": "staff", "sources": [{"part": "piano", "staff": 2}]}
+            ]},
+            {"type": "staff", "sources": [{"part": "violin"}]}
+        ]}],
+        "scores": [{"name": "Score", "layout": "L"}, {"name": "Alternative", "layout": "L"}]
+    })
+}
+
+fn bar_number_texts(dl: &DisplayList) -> Vec<&str> {
+    dl.commands
+        .iter()
+        .zip(&dl.element_ids)
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawText { text, .. }
+                if id.as_deref().is_some_and(|id| id.ends_with("/mnum")) =>
+            {
+                Some(text.as_str())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn bar_number_layout_overrides_inherit_house_style_without_affecting_other_views() {
+    let mut source = bar_number_fixture(4);
+    source["_x"] = json!({"viritura": {"barNumbers": {
+        "frequency": "everyBar", "showFirst": true, "family": "sans-serif", "bold": true
+    }}});
+    source["scores"][1]["_x"] = json!({"viritura": {"barNumbers": {
+        "showFirst": false, "italic": false, "size": 1.5, "enclosure": "circle"
+    }}});
+    let score = parse_mnx(&source.to_string()).unwrap();
+    let config = LayoutConfig::default();
+    let default = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    assert_eq!(bar_number_texts(&default), ["1", "2", "3", "4"]);
+    let alternative = crate::layout::layout_with_mnx_scores(&score, &config, 1);
+    assert_eq!(bar_number_texts(&alternative), ["2", "3", "4"]);
+    for (command, id) in alternative.commands.iter().zip(&alternative.element_ids) {
+        if id.as_deref().is_some_and(|id| id.ends_with("/mnum")) {
+            if let RenderCommand::DrawText { font, size, .. } = command {
+                assert_eq!(font, "sans-serif bold");
+                assert_eq!(*size, 1.5 * config.sp);
+            }
+        }
+    }
+    assert_eq!(alternative.commands.iter().filter(|command|
+        matches!(command, RenderCommand::DrawEllipse { filled: false, rx, ry, .. } if rx == ry)
+    ).count(), 3);
+    source["scores"][1]["_x"]["viritura"]["barNumbers"]["frequency"] = json!("hidden");
+    let score = parse_mnx(&source.to_string()).unwrap();
+    assert!(
+        bar_number_texts(&crate::layout::layout_with_mnx_scores(&score, &config, 1)).is_empty()
+    );
+    source["layouts"] = json!([]);
+    for parts in [2, 1] {
+        source["parts"].as_array_mut().unwrap().truncate(parts);
+        let score = parse_mnx(&source.to_string()).unwrap();
+        assert!(
+            bar_number_texts(&crate::layout::layout_with_mnx_scores(&score, &config, 1)).is_empty(),
+            "fallback layouts must retain view overrides"
+        );
+    }
+}
+
+#[test]
+fn every_bar_numbers_follow_configured_staff_across_systems() {
+    let mut source = bar_number_fixture(12);
+    for placement in ["belowSystem", "belowTopInstrument"] {
+        source["_x"] = json!({"viritura": {"barNumbers": {
+            "frequency": "everyBar", "showFirst": true, "placement": placement, "enclosure": "box"
+        }}});
+        let score = parse_mnx(&source.to_string()).unwrap();
+        let config = LayoutConfig {
+            page_width: Some(450.0),
+            ..LayoutConfig::default()
+        };
+        let dl = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+        assert!(dl
+            .measure_bounds
+            .iter()
+            .any(|bounds| bounds.system_index > 0));
+        assert_eq!(bar_number_texts(&dl).len(), 12);
+        for index in 0..12 {
+            let number = &dl
+                .element_bboxes
+                .iter()
+                .find(|bbox| bbox.element_id == format!("m{index}/mnum"))
+                .unwrap()
+                .bbox;
+            let bottom = dl
+                .measure_bounds
+                .iter()
+                .filter(|bounds| {
+                    bounds.index == index && (placement == "belowSystem" || bounds.part_index == 0)
+                })
+                .map(|bounds| bounds.y + 4.0 * config.sp)
+                .max_by(f64::total_cmp)
+                .unwrap();
+            assert!(
+                number.y > bottom,
+                "bar {index} must be below the configured instrument/system"
+            );
+            if placement == "belowTopInstrument" {
+                let next_staff = dl
+                    .measure_bounds
+                    .iter()
+                    .find(|bounds| bounds.index == index && bounds.part_index == 1)
+                    .unwrap();
+                assert!(
+                    number.y + number.height < next_staff.y,
+                    "top-instrument numbers must clear the next instrument"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn multimeasure_rest_ranges_follow_bar_number_style_and_visibility() {
+    let mut source = bar_number_fixture(4);
+    for part in source["parts"].as_array_mut().unwrap() {
+        for measure in part["measures"].as_array_mut().unwrap() {
+            for sequence in measure["sequences"].as_array_mut().unwrap() {
+                sequence["content"] = json!([{"duration": {"base": "whole"}, "rest": {}}]);
+            }
+        }
+    }
+    source["scores"][0]["multimeasureRests"] = json!([{"start": "m0", "duration": 4}]);
+    source["_x"] = json!({"viritura": {"barNumbers": {
+        "placement": "belowSystem", "enclosure": "box"
+    }}});
+    let config = LayoutConfig::default();
+    let score = parse_mnx(&source.to_string()).unwrap();
+    let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    assert_eq!(bar_number_texts(&display), ["1\u{2013}4"]);
+    assert_eq!(
+        display
+            .element_bboxes
+            .iter()
+            .filter(|region| region.element_id == "m0/mnum")
+            .count(),
+        1
+    );
+    source["_x"]["viritura"]["barNumbers"]["frequency"] = json!("hidden");
+    let score = parse_mnx(&source.to_string()).unwrap();
+    assert!(
+        bar_number_texts(&crate::layout::layout_with_mnx_scores(&score, &config, 0)).is_empty()
+    );
+}
+
+#[test]
+fn above_bar_numbers_clear_clef_and_rehearsal_frames() {
+    let mut source = bar_number_fixture(2);
+    source["_x"] = json!({"viritura": {"barNumbers": {
+        "frequency": "everyBar", "showFirst": true, "placement": "aboveSystem", "enclosure": "box"
+    }}});
+    source["global"]["measures"][0]["_x"] =
+        json!({"viritura": {"rehearsalMark": {"text": [{"text": "A"}]}}});
+    let score = parse_mnx(&source.to_string()).unwrap();
+    let config = LayoutConfig::default();
+    let dl = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    let number = &dl
+        .element_bboxes
+        .iter()
+        .find(|bbox| bbox.element_id == "m0/mnum")
+        .unwrap()
+        .bbox;
+    let rehearsal = &dl
+        .element_bboxes
+        .iter()
+        .find(|bbox| bbox.element_id == "m0/rehearsal")
+        .unwrap()
+        .bbox;
+    assert!(
+        number.y + number.height < rehearsal.y,
+        "bar number must clear the rehearsal frame"
+    );
+    for command in &dl.commands {
+        if let RenderCommand::DrawGlyph {
+            x,
+            y,
+            codepoint,
+            size,
+            ..
+        } = command
+        {
+            let bounds =
+                crate::layout::render_annotations::glyph_screen_bbox(*x, *y, *codepoint, *size);
+            if bounds.right > number.x && bounds.left < number.x + number.width {
+                assert!(
+                    number.y + number.height < bounds.top,
+                    "bar number must clear overlapping glyph ink"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn every_bar_keeps_pickup_zero_unprinted() {
+    let mut source = bar_number_fixture(3);
+    source["global"]["measures"][0]["number"] = json!(0);
+    source["global"]["measures"][1]["number"] = json!(1);
+    source["global"]["measures"][2]["number"] = json!(2);
+    source["_x"] =
+        json!({"viritura": {"barNumbers": {"frequency": "everyBar", "showFirst": true}}});
+    let score = parse_mnx(&source.to_string()).unwrap();
+    assert_eq!(
+        bar_number_texts(&crate::layout::layout_with_mnx_scores(
+            &score,
+            &LayoutConfig::default(),
+            0
+        )),
+        ["1", "2"]
+    );
+}
+
+#[test]
+fn bar_number_placement_and_hit_regions_work_in_legacy_single_and_grand_staff_views() {
+    let mut source = bar_number_fixture(4);
+    for placement in ["aboveSystem", "belowSystem"] {
+        source["_x"] = json!({"viritura": {"barNumbers": {
+            "frequency": "everyBar", "showFirst": true, "placement": placement,
+            "size": 3.0, "enclosure": "circle"
+        }}});
+        source["global"]["measures"][0]["_x"] =
+            json!({"viritura": {"rehearsalMark": {"text": [{"text": "A"}]}}});
+        let score = parse_mnx(&source.to_string()).unwrap();
+        let config = LayoutConfig::default();
+        let displays = [
+            layout_score(&score, 0, &config),
+            layout_score(&score, 1, &config),
+            crate::layout::layout_full_score(&score, &config),
+        ];
+        for (path, display) in displays.into_iter().enumerate() {
+            assert_eq!(bar_number_texts(&display).len(), 4);
+            for index in 0..4 {
+                let regions: Vec<_> = display
+                    .element_bboxes
+                    .iter()
+                    .filter(|element| element.element_id == format!("m{index}/mnum"))
+                    .collect();
+                assert_eq!(
+                    regions.len(),
+                    1,
+                    "each painted number needs exactly one hit region"
+                );
+                let region = &regions[0].bbox;
+                assert!(
+                    region.y >= -1e-6 && region.y + region.height <= display.height + 1e-6,
+                    "bar-number ink must stay inside the galley: placement={placement}, path={path}, bar={index}, bbox={region:?}, height={}",
+                    display.height
+                );
+                let outer = display
+                    .measure_bounds
+                    .iter()
+                    .filter(|bounds| bounds.index == index)
+                    .map(|bounds| bounds.y)
+                    .reduce(|left, right| {
+                        if placement == "aboveSystem" {
+                            left.min(right)
+                        } else {
+                            left.max(right)
+                        }
+                    })
+                    .unwrap();
+                if placement == "aboveSystem" {
+                    assert!(region.y + region.height < outer);
+                } else {
+                    assert!(region.y > outer + 4.0 * config.sp);
+                }
+            }
+        }
+    }
+}
 
 // ================================================
 // Measure numbers — parsing

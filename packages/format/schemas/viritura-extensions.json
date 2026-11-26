@@ -1350,12 +1350,29 @@
       "additionalProperties": false
     },
 
+    "bar-number-settings": {
+      "type": "object",
+      "description": "Partial bar-number house style. Score-view overrides inherit omitted fields from the document defaults.",
+      "properties": {
+        "frequency": { "enum": ["systemStarts", "everyBar", "hidden"] },
+        "placement": { "enum": ["aboveSystem", "belowSystem", "belowTopInstrument"] },
+        "showFirst": { "type": "boolean" },
+        "family": { "enum": ["serif", "sans-serif", "monospace"] },
+        "size": { "type": "number", "minimum": 0.5, "maximum": 8 },
+        "bold": { "type": "boolean" },
+        "italic": { "type": "boolean" },
+        "enclosure": { "enum": ["none", "box", "circle"] }
+      },
+      "additionalProperties": false
+    },
+
     "score-extensions": {
       "type": "object",
       "description": "Viritura extensions on a standard MNX score definition.",
       "properties": {
         "pageSetup": { "$ref": "#/$defs/page-setup" },
         "pageSetupRole": { "enum": ["score", "part"] },
+        "barNumbers": { "$ref": "#/$defs/bar-number-settings" },
         "instrumentNameDisplay": { "$ref": "#/$defs/instrument-name-display" },
         "autoHideEmptyParts": {
           "type": "array",
@@ -2123,6 +2140,7 @@
           "$ref": "#/$defs/text-styles",
           "description": "Per-document text style overrides."
         },
+        "barNumbers": { "$ref": "#/$defs/bar-number-settings" },
         "placement": {
           "$ref": "#/$defs/placement",
           "description": "Per-document placement (clearance) overrides keyed by dependent kind."

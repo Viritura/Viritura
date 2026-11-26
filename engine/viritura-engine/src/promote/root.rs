@@ -100,6 +100,10 @@ fn promote_root_vendor(
         .cloned()
         .and_then(|v| serde_json::from_value::<ModelScoreMetadata>(v).ok());
     let text_styles = json.get("textStyles").cloned();
+    let bar_numbers = json
+        .get("barNumbers")
+        .map(crate::model::score::BarNumberSettings::parse)
+        .transpose()?;
     let placement = json.get("placement").cloned();
     let time_signatures = json
         .get("timeSignatures")
@@ -128,11 +132,13 @@ fn promote_root_vendor(
         && time_signatures.is_none()
         && chord_symbol_style.is_none()
         && instrument_change_style.is_none()
+        && bar_numbers.is_none()
     {
         return Ok(None);
     }
     Ok(Some(ModelRootVendorExtension {
         viritura: Some(ModelRootVirituraExtension {
+            bar_numbers,
             metadata,
             text_styles,
             placement,
@@ -370,6 +376,7 @@ mod tests {
         let schema_keys = schema_property_keys(&schema, "root-extensions");
 
         let model = ModelRootVirituraExtension {
+            bar_numbers: Some(crate::model::BarNumberSettings::default()),
             metadata: Some(ModelScoreMetadata::default()),
             text_styles: Some(serde_json::json!({})),
             placement: Some(serde_json::json!({})),

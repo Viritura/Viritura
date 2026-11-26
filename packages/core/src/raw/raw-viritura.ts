@@ -666,11 +666,27 @@ export interface components {
             spatiumMm?: number;
             pageTurns?: components["schemas"]["page-turn-settings"];
         };
+        /** @description Partial bar-number house style. Score-view overrides inherit omitted fields from the document defaults. */
+        "bar-number-settings": {
+            /** @enum {unknown} */
+            frequency?: "systemStarts" | "everyBar" | "hidden";
+            /** @enum {unknown} */
+            placement?: "aboveSystem" | "belowSystem" | "belowTopInstrument";
+            showFirst?: boolean;
+            /** @enum {unknown} */
+            family?: "serif" | "sans-serif" | "monospace";
+            size?: number;
+            bold?: boolean;
+            italic?: boolean;
+            /** @enum {unknown} */
+            enclosure?: "none" | "box" | "circle";
+        };
         /** @description Viritura extensions on a standard MNX score definition. */
         "score-extensions": {
             pageSetup?: components["schemas"]["page-setup"];
             /** @enum {unknown} */
             pageSetupRole?: "score" | "part";
+            barNumbers?: components["schemas"]["bar-number-settings"];
             instrumentNameDisplay?: components["schemas"]["instrument-name-display"];
             /** @description Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged. */
             autoHideEmptyParts?: string[];
@@ -1084,6 +1100,7 @@ export interface components {
             };
             /** @description Per-document text style overrides. */
             textStyles?: components["schemas"]["text-styles"];
+            barNumbers?: components["schemas"]["bar-number-settings"];
             /** @description Per-document placement (clearance) overrides keyed by dependent kind. */
             placement?: components["schemas"]["placement"];
             /** @description Per-document time signature engraving styles for scores and parts. */
@@ -1189,6 +1206,7 @@ export type PageTurnWeights = components["schemas"]["page-turn-weights"];
 export type PageTurnSettings = components["schemas"]["page-turn-settings"];
 export type PageMargins = components["schemas"]["page-margins"];
 export type PageSetup = components["schemas"]["page-setup"];
+export type BarNumberSettings = components["schemas"]["bar-number-settings"];
 export type ScoreExtensions = components["schemas"]["score-extensions"];
 export type TextFrame = components["schemas"]["text-frame"];
 export type TextFramePagePosition = components["schemas"]["text-frame-page-position"];

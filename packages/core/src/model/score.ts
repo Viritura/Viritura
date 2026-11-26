@@ -45,6 +45,30 @@ export interface TextStyleOverride {
  */
 export type TextStyles = Partial<Record<string, TextStyleOverride>>;
 
+/** House-style defaults, with optional overrides on each score view. */
+export interface BarNumberSettings {
+  frequency?: "systemStarts" | "everyBar" | "hidden";
+  placement?: "aboveSystem" | "belowSystem" | "belowTopInstrument";
+  showFirst?: boolean;
+  family?: FontFamily;
+  /** Font size in staff spaces. */
+  size?: number;
+  bold?: boolean;
+  italic?: boolean;
+  enclosure?: "none" | "box" | "circle";
+}
+
+export const DEFAULT_BAR_NUMBER_SETTINGS: Required<BarNumberSettings> = {
+  frequency: "systemStarts",
+  placement: "belowTopInstrument",
+  showFirst: false,
+  family: "serif",
+  size: 2,
+  bold: false,
+  italic: true,
+  enclosure: "none",
+};
+
 /** Glyph treatment, independent of placement, distribution, and scale. */
 export type TimeSignatureRenderStyle = "standard" | "narrow" | "outsideStaff" | "singleNumber" | "noteValue";
 
@@ -320,6 +344,8 @@ export interface Score {
   metadata?: ScoreMetadata;
   /** Per-document text style overrides (root _x.viritura.textStyles). */
   textStyles?: TextStyles;
+  /** Document defaults, stored in root `_x.viritura.barNumbers`. */
+  barNumbers?: BarNumberSettings;
   /** Time signature engraving styles (root `_x.viritura.timeSignatures`). */
   timeSignatures?: TimeSignatureStyles;
   /** Chord-symbol engraving style (root `_x.viritura.chordSymbolStyle`). */

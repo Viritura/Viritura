@@ -22,6 +22,63 @@ const mnxFiles = fs
   .sort();
 
 describe("MNX round-trip (parse → serialize → parse)", () => {
+  it("preserves bar-number defaults and partial layout overrides, including false values", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [{ id: "p", measures: [{ sequences: [] }] }],
+      layouts: [{ id: "L", content: [{ type: "staff", sources: [{ part: "p" }] }] }],
+      scores: [
+        { name: "Score", layout: "L" },
+        {
+          name: "Part",
+          layout: "L",
+          _x: {
+            viritura: {
+              barNumbers: {
+                frequency: "everyBar",
+                showFirst: false,
+                italic: false,
+                enclosure: "circle",
+              },
+            },
+          },
+        },
+      ],
+      _x: {
+        viritura: {
+          barNumbers: {
+            placement: "aboveSystem",
+            family: "sans-serif",
+            size: 1.5,
+            bold: true,
+            showFirst: true,
+          },
+        },
+      },
+    };
+    const score = parseMnx(source);
+    const saved = serializeMnx(score);
+    expect(saved._x?.["viritura"]).toMatchObject(source._x.viritura);
+    expect(saved.scores?.[1]?._x?.["viritura"]).toEqual(source.scores[1]!._x!.viritura);
+    expect(parseMnx(saved)).toEqual(score);
+    expect(score.scores?.[0]?.barNumbers).toBeUndefined();
+  });
+
+  it.each([{ size: 0 }, { size: 9 }, { frequency: "sometimes" }, { placement: "betweenStaves" }, { bold: "yes" }])(
+    "rejects invalid bar-number settings %j",
+    (barNumbers) => {
+      expect(() =>
+        parseMnx({
+          mnx: { version: 1 },
+          global: { measures: [] },
+          parts: [],
+          _x: { viritura: { barNumbers } },
+        }),
+      ).toThrow();
+    },
+  );
+
   it("preserves the automatically added barline when a key change is saved", () => {
     const score = parseMnx({
       mnx: { version: 1 },

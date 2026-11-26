@@ -11,24 +11,24 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                         | JSON Path                                       | Extensions                                                                                                                   |
-| -------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)             | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
-| score definition                                   | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks, textFrames                                                                   |
-| [source part](#source-part-extensions)             | `parts[]._x.viritura`                           | instrumentId, midiProgram, solo, family, spatial, chordSymbolVisibility, instruments, initialInstrument                      |
-| [measure-global](#global-measure-extensions)       | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                      |
-| [time signature](#time-signature-extensions)       | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                      |
-| [part-measure](#part-measure-extensions)           | `parts[].measures[]._x.viritura`                | pedals, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                                         |
-| positioned text                                    | `parts[].measures[].text[]._x.viritura`         | frame, pagePosition, manualOffset, avoidCollisions                                                                           |
-| formatted-text chunk                               | `parts[].measures[].text[].text[]._x.viritura`  | style, smuflStyle                                                                                                            |
-| positioned staff configuration                     | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                        |
-| [dynamic-group](#dynamic-group-extensions)         | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                |
-| [full-measure rest](#full-measure-rest-extensions) | `...sequences[].fullMeasure._x.viritura`        | caesura                                                                                                                      |
-| [event-markings](#event-markings-extensions)       | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                 |
-| [event](#event-extensions)                         | `...content[]._x.viritura`                      | glissandos                                                                                                                   |
-| [tuplet](#cross-barline-tuplet-fragments)          | `...content[]._x.viritura`                      | span                                                                                                                         |
-| [slur](#slur-extensions)                           | `...content[].slurs[]._x.viritura`              | shape                                                                                                                        |
-| [kit-component](#kit-component-extensions)         | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                     |
+| MNX Object                                         | JSON Path                                       | Extensions                                                                                                                               |
+| -------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)             | `_x.viritura`                                   | metadata, textStyles, barNumbers, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
+| score definition                                   | `scores[]._x.viritura`                          | pageSetup, barNumbers, instrumentNameDisplay, layoutBreaks, textFrames                                                                   |
+| [source part](#source-part-extensions)             | `parts[]._x.viritura`                           | instrumentId, midiProgram, solo, family, spatial, chordSymbolVisibility, instruments, initialInstrument                                  |
+| [measure-global](#global-measure-extensions)       | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                                  |
+| [time signature](#time-signature-extensions)       | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                                  |
+| [part-measure](#part-measure-extensions)           | `parts[].measures[]._x.viritura`                | pedals, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                                                     |
+| positioned text                                    | `parts[].measures[].text[]._x.viritura`         | frame, pagePosition, manualOffset, avoidCollisions                                                                                       |
+| formatted-text chunk                               | `parts[].measures[].text[].text[]._x.viritura`  | style, smuflStyle                                                                                                                        |
+| positioned staff configuration                     | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                                    |
+| [dynamic-group](#dynamic-group-extensions)         | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                            |
+| [full-measure rest](#full-measure-rest-extensions) | `...sequences[].fullMeasure._x.viritura`        | caesura                                                                                                                                  |
+| [event-markings](#event-markings-extensions)       | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                             |
+| [event](#event-extensions)                         | `...content[]._x.viritura`                      | glissandos                                                                                                                               |
+| [tuplet](#cross-barline-tuplet-fragments)          | `...content[]._x.viritura`                      | span                                                                                                                                     |
+| [slur](#slur-extensions)                           | `...content[].slurs[]._x.viritura`              | shape                                                                                                                                    |
+| [kit-component](#kit-component-extensions)         | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                                 |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -825,6 +825,53 @@ layout staff. Chord events also have no `displayStaff` property.
 ---
 
 ## Score Root Extensions
+
+### `barNumbers`
+
+Document-wide defaults live at `_x.viritura.barNumbers`. Each score view can
+override individual fields at `scores[]._x.viritura.barNumbers`; omitted fields
+inherit the document house style. Engrave mode exposes both scopes under
+**House Style > Bar Numbers**. Resetting a layout's overrides restores inheritance.
+
+| Field       | Values                                             | Default              |
+| ----------- | -------------------------------------------------- | -------------------- |
+| `frequency` | `systemStarts`, `everyBar`, `hidden`               | `systemStarts`       |
+| `placement` | `aboveSystem`, `belowSystem`, `belowTopInstrument` | `belowTopInstrument` |
+| `showFirst` | boolean, prints bar 1 when eligible                | `false`              |
+| `family`    | `serif`, `sans-serif`, `monospace`                 | `serif`              |
+| `size`      | 0.5 to 8 staff spaces                              | 2                    |
+| `bold`      | boolean                                            | `false`              |
+| `italic`    | boolean                                            | `true`               |
+| `enclosure` | `none`, `box`, `circle`                            | `none`               |
+
+The default preserves the existing placement below the top instrument's lowest
+staff. Whole-system placement uses the outer visible staff, including grand
+staves and systems whose staff membership changes. Numbers clear clefs and
+other musical ink, including rehearsal frames, by moving away from the staff.
+Bar 0 remains unprinted, including when `showFirst` is enabled. Collapsed
+multimeasure rests retain their range labels rather than printing each hidden
+bar; `hidden` suppresses those labels as well.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "barNumbers": { "placement": "aboveSystem", "family": "sans-serif" }
+    }
+  },
+  "scores": [
+    {
+      "name": "Rehearsal layout",
+      "layout": "orchestra",
+      "_x": {
+        "viritura": {
+          "barNumbers": { "frequency": "everyBar", "showFirst": true, "enclosure": "box" }
+        }
+      }
+    }
+  ]
+}
+```
 
 `_x.viritura` on the top-level score object. Schema def: `root-extensions`.
 
