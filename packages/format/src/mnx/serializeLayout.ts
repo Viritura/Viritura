@@ -85,6 +85,17 @@ export function serializeScoreDefinition(sd: ScoreDefinition): Obj {
   if (sd.autoHideEmptyParts !== undefined) {
     viritura["autoHideEmptyParts"] = [...sd.autoHideEmptyParts];
   }
+  if (sd.autoHideEmptyStaves) {
+    const options: Obj = {};
+    if (sd.autoHideEmptyStaves.firstSystem) options["firstSystem"] = sd.autoHideEmptyStaves.firstSystem;
+    if (sd.autoHideEmptyStaves.keepVisible && sd.autoHideEmptyStaves.keepVisible.length > 0) {
+      options["keepVisible"] = sd.autoHideEmptyStaves.keepVisible.map((entry) => ({
+        measure: entry.measure,
+        parts: [...entry.parts],
+      }));
+    }
+    if (Object.keys(options).length > 0) viritura["autoHideEmptyStaves"] = options;
+  }
   if (sd.layoutBreaks && sd.layoutBreaks.length > 0) {
     viritura["layoutBreaks"] = sd.layoutBreaks.map((entry) => ({ ...entry }));
   }

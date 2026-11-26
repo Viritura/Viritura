@@ -1,8 +1,9 @@
 //! Promote the `ScoreDefinition` (MNX `score`) into the engine model.
 
 use crate::model::layout::{
-    InstrumentNameDisplayPolicy, InstrumentNameDisplaySettings, LayoutBreak, LayoutBreakKind,
-    MultimeasureRestRange as ModelMultimeasureRestRange, ScoreDefinition as ModelScoreDefinition,
+    AutoHideEmptyStaves, InstrumentNameDisplayPolicy, InstrumentNameDisplaySettings, LayoutBreak,
+    LayoutBreakKind, MultimeasureRestRange as ModelMultimeasureRestRange,
+    ScoreDefinition as ModelScoreDefinition,
 };
 use crate::promote::layout::promote_page;
 use crate::promote::text_frame::promote_text_frames;
@@ -68,6 +69,26 @@ pub(crate) fn promote_score_definition(
             "expected unique, nonempty part IDs".into(),
         ));
     }
+    let auto_hide_empty_staves: Option<AutoHideEmptyStaves> = viritura
+        .and_then(|ext| ext.get("autoHideEmptyStaves"))
+        .map(|value| serde_json::from_value(value.clone()))
+        .transpose()
+        .map_err(|error| PromoteError::InvalidAutoHideEmptyParts(error.to_string()))?;
+    if auto_hide_empty_staves.as_ref().is_some_and(|options| {
+        options.keep_visible.iter().any(|entry| {
+            let mut seen = std::collections::HashSet::new();
+            entry.measure.is_empty()
+                || entry.parts.is_empty()
+                || entry
+                    .parts
+                    .iter()
+                    .any(|id| id.is_empty() || !seen.insert(id))
+        })
+    }) {
+        return Err(PromoteError::InvalidAutoHideEmptyParts(
+            "keepVisible entries need a measure and unique, nonempty part IDs".into(),
+        ));
+    }
     Ok(ModelScoreDefinition {
         bar_numbers: viritura
             .and_then(|ext| ext.get("barNumbers"))
@@ -84,6 +105,7 @@ pub(crate) fn promote_score_definition(
         pages: r.pages.into_iter().map(promote_page).collect(),
         instrument_name_display,
         auto_hide_empty_parts,
+        auto_hide_empty_staves,
         layout_breaks,
         text_frames,
     })
@@ -107,5 +129,20 @@ mod tests {
         let r: raw::Score = serde_json::from_str(r#"{"name":"Conductor"}"#).unwrap();
         let s = promote_score_definition(r).unwrap();
         assert_eq!(s.name.as_deref(), Some("Conductor"));
+    }
+
+    #[test]
+    fn rejects_malformed_auto_hide_decisions() {
+        for options in [
+            r#"{"firstSystem":"always"}"#,
+            r#"{"keepVisible":[{"measure":"m1","parts":[]}]}"#,
+            r#"{"keepVisible":[{"measure":"m1","parts":["a","a"]}]}"#,
+        ] {
+            let source = format!(
+                r#"{{"name":"S","_x":{{"viritura":{{"autoHideEmptyStaves":{options}}}}}}}"#
+            );
+            let r: raw::Score = serde_json::from_str(&source).unwrap();
+            assert!(promote_score_definition(r).is_err(), "{options}");
+        }
     }
 }

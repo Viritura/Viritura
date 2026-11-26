@@ -196,6 +196,8 @@ export interface GhostRailGroup {
    * with music" (red + warning).
    */
   staffGroupHasMusic: boolean[];
+  /** Parallel to `staffGroups`: true when the automatic empty-staff policy hid the staff. */
+  staffGroupAutomatic: boolean[];
   /** Visible part id directly above this run, or null if at the top edge. */
   aboveVisiblePartId: string | null;
   /** Visible part id directly below this run, or null if at the bottom edge. */
@@ -237,10 +239,15 @@ function groupRunByStaff(run: string[], staffKeyByPart: Map<string, string>): st
   return out;
 }
 
-export function ghostRailGroupsOnSystem(score: Score, scoreIndex: number, systemMeasureId: string): GhostRailGroup[] {
+export function ghostRailGroupsOnSystem(
+  score: Score,
+  scoreIndex: number,
+  systemMeasureId: string,
+  automaticHidden: ReadonlySet<string> = new Set(),
+): GhostRailGroup[] {
   const order = basePartOrder(score, scoreIndex);
   if (order.length === 0) return [];
-  const hidden = hiddenPartsOnSystem(score, scoreIndex, systemMeasureId);
+  const hidden = new Set([...hiddenPartsOnSystem(score, scoreIndex, systemMeasureId), ...automaticHidden]);
   if (hidden.size === 0) return [];
 
   const sd = score.scores?.[scoreIndex];
@@ -248,7 +255,11 @@ export function ghostRailGroupsOnSystem(score: Score, scoreIndex: number, system
   const staffKeyByPart = buildStaffKeyByPart(base);
 
   const musicByGroups = (sgs: string[][]): boolean[] =>
-    sgs.map((arr) => arr.some((pid) => hiddenRangeHasMusic(score, scoreIndex, systemMeasureId, pid)));
+    sgs.map((arr) =>
+      arr.some((pid) => !automaticHidden.has(pid) && hiddenRangeHasMusic(score, scoreIndex, systemMeasureId, pid)),
+    );
+  const automaticByGroups = (sgs: string[][]): boolean[] =>
+    sgs.map((arr) => arr.every((pid) => automaticHidden.has(pid)));
 
   const groups: GhostRailGroup[] = [];
   let run: string[] = [];
@@ -265,6 +276,7 @@ export function ghostRailGroupsOnSystem(score: Score, scoreIndex: number, system
         partIds: run,
         staffGroups: sgs,
         staffGroupHasMusic: musicByGroups(sgs),
+        staffGroupAutomatic: automaticByGroups(sgs),
         aboveVisiblePartId: aboveVisible,
         belowVisiblePartId: pid,
       });
@@ -279,6 +291,7 @@ export function ghostRailGroupsOnSystem(score: Score, scoreIndex: number, system
       partIds: run,
       staffGroups: sgs,
       staffGroupHasMusic: musicByGroups(sgs),
+      staffGroupAutomatic: automaticByGroups(sgs),
       aboveVisiblePartId: aboveVisible,
       belowVisiblePartId: null,
     });

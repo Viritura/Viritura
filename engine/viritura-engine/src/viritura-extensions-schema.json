@@ -1385,6 +1385,39 @@
       "additionalProperties": false
     },
 
+    "auto-hide-empty-staves": {
+      "type": "object",
+      "description": "Options for the autoHideEmptyParts policy of this score view. Manually omitted staves are never restored by these options.",
+      "properties": {
+        "firstSystem": {
+          "type": "string",
+          "enum": ["hide", "show"],
+          "description": "Whether the first system may hide empty instruments (hide, the default) or retains every staff in the layout (show)."
+        },
+        "keepVisible": {
+          "type": "array",
+          "description": "Explicit per-system decisions that win over the policy. The listed parts stay visible on the system containing the measure.",
+          "items": { "$ref": "#/$defs/auto-hide-keep-visible" }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "auto-hide-keep-visible": {
+      "type": "object",
+      "required": ["measure", "parts"],
+      "properties": {
+        "measure": { "type": "string", "minLength": 1 },
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+
     "score-extensions": {
       "type": "object",
       "description": "Viritura extensions on a standard MNX score definition.",
@@ -1395,10 +1428,11 @@
         "instrumentNameDisplay": { "$ref": "#/$defs/instrument-name-display" },
         "autoHideEmptyParts": {
           "type": "array",
-          "description": "Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.",
+          "description": "Part IDs eligible for automatic hiding on each system in paged views of this score view only. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.",
           "items": { "type": "string", "minLength": 1 },
           "uniqueItems": true
         },
+        "autoHideEmptyStaves": { "$ref": "#/$defs/auto-hide-empty-staves" },
         "textFrames": {
           "type": "array",
           "description": "Free text frames owned by this score view. A page locator uses a zero-based index into the final rendered page array; measure and event locators follow their target onto its rendered page. Event IDs are scoped by the required part ID. Placement is relative to an edge or corner of the printable page area, with offsets in staff spaces (+x right, +y down). Frames have automatic height and do not participate in collision avoidance.",

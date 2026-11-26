@@ -458,6 +458,20 @@ export interface LayoutBreak {
   kind: "system" | "page";
 }
 
+/** Parts that stay visible on the system containing `measure`, regardless of automatic hiding. */
+export interface AutoHideKeepVisible {
+  measure: string;
+  parts: string[];
+}
+
+/** Options for a score view's automatic empty-staff hiding. */
+export interface AutoHideEmptyStavesOptions {
+  /** `show` retains every layout staff on the first system. Omitted means `hide`. */
+  firstSystem?: "hide" | "show";
+  /** Explicit per-system force-show decisions that win over the policy. */
+  keepVisible?: AutoHideKeepVisible[];
+}
+
 /** A staff node in the layout tree. */
 export interface LayoutStaff {
   type: "staff";
@@ -497,8 +511,10 @@ export interface ScoreDefinition {
   pageSetupRole?: PageSetupRole;
   /** Independent instrument-name policies for the first and later systems. */
   instrumentNameDisplay?: InstrumentNameDisplaySettings;
-  /** Parts eligible for rest-only system hiding in paged views, including the first system. */
+  /** Parts eligible for rest-only system hiding in paged views of this score view. */
   autoHideEmptyParts?: string[];
+  /** First-system behavior and per-system decisions for `autoHideEmptyParts`. */
+  autoHideEmptyStaves?: AutoHideEmptyStavesOptions;
   /** Forced starts consumed by automatic system and page flow. */
   layoutBreaks?: LayoutBreak[];
   /** Free text frames owned by this score view, not by staffs or systems. */

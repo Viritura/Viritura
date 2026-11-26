@@ -538,13 +538,17 @@ fn overlapping_brackets_keep_number_selection_when_members_are_hidden() {
     };
     let mut cache = crate::layout::cache::LayoutCache::new();
 
-    for hide_violin in [false, true] {
+    for (hide_violin, keep_visible) in [(false, false), (true, false), (true, true)] {
         if hide_violin {
             source["scores"][0]["_x"]["viritura"]["autoHideEmptyParts"] = json!(["violin"]);
             for measure in source["parts"][1]["measures"].as_array_mut().unwrap() {
                 measure["sequences"][0]["content"] =
                     json!([{"duration": {"base": "whole"}, "rest": {}}]);
             }
+        }
+        if keep_visible {
+            source["scores"][0]["_x"]["viritura"]["autoHideEmptyStaves"] =
+                json!({"keepVisible": [{"measure": "m0", "parts": ["violin"]}]});
         }
         let score = parse_mnx(&source.to_string()).unwrap();
         for display in [
@@ -559,13 +563,17 @@ fn overlapping_brackets_keep_number_selection_when_members_are_hidden() {
                 })
                 .map(|element| element.element_id.as_str())
                 .collect();
-            assert_eq!(ids, ["m0/bn1-above/mnum"], "hide violin: {hide_violin}");
+            assert_eq!(
+                ids,
+                ["m0/bn1-above/mnum"],
+                "hide violin: {hide_violin}, keep visible: {keep_visible}"
+            );
             assert_eq!(
                 display
                     .measure_bounds
                     .iter()
                     .any(|measure| measure.part_index == 1),
-                !hide_violin
+                !hide_violin || keep_visible
             );
         }
     }

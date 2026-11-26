@@ -15,6 +15,7 @@ import {
 import styles from "./EngraveLeftPanel.module.css";
 import { BreakManagement } from "./BreakManagement";
 import { AutoHideEmptyStavesControl } from "./AutoHideEmptyStavesControl";
+import type { AutoHideEmptyStavesChange } from "../../../../score/ScoreMutations";
 
 interface EngraveLeftPanelProps {
   score: Score | null;
@@ -22,7 +23,7 @@ interface EngraveLeftPanelProps {
   onApplyPageSetup: (setup: PageSetup) => void;
   onResetPageSetup: () => void;
   onInstrumentNameDisplayChange: (settings: InstrumentNameDisplaySettings) => void;
-  onAutoHideEmptyPartsChange: (partIds: string[]) => void;
+  onAutoHideEmptyPartsChange: (change: AutoHideEmptyStavesChange) => void;
   selectedBreakKind: "system" | "page" | null;
   selectedAfterMeasureNumber?: number;
   hasLayoutOverrides: boolean;

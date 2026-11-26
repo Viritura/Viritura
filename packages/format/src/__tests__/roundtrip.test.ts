@@ -25,7 +25,7 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
   it("preserves bar-number defaults and partial layout overrides, including false values", () => {
     const source = {
       mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      global: { measures: [{ id: "m0", time: { count: 4, unit: 4 } }] },
       parts: [{ id: "p", measures: [{ sequences: [] }] }],
       layouts: [{ id: "L", content: [{ type: "staff", sources: [{ part: "p" }] }] }],
       scores: [
@@ -46,6 +46,8 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
                 aboveGroups: [["p"]],
                 distance: 0,
               },
+              autoHideEmptyParts: ["p"],
+              autoHideEmptyStaves: { firstSystem: "show", keepVisible: [{ measure: "m0", parts: ["p"] }] },
             },
           },
         },
@@ -439,6 +441,32 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
           scores: [{ name: "Invalid", _x: { viritura: { autoHideEmptyParts: invalid } } }],
         }),
       ).toThrow(/autoHideEmptyParts/);
+    }
+  });
+
+  it("preserves first-system and per-system auto-hide decisions", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [] },
+      parts: [],
+      layouts: [],
+      scores: [
+        {
+          name: "Conductor",
+          _x: {
+            viritura: {
+              autoHideEmptyParts: ["flute"],
+              autoHideEmptyStaves: { firstSystem: "show", keepVisible: [{ measure: "m5", parts: ["flute"] }] },
+            },
+          },
+        },
+      ],
+    };
+    expect(serializeMnx(parseMnx(source)).scores).toEqual(source.scores);
+    for (const invalid of [{ firstSystem: "always" }, { keepVisible: [{ measure: "m1", parts: [] }] }]) {
+      expect(() =>
+        parseMnx({ ...source, scores: [{ name: "Invalid", _x: { viritura: { autoHideEmptyStaves: invalid } } }] }),
+      ).toThrow(/autoHideEmptyStaves/);
     }
   });
 

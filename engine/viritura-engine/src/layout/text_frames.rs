@@ -11,11 +11,13 @@ mod locator;
 
 use super::config::LayoutConfig;
 use super::element_id;
+use super::full_score::FlatStaff;
 mod text_block;
 use super::text_styles::FontFamily;
 use crate::model::{Score, TextFrame, TextFrameAlign, TextFrameAnchor, TextFrameWidth};
 use crate::render::{BoundingBox, DisplayList, ElementBBox, ElementKind};
 use locator::PageResolver;
+use std::collections::HashSet;
 pub(crate) use text_block::{FrameFont, TextBlockLayout};
 
 /// Body-text size for frame prose, in staff spaces; run `size` values scale it.
@@ -29,7 +31,14 @@ pub(super) fn layout_full_score_with_frames(
 ) -> DisplayList {
     let mut dl = super::full_score::layout_full_score_with_config_cached(score, config, None);
     if let Some(score_def) = score.scores.get(score_index) {
-        append_text_frames_by_bounds(&mut dl, score, &score_def.text_frames, config);
+        let visible_parts = (0..score.parts.len()).collect();
+        append_text_frames_by_bounds(
+            &mut dl,
+            score,
+            &score_def.text_frames,
+            config,
+            &visible_parts,
+        );
     }
     dl.with_raised_text_frames()
 }
@@ -53,6 +62,7 @@ pub(crate) fn append_text_frames_by_plan(
     frames: &[TextFrame],
     config: &LayoutConfig,
     (systems, visible_indices): (&[Vec<usize>], &[usize]),
+    flat_staves: &[FlatStaff],
 ) {
     if frames.is_empty() {
         return;
@@ -66,7 +76,11 @@ pub(crate) fn append_text_frames_by_plan(
                 .map(move |&visible| (visible_indices[visible], system))
         })
         .collect();
-    append_text_frames(dl, score, frames, config, &measure_systems);
+    let visible_parts: HashSet<usize> = flat_staves
+        .iter()
+        .flat_map(|staff| staff.sources.iter().map(|source| source.part_index))
+        .collect();
+    append_text_frames(dl, score, frames, config, &measure_systems, &visible_parts);
 }
 
 /// Append frames for a fully assembled layout, reading system membership
@@ -76,6 +90,7 @@ pub(crate) fn append_text_frames_by_bounds(
     score: &Score,
     frames: &[TextFrame],
     config: &LayoutConfig,
+    visible_parts: &HashSet<usize>,
 ) {
     if frames.is_empty() {
         return;
@@ -85,7 +100,7 @@ pub(crate) fn append_text_frames_by_bounds(
         .iter()
         .map(|bounds| (bounds.index, bounds.system_index))
         .collect();
-    append_text_frames(dl, score, frames, config, &measure_systems);
+    append_text_frames(dl, score, frames, config, &measure_systems, visible_parts);
 }
 
 /// Render every placeable frame into one appended segment. `dl` must carry its
@@ -96,12 +111,13 @@ fn append_text_frames(
     frames: &[TextFrame],
     config: &LayoutConfig,
     measure_systems: &[(usize, usize)],
+    visible_parts: &HashSet<usize>,
 ) {
     if config.page_width.is_none() {
         return;
     }
     let sp = config.sp;
-    let resolver = PageResolver::new(score, &dl.pages, measure_systems);
+    let resolver = PageResolver::new(score, &dl.pages, measure_systems, visible_parts);
     let mut segment = DisplayList::new(dl.width, dl.height);
     for frame in frames {
         let Some(page) = resolver.page_for(&frame.locator) else {
