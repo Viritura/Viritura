@@ -128,7 +128,7 @@ function EditorScorePreviewInner({
     try {
       const parsed = JSON.parse(liveMnx || mnxJson);
       const scores = parsed.scores ?? [];
-      const sd = scores[0];
+      const sd = scores[selectedScoreIndex];
       if (!sd) return undefined;
       const layoutId = sd.layout ?? sd.pages?.[0]?.systems?.[0]?.layout;
       if (!layoutId) return undefined;
@@ -151,7 +151,7 @@ function EditorScorePreviewInner({
     } catch {
       return undefined;
     }
-  }, [expandCondensingSources, liveMnx, mnxJson]);
+  }, [expandCondensingSources, liveMnx, mnxJson, selectedScoreIndex]);
 
   // Handle Monaco editor changes — live re-render on valid JSON
   const handleEditorChange = useCallback((value: string | undefined) => {
