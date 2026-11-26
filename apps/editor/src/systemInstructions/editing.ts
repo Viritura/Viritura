@@ -40,11 +40,12 @@ export function instructionFromTempo(tempo: Tempo, id = generateId(), textStyles
           swing: tempo.swing,
           showMetronomeMark: tempo.showMetronomeMark,
           clickSubdivision: tempo.clickSubdivision,
+          clickGrouping: tempo.clickGrouping,
         }
       : tempo.swing
-        ? { swing: tempo.swing, clickSubdivision: tempo.clickSubdivision }
+        ? { swing: tempo.swing, clickSubdivision: tempo.clickSubdivision, clickGrouping: tempo.clickGrouping }
         : tempo.clickSubdivision !== undefined
-          ? { clickSubdivision: tempo.clickSubdivision }
+          ? { clickSubdivision: tempo.clickSubdivision, clickGrouping: tempo.clickGrouping }
           : undefined;
   const role = { ...DEFAULT_TEXT_STYLES.tempo!, ...textStyles?.tempo };
   const text = tempo.text?.length
@@ -89,13 +90,18 @@ export function withInstructionBpm(instruction: SystemText, bpm: number | undefi
         swing: current?.swing,
         showMetronomeMark: current?.showMetronomeMark,
         clickSubdivision: current?.clickSubdivision,
+        clickGrouping: current?.clickGrouping,
       },
     };
   }
   const { tempo: _tempo, ...text } = instruction;
-  if (current?.swing) return { ...text, tempo: { swing: current.swing, clickSubdivision: current.clickSubdivision } };
+  if (current?.swing)
+    return {
+      ...text,
+      tempo: { swing: current.swing, clickSubdivision: current.clickSubdivision, clickGrouping: current.clickGrouping },
+    };
   return current?.clickSubdivision !== undefined
-    ? { ...text, tempo: { clickSubdivision: current.clickSubdivision } }
+    ? { ...text, tempo: { clickSubdivision: current.clickSubdivision, clickGrouping: current.clickGrouping } }
     : text;
 }
 

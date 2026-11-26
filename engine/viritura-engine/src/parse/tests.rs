@@ -25,6 +25,39 @@ fn test_parse_click_only_system_instruction() {
 }
 
 #[test]
+fn test_parse_grouped_and_silent_click_instructions() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "time": {"count": 6, "unit": 8},
+            "_x": {"viritura": {"systemText": [
+                {
+                    "id": "group", "text": [{"text": "2+3"}],
+                    "position": {"fraction": [0, 1]},
+                    "tempo": {"clickSubdivision": 2, "clickGrouping": [3, 3, 2, 2, 2]}
+                },
+                {
+                    "id": "free", "text": [{"text": "Free time"}],
+                    "position": {"fraction": [3, 8]},
+                    "tempo": {"clickSubdivision": 0}
+                }
+            ]}}
+        }]},
+        "parts": []
+    }"#;
+    let score = parse_mnx(json).expect("grouped and silent click instructions must parse");
+    let instructions = score.global.measures[0].system_text().unwrap();
+    assert_eq!(
+        instructions[0].tempo.as_ref().unwrap().click_grouping,
+        Some(vec![3, 3, 2, 2, 2])
+    );
+    assert_eq!(
+        instructions[1].tempo.as_ref().unwrap().click_subdivision,
+        Some(0)
+    );
+}
+
+#[test]
 fn test_parse_hello_world() {
     let json = r#"{
         "mnx": {"version": 1},

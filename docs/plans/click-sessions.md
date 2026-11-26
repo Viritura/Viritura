@@ -201,7 +201,7 @@ Implemented:
   AudioContext. `ClickSessionTransport` calls it before loading a program;
   Play restarts with the countoff and Resume continues without one.
 
-Tempo markings now persist `clickSubdivision` (1-5, default 1 at every tempo
+Tempo markings now persist `clickSubdivision` (0-5, 0 silences clicks, default 1 at every BPM tempo
 instruction) with exact
 mid-bar positions, through standard MNX tempo extensions and shared system
 instructions. The tempo inspector edits **Clicks per beat**. The Click activity
@@ -209,6 +209,10 @@ and editor metronome use the same program compiler for score clicks and their
 countoff/count-in, including authored beat groups, source-position restoration
 on repeated visits and jumps, and fermata click behavior. For example, 10/8
 authored as `3+2+2+3` produces four beat clicks at subdivision 1 in either mode.
+Custom `clickGrouping` repeats a whole-bar pattern in denominator-note units
+divided by the explicit positive subdivision. For example, 6/8 with division 2
+and `3+3+2+2+2` produces five clicks on a sixteenth-note grid, including countoff.
+See [the click metadata contract](../spec/viritura-extensions.md#tempo-owned-click-subdivisions-and-grouping).
 Editor count-in is one full bar in the opening meter, not a series of
 quarter-note pulses. Its events are shifted to negative score time; score
 playback retains its existing look-ahead scheduler while recording Click keeps
@@ -701,11 +705,10 @@ file or store compiled timestamps.
 
 Reuse `TimeSignature.beatStructure` and `resolveMeter` from the
 [meter model](../../packages/core/src/model/time.ts) for the beat, including
-irregular grouping. The only new musical metadata needed for this delivery is
-an explicit click-subdivision override at a rhythmic location:
+irregular grouping. Musical metadata lives in positioned click instructions:
 
 - Implemented tempo extension: `_x.viritura.clickSubdivision: 2`, alongside
-  the existing tempo metadata (integer 1-5).
+  the existing tempo metadata (integer 0-5; 0 silences clicks without changing timing).
 - With no override anywhere, click once per resolved meter beat.
 - Omitted metadata on a BPM tempo means 1: a subdivision lasts only until the
   next tempo and never carries into the following tempo. Click-only
@@ -714,8 +717,9 @@ an explicit click-subdivision override at a rhythmic location:
   position without requiring a new BPM or a visible metronome marking. Finalize
   the positioned instruction representation during implementation; do not
   fabricate a tempo value just to carry click metadata.
-- Do not add independent click beat/grouping definitions that could disagree
-  with the existing meter.
+- Custom `_x.viritura.clickGrouping` may override the click rhythm without
+  changing engraving. Its positive group lengths must total the meter numerator
+  times the explicit positive subdivision; invalid patterns are rejected.
 
 The field is also supported directly on unified vendor tempo entries and
 `systemText[].tempo`. Click-only system instructions do not fabricate BPM.

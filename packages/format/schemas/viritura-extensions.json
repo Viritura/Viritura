@@ -301,7 +301,8 @@
           "additionalProperties": false
         },
         "swing": { "$ref": "#/$defs/swing" },
-        "clickSubdivision": { "type": "integer", "enum": [1, 2, 3, 4, 5] },
+        "clickSubdivision": { "type": "integer", "enum": [0, 1, 2, 3, 4, 5] },
+        "clickGrouping": { "$ref": "#/$defs/click-grouping" },
         "text": { "$ref": "#/$defs/text-content" },
         "showMetronomeMark": { "type": "boolean" },
         "showText": { "type": "boolean" },
@@ -328,7 +329,8 @@
       "description": "Viritura display and placement extensions on a standard MNX tempo object.",
       "properties": {
         "swing": { "$ref": "#/$defs/swing" },
-        "clickSubdivision": { "type": "integer", "enum": [1, 2, 3, 4, 5] },
+        "clickSubdivision": { "type": "integer", "enum": [0, 1, 2, 3, 4, 5] },
+        "clickGrouping": { "$ref": "#/$defs/click-grouping" },
         "text": { "$ref": "#/$defs/text-content" },
         "showMetronomeMark": { "type": "boolean" },
         "showText": { "type": "boolean" },
@@ -336,6 +338,13 @@
         "avoidCollisions": { "type": "boolean" }
       },
       "additionalProperties": false
+    },
+
+    "click-grouping": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+      "description": "Whole-bar pulse lengths in time-signature denominator divided by clickSubdivision units."
     },
 
     "key-extensions": {
@@ -519,7 +528,8 @@
         "bpm": { "type": "number", "exclusiveMinimum": 0 },
         "value": { "$ref": "#/$defs/tempo-instruction/properties/value" },
         "swing": { "$ref": "#/$defs/swing" },
-        "clickSubdivision": { "type": "integer", "enum": [1, 2, 3, 4, 5] },
+        "clickSubdivision": { "type": "integer", "enum": [0, 1, 2, 3, 4, 5] },
+        "clickGrouping": { "$ref": "#/$defs/click-grouping" },
         "showMetronomeMark": { "type": "boolean" }
       },
       "oneOf": [

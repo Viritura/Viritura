@@ -42,6 +42,12 @@ pub struct SystemTempo {
         rename = "clickSubdivision"
     )]
     pub click_subdivision: Option<u8>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "clickGrouping"
+    )]
+    pub click_grouping: Option<Vec<u64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bpm: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

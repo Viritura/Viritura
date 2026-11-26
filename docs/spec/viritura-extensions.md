@@ -403,37 +403,77 @@ restores both the bars and their ramp.
 MusicXML/MXL import and reconstruction of sampled tempo automation are outside
 this feature's scope. Ramps do not imply MIDI velocity or dynamics changes.
 
-### Tempo-owned click subdivisions
+### Tempo-owned click subdivisions and grouping
 
 Tempo markings carry optional `_x.viritura.clickSubdivision`, an integer from
-1 to 5. Unified vendor tempo entries and `systemText[].tempo` carry the same
-property directly. It specifies evenly spaced clicks per meter-grouped beat,
+0 to 5. Unified vendor tempo entries and `systemText[].tempo` carry the same
+property directly. Without a custom grouping, positive values specify evenly spaced clicks per meter-grouped beat,
 not per metronome note value. For example, 3 splits each dotted-quarter beat of
-6/8 into three eighth-note clicks.
+6/8 into three eighth-note clicks. **0 means no clicks**, including during
+keep-clicking fermata holds. It does not stop playback, remove elapsed time,
+or change the tempo model: use it for an unclicked ritardando or free-time
+passage. Starting in a silent passage skips the synthetic countoff/count-in.
+
+Optional `clickGrouping` specifies a repeating whole-bar pattern. With a
+grouping present, `clickSubdivision` instead divides the time-signature
+denominator note into grid units. Each positive integer in the grouping is
+the duration until the next click, in those units. An explicit division from
+1 to 5 is required, and the groups must sum to `time.count * clickSubdivision`.
+The parser and playback compiler reject mismatches rather than rescaling them.
+
+For 6/8, this gives two dotted eighths followed by three eighths:
+
+```json
+{
+  "bpm": 85,
+  "value": { "base": "quarter" },
+  "_x": {
+    "viritura": {
+      "clickSubdivision": 2,
+      "clickGrouping": [3, 3, 2, 2, 2]
+    }
+  }
+}
+```
+
+The grid unit is a sixteenth, the total is 12, and the five click onsets are
+0, 3, 6, 8, and 10 sixteenths into the bar. The same grouping in 12/8 with
+division 1 uses eighths. A grouping overrides click positions only, not meter
+beaming: measure starts are accented, positions coinciding with meter beats
+use the beat sound, and other positions use the subdivision sound. Synthetic
+countoff bars use the same grouping. Partial bars and partial-bar jump visits
+clip the nominal bar grid rather than stretching it to their played duration.
 
 Omission on a tempo with BPM means 1 (beats only): each such tempo sets the
-subdivision only until the next one, so a subdivision never carries into a
-following tempo. Instructions without BPM (click-only or swing-only system
-text) change the subdivision only when they set it; an explicit 1 there resets
+click setting only until the next one, so grouping or silence never carries into a
+following BPM-bearing tempo without an explicit setting. Instructions without BPM (click-only or swing-only system
+text) change the click setting only when they set it; an explicit 1 there resets
 to beats only until the next tempo. Co-located instructions use the last
-explicit setting. Changes
-take effect at the marking's exact rhythmic position;
+explicit setting. Every explicit subdivision without grouping clears any
+previous grouping, including 0 to silence clicks. A carried grouping must
+remain valid for each bar's meter; reset or replace it when changing meters
+if its total no longer fits. Changes take effect at the marking's exact rhythmic position;
 inside a grouped beat, the new subdivision grid begins at that position and
-resets at the next grouped-beat boundary. Repeats and jumps use the setting
+resets at the next grouped-beat boundary. Custom grouping remains anchored to
+the written bar start, even when enabled mid-bar. Repeats and jumps use the setting
 effective at the destination in the written score. Starting partway through
 the score uses that position's setting for the synthetic countoff too, and
 the countoff cue reports the actual number of clicks, including subdivisions.
 
-These settings affect the Click activity only. They do not change note timing,
+These settings affect the Click activity and editor metronome. They do not change note timing,
 swing, printed tempo markings, or the continuous tempo model; click timestamps
 still follow tempo changes and ramps. Existing explicit session resolution
-rules override score-owned subdivisions from their starting measure onward.
+rules override score-owned click settings from their starting measure onward.
 
-Edit **Clicks per beat** (1 to 5, default 1) in the selected tempo's Notation
+Edit **Clicks per beat** (0 to 5, default 1) in the selected tempo's Notation
 Properties. On a tempo with BPM, choosing 1 removes the stored setting. System
 text without BPM also offers **Follow tempo**, which removes the click change
 and returns click-only text to ordinary text; choosing 1 there stores an
-explicit reset.
+explicit reset. Enter a pattern such as `3+3+2+2+2` in **Click grouping**, choose
+its **Click grid division**, and select **Apply click grouping**. Invalid
+patterns show an error without changing the score. Clearing the grouping and
+applying restores regular meter clicks. **No clicks (free time)** stores 0
+and clears the grouping without altering BPM or swing.
 
 ### Tempo-owned swing instructions
 

@@ -87,8 +87,10 @@ export type Swing = { mode: "straight" } | { mode: "swing"; subdivision: "eighth
 
 /** Shared presentation of metronomic and swing-only tempo markings. */
 export interface TempoPresentation {
-  /** Clicks per meter-grouped beat. Omission on a BPM tempo means 1; elsewhere it leaves the click unchanged. */
-  clickSubdivision?: 1 | 2 | 3 | 4 | 5;
+  /** Clicks per meter beat, or denominator divisions with clickGrouping. 0 silences clicks without changing timing. */
+  clickSubdivision?: 0 | 1 | 2 | 3 | 4 | 5;
+  /** Whole-bar pulse lengths in denominator/subdivision units; requires an explicit positive clickSubdivision. */
+  clickGrouping?: number[];
   location?: RhythmicPosition;
   /** Optional text label (e.g. "Allegro"). Viritura extension (_x.viritura.text). */
   text?: TextContent;
@@ -280,27 +282,28 @@ export interface SystemText extends MusicText {
 }
 
 /** Playback properties of a music-anchored system instruction, never a page frame. */
-export type SystemTempo = { clickSubdivision?: TempoPresentation["clickSubdivision"] } & (
-  | {
-      bpm: number;
-      value: TempoNoteValue;
-      swing?: Swing;
-      showMetronomeMark?: boolean;
-    }
-  | {
-      bpm?: never;
-      value?: never;
-      swing: Swing;
-      showMetronomeMark?: never;
-    }
-  | {
-      bpm?: never;
-      value?: never;
-      swing?: never;
-      showMetronomeMark?: never;
-      clickSubdivision: NonNullable<TempoPresentation["clickSubdivision"]>;
-    }
-);
+export type SystemTempo = Pick<TempoPresentation, "clickSubdivision" | "clickGrouping"> &
+  (
+    | {
+        bpm: number;
+        value: TempoNoteValue;
+        swing?: Swing;
+        showMetronomeMark?: boolean;
+      }
+    | {
+        bpm?: never;
+        value?: never;
+        swing: Swing;
+        showMetronomeMark?: never;
+      }
+    | {
+        bpm?: never;
+        value?: never;
+        swing?: never;
+        showMetronomeMark?: never;
+        clickSubdivision: NonNullable<TempoPresentation["clickSubdivision"]>;
+      }
+  );
 
 /** Tempo instructions from both legacy tempo markings and shared system instructions. */
 export function measureTempoInstructions(measure: GlobalMeasure): Tempo[] {

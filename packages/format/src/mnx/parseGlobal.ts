@@ -14,7 +14,7 @@
 
 import type { GlobalLyrics, LyricLineMetadataEntry } from "@viritura/core";
 import type { Sound } from "@viritura/core";
-import { canonicalGlobalFermatas, generateId } from "@viritura/core";
+import { canonicalGlobalFermatas, compileClickSettings, generateId, measureTempoInstructions } from "@viritura/core";
 import { parseGlobalCaesura } from "./globalCaesura";
 import type {
   GlobalMeasure,
@@ -144,7 +144,11 @@ export function parseGlobalLyrics(raw: RawLyricsGlobal): GlobalLyrics {
 
 export function parseGlobalMeasures(arr: RawMeasureGlobal[] | undefined): GlobalMeasure[] {
   if (!arr) return [];
-  return arr.map(parseGlobalMeasure);
+  const measures = arr.map(parseGlobalMeasure);
+  compileClickSettings(
+    measures.map((measure) => ({ time: measure.time, instructions: measureTempoInstructions(measure) })),
+  );
+  return measures;
 }
 
 function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
@@ -218,6 +222,7 @@ function parseVendorTempos(raw: RawMeasureGlobal, viritura: RawMeasureGlobalExt)
   return viritura.tempos.map((instruction): Tempo => {
     const presentation: TempoPresentation = {
       clickSubdivision: instruction.clickSubdivision,
+      clickGrouping: instruction.clickGrouping,
       text: instruction.text,
       showText: instruction.showText,
       showMetronomeMark: instruction.showMetronomeMark,
@@ -305,11 +310,12 @@ function parseTempo(raw: RawTempo): Tempo {
   if (viritura) {
     if (viritura.clickSubdivision !== undefined) {
       const value = viritura.clickSubdivision;
-      if (!Number.isInteger(value) || value < 1 || value > 5) {
+      if (!Number.isInteger(value) || value < 0 || value > 5) {
         throw new Error("Invalid Viritura tempo click subdivision.");
       }
       tempo.clickSubdivision = value;
     }
+    if (viritura.clickGrouping !== undefined) tempo.clickGrouping = viritura.clickGrouping;
     if (viritura.swing !== undefined) {
       if (!validateSwing(viritura.swing)) throw new Error("Invalid Viritura tempo swing instruction.");
       tempo.swing = parseSwing(viritura.swing);

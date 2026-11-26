@@ -85,7 +85,7 @@ class ClickProcessor extends AudioWorkletProcessor {
         return this.port.postMessage({ type: "loaded", requestId, count: this.frames.length });
       }
       case "start": {
-        if (this.frames.length === 0) return this.port.postMessage({ type: "error", requestId, code: "no-program" });
+        if (this.frames.length === 0 && !(this.endFrame > 0)) return this.port.postMessage({ type: "error", requestId, code: "no-program" });
         if (!(message.atFrame >= currentFrame)) {
           // Refuse rather than start late: a late anchor would drop or shift the countoff.
           return this.port.postMessage({ type: "error", requestId, code: "late-start", currentFrame });

@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Panel } from "@viritura/ui";
-import { withTempoSwing, withTempoText, type Tempo, type ResolvedTempoSwing } from "@viritura/core";
+import { withTempoSwing, withTempoText, type Tempo, type ResolvedTempoSwing, type TimeSignature } from "@viritura/core";
 import { TempoSection } from "../../components/inspector/TempoSection";
 
 const meta: Meta = {
@@ -17,10 +17,12 @@ function TempoInspectorPreview({
   initialTempo,
   inherited,
   width = 360,
+  timeSignature,
 }: {
   initialTempo: Tempo;
   inherited?: ResolvedTempoSwing;
   width?: number;
+  timeSignature?: TimeSignature;
 }) {
   const [tempo, setTempo] = useState<Tempo | null>(initialTempo);
   if (!tempo) return <p>Tempo instruction removed.</p>;
@@ -41,7 +43,11 @@ function TempoInspectorPreview({
             : (inherited ?? { swing: { mode: "straight" } })
         }
         onSwingChange={(swing) => setTempo(withTempoSwing(tempo, swing))}
-        onClickSubdivisionChange={(clickSubdivision) => setTempo({ ...tempo, clickSubdivision })}
+        timeSignature={timeSignature}
+        onClickSubdivisionChange={(clickSubdivision) =>
+          setTempo({ ...tempo, clickSubdivision, clickGrouping: undefined })
+        }
+        onClickGroupingChange={(settings) => setTempo({ ...tempo, ...settings })}
         onBpmChange={(bpm) => {
           if (tempo.bpm !== undefined) setTempo({ ...tempo, bpm });
         }}
@@ -85,6 +91,19 @@ export const Straight: StoryObj = {
 
 export const ClickSubdivisions: StoryObj = {
   render: () => <TempoInspectorPreview initialTempo={{ ...METRONOME, clickSubdivision: 3 }} />,
+};
+
+export const UnevenClickGrouping: StoryObj = {
+  render: () => (
+    <TempoInspectorPreview
+      timeSignature={{ count: 6, unit: 8 }}
+      initialTempo={{ ...METRONOME, clickSubdivision: 2, clickGrouping: [3, 3, 2, 2, 2] }}
+    />
+  ),
+};
+
+export const SilentClicks: StoryObj = {
+  render: () => <TempoInspectorPreview initialTempo={{ ...METRONOME, clickSubdivision: 0 }} />,
 };
 
 export const CustomRatio: StoryObj = {

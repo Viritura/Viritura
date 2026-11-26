@@ -14,7 +14,7 @@ function document(measure: object) {
 const swing = { mode: "swing", subdivision: "16th", ratio: [3, 2] };
 
 describe("tempo-owned swing persistence", () => {
-  it.each([1, 2, 3, 4, 5])("round-trips click subdivision %i on standard and vendor tempos", (clickSubdivision) => {
+  it.each([0, 1, 2, 3, 4, 5])("round-trips click subdivision %i on standard and vendor tempos", (clickSubdivision) => {
     for (const measure of [
       { tempos: [{ bpm: 90, value: { base: "quarter" }, _x: { viritura: { clickSubdivision } } }] },
       { _x: { viritura: { tempos: [{ text: [{ text: "Subdivide" }], clickSubdivision }] } } },
@@ -25,21 +25,21 @@ describe("tempo-owned swing persistence", () => {
     }
   });
 
-  it("round-trips a click-only system instruction without inventing BPM", () => {
+  it.each([0, 3])("round-trips a click-only system instruction (%i) without inventing BPM", (clickSubdivision) => {
     const systemText = [
       {
         id: "click",
         text: [{ text: "Click triplets" }],
         position: { fraction: [1, 8] },
-        tempo: { clickSubdivision: 3 },
+        tempo: { clickSubdivision },
       },
     ];
     const score = parseMnx(document({ _x: { viritura: { systemText } } }));
-    expect(score.global.measures[0].systemText?.[0].tempo).toEqual({ clickSubdivision: 3 });
+    expect(score.global.measures[0].systemText?.[0].tempo).toEqual({ clickSubdivision });
     expect(parseMnx(serializeMnx(score)).global.measures[0].systemText).toEqual(score.global.measures[0].systemText);
   });
 
-  it.each([0, 6, 1.5, null, "2", Infinity])(
+  it.each([-1, 6, 1.5, null, "2", Infinity])(
     "rejects invalid click subdivision %j on strict and recovery paths",
     (clickSubdivision) => {
       for (const measure of [
@@ -62,6 +62,71 @@ describe("tempo-owned swing persistence", () => {
       }
     },
   );
+
+  it("round-trips uneven click grouping on standard, vendor, and click-only system instructions", () => {
+    const settings = { clickSubdivision: 2, clickGrouping: [3, 3, 2, 2, 2] };
+    for (const measure of [
+      { tempos: [{ bpm: 85, value: { base: "quarter" }, _x: { viritura: settings } }] },
+      { _x: { viritura: { tempos: [{ text: [{ text: "2+3" }], ...settings }] } } },
+      {
+        _x: {
+          viritura: {
+            systemText: [{ id: "group", text: [{ text: "2+3" }], position: { fraction: [0, 1] }, tempo: settings }],
+          },
+        },
+      },
+    ]) {
+      const score = parseMnx(document({ time: { count: 6, unit: 8 }, ...measure }));
+      expect(parseMnx(serializeMnx(score)).global.measures).toEqual(score.global.measures);
+    }
+  });
+
+  it.each([
+    { clickGrouping: [3, 3, 2, 2, 2] },
+    { clickSubdivision: 0, clickGrouping: [3, 3, 2, 2, 2] },
+    { clickSubdivision: 2, clickGrouping: [3, 3, 2, 2] },
+    { clickSubdivision: 2, clickGrouping: [] },
+    { clickSubdivision: 2, clickGrouping: [0, 12] },
+    { clickSubdivision: 2, clickGrouping: [3.5, 8.5] },
+  ])("rejects invalid grouping on strict and recovery paths %j", (settings) => {
+    for (const measure of [
+      { tempos: [{ bpm: 85, value: { base: "quarter" }, _x: { viritura: settings } }] },
+      { _x: { viritura: { tempos: [{ text: [{ text: "Group" }], ...settings }] } } },
+      {
+        _x: {
+          viritura: {
+            systemText: [{ id: "group", text: [{ text: "Group" }], position: { fraction: [0, 1] }, tempo: settings }],
+          },
+        },
+      },
+    ]) {
+      const source = document({ time: { count: 6, unit: 8 }, ...measure });
+      expect(validateRawScore(source).ok).toBe(false);
+      expect(() => parseMnx(source)).toThrow();
+      expect(() => parseMnxUnvalidated(source)).toThrow();
+    }
+  });
+
+  it("diagnoses a grouping carried into an incompatible meter unless reset at its start", () => {
+    const source = document({
+      time: { count: 6, unit: 8 },
+      tempos: [
+        {
+          bpm: 85,
+          value: { base: "quarter" },
+          _x: { viritura: { clickSubdivision: 2, clickGrouping: [3, 3, 2, 2, 2] } },
+        },
+      ],
+    });
+    source.global.measures.push({ time: { count: 5, unit: 8 } });
+    expect(validateRawScore(source).ok).toBe(false);
+    expect(() => parseMnxUnvalidated(source)).toThrow(/sum to 10/);
+    source.global.measures[1] = {
+      time: { count: 5, unit: 8 },
+      tempos: [{ bpm: 85, value: { base: "quarter" } }],
+    };
+    expect(validateRawScore(source).ok).toBe(true);
+  });
 
   it.each([
     { mode: "straight" },

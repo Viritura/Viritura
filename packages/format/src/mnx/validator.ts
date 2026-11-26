@@ -17,6 +17,7 @@ import type { MeasureGlobalExtensions } from "@viritura/core/raw-viritura";
 import { isSupportedDynamicGlyph } from "@viritura/core";
 import { diagnoseMnxSchemaErrors, normaliseErrors } from "./schemaDiagnostics";
 import { validateInstrumentChanges } from "./instrumentChangeValidation";
+import { validateClickGroupings } from "./clickGroupingValidation";
 import {
   mnxDocument,
   rootExtensions,
@@ -127,6 +128,7 @@ export function validateRawScore(json: unknown): RawScoreValidationResult {
       ...validateKitReferences(value),
       ...validateInstrumentChanges(value),
       ...validateBeatStructures(value),
+      ...validateClickGroupings(value),
       ...validateTupletSpans(json),
       ...validateTupletDurations(json),
     ];
