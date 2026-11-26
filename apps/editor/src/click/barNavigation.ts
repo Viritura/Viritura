@@ -1,4 +1,4 @@
-import { plainTextContent, type Score } from "@viritura/core";
+import { plainTextContent, type GlobalMeasure, type Score } from "@viritura/core";
 import type { PlaybackTiming } from "@viritura/midi/timing";
 import type { ClickSessionProgram } from "@viritura/playback/click";
 
@@ -8,6 +8,10 @@ export interface ClickBar {
   readonly number: number;
   readonly rehearsal?: string;
   readonly rehearsalContext?: string;
+  /** Visible tempo text such as "Allegro"; gradual-change wording is excluded. */
+  readonly tempoName?: string;
+  /** Whether the first named tempo begins after the bar's downbeat. */
+  readonly tempoNameWithinBar?: boolean;
   readonly visit: number;
   readonly visitCount: number;
   readonly startable: boolean;
@@ -26,7 +30,24 @@ export interface ClickDialEntry {
   readonly label: string;
   readonly description: string;
   readonly detail?: string;
+  /** Short marks (rehearsal letters, bar numbers) render large; free text renders compact. */
+  readonly kind?: "mark" | "text";
   readonly startable: boolean;
+}
+
+const GRADUAL_TEMPO_TEXT = /^(?:(?:poco|molto|più|piu|sempre)\s+)*(?:rit|rall|accel|string|allarg|slentando)/i;
+
+/** Named tempo changes navigate like rehearsal marks; bare metronome marks and gradual changes do not. */
+function namedTempo(measure: GlobalMeasure): { name: string; withinBar: boolean } | undefined {
+  const named = (measure.tempos ?? []).flatMap((tempo) => {
+    if (!tempo.text || tempo.showText === false) return [];
+    const name = plainTextContent(tempo.text).trim();
+    if (!name || GRADUAL_TEMPO_TEXT.test(name)) return [];
+    const [numerator = 0] = tempo.location?.fraction ?? [];
+    return [{ name, withinBar: numerator > 0 }];
+  });
+  if (!named.length) return undefined;
+  return { name: named.map((tempo) => tempo.name).join(" / "), withinBar: named[0]!.withinBar };
 }
 
 export function collectClickBars(score: Score, timing: PlaybackTiming): ClickBar[] {
@@ -38,7 +59,14 @@ export function collectClickBars(score: Score, timing: PlaybackTiming): ClickBar
     const rehearsalContext = latestMark
       ? `${latestMark.text}${distance ? ` + ${distance} ${distance === 1 ? "bar" : "bars"}` : ""}`
       : undefined;
-    return { number: measure.number ?? index + 1, rehearsal: rehearsal || undefined, rehearsalContext };
+    const tempo = namedTempo(measure);
+    return {
+      number: measure.number ?? index + 1,
+      rehearsal: rehearsal || undefined,
+      rehearsalContext,
+      tempoName: tempo?.name,
+      tempoNameWithinBar: tempo?.withinBar || undefined,
+    };
   });
   const counts = new Map<number, number>();
   const seen = new Map<number, number>();

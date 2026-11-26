@@ -79,6 +79,37 @@ describe("click bar navigation", () => {
     expect(document.bars[2]?.rehearsalContext).toBe("B");
   });
 
+  it("names visible tempo text changes but not bare metronome marks or gradual changes", () => {
+    const tempo = (text: string | undefined, extra: object = {}) => ({
+      bpm: 120,
+      value: { base: "quarter" },
+      ...(text ? { _x: { viritura: { text, ...extra } } } : {}),
+    });
+    const document = readClickDocument(
+      JSON.stringify({
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            { time: { count: 4, unit: 4 }, tempos: [tempo("Allegro")] },
+            { tempos: [tempo(undefined)] },
+            { tempos: [tempo("poco rit.")] },
+            { tempos: [{ ...tempo("Più mosso"), location: { fraction: [1, 2] } }] },
+            { tempos: [tempo("Hidden", { showText: false })] },
+          ],
+        },
+        parts: [{ measures: Array.from({ length: 5 }, () => ({ sequences: [{ content: [] }] })) }],
+      }),
+    );
+    expect(document.bars.map((bar) => bar.tempoName)).toEqual([
+      "Allegro",
+      undefined,
+      undefined,
+      "Più mosso",
+      undefined,
+    ]);
+    expect(document.bars[3]?.tempoNameWithinBar).toBe(true);
+  });
+
   it("distinguishes repeat visits and tracks the selected visit through countoff and tempo scaling", () => {
     const score: Score = {
       mnx: { version: 1 },

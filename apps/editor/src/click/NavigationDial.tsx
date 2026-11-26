@@ -274,7 +274,7 @@ export function NavigationDial({ entries, label, index, enabled, onSelect, onSet
                 disabled={!enabled || !entry.startable}
                 onClick={() => commit(entryIndex)}
               >
-                <span className={styles.label} aria-hidden="true">
+                <span className={styles.label} data-kind={entry.kind} aria-hidden="true">
                   {entry.label}
                 </span>
                 <span className={styles.visit} aria-hidden="true">

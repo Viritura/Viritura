@@ -89,6 +89,11 @@
   white-space: nowrap;
 }
 
+.label[data-kind="text"] {
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
 .visit {
   min-height: 1em;
   max-width: 100%;
