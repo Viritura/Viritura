@@ -1,4 +1,4 @@
-import { clefLineFromBottom, type Score, type TimeSignature } from "@viritura/core";
+import type { PositionedClef, Score, TimeSignature } from "@viritura/core";
 import type { PartPlan } from "./types";
 import { displayTransposition, instrumentAt } from "./instruments";
 import { displayInterval, keyFifths, transposeElement } from "./pitch";
@@ -32,9 +32,7 @@ function staffAttributes(
         "clef",
         [
           node(context, "sign", change.clef.sign === "P" ? "percussion" : change.clef.sign),
-          ["G", "F", "C"].includes(change.clef.sign)
-            ? node(context, "line", clefLineFromBottom(change.clef))
-            : undefined,
+          ["G", "F", "C"].includes(change.clef.sign) ? node(context, "line", clefLine(plan, mi, change)) : undefined,
           change.clef.octave ? node(context, "clef-octave-change", change.clef.octave) : undefined,
         ],
         { number: plan.selection.staves.size > 1 ? staff : undefined },
@@ -51,6 +49,27 @@ function staffAttributes(
     });
   }
   return result.sort((a, b) => compare(a.position, b.position) || a.order - b.order);
+}
+
+function clefLine(plan: PartPlan, mi: number, { clef, staff, position }: PositionedClef): number {
+  const lines = staffLineCountAt(plan, staff ?? 1, mi, rational(...(position?.fraction ?? [0, 1])));
+  return Math.round((lines + 1 + clef.staffPosition) / 2);
+}
+
+function staffLineCountAt(plan: PartPlan, staff: number, mi: number, position: Rational): number {
+  let lines = 5;
+  for (const [index, measure] of plan.selection.part.measures.slice(0, mi + 1).entries()) {
+    const changes = (measure.staffConfigs ?? [])
+      .filter((change) => (change.staff ?? 1) === staff)
+      .map(({ position, config }) => ({
+        position: rational(...(position?.fraction ?? [0, 1])),
+        lines: config.lines ?? 5,
+      }))
+      .filter((change) => index < mi || compare(change.position, position) <= 0)
+      .sort((a, b) => compare(a.position, b.position));
+    lines = changes.at(-1)?.lines ?? lines;
+  }
+  return lines;
 }
 
 function meterChanges(context: XmlContext, plan: PartPlan, mi: number): XmlElement[] {

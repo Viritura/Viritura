@@ -69,6 +69,7 @@ describe("MusicXML export", () => {
       expect(imported.parts[0]!.measures[0]!.sequences[0]!.content[0]).not.toHaveProperty("fermata");
     }
   });
+
   it.each<[string, string, string[][]]>([
     ["C7b9", "dominant", [["9", "-1", "add"]]],
     ["C7#5", "dominant", [["5", "1", "alter"]]],
@@ -88,6 +89,36 @@ describe("MusicXML export", () => {
         ["degree-value", "degree-alter", "degree-type"].map((tag) => degree.getElementsByTagName(tag)[0]!.textContent),
       ),
     ).toEqual(expected);
+  });
+
+  it.each([
+    { name: "treble", clef: { sign: "G", staffPosition: -2 }, line: "2" },
+    { name: "bass", clef: { sign: "F", staffPosition: 2 }, line: "4" },
+    { name: "alto", clef: { sign: "C", staffPosition: 0 }, line: "3" },
+    { name: "tenor", clef: { sign: "C", staffPosition: 2 }, line: "4" },
+  ] as const)("numbers the $name clef's line from 1 at the bottom of the staff", ({ clef, line }) => {
+    const source = score();
+    source.parts[0]!.measures[0]!.clefs = [{ clef }];
+    const xml = convertScoreToMusicXml(source).xml;
+    expect(texts(xml, "line")).toEqual([line]);
+    const imported = parseMnx(convertMusicXmlToMnx(xml));
+    expect(imported.parts[0]!.measures[0]!.clefs![0]!.clef).toEqual(clef);
+  });
+
+  it("numbers clef lines by how many lines the staff has at that point", () => {
+    const source = score();
+    source.global.measures.push({ id: "m2" });
+    source.parts[1]!.measures.push({ sequences: [{ content: [whole("b2")] }] });
+    const clef = { sign: "C", staffPosition: 0 } as const;
+    source.parts[0]!.measures = [
+      {
+        clefs: [{ clef }, { clef, position: { fraction: [1, 2] } }],
+        staffConfigs: [{ position: { fraction: [1, 2] }, config: { lines: 3 } }],
+        sequences: [{ content: [whole("c1")] }],
+      },
+      { clefs: [{ clef }], sequences: [{ content: [whole("c2")] }] },
+    ];
+    expect(texts(convertScoreToMusicXml(source).xml, "line")).toEqual(["3", "2", "2"]);
   });
 
   it("exports the selected instruments without mutating the document and escapes metadata", () => {
