@@ -135,7 +135,9 @@ retaining at most 60 samples (roughly ten minutes). Large scores normally use
 about 0.5 GiB of JS heap and worker WASM, so absolute warnings require three
 consecutive samples at 1.5 GiB of JS heap or engraving WASM linear memory, or 80%
 of the reported JS heap limit. Growth rules are the primary signal for the same
-document: at least 128 MiB and 50% over two minutes (rapid growth), or a JS heap
+document: at least 128 MiB and 50% over two minutes (rapid growth), using only
+baselines taken after the document's first two minutes so initial layout
+allocations do not trigger a warning, or a JS heap
 512 MiB above the lowest reading taken after the document's first two minutes for
 three consecutive samples (sustained growth). Warnings have a five-minute
 cooldown; they indicate pressure, not proof of a leak.
