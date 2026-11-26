@@ -246,10 +246,15 @@ pub(crate) fn render_tuplet_brackets(
             } else {
                 let stem_w = config.stem_width * sp;
                 let stem_x = |ev: &EventLayout| {
+                    let anchors = crate::layout::render_events::event_stem_anchors(
+                        ev,
+                        ev.stem_up,
+                        ml.resolved.kit.as_ref(),
+                    );
                     if ev.stem_up {
-                        ev.x + smufl::STEM_UP_SE.0 * sp - stem_w * 0.5
+                        ev.x + anchors.up_se.0 * sp - stem_w * 0.5
                     } else {
-                        ev.x + smufl::STEM_DOWN_NW.0 * sp + stem_w * 0.5
+                        ev.x + anchors.down_nw.0 * sp + stem_w * 0.5
                     }
                 };
                 (stem_x(first_ev) + stem_x(last_ev)) / 2.0
