@@ -1,12 +1,15 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { PictureInPicture2 } from "lucide-react";
 import { Button, IconButton } from "@viritura/ui";
 import { ClickControls, ClickStartStop } from "./ClickControls";
+import { ClickPulse } from "./ClickPulse";
 import { FloatingTransport } from "./FloatingTransport";
-import { describeClickBar } from "./barNavigation";
+import { clickPositionDisplay, describeClickBar } from "./barNavigation";
 import { useClickControllerWindow, type ControllerWindowNotice } from "./useClickControllerWindow";
+import { usePictureFit } from "./usePictureFit";
 import type { useClickPlayer } from "./useClickPlayer";
+import { useClickSettingsStore } from "../store/clickSettingsStore";
 import styles from "./ClickView.module.css";
 
 interface ClickControllerHostProps {
@@ -41,39 +44,55 @@ export function ClickControllerHost({
   status,
 }: ClickControllerHostProps) {
   const controller = useClickControllerWindow(toggle);
+  const pictureContent = useRef<HTMLDivElement>(null);
+  usePictureFit(controller.window, pictureContent, active);
+  const flashMode = useClickSettingsStore((state) => state.flashMode);
   const detached = controller.window !== null;
   const error = player.error && (
     <p className={styles.error} role="alert">
       {player.error}
     </p>
   );
-  const controls = (hostAction: ReactNode) =>
+  const current = player.document?.bars[barIndex];
+  const display =
+    active && current && player.document && player.program
+      ? clickPositionDisplay(current, player.document.timing, player.program, player.elapsed, player.tempoPercent)
+      : undefined;
+  const position = current && (
+    <output
+      className={styles.currentBar}
+      aria-label="Playback position"
+      // The readout changes every beat; announcing it would talk over the click.
+      aria-live="off"
+      aria-description={display?.description ?? describeClickBar(current)}
+    >
+      {display?.text ?? current.number}
+    </output>
+  );
+  const controls = (hostAction: ReactNode, compact = false) =>
     player.document ? (
       <ClickControls
         player={player}
         active={active}
+        compact={compact}
         barIndex={barIndex}
         dialSettling={dialSettling}
         onSettlingChange={onSettlingChange}
+        position={position}
         hostAction={hostAction}
       />
     ) : null;
-  const current = player.document?.bars[barIndex];
+  const flash =
+    active && player.program && flashMode !== "off" ? (
+      <ClickPulse events={player.program.events} mode={flashMode} readTime={player.getPlaybackTime} />
+    ) : undefined;
 
   return (
     <>
-      <FloatingTransport busy={player.busy} compact={active || detached}>
+      <FloatingTransport busy={player.busy} compact={active || detached} background={flash}>
         {detached ? (
           <div className={styles.compactControls}>
-            {current && (
-              <output
-                className={styles.currentBar}
-                aria-label="Current bar"
-                aria-description={describeClickBar(current)}
-              >
-                {current.number}
-              </output>
-            )}
+            {position}
             <p className={styles.detachedNote}>Controls are in a separate window.</p>
             <div className={styles.transport}>
               <ClickStartStop player={player} active={active} dialSettling={dialSettling} />
@@ -91,11 +110,18 @@ export function ClickControllerHost({
                   tooltip="Keep above other apps"
                   variant="default"
                   disabled={controller.opening}
-                  onClick={() => controller.open()}
+                  onClick={(event) => {
+                    const panel = event.currentTarget.closest("section")?.getBoundingClientRect();
+                    controller.open(
+                      false,
+                      panel ? { width: Math.ceil(panel.width), height: Math.ceil(panel.height) } : undefined,
+                    );
+                  }}
                 >
                   <PictureInPicture2 size={20} />
                 </IconButton>
               ),
+              active,
             )}
             {controller.notice && (
               <div className={styles.controllerNotice} role="status">
@@ -117,12 +143,11 @@ export function ClickControllerHost({
       {controller.window &&
         createPortal(
           <section className={styles.pipController} aria-label="Click player" aria-busy={player.busy}>
-            {error}
-            {controls(
-              <Button variant="default" size="lg" onClick={controller.close}>
-                Return to editor
-              </Button>,
-            )}
+            {flash}
+            <div ref={pictureContent} className={styles.pipContent}>
+              {error}
+              {controls(null, active)}
+            </div>
           </section>,
           controller.window.document.body,
         )}

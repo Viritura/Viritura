@@ -174,7 +174,7 @@ const TIME_SIG_FILM_BASE = 0xf440;
 const METRONOME_NOTE: Record<number, { glyph: string; top: number; width: number; height: number }> = {
   1: { glyph: String.fromCodePoint(0xeca2), top: -0.592, width: 1.836, height: 1.092 },
   2: { glyph: String.fromCodePoint(0xeca3), top: -2.752, width: 1.364, height: 3.316 },
-  4: { glyph: String.fromCodePoint(0xeca5), top: -2.752, width: 1.328, height: 3.316 },
+  4: { glyph: SMUFL.metNoteQuarter, top: -2.752, width: 1.328, height: 3.316 },
   8: { glyph: String.fromCodePoint(0xeca7), top: -2.784, width: 2.136, height: 3.348 },
   16: { glyph: String.fromCodePoint(0xeca9), top: -2.8, width: 2.088, height: 3.364 },
   32: { glyph: String.fromCodePoint(0xecab), top: -3.692, width: 2.152, height: 4.256 },

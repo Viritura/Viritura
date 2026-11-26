@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { currentPictureWindow, isDocumentPipSupported, openPictureWindow } from "@viritura/ui";
+import { loadMusicFont } from "@viritura/renderer";
 
 export type ControllerWindowNotice = "unsupported" | "conflict" | "failed";
+
+interface ControllerWindowSize {
+  readonly width: number;
+  readonly height: number;
+}
 
 export interface ClickControllerWindow {
   /** The always-on-top window hosting the controls, while open. */
@@ -9,7 +15,7 @@ export interface ClickControllerWindow {
   readonly opening: boolean;
   readonly notice?: ControllerWindowNotice;
   /** Must run from a user gesture. `replaceOther` closes another picture window the tab owns. */
-  readonly open: (replaceOther?: boolean) => void;
+  readonly open: (replaceOther?: boolean, size?: ControllerWindowSize) => void;
   readonly close: () => void;
   readonly dismissNotice: () => void;
 }
@@ -55,7 +61,13 @@ export function useClickControllerWindow(toggle: () => void): ClickControllerWin
     return () => win.removeEventListener("keydown", keyDown);
   }, [win]);
 
-  const open = useCallback((replaceOther = false) => {
+  useEffect(() => {
+    void loadMusicFont({ textFont: false, ...(win ? { targetFonts: win.document.fonts } : {}) }).catch(
+      (error: unknown) => console.warn("Failed to load click controller music font:", error),
+    );
+  }, [win]);
+
+  const open = useCallback((replaceOther = false, size = SIZE) => {
     if (own.current) {
       own.current.focus();
       return;
@@ -70,7 +82,7 @@ export function useClickControllerWindow(toggle: () => void): ClickControllerWin
     }
     setNotice(undefined);
     setOpening(true);
-    openPictureWindow(SIZE)
+    openPictureWindow(size)
       .then((opened) => {
         if (!mounted.current) {
           opened.close();

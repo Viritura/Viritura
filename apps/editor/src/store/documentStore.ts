@@ -8,6 +8,7 @@
 
 import { markPerformance, measurePerformance } from "@viritura/renderer";
 import { createStore } from "zustand";
+import { toast } from "sonner";
 import type { Score, ScorePatch } from "@viritura/core";
 import { applyPatchesToScore, patchAffectedMeasures } from "@viritura/core";
 import { parseMnx, serializeMnx, DeltaSerializer } from "@viritura/format";
@@ -45,8 +46,12 @@ export interface DocumentStoreState {
    * (`applyPatches`) and the schema-blind path (`setMnxJson`).
    */
   lastCommittedPatches: readonly ScorePatch[];
+  /** Why the open document cannot be edited, or null when it is editable. Opening another document clears it. */
+  readOnlyReason: string | null;
 
   // ── Actions ──
+  /** Mark the open document read-only; edits are rejected until another document opens. */
+  setReadOnly: (reason: string | null) => void;
   markSaved: (mnxJson: string, documentGeneration: number) => void;
   loadScoreFromUrl: (url: string) => Promise<void>;
   loadScore: (score: Score, fileName?: string, mnxJson?: string, preserveDocumentGeneration?: boolean) => void;
@@ -89,6 +94,10 @@ export interface DocumentStoreState {
 
 export type DocumentStore = ReturnType<typeof createDocumentStore>;
 
+export const SHARED_SETLIST_READ_ONLY = "Shared setlists are read-only. Save a copy, then open it to edit.";
+
+const READ_ONLY_TOAST_ID = "read-only-document";
+
 export function hasUnsavedChanges(state: DocumentStoreState): boolean {
   return state.mnxJson !== state.savedMnxJson || state.workingScore !== state.score;
 }
@@ -121,286 +130,305 @@ export function createDocumentStore() {
   );
 
   // eslint-disable-next-line max-lines-per-function -- The Zustand initializer keeps document state and its mutation actions together.
-  return createStore<DocumentStoreState>((set, get) => ({
-    // ── Initial state ──
-    score: null,
-    workingScore: null,
-    mnxJson: "",
-    savedMnxJson: "",
-    dirty: false,
-    fileName: "",
-    documentGeneration: 0,
-    scoreRevision: nextRevision(),
-    beatCountIssues: [],
-    lastEditCursorBefore: null,
-    lastCommittedPatches: [],
+  return createStore<DocumentStoreState>((set, get) => {
+    const rejectReadOnly = (): boolean => {
+      const reason = get().readOnlyReason;
+      if (reason === null) return false;
+      toast.info(reason, { id: READ_ONLY_TOAST_ID });
+      return true;
+    };
+    return {
+      // ── Initial state ──
+      score: null,
+      workingScore: null,
+      mnxJson: "",
+      savedMnxJson: "",
+      dirty: false,
+      fileName: "",
+      documentGeneration: 0,
+      scoreRevision: nextRevision(),
+      beatCountIssues: [],
+      lastEditCursorBefore: null,
+      lastCommittedPatches: [],
+      readOnlyReason: null,
 
-    // ── Actions ──
-    markSaved: (mnxJson, documentGeneration) => {
-      if (get().documentGeneration === documentGeneration) set({ savedMnxJson: mnxJson });
-    },
+      // ── Actions ──
+      setReadOnly: (readOnlyReason) => set({ readOnlyReason }),
 
-    loadScoreFromUrl: async (url: string) => {
-      publishSequence += 1;
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to load MNX file: ${response.status} ${response.statusText}`);
-      }
-      const jsonText = await response.text();
-      let parsed = parseMnx(JSON.parse(jsonText));
-      // Normalise on import so the very first edit doesn't trigger a flood of
-      // "many changes across N parts" diffs from auto-repair (creating new
-      // rest IDs to fix overfull/underfull measures). See loadScore().
-      repairBeatCounts(parsed);
-      // Backfill instrument identity from the catalog so audio playback
-      // doesn't have to fall back to fuzzy name matching.
-      enrichInstrumentIdentities(parsed);
-      parsed = reconcileScoreMixer(parsed);
-      const json = JSON.stringify(serializeMnx(parsed));
-      // Prime the delta serializer so the first edit yields a real incremental
-      // diff (see loadScore for the full rationale).
-      deltaSerializer.invalidate();
-      deltaSerializer.serialize(parsed);
-      set({
-        score: parsed,
-        workingScore: parsed,
-        mnxJson: json,
-        savedMnxJson: json,
-        dirty: false,
-        fileName: url,
-        documentGeneration: get().documentGeneration + 1,
-        scoreRevision: nextRevision(),
-        beatCountIssues: [],
-        lastCommittedPatches: [],
-      });
-      // A new document supersedes any in-flight/pending coalesced layout.
-      coalescer.reset();
-    },
+      markSaved: (mnxJson, documentGeneration) => {
+        if (get().documentGeneration === documentGeneration) set({ savedMnxJson: mnxJson });
+      },
 
-    loadScore: (source: Score, name?: string, preSerializedJson?: string, preserveDocumentGeneration = false) => {
-      publishSequence += 1;
-      const scoreRevision = nextRevision();
-      const newScore = reconcileScoreMixer(source);
-      // Auto-repair on load so subsequent edits don't surface a spurious
-      // "27 changes across 22 parts" history entry the moment a user touches
-      // anything. `updateScore` runs `repairBeatCounts` after every edit, and
-      // any new rest events it inserts get fresh IDs from `generateEventId()`
-      // — those IDs differ from whatever the source MNX (or our parser's
-      // deterministic `auto-N` scheme) used for the original events, which
-      // makes the semantic-diff engine count every truncated/padded measure
-      // as a discrete change. By repairing once on load, the stored mnxJson
-      // is already in the post-repair shape, so the first user edit yields a
-      // diff that contains only the user's actual change.
-      const repairs = repairBeatCounts(newScore);
-      invalidateLyricPresence(newScore);
-      // Backfill catalog metadata without replacing existing identities (idempotent).
-      const enriched = enrichInstrumentIdentities(newScore);
-      // Repairs, enrichment, or mixer cleanup make the caller's preSerializedJson stale.
-      const json =
-        repairs > 0 || enriched > 0 || newScore !== source || !preSerializedJson
-          ? JSON.stringify(serializeMnx(newScore))
-          : preSerializedJson;
-      // Prime the delta serializer's per-measure/structural caches against the
-      // loaded score so the FIRST edit produces a real incremental diff. Without
-      // this, the first `serialize()` sees cold caches and reports EVERY measure
-      // + structural field as changed → `structuralChange: true` → a full layout
-      // on the first keystroke (which also reseeds the engine's patch state).
-      deltaSerializer.invalidate();
-      deltaSerializer.serialize(newScore);
-
-      const perf = getGlobalPerfTracker();
-      if (perf.fastLayoutCallback) {
-        // Dispatch against the loaded model, just as updateScore dispatches
-        // against workingScore before publishing its React-visible snapshot.
-        set({ workingScore: newScore, scoreRevision });
-        // A new document supersedes any in-flight/pending coalesced layout;
-        // reset, then fire its full layout through the coalescer so a fast
-        // first edit during a slow cold load still coalesces behind it.
-        coalescer.reset();
-        coalescer.submit({
-          json,
-          changedGlobalMeasures: [],
-          changedPartMeasures: new Map(),
-          structuralChange: true,
-          timeSignatureSettingsChange: false,
-        });
-      }
-
-      set({
-        score: newScore,
-        workingScore: newScore,
-        mnxJson: json,
-        ...(!preserveDocumentGeneration ? { savedMnxJson: json } : {}),
-        dirty: false,
-        fileName: name ?? "",
-        documentGeneration: get().documentGeneration + (preserveDocumentGeneration ? 0 : 1),
-        scoreRevision,
-        beatCountIssues: [],
-        lastCommittedPatches: [],
-      });
-    },
-
-    updateScore: (
-      newScore: Score,
-      affectedMeasures?: { start: number; end: number },
-      patches?: readonly ScorePatch[],
-    ) => {
-      newScore = reconcileScoreMixer(newScore);
-      const perf = getGlobalPerfTracker();
-      const sequence = ++publishSequence;
-      const previousScore = get().workingScore ?? get().score;
-      const cursorBeforeEdit = useNoteInputStore.getState().cursorPosition;
-      // Commands submitted while the worker is busy must compose against this
-      // latest model, but changing only `workingScore` does not invalidate the
-      // React-visible `score` selector tree.
-      set({ workingScore: newScore, scoreRevision: nextRevision() });
-      perf.markEditStart();
-      markPerformance("viritura:edit-start");
-      try {
-        const m = measurePerformance("viritura:command-processing", "viritura:input-event", "viritura:edit-start");
-        perf.commandProcessingMs = m.duration;
-      } catch {
-        /* no input-event mark for programmatic calls */
-      }
-
-      const repairT0 = performance.now();
-      // Scope the per-edit beat-count repair to the touched measure range.
-      // Most call sites pass `affectedMeasures` directly; for the rest, fall
-      // back to the range derived from the patch list so we don't silently
-      // run an O(score) repair scan after every edit on a long score.
-      const repairRange = affectedMeasures ?? (patches ? (patchAffectedMeasures(patches) ?? undefined) : undefined);
-      const repaired = repairBeatCounts(newScore, repairRange);
-      if (repaired > 0) invalidateLyricPresence(newScore, repairRange);
-      const repairMs = performance.now() - repairT0;
-      if (repairMs > 0.5) {
-        console.debug(`[Viritura] Beat count repair: ${repairMs.toFixed(1)}ms`);
-      }
-
-      markPerformance("viritura:serialize-start");
-      const t0 = performance.now();
-      const result = deltaSerializer.prepare(newScore);
-      let json: string | null = null;
-      const publishedJson = (): string => (json ??= deltaSerializer.assemble(newScore));
-      // A patch failure may resolve after a newer edit has updated the mutable
-      // delta caches. Build fallback directly from this edit's immutable score
-      // snapshot so recovery can never mix generations.
-      const fallbackJson = (): string => JSON.stringify(serializeMnx(newScore));
-      perf.serializeMs = performance.now() - t0;
-      markPerformance("viritura:serialize-end");
-      measurePerformance("viritura:serialize", "viritura:serialize-start", "viritura:serialize-end");
-
-      // Harmony entry can commit another change before the worker finishes.
-      // Record each commit immediately; visual publication still waits for paint.
-      if (result.structuralChange || changedGlobalHarmony(previousScore, newScore, result.changedGlobalMeasures)) {
+      loadScoreFromUrl: async (url: string) => {
+        publishSequence += 1;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to load MNX file: ${response.status} ${response.statusText}`);
+        }
+        const jsonText = await response.text();
+        let parsed = parseMnx(JSON.parse(jsonText));
+        // Normalise on import so the very first edit doesn't trigger a flood of
+        // "many changes across N parts" diffs from auto-repair (creating new
+        // rest IDs to fix overfull/underfull measures). See loadScore().
+        repairBeatCounts(parsed);
+        // Backfill instrument identity from the catalog so audio playback
+        // doesn't have to fall back to fuzzy name matching.
+        enrichInstrumentIdentities(parsed);
+        parsed = reconcileScoreMixer(parsed);
+        const json = JSON.stringify(serializeMnx(parsed));
+        // Prime the delta serializer so the first edit yields a real incremental
+        // diff (see loadScore for the full rationale).
+        deltaSerializer.invalidate();
+        deltaSerializer.serialize(parsed);
         set({
-          mnxJson: publishedJson(),
-          dirty: true,
-          lastEditCursorBefore: cursorBeforeEdit,
-          lastCommittedPatches: patches ?? [],
+          score: parsed,
+          workingScore: parsed,
+          mnxJson: json,
+          savedMnxJson: json,
+          dirty: false,
+          fileName: url,
+          documentGeneration: get().documentGeneration + 1,
+          scoreRevision: nextRevision(),
+          beatCountIssues: [],
+          lastCommittedPatches: [],
+          readOnlyReason: null,
         });
-      }
+        // A new document supersedes any in-flight/pending coalesced layout.
+        coalescer.reset();
+      },
 
-      let layoutDone: Promise<void> | null = null;
-      if (perf.fastLayoutCallback) {
-        const hasMeasureChanges = result.changedGlobalMeasures.length > 0 || result.changedPartMeasures.size > 0;
-        const patchEligible = !result.structuralChange && (hasMeasureChanges || result.timeSignatureSettingsChange);
-        // Coalesce onto the single layout worker: fire now if idle, else fold
-        // into the pending request (latest JSON wins, changed measures unioned).
-        // The coalescer rebuilds the patch from the latest serializer cache at
-        // fire time, so dropping an intermediate edit's layout never drops its
-        // content (see layoutCoalescer.ts).
-        layoutDone = coalescer.submit({
-          json: patchEligible ? "" : publishedJson(),
-          fallbackJson: patchEligible ? fallbackJson : undefined,
-          changedGlobalMeasures: result.changedGlobalMeasures,
-          changedPartMeasures: result.changedPartMeasures,
-          structuralChange: result.structuralChange,
-          timeSignatureSettingsChange: result.timeSignatureSettingsChange,
-        });
-      }
-      const publish = (): void => {
-        // Latest-wins: an older layout completion cannot publish an
-        // intermediate React tree after a newer command was submitted.
-        if (sequence !== publishSequence) return;
-        // Successful patch layout never consumes the full document. Assemble
-        // it only after authoritative paint, immediately before publication.
-        const jsonForPublication = publishedJson();
+      loadScore: (source: Score, name?: string, preSerializedJson?: string, preserveDocumentGeneration = false) => {
+        publishSequence += 1;
+        const scoreRevision = nextRevision();
+        const newScore = reconcileScoreMixer(source);
+        // Auto-repair on load so subsequent edits don't surface a spurious
+        // "27 changes across 22 parts" history entry the moment a user touches
+        // anything. `updateScore` runs `repairBeatCounts` after every edit, and
+        // any new rest events it inserts get fresh IDs from `generateEventId()`
+        // — those IDs differ from whatever the source MNX (or our parser's
+        // deterministic `auto-N` scheme) used for the original events, which
+        // makes the semantic-diff engine count every truncated/padded measure
+        // as a discrete change. By repairing once on load, the stored mnxJson
+        // is already in the post-repair shape, so the first user edit yields a
+        // diff that contains only the user's actual change.
+        const repairs = repairBeatCounts(newScore);
+        invalidateLyricPresence(newScore);
+        // Backfill catalog metadata without replacing existing identities (idempotent).
+        const enriched = enrichInstrumentIdentities(newScore);
+        // Repairs, enrichment, or mixer cleanup make the caller's preSerializedJson stale.
+        const json =
+          repairs > 0 || enriched > 0 || newScore !== source || !preSerializedJson
+            ? JSON.stringify(serializeMnx(newScore))
+            : preSerializedJson;
+        // Prime the delta serializer's per-measure/structural caches against the
+        // loaded score so the FIRST edit produces a real incremental diff. Without
+        // this, the first `serialize()` sees cold caches and reports EVERY measure
+        // + structural field as changed → `structuralChange: true` → a full layout
+        // on the first keystroke (which also reseeds the engine's patch state).
+        deltaSerializer.invalidate();
+        deltaSerializer.serialize(newScore);
+
+        const perf = getGlobalPerfTracker();
+        if (perf.fastLayoutCallback) {
+          // Dispatch against the loaded model, just as updateScore dispatches
+          // against workingScore before publishing its React-visible snapshot.
+          set({ workingScore: newScore, scoreRevision });
+          // A new document supersedes any in-flight/pending coalesced layout;
+          // reset, then fire its full layout through the coalescer so a fast
+          // first edit during a slow cold load still coalesces behind it.
+          coalescer.reset();
+          coalescer.submit({
+            json,
+            changedGlobalMeasures: [],
+            changedPartMeasures: new Map(),
+            structuralChange: true,
+            timeSignatureSettingsChange: false,
+          });
+        }
+
         set({
           score: newScore,
           workingScore: newScore,
-          mnxJson: jsonForPublication,
-          dirty: true,
-          lastEditCursorBefore: cursorBeforeEdit,
-          lastCommittedPatches: patches ?? [],
-        });
-        markPerformance("viritura:setState-done");
-        try {
-          measurePerformance("viritura:updateScore", "viritura:edit-start", "viritura:setState-done");
-        } catch {
-          /* */
-        }
-      };
-      if (layoutDone) void layoutDone.then(publish);
-      else publish();
-    },
-
-    commitPatches: (patches, affectedMeasures) => {
-      if (patches.length === 0) return;
-      const score = get().workingScore;
-      if (!score) return;
-
-      const newScore = applyPatchesToScore(score, patches);
-      get().updateScore(newScore, affectedMeasures, patches);
-    },
-
-    commitDocument: (mnxJson: string) => {
-      // parseMnx runs the schema assertion and throws on any violation, so an
-      // invalid document can never reach updateScore. enrichInstrumentIdentities
-      // mirrors loadScore (idempotent). No patch list → full structural relayout.
-      const parsed = parseMnx(JSON.parse(mnxJson) as unknown);
-      enrichInstrumentIdentities(parsed);
-      get().updateScore(parsed);
-    },
-
-    repairMeasures: () => {
-      const score = get().workingScore;
-      if (!score) return;
-      const newScoreCopy = produce(score, (draft: Score) => {
-        repairBeatCounts(draft);
-      });
-      if (newScoreCopy !== score) {
-        const json = JSON.stringify(serializeMnx(newScoreCopy));
-        set({
-          score: newScoreCopy,
-          workingScore: newScoreCopy,
           mnxJson: json,
-          dirty: true,
-          scoreRevision: nextRevision(),
+          ...(!preserveDocumentGeneration ? { savedMnxJson: json } : {}),
+          dirty: false,
+          fileName: name ?? "",
+          documentGeneration: get().documentGeneration + (preserveDocumentGeneration ? 0 : 1),
+          scoreRevision,
+          beatCountIssues: [],
           lastCommittedPatches: [],
+          ...(!preserveDocumentGeneration ? { readOnlyReason: null } : {}),
         });
-      }
-      set({ beatCountIssues: [] });
-    },
+      },
 
-    dismissBeatCountWarnings: () => {
-      set({ beatCountIssues: [] });
-    },
+      updateScore: (
+        newScore: Score,
+        affectedMeasures?: { start: number; end: number },
+        patches?: readonly ScorePatch[],
+      ) => {
+        if (rejectReadOnly()) return;
+        newScore = reconcileScoreMixer(newScore);
+        const perf = getGlobalPerfTracker();
+        const sequence = ++publishSequence;
+        const previousScore = get().workingScore ?? get().score;
+        const cursorBeforeEdit = useNoteInputStore.getState().cursorPosition;
+        // Commands submitted while the worker is busy must compose against this
+        // latest model, but changing only `workingScore` does not invalidate the
+        // React-visible `score` selector tree.
+        set({ workingScore: newScore, scoreRevision: nextRevision() });
+        perf.markEditStart();
+        markPerformance("viritura:edit-start");
+        try {
+          const m = measurePerformance("viritura:command-processing", "viritura:input-event", "viritura:edit-start");
+          perf.commandProcessingMs = m.duration;
+        } catch {
+          /* no input-event mark for programmatic calls */
+        }
 
-    newScore: () => {
-      publishSequence += 1;
-      deltaSerializer.invalidate();
-      set({
-        score: null,
-        workingScore: null,
-        mnxJson: "",
-        savedMnxJson: "",
-        dirty: false,
-        fileName: "",
-        documentGeneration: get().documentGeneration + 1,
-        scoreRevision: nextRevision(),
-        beatCountIssues: [],
-        lastCommittedPatches: [],
-      });
-    },
-  }));
+        const repairT0 = performance.now();
+        // Scope the per-edit beat-count repair to the touched measure range.
+        // Most call sites pass `affectedMeasures` directly; for the rest, fall
+        // back to the range derived from the patch list so we don't silently
+        // run an O(score) repair scan after every edit on a long score.
+        const repairRange = affectedMeasures ?? (patches ? (patchAffectedMeasures(patches) ?? undefined) : undefined);
+        const repaired = repairBeatCounts(newScore, repairRange);
+        if (repaired > 0) invalidateLyricPresence(newScore, repairRange);
+        const repairMs = performance.now() - repairT0;
+        if (repairMs > 0.5) {
+          console.debug(`[Viritura] Beat count repair: ${repairMs.toFixed(1)}ms`);
+        }
+
+        markPerformance("viritura:serialize-start");
+        const t0 = performance.now();
+        const result = deltaSerializer.prepare(newScore);
+        let json: string | null = null;
+        const publishedJson = (): string => (json ??= deltaSerializer.assemble(newScore));
+        // A patch failure may resolve after a newer edit has updated the mutable
+        // delta caches. Build fallback directly from this edit's immutable score
+        // snapshot so recovery can never mix generations.
+        const fallbackJson = (): string => JSON.stringify(serializeMnx(newScore));
+        perf.serializeMs = performance.now() - t0;
+        markPerformance("viritura:serialize-end");
+        measurePerformance("viritura:serialize", "viritura:serialize-start", "viritura:serialize-end");
+
+        // Harmony entry can commit another change before the worker finishes.
+        // Record each commit immediately; visual publication still waits for paint.
+        if (result.structuralChange || changedGlobalHarmony(previousScore, newScore, result.changedGlobalMeasures)) {
+          set({
+            mnxJson: publishedJson(),
+            dirty: true,
+            lastEditCursorBefore: cursorBeforeEdit,
+            lastCommittedPatches: patches ?? [],
+          });
+        }
+
+        let layoutDone: Promise<void> | null = null;
+        if (perf.fastLayoutCallback) {
+          const hasMeasureChanges = result.changedGlobalMeasures.length > 0 || result.changedPartMeasures.size > 0;
+          const patchEligible = !result.structuralChange && (hasMeasureChanges || result.timeSignatureSettingsChange);
+          // Coalesce onto the single layout worker: fire now if idle, else fold
+          // into the pending request (latest JSON wins, changed measures unioned).
+          // The coalescer rebuilds the patch from the latest serializer cache at
+          // fire time, so dropping an intermediate edit's layout never drops its
+          // content (see layoutCoalescer.ts).
+          layoutDone = coalescer.submit({
+            json: patchEligible ? "" : publishedJson(),
+            fallbackJson: patchEligible ? fallbackJson : undefined,
+            changedGlobalMeasures: result.changedGlobalMeasures,
+            changedPartMeasures: result.changedPartMeasures,
+            structuralChange: result.structuralChange,
+            timeSignatureSettingsChange: result.timeSignatureSettingsChange,
+          });
+        }
+        const publish = (): void => {
+          // Latest-wins: an older layout completion cannot publish an
+          // intermediate React tree after a newer command was submitted.
+          if (sequence !== publishSequence) return;
+          // Successful patch layout never consumes the full document. Assemble
+          // it only after authoritative paint, immediately before publication.
+          const jsonForPublication = publishedJson();
+          set({
+            score: newScore,
+            workingScore: newScore,
+            mnxJson: jsonForPublication,
+            dirty: true,
+            lastEditCursorBefore: cursorBeforeEdit,
+            lastCommittedPatches: patches ?? [],
+          });
+          markPerformance("viritura:setState-done");
+          try {
+            measurePerformance("viritura:updateScore", "viritura:edit-start", "viritura:setState-done");
+          } catch {
+            /* */
+          }
+        };
+        if (layoutDone) void layoutDone.then(publish);
+        else publish();
+      },
+
+      commitPatches: (patches, affectedMeasures) => {
+        if (patches.length === 0) return;
+        if (rejectReadOnly()) return;
+        const score = get().workingScore;
+        if (!score) return;
+
+        const newScore = applyPatchesToScore(score, patches);
+        get().updateScore(newScore, affectedMeasures, patches);
+      },
+
+      commitDocument: (mnxJson: string) => {
+        // parseMnx runs the schema assertion and throws on any violation, so an
+        // invalid document can never reach updateScore. enrichInstrumentIdentities
+        // mirrors loadScore (idempotent). No patch list → full structural relayout.
+        const readOnlyReason = get().readOnlyReason;
+        if (readOnlyReason !== null) throw new Error(readOnlyReason);
+        const parsed = parseMnx(JSON.parse(mnxJson) as unknown);
+        enrichInstrumentIdentities(parsed);
+        get().updateScore(parsed);
+      },
+
+      repairMeasures: () => {
+        if (rejectReadOnly()) return;
+        const score = get().workingScore;
+        if (!score) return;
+        const newScoreCopy = produce(score, (draft: Score) => {
+          repairBeatCounts(draft);
+        });
+        if (newScoreCopy !== score) {
+          const json = JSON.stringify(serializeMnx(newScoreCopy));
+          set({
+            score: newScoreCopy,
+            workingScore: newScoreCopy,
+            mnxJson: json,
+            dirty: true,
+            scoreRevision: nextRevision(),
+            lastCommittedPatches: [],
+          });
+        }
+        set({ beatCountIssues: [] });
+      },
+
+      dismissBeatCountWarnings: () => {
+        set({ beatCountIssues: [] });
+      },
+
+      newScore: () => {
+        publishSequence += 1;
+        deltaSerializer.invalidate();
+        set({
+          score: null,
+          workingScore: null,
+          mnxJson: "",
+          savedMnxJson: "",
+          dirty: false,
+          fileName: "",
+          documentGeneration: get().documentGeneration + 1,
+          scoreRevision: nextRevision(),
+          beatCountIssues: [],
+          lastCommittedPatches: [],
+          readOnlyReason: null,
+        });
+      },
+    };
+  });
 }

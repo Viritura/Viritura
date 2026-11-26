@@ -14,7 +14,9 @@ interface LandmarkEntry extends ClickDialEntry {
 
 function landmarkEntry(bar: ClickBar, barIndex: number): LandmarkEntry | undefined {
   if (!isClickLandmark(bar)) return undefined;
-  const barDetail = `${bar.number}${bar.visitCount > 1 ? ` (${bar.visit}/${bar.visitCount})` : ""}${bar.startable ? "" : " partial"}`;
+  const visitDetail = [bar.visitCount > 1 ? `(${bar.visit}/${bar.visitCount})` : "", bar.startable ? "" : "partial"]
+    .filter(Boolean)
+    .join(" ");
   const tempo = bar.tempoName ? `Tempo ${bar.tempoName}${bar.tempoNameWithinBar ? " within the bar" : ""}` : "";
   const rehearsal = bar.rehearsal ? `Rehearsal ${bar.rehearsal}` : "";
   return {
@@ -23,7 +25,7 @@ function landmarkEntry(bar: ClickBar, barIndex: number): LandmarkEntry | undefin
     label: bar.rehearsal ?? bar.tempoName!,
     kind: bar.rehearsal ? "mark" : "text",
     description: `${[rehearsal, tempo].filter(Boolean).join(", ")}, ${describeClickBar(bar)}`,
-    detail: bar.rehearsal && bar.tempoName ? `${bar.tempoName} · ${barDetail}` : barDetail,
+    detail: [bar.rehearsal ? bar.tempoName : undefined, visitDetail].filter(Boolean).join(" · ") || undefined,
     startable: bar.startable,
   };
 }
@@ -46,6 +48,7 @@ export function RehearsalDial({ bars, index, onSelect, ...props }: ClickDialProp
       {...props}
       entries={landmarks}
       label="Rehearsal"
+      compact
       index={low - 1}
       onSelect={(next) => onSelect(landmarks[next]!.barIndex)}
     />

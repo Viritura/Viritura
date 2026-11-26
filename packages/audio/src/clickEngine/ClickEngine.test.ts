@@ -1,7 +1,7 @@
 import { createContext, runInContext } from "node:vm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClickEngine, ClickEngineError, type ClickEngineEvent } from "./ClickEngine";
-import { compileClickProgram } from "./clickProgram";
+import { compileClickProgram, MAX_CLICK_PROGRAM_EVENTS } from "./clickProgram";
 import { buildClickWorklet, CLICK_PROCESSOR_NAME } from "./workletSource";
 import { CLICK_SOUNDS, synthesizeClickVoices } from "../clickSound";
 
@@ -137,6 +137,15 @@ describe("compileClickProgram", () => {
       ),
     ).toThrow(RangeError);
   });
+
+  it("accepts the qualified 60-minute program and rejects anything longer before loading", () => {
+    const events = Array.from({ length: MAX_CLICK_PROGRAM_EVENTS + 1 }, (_, index) => ({
+      time: index / 32,
+      level: "beat" as const,
+    }));
+    expect(compileClickProgram(events.slice(0, -1), SAMPLE_RATE).frames).toHaveLength(MAX_CLICK_PROGRAM_EVENTS);
+    expect(() => compileClickProgram(events, SAMPLE_RATE)).toThrow(/qualified limit is 115,200/);
+  });
 });
 
 describe("ClickEngine", () => {
@@ -161,27 +170,27 @@ describe("ClickEngine", () => {
     await expect(
       engine.load([
         { time: 0, level: "accent" },
-        { time: 0.05, level: "beat" },
-        { time: 0.1, level: "subdivision" },
+        { time: 0.07, level: "beat" },
+        { time: 0.14, level: "subdivision" },
       ]),
     ).resolves.toBe(3);
 
     const receipt = await engine.start(0, 0.01);
     expect(receipt.contextTime).toBe(480 / SAMPLE_RATE);
-    device.render(8_000);
+    device.render(10_000);
     await Promise.resolve();
 
-    expect(onsets(device.left)).toEqual([480, 480 + 2_400, 480 + 4_800]);
+    expect(onsets(device.left)).toEqual([480, 480 + 3_360, 480 + 6_720]);
     expect(device.right).toEqual(device.left);
     const peak = (from: number) => Math.max(...device.left.slice(from, from + 200).map(Math.abs));
-    expect(peak(480)).toBeGreaterThan(peak(2_880));
-    expect(peak(2_880)).toBeGreaterThan(peak(5_280));
+    expect(peak(480)).toBeGreaterThan(peak(3_840));
+    expect(peak(3_840)).toBeGreaterThan(peak(7_200));
     expect(events).toEqual([{ type: "started", contextTime: 480 / SAMPLE_RATE }, { type: "ended" }]);
   });
 
   it("switches future clicks without changing their frames or interrupting an active voice", async () => {
     const { device, engine } = await createEngine();
-    const tick = synthesizeClickVoices(SAMPLE_RATE, "tick")[0];
+    const oscillator = synthesizeClickVoices(SAMPLE_RATE, "oscillator")[0];
     const woodblock = synthesizeClickVoices(SAMPLE_RATE, "woodblock")[1];
     await engine.load([
       { time: 0, level: "accent" },
@@ -193,7 +202,9 @@ describe("ClickEngine", () => {
     device.render(7_000);
 
     expect(onsets(device.left)).toEqual([480, 480 + 3_360]);
-    expect(device.left.slice(480, 480 + tick.length).every((sample, index) => sample === tick[index])).toBe(true);
+    expect(device.left.slice(480, 480 + oscillator.length).every((sample, index) => sample === oscillator[index])).toBe(
+      true,
+    );
     expect(
       device.left.slice(3_840, 3_840 + woodblock.length).every((sample, index) => sample === woodblock[index]),
     ).toBe(true);

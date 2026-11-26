@@ -1,7 +1,7 @@
 /** Sounds available to both the recording click and the playback metronome. */
-export const CLICK_SOUNDS = ["tick", "woodblock", "beep", "oscillator"] as const;
+export const CLICK_SOUNDS = ["oscillator", "tick", "woodblock"] as const;
 export type ClickSound = (typeof CLICK_SOUNDS)[number];
-export const DEFAULT_CLICK_SOUND: ClickSound = "tick";
+export const DEFAULT_CLICK_SOUND: ClickSound = "oscillator";
 
 /** Voices are ordered as accent, beat, and subdivision. */
 export type ClickVoices = readonly [Float32Array, Float32Array, Float32Array];
@@ -11,35 +11,49 @@ export function isClickSound(value: unknown): value is ClickSound {
 }
 
 const GAINS = [0.9, 0.6, 0.3] as const;
-const BEEP_SPECS = [
-  [1760, 0.04],
-  [880, 0.03],
-  [660, 0.02],
-] as const;
 const OSCILLATOR_SPECS = [
   [880, 0.05, 0.8],
   [440, 0.03, 0.4],
   [440, 0.03, 0.2],
 ] as const;
 
-function sineVoice(sampleRate: number, sound: "beep" | "oscillator", level: number): Float32Array {
-  const [frequency, duration] = sound === "oscillator" ? OSCILLATOR_SPECS[level]! : BEEP_SPECS[level]!;
-  const gain = sound === "oscillator" ? OSCILLATOR_SPECS[level]![2] : GAINS[level]!;
+function sineVoice(sampleRate: number, level: number): Float32Array {
+  const [frequency, duration, gain] = OSCILLATOR_SPECS[level]!;
   const samples = new Float32Array(Math.max(1, Math.ceil(duration * sampleRate)));
-  const decay =
-    sound === "oscillator" ? Math.log(gain / 0.001) / (duration * sampleRate) : Math.log(1000) / samples.length;
+  const decay = Math.log(gain / 0.001) / (duration * sampleRate);
   for (let i = 0; i < samples.length; i++) {
     samples[i] = gain * Math.sin((2 * Math.PI * frequency * i) / sampleRate) * Math.exp(-decay * i);
   }
   return samples;
 }
 
+interface PercussiveSpec {
+  /** Resonant pitch of the voice; accent sits a fifth above the beat and subdivision a fourth below it. */
+  readonly pitch: number;
+  readonly duration: number;
+  /** Multiplies every decay constant so lower levels are drier as well as quieter. */
+  readonly ring: number;
+  readonly brightness: number;
+}
+
+const PERCUSSIVE_SPECS: Record<"tick" | "woodblock", readonly [PercussiveSpec, PercussiveSpec, PercussiveSpec]> = {
+  tick: [
+    { pitch: 3300, duration: 0.024, ring: 1.4, brightness: 1 },
+    { pitch: 2200, duration: 0.02, ring: 1, brightness: 0.75 },
+    { pitch: 1650, duration: 0.012, ring: 0.6, brightness: 0.35 },
+  ],
+  woodblock: [
+    { pitch: 1575, duration: 0.05, ring: 1.3, brightness: 1 },
+    { pitch: 1050, duration: 0.045, ring: 1, brightness: 0.7 },
+    { pitch: 790, duration: 0.025, ring: 0.55, brightness: 0.3 },
+  ],
+};
+
 function percussiveVoice(sampleRate: number, sound: "tick" | "woodblock", level: number): Float32Array {
-  const duration = sound === "tick" ? 0.02 : 0.045;
+  const { pitch, duration, ring, brightness } = PERCUSSIVE_SPECS[sound][level]!;
   const samples = new Float32Array(Math.max(1, Math.ceil(duration * sampleRate)));
   const fast = 1 - Math.exp((-2 * Math.PI * 6500) / sampleRate);
   const slow = 1 - Math.exp((-2 * Math.PI * 900) / sampleRate);
-  const brightness = [1, 0.8, 0.65][level]!;
   let seed = 0x9e3779b9;
   let highBand = 0;
   let lowBand = 0;
@@ -55,13 +69,13 @@ function percussiveVoice(sampleRate: number, sound: "tick" | "woodblock", level:
     const transient = (highBand - lowBand) * brightness;
     const value =
       sound === "tick"
-        ? transient * 0.8 * Math.exp(-time / 0.0035) +
-          Math.sin(2 * Math.PI * 2200 * time) * 0.2 * Math.exp(-time / 0.0045) +
-          Math.sin(2 * Math.PI * 3470 * time) * 0.08 * Math.exp(-time / 0.0025)
+        ? transient * 0.8 * Math.exp(-time / (0.0035 * ring)) +
+          Math.sin(2 * Math.PI * pitch * time) * 0.3 * Math.exp(-time / (0.0045 * ring)) +
+          Math.sin(2 * Math.PI * pitch * 1.577 * time) * 0.08 * Math.exp(-time / (0.0025 * ring))
         : transient * 0.2 * Math.exp(-time / 0.0025) +
-          Math.sin(2 * Math.PI * 1050 * time) * 0.55 * Math.exp(-time / 0.011) +
-          Math.sin(2 * Math.PI * 1660 * time) * 0.3 * Math.exp(-time / 0.008) +
-          Math.sin(2 * Math.PI * 2750 * time) * 0.15 * Math.exp(-time / 0.004);
+          Math.sin(2 * Math.PI * pitch * time) * 0.55 * Math.exp(-time / (0.011 * ring)) +
+          Math.sin(2 * Math.PI * pitch * 1.581 * time) * 0.3 * Math.exp(-time / (0.008 * ring)) +
+          Math.sin(2 * Math.PI * pitch * 2.619 * time) * 0.15 * Math.exp(-time / (0.004 * ring));
     samples[i] = value * attack * release;
     peak = Math.max(peak, Math.abs(samples[i]!));
   }
@@ -77,8 +91,6 @@ export function synthesizeClickVoices(sampleRate: number, sound: ClickSound): Cl
   if (!Number.isFinite(sampleRate) || sampleRate <= 0) throw new RangeError("Click sample rate must be positive");
   if (!isClickSound(sound)) throw new RangeError(`Unknown click sound: ${String(sound)}`);
   const voice = (level: number) =>
-    sound === "beep" || sound === "oscillator"
-      ? sineVoice(sampleRate, sound, level)
-      : percussiveVoice(sampleRate, sound, level);
+    sound === "oscillator" ? sineVoice(sampleRate, level) : percussiveVoice(sampleRate, sound, level);
   return [voice(0), voice(1), voice(2)];
 }

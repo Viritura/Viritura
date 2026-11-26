@@ -1,4 +1,4 @@
-import { plainTextContent, type GlobalMeasure, type Score } from "@viritura/core";
+import { plainTextContent, resolveMeter, type GlobalMeasure, type Score } from "@viritura/core";
 import type { PlaybackTiming } from "@viritura/midi/timing";
 import type { ClickSessionProgram } from "@viritura/playback/click";
 
@@ -92,7 +92,7 @@ export function describeClickBar(bar: ClickBar): string {
   return `Bar ${bar.number}${visit}${partial}`;
 }
 
-/** Rehearsal marks and named tempo changes share the upper track and the Previous/Next shortcuts. */
+/** Rehearsal marks and named tempo changes share the upper track. */
 export function isClickLandmark(bar: ClickBar): boolean {
   return Boolean(bar.rehearsal || bar.tempoName);
 }
@@ -117,24 +117,6 @@ export function clickBarForMeasure(
   currentIndex: number,
 ): number | undefined {
   return nearestStartable(bars, currentIndex, (bar) => bar.measureIndex === measureIndex);
-}
-
-/** Direct bar entry matches the printed bar number and, like a score tap, keeps the nearest repeat pass. */
-export function clickBarForNumber(bars: readonly ClickBar[], number: number, currentIndex: number): number | undefined {
-  return nearestStartable(bars, currentIndex, (bar) => bar.number === number);
-}
-
-/** The nearest startable landmark strictly before (-1) or after (1) the selected bar. */
-export function adjacentClickLandmark(
-  bars: readonly ClickBar[],
-  currentIndex: number,
-  direction: -1 | 1,
-): number | undefined {
-  for (let index = currentIndex + direction; index >= 0 && index < bars.length; index += direction) {
-    const bar = bars[index]!;
-    if (bar.startable && isClickLandmark(bar)) return index;
-  }
-  return undefined;
 }
 
 /** Map the UI clock to the performed visit without scheduling audio on the UI thread. */
@@ -182,4 +164,41 @@ export function clickScorePosition(
     measureIndex: timing.expandedMeasureToOriginal[index]!,
     beat: Math.max(span?.startBeat ?? 0, Math.min(span?.endBeat ?? Infinity, beat)),
   };
+}
+
+interface ClickPositionDisplay {
+  readonly text: string;
+  readonly description: string;
+}
+
+/** Countoff follows scheduled clicks; score beats follow the meter's main beat groups. */
+export function clickPositionDisplay(
+  bar: ClickBar,
+  timing: PlaybackTiming,
+  program: ClickSessionProgram,
+  elapsed: number,
+  tempoPercent: number,
+): ClickPositionDisplay {
+  if (elapsed < program.countoffSeconds) {
+    let low = 0;
+    let high = program.countoffClicks;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (program.events[middle]!.time <= elapsed) low = middle + 1;
+      else high = middle;
+    }
+    const remaining = program.countoffClicks - Math.max(0, low - 1);
+    return {
+      text: String(-remaining),
+      description: `Countoff, ${remaining} ${remaining === 1 ? "click" : "clicks"} remaining`,
+    };
+  }
+  const index = clickBarAtTime(timing, program, elapsed, tempoPercent);
+  const position = clickScorePosition(timing, program, elapsed, tempoPercent);
+  const { beatBoundaries } = resolveMeter(timing.measureTimeSignatures[index]!);
+  const beat = Math.min(
+    beatBoundaries.length - 1,
+    Math.max(1, beatBoundaries.findLastIndex((boundary) => boundary <= position.beat + 1e-9) + 1),
+  );
+  return { text: `${bar.number}:${beat}`, description: `${describeClickBar(bar)}, beat ${beat}` };
 }

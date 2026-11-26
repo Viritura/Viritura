@@ -151,6 +151,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       interactionMode = "write",
       onClickMeasure,
       pageSetupOverride,
+      useWrittenOverride,
       fitToView,
       fitRequest,
       engraveAdornments,
@@ -391,6 +392,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       expandedCondensingStaves,
       pageSetupOverride,
       sourcePartIndex,
+      useWrittenOverride,
     );
     const restoreViewport = useCallback(
       (saved: { zoom: number; scrollX: number; scrollY: number }) => {
@@ -646,6 +648,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           patchInfo,
           partIndex,
           sourcePartIndex,
+          useWrittenOverride,
           viewMode,
           selectedPartIds,
           expandedCondensingStaves,
@@ -660,6 +663,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       [
         partIndex,
         sourcePartIndex,
+        useWrittenOverride,
         viewMode,
         selectedPartIds,
         expandedCondensingStaves,
@@ -854,6 +858,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           expandedCondensingStaves,
           pageSetupOverride,
           sourcePartIndex,
+          useWrittenOverride,
           cachedScoreInfoRef,
           displayListRef,
           spatialIndexRef,
@@ -926,6 +931,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       documentStore,
       partIndex,
       sourcePartIndex,
+      useWrittenOverride,
       selectedPartIds,
       expandedCondensingStaves,
       pageSetupOverride,
@@ -954,6 +960,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       pageSetupRef,
       pageSetupOverride,
       sourcePartIndex,
+      useWrittenOverride,
       cachedScoreInfoRef,
       displayListRef,
       displayListVersion,

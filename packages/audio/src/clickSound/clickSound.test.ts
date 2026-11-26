@@ -5,7 +5,7 @@ describe("synthesized click sounds", () => {
   it.each([44_100, 48_000])("generates distinct short, bounded voices at %i Hz", (sampleRate) => {
     const tick = synthesizeClickVoices(sampleRate, "tick");
     const woodblock = synthesizeClickVoices(sampleRate, "woodblock");
-    const beep = synthesizeClickVoices(sampleRate, "beep");
+    const oscillator = synthesizeClickVoices(sampleRate, "oscillator");
 
     for (const sound of CLICK_SOUNDS) {
       const voices = synthesizeClickVoices(sampleRate, sound);
@@ -21,8 +21,30 @@ describe("synthesized click sounds", () => {
     }
 
     expect(tick[0]).not.toEqual(woodblock[0]);
-    expect(tick[0]).not.toEqual(beep[0]);
-    expect(woodblock[0]).not.toEqual(beep[0]);
+    expect(tick[0]).not.toEqual(oscillator[0]);
+    expect(woodblock[0]).not.toEqual(oscillator[0]);
+  });
+
+  it.each([
+    ["tick", [3300, 2200, 1650]],
+    ["woodblock", [1575, 1050, 790]],
+  ] as const)("pitches %s accent, beat, and subdivision apart", (sound, pitches) => {
+    const sampleRate = 48_000;
+    const energy = (voice: Float32Array, frequency: number) => {
+      let re = 0;
+      let im = 0;
+      voice.forEach((sample, index) => {
+        re += sample * Math.cos((2 * Math.PI * frequency * index) / sampleRate);
+        im += sample * Math.sin((2 * Math.PI * frequency * index) / sampleRate);
+      });
+      return Math.hypot(re, im);
+    };
+    synthesizeClickVoices(sampleRate, sound).forEach((voice, level) => {
+      const own = energy(voice, pitches[level]!);
+      pitches.forEach((other, otherLevel) => {
+        if (otherLevel !== level) expect(own).toBeGreaterThan(energy(voice, other) * 2);
+      });
+    });
   });
 
   it.each([44_100, 48_000])("preserves the original oscillator pitches and envelopes at %i Hz", (sampleRate) => {
@@ -41,6 +63,5 @@ describe("synthesized click sounds", () => {
         expect(voice[sample]).toBeCloseTo(expected, 6);
       }
     });
-    expect(voices[0]).not.toEqual(synthesizeClickVoices(sampleRate, "beep")[0]);
   });
 });

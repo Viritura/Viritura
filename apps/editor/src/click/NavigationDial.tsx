@@ -14,6 +14,7 @@ interface NavigationDialProps {
   readonly label: string;
   readonly index: number;
   readonly enabled: boolean;
+  readonly compact?: boolean;
   readonly onSelect: (index: number) => void;
   readonly onSettlingChange: (settling: boolean) => void;
 }
@@ -27,6 +28,8 @@ interface DragState {
   readonly pointerId: number;
   readonly startX: number;
   readonly startOffset: number;
+  /** Screen pixels per dial pixel. */
+  readonly scale: number;
   active: boolean;
   samples: DragSample[];
 }
@@ -77,7 +80,8 @@ function wheelDistance(event: WheelEvent, pageWidth: number): number {
   return delta * scale;
 }
 
-export function NavigationDial({ entries, label, index, enabled, onSelect, onSettlingChange }: NavigationDialProps) {
+export function NavigationDial(props: NavigationDialProps) {
+  const { entries, label, index, enabled, compact, onSelect, onSettlingChange } = props;
   const viewport = useRef<HTMLDivElement>(null);
   const drag = useRef<DragState | undefined>(undefined);
   const suppressClick = useRef(false);
@@ -175,19 +179,24 @@ export function NavigationDial({ entries, label, index, enabled, onSelect, onSet
     if (!enabled || (event.pointerType === "mouse" && event.button !== 0)) return;
     suppressClick.current = false;
     beginBrowsing();
+    // A scaled host (the picture window) moves the pointer in screen pixels, not dial pixels.
+    const node = event.currentTarget;
+    const scale = node.clientWidth > 0 ? node.getBoundingClientRect().width / node.clientWidth || 1 : 1;
     drag.current = {
       pointerId: event.pointerId,
-      startX: event.clientX,
+      startX: event.clientX / scale,
       startOffset: offsetRef.current,
       active: false,
-      samples: [{ time: performance.now(), x: event.clientX }],
+      scale,
+      samples: [{ time: performance.now(), x: event.clientX / scale }],
     };
   }
 
   function pointerMove(event: ReactPointerEvent<HTMLDivElement>): void {
     const state = drag.current;
     if (!state || state.pointerId !== event.pointerId) return;
-    const dx = event.clientX - state.startX;
+    const x = event.clientX / state.scale;
+    const dx = x - state.startX;
     if (!state.active) {
       if (Math.abs(dx) < DRAG_THRESHOLD) return;
       state.active = true;
@@ -195,9 +204,7 @@ export function NavigationDial({ entries, label, index, enabled, onSelect, onSet
       event.currentTarget.setPointerCapture?.(event.pointerId);
     }
     const time = performance.now();
-    state.samples = [...state.samples, { time, x: event.clientX }].filter(
-      (sample) => time - sample.time <= VELOCITY_WINDOW_MS,
-    );
+    state.samples = [...state.samples, { time, x }].filter((sample) => time - sample.time <= VELOCITY_WINDOW_MS);
     setOffset(state.startOffset - dx);
   }
 
@@ -210,7 +217,7 @@ export function NavigationDial({ entries, label, index, enabled, onSelect, onSet
       return;
     }
     suppressClick.current = true;
-    const samples = [...state.samples, { time: performance.now(), x: event.clientX }];
+    const samples = [...state.samples, { time: performance.now(), x: event.clientX / state.scale }];
     const projected = offsetRef.current + releaseVelocity(samples) * MOMENTUM_MS;
     commit(closestStart(entries, Math.round(projected / ITEM_WIDTH)));
   }
@@ -235,7 +242,7 @@ export function NavigationDial({ entries, label, index, enabled, onSelect, onSet
   };
 
   return (
-    <div className={styles.dial}>
+    <div className={styles.dial} data-compact={compact || undefined}>
       <div className={styles.marker} aria-hidden="true" hidden={index < 0 && !browsing} />
       <div
         ref={viewport}

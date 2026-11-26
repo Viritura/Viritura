@@ -18,6 +18,10 @@ import styles from "./ProjectFileSwitcher.module.css";
 
 const ICON_STYLE: CSSProperties = { flexShrink: 0, opacity: 0.7 };
 
+function displayScoreName(name: string): string {
+  return name.replace(/\.mnx$/i, "");
+}
+
 export interface ProjectFileSwitcherProps {
   /** Lock the active file, e.g. while the click track is playing. */
   readonly disabled?: boolean;
@@ -55,7 +59,7 @@ export function ProjectFileSwitcher({ disabled, className }: ProjectFileSwitcher
   if (scores.length === 0 || !switchTo) return null;
 
   const current = scores.find((score) => score.relativePath === activeScorePath);
-  const currentLabel = current?.name ?? "Project file";
+  const currentLabel = current ? displayScoreName(current.name) : "Project file";
   const locked = disabled || switching || livePinned;
 
   const select = (relativePath: string) => {
@@ -119,7 +123,7 @@ export function ProjectFileSwitcher({ disabled, className }: ProjectFileSwitcher
                     onClick={() => select(score.relativePath)}
                     trailing={selected ? <Check size={13} className={styles.check} /> : undefined}
                   >
-                    <span className={styles.name}>{score.name}</span>
+                    <span className={styles.name}>{displayScoreName(score.name)}</span>
                     {folder && <span className={styles.folder}>{folder}</span>}
                   </ListRow>
                 );

@@ -122,7 +122,7 @@ for (const fixture of ["c-major-scale.mnx", "beethoven-symphony-5-movement-1.mnx
   test(`Click status controls receive mouse clicks and fit the shared score view (${fixture})`, async ({ page }) => {
     await openClick(page, resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", fixture));
     const canvas = page.getByRole("application", { name: "Interactive music score" });
-    const zoom = page.getByLabel("Score zoom", { exact: true });
+    const zoom = page.getByRole("button", { name: "Reset zoom" });
     const fit = page.getByRole("button", { name: "Zoom to fit" });
     await page.getByRole("button", { name: "Reset zoom" }).click();
     await expect(zoom).toHaveText("100%");
@@ -186,7 +186,9 @@ test("Click follows selected bars across page, spread and Horizon views", async 
   await selector.click();
   await page.getByRole("option", { name: "Horizon", exact: true }).click();
   await expect
-    .poll(async () => Number.parseInt((await page.getByLabel("Score zoom", { exact: true }).textContent()) ?? "0", 10))
+    .poll(async () =>
+      Number.parseInt((await page.getByRole("button", { name: "Reset zoom" }).textContent()) ?? "0", 10),
+    )
     .toBeGreaterThan(5);
   await expect.poll(cursorVisible).toBe(true);
 });
@@ -281,7 +283,9 @@ for (const mode of ["Page", "Spread", "Spread (H)"]) {
       });
       observer.observe(canvas.parentElement, { childList: true });
     });
-    await expect(page.getByRole("status", { name: "Current bar" })).toHaveText(single ? "9" : "13", { timeout: 10000 });
+    await expect(page.getByRole("status", { name: "Playback position" })).toHaveText(single ? "9:1" : "13:1", {
+      timeout: 10000,
+    });
     await expect(preview).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.readerTurnStale)).toBe("false");
     await page.getByRole("button", { name: "Stop", exact: true }).click();
@@ -428,7 +432,7 @@ test("click pages honor MNX page and staff sizes when switching score views", as
     return frame === null ? 0 : frame.width / frame.height;
   }
   async function staffHeight() {
-    const zoom = Number.parseInt((await page.getByLabel("Score zoom", { exact: true }).textContent()) ?? "0", 10);
+    const zoom = Number.parseInt((await page.getByRole("button", { name: "Reset zoom" }).textContent()) ?? "0", 10);
     return ((await playheadBounds(page))?.height ?? 0) / zoom;
   }
   await expect.poll(pageAspect).toBeCloseTo(1.5, 2);
@@ -476,6 +480,379 @@ test("click score view controls remain usable on a narrow viewport", async ({ pa
   if (!picker || !menu || !status || !transport) throw new Error("Click chrome is not visible");
   expect(picker.x).toBeGreaterThanOrEqual(menu.x + menu.width);
   expect(transport.y + transport.height).toBeLessThanOrEqual(status.y);
+});
+
+test("bar numbers stay centered with and without repeat details", async ({ page }) => {
+  const fixture = await readFile(
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+    "utf8",
+  );
+  const score = JSON.parse(fixture) as {
+    global: { measures: { repeatStart?: object; repeatEnd?: object }[] };
+  };
+  score.global.measures[0]!.repeatStart = {};
+  score.global.measures[1]!.repeatEnd = {};
+  await openClick(page, {
+    name: "repeated.mnx",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(score)),
+  });
+
+  const dial = page.getByRole("listbox", { name: "Start bar" });
+  for (const [name, expectedDetail] of [
+    ["Bar 1, visit 1 of 2, rehearsal A", "1/2"],
+    ["Bar 3, rehearsal B", ""],
+  ]) {
+    const geometry = await dial.getByRole("option", { name }).evaluate((option) => {
+      const viewport = option.closest('[role="listbox"]');
+      const [label, detail] = option.querySelectorAll("span");
+      if (!viewport || !label || !detail) throw new Error("Bar dial content is missing");
+      const dialBox = viewport.getBoundingClientRect();
+      const labelBox = label.getBoundingClientRect();
+      const detailBox = detail.getBoundingClientRect();
+      return {
+        offset: labelBox.y + labelBox.height / 2 - (dialBox.y + dialBox.height / 2),
+        gap: detailBox.top - labelBox.bottom,
+        detail: detail.textContent,
+      };
+    });
+    expect(Math.abs(geometry.offset)).toBeLessThan(0.5);
+    expect(geometry.detail).toBe(expectedDetail);
+    if (expectedDetail) expect(geometry.gap).toBeGreaterThanOrEqual(0);
+  }
+});
+
+test("shows negative countoff clicks before live bar and beat", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+  );
+  await page.getByRole("slider", { name: "Session tempo %" }).fill("50");
+  const panel = page.getByRole("region", { name: "Click player" });
+  await panel.getByRole("button", { name: "Start", exact: true }).click();
+  const stop = panel.getByRole("button", { name: "Stop", exact: true });
+  await expect(stop).toBeEnabled();
+  const initial = await stop.boundingBox();
+  if (!initial) throw new Error("Stop button is not visible");
+  for (const text of ["-4", "-3", "-2", "-1", "1:1", "1:2", "1:3", "1:4", "2:1"]) {
+    await expect(panel.getByRole("status", { name: "Playback position" })).toHaveText(text);
+    const button = await stop.boundingBox();
+    if (!button) throw new Error("Stop button is not visible");
+    expect(Math.abs(button.x - initial.x)).toBeLessThan(1);
+    expect(Math.abs(button.y - initial.y)).toBeLessThan(1);
+  }
+  await stop.click();
+});
+
+test("flashes on beats, honors reduced motion, and saves the flash setting", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+  );
+  const panel = page.getByRole("region", { name: "Click player" });
+  const pulse = panel.locator("[data-click-flash]");
+  const start = () => panel.getByRole("button", { name: "Start", exact: true }).click();
+  const stop = () => panel.getByRole("button", { name: "Stop", exact: true }).click();
+  const openPlaybackSettings = async () => {
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("tab", { name: "Playback", exact: true }).click();
+    return page.getByRole("radiogroup", { name: "Click player flash" });
+  };
+  const sampleFlashes = async () => {
+    await pulse.waitFor({ state: "attached" });
+    return pulse.evaluate(
+      (element) =>
+        new Promise<{
+          peaks: { strength: number; shadow: string; background: string }[];
+          restShadow: string;
+          restBackground: string;
+        }>((resolve) => {
+          const host = element.parentElement!;
+          const peaks: { strength: number; shadow: string; background: string }[] = [];
+          let previous = 0;
+          let restShadow = "";
+          let restBackground = "";
+          const started = performance.now();
+          const sample = () => {
+            const strength = Number.parseFloat(host.style.getPropertyValue("--click-pulse")) || 0;
+            const { boxShadow: shadow, backgroundColor: background } = getComputedStyle(host);
+            if (strength > 0 && previous === 0) peaks.push({ strength, shadow, background });
+            if (strength === 0) {
+              restShadow = shadow;
+              restBackground = background;
+            }
+            previous = strength;
+            if (performance.now() - started < 1500) requestAnimationFrame(sample);
+            else resolve({ peaks, restShadow, restBackground });
+          };
+          requestAnimationFrame(sample);
+        }),
+    );
+  };
+
+  const settings = await openPlaybackSettings();
+  await expect(settings.getByRole("radio", { name: "Every beat" })).toBeChecked();
+  await page.keyboard.press("Escape");
+  const everyBeatSample = sampleFlashes();
+  await start();
+  const everyBeat = await everyBeatSample;
+  expect(everyBeat.peaks.length).toBeGreaterThanOrEqual(3);
+  expect(everyBeat.peaks[0]!.strength).toBeGreaterThan(everyBeat.peaks[1]!.strength);
+  expect(everyBeat.peaks[0]!.shadow).not.toBe(everyBeat.restShadow);
+  expect(everyBeat.peaks[0]!.shadow).not.toBe(everyBeat.peaks[1]!.shadow);
+  expect(everyBeat.peaks[0]!.background).toBe(everyBeat.restBackground);
+  await stop();
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await start();
+  await expect(pulse).toHaveCount(1);
+  await page.waitForTimeout(700);
+  await expect(panel).toHaveCSS("box-shadow", everyBeat.restShadow);
+  await expect(panel).toHaveCSS("background-color", everyBeat.restBackground);
+  expect(await panel.evaluate((element) => element.style.getPropertyValue("--click-pulse"))).toBe("0%");
+  await stop();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+
+  await (await openPlaybackSettings()).getByRole("radio", { name: "Measure only" }).click();
+  await page.keyboard.press("Escape");
+  const measureSample = sampleFlashes();
+  await start();
+  const measureOnly = await measureSample;
+  expect(measureOnly.peaks).toHaveLength(1);
+  await stop();
+
+  await (await openPlaybackSettings()).getByRole("radio", { name: "Off", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await start();
+  await expect(pulse).toHaveCount(0);
+  await stop();
+  await page.reload();
+  await expect((await openPlaybackSettings()).getByRole("radio", { name: "Off", exact: true })).toBeChecked();
+});
+
+test("shows a theme-colored outline and an unclipped glow outside the compact panel", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+  );
+  const panel = page.getByRole("region", { name: "Click player" });
+  await panel.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(panel.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    window.requestAnimationFrame = () => 0;
+  });
+  await page.waitForTimeout(100);
+  const bounds = await panel.boundingBox();
+  if (!bounds || bounds.x < 8 || bounds.height <= 32) throw new Error("Click panel cannot be sampled");
+  const clip = { x: Math.floor(bounds.x) - 8, y: Math.ceil(bounds.y) + 16, width: 6, height: bounds.height - 32 };
+  const activeShadows: string[] = [];
+
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);
+    await panel.evaluate((element) => element.style.setProperty("--click-pulse", "0%"));
+    await page.waitForTimeout(100);
+    const restBackground = await panel.evaluate((element) => getComputedStyle(element).backgroundColor);
+    const restOutside = await page.screenshot({ clip });
+    await panel.evaluate((element) => element.style.setProperty("--click-pulse", "100%"));
+    const active = await panel.evaluate((element) => ({
+      background: getComputedStyle(element).backgroundColor,
+      shadow: getComputedStyle(element).boxShadow,
+    }));
+    const activeOutside = await page.screenshot({ clip });
+    expect(active.background).toBe(restBackground);
+    expect(activeOutside.equals(restOutside)).toBe(false);
+    activeShadows.push(active.shadow);
+  }
+  expect(activeShadows[0]).not.toBe(activeShadows[1]);
+});
+
+test("keeps the detached flash running on the picture window's frame clock", async ({ page }) => {
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+    false,
+    async () => {
+      await page.evaluate(() => {
+        let picture: Window | null = null;
+        Object.defineProperty(globalThis, "documentPictureInPicture", {
+          configurable: true,
+          value: {
+            get window() {
+              return picture;
+            },
+            requestWindow: async () => {
+              const opened = window.open("", "_blank", "popup,width=400,height=400");
+              if (!opened) throw new Error("Could not open the test picture window");
+              picture = opened;
+              opened.addEventListener("pagehide", () => (picture = null), { once: true });
+              return opened;
+            },
+          },
+        });
+      });
+    },
+  );
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Keep above other apps" }).click();
+  const popup = await popupPromise;
+  const player = popup.getByRole("region", { name: "Click player" });
+  await player.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(player.getByRole("button", { name: "Stop", exact: true })).toBeEnabled();
+  await page.evaluate(() => {
+    window.requestAnimationFrame = () => 0;
+  });
+  const flash = await player.locator("[data-click-flash]").evaluate(
+    (element) =>
+      new Promise<{
+        count: number;
+        activeShadow: string;
+        restShadow: string;
+        activeBackground: string;
+        restBackground: string;
+      }>((resolve) => {
+        const host = element.parentElement!;
+        let count = 0;
+        let previous = 0;
+        let activeShadow = "";
+        let restShadow = "";
+        let activeBackground = "";
+        let restBackground = "";
+        const started = performance.now();
+        const sample = () => {
+          const value = Number.parseFloat(host.style.getPropertyValue("--click-pulse")) || 0;
+          const { boxShadow: shadow, backgroundColor: background } = getComputedStyle(host);
+          if (value > 0 && previous === 0) count++;
+          if (value > 0) {
+            activeShadow = shadow;
+            activeBackground = background;
+          } else {
+            restShadow = shadow;
+            restBackground = background;
+          }
+          previous = value;
+          if (performance.now() - started < 1500) requestAnimationFrame(sample);
+          else resolve({ count, activeShadow, restShadow, activeBackground, restBackground });
+        };
+        requestAnimationFrame(sample);
+      }),
+  );
+  expect(flash.count).toBeGreaterThanOrEqual(2);
+  expect(flash.activeShadow).toContain("inset");
+  expect(flash.activeShadow).not.toBe(flash.restShadow);
+  expect(flash.activeBackground).toBe(flash.restBackground);
+  await player.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(player.locator("[data-click-flash]")).toHaveCount(0);
+  await popup.close();
+});
+
+test("the picture window shrinks to the compact controls on Start and restores on Stop", async ({ page }) => {
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+    false,
+    async () => {
+      await page.evaluate(() => {
+        let picture: Window | null = null;
+        Object.defineProperty(globalThis, "documentPictureInPicture", {
+          configurable: true,
+          value: {
+            get window() {
+              return picture;
+            },
+            requestWindow: async () => {
+              const opened = window.open("", "_blank", "popup,width=400,height=400");
+              if (!opened) throw new Error("Could not open the test picture window");
+              picture = opened;
+              opened.addEventListener("pagehide", () => (picture = null), { once: true });
+              return opened;
+            },
+          },
+        });
+      });
+    },
+  );
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Keep above other apps" }).click();
+  const popup = await popupPromise;
+  await popup.setViewportSize({ width: 400, height: 400 });
+  const player = popup.getByRole("region", { name: "Click player" });
+  await expect(player.getByRole("button", { name: "Start", exact: true })).toBeVisible();
+  await popup.evaluate(() => {
+    const calls: number[][] = [];
+    Reflect.set(window, "resizeCalls", calls);
+    window.resizeBy = (x: number, y: number) => void calls.push([x, y]);
+  });
+  const resizeCalls = () => popup.evaluate(() => Reflect.get(window, "resizeCalls") as number[][]);
+
+  await player.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(player.getByRole("button", { name: "Stop", exact: true })).toBeEnabled();
+  await expect.poll(async () => (await resizeCalls()).length).toBe(1);
+  const [[dx, dy]] = await resizeCalls();
+  expect(dx).toBeLessThan(0);
+  expect(dy).toBeLessThan(0);
+  const stop = await player.getByRole("button", { name: "Stop", exact: true }).boundingBox();
+  expect(stop?.width).toBeLessThan(200);
+
+  await player.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(player.getByRole("button", { name: "Start", exact: true })).toBeVisible();
+  // The spy does not move the viewport, so restoring is a zero delta back to the saved size.
+  expect((await resizeCalls()).length).toBe(1);
+  await popup.close();
+});
+
+test("real Document PiP opens at the panel size and requests a compact resize on Start", async ({ page }) => {
+  await openClick(
+    page,
+    resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
+  );
+  test.skip(!(await page.evaluate(() => "documentPictureInPicture" in window)), "Document PiP is unavailable");
+  const panel = await page.getByRole("region", { name: "Click player" }).boundingBox();
+  if (!panel) throw new Error("Click controls are not visible");
+  await page.evaluate(() => {
+    const api = Reflect.get(window, "documentPictureInPicture") as {
+      requestWindow: (options: { width: number; height: number }) => Promise<Window>;
+    };
+    const request = api.requestWindow.bind(api);
+    api.requestWindow = async (options) => {
+      document.documentElement.dataset.pictureRequest = JSON.stringify(options);
+      const win = await request(options);
+      const calls: number[][] = [];
+      Reflect.set(window, "pictureResizes", calls);
+      const resizeBy = win.resizeBy.bind(win);
+      win.resizeBy = (x: number, y: number) => {
+        calls.push([x, y]);
+        resizeBy(x, y);
+      };
+      return win;
+    };
+  });
+  await page.getByRole("button", { name: "Keep above other apps" }).click();
+  expect(await page.evaluate(() => JSON.parse(document.documentElement.dataset.pictureRequest!))).toEqual({
+    width: Math.ceil(panel.width),
+    height: Math.ceil(panel.height),
+  });
+  const pictureButton = (label: string) =>
+    page.evaluate((name) => {
+      const api = Reflect.get(window, "documentPictureInPicture") as { window: Window | null };
+      const button = Array.from(api.window?.document.querySelectorAll("button") ?? []).find(
+        (candidate) => candidate.textContent?.trim() === name,
+      );
+      button?.click();
+      return Boolean(button);
+    }, label);
+  await expect.poll(() => page.evaluate(() => Reflect.has(window, "pictureResizes"))).toBe(true);
+  await expect.poll(() => pictureButton("Start")).toBe(true);
+  await expect
+    .poll(async () => (await page.evaluate(() => Reflect.get(window, "pictureResizes") as number[][])).length)
+    .toBe(1);
+  const [[dx, dy]] = await page.evaluate(() => Reflect.get(window, "pictureResizes") as number[][]);
+  expect(dx).toBeLessThan(0);
+  expect(dy).toBeLessThan(0);
+  await expect.poll(() => pictureButton("Stop")).toBe(true);
+  await page.evaluate(() => (Reflect.get(window, "documentPictureInPicture") as { window: Window }).window.close());
 });
 
 test("dragging the click transport does not select its text", async ({ page }) => {
@@ -535,7 +912,7 @@ for (const viewport of [
   { width: 1400, height: 900, barNumber: 3 },
   { width: 390, height: 844, barNumber: 137 },
 ]) {
-  test(`playback shrinks the transport and Stop restores it at ${viewport.width}px`, async ({ page }) => {
+  test(`playback fills the workspace with compact Click controls at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     const fixture = await readFile(
       resolve(import.meta.dirname, "..", "packages", "format", "fixtures", "mnx", "rehearsal-marks.mnx"),
@@ -556,9 +933,13 @@ for (const viewport of [
     const tempo = page.getByRole("slider", { name: "Session tempo %" });
     await tempo.press("Home");
     for (let step = 0; step < 10; step++) await tempo.press("ArrowRight");
-    const zoom = page.getByLabel("Score zoom");
-    await expect.poll(async () => Number.parseInt((await zoom.textContent()) ?? "0", 10)).toBeGreaterThan(100);
+    const zoom = page.getByRole("button", { name: "Reset zoom" });
+    await expect.poll(async () => Number.parseInt((await zoom.textContent()) ?? "0", 10)).toBeGreaterThan(0);
+    await zoom.click();
+    await expect(zoom).toHaveText("100%");
     const initialZoom = Number.parseInt((await zoom.textContent()) ?? "0", 10);
+    await expect.poll(async () => (await playheadBounds(page))?.height ?? 0).toBeGreaterThan(0);
+    const initialInkHeight = (await playheadBounds(page))!.height;
     const scoreView = page.getByRole("application", { name: "Interactive music score" });
     const initialScore = await scoreView.boundingBox();
     if (!initialScore) throw new Error("Score view is not visible");
@@ -566,33 +947,41 @@ for (const viewport of [
     if (!expanded) throw new Error("Click transport is not visible");
     const expandedButton = await panel.getByRole("button", { name: "Start", exact: true }).boundingBox();
     if (!expandedButton) throw new Error("Start button is not visible");
+    const pictureButton = await panel.getByRole("button", { name: "Keep above other apps" }).boundingBox();
+    if (!pictureButton) throw new Error("Picture-in-picture button is not visible");
+    expect(pictureButton.x + pictureButton.width).toBeLessThanOrEqual(expandedButton.x);
     await panel.getByRole("button", { name: "Start", exact: true }).focus();
     await page.keyboard.press("Enter");
 
     const stop = panel.getByRole("button", { name: "Stop", exact: true });
-    const bar = panel.getByRole("status", { name: "Current bar" });
+    const bar = panel.getByRole("status", { name: "Playback position" });
     await expect(stop).toBeEnabled();
     await expect(page.getByRole("group", { name: "Click settings" })).toHaveCount(0);
+    await expect(page.locator(".app-chrome--top")).toBeHidden();
+    await expect(page.locator(".app-chrome--side")).toBeHidden();
     await expect
       .poll(async () => {
         const playingScore = await scoreView.boundingBox();
-        return playingScore !== null && Math.abs(playingScore.height - initialScore.height) < 1;
+        return (
+          playingScore !== null &&
+          playingScore.height > initialScore.height + 40 &&
+          playingScore.width > initialScore.width + 40
+        );
       })
       .toBe(true);
-    const compactButton = await stop.boundingBox();
-    if (!compactButton) throw new Error("Stop button is not visible");
-    expect(Math.abs(compactButton.x - expandedButton.x)).toBeLessThan(1);
-    expect(Math.abs(compactButton.y - expandedButton.y)).toBeLessThan(1);
-    expect(compactButton.width).toBeCloseTo(expandedButton.width, 0);
-    expect(compactButton.height).toBeCloseTo(expandedButton.height, 0);
-    await expect(bar).toHaveText(String(viewport.barNumber));
-    await expect(panel.getByRole("listbox")).toHaveCount(0);
-    await expect(panel.getByRole("radiogroup")).toHaveCount(0);
-    await expect(panel.getByRole("group", { name: "Selected start" })).toHaveCount(0);
+    await expect(bar).toHaveText("-8");
+    await expect.poll(async () => (await playheadBounds(page))?.height ?? 0).toBeGreaterThan(initialInkHeight * 1.03);
+    await expect(panel).toHaveAttribute("data-compact", "true");
+    await expect(panel.getByRole("listbox", { name: "Start bar" })).toHaveCount(0);
+    await expect(panel.getByRole("listbox", { name: "Rehearsal" })).toHaveCount(0);
+    await expect(panel.getByRole("radiogroup", { name: "Countoff" })).toHaveCount(0);
     const compact = await panel.boundingBox();
     if (!compact) throw new Error("Compact click transport is not visible");
-    expect(compact.width).toBeLessThan(expanded.width * 0.7);
-    expect(compact.height).toBeLessThan(expanded.height * 0.6);
+    expect(compact.width).toBeLessThan(expanded.width);
+    expect(compact.height).toBeLessThan(expanded.height);
+    const stopButton = await stop.boundingBox();
+    if (!stopButton) throw new Error("Stop button is not visible");
+    expect(Math.abs(stopButton.x - expandedButton.x)).toBeLessThan(2);
 
     const barBox = await bar.boundingBox();
     if (!barBox) throw new Error("Current bar is not visible");
@@ -612,6 +1001,8 @@ for (const viewport of [
 
     const start = panel.getByRole("button", { name: "Start", exact: true });
     await expect(start).toBeEnabled();
+    await expect(page.locator(".app-chrome--top")).toBeVisible();
+    await expect(page.locator(".app-chrome--side")).toBeVisible();
     await expect(page.getByRole("group", { name: "Click settings" })).toBeVisible();
     await expect
       .poll(async () => {
@@ -624,6 +1015,7 @@ for (const viewport of [
     await expect(panel.getByRole("listbox", { name: "Start bar" })).toBeVisible();
     await expect(panel.getByRole("radio", { name: "2 bars" })).toBeChecked();
     await expect(panel.getByRole("option", { name: barName })).toHaveAttribute("aria-selected", "true");
+    await expect(panel).not.toHaveAttribute("data-compact");
     await expect(bar).toHaveCount(0);
     await expect
       .poll(async () => {
@@ -641,14 +1033,10 @@ for (const viewport of [
       .toBe(true);
     const restoredButton = await start.boundingBox();
     if (!restoredButton) throw new Error("Restored Start button is not visible");
-    expect(Math.abs(restoredButton.x - movedButton.x)).toBeLessThan(1);
-    expect(Math.abs(restoredButton.y - movedButton.y)).toBeLessThan(1);
     await start.click();
     await expect(stop).toBeEnabled();
     const restartedButton = await stop.boundingBox();
     if (!restartedButton) throw new Error("Restarted Stop button is not visible");
-    expect(Math.abs(restartedButton.x - restoredButton.x)).toBeLessThan(1);
-    expect(Math.abs(restartedButton.y - restoredButton.y)).toBeLessThan(1);
     await stop.click();
   });
 }
@@ -664,7 +1052,7 @@ test.describe("compact transport touch movement", () => {
     const panel = page.getByRole("region", { name: "Click player" });
     await panel.getByRole("button", { name: "Start", exact: true }).focus();
     await page.keyboard.press("Enter");
-    const handle = panel.getByRole("status", { name: "Current bar" });
+    const handle = panel.getByRole("status", { name: "Playback position" });
     await expect(handle).toBeVisible();
     const before = await panel.boundingBox();
     const area = await handle.boundingBox();
@@ -717,7 +1105,9 @@ test.describe("score browsing", () => {
     const first = panel.getByRole("option", { name: "Bar 3, rehearsal B" });
     const target = panel.getByRole("option", { name: "Bar 1, visit 2 of 2, rehearsal A" });
     await expect
-      .poll(async () => Number.parseInt((await page.getByLabel("Score zoom").textContent()) ?? "0", 10))
+      .poll(async () =>
+        Number.parseInt((await page.getByRole("button", { name: "Reset zoom" }).textContent()) ?? "0", 10),
+      )
       .toBeGreaterThan(100);
     const dial = panel.getByRole("listbox", { name: "Start bar" });
     async function selectTarget() {
@@ -792,7 +1182,7 @@ test.describe("score browsing", () => {
       for (let step = 0; step < 10; step++) await tempo.press("ArrowRight");
       await panel.getByRole("button", { name: "Start", exact: true }).focus();
       await page.keyboard.press("Enter");
-      await expect(panel.getByRole("status", { name: "Current bar" })).toHaveText("1");
+      await expect(panel.getByRole("status", { name: "Playback position" })).toHaveText("-8");
       const before = await canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL());
       await drag(false, dragPoint);
       await drag(true, dragPoint);

@@ -11,6 +11,7 @@ import type { InitialScoreSettings } from "../score/ScoreBuilder";
 import { useFileLaunch } from "../pwa";
 import { useProjectFileSwitchRegistration } from "../projectFiles";
 import { useGistSetlistStore } from "../gistShare";
+import { SHARED_SETLIST_READ_ONLY } from "../store/documentStore";
 
 type DocumentStoreApi = ReturnType<typeof useDocumentStoreApi>;
 type LoadScore = (score: Score, fileName?: string, mnxJson?: string) => void;
@@ -116,6 +117,7 @@ export function useFileHandlers(params: UseFileHandlersParams): FileHandlers {
       loadScore(structuredClone(file.score), file.fileName, file.mnx);
       useGistSetlistStore.getState().selectFile(file.fileName, store.getState().documentGeneration);
       resetHistory(store.getState().mnxJson);
+      store.getState().setReadOnly(SHARED_SETLIST_READ_ONLY);
       setSelectedScoreIndex(0);
       setFileHandle(null);
       setOpenedFile(null);

@@ -51,6 +51,14 @@
   will-change: transform;
 }
 
+.dial[data-compact] .track {
+  height: max(48px, 3rem);
+}
+
+.visit:empty {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .track {
     transition: none;
@@ -60,7 +68,7 @@
 .track .entry {
   position: absolute;
   top: 0;
-  height: 56px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -101,4 +109,11 @@
   font-size: 0.7rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dial:not([data-compact]) .visit {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  left: 4px;
 }

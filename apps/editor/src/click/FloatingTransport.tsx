@@ -9,6 +9,7 @@ interface Position {
 interface FloatingTransportProps {
   readonly busy: boolean;
   readonly compact?: boolean;
+  readonly background?: ReactNode;
   readonly children: ReactNode;
 }
 
@@ -31,7 +32,7 @@ function bounded(position: Position, element: HTMLElement): Position {
   };
 }
 
-export function FloatingTransport({ busy, compact, children }: FloatingTransportProps) {
+export function FloatingTransport({ busy, compact, background, children }: FloatingTransportProps) {
   const ref = useRef<HTMLElement>(null);
   const drag = useRef<{ pointerId: number; offset: Position } | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
@@ -144,6 +145,7 @@ export function FloatingTransport({ busy, compact, children }: FloatingTransport
         );
       }}
     >
+      {background}
       <div className={styles.dragSurface} aria-hidden="true" />
       <div className={styles.transportContent}>{children}</div>
     </section>

@@ -9,11 +9,29 @@ afterEach(() => {
 });
 
 describe("metronome sound preference", () => {
-  it.each(["woodblock", "oscillator"])("loads the saved %s sound when the store is initialized", async (sound) => {
-    localStorage.setItem("viritura.metronome.sound", sound);
+  it.each(["tick", "woodblock", "oscillator"])(
+    "loads the saved %s sound when the store is initialized",
+    async (sound) => {
+      localStorage.setItem("viritura.metronome.sound", sound);
+      vi.resetModules();
+      const { getMetronomeSound } = await import("./metronomeSettingsStore");
+      expect(getMetronomeSound()).toBe(sound);
+    },
+  );
+
+  it("uses oscillator when no sound is saved", async () => {
+    localStorage.removeItem("viritura.metronome.sound");
     vi.resetModules();
     const { getMetronomeSound } = await import("./metronomeSettingsStore");
-    expect(getMetronomeSound()).toBe(sound);
+    expect(getMetronomeSound()).toBe("oscillator");
+  });
+
+  it("migrates the removed beep preference to oscillator", async () => {
+    localStorage.setItem("viritura.metronome.sound", "beep");
+    vi.resetModules();
+    const { getMetronomeSound } = await import("./metronomeSettingsStore");
+    expect(getMetronomeSound()).toBe("oscillator");
+    expect(localStorage.getItem("viritura.metronome.sound")).toBe("oscillator");
   });
 
   it("reports an invalid saved sound and uses the default", async () => {
@@ -21,7 +39,7 @@ describe("metronome sound preference", () => {
     localStorage.setItem("viritura.metronome.sound", "invalid");
     vi.resetModules();
     const { getMetronomeSound } = await import("./metronomeSettingsStore");
-    expect(getMetronomeSound()).toBe("tick");
+    expect(getMetronomeSound()).toBe("oscillator");
     expect(warning).toHaveBeenCalledOnce();
   });
 });

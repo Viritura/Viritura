@@ -21,6 +21,10 @@
   padding-bottom: var(--space-1);
 }
 
+.bar[hidden] {
+  display: none;
+}
+
 .bar .item[aria-pressed="true"] {
   color: var(--accent);
 }

@@ -30,6 +30,7 @@ describe("click score views", () => {
     const partId = score.parts[0]!.id!;
     score.layouts!.push({ id: "soprano-view", content: [{ type: "staff", sources: [{ part: partId }] }] });
     score.scores!.push({ name: "Soprano extract", layout: "soprano-view" });
+    score.scores![1]!.useWritten = true;
     const views = clickScoreViews(score);
     expect(views.map((view) => view.label)).toEqual([
       "FourStaff",
@@ -43,9 +44,12 @@ describe("click score views", () => {
     expect(views[3]?.scoreIndex).toBe(3);
     expect(views[3]?.partIndex).toBeUndefined();
     expect(views[0]?.isScore).toBe(true);
+    expect(views[0]?.useWritten).toBe(false);
+    expect(views[1]?.useWritten).toBe(true);
     expect(views[3]?.isScore).toBe(false);
     expect(views[4]?.isScore).toBe(false);
     expect(views[4]).toMatchObject({ scoreIndex: 0, partIndex: 1 });
+    expect(views[4]?.useWritten).toBe(true);
   });
 
   it("provides part views for ordinary MNX and derives a written-pitch view without altering the source", () => {

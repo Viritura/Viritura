@@ -66,15 +66,16 @@ describe("Metronome", () => {
   it("prepares voices before scheduling and reuses them after changing sounds", () => {
     expect(ctx.createBuffer).toHaveBeenCalledTimes(3);
     metronome.scheduleClick(1, "accent");
-    const tick = ctx.sources[0]!.buffer;
+    const oscillator = ctx.sources[0]!.buffer;
+    expect(oscillator!.getChannelData(0)).toEqual(synthesizeClickVoices(ctx.sampleRate, "oscillator")[0]);
     expect(ctx.createBuffer).toHaveBeenCalledTimes(3);
     metronome.setSound("woodblock");
     expect(ctx.createBuffer).toHaveBeenCalledTimes(6);
     metronome.scheduleClick(2, "accent");
-    expect(ctx.sources[1]!.buffer).not.toBe(tick);
-    metronome.setSound("tick");
+    expect(ctx.sources[1]!.buffer).not.toBe(oscillator);
+    metronome.setSound("oscillator");
     metronome.scheduleClick(3, "accent");
-    expect(ctx.sources[2]!.buffer).toBe(tick);
+    expect(ctx.sources[2]!.buffer).toBe(oscillator);
     expect(ctx.createBuffer).toHaveBeenCalledTimes(6);
   });
 

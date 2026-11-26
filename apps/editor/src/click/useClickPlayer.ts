@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type RefObject } from "react";
 import { ClickEngine } from "@viritura/audio/click";
 import { getMetronomeSound } from "@viritura/playback";
 import { buildClickSessionProgram, type ClickSessionProgram } from "@viritura/playback/click";
@@ -62,6 +62,25 @@ function useDocumentStartBar(document: ClickDocument | undefined, documentGenera
   return [startBar, setStartBar] as const;
 }
 
+function useClickClock(engineRef: RefObject<ClickEngine | undefined>, anchor: RefObject<number>, playing: boolean) {
+  const [elapsed, setElapsed] = useState(0);
+  const getPlaybackTime = useCallback(() => {
+    const engine = engineRef.current;
+    return engine ? engine.context.currentTime - anchor.current : undefined;
+  }, [engineRef, anchor]);
+
+  useEffect(() => {
+    if (!playing) return;
+    const timer = setInterval(() => {
+      const time = getPlaybackTime();
+      if (time !== undefined) setElapsed(Math.max(0, time));
+    }, 75);
+    return () => clearInterval(timer);
+  }, [playing, getPlaybackTime]);
+
+  return { elapsed, setElapsed, getPlaybackTime };
+}
+
 /**
  * Click-only transport for the open document. A document change interrupts a
  * take rather than letting its score diverge from the loaded click program.
@@ -85,13 +104,13 @@ export function useClickPlayer(
   const document = source.document;
   const [startBar, setStartBar] = useDocumentStartBar(document, sourceGeneration);
   const phase: Phase = document ? transportPhase : "empty";
-  const [elapsed, setElapsed] = useState(0);
   const [program, setProgram] = useState<ClickSessionProgram>();
   const engineRef = useRef<ClickEngine | undefined>(undefined);
   const mounted = useRef(true);
   const locked = useRef(false);
   const documentChanged = useRef(false);
   const anchor = useRef(0);
+  const { elapsed, setElapsed, getPlaybackTime } = useClickClock(engineRef, anchor, phase === "playing");
 
   useEffect(() => {
     mounted.current = true;
@@ -102,15 +121,6 @@ export function useClickPlayer(
       void engine?.dispose().catch((failure: unknown) => console.error("Could not close click audio", failure));
     };
   }, []);
-
-  useEffect(() => {
-    if (phase !== "playing") return;
-    const timer = setInterval(() => {
-      const engine = engineRef.current;
-      if (engine) setElapsed(Math.max(0, engine.context.currentTime - anchor.current));
-    }, 75);
-    return () => clearInterval(timer);
-  }, [phase]);
 
   async function closeEngine(): Promise<void> {
     const engine = engineRef.current;
@@ -275,6 +285,7 @@ export function useClickPlayer(
     busy,
     error: error || source.error,
     elapsed,
+    getPlaybackTime,
     program,
     play,
     stop,

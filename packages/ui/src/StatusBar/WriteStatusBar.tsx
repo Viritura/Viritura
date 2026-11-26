@@ -1,5 +1,5 @@
 /**
- * WriteStatusBar — Write-mode composition of the StatusBar shell.
+ * WriteStatusBar: shared Write/Click composition of the StatusBar shell.
  *
  * The status bar is auto-hidden / hover-revealed chrome, so it intentionally
  * carries no persistent informational content (selected note, score title,
@@ -7,7 +7,7 @@
  * It holds only the active controls that the user reaches for:
  *
  *   - center: transient beat-count warning + repair/dismiss actions
- *   - right:  concert/written toggle, view-mode select, zoom controls
+ *   - right:  concert/written toggle, view-mode select, zoom/reset/fit controls
  *
  * Purely presentational: the caller pre-formats the zoom label and supplies
  * primitive props. Display-calibration and editor-specific Score wiring stay
@@ -17,13 +17,14 @@ import type { ReactNode } from "react";
 import { Button } from "../Button/Button";
 import { ButtonGroup } from "../ButtonGroup/ButtonGroup";
 import { StatusBar as StatusBarShell } from "./StatusBar";
+import type { StatusBarProps } from "./StatusBar";
 import { StatusSelect } from "./StatusSelect";
 import { StatusZoomControls } from "./StatusZoomControls";
 import styles from "./WriteStatusBar.module.css";
 
 export type ViewMode = "page" | "spread" | "spread-h" | "horizon";
 
-export interface WriteStatusBarProps {
+export interface WriteStatusBarProps extends Pick<StatusBarProps, "className" | "ariaLabel"> {
   /** Current zoom level (1.0 = 100%) */
   zoom: number;
   /** Pre-formatted zoom label, e.g. "100%". Caller owns formatting so the
@@ -37,6 +38,10 @@ export interface WriteStatusBarProps {
   onZoomChange: (zoom: number) => void;
   /** Called to reset zoom to 100% */
   onResetZoom: () => void;
+  /** Fit the current page/spread or Horizon staff height to the viewport. */
+  onZoomToFit?: () => void;
+  /** Whether automatic view fitting is active. */
+  fitActive?: boolean;
   /** Called when user clicks the calibration button next to the zoom slider */
   onCalibrate?: () => void;
   /** Number of measures with beat count issues */
@@ -93,6 +98,8 @@ export function WriteStatusBar({
   maxZoom,
   onZoomChange,
   onResetZoom,
+  onZoomToFit,
+  fitActive,
   onCalibrate,
   beatCountIssueCount,
   onRepairMeasures,
@@ -101,6 +108,8 @@ export function WriteStatusBar({
   onViewModeChange,
   useWritten,
   onConcertPitchToggle,
+  className,
+  ariaLabel,
 }: WriteStatusBarProps) {
   const right = (
     <>
@@ -135,6 +144,8 @@ export function WriteStatusBar({
         maxZoom={maxZoom}
         onZoomChange={onZoomChange}
         onResetZoom={onResetZoom}
+        onZoomToFit={onZoomToFit}
+        fitActive={fitActive}
         {...(onCalibrate ? { onCalibrate } : {})}
       />
     </>
@@ -142,5 +153,5 @@ export function WriteStatusBar({
 
   const center = renderCenter(beatCountIssueCount, onRepairMeasures, onDismissBeatCountWarnings);
 
-  return <StatusBarShell {...(center ? { center } : {})} right={right} />;
+  return <StatusBarShell {...(center ? { center } : {})} right={right} className={className} ariaLabel={ariaLabel} />;
 }

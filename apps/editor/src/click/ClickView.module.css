@@ -88,6 +88,28 @@
   }
 }
 
+/* One row must fit a phone: the status zone is a fixed height with the
+   transport directly above it, so the bar cannot wrap. */
+@media (max-width: 600px) {
+  .statusBar,
+  .statusBar > div {
+    gap: var(--space-1);
+  }
+
+  .statusBar {
+    padding-inline: var(--space-1);
+  }
+
+  .statusBar [role="radiogroup"] button {
+    padding-inline: var(--space-2);
+  }
+
+  .statusBar input[type="range"] {
+    /* Slider width is an inline style from the shared primitive. */
+    width: 40px !important;
+  }
+}
+
 .floatingTransport {
   --expanded-width: min(560px, calc(100% - 24px));
   position: absolute;
@@ -100,10 +122,20 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: 0 8px 32px rgb(0 0 0 / 18%);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) var(--click-pulse, 0%), transparent),
+    0 0 20px 4px color-mix(in srgb, var(--accent) calc(var(--click-pulse, 0%) * 0.45), transparent),
+    0 8px 32px rgb(0 0 0 / 18%);
   cursor: grab;
   user-select: none;
   pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floatingTransport,
+  .pipController {
+    --click-pulse: 0% !important;
+  }
 }
 
 .dragSurface {
@@ -138,57 +170,49 @@
 }
 
 .navigation {
-  display: grid;
-  gap: var(--space-2);
   min-width: 0;
   cursor: auto;
 }
 
-.shortcuts {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
+.navigationGrid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-areas:
+    "meter rehearsal"
+    "tempo bars";
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
 }
 
-.shortcuts button {
-  min-height: 44px;
+.startMeter {
+  grid-area: meter;
+  display: flex;
+  justify-content: center;
 }
 
-.goToBar {
+.startTempo {
+  grid-area: tempo;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  gap: 2px;
   white-space: nowrap;
   font-size: var(--type-small-size);
-}
-
-.goToBar input {
-  width: 6ch;
-  min-height: 44px;
   font-variant-numeric: tabular-nums;
 }
 
-.shortcutMessage {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--danger, #b42318);
-  font-size: var(--type-small-size);
+.rehearsalTrack {
+  grid-area: rehearsal;
+  min-width: 0;
 }
 
-/* Keep the live region in the accessibility tree while empty without adding a row. */
-.shortcutMessage:empty {
-  position: absolute;
+.barTrack {
+  grid-area: bars;
+  min-width: 0;
 }
 
-.startDetails {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  font-variant-numeric: tabular-nums;
+.navigationGrid:has(.rehearsalTrack:empty) .barTrack {
+  grid-row: 1 / 3;
 }
 
 .controlStrip {
@@ -246,6 +270,7 @@
 .transport button {
   min-width: 100px;
   min-height: 56px;
+  margin: 0;
 }
 
 .floatingTransport[data-compact="true"] {
@@ -343,12 +368,26 @@
 
 /* Root of the Document Picture-in-Picture window; it is the whole viewport there. */
 .pipController {
+  position: relative;
   box-sizing: border-box;
   min-height: 100vh;
+  overflow: auto;
   padding: 12px;
   background: var(--surface);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--accent) var(--click-pulse, 0%), transparent),
+    inset 0 0 20px 4px color-mix(in srgb, var(--accent) calc(var(--click-pulse, 0%) * 0.45), transparent);
   color: var(--text);
   user-select: none;
+}
+
+.pipContent {
+  position: relative;
+}
+
+/* The window is sized to the compact controls on Start, so reserve room for bar:beat. */
+.pipController .currentBar {
+  min-width: 5ch;
 }
 
 .pipController button {
