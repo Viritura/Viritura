@@ -2,6 +2,7 @@
 
 use super::{element_id, types};
 
+mod continuation;
 mod cross_barline;
 mod drawing;
 mod grouping;

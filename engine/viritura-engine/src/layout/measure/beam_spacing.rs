@@ -1,6 +1,6 @@
 use super::contesting_voice_count;
 use super::orchestrate::layout_voice_for_measure;
-use crate::layout::beams::{auto_beam_groups, collect_beamed_event_ids};
+use crate::layout::beams::{auto_beam_groups, collect_resolved_beamed_event_ids};
 use crate::layout::spacing::LogSpacing;
 use crate::layout::{grace::GraceSpacingContext, LayoutConfig};
 use crate::model::{Clef, ClefSign, ResolvedMeasure, SequenceContent};
@@ -96,7 +96,7 @@ pub(crate) fn auto_beamed_event_indices_for_spacing(
             )
         })
         .collect::<Vec<_>>();
-    let excluded_ids = collect_beamed_event_ids(&measure.part);
+    let excluded_ids = collect_resolved_beamed_event_ids(measure);
 
     let auto_beamed_ids: HashSet<_> = auto_beam_groups(
         &voice_layouts,

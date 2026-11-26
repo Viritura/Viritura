@@ -145,3 +145,77 @@ export const UseBeamsFlagDefault: StoryObj = {
   render: () => <ScorePreview mnxJson={buildSingleMeasure(flagEvents)} />,
   name: "Beam automatically by beat",
 };
+
+const pitched = (id: string, base: string, step: string, octave: number) => ({
+  id,
+  duration: { base },
+  notes: [{ pitch: { step, octave } }],
+});
+
+/** Two 2/4 bars whose explicit beam crosses the barline, optionally forced onto separate systems. */
+function barlineBeamMnx(tail: object[], head: object[], beam: object, forcedBreak: boolean): string {
+  return JSON.stringify({
+    mnx: { version: 1, support: { useBeams: true } },
+    global: { measures: [{ id: "m0", time: { count: 2, unit: 4 } }, { id: "m1" }] },
+    parts: [
+      {
+        id: "solo",
+        measures: [
+          {
+            beams: [beam],
+            clefs: [{ clef: { sign: "G", staffPosition: -2 } }],
+            sequences: [{ content: [{ duration: { base: "quarter" }, rest: {} }, ...tail] }],
+          },
+          { sequences: [{ content: [...head, { duration: { base: "quarter" }, rest: {} }] }] },
+        ],
+      },
+    ],
+    ...(forcedBreak
+      ? {
+          layouts: [{ id: "solo", content: [{ type: "staff", sources: [{ part: "solo" }] }] }],
+          scores: [
+            {
+              name: "Solo",
+              pages: [{ systems: ["m0", "m1"].map((measure) => ({ measure, layout: "solo" })) }],
+            },
+          ],
+        }
+      : {}),
+  });
+}
+
+const eighthTail = [pitched("a", "eighth", "C", 5), pitched("b", "eighth", "D", 5)];
+const eighthHead = [pitched("c", "eighth", "E", 5), pitched("d", "eighth", "F", 5)];
+const eighthBeam = { events: ["a", "b", "c", "d"] };
+
+/** A beam that crosses a barline inside one system shares a single stem direction and slope. */
+export const AcrossBarline: StoryObj = {
+  name: "Beam across a barline",
+  render: () => <ScorePreview mnxJson={barlineBeamMnx(eighthTail, eighthHead, eighthBeam, false)} />,
+};
+
+/**
+ * When a system break falls inside the beam, each system draws its own fragment.
+ * Standard engraving practice: the beam runs to the end of the outgoing system
+ * and restarts after the incoming system's prefix, with one stem direction for the group.
+ */
+export const AcrossSystemBreak: StoryObj = {
+  name: "Beam continuing across a system break",
+  render: () => <ScorePreview viewMode="page" mnxJson={barlineBeamMnx(eighthTail, eighthHead, eighthBeam, true)} />,
+};
+
+/** Only secondary beams that logically continue past the break extend to the system edge. */
+export const SecondaryBeamsAcrossSystemBreak: StoryObj = {
+  name: "Sixteenth beams across a system break",
+  render: () => (
+    <ScorePreview
+      viewMode="page"
+      mnxJson={barlineBeamMnx(
+        [pitched("a", "eighth", "C", 5), pitched("b", "16th", "D", 5), pitched("c", "16th", "E", 5)],
+        [pitched("d", "16th", "F", 5), pitched("e", "16th", "G", 5), pitched("f", "eighth", "A", 5)],
+        { events: ["a", "b", "c", "d", "e", "f"], beams: [{ events: ["b", "c", "d", "e"] }] },
+        true,
+      )}
+    />
+  ),
+};

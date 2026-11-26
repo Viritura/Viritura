@@ -12,7 +12,7 @@ use super::super::measure::{
     compute_system_spacing, compute_system_start_prefix_extra, fix_cross_staff_note_positions,
     layout_measure_with_shared_spacing,
 };
-use super::super::resolve::resolve_all_ottavas;
+use super::super::resolve::{attach_system_spanning_beams, resolve_all_ottavas};
 use super::super::types::MeasureLayout;
 use super::cache_hashing::explicit_measure_layout_hash;
 use super::resolve_condensing::flat_staff_meter_states;
@@ -637,6 +637,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                     .is_some_and(|measure| measure.repeat_ending_brackets),
                 prev_key: previous_display_key.clone(),
                 tie_continuation_ids: Vec::new(),
+                spanning_beams: Vec::new(),
                 repeat_glissandos: effective_staff
                     .sources
                     .iter()
@@ -675,6 +676,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 last.system_end = end.system_end.clone();
             }
         }
+        attach_system_spanning_beams(&mut virtual_resolved, all_resolved, &flat_staff.sources);
         let staff_ottavas = resolve_all_ottavas(&virtual_resolved);
         let mut system_x = margin_left;
         let mut measure_layouts = Vec::new();

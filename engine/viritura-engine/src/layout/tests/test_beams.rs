@@ -1620,3 +1620,284 @@ fn test_auto_beam_4_4_four_eighths_one_group() {
         poly_count
     );
 }
+
+/// Two 4/4 measures whose final and opening events share one authored beam.
+fn system_break_beam_mnx(tail: &str, head: &str, beam: &str) -> String {
+    format!(
+        r#"{{
+        "mnx": {{"version": 1, "support": {{"useBeams": true}}}},
+        "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}, {{}}]}},
+        "parts": [{{"measures": [
+            {{
+                "beams": [{beam}],
+                "clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}],
+                "sequences": [{{"content": [
+                    {{"duration": {{"base": "half"}}, "rest": {{}}}},
+                    {{"duration": {{"base": "quarter"}}, "rest": {{}}}},
+                    {tail}
+                ]}}]
+            }},
+            {{"sequences": [{{"content": [
+                {head},
+                {{"duration": {{"base": "quarter"}}, "rest": {{}}}},
+                {{"duration": {{"base": "half"}}, "rest": {{}}}}
+            ]}}]}}
+        ]}}]
+    }}"#
+    )
+}
+
+fn note(id: &str, base: &str, step: &str, octave: u8) -> String {
+    format!(
+        r#"{{"id": "{id}", "duration": {{"base": "{base}"}}, "notes": [{{"pitch": {{"step": "{step}", "octave": {octave}}}}}]}}"#
+    )
+}
+
+/// One system's beam polygon x-extents and stem x positions.
+type SystemFragment = (Vec<(f64, f64)>, Vec<f64>);
+
+/// Beam polygons and stems tagged with `eid`, grouped by system (top to bottom).
+fn beam_fragments_by_system(dl: &DisplayList, eid: &str, sp: f64) -> Vec<SystemFragment> {
+    let mut systems: Vec<(f64, SystemFragment)> = Vec::new();
+    for (command, id) in dl.commands.iter().zip(&dl.element_ids) {
+        if id.as_deref() != Some(eid) {
+            continue;
+        }
+        let (y, poly, stem) = match command {
+            RenderCommand::DrawPolygon { points, .. } => {
+                let xs = points.iter().map(|p| p.0);
+                let min = xs.clone().fold(f64::INFINITY, f64::min);
+                let max = xs.fold(f64::NEG_INFINITY, f64::max);
+                let y = points.iter().map(|p| p.1).sum::<f64>() / points.len() as f64;
+                (y, Some((min, max)), None)
+            }
+            RenderCommand::DrawLine { x1, y1, y2, .. } if is_stem_line(command) => {
+                ((y1 + y2) / 2.0, None, Some(*x1))
+            }
+            _ => continue,
+        };
+        let system = match systems.iter_mut().find(|s| (s.0 - y).abs() < 5.0 * sp) {
+            Some(system) => system,
+            None => {
+                systems.push((y, (Vec::new(), Vec::new())));
+                systems.last_mut().unwrap()
+            }
+        };
+        system.1 .0.extend(poly);
+        system.1 .1.extend(stem);
+    }
+    systems.sort_by(|a, b| a.0.total_cmp(&b.0));
+    systems.into_iter().map(|(_, fragment)| fragment).collect()
+}
+
+#[test]
+fn test_beam_across_system_break_draws_fragments_on_both_systems() {
+    let json = system_break_beam_mnx(
+        &[note("a", "eighth", "C", 5), note("b", "eighth", "D", 5)].join(","),
+        &[note("c", "eighth", "E", 5), note("d", "eighth", "F", 5)].join(","),
+        r#"{"events": ["a", "b", "c", "d"]}"#,
+    );
+    let score = parse_mnx(&json).unwrap();
+    let mut config = LayoutConfig::default();
+    config.page_width = Some(50.0 * config.sp);
+    let sp = config.sp;
+    let dl = layout_score(&score, 0, &config);
+
+    let systems = beam_fragments_by_system(&dl, "p0/m0/beam0", sp);
+    assert_eq!(
+        systems.len(),
+        2,
+        "the shared beam should render on both systems"
+    );
+    for (polygons, stems) in &systems {
+        assert_eq!(polygons.len(), 1, "each fragment draws one primary beam");
+        assert_eq!(stems.len(), 2, "each fragment draws its own members' stems");
+    }
+    let (first_polys, first_stems) = &systems[0];
+    let last_stem = first_stems
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+    assert!(
+        first_polys[0].1 > last_stem + sp,
+        "the outgoing fragment should run past its last stem toward the break"
+    );
+    let (second_polys, second_stems) = &systems[1];
+    let first_stem = second_stems.iter().copied().fold(f64::INFINITY, f64::min);
+    assert!(
+        second_polys[0].0 < first_stem - sp,
+        "the incoming fragment should start ahead of its first stem"
+    );
+    assert_eq!(
+        dl.commands.iter().filter(|c| is_flag_glyph(c)).count(),
+        0,
+        "members on both systems are beamed, so none should carry a flag"
+    );
+    assert_eq!(
+        dl.commands.iter().filter(|c| is_beam_polygon(c)).count(),
+        2,
+        "no auto-beam should duplicate the incoming fragment"
+    );
+}
+
+#[test]
+fn test_beam_across_system_break_continues_only_crossing_secondary_beams() {
+    let crossing = system_break_beam_mnx(
+        &[
+            note("a", "eighth", "C", 5),
+            note("b", "16th", "D", 5),
+            note("c", "16th", "E", 5),
+        ]
+        .join(","),
+        &[
+            note("d", "16th", "F", 5),
+            note("e", "16th", "E", 5),
+            note("f", "eighth", "D", 5),
+        ]
+        .join(","),
+        r#"{"events": ["a", "b", "c", "d", "e", "f"]}"#,
+    );
+    let closed = system_break_beam_mnx(
+        &[
+            note("a", "16th", "C", 5),
+            note("b", "16th", "D", 5),
+            note("c", "eighth", "E", 5),
+        ]
+        .join(","),
+        &[note("d", "eighth", "F", 5), note("e", "eighth", "E", 5)].join(","),
+        r#"{"events": ["a", "b", "c", "d", "e"]}"#,
+    );
+    let mut config = LayoutConfig::default();
+    config.page_width = Some(50.0 * config.sp);
+    let sp = config.sp;
+
+    let dl = layout_score(&parse_mnx(&crossing).unwrap(), 0, &config);
+    let counts: Vec<usize> = beam_fragments_by_system(&dl, "p0/m0/beam0", sp)
+        .iter()
+        .map(|(polygons, _)| polygons.len())
+        .collect();
+    assert_eq!(
+        counts,
+        vec![2, 2],
+        "a secondary beam running through the break continues on both systems"
+    );
+
+    let dl = layout_score(&parse_mnx(&closed).unwrap(), 0, &config);
+    let counts: Vec<usize> = beam_fragments_by_system(&dl, "p0/m0/beam0", sp)
+        .iter()
+        .map(|(polygons, _)| polygons.len())
+        .collect();
+    assert_eq!(
+        counts,
+        vec![2, 1],
+        "a secondary beam that ends before the break stays on the first system"
+    );
+}
+
+#[test]
+fn test_beam_across_barline_shares_one_stem_direction() {
+    // High notes before the barline and low notes after it would split
+    // directions if each measure decided alone.
+    let json = system_break_beam_mnx(
+        &[note("a", "eighth", "A", 5), note("b", "eighth", "G", 5)].join(","),
+        &[note("c", "eighth", "D", 4), note("d", "eighth", "C", 4)].join(","),
+        r#"{"events": ["a", "b", "c", "d"]}"#,
+    );
+    let score = parse_mnx(&json).unwrap();
+    let measures = crate::layout::resolve::resolve_measures(&score, 0);
+    let first = &measures[0].spanning_beams;
+    let second = &measures[1].spanning_beams;
+    assert_eq!(first.len(), 1, "the declaring measure records the group");
+    assert_eq!(first, second, "every touched measure shares one record");
+    assert!(
+        first[0].stem_up.is_some(),
+        "the group resolves one direction"
+    );
+    assert_eq!(first[0].member_levels, vec![1, 1, 1, 1]);
+
+    let mut config = LayoutConfig::default();
+    config.page_width = Some(50.0 * config.sp);
+    let dl = layout_score(&score, 0, &config);
+    let systems = beam_fragments_by_system(&dl, "p0/m0/beam0", config.sp);
+    assert_eq!(systems.len(), 2);
+    // With one shared direction both fragments sit on the same side of their
+    // noteheads: the beam meets each stem at its top when stems point up.
+    let stem_up = first[0].stem_up.unwrap();
+    let beam_tops: Vec<f64> = dl
+        .commands
+        .iter()
+        .zip(&dl.element_ids)
+        .filter(|(_, id)| id.as_deref() == Some("p0/m0/beam0"))
+        .filter_map(|(command, _)| match command {
+            RenderCommand::DrawPolygon { points, .. } => Some(points[0].1),
+            _ => None,
+        })
+        .collect();
+    let stem_spans: Vec<(f64, f64)> = dl
+        .commands
+        .iter()
+        .zip(&dl.element_ids)
+        .filter(|(_, id)| id.as_deref() == Some("p0/m0/beam0"))
+        .filter_map(|(command, _)| match command {
+            RenderCommand::DrawLine { y1, y2, .. } if is_stem_line(command) => {
+                Some((y1.min(*y2), y1.max(*y2)))
+            }
+            _ => None,
+        })
+        .collect();
+    for beam_y in beam_tops {
+        let nearest = stem_spans
+            .iter()
+            .min_by(|a, b| {
+                let da = (a.0 - beam_y).abs().min((a.1 - beam_y).abs());
+                let db = (b.0 - beam_y).abs().min((b.1 - beam_y).abs());
+                da.total_cmp(&db)
+            })
+            .unwrap();
+        let at_top = (nearest.0 - beam_y).abs() < (nearest.1 - beam_y).abs();
+        assert_eq!(
+            at_top, stem_up,
+            "every fragment follows the shared direction"
+        );
+    }
+}
+
+#[test]
+fn test_beam_across_explicit_system_break_draws_both_fragments() {
+    let json = r#"{
+        "mnx": {"version": 1, "support": {"useBeams": true}},
+        "global": {"measures": [{"id": "m0", "time": {"count": 2, "unit": 4}}, {"id": "m1"}]},
+        "parts": [{"id": "p", "measures": [
+            {
+                "beams": [{"events": ["a", "b", "c", "d"]}],
+                "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+                "sequences": [{"content": [
+                    {"duration": {"base": "quarter"}, "rest": {}},
+                    {"id": "a", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]},
+                    {"id": "b", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "D", "octave": 5}}]}
+                ]}]
+            },
+            {"sequences": [{"content": [
+                {"id": "c", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "E", "octave": 5}}]},
+                {"id": "d", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "F", "octave": 5}}]},
+                {"duration": {"base": "quarter"}, "rest": {}}
+            ]}]}
+        ]}],
+        "layouts": [{"id": "solo", "content": [{"type": "staff", "sources": [{"part": "p"}]}]}],
+        "scores": [{"name": "Solo", "pages": [{"systems": [
+            {"measure": "m0", "layout": "solo"},
+            {"measure": "m1", "layout": "solo"}
+        ]}]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig::default();
+    let dl = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    let systems = beam_fragments_by_system(&dl, "p0/m0/beam0", config.sp);
+    let counts: Vec<(usize, usize)> = systems.iter().map(|(p, s)| (p.len(), s.len())).collect();
+    assert_eq!(
+        counts,
+        vec![(1, 2), (1, 2)],
+        "an authored system break should still split the beam into two fragments"
+    );
+    assert_eq!(dl.commands.iter().filter(|c| is_flag_glyph(c)).count(), 0);
+}

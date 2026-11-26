@@ -20,7 +20,10 @@ pub(crate) use helpers::{
 };
 pub(crate) use orchestrate::*;
 pub(crate) use prefix_width::*;
-pub(crate) use stem_direction::{contesting_voice_count, resolve_stem_up, StemContext};
+pub(crate) use stem_direction::{
+    beam_group_stem_up_from_pitch, contesting_voice_count, resolve_stem_up, sequence_stem_intent,
+    StemContext,
+};
 
 #[cfg(test)]
 pub(crate) use helpers::skyline_min_content_width;

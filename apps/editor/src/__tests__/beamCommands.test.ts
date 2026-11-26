@@ -418,3 +418,44 @@ describe("breakBeamAfterSelection", () => {
     expect(value.parts[0]!.measures[1]!.beams).toBeUndefined();
   });
 });
+
+describe("beamTogetherSelection across a barline", () => {
+  function twoMeasureScore(): Score {
+    const value = score();
+    const secondMeasureEvents = value.parts[0]!.measures[0]!.sequences[0]!.content.splice(4);
+    value.global.measures = [{ time: { count: 2, unit: 4 } }, {}];
+    value.parts[0]!.measures.push({ sequences: [{ content: secondMeasureEvents }] });
+    return value;
+  }
+
+  it("joins the end of one measure to the start of the next on the first measure", () => {
+    const value = twoMeasureScore();
+    const selection: Selection = {
+      kind: "multi",
+      elementIds: ["p0/m0/s0/e3", "p0/m0/s0/e4", "p0/m1/s0/e5", "p0/m1/s0/e6"],
+    };
+
+    expect(canBeamTogetherSelection(value, selection)).toBe(true);
+    expect(beamTogetherSelection(value, selection)).toBe(true);
+    expect(value.parts[0]!.measures[0]!.beams).toEqual([{ events: ["e3", "e4", "e5", "e6"] }]);
+    expect(value.parts[0]!.measures[1]!.beams ?? []).toEqual([]);
+  });
+
+  it("rejects runs that skip notes on either side of the barline", () => {
+    const value = twoMeasureScore();
+    const skipsTail: Selection = { kind: "multi", elementIds: ["p0/m0/s0/e3", "p0/m1/s0/e5"] };
+    const skipsHead: Selection = { kind: "multi", elementIds: ["p0/m0/s0/e4", "p0/m1/s0/e6"] };
+
+    expect(canBeamTogetherSelection(value, skipsTail)).toBe(false);
+    expect(canBeamTogetherSelection(value, skipsHead)).toBe(false);
+  });
+
+  it("rejects runs that switch voices at the barline", () => {
+    const value = twoMeasureScore();
+    value.parts[0]!.measures[0]!.sequences[0]!.voice = "upper";
+    value.parts[0]!.measures[1]!.sequences[0]!.voice = "lower";
+    const selection: Selection = { kind: "multi", elementIds: ["p0/m0/s0/e4", "p0/m1/s0/e5"] };
+
+    expect(canBeamTogetherSelection(value, selection)).toBe(false);
+  });
+});

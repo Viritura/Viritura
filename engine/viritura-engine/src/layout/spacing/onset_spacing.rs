@@ -198,7 +198,7 @@ pub(crate) fn build_log_spacing_for_resolved_measure(
 ) -> LogSpacing {
     let arpeggio_set = build_standard_arpeggio_set(&[&measure.part]);
     let clef_changes = clef_changes_for_part_measure(&measure.part);
-    let beamed_ids = super::super::beams::collect_beamed_event_ids(&measure.part);
+    let beamed_ids = super::super::beams::collect_resolved_beamed_event_ids(measure);
     let auto_beamed_indices =
         super::super::measure::auto_beamed_event_indices_for_spacing(measure, config, total_beats);
     let suppressed_note_ids = if is_system_start {
@@ -358,7 +358,7 @@ pub(crate) fn build_merged_log_spacing_for_resolved_measures(
         .collect();
     let beamed_event_ids: Vec<HashSet<String>> = measures
         .iter()
-        .map(|measure| super::super::beams::collect_beamed_event_ids(&measure.part))
+        .map(|measure| super::super::beams::collect_resolved_beamed_event_ids(measure))
         .collect();
     let auto_beamed_indices: Vec<HashSet<(usize, usize)>> = measures
         .iter()

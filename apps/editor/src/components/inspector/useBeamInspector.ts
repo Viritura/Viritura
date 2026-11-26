@@ -22,6 +22,7 @@ export interface BeamInspectorState {
   readonly maxLevel: number;
   readonly selectedEventCount: number;
   readonly beamletState: BeamletState | null;
+  readonly spansBarline: boolean;
   readonly canJoin: boolean;
   readonly canBreak: boolean;
   readonly canSetFull: boolean;
@@ -93,6 +94,7 @@ export function useBeamInspector({ score, selection, updateScore }: BeamInspecto
     maxLevel: info.maxLevel,
     selectedEventCount: info.selectedEventCount,
     beamletState: info.beamletState,
+    spansBarline: info.spansBarline,
     canJoin: canJoinBeamAtLevel(score, selection, effectiveLevel, selectedScoreIndex),
     canBreak: canBreakBeamAfterAtLevel(score, selection, effectiveLevel, selectedScoreIndex),
     canSetFull: canSet(null),

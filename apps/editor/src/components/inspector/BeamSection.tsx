@@ -52,6 +52,13 @@ export function BeamSection({ state }: BeamSectionProps) {
         <Button size="sm" label="Join selected notes" onClick={state.join} disabled={!state.canJoin} />
         <Button size="sm" label="Break after selection" onClick={state.breakAfter} disabled={!state.canBreak} />
       </div>
+      {state.spansBarline && (
+        <span style={STATUS_STYLE}>
+          {state.canJoin
+            ? "Joins across the barline. The beam continues if a line break falls here."
+            : "To join across a barline, select consecutive notes in one voice that meet at the barline."}
+        </span>
+      )}
       {state.level >= 2 && state.selectedEventCount === 1 && (
         <>
           <span style={STATUS_STYLE}>Current: {beamletLabel(state.beamletState)}</span>

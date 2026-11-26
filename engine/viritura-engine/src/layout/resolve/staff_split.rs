@@ -272,6 +272,7 @@ pub(crate) fn resolve_measures_for_staff(
                     None
                 },
                 tie_continuation_ids: rm.tie_continuation_ids.clone(),
+                spanning_beams: Vec::new(),
                 repeat_glissandos: rm.repeat_glissandos,
                 measure_repeat_covered: rm.measure_repeat_covered,
                 next_has_repeat_start: rm.next_has_repeat_start,
@@ -299,5 +300,6 @@ pub(crate) fn resolve_measures_for_staff(
         })
         .collect();
     super::apply_repeat_signature_restatements(&mut resolved, &score.global.measures);
+    super::attach_spanning_beams(&mut resolved);
     resolved
 }

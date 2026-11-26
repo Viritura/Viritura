@@ -23,6 +23,11 @@ pub(super) fn normalize_beam_group_stem_directions(
     voice_layouts: &mut [VoiceLayout],
     rm: &ResolvedMeasure,
 ) -> HashSet<String> {
+    let spanning_ids: HashSet<String> = rm
+        .spanning_beams
+        .iter()
+        .flat_map(|spanning| spanning.beam.events.iter().cloned())
+        .collect();
     let beams_owned: Vec<Beam>;
     let beams: &[Beam] = if let Some(b) = rm.part.beams.as_ref() {
         b.as_slice()
@@ -30,46 +35,76 @@ pub(super) fn normalize_beam_group_stem_directions(
         beams_owned = crate::layout::beams::auto_beam_groups(
             voice_layouts,
             rm.effective_beat_meter(),
-            &HashSet::new(),
+            &spanning_ids,
         );
         &beams_owned
     };
-    let beamed_ids: HashSet<String> = beams
+    let mut beamed_ids: HashSet<String> = beams
         .iter()
         .flat_map(|beam| beam.events.iter().cloned())
         .collect();
+    beamed_ids.extend(spanning_ids.iter().cloned());
     for beam in beams {
+        if beam.events.iter().any(|id| spanning_ids.contains(id)) {
+            continue;
+        }
         let Some(stem_up) = beam_group_stem_up(beam, voice_layouts, rm) else {
             continue;
         };
-        for id in &beam.events {
-            for vl in voice_layouts.iter_mut() {
-                for i in 0..vl.events.len() {
-                    if vl.events.id(i) == Some(id.as_str()) {
-                        // Flipping the stem direction also flips which side of
-                        // the stem a second-interval notehead is displaced to
-                        // (stem-up displaces the upper note right, stem-down the
-                        // lower note left). The `note_x_offsets` were computed in
-                        // `layout_sequence_content` with this event's ORIGINAL
-                        // stem direction; if the beam-group normalization changes
-                        // it, recompute them or the displaced noteheads end up on
-                        // the wrong side, detached from the stem by a notehead
-                        // width (standard engraving practice; the cause of
-                        // "floating" cluster noteheads in beamed chords).
-                        if vl.events.stem_up(i) != stem_up {
-                            vl.events.set_stem_up(i, stem_up);
-                            let positions = vl.events.note_positions(i).to_vec();
-                            let new_offsets = compute_seconds_displacement(&positions, stem_up);
-                            vl.events
-                                .note_x_offsets_mut(i)
-                                .copy_from_slice(&new_offsets);
-                        }
+        apply_group_stem_up(voice_layouts, &beam.events, stem_up);
+    }
+    // A barline-crossing group shares the direction resolved for its whole
+    // length; without one, its first member in this measure leads.
+    for spanning in &rm.spanning_beams {
+        let stem_up = spanning.stem_up.or_else(|| {
+            spanning
+                .beam
+                .events
+                .iter()
+                .find_map(|id| event_stem_up(voice_layouts, id))
+        });
+        if let Some(stem_up) = stem_up {
+            apply_group_stem_up(voice_layouts, &spanning.beam.events, stem_up);
+        }
+    }
+    beamed_ids
+}
+
+fn event_stem_up(voice_layouts: &[VoiceLayout], id: &str) -> Option<bool> {
+    voice_layouts.iter().find_map(|vl| {
+        (0..vl.events.len())
+            .find(|&i| vl.events.id(i) == Some(id))
+            .map(|i| vl.events.stem_up(i))
+    })
+}
+
+fn apply_group_stem_up(voice_layouts: &mut [VoiceLayout], events: &[String], stem_up: bool) {
+    for id in events {
+        for vl in voice_layouts.iter_mut() {
+            for i in 0..vl.events.len() {
+                if vl.events.id(i) == Some(id.as_str()) {
+                    // Flipping the stem direction also flips which side of
+                    // the stem a second-interval notehead is displaced to
+                    // (stem-up displaces the upper note right, stem-down the
+                    // lower note left). The `note_x_offsets` were computed in
+                    // `layout_sequence_content` with this event's ORIGINAL
+                    // stem direction; if the beam-group normalization changes
+                    // it, recompute them or the displaced noteheads end up on
+                    // the wrong side, detached from the stem by a notehead
+                    // width (standard engraving practice; the cause of
+                    // "floating" cluster noteheads in beamed chords).
+                    if vl.events.stem_up(i) != stem_up {
+                        vl.events.set_stem_up(i, stem_up);
+                        let positions = vl.events.note_positions(i).to_vec();
+                        let new_offsets = compute_seconds_displacement(&positions, stem_up);
+                        vl.events
+                            .note_x_offsets_mut(i)
+                            .copy_from_slice(&new_offsets);
                     }
                 }
             }
         }
     }
-    beamed_ids
 }
 
 /// The stem direction shared by one beam group.

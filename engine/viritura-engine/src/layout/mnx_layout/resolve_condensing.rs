@@ -205,6 +205,7 @@ pub(super) fn resolve_staves_with_condensing_labels(
                 boundary_states,
                 boundary_fps,
                 this_span,
+                spanning_changed,
             ) = resolve_staff_scoped(
                 score,
                 flat_staff,
@@ -219,6 +220,11 @@ pub(super) fn resolve_staves_with_condensing_labels(
             resolved_span += this_span;
             let end = dirty_start + this_span - 1;
             resolved_end = Some(resolved_end.map_or(end, |prior: usize| prior.max(end)));
+            if let Some((start, end)) = spanning_changed {
+                resolved_start =
+                    Some(resolved_start.map_or(start, |prior: usize| prior.min(start)));
+                resolved_end = Some(resolved_end.map_or(end, |prior: usize| prior.max(end)));
+            }
             staff_aux_reuses += usize::from(staff_aux_reused);
             merge_duration_histogram(&mut duration_histogram, &staff_duration_histogram);
             fresh_cache.push(cache::CachedResolvedStaff {
@@ -422,13 +428,15 @@ pub(super) fn resolve_staff_full(
             ));
         }
     }
+    crate::layout::resolve::attach_spanning_beams(&mut resolved);
     (resolved, boundary_states, boundary_fps, condensing_modes)
 }
 
 /// Output of [`resolve_staff_scoped`]: the same four arrays as
 /// [`resolve_staff_full`] needed by a non-condensing staff (resolved measures,
 /// boundary states, boundary fingerprints) plus the count of measures that
-/// actually re-ran (the "resolved span").
+/// actually re-ran (the "resolved span") and the measure range, if any, whose
+/// spanning beams changed outside that span.
 pub(super) type ScopedResolveResult = (
     ResolvedStaffSnapshot,
     Arc<[ResolvedOttavaRange]>,
@@ -437,6 +445,7 @@ pub(super) type ScopedResolveResult = (
     Vec<cache::BoundaryState>,
     Vec<u64>,
     usize,
+    Option<(usize, usize)>,
 );
 
 /// Range-scoped per-staff Phase 1 resolve. Restarts at `dirty_start` from the
@@ -529,6 +538,10 @@ pub(super) fn resolve_staff_scoped(
         }
     }
 
+    // A beam edited inside the dirty span can change the spanning groups
+    // recorded on neighbouring measures outside it.
+    let spanning_changed = crate::layout::resolve::attach_spanning_beams(resolved_mut);
+
     let this_span = converged_at
         .map(|c| c - dirty_start + 1)
         .unwrap_or(measure_count - dirty_start);
@@ -547,6 +560,7 @@ pub(super) fn resolve_staff_scoped(
         boundary_states,
         boundary_fps,
         this_span,
+        spanning_changed,
     )
 }
 
@@ -692,6 +706,7 @@ pub(super) fn resolve_one_measure_phase1(
         repeat_ending_brackets: false,
         prev_key: state.prev_display_key.clone(),
         tie_continuation_ids: Vec::new(),
+        spanning_beams: Vec::new(),
         repeat_glissandos: flat_staff
             .sources
             .iter()

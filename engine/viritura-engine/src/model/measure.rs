@@ -334,6 +334,25 @@ pub(crate) struct RepeatGlissando {
     pub(crate) direction: f64,
 }
 
+/// An authored beam whose members run through more than one measure.
+///
+/// Every measure the beam touches carries the same record, so each measure's
+/// layout agrees on membership and stem direction, and the system renderer can
+/// draw a continuation fragment when a system break interrupts the group.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct SpanningBeam {
+    /// Index of the measure whose `beams` declares the group.
+    pub(crate) declaring_measure: usize,
+    /// Position of the group within the declaring measure's `beams`.
+    pub(crate) beam_index: usize,
+    pub(crate) beam: super::beam::Beam,
+    /// Stem direction shared by the whole group, or `None` when sequence-level
+    /// intent (forced stems, contested voices) already decides each member.
+    pub(crate) stem_up: Option<bool>,
+    /// Beam count implied by each member's duration, in `beam.events` order.
+    pub(crate) member_levels: Vec<u32>,
+}
+
 /// Resolved measure — global + part data merged for rendering.
 #[derive(Debug, Clone)]
 pub struct ResolvedMeasure {
@@ -375,6 +394,9 @@ pub struct ResolvedMeasure {
     /// continuations suppress automatic accidental spacing unless the renderer
     /// elects to show a courtesy accidental at a system start.
     pub tie_continuation_ids: Vec<String>,
+    /// Authored beams crossing this measure's barlines, declared here or in a
+    /// neighbouring measure. Derived during resolution; never stored.
+    pub(crate) spanning_beams: Vec<SpanningBeam>,
     pub(crate) repeat_glissandos: Vec<RepeatGlissando>,
     /// Staff line count in force at the start of this measure.
     /// The canonical five-line coordinate frame remains unchanged.
