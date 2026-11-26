@@ -16,6 +16,8 @@ export function isMcpProposalCurrent(documentStore: DocumentStore, proposal: Mcp
 
 export function acceptMcpProposal(documentStore: DocumentStore, proposal: McpProposal): void {
   try {
+    const readOnlyReason = documentStore.getState().readOnlyReason;
+    if (readOnlyReason !== null) throw new Error(readOnlyReason);
     if (!isMcpProposalCurrent(documentStore, proposal)) {
       throw new Error("The score changed after this proposal was created. Ask the MCP client to propose it again.");
     }

@@ -10,6 +10,7 @@ import { setRecentScores, setStartCenterOpen } from "../store/onboardingStore";
 import { bootStandalone } from "../store/projectStore";
 import { parseLiveRoomIdFromUrl } from "../live/liveUrl";
 import type { DocumentStore } from "../store/documentStore";
+import { SHARED_SETLIST_READ_ONLY } from "../store/documentStore";
 import { hasPendingTwoFactorChallenge } from "../auth/api";
 import { FOLDER_PROJECT_UNAVAILABLE_MESSAGE, isFolderProjectSupported } from "./projectFolder";
 import { isFileLaunchUrl } from "../pwa";
@@ -46,6 +47,7 @@ async function openSharedSetlist(
     loadScore(structuredClone(firstFile.score), firstFile.fileName, firstFile.mnx);
     useGistSetlistStore.getState().open(setlist, store.getState().documentGeneration);
     resetHistory(store.getState().mnxJson);
+    store.getState().setReadOnly(SHARED_SETLIST_READ_ONLY);
     setFileHandle(null);
   } catch (error) {
     if (isCancelled()) return;

@@ -5,9 +5,8 @@ import { WorkspaceToolbar } from "../components/WorkspaceToolbar";
 import { ScoreSwitcherPicker } from "../scoreSwitcher";
 import { ProjectFileSwitcher } from "../projectFiles";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
-import { ClickControls } from "./ClickControls";
+import { ClickControllerHost } from "./ClickControllerHost";
 import { ClickScoreControls, type ClickScoreSettings } from "./ClickScoreControls";
-import { FloatingTransport } from "./FloatingTransport";
 import { clickBarAtTime, clickScorePosition, clickStartPosition } from "./barNavigation";
 import { useClickPlayer } from "./useClickPlayer";
 import { useClickSpaceShortcut } from "./useClickSpaceShortcut";
@@ -15,6 +14,7 @@ import { useExclusiveClickAudio } from "./useExclusiveClickAudio";
 import { publishClickCanvasConfig, publishClickCanvasPlayback } from "../store/clickCanvasStore";
 import { useDocumentStore } from "../store/DocumentContext";
 import { ClickScoreInteractions } from "./ClickScoreInteractions";
+import { getLifeSizeZoom } from "../zoomScale";
 import styles from "./ClickView.module.css";
 
 function statusLabel(
@@ -53,6 +53,10 @@ function canStartClick(player: ClickPlayer, dialSettling: boolean): boolean {
   return !player.busy && !dialSettling && player.tempoPercent > 0 && player.document !== undefined;
 }
 
+function clickUseWritten(settings: ClickScoreSettings, document: ClickPlayer["document"]): boolean {
+  return settings.useWritten ?? document?.scoreViews[settings.viewIndex]?.useWritten ?? false;
+}
+
 interface ClickSettingsBarProps {
   readonly player: ClickPlayer;
   readonly views: NonNullable<ClickPlayer["document"]>["scoreViews"];
@@ -80,7 +84,11 @@ function ClickSettingsBar({ player, views, hidden, statusId, settings, onSetting
                 <ScoreSwitcherPicker
                   entries={entries}
                   selectedScoreIndex={settings.viewIndex}
-                  onSelectScore={(viewIndex) => onSettingsChange({ ...settings, viewIndex })}
+                  onSelectScore={(viewIndex) => {
+                    if (viewIndex !== settings.viewIndex) {
+                      onSettingsChange({ ...settings, viewIndex, useWritten: undefined });
+                    }
+                  }}
                   disabled={hidden || player.busy}
                 />
               </div>
@@ -112,7 +120,7 @@ function ClickSettingsBar({ player, views, hidden, statusId, settings, onSetting
 const DEFAULT_SCORE_SETTINGS: ClickScoreSettings = {
   viewIndex: 0,
   viewMode: "horizon",
-  zoom: 1,
+  zoom: getLifeSizeZoom(),
   fitMode: "height",
   fitRequest: 0,
 };
@@ -147,24 +155,39 @@ export function ClickView({ mnx, canvasRef, canvasZoom }: ClickViewProps) {
   const player = useClickPlayer(mnx, { releaseOtherAudio, documentGeneration });
   const [dialSettling, setDialSettling] = useState(false);
   const [storedScoreSettings, setScoreSettings] = useState(DEFAULT_SCORE_SETTINGS);
-  const scoreSettings = { ...storedScoreSettings, zoom: canvasZoom ?? storedScoreSettings.zoom };
+  const scoreSettings = {
+    ...storedScoreSettings,
+    zoom: canvasZoom ?? storedScoreSettings.zoom,
+    useWritten: clickUseWritten(storedScoreSettings, player.document),
+  };
   const [settingsViews, setSettingsViews] = useState(player.document?.scoreViews);
   if (settingsViews !== player.document?.scoreViews) {
     setSettingsViews(player.document?.scoreViews);
     if (scoreSettings.viewIndex >= (player.document?.scoreViews.length ?? 0)) {
-      setScoreSettings({ ...scoreSettings, viewIndex: 0 });
+      setScoreSettings({ ...scoreSettings, viewIndex: 0, useWritten: undefined });
     }
   }
   const statusId = useId();
   const active = player.phase === "playing";
   const canStart = canStartClick(player, dialSettling);
-  useClickSpaceShortcut(() => {
+  const toggle = () => {
     if (active && !player.busy) void player.stop();
     else if (!active && canStart) void player.play();
-  });
+  };
+  useClickSpaceShortcut(toggle);
   const { countingOff, barIndex, scorePosition } = clickCursor(player, active);
   const status = statusLabel(player.phase, player.busy, countingOff, player.tempoPercent, player.document);
   const selectedView = player.document?.scoreViews[scoreSettings.viewIndex];
+  const zoomBeforePlayback = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (active) {
+      zoomBeforePlayback.current = activeCanvasRef.current?.getViewport().zoom ?? null;
+    } else if (zoomBeforePlayback.current !== null) {
+      activeCanvasRef.current?.setZoom(zoomBeforePlayback.current);
+      zoomBeforePlayback.current = null;
+    }
+  }, [active, activeCanvasRef]);
 
   useEffect(() => {
     publishClickCanvasConfig({
@@ -176,21 +199,26 @@ export function ClickView({ mnx, canvasRef, canvasZoom }: ClickViewProps) {
           ? "spread-h"
           : scoreSettings.viewMode,
       pageSetup: selectedView?.pageSetup,
-      fitToView: scoreSettings.fitMode !== "none",
+      fitToView: active || scoreSettings.fitMode !== "none",
       fitRequest: scoreSettings.fitRequest,
+      useWritten: scoreSettings.useWritten,
       onSelectMeasure: player.selectScoreMeasure,
     });
   }, [
+    active,
     selectedView,
     scoreSettings.viewMode,
     scoreSettings.fitMode,
     scoreSettings.fitRequest,
+    scoreSettings.useWritten,
     player.selectScoreMeasure,
   ]);
 
   useEffect(() => {
     publishClickCanvasPlayback({ active, position: scorePosition });
   }, [active, scorePosition]);
+
+  useEffect(() => () => publishClickCanvasPlayback({ active: false, position: null }), []);
 
   function changeScoreSettings(next: ClickScoreSettings): void {
     applyScoreSettings(next, scoreSettings, activeCanvasRef, setScoreSettings);
@@ -217,23 +245,19 @@ export function ClickView({ mnx, canvasRef, canvasZoom }: ClickViewProps) {
           <ClickScoreInteractions canvasRef={activeCanvasRef} enabled={!active && !player.busy && !dialSettling} />
         )}
         {(player.document || player.error || player.busy) && (
-          <FloatingTransport busy={player.busy} compact={active}>
-            {player.error && (
-              <p className={styles.error} role="alert">
-                {player.error}
-              </p>
-            )}
-            <ClickControls
-              player={player}
-              active={active}
-              barIndex={barIndex}
-              dialSettling={dialSettling}
-              onSettlingChange={setDialSettling}
-            />
-            <div id={statusId} className={styles.srOnly} role="status" aria-label="Playback status">
-              {status}
-            </div>
-          </FloatingTransport>
+          <ClickControllerHost
+            player={player}
+            active={active}
+            barIndex={barIndex}
+            dialSettling={dialSettling}
+            onSettlingChange={setDialSettling}
+            toggle={toggle}
+            status={
+              <div id={statusId} className={styles.srOnly} role="status" aria-label="Playback status">
+                {status}
+              </div>
+            }
+          />
         )}
       </div>
     </>

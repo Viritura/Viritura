@@ -8,7 +8,7 @@ export function BarDial({ bars, ...props }: ClickDialProps) {
       bars.map((bar) => ({
         id: `${bar.measureIndex}-${bar.visit}`,
         label: String(bar.number),
-        description: `${describeClickBar(bar)}${bar.rehearsal ? `, rehearsal ${bar.rehearsal}` : ""}`,
+        description: `${describeClickBar(bar)}${bar.rehearsal ? `, rehearsal ${bar.rehearsal}` : ""}${bar.tempoName ? `, tempo ${bar.tempoName}` : ""}`,
         detail: `${bar.visitCount > 1 ? `${bar.visit}/${bar.visitCount}` : ""}${bar.startable ? "" : " partial"}`,
         startable: bar.startable,
       })),

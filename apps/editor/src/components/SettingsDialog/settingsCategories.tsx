@@ -121,7 +121,7 @@ const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     label: "Playback",
     group: "Audio",
     icon: <Play size={14} />,
-    description: "Transport controls, playback-head following, and metronome sound.",
+    description: "Transport controls, playback-head following, metronome sound, and Click player flash.",
     keywords: [
       "transport",
       "time",
@@ -129,6 +129,9 @@ const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "playhead",
       "metronome",
       "click track",
+      "flash",
+      "pulse",
+      "visual",
       "sound",
       "woodblock",
       "oscillator",

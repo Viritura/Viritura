@@ -47,9 +47,9 @@ const APP_SHELL_TOOLBAR_STYLE: CSSProperties = {
   height: "100%",
   minWidth: 0,
 };
-function appShellHeaderStyle(): CSSProperties {
+function appShellHeaderStyle(hidden: boolean): CSSProperties {
   return {
-    display: "flex",
+    display: hidden ? "none" : "flex",
     alignItems: "center",
     flexShrink: 0,
     height: HEADER_HEIGHT,
@@ -88,6 +88,7 @@ const HEADER_HEIGHT = 48;
 
 interface AppShellProps {
   children: ReactNode;
+  fullBleed?: boolean;
 }
 
 /**
@@ -105,7 +106,7 @@ interface AppShellProps {
  * </AppShell>
  * ```
  */
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, fullBleed = false }: AppShellProps) {
   // Store callbacks/state in refs so AppShell itself doesn't re-render.
   // MenuBarHeader subscribes to a version counter and re-renders independently.
   const globalMenuCallbacksRef = useRef<MenuBarCallbacks>({});
@@ -157,6 +158,7 @@ export function AppShell({ children }: AppShellProps) {
         <div style={APP_SHELL_ROOT_STYLE}>
           {/* Fixed-height header: MenuBar (global) + Toolbar (view-specific portal) */}
           <MenuBarHeader
+            hidden={fullBleed}
             globalCallbacksRef={globalMenuCallbacksRef}
             activityCallbacksRef={activityMenuCallbacksRef}
             globalStateRef={globalMenuStateRef}
@@ -179,6 +181,7 @@ export function AppShell({ children }: AppShellProps) {
  * not the entire AppShell subtree.
  */
 function MenuBarHeader({
+  hidden,
   globalCallbacksRef,
   activityCallbacksRef,
   globalStateRef,
@@ -187,6 +190,7 @@ function MenuBarHeader({
   versionRef,
   toolbarRef,
 }: {
+  hidden: boolean;
   globalCallbacksRef: React.RefObject<MenuBarCallbacks>;
   activityCallbacksRef: React.RefObject<MenuBarCallbacks>;
   globalStateRef: React.RefObject<MenuBarState>;
@@ -213,7 +217,7 @@ function MenuBarHeader({
   const recentEntries = recentEntriesRef.current;
 
   return (
-    <div className="app-chrome app-chrome--top" style={appShellHeaderStyle()}>
+    <div className="app-chrome app-chrome--top" hidden={hidden} style={appShellHeaderStyle(hidden)}>
       {/* eslint-disable-next-line react-hooks/refs -- values are snapshots from the version-bumped external ref store */}
       <MenuBar callbacks={callbacks} state={state} recentEntries={recentEntries} />
       <div ref={toolbarRef} style={APP_SHELL_TOOLBAR_STYLE} />

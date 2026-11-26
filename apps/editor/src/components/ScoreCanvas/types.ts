@@ -131,7 +131,7 @@ export interface EngraveClickModifiers {
 
 export interface ScoreCanvasProps {
   partIndex?: number;
-  /** Render a written-pitch source part independently of authored score layouts. */
+  /** Render a source part independently of authored score layouts (written pitch by default). */
   sourcePartIndex?: number;
   /** Keep the layout backend briefly available across Storybook-style remounts. */
   keepLayoutBackendAlive?: boolean;
@@ -170,6 +170,8 @@ export interface ScoreCanvasProps {
   viewMode?: ViewMode;
   /** Override page geometry for activity-specific score projections. */
   pageSetupOverride?: PageSetup;
+  /** Override displayed pitch without editing the authored score definition. */
+  useWrittenOverride?: boolean;
   /** Keep the current page/spread, or Horizon staff height, fitted to the viewport. */
   fitToView?: boolean;
   /** Reapply view fitting even when fitToView is already enabled. */

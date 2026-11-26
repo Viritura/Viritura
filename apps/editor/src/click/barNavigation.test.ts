@@ -7,6 +7,7 @@ import rehearsalMarks from "../../../../packages/format/fixtures/mnx/rehearsal-m
 import {
   clickBarAtTime,
   clickBarForMeasure,
+  clickPositionDisplay,
   clickScorePosition,
   clickStartPosition,
   collectClickBars,
@@ -34,6 +35,40 @@ describe("click bar navigation", () => {
     expect(program.countoffClicks).toBe(8);
     expect(program.events.map((event) => event.time)).toEqual(Array.from({ length: 16 }, (_, index) => index / 4));
     expect(clickScorePosition(document.timing, program, 2.75, 100)).toEqual({ measureIndex: 0, beat: 1.5 });
+    const display = (elapsed: number) =>
+      clickPositionDisplay(document.bars[0]!, document.timing, program, elapsed, 100);
+    expect(display(0)).toEqual({ text: "-8", description: "Countoff, 8 clicks remaining" });
+    expect(display(0.249).text).toBe("-8");
+    expect(display(0.25).text).toBe("-7");
+    expect(display(1.999)).toEqual({ text: "-1", description: "Countoff, 1 click remaining" });
+    expect(display(2)).toEqual({ text: "1:1", description: "Bar 1, beat 1" });
+    expect(display(2.75).text).toBe("1:2");
+  });
+
+  it("uses scheduled irregular countoff clicks and grouped beats across meter and tempo changes", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          { number: 7, time: { count: 5, unit: 8 }, tempos: [{ bpm: 120, value: { base: "quarter" } }] },
+          { number: 8, time: { count: 3, unit: 4 }, tempos: [{ bpm: 60, value: { base: "quarter" } }] },
+        ],
+      },
+      parts: [],
+    };
+    const timing = compilePlaybackTiming(score);
+    const bars = collectClickBars(score, timing);
+    const program = buildClickSessionProgram(timing);
+    const display = (elapsed: number) =>
+      clickPositionDisplay(bars[clickBarAtTime(timing, program, elapsed, 100)]!, timing, program, elapsed, 100);
+    expect(program.countoffClicks).toBe(2);
+    expect(display(0.749).text).toBe("-2");
+    expect(display(0.75).text).toBe("-1");
+    expect(display(1.25).text).toBe("7:1");
+    expect(display(1.999).text).toBe("7:1");
+    expect(display(2).text).toBe("7:2");
+    expect(display(2.5).text).toBe("8:1");
+    expect(display(3.5).text).toBe("8:2");
   });
 
   it("plays saved fermatas with the saved tempo subdivision", () => {
@@ -79,6 +114,37 @@ describe("click bar navigation", () => {
     expect(document.bars[2]?.rehearsalContext).toBe("B");
   });
 
+  it("names visible tempo text changes but not bare metronome marks or gradual changes", () => {
+    const tempo = (text: string | undefined, extra: object = {}) => ({
+      bpm: 120,
+      value: { base: "quarter" },
+      ...(text ? { _x: { viritura: { text, ...extra } } } : {}),
+    });
+    const document = readClickDocument(
+      JSON.stringify({
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            { time: { count: 4, unit: 4 }, tempos: [tempo("Allegro")] },
+            { tempos: [tempo(undefined)] },
+            { tempos: [tempo("poco rit.")] },
+            { tempos: [{ ...tempo("Più mosso"), location: { fraction: [1, 2] } }] },
+            { tempos: [tempo("Hidden", { showText: false })] },
+          ],
+        },
+        parts: [{ measures: Array.from({ length: 5 }, () => ({ sequences: [{ content: [] }] })) }],
+      }),
+    );
+    expect(document.bars.map((bar) => bar.tempoName)).toEqual([
+      "Allegro",
+      undefined,
+      undefined,
+      "Più mosso",
+      undefined,
+    ]);
+    expect(document.bars[3]?.tempoNameWithinBar).toBe(true);
+  });
+
   it("distinguishes repeat visits and tracks the selected visit through countoff and tempo scaling", () => {
     const score: Score = {
       mnx: { version: 1 },
@@ -109,6 +175,10 @@ describe("click bar navigation", () => {
     expect(clickScorePosition(timing, program, 3, 50)).toEqual({ measureIndex: 0, beat: 1 });
     expect(clickScorePosition(timing, program, 4.5, 50)).toEqual({ measureIndex: 1, beat: 0.5 });
     expect(clickScorePosition(timing, program, 8, 50)).toEqual({ measureIndex: 2, beat: 1 });
+    expect(clickPositionDisplay(bars[2]!, timing, program, 3, 50)).toEqual({
+      text: "1:2",
+      description: "Bar 1, visit 2 of 2, beat 2",
+    });
   });
 
   it("follows a shortened pickup after a full countoff", () => {
@@ -180,6 +250,7 @@ describe("click bar navigation", () => {
       measureIndex: timing.playedSpans![partialIndex]!.measureIndex,
       beat: timing.playedSpans![partialIndex]!.startBeat + 0.5,
     });
+    expect(clickPositionDisplay(bars[partialIndex]!, timing, program, elapsed, 100).text).toBe("2:2");
     const restarted = buildClickSessionProgram(timing, { startTimelineMeasure: partialIndex });
     const restartPosition = {
       measureIndex: timing.playedSpans![partialIndex]!.measureIndex,

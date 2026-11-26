@@ -141,5 +141,13 @@ export {
   type VirituraWordmarkProps,
 } from "./BrandLogo";
 
+// ── Platform hosts ──
+export {
+  closePictureWindow,
+  currentPictureWindow,
+  isDocumentPipSupported,
+  openPictureWindow,
+} from "./pictureInPicture";
+
 // ── Error Handling ──
 export { ErrorBoundary, type ErrorBoundaryProps } from "./ErrorBoundary";

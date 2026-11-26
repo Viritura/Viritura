@@ -156,6 +156,7 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
         maxZoom={MAX_ZOOM}
         onZoomChange={(z) => args.canvasRef.current?.setZoom(z)}
         onResetZoom={() => args.canvasRef.current?.resetViewport()}
+        onZoomToFit={() => args.canvasRef.current?.fitPage()}
         onCalibrate={() => openDialog("calibration")}
         beatCountIssueCount={args.beatCountIssueCount}
         onRepairMeasures={args.onRepairMeasures}

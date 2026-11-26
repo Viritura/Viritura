@@ -114,6 +114,7 @@ export const SMUFL = {
   timeSigCut: String.fromCodePoint(0xe08b),
   timeSigX: String.fromCodePoint(0xe09f),
   timeSigOpenPenderecki: String.fromCodePoint(0xe09c),
+  metNoteQuarter: String.fromCodePoint(0xeca5),
   // Barlines
   barlineSingle: String.fromCodePoint(0xe030),
   barlineDouble: String.fromCodePoint(0xe031),

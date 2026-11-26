@@ -47,6 +47,7 @@ import { BackgroundTaskToaster } from "./app/BackgroundTaskToaster";
 import { McpProposalReview, McpSessionBridge } from "./mcpSession";
 import { PwaNotifications } from "./pwa";
 import { MemoryDiagnostics } from "./memoryDiagnostics";
+import { useClickCanvasActive } from "./store/clickCanvasStore";
 
 const GistShareViewer = React.lazy(() =>
   import("./gistShareViewer").then((module) => ({ default: module.GistShareViewer })),
@@ -156,6 +157,8 @@ function AppWithActivityBar() {
     new URLSearchParams(window.location.search).get("open") === "gist-setlist" ? "click" : "write",
   );
   const settingsOpen = useSettingsCategoryStore((state) => state.open);
+  const clickActive = useClickCanvasActive();
+  const fullBleed = activeView === "click" && clickActive;
   const [baselineMnx, setBaselineMnx] = useState<string>("");
   const [mnxJson, setMnxJson] = useState<string>("");
   const currentMnxRef = useRef<string>("");
@@ -243,11 +246,12 @@ function AppWithActivityBar() {
           <DocumentMixerBridge />
           <VideoSyncBridge />
           <SelectionPlaybackBridge />
-          <AppShell>
+          <AppShell fullBleed={fullBleed}>
             <PersistentJumpBarHost />
             {/* Activity bar + content */}
             <div style={APP_ROW_STYLE}>
               <ActivityBar
+                hidden={fullBleed}
                 activeView={activeView}
                 onViewChange={handleViewChange}
                 settingsOpen={settingsOpen}

@@ -9,8 +9,10 @@ import rehearsals from "../../../../packages/format/fixtures/mnx/rehearsal-marks
 import multipleLayouts from "../../../../packages/format/fixtures/mnx/multiple-layouts.mnx?raw";
 import { ClickView } from "./index";
 import { useClickPlayer } from "./useClickPlayer";
+import { percentToZoom } from "../zoomScale";
 import { keyboardRegistry } from "../keyboard/KeyboardRegistry";
 import { AppShell } from "../components/AppShell";
+import { useClickSettingsStore } from "../store/clickSettingsStore";
 import { DocumentProvider, useDocumentStoreApi } from "../store/DocumentContext";
 import {
   publishClickCanvasConfig,
@@ -41,6 +43,13 @@ const playback = vi.hoisted(() => ({
   soundListener: undefined as ((sound: ClickSound) => void) | undefined,
 }));
 
+const loadMusicFont = vi.hoisted(() => vi.fn(async () => ({ failed: [] })));
+
+vi.mock("@viritura/renderer", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@viritura/renderer")>()),
+  loadMusicFont,
+}));
+
 vi.mock("@viritura/playback", () => ({
   getMetronomeSound: () => playback.sound,
   subscribeMetronomeSound: (listener: (sound: ClickSound) => void) => {
@@ -69,6 +78,7 @@ function SharedCanvasProbe() {
       data-mode={config.viewMode}
       data-fit-to-view={config.fitToView}
       data-fit-request={config.fitRequest}
+      data-written={config.useWritten}
       data-active={playback.active}
       data-measure={playback.position?.measureIndex ?? ""}
       data-beat={playback.position?.beat ?? ""}
@@ -98,6 +108,7 @@ function DocumentGenerationControl() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useClickSettingsStore.setState({ flashMode: "beat" });
   audio.listener = undefined;
   audio.setSound.mockReset().mockResolvedValue(undefined);
   audio.context.currentTime = 0;
@@ -150,10 +161,10 @@ describe("click activity", () => {
     expect(audio.setSound.mock.invocationCallOrder[0]).toBeLessThan(audio.start.mock.invocationCallOrder[0]!);
 
     act(() => {
-      playback.sound = "beep";
-      playback.soundListener?.("beep");
+      playback.sound = "oscillator";
+      playback.soundListener?.("oscillator");
     });
-    await waitFor(() => expect(audio.setSound).toHaveBeenLastCalledWith("beep"));
+    await waitFor(() => expect(audio.setSound).toHaveBeenLastCalledWith("oscillator"));
     expect(audio.start).toHaveBeenCalledOnce();
     expect(audio.stop).not.toHaveBeenCalled();
   });
@@ -307,18 +318,18 @@ describe("click activity", () => {
     const user = userEvent.setup();
     const { rerender } = await renderClick(score);
     const nav = scoreControls();
-    fireEvent.change(nav.getByRole("slider", { name: "Zoom slider" }), { target: { value: "1.2" } });
-    expect(nav.getByLabelText("Score zoom").textContent).toBe("120%");
+    fireEvent.change(nav.getByRole("slider", { name: "Zoom slider" }), { target: { value: percentToZoom(120) } });
+    expect(nav.getByRole("button", { name: "Reset zoom" }).textContent).toBe("120%");
     fireEvent.click(nav.getByRole("button", { name: "Zoom to fit", exact: true }));
     expect(nav.getByRole("button", { name: "Zoom to fit" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(nav.getByRole("button", { name: "Reset zoom", exact: true }));
-    expect(nav.getByLabelText("Score zoom").textContent).toBe("100%");
+    expect(nav.getByRole("button", { name: "Reset zoom" }).textContent).toBe("100%");
     expect(nav.getByRole("button", { name: "Zoom to fit" }).getAttribute("aria-pressed")).toBe("false");
-    fireEvent.change(nav.getByRole("slider", { name: "Zoom slider" }), { target: { value: "1.2" } });
+    fireEvent.change(nav.getByRole("slider", { name: "Zoom slider" }), { target: { value: percentToZoom(120) } });
     await user.click(nav.getByRole("button", { name: "View mode" }));
     await user.click(screen.getByRole("option", { name: "Spread", exact: true }));
     rerender(<ClickView mnx={rehearsals} />);
-    expect(nav.getByLabelText("Score zoom").textContent).toBe("120%");
+    expect(nav.getByRole("button", { name: "Reset zoom" }).textContent).toBe("120%");
     expect(screen.getByTestId("shared-click-canvas").dataset.scoreIndex).toBe("0");
     expect(screen.getByTestId("shared-click-canvas").dataset.mode).toBe("spread");
     expect(audio.create).not.toHaveBeenCalled();
@@ -332,15 +343,43 @@ describe("click activity", () => {
     expect(canvas.dataset.fitRequest).toBe("1");
     fireEvent.click(fit);
     expect(canvas.dataset.fitRequest).toBe("2");
-    rerender(<ClickView mnx={score} canvasZoom={0.45} />);
-    expect(screen.getByLabelText("Score zoom").textContent).toBe("45%");
+    rerender(<ClickView mnx={score} canvasZoom={percentToZoom(45)} />);
+    expect(screen.getByRole("button", { name: "Reset zoom" }).textContent).toBe("45%");
     expect(canvas.dataset.fitToView).toBe("true");
-    fireEvent.change(screen.getByRole("slider", { name: "Zoom slider" }), { target: { value: "1.2" } });
+    fireEvent.change(screen.getByRole("slider", { name: "Zoom slider" }), { target: { value: percentToZoom(120) } });
     expect(canvas.dataset.fitToView).toBe("false");
     expect(audio.create).not.toHaveBeenCalled();
   });
 
-  it("replaces navigation and settings with the current bar and Stop during playback", async () => {
+  it("toggles displayed pitch and restores each selected view's authored default without starting audio", async () => {
+    const user = userEvent.setup();
+    await renderClick(multipleLayouts);
+    const canvas = screen.getByTestId("shared-click-canvas");
+    const written = () => scoreControls().getByRole("radio", { name: "Written" });
+    const concert = () => scoreControls().getByRole("radio", { name: "Concert" });
+    expect(canvas.dataset.written).toBe("false");
+    fireEvent.click(written());
+    expect(canvas.dataset.written).toBe("true");
+    expect(written().getAttribute("aria-checked")).toBe("true");
+    const selector = () => within(settings()).getByRole("button", { name: /^Select score or part:/ });
+    await user.click(selector());
+    await user.click(screen.getByRole("button", { name: "FourStaff", exact: true }));
+    expect(canvas.dataset.written).toBe("true");
+    fireEvent.click(concert());
+    expect(canvas.dataset.written).toBe("false");
+
+    await user.click(selector());
+    await user.click(screen.getByRole("button", { name: "Alto", exact: true }));
+    expect(canvas.dataset.written).toBe("true");
+    fireEvent.click(concert());
+    expect(canvas.dataset.written).toBe("false");
+    await user.click(selector());
+    await user.click(screen.getByRole("button", { name: "FourStaff", exact: true }));
+    expect(canvas.dataset.written).toBe("false");
+    expect(audio.create).not.toHaveBeenCalled();
+  });
+
+  it("shows compact playback controls and restores navigation and countoff on Stop", async () => {
     await renderClick(rehearsals);
     const transport = within(screen.getByRole("region", { name: "Click player" }));
     expect(transport.getByRole("listbox", { name: "Start bar" })).toBeTruthy();
@@ -354,12 +393,11 @@ describe("click activity", () => {
     fireEvent.click(transport.getByRole("button", { name: "Start", exact: true }));
     await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
     expect(tempo.closest("fieldset")?.disabled).toBe(true);
-    await waitFor(() => expect(transport.getByRole("status", { name: "Current bar" }).textContent).toBe("3"));
+    await waitFor(() => expect(transport.getByRole("status", { name: "Playback position" }).textContent).toBe("-4"));
     expect(screen.queryByRole("group", { name: "Click settings" })).toBeNull();
-    expect(transport.queryByRole("listbox")).toBeNull();
+    expect(transport.queryByRole("listbox", { name: "Start bar" })).toBeNull();
+    expect(transport.queryByRole("listbox", { name: "Rehearsal" })).toBeNull();
     expect(transport.queryByRole("radiogroup", { name: "Countoff" })).toBeNull();
-    expect(transport.queryByRole("group", { name: "Selected start" })).toBeNull();
-    expect(transport.getAllByRole("button")).toHaveLength(1);
     expect(screen.getByRole("region", { name: "Click player" }).dataset.compact).toBe("true");
     fireEvent.click(transport.getByRole("button", { name: "Stop", exact: true }));
     await waitFor(() => expect(transport.getByRole("listbox", { name: "Start bar" })).toBeTruthy());
@@ -368,7 +406,7 @@ describe("click activity", () => {
     expect(transport.getByRole("listbox", { name: "Rehearsal" })).toBeTruthy();
     expect(transport.getByRole("radiogroup", { name: "Countoff" })).toBeTruthy();
     expect(transport.getByRole("option", { name: "Bar 3, rehearsal B" }).getAttribute("aria-selected")).toBe("true");
-    expect(transport.queryByRole("status", { name: "Current bar" })).toBeNull();
+    expect(transport.queryByRole("status", { name: "Playback position" })).toBeNull();
     expect(screen.getByRole("region", { name: "Click player" }).dataset.compact).toBeUndefined();
   });
 
@@ -441,7 +479,7 @@ describe("click activity", () => {
     expect(screen.getByRole("button", { name: "Start" })).toBe(transport);
     expect(settings()).toBeTruthy();
     expect(screen.getByRole("listbox", { name: "Start bar" })).toBeTruthy();
-    expect(screen.queryByRole("status", { name: "Current bar" })).toBeNull();
+    expect(screen.queryByRole("status", { name: "Playback position" })).toBeNull();
   });
 
   it("reports an invalid document instead of playing stale data", async () => {
@@ -590,18 +628,34 @@ describe("click activity", () => {
       ),
     );
     expect(screen.queryByRole("radiogroup", { name: "Countoff" })).toBeNull();
+    for (let click = 0; click < 8; click++) {
+      act(() => {
+        audio.context.currentTime = 1 + click / 2 + 0.01;
+      });
+      await waitFor(() =>
+        expect(screen.getByRole("status", { name: "Playback position" }).textContent).toBe(String(click - 8)),
+      );
+    }
     act(() => {
       audio.context.currentTime = 4.6;
     });
     await waitFor(() =>
       expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Counting off"),
     );
-    expect(screen.getByRole("status", { name: "Current bar" }).textContent).toBe("2");
+    expect(screen.getByRole("status", { name: "Playback position" }).textContent).toBe("-1");
     act(() => {
       audio.context.currentTime = 5.1;
     });
     await waitFor(() => expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Playing"));
-    expect(screen.getByRole("status", { name: "Current bar" }).textContent).toBe("2");
+    expect(screen.getByRole("status", { name: "Playback position" }).textContent).toBe("2:1");
+    for (let beat = 2; beat <= 4; beat++) {
+      act(() => {
+        audio.context.currentTime = 5.1 + (beat - 1) / 2;
+      });
+      await waitFor(() =>
+        expect(screen.getByRole("status", { name: "Playback position" }).textContent).toBe(`2:${beat}`),
+      );
+    }
     fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
     await waitFor(() => expect(screen.getByText("8 clicks free")).toBeTruthy());
     expect(screen.getByRole("radio", { name: "2 bars" }).getAttribute("aria-checked")).toBe("true");
@@ -621,19 +675,32 @@ describe("click activity", () => {
     await renderClick(JSON.stringify(mixedMeter));
     const startDetails = screen.getByRole("group", { name: "Selected start" });
     const details = within(startDetails);
-    expect(startDetails.textContent).toBe("4/4Quarter = 120");
-    expect(details.getByText("4/4")).toBeTruthy();
-    expect(details.getByText("Quarter = 120")).toBeTruthy();
+    expect(details.getByRole("status", { name: "Time signature 4 over 4" })).toBeTruthy();
+    const tempo = details.getByRole("status", { name: "Quarter note equals 120 beats per minute" });
+    expect(tempo.querySelector("svg text")?.textContent).toBe(String.fromCodePoint(0xeca5));
+    expect(tempo.textContent).toContain("= 120");
     expect(screen.getByText("4 clicks free")).toBeTruthy();
     fireEvent.click(screen.getByRole("option", { name: "Bar 2" }));
-    expect(startDetails.textContent).toBe("3/4Quarter = 90");
-    expect(details.getByText("3/4")).toBeTruthy();
-    expect(details.getByText("Quarter = 90")).toBeTruthy();
+    expect(details.getByRole("status", { name: "Time signature 3 over 4" })).toBeTruthy();
+    expect(details.getByRole("status", { name: "Quarter note equals 90 beats per minute" })).toBeTruthy();
     expect(screen.getByText("3 clicks free")).toBeTruthy();
     fireEvent.change(screen.getByRole("slider", { name: "Session tempo %" }), { target: { value: "50" } });
-    expect(details.getByText("Quarter = 45")).toBeTruthy();
+    expect(details.getByRole("status", { name: "Quarter note equals 45 beats per minute" })).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "2 bars" }));
     expect(screen.getByText("6 clicks free")).toBeTruthy();
+  });
+
+  it("shows a multi-digit time signature even without a rehearsal dial", async () => {
+    const compound = JSON.parse(score) as { global: { measures: { time?: { count: number; unit: number } }[] } };
+    compound.global.measures[0]!.time = { count: 12, unit: 8 };
+    await renderClick(JSON.stringify(compound));
+    expect(screen.queryByRole("listbox", { name: "Rehearsal" })).toBeNull();
+    const meter = screen.getByRole("status", { name: "Time signature 12 over 8" });
+    expect(Array.from(meter.querySelectorAll("svg text"), (digit) => digit.textContent)).toEqual([
+      String.fromCodePoint(0xe081),
+      String.fromCodePoint(0xe082),
+      String.fromCodePoint(0xe088),
+    ]);
   });
 
   it("uses a 0–100% tempo scale and requires a positive tempo to start", async () => {
@@ -646,7 +713,7 @@ describe("click activity", () => {
 
     fireEvent.change(slider, { target: { value: "0" } });
     expect(screen.getByText("0%")).toBeTruthy();
-    expect(screen.getByText("Quarter = 0")).toBeTruthy();
+    expect(screen.getByRole("status", { name: "Quarter note equals 0 beats per minute" })).toBeTruthy();
     expect(play.hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Set tempo above 0% to start");
     fireEvent.click(play);
@@ -654,7 +721,7 @@ describe("click activity", () => {
 
     fireEvent.change(slider, { target: { value: "1" } });
     expect(screen.getByText("1%")).toBeTruthy();
-    expect(screen.getByText("Quarter = 1.2")).toBeTruthy();
+    expect(screen.getByRole("status", { name: "Quarter note equals 1.2 beats per minute" })).toBeTruthy();
     expect(play.hasAttribute("disabled")).toBe(false);
 
     fireEvent.change(slider, { target: { value: "50" } });
@@ -702,7 +769,7 @@ describe("click activity", () => {
         8,
       ),
     );
-    await waitFor(() => expect(screen.getByRole("status", { name: "Current bar" }).textContent).toBe("3"));
+    await waitFor(() => expect(screen.getByRole("status", { name: "Playback position" }).textContent).toBe("-4"));
   });
 
   it("selects a repeated bar visit rather than silently starting its first occurrence", async () => {
@@ -717,9 +784,13 @@ describe("click activity", () => {
     expect(screen.getByRole("option", { name: "Bar 1, visit 2 of 2" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
     await waitFor(() => expect(audio.load).toHaveBeenCalledWith(expect.any(Array), 12));
-    await waitFor(() => expect(screen.getByRole("status", { name: "Current bar" }).textContent).toBe("1"));
-    expect(screen.getByRole("status", { name: "Current bar" }).getAttribute("aria-description")).toBe(
-      "Bar 1, visit 2 of 2",
+    await waitFor(() => expect(screen.getByRole("status", { name: "Playback position" }).textContent).toBe("-4"));
+    act(() => {
+      audio.context.currentTime = 5.1;
+    });
+    await waitFor(() => expect(screen.getByRole("status", { name: "Playback position" }).textContent).toBe("1:1"));
+    expect(screen.getByRole("status", { name: "Playback position" }).getAttribute("aria-description")).toBe(
+      "Bar 1, visit 2 of 2, beat 1",
     );
     audio.stop.mockResolvedValueOnce(8.5);
     fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
@@ -775,15 +846,14 @@ describe("click activity", () => {
     await waitFor(() => expect(play.hasAttribute("disabled")).toBe(false));
   });
 
-  it("follows the current performed bar without showing navigation or restarting the playing take", async () => {
+  it("follows the current performed bar in the compact display without restarting the playing take", async () => {
     await renderClick(rehearsals);
     fireEvent.click(screen.getByRole("button", { name: "Start", exact: true }));
     await waitFor(() => expect(audio.start).toHaveBeenCalledOnce());
     act(() => {
       audio.context.currentTime = 7.1;
     });
-    await waitFor(() => expect(screen.getByRole("status", { name: "Current bar" }).textContent).toBe("3"));
-    expect(screen.queryByRole("listbox", { name: "Rehearsal" })).toBeNull();
+    await waitFor(() => expect(screen.getByRole("status", { name: "Playback position" }).textContent).toBe("3:1"));
     expect(screen.queryByRole("listbox", { name: "Start bar" })).toBeNull();
     expect(audio.load).toHaveBeenCalledOnce();
     expect(audio.start).toHaveBeenCalledOnce();
@@ -800,7 +870,7 @@ describe("click activity", () => {
       audio.context.currentTime = 3.1;
     });
     await waitFor(() => expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Playing"));
-    expect(screen.getByRole("status", { name: "Current bar" }).textContent).toBe("1");
+    expect(screen.getByRole("status", { name: "Playback position" }).textContent).toBe("1:1");
 
     audio.stop.mockResolvedValueOnce(4.1);
     fireEvent.click(screen.getByRole("button", { name: "Stop", exact: true }));
@@ -822,7 +892,7 @@ describe("click activity", () => {
     await waitFor(() =>
       expect(screen.getByRole("status", { name: "Playback status" }).textContent).toBe("Counting off"),
     );
-    expect(screen.getByRole("status", { name: "Current bar" }).textContent).toBe("2");
+    expect(screen.getByRole("status", { name: "Playback position" }).textContent).toBe("-4");
   });
 
   it("reports worklet errors and permits an explicit fresh retry", async () => {
@@ -839,6 +909,142 @@ describe("click activity", () => {
     expect(settings()).toBeTruthy();
     expect(audio.dispose).toHaveBeenCalledOnce();
     expect(screen.getByRole("listbox", { name: "Start bar" })).toBeTruthy();
-    expect(screen.queryByRole("status", { name: "Current bar" })).toBeNull();
+    expect(screen.queryByRole("status", { name: "Playback position" })).toBeNull();
+  });
+});
+
+describe("detached click controller", () => {
+  function installPictureWindow(existing: Window | null = null) {
+    const body = document.createElement("div");
+    body.dataset.pictureWindow = "";
+    document.body.append(body);
+    const doc = {
+      body,
+      head: document.createElement("div"),
+      documentElement: document.createElement("div"),
+      createElement: document.createElement.bind(document),
+      fonts: { add: vi.fn() },
+      title: "",
+    } as unknown as Document;
+    const listeners = new Map<string, EventListener>();
+    const pipWindow = {
+      document: doc,
+      addEventListener: vi.fn((type: string, listener: EventListener) => listeners.set(type, listener)),
+      removeEventListener: vi.fn(),
+      focus: vi.fn(),
+      close: vi.fn(() => act(() => listeners.get("pagehide")?.(new Event("pagehide")))),
+    } as unknown as Window;
+    const api = {
+      window: existing,
+      requestWindow: vi.fn(async () => {
+        api.window = pipWindow;
+        return pipWindow;
+      }),
+    };
+    Object.defineProperty(globalThis, "documentPictureInPicture", { value: api, configurable: true });
+    return { api, pipWindow, doc, listeners };
+  }
+
+  afterEach(() => {
+    delete (globalThis as { documentPictureInPicture?: unknown }).documentPictureInPicture;
+    for (const host of document.querySelectorAll("[data-picture-window]")) host.remove();
+  });
+
+  it("explains when the browser cannot keep controls above other apps", async () => {
+    await renderClick();
+    fireEvent.click(screen.getByRole("button", { name: "Keep above other apps" }));
+    expect(screen.getByText(/can't keep the controls above other apps/).textContent).toContain("stay in this window");
+    expect(screen.getByRole("listbox", { name: "Start bar" })).toBeTruthy();
+  });
+
+  it("moves the controls to a picture window and back without interrupting the take", async () => {
+    const pip = installPictureWindow();
+    await renderClick();
+    fireEvent.click(screen.getByRole("button", { name: "Keep above other apps" }));
+    const detached = within(pip.doc.body);
+    await waitFor(() => expect(detached.getByRole("listbox", { name: "Start bar" })).toBeTruthy());
+    expect(loadMusicFont).toHaveBeenCalledWith({ textFont: false, targetFonts: pip.doc.fonts });
+    expect(detached.getByRole("status", { name: "Time signature 4 over 4" })).toBeTruthy();
+    expect(detached.getByRole("status", { name: "Quarter note equals 120 beats per minute" })).toBeTruthy();
+    const inPage = within(screen.getByText("Controls are in a separate window.").closest("section")!);
+    expect(inPage.queryByRole("listbox", { name: "Start bar" })).toBeNull();
+
+    fireEvent.click(detached.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(detached.getByRole("button", { name: "Stop" })).toBeTruthy());
+    expect(inPage.getByRole("button", { name: "Stop" })).toBeTruthy();
+    expect(detached.getByRole("status", { name: "Playback position" }).textContent).toBe("-4");
+    expect(inPage.getByRole("status", { name: "Playback position" }).textContent).toBe("-4");
+    act(() => {
+      audio.context.currentTime = 3.75;
+    });
+    await waitFor(() => expect(detached.getByRole("status", { name: "Playback position" }).textContent).toBe("1:2"));
+    expect(inPage.getByRole("status", { name: "Playback position" }).textContent).toBe("1:2");
+
+    const keyDown = pip.listeners.get("keydown")!;
+    act(() => keyDown(new KeyboardEvent("keydown", { code: "Space" })));
+    await waitFor(() => expect(audio.stop).toHaveBeenCalledOnce());
+    fireEvent.click(detached.getByRole("button", { name: "Start", exact: true }));
+    await waitFor(() => expect(audio.start).toHaveBeenCalledTimes(2));
+
+    // The window's own close control fires pagehide; the controls return to the page.
+    expect(detached.queryByRole("button", { name: "Return to editor" })).toBeNull();
+    act(() => pip.listeners.get("pagehide")!(new Event("pagehide")));
+    expect(pip.doc.body.childElementCount).toBe(0);
+    expect(audio.stop).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Stop" })).toBeTruthy();
+  });
+
+  it("shares beat flashes and preference changes with the picture window", async () => {
+    const pip = installPictureWindow();
+    await renderClick();
+    fireEvent.click(screen.getByRole("button", { name: "Keep above other apps" }));
+    const detached = within(pip.doc.body);
+    await waitFor(() => expect(detached.getByRole("button", { name: "Start" })).toBeTruthy());
+    fireEvent.click(detached.getByRole("button", { name: "Start" }));
+    await waitFor(() => expect(detached.getByRole("button", { name: "Stop" })).toBeTruthy());
+    const inPage = screen.getByText("Controls are in a separate window.").closest("section")!;
+    const pulse = (host: Element) =>
+      Number.parseFloat(
+        host.querySelector<HTMLElement>("[data-click-flash]")!.parentElement!.style.getPropertyValue("--click-pulse"),
+      );
+
+    act(() => {
+      audio.context.currentTime = 1.02;
+    });
+    await waitFor(() => {
+      expect(pulse(inPage)).toBeGreaterThan(0);
+      expect(pulse(pip.doc.body)).toBeGreaterThan(0);
+    });
+    act(() => {
+      useClickSettingsStore.getState().setFlashMode("measure");
+      audio.context.currentTime = 1.52;
+    });
+    await waitFor(() => {
+      expect(pulse(inPage)).toBe(0);
+      expect(pulse(pip.doc.body)).toBe(0);
+    });
+    act(() => {
+      audio.context.currentTime = 3.02;
+    });
+    await waitFor(() => {
+      expect(pulse(inPage)).toBeGreaterThan(0);
+      expect(pulse(pip.doc.body)).toBeGreaterThan(0);
+    });
+    act(() => useClickSettingsStore.getState().setFlashMode("off"));
+    expect(inPage.querySelector("[data-click-flash]")).toBeNull();
+    expect(pip.doc.body.querySelector("[data-click-flash]")).toBeNull();
+    expect(inPage.style.getPropertyValue("--click-pulse")).toBe("");
+    expect(detached.getByRole("region", { name: "Click player" }).style.getPropertyValue("--click-pulse")).toBe("");
+  });
+
+  it("asks before replacing another picture window", async () => {
+    const pip = installPictureWindow({} as Window);
+    await renderClick();
+    fireEvent.click(screen.getByRole("button", { name: "Keep above other apps" }));
+    expect(pip.api.requestWindow).not.toHaveBeenCalled();
+    expect(screen.getByText(/only one window can stay above other apps/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Replace picture window" }));
+    await waitFor(() => expect(within(pip.doc.body).getByRole("listbox", { name: "Start bar" })).toBeTruthy());
+    expect(pip.api.requestWindow).toHaveBeenCalledOnce();
   });
 });

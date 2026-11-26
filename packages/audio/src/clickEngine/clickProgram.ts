@@ -18,6 +18,9 @@ export interface CompiledClickProgram {
 
 export const CLICK_LEVEL_CODES: Readonly<Record<ClickLevel, number>> = { accent: 0, beat: 1, subdivision: 2 };
 
+/** Largest qualified program: 60 minutes at 32 click onsets per second. */
+export const MAX_CLICK_PROGRAM_EVENTS = 60 * 60 * 32;
+
 /**
  * Resolve click times to sample frames. Every frame is rounded from its absolute
  * time rather than accumulated from intervals, so rounding error never drifts
@@ -25,6 +28,12 @@ export const CLICK_LEVEL_CODES: Readonly<Record<ClickLevel, number>> = { accent:
  */
 export function compileClickProgram(events: readonly ClickProgramEvent[], sampleRate: number): CompiledClickProgram {
   if (!Number.isFinite(sampleRate) || sampleRate <= 0) throw new RangeError("Click sample rate must be positive");
+  if (events.length > MAX_CLICK_PROGRAM_EVENTS) {
+    throw new RangeError(
+      `This click track has ${events.length.toLocaleString("en-US")} clicks; ` +
+        `the qualified limit is ${MAX_CLICK_PROGRAM_EVENTS.toLocaleString("en-US")} (60 minutes at 32 clicks per second)`,
+    );
+  }
   const frames = new Float64Array(events.length);
   const levels = new Uint8Array(events.length);
   let previous = -Infinity;

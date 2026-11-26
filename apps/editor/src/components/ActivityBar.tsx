@@ -9,6 +9,7 @@ import styles from "./ActivityBar.module.css";
 export type { ActivityView } from "./activityRegistry";
 
 interface ActivityBarProps {
+  hidden?: boolean;
   activeView: ActivityView;
   onViewChange: (view: ActivityView) => void;
   settingsOpen?: boolean;
@@ -19,6 +20,7 @@ interface ActivityBarProps {
 }
 
 export function ActivityBar({
+  hidden = false,
   activeView,
   onViewChange,
   settingsOpen = false,
@@ -27,7 +29,7 @@ export function ActivityBar({
   onPreloadView,
 }: ActivityBarProps) {
   return (
-    <div className={`${styles.bar} app-chrome app-chrome--side`}>
+    <div className={`${styles.bar} app-chrome app-chrome--side`} hidden={hidden}>
       {ACTIVITY_DEFINITIONS.map((item) => {
         const Icon = item.icon;
         return (

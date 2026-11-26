@@ -37,9 +37,9 @@ it("can discover new scores when the project initially contains only one", async
     </DocumentProvider>,
   );
 
-  await user.click(screen.getByRole("button", { name: "Select project file: one.mnx" }));
+  await user.click(screen.getByRole("button", { name: "Select project file: one" }));
   expect(rescan).toHaveBeenCalledOnce();
-  expect(await screen.findByRole("option", { name: "two.mnx" })).toBeTruthy();
+  expect(await screen.findByRole("option", { name: "two" })).toBeTruthy();
 });
 
 it("reports unexpected errors from a score switch", async () => {
@@ -54,8 +54,8 @@ it("reports unexpected errors from a score switch", async () => {
     </DocumentProvider>,
   );
 
-  await user.click(screen.getByRole("button", { name: "Select project file: one.mnx" }));
-  await user.click(screen.getByRole("option", { name: "two.mnx" }));
+  await user.click(screen.getByRole("button", { name: "Select project file: one" }));
+  await user.click(screen.getByRole("option", { name: "two" }));
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not switch project scores"));
   expect(log).toHaveBeenCalledWith("Project score switch failed:", failure);
 });
@@ -76,7 +76,7 @@ it("reports a failed project rescan", async () => {
     </DocumentProvider>,
   );
 
-  await user.click(screen.getByRole("button", { name: "Select project file: one.mnx" }));
+  await user.click(screen.getByRole("button", { name: "Select project file: one" }));
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not refresh project files"));
   expect(log).toHaveBeenCalledWith("Could not refresh project files:", failure);
 });
@@ -93,7 +93,7 @@ it("routes Gist selection through the guarded file switcher", async () => {
     </DocumentProvider>,
   );
 
-  await user.click(screen.getByRole("button", { name: "Select setlist file: one.mnx" }));
-  await user.click(screen.getByRole("option", { name: "two.mnx" }));
+  await user.click(screen.getByRole("button", { name: "Select setlist file: one" }));
+  await user.click(screen.getByRole("option", { name: "two" }));
   expect(switchTo).toHaveBeenCalledWith("two.mnx");
 });

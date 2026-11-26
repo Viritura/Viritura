@@ -10,6 +10,7 @@ export interface ClickCanvasConfig {
   readonly pageSetup?: PageSetup;
   readonly fitToView?: boolean;
   readonly fitRequest?: number;
+  readonly useWritten?: boolean;
   readonly onSelectMeasure?: (measureIndex: number) => void;
 }
 
@@ -61,5 +62,13 @@ export function useClickCanvasPlayback(): ClickCanvasPlayback {
     subscribe,
     () => playback,
     () => playback,
+  );
+}
+
+export function useClickCanvasActive(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => playback.active,
+    () => playback.active,
   );
 }

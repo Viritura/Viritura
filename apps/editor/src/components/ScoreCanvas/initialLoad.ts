@@ -32,12 +32,13 @@ export function scoreViewRelayoutKey(
   expandedCondensingStaves?: ReadonlySet<string>,
   pageSetupOverride?: PageSetup,
   sourcePartIndex?: number,
+  useWrittenOverride?: boolean,
 ): string {
   const layoutClass = viewMode === "horizon" ? "horizon" : "paged";
   const parts = (selectedPartIds ?? []).join(",");
   const expanded = expandedCondensingStaves ? [...expandedCondensingStaves].sort().join(",") : "";
   const pageSetup = pageSetupOverride ? JSON.stringify(pageSetupOverride) : "";
-  return `${scoreIndex}|${layoutClass}|${scoreDefinitions.join("\u001f")}|${parts}|${expanded}|${pageSetup}|${sourcePartIndex ?? ""}`;
+  return `${scoreIndex}|${layoutClass}|${scoreDefinitions.join("\u001f")}|${parts}|${expanded}|${pageSetup}|${sourcePartIndex ?? ""}|${useWrittenOverride ?? ""}`;
 }
 
 interface InitialLoadArgs {
@@ -52,6 +53,7 @@ interface InitialLoadArgs {
   expandedCondensingStaves?: ReadonlySet<string>;
   pageSetupOverride?: PageSetup;
   sourcePartIndex?: number;
+  useWrittenOverride?: boolean;
   cachedScoreInfoRef: { current: ScoreInfo | null };
   displayListRef: { current: DisplayList | null };
   spatialIndexRef: { current: SpatialIndex | null };
@@ -85,6 +87,7 @@ export async function runInitialLoad(args: InitialLoadArgs): Promise<void> {
     expandedCondensingStaves,
     pageSetupOverride,
     sourcePartIndex,
+    useWrittenOverride,
     cachedScoreInfoRef,
     displayListRef,
     spatialIndexRef,
@@ -118,6 +121,7 @@ export async function runInitialLoad(args: InitialLoadArgs): Promise<void> {
     expandedCondensingStaves,
     pageSetupOverride,
     sourcePartIndex,
+    useWrittenOverride,
   );
   lastScoreDefinitionRelayoutKeyRef.current = layoutKey;
   lastViewRelayoutJsonRef.current = mnxJson;

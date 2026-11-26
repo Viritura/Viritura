@@ -8,6 +8,10 @@ function loadSound(): ClickSound {
     if (typeof localStorage === "undefined") return DEFAULT_CLICK_SOUND;
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === null) return DEFAULT_CLICK_SOUND;
+    if (stored === "beep") {
+      persistSound(DEFAULT_CLICK_SOUND);
+      return DEFAULT_CLICK_SOUND;
+    }
     if (isClickSound(stored)) return stored;
     console.warn(`[Metronome] Ignoring unknown saved sound: ${stored}`);
   } catch (error) {

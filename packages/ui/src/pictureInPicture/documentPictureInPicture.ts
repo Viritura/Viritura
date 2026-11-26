@@ -2,17 +2,14 @@
  * Document Picture-in-Picture.
  *
  * Standard video PiP gives an always-on-top window but hands its contents to
- * the browser: the controls are browser-owned, nothing can be drawn over the
- * picture, and there is nowhere to put a streamer. For scoring that is
- * disqualifying — the overlay *is* the feature.
+ * the browser, so it cannot host arbitrary controls or overlays. Document PiP
+ * gives an always-on-top window that hosts ordinary DOM, styled with the same
+ * tokens as the rest of the app. Surfaces such as the video picture window and
+ * the click controller use it to stay visible above other applications.
  *
- * Document PiP solves it by giving us an always-on-top window that hosts
- * ordinary DOM. Everything the composer sees in it is ours: our controls, our
- * timecode, our streamers, styled with the same tokens as the rest of the app.
- *
- * Availability is narrow (Chromium only at time of writing), so every entry
- * point is capability-checked and the caller falls back to an in-page floating
- * panel that renders the identical surface.
+ * Availability is narrow, so every entry point is capability-checked and the
+ * caller keeps an in-page host that renders the identical surface. A tab owns
+ * at most one PiP window; opening another replaces the current one.
  */
 
 interface DocumentPipOptions {

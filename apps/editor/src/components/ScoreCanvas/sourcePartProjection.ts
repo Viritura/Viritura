@@ -1,6 +1,6 @@
 import { parseMnx, serializeMnx } from "@viritura/format";
 
-export function sourcePartMnx(mnx: string, partIndex: number): string {
+export function sourcePartMnx(mnx: string, partIndex: number, useWritten = true): string {
   const score = parseMnx(JSON.parse(mnx));
   const part = score.parts[partIndex];
   if (!part) throw new RangeError(`Missing part ${partIndex + 1}`);
@@ -9,7 +9,7 @@ export function sourcePartMnx(mnx: string, partIndex: number): string {
       ...score,
       parts: [part],
       layouts: undefined,
-      scores: [{ name: part.name, useWritten: true, pageSetupRole: "part" }],
+      scores: [{ name: part.name, useWritten, pageSetupRole: "part" }],
     }),
   );
 }

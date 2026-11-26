@@ -37,6 +37,7 @@ function ClickStoryContent() {
             pageSetupOverride={config.pageSetup}
             fitToView={config.fitToView}
             fitRequest={config.fitRequest}
+            useWrittenOverride={config.useWritten}
             onViewportChange={({ zoom }) => setCanvasZoom(zoom)}
           />
         )}

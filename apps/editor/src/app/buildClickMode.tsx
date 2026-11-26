@@ -34,6 +34,7 @@ export function buildClickMode({
       pageSetupOverride: config.pageSetup,
       fitToView: config.fitToView,
       fitRequest: config.fitRequest,
+      useWrittenOverride: config.useWritten,
     },
     panels: [],
     statusBar: (

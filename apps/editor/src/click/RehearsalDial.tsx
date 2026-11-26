@@ -1,43 +1,56 @@
 import { useMemo } from "react";
 import { NavigationDial } from "./NavigationDial";
-import { describeClickBar, type ClickDialProps } from "./barNavigation";
+import {
+  describeClickBar,
+  isClickLandmark,
+  type ClickBar,
+  type ClickDialEntry,
+  type ClickDialProps,
+} from "./barNavigation";
 
+interface LandmarkEntry extends ClickDialEntry {
+  readonly barIndex: number;
+}
+
+function landmarkEntry(bar: ClickBar, barIndex: number): LandmarkEntry | undefined {
+  if (!isClickLandmark(bar)) return undefined;
+  const visitDetail = [bar.visitCount > 1 ? `(${bar.visit}/${bar.visitCount})` : "", bar.startable ? "" : "partial"]
+    .filter(Boolean)
+    .join(" ");
+  const tempo = bar.tempoName ? `Tempo ${bar.tempoName}${bar.tempoNameWithinBar ? " within the bar" : ""}` : "";
+  const rehearsal = bar.rehearsal ? `Rehearsal ${bar.rehearsal}` : "";
+  return {
+    barIndex,
+    id: `${bar.measureIndex}-${bar.visit}`,
+    label: bar.rehearsal ?? bar.tempoName!,
+    kind: bar.rehearsal ? "mark" : "text",
+    description: `${[rehearsal, tempo].filter(Boolean).join(", ")}, ${describeClickBar(bar)}`,
+    detail: [bar.rehearsal ? bar.tempoName : undefined, visitDetail].filter(Boolean).join(" · ") || undefined,
+    startable: bar.startable,
+  };
+}
+
+/** Upper track: rehearsal marks and named tempo changes, adjacent regardless of the bars between them. */
 export function RehearsalDial({ bars, index, onSelect, ...props }: ClickDialProps) {
-  const rehearsals = useMemo(
-    () =>
-      bars.flatMap((bar, barIndex) =>
-        bar.rehearsal
-          ? [
-              {
-                barIndex,
-                id: `${bar.measureIndex}-${bar.visit}`,
-                label: bar.rehearsal,
-                description: `Rehearsal ${bar.rehearsal}, ${describeClickBar(bar)}`,
-                detail: `${bar.number}${bar.visitCount > 1 ? ` (${bar.visit}/${bar.visitCount})` : ""}${bar.startable ? "" : " partial"}`,
-                startable: bar.startable,
-              },
-            ]
-          : [],
-      ),
-    [bars],
-  );
-  const selectable = useMemo(() => rehearsals.some((entry) => entry.startable), [rehearsals]);
+  const landmarks = useMemo(() => bars.flatMap((bar, barIndex) => landmarkEntry(bar, barIndex) ?? []), [bars]);
+  const selectable = useMemo(() => landmarks.some((entry) => entry.startable), [landmarks]);
   if (!selectable) return null;
 
   let low = 0;
-  let high = rehearsals.length;
+  let high = landmarks.length;
   while (low < high) {
     const middle = Math.floor((low + high) / 2);
-    if (rehearsals[middle]!.barIndex <= index) low = middle + 1;
+    if (landmarks[middle]!.barIndex <= index) low = middle + 1;
     else high = middle;
   }
   return (
     <NavigationDial
       {...props}
-      entries={rehearsals}
+      entries={landmarks}
       label="Rehearsal"
+      compact
       index={low - 1}
-      onSelect={(next) => onSelect(rehearsals[next]!.barIndex)}
+      onSelect={(next) => onSelect(landmarks[next]!.barIndex)}
     />
   );
 }

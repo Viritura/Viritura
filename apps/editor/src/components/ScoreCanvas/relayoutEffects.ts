@@ -217,6 +217,7 @@ interface ScoreViewRelayoutArgs {
   pageSetupRef: { current: PageSetup };
   pageSetupOverride?: PageSetup;
   sourcePartIndex?: number;
+  useWrittenOverride?: boolean;
   cachedScoreInfoRef: { current: ScoreInfo | null };
   displayListRef: { current: DisplayList | null };
   displayListVersion: number;
@@ -246,6 +247,7 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
     pageSetupRef,
     pageSetupOverride,
     sourcePartIndex,
+    useWrittenOverride,
     cachedScoreInfoRef,
     displayListRef,
     displayListVersion,
@@ -271,6 +273,7 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
       expandedCondensingStaves,
       pageSetupOverride,
       sourcePartIndex,
+      useWrittenOverride,
     );
     if (lastRelayoutKeyRef.current === relayoutKey) {
       const displayList = displayListRef.current;
@@ -290,6 +293,7 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
         pageSetupRef,
         pageSetupOverride,
         sourcePartIndex,
+        useWrittenOverride,
       }).then((precomputedDisplayList) =>
         runSecondaryRelayout({
           mnxJson,
@@ -325,6 +329,7 @@ export function useScoreViewRelayout(args: ScoreViewRelayoutArgs): void {
     expandedCondensingStaves,
     pageSetupOverride,
     sourcePartIndex,
+    useWrittenOverride,
     displayListVersion,
   ]);
 }

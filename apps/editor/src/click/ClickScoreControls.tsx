@@ -1,5 +1,7 @@
-import { Button, StatusBar, StatusSelect, StatusZoomControls } from "@viritura/ui";
+import { WriteStatusBar } from "@viritura/ui";
 import type { ScoreFitMode, ScoreViewMode } from "@viritura/score-viewer-react";
+import { formatZoomPercent, getLifeSizeZoom, useCalibrationRerender } from "../zoomScale";
+import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
 import styles from "./ClickView.module.css";
 
 export interface ClickScoreSettings {
@@ -8,6 +10,7 @@ export interface ClickScoreSettings {
   readonly zoom: number;
   readonly fitMode: ScoreFitMode;
   readonly fitRequest: number;
+  readonly useWritten?: boolean;
 }
 
 interface ClickScoreControlsProps {
@@ -15,53 +18,33 @@ interface ClickScoreControlsProps {
   readonly onChange: (settings: ClickScoreSettings) => void;
 }
 
-const VIEW_MODES: readonly { value: ScoreViewMode; label: string }[] = [
-  { value: "page", label: "Page" },
-  { value: "spread", label: "Spread" },
-  { value: "spread-horizontal", label: "Spread (H)" },
-  { value: "horizon", label: "Horizon" },
-];
-
 export function ClickScoreControls({ settings, onChange }: ClickScoreControlsProps) {
+  useCalibrationRerender();
   const fitMode = settings.viewMode === "horizon" ? "height" : "page";
   return (
-    <StatusBar
+    <WriteStatusBar
       ariaLabel="Click score view"
       className={styles.statusBar}
-      right={
-        <>
-          <StatusSelect
-            ariaLabel="View mode"
-            value={settings.viewMode}
-            onChange={(value) => {
-              const mode = VIEW_MODES.find((option) => option.value === value);
-              if (!mode) throw new Error(`Unknown score view mode: ${value}`);
-              onChange({ ...settings, viewMode: mode.value, fitMode: mode.value === "horizon" ? "height" : "page" });
-            }}
-            options={VIEW_MODES}
-          />
-          <StatusZoomControls
-            zoom={settings.zoom}
-            zoomLabel={`${Math.round(settings.zoom * 100)}%`}
-            minZoom={0.05}
-            maxZoom={16}
-            onZoomChange={(zoom) => onChange({ ...settings, fitMode: "none", zoom })}
-            onResetZoom={() => onChange({ ...settings, fitMode: "none", zoom: 1 })}
-          />
-          <output aria-label="Score zoom" className={styles.srOnly}>
-            {Math.round(settings.zoom * 100)}%
-          </output>
-          <Button
-            variant="ghost"
-            size="sm"
-            ariaLabel="Zoom to fit"
-            aria-pressed={settings.fitMode === fitMode}
-            onClick={() => onChange({ ...settings, fitMode, fitRequest: settings.fitRequest + 1 })}
-          >
-            Fit
-          </Button>
-        </>
+      viewMode={
+        settings.viewMode === "spread-horizontal" || settings.viewMode === "horizontal" ? "spread-h" : settings.viewMode
       }
+      onViewModeChange={(viewMode) =>
+        onChange({
+          ...settings,
+          viewMode: viewMode === "spread-h" ? "spread-horizontal" : viewMode,
+          fitMode: viewMode === "horizon" ? "height" : "page",
+        })
+      }
+      useWritten={settings.useWritten}
+      onConcertPitchToggle={(useWritten) => onChange({ ...settings, useWritten })}
+      zoom={settings.zoom}
+      zoomLabel={formatZoomPercent(settings.zoom)}
+      minZoom={MIN_ZOOM}
+      maxZoom={MAX_ZOOM}
+      onZoomChange={(zoom) => onChange({ ...settings, fitMode: "none", zoom })}
+      onResetZoom={() => onChange({ ...settings, fitMode: "none", zoom: getLifeSizeZoom() })}
+      onZoomToFit={() => onChange({ ...settings, fitMode, fitRequest: settings.fitRequest + 1 })}
+      fitActive={settings.fitMode === fitMode}
     />
   );
 }

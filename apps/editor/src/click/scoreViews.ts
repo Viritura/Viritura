@@ -5,6 +5,7 @@ export interface ClickScoreView {
   readonly label: string;
   readonly isScore: boolean;
   readonly scoreIndex: number;
+  readonly useWritten: boolean;
   readonly partIndex?: number;
   readonly partId?: string;
   readonly pageSetup: PageSetup;
@@ -33,6 +34,7 @@ export function clickScoreViews(score: Score): ClickScoreView[] {
       label: definition.name ?? (index === 0 ? "Full score" : `Score ${index + 1}`),
       isScore: layout ? parts.size > 1 : score.parts.length > 1,
       scoreIndex: index,
+      useWritten: definition.useWritten ?? false,
       pageSetup: resolveScorePageSetup(score, index),
     };
   });
@@ -41,6 +43,7 @@ export function clickScoreViews(score: Score): ClickScoreView[] {
       label: "Full score",
       isScore: score.parts.length > 1,
       scoreIndex: 0,
+      useWritten: false,
       pageSetup: resolveScorePageSetup(score, 0),
     });
   }
@@ -52,6 +55,7 @@ export function clickScoreViews(score: Score): ClickScoreView[] {
         label: part.name || `Part ${partIndex + 1}`,
         isScore: false,
         scoreIndex: 0,
+        useWritten: true,
         partIndex,
         partId: part.id,
         pageSetup,

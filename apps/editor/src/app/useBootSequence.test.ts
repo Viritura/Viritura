@@ -1,7 +1,7 @@
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBootSequence } from "./useBootSequence";
-import { createDocumentStore } from "../store/documentStore";
+import { createDocumentStore, SHARED_SETLIST_READ_ONLY } from "../store/documentStore";
 import { useOnboardingStore } from "../store/onboardingStore";
 import { listRecentScores } from "../store/recentScores";
 import { useFileLaunch } from "../pwa";
@@ -92,6 +92,7 @@ describe("startup with OS-launched files", () => {
     expect(listRecentScores).not.toHaveBeenCalled();
     expect(setFileHandle).toHaveBeenCalledWith(null);
     expect(resetHistory).toHaveBeenCalledOnce();
+    expect(store.getState().readOnlyReason).toBe(SHARED_SETLIST_READ_ONLY);
   });
 
   it("does not replace a score opened while the shared setlist is loading", async () => {

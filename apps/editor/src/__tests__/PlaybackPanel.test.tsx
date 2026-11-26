@@ -21,14 +21,30 @@ describe("PlaybackPanel", () => {
   it("saves the chosen metronome sound and restores it when settings reopen", () => {
     const panel = render(<PlaybackPanel />);
     expect(screen.getByRole("radiogroup", { name: "Metronome sound" })).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "Tick" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("radio", { name: "Oscillator" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByRole("radio", { name: "Beep" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Original oscillator" }));
-    expect(localStorage.getItem("viritura.metronome.sound")).toBe("oscillator");
+    fireEvent.click(screen.getByRole("radio", { name: "Tick" }));
+    expect(localStorage.getItem("viritura.metronome.sound")).toBe("tick");
     panel.unmount();
     render(<PlaybackPanel />);
-    expect(screen.getByRole("radio", { name: "Original oscillator" }).getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(screen.getByRole("radio", { name: "Tick" }));
+    expect(screen.getByRole("radio", { name: "Tick" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByRole("radio", { name: "Oscillator" }));
+  });
+
+  it("saves the Click player flash preference when settings reopen", () => {
+    const panel = render(<PlaybackPanel />);
+    expect(screen.getByRole("radiogroup", { name: "Click player flash" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Every beat" }).getAttribute("aria-checked")).toBe("true");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Measure only" }));
+    expect(localStorage.getItem("viritura.click.flash")).toBe("measure");
+    panel.unmount();
+    render(<PlaybackPanel />);
+    expect(screen.getByRole("radio", { name: "Measure only" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByRole("radio", { name: "Off" }));
+    expect(localStorage.getItem("viritura.click.flash")).toBe("off");
+    fireEvent.click(screen.getByRole("radio", { name: "Every beat" }));
   });
 
   it("applies the selected sound to Click playback and changes it during a take", async () => {
@@ -52,12 +68,9 @@ describe("PlaybackPanel", () => {
     await waitFor(() => expect(engine.start).toHaveBeenCalledOnce());
     expect(engine.setSound).toHaveBeenCalledWith("woodblock");
 
-    fireEvent.click(screen.getByRole("radio", { name: "Beep" }));
-    await waitFor(() => expect(engine.setSound).toHaveBeenLastCalledWith("beep"));
-    fireEvent.click(screen.getByRole("radio", { name: "Original oscillator" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Oscillator" }));
     await waitFor(() => expect(engine.setSound).toHaveBeenLastCalledWith("oscillator"));
     expect(engine.start).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole("radio", { name: "Tick" }));
   });
 
   it("updates the shared transport visibility preferences", () => {

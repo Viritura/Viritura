@@ -1,6 +1,61 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { DisplayList, RenderCommand, DrawGlyph } from "../wasm";
-import { paintDisplayList } from "../displayListPainter";
+import { loadMusicFont, paintDisplayList } from "../displayListPainter";
+
+describe("loadMusicFont", () => {
+  it("loads the music font into a separate document without disturbing the cached main font", async () => {
+    const mainFonts = { add: vi.fn() };
+    const targetFonts = { add: vi.fn() };
+    vi.stubGlobal("document", { fonts: mainFonts, querySelector: () => null });
+    vi.stubGlobal(
+      "FontFace",
+      class {
+        constructor(readonly family: string) {}
+        async load() {
+          return this;
+        }
+      },
+    );
+    try {
+      expect((await loadMusicFont({ textFont: false })).failed).toEqual([]);
+      expect((await loadMusicFont({ textFont: false })).failed).toEqual([]);
+      expect(mainFonts.add).toHaveBeenCalledTimes(1);
+      expect(
+        (await loadMusicFont({ textFont: false, targetFonts: targetFonts as unknown as FontFaceSet })).failed,
+      ).toEqual([]);
+      expect(targetFonts.add).toHaveBeenCalledOnce();
+      expect(targetFonts.add).toHaveBeenCalledWith(expect.objectContaining({ family: "Bravura" }));
+      expect(mainFonts.add).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("reports a failed music font when loading into another document", async () => {
+    const targetFonts = { add: vi.fn() };
+    const failure = new Error("Font unavailable");
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("document", { fonts: { add: vi.fn() }, querySelector: () => null });
+    vi.stubGlobal(
+      "FontFace",
+      class {
+        async load() {
+          throw failure;
+        }
+      },
+    );
+    try {
+      expect(
+        (await loadMusicFont({ textFont: false, targetFonts: targetFonts as unknown as FontFaceSet })).failed,
+      ).toEqual(["Bravura"]);
+      expect(targetFonts.add).not.toHaveBeenCalled();
+      expect(warning).toHaveBeenCalledWith("Failed to load Bravura font:", failure);
+    } finally {
+      warning.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+});
 
 /**
  * Create a minimal mock CanvasRenderingContext2D with the methods

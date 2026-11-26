@@ -3,7 +3,7 @@
 > **Status:** In progress, November 2026. The click-only audio engine and
 > click session program compiler and the single-document **Click** activity are implemented
 > (see [Implementation status](#implementation-status)); basic folder and Gist
-> setlists are implemented, while the detached controller remains proposed.
+> setlists and the Document Picture-in-Picture controller are implemented.
 > Confirmed requirements and proposed defaults are
 > distinguished below.
 >
@@ -29,12 +29,15 @@ Implemented:
   collaborators) interrupt an active or preparing take with a visible message;
   the updated document is adopted after stopping. The selected start bar is
   kept when it remains valid. With no document open, the activity shows an empty state.
-- **Click sound:** Settings → Playback offers a synthesized tick, woodblock,
-  beep, or **Original oscillator** for both the metronome and Click activity. The preference is
-  saved on the device. Click voices are prepared before playback and selected
+- **Click sound:** Settings → Playback offers **Oscillator** (the default),
+  tick, or woodblock for both the metronome and Click activity. The preference
+  is saved on the device. Click voices are prepared before playback and selected
   on the audio thread without changing scheduled click frames. Editor playback
-  uses the same generated accent, beat, and subdivision voices, including Beep.
-  Original oscillator preserves the previous editor sine click: an 880 Hz,
+  uses the same generated accent, beat, and subdivision voices.
+  Tick and woodblock pitch the accent a fifth above the beat and the subdivision
+  a fourth below it; lower levels also ring more briefly and less brightly, so
+  the three levels are distinguishable by pitch and timbre, not only loudness.
+  Oscillator preserves the previous editor sine click: an 880 Hz,
   50 ms accent at gain 0.8 and a 440 Hz, 30 ms beat at gain 0.4, each decaying
   exponentially to 0.001. Subdivisions use a quieter 440 Hz voice at gain 0.2.
   These waveforms are generated up front for both transports rather than
@@ -57,16 +60,45 @@ Implemented:
   thread's acknowledged position; the next Start plays a fresh countoff
   from that visit. The playhead rests at the visit's start.
   While stopped, both navigation dials are visible in the floating transport,
-  alongside countoff and Start. During playback (including countoff), the
-  transport shrinks to just the current bar number and Stop. Stopping, finishing,
-  or an audio interruption restores the full transport. The Start/Stop button
-  stays at the lower-right anchor in both modes, including narrow layouts;
-  expansion grows above and to the left unless viewport bounds require a shift.
+  alongside countoff and Start. During playback (including countoff), the app's
+  top header and left activity rail disappear and the score auto-fits the
+  expanded workspace. The in-page transport becomes a compact panel with the
+  playback position and Stop; navigation dials and countoff return on Stop.
+  Countoff shows the
+  remaining scheduled clicks as negative numbers (`-8`, `-7`, through `-1`),
+  then playback shows `bar:beat`. Beats follow the meter's main beat groups;
+  subdivisions do not advance the beat number. An accent-colored outline and glow
+  pulse around the panel on each beat, with a stronger downbeat, using the audio clock. Settings >
+  Playback can limit the flash to downbeats or turn it off; reduced motion
+  disables it. The detached controller uses the same events and preference.
+  Stopping, finishing,
+  or an audio interruption restores app navigation and the normal score viewport.
+  The detached picture window also uses compact playback controls.
   Drag any non-interactive area with a
   mouse or touch, or focus the panel and use arrow keys
   (Shift for larger steps). Movement is bounded to the score viewport and
   re-clamped on resize. Score-load errors are visible without replacing the
-  independent click engine. A detached PiP window remains future work.
+  independent click engine.
+- **Detached controller** — while stopped, **Keep above other apps** moves the
+  transport into a Document Picture-in-Picture window that stays above a DAW.
+  The opener keeps audio, selection, and scheduling; the window only renders
+  the shared controls, and Space toggles Start/Stop there too. The in-page
+  transport then shows the same playback position, Start/Stop, and **Return controls**;
+  the picture window itself has no return button and relies on its built-in
+  close control.
+  The opening request uses the in-page controls' measured dimensions,
+  and the controls keep their designed size rather than scaling to the window.
+  Instead, the window resizes to its content: Start shrinks it to the compact
+  position and Stop controls, and Stop restores the size it had before Start.
+  Browsers only allow picture-window resizing during user activation, so this
+  works when Start/Stop is pressed or keyed inside the window; when playback
+  ends on its own or is stopped from the opener, the window keeps its size.
+  Detaching, returning, or closing the window never interrupts a take, and
+  closing it restores focus to the editor. Without Document PiP support the
+  transport stays in-page with a visible explanation. If the Picture activity
+  already owns the tab's single PiP window, the controller explains the
+  conflict and offers **Replace picture window** instead of closing it
+  silently.
 - **Score navigation** — while stopped, drag the score with a mouse or touch
   to pan, or tap/click a bar to select its start and synchronize the dials.
   Dragging does not select a bar. Score hits account for zoom and scrolling,
@@ -108,13 +140,19 @@ Implemented:
   Fit requests are reapplied after the shared canvas finishes layout, and the
   status percentage reports the canvas's actual zoom. Repeated Fit presses
   reapply the current frame even when fitting is already enabled.
+  Click and Write reuse the same status bar with Concert/Written, view mode,
+  zoom, the clickable percentage to restore calibrated 100%, and **Fit**.
+  Click's pitch toggle changes only the displayed projection, not the score
+  document or click timing. Selecting a score/part restores its authored pitch
+  default (written pitch for synthesized source-part views).
   The shared canvas defaults to fit-height in Click mode.
 - **Horizontal navigation dials** — choose a start from independently scrollable
   rehearsal and bar-number tracks with touch, scrolling, tapping, or keyboard.
   The upper track contains only rehearsal marks, so distant marks are adjacent;
   selecting one centers its bar in the lower track. Repeat visits are distinguished.
-  A compact line below the dials shows the selected start's time signature and
-  effective quarter-note tempo, including the session percentage.
+  The selected start's time signature sits to the left of the rehearsal dial,
+  with its effective quarter-note tempo to the left of the bar dial. The tempo
+  includes the session percentage.
   The countoff control shows the number of free clicks for the selected bar
   before playback.
   During playback the compact bar display follows the current performed bar without seeking or
@@ -176,8 +214,12 @@ quarter-note pulses. Its events are shifted to negative score time; score
 playback retains its existing look-ahead scheduler while recording Click keeps
 its isolated, preloaded audio worklet.
 
-Remaining: manifest-ordered setlists, persisted session settings, the detached
-controller, additional rehearsal navigation, and the release gates below.
+Ordered setlists and persisted session settings are out of scope: setlists stay
+plain folders or Gists of score files, and Click settings stay local to the
+browser, with no manifest file. Shared Gist setlists open read-only (see below).
+Remaining: background-tab and foreground-DAW recording qualification, and a
+physical (electrical) loopback on a supported interface; see the qualification
+results under the release gates.
 
 Single-document smoke check: start the UI through `pnpm dev:stack up ui`, open
 the editor origin from `pnpm dev:stack url`, open a score, choose **Click** in
@@ -284,7 +326,7 @@ document and keeps runtime isolation where it matters for timing:
   the transport's initial position. While playing, the activity covers the editor
   chrome so the score fills the screen; the transport keeps its on-screen
   position across that switch so Stop stays under the performer's finger.
-  Document Picture-in-Picture remains proposed for keeping controls above a DAW.
+  Document Picture-in-Picture keeps the controls above a DAW (see below).
 
 The Click activity reconfigures the shared canvas for click navigation and
 playhead overlays; it does not mount a second score viewer or engraving engine.
@@ -306,14 +348,14 @@ available in-page and clearly explain that **Keep above other apps** is unavaila
 A native always-on-top desktop window is a separate future host, not a promise
 of the web fallback.
 
-There is already a closely related implementation in
-[PictureWindow](../../packages/video-sync/src/PictureWindow.tsx) and its
-[Document PiP adapter](../../packages/video-sync/src/documentPictureInPicture.ts).
-Reuse that hosting approach; extract a neutral public UI/platform surface if
-needed rather than making click playback depend on video synchronization or
-deep-importing video internals. Do not copy its lifecycle blindly: request the
-window directly from the opening user action, handle failure visibly, and use
-the target document/window for focus, events, and portal-mounted menus.
+The [Document PiP adapter](../../packages/ui/src/pictureInPicture/documentPictureInPicture.ts)
+is a neutral `@viritura/ui` platform surface shared by the video
+[PictureWindow](../../packages/video-sync/src/PictureWindow.tsx) and the click
+[controller host](../../apps/editor/src/click/ClickControllerHost.tsx). The click
+controller requests the window directly from the opening user action, handles
+failure visibly, and uses the target document/window for keyboard events and
+resize observation. Avoid tooltips and portal-mounted menus inside the window:
+they portal into the opener's document.
 
 Only one Document PiP window is available per tab. Coordinate ownership with
 the existing picture window: explain the conflict and offer an explicit switch
@@ -338,24 +380,28 @@ and [Popover](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API).
 ## Touch bar wheel and start preview
 
 The current selector has two independently scrollable horizontal tracks with
-fixed center selection lines: rehearsal marks above and bar numbers below.
-Rehearsals are adjacent entries regardless of the number of intervening bars.
-Selecting a rehearsal jumps to its bar; selecting a bar highlights its preceding
-rehearsal. Both tracks follow playback. Scores without rehearsal marks show only
-the bar track. Rehearsal letters are never inferred from bar numbering.
+fixed center selection lines: rehearsal marks and named tempo changes above,
+bar numbers below. Named tempo changes are tempo markings with visible text
+(for example "Allegro"); gradual changes such as rit. or accel. and metronome
+marks without text are excluded. A bar with both shows its rehearsal mark with
+the tempo name as detail. Bar numbers appear on the lower track rather than
+the upper track, which retains repeat-visit and partial-visit details.
+Entries are adjacent regardless of the number of intervening bars. Selecting
+an entry jumps to its bar; selecting a bar highlights its preceding entry.
+The compact display follows playback. Scores without rehearsal marks or named tempo
+changes show only the bar track. Rehearsal letters are never inferred from
+bar numbering.
 
 - Swipe or scroll either track, or tap an entry to select it. Arrow keys step
   through the focused track; Home/End reach its first/last selectable entry.
-- Planned: **Previous rehearsal** / **Next rehearsal** shortcut buttons and
-  direct **Go to bar** entry.
 - Use at least 44 by 44 CSS-pixel touch targets, high-contrast large text,
   visible keyboard focus, and reduced-motion support. Keep the start summary
   and primary transport visible while the bar list scrolls.
 - Scrolling previews a candidate without moving a playing transport. Settle
   to one bar to commit the next start; disable Start while a gesture or inertial
   scroll is unresolved. Pressing Start must never race a moving wheel.
-- During playback both tracks are read-only and follow the current bar. Stopping
-  returns them to the selected start.
+- During playback the compact display follows the current bar. Stopping
+  restores the tracks at the selected start.
   Future browsing during a take must never seek, stop, or start sound implicitly.
 
 The dial selects bar-boundary occurrences from the repeat/jump-expanded
@@ -387,9 +433,9 @@ description rather than rounding a fractional count into a misleading integer.
 The dials show the destination, so the countoff preview need not repeat it.
 Default endpoint is the end of the track; any future range or loop must make
 its endpoint explicit.
-During pre-roll, show **Counting off 1 of 4** beside the countoff control.
-The dials show the current location during playback. No extra audible cue is
-implied by the descriptive text.
+During pre-roll, the compact readout counts scheduled clicks as negative numbers
+through `-1`, then shows `bar:beat` during playback. The dials return when stopped.
+No extra audible cue is implied by the descriptive text.
 
 Derive the countoff preview and the scheduled start from the same resolved
 start description: document revision, target measure/route, effective tempo,
@@ -568,6 +614,45 @@ or retain an explicit unqualified status. Do not relax timing assertions merely
 to ship. Final physical-output tolerances and supported configurations require
 agreement before implementation is considered recording-ready.
 
+### Qualification results (November 2026)
+
+Automated gates live in `e2e/click-qualification/`. They compare captured
+worklet PCM with clicks planned by an independent analytic fixture
+(`timingFixture.ts`), not with the compiler's own event list:
+
+- **Offline PCM, always run:** 44.1 kHz oscillator, 48 kHz tick, and 96 kHz
+  woodblock renders cover countoff entry, 3/4 subdivisions, a tempo change to
+  triplets, a closed-form 137 to 72 ramp, a repeated section, 6/8, and a
+  pause/resume at 9.2 seconds. Subtracting the planned voices leaves a residual
+  below 1e-5 with every click found exactly once. A mutation test shifts one
+  click by a single frame and must fail.
+- **Program limit:** `compileClickProgram` rejects programs above 115,200
+  clicks (60 minutes at 32 clicks per second) with an explicit message before
+  playback starts. A 60-minute program at that density preloads and renders
+  completely (9 bytes of program storage per click, no full-track PCM).
+  Opt-in: `VIRITURA_CLICK_QUALIFICATION=1`.
+- **Live stall, opt-in:** Beethoven 5 through the Click UI in headed Chromium
+  at 44.1 kHz, with three rounds of 2-second main-thread stalls, forced
+  garbage collection, wheel scrolling, and window resizing. All 55 clicks
+  rendered at their planned frames (residual exactly 0), with no render-frame
+  discontinuities and no missed-event reports.
+- **60-minute output take (host harness, not committed):** headed Edge playing
+  a 60-minute 4/4 score at quarter = 120 (7,204 clicks including countoff)
+  through a Focusrite USB interface at 44.1 kHz. Output was captured with
+  WASAPI loopback while a 2-second main-thread stall, garbage-collection
+  pressure, wheel scrolling, and a resize were injected every 5 minutes (11
+  rounds). Results: 7,200 clicks bit-exact against their level templates at the
+  planned frames; 0 raw drift; 0 ms interval error; clock ratio 1.0; no capture
+  gaps or flagged callbacks; one start and one end with no missed or error
+  replies; mean CPU 31%, peak 68%. The other four clicks overlapped a two-tone
+  system notification chime mixed into the same endpoint; each still aligned
+  best at a 0-sample offset. Avoid other audio on the click output during a take.
+
+Not yet qualified: WASAPI loopback captures the shared-mode mix in software. It
+is not an electrical loopback, absolute latency, or DAW sample-lock proof.
+Background-tab and foreground-DAW runs, other browsers and operating systems,
+and Bluetooth output remain unqualified.
+
 Reference: [AudioWorklet](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet)
 executes on the Web Audio rendering thread, shared with other audio processing;
 this is why eliminating unnecessary DSP matters as well as avoiding UI timers.
@@ -580,7 +665,7 @@ as identity and use the score title as optional supplementary text.
 
 Keep the project root and active document separate:
 
-- Folder scope owns discovered paths, ordering, and session settings.
+- Folder scope owns discovered paths and their filename ordering.
 - Document scope owns the selected MNX, its undo history, save target, disk
   baseline, and score-specific playback program.
 - Opening another document stops playback and resets the playhead to the
@@ -636,27 +721,17 @@ The field is also supported directly on unified vendor tempo entries and
 `systemText[].tempo`. Click-only system instructions do not fabricate BPM.
 See [the extension contract](../spec/viritura-extensions.md#tempo-owned-click-subdivisions).
 
-Use an optional, documented `session.viritura.json` sidecar in the folder for
-session-only state: format version, ordered relative MNX paths, and
-`tempoPercent`. Do not copy musical content or click programs into the sidecar.
-It is a new session manifest, not the unshipped ZIP-container proposal.
-
-Without a sidecar, derive a deterministic filename-sorted list and use 100%.
-With a sidecar, preserve its order, append newly discovered files deterministically,
-and show missing entries as unavailable rather than removing them silently.
-Removing a track from the setlist must not delete its MNX file.
-Store the active selection as local UI state, not shared musical content.
-
-Reject paths escaping the approved folder and percentages outside 0–100% or
-nonfinite percentages. A saved 0% is a stopped setting and cannot start playback.
-Report malformed manifests and failed writes explicitly; never claim settings
-were saved when they were not. A read-only folder can still play, but must show
-unsaved session changes and offer an explicit download.
+Setlists need no manifest or additional file structure. Track order is the
+deterministic filename sort of the discovered MNX files; rename files (for
+example with a numeric prefix) to reorder them. The tempo percentage and active
+selection are session-only UI state: they start at 100% and the first track,
+survive track switches within a session, and are never written to disk or to a
+shared source. Do not copy musical content or click programs anywhere outside
+the MNX files.
 
 **Availability:** direct folder access depends on host support and permission.
 Reuse supported storage abstractions; do not assume every browser implements a
-directory picker. Offer multi-file selection as an in-memory session fallback,
-with explicit manifest/MNX download and file-reassociation steps on reopening.
+directory picker. Offer multi-file selection as an in-memory session fallback.
 Do not make the ZIP-container project a prerequisite.
 
 ### Sharing a setlist by Gist link (initial implementation)
@@ -678,35 +753,33 @@ save/discard/cancel safeguards. The GitHub App must have the
 `Gists: Read and write` account permission, which existing users must approve
 by reauthorizing the app.
 
-- Keep the initial path read-only: editing, saving, committing, recent-file
-  bookkeeping, and collaboration must be disabled or offer **Download** /
-  **Save a copy**. This restriction is not yet enforced in the app.
-- Generalize source handling around the ordered track list and optional
-  `session.viritura.json` manifest described above. The initial implementation
-  currently sorts Gist filenames and does not read a session manifest.
-- The Gist mirrors the session folder: one flat directory of `.mnx` files plus
-  an optional `session.viritura.json`. Use the same manifest rules as a local
-  folder: preserve manifest order, add other files sorted by filename, show
-  missing entries as unavailable, and reject unsafe paths. Gists have no
-  subfolders, so relative paths are file names only.
+- The path is read-only. Score edits (including undo history, MCP proposals,
+  and measure repair) are rejected with an explanation, Save and Save As only
+  write a detached local copy, and live collaboration cannot start. Playback,
+  the concert/written toggle, zoom, and Click session settings remain
+  available because they never modify the shared score. Opening any other
+  document clears the restriction.
+- The Gist mirrors the session folder: one flat directory of `.mnx` files,
+  ordered by filename like a local folder. Gists have no subfolders, so
+  relative paths are file names only.
 - The existing `/s/gist` link is not enough. `main.tsx` renders the standalone
   `GistShareViewer` for that path instead of the main app shell, and
   [`gistShare/source.ts`](../../apps/editor/src/gistShare/source.ts) accepts
   exactly one `.mnx` file. The Click activity, track picker, and shared score
   canvas exist only inside the main shell.
 - Add a setlist source abstraction in the main app. A local folder, a
-  multi-file selection, and a Gist each provide an ordered list of tracks, an
-  optional manifest, and a way to read one MNX file. The track picker and Click
+  multi-file selection, and a Gist each provide an ordered list of tracks and
+  a way to read one MNX file. The track picker and Click
   activity use only this interface, so they do not need to know where tracks
   come from. The Gist source reuses and generalizes the existing ID/revision
   validation, size limits, truncated-file handling, and rate-limit errors.
 - Boot the main app from a setlist link, for example
   `/?open=gist-setlist#id=<gist>`, with an optional pinned revision. It loads the Gist
-  through that source, opens the first or manifest-selected track, and goes
+  through that source, opens the first track, and goes
   straight to the Click activity. Also offer **Open setlist link** inside the
   app, so a player can switch setlists without leaving it.
-- Once the read-only restriction is enforced, a track switch can load the
-  selected MNX without prompting about unsaved changes.
+- Because the setlist is read-only, a track switch loads the selected MNX
+  without prompting about unsaved changes.
 - Fetch the Gist once per load and keep each file's content in memory for that
   revision, so switching tracks costs no extra requests. The existing
   single-score `/s/gist` viewer keeps working, and a multi-file Gist opened there
@@ -815,7 +888,7 @@ At 1–100%, compile the corresponding tempo without rewriting the MNX.
 ## Delivery slices and acceptance
 
 1. **Folder-backed multi-document projects.** Add discovery, picker, safe
-   switching, and optional session manifest. Verify two MNX files in a plain
+   switching, and filename ordering. Verify two MNX files in a plain
    folder and a Git folder; edits, history, and saves must address the selected
    file. Cancelled or failed switches preserve the original document.
 2. **MNX subdivision metadata and timing.** Add schema/model round trips,
@@ -866,8 +939,8 @@ Focused automated acceptance cases:
 - Click-only playback works without loading instruments and emits no score
   notes. Returning to normal playback restores the user's prior playback mode
   and metronome/count-in preferences.
-- Programs survive save/reopen and collaboration edits; folder order and session
-  percentage survive a manifest round trip.
+- Programs survive save/reopen and collaboration edits; the session percentage
+  survives track switches within a session.
 
 Run focused tests in the existing editor, playback, audio, MIDI, format, and
 CRDT suites as each slice changes them. Physical output checks should compare

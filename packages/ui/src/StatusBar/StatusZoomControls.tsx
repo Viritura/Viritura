@@ -1,5 +1,5 @@
 /**
- * StatusZoomControls — slider + clickable % chip + optional calibrate
+ * StatusZoomControls: slider + clickable % chip + optional fit/calibrate
  * button. Lives next to `StatusSelect` so editor surfaces (Write StatusBar,
  * Engrave/Publish PreviewStatusBar) compose the same zoom UX from the
  * same primitives.
@@ -27,6 +27,10 @@ export interface StatusZoomControlsProps {
   onZoomChange: (zoom: number) => void;
   /** Called when user clicks the % readout to reset zoom. */
   onResetZoom: () => void;
+  /** Fit the current page/spread or Horizon staff height to the viewport. */
+  onZoomToFit?: () => void;
+  /** Whether automatic view fitting is active. */
+  fitActive?: boolean;
   /**
    * Called when user clicks the calibration ruler button. When omitted,
    * the calibrate button is hidden (e.g. on surfaces that don't expose
@@ -44,6 +48,8 @@ export function StatusZoomControls({
   maxZoom,
   onZoomChange,
   onResetZoom,
+  onZoomToFit,
+  fitActive,
   onCalibrate,
   sliderWidth = 80,
 }: StatusZoomControlsProps) {
@@ -68,6 +74,17 @@ export function StatusZoomControls({
         tooltip="Reset zoom (100%)"
         ariaLabel="Reset zoom"
       />
+      {onZoomToFit && (
+        <Button
+          variant="ghost"
+          size="sm"
+          label="Fit"
+          onClick={onZoomToFit}
+          tooltip="Zoom to fit"
+          ariaLabel="Zoom to fit"
+          aria-pressed={fitActive}
+        />
+      )}
       {onCalibrate && (
         <IconButton
           size="sm"
