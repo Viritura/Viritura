@@ -1356,6 +1356,9 @@
       "properties": {
         "frequency": { "enum": ["systemStarts", "everyBar", "hidden"] },
         "placement": { "enum": ["aboveSystem", "belowSystem", "belowTopInstrument"] },
+        "horizontalAlignment": { "enum": ["barline", "center"] },
+        "distance": { "type": "number", "minimum": 0 },
+        "onStaff": { "type": "boolean" },
         "showFirst": { "type": "boolean" },
         "family": { "enum": ["serif", "sans-serif", "monospace"] },
         "size": { "type": "number", "minimum": 0.5, "maximum": 8 },

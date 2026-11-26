@@ -39,6 +39,7 @@ impl ExplicitSystemSize {
             staff_height,
             config,
             false,
+            score,
         );
         let content_gaps = placement
             .offsets

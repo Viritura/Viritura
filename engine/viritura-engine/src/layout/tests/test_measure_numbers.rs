@@ -68,6 +68,297 @@ fn bar_number_texts(dl: &DisplayList) -> Vec<&str> {
 }
 
 #[test]
+fn bar_number_alignment_and_distance_use_full_measure_geometry() {
+    use crate::model::{BarNumberFrequency, BarNumberHorizontalAlignment, BarNumberPlacement};
+    let score = parse_mnx(&bar_number_fixture(2).to_string()).unwrap();
+    let resolved = resolve_measures(&score, 1);
+    let mut config = LayoutConfig::default();
+    config.bar_numbers.frequency = Some(BarNumberFrequency::EveryBar);
+    config.bar_numbers.distance = Some(3.25);
+    let mut measure = layout_measure(
+        &resolved[1],
+        config.sp,
+        100.0,
+        &config,
+        Some(300.0),
+        &[],
+        1.0,
+    );
+    for mmr in [None, Some(4)] {
+        measure.multimeasure_rest_count = mmr;
+        for (alignment, x, align) in [
+            (
+                BarNumberHorizontalAlignment::Barline,
+                measure.x,
+                TextAlign::Left,
+            ),
+            (
+                BarNumberHorizontalAlignment::Center,
+                measure.x + measure.width * 0.5,
+                TextAlign::Center,
+            ),
+        ] {
+            config.bar_numbers.horizontal_alignment = Some(alignment);
+            for placement in [
+                BarNumberPlacement::AboveSystem,
+                BarNumberPlacement::BelowSystem,
+            ] {
+                config.bar_numbers.placement = Some(placement);
+                let label = crate::layout::render_annotations::number_label(
+                    &measure, 50.0, config.sp, &config,
+                )
+                .unwrap();
+                assert!((label.x - x).abs() < 1e-6);
+                assert!(matches!(
+                    (&label.align, &align),
+                    (TextAlign::Left, TextAlign::Left) | (TextAlign::Center, TextAlign::Center)
+                ));
+                let gap = if placement == BarNumberPlacement::AboveSystem {
+                    50.0 - label.bbox.y - label.bbox.height
+                } else {
+                    label.bbox.y - 50.0 - 4.0 * config.sp
+                };
+                assert!((gap - 3.25 * config.sp).abs() < 1e-6);
+            }
+        }
+    }
+}
+
+#[test]
+fn barline_aligned_numbers_follow_shared_mid_system_clef_changes() {
+    let mut source = bar_number_fixture(2);
+    source["parts"][1]["measures"][1]["clefs"] =
+        json!([{"clef": {"sign": "F", "staffPosition": 2}}]);
+    source["_x"] = json!({"viritura": {"barNumbers": {
+        "frequency": "everyBar", "horizontalAlignment": "barline"
+    }}});
+    for on_staff in [false, true] {
+        source["_x"]["viritura"]["barNumbers"]["onStaff"] = json!(on_staff);
+        let score = parse_mnx(&source.to_string()).unwrap();
+        let config = LayoutConfig::default();
+        for display in [
+            crate::layout::layout_full_score(&score, &config),
+            crate::layout::layout_with_mnx_scores(&score, &config, 0),
+        ] {
+            let measure = display
+                .measure_bounds
+                .iter()
+                .find(|measure| measure.index == 1 && measure.part_index == 0)
+                .unwrap();
+            let number_x = display
+                .commands
+                .iter()
+                .zip(&display.element_ids)
+                .find_map(|(command, id)| match command {
+                    RenderCommand::DrawText { x, .. } if id.as_deref() == Some("m1/mnum") => {
+                        Some(*x)
+                    }
+                    _ => None,
+                })
+                .unwrap();
+            assert!((number_x - measure.x).abs() < 1e-6);
+        }
+    }
+}
+
+#[test]
+fn single_line_bar_number_staff_has_one_center_and_displaces_the_next_instrument() {
+    let mut source = bar_number_fixture(12);
+    let config = LayoutConfig {
+        page_width: Some(450.0),
+        ..LayoutConfig::default()
+    };
+    let baseline =
+        crate::layout::layout_with_mnx_scores(&parse_mnx(&source.to_string()).unwrap(), &config, 0);
+    source["_x"] = json!({"viritura": {"barNumbers": {
+        "frequency": "everyBar", "showFirst": true, "onStaff": true, "distance": 3,
+        "size": 4, "enclosure": "circle", "horizontalAlignment": "center"
+    }}});
+    let score = parse_mnx(&source.to_string()).unwrap();
+    let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    assert_eq!(bar_number_texts(&display).len(), 12);
+    let rows: Vec<_> = display
+        .element_bboxes
+        .iter()
+        .filter(|element| element.element_id.ends_with("/bar-number-staff"))
+        .collect();
+    assert!(rows.len() > 1);
+    for row in rows {
+        let center = row.bbox.y + row.bbox.height * 0.5;
+        let bounds = display
+            .measure_bounds
+            .iter()
+            .find(|bounds| {
+                bounds.part_index == 0
+                    && row.element_id == format!("m{}/bar-number-staff", bounds.index)
+            })
+            .unwrap();
+        let piano_bottom = display
+            .measure_bounds
+            .iter()
+            .filter(|measure| {
+                measure.system_index == bounds.system_index && measure.part_index == 0
+            })
+            .map(|measure| measure.y + measure.height)
+            .fold(0.0_f64, f64::max);
+        assert!(row.bbox.y >= piano_bottom + 3.0 * config.sp - 1e-6);
+        for measure in display.measure_bounds.iter().filter(|measure| {
+            measure.system_index == bounds.system_index && measure.part_index == 1
+        }) {
+            assert!(
+                measure.y > row.bbox.y + row.bbox.height,
+                "number staff must reserve an inter-staff row"
+            );
+            let label = display
+                .element_bboxes
+                .iter()
+                .find(|label| label.element_id == format!("m{}/mnum", measure.index))
+                .unwrap();
+            assert!((label.bbox.y + label.bbox.height * 0.5 - center).abs() < 1e-6);
+        }
+        for (command, id) in display.commands.iter().zip(&display.element_ids) {
+            if id.as_deref() == Some(&row.element_id) {
+                let RenderCommand::DrawLine { x1, x2, y1, y2, .. } = command else {
+                    panic!("number staff must contain only line segments")
+                };
+                assert!((*y1 - center).abs() < 1e-6 && y1 == y2);
+                assert!(x2 > x1);
+                for label in display.element_bboxes.iter().filter(|label| {
+                    label.element_id.ends_with("/mnum")
+                        && (label.bbox.y + label.bbox.height * 0.5 - center).abs() < 1e-6
+                }) {
+                    assert!(*x2 <= label.bbox.x || *x1 >= label.bbox.x + label.bbox.width);
+                }
+            }
+        }
+        assert!(row.bbox.y + row.bbox.height <= display.height + 1e-6);
+    }
+    let first_violin = |display: &DisplayList| {
+        display
+            .measure_bounds
+            .iter()
+            .find(|bounds| bounds.part_index == 1 && bounds.index == 0)
+            .unwrap()
+            .y
+    };
+    assert!(first_violin(&display) > first_violin(&baseline));
+}
+
+#[test]
+fn number_staff_is_collinear_across_horizon_chunks_and_hidden_as_a_unit() {
+    let mut source = bar_number_fixture(8);
+    source["_x"] = json!({"viritura": {"barNumbers": {
+        "frequency": "everyBar", "showFirst": true, "onStaff": true,
+        "placement": "aboveSystem", "size": 2
+    }}});
+    source["global"]["measures"][3]["_x"] =
+        json!({"viritura": {"rehearsalMark": {"text": [{"text": "A"}]}}});
+    let score = parse_mnx(&source.to_string()).unwrap();
+    let config = LayoutConfig {
+        horizon_chunk_width: Some(1.0),
+        ..LayoutConfig::default()
+    };
+    let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+    let rows: Vec<_> = display
+        .element_bboxes
+        .iter()
+        .filter(|element| element.element_id.ends_with("/bar-number-staff"))
+        .collect();
+    assert!(rows.len() > 1);
+    let center = rows[0].bbox.y + rows[0].bbox.height * 0.5;
+    for row in rows {
+        assert!((row.bbox.y + row.bbox.height * 0.5 - center).abs() < 1e-6);
+        assert!(row.bbox.y >= -1e-6);
+    }
+
+    source["_x"]["viritura"]["barNumbers"]["frequency"] = json!("hidden");
+    let display =
+        crate::layout::layout_with_mnx_scores(&parse_mnx(&source.to_string()).unwrap(), &config, 0);
+    assert!(bar_number_texts(&display).is_empty());
+    assert!(!display
+        .element_bboxes
+        .iter()
+        .any(|element| element.element_id.ends_with("/bar-number-staff")));
+}
+
+#[test]
+fn configured_distance_reserves_space_even_without_the_number_staff() {
+    let mut source = bar_number_fixture(4);
+    source["_x"] = json!({"viritura": {"barNumbers": {
+        "frequency": "everyBar", "showFirst": true, "distance": 8
+    }}});
+    let score = parse_mnx(&source.to_string()).unwrap();
+    for page_width in [None, Some(450.0)] {
+        let config = LayoutConfig {
+            page_width,
+            horizon_chunk_width: Some(1.0),
+            ..LayoutConfig::default()
+        };
+        let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+        for measure in display
+            .measure_bounds
+            .iter()
+            .filter(|measure| measure.part_index == 1)
+        {
+            let number = display
+                .element_bboxes
+                .iter()
+                .find(|element| element.element_id == format!("m{}/mnum", measure.index))
+                .unwrap();
+            assert!(measure.y > number.bbox.y + number.bbox.height);
+        }
+    }
+}
+
+#[test]
+fn number_staff_clears_markings_above_the_following_instrument() {
+    let mut source = bar_number_fixture(2);
+    source["global"]["measures"][0]["tempos"] = json!([{"bpm": 120, "value": {"base": "quarter"}}]);
+    source["_x"] = json!({"viritura": {"barNumbers": {
+        "frequency": "everyBar", "showFirst": true, "onStaff": true, "distance": 2,
+        "size": 4, "enclosure": "circle"
+    }}});
+    let score = parse_mnx(&source.to_string()).unwrap();
+    for page_width in [None, Some(450.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let display = crate::layout::layout_full_score(&score, &config);
+        let row = display
+            .element_bboxes
+            .iter()
+            .find(|element| element.element_id.ends_with("/bar-number-staff"))
+            .unwrap();
+        let upper_bottom = display
+            .measure_bounds
+            .iter()
+            .filter(|measure| measure.part_index == 0 && measure.index == 0)
+            .map(|measure| measure.y + measure.height)
+            .fold(0.0_f64, f64::max);
+        let lower_tempos: Vec<_> = display
+            .commands
+            .iter()
+            .zip(&display.element_ids)
+            .filter(|(_, id)| id.as_deref().is_some_and(|id| id.contains("/tempo")))
+            .filter_map(|(command, _)| crate::layout::page::vertical_ink_extent(command))
+            .filter(|(top, _)| *top > upper_bottom)
+            .collect();
+        assert!(
+            !lower_tempos.is_empty(),
+            "missing lower tempo for {page_width:?}"
+        );
+        for (top, _) in lower_tempos {
+            assert!(
+                top > row.bbox.y + row.bbox.height,
+                "lower instrument marking at {top} must clear row {:?} for {page_width:?}",
+                row.bbox
+            );
+        }
+    }
+}
+
+#[test]
 fn bar_number_layout_overrides_inherit_house_style_without_affecting_other_views() {
     let mut source = bar_number_fixture(4);
     source["_x"] = json!({"viritura": {"barNumbers": {

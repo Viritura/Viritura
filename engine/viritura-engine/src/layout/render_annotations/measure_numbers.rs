@@ -10,6 +10,9 @@ use super::super::types::*;
 use crate::model::*;
 use crate::render::*;
 
+#[path = "measure_numbers/number_staff.rs"]
+mod number_staff;
+
 pub(crate) struct NumberLabel {
     pub text: String,
     pub x: f64,
@@ -26,13 +29,18 @@ pub(crate) fn render_measure_numbers(
     sp: f64,
     config: &LayoutConfig,
     render_here: bool,
+    leading_clef_gap: f64,
 ) {
     if !render_here {
         return;
     }
-    let Some(label) = number_label(ml, staff_y, sp, config) else {
+    let Some(mut label) = number_label(ml, staff_y, sp, config) else {
         return;
     };
+    if config.bar_numbers.horizontal_alignment == Some(BarNumberHorizontalAlignment::Barline) {
+        label.x += leading_clef_gap;
+        label.bbox.x += leading_clef_gap;
+    }
     let eid = element_id::measure_number(ml.resolved.index);
     let enclosure = config.bar_numbers.enclosure.unwrap_or_default();
     let b = &label.bbox;
@@ -107,10 +115,12 @@ pub(crate) fn below_staff_number_top_y(
     } else {
         bottom_line
     };
-    let attach_gap = config
-        .placement
-        .resolve(ElementKind::MeasureNumber)
-        .attach_gap;
+    let attach_gap = config.bar_numbers.distance.unwrap_or_else(|| {
+        config
+            .placement
+            .resolve(ElementKind::MeasureNumber)
+            .attach_gap
+    });
     clef_floor.max(bottom_line) + attach_gap * sp
 }
 
@@ -137,7 +147,7 @@ pub(crate) fn number_label(
     if settings.frequency == Some(BarNumberFrequency::Hidden) {
         return None;
     }
-    let (text, x, centered) = if let Some(count) = ml.multimeasure_rest_count {
+    let (text, mut x, mut centered) = if let Some(count) = ml.multimeasure_rest_count {
         let start = ml
             .resolved
             .global
@@ -155,6 +165,10 @@ pub(crate) fn number_label(
     } else {
         (measure_number_value(ml, config)?.to_string(), ml.x, false)
     };
+    if let Some(alignment) = settings.horizontal_alignment {
+        centered = alignment == BarNumberHorizontalAlignment::Center;
+        x = ml.x + if centered { ml.width * 0.5 } else { 0.0 };
+    }
     let style = TextStyle {
         size_sp: settings.size.unwrap_or(2.0),
         family: settings.family.unwrap_or(FontFamily::Serif),
@@ -178,14 +192,15 @@ pub(crate) fn number_label(
     };
     let top = if settings.placement == Some(BarNumberPlacement::AboveSystem) {
         staff_y
-            - config
-                .placement
-                .resolve(ElementKind::MeasureNumber)
-                .attach_gap
-                * sp
+            - settings.distance.unwrap_or_else(|| {
+                config
+                    .placement
+                    .resolve(ElementKind::MeasureNumber)
+                    .attach_gap
+            }) * sp
             - box_height
     } else if ml.multimeasure_rest_count.is_some() {
-        staff_y + 4.0 * sp + 0.5 * sp
+        staff_y + 4.0 * sp + settings.distance.unwrap_or(0.5) * sp
     } else {
         below_staff_number_top_y(ml, staff_y, sp, config)
     };
@@ -224,11 +239,19 @@ pub(crate) fn measure_number_value(ml: &MeasureLayout, config: &LayoutConfig) ->
 }
 
 /// Bar numbers join the existing outward stacking field after musical ink settles.
+#[allow(clippy::too_many_arguments)] // The display staff shares its owner's geometry and optional global row position.
 pub(crate) fn flow_bar_numbers(
     dl: &mut DisplayList,
     staff_cmd_start: usize,
     config: &LayoutConfig,
+    layouts: &[MeasureLayout],
+    staff_y: f64,
+    render_here: bool,
+    row_y: Option<f64>,
 ) {
+    if !render_here || config.bar_numbers.frequency == Some(BarNumberFrequency::Hidden) {
+        return;
+    }
     let side = if config.bar_numbers.placement == Some(BarNumberPlacement::AboveSystem) {
         StackSide::Above
     } else {
@@ -263,9 +286,35 @@ pub(crate) fn flow_bar_numbers(
             });
         }
     }
+    if config.bar_numbers.on_staff == Some(true) {
+        number_staff::place(
+            dl,
+            staff_cmd_start,
+            config,
+            layouts,
+            staff_y,
+            &ids,
+            &boxes,
+            row_y,
+        );
+        return;
+    }
     if ids.is_empty() {
         return;
     }
+    append_obstacles(dl, staff_cmd_start, side, &mut boxes);
+    let shifts = resolve_stacking(&boxes);
+    for (id, shift) in ids.iter().zip(shifts) {
+        super::shift_marking(dl, staff_cmd_start, id, -shift);
+    }
+}
+
+fn append_obstacles(
+    dl: &DisplayList,
+    staff_cmd_start: usize,
+    side: StackSide,
+    boxes: &mut Vec<StackBox>,
+) {
     for (index, command) in dl.commands.iter().enumerate().skip(staff_cmd_start) {
         if dl
             .element_ids
@@ -302,9 +351,5 @@ pub(crate) fn flow_bar_numbers(
                 pinned: true,
             });
         }
-    }
-    let shifts = resolve_stacking(&boxes);
-    for (id, shift) in ids.iter().zip(shifts) {
-        super::shift_marking(dl, staff_cmd_start, id, -shift);
     }
 }

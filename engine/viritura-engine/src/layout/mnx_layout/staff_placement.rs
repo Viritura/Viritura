@@ -1,7 +1,7 @@
 use super::super::config::LayoutConfig;
 use super::super::full_score::{FlatStaff, GroupRange};
 use super::super::types::MeasureLayout;
-use crate::model::{MultiStaffPlacement, SequenceContent};
+use crate::model::{MultiStaffPlacement, Score, SequenceContent};
 
 fn has_between_dynamic(layouts: &[&MeasureLayout]) -> bool {
     layouts.iter().any(|layout| {
@@ -30,6 +30,7 @@ fn layouts_share_part(upper_layouts: &[&MeasureLayout], lower_layouts: &[&Measur
 pub(super) struct StaffYPlacement {
     pub(super) offsets: Vec<f64>,
     pub(super) pair_debug: Vec<crate::render::StaffPairDebug>,
+    pub(super) number_staff_y: Option<f64>,
 }
 
 /// Compute per-staff vertical offsets for a system.
@@ -48,6 +49,7 @@ pub(super) fn compute_staff_y_offsets_for_system(
     staff_height: f64,
     config: &LayoutConfig,
     squish_clamp: bool,
+    score: &Score,
 ) -> StaffYPlacement {
     let mut offsets = Vec::with_capacity(flat_staves.len());
     let mut y = sys_y_base;
@@ -99,6 +101,24 @@ pub(super) fn compute_staff_y_offsets_for_system(
         if has_lyrics {
             lowest_above = lowest_above.max(staff_bottom + 5.0 * sp);
         }
+        let provisional: Vec<_> = (0..flat_staves.len())
+            .map(|index| {
+                offsets.get(index).copied().unwrap_or_else(|| {
+                    y + (index + 1 - staff_index) as f64 * (staff_height + justified_gap)
+                })
+            })
+            .collect();
+        let number_row = super::system_ink::number_ink_bounds(
+            all_staff_layouts,
+            flat_staves,
+            &provisional,
+            score,
+            config,
+            staff_index - 1,
+        );
+        if let Some(row) = &number_row {
+            lowest_above = lowest_above.max(row.y + row.height);
+        }
 
         let mut above_protrusion = 0.0_f64;
         let receives_meter = crate::layout::time_signatures::spanning::staff_receives_meter(
@@ -137,6 +157,16 @@ pub(super) fn compute_staff_y_offsets_for_system(
             ));
         }
 
+        if number_row.is_some() {
+            above_protrusion = above_protrusion.max(super::system_ink::staff_above_protrusion(
+                all_staff_layouts,
+                flat_staves,
+                &provisional,
+                score,
+                config,
+                staff_index,
+            ));
+        }
         let content_y = lowest_above + above_protrusion + min_clearance;
         let standard_y = y + staff_height + justified_gap;
         let upper_staff_bottom_y = staff_bottom;
@@ -162,8 +192,24 @@ pub(super) fn compute_staff_y_offsets_for_system(
         }
     }
 
+    let number_staff_y = if config.bar_numbers.on_staff == Some(true) {
+        (0..flat_staves.len()).find_map(|staff| {
+            super::system_ink::number_ink_bounds(
+                all_staff_layouts,
+                flat_staves,
+                &offsets,
+                score,
+                config,
+                staff,
+            )
+            .map(|row| row.y + row.height * 0.5)
+        })
+    } else {
+        None
+    };
     StaffYPlacement {
         offsets,
         pair_debug,
+        number_staff_y,
     }
 }

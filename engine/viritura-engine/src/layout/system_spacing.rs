@@ -46,12 +46,49 @@ pub(super) fn number_ink_extras(
     part_index: usize,
     config: &LayoutConfig,
 ) -> (f64, f64) {
-    if !layouts
-        .iter()
-        .any(|layout| render_annotations::number_label(layout, 0.0, config.sp, config).is_some())
+    if config.bar_numbers.on_staff != Some(true)
+        && !layouts.iter().any(|layout| {
+            render_annotations::number_label(layout, 0.0, config.sp, config).is_some()
+        })
     {
         return (0.0, 0.0);
     }
+    let ink = render_staff_ink(layouts, score, part_index, config);
+    ink.element_bboxes
+        .iter()
+        .filter(|element| {
+            element.element_id.ends_with("/mnum")
+                || element.element_id.ends_with("/bar-number-staff")
+        })
+        .fold((0.0_f64, 0.0_f64), |(above, below), element| {
+            (
+                above.max(-element.bbox.y),
+                below.max(element.bbox.y + element.bbox.height - 4.0 * config.sp),
+            )
+        })
+}
+
+pub(super) fn staff_ink_extras(
+    layouts: &[MeasureLayout],
+    score: &Score,
+    part_index: usize,
+    config: &LayoutConfig,
+) -> (f64, f64) {
+    render_staff_ink(layouts, score, part_index, config)
+        .commands
+        .iter()
+        .filter_map(super::page::vertical_ink_extent)
+        .fold((0.0_f64, 0.0_f64), |(above, below), (top, bottom)| {
+            (above.max(-top), below.max(bottom - 4.0 * config.sp))
+        })
+}
+
+fn render_staff_ink(
+    layouts: &[MeasureLayout],
+    score: &Score,
+    part_index: usize,
+    config: &LayoutConfig,
+) -> DisplayList {
     let mut ink = DisplayList::new(0.0, 0.0);
     let clef_changes =
         super::render_measure::clef_change_measure_set_from_layouts(&[layouts.to_vec()]);
@@ -75,16 +112,9 @@ pub(super) fn number_ink_extras(
         &clef_changes,
         &mut Vec::new(),
         None,
+        None,
     );
-    ink.element_bboxes
-        .iter()
-        .filter(|element| element.element_id.ends_with("/mnum"))
-        .fold((0.0_f64, 0.0_f64), |(above, below), element| {
-            (
-                above.max(-element.bbox.y),
-                below.max(element.bbox.y + element.bbox.height - 4.0 * config.sp),
-            )
-        })
+    ink
 }
 
 pub(super) fn measure_number_extra(

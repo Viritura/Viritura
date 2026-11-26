@@ -796,6 +796,7 @@ pub(super) fn render_system_staff_content(
     tie_maps_per_staff: Option<&[HashMap<String, bool>]>,
     staff_idx: usize,
     acc_obstacles: &mut Vec<AccidentalObstacle>,
+    number_staff_y: Option<f64>,
 ) {
     let Some(measure_layouts) = all_staff_layouts.get(staff_idx) else {
         return;
@@ -834,6 +835,7 @@ pub(super) fn render_system_staff_content(
         clef_change_measures,
         acc_obstacles,
         tie_override,
+        number_staff_y,
     );
     super::staff_sources::assign_measure_sources(
         &mut dl.measure_bounds[bounds_start..],

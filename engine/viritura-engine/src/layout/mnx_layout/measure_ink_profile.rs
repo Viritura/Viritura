@@ -84,6 +84,7 @@ fn calibrate_to_baseline(ink: &mut [MeasureInk], inputs: &InkProfileInputs<'_>) 
             staff_height,
             inputs.config,
             false,
+            inputs.score,
         );
         let core = staff_height + placement.offsets.last().copied().unwrap_or(0.0);
         let estimated_core = system
@@ -178,6 +179,7 @@ fn isolated_measure_ink(inputs: &InkProfileInputs<'_>) -> Vec<MeasureInk> {
                 staff_height,
                 inputs.config,
                 false,
+                inputs.score,
             );
             let (above, below) = outer_extents(
                 &layouts,

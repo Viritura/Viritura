@@ -29,7 +29,17 @@ function Choice<T extends string>({ label, value, options, onChange }: ChoicePro
   );
 }
 
-function FontSize({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
+interface NumberSettingProps {
+  label: string;
+  name: string;
+  value: number;
+  min: number;
+  max?: number;
+  error: string;
+  onCommit: (value: number) => void;
+}
+
+function NumberSetting({ label, name, value, min, max, error, onCommit }: NumberSettingProps) {
   const [draft, setDraft] = useState(String(value));
   const [previous, setPrevious] = useState(value);
   if (previous !== value) {
@@ -37,19 +47,19 @@ function FontSize({ value, onCommit }: { value: number; onCommit: (value: number
     setDraft(String(value));
   }
   return (
-    <FormField label="Size (staff spaces)">
+    <FormField label={label}>
       <FormInput
-        aria-label="Bar number size"
+        aria-label={name}
         type="number"
-        min={0.5}
-        max={8}
+        min={min}
+        max={max}
         step={0.25}
         value={draft}
         onChange={(event) => setDraft(event.currentTarget.value)}
         onBlur={() => {
           const parsed = Number(draft);
-          if (!draft.trim() || !Number.isFinite(parsed) || parsed < 0.5 || parsed > 8) {
-            toast.error("Bar number size must be between 0.5 and 8 staff spaces.");
+          if (!draft.trim() || !Number.isFinite(parsed) || parsed < min || (max !== undefined && parsed > max)) {
+            toast.error(error);
             setDraft(String(value));
             return;
           }
@@ -134,6 +144,29 @@ export function BarNumbersPanel() {
         onChange={(value) => update("placement", value)}
       />
       <Checkbox
+        label="Single-line bar number staff"
+        checked={settings.onStaff}
+        onChange={(event) => update("onStaff", event.target.checked)}
+      />
+      <Choice
+        label="Horizontal alignment"
+        value={settings.horizontalAlignment}
+        options={[
+          { value: "barline", label: "Aligned with barline" },
+          { value: "center", label: "Centered within bar" },
+        ]}
+        onChange={(value) => update("horizontalAlignment", value)}
+      />
+      <NumberSetting
+        key={`distance:${scope}:${scoreIndex}`}
+        label="Distance from staff (staff spaces)"
+        name="Bar number distance"
+        value={settings.distance}
+        min={0}
+        error="Bar number distance must be a finite, non-negative number of staff spaces."
+        onCommit={(value) => update("distance", value)}
+      />
+      <Checkbox
         label="Show bar 1"
         checked={settings.showFirst}
         onChange={(event) => update("showFirst", event.target.checked)}
@@ -148,7 +181,16 @@ export function BarNumbersPanel() {
         ]}
         onChange={(value) => update("family", value)}
       />
-      <FontSize key={`${scope}:${scoreIndex}`} value={settings.size} onCommit={(value) => update("size", value)} />
+      <NumberSetting
+        key={`size:${scope}:${scoreIndex}`}
+        label="Size (staff spaces)"
+        name="Bar number size"
+        value={settings.size}
+        min={0.5}
+        max={8}
+        error="Bar number size must be between 0.5 and 8 staff spaces."
+        onCommit={(value) => update("size", value)}
+      />
       <Checkbox label="Bold" checked={settings.bold} onChange={(event) => update("bold", event.target.checked)} />
       <Checkbox label="Italic" checked={settings.italic} onChange={(event) => update("italic", event.target.checked)} />
       <Choice
@@ -168,7 +210,8 @@ export function BarNumbersPanel() {
         {scope === "layout"
           ? "Only edited fields override the house style. Other layouts are unchanged."
           : "Layouts inherit these defaults unless they have their own overrides."}{" "}
-        Bar 0 is never printed. Numbers move away from the staff to clear musical markings.
+        Bar 0 is never printed. Distance is a minimum: musical markings may require more clearance. The single-line
+        staff keeps its numbers centered together and reserves space between instruments.
         {!definition && " Create a layout in the Layouts tab to add layout-specific overrides."}
       </p>
     </div>

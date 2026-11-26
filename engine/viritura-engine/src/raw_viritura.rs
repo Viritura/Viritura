@@ -192,6 +192,9 @@ impl ::std::convert::TryFrom<::std::string::String> for ArpeggioDirection {
 ///    "bold": {
 ///      "type": "boolean"
 ///    },
+///    "distance": {
+///      "type": "number"
+///    },
 ///    "enclosure": {
 ///      "enum": [
 ///        "none",
@@ -213,7 +216,16 @@ impl ::std::convert::TryFrom<::std::string::String> for ArpeggioDirection {
 ///        "hidden"
 ///      ]
 ///    },
+///    "horizontalAlignment": {
+///      "enum": [
+///        "barline",
+///        "center"
+///      ]
+///    },
 ///    "italic": {
+///      "type": "boolean"
+///    },
+///    "onStaff": {
 ///      "type": "boolean"
 ///    },
 ///    "placement": {
@@ -240,13 +252,29 @@ pub struct BarNumberSettings {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub bold: ::std::option::Option<bool>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub distance: ::std::option::Option<f64>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub enclosure: ::std::option::Option<BarNumberSettingsEnclosure>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub family: ::std::option::Option<BarNumberSettingsFamily>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub frequency: ::std::option::Option<BarNumberSettingsFrequency>,
+    #[serde(
+        rename = "horizontalAlignment",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub horizontal_alignment: ::std::option::Option<
+        BarNumberSettingsHorizontalAlignment,
+    >,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub italic: ::std::option::Option<bool>,
+    #[serde(
+        rename = "onStaff",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub on_staff: ::std::option::Option<bool>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub placement: ::std::option::Option<BarNumberSettingsPlacement>,
     #[serde(
@@ -267,10 +295,13 @@ impl ::std::default::Default for BarNumberSettings {
     fn default() -> Self {
         Self {
             bold: Default::default(),
+            distance: Default::default(),
             enclosure: Default::default(),
             family: Default::default(),
             frequency: Default::default(),
+            horizontal_alignment: Default::default(),
             italic: Default::default(),
+            on_staff: Default::default(),
             placement: Default::default(),
             show_first: Default::default(),
             size: Default::default(),
@@ -525,6 +556,88 @@ impl ::std::convert::TryFrom<&::std::string::String> for BarNumberSettingsFreque
     }
 }
 impl ::std::convert::TryFrom<::std::string::String> for BarNumberSettingsFrequency {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BarNumberSettingsHorizontalAlignment`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "enum": [
+///    "barline",
+///    "center"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum BarNumberSettingsHorizontalAlignment {
+    #[serde(rename = "barline")]
+    Barline,
+    #[serde(rename = "center")]
+    Center,
+}
+impl ::std::convert::From<&Self> for BarNumberSettingsHorizontalAlignment {
+    fn from(value: &BarNumberSettingsHorizontalAlignment) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for BarNumberSettingsHorizontalAlignment {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Barline => f.write_str("barline"),
+            Self::Center => f.write_str("center"),
+        }
+    }
+}
+impl ::std::str::FromStr for BarNumberSettingsHorizontalAlignment {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "barline" => Ok(Self::Barline),
+            "center" => Ok(Self::Center),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BarNumberSettingsHorizontalAlignment {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for BarNumberSettingsHorizontalAlignment {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for BarNumberSettingsHorizontalAlignment {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,

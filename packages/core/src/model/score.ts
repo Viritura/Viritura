@@ -49,6 +49,11 @@ export type TextStyles = Partial<Record<string, TextStyleOverride>>;
 export interface BarNumberSettings {
   frequency?: "systemStarts" | "everyBar" | "hidden";
   placement?: "aboveSystem" | "belowSystem" | "belowTopInstrument";
+  horizontalAlignment?: "barline" | "center";
+  /** Minimum distance from the musical staff, in staff spaces. */
+  distance?: number;
+  /** Print numbers vertically centered on a dedicated single-line staff. */
+  onStaff?: boolean;
   showFirst?: boolean;
   family?: FontFamily;
   /** Font size in staff spaces. */
@@ -61,6 +66,9 @@ export interface BarNumberSettings {
 export const DEFAULT_BAR_NUMBER_SETTINGS: Required<BarNumberSettings> = {
   frequency: "systemStarts",
   placement: "belowTopInstrument",
+  horizontalAlignment: "barline",
+  distance: 0.5,
+  onStaff: false,
   showFirst: false,
   family: "serif",
   size: 2,

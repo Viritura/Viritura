@@ -73,7 +73,7 @@ it("rejects out-of-range font sizes without saving an invalid setting", async ()
   const user = userEvent.setup();
   const error = vi.spyOn(toast, "error");
   const getScore = renderPanel();
-  const size = await screen.findByRole("spinbutton");
+  const size = await screen.findByRole("spinbutton", { name: "Size (staff spaces)" });
   await user.clear(size);
   await user.type(size, "9");
   await user.tab();
@@ -94,11 +94,11 @@ it("discards an uncommitted size draft when the selected layout changes", async 
   });
   await user.click(await screen.findByRole("combobox", { name: "Apply to" }));
   await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
-  const size = screen.getByRole("spinbutton");
+  const size = screen.getByRole("spinbutton", { name: "Size (staff spaces)" });
   await user.clear(size);
   await user.type(size, "4");
   act(() => useViewStateStore.setState({ selectedScoreIndex: 2 }));
-  expect(screen.getByRole("spinbutton")).toHaveProperty("value", "2");
+  expect(screen.getByRole("spinbutton", { name: "Size (staff spaces)" })).toHaveProperty("value", "2");
   expect(getScore()?.scores?.[1]?.barNumbers).toEqual({ size: 1.5 });
   expect(getScore()?.scores?.[2]?.barNumbers).toBeUndefined();
 });
@@ -113,4 +113,27 @@ it("offers only house-style edits when the score has no editable layout definiti
   await user.click(screen.getByRole("option", { name: "Every bar" }));
   expect(getScore()?.barNumbers).toEqual({ frequency: "everyBar" });
   expect(getScore()?.scores).toBeUndefined();
+});
+
+it("stores alignment, staff style and validated spacing as partial layout overrides", async () => {
+  const user = userEvent.setup();
+  const error = vi.spyOn(toast, "error");
+  const getScore = renderPanel({ ...SCORE, barNumbers: { distance: 3, horizontalAlignment: "center", onStaff: true } });
+  await user.click(await screen.findByRole("combobox", { name: "Apply to" }));
+  await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
+  expect(screen.getByRole("spinbutton", { name: "Distance from staff (staff spaces)" })).toHaveProperty("value", "3");
+  await user.click(screen.getByRole("checkbox", { name: "Single-line bar number staff" }));
+  await user.click(screen.getByRole("combobox", { name: "Horizontal alignment" }));
+  await user.click(screen.getByRole("option", { name: "Aligned with barline" }));
+  const distance = screen.getByRole("spinbutton", { name: "Distance from staff (staff spaces)" });
+  await user.clear(distance);
+  await user.type(distance, "-1");
+  await user.tab();
+  expect(error).toHaveBeenCalledWith("Bar number distance must be a finite, non-negative number of staff spaces.");
+  expect(getScore()?.scores?.[1]?.barNumbers).toEqual({ onStaff: false, horizontalAlignment: "barline" });
+  await user.clear(distance);
+  await user.type(distance, "0");
+  await user.tab();
+  expect(getScore()?.scores?.[1]?.barNumbers).toEqual({ onStaff: false, horizontalAlignment: "barline", distance: 0 });
+  expect(getScore()?.barNumbers).toEqual({ distance: 3, horizontalAlignment: "center", onStaff: true });
 });

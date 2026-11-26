@@ -122,6 +122,14 @@ pub enum BarNumberEnclosure {
     Circle,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum BarNumberHorizontalAlignment {
+    #[default]
+    Barline,
+    Center,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BarNumberSettings {
@@ -129,6 +137,12 @@ pub struct BarNumberSettings {
     pub frequency: Option<BarNumberFrequency>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub placement: Option<BarNumberPlacement>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub horizontal_alignment: Option<BarNumberHorizontalAlignment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub distance: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_staff: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub show_first: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -150,12 +164,32 @@ impl BarNumberSettings {
                 if other.$field.is_some() { self.$field = other.$field; }
             )*};
         }
-        overlay!(frequency, placement, show_first, family, size, bold, italic, enclosure);
+        overlay!(
+            frequency,
+            placement,
+            horizontal_alignment,
+            distance,
+            on_staff,
+            show_first,
+            family,
+            size,
+            bold,
+            italic,
+            enclosure
+        );
     }
 
     pub(crate) fn parse(value: &serde_json::Value) -> Result<Self, crate::promote::PromoteError> {
         let settings: Self = serde_json::from_value(value.clone())
             .map_err(|error| crate::promote::PromoteError::InvalidBarNumbers(error.to_string()))?;
+        if settings
+            .distance
+            .is_some_and(|distance| !distance.is_finite() || distance < 0.0)
+        {
+            return Err(crate::promote::PromoteError::InvalidBarNumbers(
+                "distance must be a finite non-negative number of staff spaces".into(),
+            ));
+        }
         if settings
             .size
             .is_some_and(|size| !size.is_finite() || !(0.5..=8.0).contains(&size))

@@ -40,6 +40,8 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
                 showFirst: false,
                 italic: false,
                 enclosure: "circle",
+                onStaff: false,
+                distance: 0,
               },
             },
           },
@@ -53,6 +55,9 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
             size: 1.5,
             bold: true,
             showFirst: true,
+            horizontalAlignment: "center",
+            distance: 3.25,
+            onStaff: true,
           },
         },
       },
@@ -65,19 +70,26 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     expect(score.scores?.[0]?.barNumbers).toBeUndefined();
   });
 
-  it.each([{ size: 0 }, { size: 9 }, { frequency: "sometimes" }, { placement: "betweenStaves" }, { bold: "yes" }])(
-    "rejects invalid bar-number settings %j",
-    (barNumbers) => {
-      expect(() =>
-        parseMnx({
-          mnx: { version: 1 },
-          global: { measures: [] },
-          parts: [],
-          _x: { viritura: { barNumbers } },
-        }),
-      ).toThrow();
-    },
-  );
+  it.each([
+    { size: 0 },
+    { size: 9 },
+    { frequency: "sometimes" },
+    { placement: "betweenStaves" },
+    { bold: "yes" },
+    { distance: -0.25 },
+    { distance: "3" },
+    { onStaff: "yes" },
+    { horizontalAlignment: "inset" },
+  ])("rejects invalid bar-number settings %j", (barNumbers) => {
+    expect(() =>
+      parseMnx({
+        mnx: { version: 1 },
+        global: { measures: [] },
+        parts: [],
+        _x: { viritura: { barNumbers } },
+      }),
+    ).toThrow();
+  });
 
   it("preserves the automatically added barline when a key change is saved", () => {
     const score = parseMnx({

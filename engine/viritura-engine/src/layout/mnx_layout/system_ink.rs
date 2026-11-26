@@ -7,7 +7,97 @@ use super::super::render_annotations::substrate_obstacles::text_command_bbox;
 use super::super::types::MeasureLayout;
 use super::shared::render_system_staff_content;
 use crate::model::Score;
-use crate::render::{DisplayList, RenderCommand};
+use crate::render::{BoundingBox, DisplayList, RenderCommand};
+
+pub(super) fn number_ink_bounds(
+    layouts: &[Vec<&MeasureLayout>],
+    staves: &[FlatStaff],
+    offsets: &[f64],
+    score: &Score,
+    config: &LayoutConfig,
+    staff: usize,
+) -> Option<BoundingBox> {
+    if config.bar_numbers.on_staff != Some(true) && config.bar_numbers.distance.is_none() {
+        return None;
+    }
+    let source = staves.get(staff)?.sources.first()?;
+    let shared =
+        super::staff_sources::shared_lane_staff_offsets(staves, offsets, source.part_index);
+    let lane =
+        super::super::render_measure::shared_staff_lane(offsets[staff], config.sp, Some(&shared));
+    if !super::super::render_measure::should_render_ordinary_measure_number(
+        &lane,
+        Some(staff),
+        offsets[staff],
+        Some(offsets),
+        Some(&shared),
+        config,
+    ) {
+        return None;
+    }
+    render_single_staff_ink(layouts, staves, offsets, score, config, staff)
+        .element_bboxes
+        .into_iter()
+        .filter(|element| {
+            element.element_id.ends_with("/mnum")
+                || element.element_id.ends_with("/bar-number-staff")
+        })
+        .map(|element| element.bbox)
+        .reduce(|bounds, next| bounds.union(&next))
+}
+
+pub(super) fn staff_above_protrusion(
+    layouts: &[Vec<&MeasureLayout>],
+    staves: &[FlatStaff],
+    offsets: &[f64],
+    score: &Score,
+    config: &LayoutConfig,
+    staff: usize,
+) -> f64 {
+    render_single_staff_ink(layouts, staves, offsets, score, config, staff)
+        .commands
+        .iter()
+        .filter_map(vertical_ink_extent)
+        .map(|(top, _)| offsets[staff] - top)
+        .fold(0.0_f64, f64::max)
+}
+
+fn render_single_staff_ink(
+    layouts: &[Vec<&MeasureLayout>],
+    staves: &[FlatStaff],
+    offsets: &[f64],
+    score: &Score,
+    config: &LayoutConfig,
+    staff: usize,
+) -> DisplayList {
+    let layouts: Vec<Vec<MeasureLayout>> = layouts
+        .iter()
+        .map(|staff| staff.iter().map(|measure| (*measure).clone()).collect())
+        .collect();
+    let clefs = super::super::render_measure::clef_change_measure_set_from_layouts(&layouts);
+    let mut scratch = DisplayList::new(0.0, 0.0);
+    render_system_staff_content(
+        &mut scratch,
+        &layouts,
+        staves,
+        None,
+        offsets,
+        score,
+        None,
+        config.sp,
+        config,
+        0,
+        2,
+        false,
+        0,
+        &clefs,
+        None,
+        staff,
+        &mut Vec::new(),
+        None,
+    );
+    scratch
+}
 
 pub(super) fn outer_extents(
     layouts: &[Vec<MeasureLayout>],
@@ -114,6 +204,7 @@ fn render_staff_ink(
             None,
             staff,
             &mut accidentals,
+            None,
         );
     }
     scratch

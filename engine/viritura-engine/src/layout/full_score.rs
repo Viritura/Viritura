@@ -775,7 +775,15 @@ fn render_one_staff_for_system(
         Some(&part_staff_y_offsets),
     );
     render_pedals(dl, measure_layouts, staff_y, sp, config, actual_part_index);
-    super::render_annotations::flow_bar_numbers(dl, staff_cmd_start, config);
+    super::render_annotations::flow_bar_numbers(
+        dl,
+        staff_cmd_start,
+        config,
+        measure_layouts,
+        staff_y,
+        render_measure_number_here,
+        None,
+    );
 
     // Capture this staff's event positions + system bounds so the
     // cross-system slur pass below can connect endpoints that live

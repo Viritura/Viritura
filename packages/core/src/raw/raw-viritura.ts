@@ -672,6 +672,10 @@ export interface components {
             frequency?: "systemStarts" | "everyBar" | "hidden";
             /** @enum {unknown} */
             placement?: "aboveSystem" | "belowSystem" | "belowTopInstrument";
+            /** @enum {unknown} */
+            horizontalAlignment?: "barline" | "center";
+            distance?: number;
+            onStaff?: boolean;
             showFirst?: boolean;
             /** @enum {unknown} */
             family?: "serif" | "sans-serif" | "monospace";

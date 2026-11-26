@@ -54,3 +54,30 @@ export const CircledBelow: StoryObj = {
       enclosure: "circle",
     }),
 };
+
+export const CenteredWithDistance: StoryObj = {
+  name: "Centered in each bar, three staff spaces below",
+  render: () =>
+    preview({
+      frequency: "everyBar",
+      showFirst: true,
+      placement: "belowSystem",
+      horizontalAlignment: "center",
+      distance: 3,
+    }),
+};
+
+export const SingleLineStaff: StoryObj = {
+  name: "Numbers centered vertically on a single-line staff",
+  render: () =>
+    preview({
+      frequency: "everyBar",
+      showFirst: true,
+      placement: "aboveSystem",
+      horizontalAlignment: "center",
+      distance: 2,
+      onStaff: true,
+      italic: false,
+      enclosure: "box",
+    }),
+};

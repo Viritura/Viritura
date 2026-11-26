@@ -833,16 +833,19 @@ override individual fields at `scores[]._x.viritura.barNumbers`; omitted fields
 inherit the document house style. Engrave mode exposes both scopes under
 **House Style > Bar Numbers**. Resetting a layout's overrides restores inheritance.
 
-| Field       | Values                                             | Default              |
-| ----------- | -------------------------------------------------- | -------------------- |
-| `frequency` | `systemStarts`, `everyBar`, `hidden`               | `systemStarts`       |
-| `placement` | `aboveSystem`, `belowSystem`, `belowTopInstrument` | `belowTopInstrument` |
-| `showFirst` | boolean, prints bar 1 when eligible                | `false`              |
-| `family`    | `serif`, `sans-serif`, `monospace`                 | `serif`              |
-| `size`      | 0.5 to 8 staff spaces                              | 2                    |
-| `bold`      | boolean                                            | `false`              |
-| `italic`    | boolean                                            | `true`               |
-| `enclosure` | `none`, `box`, `circle`                            | `none`               |
+| Field                 | Values                                             | Default                                                               |
+| --------------------- | -------------------------------------------------- | --------------------------------------------------------------------- |
+| `frequency`           | `systemStarts`, `everyBar`, `hidden`               | `systemStarts`                                                        |
+| `placement`           | `aboveSystem`, `belowSystem`, `belowTopInstrument` | `belowTopInstrument`                                                  |
+| `horizontalAlignment` | `barline`, `center`                                | `barline` for ordinary bars; legacy centered rest ranges when omitted |
+| `distance`            | non-negative staff spaces                          | placement attach gap (normally 0.5); 0.5 for rest ranges              |
+| `onStaff`             | boolean, dedicated single-line number staff        | `false`                                                               |
+| `showFirst`           | boolean, prints bar 1 when eligible                | `false`                                                               |
+| `family`              | `serif`, `sans-serif`, `monospace`                 | `serif`                                                               |
+| `size`                | 0.5 to 8 staff spaces                              | 2                                                                     |
+| `bold`                | boolean                                            | `false`                                                               |
+| `italic`              | boolean                                            | `true`                                                                |
+| `enclosure`           | `none`, `box`, `circle`                            | `none`                                                                |
 
 The default preserves the existing placement below the top instrument's lowest
 staff. Whole-system placement uses the outer visible staff, including grand
@@ -851,6 +854,20 @@ other musical ink, including rehearsal frames, by moving away from the staff.
 Bar 0 remains unprinted, including when `showFirst` is enabled. Collapsed
 multimeasure rests retain their range labels rather than printing each hidden
 bar; `hidden` suppresses those labels as well.
+
+`center` uses the complete printed measure width, including its opening
+signatures. Explicit `barline` alignment follows the visible barline after any
+pre-barline clef change and also applies to multimeasure-rest ranges.
+`distance` is the minimum gap from the musical staff to the number
+ink; collision clearance can increase it.
+
+With `onStaff`, the selected placement creates a source-free display staff,
+not a musical or playback part. Numbers are vertically centered on one line,
+with breaks in the line around their text and enclosures. The whole row clears
+musical ink together. Its measured envelope participates in normal inter-staff
+spacing and page fitting, so a row below the top instrument pushes subsequent
+instruments down as needed. Frequency and first-bar visibility still apply;
+`hidden` removes the line as well as its labels.
 
 ```json
 {

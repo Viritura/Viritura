@@ -3,67 +3,13 @@ use super::super::*;
 use crate::layout::volta::render_source_ottavas;
 
 mod measure_bounds;
+mod measure_widths;
 mod page_geometry;
 use crate::layout::staff_brace::brace_geometry;
 mod spanner_endpoints;
 use measure_bounds::push_grand_staff_measure_bounds;
+pub(in crate::layout) use measure_widths::compute_grand_staff_natural_widths;
 use spanner_endpoints::collect_staff_spanner_endpoints;
-
-pub(in crate::layout) fn compute_grand_staff_natural_widths(
-    all_resolved: &[Vec<ResolvedMeasure>],
-    all_resolved_ottavas: &[Vec<ResolvedOttavaRange>],
-    sp: f64,
-    config: &LayoutConfig,
-    common_shortest_beats: f64,
-    mut cache: Option<&mut cache::LayoutCache>,
-) -> (Vec<Vec<f64>>, Vec<Vec<u64>>) {
-    let mut natural_widths_per_staff: Vec<Vec<f64>> = Vec::new();
-    let mut gs_content_hash_grid: Vec<Vec<u64>> = Vec::new();
-    for (si, resolved) in all_resolved.iter().enumerate() {
-        let mut widths = Vec::new();
-        let mut hashes = Vec::new();
-        for rm in resolved {
-            let content_hash = measure_content_hash(rm);
-            hashes.push(content_hash);
-            // Staff-specific cache key: combine measure index with staff index
-            let cache_key = rm.index * 100 + si;
-
-            let width = if let Some(ref mut c) = cache {
-                if let Some(cached_w) = c.get_natural_width(cache_key, content_hash) {
-                    cached_w
-                } else {
-                    let ml = layout_measure(
-                        rm,
-                        sp,
-                        0.0,
-                        config,
-                        None,
-                        &all_resolved_ottavas[si],
-                        common_shortest_beats,
-                    );
-                    c.set_natural_width(cache_key, content_hash, ml.width);
-                    ml.width
-                }
-            } else {
-                let ml = layout_measure(
-                    rm,
-                    sp,
-                    0.0,
-                    config,
-                    None,
-                    &all_resolved_ottavas[si],
-                    common_shortest_beats,
-                );
-                ml.width
-            };
-
-            widths.push(width);
-        }
-        natural_widths_per_staff.push(widths);
-        gs_content_hash_grid.push(hashes);
-    }
-    (natural_widths_per_staff, gs_content_hash_grid)
-}
 
 /// Grand-staff helper — layout every measure on every staff for one system
 /// (shared spacing already merged), honouring the layout cache.
@@ -401,7 +347,23 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
             Some(staff_y_offsets),
         );
         render_pedals(dl, layouts, staff_y, sp, config, part_index);
-        render_annotations::flow_bar_numbers(dl, staff_cmd_start, config);
+        let render_numbers = render_measure::should_render_ordinary_measure_number(
+            &shared_lane,
+            Some(si),
+            staff_y,
+            Some(staff_y_offsets),
+            Some(staff_y_offsets),
+            config,
+        );
+        render_annotations::flow_bar_numbers(
+            dl,
+            staff_cmd_start,
+            config,
+            layouts,
+            staff_y,
+            render_numbers,
+            None,
+        );
 
         collect_staff_spanner_endpoints(
             layouts,

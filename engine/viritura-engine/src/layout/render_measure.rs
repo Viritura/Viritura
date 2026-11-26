@@ -22,6 +22,7 @@ use crate::render::*;
 use std::collections::{HashMap, HashSet};
 
 mod clef_changes;
+mod cross_staff;
 mod global_caesuras;
 mod measure_repeats;
 mod multimeasure_rests;
@@ -29,6 +30,7 @@ mod repeat_signatures;
 mod shared_lanes;
 
 pub(crate) use clef_changes::*;
+pub(super) use cross_staff::{cross_staff_y, cross_staff_y_scalar};
 pub(crate) use measure_repeats::*;
 pub(crate) use multimeasure_rests::*;
 pub(crate) use repeat_signatures::*;
@@ -36,55 +38,6 @@ pub(crate) use shared_lanes::*;
 
 /// Middle staff line position in half-spaces from the top line.
 pub(super) const MIDDLE_LINE_POS: f64 = 4.0;
-
-/// Compute the effective staff_y for a cross-staff event.
-/// If the event has a `staff` override that differs from its parent sequence's
-/// staff, anchor it to the target staff's Y.
-///
-/// `event.staff` (and `sequence_staff`) are **part-relative** staff numbers
-/// (1 = the part's top staff). `staff_y_offsets` holds the Y of every visual
-/// staff in the *whole system* (across all parts), so we must NOT index it with
-/// the part-relative staff number directly — for any part that isn't the first
-/// in the system that would land the note on some other part's staff (e.g. a
-/// piano cross-staff note jumping onto a flute staff). Instead we recover the
-/// current staff's visual index from `staff_y` (the caller always passes
-/// `staff_y_offsets[vi]`) and shift by the part-relative delta, since a part's
-/// staves are contiguous in system order.
-/// Falls back to the default `staff_y` when no cross-staff override is active.
-pub(super) fn cross_staff_y(
-    el: &EventLayout,
-    staff_y: f64,
-    staff_y_offsets: Option<&[f64]>,
-) -> f64 {
-    cross_staff_y_scalar(el.event.staff, el.sequence_staff, staff_y, staff_y_offsets)
-}
-
-/// Arena-friendly variant of [`cross_staff_y`] taking the two scalar fields it
-/// reads (`event.staff`, `sequence_staff`) directly, so callers iterating the
-/// `EventArena` need not materialize an `EventLayout`.
-pub(super) fn cross_staff_y_scalar(
-    event_staff: Option<u32>,
-    sequence_staff: u32,
-    staff_y: f64,
-    staff_y_offsets: Option<&[f64]>,
-) -> f64 {
-    if let Some(target_staff) = event_staff {
-        if target_staff != sequence_staff {
-            if let Some(offsets) = staff_y_offsets {
-                // Recover this staff's visual index by matching its Y, then
-                // offset by the part-relative staff delta.
-                if let Some(cur_idx) = offsets.iter().position(|&y| (y - staff_y).abs() < 0.5) {
-                    let delta = target_staff as i64 - sequence_staff as i64;
-                    let tgt = cur_idx as i64 + delta;
-                    if tgt >= 0 && (tgt as usize) < offsets.len() {
-                        return offsets[tgt as usize];
-                    }
-                }
-            }
-        }
-    }
-    staff_y
-}
 
 // ═══════════════════════════════════════════
 // Rendering into DisplayList
@@ -507,8 +460,9 @@ pub(crate) fn render_measure(
     // that aligns to the barline (the rehearsal mark) must shift with it.
     let leading_clef_gap = measure_leading_clef_gap(ml, sp, clef_change_measures);
     let shared_lane = shared_staff_lane(staff_y, sp, shared_lane_staff_y_offsets);
-    let render_mmr_range_here = if config.bar_numbers.placement.unwrap_or_default()
-        != BarNumberPlacement::BelowTopInstrument
+    let render_mmr_range_here = if config.bar_numbers.on_staff == Some(true)
+        || config.bar_numbers.placement.unwrap_or_default()
+            != BarNumberPlacement::BelowTopInstrument
     {
         render_ordinary_measure_number
     } else if shared_lane.center_y.is_some() {
@@ -567,7 +521,15 @@ pub(crate) fn render_measure(
             &[],
             shared_lane_staff_y_offsets,
         );
-        render_measure_numbers(dl, ml, staff_y, sp, config, render_mmr_range_here);
+        render_measure_numbers(
+            dl,
+            ml,
+            staff_y,
+            sp,
+            config,
+            render_mmr_range_here,
+            leading_clef_gap,
+        );
         return;
     }
 
@@ -1079,7 +1041,15 @@ pub(crate) fn render_measure(
     render_chord_symbols(dl, ml, staff_y, sp, config);
 
     // Render measure numbers below the designated staff.
-    render_measure_numbers(dl, ml, staff_y, sp, config, render_ordinary_measure_number);
+    render_measure_numbers(
+        dl,
+        ml,
+        staff_y,
+        sp,
+        config,
+        render_ordinary_measure_number,
+        leading_clef_gap,
+    );
 
     // Render breath marks above staff
     render_breath_marks(dl, ml, staff_y, sp, config);

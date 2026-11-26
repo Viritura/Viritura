@@ -238,6 +238,7 @@ fn render_explicit_system(
         let StaffYPlacement {
             offsets: new_offsets,
             pair_debug: sys_pair_dbg,
+            number_staff_y: _,
         } = compute_staff_y_offsets_for_system(
             &staff_layout_view,
             flat_staves,
@@ -249,6 +250,7 @@ fn render_explicit_system(
             staff_height,
             ctx.config,
             false,
+            ctx.score,
         );
         staff_y_offsets = new_offsets;
 

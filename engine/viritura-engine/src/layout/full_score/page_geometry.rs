@@ -109,7 +109,45 @@ fn number_ink_extras(
                     Some(layout)
                 })
                 .collect();
-            super::super::system_spacing::number_ink_extras(&layouts, score, part_index, config)
+            let extras = super::super::system_spacing::number_ink_extras(
+                &layouts, score, part_index, config,
+            );
+            if placement != BarNumberPlacement::BelowTopInstrument
+                || (config.bar_numbers.on_staff != Some(true)
+                    && config.bar_numbers.distance.is_none())
+                || visual_index + 1 >= resolved.len()
+                || extras.1 == 0.0
+            {
+                return extras;
+            }
+            let next = visual_index + 1;
+            let next_layouts: Vec<_> = layouts
+                .iter()
+                .filter_map(|template| {
+                    let mut layout = super::super::layout_measure(
+                        resolved[next].get(template.resolved.index)?,
+                        config.sp,
+                        template.x,
+                        config,
+                        Some(template.width),
+                        &ottavas[next],
+                        shortest_beats,
+                    );
+                    layout.is_first_on_system = template.is_first_on_system;
+                    layout.part_index = part_index + 1;
+                    Some(layout)
+                })
+                .collect();
+            let mut without_numbers = config.clone();
+            without_numbers.bar_numbers.frequency = Some(crate::model::BarNumberFrequency::Hidden);
+            let above = super::super::system_spacing::staff_ink_extras(
+                &next_layouts,
+                score,
+                part_index + 1,
+                &without_numbers,
+            )
+            .0;
+            (extras.0, extras.1 + above)
         })
         .collect()
 }
@@ -253,7 +291,7 @@ pub(super) fn compute_full_score_page_layout(
     );
     let staves_per_system = vec![visual_staff_count; system_count];
     let (system_y_positions, justified_gaps) = if config.page_width.is_some() {
-        let (mut positions, gaps, _) = compute_system_y_positions(
+        let (mut positions, mut gaps, _) = compute_system_y_positions(
             &staves_per_system,
             staff_height,
             &pages,
@@ -263,8 +301,11 @@ pub(super) fn compute_full_score_page_layout(
             Some(&extras),
             None,
         );
-        for (position, (above, _)) in positions.iter_mut().zip(&extras) {
+        for (index, (position, (above, _))) in positions.iter_mut().zip(&extras).enumerate() {
             *position += above;
+            if config.bar_numbers.on_staff == Some(true) || config.bar_numbers.distance.is_some() {
+                gaps[index] = (inter_staff_gap + gaps[index] - 7.0 * sp).max(0.0);
+            }
         }
         (positions, gaps)
     } else {
