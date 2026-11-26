@@ -15,13 +15,7 @@ import type { Score, NoteEvent } from "@viritura/core";
 import { setKeySignature } from "@viritura/core";
 import * as fs from "node:fs";
 import * as path from "node:path";
-
-const scoresDir = path.resolve(__dirname, "../../fixtures/mnx");
-
-const mnxFiles = fs
-  .readdirSync(scoresDir)
-  .filter((f) => f.endsWith(".mnx"))
-  .sort();
+import { mnxFixtures, scoresDir } from "./mnxCorpus";
 
 /** Find the first NoteEvent in a score and return a mutation locator. */
 function firstNoteEvent(score: Score): { partIndex: number; measureIndex: number } | null {
@@ -98,19 +92,23 @@ describe("DeltaSerializer incremental assembly", () => {
     });
   });
 
-  for (const file of mnxFiles) {
-    it(`assembles byte-identical full JSON for ${file}`, () => {
-      const raw = fs.readFileSync(path.join(scoresDir, file), "utf-8");
-      const score = parseMnx(JSON.parse(raw));
+  for (const file of mnxFixtures) {
+    it(
+      `assembles byte-identical full JSON for ${file.name}`,
+      () => {
+        const raw = fs.readFileSync(file.path, "utf-8");
+        const score = parseMnx(JSON.parse(raw));
 
-      const delta = new DeltaSerializer();
-      const expected = JSON.stringify(serializeMnx(score));
+        const delta = new DeltaSerializer();
+        const expected = JSON.stringify(serializeMnx(score));
 
-      // First serialize (cold cache) must match.
-      expect(delta.serialize(score).json).toBe(expected);
-      // Second serialize (warm cache, no changes) must also match.
-      expect(delta.serialize(score).json).toBe(expected);
-    });
+        // First serialize (cold cache) must match.
+        expect(delta.serialize(score).json).toBe(expected);
+        // Second serialize (warm cache, no changes) must also match.
+        expect(delta.serialize(score).json).toBe(expected);
+      },
+      file.timeout,
+    );
   }
 
   it("re-serializes only changed measures and matches full output", () => {
@@ -177,26 +175,33 @@ describe("DeltaSerializer incremental assembly", () => {
     // measure data. It must still register so the engine re-layouts; otherwise
     // the serializer returns the stale cached JSON and the edit never reaches
     // the renderer. Regression for kit changes being invisible to the delta.
-    const raw = fs.readFileSync(path.join(scoresDir, "Rhapsody in Blue.mnx"), "utf-8");
-    let score = parseMnx(JSON.parse(raw));
-    const partIndex = score.parts.findIndex((p) => p.kit && Object.keys(p.kit).length > 0);
-    expect(partIndex).toBeGreaterThanOrEqual(0);
+    let score = parseMnx({
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          kit: { snare: { staffPosition: 0, notehead: { shape: "x" } } },
+          measures: [{ sequences: [] }],
+        },
+      ],
+    });
 
     const delta = new DeltaSerializer();
     delta.serialize(score); // prime cache
 
     // Change one kit-component's notehead (structural sharing down to the kit).
-    const part = score.parts[partIndex]!;
-    const kitId = Object.keys(part.kit!)[0]!;
-    const newKit = { ...part.kit!, [kitId]: { ...part.kit![kitId]!, notehead: "triangleDown" as const } };
+    const part = score.parts[0]!;
+    const newKit = { ...part.kit!, snare: { ...part.kit!.snare!, notehead: { shape: "triangleDown" as const } } };
     const newPart = { ...part, kit: newKit };
-    score = { ...score, parts: score.parts.map((p, i) => (i === partIndex ? newPart : p)) };
+    score = { ...score, parts: [newPart] };
 
     const result = delta.serialize(score);
     expect(result.structuralChange).toBe(true);
     // And the emitted JSON reflects the new notehead (not the stale cache).
     expect(result.json).toBe(JSON.stringify(serializeMnx(score)));
-    expect(result.json).toContain('"notehead":"triangleDown"');
+    expect(JSON.parse(result.json)).toMatchObject({
+      parts: [{ kit: { snare: { notehead: { shape: "triangleDown" } } } }],
+    });
   });
 
   it("detects chord visibility and instrument identity edits as structural changes", () => {
