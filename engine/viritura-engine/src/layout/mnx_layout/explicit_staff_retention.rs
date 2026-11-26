@@ -218,6 +218,7 @@ pub(super) fn render_system_staves_and_contents(
             staff_idx,
             &mut acc_obstacles,
             None,
+            group_ranges,
         );
         if let (Some(retention), Some(hash)) = (retention.as_deref_mut(), hash) {
             retention.capture(hash, dl, start, &acc_obstacles[obstacle_start..]);

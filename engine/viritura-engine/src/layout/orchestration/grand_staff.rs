@@ -347,13 +347,11 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
             Some(staff_y_offsets),
         );
         render_pedals(dl, layouts, staff_y, sp, config, part_index);
-        let render_numbers = render_measure::should_render_ordinary_measure_number(
-            &shared_lane,
-            Some(si),
-            staff_y,
-            Some(staff_y_offsets),
-            Some(staff_y_offsets),
-            config,
+        let number_context = render_annotations::BarNumberStaffContext::simple(
+            &config.bar_numbers,
+            si,
+            staff_y_offsets.len(),
+            staff_y_offsets.len().saturating_sub(1),
         );
         render_annotations::flow_bar_numbers(
             dl,
@@ -361,8 +359,9 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
             config,
             layouts,
             staff_y,
-            render_numbers,
-            None,
+            !number_context.placements.is_empty(),
+            Some(&number_context),
+            &clef_change_measures,
         );
 
         collect_staff_spanner_endpoints(

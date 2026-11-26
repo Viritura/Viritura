@@ -1,9 +1,12 @@
 //! Final staff ink used by page fitting, including dependent collision flow.
 
 use super::super::config::LayoutConfig;
-use super::super::full_score::FlatStaff;
+use super::super::full_score::{FlatStaff, GroupRange};
 use super::super::page::vertical_ink_extent;
 use super::super::render_annotations::substrate_obstacles::text_command_bbox;
+use super::super::render_annotations::{
+    has_multiple_number_locations, number_location_key, reserves_number_ink, BarNumberRowPositions,
+};
 use super::super::types::MeasureLayout;
 use super::shared::render_system_staff_content;
 use crate::model::Score;
@@ -16,8 +19,9 @@ pub(super) fn number_ink_bounds(
     score: &Score,
     config: &LayoutConfig,
     staff: usize,
+    groups: &[GroupRange],
 ) -> Option<BoundingBox> {
-    if config.bar_numbers.on_staff != Some(true) && config.bar_numbers.distance.is_none() {
+    if !reserves_number_ink(&config.bar_numbers) {
         return None;
     }
     let source = staves.get(staff)?.sources.first()?;
@@ -25,17 +29,19 @@ pub(super) fn number_ink_bounds(
         super::staff_sources::shared_lane_staff_offsets(staves, offsets, source.part_index);
     let lane =
         super::super::render_measure::shared_staff_lane(offsets[staff], config.sp, Some(&shared));
-    if !super::super::render_measure::should_render_ordinary_measure_number(
-        &lane,
-        Some(staff),
-        offsets[staff],
-        Some(offsets),
-        Some(&shared),
-        config,
-    ) {
+    if !has_multiple_number_locations(&config.bar_numbers)
+        && !super::super::render_measure::should_render_ordinary_measure_number(
+            &lane,
+            Some(staff),
+            offsets[staff],
+            Some(offsets),
+            Some(&shared),
+            config,
+        )
+    {
         return None;
     }
-    render_single_staff_ink(layouts, staves, offsets, score, config, staff)
+    render_single_staff_ink(layouts, staves, offsets, score, config, staff, groups)
         .element_bboxes
         .into_iter()
         .filter(|element| {
@@ -46,6 +52,40 @@ pub(super) fn number_ink_bounds(
         .reduce(|bounds, next| bounds.union(&next))
 }
 
+#[allow(clippy::too_many_arguments)] // Row positions reuse the same scratch staff and group context as ink reservations.
+pub(super) fn number_row_positions(
+    layouts: &[Vec<&MeasureLayout>],
+    staves: &[FlatStaff],
+    offsets: &[f64],
+    score: &Score,
+    config: &LayoutConfig,
+    staff: usize,
+    groups: &[GroupRange],
+) -> BarNumberRowPositions {
+    let ink = render_single_staff_ink(layouts, staves, offsets, score, config, staff, groups);
+    let mut rows = BarNumberRowPositions::default();
+    for element in ink
+        .element_bboxes
+        .iter()
+        .filter(|element| element.element_id.ends_with("/bar-number-staff"))
+    {
+        let above = if has_multiple_number_locations(&config.bar_numbers) {
+            element
+                .element_id
+                .contains(&format!("/{}/", number_location_key(staff, true)))
+        } else {
+            config.bar_numbers.placement == Some(crate::model::BarNumberPlacement::AboveSystem)
+        };
+        let center = element.bbox.y + element.bbox.height * 0.5;
+        if above {
+            rows.above = Some(center);
+        } else {
+            rows.below = Some(center);
+        }
+    }
+    rows
+}
+
 pub(super) fn staff_above_protrusion(
     layouts: &[Vec<&MeasureLayout>],
     staves: &[FlatStaff],
@@ -53,11 +93,18 @@ pub(super) fn staff_above_protrusion(
     score: &Score,
     config: &LayoutConfig,
     staff: usize,
+    groups: &[GroupRange],
 ) -> f64 {
-    render_single_staff_ink(layouts, staves, offsets, score, config, staff)
-        .commands
+    let ink = render_single_staff_ink(layouts, staves, offsets, score, config, staff, groups);
+    ink.commands
         .iter()
         .filter_map(vertical_ink_extent)
+        .chain(
+            ink.element_bboxes
+                .iter()
+                .filter(|element| element.element_id.ends_with("/bar-number-staff"))
+                .map(|element| (element.bbox.y, element.bbox.y + element.bbox.height)),
+        )
         .map(|(top, _)| offsets[staff] - top)
         .fold(0.0_f64, f64::max)
 }
@@ -69,6 +116,7 @@ fn render_single_staff_ink(
     score: &Score,
     config: &LayoutConfig,
     staff: usize,
+    groups: &[GroupRange],
 ) -> DisplayList {
     let layouts: Vec<Vec<MeasureLayout>> = layouts
         .iter()
@@ -95,6 +143,7 @@ fn render_single_staff_ink(
         staff,
         &mut Vec::new(),
         None,
+        groups,
     );
     scratch
 }
@@ -105,13 +154,19 @@ pub(super) fn outer_extents(
     offsets: &[f64],
     score: &Score,
     config: &LayoutConfig,
+    groups: &[GroupRange],
 ) -> (f64, f64) {
     let Some((&first_y, &last_y)) = offsets.first().zip(offsets.last()) else {
         return (0.0, 0.0);
     };
-    let ink = render_staff_ink(layouts, staves, offsets, score, config);
-    let ink = ink.commands.iter().filter_map(vertical_ink_extent);
-    ink.fold((0.0_f64, 0.0_f64), |(above, below), (top, bottom)| {
+    let ink = render_staff_ink(layouts, staves, offsets, score, config, groups);
+    let extents = ink.commands.iter().filter_map(vertical_ink_extent).chain(
+        ink.element_bboxes
+            .iter()
+            .filter(|element| element.element_id.ends_with("/bar-number-staff"))
+            .map(|element| (element.bbox.y, element.bbox.y + element.bbox.height)),
+    );
+    extents.fold((0.0_f64, 0.0_f64), |(above, below), (top, bottom)| {
         (
             above.max(first_y - top),
             below.max(bottom - last_y - 4.0 * config.sp),
@@ -129,6 +184,7 @@ pub(super) fn measure_outer_extents(
     offsets: &[f64],
     score: &Score,
     config: &LayoutConfig,
+    groups: &[GroupRange],
 ) -> Vec<(f64, f64)> {
     let Some(((&first_y, &last_y), top_staff)) =
         offsets.first().zip(offsets.last()).zip(layouts.first())
@@ -143,7 +199,7 @@ pub(super) fn measure_outer_extents(
     let Some(last_index) = spans.len().checked_sub(1) else {
         return extents;
     };
-    let ink = render_staff_ink(layouts, staves, offsets, score, config);
+    let ink = render_staff_ink(layouts, staves, offsets, score, config, groups);
     for command in &ink.commands {
         let Some((top, bottom)) = vertical_ink_extent(command) else {
             continue;
@@ -181,6 +237,7 @@ fn render_staff_ink(
     offsets: &[f64],
     score: &Score,
     config: &LayoutConfig,
+    groups: &[GroupRange],
 ) -> DisplayList {
     let clef_changes = super::super::render_measure::clef_change_measure_set_from_layouts(layouts);
     let mut scratch = DisplayList::new(0.0, 0.0);
@@ -205,6 +262,7 @@ fn render_staff_ink(
             staff,
             &mut accidentals,
             None,
+            groups,
         );
     }
     scratch

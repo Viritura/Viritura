@@ -835,7 +835,7 @@ fn render_system_contents(
     // whole galley so a tie crossing a chunk seam keeps its accidental
     // suppressed — a per-chunk map can't see the target note in the next chunk.
     tie_accidentals_override: Option<&HashMap<String, bool>>,
-    number_staff_y: Option<f64>,
+    number_context: Option<&render_annotations::BarNumberStaffContext>,
 ) {
     let (staff_lyric_line_order, lyric_staff_number) = lyric_extenders::system_lyric_context(
         score,
@@ -1046,7 +1046,8 @@ fn render_system_contents(
         measure_layouts,
         staff_y,
         render_ordinary_measure_number,
-        number_staff_y,
+        number_context,
+        clef_change_measures,
     );
 }
 

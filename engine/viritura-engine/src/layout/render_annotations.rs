@@ -56,7 +56,9 @@ pub(crate) use jump_markers::render_jump_markers;
 #[cfg(test)]
 pub(crate) use measure_numbers::below_staff_number_top_y;
 pub(crate) use measure_numbers::{
-    flow_bar_numbers, number_label, render_measure_numbers, start_clef,
+    flow_bar_numbers, has_multiple_number_locations, number_label, number_location_key,
+    number_staff_context, render_measure_numbers, reserves_number_ink, start_clef,
+    BarNumberRowPositions, BarNumberStaffContext,
 };
 #[allow(unused_imports)]
 // Public annotation barrel; tempo consumes the rehearsal API through its sibling module.

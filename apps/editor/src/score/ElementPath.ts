@@ -494,6 +494,8 @@ export function getEventAncestorId(elementId: string): string {
  * Returns null if not a recognized annotation ID.
  */
 export function resolveAnnotationLocation(elementId: string): AnnotationLocation | null {
+  const numberRow = elementId.match(/^m(\d+)\/bn\d+-(?:above|below)\/mnum$/);
+  if (numberRow) return { kind: "global", type: "mnum", measureIndex: Number(numberRow[1]) };
   const systemTextLocation = resolveSystemTextLocation(elementId);
   if (systemTextLocation) return systemTextLocation;
 

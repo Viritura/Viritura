@@ -46,8 +46,14 @@ impl ExplicitSystemSize {
             .windows(2)
             .map(|pair| (pair[1] - pair[0] - staff_height).max(0.0))
             .collect();
-        let (ink_above, ink_below) =
-            super::system_ink::outer_extents(layouts, staves, &placement.offsets, score, config);
+        let (ink_above, ink_below) = super::system_ink::outer_extents(
+            layouts,
+            staves,
+            &placement.offsets,
+            score,
+            config,
+            groups,
+        );
         let above = layouts.first().map_or(0.0, |staff| {
             let measures: Vec<_> = staff.iter().map(|layout| &layout.resolved).collect();
             super::super::compute_above_staff_extra(

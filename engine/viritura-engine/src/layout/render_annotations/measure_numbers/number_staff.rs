@@ -12,6 +12,7 @@ pub(super) fn place(
     ids: &[String],
     labels: &[StackBox],
     row_y: Option<f64>,
+    location_key: Option<&str>,
 ) {
     let Some((first, last)) = layouts.first().zip(layouts.last()) else {
         return;
@@ -71,11 +72,14 @@ pub(super) fn place(
         .map(|label| (label.x0 - padding, label.x1 + padding))
         .collect();
     gaps.sort_by(|a, b| a.0.total_cmp(&b.0));
-    let eid = format!("m{}/bar-number-staff", first.resolved.index);
+    let eid = match location_key {
+        Some(key) => format!("m{}/{key}/bar-number-staff", first.resolved.index),
+        None => format!("m{}/bar-number-staff", first.resolved.index),
+    };
     let mut cursor = left;
     for (start, end) in gaps.into_iter().chain(std::iter::once((right, right))) {
         let end_of_line = start.min(right);
-        if end_of_line > cursor {
+        if end_of_line > cursor && config.bar_numbers.show_staff_line != Some(false) {
             dl.push_tagged(
                 RenderCommand::DrawLine {
                     x1: cursor,

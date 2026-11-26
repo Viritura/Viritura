@@ -162,6 +162,200 @@ fn barline_aligned_numbers_follow_shared_mid_system_clef_changes() {
 }
 
 #[test]
+fn multiple_bar_number_locations_reserve_independent_rows() {
+    let mut source = bar_number_fixture(4);
+    source["layouts"][0]["content"] = json!([
+        {"type": "group", "symbol": "bracket", "label": "Winds", "content": [
+            {"type": "staff", "sources": [{"part": "violin"}]}
+        ]},
+        {"type": "group", "symbol": "bracket", "label": "Strings", "content": [
+            {"type": "group", "symbol": "brace", "content": [
+                {"type": "staff", "sources": [{"part": "piano", "staff": 1}]},
+                {"type": "staff", "sources": [{"part": "piano", "staff": 2}]}
+            ]}
+        ]}
+    ]);
+    source["global"]["measures"][0]["tempos"] = json!([{"bpm": 120, "value": {"base": "quarter"}}]);
+    source["_x"] = json!({"viritura": {"barNumbers": {
+        "placements": ["aboveSystem", "belowSystem"], "frequency": "everyBar", "showFirst": true,
+        "onStaff": true, "showStaffLine": false, "distance": 2, "size": 4
+    }}});
+    source["scores"][0]["_x"] =
+        json!({"viritura": {"barNumbers": {"aboveGroups": [["violin"], ["piano"]]}}});
+    for page_width in [None, Some(650.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let score = parse_mnx(&source.to_string()).unwrap();
+        let display = crate::layout::layout_with_mnx_scores(&score, &config, 0);
+        assert_eq!(
+            bar_number_texts(&display).len(),
+            12,
+            "coincident system/group targets must not duplicate numbers"
+        );
+        let row = display
+            .element_bboxes
+            .iter()
+            .find(|element| element.element_id == "m0/bn1-above/bar-number-staff")
+            .unwrap();
+        let upper = display
+            .measure_bounds
+            .iter()
+            .find(|measure| measure.index == 0 && measure.staff_index == 0)
+            .unwrap();
+        let lower = display
+            .measure_bounds
+            .iter()
+            .find(|measure| measure.index == 0 && measure.staff_index == 1)
+            .unwrap();
+        assert!(row.bbox.y > upper.y + upper.height);
+        assert!(row.bbox.y + row.bbox.height < lower.y);
+        assert!(display
+            .element_bboxes
+            .iter()
+            .filter(|element| element.element_id.ends_with("/bar-number-staff"))
+            .all(|element| element.bbox.y >= 0.0
+                && element.bbox.y + element.bbox.height <= display.height));
+        assert!(
+            !display
+                .element_ids
+                .iter()
+                .flatten()
+                .any(|id| id.ends_with("/bar-number-staff")),
+            "hidden lines must emit no drawing commands"
+        );
+        assert_eq!(
+            crate::layout::layout_with_mnx_scores(&score, &config, 1)
+                .element_bboxes
+                .iter()
+                .filter(|element| element.element_id.contains("/bn1-above/")
+                    && element.element_id.ends_with("/mnum"))
+                .count(),
+            0
+        );
+        source["_x"]["viritura"]["barNumbers"]["showStaffLine"] = json!(true);
+        let lined = crate::layout::layout_with_mnx_scores(
+            &parse_mnx(&source.to_string()).unwrap(),
+            &config,
+            0,
+        );
+        assert!(lined
+            .element_ids
+            .iter()
+            .flatten()
+            .any(|id| id.ends_with("/bar-number-staff")));
+        for original in display
+            .element_bboxes
+            .iter()
+            .filter(|element| element.element_id.ends_with("/bar-number-staff"))
+        {
+            let visible = lined
+                .element_bboxes
+                .iter()
+                .find(|element| element.element_id == original.element_id)
+                .unwrap();
+            assert_eq!(
+                original.bbox, visible.bbox,
+                "line visibility must not change row justification"
+            );
+        }
+        source["_x"]["viritura"]["barNumbers"]["showStaffLine"] = json!(false);
+    }
+    source["_x"]["viritura"]["barNumbers"]["onStaff"] = json!(false);
+    source["_x"]["viritura"]["barNumbers"]["distance"] = json!(0);
+    let content = crate::layout::layout_with_mnx_scores(
+        &parse_mnx(&source.to_string()).unwrap(),
+        &LayoutConfig::default(),
+        0,
+    );
+    assert!(!content
+        .element_bboxes
+        .iter()
+        .any(|element| element.element_id.ends_with("/bar-number-staff")));
+    let first = content
+        .element_bboxes
+        .iter()
+        .find(|element| element.element_id == "m0/bn1-above/mnum")
+        .unwrap();
+    let second = content
+        .element_bboxes
+        .iter()
+        .find(|element| element.element_id == "m1/bn1-above/mnum")
+        .unwrap();
+    assert!(
+        (first.bbox.y - second.bbox.y).abs() > 1e-6,
+        "content-following numbers must clear local markings independently: first={}, second={}",
+        first.bbox.y,
+        second.bbox.y
+    );
+}
+
+#[test]
+fn multiple_system_locations_work_in_legacy_and_horizon_views() {
+    let mut source = bar_number_fixture(80);
+    source["_x"] = json!({"viritura": {"barNumbers": {
+        "placements": ["aboveSystem", "belowSystem"], "frequency": "everyBar", "showFirst": true,
+        "onStaff": true, "showStaffLine": false
+    }}});
+    let score = parse_mnx(&source.to_string()).unwrap();
+    let config = LayoutConfig::default();
+    for display in [
+        crate::layout::layout_full_score(&score, &config),
+        crate::layout::layout_with_mnx_scores(&score, &config, 0),
+    ] {
+        assert_eq!(bar_number_texts(&display).len(), 160);
+        for key in ["bn0-above", "bn2-below"] {
+            let centers: Vec<_> = display
+                .element_bboxes
+                .iter()
+                .filter(|element| {
+                    element.element_id.contains(key)
+                        && element.element_id.ends_with("/bar-number-staff")
+                })
+                .map(|element| element.bbox.y + element.bbox.height * 0.5)
+                .collect();
+            assert!(!centers.is_empty());
+            assert!(centers
+                .iter()
+                .all(|center| (*center - centers[0]).abs() < 1e-6));
+        }
+    }
+    source["scores"][0]["_x"] = json!({"viritura": {"barNumbers": {"placement": "aboveSystem"}}});
+    let legacy_override =
+        crate::layout::layout_with_mnx_scores(&parse_mnx(&source.to_string()).unwrap(), &config, 0);
+    assert_eq!(
+        bar_number_texts(&legacy_override).len(),
+        80,
+        "legacy layout placement must replace inherited multi-placement"
+    );
+    source["scores"][0].as_object_mut().unwrap().remove("_x");
+    source["_x"]["viritura"]["barNumbers"]["placements"] = json!([]);
+    let hidden =
+        crate::layout::layout_with_mnx_scores(&parse_mnx(&source.to_string()).unwrap(), &config, 0);
+    assert!(bar_number_texts(&hidden).is_empty());
+    assert!(!hidden
+        .element_bboxes
+        .iter()
+        .any(|element| element.element_id.ends_with("/bar-number-staff")));
+}
+
+#[test]
+fn invalid_bar_number_locations_are_rejected() {
+    for settings in [
+        json!({"placements": ["aboveSystem", "aboveSystem"]}),
+        json!({"aboveGroups": [[]]}),
+        json!({"aboveGroups": [["piano", "piano"]]}),
+        json!({"aboveGroups": [["piano"], ["piano"]]}),
+        json!({"aboveGroups": [[""]]}),
+    ] {
+        let mut source = bar_number_fixture(1);
+        source["_x"] = json!({"viritura": {"barNumbers": settings}});
+        assert!(parse_mnx(&source.to_string()).is_err());
+    }
+}
+
+#[test]
 fn single_line_bar_number_staff_has_one_center_and_displaces_the_next_instrument() {
     let mut source = bar_number_fixture(12);
     let config = LayoutConfig {

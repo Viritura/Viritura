@@ -10,8 +10,11 @@ use super::super::types::*;
 use crate::model::*;
 use crate::render::*;
 
+#[path = "measure_numbers/locations.rs"]
+mod locations;
 #[path = "measure_numbers/number_staff.rs"]
 mod number_staff;
+pub(crate) use locations::*;
 
 pub(crate) struct NumberLabel {
     pub text: String,
@@ -31,7 +34,7 @@ pub(crate) fn render_measure_numbers(
     render_here: bool,
     leading_clef_gap: f64,
 ) {
-    if !render_here {
+    if !render_here || has_multiple_number_locations(&config.bar_numbers) {
         return;
     }
     let Some(mut label) = number_label(ml, staff_y, sp, config) else {
@@ -42,6 +45,16 @@ pub(crate) fn render_measure_numbers(
         label.bbox.x += leading_clef_gap;
     }
     let eid = element_id::measure_number(ml.resolved.index);
+    render_number_label(dl, label, sp, config, eid);
+}
+
+fn render_number_label(
+    dl: &mut DisplayList,
+    label: NumberLabel,
+    sp: f64,
+    config: &LayoutConfig,
+    eid: String,
+) {
     let enclosure = config.bar_numbers.enclosure.unwrap_or_default();
     let b = &label.bbox;
     match enclosure {
@@ -247,7 +260,92 @@ pub(crate) fn flow_bar_numbers(
     layouts: &[MeasureLayout],
     staff_y: f64,
     render_here: bool,
+    context: Option<&BarNumberStaffContext>,
+    clef_changes: &std::collections::HashSet<usize>,
+) {
+    if has_multiple_number_locations(&config.bar_numbers) {
+        let fallback = BarNumberStaffContext {
+            staff_index: 0,
+            placements: simple_number_locations(&config.bar_numbers, 0, 1, 0),
+            rows: BarNumberRowPositions::default(),
+        };
+        let context = context.unwrap_or(&fallback);
+        for &placement in &context.placements {
+            let above = placement == BarNumberPlacement::AboveSystem;
+            let key = number_location_key(context.staff_index, above);
+            let mut local = config.clone();
+            local.bar_numbers.placements = None;
+            local.bar_numbers.above_groups = None;
+            local.bar_numbers.placement = Some(placement);
+            for layout in layouts {
+                if let Some(mut label) = number_label(layout, staff_y, config.sp, &local) {
+                    if local.bar_numbers.horizontal_alignment
+                        == Some(BarNumberHorizontalAlignment::Barline)
+                    {
+                        let gap = render_measure::measure_leading_clef_gap(
+                            layout,
+                            config.sp,
+                            clef_changes,
+                        );
+                        label.x += gap;
+                        label.bbox.x += gap;
+                    }
+                    render_number_label(
+                        dl,
+                        label,
+                        config.sp,
+                        &local,
+                        format!("m{}/{key}/mnum", layout.resolved.index),
+                    );
+                }
+            }
+            let row_y = if above {
+                context.rows.above
+            } else {
+                context.rows.below
+            };
+            flow_number_location(
+                dl,
+                staff_cmd_start,
+                &local,
+                layouts,
+                staff_y,
+                true,
+                row_y,
+                Some(&key),
+            );
+        }
+        return;
+    }
+    let row_y = context.and_then(|context| {
+        if config.bar_numbers.placement == Some(BarNumberPlacement::AboveSystem) {
+            context.rows.above
+        } else {
+            context.rows.below
+        }
+    });
+    flow_number_location(
+        dl,
+        staff_cmd_start,
+        config,
+        layouts,
+        staff_y,
+        render_here,
+        row_y,
+        None,
+    );
+}
+
+#[allow(clippy::too_many_arguments)] // Each location owns its labels and row while sharing the staff's obstacles.
+fn flow_number_location(
+    dl: &mut DisplayList,
+    staff_cmd_start: usize,
+    config: &LayoutConfig,
+    layouts: &[MeasureLayout],
+    staff_y: f64,
+    render_here: bool,
     row_y: Option<f64>,
+    location_key: Option<&str>,
 ) {
     if !render_here || config.bar_numbers.frequency == Some(BarNumberFrequency::Hidden) {
         return;
@@ -263,7 +361,10 @@ pub(crate) fn flow_bar_numbers(
     let mut boxes = Vec::new();
     for (index, _) in dl.commands.iter().enumerate().skip(staff_cmd_start) {
         let id = dl.element_ids.get(index).and_then(Option::as_deref);
-        if id.is_some_and(|id| id.ends_with("/mnum")) {
+        if id.is_some_and(|id| {
+            id.ends_with("/mnum")
+                && location_key.is_none_or(|key| id.ends_with(&format!("/{key}/mnum")))
+        }) {
             let id = id.unwrap();
             if ids.iter().any(|known| known == id) {
                 continue;
@@ -296,6 +397,7 @@ pub(crate) fn flow_bar_numbers(
             &ids,
             &boxes,
             row_y,
+            location_key,
         );
         return;
     }

@@ -122,7 +122,7 @@ it("stores alignment, staff style and validated spacing as partial layout overri
   await user.click(await screen.findByRole("combobox", { name: "Apply to" }));
   await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
   expect(screen.getByRole("spinbutton", { name: "Distance from staff (staff spaces)" })).toHaveProperty("value", "3");
-  await user.click(screen.getByRole("checkbox", { name: "Single-line bar number staff" }));
+  await user.click(screen.getByRole("checkbox", { name: "Reserve a bar-number row" }));
   await user.click(screen.getByRole("combobox", { name: "Horizontal alignment" }));
   await user.click(screen.getByRole("option", { name: "Aligned with barline" }));
   const distance = screen.getByRole("spinbutton", { name: "Distance from staff (staff spaces)" });
@@ -136,4 +136,44 @@ it("stores alignment, staff style and validated spacing as partial layout overri
   await user.tab();
   expect(getScore()?.scores?.[1]?.barNumbers).toEqual({ onStaff: false, horizontalAlignment: "barline", distance: 0 });
   expect(getScore()?.barNumbers).toEqual({ distance: 3, horizontalAlignment: "center", onStaff: true });
+});
+
+it("combines system placements with layout-specific outer brackets and hides only the row line", async () => {
+  const user = userEvent.setup();
+  const getScore = renderPanel({
+    ...SCORE,
+    barNumbers: { placement: "aboveSystem", onStaff: true },
+    layouts: [
+      {
+        id: "L",
+        content: [
+          {
+            type: "group",
+            symbol: "bracket",
+            label: "Strings",
+            content: [
+              {
+                type: "group",
+                symbol: "bracket",
+                label: "Inner",
+                content: [{ type: "staff", sources: [{ part: "p" }] }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    scores: SCORE.scores?.map((view) => ({ ...view, layout: "L" })),
+  });
+  expect(screen.queryByRole("checkbox", { name: "Above Strings bracket" })).toBeNull();
+  await user.click(screen.getByRole("checkbox", { name: "Below the whole system" }));
+  expect(getScore()?.barNumbers?.placements).toEqual(["aboveSystem", "belowSystem"]);
+  await user.click(screen.getByRole("combobox", { name: "Apply to" }));
+  await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
+  expect(screen.queryByRole("checkbox", { name: "Above Inner bracket" })).toBeNull();
+  await user.click(screen.getByRole("checkbox", { name: "Above Strings bracket" }));
+  await user.click(screen.getByRole("checkbox", { name: "Show staff line" }));
+  expect(getScore()?.scores?.[1]?.barNumbers).toEqual({ aboveGroups: [["p"]], showStaffLine: false });
+  expect(getScore()?.scores?.[2]?.barNumbers).toBeUndefined();
+  expect(getScore()?.barNumbers?.onStaff).toBe(true);
 });

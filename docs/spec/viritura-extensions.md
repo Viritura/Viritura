@@ -833,19 +833,22 @@ override individual fields at `scores[]._x.viritura.barNumbers`; omitted fields
 inherit the document house style. Engrave mode exposes both scopes under
 **House Style > Bar Numbers**. Resetting a layout's overrides restores inheritance.
 
-| Field                 | Values                                             | Default                                                               |
-| --------------------- | -------------------------------------------------- | --------------------------------------------------------------------- |
-| `frequency`           | `systemStarts`, `everyBar`, `hidden`               | `systemStarts`                                                        |
-| `placement`           | `aboveSystem`, `belowSystem`, `belowTopInstrument` | `belowTopInstrument`                                                  |
-| `horizontalAlignment` | `barline`, `center`                                | `barline` for ordinary bars; legacy centered rest ranges when omitted |
-| `distance`            | non-negative staff spaces                          | placement attach gap (normally 0.5); 0.5 for rest ranges              |
-| `onStaff`             | boolean, dedicated single-line number staff        | `false`                                                               |
-| `showFirst`           | boolean, prints bar 1 when eligible                | `false`                                                               |
-| `family`              | `serif`, `sans-serif`, `monospace`                 | `serif`                                                               |
-| `size`                | 0.5 to 8 staff spaces                              | 2                                                                     |
-| `bold`                | boolean                                            | `false`                                                               |
-| `italic`              | boolean                                            | `true`                                                                |
-| `enclosure`           | `none`, `box`, `circle`                            | `none`                                                                |
+| Field                 | Values                                                       | Default                                                               |
+| --------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `frequency`           | `systemStarts`, `everyBar`, `hidden`                         | `systemStarts`                                                        |
+| `placement`           | `aboveSystem`, `belowSystem`, `belowTopInstrument`           | `belowTopInstrument`                                                  |
+| `placements`          | array of system placements; empty disables system copies     | inherits `placement` when omitted                                     |
+| `aboveGroups`         | arrays of member part IDs for outermost brackets, per layout | no additional group copies                                            |
+| `horizontalAlignment` | `barline`, `center`                                          | `barline` for ordinary bars; legacy centered rest ranges when omitted |
+| `distance`            | non-negative staff spaces                                    | placement attach gap (normally 0.5); 0.5 for rest ranges              |
+| `onStaff`             | boolean, reserve a vertically justified number row           | `false`                                                               |
+| `showStaffLine`       | boolean, paint the reserved row's line                       | `true`                                                                |
+| `showFirst`           | boolean, prints bar 1 when eligible                          | `false`                                                               |
+| `family`              | `serif`, `sans-serif`, `monospace`                           | `serif`                                                               |
+| `size`                | 0.5 to 8 staff spaces                                        | 2                                                                     |
+| `bold`                | boolean                                                      | `false`                                                               |
+| `italic`              | boolean                                                      | `true`                                                                |
+| `enclosure`           | `none`, `box`, `circle`                                      | `none`                                                                |
 
 The default preserves the existing placement below the top instrument's lowest
 staff. Whole-system placement uses the outer visible staff, including grand
@@ -861,12 +864,26 @@ pre-barline clef change and also applies to multimeasure-rest ranges.
 `distance` is the minimum gap from the musical staff to the number
 ink; collision clearance can increase it.
 
-With `onStaff`, the selected placement creates a source-free display staff,
-not a musical or playback part. Numbers are vertically centered on one line,
-with breaks in the line around their text and enclosures. The whole row clears
+`placements` is a multi-selection: above the system, below the system, and
+below the top instrument can be combined. A layout override can additionally
+choose individual outermost bracket groups through `aboveGroups`. These choices
+use member part IDs, not group labels or tree positions, and stay specific to
+that score view. Hidden member staves do not remove a group's numbers while
+other selected members remain visible. Coincident locations share one copy.
+An explicit empty array clears the corresponding inherited choices.
+Legacy `placement` remains supported; an explicit legacy layout placement
+replaces inherited `placements`.
+
+With `onStaff` (**Reserve a bar-number row**), each selected location creates a
+source-free display row, not a musical or playback part. Numbers are vertically
+centered together. `showStaffLine: false` hides only the line, preserving the
+same row geometry and spacing; when shown, the line breaks around text and
+enclosures. Without a reserved row, numbers follow local musical content and
+clear collisions individually. The whole reserved row clears
 musical ink together. Its measured envelope participates in normal inter-staff
 spacing and page fitting, so a row below the top instrument pushes subsequent
-instruments down as needed. Frequency and first-bar visibility still apply;
+instruments down as needed. A row above a bracket similarly reserves space
+between that group and the preceding group. Frequency and first-bar visibility still apply;
 `hidden` removes the line as well as its labels.
 
 ```json

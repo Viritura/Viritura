@@ -81,3 +81,81 @@ export const SingleLineStaff: StoryObj = {
       enclosure: "box",
     }),
 };
+
+export const ReservedRowsWithoutLines: StoryObj = {
+  name: "Reserved rows above and below, without staff lines",
+  render: () =>
+    preview({
+      frequency: "everyBar",
+      showFirst: true,
+      placements: ["aboveSystem", "belowSystem"],
+      onStaff: true,
+      showStaffLine: false,
+      horizontalAlignment: "center",
+    }),
+};
+
+export const SystemAndStringsBracket: StoryObj = {
+  name: "Above system, below system, and above Strings bracket",
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1 },
+        global: {
+          measures: Array.from({ length: 8 }, (_, index) => (index === 0 ? { time: { count: 4, unit: 4 } } : {})),
+        },
+        parts: ["winds", "violin", "cello"].map((id, index) => ({
+          id,
+          name: id,
+          measures: Array.from({ length: 8 }, () => ({
+            sequences: [
+              {
+                content: [
+                  {
+                    duration: { base: "whole" },
+                    notes: [{ pitch: { step: "C", octave: index === 2 ? 3 : 5 } }],
+                  },
+                ],
+              },
+            ],
+          })),
+        })),
+        layouts: [
+          {
+            id: "L",
+            content: [
+              {
+                type: "group",
+                symbol: "bracket",
+                label: "Winds",
+                content: [{ type: "staff", sources: [{ part: "winds" }] }],
+              },
+              {
+                type: "group",
+                symbol: "bracket",
+                label: "Strings",
+                content: [
+                  { type: "staff", sources: [{ part: "violin" }] },
+                  { type: "staff", sources: [{ part: "cello" }] },
+                ],
+              },
+            ],
+          },
+        ],
+        scores: [{ layout: "L", _x: { viritura: { barNumbers: { aboveGroups: [["violin", "cello"]] } } } }],
+        _x: {
+          viritura: {
+            barNumbers: {
+              frequency: "everyBar",
+              showFirst: true,
+              placements: ["aboveSystem", "belowSystem"],
+              onStaff: true,
+              showStaffLine: false,
+              horizontalAlignment: "center",
+            },
+          },
+        },
+      })}
+    />
+  ),
+};

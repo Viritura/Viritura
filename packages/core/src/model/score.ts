@@ -49,11 +49,17 @@ export type TextStyles = Partial<Record<string, TextStyleOverride>>;
 export interface BarNumberSettings {
   frequency?: "systemStarts" | "everyBar" | "hidden";
   placement?: "aboveSystem" | "belowSystem" | "belowTopInstrument";
+  /** Selected system locations; replaces legacy placement when present. */
+  placements?: ("aboveSystem" | "belowSystem" | "belowTopInstrument")[];
+  /** Layout-specific outer brackets, identified by their member part IDs. */
+  aboveGroups?: string[][];
   horizontalAlignment?: "barline" | "center";
   /** Minimum distance from the musical staff, in staff spaces. */
   distance?: number;
-  /** Print numbers vertically centered on a dedicated single-line staff. */
+  /** Reserve a vertically aligned row independently of local musical content. */
   onStaff?: boolean;
+  /** Show the line of a reserved bar-number row. */
+  showStaffLine?: boolean;
   showFirst?: boolean;
   family?: FontFamily;
   /** Font size in staff spaces. */
@@ -63,12 +69,13 @@ export interface BarNumberSettings {
   enclosure?: "none" | "box" | "circle";
 }
 
-export const DEFAULT_BAR_NUMBER_SETTINGS: Required<BarNumberSettings> = {
+export const DEFAULT_BAR_NUMBER_SETTINGS: Required<Omit<BarNumberSettings, "placements" | "aboveGroups">> = {
   frequency: "systemStarts",
   placement: "belowTopInstrument",
   horizontalAlignment: "barline",
   distance: 0.5,
   onStaff: false,
+  showStaffLine: true,
   showFirst: false,
   family: "serif",
   size: 2,

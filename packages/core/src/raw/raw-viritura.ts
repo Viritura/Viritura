@@ -672,10 +672,13 @@ export interface components {
             frequency?: "systemStarts" | "everyBar" | "hidden";
             /** @enum {unknown} */
             placement?: "aboveSystem" | "belowSystem" | "belowTopInstrument";
+            placements?: ("aboveSystem" | "belowSystem" | "belowTopInstrument")[];
+            aboveGroups?: string[][];
             /** @enum {unknown} */
             horizontalAlignment?: "barline" | "center";
             distance?: number;
             onStaff?: boolean;
+            showStaffLine?: boolean;
             showFirst?: boolean;
             /** @enum {unknown} */
             family?: "serif" | "sans-serif" | "monospace";

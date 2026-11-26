@@ -1356,9 +1356,25 @@
       "properties": {
         "frequency": { "enum": ["systemStarts", "everyBar", "hidden"] },
         "placement": { "enum": ["aboveSystem", "belowSystem", "belowTopInstrument"] },
+        "placements": {
+          "type": "array",
+          "items": { "enum": ["aboveSystem", "belowSystem", "belowTopInstrument"] },
+          "uniqueItems": true
+        },
+        "aboveGroups": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "uniqueItems": true
+        },
         "horizontalAlignment": { "enum": ["barline", "center"] },
         "distance": { "type": "number", "minimum": 0 },
         "onStaff": { "type": "boolean" },
+        "showStaffLine": { "type": "boolean" },
         "showFirst": { "type": "boolean" },
         "family": { "enum": ["serif", "sans-serif", "monospace"] },
         "size": { "type": "number", "minimum": 0.5, "maximum": 8 },

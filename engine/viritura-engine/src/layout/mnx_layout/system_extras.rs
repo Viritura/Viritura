@@ -165,8 +165,7 @@ pub(super) fn compute_system_extras(
         );
         let intra = placement.offsets.last().copied().unwrap_or(0.0);
         if config.page_width.is_some()
-            || config.bar_numbers.on_staff == Some(true)
-            || config.bar_numbers.distance.is_some()
+            || super::super::render_annotations::reserves_number_ink(&config.bar_numbers)
         {
             let (ink_above, ink_below) = super::system_ink::outer_extents(
                 sys_layouts,
@@ -174,6 +173,7 @@ pub(super) fn compute_system_extras(
                 &placement.offsets,
                 score,
                 config,
+                group_ranges,
             );
             above = ink_above;
             below = ink_below;

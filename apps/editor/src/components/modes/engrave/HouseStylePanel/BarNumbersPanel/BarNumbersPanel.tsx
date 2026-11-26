@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useDocumentStore, useDocumentStoreApi } from "../../../../../store/DocumentContext";
 import { useViewStateStore } from "../../../../../store/viewStateStore";
 import styles from "./BarNumbersPanel.module.css";
+import { bracketMatchesSelection, bracketPlacements } from "./bracketPlacements";
 
 interface ChoiceProps<T extends string> {
   label: string;
@@ -86,6 +87,13 @@ export function BarNumbersPanel() {
     ...score?.barNumbers,
     ...(scope === "layout" ? definition?.barNumbers : {}),
   };
+  const selectedPlacements =
+    scope === "layout" &&
+    definition?.barNumbers?.placement !== undefined &&
+    definition.barNumbers.placements === undefined
+      ? [definition.barNumbers.placement]
+      : (settings.placements ?? [settings.placement]);
+  const groups = bracketPlacements(score, scoreIndex);
   function commit(next: BarNumberSettings | undefined) {
     const document = store.getState();
     const current = document.workingScore ?? document.score;
@@ -133,21 +141,60 @@ export function BarNumbersPanel() {
         ]}
         onChange={(value) => update("frequency", value)}
       />
-      <Choice
-        label="Placement"
-        value={settings.placement}
-        options={[
-          { value: "aboveSystem", label: "Above the whole system" },
-          { value: "belowSystem", label: "Below the whole system" },
-          { value: "belowTopInstrument", label: "Below the top instrument" },
-        ]}
-        onChange={(value) => update("placement", value)}
-      />
+      <FormField label="Placement (select any)">
+        <div>
+          {(
+            [
+              ["aboveSystem", "Above the whole system"],
+              ["belowSystem", "Below the whole system"],
+              ["belowTopInstrument", "Below the top instrument"],
+            ] as const
+          ).map(([value, label]) => (
+            <Checkbox
+              key={value}
+              label={label}
+              checked={selectedPlacements.includes(value)}
+              onChange={(event) =>
+                update(
+                  "placements",
+                  event.target.checked
+                    ? [...selectedPlacements, value]
+                    : selectedPlacements.filter((placement) => placement !== value),
+                )
+              }
+            />
+          ))}
+          {scope === "layout" &&
+            groups.map((group) => (
+              <Checkbox
+                key={JSON.stringify(group.parts)}
+                label={`Above ${group.label} bracket`}
+                checked={settings.aboveGroups?.some((parts) => bracketMatchesSelection(group, parts)) ?? false}
+                onChange={(event) => {
+                  const selected = settings.aboveGroups ?? [];
+                  update(
+                    "aboveGroups",
+                    event.target.checked
+                      ? [...selected, group.parts]
+                      : selected.filter((parts) => !bracketMatchesSelection(group, parts)),
+                  );
+                }}
+              />
+            ))}
+        </div>
+      </FormField>
       <Checkbox
-        label="Single-line bar number staff"
+        label="Reserve a bar-number row"
         checked={settings.onStaff}
         onChange={(event) => update("onStaff", event.target.checked)}
       />
+      {settings.onStaff && (
+        <Checkbox
+          label="Show staff line"
+          checked={settings.showStaffLine}
+          onChange={(event) => update("showStaffLine", event.target.checked)}
+        />
+      )}
       <Choice
         label="Horizontal alignment"
         value={settings.horizontalAlignment}
@@ -210,8 +257,9 @@ export function BarNumbersPanel() {
         {scope === "layout"
           ? "Only edited fields override the house style. Other layouts are unchanged."
           : "Layouts inherit these defaults unless they have their own overrides."}{" "}
-        Bar 0 is never printed. Distance is a minimum: musical markings may require more clearance. The single-line
-        staff keeps its numbers centered together and reserves space between instruments.
+        Bar 0 is never printed. Distance is a minimum: musical markings may require more clearance. A reserved row keeps
+        numbers vertically aligned and clears space even when its line is hidden. Otherwise, numbers follow the local
+        musical content. Bracket choices are specific to the current layout.
         {!definition && " Create a layout in the Layouts tab to add layout-specific overrides."}
       </p>
     </div>

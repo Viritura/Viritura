@@ -415,8 +415,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     // of `total_height` below.
     let chunked_global_offsets: Option<StaffYPlacement> = if chunked {
         if config.emit_layout_debug
-            || config.bar_numbers.on_staff == Some(true)
-            || config.bar_numbers.distance.is_some()
+            || super::super::render_annotations::reserves_number_ink(&config.bar_numbers)
         {
             let staff_count = flat_staves.len();
             let mut global_view: Vec<Vec<&MeasureLayout>> = vec![Vec::new(); staff_count];

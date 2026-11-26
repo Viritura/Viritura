@@ -216,7 +216,10 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
             (*global).clone()
         } else if let Some(rel) = prior_sys_idx
             .and_then(|index| prior_staff_y_rel.get(index))
-            .filter(|_| skippable && config.bar_numbers.on_staff != Some(true))
+            .filter(|_| {
+                skippable
+                    && !super::super::render_annotations::reserves_number_ink(&config.bar_numbers)
+            })
             .filter(|rel| rel.len() == flat_staves.len())
         {
             // Lever 1: clean system — its protrusions and justification are
@@ -228,7 +231,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
             StaffYPlacement {
                 offsets: rel.iter().map(|r| r + sys_y_base).collect(),
                 pair_debug: Vec::new(),
-                number_staff_y: None,
+                number_staff_y: Vec::new(),
             }
         } else {
             let staff_view: Vec<Vec<&MeasureLayout>> = all_staff_layouts
@@ -249,7 +252,11 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                 score,
             )
         };
-        let render_salt = render_salt ^ number_staff_y.map_or(0, f64::to_bits);
+        let render_salt = number_staff_y.iter().fold(render_salt, |salt, rows| {
+            salt.rotate_left(7)
+                ^ rows.above.map_or(0, f64::to_bits)
+                ^ rows.below.map_or(0, f64::to_bits)
+        });
 
         let shared_staff_offsets_stable = !chunked
             || reusable_prior_sys_idx
@@ -612,7 +619,8 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                 global_tie_maps,
                 staff_idx,
                 &mut accidental_obstacles,
-                number_staff_y,
+                Some(&number_staff_y),
+                group_ranges,
             );
             let end = display_list_store_marker(&seg);
             fresh_staff_layers.push(cache::RetainedStaffContentLayer {

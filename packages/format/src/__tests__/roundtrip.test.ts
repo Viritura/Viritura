@@ -41,6 +41,9 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
                 italic: false,
                 enclosure: "circle",
                 onStaff: false,
+                showStaffLine: false,
+                placements: [],
+                aboveGroups: [["p"]],
                 distance: 0,
               },
             },
@@ -51,6 +54,7 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
         viritura: {
           barNumbers: {
             placement: "aboveSystem",
+            placements: ["aboveSystem", "belowSystem"],
             family: "sans-serif",
             size: 1.5,
             bold: true,
@@ -80,6 +84,12 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     { distance: "3" },
     { onStaff: "yes" },
     { horizontalAlignment: "inset" },
+    { placements: ["aboveSystem", "aboveSystem"] },
+    { placements: ["betweenStaves"] },
+    { aboveGroups: [[]] },
+    { aboveGroups: [["p"], ["p"]] },
+    { aboveGroups: [["p", "p"]] },
+    { showStaffLine: "yes" },
   ])("rejects invalid bar-number settings %j", (barNumbers) => {
     expect(() =>
       parseMnx({

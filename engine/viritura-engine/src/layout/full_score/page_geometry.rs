@@ -245,35 +245,40 @@ pub(super) fn compute_full_score_page_layout(
 
     let system_count = systems.len();
     let inter_system_gap = config.inter_system_spacing * sp;
-    let placement = config.bar_numbers.placement.unwrap_or_default();
-    let number_extras = number_ink_extras(
-        score,
-        config,
-        &systems,
-        max_widths,
-        margin_left,
-        content_width,
-        resolved,
-        ottavas,
-        shortest_beats,
-    );
-    let between_numbers = if placement == BarNumberPlacement::BelowTopInstrument {
-        number_extras
-            .iter()
-            .map(|extras| extras.1)
-            .fold(0.0_f64, f64::max)
-    } else {
-        0.0
-    };
+    let placements = config
+        .bar_numbers
+        .placements
+        .clone()
+        .unwrap_or_else(|| vec![config.bar_numbers.placement.unwrap_or_default()]);
+    let mut extras = vec![(0.0_f64, 0.0_f64); system_count];
+    let mut between_numbers = 0.0_f64;
+    for placement in placements {
+        let mut local = config.clone();
+        local.bar_numbers.placements = None;
+        local.bar_numbers.above_groups = None;
+        local.bar_numbers.placement = Some(placement);
+        let measured = number_ink_extras(
+            score,
+            &local,
+            &systems,
+            max_widths,
+            margin_left,
+            content_width,
+            resolved,
+            ottavas,
+            shortest_beats,
+        );
+        for (extent, (above, below)) in extras.iter_mut().zip(measured) {
+            match placement {
+                BarNumberPlacement::AboveSystem => extent.0 = extent.0.max(above),
+                BarNumberPlacement::BelowSystem => extent.1 = extent.1.max(below),
+                BarNumberPlacement::BelowTopInstrument => {
+                    between_numbers = between_numbers.max(below)
+                }
+            }
+        }
+    }
     let inter_staff_gap = inter_staff_gap.max(between_numbers + sp);
-    let extras: Vec<_> = number_extras
-        .iter()
-        .map(|&(above, below)| match placement {
-            BarNumberPlacement::AboveSystem => (above, 0.0),
-            BarNumberPlacement::BelowSystem => (0.0, below),
-            BarNumberPlacement::BelowTopInstrument => (0.0, 0.0),
-        })
-        .collect();
     let margin_top = margin_top.max(extras.iter().map(|extra| extra.0).fold(0.0_f64, f64::max));
     let single_system_height = visual_staff_count as f64 * staff_height
         + (visual_staff_count - 1) as f64 * inter_staff_gap;

@@ -796,7 +796,8 @@ pub(super) fn render_system_staff_content(
     tie_maps_per_staff: Option<&[HashMap<String, bool>]>,
     staff_idx: usize,
     acc_obstacles: &mut Vec<AccidentalObstacle>,
-    number_staff_y: Option<f64>,
+    number_staff_y: Option<&[super::super::render_annotations::BarNumberRowPositions]>,
+    number_groups: &[GroupRange],
 ) {
     let Some(measure_layouts) = all_staff_layouts.get(staff_idx) else {
         return;
@@ -815,6 +816,17 @@ pub(super) fn render_system_staff_content(
     let recolor_start = dl.commands.len();
     let tie_override = tie_maps_per_staff.and_then(|maps| maps.get(staff_idx));
     let bounds_start = dl.measure_bounds.len();
+    let number_context = super::super::render_annotations::number_staff_context(
+        &config.bar_numbers,
+        staff_idx,
+        flat_staves,
+        number_groups,
+        score,
+        number_staff_y
+            .and_then(|rows| rows.get(staff_idx))
+            .copied()
+            .unwrap_or_default(),
+    );
     render_system_contents(
         dl,
         measure_layouts,
@@ -835,7 +847,7 @@ pub(super) fn render_system_staff_content(
         clef_change_measures,
         acc_obstacles,
         tie_override,
-        number_staff_y,
+        Some(&number_context),
     );
     super::staff_sources::assign_measure_sources(
         &mut dl.measure_bounds[bounds_start..],

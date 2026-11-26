@@ -30,7 +30,7 @@ fn layouts_share_part(upper_layouts: &[&MeasureLayout], lower_layouts: &[&Measur
 pub(super) struct StaffYPlacement {
     pub(super) offsets: Vec<f64>,
     pub(super) pair_debug: Vec<crate::render::StaffPairDebug>,
-    pub(super) number_staff_y: Option<f64>,
+    pub(super) number_staff_y: Vec<super::super::render_annotations::BarNumberRowPositions>,
 }
 
 /// Compute per-staff vertical offsets for a system.
@@ -115,6 +115,7 @@ pub(super) fn compute_staff_y_offsets_for_system(
             score,
             config,
             staff_index - 1,
+            group_ranges,
         );
         if let Some(row) = &number_row {
             lowest_above = lowest_above.max(row.y + row.height);
@@ -157,7 +158,9 @@ pub(super) fn compute_staff_y_offsets_for_system(
             ));
         }
 
-        if number_row.is_some() {
+        if number_row.is_some()
+            || super::super::render_annotations::reserves_number_ink(&config.bar_numbers)
+        {
             above_protrusion = above_protrusion.max(super::system_ink::staff_above_protrusion(
                 all_staff_layouts,
                 flat_staves,
@@ -165,6 +168,7 @@ pub(super) fn compute_staff_y_offsets_for_system(
                 score,
                 config,
                 staff_index,
+                group_ranges,
             ));
         }
         let content_y = lowest_above + above_protrusion + min_clearance;
@@ -193,19 +197,21 @@ pub(super) fn compute_staff_y_offsets_for_system(
     }
 
     let number_staff_y = if config.bar_numbers.on_staff == Some(true) {
-        (0..flat_staves.len()).find_map(|staff| {
-            super::system_ink::number_ink_bounds(
-                all_staff_layouts,
-                flat_staves,
-                &offsets,
-                score,
-                config,
-                staff,
-            )
-            .map(|row| row.y + row.height * 0.5)
-        })
+        (0..flat_staves.len())
+            .map(|staff| {
+                super::system_ink::number_row_positions(
+                    all_staff_layouts,
+                    flat_staves,
+                    &offsets,
+                    score,
+                    config,
+                    staff,
+                    group_ranges,
+                )
+            })
+            .collect()
     } else {
-        None
+        Vec::new()
     };
     StaffYPlacement {
         offsets,

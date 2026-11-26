@@ -775,6 +775,12 @@ fn render_one_staff_for_system(
         Some(&part_staff_y_offsets),
     );
     render_pedals(dl, measure_layouts, staff_y, sp, config, actual_part_index);
+    let number_context = super::render_annotations::BarNumberStaffContext::simple(
+        &config.bar_numbers,
+        vi,
+        visual_staves.len(),
+        score.parts[0].staves.max(1) as usize - 1,
+    );
     super::render_annotations::flow_bar_numbers(
         dl,
         staff_cmd_start,
@@ -782,7 +788,8 @@ fn render_one_staff_for_system(
         measure_layouts,
         staff_y,
         render_measure_number_here,
-        None,
+        Some(&number_context),
+        clef_change_measures,
     );
 
     // Capture this staff's event positions + system bounds so the
