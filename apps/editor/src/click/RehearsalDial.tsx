@@ -1,13 +1,19 @@
 import { useMemo } from "react";
 import { NavigationDial } from "./NavigationDial";
-import { describeClickBar, type ClickBar, type ClickDialEntry, type ClickDialProps } from "./barNavigation";
+import {
+  describeClickBar,
+  isClickLandmark,
+  type ClickBar,
+  type ClickDialEntry,
+  type ClickDialProps,
+} from "./barNavigation";
 
 interface LandmarkEntry extends ClickDialEntry {
   readonly barIndex: number;
 }
 
 function landmarkEntry(bar: ClickBar, barIndex: number): LandmarkEntry | undefined {
-  if (!bar.rehearsal && !bar.tempoName) return undefined;
+  if (!isClickLandmark(bar)) return undefined;
   const barDetail = `${bar.number}${bar.visitCount > 1 ? ` (${bar.visit}/${bar.visitCount})` : ""}${bar.startable ? "" : " partial"}`;
   const tempo = bar.tempoName ? `Tempo ${bar.tempoName}${bar.tempoNameWithinBar ? " within the bar" : ""}` : "";
   const rehearsal = bar.rehearsal ? `Rehearsal ${bar.rehearsal}` : "";

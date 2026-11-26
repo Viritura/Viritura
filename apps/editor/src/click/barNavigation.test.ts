@@ -5,12 +5,15 @@ import { compilePlaybackTiming } from "@viritura/midi/timing";
 import { buildClickSessionProgram } from "@viritura/playback/click";
 import rehearsalMarks from "../../../../packages/format/fixtures/mnx/rehearsal-marks.mnx?raw";
 import {
+  adjacentClickLandmark,
   clickBarAtTime,
   clickBarForMeasure,
+  clickBarForNumber,
   clickScorePosition,
   clickStartPosition,
   collectClickBars,
   describeClickBar,
+  type ClickBar,
 } from "./barNavigation";
 import { readClickDocument } from "./clickDocument";
 
@@ -129,6 +132,9 @@ describe("click bar navigation", () => {
     expect(clickBarForMeasure(bars, 0, 3)).toBe(2);
     expect(clickBarForMeasure(bars, 0, 1)).toBe(0);
     expect(clickBarForMeasure(bars, 99, 0)).toBeUndefined();
+    expect(clickBarForNumber(bars, 1, 3)).toBe(2);
+    expect(clickBarForNumber(bars, 2, 0)).toBe(1);
+    expect(clickBarForNumber(bars, 9, 0)).toBeUndefined();
     const program = buildClickSessionProgram(timing, { startTimelineMeasure: 2, tempoPercent: 50 });
     expect(program.countoffSeconds).toBe(2);
     expect(clickBarAtTime(timing, program, 0, 50)).toBe(2);
@@ -140,6 +146,30 @@ describe("click bar navigation", () => {
     expect(clickScorePosition(timing, program, 3, 50)).toEqual({ measureIndex: 0, beat: 1 });
     expect(clickScorePosition(timing, program, 4.5, 50)).toEqual({ measureIndex: 1, beat: 0.5 });
     expect(clickScorePosition(timing, program, 8, 50)).toEqual({ measureIndex: 2, beat: 1 });
+  });
+
+  it("steps Previous/Next through startable rehearsal marks and named tempos", () => {
+    const bar = (number: number, extra: Partial<ClickBar> = {}): ClickBar => ({
+      measureIndex: number - 1,
+      number,
+      visit: 1,
+      visitCount: 1,
+      startable: true,
+      ...extra,
+    });
+    const bars = [
+      bar(1, { rehearsal: "A" }),
+      bar(2),
+      bar(3, { tempoName: "Allegro" }),
+      bar(4, { rehearsal: "B", startable: false }),
+      bar(5),
+      bar(6, { rehearsal: "C" }),
+    ];
+    expect(adjacentClickLandmark(bars, 1, -1)).toBe(0);
+    expect(adjacentClickLandmark(bars, 1, 1)).toBe(2);
+    expect(adjacentClickLandmark(bars, 2, 1)).toBe(5);
+    expect(adjacentClickLandmark(bars, 0, -1)).toBeUndefined();
+    expect(adjacentClickLandmark(bars, 5, 1)).toBeUndefined();
   });
 
   it("follows a shortened pickup after a full countoff", () => {

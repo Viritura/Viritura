@@ -144,6 +144,45 @@
   cursor: auto;
 }
 
+.shortcuts {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.shortcuts button {
+  min-height: 44px;
+}
+
+.goToBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+  font-size: var(--type-small-size);
+}
+
+.goToBar input {
+  width: 6ch;
+  min-height: 44px;
+  font-variant-numeric: tabular-nums;
+}
+
+.shortcutMessage {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger, #b42318);
+  font-size: var(--type-small-size);
+}
+
+/* Keep the live region in the accessibility tree while empty without adding a row. */
+.shortcutMessage:empty {
+  position: absolute;
+}
+
 .startDetails {
   display: flex;
   flex-wrap: wrap;

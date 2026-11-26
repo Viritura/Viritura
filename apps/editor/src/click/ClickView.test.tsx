@@ -761,6 +761,33 @@ describe("click activity", () => {
     expect(within(barTrack).getByRole("option", { name: "Bar 2" }).getAttribute("aria-selected")).toBe("true");
   });
 
+  it("jumps with Previous/Next rehearsal and direct bar entry", async () => {
+    await renderClick(rehearsals);
+    const barTrack = screen.getByRole("listbox", { name: "Start bar" });
+    const selected = () =>
+      within(barTrack)
+        .getAllByRole("option")
+        .find((option) => option.getAttribute("aria-selected") === "true");
+    const previous = screen.getByRole("button", { name: "Previous rehearsal" });
+    expect(previous.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Next rehearsal" }));
+    expect(selected()?.getAttribute("aria-label")).toBe("Bar 3, rehearsal B");
+    fireEvent.click(previous);
+    expect(selected()?.getAttribute("aria-label")).toBe("Bar 1, rehearsal A");
+
+    const input = screen.getByRole("textbox", { name: "Go to bar" });
+    // jsdom applies the transport's pointer-events: none but not its `:is()` override for controls.
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    await user.type(input, "2{Enter}");
+    expect(selected()?.getAttribute("aria-label")).toBe("Bar 2");
+    expect((input as HTMLInputElement).value).toBe("");
+    await user.type(input, "99{Enter}");
+    expect(screen.getByText("There is no bar 99.")).toBeTruthy();
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(selected()?.getAttribute("aria-label")).toBe("Bar 2");
+    expect(audio.load).not.toHaveBeenCalled();
+  });
+
   it("keeps Start disabled until both tracks have settled", async () => {
     await renderClick(rehearsals);
     const rehearsalTrack = screen.getByRole("listbox", { name: "Rehearsal" });

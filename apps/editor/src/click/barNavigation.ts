@@ -92,18 +92,49 @@ export function describeClickBar(bar: ClickBar): string {
   return `Bar ${bar.number}${visit}${partial}`;
 }
 
+/** Rehearsal marks and named tempo changes share the upper track and the Previous/Next shortcuts. */
+export function isClickLandmark(bar: ClickBar): boolean {
+  return Boolean(bar.rehearsal || bar.tempoName);
+}
+
+function nearestStartable(
+  bars: readonly ClickBar[],
+  currentIndex: number,
+  matches: (bar: ClickBar) => boolean,
+): number | undefined {
+  let nearest: number | undefined;
+  for (const [index, bar] of bars.entries()) {
+    if (!bar.startable || !matches(bar)) continue;
+    if (nearest === undefined || Math.abs(index - currentIndex) < Math.abs(nearest - currentIndex)) nearest = index;
+  }
+  return nearest;
+}
+
 /** A score tap preserves repeat context and only selects full-bar visits. */
 export function clickBarForMeasure(
   bars: readonly ClickBar[],
   measureIndex: number,
   currentIndex: number,
 ): number | undefined {
-  let nearest: number | undefined;
-  for (const [index, bar] of bars.entries()) {
-    if (bar.measureIndex !== measureIndex || !bar.startable) continue;
-    if (nearest === undefined || Math.abs(index - currentIndex) < Math.abs(nearest - currentIndex)) nearest = index;
+  return nearestStartable(bars, currentIndex, (bar) => bar.measureIndex === measureIndex);
+}
+
+/** Direct bar entry matches the printed bar number and, like a score tap, keeps the nearest repeat pass. */
+export function clickBarForNumber(bars: readonly ClickBar[], number: number, currentIndex: number): number | undefined {
+  return nearestStartable(bars, currentIndex, (bar) => bar.number === number);
+}
+
+/** The nearest startable landmark strictly before (-1) or after (1) the selected bar. */
+export function adjacentClickLandmark(
+  bars: readonly ClickBar[],
+  currentIndex: number,
+  direction: -1 | 1,
+): number | undefined {
+  for (let index = currentIndex + direction; index >= 0 && index < bars.length; index += direction) {
+    const bar = bars[index]!;
+    if (bar.startable && isClickLandmark(bar)) return index;
   }
-  return nearest;
+  return undefined;
 }
 
 /** Map the UI clock to the performed visit without scheduling audio on the UI thread. */

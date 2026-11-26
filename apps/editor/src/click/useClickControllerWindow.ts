@@ -14,7 +14,7 @@ export interface ClickControllerWindow {
   readonly dismissNotice: () => void;
 }
 
-const SIZE = { width: 400, height: 340 };
+const SIZE = { width: 400, height: 400 };
 
 function isEditingTarget(target: EventTarget | null): boolean {
   // Elements in the picture window belong to its realm, so `instanceof HTMLElement` from the opener fails.

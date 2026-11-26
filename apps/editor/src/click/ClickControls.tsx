@@ -2,6 +2,7 @@ import { useMemo, useRef, type ReactNode } from "react";
 import { Button, ButtonGroup } from "@viritura/ui";
 import { buildClickSessionProgram } from "@viritura/playback/click";
 import { BarDial } from "./BarDial";
+import { NavigationShortcuts } from "./NavigationShortcuts";
 import { RehearsalDial } from "./RehearsalDial";
 import { describeClickBar } from "./barNavigation";
 import type { useClickPlayer } from "./useClickPlayer";
@@ -82,6 +83,12 @@ export function ClickControls({
             enabled={!active && !player.busy}
             onSelect={player.setStartBar}
             onSettlingChange={(value) => reportSettling("bars", value)}
+          />
+          <NavigationShortcuts
+            bars={player.document.bars}
+            index={barIndex}
+            enabled={!active && !player.busy && !dialSettling}
+            onSelect={player.setStartBar}
           />
         </section>
       )}

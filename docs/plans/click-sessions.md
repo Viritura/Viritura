@@ -187,9 +187,8 @@ quarter-note pulses. Its events are shifted to negative score time; score
 playback retains its existing look-ahead scheduler while recording Click keeps
 its isolated, preloaded audio worklet.
 
-Remaining: manifest-ordered setlists, persisted session settings, the
-**Previous/Next rehearsal** and **Go to bar** shortcuts, and the release gates
-below.
+Remaining: manifest-ordered setlists, persisted session settings, and the
+release gates below.
 
 Single-document smoke check: start the UI through `pnpm dev:stack up ui`, open
 the editor origin from `pnpm dev:stack url`, open a score, choose **Click** in
@@ -362,8 +361,12 @@ letters are never inferred from bar numbering.
 
 - Swipe or scroll either track, or tap an entry to select it. Arrow keys step
   through the focused track; Home/End reach its first/last selectable entry.
-- Planned: **Previous rehearsal** / **Next rehearsal** shortcut buttons and
-  direct **Go to bar** entry.
+- **Previous rehearsal** / **Next rehearsal** step to the nearest startable
+  entry of the upper track (rehearsal mark or named tempo change) before or
+  after the selected bar; they are hidden when that track is. **Go to bar**
+  accepts a printed bar number, keeps the nearest repeat pass like a score tap,
+  and explains numbers with no bar or no full-bar visit. These controls commit
+  directly and are disabled while a dial is settling.
 - Use at least 44 by 44 CSS-pixel touch targets, high-contrast large text,
   visible keyboard focus, and reduced-motion support. Keep the start summary
   and primary transport visible while the bar list scrolls.
