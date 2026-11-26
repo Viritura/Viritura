@@ -59,6 +59,8 @@ export interface EditorScorePreviewProps {
    * stories that need to demonstrate multi-system behaviour (e.g. abbreviated labels).
    */
   viewMode?: "horizon" | "page" | "spread" | "spread-h";
+  /** Score view (`scores[]` index) to render. Defaults to the first view. */
+  selectedScoreIndex?: number;
   /** Initial canvas framing. Storybook previews default to centered. */
   scrollAnchor?: ScrollAnchor | ScrollAnchorAxes;
   /** Override automatic Horizon fit when a story needs horizontal scrolling. */
@@ -81,6 +83,7 @@ function EditorScorePreviewInner({
   showEditor = true,
   editorRatio = 0.45,
   viewMode = "horizon",
+  selectedScoreIndex = 0,
   scrollAnchor = "center",
   fitToWidth,
   expandCondensingSources = false,
@@ -178,6 +181,7 @@ function EditorScorePreviewInner({
           ref={canvasRef}
           keepLayoutBackendAlive
           viewMode={viewMode}
+          selectedScoreIndex={selectedScoreIndex}
           initialZoom={1.0}
           scrollAnchor={scrollAnchor}
           fitToWidth={fitToWidth ?? viewMode === "horizon"}
