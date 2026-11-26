@@ -25,6 +25,63 @@ const times = (events: readonly ClickProgramEvent[]) => events.map((event) => Nu
 const levels = (events: readonly ClickProgramEvent[]) => events.map((event) => event.level);
 
 describe("buildClickSessionProgram", () => {
+  it.each(["timing", "timeline"] as const)(
+    "overrides one grouped bar with six eighths and restores grouping on the next bar using %s",
+    (pipeline) => {
+      const score: Score = {
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            {
+              number: 111,
+              time: { count: 6, unit: 8 },
+              repeatStart: {},
+              tempos: [{ bpm: 60, value: { base: "quarter" }, clickSubdivision: 2, clickGrouping: [3, 3, 2, 2, 2] }],
+            },
+            {
+              number: 112,
+              systemText: [
+                {
+                  id: "eighths",
+                  text: [{ text: "Click eighths" }],
+                  showText: false,
+                  position: { fraction: [0, 1] },
+                  tempo: { clickSubdivision: 3 },
+                },
+              ],
+            },
+            {
+              number: 113,
+              repeatEnd: {},
+              systemText: [
+                {
+                  id: "restore-grouping",
+                  text: [{ text: "Click grouping" }],
+                  showText: false,
+                  position: { fraction: [0, 1] },
+                  tempo: { clickSubdivision: 2, clickGrouping: [3, 3, 2, 2, 2] },
+                },
+              ],
+            },
+          ],
+        },
+        parts: [],
+      };
+      const timing = pipeline === "timing" ? compilePlaybackTiming(score) : generateTimeline(score);
+      const source = { ...timing, globalMeasures: score.global.measures };
+      const program = buildClickSessionProgram(source, { countoff: false });
+      const groupedOffsets = [0, 0.75, 1.5, 2, 2.5];
+      const eighthOffsets = [0, 0.5, 1, 1.5, 2, 2.5];
+      expect(times(program.events)).toEqual(
+        [groupedOffsets, eighthOffsets, groupedOffsets, groupedOffsets, eighthOffsets, groupedOffsets].flatMap(
+          (offsets, bar) => offsets.map((offset) => bar * 3 + offset),
+        ),
+      );
+      expect(buildClickSessionProgram(source, { startMeasure: 1 }).countoffClicks).toBe(6);
+      expect(buildClickSessionProgram(source, { startMeasure: 2 }).countoffClicks).toBe(5);
+    },
+  );
+
   it("does not replay future positioned click changes in synthetic countoff bars", () => {
     const score: Score = {
       mnx: { version: 1 },

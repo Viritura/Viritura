@@ -475,6 +475,15 @@ patterns show an error without changing the score. Clearing the grouping and
 applying restores regular meter clicks. **No clicks (free time)** stores 0
 and clears the grouping without altering BPM or swing.
 
+For a single-bar exception, place a click-only system instruction at that
+bar's start and restore the previous setting at the following bar's start.
+For example, in grouped 6/8, `{ "clickSubdivision": 3 }` replaces the pattern
+with six evenly spaced eighth-note clicks; the next bar can restore
+`{ "clickSubdivision": 2, "clickGrouping": [3, 3, 2, 2, 2] }`.
+Neither instruction needs BPM. Set `showText: false` on the system text to
+keep this playback metadata out of the printed score. These are explicit
+positioned changes, not automatically expiring overrides.
+
 ### Tempo-owned swing instructions
 
 Tempo markings carry optional `_x.viritura.swing`:
