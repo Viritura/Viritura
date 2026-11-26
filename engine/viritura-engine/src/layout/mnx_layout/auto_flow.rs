@@ -951,7 +951,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     }
     // Before overlay extraction, so reused patch systems reconstruct exactly.
     let plan = (systems.as_slice(), visible_indices.as_slice());
-    append_text_frames_by_plan(&mut dl, score, text_frames, config, plan);
+    append_text_frames_by_plan(&mut dl, score, text_frames, config, plan, flat_staves);
 
     // Assemble + store the patch-frame delta (paged path only; the unpaged
     // `fit_unpaged_bounds` below never runs when `patch_valid`).

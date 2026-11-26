@@ -1473,9 +1473,20 @@ be represented faithfully by the current single-boundary global-text model.
 Those cases preserve the words as staff text and emit a
 `musicxml-system-relation` warning instead of silently changing their scope.
 
-Denigma adaptation and its representative rectangular-block fixtures are
-explicitly deferred until source payloads and units are established; no
-geometry or units are inferred.
+Denigma's explicit `top-staff` and `bottom-staff` generic-text scopes map to
+above- and below-system text for complete expression gaps, with a partial
+outcome because the gap does not provide vertical placement relative to that
+staff. When one source assignment reports both system and staff placements,
+the adapter also reports the unpreserved staff copies. Existing staff text
+referenced by a partial gap remains staff-scoped with a partial outcome.
+Other unsupported or unspecified generic-text scopes retain visible text with
+a partial outcome. The pinned Denigma exporter normally writes generic text
+as native positioned text without a scope gap, so its floating scope cannot
+yet be recovered in that path.
+
+Denigma's rectangular-block adapter and representative measure/page fixtures
+remain deferred until Denigma emits the source payloads and establishes their
+geometry and units; no frame geometry or units are inferred.
 
 ### `rehearsalMark`
 
