@@ -35,7 +35,7 @@ guides, and operational runbooks.
 - **Working on the editor UI:** [spec/engrave-mode.md](spec/engrave-mode.md), [spec/keyboard-shortcuts.md](spec/keyboard-shortcuts.md), [plans/score-and-parts.md](plans/score-and-parts.md).
 - **Working on external MCP integration:** [spec/mcp-integration.md](spec/mcp-integration.md).
 - **Working on film/video scoring:** [plans/video-sync.md](plans/video-sync.md) — native Picture-in-Picture, shared transport synchronization, and the boundary between Video Reference and Advanced Scoring to Picture.
-- **Planning click sessions (Click activity):** [plans/click-sessions.md](plans/click-sessions.md) — in-editor practice/studio Click activity, multi-MNX setlist, programmable subdivisions, one-bar countoff, and a session-wide tempo percentage.
+- **Working on click sessions (Click activity):** [spec/click-sessions.md](spec/click-sessions.md): click-only engine, countoff, programmable subdivisions, folder and Gist setlists, and recording qualification.
 - **Reviewing the server-synchronized click track experiment:** [experiments/server-synchronized-click-track.md](experiments/server-synchronized-click-track.md).
 - **Embedding Viritura's renderer in another app:** read [developers/overview.md](developers/overview.md).
 - **Looking at what's next:** browse [plans/](plans/) for in-flight work.
@@ -117,6 +117,7 @@ animation stops as soon as a reader focuses or interacts with the control.
 | [selection-behavior-matrix](spec/selection-behavior-matrix.md)                        | What each editing action does for every selection kind (capability contract)                                                                                        |
 | [auth](spec/auth.md)                                                                  | Authentication, sessions, 2FA, OAuth, GitHub App                                                                                                                    |
 | [mcp-integration](spec/mcp-integration.md)                                            | External MCP relay, OAuth/session routing, tool catalogue, proposal review, and known limitations                                                                   |
+| [click-sessions](spec/click-sessions.md)                                              | Click activity: click-only engine, countoff, subdivisions, setlists, timing guarantees, and qualification                                                           |
 | [orchestral-audio](spec/orchestral-audio.md)                                          | Concert-hall playback engine: section pooling, convolution reverb, master bus                                                                                       |
 | [sound-profiles](spec/sound-profiles.md)                                              | Proposed sound-profile model: instrument identity, MIDI/SF2 and VST routing, VirituraSounds compatibility baseline                                                  |
 | [instrument-profiles-vst](plans/instrument-profiles-vst.md)                           | Remaining mixer, diagnostics, audio-routing, custom-binding, and profile-portability work                                                                           |
