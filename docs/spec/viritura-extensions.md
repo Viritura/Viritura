@@ -693,6 +693,11 @@ not saved as a destructive removal or a manual system-layout override.
 Adding music automatically restores the instrument. Existing manually
 omitted staves remain omitted.
 
+The list belongs to one score view. **Apply to all score views** or **Apply
+to all part views** copies the current view's list (limited to each view's
+instruments) and first-system choice to every view with the same role (score
+or part). Per-system `keepVisible` decisions stay with their own view.
+
 ```json
 {
   "name": "Full Score",
@@ -704,6 +709,55 @@ omitted staves remain omitted.
   }
 }
 ```
+
+### `autoHideEmptyStaves`
+
+Per-view decisions that refine `autoHideEmptyParts`. Schema def:
+`auto-hide-empty-staves`.
+
+| Field         | Type                   | Meaning                                                                                             |
+| ------------- | ---------------------- | --------------------------------------------------------------------------------------------------- |
+| `firstSystem` | `"hide"` \| `"show"`   | `"show"` keeps every staff on the first system, as in a full-score opening. Omitted means `"hide"`. |
+| `keepVisible` | `{ measure, parts }[]` | Keeps the listed parts on the system containing global measure `measure`, even when empty.          |
+
+Precedence, highest first:
+
+1. Manual omissions from an explicit or per-system layout always win. The
+   automatic policy only removes staves; it never restores a staff a layout
+   omits.
+2. `firstSystem: "show"` and matching `keepVisible` entries keep a staff.
+3. Otherwise, selected empty instruments hide.
+
+`keepVisible` is keyed by measure ID, not system index, so decisions follow
+the music when systems reflow. A decision whose measure no longer starts a
+system still applies to whichever system now contains it. In page view, a
+hidden staff appears as a ghost rail; clicking it adds a `keepVisible`
+entry, and hiding that staff from the rail again removes the entry. Entries
+with an empty measure ID, no parts, or duplicate parts are rejected; IDs that
+match nothing are ignored.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "autoHideEmptyParts": ["flute", "oboe"],
+      "autoHideEmptyStaves": {
+        "firstSystem": "show",
+        "keepVisible": [{ "measure": "m9", "parts": ["oboe"] }]
+      }
+    }
+  }
+}
+```
+
+Finale import maps hidden empty staves to this policy. When Finale omits an
+instrument's staves from whole systems where they are empty, Viritura
+restores the full system layout and opts the instrument in, with
+`keepVisible` or `firstSystem` decisions for systems where Finale showed it
+empty. Systems Finale hid while the staff had music, partial-system
+collapses, and reordered system layouts keep Finale's explicit staff lists.
+Cutaway staves import fully visible with a warning; see
+[#574](https://github.com/Viritura/Viritura/issues/574).
 
 ## Source Part Extensions
 

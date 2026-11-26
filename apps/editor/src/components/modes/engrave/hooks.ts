@@ -16,8 +16,14 @@ import {
   getSlurShapeFromScore,
   reanchoredSlurElementId,
   reanchorSlurInScore,
+  applyAutoHideChange,
+  autoHiddenPartsOnSystem,
+  isKeptVisibleOnSystem,
+  setAutoHideKeepVisible,
+  type AutoHideEmptyStavesChange,
 } from "../../../score/ScoreMutations";
 import { defaultSystemStarts } from "./defaultSystemStarts";
+import { systemMeasureIdsAt } from "./systemMeasureIds";
 import { useDocumentStoreApi } from "../../../store/DocumentContext";
 
 /** Live refs for the current score / active score index / updateScore.
@@ -46,15 +52,12 @@ export function useEngraveContextRefs(
 export function useAutoHideEmptyParts(refs: EngraveContextRefs) {
   const documentStore = useDocumentStoreApi();
   return useCallback(
-    (partIds: string[]) => {
+    (change: AutoHideEmptyStavesChange) => {
       const current = documentStore.getState().workingScore;
       const index = refs.activeScoreIndexRef.current;
       if (!current?.scores?.[index]) return;
-      refs.updateScoreRef.current(
-        produce(current, (draft) => {
-          draft.scores![index]!.autoHideEmptyParts = partIds;
-        }),
-      );
+      const next = applyAutoHideChange(current, index, change);
+      if (next !== current) refs.updateScoreRef.current(next);
     },
     [documentStore, refs],
   );
@@ -128,10 +131,12 @@ export function useStaffVisibility(
   );
 
   const ghostRailGroupProvider = useCallback(
-    (systemMeasureId: string) => {
+    (systemMeasureId: string, visiblePartIds: ReadonlySet<string>) => {
       const sc = refs.scoreRef.current;
       if (!sc) return [];
-      const groups = ghostRailGroupsOnSystem(sc, refs.activeScoreIndexRef.current, systemMeasureId);
+      const scoreIndex = refs.activeScoreIndexRef.current;
+      const automatic = autoHiddenPartsOnSystem(sc, scoreIndex, systemMeasureId, visiblePartIds);
+      const groups = ghostRailGroupsOnSystem(sc, scoreIndex, systemMeasureId, automatic);
 
       // Build per-part display labels. When multiple parts share the same
       // raw name (e.g. two flutes both named "Flute"), append a 1-based
@@ -163,7 +168,10 @@ export function useStaffVisibility(
       return groups.map((g) => {
         const partLabels = g.partIds.map((pid) => labelById.get(pid) ?? pid);
         const staffGroups = g.staffGroups ?? g.partIds.map((p) => [p]);
-        const staffGroupLabels = staffGroups.map((arr) => arr.map((pid) => labelById.get(pid) ?? pid).join(" / "));
+        const staffGroupLabels = staffGroups.map((arr, index) => {
+          const label = arr.map((pid) => labelById.get(pid) ?? pid).join(" / ");
+          return g.staffGroupAutomatic[index] ? `${label} (empty, hidden automatically)` : label;
+        });
         return {
           id: g.id,
           partIds: g.partIds,
@@ -183,17 +191,30 @@ export function useStaffVisibility(
     (hit: StaffEyeHit) => {
       const sc = refs.scoreRef.current;
       if (!sc) return;
-      const nextVisible = !hit.visible;
-      const seed = defaultSystemStarts(sc, previewCanvasRef.current?.getDisplayList() ?? null);
+      const scoreIndex = refs.activeScoreIndexRef.current;
+      const displayList = previewCanvasRef.current?.getDisplayList() ?? null;
+      const eligible = sc.scores?.[scoreIndex]?.autoHideEmptyParts?.includes(hit.partId) ?? false;
+      const seed = defaultSystemStarts(sc, displayList);
+      if (eligible) {
+        const systemMeasureIds = systemMeasureIdsAt(displayList, hit.systemMeasureId);
+        const manuallyHidden = hiddenPartsOnSystem(sc, scoreIndex, hit.systemMeasureId).has(hit.partId);
+        // Explicit per-system decisions win over the automatic policy, so
+        // showing a staff always records one; a manual omission is also
+        // undone through the layout.
+        if (!hit.visible) {
+          const restored = manuallyHidden
+            ? applyStaffVisibilityFromSystem(sc, scoreIndex, hit.systemMeasureId, hit.partId, true, seed)
+            : sc;
+          refs.updateScoreRef.current(setAutoHideKeepVisible(restored, scoreIndex, systemMeasureIds, hit.partId, true));
+          return;
+        }
+        if (isKeptVisibleOnSystem(sc, scoreIndex, systemMeasureIds, hit.partId)) {
+          refs.updateScoreRef.current(setAutoHideKeepVisible(sc, scoreIndex, systemMeasureIds, hit.partId, false));
+          return;
+        }
+      }
       refs.updateScoreRef.current(
-        applyStaffVisibilityFromSystem(
-          sc,
-          refs.activeScoreIndexRef.current,
-          hit.systemMeasureId,
-          hit.partId,
-          nextVisible,
-          seed,
-        ),
+        applyStaffVisibilityFromSystem(sc, scoreIndex, hit.systemMeasureId, hit.partId, !hit.visible, seed),
       );
     },
     [refs, previewCanvasRef],

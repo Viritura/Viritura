@@ -50,6 +50,14 @@ export {
   type ConductorScore,
 } from "./scoreMembership";
 export {
+  applyAutoHideChange,
+  autoHiddenPartsOnSystem,
+  isKeptVisibleOnSystem,
+  partIdsInScoreView,
+  setAutoHideKeepVisible,
+  type AutoHideEmptyStavesChange,
+} from "./autoHideEmptyStaves";
+export {
   applyStaffVisibilityFromSystem,
   basePartOrder,
   ghostRailGroupsOnSystem,

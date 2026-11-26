@@ -22,6 +22,7 @@ import type {
   PageSetup,
   PageTurnSettings,
   InstrumentNameDisplaySettings,
+  AutoHideEmptyStavesOptions,
 } from "@viritura/core";
 import { parseTextFrames } from "./parseTextFrames";
 
@@ -101,6 +102,39 @@ function parseLayoutSource(raw: RawStaffSource): LayoutSource {
 // MNX Score definitions
 // ═══════════════════════════════════════════
 
+function isUniqueIdList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((id): id is string => typeof id === "string" && id.length > 0) &&
+    new Set(value).size === value.length
+  );
+}
+
+function parseAutoHideEmptyStaves(value: unknown): AutoHideEmptyStavesOptions | undefined {
+  if (value === undefined) return undefined;
+  const invalid = () => new Error("Viritura autoHideEmptyStaves must contain firstSystem and keepVisible entries.");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw invalid();
+  const raw = value as Record<string, unknown>;
+  const options: AutoHideEmptyStavesOptions = {};
+  if (raw["firstSystem"] !== undefined) {
+    if (raw["firstSystem"] !== "hide" && raw["firstSystem"] !== "show") throw invalid();
+    options.firstSystem = raw["firstSystem"];
+  }
+  if (raw["keepVisible"] !== undefined) {
+    if (!Array.isArray(raw["keepVisible"])) throw invalid();
+    options.keepVisible = raw["keepVisible"].map((entry: unknown) => {
+      const record = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+      const measure = record["measure"];
+      const parts = record["parts"];
+      if (typeof measure !== "string" || measure.length === 0 || !isUniqueIdList(parts) || parts.length === 0) {
+        throw invalid();
+      }
+      return { measure, parts: [...parts] };
+    });
+  }
+  return options;
+}
+
 // eslint-disable-next-line complexity -- MNX score definitions flatten several independent optional vendor fields
 export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
   const sd: ScoreDefinition = {};
@@ -132,6 +166,8 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
     }
     sd.autoHideEmptyParts = [...parts];
   }
+  const autoHideOptions = parseAutoHideEmptyStaves(viritura?.["autoHideEmptyStaves"]);
+  if (autoHideOptions) sd.autoHideEmptyStaves = autoHideOptions;
   const labelsRaw = viritura?.["instrumentNameDisplay"] as Record<string, unknown> | undefined;
   if (labelsRaw) {
     sd.instrumentNameDisplay = {

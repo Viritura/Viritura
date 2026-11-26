@@ -206,7 +206,12 @@ function deriveGhostRails(
       if (mb.x < leftX) leftX = mb.x;
     }
     if (!firstMb?.measureId) continue;
-    const groups = groupProvider(firstMb.measureId);
+    const visiblePartIds = new Set<string>();
+    for (const mb of mbs) {
+      const pid = partIdByIndex[mb.partIndex];
+      if (pid) visiblePartIds.add(pid);
+    }
+    const groups = groupProvider(firstMb.measureId, visiblePartIds);
     if (groups.length === 0) continue;
 
     // Per-part Y extent in this system (visible staves only).

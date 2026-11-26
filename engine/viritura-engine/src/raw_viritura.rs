@@ -180,6 +180,344 @@ impl ::std::convert::TryFrom<::std::string::String> for ArpeggioDirection {
         value.parse()
     }
 }
+///Options for the autoHideEmptyParts policy of this score view. Manually omitted staves are never restored by these options.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Options for the autoHideEmptyParts policy of this score view. Manually omitted staves are never restored by these options.",
+///  "type": "object",
+///  "properties": {
+///    "firstSystem": {
+///      "description": "Whether the first system may hide empty instruments (hide, the default) or retains every staff in the layout (show).",
+///      "type": "string",
+///      "enum": [
+///        "hide",
+///        "show"
+///      ]
+///    },
+///    "keepVisible": {
+///      "description": "Explicit per-system decisions that win over the policy. The listed parts stay visible on the system containing the measure.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/auto-hide-keep-visible"
+///      }
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct AutoHideEmptyStaves {
+    ///Whether the first system may hide empty instruments (hide, the default) or retains every staff in the layout (show).
+    #[serde(
+        rename = "firstSystem",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub first_system: ::std::option::Option<AutoHideEmptyStavesFirstSystem>,
+    ///Explicit per-system decisions that win over the policy. The listed parts stay visible on the system containing the measure.
+    #[serde(
+        rename = "keepVisible",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub keep_visible: ::std::vec::Vec<AutoHideKeepVisible>,
+}
+impl ::std::convert::From<&AutoHideEmptyStaves> for AutoHideEmptyStaves {
+    fn from(value: &AutoHideEmptyStaves) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for AutoHideEmptyStaves {
+    fn default() -> Self {
+        Self {
+            first_system: Default::default(),
+            keep_visible: Default::default(),
+        }
+    }
+}
+///Whether the first system may hide empty instruments (hide, the default) or retains every staff in the layout (show).
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Whether the first system may hide empty instruments (hide, the default) or retains every staff in the layout (show).",
+///  "type": "string",
+///  "enum": [
+///    "hide",
+///    "show"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum AutoHideEmptyStavesFirstSystem {
+    #[serde(rename = "hide")]
+    Hide,
+    #[serde(rename = "show")]
+    Show,
+}
+impl ::std::convert::From<&Self> for AutoHideEmptyStavesFirstSystem {
+    fn from(value: &AutoHideEmptyStavesFirstSystem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for AutoHideEmptyStavesFirstSystem {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Hide => f.write_str("hide"),
+            Self::Show => f.write_str("show"),
+        }
+    }
+}
+impl ::std::str::FromStr for AutoHideEmptyStavesFirstSystem {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "hide" => Ok(Self::Hide),
+            "show" => Ok(Self::Show),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for AutoHideEmptyStavesFirstSystem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for AutoHideEmptyStavesFirstSystem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for AutoHideEmptyStavesFirstSystem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`AutoHideKeepVisible`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "measure",
+///    "parts"
+///  ],
+///  "properties": {
+///    "measure": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "parts": {
+///      "type": "array",
+///      "items": {
+///        "type": "string",
+///        "minLength": 1
+///      },
+///      "minItems": 1,
+///      "uniqueItems": true
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct AutoHideKeepVisible {
+    pub measure: AutoHideKeepVisibleMeasure,
+    pub parts: Vec<AutoHideKeepVisiblePartsItem>,
+}
+impl ::std::convert::From<&AutoHideKeepVisible> for AutoHideKeepVisible {
+    fn from(value: &AutoHideKeepVisible) -> Self {
+        value.clone()
+    }
+}
+///`AutoHideKeepVisibleMeasure`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct AutoHideKeepVisibleMeasure(::std::string::String);
+impl ::std::ops::Deref for AutoHideKeepVisibleMeasure {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<AutoHideKeepVisibleMeasure> for ::std::string::String {
+    fn from(value: AutoHideKeepVisibleMeasure) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&AutoHideKeepVisibleMeasure> for AutoHideKeepVisibleMeasure {
+    fn from(value: &AutoHideKeepVisibleMeasure) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for AutoHideKeepVisibleMeasure {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for AutoHideKeepVisibleMeasure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for AutoHideKeepVisibleMeasure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for AutoHideKeepVisibleMeasure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for AutoHideKeepVisibleMeasure {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`AutoHideKeepVisiblePartsItem`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct AutoHideKeepVisiblePartsItem(::std::string::String);
+impl ::std::ops::Deref for AutoHideKeepVisiblePartsItem {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<AutoHideKeepVisiblePartsItem> for ::std::string::String {
+    fn from(value: AutoHideKeepVisiblePartsItem) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&AutoHideKeepVisiblePartsItem>
+for AutoHideKeepVisiblePartsItem {
+    fn from(value: &AutoHideKeepVisiblePartsItem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for AutoHideKeepVisiblePartsItem {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for AutoHideKeepVisiblePartsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for AutoHideKeepVisiblePartsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for AutoHideKeepVisiblePartsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for AutoHideKeepVisiblePartsItem {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
 ///Harmonic quality of a chord symbol.
 ///
 /// <details><summary>JSON schema</summary>
@@ -8567,13 +8905,16 @@ impl ::std::default::Default for RootExtensionsPageSetupDefaults {
 ///  "type": "object",
 ///  "properties": {
 ///    "autoHideEmptyParts": {
-///      "description": "Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.",
+///      "description": "Part IDs eligible for automatic hiding on each system in paged views of this score view only. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.",
 ///      "type": "array",
 ///      "items": {
 ///        "type": "string",
 ///        "minLength": 1
 ///      },
 ///      "uniqueItems": true
+///    },
+///    "autoHideEmptyStaves": {
+///      "$ref": "#/$defs/auto-hide-empty-staves"
 ///    },
 ///    "instrumentNameDisplay": {
 ///      "$ref": "#/$defs/instrument-name-display"
@@ -8608,7 +8949,7 @@ impl ::std::default::Default for RootExtensionsPageSetupDefaults {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ScoreExtensions {
-    ///Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.
+    ///Part IDs eligible for automatic hiding on each system in paged views of this score view only. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.
     #[serde(
         rename = "autoHideEmptyParts",
         default,
@@ -8617,6 +8958,12 @@ pub struct ScoreExtensions {
     pub auto_hide_empty_parts: ::std::option::Option<
         Vec<ScoreExtensionsAutoHideEmptyPartsItem>,
     >,
+    #[serde(
+        rename = "autoHideEmptyStaves",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub auto_hide_empty_staves: ::std::option::Option<AutoHideEmptyStaves>,
     #[serde(
         rename = "instrumentNameDisplay",
         default,
@@ -8658,6 +9005,7 @@ impl ::std::default::Default for ScoreExtensions {
     fn default() -> Self {
         Self {
             auto_hide_empty_parts: Default::default(),
+            auto_hide_empty_staves: Default::default(),
             instrument_name_display: Default::default(),
             layout_breaks: Default::default(),
             page_setup: Default::default(),
@@ -16573,6 +16921,12 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "arpeggio": {
 ///      "$ref": "#/$defs/arpeggio"
 ///    },
+///    "auto-hide-empty-staves": {
+///      "$ref": "#/$defs/auto-hide-empty-staves"
+///    },
+///    "auto-hide-keep-visible": {
+///      "$ref": "#/$defs/auto-hide-keep-visible"
+///    },
 ///    "chord-quality": {
 ///      "$ref": "#/$defs/chord-quality"
 ///    },
@@ -16913,6 +17267,18 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 pub struct VirituraExtensionsRoot {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub arpeggio: ::std::option::Option<Arpeggio>,
+    #[serde(
+        rename = "auto-hide-empty-staves",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub auto_hide_empty_staves: ::std::option::Option<AutoHideEmptyStaves>,
+    #[serde(
+        rename = "auto-hide-keep-visible",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub auto_hide_keep_visible: ::std::option::Option<AutoHideKeepVisible>,
     #[serde(
         rename = "chord-quality",
         default,
@@ -17569,6 +17935,8 @@ impl ::std::default::Default for VirituraExtensionsRoot {
     fn default() -> Self {
         Self {
             arpeggio: Default::default(),
+            auto_hide_empty_staves: Default::default(),
+            auto_hide_keep_visible: Default::default(),
             chord_quality: Default::default(),
             chord_root: Default::default(),
             chord_symbol: Default::default(),

@@ -666,14 +666,29 @@ export interface components {
             spatiumMm?: number;
             pageTurns?: components["schemas"]["page-turn-settings"];
         };
+        /** @description Options for the autoHideEmptyParts policy of this score view. Manually omitted staves are never restored by these options. */
+        "auto-hide-empty-staves": {
+            /**
+             * @description Whether the first system may hide empty instruments (hide, the default) or retains every staff in the layout (show).
+             * @enum {string}
+             */
+            firstSystem?: "hide" | "show";
+            /** @description Explicit per-system decisions that win over the policy. The listed parts stay visible on the system containing the measure. */
+            keepVisible?: components["schemas"]["auto-hide-keep-visible"][];
+        };
+        "auto-hide-keep-visible": {
+            measure: string;
+            parts: string[];
+        };
         /** @description Viritura extensions on a standard MNX score definition. */
         "score-extensions": {
             pageSetup?: components["schemas"]["page-setup"];
             /** @enum {unknown} */
             pageSetupRole?: "score" | "part";
             instrumentNameDisplay?: components["schemas"]["instrument-name-display"];
-            /** @description Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged. */
+            /** @description Part IDs eligible for automatic hiding on each system in paged views of this score view only. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged. */
             autoHideEmptyParts?: string[];
+            autoHideEmptyStaves?: components["schemas"]["auto-hide-empty-staves"];
             /** @description Free text frames owned by this score view. A page locator uses a zero-based index into the final rendered page array; measure and event locators follow their target onto its rendered page. Event IDs are scoped by the required part ID. Placement is relative to an edge or corner of the printable page area, with offsets in staff spaces (+x right, +y down). Frames have automatic height and do not participate in collision avoidance. */
             textFrames?: components["schemas"]["text-frame"][];
             layoutBreaks?: components["schemas"]["layout-break"][];
@@ -1189,6 +1204,8 @@ export type PageTurnWeights = components["schemas"]["page-turn-weights"];
 export type PageTurnSettings = components["schemas"]["page-turn-settings"];
 export type PageMargins = components["schemas"]["page-margins"];
 export type PageSetup = components["schemas"]["page-setup"];
+export type AutoHideEmptyStaves = components["schemas"]["auto-hide-empty-staves"];
+export type AutoHideKeepVisible = components["schemas"]["auto-hide-keep-visible"];
 export type ScoreExtensions = components["schemas"]["score-extensions"];
 export type TextFrame = components["schemas"]["text-frame"];
 export type TextFramePagePosition = components["schemas"]["text-frame-page-position"];

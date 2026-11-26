@@ -117,3 +117,23 @@ suffix aliases remain in `rawText` (with concert-normalized roots and basses) an
 aliases, casing, visibility, or suffix typography. Unsupported harmony keeps its
 raw display text and diagnostics. Existing explicitly authored `textOverride`
 values at untouched global positions remain unchanged.
+
+### Hidden staves
+
+Denigma exports Finale's "hide staves when empty" results (optimized systems
+and whole-system collapse) as per-system layouts that omit staves. After the
+gap adaptation, `adaptHiddenStaves` turns those omissions back into
+Viritura's automatic policy when that is lossless: an instrument whose staves
+are omitted only from whole systems where they are empty is opted into
+`autoHideEmptyParts`, its omitting system layouts are restored from the
+score layout (keeping each system's label style), and `autoHideEmptyStaves`
+records `keepVisible` or `firstSystem: "show"` for systems where Finale
+showed it empty. Emptiness is judged more strictly than the engine's, including fermatas on rests and markings that continue from earlier measures, so restored staves hide again on those systems unless every staff on the system is empty.
+
+Instruments hidden while they contain music, partially omitted, or in reordered
+or shared system layouts keep Finale's explicit staff lists, reported as info.
+Staves collapsed for part of a system import visible.
+
+Denigma exports cutaway staves (`hideMode` cutaway, including assigned staff
+styles) fully visible. The adapter reads Denigma's cached EnigmaXML to warn when
+a document uses them; cutaway rendering is tracked in #574.

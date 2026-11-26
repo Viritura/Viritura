@@ -9,6 +9,7 @@ import type {
 } from "./types";
 import { validateMusxArchive } from "./archiveLimits";
 import { applyDenigmaGapReport } from "./gapAdapters";
+import { adaptHiddenStaves } from "./hiddenStaves";
 import { createModuleCache } from "./moduleCache";
 
 interface DenigmaModule {
@@ -57,6 +58,7 @@ type DenigmaModuleFactory = (options: DenigmaModuleFactoryOptions) => Promise<De
 
 const severityNames: readonly DenigmaDiagnosticSeverity[] = ["info", "warning", "error", "verbose"];
 const DENIGMA_FORMAT_MNX = 1;
+const DENIGMA_FORMAT_ENIGMAXML = 2;
 
 export class DenigmaConversionError extends Error {
   constructor(
@@ -197,6 +199,53 @@ function readGapReport(module: DenigmaModule, resultPointer: number): DenigmaGap
   return parsed;
 }
 
+const HIDE_MODES_UNAVAILABLE: DenigmaDiagnostic = {
+  severity: "info",
+  message: "Finale staff hide modes could not be inspected; cutaway staves are not reported.",
+};
+
+/**
+ * Decoded Finale document for checks the MNX output cannot express. Denigma
+ * caches the extracted archive, so this costs no second decode.
+ */
+function readEnigmaXml(
+  module: DenigmaModule,
+  inputPointer: number,
+  inputSize: number,
+  namePointer: number,
+): { xml?: string; diagnostic?: DenigmaDiagnostic } {
+  const resultPointer = module._denigma_convert(
+    inputPointer,
+    inputSize,
+    namePointer,
+    DENIGMA_FORMAT_ENIGMAXML,
+    0,
+    0,
+    0,
+    0,
+    -1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+  );
+  try {
+    const size =
+      resultPointer && module._denigma_result_output_count(resultPointer) === 1
+        ? module._denigma_result_output_size(resultPointer, 0)
+        : 0;
+    if (!resultPointer || module._denigma_result_success(resultPointer) !== 1 || size === 0) {
+      return { diagnostic: HIDE_MODES_UNAVAILABLE };
+    }
+    const pointer = module._denigma_result_output_data(resultPointer, 0);
+    return { xml: new TextDecoder().decode(module.HEAPU8.slice(pointer, pointer + size)) };
+  } finally {
+    if (resultPointer) module._denigma_result_destroy(resultPointer);
+  }
+}
+
 export async function convertWithDenigma(
   source: ArrayBuffer,
   sourceName: string,
@@ -244,11 +293,26 @@ export async function convertWithDenigma(
     const output = module.HEAPU8.slice(outputPointer, outputPointer + outputSize);
     const gapReport = readGapReport(module, resultPointer);
     const adaptation = applyDenigmaGapReport(new TextDecoder().decode(output), gapReport, options.indentSpaces);
+    let enigma: ReturnType<typeof readEnigmaXml>;
+    try {
+      enigma = readEnigmaXml(module, inputPointer, input.byteLength, namePointer);
+    } catch {
+      // The MNX is already decoded; only the hide-mode inspection is lost, but the instance is suspect.
+      failed = true;
+      moduleCache.discard();
+      enigma = { diagnostic: HIDE_MODES_UNAVAILABLE };
+    }
+    const hiddenStaves = adaptHiddenStaves(adaptation.mnxJson, enigma.xml, options.indentSpaces);
     return {
-      mnxJson: adaptation.mnxJson,
+      mnxJson: hiddenStaves.mnxJson,
       gapReport,
       gapOutcomes: adaptation.outcomes,
-      diagnostics: [...diagnostics, ...adaptation.diagnostics],
+      diagnostics: [
+        ...diagnostics,
+        ...adaptation.diagnostics,
+        ...hiddenStaves.diagnostics,
+        ...(enigma.diagnostic ? [enigma.diagnostic] : []),
+      ],
       denigmaVersion: module.UTF8ToString(module._denigma_version()),
       denigmaCommit: module.UTF8ToString(module._denigma_commit()),
     };

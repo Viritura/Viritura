@@ -8,11 +8,17 @@ import {
   ghostRailGroupsOnSystem,
   hiddenRangeHasMusic,
   hiddenPartsOnSystem,
+  basePartOrder,
+  applyAutoHideChange,
+  autoHiddenPartsOnSystem,
+  isKeptVisibleOnSystem,
+  partIdsInScoreView,
+  setAutoHideKeepVisible,
 } from "../score/ScoreMutations";
 import { buildBlankScore, type NewScoreSettings } from "../score/ScoreBuilder";
 import { createPlayer, renumberPlayers } from "../score/InstrumentCatalog";
 import { parseMnx } from "@viritura/format";
-import type { Score } from "@viritura/core";
+import { pageSetupRoleForScore, type Score } from "@viritura/core";
 
 function makeScore(...ids: string[]): Score {
   const players = renumberPlayers(ids.map((id) => createPlayer(id)));
@@ -417,5 +423,52 @@ describe("hiddenRangeHasMusic / ghost-rail music detection", () => {
     // Silence the unused-var warning for the original 2-part construction
     // sketch we replaced with the 3-part script above.
     void p1;
+  });
+});
+describe("automatic empty-staff decisions", () => {
+  it("reports auto-hidden parts as automatic ghost rails, leaving manual hides alone", () => {
+    const score = makeScore("wind.flutes.flute", "wind.reed.oboe", "strings.violin");
+    const ids = measureIds(score);
+    const [flute, oboe, violin] = basePartOrder(score, 0);
+    const policy = applyAutoHideChange(score, 0, { kind: "parts", partIds: [flute!, oboe!] });
+    const manual = applyStaffVisibilityFromSystem(policy, 0, ids[4]!, flute!, false, []);
+    const automatic = autoHiddenPartsOnSystem(manual, 0, ids[4]!, new Set([violin!]));
+    expect([...automatic]).toEqual([oboe]);
+    const [group] = ghostRailGroupsOnSystem(manual, 0, ids[4]!, automatic);
+    expect(group?.staffGroups).toEqual([[flute], [oboe]]);
+    expect(group?.staffGroupAutomatic).toEqual([false, true]);
+  });
+
+  it("adds and removes per-system keep-visible decisions anchored at the system start", () => {
+    const base = makeScore("wind.flutes.flute", "strings.violin");
+    const [flute] = basePartOrder(base, 0);
+    const score = applyAutoHideChange(base, 0, { kind: "parts", partIds: [flute!] });
+    const ids = measureIds(score);
+    const kept = setAutoHideKeepVisible(score, 0, [ids[4]!, ids[5]!], flute, true);
+    expect(kept.scores![0]!.autoHideEmptyStaves).toEqual({ keepVisible: [{ measure: ids[4], parts: [flute] }] });
+    expect(isKeptVisibleOnSystem(kept, 0, [ids[4]!, ids[5]!], flute)).toBe(true);
+    expect(isKeptVisibleOnSystem(kept, 0, [ids[0]!], flute)).toBe(false);
+    const cleared = setAutoHideKeepVisible(kept, 0, [ids[4]!, ids[5]!], flute, false);
+    expect(cleared.scores![0]!.autoHideEmptyStaves).toBeUndefined();
+    const unselected = applyAutoHideChange(kept, 0, { kind: "parts", partIds: [] });
+    expect(unselected.scores![0]!.autoHideEmptyStaves).toBeUndefined();
+  });
+
+  it("applies selections and first-system behavior only to views with the same role", () => {
+    const score = makeScore("wind.flutes.flute", "strings.violin");
+    const [flute] = basePartOrder(score, 0);
+    const partViews = (score.scores ?? []).flatMap((_, index) =>
+      pageSetupRoleForScore(score.scores, index, score.layouts, score.parts.length) === "part" ? [index] : [],
+    );
+    expect(partViews.length).toBeGreaterThan(1);
+    let next = applyAutoHideChange(score, partViews[0]!, { kind: "parts", partIds: [flute!] });
+    next = applyAutoHideChange(next, partViews[0]!, { kind: "firstSystem", firstSystem: "show" });
+    next = applyAutoHideChange(next, partViews[0]!, { kind: "applyToRole" });
+    for (const index of partViews.slice(1)) {
+      const present = partIdsInScoreView(next, index);
+      expect(next.scores![index]!.autoHideEmptyParts).toEqual(present.has(flute!) ? [flute] : []);
+      expect(next.scores![index]!.autoHideEmptyStaves).toEqual({ firstSystem: "show" });
+    }
+    expect(next.scores![0]!.autoHideEmptyParts).toBeUndefined();
   });
 });
