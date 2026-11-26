@@ -25,4 +25,10 @@ describe("deployed editor CSP", () => {
     const policy = headers.match(/Content-Security-Policy:\s*(.+)/)?.[1] ?? "";
     expect(sources(policy, "connect-src")).toContain("data:");
   });
+
+  it("allows the Llamigos demo video download", () => {
+    const headers = readFileSync(resolve(__dirname, "../../public/_headers"), "utf8");
+    const policy = headers.match(/Content-Security-Policy:\s*(.+)/)?.[1] ?? "";
+    expect(sources(policy, "connect-src")).toContain("https://upload.wikimedia.org");
+  });
 });
