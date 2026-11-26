@@ -214,8 +214,12 @@ quarter-note pulses. Its events are shifted to negative score time; score
 playback retains its existing look-ahead scheduler while recording Click keeps
 its isolated, preloaded audio worklet.
 
-Remaining: manifest-ordered setlists, persisted session settings, and the
-release gates below.
+Ordered setlists and persisted session settings are out of scope: setlists stay
+plain folders or Gists of score files, and Click settings stay local to the
+browser, with no manifest file. Shared Gist setlists open read-only (see below).
+Remaining: background-tab and foreground-DAW recording qualification, and a
+physical (electrical) loopback on a supported interface; see the qualification
+results under the release gates.
 
 Single-document smoke check: start the UI through `pnpm dev:stack up ui`, open
 the editor origin from `pnpm dev:stack url`, open a score, choose **Click** in
@@ -609,6 +613,45 @@ If a host cannot pass qualification, narrow the supported recording configuratio
 or retain an explicit unqualified status. Do not relax timing assertions merely
 to ship. Final physical-output tolerances and supported configurations require
 agreement before implementation is considered recording-ready.
+
+### Qualification results (November 2026)
+
+Automated gates live in `e2e/click-qualification/`. They compare captured
+worklet PCM with clicks planned by an independent analytic fixture
+(`timingFixture.ts`), not with the compiler's own event list:
+
+- **Offline PCM, always run:** 44.1 kHz oscillator, 48 kHz tick, and 96 kHz
+  woodblock renders cover countoff entry, 3/4 subdivisions, a tempo change to
+  triplets, a closed-form 137 to 72 ramp, a repeated section, 6/8, and a
+  pause/resume at 9.2 seconds. Subtracting the planned voices leaves a residual
+  below 1e-5 with every click found exactly once. A mutation test shifts one
+  click by a single frame and must fail.
+- **Program limit:** `compileClickProgram` rejects programs above 115,200
+  clicks (60 minutes at 32 clicks per second) with an explicit message before
+  playback starts. A 60-minute program at that density preloads and renders
+  completely (9 bytes of program storage per click, no full-track PCM).
+  Opt-in: `VIRITURA_CLICK_QUALIFICATION=1`.
+- **Live stall, opt-in:** Beethoven 5 through the Click UI in headed Chromium
+  at 44.1 kHz, with three rounds of 2-second main-thread stalls, forced
+  garbage collection, wheel scrolling, and window resizing. All 55 clicks
+  rendered at their planned frames (residual exactly 0), with no render-frame
+  discontinuities and no missed-event reports.
+- **60-minute output take (host harness, not committed):** headed Edge playing
+  a 60-minute 4/4 score at quarter = 120 (7,204 clicks including countoff)
+  through a Focusrite USB interface at 44.1 kHz. Output was captured with
+  WASAPI loopback while a 2-second main-thread stall, garbage-collection
+  pressure, wheel scrolling, and a resize were injected every 5 minutes (11
+  rounds). Results: 7,200 clicks bit-exact against their level templates at the
+  planned frames; 0 raw drift; 0 ms interval error; clock ratio 1.0; no capture
+  gaps or flagged callbacks; one start and one end with no missed or error
+  replies; mean CPU 31%, peak 68%. The other four clicks overlapped a two-tone
+  system notification chime mixed into the same endpoint; each still aligned
+  best at a 0-sample offset. Avoid other audio on the click output during a take.
+
+Not yet qualified: WASAPI loopback captures the shared-mode mix in software. It
+is not an electrical loopback, absolute latency, or DAW sample-lock proof.
+Background-tab and foreground-DAW runs, other browsers and operating systems,
+and Bluetooth output remain unqualified.
 
 Reference: [AudioWorklet](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet)
 executes on the Web Audio rendering thread, shared with other audio processing;
