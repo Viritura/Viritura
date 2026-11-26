@@ -124,7 +124,7 @@ are omitted only from whole systems where they are empty is opted into
 `autoHideEmptyParts`, its omitting system layouts are restored from the
 score layout (keeping each system's label style), and `autoHideEmptyStaves`
 records `keepVisible` or `firstSystem: "show"` for systems where Finale
-showed it empty. Emptiness is judged more strictly than the engine's, so restored staves hide again on those systems unless a spanner continues into them or every staff on the system is empty.
+showed it empty. Emptiness is judged more strictly than the engine's, including fermatas on rests and markings that continue from earlier measures, so restored staves hide again on those systems unless every staff on the system is empty.
 
 Instruments hidden while they contain music, partially omitted, or in reordered
 or shared system layouts keep Finale's explicit staff lists, reported as info.

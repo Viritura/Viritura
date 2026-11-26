@@ -1,5 +1,5 @@
 import type { DenigmaDiagnostic } from "../types";
-import { isUnmarkedMeasure, measureHasNotes } from "./emptyMeasures";
+import { isUnmarkedMeasure, measureHasNotes, spannedMeasures } from "./emptyMeasures";
 import { layoutStaves, restoreSystemLayout } from "./systemLayouts";
 
 type Json = Record<string, unknown>;
@@ -72,6 +72,8 @@ interface DocumentIndex {
   measureIndex: Map<string, number>;
   measureCount: number;
   references: Map<string, number>;
+  /** Per part, measures a marking from an earlier measure reaches into. */
+  spanned: Map<string, Set<number>>;
 }
 
 interface ScoreView {
@@ -82,13 +84,19 @@ interface ScoreView {
   shown: Map<string, number>[];
 }
 
+function measuresOf(part: Json | undefined): unknown[] {
+  return Array.isArray(part?.["measures"]) ? part["measures"] : [];
+}
+
 function partMeasures(index: DocumentIndex, partId: string, system: ScoreSystem): unknown[] {
-  return records(index.parts.get(partId)?.["measures"]).slice(system.start, system.end);
+  const measures = measuresOf(index.parts.get(partId));
+  return Array.from({ length: system.end - system.start }, (_, offset) => measures[system.start + offset]);
 }
 
 function emptyOn(index: DocumentIndex, partId: string, system: ScoreSystem): boolean {
-  return partMeasures(index, partId, system).every((measure, offset) =>
-    isUnmarkedMeasure(measure, system.start + offset),
+  const spanned = index.spanned.get(partId);
+  return partMeasures(index, partId, system).every(
+    (measure, offset) => isUnmarkedMeasure(measure, system.start + offset) && !spanned?.has(system.start + offset),
   );
 }
 
@@ -225,17 +233,24 @@ export function mapHiddenEmptyStaves(document: Json): DenigmaDiagnostic[] {
   const parts = new Map(records(document["parts"]).map((part) => [String(part["id"]), part]));
   const globalMeasures = isRecord(document["global"]) ? records(document["global"]["measures"]) : [];
   const scores = records(document["scores"]);
+  const measureIndex = new Map(
+    globalMeasures.flatMap((measure, position) =>
+      typeof measure["id"] === "string" ? [[measure["id"], position] as const] : [],
+    ),
+  );
   const index: DocumentIndex = {
     layouts: new Map(records(document["layouts"]).map((layout) => [String(layout["id"]), layout])),
     parts,
     partOrder: [...parts.keys()],
-    measureIndex: new Map(
-      globalMeasures.flatMap((measure, position) =>
-        typeof measure["id"] === "string" ? [[measure["id"], position] as const] : [],
-      ),
-    ),
+    measureIndex,
     measureCount: globalMeasures.length,
     references: layoutReferences(scores),
+    spanned: new Map(
+      [...parts].map(([id, part]) => [
+        id,
+        spannedMeasures(measuresOf(part).slice(0, globalMeasures.length), measureIndex),
+      ]),
+    ),
   };
   return scores.flatMap((score) => mapScore(index, score));
 }

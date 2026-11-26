@@ -9,7 +9,13 @@ function isEmptyValue(value: unknown): boolean {
 }
 
 const REST_KEYS = new Set(["type", "id", "duration", "rest", "measure", "staff", "orient", "stemDirection"]);
-const SEQUENCE_KEYS = new Set(["type", "id", "content", "staff", "voice", "orient", "fullMeasure"]);
+const SEQUENCE_KEYS = new Set(["type", "id", "content", "staff", "voice", "orient"]);
+
+function unmarkedSequenceField(field: string, value: unknown): boolean {
+  if (field === "content") return Array.isArray(value) && value.every(unmarkedContent);
+  if (field === "fullMeasure") return isRecord(value) && value["fermata"] === undefined;
+  return SEQUENCE_KEYS.has(field) || isEmptyValue(value);
+}
 
 function unmarkedContent(item: unknown): boolean {
   if (!isRecord(item)) return false;
@@ -35,11 +41,7 @@ export function isUnmarkedMeasure(measure: unknown, index: number): boolean {
       value.every(
         (sequence) =>
           isRecord(sequence) &&
-          Object.entries(sequence).every(([field, content]) =>
-            field === "content"
-              ? Array.isArray(content) && content.every(unmarkedContent)
-              : SEQUENCE_KEYS.has(field) || isEmptyValue(content),
-          ),
+          Object.entries(sequence).every(([field, content]) => unmarkedSequenceField(field, content)),
       )
     );
   });
@@ -59,4 +61,63 @@ function containsNotes(content: unknown): boolean {
 export function measureHasNotes(measure: unknown): boolean {
   if (!isRecord(measure) || !Array.isArray(measure["sequences"])) return false;
   return measure["sequences"].some((sequence) => isRecord(sequence) && containsNotes(sequence["content"]));
+}
+
+function events(content: unknown, found: Json[] = []): Json[] {
+  if (!Array.isArray(content)) return found;
+  for (const item of content) {
+    if (!isRecord(item)) continue;
+    if (item["type"] === undefined || item["type"] === "event") found.push(item);
+    events(item["content"], found);
+  }
+  return found;
+}
+
+function targets(spans: unknown): string[] {
+  return Array.isArray(spans)
+    ? spans.flatMap((span) => (isRecord(span) && typeof span["target"] === "string" ? [span["target"]] : []))
+    : [];
+}
+
+/**
+ * Measures a marking reaches after the one it starts in: hairpin, pedal and
+ * ottava ends, slur and glissando targets, and measure repeats. The engine
+ * keeps a staff visible across these spans even where its measures are rests.
+ */
+export function spannedMeasures(
+  partMeasures: readonly unknown[],
+  measureIndex: ReadonlyMap<string, number>,
+): Set<number> {
+  const measureEvents = partMeasures.map((measure) =>
+    isRecord(measure) && Array.isArray(measure["sequences"])
+      ? measure["sequences"].flatMap((sequence) => (isRecord(sequence) ? events(sequence["content"]) : []))
+      : [],
+  );
+  const eventMeasure = new Map<string, number>();
+  measureEvents.forEach((list, index) => {
+    for (const event of list) if (typeof event["id"] === "string") eventMeasure.set(event["id"], index);
+  });
+  const spanned = new Set<number>();
+  const cover = (start: number, end: number | undefined) => {
+    const last = end ?? partMeasures.length - 1;
+    for (let index = start + 1; index <= last; index += 1) spanned.add(index);
+  };
+  partMeasures.forEach((measure, start) => {
+    if (!isRecord(measure)) return;
+    for (const key of ["dynamics", "pedals", "ottavas"]) {
+      for (const span of Array.isArray(measure[key]) ? measure[key] : []) {
+        const end = isRecord(span) && isRecord(span["end"]) ? span["end"]["measure"] : undefined;
+        if (typeof end === "string") cover(start, measureIndex.get(end));
+        else if (key !== "dynamics") cover(start, undefined);
+      }
+    }
+    for (const event of measureEvents[start]!) {
+      for (const target of [...targets(event["slurs"]), ...targets(event["glissandos"])]) {
+        cover(start, eventMeasure.get(target));
+      }
+    }
+    const repeat = measure["measureRepeat"];
+    if (isRecord(repeat) && typeof repeat["number"] === "number") cover(start, start + repeat["number"] - 1);
+  });
+  return spanned;
 }

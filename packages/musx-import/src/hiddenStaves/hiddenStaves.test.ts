@@ -22,7 +22,10 @@ function document(systemLayouts: Record<string, unknown[]>, music: Record<string
     parts: Object.entries(music).map(([id, measures]) => ({
       id,
       name: `Part ${id}`,
-      measures: measures.map((hasMusic, index) => ({ id: `${id}.m${index + 1}`, sequences: [hasMusic ? note : rest] })),
+      measures: measures.map((hasMusic, index) => ({
+        id: `${id}.m${index + 1}`,
+        sequences: [structuredClone(hasMusic ? note : rest)],
+      })),
     })),
     layouts: [
       { id: "full", content: [group("name", "P1", "P2"), staff("P3")] },
@@ -111,6 +114,24 @@ describe("adaptHiddenStaves", () => {
     expect(scoreExtension(doc)).toBeUndefined();
     expect(layout(doc, "s2")).toEqual([staff("P3"), group("name", "P1")]);
     expect(diagnostics).toEqual([]);
+  });
+
+  it("keeps Finale's staff lists where a marking continues into a hidden rest system", () => {
+    const full = [group("name", "P1", "P2"), staff("P3")];
+    const hidden = [group("shortName", "P1"), staff("P3", "shortName")];
+    for (const mark of ["pedal", "fermata"]) {
+      const source = document(
+        { s1: full, s2: full, s3: hidden },
+        { P1: [true, true, true], P2: [true, false, false], P3: [true, true, true] },
+      );
+      const measures = ((source["parts"] as Json[])[1]!["measures"] as Json[])!;
+      if (mark === "pedal") measures[1]!["pedals"] = [{ end: { measure: "m3", position: { fraction: [1, 1] } } }];
+      else (measures[2]!["sequences"] as Json[])[0]!["fullMeasure"] = { fermata: {} };
+      const { document: doc } = adapt(source);
+
+      expect(scoreExtension(doc)).toBeUndefined();
+      expect(layout(doc, "s3")).toEqual(hidden);
+    }
   });
 
   it("warns that assigned cutaway staves import visible but ignores unassigned styles", () => {

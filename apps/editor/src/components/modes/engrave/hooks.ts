@@ -194,24 +194,27 @@ export function useStaffVisibility(
       const scoreIndex = refs.activeScoreIndexRef.current;
       const displayList = previewCanvasRef.current?.getDisplayList() ?? null;
       const eligible = sc.scores?.[scoreIndex]?.autoHideEmptyParts?.includes(hit.partId) ?? false;
+      const seed = defaultSystemStarts(sc, displayList);
       if (eligible) {
         const systemMeasureIds = systemMeasureIdsAt(displayList, hit.systemMeasureId);
         const manuallyHidden = hiddenPartsOnSystem(sc, scoreIndex, hit.systemMeasureId).has(hit.partId);
-        // Explicit per-system decisions win over the automatic policy, while
-        // a manual omission is undone through the layout instead.
-        if (!hit.visible && !manuallyHidden) {
-          refs.updateScoreRef.current(setAutoHideKeepVisible(sc, scoreIndex, systemMeasureIds, hit.partId, true));
+        // Explicit per-system decisions win over the automatic policy, so
+        // showing a staff always records one; a manual omission is also
+        // undone through the layout.
+        if (!hit.visible) {
+          const restored = manuallyHidden
+            ? applyStaffVisibilityFromSystem(sc, scoreIndex, hit.systemMeasureId, hit.partId, true, seed)
+            : sc;
+          refs.updateScoreRef.current(setAutoHideKeepVisible(restored, scoreIndex, systemMeasureIds, hit.partId, true));
           return;
         }
-        if (hit.visible && isKeptVisibleOnSystem(sc, scoreIndex, systemMeasureIds, hit.partId)) {
+        if (isKeptVisibleOnSystem(sc, scoreIndex, systemMeasureIds, hit.partId)) {
           refs.updateScoreRef.current(setAutoHideKeepVisible(sc, scoreIndex, systemMeasureIds, hit.partId, false));
           return;
         }
       }
-      const nextVisible = !hit.visible;
-      const seed = defaultSystemStarts(sc, displayList);
       refs.updateScoreRef.current(
-        applyStaffVisibilityFromSystem(sc, scoreIndex, hit.systemMeasureId, hit.partId, nextVisible, seed),
+        applyStaffVisibilityFromSystem(sc, scoreIndex, hit.systemMeasureId, hit.partId, !hit.visible, seed),
       );
     },
     [refs, previewCanvasRef],
