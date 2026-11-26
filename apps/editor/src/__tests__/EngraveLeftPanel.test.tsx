@@ -303,10 +303,32 @@ describe("EngraveLeftPanel", () => {
     const { onAutoHideEmptyPartsChange } = renderPanel();
     await user.click(await screen.findByRole("tab", { name: "Layouts" }));
     await user.click(screen.getByRole("checkbox", { name: "Auto-hide empty staves: Oboe" }));
-    expect(onAutoHideEmptyPartsChange).toHaveBeenCalledWith(["p2"]);
+    expect(onAutoHideEmptyPartsChange).toHaveBeenCalledWith({ kind: "parts", partIds: ["p2"] });
     expect((screen.getByRole("checkbox", { name: "Auto-hide empty staves: Flute" }) as HTMLInputElement).checked).toBe(
       false,
     );
+  });
+
+  it("states the view scope and stores the first-system choice on the active view", async () => {
+    const user = userEvent.setup();
+    let store: DocumentStore | undefined;
+    render(
+      <DocumentProvider>
+        <WithScore>
+          <LiveAutoHideControl
+            scoreIndex={0}
+            onStore={(value) => {
+              store = value;
+            }}
+          />
+        </WithScore>
+      </DocumentProvider>,
+    );
+    expect(await screen.findByText(/Applies to this score view only/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Apply to all/ })).toBeNull();
+    await user.click(screen.getByRole("checkbox", { name: "Show all staves on the first system" }));
+    expect(store?.getState().workingScore?.scores?.[0]?.autoHideEmptyStaves).toEqual({ firstSystem: "show" });
+    expect(store?.getState().workingScore?.scores?.[1]?.autoHideEmptyStaves).toBeUndefined();
   });
 
   it("opens existing frame properties on canvas selection without a Text tab or creation actions", async () => {

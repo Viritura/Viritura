@@ -89,6 +89,44 @@ fn test_auto_hide_empty_parts_are_per_score_and_restore_whole_instruments() {
 }
 
 #[test]
+fn test_auto_hide_first_system_and_keep_visible_exemptions() {
+    let piano_on_first_system = |options: serde_json::Value| {
+        let mut fixture = auto_hide_fixture();
+        fixture["scores"][0]["_x"]["viritura"]["autoHideEmptyStaves"] = options;
+        let score = parse_mnx(&fixture.to_string()).unwrap();
+        let display = layout_with_mnx_scores(&score, &auto_hide_config(), 0);
+        display
+            .measure_bounds
+            .iter()
+            .filter(|bound| bound.part_index == 1 && bound.index < 2)
+            .count()
+    };
+    assert_eq!(
+        piano_on_first_system(serde_json::json!({"firstSystem": "hide"})),
+        0
+    );
+    assert_eq!(
+        piano_on_first_system(serde_json::json!({"firstSystem": "show"})),
+        4,
+        "both piano staves stay on both first-system measures"
+    );
+    assert_eq!(
+        piano_on_first_system(serde_json::json!({
+            "keepVisible": [{"measure": "m1", "parts": ["piano"]}]
+        })),
+        4,
+        "a decision at any measure of the system keeps the part visible"
+    );
+    assert_eq!(
+        piano_on_first_system(serde_json::json!({
+            "keepVisible": [{"measure": "m3", "parts": ["piano"]}]
+        })),
+        0,
+        "a decision on another system does not leak"
+    );
+}
+
+#[test]
 fn test_auto_hide_keeps_rest_markings_and_spanner_continuations() {
     let mut fixtures = Vec::new();
     let mut fermata = auto_hide_fixture();

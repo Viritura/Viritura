@@ -55,9 +55,13 @@ export interface EngraveAdornments {
    * drawing one per hidden staff.
    *
    * `partLabels` is used in the multi-staff popover; defaults to ids if
-   * omitted by the host.
+   * omitted by the host. `visiblePartIds` lists the parts rendered on the
+   * system, so the host can report staves removed by automatic hiding.
    */
-  ghostRailGroupProvider?: (systemMeasureId: string) => Array<{
+  ghostRailGroupProvider?: (
+    systemMeasureId: string,
+    visiblePartIds: ReadonlySet<string>,
+  ) => Array<{
     id: string;
     partIds: string[];
     partLabels?: string[];
