@@ -29,7 +29,7 @@ pub(super) fn layout_full_score_with_frames(
     config: &LayoutConfig,
     score_index: usize,
 ) -> DisplayList {
-    let mut dl = super::full_score::layout_full_score(score, config);
+    let mut dl = super::full_score::layout_full_score_with_config_cached(score, config, None);
     if let Some(score_def) = score.scores.get(score_index) {
         let visible_parts = (0..score.parts.len()).collect();
         append_text_frames_by_bounds(

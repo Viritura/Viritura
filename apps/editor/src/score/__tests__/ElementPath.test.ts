@@ -327,6 +327,13 @@ describe("resolveEventFromSubElement", () => {
 // ═══════════════════════════════════════════
 
 describe("resolveAnnotationLocation", () => {
+  it("resolves each placed number copy to its global measure", () => {
+    expect(resolveAnnotationLocation("m5/bn2-above/mnum")).toEqual({
+      kind: "global",
+      type: "mnum",
+      measureIndex: 5,
+    });
+  });
   it.each(["m12/chord3", "m12/chord3/p0/staff1", "m12/chord3/p9/staff2"])(
     "resolves %s to the global chord, not its display part",
     (id) => {

@@ -518,6 +518,769 @@ impl<'de> ::serde::Deserialize<'de> for AutoHideKeepVisiblePartsItem {
             })
     }
 }
+///Partial bar-number house style. Score-view overrides inherit omitted fields from the document defaults.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Partial bar-number house style. Score-view overrides inherit omitted fields from the document defaults.",
+///  "type": "object",
+///  "properties": {
+///    "aboveGroups": {
+///      "type": "array",
+///      "items": {
+///        "type": "array",
+///        "items": {
+///          "type": "string",
+///          "minLength": 1
+///        },
+///        "minItems": 1,
+///        "uniqueItems": true
+///      },
+///      "uniqueItems": true
+///    },
+///    "bold": {
+///      "type": "boolean"
+///    },
+///    "distance": {
+///      "type": "number"
+///    },
+///    "enclosure": {
+///      "enum": [
+///        "none",
+///        "box",
+///        "circle"
+///      ]
+///    },
+///    "family": {
+///      "enum": [
+///        "serif",
+///        "sans-serif",
+///        "monospace"
+///      ]
+///    },
+///    "frequency": {
+///      "enum": [
+///        "systemStarts",
+///        "everyBar",
+///        "hidden"
+///      ]
+///    },
+///    "horizontalAlignment": {
+///      "enum": [
+///        "barline",
+///        "center"
+///      ]
+///    },
+///    "italic": {
+///      "type": "boolean"
+///    },
+///    "onStaff": {
+///      "type": "boolean"
+///    },
+///    "placement": {
+///      "enum": [
+///        "aboveSystem",
+///        "belowSystem",
+///        "belowTopInstrument"
+///      ]
+///    },
+///    "placements": {
+///      "type": "array",
+///      "items": {
+///        "enum": [
+///          "aboveSystem",
+///          "belowSystem",
+///          "belowTopInstrument"
+///        ]
+///      },
+///      "uniqueItems": true
+///    },
+///    "showFirst": {
+///      "type": "boolean"
+///    },
+///    "showStaffLine": {
+///      "type": "boolean"
+///    },
+///    "size": {
+///      "type": "number"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BarNumberSettings {
+    #[serde(
+        rename = "aboveGroups",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub above_groups: ::std::option::Option<
+        Vec<Vec<BarNumberSettingsAboveGroupsItemItem>>,
+    >,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub bold: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub distance: ::std::option::Option<f64>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub enclosure: ::std::option::Option<BarNumberSettingsEnclosure>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub family: ::std::option::Option<BarNumberSettingsFamily>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub frequency: ::std::option::Option<BarNumberSettingsFrequency>,
+    #[serde(
+        rename = "horizontalAlignment",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub horizontal_alignment: ::std::option::Option<
+        BarNumberSettingsHorizontalAlignment,
+    >,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub italic: ::std::option::Option<bool>,
+    #[serde(
+        rename = "onStaff",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub on_staff: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub placement: ::std::option::Option<BarNumberSettingsPlacement>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub placements: ::std::option::Option<Vec<BarNumberSettingsPlacementsItem>>,
+    #[serde(
+        rename = "showFirst",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub show_first: ::std::option::Option<bool>,
+    #[serde(
+        rename = "showStaffLine",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub show_staff_line: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub size: ::std::option::Option<f64>,
+}
+impl ::std::convert::From<&BarNumberSettings> for BarNumberSettings {
+    fn from(value: &BarNumberSettings) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for BarNumberSettings {
+    fn default() -> Self {
+        Self {
+            above_groups: Default::default(),
+            bold: Default::default(),
+            distance: Default::default(),
+            enclosure: Default::default(),
+            family: Default::default(),
+            frequency: Default::default(),
+            horizontal_alignment: Default::default(),
+            italic: Default::default(),
+            on_staff: Default::default(),
+            placement: Default::default(),
+            placements: Default::default(),
+            show_first: Default::default(),
+            show_staff_line: Default::default(),
+            size: Default::default(),
+        }
+    }
+}
+///`BarNumberSettingsAboveGroupsItemItem`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct BarNumberSettingsAboveGroupsItemItem(::std::string::String);
+impl ::std::ops::Deref for BarNumberSettingsAboveGroupsItemItem {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<BarNumberSettingsAboveGroupsItemItem>
+for ::std::string::String {
+    fn from(value: BarNumberSettingsAboveGroupsItemItem) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&BarNumberSettingsAboveGroupsItemItem>
+for BarNumberSettingsAboveGroupsItemItem {
+    fn from(value: &BarNumberSettingsAboveGroupsItemItem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for BarNumberSettingsAboveGroupsItemItem {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for BarNumberSettingsAboveGroupsItemItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for BarNumberSettingsAboveGroupsItemItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for BarNumberSettingsAboveGroupsItemItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for BarNumberSettingsAboveGroupsItemItem {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`BarNumberSettingsEnclosure`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "enum": [
+///    "none",
+///    "box",
+///    "circle"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum BarNumberSettingsEnclosure {
+    #[serde(rename = "none")]
+    None,
+    #[serde(rename = "box")]
+    Box,
+    #[serde(rename = "circle")]
+    Circle,
+}
+impl ::std::convert::From<&Self> for BarNumberSettingsEnclosure {
+    fn from(value: &BarNumberSettingsEnclosure) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for BarNumberSettingsEnclosure {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::None => f.write_str("none"),
+            Self::Box => f.write_str("box"),
+            Self::Circle => f.write_str("circle"),
+        }
+    }
+}
+impl ::std::str::FromStr for BarNumberSettingsEnclosure {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "none" => Ok(Self::None),
+            "box" => Ok(Self::Box),
+            "circle" => Ok(Self::Circle),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BarNumberSettingsEnclosure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BarNumberSettingsEnclosure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BarNumberSettingsEnclosure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BarNumberSettingsFamily`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "enum": [
+///    "serif",
+///    "sans-serif",
+///    "monospace"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum BarNumberSettingsFamily {
+    #[serde(rename = "serif")]
+    Serif,
+    #[serde(rename = "sans-serif")]
+    SansSerif,
+    #[serde(rename = "monospace")]
+    Monospace,
+}
+impl ::std::convert::From<&Self> for BarNumberSettingsFamily {
+    fn from(value: &BarNumberSettingsFamily) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for BarNumberSettingsFamily {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Serif => f.write_str("serif"),
+            Self::SansSerif => f.write_str("sans-serif"),
+            Self::Monospace => f.write_str("monospace"),
+        }
+    }
+}
+impl ::std::str::FromStr for BarNumberSettingsFamily {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "serif" => Ok(Self::Serif),
+            "sans-serif" => Ok(Self::SansSerif),
+            "monospace" => Ok(Self::Monospace),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BarNumberSettingsFamily {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BarNumberSettingsFamily {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BarNumberSettingsFamily {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BarNumberSettingsFrequency`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "enum": [
+///    "systemStarts",
+///    "everyBar",
+///    "hidden"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum BarNumberSettingsFrequency {
+    #[serde(rename = "systemStarts")]
+    SystemStarts,
+    #[serde(rename = "everyBar")]
+    EveryBar,
+    #[serde(rename = "hidden")]
+    Hidden,
+}
+impl ::std::convert::From<&Self> for BarNumberSettingsFrequency {
+    fn from(value: &BarNumberSettingsFrequency) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for BarNumberSettingsFrequency {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::SystemStarts => f.write_str("systemStarts"),
+            Self::EveryBar => f.write_str("everyBar"),
+            Self::Hidden => f.write_str("hidden"),
+        }
+    }
+}
+impl ::std::str::FromStr for BarNumberSettingsFrequency {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "systemStarts" => Ok(Self::SystemStarts),
+            "everyBar" => Ok(Self::EveryBar),
+            "hidden" => Ok(Self::Hidden),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BarNumberSettingsFrequency {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BarNumberSettingsFrequency {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BarNumberSettingsFrequency {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BarNumberSettingsHorizontalAlignment`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "enum": [
+///    "barline",
+///    "center"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum BarNumberSettingsHorizontalAlignment {
+    #[serde(rename = "barline")]
+    Barline,
+    #[serde(rename = "center")]
+    Center,
+}
+impl ::std::convert::From<&Self> for BarNumberSettingsHorizontalAlignment {
+    fn from(value: &BarNumberSettingsHorizontalAlignment) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for BarNumberSettingsHorizontalAlignment {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Barline => f.write_str("barline"),
+            Self::Center => f.write_str("center"),
+        }
+    }
+}
+impl ::std::str::FromStr for BarNumberSettingsHorizontalAlignment {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "barline" => Ok(Self::Barline),
+            "center" => Ok(Self::Center),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BarNumberSettingsHorizontalAlignment {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for BarNumberSettingsHorizontalAlignment {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for BarNumberSettingsHorizontalAlignment {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BarNumberSettingsPlacement`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "enum": [
+///    "aboveSystem",
+///    "belowSystem",
+///    "belowTopInstrument"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum BarNumberSettingsPlacement {
+    #[serde(rename = "aboveSystem")]
+    AboveSystem,
+    #[serde(rename = "belowSystem")]
+    BelowSystem,
+    #[serde(rename = "belowTopInstrument")]
+    BelowTopInstrument,
+}
+impl ::std::convert::From<&Self> for BarNumberSettingsPlacement {
+    fn from(value: &BarNumberSettingsPlacement) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for BarNumberSettingsPlacement {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::AboveSystem => f.write_str("aboveSystem"),
+            Self::BelowSystem => f.write_str("belowSystem"),
+            Self::BelowTopInstrument => f.write_str("belowTopInstrument"),
+        }
+    }
+}
+impl ::std::str::FromStr for BarNumberSettingsPlacement {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "aboveSystem" => Ok(Self::AboveSystem),
+            "belowSystem" => Ok(Self::BelowSystem),
+            "belowTopInstrument" => Ok(Self::BelowTopInstrument),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BarNumberSettingsPlacement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BarNumberSettingsPlacement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BarNumberSettingsPlacement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BarNumberSettingsPlacementsItem`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "enum": [
+///    "aboveSystem",
+///    "belowSystem",
+///    "belowTopInstrument"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum BarNumberSettingsPlacementsItem {
+    #[serde(rename = "aboveSystem")]
+    AboveSystem,
+    #[serde(rename = "belowSystem")]
+    BelowSystem,
+    #[serde(rename = "belowTopInstrument")]
+    BelowTopInstrument,
+}
+impl ::std::convert::From<&Self> for BarNumberSettingsPlacementsItem {
+    fn from(value: &BarNumberSettingsPlacementsItem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for BarNumberSettingsPlacementsItem {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::AboveSystem => f.write_str("aboveSystem"),
+            Self::BelowSystem => f.write_str("belowSystem"),
+            Self::BelowTopInstrument => f.write_str("belowTopInstrument"),
+        }
+    }
+}
+impl ::std::str::FromStr for BarNumberSettingsPlacementsItem {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "aboveSystem" => Ok(Self::AboveSystem),
+            "belowSystem" => Ok(Self::BelowSystem),
+            "belowTopInstrument" => Ok(Self::BelowTopInstrument),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BarNumberSettingsPlacementsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for BarNumberSettingsPlacementsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BarNumberSettingsPlacementsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///Harmonic quality of a chord symbol.
 ///
 /// <details><summary>JSON schema</summary>
@@ -8649,6 +9412,9 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 ///  "description": "Viritura vendor extensions on the MNX document root (the `_x.viritura` dict on the top-level score object).",
 ///  "type": "object",
 ///  "properties": {
+///    "barNumbers": {
+///      "$ref": "#/$defs/bar-number-settings"
+///    },
 ///    "chordSymbolStyle": {
 ///      "description": "Score-wide chord-symbol engraving style.",
 ///      "$ref": "#/$defs/chord-symbol-style"
@@ -8721,6 +9487,12 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct RootExtensions {
+    #[serde(
+        rename = "barNumbers",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub bar_numbers: ::std::option::Option<BarNumberSettings>,
     ///Score-wide chord-symbol engraving style.
     #[serde(
         rename = "chordSymbolStyle",
@@ -8795,6 +9567,7 @@ impl ::std::convert::From<&RootExtensions> for RootExtensions {
 impl ::std::default::Default for RootExtensions {
     fn default() -> Self {
         Self {
+            bar_numbers: Default::default(),
             chord_symbol_style: Default::default(),
             instrument_change_style: Default::default(),
             lyric_workflow: Default::default(),
@@ -8916,6 +9689,9 @@ impl ::std::default::Default for RootExtensionsPageSetupDefaults {
 ///    "autoHideEmptyStaves": {
 ///      "$ref": "#/$defs/auto-hide-empty-staves"
 ///    },
+///    "barNumbers": {
+///      "$ref": "#/$defs/bar-number-settings"
+///    },
 ///    "instrumentNameDisplay": {
 ///      "$ref": "#/$defs/instrument-name-display"
 ///    },
@@ -8965,6 +9741,12 @@ pub struct ScoreExtensions {
     )]
     pub auto_hide_empty_staves: ::std::option::Option<AutoHideEmptyStaves>,
     #[serde(
+        rename = "barNumbers",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub bar_numbers: ::std::option::Option<BarNumberSettings>,
+    #[serde(
         rename = "instrumentNameDisplay",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -9006,6 +9788,7 @@ impl ::std::default::Default for ScoreExtensions {
         Self {
             auto_hide_empty_parts: Default::default(),
             auto_hide_empty_staves: Default::default(),
+            bar_numbers: Default::default(),
             instrument_name_display: Default::default(),
             layout_breaks: Default::default(),
             page_setup: Default::default(),
@@ -16927,6 +17710,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "auto-hide-keep-visible": {
 ///      "$ref": "#/$defs/auto-hide-keep-visible"
 ///    },
+///    "bar-number-settings": {
+///      "$ref": "#/$defs/bar-number-settings"
+///    },
 ///    "chord-quality": {
 ///      "$ref": "#/$defs/chord-quality"
 ///    },
@@ -17279,6 +18065,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub auto_hide_keep_visible: ::std::option::Option<AutoHideKeepVisible>,
+    #[serde(
+        rename = "bar-number-settings",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub bar_number_settings: ::std::option::Option<BarNumberSettings>,
     #[serde(
         rename = "chord-quality",
         default,
@@ -17937,6 +18729,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             arpeggio: Default::default(),
             auto_hide_empty_staves: Default::default(),
             auto_hide_keep_visible: Default::default(),
+            bar_number_settings: Default::default(),
             chord_quality: Default::default(),
             chord_root: Default::default(),
             chord_symbol: Default::default(),

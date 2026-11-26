@@ -96,6 +96,7 @@ pub enum PromoteError {
     InvalidFullMeasureRest(String),
     InvalidTempoInstruction(String),
     InvalidAutoHideEmptyParts(String),
+    InvalidBarNumbers(String),
 }
 
 impl std::fmt::Display for PromoteError {
@@ -126,6 +127,7 @@ impl std::fmt::Display for PromoteError {
             Self::InvalidAutoHideEmptyParts(reason) => {
                 write!(f, "Viritura autoHideEmptyParts: {reason}")
             }
+            Self::InvalidBarNumbers(reason) => write!(f, "Viritura barNumbers: {reason}"),
             Self::InvalidTempoInstruction(reason) => {
                 write!(f, "Viritura tempo instruction: {reason}")
             }

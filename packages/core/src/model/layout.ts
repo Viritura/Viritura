@@ -4,6 +4,7 @@
  */
 
 import type { TextFrame } from "./textFrame";
+import type { BarNumberSettings } from "./score";
 
 /**
  * Page dimensions.
@@ -496,6 +497,8 @@ export interface MultimeasureRestRange {
 
 /** MNX score definition — describes page/system structure for one score view. */
 export interface ScoreDefinition {
+  /** Overrides the document's bar-number house style for this score view only. */
+  barNumbers?: BarNumberSettings;
   name?: string;
   layout?: string;
   multimeasureRests?: MultimeasureRestRange[];

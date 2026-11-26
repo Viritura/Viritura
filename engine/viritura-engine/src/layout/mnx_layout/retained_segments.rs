@@ -426,5 +426,6 @@ pub(super) fn compute_chunked_global_offsets(
     StaffYPlacement {
         offsets,
         pair_debug: Vec::new(),
+        number_staff_y: Vec::new(),
     }
 }

@@ -63,6 +63,22 @@ function recolorFirstNote(score: Score, partIndex: number, measureIndex: number,
 }
 
 describe("DeltaSerializer incremental assembly", () => {
+  it("forces a relayout for house-style edits and removing bar-number overrides", () => {
+    const source = parseMnx({
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [{ measures: [{ sequences: [] }] }],
+    });
+    const delta = new DeltaSerializer();
+    delta.serialize(source);
+    const edited: Score = { ...source, barNumbers: { frequency: "everyBar", italic: false } };
+    const result = delta.serialize(edited);
+    expect(result.structuralChange).toBe(true);
+    expect(result.changedGlobalMeasures).toEqual([]);
+    expect(result.json).toBe(JSON.stringify(serializeMnx(edited)));
+    expect(delta.serialize(source).structuralChange).toBe(true);
+  });
+
   it("includes the automatic barline and key change in the same incremental patch", () => {
     const score = parseMnx({
       mnx: { version: 1 },

@@ -22,6 +22,87 @@ const mnxFiles = fs
   .sort();
 
 describe("MNX round-trip (parse → serialize → parse)", () => {
+  it("preserves bar-number defaults and partial layout overrides, including false values", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [{ id: "m0", time: { count: 4, unit: 4 } }] },
+      parts: [{ id: "p", measures: [{ sequences: [] }] }],
+      layouts: [{ id: "L", content: [{ type: "staff", sources: [{ part: "p" }] }] }],
+      scores: [
+        { name: "Score", layout: "L" },
+        {
+          name: "Part",
+          layout: "L",
+          _x: {
+            viritura: {
+              barNumbers: {
+                frequency: "everyBar",
+                showFirst: false,
+                italic: false,
+                enclosure: "circle",
+                onStaff: false,
+                showStaffLine: false,
+                placements: [],
+                aboveGroups: [["p"]],
+                distance: 0,
+              },
+              autoHideEmptyParts: ["p"],
+              autoHideEmptyStaves: { firstSystem: "show", keepVisible: [{ measure: "m0", parts: ["p"] }] },
+            },
+          },
+        },
+      ],
+      _x: {
+        viritura: {
+          barNumbers: {
+            placement: "aboveSystem",
+            placements: ["aboveSystem", "belowSystem"],
+            family: "sans-serif",
+            size: 1.5,
+            bold: true,
+            showFirst: true,
+            horizontalAlignment: "center",
+            distance: 3.25,
+            onStaff: true,
+          },
+        },
+      },
+    };
+    const score = parseMnx(source);
+    const saved = serializeMnx(score);
+    expect(saved._x?.["viritura"]).toMatchObject(source._x.viritura);
+    expect(saved.scores?.[1]?._x?.["viritura"]).toEqual(source.scores[1]!._x!.viritura);
+    expect(parseMnx(saved)).toEqual(score);
+    expect(score.scores?.[0]?.barNumbers).toBeUndefined();
+  });
+
+  it.each([
+    { size: 0 },
+    { size: 9 },
+    { frequency: "sometimes" },
+    { placement: "betweenStaves" },
+    { bold: "yes" },
+    { distance: -0.25 },
+    { distance: "3" },
+    { onStaff: "yes" },
+    { horizontalAlignment: "inset" },
+    { placements: ["aboveSystem", "aboveSystem"] },
+    { placements: ["betweenStaves"] },
+    { aboveGroups: [[]] },
+    { aboveGroups: [["p"], ["p"]] },
+    { aboveGroups: [["p", "p"]] },
+    { showStaffLine: "yes" },
+  ])("rejects invalid bar-number settings %j", (barNumbers) => {
+    expect(() =>
+      parseMnx({
+        mnx: { version: 1 },
+        global: { measures: [] },
+        parts: [],
+        _x: { viritura: { barNumbers } },
+      }),
+    ).toThrow();
+  });
+
   it("preserves the automatically added barline when a key change is saved", () => {
     const score = parseMnx({
       mnx: { version: 1 },

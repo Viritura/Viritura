@@ -414,7 +414,9 @@ pub(super) fn layout_auto_flow_mnx_score(
     // the SAME global offsets that position the staves — see the chunked branch
     // of `total_height` below.
     let chunked_global_offsets: Option<StaffYPlacement> = if chunked {
-        if config.emit_layout_debug {
+        if config.emit_layout_debug
+            || super::super::render_annotations::reserves_number_ink(&config.bar_numbers)
+        {
             let staff_count = flat_staves.len();
             let mut global_view: Vec<Vec<&MeasureLayout>> = vec![Vec::new(); staff_count];
             for sys in &precomp_layouts {
@@ -435,6 +437,7 @@ pub(super) fn layout_auto_flow_mnx_score(
                 staff_height,
                 config,
                 false,
+                score,
             ))
         } else {
             Some(compute_chunked_global_offsets(

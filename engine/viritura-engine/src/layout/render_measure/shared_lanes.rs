@@ -31,11 +31,30 @@ pub(crate) fn shared_staff_lane(
 pub(crate) fn should_render_ordinary_measure_number(
     lane: &SharedStaffLane,
     staff_idx: Option<usize>,
+    staff_y: f64,
+    staff_y_offsets: Option<&[f64]>,
+    shared_offsets: Option<&[f64]>,
+    config: &LayoutConfig,
 ) -> bool {
-    if lane.center_y.is_some() {
-        lane.is_bottom
-    } else {
-        staff_idx.is_none_or(|index| index == 0)
+    use crate::model::BarNumberPlacement;
+    match config.bar_numbers.placement.unwrap_or_default() {
+        BarNumberPlacement::AboveSystem => staff_y_offsets
+            .and_then(|offsets| offsets.first())
+            .is_none_or(|top| (staff_y - top).abs() < 0.01),
+        BarNumberPlacement::BelowSystem => staff_y_offsets
+            .and_then(|offsets| offsets.last())
+            .is_none_or(|bottom| (staff_y - bottom).abs() < 0.01),
+        BarNumberPlacement::BelowTopInstrument => {
+            if lane.center_y.is_some() {
+                lane.is_bottom
+                    && staff_y_offsets
+                        .and_then(|offsets| offsets.first())
+                        .zip(shared_offsets.and_then(|offsets| offsets.first()))
+                        .is_none_or(|(system_top, part_top)| (system_top - part_top).abs() < 0.01)
+            } else {
+                staff_idx.is_none_or(|index| index == 0)
+            }
+        }
     }
 }
 

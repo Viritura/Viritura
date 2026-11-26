@@ -70,6 +70,7 @@ export class DeltaSerializer {
   private pageSetupDefaultsRef: unknown = undefined;
   private metadataRef: unknown = undefined;
   private textStylesRef: unknown = undefined;
+  private barNumbersRef: unknown = undefined;
   private timeSignaturesRef: unknown = undefined;
   private soundProfileRef: unknown = undefined;
   private mixerRef: unknown = undefined;
@@ -85,6 +86,7 @@ export class DeltaSerializer {
   private pageSetupDefaultsCache = "";
   private metadataCache = "";
   private textStylesCache = "";
+  private barNumbersCache = "";
   private timeSignaturesCache = "";
   private soundProfileCache = "";
   private mixerCache = "";
@@ -238,6 +240,11 @@ export class DeltaSerializer {
   private checkStructuralFields(score: Score): boolean {
     let structuralChange = false;
     const slots = [
+      {
+        value: score.barNumbers,
+        refKey: "barNumbersRef" as const,
+        cacheKey: "barNumbersCache" as const,
+      },
       {
         value: score.pageSetupDefaults,
         refKey: "pageSetupDefaultsRef" as const,
@@ -420,6 +427,8 @@ export class DeltaSerializer {
     this.metadataRef = undefined;
     this.textStylesCache = "";
     this.textStylesRef = undefined;
+    this.barNumbersCache = "";
+    this.barNumbersRef = undefined;
     this.timeSignaturesCache = "";
     this.timeSignaturesRef = undefined;
     this.soundProfileCache = "";

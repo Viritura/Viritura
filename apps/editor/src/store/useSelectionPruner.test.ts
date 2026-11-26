@@ -140,6 +140,8 @@ describe("isSelectionIdValid", () => {
     expect(isSelectionIdValid("m0/time", current)).toBe(true);
     expect(isSelectionIdValid("m0/barline", current)).toBe(true);
     expect(isSelectionIdValid("m0/mnum", current)).toBe(true);
+    expect(isSelectionIdValid("m0/bn2-above/mnum", current)).toBe(true);
+    expect(isSelectionIdValid("m99/bn2-below/mnum", current)).toBe(false);
   });
 
   it("validates tuplets by tuplet ordinal rather than raw content index", () => {

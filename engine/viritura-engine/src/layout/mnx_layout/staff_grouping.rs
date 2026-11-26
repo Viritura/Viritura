@@ -186,6 +186,7 @@ mod tests {
             symbol: symbol.into(),
             label: None,
             depth,
+            source_parts: Vec::new(),
         }
     }
 
