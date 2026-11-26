@@ -14,17 +14,10 @@
 
 import { describe, it, expect } from "vitest";
 import * as fs from "node:fs";
-import * as path from "node:path";
 
 import { parseMnx } from "../mnx/parser";
 import { promote, type RawScore } from "../mnx/promote";
-
-const scoresDir = path.resolve(__dirname, "../../fixtures/mnx");
-
-const mnxFiles = fs
-  .readdirSync(scoresDir)
-  .filter((f) => f.endsWith(".mnx"))
-  .sort();
+import { mnxFixtures } from "./mnxCorpus";
 
 /**
  * Walk the raw source JSON and collect every position (parent + key)
@@ -54,19 +47,23 @@ function stripAutoIds(parsed: unknown, source: unknown): void {
 
 describe("promote(raw) matches parseMnx(json)", () => {
   it("has MNX example files to test against", () => {
-    expect(mnxFiles.length).toBeGreaterThan(0);
+    expect(mnxFixtures.length).toBeGreaterThan(0);
   });
 
-  for (const file of mnxFiles) {
-    it(`promotes ${file} identically to parseMnx`, () => {
-      const raw = fs.readFileSync(path.join(scoresDir, file), "utf-8");
-      const sourceJson = JSON.parse(raw) as RawScore;
-      // Fresh deep clones for each path so neither mutates the other.
-      const a = promote(JSON.parse(raw) as RawScore);
-      const b = parseMnx(JSON.parse(raw) as RawScore);
-      stripAutoIds(a, sourceJson);
-      stripAutoIds(b, sourceJson);
-      expect(a).toEqual(b);
-    });
+  for (const file of mnxFixtures) {
+    it(
+      `promotes ${file.name} identically to parseMnx`,
+      () => {
+        const raw = fs.readFileSync(file.path, "utf-8");
+        const sourceJson = JSON.parse(raw) as RawScore;
+        // Fresh deep clones for each path so neither mutates the other.
+        const a = promote(JSON.parse(raw) as RawScore);
+        const b = parseMnx(JSON.parse(raw) as RawScore);
+        stripAutoIds(a, sourceJson);
+        stripAutoIds(b, sourceJson);
+        expect(a).toEqual(b);
+      },
+      file.timeout,
+    );
   }
 });

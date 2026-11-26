@@ -11,15 +11,7 @@ import { setKeySignature } from "@viritura/core";
 import { parseMnx, parseMnxWithDiagnostics } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
 import * as fs from "node:fs";
-import * as path from "node:path";
-
-const scoresDir = path.resolve(__dirname, "../../fixtures/mnx");
-
-/** All .mnx files in the scores directory. */
-const mnxFiles = fs
-  .readdirSync(scoresDir)
-  .filter((f) => f.endsWith(".mnx"))
-  .sort();
+import { mnxFixtures } from "./mnxCorpus";
 
 describe("MNX round-trip (parse → serialize → parse)", () => {
   it("preserves bar-number defaults and partial layout overrides, including false values", () => {
@@ -532,41 +524,49 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
   });
 
   it("should have MNX example files to test", () => {
-    expect(mnxFiles.length).toBeGreaterThan(0);
+    expect(mnxFixtures.length).toBeGreaterThan(0);
   });
 
-  for (const file of mnxFiles) {
-    it(`round-trips ${file}`, () => {
-      const raw = fs.readFileSync(path.join(scoresDir, file), "utf-8");
-      const originalJson = JSON.parse(raw);
+  for (const file of mnxFixtures) {
+    it(
+      `round-trips ${file.name}`,
+      () => {
+        const raw = fs.readFileSync(file.path, "utf-8");
+        const originalJson = JSON.parse(raw);
 
-      // First parse
-      const score1 = parseMnx(originalJson);
+        // First parse
+        const score1 = parseMnx(originalJson);
 
-      // Serialize back to JSON
-      const serialized = serializeMnx(score1);
+        // Serialize back to JSON
+        const serialized = serializeMnx(score1);
 
-      // Second parse
-      const score2 = parseMnx(serialized);
+        // Second parse
+        const score2 = parseMnx(serialized);
 
-      // The two Score objects must be identical
-      expect(score2).toEqual(score1);
-    });
+        // The two Score objects must be identical
+        expect(score2).toEqual(score1);
+      },
+      file.timeout,
+    );
   }
 });
 
 describe("MNX serialize → parse produces valid JSON", () => {
-  for (const file of mnxFiles) {
-    it(`serializes ${file} to valid JSON`, () => {
-      const raw = fs.readFileSync(path.join(scoresDir, file), "utf-8");
-      const originalJson = JSON.parse(raw);
-      const score = parseMnx(originalJson);
-      const serialized = serializeMnx(score);
+  for (const file of mnxFixtures) {
+    it(
+      `serializes ${file.name} to valid JSON`,
+      () => {
+        const raw = fs.readFileSync(file.path, "utf-8");
+        const originalJson = JSON.parse(raw);
+        const score = parseMnx(originalJson);
+        const serialized = serializeMnx(score);
 
-      // Must be serializable to JSON string and back
-      const jsonStr = JSON.stringify(serialized);
-      expect(() => JSON.parse(jsonStr)).not.toThrow();
-    });
+        // Must be serializable to JSON string and back
+        const jsonStr = JSON.stringify(serialized);
+        expect(() => JSON.parse(jsonStr)).not.toThrow();
+      },
+      file.timeout,
+    );
   }
 });
 
