@@ -30,6 +30,15 @@ pub(crate) fn mid_clef_column_width_sp(clef: &Clef) -> f64 {
         + MID_CLEF_RIGHT_PAD_SP
 }
 
+fn chord_symbol_content_width(rm: &ResolvedMeasure, config: &LayoutConfig, sp: f64) -> f64 {
+    super::super::render_annotations::chord_symbols_min_content_width(
+        rm.chord_symbols.as_deref(),
+        rm.active_time.measure_beats(),
+        config.chord_symbol_style,
+        sp,
+    )
+}
+
 fn event_right_edge(
     events: &EventArena,
     index: usize,
@@ -723,13 +732,17 @@ pub(super) fn layout_measure_inner(
         super::super::render_barlines::trailing_barline_extra_width(rm, config, sp);
     let fixed_width =
         prefix_width + super::MEASURE_TRAILING_PADDING_SP * sp + trailing_barline_extra;
-    let rigid_measure_width = fixed_width + (log_spacing.minimum_total * sp).max(min_content_width);
+    let chord_content_width = chord_symbol_content_width(rm, config, sp);
+    let minimum_rhythmic_content_width = (log_spacing.minimum_total * sp)
+        .max(min_content_width)
+        .max(chord_content_width);
+    let rigid_measure_width = fixed_width + minimum_rhythmic_content_width;
     let forced_width = forced_width.map(|width| {
         super::super::space_requests::reconcile_caesura_rigid_width(rm, width, rigid_measure_width)
+            .max(fixed_width + chord_content_width)
     });
     let natural_content_width = (log_spacing.total_width * sp)
-        .max(log_spacing.minimum_total * sp)
-        .max(min_content_width)
+        .max(minimum_rhythmic_content_width)
         .max(skyline_min_content_width(
             &rm.part.sequences,
             total_beats,

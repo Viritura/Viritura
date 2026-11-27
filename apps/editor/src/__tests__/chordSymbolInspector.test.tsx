@@ -205,6 +205,35 @@ afterEach(() => {
 });
 
 describe("global chord symbol inspector", () => {
+  it("creates, edits and removes only the selected instrument's diagram", async () => {
+    const { user, getScore } = renderInspector();
+    await user.click(screen.getByRole("button", { name: "Add chord diagram" }));
+    const strings = screen.getByRole("spinbutton", { name: "String count" });
+    await user.clear(strings);
+    await user.type(strings, "4");
+    await user.click(screen.getByRole("button", { name: "Set string 4 to open" }));
+    await user.click(screen.getByText("Fingerings and barre endpoints"));
+    await user.type(
+      within(screen.getByRole("group", { name: "String 4" })).getByRole("textbox", { name: "Fingering" }),
+      "0",
+    );
+    await user.click(screen.getByRole("button", { name: "Set string 2 to fret 3" }));
+    await user.click(screen.getByRole("button", { name: "Apply diagram" }));
+    const stored = getScore().global.measures[0]!.chordSymbols![0]!;
+    expect(stored.fretboards?.[0]?.partId).toBe("clarinet");
+    expect(stored.fretboards?.[0]?.frameStrings).toBe(4);
+    expect(stored.fretboards?.[0]?.frameNotes).toEqual([
+      { string: 4, fret: 0, fingering: "0" },
+      { string: 2, fret: 3 },
+    ]);
+    await user.clear(chordInput());
+    await user.type(chordInput(), "Dm");
+    await user.tab();
+    expect(getScore().global.measures[0]!.chordSymbols![0]!.fretboards).toEqual(stored.fretboards);
+    await user.click(screen.getByRole("button", { name: "Remove diagram" }));
+    expect(getScore().global.measures[0]!.chordSymbols![0]!.fretboards).toBeUndefined();
+  });
+
   it("labels a chord with the active interval at its rhythmic position rather than the initial piccolo interval", () => {
     const initial = buildScore();
     initial.parts[1]!.transposition = { interval: { halfSteps: -12, staffDistance: -7 } };

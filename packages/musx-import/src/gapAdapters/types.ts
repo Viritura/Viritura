@@ -1,3 +1,4 @@
+import type { Fretboard } from "@viritura/core";
 import type { DenigmaDiagnostic, DenigmaGap, DenigmaGapAnchor, DenigmaGapOutcome } from "../types";
 
 export type JsonRecord = Record<string, unknown>;
@@ -133,6 +134,22 @@ export interface ChordPayload {
   bass?: ChordPitchPayload;
   bassLowerCase?: boolean;
   bassArrangement?: "horizontal" | "vertical" | "diagonal";
+  fretboard?: FretboardGapPayload;
+}
+
+interface FretboardNotePayload {
+  string: number;
+  fret: number;
+  fingering?: number;
+  barre?: "start" | "stop";
+}
+
+interface FretboardGapPayload {
+  frameStrings: number;
+  frameFrets: number;
+  firstFret?: NonNullable<Fretboard["firstFret"]>;
+  frameNotes: FretboardNotePayload[];
+  unplayed?: string;
 }
 
 export interface NoteheadPayload {
@@ -284,6 +301,51 @@ function isChordSuffix(value: unknown): value is ChordSuffixPayload {
   );
 }
 
+function isFirstFretPayload(value: unknown): value is NonNullable<Fretboard["firstFret"]> {
+  return (
+    isRecord(value) &&
+    typeof value["fret"] === "number" &&
+    Number.isSafeInteger(value["fret"]) &&
+    (value["text"] === undefined || typeof value["text"] === "string") &&
+    (value["location"] === undefined || value["location"] === "left" || value["location"] === "right")
+  );
+}
+
+function isFretboardNotePayload(value: unknown): value is FretboardNotePayload {
+  return (
+    isRecord(value) &&
+    typeof value["string"] === "number" &&
+    Number.isSafeInteger(value["string"]) &&
+    typeof value["fret"] === "number" &&
+    Number.isSafeInteger(value["fret"]) &&
+    (value["fingering"] === undefined ||
+      (typeof value["fingering"] === "number" && Number.isSafeInteger(value["fingering"]))) &&
+    (value["barre"] === undefined || value["barre"] === "start" || value["barre"] === "stop")
+  );
+}
+
+function isFretboardPayload(value: unknown): value is FretboardGapPayload {
+  if (!isRecord(value)) return false;
+  const frameStrings = value["frameStrings"];
+  const frameFrets = value["frameFrets"];
+  const firstFret = value["firstFret"];
+  const frameNotes = value["frameNotes"];
+  const unplayed = value["unplayed"];
+  if (
+    typeof frameStrings !== "number" ||
+    !Number.isSafeInteger(frameStrings) ||
+    typeof frameFrets !== "number" ||
+    !Number.isSafeInteger(frameFrets) ||
+    (firstFret !== undefined && !isFirstFretPayload(firstFret)) ||
+    !Array.isArray(frameNotes) ||
+    !frameNotes.every(isFretboardNotePayload) ||
+    (unplayed !== undefined && typeof unplayed !== "string")
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export function isChordGap(gap: AdaptedDenigmaGap): gap is KnownChordGap {
   if (gap.type !== "chord-symbol" || !isRecord(gap["chord"])) return false;
   const chord = gap["chord"];
@@ -295,6 +357,7 @@ export function isChordGap(gap: AdaptedDenigmaGap): gap is KnownChordGap {
     isChordSuffix(chord["suffix"]) &&
     (chord["bass"] === undefined || isChordPitch(chord["bass"])) &&
     (chord["bassLowerCase"] === undefined || typeof chord["bassLowerCase"] === "boolean") &&
+    (chord["fretboard"] === undefined || isFretboardPayload(chord["fretboard"])) &&
     (chord["bassArrangement"] === undefined ||
       chord["bassArrangement"] === "horizontal" ||
       chord["bassArrangement"] === "vertical" ||

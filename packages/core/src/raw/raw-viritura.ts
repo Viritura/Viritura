@@ -207,6 +207,28 @@ export interface components {
             /** @description Chromatic alteration in semitones (-1 = flat, 1 = sharp). */
             alter?: number;
         };
+        "fretboard-note": {
+            string: number;
+            fret: number;
+            fingering?: string;
+            /** @enum {string} */
+            barre?: "start" | "stop";
+        };
+        "fretboard-first-fret": {
+            fret: number;
+            text?: string;
+            /** @enum {string} */
+            location?: "left" | "right";
+        };
+        /** @description Instrument-specific MusicXML-shaped chord frame. String 1 is the rightmost string. Omitted strings are unplayed; fret 0 is open. Geometry uses Viritura engraving defaults, not source page coordinates. */
+        fretboard: {
+            partId: string;
+            frameStrings: number;
+            frameFrets: number;
+            firstFret?: components["schemas"]["fretboard-first-fret"];
+            frameNotes: components["schemas"]["fretboard-note"][];
+            unplayed?: string;
+        };
         /** @description A score-wide harmony event on a global measure. Either a structured root or authored rawText is required; rawText may preserve malformed or unrecognized symbols and no-chord (NC) declarations without inventing a root. */
         "chord-symbol": {
             /** @description Rhythmic position within the measure. */
@@ -227,6 +249,8 @@ export interface components {
             extension?: 6 | 7 | 9 | 11 | 13;
             /** @description Visual override of the computed display text, not a semantic replacement. The semantic resolver rejects parseable contradictions or unsupported non-equivalent overrides. */
             textOverride?: string;
+            /** @description At most one authored diagram per source part. Physical fingerings are independent of display transposition and chord playback. */
+            fretboards?: components["schemas"]["fretboard"][];
         };
         /** @description Score-wide chord-symbol engraving choices. */
         "chord-symbol-style": {
@@ -1201,6 +1225,9 @@ export type PedalLineStyle = components["schemas"]["pedal-line-style"];
 export type Pedal = components["schemas"]["pedal"];
 export type ChordQuality = components["schemas"]["chord-quality"];
 export type ChordRoot = components["schemas"]["chord-root"];
+export type FretboardNote = components["schemas"]["fretboard-note"];
+export type FretboardFirstFret = components["schemas"]["fretboard-first-fret"];
+export type Fretboard = components["schemas"]["fretboard"];
 export type ChordSymbol = components["schemas"]["chord-symbol"];
 export type ChordSymbolStyle = components["schemas"]["chord-symbol-style"];
 export type ExpressionPlacement = components["schemas"]["expression-placement"];

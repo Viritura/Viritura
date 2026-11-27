@@ -1,5 +1,7 @@
 use super::clef::RhythmicPosition;
 use serde::{Deserialize, Serialize};
+mod fretboard;
+pub use fretboard::{BarreEndpoint, Fretboard, FretboardLabelLocation};
 
 /// Chord quality — the harmonic character of a chord symbol. Aliased to
 /// the Viritura vendor `chord-quality` schema.
@@ -125,6 +127,8 @@ pub struct ChordSymbol {
     /// Text override — if set, render this exact string instead of computing from fields
     #[serde(skip_serializing_if = "Option::is_none", rename = "textOverride")]
     pub text_override: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fretboards: Vec<Fretboard>,
 }
 
 impl ChordSymbol {
@@ -250,6 +254,7 @@ mod tests {
             bass,
             extension: ext,
             text_override: None,
+            fretboards: Vec::new(),
         }
     }
 

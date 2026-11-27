@@ -22,6 +22,154 @@ fn text_runs(chord: &ChordSymbol) -> String {
 }
 
 #[test]
+fn fretboard_geometry_covers_open_muted_shifted_fingered_and_barre_ink() {
+    for strings in [4, 5, 6, 7] {
+        let symbol = chord(json!({
+            "root": {"step": "C"},
+            "fretboards": [{
+                "partId": "guitar", "frameStrings": strings, "frameFrets": 4,
+                "firstFret": {"fret": 3, "text": "III", "location": "right"},
+                "frameNotes": [
+                    {"string": strings, "fret": 3, "fingering": "1", "barre": "start"},
+                    {"string": 2, "fret": 0},
+                    {"string": 1, "fret": 3, "barre": "stop"}
+                ]
+            }]
+        }));
+        let frame = &symbol.fretboards[0];
+        frame.validate().unwrap();
+        let (width, height) = fretboards::dimensions(frame, 10.0);
+        let mut dl = DisplayList::new(width, height);
+        fretboards::render(&mut dl, frame, 0.0, 0.0, 10.0, "m0/chord0");
+        assert!(dl
+            .element_ids
+            .iter()
+            .all(|id| id.as_deref() == Some("m0/chord0")));
+        assert_eq!(
+            dl.commands
+                .iter()
+                .filter(|command| matches!(command, RenderCommand::DrawCircle { .. }))
+                .count(),
+            2
+        );
+        assert!(dl
+            .commands
+            .iter()
+            .any(|command| matches!(command, RenderCommand::DrawEllipse { filled: false, .. })));
+        assert!(dl
+            .commands
+            .iter()
+            .any(|command| matches!(command, RenderCommand::DrawText { text, .. } if text == "x")));
+        assert!(dl.commands.iter().any(
+            |command| matches!(command, RenderCommand::DrawText { text, .. } if text == "III")
+        ));
+        assert!(dl.commands.iter().any(
+            |command| matches!(command, RenderCommand::DrawLine { width, .. } if *width == 5.5)
+        ));
+        let (_, ascent) = chord_symbol_dimensions(&symbol, Default::default(), 10.0);
+        assert!(ascent > height);
+        for command in &dl.commands {
+            if let RenderCommand::DrawCircle { cx, cy, r, .. } = command {
+                assert!(*cx - r >= 0.0 && *cx + r <= width);
+                assert!(*cy - r >= 0.0 && *cy + r <= height);
+            }
+        }
+    }
+}
+
+#[test]
+fn chord_diagrams_reserve_width_between_anchors_and_before_the_barline() {
+    let chords = vec![
+        chord(json!({
+            "position": {"fraction": [0, 1]},
+            "root": {"step": "C"},
+            "fretboards": [{
+                "partId": "guitar", "frameStrings": 6, "frameFrets": 4,
+                "frameNotes": [{"string": 1, "fret": 3}]
+            }]
+        })),
+        chord(json!({
+            "position": {"fraction": [1, 4]},
+            "root": {"step": "F"},
+            "fretboards": [{
+                "partId": "guitar", "frameStrings": 6, "frameFrets": 4,
+                "frameNotes": [{"string": 1, "fret": 1}]
+            }]
+        })),
+    ];
+    let sp = 10.0;
+    let gap = CHORD_GAP_SP * sp;
+    let (first_width, _) = chord_symbol_dimensions(&chords[0], Default::default(), sp);
+    let (last_width, _) = chord_symbol_dimensions(&chords[1], Default::default(), sp);
+    let required = chord_symbols_min_content_width(Some(&chords), 4.0, Default::default(), sp);
+
+    assert!(required * 0.25 >= first_width + gap);
+    assert!(required * 0.75 >= last_width + gap);
+}
+
+#[test]
+fn chord_diagram_lifts_above_high_notes_in_its_ink_span() {
+    let value = json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "time": {"count": 4, "unit": 4},
+            "_x": {"viritura": {"chordSymbols": [{
+                "position": {"fraction": [0, 1]},
+                "root": {"step": "C"},
+                "quality": "major",
+                "fretboards": [{
+                    "partId": "guitar", "frameStrings": 6, "frameFrets": 4,
+                    "frameNotes": [{"string": 1, "fret": 3}]
+                }]
+            }]}}
+        }]},
+        "parts": [{
+            "id": "guitar",
+            "_x": {"viritura": {"chordSymbolVisibility": "show"}},
+            "measures": [{"sequences": [{"content": [
+                {"duration": {"base": "half"}, "notes": [{"pitch": {"step": "C", "octave": 6}}]},
+                {"duration": {"base": "half"}, "rest": {}}
+            ]}]}]
+        }]
+    });
+    let score = crate::parse::parse_mnx_strict_value(&value).unwrap();
+    let config = LayoutConfig::default();
+    let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+    let ml = crate::layout::measure::layout_measure(
+        &resolved[0],
+        config.sp,
+        0.0,
+        &config,
+        None,
+        &[],
+        1.0,
+    );
+    let chord = &ml.resolved.chord_symbols.as_ref().unwrap()[0];
+    let chord_x = ml.x + ml.prefix_width;
+    let staff_y = 100.0;
+    let note_top = crate::layout::render_annotations::substrate_obstacles::highest_point_in_range(
+        &ml,
+        staff_y,
+        config.sp,
+        config.stem_length,
+        chord_x,
+        chord_x + chord_symbol_dimensions(chord, config.chord_symbol_style, config.sp).0,
+    );
+    let lift = chord_symbol_vertical_lift(&ml, chord, chord_x, staff_y, config.sp, &config);
+    let attach_gap = config
+        .placement
+        .resolve(ElementKind::ChordSymbol)
+        .attach_gap;
+
+    assert!(lift > 0.0, "the high note should move the diagram upward");
+    assert!(
+        staff_y - attach_gap * config.sp - lift
+            <= note_top - CHORD_NOTE_CLEARANCE_SP * config.sp + 1e-6,
+        "the chord assembly baseline must clear the highest overlapping note or stem"
+    );
+}
+
+#[test]
 fn modifier_chords_use_canonical_semantic_runs() {
     for (raw, expected) in [
         ("Cadd79omit5/E", "Cadd7add9omit5/E"),

@@ -21,15 +21,23 @@ pub(crate) fn above_staff_protrusion(
         .placement
         .resolve(ElementKind::ChordSymbol)
         .attach_gap;
+    let total_beats = layout.resolved.active_time.measure_beats();
+    let content_width = super::super::render_barlines::rhythmic_content_width(layout, sp);
+    let x_origin = layout.x + layout.prefix_width;
     let max_ascent = chords
         .iter()
         .map(|chord| {
-            super::super::render_annotations::chord_symbol_dimensions(
+            let x = x_origin + (chord.position.beats() / total_beats) * content_width;
+            let height = super::super::render_annotations::chord_symbol_dimensions(
                 chord,
                 config.chord_symbol_style,
                 sp,
             )
-            .1
+            .1;
+            height
+                + super::super::render_annotations::chord_symbol_vertical_lift(
+                    layout, chord, x, 0.0, sp, config,
+                )
         })
         .fold(0.0_f64, f64::max);
     attach_gap * sp + max_ascent
@@ -81,6 +89,10 @@ pub(super) fn visible_global_chord_symbols(
                 );
                 chord.source_index = Some(index);
                 chord.source_part_index = Some(source);
+                let part_id = score.parts.get(source).and_then(|part| part.id.as_deref());
+                chord
+                    .fretboards
+                    .retain(|frame| Some(frame.part_id.as_str()) == part_id);
                 chord
             })
             .collect(),

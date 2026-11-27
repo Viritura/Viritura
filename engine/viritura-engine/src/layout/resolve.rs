@@ -363,6 +363,9 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
                         chord.source_index = Some(index);
                         chord.source_part_index = Some(part_index);
                         chord
+                            .fretboards
+                            .retain(|frame| Some(frame.part_id.as_str()) == part.id.as_deref());
+                        chord
                     })
                     .collect()
             })

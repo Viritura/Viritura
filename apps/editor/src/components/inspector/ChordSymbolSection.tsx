@@ -5,9 +5,11 @@ import {
   type ChordQuality,
   type ChordSymbol,
   type Part,
+  type Fretboard,
 } from "@viritura/core";
 import { FormInput, Select } from "@viritura/ui";
 import { labelStyle, legendStyle, sectionStyle } from "./types";
+import { FretboardEditor } from "./FretboardEditor";
 
 const STEP_OPTIONS = ["A", "B", "C", "D", "E", "F", "G"].map((value) => ({ value, label: value }));
 const OPTIONAL_STEP_OPTIONS = [{ value: "", label: "None" }, ...STEP_OPTIONS];
@@ -57,6 +59,7 @@ interface Props {
   onBassAlterChange: (alter: number | undefined) => void;
   onVisibilityChange: (visibility: NonNullable<Part["chordSymbolVisibility"]>) => void;
   onTextOverrideChange: (text: string) => void;
+  onFretboardChange: (frame: Fretboard | undefined) => void;
 }
 
 function ChordTextInput({
@@ -188,6 +191,14 @@ export function ChordSymbolSection(props: Props) {
           onCommit={props.onTextOverrideChange}
         />
       </label>
+      {sourcePart?.id && (
+        <FretboardEditor
+          key={`${sourcePart.id}:${JSON.stringify(chord.fretboards)}`}
+          partId={sourcePart.id}
+          value={chord.fretboards?.find((frame) => frame.partId === sourcePart.id)}
+          onChange={props.onFretboardChange}
+        />
+      )}
     </fieldset>
   );
 }

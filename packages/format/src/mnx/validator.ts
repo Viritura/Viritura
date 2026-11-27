@@ -14,7 +14,7 @@
 import type { ValidateFunction } from "ajv/dist/2020";
 import type { Root as RawScore } from "@viritura/core/raw";
 import type { MeasureGlobalExtensions } from "@viritura/core/raw-viritura";
-import { isSupportedDynamicGlyph } from "@viritura/core";
+import { isSupportedDynamicGlyph, validateFretboard } from "@viritura/core";
 import { diagnoseMnxSchemaErrors, normaliseErrors } from "./schemaDiagnostics";
 import { validateInstrumentChanges } from "./instrumentChangeValidation";
 import { validateLyricLines } from "./lyricValidation";
@@ -531,6 +531,16 @@ function validateChordSymbols(score: RawScore): RawScoreValidationError[] {
     const extension = measure._x?.["viritura"] as MeasureGlobalExtensions | undefined;
     extension?.chordSymbols?.forEach((chord, chordIndex) => {
       const pointer = `/global/measures/${measureIndex}/_x/viritura/chordSymbols/${chordIndex}`;
+      const partIds = new Set<string>();
+      chord.fretboards?.forEach((frame, frameIndex) => {
+        const messages = validateFretboard(frame);
+        if (partIds.has(frame.partId)) messages.push("Only one diagram per instrument is allowed on a chord.");
+        partIds.add(frame.partId);
+        if (!score.parts.some((part) => part.id === frame.partId)) messages.push("Diagram instrument does not exist.");
+        for (const message of messages) {
+          errors.push({ pointer: `${pointer}/fretboards/${frameIndex}`, message, keyword: "fretboard" });
+        }
+      });
       // Required-property unions cannot be faithfully represented by both wire generators.
       if (chord.root === undefined && chord.rawText === undefined) {
         errors.push({ pointer, message: "chord symbol requires root or rawText", keyword: "required" });

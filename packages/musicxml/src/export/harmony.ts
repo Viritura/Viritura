@@ -10,6 +10,7 @@ import {
 } from "@viritura/core";
 import { node, type XmlContext, type XmlElement } from "./xml";
 import { CHORD_KIND_MAP } from "../convert";
+import { exportableFretboard, fretboardElement } from "./fretboards";
 
 const KINDS = new Map(
   Object.entries(CHORD_KIND_MAP).map(([kind, chord]) => [
@@ -72,10 +73,18 @@ export function harmonyElement(
   original: ChordSymbol,
   interval: Interval | undefined,
   diagnostics: DiagnosticCollector,
+  partId?: string,
 ): XmlElement {
   const projected = interval ? transposeChordSymbol(original, interval) : original;
+  const frame = exportableFretboard(original, partId, diagnostics);
   const resolution = resolveChordSymbol(projected);
   if (resolution.status === "unsupported") {
+    if (frame)
+      diagnostics.warn(
+        "",
+        "Chord diagram omitted because unsupported harmony is exported as text.",
+        "musicxml-frame-unsupported-harmony",
+      );
     diagnostics.warn(
       "",
       "An unsupported chord symbol is retained as text rather than assigned a different harmonic meaning.",
@@ -89,6 +98,7 @@ export function harmonyElement(
     return node(context, "harmony", [
       node(context, "root", [node(context, "root-step", "C")]),
       node(context, "kind", "none", { text: "N.C." }),
+      frame ? fretboardElement(context, frame) : undefined,
     ]);
   }
   const chord = projected.root ? projected : parseChordSymbolText(projected.rawText!, projected.position);
@@ -112,5 +122,6 @@ export function harmonyElement(
         ])
       : undefined,
     ...chordDegrees(context, chord, kind),
+    frame ? fretboardElement(context, frame) : undefined,
   ]);
 }

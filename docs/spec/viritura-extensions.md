@@ -1797,6 +1797,71 @@ it, without changing stored harmony.
 | `bass`         | [ChordRoot](#chord-root)               | No       | Concert slash bass note                                        |
 | `extension`    | `6` \| `7` \| `9` \| `11` \| `13`      | No       | Chord extension                                                |
 | `textOverride` | string                                 | No       | Display override, not a replacement for the underlying harmony |
+| `fretboards`   | Fretboard[]                            | No       | Instrument-specific authored chord diagrams                    |
+
+#### Fretboard diagrams
+
+`fretboards` is a temporary, MusicXML `<frame>`-shaped extension. Each diagram
+has a `partId` referencing an existing instrument, with at most one diagram per
+instrument on a chord occurrence. The shared harmony still belongs to the global
+progression. Identical imported harmonies combine diagrams from different instruments;
+conflicting harmonies retain the existing topmost-source policy and diagnostics.
+Different diagrams for the same instrument retain the first source diagram and
+produce a separate diagram-conflict diagnostic.
+
+| Property       | Type                                     | Description                                                                      |
+| -------------- | ---------------------------------------- | -------------------------------------------------------------------------------- |
+| `partId`       | string                                   | Source instrument ID, not a layout or staff index                                |
+| `frameStrings` | integer, 2–12                            | Number of strings                                                                |
+| `frameFrets`   | integer, 1–12                            | Number of displayed fret spaces                                                  |
+| `firstFret`    | `{ fret, text?, location? }`             | First displayed absolute fret, default 1; optional label and `left`/`right` side |
+| `frameNotes`   | `{ string, fret, fingering?, barre? }[]` | One entry per played string; string 1 is rightmost; fret 0 is open               |
+| `unplayed`     | string                                   | Indicator for omitted strings; default `x`, empty string hides it                |
+
+Stopped frets must fit inside the displayed range, bounded by absolute fret 36.
+Fingerings are strings up to 8 characters; first-fret labels allow 16 characters;
+unplayed indicators allow 8 characters. A barre uses paired `start` and `stop`
+markers on notes at the same stopped fret, starting on the higher-numbered string.
+The initial model supports one barre per fret and one played position per string.
+
+```json
+{
+  "partId": "guitar",
+  "frameStrings": 6,
+  "frameFrets": 4,
+  "firstFret": { "fret": 3, "text": "III", "location": "left" },
+  "frameNotes": [
+    { "string": 6, "fret": 3, "fingering": "1", "barre": "start" },
+    { "string": 5, "fret": 5, "fingering": "3" },
+    { "string": 4, "fret": 5, "fingering": "4" },
+    { "string": 3, "fret": 4, "fingering": "2" },
+    { "string": 2, "fret": 3 },
+    { "string": 1, "fret": 3, "barre": "stop" }
+  ]
+}
+```
+
+Diagrams follow their occurrence through chord-track moves, text edits and undo;
+removing an instrument removes its diagrams. Physical frets are not transposed
+when chord labels are projected into written pitch. Editing harmony retains authored
+fingerings, so authors must revise diagrams when changing the musical voicing.
+Diagrams do not change synthesized chord playback and contain no inferred tuning.
+They render above the chord label, using the same source-part visibility and
+selection identity, with their complete extent included in collision geometry.
+
+MusicXML import/export maps these fields to `<frame>` and its children. Source
+page coordinates, size, color and special fingering presentation produce explicit
+import diagnostics rather than pretending to preserve appearance. Unsupported
+multiple-note-per-string frames are diagnosed and omitted while retaining harmony.
+All-unplayed diagrams are valid in the extension but cannot be exported as a valid
+MusicXML frame, which requires at least one frame-note; export diagnoses the omission.
+Unsupported harmony exported as text also diagnoses a diagram omission.
+
+When native MNX fretboards stabilize, a versioned migration must preserve source
+instrument association, absolute fret numbering, open/unplayed states, labels,
+fingerings and paired barres. Keep this extension readable until an equivalent native
+mapping exists; do not rename it automatically or synthesize tuning. Migration
+fixtures and bidirectional round-trip tests are required before changing storage.
 
 The schema requires `position`; the parsers additionally enforce the
 `root`-or-`rawText` constraint. Rootless text does not acquire an invented root.

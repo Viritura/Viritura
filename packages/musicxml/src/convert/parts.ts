@@ -19,6 +19,7 @@ import type { ActiveBeam } from "./beamImport";
 import { type GlissandoState, type SlurState } from "./notes";
 import { type TransposeInterval } from "./pitchDuration";
 import type { Interval, TextContent } from "@viritura/core";
+import { validateFretboard } from "@viritura/core";
 import type { ImportedHarmonySource } from "./harmonyConsolidation";
 import type { OpenLyricExtender } from "./lyricExtenders";
 import { nativeFormattedText } from "./textRuns";
@@ -379,7 +380,17 @@ export function buildParts(
 
       if (result.chordSymbols.length > 0) {
         mnxPart._x = { ...mnxPart._x, viritura: { ...mnxPart._x?.viritura, chordSymbolVisibility: "show" } };
-        for (const { chord, staff } of result.chordSymbols) {
+        for (const { chord, staff, frame } of result.chordSymbols) {
+          if (frame) {
+            const errors = validateFretboard(frame);
+            if (errors.length === 0) chord.fretboards = [{ ...frame, partId: info.id }];
+            else
+              flags.diagnostics?.warn(
+                `/parts/${partIdx}/measures/${mi}/harmony/frame`,
+                `Chord diagram omitted: ${[...new Set(errors)].join(" ")}`,
+                "musicxml-frame-unsupported",
+              );
+          }
           harmonySources.push({ partIndex: partIdx, staff, measureIndex: mi, chordSymbols: [chord] });
         }
       }

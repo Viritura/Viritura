@@ -156,6 +156,7 @@ export interface MeasureArgs {
 }
 
 export interface ScoreArgs {
+  partId?: string;
   measures: MeasureArgs[];
   /** Part name */
   partName?: string;
@@ -360,6 +361,7 @@ export function buildMnx(args: ScoreArgs): string {
     global: { measures: globalMeasures },
     parts: [
       {
+        ...(args.partId ? { id: args.partId } : {}),
         ...(args.partName ? { name: args.partName } : {}),
         ...(args.staves && args.staves > 1 ? { staves: args.staves } : {}),
         ...(args.virituraPart && Object.keys(args.virituraPart).length > 0

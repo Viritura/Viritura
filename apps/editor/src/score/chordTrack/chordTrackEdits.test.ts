@@ -32,12 +32,28 @@ function score(): Score {
 describe("concert-pitch chord-track document edits", () => {
   it("moves a complete chord and replaces an occupied destination without touching notes", () => {
     const original = score();
+    original.global.measures[0]!.chordSymbols![0]!.fretboards = [
+      {
+        partId: "clarinet",
+        frameStrings: 4,
+        frameFrets: 4,
+        frameNotes: [{ string: 1, fret: 0 }],
+      },
+    ];
     original.global.measures[0]!.chordSymbols![0]!.textOverride = "Cmaj7";
     const source = scoreTrackChords(original)[0]!;
     const next = moveChordTrackChord(original, source, { measureIndex: 0, beat: 2, x: 300 });
     expect(next.global.measures[0]!.chordSymbols).toEqual([{ ...source.symbol, position: { fraction: [1, 2] } }]);
     expect(next.parts).toBe(original.parts);
     expect(original.global.measures[0]!.chordSymbols).toHaveLength(2);
+  });
+
+  it("retains diagrams through text replacement without altering physical frets", () => {
+    const original = score();
+    const frame = { partId: "clarinet", frameStrings: 4, frameFrets: 4, frameNotes: [{ string: 1, fret: 3 }] };
+    original.global.measures[0]!.chordSymbols![0]!.fretboards = [frame];
+    const next = editChordTrackText(original, { measureIndex: 0, beat: 0, x: 0 }, "Dm");
+    expect(next.global.measures[0]!.chordSymbols![0]!.fretboards).toEqual([frame]);
   });
 
   it("moves between measures and leaves unrelated harmony intact", () => {

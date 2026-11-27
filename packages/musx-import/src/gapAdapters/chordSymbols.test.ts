@@ -81,6 +81,20 @@ function globalMeasure(source: JsonRecord): JsonRecord {
 }
 
 describe("global MUSX chord symbols", () => {
+  it.each([undefined, null, "", 42])("leaves chord symbols unhandled without a source part ID: %s", (partId) => {
+    const source = document();
+    sourcePart(source)["id"] = partId;
+
+    const result = apply([chordGap()], source);
+
+    expect(result.chords).toEqual([]);
+    expect(result.document.parts[0]?._x?.viritura?.chordSymbolVisibility).toBeUndefined();
+    expect(result.outcomes[0]).toMatchObject({
+      disposition: "unhandled",
+      reason: "Chord-symbol source part ID is unavailable.",
+    });
+  });
+
   describe.each([false, true])("source aliases (rich typography=%s)", (rich) => {
     it.each([
       { suffix: "M7", quality: "major-seventh", display: "Cmaj7/E" },
@@ -108,6 +122,89 @@ describe("global MUSX chord symbols", () => {
       expect(result.diagnostics.every((entry) => !entry.message.includes("Unsupported chord"))).toBe(true);
       expect(formatChordSymbolText(chord)).toBe(display);
     });
+  });
+
+  it("maps structured Denigma fretboards to their source instrument", () => {
+    const gap = chordGap();
+    gap.chord.fretboard = {
+      frameStrings: 6,
+      frameFrets: 4,
+      firstFret: { fret: 5, text: "5fr.", location: "right" },
+      unplayed: "x",
+      frameNotes: [
+        { string: 6, fret: 5, fingering: 1, barre: "start" },
+        { string: 5, fret: 7, fingering: 3 },
+        { string: 2, fret: 0 },
+        { string: 1, fret: 5, barre: "stop" },
+      ],
+    };
+    const result = apply([gap]);
+    expect(result.chords[0]?.fretboards).toEqual([
+      {
+        partId: "P1",
+        frameStrings: 6,
+        frameFrets: 4,
+        firstFret: { fret: 5, text: "5fr.", location: "right" },
+        unplayed: "x",
+        frameNotes: [
+          { string: 6, fret: 5, fingering: "1", barre: "start" },
+          { string: 5, fret: 7, fingering: "3" },
+          { string: 2, fret: 0 },
+          { string: 1, fret: 5, barre: "stop" },
+        ],
+      },
+    ]);
+    expect(result.outcomes[0]?.disposition).toBe("handled");
+  });
+
+  it("leaves malformed Denigma fretboards unhandled instead of importing partial diagrams", () => {
+    const gap = chordGap();
+    gap.chord.fretboard = {
+      frameStrings: 6,
+      frameFrets: 4,
+      frameNotes: [{ string: 6, fret: Number.NaN }],
+    };
+    const result = apply([gap]);
+    expect(result.chords).toEqual([]);
+    expect(result.outcomes[0]?.disposition).toBe("unhandled");
+  });
+
+  it("preserves harmony and reports a partial import for unsupported barre endpoints", () => {
+    const gap = chordGap();
+    gap.chord.fretboard = {
+      frameStrings: 6,
+      frameFrets: 4,
+      frameNotes: [
+        { string: 6, fret: 1, barre: "start" },
+        { string: 1, fret: 3, barre: "stop" },
+      ],
+    };
+    const result = apply([gap]);
+    expect(result.chords[0]).toMatchObject({ root: { step: "C" } });
+    expect(result.chords[0]?.fretboards).toBeUndefined();
+    expect(result.outcomes[0]).toMatchObject({
+      disposition: "handled-partially",
+      reason: expect.stringContaining("Could not preserve chord diagram"),
+    });
+    expect(result.diagnostics[0]?.message).toContain("paired endpoints on one fret");
+  });
+
+  it("reports conflicting diagrams without calling them different harmony", () => {
+    const upper = chordGap();
+    const first = chordGap();
+    first.anchor = "P2.m1";
+    first.chord.fretboard = { frameStrings: 6, frameFrets: 4, frameNotes: [{ string: 1, fret: 1 }] };
+    const second = structuredClone(first);
+    second.staff = 2;
+    second.chord.fretboard!.frameNotes[0]!.fret = 3;
+    const result = apply([second, upper, first], document(2));
+    expect(result.chords[0]?.fretboards?.[0]).toMatchObject({
+      partId: "P2",
+      frameNotes: [{ string: 1, fret: 1 }],
+    });
+    expect(result.diagnostics).toHaveLength(1);
+    expect(result.diagnostics[0]?.message).toContain("conflicting diagram for part 2");
+    expect(result.diagnostics[0]?.message).not.toContain("different harmony");
   });
 
   it("keeps concert aliases in storage when formatting transposed context copies", () => {

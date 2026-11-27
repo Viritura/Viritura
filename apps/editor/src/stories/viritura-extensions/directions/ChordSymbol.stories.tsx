@@ -50,6 +50,101 @@ const meta: Meta = {
 
 export default meta;
 
+export const FretboardDiagrams: StoryObj = {
+  name: "Chord diagrams: open, shifted, barre and 4–7 strings",
+  render: () => {
+    const examples = [
+      {
+        text: "C",
+        strings: 6,
+        first: 1,
+        notes: [
+          { string: 5, fret: 3, fingering: "3" },
+          { string: 4, fret: 2, fingering: "2" },
+          { string: 3, fret: 0 },
+          { string: 2, fret: 1, fingering: "1" },
+          { string: 1, fret: 0 },
+        ],
+      },
+      {
+        text: "G",
+        strings: 6,
+        first: 3,
+        notes: [
+          { string: 6, fret: 3, fingering: "1", barre: "start" },
+          { string: 5, fret: 5, fingering: "3" },
+          { string: 4, fret: 5, fingering: "4" },
+          { string: 3, fret: 4, fingering: "2" },
+          { string: 2, fret: 3 },
+          { string: 1, fret: 3, barre: "stop" },
+        ],
+      },
+      {
+        text: "C",
+        strings: 4,
+        first: 1,
+        notes: [
+          { string: 4, fret: 0 },
+          { string: 3, fret: 0 },
+          { string: 2, fret: 0 },
+          { string: 1, fret: 3, fingering: "3" },
+        ],
+      },
+      {
+        text: "Am",
+        strings: 5,
+        first: 5,
+        notes: [
+          { string: 5, fret: 5, fingering: "1" },
+          { string: 4, fret: 7, fingering: "3" },
+          { string: 3, fret: 7, fingering: "4" },
+        ],
+      },
+      {
+        text: "Em",
+        strings: 7,
+        first: 1,
+        notes: [
+          { string: 6, fret: 0 },
+          { string: 5, fret: 2, fingering: "2" },
+          { string: 4, fret: 2, fingering: "3" },
+          { string: 3, fret: 0 },
+          { string: 2, fret: 0 },
+          { string: 1, fret: 0 },
+        ],
+      },
+    ];
+    const mnx = buildMnx({
+      partId: "P1",
+      virituraPart: { chordSymbolVisibility: "show" },
+      measures: examples.map((example, index) => ({
+        ...(index === 0 ? { time: { count: 4, unit: 4 } } : {}),
+        voices: [[{ duration: "whole", rest: true }]],
+        virituraGlobal: {
+          chordSymbols: [
+            {
+              ...parseChordSymbolText(example.text, { fraction: [0, 1] }),
+              fretboards: [
+                {
+                  partId: "P1",
+                  frameStrings: example.strings,
+                  frameFrets: 4,
+                  ...(example.first > 1
+                    ? { firstFret: { fret: example.first, text: String(example.first), location: "left" } }
+                    : {}),
+                  frameNotes: example.notes,
+                },
+              ],
+            },
+          ],
+        },
+      })),
+    });
+    assertRawScore(JSON.parse(mnx));
+    return <ScorePreview mnxJson={mnx} />;
+  },
+};
+
 interface ChordArgs {
   rootStep: string;
   rootAlter: number;

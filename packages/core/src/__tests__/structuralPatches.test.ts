@@ -416,9 +416,19 @@ describe("structural patches — parts and score-level", () => {
   });
 
   it("removePart drops a part by id", () => {
-    const score = applyPatchesToScore(makeScore(), [patch.addPart({ id: "p2", name: "Cello", measures: [] })]);
+    const initial = makeScore();
+    initial.global.measures[0]!.chordSymbols = [
+      {
+        position: { fraction: [0, 1] },
+        root: { step: "C" },
+        fretboards: [{ partId: "p1", frameStrings: 6, frameFrets: 4, frameNotes: [{ string: 1, fret: 3 }] }],
+      },
+    ];
+    const score = applyPatchesToScore(initial, [patch.addPart({ id: "p2", name: "Cello", measures: [] })]);
     const next = applyPatchesToScore(score, [patch.removePart("p1")]);
     expect(next.parts.map((p) => p.id)).toEqual(["p2"]);
+    expect(next.global.measures[0]!.chordSymbols![0]).not.toHaveProperty("fretboards");
+    expect(score.global.measures[0]!.chordSymbols![0]!.fretboards).toHaveLength(1);
   });
 
   it("setPartField updates name and clears optional fields", () => {

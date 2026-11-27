@@ -63,6 +63,8 @@ export interface ScorePreviewProps {
    * need to demonstrate multi-system behaviour (e.g. abbreviated labels).
    */
   viewMode?: "horizon" | "page" | "spread" | "spread-h";
+  /** Largest fit-to-width zoom. Raise it to enlarge small engraving details such as chord diagrams. */
+  maxZoom?: number;
 }
 
 export function ScorePreview({
@@ -71,6 +73,7 @@ export function ScorePreview({
   showEditor = true,
   editorRatio = 0.45,
   viewMode = "horizon",
+  maxZoom = 1,
 }: ScorePreviewProps) {
   const [liveMnx, setLiveMnx] = useState(mnxJson);
   const [editorValue, setEditorValue] = useState(() => formatJson(mnxJson));
@@ -113,7 +116,7 @@ export function ScorePreview({
         defaultFitMode={viewMode === "horizon" ? "width" : "none"}
         defaultZoom={1}
         minZoom={0.05}
-        maxZoom={1}
+        maxZoom={maxZoom}
         contentAlign="center"
         style={VIEWER_STYLE}
         onError={(err) => setError(err.message)}

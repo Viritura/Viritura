@@ -8,10 +8,12 @@ import {
   type ChordSymbol,
   type Interval,
   type RhythmicPosition,
+  type Fretboard,
 } from "@viritura/core";
 import { Fraction } from "../fraction";
 import { childText, findChild, findChildren } from "../xmlHelpers";
 import { durationFraction } from "./durationFraction";
+import { extractFretboard } from "./fretboards";
 
 interface ChordKindMapping {
   quality: ChordQuality;
@@ -171,6 +173,7 @@ function extractChordSymbol(harmony: Element, position: RhythmicPosition, interv
 export interface ImportedHarmony {
   staff: number;
   chord: ChordSymbol;
+  frame?: Omit<Fretboard, "partId">;
 }
 
 export function extractHarmony(
@@ -185,7 +188,11 @@ export function extractHarmony(
   if (position.isNegative()) throw new Error("Invalid MusicXML harmony position before measure");
   const staff = readStaff(harmony);
   const interval = transpositions.get(staff) ?? transpositions.get(0);
-  return { staff, chord: extractChordSymbol(harmony, { fraction: position.toMnxFraction() }, interval) };
+  return {
+    staff,
+    chord: extractChordSymbol(harmony, { fraction: position.toMnxFraction() }, interval),
+    frame: extractFretboard(harmony),
+  };
 }
 
 /** MusicXML transpose is written-to-sounding, unlike MNX's inverse interval. */
