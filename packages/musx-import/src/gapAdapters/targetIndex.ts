@@ -22,6 +22,11 @@ export interface EventTarget {
   edge: "start" | "end";
 }
 
+export interface ScorePageTarget {
+  score: JsonRecord;
+  pageIndex: number;
+}
+
 const BASE_DURATION: Readonly<Record<string, number>> = {
   maxima: 8,
   longa: 4,
@@ -115,11 +120,21 @@ export class TargetIndex {
   private readonly notesToEvents = new Map<string, JsonRecord>();
   private readonly measures = new Map<string, MeasureTarget>();
   private readonly positionedEvents = new Map<string, PositionedEvent[]>();
+  private readonly scorePages = new Map<string, ScorePageTarget>();
 
   constructor(private readonly document: JsonRecord) {
     const global = isRecord(document["global"]) ? document["global"] : undefined;
     const globalMeasures = Array.isArray(global?.["measures"]) ? global["measures"] : [];
     const parts = Array.isArray(document["parts"]) ? document["parts"] : [];
+    const scores = Array.isArray(document["scores"]) ? document["scores"] : [];
+
+    scores.forEach((value) => {
+      if (!isRecord(value) || !Array.isArray(value["pages"])) return;
+      value["pages"].forEach((page, pageIndex) => {
+        if (!isRecord(page) || typeof page["id"] !== "string") return;
+        this.scorePages.set(page["id"], { score: value, pageIndex });
+      });
+    });
 
     globalMeasures.forEach((value, measureIndex) => {
       if (!isRecord(value)) return;
@@ -192,6 +207,10 @@ export class TargetIndex {
 
   measure(anchor: string): MeasureTarget | undefined {
     return this.measures.get(anchor);
+  }
+
+  scorePage(anchor: string): ScorePageTarget | undefined {
+    return this.scorePages.get(anchor);
   }
 
   event(anchor: DenigmaGapAnchor, preferEnd = false): EventTarget | undefined {

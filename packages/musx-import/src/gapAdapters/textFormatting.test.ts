@@ -3,13 +3,26 @@ import type { DenigmaGap, DenigmaGapReport } from "../types";
 import { applyDenigmaGapReport } from "./applyGapReport";
 import type { JsonRecord } from "./types";
 
-function formatting(offset: number, length: number, font: JsonRecord, anchor = "text0"): DenigmaGap {
+interface TestFormattingGap extends DenigmaGap {
+  formatting: {
+    font: string;
+    baseline: number;
+    superscript: number;
+    tracking: number;
+    ranges: Array<{ anchor: string; offset: number; length: number }>;
+  };
+}
+
+const fontTable: Record<string, JsonRecord> = {};
+
+function formatting(offset: number, length: number, font: JsonRecord, anchor = "text0"): TestFormattingGap {
+  const fontId = `font-${Object.keys(fontTable).length + 1}`;
+  fontTable[fontId] = font;
   return {
     type: "text-formatting",
     extent: "partial",
     anchor: "expression",
-    textRanges: [{ anchor, offset, length }],
-    formatting: { font, baseline: 0, superscript: 0, tracking: 0 },
+    formatting: { font: fontId, baseline: 0, superscript: 0, tracking: 0, ranges: [{ anchor, offset, length }] },
   };
 }
 
@@ -47,19 +60,20 @@ function adapt(elements: JsonRecord[], gaps: DenigmaGap[]) {
     ],
   };
   const report: DenigmaGapReport = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     producer: { name: "denigma", version: "4.0.0", commit: "66e154a5" },
     gaps,
+    fonts: { ...fontTable },
   };
   const result = applyDenigmaGapReport(JSON.stringify(source), report);
   const document = JSON.parse(result.mnxJson) as typeof source;
   return { ...result, measure: document.parts[0]!.measures[0]!, source };
 }
 
-describe("schema-v2 text formatting", () => {
+describe("schema-v3 text formatting", () => {
   it("applies separate ranges in one gap to the same original element", () => {
     const gap = formatting(0, 1, { bold: true });
-    gap.textRanges!.push({ anchor: "text0", offset: 2, length: 1 });
+    gap.formatting.ranges.push({ anchor: "text0", offset: 2, length: 1 });
     const result = adapt([{ id: "text0", text: "ABC" }], [gap]);
     expect(result.measure.text[0]!.text).toEqual([
       { id: "text0", text: "A", _x: { viritura: { style: { weight: "bold" } } } },
@@ -145,8 +159,13 @@ describe("schema-v2 text formatting", () => {
           type: "text-insert",
           extent: "partial",
           anchor: "expression",
-          textRanges: [{ anchor: "text0", offset: 0, length: 1 }],
-          insert: { kind: "playback-pass", command: "pass", parameters: [], sourceText: "^pass()" },
+          insert: {
+            kind: "playback-pass",
+            command: "pass",
+            parameters: [],
+            sourceText: "^pass()",
+            ranges: [{ anchor: "text0", offset: 0, length: 1 }],
+          },
         },
       ],
     );
