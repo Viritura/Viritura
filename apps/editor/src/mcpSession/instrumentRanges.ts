@@ -8,14 +8,15 @@
  * against the catalog's playable range and flags parts that stray outside it.
  */
 
-import type { Part, Pitch, Score } from "@viritura/core";
-import { pitchToMidi, walkSequenceEvents } from "@viritura/core";
+import type { ActiveInstrumentState, Part, Pitch, Score } from "@viritura/core";
+import { initialInstrumentState, listInstrumentChanges, pitchToMidi, walkSequenceEvents } from "@viritura/core";
 import {
   classifyCatalogNoteRange,
   getCatalogInstrument,
   INSTRUMENT_CATALOG,
   type CatalogInstrument,
 } from "../score/InstrumentCatalog";
+import { sequenceEventTiming } from "../commands/noteCommandsDurations";
 import { measureReference, type MeasureReference } from "./measureReferences";
 import { pagination, selectParts } from "./queryFilters";
 
@@ -94,7 +95,7 @@ export function searchInstrumentCatalog(args: unknown): Record<string, unknown> 
 }
 
 function describePart(score: Score, part: Part, index: number, offset: number, limit: number): InstrumentReport {
-  const instrumentId = part._x?.viritura?.instrumentId ?? null;
+  const instrumentId = initialInstrumentId(part);
   const catalog = instrumentId ? (getCatalogInstrument(instrumentId) ?? null) : null;
   const transpositionHalfSteps = part.transposition?.interval.halfSteps ?? 0;
 
@@ -126,10 +127,53 @@ function describePart(score: Score, part: Part, index: number, offset: number, l
   };
 }
 
+function initialInstrumentId(part: Part): string | null {
+  const state = initialInstrumentState(part);
+  if (state.instrumentKey !== undefined) return state.instrument?.instrumentId ?? null;
+  return part._x?.viritura?.instrumentId ?? null;
+}
+
+interface InstrumentCatalogChange {
+  beat: number;
+  catalog?: CatalogInstrument;
+}
+
+function catalogForState(part: Part, state: ActiveInstrumentState): CatalogInstrument | undefined {
+  const instrumentId =
+    state.instrumentKey !== undefined ? state.instrument?.instrumentId : part._x?.viritura?.instrumentId;
+  return instrumentId ? getCatalogInstrument(instrumentId) : undefined;
+}
+
+function catalogChangesByMeasure(part: Part): Map<number, InstrumentCatalogChange[]> {
+  const changesByMeasure = new Map<number, InstrumentCatalogChange[]>();
+  for (const change of listInstrumentChanges(part)) {
+    const measureChanges = changesByMeasure.get(change.measureIndex) ?? [];
+    measureChanges.push({
+      beat: (change.position[0] / change.position[1]) * 4,
+      catalog: catalogForState(part, change.state),
+    });
+    changesByMeasure.set(change.measureIndex, measureChanges);
+  }
+  return changesByMeasure;
+}
+
+function catalogAtOnset(
+  currentCatalog: CatalogInstrument | undefined,
+  changes: readonly InstrumentCatalogChange[],
+  onsetBeat: number,
+): CatalogInstrument | undefined {
+  let catalog = currentCatalog;
+  for (const change of changes) {
+    if (change.beat > onsetBeat + 1e-9) break;
+    catalog = change.catalog;
+  }
+  return catalog;
+}
+
 function collectPartNotes(
   score: Score,
   part: Part,
-  catalog: CatalogInstrument | null,
+  initialCatalog: CatalogInstrument | null,
   offset: number,
   limit: number,
 ): Pick<
@@ -147,9 +191,15 @@ function collectPartNotes(
     rangeGapCount: 0,
     violations: [],
   };
+  const changesByMeasure = catalogChangesByMeasure(part);
+  let currentCatalog = initialCatalog ?? catalogForState(part, initialInstrumentState(part));
   for (const [measureIndex, measure] of part.measures.entries()) {
+    const measureChanges = changesByMeasure.get(measureIndex) ?? [];
     for (const [voice, sequence] of measure.sequences.entries()) {
       for (const { event, path } of walkSequenceEvents(sequence.content)) {
+        const timing =
+          path.length > 1 || measureChanges.length > 0 ? sequenceEventTiming(sequence.content, path, event) : undefined;
+        const catalog = timing ? catalogAtOnset(currentCatalog, measureChanges, timing.onsetBeat) : currentCatalog;
         for (const note of event.notes ?? []) {
           const soundingMidi = pitchToMidi(note.pitch);
           result.noteCount++;
@@ -180,6 +230,7 @@ function collectPartNotes(
         }
       }
     }
+    if (measureChanges.length > 0) currentCatalog = measureChanges.at(-1)?.catalog;
   }
   return result;
 }

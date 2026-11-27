@@ -1377,6 +1377,50 @@ describe("MCP editor tool dispatch", () => {
     expect(filtered.structuredContent).toMatchObject({ instruments: [], outOfRangeCount: 0 });
   });
 
+  it("checks each note against the instrument active at its onset", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    const part = score.parts[0]!;
+    part._x = {
+      viritura: {
+        initialInstrument: "flute",
+        instruments: {
+          flute: { instrumentId: "wind.flutes.flute" },
+          bassoon: { instrumentId: "wind.reed.bassoon" },
+        },
+      },
+    };
+    part.measures[0]!.instrumentChanges = [{ instrument: "bassoon", position: { fraction: [1, 2] } }];
+    part.measures[0]!.sequences[0]!.content = [
+      {
+        type: "event",
+        id: "flute-event",
+        duration: { base: "half" },
+        notes: [{ id: "flute-note", pitch: { step: "A", octave: 1 } }],
+      },
+      {
+        type: "event",
+        id: "bassoon-event",
+        duration: { base: "half" },
+        notes: [{ id: "bassoon-note", pitch: { step: "A", octave: 1 } }],
+      },
+    ];
+    store.getState().loadScore(score, "instrument-change.mnx");
+
+    const result = await dispatchMcpTool(store, "score.get_instruments", {});
+
+    expect(result.structuredContent).toMatchObject({
+      outOfRangeCount: 1,
+      instruments: [
+        {
+          instrumentId: "wind.flutes.flute",
+          belowRange: 1,
+          violations: [{ eventId: "flute-event", noteId: "flute-note", direction: "below" }],
+        },
+      ],
+    });
+  });
+
   it("checks transposing instruments against concert pitch and locates out-of-range notes", async () => {
     const store = createDocumentStore();
     const score = makeScore();

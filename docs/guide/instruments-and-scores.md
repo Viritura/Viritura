@@ -104,8 +104,9 @@ For tenor trombone, E1 through E-flat2 are yellow, except B1, which is red.
 This models the B-natural gap on a normally tuned single-F attachment. Retuning
 the attachment to E or using a different valve setup can make B1 available.
 
-Bass trombone notes below B-flat1 and euphonium B-flat1 are yellow pedal notes.
-Euphonium notes from E-flat2 down to B1 assume a four-valve instrument.
+Bass trombone notes below B-flat1 are yellow pedal notes. For a four-valve
+euphonium, B-flat1 through D-sharp2 are yellow: B-flat1 is a low pedal, and B1
+through D-sharp2 require the fourth valve.
 
 For tuba, B0 through E-flat1 are yellow as an extended low register. Whether
 these notes are pedals or low valve notes depends on the tuba's key, valve

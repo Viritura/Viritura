@@ -244,8 +244,16 @@ describe("instrument note-range highlights", () => {
         { step: "A", octave: 1 },
         { step: "B", octave: 1, alter: -1 },
         { step: "B", octave: 1 },
+        { step: "D", octave: 2, alter: 1 },
+        { step: "E", octave: 2 },
       ],
-      colors: [OUT_OF_RANGE_NOTE_COLOR, EXTENDED_RANGE_NOTE_COLOR, "#000000"],
+      colors: [
+        OUT_OF_RANGE_NOTE_COLOR,
+        EXTENDED_RANGE_NOTE_COLOR,
+        EXTENDED_RANGE_NOTE_COLOR,
+        EXTENDED_RANGE_NOTE_COLOR,
+        "#000000",
+      ],
     },
     {
       name: "tuba",

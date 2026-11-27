@@ -367,7 +367,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     scoreOrder: 6,
     rangeLow: 34,
     rangeHigh: 77,
-    standardRangeLow: 35, // B-flat1 is a pedal; E-flat2 to B1 assume a fourth valve.
+    standardRangeLow: 40, // B-flat1 is a low pedal; B1 through D-sharp2 assume a fourth valve.
   },
   {
     id: "brass.tuba",
