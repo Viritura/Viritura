@@ -67,14 +67,14 @@ or round-trip support unless a row note says so.
 | ------------------------------ | --: | --: | --: | --: | --: |
 | Upstream MNX                   | 335 |  28 | 488 |   0 |   1 |
 | Upstream MusicXML              | 673 | 126 |  53 |   0 |   0 |
-| Viritura MNX pipeline          | 459 |  78 | 315 |   0 |   0 |
+| Viritura MNX pipeline          | 459 |  79 | 314 |   0 |   0 |
 | Viritura MusicXML/MXL importer | 299 |  87 | 416 |  50 |   0 |
 
 ### Viritura coverage by taxonomy group
 
 | Group             | Rows | MNX pipeline S/P/N/? | MXL import S/P/N/NA/? |
 | ----------------- | ---: | -------------------: | --------------------: |
-| Notes             |  344 |         199/23/122/0 |       115/57/138/34/0 |
+| Notes             |  344 |         199/24/121/0 |       115/57/138/34/0 |
 | Rhythms           |   46 |             38/5/3/0 |           31/2/12/1/0 |
 | Rests             |   30 |             23/2/5/0 |            21/0/8/1/0 |
 | Measures          |  104 |            67/4/33/0 |           53/0/45/6/0 |
