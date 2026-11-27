@@ -103,7 +103,7 @@ pub(crate) fn extract_global_measure_vendor(
     };
     // Other extensions have their own decoders; typify cannot represent every
     // schema-valid system tempo union in the generated global extension type.
-    let owned = json
+    let mut owned = json
         .iter()
         .filter(|(name, _)| {
             matches!(
@@ -112,7 +112,19 @@ pub(crate) fn extract_global_measure_vendor(
             )
         })
         .map(|(name, value)| (name.clone(), value.clone()))
-        .collect();
+        .collect::<serde_json::Map<_, _>>();
+    if let Some(rehearsal_mark) = owned
+        .get_mut("rehearsalMark")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        if let Some(text) = rehearsal_mark
+            .get("text")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+        {
+            rehearsal_mark.insert("text".into(), serde_json::json!([{"text": text}]));
+        }
+    }
     let raw_ext: raw_viritura::MeasureGlobalExtensions =
         serde_json::from_value(serde_json::Value::Object(owned))
             .map_err(|error| PromoteError::InvalidGlobalMeasureExtensions(error.to_string()))?;
@@ -476,6 +488,15 @@ mod tests {
             crate::promote::promote_global_measure_json(&measure),
             Err(PromoteError::InvalidGlobalMeasureExtensions(_))
         ));
+    }
+
+    #[test]
+    fn widens_legacy_rehearsal_mark_text() {
+        let measure = serde_json::json!({
+            "_x": {"viritura": {"rehearsalMark": {"text": "E"}}}
+        });
+        let promoted = crate::promote::promote_global_measure_json(&measure).unwrap();
+        assert_eq!(promoted.rehearsal_mark().unwrap().text.plain_text(), "E");
     }
 
     #[test]
