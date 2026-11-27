@@ -1184,20 +1184,10 @@
       "additionalProperties": false
     },
 
-    "notehead-shape": {
-      "type": "string",
-      "enum": ["normal", "x", "circleX", "diamond", "slash", "triangleUp", "triangleDown"],
-      "description": "Legacy Viritura notehead shape accepted on kit components and pitched notes. New documents use the native MNX notehead object."
-    },
-
     "kit-component-extensions": {
       "type": "object",
       "description": "Viritura vendor extensions on an MNX kit-component object.",
       "properties": {
-        "notehead": {
-          "$ref": "#/$defs/notehead-shape",
-          "description": "Legacy notehead shape for hits on this kit component. New documents use the native MNX notehead object."
-        },
         "drumKit": {
           "type": "integer",
           "minimum": 0,
@@ -1211,12 +1201,7 @@
     "note-extensions": {
       "type": "object",
       "description": "Viritura vendor extensions on an MNX note object (the `_x.viritura` dict on a pitched note).",
-      "properties": {
-        "notehead": {
-          "$ref": "#/$defs/notehead-shape",
-          "description": "Legacy notehead-shape override for this pitched note. New documents use the native MNX notehead object."
-        }
-      },
+      "properties": {},
       "additionalProperties": false
     },
 

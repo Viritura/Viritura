@@ -723,30 +723,36 @@ pub(super) fn append_partial_unison_label(
 }
 
 /// Render group brackets and braces in the left margin of a system, including
-/// any group labels (e.g. "Hpsd." on a labelled brace).
+/// any group labels.
 ///
 /// Pure visual writer: appends to `dl`, reads nothing back. Caller has already
 /// resolved `staff_y_offsets` (system Y positions for this system).
 #[allow(clippy::too_many_arguments)] // pipeline boundary ΓÇö all inputs are required
 pub(super) fn render_group_brackets_and_braces(
     dl: &mut DisplayList,
+    flat_staves: &[FlatStaff],
     group_ranges: &[GroupRange],
     staff_y_offsets: &[f64],
     margin_left: f64,
+    label_x: f64,
     staff_height: f64,
     sp: f64,
     config: &LayoutConfig,
-    render_brace_labels: bool,
+    is_first_system: bool,
+    policy: Option<InstrumentNameDisplayPolicy>,
 ) {
     super::staff_grouping::render_group_brackets_and_braces(
         dl,
+        flat_staves,
         group_ranges,
         staff_y_offsets,
         margin_left,
+        label_x,
         staff_height,
         sp,
         config,
-        render_brace_labels,
+        is_first_system,
+        policy,
     );
 }
 

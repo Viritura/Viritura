@@ -20,10 +20,10 @@ function namesScore(customLabel = false): string {
           {
             type: "staff",
             sources: [{ part: "horn" }],
-            labelref: "name",
+            labelRef: { ref: "auto" },
             ...(customLabel ? { label: "Horn player" } : {}),
           },
-          { type: "staff", sources: [{ part: "clarinet" }], labelref: "name" },
+          { type: "staff", sources: [{ part: "clarinet" }], labelRef: { ref: "auto" } },
         ],
       },
     ],

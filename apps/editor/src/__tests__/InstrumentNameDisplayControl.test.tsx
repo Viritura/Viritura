@@ -10,7 +10,7 @@ describe("InstrumentNameDisplayControl", () => {
   const score: ScoreDefinition = { name: "Full Score" };
 
   it("distinguishes label display policy from label content editing", () => {
-    const content: LayoutContent[] = [{ type: "staff", sources: [{ part: "fl", labelref: "name" }] }];
+    const content: LayoutContent[] = [{ type: "staff", sources: [{ part: "fl", labelRef: { ref: "auto" } }] }];
     render(<InstrumentNameDisplayControl content={content} score={score} onChange={vi.fn()} />);
 
     expect(screen.getByRole("combobox", { name: "First system" }).textContent).toContain("Full");
@@ -21,7 +21,7 @@ describe("InstrumentNameDisplayControl", () => {
   it("reports independent first-system changes while retaining the subsequent-system policy", async () => {
     const onChange = vi.fn();
     const user = userEvent.setup();
-    const content: LayoutContent[] = [{ type: "staff", sources: [{ part: "fl", labelref: "name" }] }];
+    const content: LayoutContent[] = [{ type: "staff", sources: [{ part: "fl", labelRef: { ref: "auto" } }] }];
     render(<InstrumentNameDisplayControl content={content} score={score} onChange={onChange} />);
 
     await user.click(screen.getByRole("combobox", { name: "First system" }));

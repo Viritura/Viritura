@@ -328,14 +328,45 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
         {
           id: "score",
           content: [
-            { type: "staff", labelref: "name", sources: [{ part: "fl" }] },
-            { type: "staff", labelref: "shortName", sources: [{ part: "ob" }] },
+            { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "fl" }] },
+            { type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: "ob" }] },
             { type: "staff", sources: [{ part: "cl" }] },
           ],
         },
       ],
     };
 
+    expect(serializeMnx(parseMnx(source)).layouts).toEqual(source.layouts);
+  });
+
+  it("round-trips v57 group, staff, and source label references", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [] },
+      parts: [
+        { id: "fl", name: "Flute", measures: [] },
+        { id: "ob", name: "Oboe", measures: [] },
+      ],
+      layouts: [
+        {
+          id: "score",
+          content: [
+            {
+              type: "group",
+              labelRef: { target: "ob", _c: "Group", id: "group-label", _x: { example: { key: 1 } } },
+              content: [
+                {
+                  type: "staff",
+                  symbol: "square",
+                  labelRef: { ref: "name", target: "ob" },
+                  sources: [{ part: "fl", label: "", labelRef: { ref: "shortName", target: "fl" } }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
     expect(serializeMnx(parseMnx(source)).layouts).toEqual(source.layouts);
   });
 
@@ -726,7 +757,7 @@ describe("MNX round-trip preserves editor wiring fields", () => {
     ]);
   });
 
-  it("migrates a per-note notehead override to native MNX", () => {
+  it("round-trips a native per-note notehead override", () => {
     const source = {
       mnx: { version: 1 },
       global: { measures: [{ time: { count: 4, unit: 4 } }] },
@@ -741,7 +772,7 @@ describe("MNX round-trip preserves editor wiring fields", () => {
                     {
                       type: "event",
                       duration: { base: "quarter" },
-                      notes: [{ pitch: { step: "E", octave: 4 }, _x: { viritura: { notehead: "diamond" } } }],
+                      notes: [{ pitch: { step: "E", octave: 4 }, notehead: { shape: "diamond" } }],
                     },
                   ],
                 },

@@ -56,7 +56,7 @@ const score = {
       id: "L",
       content: parts.map((part) => ({
         type: "staff" as const,
-        labelref: "shortName",
+        labelRef: { ref: "shortName" },
         sources: [{ part: part.id }],
       })),
     },

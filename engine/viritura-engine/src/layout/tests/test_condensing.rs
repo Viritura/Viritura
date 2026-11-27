@@ -142,7 +142,7 @@ fn doubling_oboes_condense_split_for_english_horn_and_rejoin() {
         ],
         "layouts":[{"id":"condensed","content":[{
             "type":"group","symbol":"bracket","content":[
-                {"type":"staff","sources":[{"part":"ob1"},{"part":"ob2"}],"labelref":"name"}
+                {"type":"staff","sources":[{"part":"ob1"},{"part":"ob2"}],"labelRef":{"ref":"auto"}}
             ]
         }]}],
         "scores":[{"name":"Condensed","layout":"condensed"}]

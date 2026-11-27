@@ -2,7 +2,6 @@ import { childText, findChild, findChildren } from "../xmlHelpers";
 import type {
   MnxGlobalMeasure,
   MnxClef,
-  MnxGraceEvent,
   MnxDynamic,
   MnxOttava,
   MnxPart,
@@ -10,10 +9,8 @@ import type {
   MnxRhythmicPosition,
   MnxSystemText,
   MnxSequence,
-  MnxSpace,
-  MnxEvent,
+  MnxSequenceContent,
   MnxTie,
-  MnxTuplet,
   PartInfo,
 } from "../types";
 import { IdGenerator } from "./idGenerator";
@@ -26,6 +23,16 @@ import type { ImportedHarmonySource } from "./harmonyConsolidation";
 import type { OpenLyricExtender } from "./lyricExtenders";
 import { nativeFormattedText } from "./textRuns";
 import { sourcePitchTimeline } from "./pitchTimeline";
+
+function collectLyricLineIds(content: readonly MnxSequenceContent[], ids: Set<string>): void {
+  for (const item of content) {
+    if (item.type === undefined) {
+      for (const id of Object.keys(item.lyrics?.lines ?? {})) ids.add(id);
+    } else if (item.type === "tuplet" || item.type === "grace" || item.type === "tremolo") {
+      collectLyricLineIds(item.content, ids);
+    }
+  }
+}
 
 function readTransposeInterval(transpose: Element | null): TransposeInterval | undefined {
   if (!transpose) return undefined;
@@ -485,17 +492,7 @@ export function buildParts(
 
       // Collect lyric line IDs
       for (const seq of finalSequences) {
-        for (const content of seq.content) {
-          if (!("type" in content && (content as MnxGraceEvent | MnxTuplet | MnxSpace).type)) {
-            const evt = content as MnxEvent;
-            if (evt.lyrics?.lines) {
-              // eslint-disable-next-line max-depth -- nested traversal of seq.content → event → lyrics.lines
-              for (const lineId of Object.keys(evt.lyrics.lines)) {
-                lyricLineIds.add(lineId);
-              }
-            }
-          }
-        }
+        collectLyricLineIds(seq.content, lyricLineIds);
       }
 
       // Hairpins are standard gradual dynamic groups. Pair their MusicXML

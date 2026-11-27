@@ -58,8 +58,10 @@ pub struct Note {
     pub kit_component: Option<String>,
     /// MNX `kit-note.perform` (currently a stub object).
     pub perform: Option<PerformOptions>,
-    /// Viritura `_x.viritura.notehead` override for a pitched note.
+    /// Resolved native MNX notehead.
     pub notehead: Option<NoteheadShape>,
+    /// Original native object, including glyph and global attributes.
+    pub notehead_wire: Option<serde_json::Value>,
     /// Native MNX markings attached to this individual note.
     pub markings: Option<NoteMarkings>,
     /// Source part index for condensing (internal, not serialized).
@@ -92,6 +94,7 @@ impl Default for Note {
             kit_component: None,
             perform: None,
             notehead: None,
+            notehead_wire: None,
             markings: None,
             source_part_index: None,
             source_event_id: None,
@@ -126,20 +129,10 @@ struct NoteRaw {
     kit_component: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     perform: Option<PerformOptions>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "_x")]
-    x: Option<NoteVendorExtensions>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    notehead: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     markings: Option<NoteMarkings>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct NoteVirituraExtensions {
-    notehead: NoteheadShape,
-}
-
-#[derive(Serialize, Deserialize)]
-struct NoteVendorExtensions {
-    viritura: NoteVirituraExtensions,
 }
 
 fn placeholder_pitch() -> Pitch {
@@ -166,9 +159,8 @@ impl Serialize for Note {
             staff: self.staff,
             kit_component: self.kit_component.clone(),
             perform: self.perform.clone(),
-            x: self.notehead.map(|notehead| NoteVendorExtensions {
-                viritura: NoteVirituraExtensions { notehead },
-            }),
+            notehead: crate::model::kit::native_notehead(self.notehead, &self.notehead_wire)
+                .map_err(serde::ser::Error::custom)?,
             markings: self.markings.clone(),
         };
         raw.serialize(serializer)

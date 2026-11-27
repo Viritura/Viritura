@@ -298,7 +298,7 @@ export interface LyricLineMetadataEntry {
 /** Global lyrics configuration (MNX lyrics-global). */
 export interface GlobalLyrics {
   lineMetadata?: Record<string, LyricLineMetadataEntry>;
-  lineOrder?: string[];
+  lineOrder: string[];
 }
 
 /** A stable token from a paste-and-distribute lyric source. */

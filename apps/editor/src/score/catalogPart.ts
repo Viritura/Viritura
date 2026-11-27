@@ -1,5 +1,5 @@
 import {
-  legacyNotehead,
+  noteheadFromEditorShape,
   type ClefSign,
   type KitComponent,
   type Part,
@@ -112,7 +112,7 @@ function attachKit(
       sound: soundId,
       staffPosition: component.staffPosition,
       ...(component.notehead && component.notehead !== "normal"
-        ? { notehead: legacyNotehead(component.notehead) }
+        ? { notehead: noteheadFromEditorShape(component.notehead) }
         : {}),
       ...(component.drumKit !== undefined ? { drumKit: component.drumKit } : {}),
     };

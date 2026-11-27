@@ -34,7 +34,6 @@ export interface NoteContext {
 }
 
 const HEADS: Record<Notehead["shape"], string> = {
-  default: "normal",
   oval: "normal",
   x: "x",
   diamond: "diamond",
@@ -43,6 +42,9 @@ const HEADS: Record<Notehead["shape"], string> = {
   slash: "slash",
   plus: "plus",
   circleX: "circle-x",
+  circled: "circled",
+  slashed: "slashed",
+  backSlashed: "back slashed",
   square: "square",
   custom: "other",
 };

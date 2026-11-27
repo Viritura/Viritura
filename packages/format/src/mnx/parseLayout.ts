@@ -73,7 +73,8 @@ function parseLayoutGroup(raw: RawStaffGroup): LayoutGroup {
     content: raw.content.map(parseLayoutContent),
   };
   if (raw.symbol) group.symbol = raw.symbol;
-  if (raw.label) group.label = raw.label;
+  if (raw.label !== undefined) group.label = raw.label;
+  if (raw.labelRef) group.labelRef = raw.labelRef;
   if (raw.barlineStyle) group.barlineStyle = raw.barlineStyle;
   return group;
 }
@@ -83,8 +84,9 @@ function parseLayoutStaff(raw: RawStaff): LayoutStaff {
     type: "staff",
     sources: (raw.sources ?? []).map(parseLayoutSource),
   };
-  if (raw.label) staff.label = raw.label;
-  if (raw.labelref) staff.labelref = raw.labelref;
+  if (raw.label !== undefined) staff.label = raw.label;
+  if (raw.labelRef) staff.labelRef = raw.labelRef;
+  if (raw.symbol) staff.symbol = raw.symbol;
   return staff;
 }
 
@@ -95,7 +97,8 @@ function parseLayoutSource(raw: RawStaffSource): LayoutSource {
   if (raw.staff !== undefined) src.staff = raw.staff;
   if (raw.stem) src.stem = raw.stem;
   if (raw.voice) src.voice = raw.voice;
-  if (raw.labelref) src.labelref = raw.labelref;
+  if (raw.label !== undefined) src.label = raw.label;
+  if (raw.labelRef) src.labelRef = raw.labelRef;
   return src;
 }
 

@@ -9,9 +9,8 @@ use crate::model::note_markings::{
 };
 use crate::model::pitch::Pitch as ModelPitch;
 use crate::promote::articulation::{promote_accidental_display, promote_tie};
-use crate::promote::kit::{parse_notehead_shape, promote_native_notehead, promote_perform_options};
+use crate::promote::kit::{promote_native_notehead, promote_perform_options};
 use crate::promote::pitch::promote_pitch;
-use crate::promote::vendor_ext::read_viritura_ext;
 use crate::raw;
 
 fn placeholder_pitch() -> ModelPitch {
@@ -29,14 +28,11 @@ pub(crate) fn promote_written(r: raw::Written) -> ModelWritten {
 }
 
 pub(crate) fn promote_note(r: raw::Note) -> ModelNote {
-    let notehead = if let Some(native) = r.notehead.as_ref() {
-        promote_native_notehead(native)
-    } else {
-        read_viritura_ext(r.x.as_ref())
-            .and_then(|v| v.get("notehead"))
-            .and_then(|v| v.as_str())
-            .and_then(parse_notehead_shape)
-    };
+    let notehead = r.notehead.as_ref().and_then(promote_native_notehead);
+    let notehead_wire = r
+        .notehead
+        .as_ref()
+        .map(|value| serde_json::to_value(value).expect("native notehead is JSON serializable"));
     ModelNote {
         pitch: promote_pitch(r.pitch),
         id: r.id.map(String::from),
@@ -49,6 +45,7 @@ pub(crate) fn promote_note(r: raw::Note) -> ModelNote {
         kit_component: None,
         perform: r.perform.map(promote_perform_options),
         notehead,
+        notehead_wire,
         markings: r.markings.map(promote_note_markings),
         source_part_index: None,
         source_event_id: None,
@@ -83,6 +80,10 @@ fn promote_note_markings(markings: raw::NoteMarkings) -> ModelNoteMarkings {
 }
 
 pub(crate) fn promote_kit_note_to_note(r: raw::KitNote) -> ModelNote {
+    let notehead_wire = r
+        .notehead
+        .as_ref()
+        .map(|value| serde_json::to_value(value).expect("native notehead is JSON serializable"));
     ModelNote {
         pitch: placeholder_pitch(),
         id: r.id.map(String::from),
@@ -95,6 +96,7 @@ pub(crate) fn promote_kit_note_to_note(r: raw::KitNote) -> ModelNote {
         kit_component: Some(String::from(r.kit_component)),
         perform: r.perform.map(promote_perform_options),
         notehead: r.notehead.as_ref().and_then(promote_native_notehead),
+        notehead_wire,
         markings: None,
         source_part_index: None,
         source_event_id: None,
@@ -108,7 +110,7 @@ mod tests {
 
     #[test]
     fn promotes_pitched_note() {
-        let json = r#"{"pitch":{"step":"E","octave":4},"id":"n1","_x":{"viritura":{"notehead":"diamond"}}}"#;
+        let json = r#"{"pitch":{"step":"E","octave":4},"id":"n1","notehead":{"shape":"diamond"}}"#;
         let r: raw::Note = serde_json::from_str(json).unwrap();
         let n = promote_note(r);
         assert_eq!(n.pitch.step, "E");
@@ -118,12 +120,16 @@ mod tests {
     }
 
     #[test]
-    fn native_notehead_takes_precedence_over_legacy_extension() {
-        let json = r#"{"pitch":{"step":"E","octave":4},"notehead":{"shape":"x"},"_x":{"viritura":{"notehead":"diamond"}}}"#;
+    fn native_notehead_preserves_global_attributes() {
+        let json = r#"{"pitch":{"step":"E","octave":4},"notehead":{"shape":"x","id":"head","_c":"notehead"}}"#;
         let r: raw::Note = serde_json::from_str(json).unwrap();
+        let note = promote_note(r);
+        assert_eq!(note.notehead, Some(crate::model::kit::NoteheadShape::X));
         assert_eq!(
-            promote_note(r).notehead,
-            Some(crate::model::kit::NoteheadShape::X)
+            serde_json::to_value(note).unwrap()["notehead"],
+            serde_json::json!({
+                "shape":"x","id":"head","_c":"notehead"
+            })
         );
     }
 
@@ -141,11 +147,16 @@ mod tests {
     fn promotes_native_custom_notehead_glyph() {
         let json = r#"{"pitch":{"step":"C","octave":4},"notehead":{"shape":"custom","glyph":"noteheadXBlack"}}"#;
         let raw: raw::Note = serde_json::from_str(json).unwrap();
+        let note = promote_note(raw);
         assert_eq!(
-            promote_note(raw).notehead,
+            note.notehead,
             Some(crate::model::kit::NoteheadShape::Custom(
                 crate::render::smufl::smufl::NOTEHEAD_X_BLACK
             ))
+        );
+        assert_eq!(
+            serde_json::to_value(note).unwrap()["notehead"],
+            serde_json::json!({"shape":"custom","glyph":"noteheadXBlack"})
         );
     }
 

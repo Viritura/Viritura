@@ -90,7 +90,7 @@ function uncondenseExcludedInstruments(content: LayoutContent[], partMap: Map<st
         return item.sources.map((src) => ({
           type: "staff" as const,
           sources: [src],
-          ...(item.labelref ? { labelref: item.labelref } : {}),
+          ...(item.labelRef ? { labelRef: item.labelRef } : {}),
         }));
       }
     }
@@ -240,7 +240,7 @@ function condenseGroupContent(group: LayoutGroup, partMap: Map<string, Part>): L
         type: "staff",
         sources: combinedSources,
         label: current.node.label,
-        labelref: current.node.labelref,
+        labelRef: current.node.labelRef,
       } as LayoutStaff);
     } else {
       // Solo — keep as-is

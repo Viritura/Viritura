@@ -37,7 +37,7 @@ function clarinetPartScore(authored = false, custom = false, cover = false): str
           : {}),
       })),
     })),
-    layouts: [{ id: "part", content: [{ type: "staff", sources: [{ part: "cl1" }], labelref: "name" }] }],
+    layouts: [{ id: "part", content: [{ type: "staff", sources: [{ part: "cl1" }], labelRef: { ref: "auto" } }] }],
     scores: [
       {
         name: custom ? "Reeds player" : "Clarinet in B\u266d 1",
@@ -85,7 +85,7 @@ export const ActiveSystemStaffLabels: StoryObj = {
     };
     score.scores[0]!.name = "Score";
     score.scores[0]!._x.viritura.instrumentNameDisplay = { firstSystem: "full", subsequentSystems: "short" };
-    score.layouts[0]!.content.push({ type: "staff", sources: [{ part: "cl2" }], labelref: "name" });
+    score.layouts[0]!.content.push({ type: "staff", sources: [{ part: "cl2" }], labelRef: { ref: "auto" } });
     return <ScorePreview mnxJson={JSON.stringify(score)} viewMode="page" />;
   },
 };

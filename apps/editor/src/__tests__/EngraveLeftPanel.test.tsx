@@ -34,11 +34,11 @@ const SCORE: Score = {
     {
       id: "full",
       content: [
-        { type: "staff", sources: [{ part: "p1", labelref: "name" }] },
-        { type: "staff", sources: [{ part: "p2", labelref: "name" }] },
+        { type: "staff", sources: [{ part: "p1", labelRef: { ref: "auto" } }] },
+        { type: "staff", sources: [{ part: "p2", labelRef: { ref: "auto" } }] },
       ],
     },
-    { id: "wind.flutes.flute", content: [{ type: "staff", sources: [{ part: "p1", labelref: "name" }] }] },
+    { id: "wind.flutes.flute", content: [{ type: "staff", sources: [{ part: "p1", labelRef: { ref: "auto" } }] }] },
   ],
   scores: [
     {

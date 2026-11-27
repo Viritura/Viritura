@@ -64,9 +64,9 @@ const trio = {
     {
       id: "L-trio",
       content: [
-        { type: "staff", labelref: "shortName", sources: [{ part: "fl" }] },
-        { type: "staff", labelref: "shortName", sources: [{ part: "vn" }] },
-        { type: "staff", labelref: "shortName", sources: [{ part: "vc" }] },
+        { type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: "fl" }] },
+        { type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: "vn" }] },
+        { type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: "vc" }] },
       ],
     },
     {
@@ -79,15 +79,15 @@ const trio = {
       id: "Lx-0001",
       _x: { viritura: { derived: true } },
       content: [
-        { type: "staff", labelref: "shortName", sources: [{ part: "vn" }] },
-        { type: "staff", labelref: "shortName", sources: [{ part: "vc" }] },
+        { type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: "vn" }] },
+        { type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: "vc" }] },
       ],
     },
     {
       // Derived: only cello (both upper voices tacet).
       id: "Lx-0002",
       _x: { viritura: { derived: true } },
-      content: [{ type: "staff", labelref: "shortName", sources: [{ part: "vc" }] }],
+      content: [{ type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: "vc" }] }],
     },
   ],
 };

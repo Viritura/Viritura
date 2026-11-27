@@ -14,7 +14,7 @@ fn pitched_notehead_override_renders_requested_shape() {
                 "duration": {"base": "quarter"},
                 "notes": [{
                     "pitch": {"step": "C", "octave": 4},
-                    "_x": {"viritura": {"notehead": "diamond"}}
+                    "notehead": {"shape": "diamond"}
                 }]
             }]}]}]}]
         }"#,
@@ -121,6 +121,120 @@ fn slash_notehead_geometry_matches_bravura_metadata() {
             assert_eq!(actual.up_se, point(&anchors["stemUpSE"]), "{name}");
             assert_eq!(actual.down_nw, point(&anchors["stemDownNW"]), "{name}");
         }
+    }
+}
+
+#[test]
+fn v57_noteheads_render_each_duration_on_pitched_and_kit_notes() {
+    for (shape, expected) in [
+        ("circled", [0xE0E4, 0xE0E5, 0xE0E6, 0xE0E7]),
+        ("slashed", [0xE0CF, 0xE0D1, 0xE0D3, 0xE0D5]),
+        ("backSlashed", [0xE0D0, 0xE0D2, 0xE0D4, 0xE0D6]),
+    ] {
+        for kit in [false, true] {
+            let measures: Vec<_> = ["quarter", "half", "whole", "breve"]
+                .iter()
+                .map(|base| {
+                    let mut event = serde_json::json!({ "duration": { "base": base } });
+                    if kit {
+                        event["kitNotes"] = serde_json::json!([{ "kitComponent": "drum" }]);
+                    } else {
+                        event["notes"] = serde_json::json!([{
+                            "pitch": { "step": "B", "octave": 4 },
+                            "notehead": { "shape": shape }
+                        }]);
+                    }
+                    serde_json::json!({ "sequences": [{ "content": [event] }] })
+                })
+                .collect();
+            let document = serde_json::json!({
+                "mnx": { "version": 1 },
+                "global": { "measures": [{}, {}, {}, {}] },
+                "parts": [{
+                    "kit": { "drum": { "staffPosition": 0, "notehead": { "shape": shape } } },
+                    "measures": measures
+                }]
+            });
+            let score = parse_mnx(&document.to_string()).unwrap();
+            let display_list = layout_score(&score, 0, &LayoutConfig::default());
+            let actual: Vec<_> = display_list
+                .commands
+                .iter()
+                .filter_map(|command| match command {
+                    RenderCommand::DrawGlyph { codepoint, .. }
+                        if smufl::is_notehead(*codepoint) =>
+                    {
+                        Some(*codepoint)
+                    }
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(actual, expected, "{shape}, kit={kit}");
+        }
+    }
+}
+
+#[test]
+fn v57_notehead_geometry_matches_bravura_metadata() {
+    let metadata: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../assets/fonts/bravura_metadata.json"
+    ))
+    .unwrap();
+    for (codepoint, name) in [
+        (0xE0E4, "noteheadCircledBlack"),
+        (0xE0E5, "noteheadCircledHalf"),
+        (0xE0E6, "noteheadCircledWhole"),
+        (0xE0E7, "noteheadCircledDoubleWhole"),
+        (0xE0CF, "noteheadSlashedBlack1"),
+        (0xE0D0, "noteheadSlashedBlack2"),
+        (0xE0D1, "noteheadSlashedHalf1"),
+        (0xE0D2, "noteheadSlashedHalf2"),
+        (0xE0D3, "noteheadSlashedWhole1"),
+        (0xE0D4, "noteheadSlashedWhole2"),
+        (0xE0D5, "noteheadSlashedDoubleWhole1"),
+        (0xE0D6, "noteheadSlashedDoubleWhole2"),
+    ] {
+        let bbox = &metadata["glyphBBoxes"][name];
+        let sw = (
+            bbox["bBoxSW"][0].as_f64().unwrap(),
+            bbox["bBoxSW"][1].as_f64().unwrap(),
+        );
+        let ne = (
+            bbox["bBoxNE"][0].as_f64().unwrap(),
+            bbox["bBoxNE"][1].as_f64().unwrap(),
+        );
+        let actual = smufl::glyph_bbox(codepoint);
+        for (value, expected) in [
+            (actual.0, sw.0),
+            (actual.1, -ne.1),
+            (actual.2, ne.0 - sw.0),
+            (actual.3, ne.1 - sw.1),
+        ] {
+            assert!((value - expected).abs() < 1e-9, "{name}");
+        }
+        let anchors = &metadata["glyphsWithAnchors"][name];
+        if anchors["stemUpSE"].is_array() {
+            let actual = smufl::stem_anchors(codepoint);
+            assert_eq!(
+                actual.up_se,
+                (
+                    anchors["stemUpSE"][0].as_f64().unwrap(),
+                    -anchors["stemUpSE"][1].as_f64().unwrap()
+                ),
+                "{name}"
+            );
+            assert_eq!(
+                actual.down_nw,
+                (
+                    anchors["stemDownNW"][0].as_f64().unwrap(),
+                    -anchors["stemDownNW"][1].as_f64().unwrap()
+                ),
+                "{name}"
+            );
+        }
+        let origin = anchors["noteheadOrigin"][0].as_f64().unwrap_or(0.0);
+        assert_eq!(smufl::notehead_origin(codepoint), origin, "{name}");
+        assert_eq!(smufl::smufl_name_to_codepoint(name), Some(codepoint));
     }
 }
 

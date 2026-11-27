@@ -10,8 +10,8 @@ const content: LayoutContent[] = [
   {
     type: "group",
     content: [
-      { type: "staff", sources: [{ part: "fl", labelref: "name" }] },
-      { type: "staff", labelref: "name", sources: [{ part: "ob" }] },
+      { type: "staff", sources: [{ part: "fl", labelRef: { ref: "auto" } }] },
+      { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "ob" }] },
     ],
   },
 ];
@@ -22,6 +22,39 @@ describe("instrument name display policy", () => {
       firstSystem: "full",
       subsequentSystems: "short",
     });
+  });
+
+  it("recognizes mixed source references and literal source labels as custom", () => {
+    const mixed: LayoutContent[] = [
+      {
+        type: "staff",
+        sources: [
+          { part: "fl", labelRef: { ref: "name" } },
+          { part: "ob", labelRef: { ref: "shortName" } },
+        ],
+      },
+    ];
+    expect(instrumentNameDisplayFor(mixed, {})).toEqual({ firstSystem: "custom", subsequentSystems: "custom" });
+    const literal: LayoutContent[] = [{ type: "staff", sources: [{ part: "fl", label: "Solo" }] }];
+    expect(instrumentNameDisplayFor(literal, {})).toEqual({ firstSystem: "custom", subsequentSystems: "custom" });
+    const multiple: LayoutContent[] = [
+      {
+        type: "staff",
+        sources: [
+          { part: "fl", labelRef: {} },
+          { part: "ob", labelRef: {} },
+        ],
+      },
+    ];
+    expect(instrumentNameDisplayFor(multiple, {})).toEqual({ firstSystem: "custom", subsequentSystems: "custom" });
+    const targeted: LayoutContent[] = [
+      {
+        type: "staff",
+        labelRef: { target: "ob" },
+        sources: [{ part: "fl" }],
+      },
+    ];
+    expect(instrumentNameDisplayFor(targeted, {})).toEqual({ firstSystem: "custom", subsequentSystems: "custom" });
   });
 
   it("writes canonical standard-MNX references without mutating the source layout", () => {
@@ -36,15 +69,21 @@ describe("instrument name display policy", () => {
     });
     expect(updated.layouts[0]!.content[0]).toMatchObject({
       content: [
-        { labelref: "shortName", sources: [{ part: "fl" }] },
-        { labelref: "shortName", sources: [{ part: "ob" }] },
+        { labelRef: { ref: "shortName" }, sources: [{ part: "fl" }] },
+        { labelRef: { ref: "shortName" }, sources: [{ part: "ob" }] },
       ],
     });
     expect(content).toEqual(original);
   });
 
   it("removes literal and referenced labels for the standard hidden policy", () => {
-    const custom: LayoutContent[] = [{ type: "staff", label: "Solo", sources: [{ part: "vn", labelref: "name" }] }];
+    const custom: LayoutContent[] = [
+      {
+        type: "staff",
+        label: "Solo",
+        sources: [{ part: "vn", label: "Source", labelRef: { ref: "auto" } }],
+      },
+    ];
     const updated = setScoreInstrumentNameDisplay([{ id: "base", content: custom }], [{ layout: "base" }], 0, {
       firstSystem: "hidden",
       subsequentSystems: "hidden",
@@ -59,7 +98,7 @@ describe("instrument name display policy", () => {
         type: "group",
         symbol: "brace",
         label: "Piano",
-        content: [{ type: "staff", sources: [{ part: "pno", labelref: "name" }] }],
+        content: [{ type: "staff", sources: [{ part: "pno", labelRef: { ref: "auto" } }] }],
       },
     ];
     expect(instrumentNameDisplayFor(labelledGroup, {})).toEqual({

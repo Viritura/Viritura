@@ -30,6 +30,7 @@ use std::collections::HashSet;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+mod labels;
 #[path = "full_score/natural_widths.rs"]
 mod natural_widths;
 #[path = "full_score/page_geometry.rs"]
@@ -37,6 +38,7 @@ mod page_geometry;
 #[path = "full_score/system_chrome.rs"]
 mod system_chrome;
 
+pub(super) use labels::FlatLabel;
 use natural_widths::compute_natural_widths_grid;
 use page_geometry::{compute_full_score_page_layout, compute_inter_staff_gap, FullScorePageLayout};
 use system_chrome::render_system_chrome;
@@ -253,7 +255,7 @@ pub(super) fn layout_full_score_with_config_cached(
         .global
         .lyrics
         .as_ref()
-        .and_then(|gl| gl.line_order.as_deref());
+        .map(|gl| gl.line_order.as_slice());
 
     // Accumulators for the cross-system slur post-pass. The per-staff
     // `render_slurs` call below only handles slurs whose source and target
@@ -843,6 +845,7 @@ pub(super) struct FlatStaff {
     pub(crate) resolved_full_label: Option<String>,
     /// Resolved abbreviated part name, retained for score-level policy overrides.
     pub(crate) resolved_short_label: Option<String>,
+    pub(crate) label_components: Vec<FlatLabel>,
     /// Whether this is an expansion staff (rendered dimmed).
     pub(crate) expansion: bool,
     /// For condensed staves: per-source numbers to display stacked vertically.
@@ -897,6 +900,10 @@ pub(super) struct GroupRange {
     pub(crate) symbol: String,
     /// Group label.
     pub(crate) label: Option<String>,
+    pub(crate) short_label: Option<String>,
+    pub(crate) resolved_full_label: Option<String>,
+    pub(crate) resolved_short_label: Option<String>,
+    pub(crate) label_components: Vec<FlatLabel>,
     /// Nesting depth for line brackets (0 = first level, 1 = second level, etc.).
     pub(crate) depth: usize,
     /// Source parts before empty staves are hidden.

@@ -82,6 +82,18 @@ pub mod smufl {
     pub const NOTEHEAD_CIRCLE_X_WHOLE: u32 = 0xE0B1;
     pub const NOTEHEAD_CIRCLE_X_HALF: u32 = 0xE0B2;
     pub const NOTEHEAD_CIRCLE_X: u32 = 0xE0B3;
+    pub const NOTEHEAD_CIRCLED_BLACK: u32 = 0xE0E4;
+    pub const NOTEHEAD_CIRCLED_HALF: u32 = 0xE0E5;
+    pub const NOTEHEAD_CIRCLED_WHOLE: u32 = 0xE0E6;
+    pub const NOTEHEAD_CIRCLED_DOUBLE_WHOLE: u32 = 0xE0E7;
+    pub const NOTEHEAD_SLASHED_BLACK: u32 = 0xE0CF;
+    pub const NOTEHEAD_BACK_SLASHED_BLACK: u32 = 0xE0D0;
+    pub const NOTEHEAD_SLASHED_HALF: u32 = 0xE0D1;
+    pub const NOTEHEAD_BACK_SLASHED_HALF: u32 = 0xE0D2;
+    pub const NOTEHEAD_SLASHED_WHOLE: u32 = 0xE0D3;
+    pub const NOTEHEAD_BACK_SLASHED_WHOLE: u32 = 0xE0D4;
+    pub const NOTEHEAD_SLASHED_DOUBLE_WHOLE: u32 = 0xE0D5;
+    pub const NOTEHEAD_BACK_SLASHED_DOUBLE_WHOLE: u32 = 0xE0D6;
     pub const NOTEHEAD_DIAMOND_DOUBLE_WHOLE: u32 = 0xE0D7;
     pub const NOTEHEAD_DIAMOND_WHOLE: u32 = 0xE0D8;
     pub const NOTEHEAD_DIAMOND_HALF: u32 = 0xE0D9;
@@ -137,6 +149,26 @@ pub mod smufl {
     /// oval anchors for round noteheads and any glyph without bespoke metadata.
     pub fn stem_anchors(codepoint: u32) -> StemAnchors {
         match codepoint {
+            NOTEHEAD_CIRCLED_BLACK => StemAnchors {
+                up_se: (1.18, -0.168),
+                down_nw: (0.0, 0.164),
+            },
+            NOTEHEAD_CIRCLED_HALF => StemAnchors {
+                up_se: (1.172, -0.156),
+                down_nw: (0.0, 0.144),
+            },
+            NOTEHEAD_SLASHED_BLACK | NOTEHEAD_BACK_SLASHED_BLACK => StemAnchors {
+                up_se: (1.18, -0.164),
+                down_nw: (0.0, 0.172),
+            },
+            NOTEHEAD_SLASHED_HALF => StemAnchors {
+                up_se: (1.168, -0.164),
+                down_nw: (0.0, 0.168),
+            },
+            NOTEHEAD_BACK_SLASHED_HALF => StemAnchors {
+                up_se: (1.172, -0.168),
+                down_nw: (0.0, 0.164),
+            },
             NOTEHEAD_X_BLACK => StemAnchors {
                 up_se: (1.16, -0.444),
                 down_nw: (0.0, 0.44),
@@ -919,8 +951,37 @@ pub mod smufl {
         let is_double_whole = matches!(duration, Breve | Longa | Maxima | DuplexMaxima);
         let is_whole = matches!(duration, Whole);
         let is_half = matches!(duration, Half);
+        let duration_shape = |double_whole, whole, half, black| {
+            if is_double_whole {
+                double_whole
+            } else if is_whole {
+                whole
+            } else if is_half {
+                half
+            } else {
+                black
+            }
+        };
         match shape {
             NoteheadShape::Normal => notehead_glyph(duration),
+            NoteheadShape::Circled => duration_shape(
+                NOTEHEAD_CIRCLED_DOUBLE_WHOLE,
+                NOTEHEAD_CIRCLED_WHOLE,
+                NOTEHEAD_CIRCLED_HALF,
+                NOTEHEAD_CIRCLED_BLACK,
+            ),
+            NoteheadShape::Slashed => duration_shape(
+                NOTEHEAD_SLASHED_DOUBLE_WHOLE,
+                NOTEHEAD_SLASHED_WHOLE,
+                NOTEHEAD_SLASHED_HALF,
+                NOTEHEAD_SLASHED_BLACK,
+            ),
+            NoteheadShape::BackSlashed => duration_shape(
+                NOTEHEAD_BACK_SLASHED_DOUBLE_WHOLE,
+                NOTEHEAD_BACK_SLASHED_WHOLE,
+                NOTEHEAD_BACK_SLASHED_HALF,
+                NOTEHEAD_BACK_SLASHED_BLACK,
+            ),
             NoteheadShape::Plus => {
                 if is_double_whole {
                     NOTEHEAD_PLUS_DOUBLE_WHOLE
@@ -1020,29 +1081,24 @@ pub mod smufl {
     /// width excluding the origin offset (the visible notehead extent used for
     /// ledger line centering).
     pub fn notehead_width(codepoint: u32) -> f64 {
-        let (bx, _, bw, _) = glyph_bbox(codepoint);
-        // For double-whole, the bbox x_min is negative (-0.18). The body width
-        // that ledger lines should span is from x_min to x_min + width, relative
-        // to the glyph's draw origin offset by NOTEHEAD_DOUBLE_WHOLE_ORIGIN.
-        // Effectively: bw covers the full glyph including brackets.
-        if codepoint == NOTEHEAD_DOUBLE_WHOLE {
-            // The glyph is drawn at note_x - ORIGIN.0, so the visible extent from
-            // note_x is: (bx + ORIGIN.0) to (bx + bw + ORIGIN.0) → width = bw
-            bw
-        } else {
-            bw - bx // For standard noteheads bx=0, so this is just bw
+        glyph_bbox(codepoint).2
+    }
+
+    /// Horizontal offset of the notehead body from the SMuFL glyph origin.
+    pub fn notehead_origin(codepoint: u32) -> f64 {
+        match codepoint {
+            NOTEHEAD_DOUBLE_WHOLE => NOTEHEAD_DOUBLE_WHOLE_ORIGIN.0,
+            NOTEHEAD_CIRCLED_DOUBLE_WHOLE
+            | NOTEHEAD_SLASHED_DOUBLE_WHOLE
+            | NOTEHEAD_BACK_SLASHED_DOUBLE_WHOLE => 0.356,
+            _ => 0.0,
         }
     }
 
     /// Rightmost notehead ink relative to the rhythmic origin, in staff spaces.
     pub fn notehead_right_extent(codepoint: u32) -> f64 {
         let (bbox_x, _, bbox_width, _) = glyph_bbox(codepoint);
-        let draw_origin = if codepoint == NOTEHEAD_DOUBLE_WHOLE {
-            -NOTEHEAD_DOUBLE_WHOLE_ORIGIN.0
-        } else {
-            0.0
-        };
-        draw_origin + bbox_x + bbox_width
+        bbox_x + bbox_width - notehead_origin(codepoint)
     }
 
     /// Get the metronome-mark note glyph for a tempo's beat-unit note value.
@@ -1722,6 +1778,18 @@ pub mod smufl {
             NOTEHEAD_HALF => (0.0, -0.5, 1.18, 1.0),
             NOTEHEAD_WHOLE => (0.0, -0.5, 1.66, 1.0),
             NOTEHEAD_DOUBLE_WHOLE => (-0.18, -0.5, 2.02, 1.0),
+            NOTEHEAD_CIRCLED_BLACK => (-0.084, -0.668, 1.368, 1.352),
+            NOTEHEAD_CIRCLED_HALF => (-0.072, -0.668, 1.316, 1.316),
+            NOTEHEAD_CIRCLED_WHOLE => (0.0, -0.844, 1.748, 1.744),
+            NOTEHEAD_CIRCLED_DOUBLE_WHOLE => (0.0, -0.852, 2.412, 1.724),
+            NOTEHEAD_SLASHED_BLACK => (-0.32, -0.668, 1.82, 1.328),
+            NOTEHEAD_BACK_SLASHED_BLACK => (-0.316, -0.672, 1.82, 1.328),
+            NOTEHEAD_SLASHED_HALF => (-0.268, -0.64, 1.812, 1.208),
+            NOTEHEAD_BACK_SLASHED_HALF => (-0.292, -0.672, 1.812, 1.208),
+            NOTEHEAD_SLASHED_WHOLE => (-0.088, -0.592, 1.82, 1.22),
+            NOTEHEAD_BACK_SLASHED_WHOLE => (-0.072, -0.604, 1.816, 1.22),
+            NOTEHEAD_SLASHED_DOUBLE_WHOLE => (0.0, -0.672, 2.384, 1.388),
+            NOTEHEAD_BACK_SLASHED_DOUBLE_WHOLE => (0.0, -0.676, 2.384, 1.388),
             NOTEHEAD_SLASH_BLACK => (0.0, -1.0, 2.12, 2.0),
             NOTEHEAD_SLASH_HALF => (0.0, -1.0, 3.12, 2.0),
             NOTEHEAD_SLASH_WHOLE => (0.0, -1.0, 3.92, 2.0),
@@ -2077,6 +2145,18 @@ pub mod smufl {
             "noteheadPlusBlack" => Some(NOTEHEAD_PLUS_BLACK),
             "noteheadSquareBlack" => Some(NOTEHEAD_SQUARE_BLACK),
             "noteheadCircleX" => Some(NOTEHEAD_CIRCLE_X),
+            "noteheadCircledBlack" => Some(NOTEHEAD_CIRCLED_BLACK),
+            "noteheadCircledHalf" => Some(NOTEHEAD_CIRCLED_HALF),
+            "noteheadCircledWhole" => Some(NOTEHEAD_CIRCLED_WHOLE),
+            "noteheadCircledDoubleWhole" => Some(NOTEHEAD_CIRCLED_DOUBLE_WHOLE),
+            "noteheadSlashedBlack1" => Some(NOTEHEAD_SLASHED_BLACK),
+            "noteheadSlashedBlack2" => Some(NOTEHEAD_BACK_SLASHED_BLACK),
+            "noteheadSlashedHalf1" => Some(NOTEHEAD_SLASHED_HALF),
+            "noteheadSlashedHalf2" => Some(NOTEHEAD_BACK_SLASHED_HALF),
+            "noteheadSlashedWhole1" => Some(NOTEHEAD_SLASHED_WHOLE),
+            "noteheadSlashedWhole2" => Some(NOTEHEAD_BACK_SLASHED_WHOLE),
+            "noteheadSlashedDoubleWhole1" => Some(NOTEHEAD_SLASHED_DOUBLE_WHOLE),
+            "noteheadSlashedDoubleWhole2" => Some(NOTEHEAD_BACK_SLASHED_DOUBLE_WHOLE),
             "noteheadDiamondBlack" => Some(NOTEHEAD_DIAMOND_BLACK),
             "noteheadTriangleUpBlack" => Some(NOTEHEAD_TRIANGLE_UP_BLACK),
             "noteheadTriangleDownBlack" => Some(NOTEHEAD_TRIANGLE_DOWN_BLACK),

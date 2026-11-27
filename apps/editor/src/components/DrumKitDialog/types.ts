@@ -1,4 +1,4 @@
-import type { NoteheadShape } from "@viritura/core";
+import type { Notehead, NoteheadShape } from "@viritura/core";
 
 /**
  * One editable drum-kit mapping row: a notated identity (staff position +
@@ -13,6 +13,8 @@ export interface KitComponentEdit {
   staffPosition: number;
   /** Notehead shape rendered for hits on this component. */
   notehead: NoteheadShape;
+  /** Original custom glyph used by the staff preview. */
+  originalNotehead?: Notehead;
   /** GS drum-kit program this component borrows its sound from, or undefined
    *  to play on the part's default kit. Maps to `_x.viritura.drumKit`. */
   drumKit: number | undefined;

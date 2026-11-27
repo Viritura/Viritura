@@ -257,8 +257,8 @@ function verifySplitPlayerStaffLabels(
     }
     const partId = node.sources.length === 1 ? node.sources[0]?.part : undefined;
     if (!partId || !SPLIT_PLAYER_IDS.has(partId)) continue;
-    if (!node.label?.trim() && node.labelref !== "name") {
-      throw new Error(`${context} staff for ${partId} requires an explicit label or labelref name.`);
+    if (!node.label?.trim() && (!node.labelRef || (node.labelRef.ref ?? "auto") !== "auto")) {
+      throw new Error(`${context} staff for ${partId} requires an explicit label or automatic label reference.`);
     }
   }
 }

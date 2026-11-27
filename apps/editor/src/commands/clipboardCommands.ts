@@ -29,6 +29,7 @@ import type {
 } from "../clipboard/ClipboardFragment";
 import type { ClipboardFragment } from "../clipboard/ClipboardFragment";
 import { applyMeasureSignatures } from "../clipboard/measureSignatures";
+import { collectLyricLineIds } from "../clipboard/lyricMetadata";
 import type { AnnotationLocation } from "../score/ElementPath";
 import { deleteAnnotations } from "./deleteCommands";
 import { timedAnnotationsAnchoredToCollapsedSequences } from "./computeDeleteSelection";
@@ -283,7 +284,7 @@ export function applyPaste(
   // Deep clone to avoid mutation
   const newScore = structuredClone(score);
   const targetRemap = new Map<string, string>();
-  mergeClipboardLyrics(newScore, paste.lyrics);
+  mergeClipboardLyrics(newScore, paste.lyrics, paste.content, paste.tracks);
 
   // Share the exact source boundary: other voices cannot recover its floating-point summation error.
   // Numeric beats remain available for legacy placement and dynamic-position remapping.
@@ -543,19 +544,37 @@ function activeTimeSignature(score: Score, measureIndex: number): TimeSignature 
   return time;
 }
 
-function mergeClipboardLyrics(score: Score, lyrics: GlobalLyrics | undefined): void {
-  if (!lyrics) return;
-  score.global.lyrics ??= {};
+function mergeClipboardLyrics(
+  score: Score,
+  lyrics: GlobalLyrics | undefined,
+  content: readonly SequenceContent[],
+  tracks: readonly ClipboardTrack[] | undefined,
+): void {
+  const usedIds = new Set<string>();
+  let hasLyrics = collectLyricLineIds(content, usedIds);
+  for (const track of tracks ?? []) {
+    hasLyrics = collectLyricLineIds(track.content, usedIds) || hasLyrics;
+  }
+  if (!lyrics && usedIds.size === 0) {
+    if (hasLyrics && !score.global.lyrics?.lineOrder.length) {
+      throw new Error("Cannot paste event lyrics without a global lyric line order.");
+    }
+    return;
+  }
+  score.global.lyrics ??= { lineOrder: [] };
   const target = score.global.lyrics;
-  if (lyrics.lineMetadata) {
+  if (lyrics?.lineMetadata) {
     target.lineMetadata ??= {};
     for (const [lineId, metadata] of Object.entries(lyrics.lineMetadata)) {
       target.lineMetadata[lineId] ??= structuredClone(metadata);
     }
   }
-  const existingOrder = target.lineOrder ?? [];
-  const sourceOrder = lyrics.lineOrder ?? [];
+  const existingOrder = target.lineOrder;
+  const sourceOrder = lyrics?.lineOrder ?? [];
   target.lineOrder = [...existingOrder, ...sourceOrder.filter((lineId) => !existingOrder.includes(lineId))];
+  for (const lineId of usedIds) {
+    if (!target.lineOrder.includes(lineId)) target.lineOrder.push(lineId);
+  }
 }
 
 function applyCapturedDynamicsByPart(

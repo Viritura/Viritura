@@ -42,7 +42,7 @@ fn number_ink_extras(
             .global
             .lyrics
             .as_ref()
-            .and_then(|lyrics| lyrics.line_order.as_deref()),
+            .map(|lyrics| lyrics.line_order.as_slice()),
         part_index,
         0,
         &mut HashMap::new(),

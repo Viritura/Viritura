@@ -278,6 +278,12 @@ export interface components {
             staff?: components["schemas"]["staff-number"];
             ties?: components["schemas"]["tie-list"];
         } & components["schemas"]["global-attrs"];
+        "label-ref": {
+            ref?: components["schemas"]["label-ref-type"];
+            target?: components["schemas"]["id"];
+        } & components["schemas"]["global-attrs"];
+        /** @enum {string} */
+        "label-ref-type": "auto" | "name" | "shortName";
         "language-code": string;
         "layout-change": {
             layout: components["schemas"]["id"];
@@ -299,7 +305,7 @@ export interface components {
         } & components["schemas"]["global-attrs"];
         "lyrics-global": {
             lineMetadata?: components["schemas"]["lyric-lines-metadata"];
-            lineOrder?: components["schemas"]["lyric-line-id"][];
+            lineOrder: components["schemas"]["lyric-line-id"][];
         } & components["schemas"]["global-attrs"];
         "measure-count": number;
         "measure-global": {
@@ -384,11 +390,10 @@ export interface components {
         } & components["schemas"]["global-attrs"];
         notehead: {
             glyph?: components["schemas"]["smufl-glyph"];
-            /** @default default */
             shape: components["schemas"]["notehead-shape"];
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
-        "notehead-shape": "default" | "oval" | "x" | "diamond" | "triangle" | "triangleDown" | "slash" | "plus" | "circleX" | "square" | "custom";
+        "notehead-shape": "oval" | "x" | "diamond" | "triangle" | "triangleDown" | "slash" | "plus" | "circleX" | "circled" | "slashed" | "backSlashed" | "square" | "custom";
         octave: number;
         ottava: {
             end: components["schemas"]["measure-rhythmic-position"];
@@ -552,7 +557,7 @@ export interface components {
         } & components["schemas"]["global-attrs"];
         staff: {
             label?: components["schemas"]["staff-label"];
-            labelref?: components["schemas"]["staff-labelref"];
+            labelRef?: components["schemas"]["label-ref"];
             sources: components["schemas"]["staff-source"][];
             symbol?: components["schemas"]["staff-symbol"];
             /** @constant */
@@ -566,6 +571,7 @@ export interface components {
             barlineStyle?: components["schemas"]["staff-group-barline-style"];
             content: components["schemas"]["system-layout-content"];
             label?: components["schemas"]["staff-label"];
+            labelRef?: components["schemas"]["label-ref"];
             symbol?: components["schemas"]["staff-symbol"];
             /** @constant */
             type: "group";
@@ -573,13 +579,11 @@ export interface components {
         /** @enum {string} */
         "staff-group-barline-style": "individual" | "instrument" | "unified" | "mensurstrich";
         "staff-label": string;
-        /** @enum {string} */
-        "staff-labelref": "name" | "shortName";
         "staff-number": number;
         "staff-position": number;
         "staff-source": {
             label?: components["schemas"]["staff-label"];
-            labelref?: components["schemas"]["staff-labelref"];
+            labelRef?: components["schemas"]["label-ref"];
             part: components["schemas"]["id"];
             staff?: components["schemas"]["staff-number"];
             stem?: components["schemas"]["stem-direction"];
@@ -765,6 +769,8 @@ export type Key = components["schemas"]["key"];
 export type Kit = components["schemas"]["kit"];
 export type KitComponent = components["schemas"]["kit-component"];
 export type KitNote = components["schemas"]["kit-note"];
+export type LabelRef = components["schemas"]["label-ref"];
+export type LabelRefType = components["schemas"]["label-ref-type"];
 export type LanguageCode = components["schemas"]["language-code"];
 export type LayoutChange = components["schemas"]["layout-change"];
 export type LineType = components["schemas"]["line-type"];
@@ -845,7 +851,6 @@ export type StaffCount = components["schemas"]["staff-count"];
 export type StaffGroup = components["schemas"]["staff-group"];
 export type StaffGroupBarlineStyle = components["schemas"]["staff-group-barline-style"];
 export type StaffLabel = components["schemas"]["staff-label"];
-export type StaffLabelref = components["schemas"]["staff-labelref"];
 export type StaffNumber = components["schemas"]["staff-number"];
 export type StaffPosition = components["schemas"]["staff-position"];
 export type StaffSource = components["schemas"]["staff-source"];

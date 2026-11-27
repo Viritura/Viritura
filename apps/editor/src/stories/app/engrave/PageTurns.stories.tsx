@@ -62,7 +62,7 @@ function buildScore() {
     mnx: { version: 1 },
     global: { measures: globalMeasures },
     parts: [{ id: "vn", name: "Violin", shortName: "Vn.", measures: partMeasures }],
-    layouts: [{ id: "L", content: [{ type: "staff", labelref: "shortName", sources: [{ part: "vn" }] }] }],
+    layouts: [{ id: "L", content: [{ type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: "vn" }] }] }],
     scores: [
       {
         name: "Violin",

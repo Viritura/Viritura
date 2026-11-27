@@ -13,6 +13,7 @@ import {
   repairBeatCounts,
   type MeasureBeatInfo,
 } from "../commands/measureValidation";
+import { collectLyricLineIds } from "../clipboard/lyricMetadata";
 import { sequenceContentBeats } from "../commands/noteCommands";
 import { measureReference, type MeasureReference } from "./measureReferences";
 
@@ -36,6 +37,7 @@ interface RepairPreview {
 
 export interface PatchPreview extends RepairPreview {
   effectivePatches: readonly ScorePatch[];
+  /** Full document must be committed for derived metadata not encoded by patches. */
   needsDocumentCommit: boolean;
   splicePreviews: {
     partId: string;
@@ -49,11 +51,12 @@ export interface PatchPreview extends RepairPreview {
 
 export function previewPatches(score: Score, patches: readonly ScorePatch[]): PatchPreview {
   const proposed = applyPatchesToScore(score, structuredClone(patches));
+  const lyricMetadataChanged = ensureLyricLineOrder(proposed);
   parseMnx(serializeMnx(proposed));
   const range = patchAffectedMeasures(patches) ?? undefined;
   const repaired = previewRepairs(proposed, range);
   const repairPatches: ScorePatch[] = [];
-  let needsDocumentCommit = false;
+  let needsDocumentCommit = lyricMetadataChanged;
   for (const repair of repaired.repairs) {
     const part = repaired.score.parts[repair.partIndex];
     const sequence = part?.measures[repair.measureIndex]?.sequences[repair.voice];
@@ -86,6 +89,28 @@ export function previewPatches(score: Score, patches: readonly ScorePatch[]): Pa
     splicePreviews,
     splicePreviewsTruncated: splicePaths.size > splicePreviews.length,
   };
+}
+
+function ensureLyricLineOrder(score: Score): boolean {
+  const lineIds = new Set<string>();
+  let hasLyrics = false;
+  for (const part of score.parts) {
+    for (const measure of part.measures) {
+      for (const sequence of measure.sequences) {
+        hasLyrics = collectLyricLineIds(sequence.content, lineIds) || hasLyrics;
+      }
+    }
+  }
+  if (!hasLyrics) return false;
+
+  score.global.lyrics ??= { lineOrder: [] };
+  let changed = false;
+  for (const lineId of lineIds) {
+    if (score.global.lyrics.lineOrder.includes(lineId)) continue;
+    score.global.lyrics.lineOrder.push(lineId);
+    changed = true;
+  }
+  return changed;
 }
 
 export function previewRepairs(score: Score, range?: { start: number; end: number }): RepairPreview {

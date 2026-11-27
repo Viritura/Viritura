@@ -33,8 +33,9 @@ function groups(content: unknown[]): Json[] {
 
 function labelStyle(content: unknown[]): string | undefined {
   for (const staff of layoutStaves(content)) {
-    const style = staff["labelref"] ?? sources(staff).find((source) => source["labelref"] !== undefined)?.["labelref"];
-    if (typeof style === "string") return style;
+    const labelRef =
+      staff["labelRef"] ?? sources(staff).find((source) => source["labelRef"] !== undefined)?.["labelRef"];
+    if (isRecord(labelRef)) return typeof labelRef["ref"] === "string" ? labelRef["ref"] : "auto";
   }
   return undefined;
 }
@@ -42,9 +43,9 @@ function labelStyle(content: unknown[]): string | undefined {
 function restyledStaff(staff: Json, style: string | undefined): Json {
   const clone = structuredClone(staff);
   if (style === undefined) return clone;
-  if (typeof clone["labelref"] === "string") clone["labelref"] = style;
+  if (isRecord(clone["labelRef"])) clone["labelRef"] = { ...clone["labelRef"], ref: style };
   for (const source of sources(clone)) {
-    if (typeof source["labelref"] === "string") source["labelref"] = style;
+    if (isRecord(source["labelRef"])) source["labelRef"] = { ...source["labelRef"], ref: style };
   }
   return clone;
 }

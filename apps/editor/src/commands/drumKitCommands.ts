@@ -14,7 +14,7 @@ import { produce } from "../score/scoreClone";
 import { isPercussionPart } from "../score/kitInput";
 import { keyLabel, defaultDrumKitProgram } from "@viritura/audio";
 import {
-  legacyNotehead,
+  noteheadFromEditorShape,
   noteheadEditorShape,
   type Score,
   type NoteheadShape,
@@ -52,6 +52,7 @@ export function resolveDrumKitTarget(score: Score, partIndex: number): DrumKitTa
       name: comp.name ?? id,
       staffPosition: comp.staffPosition ?? 0,
       notehead: noteheadEditorShape(comp.notehead),
+      ...(comp.notehead?.shape === "custom" ? { originalNotehead: comp.notehead } : {}),
       drumKit: comp.drumKit,
       midiKey: typeof midi === "number" ? midi : FALLBACK_MIDI_KEY,
     };
@@ -92,7 +93,7 @@ export function applyDrumKitEdits(score: Score, partIndex: number, edits: readon
       const comp: (typeof newKit)[string] = { staffPosition: edit.staffPosition, name: edit.name, sound: soundId };
       const previous = oldKit[edit.id]?.notehead;
       if (previous && noteheadEditorShape(previous) === edit.notehead) comp.notehead = previous;
-      else if (edit.notehead !== "normal") comp.notehead = legacyNotehead(edit.notehead);
+      else if (edit.notehead !== "normal") comp.notehead = noteheadFromEditorShape(edit.notehead);
       if (edit.drumKit !== undefined) comp.drumKit = edit.drumKit;
       newKit[edit.id] = comp;
 
@@ -183,15 +184,12 @@ export interface SetNoteheadParams {
 /**
  * Set the notehead shape of every note in the targeted event.
  *
- * Pitched events: stored on each `note._x.viritura.notehead` (Option A — the
+ * Pitched events: stored as native `note.notehead` objects (Option A — the
  * engine renders the matching duration-aware SMuFL notehead). Setting
  * `"normal"` clears the override.
  *
- * Percussion events: notehead is a property of the *kit-component*, not the
- * kit-note, so we translate — for each kit-note we find (or create) a component
- * with the same sound / staff position / borrowed kit but the requested
- * notehead, then repoint the kit-note at it. This keeps notehead bound to the
- * instrument and renders today without any engine change.
+ * Percussion events: update an existing per-note override, or find (or create)
+ * a component with the same sound and staff position and the requested shape.
  *
  * Returns the same reference (no-op) when nothing changes.
  */
@@ -207,8 +205,9 @@ export function setEventNotehead(score: Score, params: SetNoteheadParams): Score
 
     if (event.notes && event.notes.length > 0) {
       for (const note of event.notes) {
+        if (noteheadEditorShape(note.notehead) === notehead) continue;
         if (notehead === "normal") delete note.notehead;
-        else note.notehead = legacyNotehead(notehead);
+        else note.notehead = noteheadFromEditorShape(notehead);
       }
       return;
     }
@@ -237,7 +236,12 @@ function applyNoteheadToKitNote(part: Part, kitNote: KitNote, notehead: Notehead
   if (!kit) return;
   const current = kit[kitNote.kitComponent];
   if (!current) return;
-  if (noteheadEditorShape(current.notehead) === notehead) return;
+  if (noteheadEditorShape(kitNote.notehead ?? current.notehead) === notehead) return;
+  if (kitNote.notehead) {
+    kitNote.notehead.shape = noteheadFromEditorShape(notehead).shape;
+    delete kitNote.notehead.glyph;
+    return;
+  }
 
   // Reuse a sibling component that already represents this instrument with the
   // requested notehead, so toggling between noteheads doesn't bloat the kit.
@@ -257,7 +261,7 @@ function applyNoteheadToKitNote(part: Part, kitNote: KitNote, notehead: Notehead
   // Mint a new component cloned from the current one with the chosen notehead.
   const newComp: KitComponent = { ...current };
   if (notehead === "normal") delete newComp.notehead;
-  else newComp.notehead = legacyNotehead(notehead);
+  else newComp.notehead = noteheadFromEditorShape(notehead);
   const newId = freshKitComponentId(kit, kitNote.kitComponent, notehead);
   kit[newId] = newComp;
   kitNote.kitComponent = newId;

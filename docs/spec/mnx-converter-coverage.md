@@ -4,10 +4,10 @@ For the source-validated, row-by-row comparison against the W3C Music Notation
 Reference, see [music-notationref-coverage.md](./music-notationref-coverage.md).
 
 Status snapshot of how Viritura's MNX parser/serializer and MusicXML → MNX
-converter cover MNX schema version 46, including remaining import and
+converter cover MNX schema version 57, including remaining import and
 editor-integration gaps.
 
-## v46 integration status
+## Integration status
 
 - Explicit dynamic glyphs, shared barline caesuras and note-local
   scoop/plop/falloff/doit use native MNX fields. The four note markings engrave
@@ -20,8 +20,8 @@ editor-integration gaps.
   Structural-edit reference lifecycle and staff-local timing remain under
   integration review; schema acceptance alone does not establish those paths.
 - The pinned Denigma producer was exercised on its eight acceptance scores.
-  The current pin (`45c3f626`) emits document version `52` and gap-report
-  schema v2; all adapted outputs validate against MNX schema 52. Acceptance
+  The current pin (`66e154a5`) emits document version `57` and gap-report
+  schema v2; all adapted outputs validate against MNX schema 57. Acceptance
   checks native noteheads, positioned text, and text-formatting ranges. No
   old-draft adapter is applied; unsupported output requires a producer update.
 - The corpus gate covers native fixtures, v46 fixtures and the embedded

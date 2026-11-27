@@ -257,7 +257,13 @@ function rebuildLayoutsAndScores(
       id: "full-score",
       content: result.parts.flatMap((part): LayoutContent[] =>
         part.id
-          ? [{ type: "staff", sources: [{ part: part.id }], ...(isSplitPlayerId(part.id) ? { labelref: "name" } : {}) }]
+          ? [
+              {
+                type: "staff",
+                sources: [{ part: part.id }],
+                ...(isSplitPlayerId(part.id) ? { labelRef: { ref: "auto" } } : {}),
+              },
+            ]
           : [],
       ),
     });
@@ -276,7 +282,7 @@ function rebuildLayoutsAndScores(
       const layoutId = uniqueId(`part-${player.id!}`, usedLayoutIds);
       retainedLayouts.push({
         id: layoutId,
-        content: [{ type: "staff", sources: [{ part: player.id! }], labelref: "name" }],
+        content: [{ type: "staff", sources: [{ part: player.id! }], labelRef: { ref: "auto" } }],
       });
       sourcePartScores.set(player.id!, {
         name: player.name,
@@ -768,8 +774,8 @@ function expandLayoutNode(node: LayoutContent, splitPartIds: ReadonlyMap<string,
     type: "staff",
     sources: [source],
     ...(index === 0 && node.label !== undefined ? { label: node.label } : {}),
-    ...(node.labelref !== undefined ? { labelref: node.labelref } : {}),
-    ...(node.labelref === undefined && (index > 0 || !node.label?.trim()) ? { labelref: "name" } : {}),
+    ...(node.labelRef !== undefined ? { labelRef: node.labelRef } : {}),
+    ...(node.labelRef === undefined && (index > 0 || !node.label?.trim()) ? { labelRef: { ref: "auto" } } : {}),
   }));
 }
 
@@ -780,7 +786,7 @@ function ensureSplitPlayerStaffLabels(content: readonly LayoutContent[]): Layout
     }
     const partId = node.sources.length === 1 ? node.sources[0]?.part : undefined;
     if (!partId || !isSplitPlayerId(partId) || node.label?.trim()) return node;
-    return { ...node, labelref: "name" };
+    return { ...node, labelRef: { ref: "auto" } };
   });
 }
 

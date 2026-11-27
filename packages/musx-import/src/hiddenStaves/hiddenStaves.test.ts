@@ -8,12 +8,12 @@ const note = {
   content: [{ duration: { base: "whole" }, id: "e", notes: [{ id: "n", pitch: { octave: 4, step: "C" } }] }],
 };
 
-function staff(part: string, labelref = "name"): Json {
-  return { type: "staff", sources: [{ part, staff: 1, labelref }] };
+function staff(part: string, labelRef = "name"): Json {
+  return { type: "staff", sources: [{ part, staff: 1, labelRef: { ref: labelRef } }] };
 }
 
-function group(labelref: string, ...parts: string[]): Json {
-  return { type: "group", symbol: "bracket", label: labelref, content: parts.map((part) => staff(part, labelref)) };
+function group(labelRef: string, ...parts: string[]): Json {
+  return { type: "group", symbol: "bracket", label: labelRef, content: parts.map((part) => staff(part, labelRef)) };
 }
 
 function document(systemLayouts: Record<string, unknown[]>, music: Record<string, boolean[]>): Json {

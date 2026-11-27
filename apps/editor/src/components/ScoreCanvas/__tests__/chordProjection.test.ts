@@ -97,8 +97,8 @@ describe("chord source projection", () => {
     const expanded: typeof wire = JSON.parse(injectExpandedStaves(JSON.stringify(wire), 0, new Set(["0-0"])));
     expect(staffSources(expanded.layouts![0]!.content)).toEqual([
       [{ part: "hidden" }, { part: "bb", staff: 1, voice: "solo" }],
-      [{ part: "hidden", labelref: "name" }],
-      [{ part: "bb", staff: 1, voice: "solo", labelref: "name" }],
+      [{ part: "hidden", labelRef: { ref: "auto" } }],
+      [{ part: "bb", staff: 1, voice: "solo", labelRef: { ref: "auto" } }],
       [{ part: "keyboard.piano", staff: 1 }],
       [{ part: "keyboard.piano", staff: 2 }],
     ]);
@@ -136,8 +136,8 @@ describe("chord source projection", () => {
     score.scores = [{ useWritten: true }];
     const { projected, layout } = project(score, ["bb", "missing", "bb", "keyboard.piano"]);
     expect(staffSources(layout.content)).toEqual([
-      [{ part: "bb", labelref: "name" }],
-      [{ part: "keyboard.piano", labelref: "name" }],
+      [{ part: "bb", labelRef: { ref: "auto" } }],
+      [{ part: "keyboard.piano", labelRef: { ref: "auto" } }],
     ]);
     expect(projected.parts.map((part) => part.id)).toEqual(["hidden", "bb", "keyboard.piano"]);
     expect(projected.global.measures[0]?.chordSymbols).toEqual(score.global.measures[0]?.chordSymbols);

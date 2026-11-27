@@ -896,11 +896,7 @@ fn test_parse_lyric_line_metadata_mnx_file() {
     assert_eq!(metadata["2"].lang.as_deref(), Some("nl"));
     assert_eq!(metadata["4"].lang.as_deref(), Some("es"));
 
-    let line_order = global_lyrics
-        .line_order
-        .as_ref()
-        .expect("lineOrder should be present");
-    assert_eq!(line_order, &["1", "2", "3", "4"]);
+    assert_eq!(global_lyrics.line_order, ["1", "2", "3", "4"]);
 
     // Event lyrics use lines map format
     let event0 = score.parts[0].measures[0].sequences[0].content[0]

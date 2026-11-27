@@ -760,7 +760,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         .global
         .lyrics
         .as_ref()
-        .and_then(|gl| gl.line_order.as_deref());
+        .map(|gl| gl.line_order.as_slice());
 
     // Accumulators for the cross-system slur post-pass. Same rationale as in
     // `layout_score_cached` (single-staff path).

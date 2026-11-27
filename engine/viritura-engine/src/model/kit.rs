@@ -1,9 +1,7 @@
 //! Drum-kit / unpitched percussion model (MNX `kit`, `sound`, `kit-component`,
 //! `kit-note`, `perform-options`).
 //!
-//! MNX has no `notehead` field on `note` or `kit-component` — see W3C MNX
-//! issue #249. We carry notehead shape on `KitComponent` as a Viritura vendor
-//! extension serialized under `_x.viritura.notehead`.
+//! Noteheads are native MNX objects on notes, kit notes, and kit components.
 
 use serde::{Deserialize, Serialize};
 
@@ -30,14 +28,16 @@ pub struct PerformOptions {
     pub id: Option<String>,
 }
 
-/// Notehead shape for a drum-kit component (Viritura vendor extension).
-/// Stored under `_x.viritura.notehead`.
+/// Notehead shape used by the engraving engine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum NoteheadShape {
     #[default]
     Normal,
     X,
     CircleX,
+    Circled,
+    Slashed,
+    BackSlashed,
     Diamond,
     Slash,
     TriangleUp,
@@ -55,6 +55,9 @@ impl Serialize for NoteheadShape {
             Self::Normal => "normal",
             Self::X => "x",
             Self::CircleX => "circleX",
+            Self::Circled => "circled",
+            Self::Slashed => "slashed",
+            Self::BackSlashed => "backSlashed",
             Self::Diamond => "diamond",
             Self::Slash => "slash",
             Self::TriangleUp => "triangleUp",
@@ -73,6 +76,9 @@ impl<'de> Deserialize<'de> for NoteheadShape {
             "normal" => Ok(Self::Normal),
             "x" => Ok(Self::X),
             "circleX" => Ok(Self::CircleX),
+            "circled" => Ok(Self::Circled),
+            "slashed" => Ok(Self::Slashed),
+            "backSlashed" => Ok(Self::BackSlashed),
             "diamond" => Ok(Self::Diamond),
             "slash" => Ok(Self::Slash),
             "triangleUp" => Ok(Self::TriangleUp),
@@ -86,6 +92,9 @@ impl<'de> Deserialize<'de> for NoteheadShape {
                     "normal",
                     "x",
                     "circleX",
+                    "circled",
+                    "slashed",
+                    "backSlashed",
                     "diamond",
                     "slash",
                     "triangleUp",
@@ -99,17 +108,37 @@ impl<'de> Deserialize<'de> for NoteheadShape {
     }
 }
 
-/// Wrapper for `_x.viritura` vendor block on a `kit-component`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
-struct KitComponentVirituraExt {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    notehead: Option<NoteheadShape>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
-struct KitComponentVendorExt {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    viritura: Option<KitComponentVirituraExt>,
+pub(crate) fn native_notehead(
+    shape: Option<NoteheadShape>,
+    original: &Option<serde_json::Value>,
+) -> Result<Option<serde_json::Value>, &'static str> {
+    let Some(shape) = shape else {
+        return Ok(None);
+    };
+    let name = match shape {
+        NoteheadShape::Normal => "oval",
+        NoteheadShape::X => "x",
+        NoteheadShape::CircleX => "circleX",
+        NoteheadShape::Circled => "circled",
+        NoteheadShape::Slashed => "slashed",
+        NoteheadShape::BackSlashed => "backSlashed",
+        NoteheadShape::Diamond => "diamond",
+        NoteheadShape::Slash => "slash",
+        NoteheadShape::TriangleUp => "triangle",
+        NoteheadShape::TriangleDown => "triangleDown",
+        NoteheadShape::Plus => "plus",
+        NoteheadShape::Square => "square",
+        NoteheadShape::Custom(_) => "custom",
+    };
+    if let Some(value) = original {
+        if value.get("shape").and_then(serde_json::Value::as_str) == Some(name) {
+            return Ok(Some(value.clone()));
+        }
+    }
+    if matches!(shape, NoteheadShape::Custom(_)) {
+        return Err("custom notehead requires its original SMuFL glyph");
+    }
+    Ok(Some(serde_json::json!({ "shape": name })))
 }
 
 /// A single drum/percussion instrument on a staff (MNX `kit-component`).
@@ -119,8 +148,10 @@ pub struct KitComponent {
     pub name: Option<String>,
     pub sound: Option<String>,
     pub staff_position: i32,
-    /// Viritura vendor extension `_x.viritura.notehead`.
+    /// Resolved native MNX notehead.
     pub notehead: Option<NoteheadShape>,
+    /// Original native object, including glyph and global attributes.
+    pub notehead_wire: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -131,20 +162,18 @@ struct KitComponentRaw {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     sound: Option<String>,
     staff_position: i32,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "_x")]
-    vendor_ext: Option<KitComponentVendorExt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    notehead: Option<serde_json::Value>,
 }
 
 impl Serialize for KitComponent {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let vendor_ext = self.notehead.map(|nh| KitComponentVendorExt {
-            viritura: Some(KitComponentVirituraExt { notehead: Some(nh) }),
-        });
         let raw = KitComponentRaw {
             name: self.name.clone(),
             sound: self.sound.clone(),
             staff_position: self.staff_position,
-            vendor_ext,
+            notehead: native_notehead(self.notehead, &self.notehead_wire)
+                .map_err(serde::ser::Error::custom)?,
         };
         raw.serialize(serializer)
     }
@@ -164,9 +193,10 @@ mod tests {
             sound: Some("snd-kick".into()),
             staff_position: -4,
             notehead: Some(NoteheadShape::Diamond),
+            notehead_wire: None,
         };
         let json = serde_json::to_string(&c).unwrap();
-        assert!(json.contains(r#""_x":{"viritura":{"notehead":"diamond"}}"#));
+        assert!(json.contains(r#""notehead":{"shape":"diamond"}"#));
     }
 
     #[test]

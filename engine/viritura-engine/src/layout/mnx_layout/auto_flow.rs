@@ -237,6 +237,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         score,
         config,
         flat_staves,
+        group_ranges,
         &budget,
         &mmr,
         &forced_system_starts,
@@ -517,7 +518,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         .global
         .lyrics
         .as_ref()
-        .and_then(|gl| gl.line_order.as_deref());
+        .map(|gl| gl.line_order.as_slice());
 
     // Debug capture: per-system staff-pair gap reasoning + bottom-staff Y.
     let mut dbg_staff_pairs: Vec<Vec<crate::render::StaffPairDebug>> = if config.emit_layout_debug {

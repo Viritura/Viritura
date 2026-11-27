@@ -206,7 +206,7 @@ function buildScore(spec: ScoreBuildSpec): string {
       id: "cond",
       content: spec.staves.map((s) => ({
         type: "staff",
-        ...(s.label ? { label: s.label } : { labelref: "shortName" }),
+        ...(s.label ? { label: s.label } : { labelRef: { ref: "shortName" } }),
         ...(s.shortLabel ? { shortLabel: s.shortLabel } : {}),
         ...(s.condensedNumbers ? { _condensedNumbers: s.condensedNumbers } : {}),
         ...(s.condensedNumberRows ? { _condensedNumberRows: s.condensedNumberRows } : {}),
@@ -220,7 +220,7 @@ function buildScore(spec: ScoreBuildSpec): string {
         id: al.id,
         content: al.staves.map((s) => ({
           type: "staff",
-          ...(s.label ? { label: s.label } : { labelref: "shortName" }),
+          ...(s.label ? { label: s.label } : { labelRef: { ref: "shortName" } }),
           ...(s.shortLabel ? { shortLabel: s.shortLabel } : {}),
           ...(s.condensedNumbers ? { _condensedNumbers: s.condensedNumbers } : {}),
           ...(s.condensedNumberRows ? { _condensedNumberRows: s.condensedNumberRows } : {}),

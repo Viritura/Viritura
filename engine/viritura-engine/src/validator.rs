@@ -18,6 +18,8 @@
 //! …matching the TS `assertRawScore → promote` sandwich.
 
 mod extensions;
+mod labels;
+mod lyrics;
 pub(crate) use extensions::{
     validate_staff_text_frame, validate_swing, validate_system_text, validate_tempo_extensions,
     validate_tempo_instruction,
@@ -479,6 +481,8 @@ pub fn validate_raw_score(value: &Value) -> RawScoreValidationResult {
     errors.extend(semantic_kit_errors(value));
     errors.extend(semantic_beat_structure_errors(value));
     errors.extend(semantic_staff_meter_errors(value));
+    errors.extend(labels::errors(value));
+    errors.extend(lyrics::errors(value));
     errors.extend(extensions::extension_errors(value));
     if errors.is_empty() {
         RawScoreValidationResult::Ok
@@ -497,6 +501,8 @@ pub fn is_raw_score(value: &Value) -> bool {
         && semantic_kit_errors(value).is_empty()
         && semantic_beat_structure_errors(value).is_empty()
         && semantic_staff_meter_errors(value).is_empty()
+        && labels::errors(value).is_empty()
+        && lyrics::errors(value).is_empty()
         && extensions::extension_errors(value).is_empty()
 }
 
@@ -522,6 +528,8 @@ pub fn assert_raw_score(value: &Value) -> Result<RawScore, RawScoreValidationFai
     errors.extend(semantic_kit_errors(value));
     errors.extend(semantic_beat_structure_errors(value));
     errors.extend(semantic_staff_meter_errors(value));
+    errors.extend(labels::errors(value));
+    errors.extend(lyrics::errors(value));
     errors.extend(extensions::extension_errors(value));
     if !errors.is_empty() {
         return Err(RawScoreValidationFailure { errors });

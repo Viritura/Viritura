@@ -22,15 +22,16 @@ through skipped measures. MIDI and native performance retain a sustain at a
 navigation boundary only when its explicit cross-jump target is at the actual
 route-entry beat in the correct voice; other pending ties and slurs release.
 
-The vendored schema is revision **46**. This is not the document's
+The vendored schema is revision **57**. This is not the document's
 `mnx.version`: Viritura-created documents use `1`, while external producers may
 declare another document version. Compatibility is established by validating
 the actual document, not by comparing that number to the schema revision.
-Native v46 fields include global caesuras, note-local scoop/plop/falloff/doit,
+Native fields include global caesuras, note-local scoop/plop/falloff/doit,
 lyric extenders, coda destinations and the complete jump instruction union.
-See [lyric extenders](./lyric-extenders.md) and the
-[implementation plan](../plans/mnx-v46-end-to-end-support.md) for policy and
-remaining release gates. Old-draft field aliases are not accepted or repaired.
+Lyrics require a global line order; noteheads and layout label references use
+native MNX objects. See [lyric extenders](./lyric-extenders.md) and the
+[earlier integration plan](../plans/mnx-v46-end-to-end-support.md).
+Old-draft field aliases are not accepted or repaired.
 
 The website and VS Code viewer consume published score-engine assets, not the
 editor's workspace WASM build. They must use JavaScript, workers and WASM from
@@ -44,7 +45,7 @@ worker and viewer rendering, navigation tempo restoration, intra-measure
 tempo automation and SVG export.
 The published engine deliberately keeps lightweight native parsing rather
 than bundling full schema validators. Importing hosts validate documents
-against the v46 schema before passing them to the engine; this preserves the
+against the v57 schema before passing them to the engine; this preserves the
 existing bundle-size and input-policy contract.
 
 The public playground stages locally authored native D.C. al Fine and D.S.

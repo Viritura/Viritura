@@ -1,12 +1,12 @@
 {
-  "denigmaCommit": "45c3f6260f26f4d1752e3928013800bee6cc361f",
+  "denigmaCommit": "66e154a59993a3b4c61707f32562be415d05c275",
   "denigmaVersion": "4.0.0",
   "mnxSchemaVersion": null,
-  "validatedMnxSchemaVersion": 52,
-  "mnxDocumentVersion": 52,
-  "origin": "github-actions:43738266109",
+  "validatedMnxSchemaVersion": 57,
+  "mnxDocumentVersion": 57,
+  "origin": "github-actions:45864182165",
   "emscriptenImage": "emscripten/emsdk:5.0.7@sha256:4e332f7343b6f66320bf72f7ecc01a3d9f3866721a13b0e5c7b96505d6ab148a",
-  "moduleSha256": "02369d22c2d3f2ee5de08dc4359acb5467e5375c535b26ae38f351d92b3fa699",
-  "wasmSha256": "cea987206dbdd4c1a0fecb21b30bf30067d12144640bef991bc5cec8af34ced0",
-  "wasmBytes": 12056715
+  "moduleSha256": "8a9279963d2cdb4e4986544511bae7fc9f6fd68a9c39df5649f8fc38c379ec64",
+  "wasmSha256": "42669024c542d2fafa8e1638fd41fd7280d1d1e520b903a192dc3e1e6a9c6b5e",
+  "wasmBytes": 12821583
 }

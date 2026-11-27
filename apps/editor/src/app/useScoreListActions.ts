@@ -457,11 +457,11 @@ function buildPartScoreEntry(
   if (numStaves > 1) {
     const staffNodes: LayoutStaff[] = [];
     for (let s = 1; s <= numStaves; s++) {
-      staffNodes.push({ type: "staff", sources: [{ part: partId, staff: s, labelref: "name" }] });
+      staffNodes.push({ type: "staff", sources: [{ part: partId, staff: s, labelRef: { ref: "auto" } }] });
     }
     content = [{ type: "group", symbol: "brace", content: staffNodes }];
   } else {
-    content = [{ type: "staff", sources: [{ part: partId, labelref: "name" }] }];
+    content = [{ type: "staff", sources: [{ part: partId }] }];
   }
   const displayInfo = resolvePartDisplayName(partId, score.parts);
   return {

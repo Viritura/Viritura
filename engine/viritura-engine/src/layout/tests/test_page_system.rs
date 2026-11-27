@@ -1799,8 +1799,8 @@ fn test_longest_label_hugs_left_margin() {
             "mnx": {{"version": 1}},
             "global": {{"measures": [{global}]}},
             "layouts": [{{"id": "L", "content": [
-                {{"type": "staff", "labelref": "name", "sources": [{{"part": "a"}}]}},
-                {{"type": "staff", "labelref": "name", "sources": [{{"part": "b"}}]}}
+                {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "a"}}]}},
+                {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "b"}}]}}
             ]}}],
             "scores": [{{"name": "Full Score", "layout": "L"}}],
             "parts": [
@@ -1866,8 +1866,8 @@ fn test_staff_labels_follow_the_staff_label_text_style() {
             "mnx": {{"version": 1}},
             "global": {{"measures": [{global}]}},
             "layouts": [{{"id": "L", "content": [
-                {{"type": "staff", "labelref": "name", "sources": [{{"part": "a"}}]}},
-                {{"type": "staff", "labelref": "name", "sources": [{{"part": "b"}}]}}
+                {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "a"}}]}},
+                {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "b"}}]}}
             ]}}],
             "scores": [{{"name": "Full Score", "layout": "L"}}],
             "parts": [
@@ -1936,8 +1936,8 @@ fn test_staff_label_gutter_grows_with_the_style_size() {
                 "mnx": {{"version": 1}},
                 "global": {{"measures": [{global}]}},
                 "layouts": [{{"id": "L", "content": [
-                    {{"type": "staff", "labelref": "name", "sources": [{{"part": "a"}}]}},
-                    {{"type": "staff", "labelref": "name", "sources": [{{"part": "b"}}]}}
+                    {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "a"}}]}},
+                    {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "b"}}]}}
                 ]}}],
                 "scores": [{{"name": "Full Score", "layout": "L"}}],
                 "parts": [

@@ -22,7 +22,7 @@ import type {
 } from "@viritura/core";
 import type { Part } from "@viritura/core";
 import type { PositionedClef, Clef } from "@viritura/core";
-import { legacyNotehead, type ClefSign, type KitComponent } from "@viritura/core";
+import type { ClefSign, KitComponent } from "@viritura/core";
 
 import type {
   Part as RawPart,
@@ -172,7 +172,6 @@ function parseKitComponent(raw: RawKitComponent): KitComponent {
   if (typeof raw.sound === "string") c.sound = raw.sound;
   const viritura = raw._x?.["viritura"] as RawKitComponentExt | undefined;
   if (raw.notehead) c.notehead = raw.notehead;
-  else if (viritura?.notehead) c.notehead = legacyNotehead(viritura.notehead);
   if (typeof viritura?.drumKit === "number") {
     c.drumKit = viritura.drumKit;
   }

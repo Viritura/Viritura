@@ -33,21 +33,24 @@ function serializeLayoutGroup(g: LayoutGroup): Obj {
   };
   if (g.barlineStyle) obj["barlineStyle"] = g.barlineStyle;
   obj["content"] = g.content.map(serializeLayoutContent);
-  if (g.label) obj["label"] = g.label;
+  if (g.label !== undefined) obj["label"] = g.label;
+  if (g.labelRef) obj["labelRef"] = g.labelRef;
   if (g.symbol) obj["symbol"] = g.symbol;
   return obj;
 }
 
 function serializeLayoutStaff(s: LayoutStaff): Obj {
   const obj: Obj = { type: "staff" };
-  if (s.label) obj["label"] = s.label;
-  if (s.labelref) obj["labelref"] = s.labelref;
+  if (s.label !== undefined) obj["label"] = s.label;
+  if (s.labelRef) obj["labelRef"] = s.labelRef;
+  if (s.symbol) obj["symbol"] = s.symbol;
   obj["sources"] = s.sources.map((src) => {
     const srcObj: Obj = { part: src.part };
     if (src.staff !== undefined) srcObj["staff"] = src.staff;
     if (src.stem) srcObj["stem"] = src.stem;
     if (src.voice) srcObj["voice"] = src.voice;
-    if (src.labelref) srcObj["labelref"] = src.labelref;
+    if (src.label !== undefined) srcObj["label"] = src.label;
+    if (src.labelRef) srcObj["labelRef"] = src.labelRef;
     return srcObj;
   });
   return obj;

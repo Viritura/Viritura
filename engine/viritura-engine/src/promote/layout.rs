@@ -13,8 +13,9 @@ use crate::model::layout::{
     LayoutChange as ModelLayoutChange, LayoutChangeLocation as ModelLayoutChangeLocation,
     LayoutChangePosition as ModelLayoutChangePosition, LayoutContent as ModelLayoutContent,
     LayoutDefinition as ModelLayoutDefinition, LayoutGroup as ModelLayoutGroup,
-    LayoutSource as ModelLayoutSource, LayoutStaff as ModelLayoutStaff,
-    PageDefinition as ModelPageDefinition, SystemDefinition as ModelSystemDefinition,
+    LayoutLabelRef as ModelLayoutLabelRef, LayoutSource as ModelLayoutSource,
+    LayoutStaff as ModelLayoutStaff, PageDefinition as ModelPageDefinition,
+    SystemDefinition as ModelSystemDefinition,
 };
 use crate::promote::direction::promote_measure_rhythmic_position;
 use crate::promote::PromoteError;
@@ -31,7 +32,26 @@ pub(crate) fn promote_staff_source(r: raw::StaffSource) -> ModelLayoutSource {
             raw::StemDirection::Down => "down".to_string(),
         }),
         voice: r.voice.map(|v| v.0),
-        labelref: r.labelref.map(|l| l.to_string()),
+        label: r.label.map(|l| l.0),
+        label_ref: r.label_ref.map(promote_label_ref),
+    }
+}
+
+fn promote_label_ref(r: raw::LabelRef) -> ModelLayoutLabelRef {
+    ModelLayoutLabelRef {
+        reference: r.ref_,
+        target: r.target.map(String::from),
+        comment: r.c.map(|comment| comment.0),
+        id: r.id.map(String::from),
+        extensions: r.x.map(|extensions| {
+            serde_json::Value::Object(
+                extensions
+                    .0
+                    .into_iter()
+                    .map(|(key, dict)| (String::from(key), serde_json::Value::Object(dict.0)))
+                    .collect(),
+            )
+        }),
     }
 }
 
@@ -85,7 +105,7 @@ pub(crate) fn promote_staff(r: raw::Staff, original_json: &serde_json::Value) ->
     ModelLayoutStaff {
         sources: r.sources.into_iter().map(promote_staff_source).collect(),
         label: r.label.map(|l| l.0),
-        labelref: r.labelref.map(|l| l.to_string()),
+        label_ref: r.label_ref.map(promote_label_ref),
         symbol: r.symbol.map(staff_symbol_to_string),
         expansion,
         condensed_numbers_override,
@@ -106,6 +126,7 @@ pub(crate) fn promote_staff_group(
         content,
         symbol: r.symbol.map(staff_symbol_to_string),
         label: r.label.map(|l| l.0),
+        label_ref: r.label_ref.map(promote_label_ref),
         barline_style: r.barline_style.map(barline_style_to_string),
     }
 }

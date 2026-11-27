@@ -1,4 +1,4 @@
-// ─── MNX document output types (schema version 52) ──────────────────
+// ─── MNX document output types (schema version 57) ──────────────────
 
 import type {
   ChordSymbol,
@@ -37,7 +37,7 @@ export interface MnxSound {
 
 interface MnxLyricsGlobal {
   lineMetadata?: Record<string, { label?: string; lang?: string }>;
-  lineOrder?: string[];
+  lineOrder: string[];
 }
 
 export interface MnxGlobalMeasure {
@@ -374,7 +374,7 @@ export interface MnxLayoutStaff {
   type: "staff";
   sources: { part: string; staff?: number }[];
   label?: string;
-  labelref?: string;
+  labelRef?: { ref?: "auto" | "name" | "shortName"; target?: string };
 }
 
 export interface MnxScore {

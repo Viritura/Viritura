@@ -26,7 +26,6 @@ use super::super::{
     compute_above_staff_extra, compute_below_staff_extra_from_layouts, render_system_contents,
 };
 use crate::model::*;
-use crate::render::smufl::smufl;
 use crate::render::*;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
@@ -347,44 +346,41 @@ fn render_explicit_system(
         ctx.barline_w,
     );
 
-    // Group brackets and braces. Explicit-pages renders brace labels only on
-    // the first system (standard engraving practice for orchestral parts).
+    let active_groups =
+        super::instrument_labels::active_groups_at(group_ranges, ctx.score, m_start);
+    let active_labels = super::instrument_labels::active_staves_at(flat_staves, ctx.score, m_start);
+    let name_policy = policy_for_system(ctx.score_def.instrument_name_display.as_ref(), sys_idx);
+    let label_x = ctx.base_margin_l + label_margin - 2.0 * sp;
+
+    // Group brackets, braces, and labels.
     render_group_brackets_and_braces(
         dl,
-        group_ranges,
+        &active_labels,
+        &active_groups,
         &staff_y_offsets,
         margin_left,
+        label_x,
         staff_height,
         sp,
         ctx.config,
-        sys_idx == 0
-            && policy_for_system(ctx.score_def.instrument_name_display.as_ref(), sys_idx)
-                != Some(InstrumentNameDisplayPolicy::Hidden),
+        sys_idx == 0,
+        name_policy,
     );
 
-    // Individual staff labels (long on first system, short on rest; staves
-    // inside a labelled brace group are skipped ΓÇö group label covers them).
-    // Single-staff layouts (a part / solo score) carry no instrument label
-    // gutter, so skip the name there to match the auto-flow path and avoid
-    // restating "D. B." on every system like a full score.
-    if flat_staves.len() > 1 {
-        let active_labels =
-            super::instrument_labels::active_staves_at(flat_staves, ctx.score, m_start);
-        render_staff_labels(
-            dl,
-            &active_labels,
-            group_ranges,
-            &staff_y_offsets,
-            ctx.base_margin_l + label_margin - 2.0 * sp,
-            staff_height,
-            sp,
-            sys_idx,
-            policy_for_system(ctx.score_def.instrument_name_display.as_ref(), sys_idx),
-            ctx.config
-                .text_styles
-                .resolve(crate::layout::text_styles::TextRole::StaffLabel),
-        );
-    }
+    render_staff_labels(
+        dl,
+        &active_labels,
+        &active_groups,
+        &staff_y_offsets,
+        label_x,
+        staff_height,
+        sp,
+        sys_idx,
+        name_policy,
+        ctx.config
+            .text_styles
+            .resolve(crate::layout::text_styles::TextRole::StaffLabel),
+    );
 }
 
 #[allow(clippy::too_many_lines)] // top-level cached layout entry; cohesive pipeline stage
@@ -730,7 +726,7 @@ pub fn layout_with_mnx_scores_cached(
         .global
         .lyrics
         .as_ref()
-        .and_then(|lyrics| lyrics.line_order.as_deref());
+        .map(|lyrics| lyrics.line_order.as_slice());
     let sys_ctx = ExplicitSystemCtx {
         score,
         score_def,
