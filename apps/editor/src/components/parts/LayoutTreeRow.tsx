@@ -7,7 +7,7 @@ import type { PartDisplayInfo } from "@viritura/core";
 import { EditGroupInline } from "./EditGroupInline";
 import { BAR_COL_WIDTH, activeEntryStyle, dropIndicatorStyle, entryStyle } from "./styles";
 import type { FlatRowData, BarCell } from "./treeFlatten";
-import type { NodePath } from "./treeOps";
+import type { NodePath, GroupPropertyUpdate } from "./treeOps";
 import { pathsEqual, firstPartId, countStaves } from "./treeOps";
 
 const ROW_STRETCH_STYLE: CSSProperties = { display: "flex", alignItems: "stretch" };
@@ -138,7 +138,7 @@ export interface LayoutTreeRowProps {
   onStaffContextMenu: (e: React.MouseEvent, partId: string, path: NodePath, depth: number) => void;
   onNodeClick: (e: React.MouseEvent, path: NodePath) => void;
   onEditGroup: (pathKey: string | null) => void;
-  onUpdateGroupProp: (path: NodePath, prop: "symbol" | "label", value: string) => void;
+  onUpdateGroupProp: GroupPropertyUpdate;
   onEditGroupLabel: (label: string) => void;
 }
 

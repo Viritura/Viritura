@@ -151,7 +151,12 @@ pub(super) fn label_column_layout(
                 }
             }
         }
-        let end = offset + label_gutter_extent(label, &[], sp, style);
+        let width = if group.source_parts.len() > 1 {
+            build_label_lines(label, &[]).len() as f64 * style.size_px(sp) * 1.15
+        } else {
+            label_gutter_extent(label, &[], sp, style)
+        };
+        let end = offset + width;
         offsets[index] = offset;
         ends[index] = Some(end);
         extent = extent.max(end);
@@ -349,6 +354,17 @@ pub(super) fn group_label_text(
     is_first_system: bool,
     policy: Option<InstrumentNameDisplayPolicy>,
 ) -> Option<&str> {
+    if group.source_parts.len() > 1 {
+        return if group.show_group_name {
+            if is_first_system {
+                group.label.as_deref()
+            } else {
+                group.short_label.as_deref().or(group.label.as_deref())
+            }
+        } else {
+            None
+        };
+    }
     match policy {
         Some(InstrumentNameDisplayPolicy::Full) => group.resolved_full_label.as_deref(),
         Some(InstrumentNameDisplayPolicy::Short) => group

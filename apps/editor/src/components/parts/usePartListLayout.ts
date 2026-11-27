@@ -25,6 +25,8 @@ import {
   removeNodeAt,
   resolveFullScoreLayoutId,
   allSameParent,
+  type GroupPropertyChange,
+  type GroupPropertyUpdate,
 } from "./treeOps";
 import {
   assignBarPositions,
@@ -67,7 +69,7 @@ export interface UsePartListLayoutResult {
   // mutations
   commitLayoutChange: (newContent: LayoutContent[]) => void;
   removeGroup: (path: NodePath) => void;
-  updateGroupProp: (path: NodePath, prop: "symbol" | "label", value: string) => void;
+  updateGroupProp: GroupPropertyUpdate;
   ungroupStaff: (path: NodePath) => void;
   createGroupFromSelection: (selectedPaths: Set<string>, onDone: () => void) => void;
   // drag/drop state + handlers
@@ -83,13 +85,13 @@ export interface UsePartListLayoutResult {
 function setGroupProperty(
   content: LayoutContent[],
   path: NodePath,
-  prop: "symbol" | "label",
-  value: string,
+  ...[prop, value]: GroupPropertyChange
 ): LayoutContent[] {
   const tree = cloneContent(content);
   const node = getNodeAt(tree, path);
   if (!node || node.type !== "group") return content;
   if (prop === "symbol") node.symbol = value;
+  else if (prop === "showGroupName") node.showGroupName = value;
   else node.label = value;
   return tree;
 }
@@ -240,8 +242,8 @@ export function usePartListLayout({
   );
 
   const updateGroupProp = useCallback(
-    (path: NodePath, prop: "symbol" | "label", value: string) => {
-      const updated = setGroupProperty(layoutContent, path, prop, value);
+    (path: NodePath, ...change: GroupPropertyChange) => {
+      const updated = setGroupProperty(layoutContent, path, ...change);
       if (updated !== layoutContent) commitLayoutChange(updated);
     },
     [layoutContent, commitLayoutChange],

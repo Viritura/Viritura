@@ -84,6 +84,77 @@ fn v57_label_ref_modes_and_targets_render_on_single_staff_in_both_layout_paths()
 }
 
 #[test]
+fn section_names_are_hidden_by_default_and_opt_in_to_vertical_labels() {
+    use serde_json::json;
+
+    for explicit in [false, true] {
+        let mut value = v57_label_document();
+        value["layouts"][0]["content"] = json!([{
+            "type":"group", "symbol":"bracket", "label":"Woodwinds",
+            "content":[
+                {"type":"staff","labelRef":{},"sources":[{"part":"p1"}]},
+                {"type":"staff","labelRef":{},"sources":[{"part":"p2"}]}
+            ]
+        }]);
+        if explicit {
+            value["scores"][0]["pages"] = json!([{"systems":[{"measure":"m1"},{"measure":"m2"}]}]);
+        } else {
+            value["scores"][0]["_x"] =
+                json!({"viritura":{"layoutBreaks":[{"measure":"m2","kind":"system"}]}});
+        }
+        let render = |document: &serde_json::Value| {
+            layout_with_mnx_scores(
+                &parse_mnx(&document.to_string()).unwrap(),
+                &LayoutConfig {
+                    page_width: Some(800.0),
+                    ..LayoutConfig::default()
+                },
+                0,
+            )
+        };
+        let hidden = render(&value);
+        let mut unnamed = value.clone();
+        unnamed["layouts"][0]["content"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("label");
+        assert_eq!(
+            serde_json::to_value(&hidden.commands).unwrap(),
+            serde_json::to_value(&render(&unnamed).commands).unwrap(),
+            "a hidden section name must reserve no extra gutter, explicit={explicit}"
+        );
+        value["layouts"][0]["content"][0]["_x"] = json!({"viritura":{"showGroupName":true}});
+        let shown = render(&value);
+        let labels: Vec<_> = shown
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawRotatedText {
+                    text,
+                    rotation,
+                    align,
+                    x,
+                    ..
+                } if text == "Woodwinds" => {
+                    assert_eq!(*rotation, -std::f64::consts::FRAC_PI_2);
+                    assert!(matches!(align, TextAlign::Center));
+                    assert!(*x > 0.0, "vertical label must stay on the page");
+                    Some(text)
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(labels.len(), 2, "explicit={explicit}");
+        assert!(!shown.commands.iter().any(|command| matches!(command,
+            RenderCommand::DrawText { text, .. } if text == "Woodwinds"
+        )));
+        assert!(shown.commands.iter().any(|command| matches!(command,
+            RenderCommand::DrawText { text, .. } if text == "Oboe"
+        )));
+    }
+}
+
+#[test]
 fn v57_group_staff_and_source_labels_are_all_rendered() {
     use serde_json::json;
 

@@ -32,6 +32,7 @@ pub struct LayoutGroup {
     pub label_ref: Option<LayoutLabelRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub barline_style: Option<String>,
+    pub show_group_name: bool,
 }
 
 /// A staff node in the layout tree.

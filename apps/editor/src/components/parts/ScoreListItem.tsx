@@ -5,7 +5,7 @@ import { FormInput, ListRow, SectionLabel, type ContextMenuState, type MenuItemD
 import { collectPartIdsInLayout } from "../../score/ScoreMutations";
 import { LayoutTreeRow } from "./LayoutTreeRow";
 import type { FlatRowData } from "./treeFlatten";
-import type { NodePath } from "./treeOps";
+import type { NodePath, GroupPropertyUpdate } from "./treeOps";
 
 interface DragState {
   path: NodePath;
@@ -72,7 +72,7 @@ export interface ScoreListItemProps {
   filterModeRef: React.RefObject<boolean>;
   toggleGroup: (pathKey: string) => void;
   toggleDoubling: (pathKey: string) => void;
-  updateGroupProp: (path: NodePath, prop: "symbol" | "label", value: string) => void;
+  updateGroupProp: GroupPropertyUpdate;
   openGroupContextMenu: (e: React.MouseEvent, node: import("@viritura/core").LayoutGroup, path: NodePath) => void;
   openStaffContextMenu: (e: React.MouseEvent, partId: string, path: NodePath, depth: number) => void;
   handleNodeClick: (e: React.MouseEvent, path: NodePath) => void;

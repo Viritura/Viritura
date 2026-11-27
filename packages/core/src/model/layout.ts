@@ -434,6 +434,7 @@ export interface LayoutGroup {
   symbol?: string;
   label?: string;
   labelRef?: StaffLabelRef;
+  showGroupName?: boolean;
   barlineStyle?: string;
 }
 

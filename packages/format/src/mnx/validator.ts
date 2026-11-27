@@ -42,6 +42,7 @@ import {
   slurExtensions,
   systemLayoutExtensions,
   layoutStaffExtensions,
+  layoutGroupExtensions,
   scoreExtensions,
   positionedTextExtensions,
   textChunkExtensions,
@@ -67,6 +68,7 @@ type ExtensionDefinition =
   | "slur-extensions"
   | "system-layout-extensions"
   | "layout-staff-extensions"
+  | "layout-group-extensions"
   | "score-extensions"
   | "positioned-text-extensions"
   | "text-chunk-extensions";
@@ -93,6 +95,7 @@ const extensionValidators: Record<ExtensionDefinition, StandaloneValidateFunctio
   "slur-extensions": slurExtensions,
   "system-layout-extensions": systemLayoutExtensions,
   "layout-staff-extensions": layoutStaffExtensions,
+  "layout-group-extensions": layoutGroupExtensions,
   "score-extensions": scoreExtensions,
   "positioned-text-extensions": positionedTextExtensions,
   "text-chunk-extensions": textChunkExtensions,
@@ -259,6 +262,7 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
       if (object["type"] === "staff") {
         validateAt(object, itemPointer, "layout-staff-extensions");
       } else if (object["type"] === "group") {
+        validateAt(object, itemPointer, "layout-group-extensions");
         visitLayoutContent(object["content"], `${itemPointer}/content`);
       }
     });

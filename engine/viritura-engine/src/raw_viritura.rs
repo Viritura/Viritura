@@ -7067,6 +7067,47 @@ impl<'de> ::serde::Deserialize<'de> for LayoutBreakMeasure {
             })
     }
 }
+///Viritura engraving properties on a layout group.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Viritura engraving properties on a layout group.",
+///  "type": "object",
+///  "properties": {
+///    "showGroupName": {
+///      "description": "Show a section-group name vertically, reading bottom to top. Omitted or false hides it. Single-instrument group labels retain ordinary instrument-name behavior.",
+///      "type": "boolean"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct LayoutGroupExtensions {
+    ///Show a section-group name vertically, reading bottom to top. Omitted or false hides it. Single-instrument group labels retain ordinary instrument-name behavior.
+    #[serde(
+        rename = "showGroupName",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub show_group_name: ::std::option::Option<bool>,
+}
+impl ::std::convert::From<&LayoutGroupExtensions> for LayoutGroupExtensions {
+    fn from(value: &LayoutGroupExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for LayoutGroupExtensions {
+    fn default() -> Self {
+        Self {
+            show_group_name: Default::default(),
+        }
+    }
+}
 ///Viritura engraving properties on a layout staff.
 ///
 /// <details><summary>JSON schema</summary>
@@ -19149,6 +19190,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "layout-break": {
 ///      "$ref": "#/$defs/layout-break"
 ///    },
+///    "layout-group-extensions": {
+///      "$ref": "#/$defs/layout-group-extensions"
+///    },
 ///    "layout-staff-extensions": {
 ///      "$ref": "#/$defs/layout-staff-extensions"
 ///    },
@@ -19631,6 +19675,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub layout_break: ::std::option::Option<LayoutBreak>,
+    #[serde(
+        rename = "layout-group-extensions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub layout_group_extensions: ::std::option::Option<LayoutGroupExtensions>,
     #[serde(
         rename = "layout-staff-extensions",
         default,
@@ -20151,6 +20201,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             key_extensions: Default::default(),
             kit_component_extensions: Default::default(),
             layout_break: Default::default(),
+            layout_group_extensions: Default::default(),
             layout_staff_extensions: Default::default(),
             lyric_workflow: Default::default(),
             lyric_workflow_source: Default::default(),

@@ -1,6 +1,7 @@
 import type { LayoutContent, LayoutGroup, LayoutStaff, Part, PartDisplayInfo } from "@viritura/core";
 import type { MenuItemDef } from "@viritura/ui";
-import { type NodePath, getNodeAt } from "./treeOps";
+import { type NodePath, type GroupPropertyUpdate, getNodeAt } from "./treeOps";
+import { collectPartIdsInLayout } from "../../score/ScoreMutations";
 import { SYMBOL_OPTIONS } from "./styles";
 import { CHORD_SYMBOL_VISIBILITY_OPTIONS, type PartChordSymbolUpdate } from "./chordSymbolVisibility";
 
@@ -10,7 +11,7 @@ function getPartDisplayName(displayMap: Map<string, PartDisplayInfo>, partId: st
 
 export interface GroupContextMenuDeps {
   removeGroup: (path: NodePath) => void;
-  updateGroupProp: (path: NodePath, prop: "symbol" | "label", value: string) => void;
+  updateGroupProp: GroupPropertyUpdate;
   setEditingGroup: (key: string | null) => void;
   setEditingGroupLabel: (label: string) => void;
 }
@@ -37,6 +38,22 @@ export function buildGroupContextMenuItems(
         action: () => updateGroupProp(path, "symbol", opt.value),
         disabled: node.symbol === opt.value,
       })),
+    },
+    {
+      label: "Group name",
+      disabled: collectPartIdsInLayout(node.content).size <= 1,
+      children: [
+        {
+          label: "Hidden",
+          disabled: node.showGroupName !== true,
+          action: () => updateGroupProp(path, "showGroupName", false),
+        },
+        {
+          label: "Show vertically",
+          disabled: node.showGroupName === true,
+          action: () => updateGroupProp(path, "showGroupName", true),
+        },
+      ],
     },
     { separator: true },
     { label: "Ungroup", action: () => removeGroup(path) },

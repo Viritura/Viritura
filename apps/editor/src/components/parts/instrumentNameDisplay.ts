@@ -8,6 +8,7 @@ import type {
   StaffLabelRef,
 } from "@viritura/core";
 import { generateId } from "@viritura/core";
+import { collectPartIdsInLayout } from "../../score/ScoreMutations";
 
 export type InstrumentNameDisplayValue = InstrumentNameDisplayPolicy | "custom";
 
@@ -23,13 +24,15 @@ function collectStaffs(content: readonly LayoutContent[], result: LayoutStaff[])
 }
 
 function hasLiteralLabel(content: readonly LayoutContent[]): boolean {
-  return content.some(
-    (node) =>
-      node.label !== undefined ||
-      (node.type === "group"
-        ? node.labelRef !== undefined || hasLiteralLabel(node.content)
-        : node.sources.some((source) => source.label !== undefined)),
-  );
+  return content.some((node) => {
+    if (node.type === "group") {
+      const instrumentLabel = collectPartIdsInLayout(node.content).size <= 1;
+      return (
+        (instrumentLabel && (node.label !== undefined || node.labelRef !== undefined)) || hasLiteralLabel(node.content)
+      );
+    }
+    return node.label !== undefined || node.sources.some((source) => source.label !== undefined);
+  });
 }
 
 function uniformLayoutPolicy(content: readonly LayoutContent[]): {
@@ -83,8 +86,6 @@ export function instrumentNameDisplayFor(
 function applyLabelRef(content: LayoutContent[], labelRef: StaffLabelRef | undefined): void {
   for (const node of content) {
     if (node.type === "group") {
-      delete node.label;
-      delete node.labelRef;
       applyLabelRef(node.content, labelRef);
       continue;
     }

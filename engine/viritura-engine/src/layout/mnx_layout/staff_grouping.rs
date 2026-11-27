@@ -129,11 +129,11 @@ pub(super) fn render_group_brackets_and_braces(
             render_group_label(
                 dl,
                 label,
-                top_y,
-                bottom_y,
+                (top_y, bottom_y),
                 label_x - label_offsets[index],
                 sp,
                 style,
+                group.source_parts.len() > 1,
             );
         }
     }
@@ -174,11 +174,11 @@ fn nested_bracket_levels(outer: &GroupRange, groups: &[GroupRange], staff_count:
 fn render_group_label(
     dl: &mut DisplayList,
     label: &str,
-    top_y: f64,
-    bottom_y: f64,
+    (top_y, bottom_y): (f64, f64),
     label_x: f64,
     sp: f64,
     style: &TextStyle,
+    vertical: bool,
 ) {
     let font_size = style.size_px(sp);
     let baseline_y = (top_y + bottom_y) * 0.5
@@ -186,16 +186,35 @@ fn render_group_label(
     let lines = super::instrument_labels::build_label_lines(label, &[]);
     let line_height = font_size * 1.15;
     for (index, line) in lines.iter().enumerate() {
-        dl.push(RenderCommand::DrawText {
-            x: label_x,
-            y: baseline_y + (index as f64 - (lines.len() as f64 - 1.0) * 0.5) * line_height,
-            text: line.clone(),
-            font: style.font_string(),
-            size: font_size,
-            color: style.color.clone(),
-            align: TextAlign::Right,
-            baseline: TextBaseline::Alphabetic,
-        });
+        if vertical {
+            dl.push(RenderCommand::DrawRotatedText {
+                x: label_x
+                    - (lines.len() - 1 - index) as f64 * line_height
+                    - crate::layout::text_styles::cap_center_offset_from_baseline(
+                        style.family,
+                        font_size,
+                    ),
+                y: (top_y + bottom_y) * 0.5,
+                text: line.clone(),
+                font: style.font_string(),
+                size: font_size,
+                color: style.color.clone(),
+                align: TextAlign::Center,
+                baseline: TextBaseline::Alphabetic,
+                rotation: -std::f64::consts::FRAC_PI_2,
+            });
+        } else {
+            dl.push(RenderCommand::DrawText {
+                x: label_x,
+                y: baseline_y + (index as f64 - (lines.len() as f64 - 1.0) * 0.5) * line_height,
+                text: line.clone(),
+                font: style.font_string(),
+                size: font_size,
+                color: style.color.clone(),
+                align: TextAlign::Right,
+                baseline: TextBaseline::Alphabetic,
+            });
+        }
     }
 }
 
@@ -215,6 +234,7 @@ mod tests {
             label_components: Vec::new(),
             depth,
             source_parts: Vec::new(),
+            show_group_name: false,
         }
     }
 

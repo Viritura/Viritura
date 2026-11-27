@@ -925,6 +925,40 @@ The `layout-staff-extensions` schema currently has no properties. Neither
 `chordSymbolVisibility` nor `globalChordSymbolVisibility` is accepted on a
 layout staff. Chord events also have no `displayStaff` property.
 
+## Layout Group Extensions
+
+### `showGroupName`
+
+Stored on a layout group's `_x.viritura` dictionary. Section groups containing
+multiple source instruments keep their native `label` or `labelRef` for naming,
+but their names are hidden on the score by default, including existing files.
+Set `showGroupName: true` to display the name vertically, reading bottom to top,
+centered beside the group's staves. Hidden names reserve no horizontal space.
+
+In the Layouts panel, right-click a group and choose **Rename** to name it, then
+**Group name > Hidden** or **Group name > Show vertically** to control engraving.
+Hiding a name does not remove its bracket, change its Layouts-panel name, or
+alter mixer grouping. This setting belongs to the layout group, so score and
+part layouts can choose independently.
+
+Groups containing only one source instrument, such as a piano grand staff, keep
+their horizontal instrument label and follow the instrument-name display policy.
+Their section-name visibility menu is disabled. Instrument-name controls do not
+delete group names or change section-name visibility.
+
+```json
+{
+  "type": "group",
+  "symbol": "bracket",
+  "label": "Woodwinds",
+  "_x": { "viritura": { "showGroupName": true } },
+  "content": [
+    { "type": "staff", "labelRef": {}, "sources": [{ "part": "flute" }] },
+    { "type": "staff", "labelRef": {}, "sources": [{ "part": "oboe" }] }
+  ]
+}
+```
+
 ---
 
 ## Score Root Extensions

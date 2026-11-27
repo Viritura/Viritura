@@ -137,6 +137,7 @@ pub(super) fn score_render_context_hash(
         group.label_components.hash(&mut hasher);
         group.depth.hash(&mut hasher);
         group.source_parts.hash(&mut hasher);
+        group.show_group_name.hash(&mut hasher);
     }
     hasher.finish()
 }

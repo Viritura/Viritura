@@ -11,7 +11,7 @@ const END_DROP_INDICATOR_STYLE: CSSProperties = {
 };
 import { ScoreListItem } from "./ScoreListItem";
 import type { FlatRowData } from "./treeFlatten";
-import type { NodePath } from "./treeOps";
+import type { NodePath, GroupPropertyUpdate } from "./treeOps";
 import type { DragState, DropTarget } from "./usePartListLayout";
 
 export interface ScoreListBodyProps {
@@ -59,7 +59,7 @@ export interface ScoreListBodyProps {
   filterModeRef: React.MutableRefObject<boolean>;
   toggleGroup: (pathKey: string) => void;
   toggleDoubling: (pathKey: string) => void;
-  updateGroupProp: (path: NodePath, prop: "symbol" | "label", value: string) => void;
+  updateGroupProp: GroupPropertyUpdate;
   openGroupContextMenu: (e: React.MouseEvent, node: import("@viritura/core").LayoutGroup, path: NodePath) => void;
   openStaffContextMenu: (e: React.MouseEvent, partId: string, path: NodePath, depth: number) => void;
   handleNodeClick: (e: React.MouseEvent, path: NodePath) => void;

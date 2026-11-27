@@ -143,6 +143,7 @@ fn flatten_content_recursive(
                         label_components,
                         depth: bracket_depth,
                         source_parts,
+                        show_group_name: group.show_group_name,
                     });
                 }
             }

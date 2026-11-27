@@ -28,92 +28,100 @@ function w(step: string, octave: number) {
 //   • Piano grand staff — brace (one part, staves: 2)
 // ---------------------------------------------------------------------------
 
-const bracketsBracesMnx = JSON.stringify(
-  {
-    mnx: { version: 1 },
-    global: { measures: [{ time: { count: 4, unit: 4 }, key: { fifths: 0 } }] },
-    parts: [
-      {
-        id: "vn1",
-        name: "Violin I",
-        shortName: "Vn. I",
-        measures: [
-          {
-            clefs: [{ clef: { sign: "G", staffPosition: -2 } }],
-            sequences: [{ content: [q("E", 5), q("F", 5), q("G", 5), q("A", 5)] }],
-          },
-        ],
-      },
-      {
-        id: "vn2",
-        name: "Violin II",
-        shortName: "Vn. II",
-        measures: [
-          {
-            clefs: [{ clef: { sign: "G", staffPosition: -2 } }],
-            sequences: [{ content: [q("C", 5), q("D", 5), q("E", 5), q("F", 5)] }],
-          },
-        ],
-      },
-      {
-        id: "pno",
-        name: "Piano",
-        shortName: "Pno.",
-        staves: 2,
-        measures: [
-          {
-            clefs: [
-              { clef: { sign: "G", staffPosition: -2 }, staff: 1 },
-              { clef: { sign: "F", staffPosition: 2 }, staff: 2 },
-            ],
-            sequences: [
-              { staff: 1, content: [q("G", 4), q("A", 4), q("B", 4), q("C", 5)] },
-              { staff: 2, content: [q("C", 3), q("D", 3), q("E", 3), q("F", 3)] },
-            ],
-          },
-        ],
-      },
-    ],
-    layouts: [
-      {
-        id: "L",
-        content: [
-          {
-            type: "group",
-            symbol: "bracket",
-            label: "Strings",
-            barlineStyle: "unified",
-            content: [
-              { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "vn1" }] },
-              { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "vn2" }] },
-            ],
-          },
-          {
-            type: "group",
-            symbol: "brace",
-            label: "Piano",
-            barlineStyle: "unified",
-            content: [
-              { type: "staff", sources: [{ part: "pno", staff: 1 }] },
-              { type: "staff", sources: [{ part: "pno", staff: 2 }] },
-            ],
-          },
-        ],
-      },
-    ],
-    scores: [{ name: "Score", layout: "L" }],
-  },
-  null,
-  2,
-);
+function bracketsBracesMnx(showGroupName = false): string {
+  return JSON.stringify(
+    {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 }, key: { fifths: 0 } }] },
+      parts: [
+        {
+          id: "vn1",
+          name: "Violin I",
+          shortName: "Vn. I",
+          measures: [
+            {
+              clefs: [{ clef: { sign: "G", staffPosition: -2 } }],
+              sequences: [{ content: [q("E", 5), q("F", 5), q("G", 5), q("A", 5)] }],
+            },
+          ],
+        },
+        {
+          id: "vn2",
+          name: "Violin II",
+          shortName: "Vn. II",
+          measures: [
+            {
+              clefs: [{ clef: { sign: "G", staffPosition: -2 } }],
+              sequences: [{ content: [q("C", 5), q("D", 5), q("E", 5), q("F", 5)] }],
+            },
+          ],
+        },
+        {
+          id: "pno",
+          name: "Piano",
+          shortName: "Pno.",
+          staves: 2,
+          measures: [
+            {
+              clefs: [
+                { clef: { sign: "G", staffPosition: -2 }, staff: 1 },
+                { clef: { sign: "F", staffPosition: 2 }, staff: 2 },
+              ],
+              sequences: [
+                { staff: 1, content: [q("G", 4), q("A", 4), q("B", 4), q("C", 5)] },
+                { staff: 2, content: [q("C", 3), q("D", 3), q("E", 3), q("F", 3)] },
+              ],
+            },
+          ],
+        },
+      ],
+      layouts: [
+        {
+          id: "L",
+          content: [
+            {
+              type: "group",
+              symbol: "bracket",
+              label: "Strings",
+              _x: { viritura: { showGroupName } },
+              barlineStyle: "unified",
+              content: [
+                { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "vn1" }] },
+                { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "vn2" }] },
+              ],
+            },
+            {
+              type: "group",
+              symbol: "brace",
+              label: "Piano",
+              barlineStyle: "unified",
+              content: [
+                { type: "staff", sources: [{ part: "pno", staff: 1 }] },
+                { type: "staff", sources: [{ part: "pno", staff: 2 }] },
+              ],
+            },
+          ],
+        },
+      ],
+      scores: [{ name: "Score", layout: "L" }],
+    },
+    null,
+    2,
+  );
+}
 
 /**
  * Square bracket for the string section; piano brace spanning both grand-staff staves.
  * The piano is a single part with `staves: 2` and sequences targeting each staff.
  */
 export const BracketsAndBraces: StoryObj = {
-  render: () => <ScorePreview mnxJson={bracketsBracesMnx} />,
+  render: () => <ScorePreview mnxJson={bracketsBracesMnx()} />,
   name: "Brackets and braces",
+};
+
+export const VerticalSectionName: StoryObj = {
+  render: () => <ScorePreview mnxJson={bracketsBracesMnx(true)} />,
+  name: "Vertical section name (bottom to top)",
 };
 
 // ---------------------------------------------------------------------------
