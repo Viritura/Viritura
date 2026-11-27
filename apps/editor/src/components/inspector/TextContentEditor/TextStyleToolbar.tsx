@@ -59,7 +59,7 @@ interface RoleTextStyleToolbarProps {
   onInvalidSize: (minPoints: number, maxPoints: number) => void;
 }
 
-export type TextStyleToolbarProps = InlineTextStyleToolbarProps | RoleTextStyleToolbarProps;
+type TextStyleToolbarProps = InlineTextStyleToolbarProps | RoleTextStyleToolbarProps;
 
 /** Shared text-formatting controls for inline text and score-level text roles. */
 export function TextStyleToolbar(props: TextStyleToolbarProps) {
