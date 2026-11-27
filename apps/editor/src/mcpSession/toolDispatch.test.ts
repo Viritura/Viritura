@@ -445,6 +445,10 @@ describe("MCP editor tool dispatch", () => {
       ],
     });
     expect(result.structuredContent).toMatchObject({ status: "pending" });
+    const proposal = Object.values(useMcpSessionStore.getState().proposals)[0]!;
+    const proposed = parseMnx(JSON.parse(proposal.proposedMnx!));
+    expect(proposed.global.lyrics).toEqual({ lineOrder: ["1", "2"] });
+    expect(proposal.repairMnx).toBeDefined();
     const invalid = await dispatchMcpTool(store, "preview.propose_patches", {
       patches: [
         {
@@ -462,6 +466,42 @@ describe("MCP editor tool dispatch", () => {
       ],
     });
     expect(invalid.structuredContent).toMatchObject({ code: "invalid_patches" });
+  });
+
+  it("appends newly proposed lyric lines without reordering existing lines or metadata", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    score.global.lyrics = {
+      lineOrder: ["refrain", "verse"],
+      lineMetadata: { verse: { label: "Verse", lang: "en" } },
+    };
+    store.getState().loadScore(score, "test.mnx");
+    useMcpSessionStore.getState().start({ autoAccept: true });
+
+    const result = await dispatchMcpTool(store, "preview.propose_patches", {
+      patches: [
+        {
+          kind: "setSequenceContent",
+          sequencePath: pianoLocator.sequencePath,
+          content: [
+            {
+              type: "event",
+              id: "sung",
+              duration: { base: "whole" },
+              notes: [{ pitch: { step: "C", octave: 4 } }],
+              lyrics: { lines: { verse: { text: "Hello" }, chorus: { text: "Again" } } },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(result.structuredContent).toMatchObject({ status: "accepted" });
+    const saved = parseMnx(JSON.parse(store.getState().mnxJson));
+    expect(saved.global.lyrics).toEqual({
+      lineOrder: ["refrain", "verse", "chorus"],
+      lineMetadata: { verse: { label: "Verse", lang: "en" } },
+    });
   });
 
   it("rejects unknown patch kinds and MNX fields that would be discarded", async () => {

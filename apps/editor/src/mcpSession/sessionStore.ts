@@ -28,7 +28,7 @@ export interface McpProposal {
   readonly patchBase?: PatchBase;
   /** Whole-document diff payload for small scores; large scores use patch review. */
   readonly proposedMnx: string | null;
-  /** Full repaired document when a repair cannot be addressed by part ID. */
+  /** Full document when a repair or derived metadata change is not encoded by patches. */
   readonly repairMnx?: string;
   /** Present for whole-document proposals; drives the structural review surface. */
   readonly document?: McpDocumentProposal;
