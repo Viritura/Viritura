@@ -50,9 +50,10 @@ function document(): JsonRecord {
 
 function report(gaps: DenigmaGap[]): DenigmaGapReport {
   return {
-    schemaVersion: 1,
+    schemaVersion: 3,
     producer: { name: "denigma", version: "4.0.0", commit: "5864f4e" },
     gaps,
+    fonts: {},
   };
 }
 
@@ -191,7 +192,6 @@ describe("applyDenigmaGapReport", () => {
     const top: DenigmaGap = {
       anchor: "m1",
       position: { numerator: 1, denominator: 4 },
-      placements: [{ kind: "system-top", anchor: "m1" }],
       extent: "complete",
       type: "expression",
       expression: {
@@ -199,19 +199,20 @@ describe("applyDenigmaGapReport", () => {
         scope: "top-staff",
         text: { plain: "Con brio" },
         genericText: { text: "Con brio" },
+        placements: [{ kind: "system-top", anchor: "m1" }],
       },
     };
     const bottom: DenigmaGap = {
       anchor: "m1",
       position: { numerator: 1, denominator: 2 },
       extent: "complete",
-      placements: [{ kind: "system-bottom", anchor: "m1" }],
       type: "expression",
       expression: {
         type: "generic-text",
         scope: "bottom-staff",
         text: { plain: "Keep going" },
         genericText: { text: "Keep going" },
+        placements: [{ kind: "system-bottom", anchor: "m1" }],
       },
     };
 
@@ -239,6 +240,36 @@ describe("applyDenigmaGapReport", () => {
       "handled-partially",
     ]);
     expect(result.outcomes[0]?.reason).toContain("inferred its vertical placement");
+  });
+
+  it("adapts floating staff-list members at system scope without duplicating staff text", () => {
+    const gap: DenigmaGap = {
+      anchor: "m1",
+      position: { numerator: 1, denominator: 4 },
+      extent: "complete",
+      type: "expression",
+      expression: {
+        type: "generic-text",
+        scope: "staff",
+        text: { plain: "Floating text" },
+        genericText: { text: "Floating text" },
+        placements: [{ kind: "system-bottom", anchor: "m1", placement: "float" }],
+      },
+    };
+
+    const result = apply([gap]);
+    const parsed = result.document as { global: { measures: JsonRecord[] }; parts: Array<{ measures: JsonRecord[] }> };
+    const systemText = viritura(parsed.global.measures[0]!)["systemText"] as JsonRecord[];
+    expect(systemText).toEqual([
+      {
+        id: expect.stringMatching(/^denigma-[0-9a-f]+$/),
+        text: [{ text: "Floating text" }],
+        position: { fraction: [1, 4] },
+        placement: "below",
+      },
+    ]);
+    expect(parsed.parts[0]!.measures[0]!["text"]).toBeUndefined();
+    expect(result.outcomes[0]?.disposition).toBe("handled-partially");
   });
 
   it("uses vendor text content for styled floating text and SMuFL glyphs", () => {
@@ -314,10 +345,6 @@ describe("applyDenigmaGapReport", () => {
       {
         anchor: "m1",
         position: { numerator: 0, denominator: 1 },
-        placements: [
-          { kind: "system-top", anchor: "m1" },
-          { kind: "staff", anchor: "P1.m1", staff: 1 },
-        ],
         extent: "complete",
         type: "expression",
         expression: {
@@ -325,6 +352,10 @@ describe("applyDenigmaGapReport", () => {
           scope: "top-staff",
           text: { plain: "Mixed placement" },
           genericText: { text: "Mixed placement" },
+          placements: [
+            { kind: "system-top", anchor: "m1" },
+            { kind: "staff", anchor: "P1.m1", staff: 1 },
+          ],
         },
       },
     ]);
@@ -378,7 +409,6 @@ describe("applyDenigmaGapReport", () => {
     const rehearsal = (text: string): DenigmaGap => ({
       anchor: "m1",
       position: { numerator: 0, denominator: 1 },
-      placements: [{ kind: "system-top", anchor: "m1" }],
       extent: "complete",
       type: "expression",
       expression: {
@@ -386,6 +416,7 @@ describe("applyDenigmaGapReport", () => {
         scope: "top-staff",
         text: { plain: text },
         rehearsalMark: { text },
+        placements: [{ kind: "system-top", anchor: "m1" }],
       },
     });
 
@@ -703,10 +734,6 @@ describe("applyDenigmaGapReport", () => {
       {
         anchor: "m1",
         position: { numerator: 1, denominator: 4 },
-        placements: [
-          { kind: "system-top", anchor: "m1" },
-          { kind: "staff", anchor: "P1.m1" },
-        ],
         extent: "complete",
         type: "expression",
         expression: {
@@ -714,6 +741,10 @@ describe("applyDenigmaGapReport", () => {
           scope: "top-staff",
           text: { plain: "rit." },
           tempoAlteration: { text: "rit.", beatsPerMinute: 0, beatUnitEdu: 0 },
+          placements: [
+            { kind: "system-top", anchor: "m1" },
+            { kind: "staff", anchor: "P1.m1" },
+          ],
         },
       },
     ]);
@@ -737,12 +768,12 @@ describe("applyDenigmaGapReport", () => {
     const result = apply([
       {
         anchor: "ev1n1",
-        end: { anchor: "ev2n1" },
         extent: "complete",
         type: "smart-shape",
         smartShape: {
           shapeType: "glissando",
           kind: "glissando",
+          end: { anchor: "ev2n1" },
           glissando: {
             line: {
               lineStyle: "char",
@@ -764,12 +795,12 @@ describe("applyDenigmaGapReport", () => {
     const trill = (includesTrSymbol: boolean): DenigmaGap => ({
       anchor: "P1.m1",
       position: { numerator: 0, denominator: 1 },
-      end: { anchor: "P1.m1", position: { numerator: 1, denominator: 2 } },
       extent: "complete",
       type: "smart-shape",
       smartShape: {
         shapeType: includesTrSymbol ? "trill" : "trill-extension",
         kind: "trill-line",
+        end: { anchor: "P1.m1", position: { numerator: 1, denominator: 2 } },
         trillLine: { includesTrSymbol },
       },
     });
@@ -803,12 +834,12 @@ describe("applyDenigmaGapReport", () => {
     const result = apply([
       {
         anchor: "ev1n1",
-        end: { anchor: "ev2n1" },
         extent: "complete",
         type: "smart-shape",
         smartShape: {
           shapeType: "tab-slide",
           kind: "glissando",
+          end: { anchor: "ev2n1" },
           glissando: { line: { lineStyle: "solid", lineVisible: true } },
         },
       },

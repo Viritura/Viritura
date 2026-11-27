@@ -1609,7 +1609,8 @@
         "eraseBackground": {
           "type": "boolean",
           "description": "Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored."
-        }
+        },
+        "sourceReference": { "$ref": "#/$defs/text-frame-source-reference" }
       },
       "additionalProperties": false
     },

@@ -824,6 +824,7 @@ export interface components {
             border?: "none" | "solid";
             /** @description Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored. */
             eraseBackground?: boolean;
+            sourceReference?: components["schemas"]["text-frame-source-reference"];
         };
         /** @description Exactly one page, global-measure, or part-scoped event locator. */
         "text-frame-locator": {

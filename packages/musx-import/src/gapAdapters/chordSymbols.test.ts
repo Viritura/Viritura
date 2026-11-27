@@ -62,9 +62,10 @@ function chordGap(step = "C", suffixText = "maj7", quality = "major-seventh"): K
 
 function apply(gaps: KnownChordGap[], source = document()) {
   const report: DenigmaGapReport = {
-    schemaVersion: 1,
+    schemaVersion: 3,
     producer: { name: "denigma", version: "4.0.0", commit: "5864f4e" },
     gaps,
+    fonts: {},
   };
   const result = applyDenigmaGapReport(JSON.stringify(source), report);
   const parsed = JSON.parse(result.mnxJson) as RawDocument;

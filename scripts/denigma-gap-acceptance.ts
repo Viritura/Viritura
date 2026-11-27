@@ -37,7 +37,6 @@ interface DenigmaModule {
   _denigma_result_diagnostic_message(result: number, index: number): number;
   _denigma_result_destroy(result: number): void;
 }
-
 interface GapExpectation {
   type: string;
   subtype: string;
@@ -67,7 +66,9 @@ if (!expectedCommit.startsWith(actualCommit)) {
 
 const CASES: AcceptanceCase[] = [
   { file: "chords.musx", gaps: [{ type: "chord-symbol", subtype: "chord-symbol" }] },
+  { file: "measure_text.musx", gaps: [{ type: "text-block", subtype: "text-block" }] },
   { file: "note_shapes.musx", gaps: [] },
+  { file: "page_text.musx", gaps: [{ type: "page-text", subtype: "page-text" }] },
   { file: "slurs_2staves.musx", gaps: [] },
   { file: "techniques.musx", gaps: [{ type: "expression", subtype: "technique-text" }] },
   { file: "rehearsal_marks.musx", gaps: [{ type: "expression", subtype: "rehearsal-mark" }] },
@@ -84,6 +85,7 @@ const CASES: AcceptanceCase[] = [
 
 function gapSubtype(gap: DenigmaGap): string | undefined {
   if (gap.type === "chord-symbol") return "chord-symbol";
+  if (gap.type === "text-block" || gap.type === "page-text") return gap.type;
   if (gap.type === "notehead") {
     const notehead = gap["notehead"];
     return typeof notehead === "object" &&
@@ -109,6 +111,70 @@ function records(value: unknown): Array<Record<string, unknown>> {
   return [value as Record<string, unknown>, ...Object.values(value).flatMap(records)];
 }
 
+function assertCaseSpecificAdaptations(
+  testCase: AcceptanceCase,
+  parsed: unknown,
+  gapReport: DenigmaGapReport,
+  outcomes: ReturnType<typeof applyDenigmaGapReport>["outcomes"],
+): void {
+  if (testCase.file === "note_shapes.musx") {
+    const noteheads = records(parsed).filter((entry) => "notehead" in entry);
+    if (!noteheads.length || gapReport.gaps.some((gap) => gap.type === "notehead")) {
+      throw new Error("note_shapes.musx must carry native MNX noteheads without notehead gaps.");
+    }
+  }
+  if (
+    testCase.file === "measure_text.musx" &&
+    outcomes.some((entry) => entry.type === "text-block" && entry.disposition === "unhandled")
+  ) {
+    throw new Error("measure_text.musx left a text-block frame gap unhandled.");
+  }
+  if (testCase.file === "page_text.musx") {
+    const pageFrames = records(parsed).filter(
+      (entry) => typeof entry["id"] === "string" && entry["id"].startsWith("denigma-page-text-"),
+    );
+    if (
+      !pageFrames.length ||
+      outcomes.some((entry) => entry.type === "page-text" && entry.disposition === "unhandled")
+    ) {
+      throw new Error("page_text.musx did not adapt its page-text placements.");
+    }
+  }
+}
+
+function assertNativeTextPreserved(testCase: AcceptanceCase, output: string, parsed: unknown): void {
+  const sourceTexts = records(JSON.parse(output)).filter((entry) => Array.isArray(entry["text"]));
+  const adaptedTexts = records(parsed).filter((entry) => Array.isArray(entry["text"]));
+  if (testCase.file === "techniques.musx" && !sourceTexts.length) {
+    throw new Error("techniques.musx must emit native positioned text.");
+  }
+  for (const text of sourceTexts) {
+    const matches = adaptedTexts.filter((entry) => entry["id"] === text["id"]);
+    if (
+      matches.length !== 1 ||
+      JSON.stringify(matches[0]?.["position"]) !== JSON.stringify(text["position"]) ||
+      matches[0]?.["voice"] !== text["voice"]
+    ) {
+      throw new Error(`${testCase.file} duplicated native text or changed its voice/position.`);
+    }
+  }
+}
+
+function assertExpectedGaps(
+  testCase: AcceptanceCase,
+  outcomes: ReturnType<typeof applyDenigmaGapReport>["outcomes"],
+): void {
+  for (const expected of testCase.gaps) {
+    const matching = outcomes.filter((entry) => entry.type === expected.type && entry.subtype === expected.subtype);
+    if (matching.length === 0) {
+      throw new Error(`${testCase.file} did not report the expected ${expected.type}/${expected.subtype} gap.`);
+    }
+    if (matching.every((entry) => entry.disposition === "unhandled")) {
+      throw new Error(`${testCase.file} left every ${expected.type}/${expected.subtype} gap unhandled.`);
+    }
+  }
+}
+
 function assertAdaptedOutput(
   testCase: AcceptanceCase,
   output: string,
@@ -130,38 +196,9 @@ function assertAdaptedOutput(
   if (adaptation.outcomes.some((entry) => entry.type === "text-formatting" && entry.disposition === "unhandled")) {
     throw new Error(`${testCase.file} left native text-formatting ranges unhandled.`);
   }
-  if (testCase.file === "note_shapes.musx") {
-    const noteheads = records(parsed).filter((entry) => "notehead" in entry);
-    if (!noteheads.length || gapReport.gaps.some((gap) => gap.type === "notehead")) {
-      throw new Error("note_shapes.musx must carry native MNX noteheads without notehead gaps.");
-    }
-  }
-  const sourceTexts = records(JSON.parse(output)).filter((entry) => Array.isArray(entry["text"]));
-  const adaptedTexts = records(parsed).filter((entry) => Array.isArray(entry["text"]));
-  if (testCase.file === "techniques.musx" && !sourceTexts.length) {
-    throw new Error("techniques.musx must emit native positioned text.");
-  }
-  for (const text of sourceTexts) {
-    const matches = adaptedTexts.filter((entry) => entry["id"] === text["id"]);
-    if (
-      matches.length !== 1 ||
-      JSON.stringify(matches[0]?.["position"]) !== JSON.stringify(text["position"]) ||
-      matches[0]?.["voice"] !== text["voice"]
-    ) {
-      throw new Error(`${testCase.file} duplicated native text or changed its voice/position.`);
-    }
-  }
-  for (const expected of testCase.gaps) {
-    const matching = adaptation.outcomes.filter(
-      (entry) => entry.type === expected.type && entry.subtype === expected.subtype,
-    );
-    if (matching.length === 0) {
-      throw new Error(`${testCase.file} did not report the expected ${expected.type}/${expected.subtype} gap.`);
-    }
-    if (matching.every((entry) => entry.disposition === "unhandled")) {
-      throw new Error(`${testCase.file} left every ${expected.type}/${expected.subtype} gap unhandled.`);
-    }
-  }
+  assertCaseSpecificAdaptations(testCase, parsed, gapReport, adaptation.outcomes);
+  assertNativeTextPreserved(testCase, output, parsed);
+  assertExpectedGaps(testCase, adaptation.outcomes);
 }
 
 async function convertFixture(testCase: AcceptanceCase): Promise<void> {
@@ -229,7 +266,12 @@ async function convertFixture(testCase: AcceptanceCase): Promise<void> {
         throw new Error(`Denigma returned no MNX conversion gap report for ${testCase.file}.`);
       }
       const gapReport = JSON.parse(readUtf8(gapPointer, gapSize)) as DenigmaGapReport;
-      if (gapReport.schemaVersion !== 2 || !Array.isArray(gapReport.gaps)) {
+      if (
+        gapReport.schemaVersion !== 3 ||
+        !Array.isArray(gapReport.gaps) ||
+        (gapReport.fonts !== undefined &&
+          (!gapReport.fonts || typeof gapReport.fonts !== "object" || Array.isArray(gapReport.fonts)))
+      ) {
         throw new Error(`Denigma returned an invalid MNX conversion gap report for ${testCase.file}.`);
       }
       for (const expected of testCase.gaps) {

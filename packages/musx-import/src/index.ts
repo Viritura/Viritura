@@ -9,6 +9,7 @@ export type {
   DenigmaGap,
   DenigmaGapAnchor,
   DenigmaGapDisposition,
+  DenigmaGapFont,
   DenigmaGapOutcome,
   DenigmaGapPosition,
   DenigmaGapReport,

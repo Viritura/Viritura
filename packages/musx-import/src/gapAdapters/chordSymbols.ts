@@ -9,9 +9,17 @@ import {
   type Fretboard,
   type Interval,
 } from "@viritura/core";
-import type { DenigmaDiagnostic, DenigmaGap } from "../types";
+import type { DenigmaDiagnostic } from "../types";
 import { ensureArrayProperty, ensureViritura, type MeasureTarget, type TargetIndex } from "./targetIndex";
-import { isChordGap, isRecord, type ChordPayload, type GapApplication, type JsonRecord } from "./types";
+import {
+  isChordGap,
+  isRecord,
+  type AdaptedDenigmaGap,
+  type ChordPayload,
+  type GapApplication,
+  type JsonRecord,
+} from "./types";
+import { isAdaptedDenigmaGap, type NormalizedGap } from "./normalizeReport";
 
 interface ChordMapping {
   quality: ChordSymbol["quality"];
@@ -86,7 +94,7 @@ function sourceToConcert(part: JsonRecord): Interval {
   ) {
     throw new Error("Invalid source MNX part transposition while adapting Denigma chord symbols.");
   }
-  // Denigma schema-v1 MNX gaps classify roots AND basses in KeyContext::Written.
+  // Denigma MNX gaps classify roots AND basses in KeyContext::Written.
   // The source MNX interval is sounding→written, independent of score display mode.
   return { halfSteps: -interval["halfSteps"], staffDistance: -interval["staffDistance"] };
 }
@@ -146,7 +154,7 @@ function chordFretboardFields(chord: ChordPayload, partId: string): Partial<Pick
   return chord.fretboard ? { fretboards: [toFretboard(chord.fretboard, partId)] } : {};
 }
 
-function toChordSymbol(chord: ChordPayload, gap: DenigmaGap, interval: Interval, partId: string): ChordSymbol {
+function toChordSymbol(chord: ChordPayload, gap: AdaptedDenigmaGap, interval: Interval, partId: string): ChordSymbol {
   if (
     gap.position !== undefined &&
     (!isRecord(gap.position) ||
@@ -236,14 +244,14 @@ interface MeasureChords {
 }
 
 export function applyChordSymbolGaps(
-  gaps: readonly DenigmaGap[],
+  gaps: readonly NormalizedGap[],
   index: TargetIndex,
   diagnostics: DenigmaDiagnostic[],
 ): Map<number, GapApplication> {
   const applications = new Map<number, GapApplication>();
   const measures = new Map<number, MeasureChords>();
   gaps.forEach((gap, gapIndex) => {
-    if (gap.type !== "chord-symbol") return;
+    if (!isAdaptedDenigmaGap(gap) || gap.type !== "chord-symbol") return;
     if (!isChordGap(gap)) {
       applications.set(gapIndex, { outcome: { disposition: "unhandled", reason: "Malformed chord-symbol payload." } });
       return;

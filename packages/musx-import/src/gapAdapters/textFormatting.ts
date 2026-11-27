@@ -1,6 +1,6 @@
-import type { DenigmaGap } from "../types";
 import { ensureViritura, type TargetIndex } from "./targetIndex";
-import { isRecord, type GapApplication, type JsonRecord } from "./types";
+import { isRecord, type AdaptedDenigmaGap, type GapApplication, type JsonRecord } from "./types";
+import { isAdaptedDenigmaGap, type NormalizedGap } from "./normalizeReport";
 
 interface StyledRange {
   offset: number;
@@ -26,7 +26,7 @@ function fontStyle(font: JsonRecord): JsonRecord {
   return style;
 }
 
-function resolveTarget(gap: DenigmaGap, anchor: string, index: TargetIndex): TextTarget | undefined {
+function resolveTarget(gap: AdaptedDenigmaGap, anchor: string, index: TargetIndex): TextTarget | undefined {
   const owner = index.byId(gap.anchor);
   const element = index.byId(anchor);
   const content = owner?.["text"];
@@ -65,11 +65,11 @@ function applyRanges(target: TextTarget): void {
 }
 
 /** Resolve every range against the original output before splitting any content elements. */
-export function applyTextFormattingGaps(gaps: DenigmaGap[], index: TargetIndex): Map<number, GapApplication> {
+export function applyTextFormattingGaps(gaps: NormalizedGap[], index: TargetIndex): Map<number, GapApplication> {
   const applications = new Map<number, GapApplication>();
   const targets = new Map<string, TextTarget>();
   gaps.forEach((gap, gapIndex) => {
-    if (gap.type !== "text-formatting") return;
+    if (!isAdaptedDenigmaGap(gap) || gap.type !== "text-formatting") return;
     const formatting = gap["formatting"];
     if (!isRecord(formatting) || !isRecord(formatting["font"]) || !gap.textRanges?.length) {
       applications.set(gapIndex, { outcome: { disposition: "unhandled", reason: "Malformed text-formatting gap." } });

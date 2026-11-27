@@ -16,24 +16,39 @@ export interface DenigmaGapAnchor {
   position?: DenigmaGapPosition;
 }
 
-export interface DenigmaGap extends DenigmaGapAnchor {
+export interface DenigmaGap {
+  anchor?: string;
+  staff?: number;
+  position?: DenigmaGapPosition;
   type: string;
   extent: "complete" | "partial";
-  end?: DenigmaGapAnchor;
-  /** Original element-local Unicode scalar or glyph-list coordinates (schema v2). */
-  textRanges?: Array<{ anchor: string; offset: number; length: number }>;
-  placements?: Array<DenigmaGapAnchor & { kind: "staff" | "system-top" | "system-bottom" }>;
   [key: string]: unknown;
 }
 
+export interface DenigmaGapFont {
+  name?: string;
+  size?: number;
+  sizeIsPercent?: boolean;
+  absolute?: boolean;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikeout?: boolean;
+  hidden?: boolean;
+  isSymbolFont?: boolean;
+  isSmufl?: boolean;
+}
+
 export interface DenigmaGapReport {
-  schemaVersion: 1 | 2;
+  schemaVersion: 3;
   producer: {
     name: string;
     version: string;
     commit: string;
   };
   gaps: DenigmaGap[];
+  fonts?: Record<string, DenigmaGapFont>;
+  leadingBlankPageSlots?: number;
   arrowheads?: Record<string, unknown>;
 }
 
@@ -43,7 +58,7 @@ export interface DenigmaGapOutcome {
   gapIndex: number;
   type: string;
   subtype?: string;
-  anchor: string;
+  anchor?: string;
   disposition: DenigmaGapDisposition;
   reason?: string;
 }
