@@ -2,6 +2,14 @@
  * INSTRUMENT_CATALOG (extras) — keyboards, voices, plucked strings, strings.
  * Concatenated with the primary file in InstrumentCatalog.ts.
  * Split for the lint max-lines threshold.
+ *
+ * Bowed-string ranges distinguish practical section limits from full playing
+ * ranges and use sounding pitch:
+ * https://modwheel.net/guides/orchestral-instrument-ranges
+ * https://orchestralibrary.com/reftables/rang.html
+ *
+ * Double-bass low-extension context:
+ * https://iro.uiowa.edu/esploro/outputs/doctoral/The-double-bass-extension-a-compendium/9984097365702771
  */
 
 import type { CatalogInstrument, ClefDef } from "./InstrumentCatalog";
@@ -242,7 +250,8 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     midiProgram: 40,
     scoreOrder: 0,
     rangeLow: 55,
-    rangeHigh: 103,
+    rangeHigh: 100,
+    standardRangeHigh: 93, // Above A6 is high section writing; E7 is a full-range limit.
   },
   {
     id: "strings.viola",
@@ -254,7 +263,8 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     midiProgram: 41,
     scoreOrder: 1,
     rangeLow: 48,
-    rangeHigh: 93,
+    rangeHigh: 88,
+    standardRangeHigh: 81, // Above A5 is high section writing; E6 is a full-range limit.
   },
   {
     id: "strings.cello",
@@ -266,7 +276,8 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     midiProgram: 42,
     scoreOrder: 2,
     rangeLow: 36,
-    rangeHigh: 84,
+    rangeHigh: 81,
+    standardRangeHigh: 76, // Above E5 is high section writing; A5 is a full-range limit.
   },
   {
     id: "strings.contrabass",
@@ -278,7 +289,9 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     transposition: { halfSteps: 12, staffDistance: 7 },
     midiProgram: 43,
     scoreOrder: 3,
-    rangeLow: 28,
-    rangeHigh: 67,
+    rangeLow: 23,
+    rangeHigh: 62,
+    standardRangeLow: 28, // B0 through D-sharp1 assume a five-string bass.
+    standardRangeHigh: 55, // Above G3 is high section writing; D4 is a full-range limit.
   },
 ];

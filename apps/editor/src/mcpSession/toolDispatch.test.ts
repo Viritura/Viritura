@@ -1516,6 +1516,44 @@ describe("MCP editor tool dispatch", () => {
     });
   });
 
+  it("reports five-string double-bass extensions and high-register violations at sounding pitch", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    const part = score.parts[0]!;
+    part._x = { viritura: { instrumentId: "strings.contrabass" } };
+    part.transposition = { interval: { halfSteps: 12, staffDistance: 7 } };
+    part.measures[0]!.sequences[0]!.content = [
+      {
+        type: "event",
+        duration: { base: "whole" },
+        notes: [
+          { id: "low-extension", pitch: { step: "B", octave: 0 } },
+          { id: "open-e", pitch: { step: "E", octave: 1 } },
+          { id: "section-high", pitch: { step: "G", octave: 3 } },
+          { id: "high-extension", pitch: { step: "G", octave: 3, alter: 1 } },
+          { id: "above", pitch: { step: "E", octave: 4, alter: -1 } },
+        ],
+      },
+    ];
+    store.getState().loadScore(score, "double-bass.mnx");
+
+    const report = await dispatchMcpTool(store, "score.get_instruments", {});
+    expect(report.structuredContent).toMatchObject({
+      instruments: [
+        {
+          transpositionHalfSteps: 12,
+          catalogRange: { low: 23, high: 62 },
+          soundingRange: { low: 23, high: 63 },
+          noteCount: 5,
+          belowRange: 0,
+          aboveRange: 1,
+          rangeGapCount: 0,
+          violations: [{ noteId: "above", soundingMidi: 63, direction: "above" }],
+        },
+      ],
+    });
+  });
+
   it("paginates every located range violation", async () => {
     const store = createDocumentStore();
     const score = makeScore();

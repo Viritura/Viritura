@@ -76,6 +76,8 @@ export interface CatalogInstrument {
   rangeHigh: number;
   /** Lowest sounding MIDI note without an extension or special-register caution. */
   standardRangeLow?: number;
+  /** Highest sounding MIDI note without a high-register caution. */
+  standardRangeHigh?: number;
   /** Unavailable sounding MIDI notes within the outer range for the modeled configuration. */
   rangeExcludedNotes?: readonly number[];
   /** Layout bracket symbol: "bracket" for orchestra sections, "brace" for keyboards. */
@@ -131,7 +133,12 @@ export function classifyCatalogNoteRange(
   if (soundingMidi < instrument.rangeLow) return "below";
   if (soundingMidi > instrument.rangeHigh) return "above";
   if (instrument.rangeExcludedNotes?.includes(soundingMidi)) return "gap";
-  if (soundingMidi < (instrument.standardRangeLow ?? instrument.rangeLow)) return "extension";
+  if (
+    soundingMidi < (instrument.standardRangeLow ?? instrument.rangeLow) ||
+    soundingMidi > (instrument.standardRangeHigh ?? instrument.rangeHigh)
+  ) {
+    return "extension";
+  }
   return undefined;
 }
 

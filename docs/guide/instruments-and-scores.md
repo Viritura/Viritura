@@ -112,6 +112,13 @@ these notes are pedals or low valve notes depends on the tuba's key, valve
 system, and playing technique. Below B0 is red as a practical writing limit,
 though some instruments can play lower pedal notes.
 
+For bowed strings, yellow marks high notes beyond typical section writing but
+within the full ranges used here: violin above A6 through E7, viola above A5
+through E6, cello above E5 through A5, and double bass above sounding G3
+through D4. These upper limits vary with the player and source. Double bass
+notes from sounding B0 through D-sharp1 are yellow for a five-string instrument;
+below B0 is red. Standard four-string basses begin at E1.
+
 ## Percussion maps
 
 Choose **Edit percussion map** from the **Instrument actions** menu on an
