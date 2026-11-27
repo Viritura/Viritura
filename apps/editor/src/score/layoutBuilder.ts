@@ -9,7 +9,7 @@ import { getCatalogInstrument, type Player } from "./InstrumentCatalog";
 import { buildOrchestralLayoutGroups, orchestralInstrumentGroup } from "./layoutGrouping";
 
 /** Build a brace-grouped multi-staff node (e.g. piano), or a single staff node. */
-function buildPlayerStaffNode(player: Player, partId: string): LayoutContent {
+function buildPlayerStaffNode(player: Player, partId: string, labelSingleStaff = true): LayoutContent {
   const inst = getCatalogInstrument(player.instrumentId);
   const numStaves = inst?.staves ?? 1;
   if (numStaves > 1 && inst?.bracketSymbol === "brace") {
@@ -17,14 +17,14 @@ function buildPlayerStaffNode(player: Player, partId: string): LayoutContent {
     for (let s = 1; s <= numStaves; s++) {
       staffNodes.push({
         type: "staff",
-        sources: [{ part: partId, staff: s, labelref: "name" }],
+        sources: [{ part: partId, staff: s, labelRef: { ref: "auto" } }],
       });
     }
     return { type: "group", content: staffNodes, symbol: "brace" } as LayoutGroup;
   }
   return {
     type: "staff",
-    sources: [{ part: partId, labelref: "name" }],
+    sources: [{ part: partId, ...(labelSingleStaff ? { labelRef: { ref: "auto" as const } } : {}) }],
   } as LayoutStaff;
 }
 
@@ -50,7 +50,7 @@ export function buildLayouts(players: Player[], partIds: string[]): LayoutDefini
   for (let idx = 0; idx < players.length; idx++) {
     layouts.push({
       id: `L-${partIds[idx]}`,
-      content: [buildPlayerStaffNode(players[idx]!, partIds[idx]!)],
+      content: [buildPlayerStaffNode(players[idx]!, partIds[idx]!, false)],
     });
   }
 

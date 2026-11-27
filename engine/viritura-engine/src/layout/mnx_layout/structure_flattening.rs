@@ -1,15 +1,7 @@
-use super::super::full_score::{FlatSource, FlatStaff, GroupRange};
+use super::super::full_score::{FlatLabel, FlatSource, FlatStaff, GroupRange};
 use super::super::page::{resolve_part_display_names, PartDisplayInfo};
 use crate::model::{LayoutContent, Score};
 use std::collections::{HashMap, HashSet};
-
-struct ResolvedStaffLabels {
-    label: Option<String>,
-    short_label: Option<String>,
-    full_name: Option<String>,
-    short_name: Option<String>,
-    condensed_numbers: Vec<u32>,
-}
 
 pub(super) fn build_part_id_map(score: &Score) -> HashMap<String, usize> {
     score
@@ -99,10 +91,7 @@ fn flatten_content_recursive(
         match item {
             LayoutContent::Group(group) => {
                 let first_staff = staves.len();
-                let child_depth = if matches!(
-                    group.symbol.as_deref().unwrap_or("bracket"),
-                    "bracket" | "square"
-                ) {
+                let child_depth = if matches!(group.symbol.as_deref(), Some("bracket" | "square")) {
                     bracket_depth + 1
                 } else {
                     bracket_depth
@@ -120,7 +109,7 @@ fn flatten_content_recursive(
                 if staves.len() == first_staff {
                     continue;
                 }
-                if let Some(symbol) = &group.symbol {
+                if group.symbol.is_some() || group.label.is_some() || group.label_ref.is_some() {
                     let mut source_parts: Vec<_> = staves[first_staff..]
                         .iter()
                         .flat_map(|staff| &staff.sources)
@@ -128,11 +117,30 @@ fn flatten_content_recursive(
                         .collect();
                     source_parts.sort_unstable();
                     source_parts.dedup();
+                    let default_part = staves[first_staff]
+                        .sources
+                        .first()
+                        .map(|source| source.part_index);
+                    let label_components = label_components(
+                        group.label.as_deref(),
+                        group.label_ref.as_ref(),
+                        default_part,
+                        false,
+                        part_id_map,
+                    );
+                    let labels = super::instrument_labels::resolve_components(
+                        &label_components,
+                        display_names,
+                    );
                     groups.push(GroupRange {
                         first_staff,
                         last_staff: staves.len() - 1,
-                        symbol: symbol.clone(),
-                        label: group.label.clone(),
+                        symbol: group.symbol.clone().unwrap_or_else(|| "noSymbol".into()),
+                        label: labels.first,
+                        short_label: labels.subsequent,
+                        resolved_full_label: labels.full,
+                        resolved_short_label: labels.short,
+                        label_components,
                         depth: bracket_depth,
                         source_parts,
                     });
@@ -151,19 +159,19 @@ fn flatten_content_recursive(
                         })
                     })
                     .collect();
-                let labels = if staff.is_condensing() {
-                    condensed_labels(staff, part_id_map, display_names)
-                } else {
-                    regular_labels(staff, part_id_map, display_names)
-                };
+                let (label_components, condensed_numbers) =
+                    staff_labels(staff, part_id_map, display_names);
+                let labels =
+                    super::instrument_labels::resolve_components(&label_components, display_names);
                 let flat_staff = FlatStaff {
                     sources,
-                    label: labels.label,
-                    short_label: labels.short_label,
-                    resolved_full_label: labels.full_name,
-                    resolved_short_label: labels.short_name,
+                    label: labels.first,
+                    short_label: labels.subsequent,
+                    resolved_full_label: labels.full,
+                    resolved_short_label: labels.short,
+                    label_components,
                     expansion: staff.expansion,
-                    condensed_numbers: labels.condensed_numbers,
+                    condensed_numbers,
                     chord_symbol_source: None,
                     chord_symbol_transposition: None,
                 };
@@ -178,28 +186,25 @@ fn flatten_content_recursive(
                     for (source_index, source) in flat_staff.sources.iter().cloned().enumerate() {
                         let mut split_staff = flat_staff.clone();
                         split_staff.sources = vec![source];
-                        if staff.label.is_none() {
-                            let display = &display_names[split_staff.sources[0].part_index];
-                            split_staff.label = flat_staff.label.as_ref().map(|_| {
-                                if staff.labelref.as_deref().or_else(|| {
-                                    staff
-                                        .sources
-                                        .iter()
-                                        .find_map(|source| source.labelref.as_deref())
-                                }) == Some("shortName")
-                                {
-                                    display.display_short_name.clone()
-                                } else {
-                                    display.display_name.clone()
-                                }
-                            });
-                            split_staff.short_label = flat_staff
-                                .short_label
-                                .as_ref()
-                                .map(|_| display.display_short_name.clone());
-                            split_staff.resolved_full_label = Some(display.display_name.clone());
-                            split_staff.resolved_short_label =
-                                Some(display.display_short_name.clone());
+                        if let Some(original_source) = staff
+                            .sources
+                            .iter()
+                            .filter(|source| part_id_map.contains_key(&source.part))
+                            .nth(source_index)
+                        {
+                            let mut split_layout_staff = staff.clone();
+                            split_layout_staff.sources = vec![original_source.clone()];
+                            let (components, _) =
+                                staff_labels(&split_layout_staff, part_id_map, display_names);
+                            let labels = super::instrument_labels::resolve_components(
+                                &components,
+                                display_names,
+                            );
+                            split_staff.label = labels.first;
+                            split_staff.short_label = labels.subsequent;
+                            split_staff.resolved_full_label = labels.full;
+                            split_staff.resolved_short_label = labels.short;
+                            split_staff.label_components = components;
                         }
                         split_staff.condensed_numbers = flat_staff
                             .condensed_numbers
@@ -242,109 +247,92 @@ pub(super) fn resolve_chord_symbol_sources(staves: &mut [FlatStaff], score: &Sco
     }
 }
 
-fn condensed_labels(
-    staff: &crate::model::LayoutStaff,
+fn label_components(
+    label: Option<&str>,
+    reference: Option<&crate::model::layout::LayoutLabelRef>,
+    default_part: Option<usize>,
+    base_name: bool,
     part_id_map: &HashMap<String, usize>,
-    display_names: &[PartDisplayInfo],
-) -> ResolvedStaffLabels {
-    let mut numbers = Vec::new();
-    let mut base_label = None;
-    let mut base_short = None;
-    for source in &staff.sources {
-        if let Some(&part_index) = part_id_map.get(&source.part) {
-            if base_label.is_none() {
-                base_label = Some(display_names[part_index].base_name.clone());
-                base_short = Some(display_names[part_index].base_short_name.clone());
-            }
-            if let Some(number) = display_names[part_index].number {
-                numbers.push(number as u32);
-            }
+) -> Vec<FlatLabel> {
+    let mut components = Vec::new();
+    if let Some(label) = label {
+        components.push(FlatLabel::Literal(label.to_string()));
+    }
+    if let Some(reference) = reference {
+        let part_index = match reference.target.as_deref() {
+            Some(target) => part_id_map.get(target).copied(),
+            None => default_part,
+        };
+        if let Some(part_index) = part_index {
+            components.push(FlatLabel::Part {
+                part_index,
+                reference: Some(
+                    reference
+                        .reference
+                        .unwrap_or(crate::raw::LabelRefType::Auto),
+                ),
+                base_name,
+            });
         }
     }
-    let label_ref = staff.labelref.as_deref().or_else(|| {
-        staff
-            .sources
-            .iter()
-            .find_map(|source| source.labelref.as_deref())
-    });
-    let label = staff.label.clone().or_else(|| match label_ref {
-        Some("name") => base_label.clone(),
-        Some("shortName") => base_short.clone(),
-        _ => None,
-    });
-    let short_label = staff.label.clone().or_else(|| {
-        label.as_ref().and_then(|_| match label_ref {
-            Some("shortName") => base_short.clone(),
-            _ => base_short.clone(),
-        })
-    });
-    ResolvedStaffLabels {
-        label,
-        short_label,
-        full_name: staff.label.clone().or(base_label),
-        short_name: staff.label.clone().or(base_short),
-        condensed_numbers: numbers,
-    }
+    components
 }
 
-fn regular_labels(
+fn staff_labels(
     staff: &crate::model::LayoutStaff,
     part_id_map: &HashMap<String, usize>,
     display_names: &[PartDisplayInfo],
-) -> ResolvedStaffLabels {
-    let resolved_names = staff
+) -> (Vec<FlatLabel>, Vec<u32>) {
+    let default_part = staff
         .sources
         .first()
         .and_then(|source| part_id_map.get(&source.part))
-        .map(|&index| {
-            (
-                display_names[index].display_name.clone(),
-                display_names[index].display_short_name.clone(),
+        .copied();
+    let source_labels = staff
+        .sources
+        .iter()
+        .flat_map(|source| {
+            label_components(
+                source.label.as_deref(),
+                source.label_ref.as_ref(),
+                part_id_map.get(&source.part).copied(),
+                false,
+                part_id_map,
             )
-        });
-    let label = staff.label.clone().or_else(|| {
-        staff
-            .labelref
-            .as_ref()
-            .zip(staff.sources.first())
-            .and_then(|(label_ref, source)| {
-                part_id_map
-                    .get(&source.part)
-                    .and_then(|&index| display_label(label_ref, &display_names[index]))
-            })
-            .or_else(|| {
-                staff.sources.iter().find_map(|source| {
-                    source.labelref.as_ref().and_then(|label_ref| {
-                        part_id_map
-                            .get(&source.part)
-                            .and_then(|&index| display_label(label_ref, &display_names[index]))
-                    })
-                })
-            })
-    });
-    let short_label = staff.label.clone().or_else(|| {
-        label.as_ref().and_then(|_| {
-            staff.sources.first().and_then(|source| {
-                part_id_map
-                    .get(&source.part)
-                    .map(|&index| display_names[index].display_short_name.clone())
-            })
         })
-    });
-    let (resolved_full_label, resolved_short_label) = resolved_names.unzip();
-    ResolvedStaffLabels {
-        label,
-        short_label,
-        full_name: staff.label.clone().or(resolved_full_label),
-        short_name: staff.label.clone().or(resolved_short_label),
-        condensed_numbers: Vec::new(),
+        .collect::<Vec<_>>();
+    let condensed = staff.is_condensing()
+        && source_labels.is_empty()
+        && staff
+            .label_ref
+            .as_ref()
+            .is_none_or(|reference| reference.target.is_none());
+    let mut components = label_components(
+        staff.label.as_deref(),
+        staff.label_ref.as_ref(),
+        default_part,
+        condensed,
+        part_id_map,
+    );
+    components.extend(source_labels);
+    if components.is_empty() {
+        if let Some(part_index) = default_part {
+            components.push(FlatLabel::Part {
+                part_index,
+                reference: None,
+                base_name: condensed,
+            });
+        }
     }
-}
-
-fn display_label(label_ref: &str, display: &PartDisplayInfo) -> Option<String> {
-    match label_ref {
-        "name" => Some(display.display_name.clone()),
-        "shortName" => Some(display.display_short_name.clone()),
-        _ => None,
-    }
+    let numbers = if condensed {
+        staff
+            .sources
+            .iter()
+            .filter_map(|source| part_id_map.get(&source.part))
+            .filter_map(|&index| display_names[index].number.map(|number| number as u32))
+            .collect()
+    } else {
+        Vec::new()
+    };
+    (components, numbers)
 }

@@ -5585,10 +5585,6 @@ impl ::std::default::Default for KeyExtensions {
 ///    "drumKit": {
 ///      "description": "GS drum-kit program (bank 128) that this component's `sound.midiNumber` should play on, overriding the percussion part's default kit. Lets a single percussion staff borrow a sound from another kit (e.g. a Tam-tam/Big Gong from the Ethnic kit, pgm 49) that the part's main kit lacks. The audio engine routes such hits to a dedicated drum channel loaded with this program.",
 ///      "type": "integer"
-///    },
-///    "notehead": {
-///      "description": "Legacy notehead shape for hits on this kit component. New documents use the native MNX notehead object.",
-///      "$ref": "#/$defs/notehead-shape"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -5605,9 +5601,6 @@ pub struct KitComponentExtensions {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub drum_kit: ::std::option::Option<i64>,
-    ///Legacy notehead shape for hits on this kit component. New documents use the native MNX notehead object.
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub notehead: ::std::option::Option<NoteheadShape>,
 }
 impl ::std::convert::From<&KitComponentExtensions> for KitComponentExtensions {
     fn from(value: &KitComponentExtensions) -> Self {
@@ -5618,7 +5611,6 @@ impl ::std::default::Default for KitComponentExtensions {
     fn default() -> Self {
         Self {
             drum_kit: Default::default(),
-            notehead: Default::default(),
         }
     }
 }
@@ -7154,23 +7146,13 @@ impl ::std::convert::TryFrom<::std::string::String> for MixerChannelSettingsSpat
 ///{
 ///  "description": "Viritura vendor extensions on an MNX note object (the `_x.viritura` dict on a pitched note).",
 ///  "type": "object",
-///  "properties": {
-///    "notehead": {
-///      "description": "Legacy notehead-shape override for this pitched note. New documents use the native MNX notehead object.",
-///      "$ref": "#/$defs/notehead-shape"
-///    }
-///  },
 ///  "additionalProperties": false
 ///}
 /// ```
 /// </details>
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct NoteExtensions {
-    ///Legacy notehead-shape override for this pitched note. New documents use the native MNX notehead object.
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub notehead: ::std::option::Option<NoteheadShape>,
-}
+pub struct NoteExtensions {}
 impl ::std::convert::From<&NoteExtensions> for NoteExtensions {
     fn from(value: &NoteExtensions) -> Self {
         value.clone()
@@ -7178,116 +7160,7 @@ impl ::std::convert::From<&NoteExtensions> for NoteExtensions {
 }
 impl ::std::default::Default for NoteExtensions {
     fn default() -> Self {
-        Self {
-            notehead: Default::default(),
-        }
-    }
-}
-///Legacy Viritura notehead shape accepted on kit components and pitched notes. New documents use the native MNX notehead object.
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "description": "Legacy Viritura notehead shape accepted on kit components and pitched notes. New documents use the native MNX notehead object.",
-///  "type": "string",
-///  "enum": [
-///    "normal",
-///    "x",
-///    "circleX",
-///    "diamond",
-///    "slash",
-///    "triangleUp",
-///    "triangleDown"
-///  ]
-///}
-/// ```
-/// </details>
-#[derive(
-    ::serde::Deserialize,
-    ::serde::Serialize,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd
-)]
-pub enum NoteheadShape {
-    #[serde(rename = "normal")]
-    Normal,
-    #[serde(rename = "x")]
-    X,
-    #[serde(rename = "circleX")]
-    CircleX,
-    #[serde(rename = "diamond")]
-    Diamond,
-    #[serde(rename = "slash")]
-    Slash,
-    #[serde(rename = "triangleUp")]
-    TriangleUp,
-    #[serde(rename = "triangleDown")]
-    TriangleDown,
-}
-impl ::std::convert::From<&Self> for NoteheadShape {
-    fn from(value: &NoteheadShape) -> Self {
-        value.clone()
-    }
-}
-impl ::std::fmt::Display for NoteheadShape {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Self::Normal => f.write_str("normal"),
-            Self::X => f.write_str("x"),
-            Self::CircleX => f.write_str("circleX"),
-            Self::Diamond => f.write_str("diamond"),
-            Self::Slash => f.write_str("slash"),
-            Self::TriangleUp => f.write_str("triangleUp"),
-            Self::TriangleDown => f.write_str("triangleDown"),
-        }
-    }
-}
-impl ::std::str::FromStr for NoteheadShape {
-    type Err = self::error::ConversionError;
-    fn from_str(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        match value {
-            "normal" => Ok(Self::Normal),
-            "x" => Ok(Self::X),
-            "circleX" => Ok(Self::CircleX),
-            "diamond" => Ok(Self::Diamond),
-            "slash" => Ok(Self::Slash),
-            "triangleUp" => Ok(Self::TriangleUp),
-            "triangleDown" => Ok(Self::TriangleDown),
-            _ => Err("invalid value".into()),
-        }
-    }
-}
-impl ::std::convert::TryFrom<&str> for NoteheadShape {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<&::std::string::String> for NoteheadShape {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<::std::string::String> for NoteheadShape {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: ::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
+        Self {}
     }
 }
 ///Ornament type. Each maps to a SMuFL ornament glyph.
@@ -18011,9 +17884,6 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "note-extensions": {
 ///      "$ref": "#/$defs/note-extensions"
 ///    },
-///    "notehead-shape": {
-///      "$ref": "#/$defs/notehead-shape"
-///    },
 ///    "ornament-type": {
 ///      "$ref": "#/$defs/ornament-type"
 ///    },
@@ -18498,12 +18368,6 @@ pub struct VirituraExtensionsRoot {
     )]
     pub note_extensions: ::std::option::Option<NoteExtensions>,
     #[serde(
-        rename = "notehead-shape",
-        default,
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub notehead_shape: ::std::option::Option<NoteheadShape>,
-    #[serde(
         rename = "ornament-type",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -18962,7 +18826,6 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             mixer_bus_settings: Default::default(),
             mixer_channel_settings: Default::default(),
             note_extensions: Default::default(),
-            notehead_shape: Default::default(),
             ornament_type: Default::default(),
             page_margins: Default::default(),
             page_setup: Default::default(),

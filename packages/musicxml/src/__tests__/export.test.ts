@@ -52,6 +52,21 @@ const texts = (xml: string, tag: string) =>
   Array.from(document(xml).getElementsByTagName(tag)).map((element) => element.textContent);
 
 describe("MusicXML export", () => {
+  it.each([
+    ["circled", "circled"],
+    ["slashed", "slashed"],
+    ["backSlashed", "back slashed"],
+  ] as const)("round-trips the %s notehead", (shape, musicXmlShape) => {
+    const source = score();
+    const event = source.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent;
+    event.notes![0]!.notehead = { shape };
+    const xml = convertScoreToMusicXml(source).xml;
+    expect(texts(xml, "notehead")).toContain(musicXmlShape);
+    const imported = parseMnx(convertMusicXmlToMnx(xml));
+    const importedEvent = imported.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent;
+    expect(importedEvent.notes![0]!.notehead).toEqual({ shape });
+  });
+
   it("round-trips shared fermata identity, exact anchor and settings across overlapping rhythms and part exports", () => {
     const source = score();
     source.global.measures[0]!.fermatas = [

@@ -399,7 +399,7 @@ fn layout_score_with_config_cached(
         .global
         .lyrics
         .as_ref()
-        .and_then(|gl| gl.line_order.as_deref());
+        .map(|gl| gl.line_order.as_slice());
 
     // ══════════════════════════════════════════════════════════════════════
     // Pass 2: Render using pre-computed layouts and actual Y positions.

@@ -346,6 +346,7 @@ mod tests {
                 kit_component: None,
                 perform: None,
                 notehead: None,
+                notehead_wire: None,
                 markings: None,
                 source_part_index: None,
                 source_event_id: None,

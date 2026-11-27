@@ -120,7 +120,7 @@ export function parseGlobalSounds(raw: RawSoundsGlobal): Record<string, Sound> {
 // ═══════════════════════════════════════════
 
 export function parseGlobalLyrics(raw: RawLyricsGlobal): GlobalLyrics {
-  const result: GlobalLyrics = {};
+  const result: GlobalLyrics = { lineOrder: raw.lineOrder };
   if (raw.lineMetadata) {
     const entries: Record<string, LyricLineMetadataEntry> = {};
     for (const key of Object.keys(raw.lineMetadata)) {
@@ -131,9 +131,6 @@ export function parseGlobalLyrics(raw: RawLyricsGlobal): GlobalLyrics {
       entries[key] = parsed;
     }
     result.lineMetadata = entries;
-  }
-  if (raw.lineOrder) {
-    result.lineOrder = raw.lineOrder;
   }
   return result;
 }

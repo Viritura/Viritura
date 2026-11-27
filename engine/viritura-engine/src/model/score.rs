@@ -51,8 +51,8 @@ pub struct GlobalLyrics {
     #[serde(skip_serializing_if = "Option::is_none", rename = "lineMetadata")]
     pub line_metadata: Option<HashMap<String, LyricLineMetadataEntry>>,
     /// Explicit display ordering of lyric line IDs
-    #[serde(skip_serializing_if = "Option::is_none", rename = "lineOrder")]
-    pub line_order: Option<Vec<String>>,
+    #[serde(rename = "lineOrder")]
+    pub line_order: Vec<String>,
 }
 
 /// Global section of the score.

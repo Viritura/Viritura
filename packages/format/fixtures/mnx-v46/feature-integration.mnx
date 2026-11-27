@@ -1,6 +1,7 @@
 {
   "mnx": { "version": 1, "support": { "useLyricExtenders": true } },
   "global": {
+    "lyrics": { "lineOrder": ["1"] },
     "measures": [
       {
         "time": { "count": 4, "unit": 4 },

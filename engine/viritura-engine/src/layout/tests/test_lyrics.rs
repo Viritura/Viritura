@@ -599,11 +599,7 @@ fn test_lyrics_line_metadata_parsing() {
     assert_eq!(metadata["4"].lang.as_deref(), Some("es"));
 
     // Verify lineOrder
-    let line_order = global_lyrics
-        .line_order
-        .as_ref()
-        .expect("lineOrder should be present");
-    assert_eq!(line_order, &["1", "2", "3", "4"]);
+    assert_eq!(global_lyrics.line_order, ["1", "2", "3", "4"]);
 }
 
 #[test]
@@ -982,7 +978,7 @@ fn test_lyric_extender_cache_dependency_tracks_remote_endpoint_duration() {
 fn test_lyric_extenders_without_ids_share_the_lyric_text_anchor() {
     let mut json = serde_json::json!({
         "mnx":{"version":1},
-        "global":{"measures":[{"time":{"count":4,"unit":4}}]},
+        "global":{"measures":[{"time":{"count":4,"unit":4}}],"lyrics":{"lineOrder":["1"]}},
         "parts":[{"measures":[{"sequences":[{"content":[
             {"duration":{"base":"quarter"},"notes":[{"pitch":{"step":"C","octave":4}}]},
             {"type":"grace","content":[
@@ -1043,7 +1039,7 @@ fn test_lyric_extenders_without_ids_share_the_lyric_text_anchor() {
 fn test_lyric_extender_inference_tracks_named_voices_across_sequence_reordering() {
     let mut json = serde_json::json!({
         "mnx":{"version":1},
-        "global":{"measures":[{"time":{"count":4,"unit":4}},{}]},
+        "global":{"measures":[{"time":{"count":4,"unit":4}},{}],"lyrics":{"lineOrder":["1"]}},
         "parts":[{"measures":[
             {"sequences":[{"voice":"singer","content":[
                 {"id":"source","duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":4}}],
@@ -1106,7 +1102,7 @@ fn test_idless_lyric_extender_keeps_its_source_selection_tag_across_systems() {
         .collect();
     let json = serde_json::json!({
         "mnx":{"version":1,"support":{"useLyricExtenders":true}},
-        "global":{"measures":[{"time":{"count":4,"unit":4}},{},{},{}]},
+        "global":{"measures":[{"time":{"count":4,"unit":4}},{},{},{}],"lyrics":{"lineOrder":["1"]}},
         "parts":[{"measures":measures}]
     });
     let score = crate::parse::parse_mnx_strict(&json.to_string()).unwrap();

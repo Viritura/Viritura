@@ -59,7 +59,7 @@ fn promote_global_lyrics(r: raw::LyricsGlobal) -> ModelGlobalLyrics {
         .collect::<Vec<_>>();
     ModelGlobalLyrics {
         line_metadata,
-        line_order: (!line_order.is_empty()).then_some(line_order),
+        line_order,
     }
 }
 

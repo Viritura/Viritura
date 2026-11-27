@@ -210,7 +210,9 @@ describe("buildLayouts", () => {
 
     expect(layouts).toHaveLength(3); // FullScore + 2 per-player
     expect(layouts[1]!.id).toBe("L-P1");
+    expect(layouts[1]!.content).toEqual([{ type: "staff", sources: [{ part: "P1" }] }]);
     expect(layouts[2]!.id).toBe("L-P2");
+    expect(layouts[2]!.content).toEqual([{ type: "staff", sources: [{ part: "P2" }] }]);
   });
 });
 

@@ -1465,6 +1465,29 @@ describe("convertMusicXmlToMnx — lyrics", () => {
     });
   });
 
+  it("includes lyric lines found inside tuplets in global order", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type>
+        <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes><normal-type>eighth</normal-type></time-modification>
+        <notations><tuplet type="start"/></notations>
+        <lyric number="3"><text>Tuplet</text></lyric>
+      </note>
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type>
+        <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes><normal-type>eighth</normal-type></time-modification>
+      </note>
+      <note>
+        <pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type>
+        <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes><normal-type>eighth</normal-type></time-modification>
+        <notations><tuplet type="stop"/></notations>
+      </note>
+    `);
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.global.lyrics?.lineOrder).toEqual(["line-3"]);
+    expect(() => parseMnx(result)).not.toThrow();
+  });
+
   it("converts syllabic begin/end types", () => {
     const xml = wrapScore(`
       <note>
@@ -3215,6 +3238,9 @@ describe("convertMusicXmlToMnx — percussion", () => {
     ["slash", "slash"],
     ["plus", "plus"],
     ["circle-x", "circleX"],
+    ["circled", "circled"],
+    ["slashed", "slashed"],
+    ["back slashed", "backSlashed"],
     ["square", "square"],
   ])("maps MusicXML %s noteheads to native MNX shapes", (xmlShape, mnxShape) => {
     const xml = wrapScore(`

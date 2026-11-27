@@ -223,7 +223,7 @@ function condensedDoublingScore(): string {
         {
           type: "group",
           symbol: "bracket",
-          content: [{ type: "staff", labelref: "name", sources: [{ part: "ob1" }, { part: "ob2" }] }],
+          content: [{ type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "ob1" }, { part: "ob2" }] }],
         },
       ],
     },

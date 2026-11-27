@@ -386,7 +386,7 @@ function serializeGlobal(score: Score): Obj {
     measures: score.global.measures.map(serializeGlobalMeasure),
   };
   if (score.global.lyrics) {
-    const lyrics: Obj = {};
+    const lyrics: Obj = { lineOrder: score.global.lyrics.lineOrder };
     if (score.global.lyrics.lineMetadata) {
       const lm: Obj = {};
       for (const [key, entry] of Object.entries(score.global.lyrics.lineMetadata)) {
@@ -396,9 +396,6 @@ function serializeGlobal(score: Score): Obj {
         lm[key] = e;
       }
       lyrics["lineMetadata"] = lm;
-    }
-    if (score.global.lyrics.lineOrder) {
-      lyrics["lineOrder"] = score.global.lyrics.lineOrder;
     }
     globalObj["lyrics"] = lyrics;
   }

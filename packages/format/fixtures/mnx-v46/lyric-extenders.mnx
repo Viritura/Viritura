@@ -6,6 +6,7 @@
     }
   },
   "global": {
+    "lyrics": { "lineOrder": ["1"] },
     "measures": [
       {
         "time": {

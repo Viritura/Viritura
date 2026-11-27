@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { legacyNotehead, type Part, type Score } from "@viritura/core";
+import { noteheadFromEditorShape, type Part, type Score } from "@viritura/core";
 import { parseMnx, serializeMnx } from "@viritura/format";
 import { normalizeTritschInstrumentIdentities } from ".";
 
@@ -226,7 +226,11 @@ function expectKit(
   notehead: "normal" | "x",
 ): void {
   expect(part(score, partId).kit).toEqual({
-    [componentId]: expect.objectContaining({ name: componentName, sound: soundId, notehead: legacyNotehead(notehead) }),
+    [componentId]: expect.objectContaining({
+      name: componentName,
+      sound: soundId,
+      notehead: noteheadFromEditorShape(notehead),
+    }),
   });
   expect(score.global.sounds?.[soundId]).toEqual({ name: soundName, midiNumber });
 }

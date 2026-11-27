@@ -89,10 +89,14 @@ function isMeasureSignatures(value: unknown): boolean {
 function isGlobalLyrics(value: unknown): boolean {
   if (typeof value !== "object" || value === null) return false;
   const lyrics = value as Record<string, unknown>;
-  if (lyrics["lineOrder"] !== undefined) {
-    if (!Array.isArray(lyrics["lineOrder"]) || !lyrics["lineOrder"].every((lineId) => typeof lineId === "string")) {
-      return false;
-    }
+  const order = lyrics["lineOrder"];
+  if (
+    !Array.isArray(order) ||
+    order.length === 0 ||
+    !order.every((lineId) => typeof lineId === "string") ||
+    new Set(order).size !== order.length
+  ) {
+    return false;
   }
   if (lyrics["lineMetadata"] === undefined) return true;
   if (
@@ -102,7 +106,8 @@ function isGlobalLyrics(value: unknown): boolean {
   ) {
     return false;
   }
-  for (const metadata of Object.values(lyrics["lineMetadata"] as Record<string, unknown>)) {
+  for (const [lineId, metadata] of Object.entries(lyrics["lineMetadata"] as Record<string, unknown>)) {
+    if (!order.includes(lineId)) return false;
     if (typeof metadata !== "object" || metadata === null) return false;
     const entry = metadata as Record<string, unknown>;
     if (entry["label"] !== undefined && typeof entry["label"] !== "string") return false;

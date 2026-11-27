@@ -9,7 +9,10 @@ import { applyPatchesToScore, patch } from "@viritura/core";
 function documentWithExtenders() {
   return {
     mnx: { version: 1, support: { useLyricExtenders: false } },
-    global: { measures: [{ time: { count: 4, unit: 4 } }] },
+    global: {
+      measures: [{ time: { count: 4, unit: 4 } }],
+      lyrics: { lineOrder: ["verse", "second", "third"] },
+    },
     parts: [
       {
         id: "part-1",

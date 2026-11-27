@@ -573,8 +573,8 @@ describe("applyDenigmaGapReport", () => {
       },
     ]);
 
-    expect(viritura(noteAt(result.document, 0))["notehead"]).toBe("x");
-    expect(viritura(noteAt(result.document, 1))["notehead"]).toBe("triangleUp");
+    expect(noteAt(result.document, 0)["notehead"]).toEqual({ shape: "x" });
+    expect(noteAt(result.document, 1)["notehead"]).toEqual({ shape: "triangle" });
     expect(noteAt(result.document, 2)["_x"]).toBeUndefined();
     expect(result.outcomes.map((entry) => entry.disposition)).toEqual([
       "handled",
@@ -583,6 +583,24 @@ describe("applyDenigmaGapReport", () => {
       "unhandled",
       "unhandled",
     ]);
+  });
+
+  it("preserves an existing native notehead rather than replacing it with a gap", () => {
+    const source = document();
+    noteAt(source, 0)["notehead"] = { shape: "square", id: "original-head" };
+    const result = applyDenigmaGapReport(
+      JSON.stringify(source),
+      report([
+        {
+          anchor: "ev1n1",
+          extent: "complete",
+          type: "notehead",
+          notehead: { shape: "x", fill: "unspecified" },
+        },
+      ]),
+    );
+    expect(noteAt(JSON.parse(result.mnxJson), 0)["notehead"]).toEqual({ shape: "square", id: "original-head" });
+    expect(result.outcomes[0]?.disposition).toBe("handled-partially");
   });
 
   it("decorates visible and playback-only standard tempo objects", () => {

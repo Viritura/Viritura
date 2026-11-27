@@ -4,9 +4,9 @@ Canonical reference for how Viritura stores, engraves, edits, and plays
 dynamics. Dynamics are standard MNX dynamic-group variants; Viritura defines
 no separate hairpin storage.
 
-> **Upstream baseline:** `w3c-cg/mnx@f2a9b5b9864f3c9bfdc74380ff2a760f74c7ce54`
-> (schema 46, 2026-10-14). `mnx.version` remains `1` — the project follows the
-> single rolling-draft policy.
+> **Upstream baseline:** `w3c-cg/mnx@72d6668efd0f965229b9f90caca9bba5220a69fc`
+> (schema 57, 2026-11-25). The schema revision is independent of `mnx.version`;
+> the project follows a single rolling-draft policy.
 
 ## 1. Storage
 

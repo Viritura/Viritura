@@ -51,7 +51,7 @@ import type {
   AccidentalEnclosureSymbol,
   Pitch,
 } from "@viritura/core";
-import { legacyNotehead, type NoteValueBase, type StemDirection, type Step, type Octave } from "@viritura/core";
+import type { NoteValueBase, StemDirection, Step, Octave } from "@viritura/core";
 
 import type {
   Sequence as RawSequence,
@@ -76,7 +76,6 @@ import type {
   EventMarkingsExtensions as RawEventMarkingsExt,
   FullMeasureRestExtensions as RawFullMeasureRestExt,
   SlurExtensions as RawSlurExt,
-  NoteExtensions as RawNoteExt,
   TupletExtensions as RawTupletExt,
   Glissando as RawGlissando,
 } from "@viritura/core/raw-viritura";
@@ -494,9 +493,7 @@ function parseNote(raw: RawNote): Note {
     if (raw.written.diatonicDelta !== undefined) note.written.diatonicDelta = raw.written.diatonicDelta;
   }
 
-  const viritura = raw._x?.["viritura"] as RawNoteExt | undefined;
   if (raw.notehead) note.notehead = raw.notehead;
-  else if (viritura?.notehead) note.notehead = legacyNotehead(viritura.notehead);
 
   if (raw.markings) note.markings = raw.markings;
 

@@ -36,16 +36,16 @@ function subtypeOf(gap: DenigmaGap): string | undefined {
   return undefined;
 }
 
-const NOTEHEAD_GLYPH_MAP: Readonly<Record<string, "circleX" | "triangleUp" | "triangleDown">> = {
+const NOTEHEAD_GLYPH_MAP: Readonly<Record<string, "circleX" | "triangle" | "triangleDown">> = {
   noteheadCircleX: "circleX",
   noteheadCircleXBlack: "circleX",
   noteheadCircleXHalf: "circleX",
   noteheadCircleXWhole: "circleX",
   noteheadCircleXDoubleWhole: "circleX",
-  noteheadTriangleUpBlack: "triangleUp",
-  noteheadTriangleUpHalf: "triangleUp",
-  noteheadTriangleUpWhole: "triangleUp",
-  noteheadTriangleUpDoubleWhole: "triangleUp",
+  noteheadTriangleUpBlack: "triangle",
+  noteheadTriangleUpHalf: "triangle",
+  noteheadTriangleUpWhole: "triangle",
+  noteheadTriangleUpDoubleWhole: "triangle",
   noteheadTriangleDownBlack: "triangleDown",
   noteheadTriangleDownHalf: "triangleDown",
   noteheadTriangleDownWhole: "triangleDown",
@@ -520,12 +520,12 @@ function applySmartShapeGap(gap: DenigmaGap, index: TargetIndex): GapApplication
 }
 
 function noteheadShape(payload: NoteheadPayload): {
-  shape?: "normal" | "x" | "circleX" | "diamond" | "slash" | "triangleUp" | "triangleDown";
+  shape?: "oval" | "x" | "circleX" | "diamond" | "slash" | "triangle" | "triangleDown";
   reason?: string;
 } {
   switch (payload.shape) {
     case "regular":
-      return { shape: "normal" };
+      return { shape: "oval" };
     case "x":
       return { shape: "x" };
     case "diamond":
@@ -535,9 +535,7 @@ function noteheadShape(payload: NoteheadPayload): {
       return { shape: "slash", reason: "Collapsed Finale's small/large slash distinction." };
     case "other": {
       const shape = payload.glyph ? NOTEHEAD_GLYPH_MAP[payload.glyph] : undefined;
-      return shape
-        ? { shape, reason: `Mapped the recognized ${payload.glyph} glyph to Viritura's ${shape} shape.` }
-        : {};
+      return shape ? { shape, reason: `Mapped the recognized ${payload.glyph} glyph to MNX's ${shape} shape.` } : {};
     }
     default:
       return {};
@@ -558,12 +556,14 @@ function applyNoteheadGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
     );
   }
 
-  const extensions = ensureViritura(note);
-  const existing = extensions["notehead"];
-  if (typeof existing === "string" && existing !== mapped.shape) {
-    return outcome("handled-partially", "An existing Viritura notehead override took precedence.");
+  const existing = note["notehead"];
+  if (existing !== undefined) {
+    if (!isRecord(existing) || existing["shape"] !== mapped.shape) {
+      return outcome("handled-partially", "An existing MNX notehead override took precedence.");
+    }
+  } else {
+    note["notehead"] = { shape: mapped.shape };
   }
-  extensions["notehead"] = mapped.shape;
 
   const reason =
     mapped.reason ??

@@ -35,8 +35,8 @@ fn document() -> Value {
              "measures":[measure.clone(),measure.clone(),measure.clone(),measure]}
         ],
         "layouts":[{"id":"score","content":[
-            {"type":"staff","sources":[{"part":"p1"}],"labelref":"name"},
-            {"type":"staff","sources":[{"part":"p2"}],"labelref":"name"}
+            {"type":"staff","sources":[{"part":"p1"}],"labelRef":{"ref":"auto"}},
+            {"type":"staff","sources":[{"part":"p2"}],"labelRef":{"ref":"auto"}}
         ]}],
         "scores":[{"name":"Score","layout":"score","pages":[{"systems":[{"measure":"m1"},{"measure":"m3"}]}]}]
     })
@@ -69,7 +69,7 @@ fn part_header_document(authored: bool) -> Value {
     second["id"] = json!("p2");
     value["parts"][1] = second;
     value["layouts"][0]["content"] = json!([{
-        "type":"staff","sources":[{"part":"p1"}],"labelref":"name"
+        "type":"staff","sources":[{"part":"p1"}],"labelRef":{"ref":"auto"}
     }]);
     value["scores"][0]["name"] = json!("Clarinet in B\u{266d} 1");
     if !authored {
@@ -234,7 +234,7 @@ fn instrument_names_piccolo_flute_part_header_omits_redundant_concert_tuning() {
             json!({"instrument":if flute_first { "picc" } else { "fl" }}),
         );
         value["layouts"][0]["content"] = json!([{
-            "type":"staff","sources":[{"part":"p1"}],"labelref":"name"
+            "type":"staff","sources":[{"part":"p1"}],"labelRef":{"ref":"auto"}
         }]);
         value["scores"][0]["name"] = value["parts"][0]["name"].clone();
         if !authored {
@@ -294,7 +294,7 @@ fn instrument_names_custom_part_header_and_layout_label_are_preserved() {
         value["layouts"][0]["content"][0]
             .as_object_mut()
             .unwrap()
-            .remove("labelref");
+            .remove("labelRef");
         value["layouts"][0]["content"][0]["label"] = json!("Custom staff");
         let second_staff = value["layouts"][0]["content"][0].clone();
         value["layouts"][0]["content"]
@@ -530,8 +530,7 @@ fn instrument_names_keep_authored_layout_labels_under_every_policy() {
             ink.iter().filter(|text| **text == "Reeds player").count(),
             2
         );
-        assert!(!ink.contains(&"Flute"));
-        assert!(!ink.contains(&"Fl."));
+        assert!(ink.contains(&if policy == "full" { "Flute" } else { "Fl." }));
         assert!(ink.contains(&"Cl. in B\u{266d}"));
     }
 }
@@ -618,7 +617,8 @@ fn instrument_names_split_sources_keep_each_players_labels() {
     );
     value["layouts"][0]["content"] = json!([{
         "type":"staff","sources":[
-            {"part":"p1","labelref":"shortName"},{"part":"p2"}
+            {"part":"p1","labelRef":{"ref":"shortName"}},
+            {"part":"p2","labelRef":{"ref":"shortName"}}
         ]
     }]);
     let score = parse(&value);

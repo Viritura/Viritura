@@ -116,23 +116,20 @@ pub(crate) fn render_note_chord(
         let cp = per_note_cp(i);
         let note_y = staff_y + pos * staff_sp * 0.5;
         let note_x = x + note_x_offsets.get(i).copied().unwrap_or(0.0) * notehead_w;
+        let (ink_left, _, ink_width, _) = smufl::glyph_bbox(cp);
         draw_ledger_lines_for_note(
             dl,
             pos,
-            note_x,
+            note_x + (ink_left - smufl::notehead_origin(cp)) * sp,
             staff_y,
             staff_sp,
-            smufl::notehead_width(cp) * sp,
+            ink_width * sp,
             ledger_left_ext * style.scale,
             ledger_right_ext * style.scale,
             config.ledger_line_width,
         );
         // The breve's SMuFL origin aligns its body with the rhythmic column.
-        let nh_x = if cp == smufl::NOTEHEAD_DOUBLE_WHOLE {
-            note_x - smufl::NOTEHEAD_DOUBLE_WHOLE_ORIGIN.0 * sp
-        } else {
-            note_x
-        };
+        let nh_x = note_x - smufl::notehead_origin(cp) * sp;
         let notehead_cmd_idx = dl.commands.len();
         dl.push(RenderCommand::DrawGlyph {
             x: nh_x,
@@ -222,11 +219,7 @@ pub(crate) fn render_note_chord(
         let note_y = staff_y + note_positions.get(i).copied().unwrap_or(0.0) * staff_sp * 0.5;
         let note_x = x + note_x_offsets.get(i).copied().unwrap_or(0.0) * notehead_w;
         let cp = per_note_cp(i);
-        let origin = if cp == smufl::NOTEHEAD_DOUBLE_WHOLE {
-            smufl::NOTEHEAD_DOUBLE_WHOLE_ORIGIN.0
-        } else {
-            0.0
-        };
+        let origin = smufl::notehead_origin(cp);
         let (left, _, width, _) = smufl::glyph_bbox(cp);
         let note_edges = (
             note_x + (left - origin) * sp,

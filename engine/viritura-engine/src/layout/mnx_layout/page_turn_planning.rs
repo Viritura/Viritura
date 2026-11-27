@@ -583,6 +583,7 @@ mod tests {
             short_label: None,
             resolved_full_label: None,
             resolved_short_label: None,
+            label_components: Vec::new(),
             expansion: false,
             condensed_numbers: Vec::new(),
             chord_symbol_source: None,

@@ -736,50 +736,54 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                     color: "#000000".into(),
                 });
             }
+        }
 
-            // Render group brackets and braces — suppressed at a stitched seam.
-            if !seam_continuation {
-                render_group_brackets_and_braces(
-                    &mut seg,
-                    group_ranges,
-                    &staff_y_offsets,
-                    margin_left,
-                    staff_height,
-                    sp,
-                    config,
-                    policy_for_system(instrument_name_display, sys_idx)
-                        != Some(InstrumentNameDisplayPolicy::Hidden),
-                );
-            }
+        let measure_index = all_staff_layouts
+            .iter()
+            .flat_map(|staff| staff.first())
+            .map(|measure| measure.resolved.index)
+            .min()
+            .unwrap_or(0);
+        let active_groups =
+            super::instrument_labels::active_groups_at(group_ranges, score, measure_index);
+        let active_labels =
+            super::instrument_labels::active_staves_at(flat_staves, score, measure_index);
+        let name_policy = policy_for_system(instrument_name_display, sys_idx);
+        let label_x = margin_left - 2.8 * sp;
 
-            // Render staff labels. Single-staff layouts (a part / solo score)
-            // carry no margin gutter, so skip the instrument name there to
-            // match `plan_system_breaks` and avoid drawing over the music.
-            // Suppressed at a stitched seam (no per-chunk label restatement).
-            if flat_staves.len() > 1 && !seam_continuation {
-                let measure_index = all_staff_layouts
-                    .iter()
-                    .flat_map(|staff| staff.first())
-                    .map(|measure| measure.resolved.index)
-                    .min()
-                    .unwrap_or(0);
-                let active_labels =
-                    super::instrument_labels::active_staves_at(flat_staves, score, measure_index);
-                render_staff_labels(
-                    &mut seg,
-                    &active_labels,
-                    group_ranges,
-                    &staff_y_offsets,
-                    margin_left - 2.8 * sp,
-                    staff_height,
-                    sp,
-                    sys_idx,
-                    policy_for_system(instrument_name_display, sys_idx),
-                    config
-                        .text_styles
-                        .resolve(crate::layout::text_styles::TextRole::StaffLabel),
-                );
-            }
+        // Render group brackets and braces — suppressed at a stitched seam.
+        if !seam_continuation {
+            render_group_brackets_and_braces(
+                &mut seg,
+                &active_labels,
+                &active_groups,
+                &staff_y_offsets,
+                margin_left,
+                label_x,
+                staff_height,
+                sp,
+                config,
+                sys_idx == 0,
+                name_policy,
+            );
+        }
+
+        // Suppress labels at stitched seams, not at actual system starts.
+        if !seam_continuation {
+            render_staff_labels(
+                &mut seg,
+                &active_labels,
+                &active_groups,
+                &staff_y_offsets,
+                label_x,
+                staff_height,
+                sp,
+                sys_idx,
+                name_policy,
+                config
+                    .text_styles
+                    .resolve(crate::layout::text_styles::TextRole::StaffLabel),
+            );
         }
 
         // Group-spanning meters: drawn once per bracket group here, where the

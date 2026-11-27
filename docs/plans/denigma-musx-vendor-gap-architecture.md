@@ -477,53 +477,10 @@ font, size percentage, and horizontal offset. Its
 `NoteInfoPtr::calcNoteheadInfo()` resolves the effective notehead across
 per-note overrides, percussion configuration, and document defaults.
 
-Denigma already classifies resolved noteheads into families including regular,
-X, diamond, slash, circled, and other known glyphs. Its MNX exporter creates kit
-components with instrument identity, sound, MIDI number, and staff position,
-but current MNX has no standard kit-component notehead property.
-
-Denigma could emit:
-
-```json
-{
-  "gapCode": "finale.percussion-component-notehead",
-  "payloadVersion": 1,
-  "disposition": "unsupported-by-mnx",
-  "notationRef": {
-    "taxonomyRevision": "<pinned revision>",
-    "concepts": [
-      {
-        "id": "note-unpitched-notehead-map",
-        "role": "primary"
-      },
-      {
-        "id": "note-notehead-x",
-        "role": "related"
-      }
-    ]
-  },
-  "sourceFeature": {
-    "format": "finale-musx",
-    "type": "finale.effective-notehead",
-    "payload": {
-      "shape": "x",
-      "fill": "filled",
-      "glyphName": "noteheadXBlack",
-      "origin": "percussion-layout"
-    }
-  },
-  "target": {
-    "mnxId": "kc-hihat-closed"
-  },
-  "evidenceRoots": ["finale:percussionNoteInfo:42"],
-  "capture": {
-    "level": "complete"
-  },
-  "message": "MNX cannot assign an X notehead to a kit component."
-}
-```
-
-Viritura can translate the supported subset to:
+Denigma classifies resolved noteheads into families including regular, X,
+diamond, slash, circled, and other known glyphs. MNX v57 has native noteheads
+for kit components and individual notes, so supported shapes do not need a
+vendor extension or an unsupported-by-MNX gap. For example:
 
 ```json
 {
@@ -531,22 +488,18 @@ Viritura can translate the supported subset to:
   "name": "Closed Hi-Hat",
   "sound": "hihat-closed",
   "staffPosition": 5,
-  "_x": {
-    "viritura": {
-      "notehead": "x"
-    }
-  }
+  "notehead": { "shape": "x" }
 }
 ```
 
 The adapter must respect scope:
 
-| Denigma source situation                                           | Current Viritura coverage                               |
-| ------------------------------------------------------------------ | ------------------------------------------------------- |
-| Percussion component uses X, diamond, slash, circle-X, or triangle | Supported or supportable through `_x.viritura.notehead` |
-| One note has an `altNhead` override                                | Not represented by the current kit-component extension  |
-| One note has custom size or offsets                                | Not represented by the current extension                |
-| Arbitrary resolved SMuFL glyph                                     | Not represented by the current extension                |
+| Denigma source situation                                           | Current Viritura coverage         |
+| ------------------------------------------------------------------ | --------------------------------- |
+| Percussion component uses X, diamond, slash, circle-X, or triangle | Native MNX kit-component notehead |
+| One note has a recognized `altNhead` override                      | Native MNX notehead on the note   |
+| One note has custom size or offsets                                | Not mapped by the gap adapter     |
+| Arbitrary resolved SMuFL glyph                                     | Not mapped by the gap adapter     |
 
 A per-note override must never be promoted to the reusable kit component.
 

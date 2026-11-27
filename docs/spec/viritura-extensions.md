@@ -28,7 +28,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | [event](#event-extensions)                         | `...content[]._x.viritura`                      | glissandos                                                                                                                               |
 | [tuplet](#cross-barline-tuplet-fragments)          | `...content[]._x.viritura`                      | span                                                                                                                                     |
 | [slur](#slur-extensions)                           | `...content[].slurs[]._x.viritura`              | shape                                                                                                                                    |
-| [kit-component](#kit-component-extensions)         | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                                 |
+| [kit-component](#kit-component-extensions)         | `parts[].kit[]._x.viritura`                     | drumKit                                                                                                                                  |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -2548,23 +2548,10 @@ handles and to hit-test edits without re-decoding the painted crescent.
 
 Extensions on `parts[].kit[]._x.viritura` (on a drum-kit component).
 
-### `notehead`
+### `drumKit`
 
-Legacy notehead shape for hits on this kit component. MNX 52 has native
-`notehead` objects on `note`, `kit-note`, and `kit-component`, including
-SMuFL glyphs for custom shapes. Viritura accepts this extension when reading
-older scores, prefers a native notehead when both forms are present, and writes
-the native MNX field.
-
-Legacy values: `"normal"`, `"x"`, `"circleX"`, `"diamond"`, `"slash"`,
-`"triangleUp"`, `"triangleDown"`, `"plus"`, and `"square"`. Native MNX
-uses `"oval"` for `"normal"` and `"triangle"` for `"triangleUp"`.
-
-A legacy pitched `note` may carry the same `_x.viritura.notehead` as a per-note override.
-Playback does not sound pitched notes with `"x"`, `"circleX"`, or `"slash"` noteheads:
-those mark unpitched techniques (claps, taps, spoken or percussive effects, rhythmic
-slashes) that MIDI cannot reproduce. Diamond (harmonic) and triangle (shape-note)
-noteheads still sound their pitch. Kit hits always sound through the percussion map.
+An optional GS drum-kit program (0 through 127) overriding the percussion
+part's default kit for this component's sound.
 
 ```json
 {
@@ -2574,7 +2561,7 @@ noteheads still sound their pitch. Kit hits always sound through the percussion 
   "staffPosition": 5,
   "_x": {
     "viritura": {
-      "notehead": "x"
+      "drumKit": 49
     }
   }
 }

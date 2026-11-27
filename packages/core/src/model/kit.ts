@@ -29,22 +29,34 @@ export type Sound = RawSound;
 export type PerformOptions = RawPerformOptions;
 
 /**
- * Legacy shape names used by Viritura's notehead editing controls.
+ * Shape names used by Viritura's notehead editing controls.
  */
 export type NoteheadShape =
-  "normal" | "x" | "circleX" | "diamond" | "slash" | "triangleUp" | "triangleDown" | "plus" | "square" | "custom";
+  | "normal"
+  | "x"
+  | "circleX"
+  | "circled"
+  | "slashed"
+  | "backSlashed"
+  | "diamond"
+  | "slash"
+  | "triangleUp"
+  | "triangleDown"
+  | "plus"
+  | "square"
+  | "custom";
 
 export type Notehead = RawNotehead;
 
-/** Convert the legacy editor/extension spelling to the native MNX spelling. */
-export function legacyNotehead(shape: NoteheadShape): Notehead {
+/** Convert editor shape names to the native MNX spelling. */
+export function noteheadFromEditorShape(shape: NoteheadShape): Notehead {
   if (shape === "custom") throw new Error("Custom noteheads require a SMuFL glyph");
   return { shape: shape === "normal" ? "oval" : shape === "triangleUp" ? "triangle" : shape };
 }
 
 export function noteheadEditorShape(notehead: Notehead | undefined): NoteheadShape {
   const shape = notehead?.shape;
-  if (shape === undefined || shape === "default" || shape === "oval") return "normal";
+  if (shape === undefined || shape === "oval") return "normal";
   if (shape === "triangle") return "triangleUp";
   return shape;
 }

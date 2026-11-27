@@ -5,6 +5,7 @@
 
 import type { TextFrame } from "./textFrame";
 import type { BarNumberSettings } from "./score";
+import type { LabelRef as RawLabelRef } from "../raw";
 
 /**
  * Page dimensions.
@@ -432,18 +433,19 @@ export interface LayoutGroup {
   content: LayoutContent[];
   symbol?: string;
   label?: string;
+  labelRef?: StaffLabelRef;
   barlineStyle?: string;
 }
 
-/** Standard MNX reference to a part's full or abbreviated staff label. */
-export type StaffLabelRef = "name" | "shortName";
+/** Standard MNX reference to a part's full or abbreviated label. */
+export type StaffLabelRef = RawLabelRef;
 
 /** Instrument-name rendering choice for one class of systems. */
 export type InstrumentNameDisplayPolicy = "full" | "short" | "hidden";
 
 /**
  * Viritura score-level override for instrument names. The conventional MNX
- * `labelref: "name"` behavior (full first, short later) needs no override.
+ * `labelRef: { ref: "auto" }` behavior (full first, short later) needs no override.
  */
 export interface InstrumentNameDisplaySettings {
   firstSystem: InstrumentNameDisplayPolicy;
@@ -477,7 +479,8 @@ export interface LayoutStaff {
   type: "staff";
   sources: LayoutSource[];
   label?: string;
-  labelref?: StaffLabelRef;
+  labelRef?: StaffLabelRef;
+  symbol?: string;
 }
 
 /** A source mapping a part (and optionally a staff/voice within it) to a layout staff. */
@@ -486,7 +489,8 @@ export interface LayoutSource {
   staff?: number;
   stem?: string;
   voice?: string;
-  labelref?: StaffLabelRef;
+  label?: string;
+  labelRef?: StaffLabelRef;
 }
 
 /** A multimeasure rest range within a score definition. */

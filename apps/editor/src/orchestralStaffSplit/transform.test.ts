@@ -231,7 +231,7 @@ describe("splitOrchestralParts", () => {
             barlineStyle: "mensurstrich",
             content: [
               { type: "staff", label: "Ob.", sources: [{ part: "P2" }] },
-              { type: "staff", labelref: "name", sources: [{ part: "P7", staff: 1 }] },
+              { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "P7", staff: 1 }] },
               { type: "staff", sources: [{ part: "P7", staff: 2 }] },
             ],
           },
@@ -251,10 +251,10 @@ describe("splitOrchestralParts", () => {
     expect(full.content).toEqual(
       expect.arrayContaining([
         { type: "staff", label: "Ob.", sources: [{ part: "P2-1", staff: undefined }] },
-        { type: "staff", labelref: "name", sources: [{ part: "P2-2", staff: undefined }] },
-        { type: "staff", labelref: "name", sources: [{ part: "P7-1", staff: undefined }] },
-        { type: "staff", labelref: "name", sources: [{ part: "P7-2", staff: undefined }] },
-        { type: "staff", labelref: "name", sources: [{ part: "P7-3", staff: undefined }] },
+        { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "P2-2", staff: undefined }] },
+        { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "P7-1", staff: undefined }] },
+        { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "P7-2", staff: undefined }] },
+        { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "P7-3", staff: undefined }] },
       ]),
     );
     expect(result.layouts!.some((layout) => layout.id === "part-P5-1")).toBe(true);
@@ -346,7 +346,9 @@ describe("splitOrchestralParts", () => {
       (staff) => staff.sources.length === 1 && /^P[2-7]-\d+$/.test(staff.sources[0]?.part ?? ""),
     );
     expect(splitPlayerStaves).toHaveLength(13);
-    expect(splitPlayerStaves.every((staff) => Boolean(staff.label?.trim()) || staff.labelref === "name")).toBe(true);
+    expect(splitPlayerStaves.every((staff) => Boolean(staff.label?.trim()) || staff.labelRef?.ref === "auto")).toBe(
+      true,
+    );
     expect(fullLayout.content[0]).toMatchObject({
       type: "group",
       symbol: "bracket",
@@ -409,7 +411,7 @@ describe("splitOrchestralParts", () => {
       "P7-3",
     ]) {
       expect(result.layouts?.find((layout) => layout.id === `part-${partId}`)?.content).toEqual([
-        { type: "staff", sources: [{ part: partId }], labelref: "name" },
+        { type: "staff", sources: [{ part: partId }], labelRef: { ref: "auto" } },
       ]);
       expect(result.scores?.some((definition) => definition.layout === `part-${partId}`)).toBe(true);
     }
@@ -518,12 +520,12 @@ describe("splitOrchestralParts", () => {
       const staff = findStaffByPart(fullLayout.content, partId);
       if (!staff) throw new Error(`Expected ${partId} staff`);
       delete staff.label;
-      delete staff.labelref;
+      delete staff.labelRef;
     }
     const explicitLabelStaff = findStaffByPart(fullLayout.content, "P2-1");
     if (!explicitLabelStaff) throw new Error("Expected P2-1 staff");
     explicitLabelStaff.label = "Ob.";
-    delete explicitLabelStaff.labelref;
+    delete explicitLabelStaff.labelRef;
 
     const layoutIds = migrated.layouts!.map((layout) => layout.id);
     const scoreDefinitions = structuredClone(migrated.scores);
@@ -534,10 +536,10 @@ describe("splitOrchestralParts", () => {
     expect(findGroupByParts(repairedFull.content, ["P7-1", "P7-2", "P7-3"])?.symbol).toBe("square");
     expect(findStaffByPart(repairedFull.content, "P2-1")).toMatchObject({ label: "Ob." });
     for (const partId of ["P2-2", "P5-2", "P6-2", "P7-2", "P7-3"]) {
-      expect(findStaffByPart(repairedFull.content, partId)).toMatchObject({ labelref: "name" });
+      expect(findStaffByPart(repairedFull.content, partId)).toMatchObject({ labelRef: { ref: "auto" } });
       expect(repaired.layouts?.find((layout) => layout.id === `part-${partId}`)?.content[0]).toMatchObject({
         type: "staff",
-        labelref: "name",
+        labelRef: { ref: "auto" },
         sources: [{ part: partId }],
       });
     }
@@ -555,7 +557,7 @@ describe("splitOrchestralParts", () => {
     expect(findStaffByParts(repairedCondensed.content, ["P2-1", "P2-2"])).toMatchObject({
       sources: [{ part: "P2-1" }, { part: "P2-2" }],
     });
-    expect(findStaffByParts(repairedCondensed.content, ["P2-1", "P2-2"])?.labelref).toBeUndefined();
+    expect(findStaffByParts(repairedCondensed.content, ["P2-1", "P2-2"])?.labelRef).toBeUndefined();
     expect(repaired.layouts!.map((layout) => layout.id)).toEqual(layoutIds);
     expect(repaired.scores).toEqual(scoreDefinitions);
     expect(refreshOrchestralCondensedScore(repaired)).toEqual(repaired);
@@ -583,7 +585,7 @@ describe("splitOrchestralParts", () => {
     );
     expect(result.scores?.[1]?.layout).toBe("condensed-score-2");
     expect(result.layouts?.find((layout) => layout.id === "part-P2-1-2")?.content).toEqual([
-      { type: "staff", sources: [{ part: "P2-1" }], labelref: "name" },
+      { type: "staff", sources: [{ part: "P2-1" }], labelRef: { ref: "auto" } },
     ]);
   });
 
@@ -721,12 +723,12 @@ function makeDocumentScore(): Score {
                 label: "Tromboni",
                 barlineStyle: "unified",
                 content: [
-                  { type: "staff", labelref: "shortName", sources: [{ part: part.id, staff: 1 }] },
+                  { type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: part.id, staff: 1 }] },
                   { type: "staff", sources: [{ part: part.id, staff: 2 }] },
                 ],
               },
             ]
-          : [{ type: "staff", labelref: "shortName", sources: [{ part: part.id! }] }],
+          : [{ type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: part.id! }] }],
       ),
     },
   ];

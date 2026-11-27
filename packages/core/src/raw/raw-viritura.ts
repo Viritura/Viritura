@@ -574,23 +574,13 @@ export interface components {
             /** @description Preserves intentional local notation on import, including a local override of a projected global symbol. */
             localOnly?: boolean;
         };
-        /**
-         * @description Legacy Viritura notehead shape accepted on kit components and pitched notes. New documents use the native MNX notehead object.
-         * @enum {string}
-         */
-        "notehead-shape": "normal" | "x" | "circleX" | "diamond" | "slash" | "triangleUp" | "triangleDown";
         /** @description Viritura vendor extensions on an MNX kit-component object. */
         "kit-component-extensions": {
-            /** @description Legacy notehead shape for hits on this kit component. New documents use the native MNX notehead object. */
-            notehead?: components["schemas"]["notehead-shape"];
             /** @description GS drum-kit program (bank 128) that this component's `sound.midiNumber` should play on, overriding the percussion part's default kit. Lets a single percussion staff borrow a sound from another kit (e.g. a Tam-tam/Big Gong from the Ethnic kit, pgm 49) that the part's main kit lacks. The audio engine routes such hits to a dedicated drum channel loaded with this program. */
             drumKit?: number;
         };
         /** @description Viritura vendor extensions on an MNX note object (the `_x.viritura` dict on a pitched note). */
-        "note-extensions": {
-            /** @description Legacy notehead-shape override for this pitched note. New documents use the native MNX notehead object. */
-            notehead?: components["schemas"]["notehead-shape"];
-        };
+        "note-extensions": Record<string, never>;
         /** @description A 2D position on the concert-hall stage, in meters. X runs left (negative) to right (positive); Y runs from the audience (negative) toward backstage (positive). */
         "stage-position": {
             /** @description Horizontal position in meters (left negative, right positive). */
@@ -1248,7 +1238,6 @@ export type EventMarkingsExtensions = components["schemas"]["event-markings-exte
 export type Arpeggio = components["schemas"]["arpeggio"];
 export type EventExtensions = components["schemas"]["event-extensions"];
 export type FermataExtensions = components["schemas"]["fermata-extensions"];
-export type NoteheadShape = components["schemas"]["notehead-shape"];
 export type KitComponentExtensions = components["schemas"]["kit-component-extensions"];
 export type NoteExtensions = components["schemas"]["note-extensions"];
 export type StagePosition = components["schemas"]["stage-position"];

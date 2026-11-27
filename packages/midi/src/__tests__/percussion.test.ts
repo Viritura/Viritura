@@ -28,7 +28,7 @@ function buildDrumKitScore(): Score {
         kit: {
           "kc-kick": { sound: "kick", staffPosition: -3 },
           "kc-snare": { sound: "snare", staffPosition: 1 },
-          "kc-hhc": { sound: "hhc", staffPosition: 5, notehead: "x" },
+          "kc-hhc": { sound: "hhc", staffPosition: 5, notehead: { shape: "x" } },
         },
         measures: [
           {
@@ -164,7 +164,7 @@ describe("generateTimeline — percussion roll (tremolo on kit-note)", () => {
           id: "p1",
           kit: {
             "kc-snare": { sound: "snare", staffPosition: 1 },
-            "kc-hhc": { sound: "hhc", staffPosition: 5, notehead: "x" },
+            "kc-hhc": { sound: "hhc", staffPosition: 5, notehead: { shape: "x" } },
           },
           measures: [
             {

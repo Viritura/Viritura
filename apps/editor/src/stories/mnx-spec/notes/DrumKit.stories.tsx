@@ -25,8 +25,8 @@ const basicKitMnx = JSON.stringify({
       id: "p1",
       name: "Drum Kit",
       kit: {
-        crash: { name: "Crash", sound: "snd-crash", staffPosition: 6, _x: { viritura: { notehead: "x" } } },
-        hh: { name: "Hi-Hat", sound: "snd-hh", staffPosition: 5, _x: { viritura: { notehead: "x" } } },
+        crash: { name: "Crash", sound: "snd-crash", staffPosition: 6, notehead: { shape: "x" } },
+        hh: { name: "Hi-Hat", sound: "snd-hh", staffPosition: 5, notehead: { shape: "x" } },
         snare: { name: "Snare", sound: "snd-snare", staffPosition: 1 },
         kick: { name: "Kick", sound: "snd-kick", staffPosition: -3 },
       },

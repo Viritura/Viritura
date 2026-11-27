@@ -72,7 +72,7 @@ semantics, multiple rehearsal marks in one measure, separate displayed/playback
 metronome values, note-specific chord endpoints, custom/dashed/invisible lines,
 and tab slides remain explicit partial or unhandled outcomes.
 
-The pinned producer emits MNX schema 52 and gap-report schema 2. Native
+The pinned producer emits MNX schema 57 and gap-report schema 2. Native
 positioned text retains its voice and grace-note position; partial technique
 gaps do not create duplicate expressions. Text-formatting ranges restore
 bold, italic, underline, and strikethrough through `_x.viritura.style`, using
@@ -95,7 +95,7 @@ different harmony is reported through import diagnostics.
 
 The pinned Denigma revision classifies both chord roots and slash basses as
 **written** pitches (`KeyContext::Written` in
-[`mnx_chords.cpp`](https://github.com/openmusx/denigma/blob/4eb6d168ee1cb52791607ed1c4bb1a454959444d/src/formats/mnx/mnx_chords.cpp)).
+[`mnx_chords.cpp`](https://github.com/openmusx/denigma/blob/66e154a59993a3b4c61707f32562be415d05c275/src/formats/mnx/mnx_chords.cpp)).
 The adapter negates the **source** MNX part's sounding-to-written
 `transposition.interval` to store concert harmony, preserving diatonic spelling.
 Absent transposition means unison; `prefersWrittenPitches` does not change this

@@ -18,12 +18,12 @@ function makeStaff(info: PartInfo, staffNum?: number): MnxLayoutStaff {
   // Reference the part's display name rather than hardcoding it, so the engine
   // auto-numbers like instruments (two "Flute" parts → "Flute 1"/"Flute 2")
   // and derives the abbreviated label for subsequent systems. Condensed staves
-  // (multiple sources) keep an explicit `label` since labelref resolves a
+  // (multiple sources) keep an explicit `label` since labelRef resolves a
   // single part only.
   return {
     type: "staff",
     sources: [source],
-    labelref: "name",
+    labelRef: { ref: "auto" },
   };
 }
 

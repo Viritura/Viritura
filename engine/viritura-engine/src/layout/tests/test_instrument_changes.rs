@@ -33,7 +33,7 @@ fn document() -> Value {
             }},
             "measures":[measure.clone(),measure.clone(),measure.clone(),measure]
         }],
-        "layouts":[{"id":"score","content":[{"type":"staff","sources":[{"part":"p1"}],"labelref":"name"}]}],
+        "layouts":[{"id":"score","content":[{"type":"staff","sources":[{"part":"p1"}],"labelRef":{"ref":"auto"}}]}],
         "scores":[{"name":"Written score","layout":"score","useWritten":true,"pages":[]}]
     })
 }
@@ -1165,7 +1165,7 @@ fn add_other_staff(value: &mut Value) {
     value["layouts"][0]["content"]
         .as_array_mut()
         .unwrap()
-        .push(json!({"type":"staff","sources":[{"part":"p2"}],"labelref":"name"}));
+        .push(json!({"type":"staff","sources":[{"part":"p2"}],"labelRef":{"ref":"auto"}}));
     value["scores"][0]["_x"] = json!({"viritura":{"instrumentNameDisplay":{
         "firstSystem":"full","subsequentSystems":"full"
     }}});

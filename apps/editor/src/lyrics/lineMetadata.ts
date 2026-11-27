@@ -1,4 +1,4 @@
-import type { Part, PartMeasure, Score, SequenceContent } from "@viritura/core";
+import type { GlobalLyrics, Part, PartMeasure, Score, SequenceContent } from "@viritura/core";
 import type { LyricInputState } from "../components/LyricInput";
 import { getEventAncestorId, getEventAtLocation, resolveEventFromSubElement } from "../score/ElementPath";
 import type { SelectionState } from "../store/selectionStore";
@@ -25,6 +25,12 @@ function contentHasLyrics(content: readonly SequenceContent[]): boolean {
 
 const partLyricPresence = new WeakMap<Part, boolean>();
 const measureLyricPresence = new WeakMap<PartMeasure, boolean>();
+
+export function includeLyricLine(score: Score, lineId: string): GlobalLyrics {
+  score.global.lyrics ??= { lineOrder: [] };
+  if (!score.global.lyrics.lineOrder.includes(lineId)) score.global.lyrics.lineOrder.push(lineId);
+  return score.global.lyrics;
+}
 
 function measureHasLyrics(measure: PartMeasure): boolean {
   const cached = measureLyricPresence.get(measure);

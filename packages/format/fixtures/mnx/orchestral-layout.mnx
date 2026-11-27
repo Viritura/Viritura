@@ -2588,7 +2588,7 @@
           "content": [
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P1-1"
@@ -2597,7 +2597,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P1-2"
@@ -2606,7 +2606,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P2-1"
@@ -2615,7 +2615,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P2-2"
@@ -2624,7 +2624,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P3-1"
@@ -2633,7 +2633,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P3-2"
@@ -2642,7 +2642,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P4-1"
@@ -2651,7 +2651,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P4-2"
@@ -2660,7 +2660,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P5-1"
@@ -2669,7 +2669,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P5-2"
@@ -2678,7 +2678,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P6-1"
@@ -2687,7 +2687,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P6-2"
@@ -2696,7 +2696,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P7"
@@ -2709,7 +2709,7 @@
               "content": [
                 {
                   "type": "staff",
-                  "labelref": "name",
+                  "labelRef": {"ref": "auto"},
                   "sources": [
                     {
                       "part": "P8"
@@ -2718,7 +2718,7 @@
                 },
                 {
                   "type": "staff",
-                  "labelref": "name",
+                  "labelRef": {"ref": "auto"},
                   "sources": [
                     {
                       "part": "P9"
@@ -2730,7 +2730,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P10"
@@ -2743,7 +2743,7 @@
               "content": [
                 {
                   "type": "staff",
-                  "labelref": "name",
+                  "labelRef": {"ref": "auto"},
                   "sources": [
                     {
                       "part": "P11"
@@ -2752,7 +2752,7 @@
                 },
                 {
                   "type": "staff",
-                  "labelref": "name",
+                  "labelRef": {"ref": "auto"},
                   "sources": [
                     {
                       "part": "P12"

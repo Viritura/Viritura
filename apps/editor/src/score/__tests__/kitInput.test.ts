@@ -14,13 +14,13 @@ function makePart(): Part {
   return {
     name: "Percussion",
     kit: {
-      "kit-crash": { staffPosition: 6, name: "Crash", sound: "s1", notehead: "x" },
+      "kit-crash": { staffPosition: 6, name: "Crash", sound: "s1", notehead: { shape: "x" } },
       "kit-snare": { staffPosition: 3, name: "Snare", sound: "s2" },
-      "kit-stick": { staffPosition: 3, name: "Side Stick", sound: "s3", notehead: "x" },
+      "kit-stick": { staffPosition: 3, name: "Side Stick", sound: "s3", notehead: { shape: "x" } },
       "kit-bass": { staffPosition: -1, name: "Bass", sound: "s4" },
     },
     measures: [],
-  } as unknown as Part;
+  };
 }
 
 describe("kitComponentsAtStaffPosition", () => {

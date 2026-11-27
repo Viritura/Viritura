@@ -134,7 +134,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P7"
@@ -147,7 +147,7 @@
               "content": [
                 {
                   "type": "staff",
-                  "labelref": "name",
+                  "labelRef": {"ref": "auto"},
                   "sources": [
                     {
                       "part": "P8"
@@ -156,7 +156,7 @@
                 },
                 {
                   "type": "staff",
-                  "labelref": "name",
+                  "labelRef": {"ref": "auto"},
                   "sources": [
                     {
                       "part": "P9"
@@ -168,7 +168,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "P10"
@@ -181,7 +181,7 @@
               "content": [
                 {
                   "type": "staff",
-                  "labelref": "name",
+                  "labelRef": {"ref": "auto"},
                   "sources": [
                     {
                       "part": "P11"
@@ -190,7 +190,7 @@
                 },
                 {
                   "type": "staff",
-                  "labelref": "name",
+                  "labelRef": {"ref": "auto"},
                   "sources": [
                     {
                       "part": "P12"

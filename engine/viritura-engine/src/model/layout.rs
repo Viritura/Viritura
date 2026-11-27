@@ -29,6 +29,8 @@ pub struct LayoutGroup {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub label_ref: Option<LayoutLabelRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub barline_style: Option<String>,
 }
 
@@ -37,13 +39,14 @@ pub struct LayoutGroup {
 /// Model-internal type — construction goes through
 /// `promote::layout::promote_layout_staff`.
 #[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct LayoutStaff {
     #[serde(default)]
     pub sources: Vec<LayoutSource>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub labelref: Option<String>,
+    pub label_ref: Option<LayoutLabelRef>,
     /// Staff symbol type (MNX `symbol`): "brace", "bracket", "square", "noSymbol".
     /// Nested brackets render as full brackets; `square` is the thin sub-bracket.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -77,6 +80,7 @@ pub struct LayoutStaff {
 
 /// A source mapping a part (and optionally a staff/voice within it) to a layout staff.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct LayoutSource {
     pub part: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -86,7 +90,23 @@ pub struct LayoutSource {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub voice: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub labelref: Option<String>,
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label_ref: Option<LayoutLabelRef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LayoutLabelRef {
+    #[serde(rename = "ref", skip_serializing_if = "Option::is_none")]
+    pub reference: Option<crate::raw::LabelRefType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+    #[serde(rename = "_c", skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(rename = "_x", skip_serializing_if = "Option::is_none")]
+    pub extensions: Option<serde_json::Value>,
 }
 
 impl LayoutStaff {

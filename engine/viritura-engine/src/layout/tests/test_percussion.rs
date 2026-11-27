@@ -22,7 +22,7 @@ const DRUM_KIT_MNX: &str = r#"{
         "kit": {
             "kick":  {"name": "Kick",  "sound": "snd-kick",  "staffPosition": -4},
             "snare": {"name": "Snare", "sound": "snd-snare", "staffPosition": 0,
-                      "_x": {"viritura": {"notehead": "x"}}}
+                      "notehead": {"shape": "x"}}
         },
         "measures": [{
             "clefs": [{"clef": {"sign": "P", "staffPosition": 0}}],

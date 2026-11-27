@@ -3,6 +3,7 @@ export {
   getLyricLineDisplay,
   getLyricLineIds,
   getNextLyricLineId,
+  includeLyricLine,
   invalidateLyricPresence,
   isValidLanguageTag,
   scoreHasLyrics,

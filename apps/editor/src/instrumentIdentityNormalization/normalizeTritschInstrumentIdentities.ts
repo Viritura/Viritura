@@ -1,5 +1,5 @@
 import {
-  legacyNotehead,
+  noteheadFromEditorShape,
   walkSequenceEvents,
   type LayoutContent,
   type Part,
@@ -179,7 +179,7 @@ function normalizePercussion(score: Score): void {
         ...component,
         name: percussion.componentName,
         sound: soundId,
-        notehead: legacyNotehead(percussion.notehead),
+        notehead: noteheadFromEditorShape(percussion.notehead),
       },
     };
   }
