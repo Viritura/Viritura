@@ -55,13 +55,12 @@ pub(super) fn validate_presentations(measure: &serde_json::Value) -> Result<(), 
             PromoteError::InvalidTextFrame(format!("text[{index}].frame: {reason}"))
         };
         crate::validator::validate_staff_text_frame(value).map_err(error)?;
-        let frame: StaffTextFramePresentation =
+        let frame: raw::StaffTextFramePresentation =
             serde_json::from_value(value.clone()).map_err(|e| error(e.to_string()))?;
         if frame
             .width
-            .is_some_and(|StaffTextFrameWidth::StaffSpaces(width)| {
-                !width.is_finite() || width <= 0.0
-            })
+            .as_ref()
+            .is_some_and(|width| !width.value.is_finite() || width.value <= 0.0)
             || frame
                 .padding
                 .is_some_and(|padding| !padding.is_finite() || padding < 0.0)
@@ -106,5 +105,19 @@ mod tests {
             }]});
             assert!(validate_presentations(&measure).is_err());
         }
+    }
+
+    #[test]
+    fn accepts_source_reference_metadata() {
+        let measure = json!({"text": [{
+            "type": "expression",
+            "text": [{"text": "Play freely"}],
+            "position": {"fraction": [0, 1]},
+            "_x": {"viritura": {"frame": {
+                "sourceReference": {"unit": "evpu", "referenceStaffSize": 96}
+            }}}
+        }]});
+        let result = validate_presentations(&measure);
+        assert!(result.is_ok(), "{result:?}");
     }
 }

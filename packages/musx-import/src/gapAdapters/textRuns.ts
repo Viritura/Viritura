@@ -61,17 +61,25 @@ function trimEdges(chunks: TextContentChunk[]): TextContent | undefined {
  * Convert a formatted-text payload to chunks, preserving per-run formatting
  * and SMuFL glyph runs. Returns `undefined` when nothing visible remains.
  */
-export function formattedTextContent(text: FormattedText | undefined): TextContent | undefined {
+export function formattedTextContent(
+  text: FormattedText | undefined,
+  preserveWhitespace = false,
+): TextContent | undefined {
   if (!text) return undefined;
   if (text.runs && text.runs.length > 0) {
     const chunks = text.runs.map(chunkFor).filter((chunk): chunk is TextContentChunk => chunk !== undefined);
-    if (chunks.length > 0) return trimEdges(chunks);
+    if (chunks.length > 0) return preserveWhitespace ? chunks : trimEdges(chunks);
+    if (text.runs.some((run) => run.font?.hidden)) return undefined;
   }
-  const plain = text.plain.trim();
+  const plain = preserveWhitespace ? text.plain : text.plain.trim();
   return plain ? [{ text: plain }] : undefined;
 }
 
 /** True when any run carries formatting we cannot yet represent. */
 export function hasUnimportedFormatting(text: FormattedText | undefined): boolean {
-  return text?.runs?.some((run) => run.font?.name !== undefined || run.font?.size !== undefined) === true;
+  return (
+    text?.runs?.some(
+      (run) => run.font?.name !== undefined || run.font?.size !== undefined || run.font?.hidden === true,
+    ) === true
+  );
 }

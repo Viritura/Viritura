@@ -1,8 +1,10 @@
 import type { TextContent } from "@viritura/core";
-import type { DenigmaDiagnostic, DenigmaGap, DenigmaGapOutcome, DenigmaGapReport } from "../types";
+import type { DenigmaDiagnostic, DenigmaGapOutcome, DenigmaGapReport } from "../types";
 import { applyTextFormattingGaps } from "./textFormatting";
 import { applyChordSymbolGaps } from "./chordSymbols";
 import { formattedTextContent, hasUnimportedFormatting } from "./textRuns";
+import { isAdaptedDenigmaGap, isPageTextGap, normalizeGapReport, type NormalizedGap } from "./normalizeReport";
+import { applyPageTextGap, applyTextBlockGap } from "./textBlocks";
 import {
   asDocumentRecord,
   ensureArrayProperty,
@@ -19,6 +21,7 @@ import {
   isNoteheadGap,
   isRecord,
   isSmartShapeGap,
+  type AdaptedDenigmaGap,
   type ExpressionPayload,
   type GapAdaptationResult,
   type GapApplication,
@@ -27,7 +30,10 @@ import {
   type NoteheadPayload,
 } from "./types";
 
-function subtypeOf(gap: DenigmaGap): string | undefined {
+function subtypeOf(gap: NormalizedGap): string | undefined {
+  if (gap.type === "page-text") return "page-text";
+  if (gap.type === "text-block") return "text-block";
+  if (!isAdaptedDenigmaGap(gap)) return undefined;
   if (isChordGap(gap)) return "chord-symbol";
   if (isNoteheadGap(gap)) return gap.notehead.shape;
   if (isExpressionGap(gap)) return gap.expression.type;
@@ -118,17 +124,17 @@ function formattingOutcome(expression: ExpressionPayload): GapApplication {
     : outcome("handled");
 }
 
-function gapPosition(gap: DenigmaGap): JsonRecord {
+function gapPosition(gap: AdaptedDenigmaGap): JsonRecord {
   return { fraction: [gap.position?.numerator ?? 0, gap.position?.denominator ?? 1] };
 }
 
-function expressionPlacement(gap: DenigmaGap): "above" | "below" | undefined {
+function expressionPlacement(gap: AdaptedDenigmaGap): "above" | "below" | undefined {
   if (gap.placements?.some((placement) => placement.kind === "system-bottom")) return "below";
   if (gap.placements?.some((placement) => placement.kind === "system-top")) return "above";
   return undefined;
 }
 
-function expressionMeasure(gap: DenigmaGap, index: TargetIndex) {
+function expressionMeasure(gap: AdaptedDenigmaGap, index: TargetIndex) {
   const direct = index.measure(gap.anchor);
   if (direct?.partMeasure) return direct;
   const staffPlacement = gap.placements?.find((placement) => placement.kind === "staff");
@@ -149,7 +155,7 @@ function nativeTextContent(content: TextContent): JsonRecord[] {
   });
 }
 
-function addTextExpression(gap: DenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
+function addTextExpression(gap: AdaptedDenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
   const existing = index.byId(gap.anchor);
   if (gap.extent === "partial" && Array.isArray(existing?.["text"])) return formattingOutcome(expression);
   const target = expressionMeasure(gap, index);
@@ -172,7 +178,11 @@ function addTextExpression(gap: DenigmaGap, expression: ExpressionPayload, index
   return formattingOutcome(expression);
 }
 
-function addSystemTextExpression(gap: DenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
+function addSystemTextExpression(
+  gap: AdaptedDenigmaGap,
+  expression: ExpressionPayload,
+  index: TargetIndex,
+): GapApplication {
   const existing = index.byId(gap.anchor);
   if (gap.extent === "partial" && Array.isArray(existing?.["text"])) {
     return outcome("handled-partially", "Preserved the existing staff text but not its floating system scope.");
@@ -188,7 +198,12 @@ function addSystemTextExpression(gap: DenigmaGap, expression: ExpressionPayload,
     placements && placements.length > 0
       ? placements.map((placement) => ({
           anchor: placement.anchor,
-          placement: placement.kind === "system-top" ? "above" : "below",
+          placement:
+            placement.placement === "above" || placement.placement === "below"
+              ? placement.placement
+              : placement.kind === "system-top"
+                ? "above"
+                : "below",
         }))
       : [{ anchor: gap.anchor, placement: scopePlacement }];
   const hasStaffPlacements = gap.placements?.some((placement) => placement.kind === "staff") === true;
@@ -245,17 +260,21 @@ function addSystemTextExpression(gap: DenigmaGap, expression: ExpressionPayload,
 }
 
 function applyGenericTextExpression(
-  gap: DenigmaGap,
+  gap: AdaptedDenigmaGap,
   expression: ExpressionPayload,
   index: TargetIndex,
 ): GapApplication {
-  if (expression.scope === "top-staff" || expression.scope === "bottom-staff") {
+  const hasSystemPlacements =
+    gap.placements?.some((placement) => placement.kind === "system-top" || placement.kind === "system-bottom") === true;
+  if (
+    expression.scope === "top-staff" ||
+    expression.scope === "bottom-staff" ||
+    (expression.scope === "staff" && hasSystemPlacements)
+  ) {
     return addSystemTextExpression(gap, expression, index);
   }
   const result = addTextExpression(gap, expression, index);
   if (result.outcome.disposition === "unhandled") return result;
-  const hasSystemPlacements =
-    gap.placements?.some((placement) => placement.kind === "system-top" || placement.kind === "system-bottom") === true;
   if (expression.scope === "staff" && !hasSystemPlacements) return result;
   return outcome(
     "handled-partially",
@@ -265,7 +284,7 @@ function applyGenericTextExpression(
   );
 }
 
-function addRehearsalMark(gap: DenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
+function addRehearsalMark(gap: AdaptedDenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
   const target = index.measure(gap.anchor);
   const content = expressionContent(expression);
   if (!target || !content) return outcome("unhandled", "Rehearsal-mark target or text is unavailable.");
@@ -290,7 +309,7 @@ function markerExists(globalMeasure: JsonRecord, marker: KnownMarkerTextGap["mar
  * Finale prints navigation instructions as fully authored text, so imported
  * marker text replaces the generated glyph or label unless the gap says otherwise.
  */
-function applyMarkerTextGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
+function applyMarkerTextGap(gap: AdaptedDenigmaGap, index: TargetIndex): GapApplication {
   if (!isMarkerTextGap(gap)) {
     return outcome("unhandled", "Expected a partial marker-text gap naming its marker, with plain or formatted text.");
   }
@@ -345,7 +364,11 @@ function tempoExtension(tempo: JsonRecord): JsonRecord {
   return ensureViritura(tempo);
 }
 
-function findOrCreateTempo(gap: DenigmaGap, expression: ExpressionPayload, index: TargetIndex): JsonRecord | undefined {
+function findOrCreateTempo(
+  gap: AdaptedDenigmaGap,
+  expression: ExpressionPayload,
+  index: TargetIndex,
+): JsonRecord | undefined {
   const direct = index.byId(gap.anchor);
   if (direct && typeof direct["bpm"] === "number") return direct;
   const measure = index.measure(gap.anchor);
@@ -365,7 +388,11 @@ function findOrCreateTempo(gap: DenigmaGap, expression: ExpressionPayload, index
   return tempo;
 }
 
-function applyTempoExpression(gap: DenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
+function applyTempoExpression(
+  gap: AdaptedDenigmaGap,
+  expression: ExpressionPayload,
+  index: TargetIndex,
+): GapApplication {
   if (expression.type === "tempo-alteration") {
     return addTextExpression(gap, expression, index);
   }
@@ -385,7 +412,7 @@ function applyTempoExpression(gap: DenigmaGap, expression: ExpressionPayload, in
   return formattingOutcome(expression);
 }
 
-function applyExpressionGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
+function applyExpressionGap(gap: AdaptedDenigmaGap, index: TargetIndex): GapApplication {
   if (!isExpressionGap(gap)) return outcome("unhandled", "Malformed expression payload.");
   switch (gap.expression.type) {
     case "generic-text":
@@ -407,7 +434,7 @@ function applyExpressionGap(gap: DenigmaGap, index: TargetIndex): GapApplication
   }
 }
 
-function applyPlaybackOnlyGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
+function applyPlaybackOnlyGap(gap: AdaptedDenigmaGap, index: TargetIndex): GapApplication {
   const tempo = index.byId(gap.anchor);
   if (!tempo || typeof tempo["bpm"] !== "number") {
     return outcome("unhandled", "Playback-only gap does not reference a standard MNX tempo.");
@@ -446,7 +473,7 @@ function hasUnsupportedLineDetails(line: GeneralLinePayload): boolean {
   );
 }
 
-function applyGlissando(gap: DenigmaGap, index: TargetIndex): GapApplication {
+function applyGlissando(gap: AdaptedDenigmaGap, index: TargetIndex): GapApplication {
   if (!isSmartShapeGap(gap) || gap.smartShape.shapeType === "tab-slide") {
     return outcome("unhandled", "Tab slides are not represented by the current Viritura model.");
   }
@@ -486,7 +513,7 @@ function applyGlissando(gap: DenigmaGap, index: TargetIndex): GapApplication {
   return outcome(reason ? "handled-partially" : "handled", reason);
 }
 
-function applyTrillLine(gap: DenigmaGap, index: TargetIndex): GapApplication {
+function applyTrillLine(gap: AdaptedDenigmaGap, index: TargetIndex): GapApplication {
   if (!isSmartShapeGap(gap)) return outcome("unhandled", "Malformed trill-line payload.");
   const trillLine = gap.smartShape.trillLine;
   const source = index.event(gap);
@@ -512,7 +539,7 @@ function applyTrillLine(gap: DenigmaGap, index: TargetIndex): GapApplication {
   return outcome(reason ? "handled-partially" : "handled", reason);
 }
 
-function applySmartShapeGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
+function applySmartShapeGap(gap: AdaptedDenigmaGap, index: TargetIndex): GapApplication {
   if (!isSmartShapeGap(gap)) return outcome("unhandled", "Malformed smart-shape payload.");
   if (gap.smartShape.kind === "glissando") return applyGlissando(gap, index);
   if (gap.smartShape.kind === "trill-line") return applyTrillLine(gap, index);
@@ -542,7 +569,7 @@ function noteheadShape(payload: NoteheadPayload): {
   }
 }
 
-function applyNoteheadGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
+function applyNoteheadGap(gap: AdaptedDenigmaGap, index: TargetIndex): GapApplication {
   if (!isNoteheadGap(gap)) return outcome("unhandled", "Malformed notehead payload.");
   const note = index.byId(gap.anchor);
   if (!note || !isRecord(note["pitch"])) {
@@ -571,7 +598,7 @@ function applyNoteheadGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
   return outcome(reason ? "handled-partially" : "handled", reason);
 }
 
-type GapAdapter = (gap: DenigmaGap, index: TargetIndex) => GapApplication;
+type GapAdapter = (gap: AdaptedDenigmaGap, index: TargetIndex) => GapApplication;
 
 const GAP_ADAPTERS: Readonly<Record<string, GapAdapter>> = {
   expression: applyExpressionGap,
@@ -579,9 +606,10 @@ const GAP_ADAPTERS: Readonly<Record<string, GapAdapter>> = {
   notehead: applyNoteheadGap,
   "playback-only": applyPlaybackOnlyGap,
   "smart-shape": applySmartShapeGap,
+  "text-block": applyTextBlockGap,
 };
 
-function applyGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
+function applyGap(gap: AdaptedDenigmaGap, index: TargetIndex): GapApplication {
   const adapter = GAP_ADAPTERS[gap.type];
   return adapter ? adapter(gap, index) : outcome("unhandled", `Unsupported Denigma gap type ${gap.type}.`);
 }
@@ -599,7 +627,11 @@ export function applyDenigmaGapReport(
   report: DenigmaGapReport,
   indentSpaces?: number,
 ): GapAdaptationResult {
-  if (report.schemaVersion !== 1 && report.schemaVersion !== 2) {
+  if (
+    report.schemaVersion !== 3 ||
+    (report.fonts !== undefined && !isRecord(report.fonts)) ||
+    !Array.isArray(report.gaps)
+  ) {
     throw new Error(`Unsupported Denigma gap-report schema version ${String(report.schemaVersion)}.`);
   }
   let parsed: unknown;
@@ -611,15 +643,23 @@ export function applyDenigmaGapReport(
   const document = assertMnxEnvelope(parsed);
   const index = new TargetIndex(document);
   const diagnostics: DenigmaDiagnostic[] = [];
-  const formattingApplications = applyTextFormattingGaps(report.gaps, index);
-  const chordApplications = applyChordSymbolGaps(report.gaps, index, diagnostics);
-  const outcomes = report.gaps.map((gap, gapIndex) => {
-    const application = formattingApplications.get(gapIndex) ?? chordApplications.get(gapIndex) ?? applyGap(gap, index);
+  const gaps = normalizeGapReport(report);
+  const formattingApplications = applyTextFormattingGaps(gaps, index);
+  const chordApplications = applyChordSymbolGaps(gaps, index, diagnostics);
+  const outcomes = gaps.map((gap, gapIndex) => {
+    let application: GapApplication;
+    if (isPageTextGap(gap)) {
+      application = applyPageTextGap(gap, gapIndex, index);
+    } else if (isAdaptedDenigmaGap(gap)) {
+      application = formattingApplications.get(gapIndex) ?? chordApplications.get(gapIndex) ?? applyGap(gap, index);
+    } else {
+      application = outcome("unhandled", "Denigma gap is missing its target anchor.");
+    }
     const result: DenigmaGapOutcome = {
       gapIndex,
       type: gap.type,
       ...(subtypeOf(gap) ? { subtype: subtypeOf(gap) } : {}),
-      anchor: gap.anchor,
+      ...(gap.anchor === undefined ? {} : { anchor: gap.anchor }),
       ...application.outcome,
     };
     if (result.disposition !== "handled") {

@@ -64,6 +64,7 @@ export interface TextBlock extends TextFramePresentation {
 /** Music-relative frames use staff-space widths, never a page-column reference. */
 export interface StaffTextFramePresentation extends Omit<TextFramePresentation, "width"> {
   width?: Extract<TextFrameWidth, { unit: "staffSpaces" }>;
+  sourceReference?: TextFrameSourceReference;
 }
 
 /**

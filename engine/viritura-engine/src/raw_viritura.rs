@@ -10901,6 +10901,9 @@ impl<'de> ::serde::Deserialize<'de> for StaffMeterUnit {
 ///        "justify"
 ///      ]
 ///    },
+///    "sourceReference": {
+///      "$ref": "#/$defs/text-frame-source-reference"
+///    },
 ///    "width": {
 ///      "type": "object",
 ///      "required": [
@@ -10952,6 +10955,12 @@ pub struct StaffTextFramePresentation {
     pub paragraph_justification: ::std::option::Option<
         StaffTextFramePresentationParagraphJustification,
     >,
+    #[serde(
+        rename = "sourceReference",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub source_reference: ::std::option::Option<TextFrameSourceReference>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub width: ::std::option::Option<StaffTextFramePresentationWidth>,
 }
@@ -10968,6 +10977,7 @@ impl ::std::default::Default for StaffTextFramePresentation {
             horizontal_alignment: Default::default(),
             padding: Default::default(),
             paragraph_justification: Default::default(),
+            source_reference: Default::default(),
             width: Default::default(),
         }
     }
