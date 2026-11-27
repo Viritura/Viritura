@@ -7,7 +7,7 @@ import { LOCAL_WRITE_ORIGIN, MnxYjsBridge } from "../MnxYjsBridge";
 it("replicates final-fragment references atomically and restores hidden and visible intent on undo", () => {
   const original = parseMnx({
     mnx: { version: 1, support: { useLyricExtenders: true } },
-    global: { measures: [{ time: { count: 4, unit: 4 } }] },
+    global: { lyrics: { lineOrder: ["verse", "hidden"] }, measures: [{ time: { count: 4, unit: 4 } }] },
     parts: [
       {
         measures: [
