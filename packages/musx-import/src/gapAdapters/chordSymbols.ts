@@ -4,6 +4,7 @@ import {
   parseChordSymbolText,
   resolveChordSymbol,
   transposeChordSymbol,
+  validateFretboard,
   type ChordRoot,
   type ChordSymbol,
   type Fretboard,
@@ -150,11 +151,12 @@ function toFretboard(payload: NonNullable<ChordPayload["fretboard"]>, partId: st
   };
 }
 
-function chordFretboardFields(chord: ChordPayload, partId: string): Partial<Pick<ChordSymbol, "fretboards">> {
-  return chord.fretboard ? { fretboards: [toFretboard(chord.fretboard, partId)] } : {};
-}
-
-function toChordSymbol(chord: ChordPayload, gap: AdaptedDenigmaGap, interval: Interval, partId: string): ChordSymbol {
+function toChordSymbol(
+  chord: ChordPayload,
+  gap: AdaptedDenigmaGap,
+  interval: Interval,
+  fretboard: Fretboard | undefined,
+): ChordSymbol {
   if (
     gap.position !== undefined &&
     (!isRecord(gap.position) ||
@@ -176,6 +178,7 @@ function toChordSymbol(chord: ChordPayload, gap: AdaptedDenigmaGap, interval: In
     interval,
   );
   const noChord = parseChordSymbolText(chord.suffix.suffixText, position);
+  const fretboardFields = fretboard ? { fretboards: [fretboard] } : {};
   if (
     chord.suffix.quality === "none" &&
     !chord.showRoot &&
@@ -183,7 +186,7 @@ function toChordSymbol(chord: ChordPayload, gap: AdaptedDenigmaGap, interval: In
     chord.suffix.degrees.length === 0 &&
     resolveChordSymbol(noChord).status === "silent"
   ) {
-    return { ...noChord, ...chordFretboardFields(chord, partId) };
+    return { ...noChord, ...fretboardFields };
   }
   // Visibility and letter casing must not remove harmonic information from rawText.
   const text =
@@ -196,7 +199,7 @@ function toChordSymbol(chord: ChordPayload, gap: AdaptedDenigmaGap, interval: In
     rawText: text,
     ...(chord.suffix.suffixText ? { kindText: chord.suffix.suffixText } : {}),
     ...(mapping?.extension !== undefined ? { extension: mapping.extension } : {}),
-    ...chordFretboardFields(chord, partId),
+    ...fretboardFields,
   };
   applyDegrees(symbol, parsed, chord.suffix.degrees);
   // Source aliases and typography are provenance, not authored display overrides.
@@ -273,14 +276,26 @@ export function applyChordSymbolGaps(
     if (gap.staff !== undefined && (!Number.isSafeInteger(gap.staff) || gap.staff < 1)) {
       throw new Error("Invalid source staff while adapting Denigma chord symbols.");
     }
-    const chordSymbol = toChordSymbol(gap.chord, gap, sourceToConcert(target.part), partId);
+    const fretboard = gap.chord.fretboard ? toFretboard(gap.chord.fretboard, partId) : undefined;
+    const fretboardErrors = fretboard ? validateFretboard(fretboard) : [];
+    const chordSymbol = toChordSymbol(
+      gap.chord,
+      gap,
+      sourceToConcert(target.part),
+      fretboardErrors.length === 0 ? fretboard : undefined,
+    );
     const resolution = resolveChordSymbol(chordSymbol);
-    const reason =
+    const harmonyReason =
       resolution.status === "unsupported"
         ? `${resolution.message} Preserved source harmony as rawText.`
         : complexPresentation(gap.chord) && (resolution.status !== "silent" || !gap.chord.showSuffix)
           ? "Preserved full concert harmonic text for house-style rendering; Finale suffix typography and visibility fields cannot be represented."
           : undefined;
+    const diagramReason =
+      fretboardErrors.length > 0
+        ? `Could not preserve chord diagram: ${[...new Set(fretboardErrors)].join(" ")}`
+        : undefined;
+    const reason = [harmonyReason, diagramReason].filter(Boolean).join(" ") || undefined;
     applications.set(gapIndex, {
       outcome: { disposition: reason ? "handled-partially" : "handled", ...(reason ? { reason } : {}) },
     });
@@ -307,7 +322,11 @@ export function applyChordSymbolGaps(
     diagnostics.push(
       ...merged.warnings.map((warning) => ({
         severity: "warning" as const,
-        message: `Denigma chord-symbol gap in measure ${target.measureIndex + 1} at ${warning.position.fraction.join("/")}: discarded different harmony from part ${warning.discardedPartIndex + 1}; kept the topmost source staff (part ${warning.keptPartIndex + 1}).`,
+        message: `Denigma chord-symbol gap in measure ${target.measureIndex + 1} at ${warning.position.fraction.join("/")}: ${
+          warning.kind === "fretboard"
+            ? `discarded a conflicting diagram for part ${warning.discardedPartIndex + 1}; kept the first diagram for that instrument.`
+            : `discarded different harmony from part ${warning.discardedPartIndex + 1}; kept the topmost source staff (part ${warning.keptPartIndex + 1}).`
+        }`,
       })),
     );
   }

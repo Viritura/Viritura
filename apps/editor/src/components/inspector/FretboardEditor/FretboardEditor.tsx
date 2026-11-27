@@ -108,7 +108,7 @@ export function FretboardEditor({ partId, value, onChange }: Props) {
         <summary>Fingerings and barre endpoints</summary>
         {strings.map((string) => {
           const note = draft.frameNotes.find((entry) => entry.string === string);
-          if (!note || note.fret === 0) return null;
+          if (!note) return null;
           return (
             <fieldset key={string}>
               <legend>String {string}</legend>
@@ -120,23 +120,25 @@ export function FretboardEditor({ partId, value, onChange }: Props) {
                   onChange={(event) => updateNote(string, { ...note, fingering: event.target.value || undefined })}
                 />
               </label>
-              <label style={labelStyle}>
-                Barre endpoint
-                <Select
-                  value={note.barre ?? ""}
-                  options={[
-                    { value: "", label: "None" },
-                    { value: "start", label: "Start" },
-                    { value: "stop", label: "Stop" },
-                  ]}
-                  onValueChange={(barre) =>
-                    updateNote(string, {
-                      ...note,
-                      barre: barre === "start" ? "start" : barre === "stop" ? "stop" : undefined,
-                    })
-                  }
-                />
-              </label>
+              {note.fret > 0 && (
+                <label style={labelStyle}>
+                  Barre endpoint
+                  <Select
+                    value={note.barre ?? ""}
+                    options={[
+                      { value: "", label: "None" },
+                      { value: "start", label: "Start" },
+                      { value: "stop", label: "Stop" },
+                    ]}
+                    onValueChange={(barre) =>
+                      updateNote(string, {
+                        ...note,
+                        barre: barre === "start" ? "start" : barre === "stop" ? "stop" : undefined,
+                      })
+                    }
+                  />
+                </label>
+              )}
             </fieldset>
           );
         })}

@@ -162,11 +162,49 @@ describe("global MUSX chord symbols", () => {
     gap.chord.fretboard = {
       frameStrings: 6,
       frameFrets: 4,
-      frameNotes: [{ string: 6, fret: 5, barre: "start" }],
+      frameNotes: [{ string: 6, fret: Number.NaN }],
     };
     const result = apply([gap]);
     expect(result.chords).toEqual([]);
     expect(result.outcomes[0]?.disposition).toBe("unhandled");
+  });
+
+  it("preserves harmony and reports a partial import for unsupported barre endpoints", () => {
+    const gap = chordGap();
+    gap.chord.fretboard = {
+      frameStrings: 6,
+      frameFrets: 4,
+      frameNotes: [
+        { string: 6, fret: 1, barre: "start" },
+        { string: 1, fret: 3, barre: "stop" },
+      ],
+    };
+    const result = apply([gap]);
+    expect(result.chords[0]).toMatchObject({ root: { step: "C" } });
+    expect(result.chords[0]?.fretboards).toBeUndefined();
+    expect(result.outcomes[0]).toMatchObject({
+      disposition: "handled-partially",
+      reason: expect.stringContaining("Could not preserve chord diagram"),
+    });
+    expect(result.diagnostics[0]?.message).toContain("paired endpoints on one fret");
+  });
+
+  it("reports conflicting diagrams without calling them different harmony", () => {
+    const upper = chordGap();
+    const first = chordGap();
+    first.anchor = "P2.m1";
+    first.chord.fretboard = { frameStrings: 6, frameFrets: 4, frameNotes: [{ string: 1, fret: 1 }] };
+    const second = structuredClone(first);
+    second.staff = 2;
+    second.chord.fretboard!.frameNotes[0]!.fret = 3;
+    const result = apply([second, upper, first], document(2));
+    expect(result.chords[0]?.fretboards?.[0]).toMatchObject({
+      partId: "P2",
+      frameNotes: [{ string: 1, fret: 1 }],
+    });
+    expect(result.diagnostics).toHaveLength(1);
+    expect(result.diagnostics[0]?.message).toContain("conflicting diagram for part 2");
+    expect(result.diagnostics[0]?.message).not.toContain("different harmony");
   });
 
   it("keeps concert aliases in storage when formatting transposed context copies", () => {

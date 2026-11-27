@@ -124,6 +124,17 @@ describe("MusicXML global harmony merging", () => {
     expect(diagnostics.some((entry) => entry.code === "musicxml-harmony-conflict")).toBe(false);
   });
 
+  it("identifies the retained instrument diagram independently of the harmony source", () => {
+    const frame = (fret: number) => `<frame><frame-strings>6</frame-strings><frame-frets>4</frame-frets>
+      <frame-note><string>1</string><fret>${fret}</fret></frame-note></frame>`;
+    const { diagnostics } = importHarmony([
+      { measures: [harmony("C")] },
+      { measures: [harmony("C", "major", frame(1)) + harmony("C", "major", frame(3))] },
+    ]);
+    const conflict = diagnostics.find((entry) => entry.code === "musicxml-frame-conflict");
+    expect(conflict?.message).toContain("kept the first diagram for the instrument");
+  });
+
   it("immutably merges incoming positions without losing untouched global harmony or other extensions", () => {
     const originalChord: ChordSymbol = {
       position: { fraction: [3, 4] },

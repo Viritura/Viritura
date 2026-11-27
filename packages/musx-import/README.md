@@ -94,9 +94,11 @@ Chord events are written only to
 `_x.viritura.chordSymbolVisibility: "show"` (including previously hidden parts);
 no part-measure chord arrays or per-chord display-staff fields are created.
 Structured Denigma chord fretboards are mapped to the source instrument's
-`fretboards` entry. The currently pinned Denigma runtime predates this optional
-payload, so MUSX diagram import becomes available once the producer change is
-published and the runtime pin is refreshed.
+`fretboards` entry when supported. Unsupported diagrams, such as barres whose
+endpoints fall on different frets, are omitted with a partial-import diagnostic
+while their chord symbols are retained. The currently pinned Denigma runtime
+predates this optional payload, so MUSX diagram import becomes available once
+the producer change is published and the runtime pin is refreshed.
 Incoming events replace only matching exact rational positions. Multiple source
 parts/staves coalesce into one harmony stream: the topmost part, then topmost
 staff, wins regardless of gap order. Equivalent harmony is silent; discarded

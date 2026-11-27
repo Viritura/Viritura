@@ -212,13 +212,18 @@ describe("global chord symbol inspector", () => {
     await user.clear(strings);
     await user.type(strings, "4");
     await user.click(screen.getByRole("button", { name: "Set string 4 to open" }));
+    await user.click(screen.getByText("Fingerings and barre endpoints"));
+    await user.type(
+      within(screen.getByRole("group", { name: "String 4" })).getByRole("textbox", { name: "Fingering" }),
+      "0",
+    );
     await user.click(screen.getByRole("button", { name: "Set string 2 to fret 3" }));
     await user.click(screen.getByRole("button", { name: "Apply diagram" }));
     const stored = getScore().global.measures[0]!.chordSymbols![0]!;
     expect(stored.fretboards?.[0]?.partId).toBe("clarinet");
     expect(stored.fretboards?.[0]?.frameStrings).toBe(4);
     expect(stored.fretboards?.[0]?.frameNotes).toEqual([
-      { string: 4, fret: 0 },
+      { string: 4, fret: 0, fingering: "0" },
       { string: 2, fret: 3 },
     ]);
     await user.clear(chordInput());

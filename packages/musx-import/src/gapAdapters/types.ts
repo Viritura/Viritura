@@ -1,4 +1,4 @@
-import { validateFretboard, type Fretboard } from "@viritura/core";
+import type { Fretboard } from "@viritura/core";
 import type { DenigmaDiagnostic, DenigmaGap, DenigmaGapAnchor, DenigmaGapOutcome } from "../types";
 
 export type JsonRecord = Record<string, unknown>;
@@ -343,21 +343,7 @@ function isFretboardPayload(value: unknown): value is FretboardGapPayload {
   ) {
     return false;
   }
-  const notes = frameNotes.map((note) => ({
-    string: note.string,
-    fret: note.fret,
-    ...(note.fingering !== undefined ? { fingering: String(note.fingering) } : {}),
-    ...(note.barre !== undefined ? { barre: note.barre } : {}),
-  }));
-  return (
-    validateFretboard({
-      frameStrings,
-      frameFrets,
-      ...(firstFret !== undefined ? { firstFret } : {}),
-      frameNotes: notes,
-      ...(unplayed !== undefined ? { unplayed } : {}),
-    }).length === 0
-  );
+  return true;
 }
 
 export function isChordGap(gap: AdaptedDenigmaGap): gap is KnownChordGap {
