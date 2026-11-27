@@ -1,5 +1,5 @@
-import { pitchToMidi, walkSequenceEvents, type NoteEvent, type Score, type SequenceContent } from "@viritura/core";
-import { durationToBeats, sequenceContentBeats } from "../commands/noteCommands";
+import { pitchToMidi, walkSequenceEvents, type Score } from "@viritura/core";
+import { sequenceEventTiming } from "../commands/noteCommandsDurations";
 import { measureReference, resolveMeasureRange } from "./measureReferences";
 import { pagination, selectParts } from "./queryFilters";
 
@@ -51,7 +51,7 @@ export function getNoteTable(score: Score, args: unknown): Record<string, unknow
             kind: event.rest ? "rest" : "event",
             eventId: event.id ?? null,
             eventPath: path,
-            ...eventTiming(sequence.content, path, event),
+            ...sequenceEventTiming(sequence.content, path, event),
             duration: event.duration,
             notes: (event.notes ?? []).map((note) => ({
               id: note.id ?? null,
@@ -72,30 +72,6 @@ export function getNoteTable(score: Score, args: unknown): Record<string, unknow
     nextOffset: offset + rows.length < total ? offset + rows.length : null,
     rows,
   };
-}
-
-function eventTiming(
-  root: readonly SequenceContent[],
-  path: readonly number[],
-  event: NoteEvent,
-): { onsetBeat: number; durationBeats: number | null; timing: "notated" | "graceAnchor" | "tremoloAnchor" } {
-  let content = root;
-  let onsetBeat = 0;
-  let scale = 1;
-  for (const index of path) {
-    for (let i = 0; i < index; i++) onsetBeat += sequenceContentBeats(content[i]!) * scale;
-    const item = content[index]!;
-    if (item.type === "grace") return { onsetBeat, durationBeats: 0, timing: "graceAnchor" };
-    if (item.type === "tremolo") return { onsetBeat, durationBeats: null, timing: "tremoloAnchor" };
-    if (item.type === "tuplet") {
-      const inner = item.inner.multiple * durationToBeats(item.inner.duration);
-      const outer = item.outer.multiple * durationToBeats(item.outer.duration);
-      if (inner <= 0) throw new Error("Cannot calculate timing for a tuplet with zero inner duration.");
-      scale *= outer / inner;
-      content = item.content;
-    }
-  }
-  return { onsetBeat, durationBeats: durationToBeats(event.duration) * scale, timing: "notated" };
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

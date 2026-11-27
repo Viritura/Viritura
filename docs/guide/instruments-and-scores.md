@@ -82,6 +82,36 @@ When MusicXML identifies percussion only by staff position, import opens each
 uncertain **Percussion Map** for review. Confirm or edit the inferred sounds;
 recognized MusicXML instrument-sound mappings import without interruption.
 
+## Instrument ranges
+
+While editing, regular pitched noteheads are red when they fall outside the
+catalog range for their instrument or in a gap within it. Yellow marks an
+optional extension or a register that may need extra care, such as a flute
+B-foot joint, a bassoon low-A extension, or trombone pedal notes. Notes are
+checked at sounding pitch, even when you display written pitch. Grace notes and
+instruments without a recognized catalog range are not checked. If an
+instrument changes during a multi-note tremolo, the warning uses the instrument
+at the tremolo's start.
+
+These ranges are guides: instruments and players vary. For example, a bassoon
+low-A extension often makes its low B-flat unavailable.
+
+For a modern F/B-flat double horn, sounding F1 through B-flat1 (written C2
+through F2) are yellow pedal notes. Below sounding F1 is red as a practical
+writing limit, though some players can play lower.
+
+For tenor trombone, E1 through E-flat2 are yellow, except B1, which is red.
+This models the B-natural gap on a normally tuned single-F attachment. Retuning
+the attachment to E or using a different valve setup can make B1 available.
+
+Bass trombone notes below B-flat1 and euphonium B-flat1 are yellow pedal notes.
+Euphonium notes from E-flat2 down to B1 assume a four-valve instrument.
+
+For tuba, B0 through E-flat1 are yellow as an extended low register. Whether
+these notes are pedals or low valve notes depends on the tuba's key, valve
+system, and playing technique. Below B0 is red as a practical writing limit,
+though some instruments can play lower pedal notes.
+
 ## Percussion maps
 
 Choose **Edit percussion map** from the **Instrument actions** menu on an

@@ -10,7 +10,12 @@
 
 import type { Part, Pitch, Score } from "@viritura/core";
 import { pitchToMidi, walkSequenceEvents } from "@viritura/core";
-import { getCatalogInstrument, INSTRUMENT_CATALOG, type CatalogInstrument } from "../score/InstrumentCatalog";
+import {
+  classifyCatalogNoteRange,
+  getCatalogInstrument,
+  INSTRUMENT_CATALOG,
+  type CatalogInstrument,
+} from "../score/InstrumentCatalog";
 import { measureReference, type MeasureReference } from "./measureReferences";
 import { pagination, selectParts } from "./queryFilters";
 
@@ -21,7 +26,7 @@ interface RangeViolation extends MeasureReference {
   noteId: string | null;
   pitch: Pitch;
   soundingMidi: number;
-  direction: "below" | "above";
+  direction: "below" | "above" | "gap";
 }
 
 interface InstrumentReport {
@@ -33,7 +38,7 @@ interface InstrumentReport {
   family: string | null;
   transpositionHalfSteps: number;
   /** Catalog sounding-MIDI range, when the instrument is known. */
-  catalogRange: { low: number; high: number } | null;
+  catalogRange: { low: number; high: number; excludedNotes?: readonly number[] } | null;
   clefs: { sign: string; staffPosition: number }[];
   /** Sounding-MIDI extremes of the part's actual notes, or null when empty. */
   soundingRange: { low: number; high: number } | null;
@@ -41,6 +46,7 @@ interface InstrumentReport {
   /** Notes below/above the catalog range (0 when in range or unknown). */
   belowRange: number;
   aboveRange: number;
+  rangeGapCount: number;
   outOfRange: boolean;
   violations: RangeViolation[];
   violationsTruncated: boolean;
@@ -78,7 +84,11 @@ export function searchInstrumentCatalog(args: unknown): Record<string, unknown> 
       family: item.family,
       staves: item.staves,
       transpositionHalfSteps: item.transposition?.halfSteps ?? 0,
-      catalogRange: { low: item.rangeLow, high: item.rangeHigh },
+      catalogRange: {
+        low: item.rangeLow,
+        high: item.rangeHigh,
+        ...(item.rangeExcludedNotes ? { excludedNotes: item.rangeExcludedNotes } : {}),
+      },
     })),
   };
 }
@@ -88,9 +98,15 @@ function describePart(score: Score, part: Part, index: number, offset: number, l
   const catalog = instrumentId ? (getCatalogInstrument(instrumentId) ?? null) : null;
   const transpositionHalfSteps = part.transposition?.interval.halfSteps ?? 0;
 
-  const catalogRange = catalog ? { low: catalog.rangeLow, high: catalog.rangeHigh } : null;
-  const notes = collectPartNotes(score, part, catalogRange, offset, limit);
-  const total = notes.belowRange + notes.aboveRange;
+  const catalogRange = catalog
+    ? {
+        low: catalog.rangeLow,
+        high: catalog.rangeHigh,
+        ...(catalog.rangeExcludedNotes ? { excludedNotes: catalog.rangeExcludedNotes } : {}),
+      }
+    : null;
+  const notes = collectPartNotes(score, part, catalog, offset, limit);
+  const total = notes.belowRange + notes.aboveRange + notes.rangeGapCount;
 
   return {
     partId: part.id ?? null,
@@ -103,7 +119,7 @@ function describePart(score: Score, part: Part, index: number, offset: number, l
     catalogRange,
     clefs: catalogClefs(catalog),
     ...notes,
-    outOfRange: notes.belowRange > 0 || notes.aboveRange > 0,
+    outOfRange: total > 0,
     violationOffset: offset,
     violationsTruncated: offset > 0 || total > offset + notes.violations.length,
     nextViolationOffset: total > offset + notes.violations.length ? offset + notes.violations.length : null,
@@ -113,15 +129,22 @@ function describePart(score: Score, part: Part, index: number, offset: number, l
 function collectPartNotes(
   score: Score,
   part: Part,
-  catalogRange: { low: number; high: number } | null,
+  catalog: CatalogInstrument | null,
   offset: number,
   limit: number,
-): Pick<InstrumentReport, "soundingRange" | "noteCount" | "belowRange" | "aboveRange" | "violations"> {
-  const result: Pick<InstrumentReport, "soundingRange" | "noteCount" | "belowRange" | "aboveRange" | "violations"> = {
+): Pick<
+  InstrumentReport,
+  "soundingRange" | "noteCount" | "belowRange" | "aboveRange" | "rangeGapCount" | "violations"
+> {
+  const result: Pick<
+    InstrumentReport,
+    "soundingRange" | "noteCount" | "belowRange" | "aboveRange" | "rangeGapCount" | "violations"
+  > = {
     soundingRange: null,
     noteCount: 0,
     belowRange: 0,
     aboveRange: 0,
+    rangeGapCount: 0,
     violations: [],
   };
   for (const [measureIndex, measure] of part.measures.entries()) {
@@ -136,17 +159,12 @@ function collectPartNotes(
           } else {
             result.soundingRange = { low: soundingMidi, high: soundingMidi };
           }
-          const direction = catalogRange
-            ? soundingMidi < catalogRange.low
-              ? "below"
-              : soundingMidi > catalogRange.high
-                ? "above"
-                : null
-            : null;
-          if (!direction) continue;
+          const direction = catalog ? classifyCatalogNoteRange(catalog, soundingMidi) : undefined;
+          if (!direction || direction === "extension") continue;
           if (direction === "below") result.belowRange++;
-          else result.aboveRange++;
-          const violationIndex = result.belowRange + result.aboveRange - 1;
+          else if (direction === "above") result.aboveRange++;
+          else result.rangeGapCount++;
+          const violationIndex = result.belowRange + result.aboveRange + result.rangeGapCount - 1;
           if (violationIndex >= offset && result.violations.length < limit) {
             result.violations.push({
               ...measureReference(score, measureIndex),

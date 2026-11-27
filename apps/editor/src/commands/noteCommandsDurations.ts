@@ -210,6 +210,30 @@ export function sequenceContentBeats(content: SequenceContent): number {
   }
 }
 
+export function sequenceEventTiming(
+  root: readonly SequenceContent[],
+  path: readonly number[],
+  event: NoteEvent,
+): { onsetBeat: number; durationBeats: number | null; timing: "notated" | "graceAnchor" | "tremoloAnchor" } {
+  let content = root;
+  let onsetBeat = 0;
+  let scale = 1;
+  for (const index of path) {
+    for (let i = 0; i < index; i++) onsetBeat += sequenceContentBeats(content[i]!) * scale;
+    const item = content[index]!;
+    if (item.type === "grace") return { onsetBeat, durationBeats: 0, timing: "graceAnchor" };
+    if (item.type === "tremolo") return { onsetBeat, durationBeats: null, timing: "tremoloAnchor" };
+    if (item.type === "tuplet") {
+      const inner = item.inner.multiple * durationToBeats(item.inner.duration);
+      const outer = item.outer.multiple * durationToBeats(item.outer.duration);
+      if (inner <= 0) throw new Error("Cannot calculate timing for a tuplet with zero inner duration.");
+      scale *= outer / inner;
+      content = item.content;
+    }
+  }
+  return { onsetBeat, durationBeats: durationToBeats(event.duration) * scale, timing: "notated" };
+}
+
 // ═══════════════════════════════════════════
 // ID generation
 // ═══════════════════════════════════════════

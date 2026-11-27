@@ -127,6 +127,58 @@ describe("runLayoutEnginePath", () => {
     );
   });
 
+  it.each([
+    [undefined, 1],
+    [1, 0],
+  ])(
+    "highlights the rendered baritone extension in source-part view %s",
+    async (sourcePartIndex, renderedPartIndex) => {
+      const engine = createBackend();
+      const score = parseMnx(JSON.parse(multipleLayouts));
+      const part = score.parts[1]!;
+      part._x = { viritura: { instrumentId: "wind.reed.saxophone.baritone" } };
+      part.measures[0]!.sequences[0]!.content = [
+        { type: "event", id: "note", duration: { base: "whole" }, notes: [{ pitch: { step: "C", octave: 2 } }] },
+      ];
+      const displayList: DisplayList = {
+        ...DISPLAY_LIST,
+        commands: [
+          {
+            type: "DrawGlyph",
+            x: 0,
+            y: 0,
+            codepoint: 0xe0a4,
+            font: "Bravura",
+            size: 12,
+            color: "#000000",
+            rotation: 0,
+          },
+        ],
+        elementIds: [`p${renderedPartIndex}/m0/s0/note/n0`],
+      };
+      vi.mocked(engine.computeFullScoreLayout).mockResolvedValue(displayList);
+      vi.mocked(engine.computeMnxScoreLayout).mockResolvedValue(displayList);
+      const result = await computeDisplayListImpl({
+        engine,
+        mnxJson: JSON.stringify(serializeMnx(score)),
+        info: scoreInfo(score.parts.length),
+        scoreIdx: 0,
+        partIndex: 0,
+        sourcePartIndex,
+        viewMode: "page",
+        selectedPartIds: undefined,
+        expandedCondensingStaves: undefined,
+        score,
+        perfTracker: new PerfTracker(),
+        setLayoutPerfDebug: vi.fn(),
+        pageSetupRef: { current: DEFAULT_PART_PAGE_SETUP },
+        showHiddenRests: false,
+      });
+      expect(result.commands[0]).toMatchObject({ color: "#967500" });
+      expect(displayList.commands[0]).toMatchObject({ color: "#000000" });
+    },
+  );
+
   it.each([true, false])(
     "projects pitch %s for only the selected score without changing the retained document",
     async (useWritten) => {
