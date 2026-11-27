@@ -21,7 +21,7 @@ export function formatHarpPedalAlter(alter: HarpPedalAlter): string {
 export function parseHarpPedalText(text: string): HarpPedalTuning | null {
   const value = text.replace(/\s/g, "");
   if (!/^[\^vV-]{3}\|?[\^vV-]{4}$/.test(value)) return null;
-  const digits = value.replace("|", "");
+  const digits = value.replaceAll("|", "");
   return {
     D: alteration(digits[0]!),
     C: alteration(digits[1]!),
