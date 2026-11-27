@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Score } from "../model/score";
 import type { Part } from "../model/part";
-import type { RemoveMeasureExpressionPatch, SetSequenceContentPatch } from "../patches";
+import type { RemoveMeasureExpressionPatch, SetGlobalMeasureFieldPatch, SetSequenceContentPatch } from "../patches";
 import { applyPatchesToScore, patch, patchAffectedMeasures, PatchTargetMissing } from "../patches";
 
 function makeScore(): Score {
@@ -75,6 +75,65 @@ describe("structural patches — global measures", () => {
     expect(() =>
       applyPatchesToScore(score, [patch.setGlobalMeasureField(9, { field: "time", value: { count: 2, unit: 4 } })]),
     ).toThrow(PatchTargetMissing);
+  });
+
+  it.each([-1, 0.5, NaN, Infinity, -Infinity])("rejects invalid numeric global measure index %s", (measureIndex) => {
+    const score = makeScore();
+    expect(() =>
+      applyPatchesToScore(score, [
+        patch.setGlobalMeasureField(measureIndex, { field: "time", value: { count: 2, unit: 4 } }),
+      ]),
+    ).toThrow(PatchTargetMissing);
+    expect(score).toEqual(makeScore());
+  });
+
+  it.each(["__proto__", "constructor", "prototype", "0", null, true, {}, []])(
+    "rejects a non-numeric global measure index %j from JSON",
+    (measureIndex) => {
+      const score = makeScore();
+      const untrustedPatch: SetGlobalMeasureFieldPatch = JSON.parse(
+        JSON.stringify({
+          kind: "setGlobalMeasureField",
+          measureIndex,
+          update: { field: "time", value: { count: 2, unit: 4 } },
+        }),
+      );
+      const prototypeTime = Object.getOwnPropertyDescriptor(Array.prototype, "time");
+      const constructorTime = Object.getOwnPropertyDescriptor(Array, "time");
+      try {
+        expect(() => applyPatchesToScore(score, [untrustedPatch])).toThrow(PatchTargetMissing);
+        expect(Object.getOwnPropertyDescriptor(Array.prototype, "time")).toEqual(prototypeTime);
+        expect(Object.getOwnPropertyDescriptor(Array, "time")).toEqual(constructorTime);
+        expect(score).toEqual(makeScore());
+      } finally {
+        if (prototypeTime) Object.defineProperty(Array.prototype, "time", prototypeTime);
+        else Reflect.deleteProperty(Array.prototype, "time");
+        if (constructorTime) Object.defineProperty(Array, "time", constructorTime);
+        else Reflect.deleteProperty(Array, "time");
+      }
+    },
+  );
+
+  it("cannot clear a global field on Array.prototype", () => {
+    const score = makeScore();
+    const untrustedPatch: SetGlobalMeasureFieldPatch = JSON.parse(
+      JSON.stringify({
+        kind: "setGlobalMeasureField",
+        measureIndex: "__proto__",
+        update: { field: "time" },
+      }),
+    );
+    const prototypeTime = Object.getOwnPropertyDescriptor(Array.prototype, "time");
+    const time = { count: 7, unit: 8 };
+    try {
+      Object.defineProperty(Array.prototype, "time", { configurable: true, writable: true, value: time });
+      expect(() => applyPatchesToScore(score, [untrustedPatch])).toThrow(PatchTargetMissing);
+      expect(Object.getOwnPropertyDescriptor(Array.prototype, "time")?.value).toBe(time);
+      expect(score).toEqual(makeScore());
+    } finally {
+      if (prototypeTime) Object.defineProperty(Array.prototype, "time", prototypeTime);
+      else Reflect.deleteProperty(Array.prototype, "time");
+    }
   });
 });
 

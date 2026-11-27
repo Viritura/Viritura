@@ -13,7 +13,8 @@
 
 import type { Score } from "../model/score";
 import type { NoteEvent, Sequence, SequenceContent } from "../model/event";
-import type { EventLocator, SequencePath } from "./types";
+import type { PartMeasure } from "../model/measure";
+import type { EventLocator, MeasurePath, SequencePath } from "./types";
 
 export class PatchTargetMissing extends Error {
   constructor(message: string) {
@@ -22,16 +23,29 @@ export class PatchTargetMissing extends Error {
   }
 }
 
-function findSequence(score: Score, path: SequencePath): Sequence {
+export function resolvePartMeasure(score: Score, path: MeasurePath): PartMeasure {
+  const { measureIndex } = path;
+  if (!Number.isInteger(measureIndex) || measureIndex < 0) {
+    throw new PatchTargetMissing("measureIndex must be a non-negative integer");
+  }
   const part = score.parts.find((p) => p.id === path.partId);
   if (!part) throw new PatchTargetMissing(`Part "${path.partId}" not found`);
-  const measure = part.measures[path.measureIndex];
+  const measure = part.measures.at(measureIndex);
   if (!measure) {
-    throw new PatchTargetMissing(`Measure ${path.measureIndex} not found in part "${path.partId}"`);
+    throw new PatchTargetMissing(`Measure ${measureIndex} not found in part "${path.partId}"`);
   }
-  const sequence = measure.sequences[path.voice];
+  return measure;
+}
+
+function findSequence(score: Score, path: SequencePath): Sequence {
+  const measure = resolvePartMeasure(score, path);
+  const { voice } = path;
+  if (!Number.isInteger(voice) || voice < 0) {
+    throw new PatchTargetMissing("voice must be a non-negative integer");
+  }
+  const sequence = measure.sequences.at(voice);
   if (!sequence) {
-    throw new PatchTargetMissing(`Voice ${path.voice} not found in part "${path.partId}" measure ${path.measureIndex}`);
+    throw new PatchTargetMissing(`Voice ${voice} not found in part "${path.partId}" measure ${path.measureIndex}`);
   }
   return sequence;
 }

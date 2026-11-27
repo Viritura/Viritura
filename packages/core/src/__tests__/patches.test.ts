@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Score } from "../model/score";
 import type { Part } from "../model/part";
+import type { ScorePatch } from "../patches";
 import { applyPatchesToScore, patch, PatchTargetMissing } from "../patches";
 
 function makeScore(): Score {
@@ -239,6 +240,111 @@ describe("applyPatchesToScore", () => {
     expect(() =>
       applyPatchesToScore(score, [patch.setNotePitch(locator("nope"), "n1", { step: "D", octave: 4 })]),
     ).toThrow(PatchTargetMissing);
+  });
+
+  it.each([
+    { measureIndex: -1, voice: 0 },
+    { measureIndex: "__proto__", voice: 0 },
+    { measureIndex: "0", voice: 0 },
+    { measureIndex: 0, voice: -1 },
+    { measureIndex: 0, voice: 0.5 },
+    { measureIndex: 0, voice: "__proto__" },
+    { measureIndex: 0, voice: "0" },
+  ])("rejects an invalid event sequence path %j", (path) => {
+    const score = makeScore();
+    const untrustedPatch: ScorePatch = JSON.parse(
+      JSON.stringify({
+        ...patch.setNotePitch(locator("e1"), "n1", { step: "D", octave: 4 }),
+        locator: { eventId: "e1", sequencePath: { partId: "p1", ...path } },
+      }),
+    );
+    expect(() => applyPatchesToScore(score, [untrustedPatch])).toThrow(PatchTargetMissing);
+    expect(score).toEqual(makeScore());
+  });
+
+  it.each([
+    {
+      name: "dynamic groups",
+      field: "dynamics",
+      update: patch.setMeasureDynamicGroup({ partId: "p1", measureIndex: 0 }, "d1", {
+        id: "d1",
+        type: "immediate",
+        position: { fraction: [0, 1] },
+        value: "mf",
+      }),
+    },
+    {
+      name: "arpeggios",
+      field: "arpeggios",
+      update: patch.setMeasureArpeggio(
+        { partId: "p1", measureIndex: 0 },
+        { fraction: [0, 1] },
+        { start: "n1", end: "n2" },
+        "up",
+      ),
+    },
+  ])("cannot write $name through a prototype measure target", ({ field, update }) => {
+    for (const measureIndex of ["__proto__", "constructor"]) {
+      const score = makeScore();
+      const untrustedPatch: ScorePatch = JSON.parse(
+        JSON.stringify({ ...update, measurePath: { partId: "p1", measureIndex } }),
+      );
+      const target = measureIndex === "__proto__" ? Array.prototype : Array;
+      const previous = Object.getOwnPropertyDescriptor(target, field);
+      try {
+        expect(() => applyPatchesToScore(score, [untrustedPatch])).toThrow(PatchTargetMissing);
+        expect(Object.getOwnPropertyDescriptor(target, field)).toEqual(previous);
+        expect(score).toEqual(makeScore());
+      } finally {
+        if (previous) Object.defineProperty(target, field, previous);
+        else Reflect.deleteProperty(target, field);
+      }
+    }
+  });
+
+  it("cannot remove dynamic groups from Array.prototype", () => {
+    const score = makeScore();
+    const untrustedPatch: ScorePatch = JSON.parse(
+      JSON.stringify({
+        kind: "setMeasureDynamicGroup",
+        measurePath: { partId: "p1", measureIndex: "__proto__" },
+        groupId: "d1",
+      }),
+    );
+    const previous = Object.getOwnPropertyDescriptor(Array.prototype, "dynamics");
+    const dynamics = [{ id: "d1", type: "immediate", position: { fraction: [0, 1] }, value: "mf" }];
+    try {
+      Object.defineProperty(Array.prototype, "dynamics", { configurable: true, writable: true, value: dynamics });
+      expect(() => applyPatchesToScore(score, [untrustedPatch])).toThrow(PatchTargetMissing);
+      expect(Object.getOwnPropertyDescriptor(Array.prototype, "dynamics")?.value).toBe(dynamics);
+      expect(dynamics).toHaveLength(1);
+      expect(score).toEqual(makeScore());
+    } finally {
+      if (previous) Object.defineProperty(Array.prototype, "dynamics", previous);
+      else Reflect.deleteProperty(Array.prototype, "dynamics");
+    }
+  });
+
+  it("sets and clears dynamics and arpeggios on a valid measure", () => {
+    const score = makeScore();
+    const path = { partId: "p1", measureIndex: 0 };
+    const position = { fraction: [0, 1] as [number, number] };
+    const span = { start: "n1", end: "n2" };
+    const dynamic = { id: "d1", type: "immediate" as const, position, value: "mf" as const };
+    const next = applyPatchesToScore(score, [
+      patch.setMeasureDynamicGroup(path, "d1", dynamic),
+      patch.setMeasureArpeggio(path, position, span, "up"),
+    ]);
+    expect(next.parts[0]!.measures[0]!.dynamics).toEqual([dynamic]);
+    expect(next.parts[0]!.measures[0]!.arpeggios).toEqual([{ position, span, direction: "up", arrow: true }]);
+    expect(score).toEqual(makeScore());
+
+    const cleared = applyPatchesToScore(next, [
+      patch.setMeasureDynamicGroup(path, "d1", undefined),
+      patch.setMeasureArpeggio(path, position, span, undefined),
+    ]);
+    expect(cleared.parts[0]!.measures[0]!.dynamics).toBeUndefined();
+    expect(cleared.parts[0]!.measures[0]!.arpeggios).toBeUndefined();
   });
 
   it("applies multiple patches in order", () => {

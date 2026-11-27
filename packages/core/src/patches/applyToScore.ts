@@ -11,7 +11,7 @@ import { produce, type Draft } from "immer";
 import type { Score } from "../model/score";
 import type { NoteEvent } from "../model/event";
 import type { NonArpeggio, PartMeasure, PartMeasureArpeggio, RhythmicPosition } from "../model/measure";
-import { findEvent, findNoteIndex, findOwningContentArray } from "./locate";
+import { findEvent, findNoteIndex, findOwningContentArray, resolvePartMeasure } from "./locate";
 import { PatchTargetMissing } from "./locate";
 import {
   applyAddMeasureExpression,
@@ -30,7 +30,7 @@ import {
   applySetScoreExtension,
   applySetScoreMetadata,
 } from "./scoreEdits";
-import type { ArpeggioMarkKind, MeasurePath, ScorePatch } from "./types";
+import type { ArpeggioMarkKind, ScorePatch } from "./types";
 
 /**
  * Apply a list of patches to a Score, returning a new Score. The input is not
@@ -173,7 +173,7 @@ function applyOnePatch(draft: Draft<Score>, p: ScorePatch): void {
       return;
     }
     case "setMeasureDynamicGroup": {
-      const partMeasure = resolveMeasure(draft as Score, p.measurePath);
+      const partMeasure = resolvePartMeasure(draft as Score, p.measurePath);
       const dynamics = partMeasure.dynamics;
       const existingIdx = dynamics ? dynamics.findIndex((d) => d.id === p.groupId) : -1;
       if (p.value === undefined) {
@@ -192,7 +192,7 @@ function applyOnePatch(draft: Draft<Score>, p: ScorePatch): void {
       return;
     }
     case "setMeasureArpeggio": {
-      const partMeasure = resolveMeasure(draft as Score, p.measurePath);
+      const partMeasure = resolvePartMeasure(draft as Score, p.measurePath);
       clearArpeggioAt(partMeasure, p.position, p.span);
       if (p.mark === undefined) return;
       installArpeggio(partMeasure, p.position, p.span, p.mark);
@@ -269,15 +269,6 @@ function applyOnePatch(draft: Draft<Score>, p: ScorePatch): void {
 }
 
 // ── measure-level helpers ───────────────────────────────────────
-
-function resolveMeasure(draft: Draft<Score>, path: MeasurePath): Draft<PartMeasure> {
-  const score = draft as Score;
-  const part = score.parts.find((pt) => pt.id === path.partId);
-  if (!part) throw new PatchTargetMissing(`Part "${path.partId}" not found`);
-  const measure = part.measures[path.measureIndex];
-  if (!measure) throw new PatchTargetMissing(`Measure ${path.measureIndex} not found in part "${path.partId}"`);
-  return measure as Draft<PartMeasure>;
-}
 
 function samePosition(a: RhythmicPosition, b: RhythmicPosition): boolean {
   return a.fraction[0] === b.fraction[0] && a.fraction[1] === b.fraction[1];

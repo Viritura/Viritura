@@ -9,9 +9,10 @@ interface MnxFixture {
 
 export const scoresDir = resolve(__dirname, "..", "..", "fixtures", "mnx");
 
-// Rhapsody's round trip has taken over 10s on shared CI, exceeding Vitest's 5s default.
+// Large orchestral fixtures (such as the 8 MB Rhapsody in Blue) can exceed 15s
+// when round-tripping under full-workspace parallel CI load.
 export function corpusTimeout(size: number): number | undefined {
-  return size >= 1_000_000 ? 15_000 : undefined;
+  return size >= 1_000_000 ? 30_000 : undefined;
 }
 
 export function corpusFixture(path: string, name = basename(path)): MnxFixture {

@@ -239,6 +239,11 @@ Validate changes with `pnpm audit`, the affected workspace tests, and Storybook
 and VSIX tooling checks. Storybook configuration uses explicit local `.ts`
 entry points so its native ESM loader can resolve them.
 
+The `@astrojs/astro2tsx` package extension keeps its `@emnapi/runtime` in step
+with its `@emnapi/core`: mixed 1.x and 2.x versions make `astro check` fail.
+Remove the extension once upstream supplies a compatible runtime, and verify
+with `pnpm --filter @viritura/website build`.
+
 ### Rust dependency-audit exceptions
 
 `pnpm audit:rust` runs `cargo audit` against each Rust lockfile
