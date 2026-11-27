@@ -82,6 +82,47 @@ When MusicXML identifies percussion only by staff position, import opens each
 uncertain **Percussion Map** for review. Confirm or edit the inferred sounds;
 recognized MusicXML instrument-sound mappings import without interruption.
 
+## Instrument ranges
+
+While editing, regular pitched noteheads are red when they fall outside the
+catalog range for their instrument or in a gap within it. Yellow marks an
+optional extension or a register that may need extra care, such as a flute
+B-foot joint, a bassoon low-A extension, or trombone pedal notes. Notes are
+checked at sounding pitch, even when you display written pitch. Grace notes and
+instruments without a recognized catalog range are not checked. If an
+instrument changes during a multi-note tremolo, the warning uses the instrument
+at the tremolo's start.
+
+These ranges are guides: instruments and players vary. For example, a bassoon
+low-A extension often makes its low B-flat unavailable.
+
+For a modern F/B-flat double horn, sounding F1 through B-flat1 (written C2
+through F2) are yellow pedal notes. Below sounding F1 is red as a practical
+writing limit, though some players can play lower.
+
+For tenor trombone, E1 through E-flat2 are yellow, except B1, which is red.
+This models the B-natural gap on a normally tuned single-F attachment. Retuning
+the attachment to E or using a different valve setup can make B1 available.
+
+Bass trombone notes below B-flat1 are yellow pedal notes. For a four-valve
+euphonium, B-flat1 through D-sharp2 are yellow: B-flat1 is a low pedal, and B1
+through D-sharp2 require the fourth valve.
+
+For tuba, B0 through E-flat1 are yellow as an extended low register. Whether
+these notes are pedals or low valve notes depends on the tuba's key, valve
+system, and playing technique. Below B0 is red as a practical writing limit,
+though some instruments can play lower pedal notes.
+
+For bowed strings, yellow marks high notes beyond typical section writing but
+within the full ranges used here: violin above A6 through E7, viola above A5
+through E6, and cello above E5 through A5. These upper limits vary with the
+player and source.
+
+For double bass, sounding G-sharp4 through D5 are yellow. Above D5 is red as a
+writing guideline, not an absolute physical limit. Sounding B0 is yellow for a
+five-string bass; C1 through D-sharp1 are yellow for a five-string bass or a
+low-C extension. Below B0 is red. Standard four-string basses begin at E1.
+
 ## Percussion maps
 
 Choose **Edit percussion map** from the **Instrument actions** menu on an

@@ -51,6 +51,14 @@ The server catalogue is defined in [server/Viritura.Api/Mcp/McpToolCatalog.cs](.
 | `score.get_instruments`        | Return instrument identities, ranges, clefs, and paginated violations.  |
 | `score.get_instrument_catalog` | Find catalog IDs and ranges for instrument changes.                     |
 
+Catalog ranges use sounding MIDI notes and include modeled optional instrument
+extensions and special registers. The editor shows these caution notes in yellow.
+Range violations fall outside those extended limits or match a catalog gap.
+`catalogRange.excludedNotes`, when present, lists unavailable sounding MIDI notes
+within the bounds. Violations use `direction: "gap"` for these notes, counted in
+`rangeGapCount` separately from `belowRange` and `aboveRange`. Gap violations count
+toward `outOfRange` and use the same violation pagination.
+
 Measure-query boundaries named `startMeasure` and `endMeasure` are **one-based
 ordinals**, not displayed measure numbers. Alternatively use
 `startMeasureId` and `endMeasureId` where global measures have IDs; do not

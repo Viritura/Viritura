@@ -2,6 +2,26 @@
  * INSTRUMENT_CATALOG (primary) — woodwinds, brass, percussion.
  * Concatenated with the extras file in InstrumentCatalog.ts.
  * Split for the lint max-lines threshold.
+ *
+ * Sources for the flute range and modeled low woodwind extensions:
+ * https://orchestralibrary.com/reftables/rang.html
+ * https://www.teoriamusical.com.es/en/music-dictionary/instruments/english-horn-notes/
+ * https://orchestrationonline.com/bassoon-a-extension-dos-donts/
+ *
+ * Brass ranges (euphonium high limit kept at F5 for advanced players):
+ * https://orchestralibrary.com/reftables/rang.html
+ * https://www.teoriamusical.com.es/en/music-dictionary/instruments/euphonium-notes/
+ *
+ * Trombone attachment and pedal-register mechanics:
+ * https://www.yamaha.com/en/musical_instrument_guide/trombone/play/play003.html
+ *
+ * Horn low orchestral range and pedal-register fingerings:
+ * https://www.hornmatters.com/2024/11/fundamentals-9-ranges-extremes-clear-controlled-sounds-high-middle-mid-low-low/
+ * https://www.teoriamusical.com.es/en/music-dictionary/instruments/horn-notes/
+ *
+ * Tuba low-register and pedal-tone mechanics:
+ * https://theinstrumentalist.com/december-2009/tuba-pedal-tones/
+ * https://timbreandorchestration.org/isfee/extreme-orchestration/brass/tuba
  */
 
 import type { CatalogInstrument, ClefDef } from "./InstrumentCatalog";
@@ -38,8 +58,9 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     clefs: { 1: TREBLE },
     midiProgram: 73,
     scoreOrder: 1,
-    rangeLow: 60,
-    rangeHigh: 96,
+    rangeLow: 59,
+    rangeHigh: 98,
+    standardRangeLow: 60, // B3 requires a B-foot joint.
   },
   {
     id: "wind.flutes.flute.alto",
@@ -76,8 +97,9 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     transposition: { halfSteps: 7, staffDistance: 4 },
     midiProgram: 69,
     scoreOrder: 4,
-    rangeLow: 52,
+    rangeLow: 51,
     rangeHigh: 84,
+    standardRangeLow: 52, // E-flat3 requires a low B-flat key.
   },
   {
     id: "wind.reed.clarinet.bflat",
@@ -136,8 +158,9 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     transposition: { halfSteps: 14, staffDistance: 8 },
     midiProgram: 71,
     scoreOrder: 7,
-    rangeLow: 38,
+    rangeLow: 34,
     rangeHigh: 77,
+    standardRangeLow: 37, // B-flat1 through C2 require a low-C instrument.
   },
   {
     id: "wind.reed.bassoon",
@@ -148,8 +171,9 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     clefs: { 1: BASS },
     midiProgram: 70,
     scoreOrder: 8,
-    rangeLow: 34,
+    rangeLow: 33,
     rangeHigh: 75,
+    standardRangeLow: 34, // A1 requires a low-A extension.
   },
   {
     id: "wind.reed.contrabassoon",
@@ -215,6 +239,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     scoreOrder: 13,
     rangeLow: 36,
     rangeHigh: 71,
+    standardRangeLow: 37, // C2 requires a low-A key.
   },
   {
     id: "wind.flutes.recorder",
@@ -242,8 +267,9 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     transposition: { halfSteps: 7, staffDistance: 4 },
     midiProgram: 60,
     scoreOrder: 0,
-    rangeLow: 35,
+    rangeLow: 29,
     rangeHigh: 77,
+    standardRangeLow: 35, // F1 through B-flat1 are pedal-register cautions.
   },
   {
     id: "brass.trumpet.bflat",
@@ -257,8 +283,8 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     transposition: { halfSteps: 2, staffDistance: 1 },
     midiProgram: 56,
     scoreOrder: 1,
-    rangeLow: 54,
-    rangeHigh: 89,
+    rangeLow: 52,
+    rangeHigh: 84,
   },
   {
     id: "brass.trumpet.c",
@@ -272,8 +298,8 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     clefs: { 1: TREBLE },
     midiProgram: 56,
     scoreOrder: 1,
-    rangeLow: 52,
-    rangeHigh: 87,
+    rangeLow: 54,
+    rangeHigh: 86,
   },
   {
     id: "brass.cornet",
@@ -287,8 +313,8 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     transposition: { halfSteps: 2, staffDistance: 1 },
     midiProgram: 56,
     scoreOrder: 2,
-    rangeLow: 54,
-    rangeHigh: 87,
+    rangeLow: 52,
+    rangeHigh: 84,
   },
   {
     id: "brass.flugelhorn",
@@ -300,8 +326,8 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     transposition: { halfSteps: 2, staffDistance: 1 },
     midiProgram: 59,
     scoreOrder: 3,
-    rangeLow: 54,
-    rangeHigh: 84,
+    rangeLow: 52,
+    rangeHigh: 82,
   },
   {
     id: "brass.trombone",
@@ -312,8 +338,10 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     clefs: { 1: BASS },
     midiProgram: 57,
     scoreOrder: 4,
-    rangeLow: 40,
-    rangeHigh: 79,
+    rangeLow: 28,
+    rangeHigh: 77,
+    standardRangeLow: 40, // E1 through E-flat2 are pedal/attachment-register cautions.
+    rangeExcludedNotes: [35], // B1 is the gap on a normally tuned single-F attachment.
   },
   {
     id: "brass.trombone.bass",
@@ -324,8 +352,9 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     clefs: { 1: BASS },
     midiProgram: 57,
     scoreOrder: 5,
-    rangeLow: 33,
-    rangeHigh: 72,
+    rangeLow: 28,
+    rangeHigh: 70,
+    standardRangeLow: 34, // Below B-flat1 is the pedal register.
   },
   {
     id: "brass.euphonium",
@@ -336,8 +365,9 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     clefs: { 1: BASS },
     midiProgram: 58,
     scoreOrder: 6,
-    rangeLow: 36,
+    rangeLow: 34,
     rangeHigh: 77,
+    standardRangeLow: 40, // B-flat1 is a low pedal; B1 through D-sharp2 assume a fourth valve.
   },
   {
     id: "brass.tuba",
@@ -348,8 +378,9 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     clefs: { 1: BASS },
     midiProgram: 58,
     scoreOrder: 7,
-    rangeLow: 28,
+    rangeLow: 23,
     rangeHigh: 65,
+    standardRangeLow: 28, // B0 through E-flat1 are low-register cautions.
   },
 
   // ═══ PERCUSSION ═══

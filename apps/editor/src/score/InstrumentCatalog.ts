@@ -70,10 +70,16 @@ export interface CatalogInstrument {
   midiProgram: number;
   /** Standard score order within the family (lower = higher on page). */
   scoreOrder: number;
-  /** Lowest sounding MIDI note. */
+  /** Lowest sounding MIDI note, including optional extensions and special registers. */
   rangeLow: number;
   /** Highest sounding MIDI note. */
   rangeHigh: number;
+  /** Lowest sounding MIDI note without an extension or special-register caution. */
+  standardRangeLow?: number;
+  /** Highest sounding MIDI note without a high-register caution. */
+  standardRangeHigh?: number;
+  /** Unavailable sounding MIDI notes within the outer range for the modeled configuration. */
+  rangeExcludedNotes?: readonly number[];
   /** Layout bracket symbol: "bracket" for orchestra sections, "brace" for keyboards. */
   bracketSymbol?: "bracket" | "brace";
   /** Drum-kit components for unpitched percussion. When present, ScoreBuilder
@@ -118,6 +124,22 @@ export const INSTRUMENT_CATALOG: CatalogInstrument[] = [...INSTRUMENT_CATALOG_PR
 /** Look up a catalog instrument by ID. */
 export function getCatalogInstrument(id: string): CatalogInstrument | undefined {
   return INSTRUMENT_CATALOG.find((i) => i.id === id);
+}
+
+export function classifyCatalogNoteRange(
+  instrument: CatalogInstrument,
+  soundingMidi: number,
+): "below" | "above" | "gap" | "extension" | undefined {
+  if (soundingMidi < instrument.rangeLow) return "below";
+  if (soundingMidi > instrument.rangeHigh) return "above";
+  if (instrument.rangeExcludedNotes?.includes(soundingMidi)) return "gap";
+  if (
+    soundingMidi < (instrument.standardRangeLow ?? instrument.rangeLow) ||
+    soundingMidi > (instrument.standardRangeHigh ?? instrument.rangeHigh)
+  ) {
+    return "extension";
+  }
+  return undefined;
 }
 
 /** Resolve a tuning variant to its default-first instrument choice. */

@@ -7,6 +7,7 @@ import { runLayoutEnginePath } from "./layoutEnginePath";
 import { PX_PER_MM } from "./constants";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import { projectHiddenRestsForWrite, scoreHasHiddenRests, tintHiddenRestPlaceholders } from "./hiddenRestProjection";
+import { highlightOutOfRangeNoteheads } from "./instrumentNoteRangeHighlights";
 import { recordRenderedStaffSources } from "./renderedStaffSources";
 import { sourcePartMnx } from "./sourcePartProjection";
 import { scorePitchMnx } from "./scorePitchProjection";
@@ -121,7 +122,9 @@ export function tryRelayoutScoreView(args: {
   );
   return engine
     .relayoutRetainedScore(sp, pageWidthPx, pageSetupJson, scoreIdx)
-    .then((displayList) => (displayList ? recordRenderedStaffSources(displayList, score) : null));
+    .then((displayList) =>
+      displayList ? recordRenderedStaffSources(highlightOutOfRangeNoteheads(displayList, score), score) : null,
+    );
 }
 
 /**
@@ -244,20 +247,25 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
       : patchInfo;
   const finish = (promise: Promise<DisplayList>) =>
     promise.then((displayList) =>
-      recordRenderedStaffSources(showHiddenRests ? tintHiddenRestPlaceholders(displayList) : displayList, score),
+      recordRenderedStaffSources(
+        highlightOutOfRangeNoteheads(showHiddenRests ? tintHiddenRestPlaceholders(displayList) : displayList, score),
+        score,
+      ),
     );
 
   if (sourcePartIndex !== undefined) {
     const json = sourcePartMnx(layoutJson, sourcePartIndex, useWrittenOverride);
     const part = score?.parts[sourcePartIndex];
-    return engine
-      .computeMnxScoreLayout(json, sp, pageWidthPx, 0, pageSetupJson)
-      .then((displayList) =>
-        recordRenderedStaffSources(
+    return engine.computeMnxScoreLayout(json, sp, pageWidthPx, 0, pageSetupJson).then((displayList) => {
+      const renderedScore = score && part ? { ...score, parts: [part] } : null;
+      return recordRenderedStaffSources(
+        highlightOutOfRangeNoteheads(
           showHiddenRests ? tintHiddenRestPlaceholders(displayList) : displayList,
-          score && part ? { ...score, parts: [part] } : null,
+          renderedScore,
         ),
+        renderedScore,
       );
+    });
   }
 
   // Staff filter: inject synthetic layout when staves are ctrl/shift-selected

@@ -8,9 +8,15 @@
  * against the catalog's playable range and flags parts that stray outside it.
  */
 
-import type { Part, Pitch, Score } from "@viritura/core";
-import { pitchToMidi, walkSequenceEvents } from "@viritura/core";
-import { getCatalogInstrument, INSTRUMENT_CATALOG, type CatalogInstrument } from "../score/InstrumentCatalog";
+import type { ActiveInstrumentState, Part, Pitch, Score } from "@viritura/core";
+import { initialInstrumentState, listInstrumentChanges, pitchToMidi, walkSequenceEvents } from "@viritura/core";
+import {
+  classifyCatalogNoteRange,
+  getCatalogInstrument,
+  INSTRUMENT_CATALOG,
+  type CatalogInstrument,
+} from "../score/InstrumentCatalog";
+import { sequenceEventTiming } from "../commands/noteCommandsDurations";
 import { measureReference, type MeasureReference } from "./measureReferences";
 import { pagination, selectParts } from "./queryFilters";
 
@@ -21,7 +27,7 @@ interface RangeViolation extends MeasureReference {
   noteId: string | null;
   pitch: Pitch;
   soundingMidi: number;
-  direction: "below" | "above";
+  direction: "below" | "above" | "gap";
 }
 
 interface InstrumentReport {
@@ -33,7 +39,7 @@ interface InstrumentReport {
   family: string | null;
   transpositionHalfSteps: number;
   /** Catalog sounding-MIDI range, when the instrument is known. */
-  catalogRange: { low: number; high: number } | null;
+  catalogRange: { low: number; high: number; excludedNotes?: readonly number[] } | null;
   clefs: { sign: string; staffPosition: number }[];
   /** Sounding-MIDI extremes of the part's actual notes, or null when empty. */
   soundingRange: { low: number; high: number } | null;
@@ -41,6 +47,7 @@ interface InstrumentReport {
   /** Notes below/above the catalog range (0 when in range or unknown). */
   belowRange: number;
   aboveRange: number;
+  rangeGapCount: number;
   outOfRange: boolean;
   violations: RangeViolation[];
   violationsTruncated: boolean;
@@ -78,19 +85,29 @@ export function searchInstrumentCatalog(args: unknown): Record<string, unknown> 
       family: item.family,
       staves: item.staves,
       transpositionHalfSteps: item.transposition?.halfSteps ?? 0,
-      catalogRange: { low: item.rangeLow, high: item.rangeHigh },
+      catalogRange: {
+        low: item.rangeLow,
+        high: item.rangeHigh,
+        ...(item.rangeExcludedNotes ? { excludedNotes: item.rangeExcludedNotes } : {}),
+      },
     })),
   };
 }
 
 function describePart(score: Score, part: Part, index: number, offset: number, limit: number): InstrumentReport {
-  const instrumentId = part._x?.viritura?.instrumentId ?? null;
+  const instrumentId = initialInstrumentId(part);
   const catalog = instrumentId ? (getCatalogInstrument(instrumentId) ?? null) : null;
   const transpositionHalfSteps = part.transposition?.interval.halfSteps ?? 0;
 
-  const catalogRange = catalog ? { low: catalog.rangeLow, high: catalog.rangeHigh } : null;
-  const notes = collectPartNotes(score, part, catalogRange, offset, limit);
-  const total = notes.belowRange + notes.aboveRange;
+  const catalogRange = catalog
+    ? {
+        low: catalog.rangeLow,
+        high: catalog.rangeHigh,
+        ...(catalog.rangeExcludedNotes ? { excludedNotes: catalog.rangeExcludedNotes } : {}),
+      }
+    : null;
+  const notes = collectPartNotes(score, part, catalog, offset, limit);
+  const total = notes.belowRange + notes.aboveRange + notes.rangeGapCount;
 
   return {
     partId: part.id ?? null,
@@ -103,30 +120,86 @@ function describePart(score: Score, part: Part, index: number, offset: number, l
     catalogRange,
     clefs: catalogClefs(catalog),
     ...notes,
-    outOfRange: notes.belowRange > 0 || notes.aboveRange > 0,
+    outOfRange: total > 0,
     violationOffset: offset,
     violationsTruncated: offset > 0 || total > offset + notes.violations.length,
     nextViolationOffset: total > offset + notes.violations.length ? offset + notes.violations.length : null,
   };
 }
 
+function initialInstrumentId(part: Part): string | null {
+  const state = initialInstrumentState(part);
+  if (state.instrumentKey !== undefined) return state.instrument?.instrumentId ?? null;
+  return part._x?.viritura?.instrumentId ?? null;
+}
+
+interface InstrumentCatalogChange {
+  beat: number;
+  catalog?: CatalogInstrument;
+}
+
+function catalogForState(part: Part, state: ActiveInstrumentState): CatalogInstrument | undefined {
+  const instrumentId =
+    state.instrumentKey !== undefined ? state.instrument?.instrumentId : part._x?.viritura?.instrumentId;
+  return instrumentId ? getCatalogInstrument(instrumentId) : undefined;
+}
+
+function catalogChangesByMeasure(part: Part): Map<number, InstrumentCatalogChange[]> {
+  const changesByMeasure = new Map<number, InstrumentCatalogChange[]>();
+  for (const change of listInstrumentChanges(part)) {
+    const measureChanges = changesByMeasure.get(change.measureIndex) ?? [];
+    measureChanges.push({
+      beat: (change.position[0] / change.position[1]) * 4,
+      catalog: catalogForState(part, change.state),
+    });
+    changesByMeasure.set(change.measureIndex, measureChanges);
+  }
+  return changesByMeasure;
+}
+
+function catalogAtOnset(
+  currentCatalog: CatalogInstrument | undefined,
+  changes: readonly InstrumentCatalogChange[],
+  onsetBeat: number,
+): CatalogInstrument | undefined {
+  let catalog = currentCatalog;
+  for (const change of changes) {
+    if (change.beat > onsetBeat + 1e-9) break;
+    catalog = change.catalog;
+  }
+  return catalog;
+}
+
 function collectPartNotes(
   score: Score,
   part: Part,
-  catalogRange: { low: number; high: number } | null,
+  initialCatalog: CatalogInstrument | null,
   offset: number,
   limit: number,
-): Pick<InstrumentReport, "soundingRange" | "noteCount" | "belowRange" | "aboveRange" | "violations"> {
-  const result: Pick<InstrumentReport, "soundingRange" | "noteCount" | "belowRange" | "aboveRange" | "violations"> = {
+): Pick<
+  InstrumentReport,
+  "soundingRange" | "noteCount" | "belowRange" | "aboveRange" | "rangeGapCount" | "violations"
+> {
+  const result: Pick<
+    InstrumentReport,
+    "soundingRange" | "noteCount" | "belowRange" | "aboveRange" | "rangeGapCount" | "violations"
+  > = {
     soundingRange: null,
     noteCount: 0,
     belowRange: 0,
     aboveRange: 0,
+    rangeGapCount: 0,
     violations: [],
   };
+  const changesByMeasure = catalogChangesByMeasure(part);
+  let currentCatalog = initialCatalog ?? catalogForState(part, initialInstrumentState(part));
   for (const [measureIndex, measure] of part.measures.entries()) {
+    const measureChanges = changesByMeasure.get(measureIndex) ?? [];
     for (const [voice, sequence] of measure.sequences.entries()) {
       for (const { event, path } of walkSequenceEvents(sequence.content)) {
+        const timing =
+          path.length > 1 || measureChanges.length > 0 ? sequenceEventTiming(sequence.content, path, event) : undefined;
+        const catalog = timing ? catalogAtOnset(currentCatalog, measureChanges, timing.onsetBeat) : currentCatalog;
         for (const note of event.notes ?? []) {
           const soundingMidi = pitchToMidi(note.pitch);
           result.noteCount++;
@@ -136,17 +209,12 @@ function collectPartNotes(
           } else {
             result.soundingRange = { low: soundingMidi, high: soundingMidi };
           }
-          const direction = catalogRange
-            ? soundingMidi < catalogRange.low
-              ? "below"
-              : soundingMidi > catalogRange.high
-                ? "above"
-                : null
-            : null;
-          if (!direction) continue;
+          const direction = catalog ? classifyCatalogNoteRange(catalog, soundingMidi) : undefined;
+          if (!direction || direction === "extension") continue;
           if (direction === "below") result.belowRange++;
-          else result.aboveRange++;
-          const violationIndex = result.belowRange + result.aboveRange - 1;
+          else if (direction === "above") result.aboveRange++;
+          else result.rangeGapCount++;
+          const violationIndex = result.belowRange + result.aboveRange + result.rangeGapCount - 1;
           if (violationIndex >= offset && result.violations.length < limit) {
             result.violations.push({
               ...measureReference(score, measureIndex),
@@ -162,6 +230,7 @@ function collectPartNotes(
         }
       }
     }
+    if (measureChanges.length > 0) currentCatalog = measureChanges.at(-1)?.catalog;
   }
   return result;
 }

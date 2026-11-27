@@ -1377,6 +1377,50 @@ describe("MCP editor tool dispatch", () => {
     expect(filtered.structuredContent).toMatchObject({ instruments: [], outOfRangeCount: 0 });
   });
 
+  it("checks each note against the instrument active at its onset", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    const part = score.parts[0]!;
+    part._x = {
+      viritura: {
+        initialInstrument: "flute",
+        instruments: {
+          flute: { instrumentId: "wind.flutes.flute" },
+          bassoon: { instrumentId: "wind.reed.bassoon" },
+        },
+      },
+    };
+    part.measures[0]!.instrumentChanges = [{ instrument: "bassoon", position: { fraction: [1, 2] } }];
+    part.measures[0]!.sequences[0]!.content = [
+      {
+        type: "event",
+        id: "flute-event",
+        duration: { base: "half" },
+        notes: [{ id: "flute-note", pitch: { step: "A", octave: 1 } }],
+      },
+      {
+        type: "event",
+        id: "bassoon-event",
+        duration: { base: "half" },
+        notes: [{ id: "bassoon-note", pitch: { step: "A", octave: 1 } }],
+      },
+    ];
+    store.getState().loadScore(score, "instrument-change.mnx");
+
+    const result = await dispatchMcpTool(store, "score.get_instruments", {});
+
+    expect(result.structuredContent).toMatchObject({
+      outOfRangeCount: 1,
+      instruments: [
+        {
+          instrumentId: "wind.flutes.flute",
+          belowRange: 1,
+          violations: [{ eventId: "flute-event", noteId: "flute-note", direction: "below" }],
+        },
+      ],
+    });
+  });
+
   it("checks transposing instruments against concert pitch and locates out-of-range notes", async () => {
     const store = createDocumentStore();
     const score = makeScore();
@@ -1406,6 +1450,161 @@ describe("MCP editor tool dispatch", () => {
           violations: [{ measureIndex: 0, measureNumber: 0, measureId: "pickup", noteId: "too-low", soundingMidi: 48 }],
         },
       ],
+    });
+  });
+
+  it("includes optional extensions in instrument catalog ranges", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    const part = score.parts[0]!;
+    part._x = { viritura: { instrumentId: "wind.reed.clarinet.bass" } };
+    part.measures[0]!.sequences[0]!.content = [
+      {
+        type: "event",
+        duration: { base: "whole" },
+        notes: [{ pitch: { step: "B", octave: 1, alter: -1 } }, { pitch: { step: "A", octave: 1 } }],
+      },
+    ];
+    store.getState().loadScore(score, "bass-clarinet.mnx");
+
+    const report = await dispatchMcpTool(store, "score.get_instruments", {});
+    expect(report.structuredContent).toMatchObject({
+      instruments: [{ catalogRange: { low: 34, high: 77 }, belowRange: 1 }],
+    });
+    const catalog = await dispatchMcpTool(store, "score.get_instrument_catalog", { query: "bass clarinet" });
+    expect(catalog.structuredContent).toMatchObject({
+      instruments: [{ id: "wind.reed.clarinet.bass", catalogRange: { low: 34, high: 77 } }],
+    });
+  });
+
+  it("includes the tuba's low-register cautions in its catalog range", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    const part = score.parts[0]!;
+    part._x = { viritura: { instrumentId: "brass.tuba" } };
+    part.measures[0]!.sequences[0]!.content = [
+      {
+        type: "event",
+        duration: { base: "whole" },
+        notes: [
+          { id: "below", pitch: { step: "B", octave: 0, alter: -1 } },
+          { id: "low", pitch: { step: "B", octave: 0 } },
+          { id: "high", pitch: { step: "E", octave: 1, alter: -1 } },
+          { id: "standard", pitch: { step: "E", octave: 1 } },
+        ],
+      },
+    ];
+    store.getState().loadScore(score, "tuba.mnx");
+
+    const report = await dispatchMcpTool(store, "score.get_instruments", {});
+    expect(report.structuredContent).toMatchObject({
+      instruments: [
+        {
+          catalogRange: { low: 23, high: 65 },
+          belowRange: 1,
+          aboveRange: 0,
+          violations: [{ noteId: "below", soundingMidi: 22, direction: "below" }],
+        },
+      ],
+    });
+    const catalog = await dispatchMcpTool(store, "score.get_instrument_catalog", { query: "brass.tuba" });
+    expect(catalog.structuredContent).toMatchObject({
+      instruments: [{ id: "brass.tuba", catalogRange: { low: 23, high: 65 } }],
+    });
+  });
+
+  it("includes horn pedal cautions at sounding pitch for a transposing part", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    const part = score.parts[0]!;
+    part._x = { viritura: { instrumentId: "brass.french-horn" } };
+    part.transposition = { interval: { halfSteps: 7, staffDistance: 4 } };
+    part.measures[0]!.sequences[0]!.content = [
+      {
+        type: "event",
+        duration: { base: "whole" },
+        notes: [
+          { id: "below", pitch: { step: "E", octave: 1 } },
+          { id: "low", pitch: { step: "F", octave: 1 } },
+          { id: "repertoire", pitch: { step: "A", octave: 1 } },
+          { id: "pedal-high", pitch: { step: "B", octave: 1, alter: -1 } },
+          { id: "standard", pitch: { step: "B", octave: 1 } },
+          { id: "high", pitch: { step: "F", octave: 5 } },
+          { id: "above", pitch: { step: "F", octave: 5, alter: 1 } },
+        ],
+      },
+    ];
+    store.getState().loadScore(score, "horn.mnx");
+
+    const report = await dispatchMcpTool(store, "score.get_instruments", {});
+    expect(report.structuredContent).toMatchObject({
+      instruments: [
+        {
+          transpositionHalfSteps: 7,
+          catalogRange: { low: 29, high: 77 },
+          soundingRange: { low: 28, high: 78 },
+          noteCount: 7,
+          belowRange: 1,
+          aboveRange: 1,
+          rangeGapCount: 0,
+          violations: [
+            { noteId: "below", soundingMidi: 28, direction: "below" },
+            { noteId: "above", soundingMidi: 78, direction: "above" },
+          ],
+        },
+      ],
+    });
+    const catalog = await dispatchMcpTool(store, "score.get_instrument_catalog", { query: "brass.french-horn" });
+    expect(catalog.structuredContent).toMatchObject({
+      instruments: [{ id: "brass.french-horn", catalogRange: { low: 29, high: 77 } }],
+    });
+  });
+
+  it("reports five-string double-bass extensions and high-register violations at sounding pitch", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    const part = score.parts[0]!;
+    part._x = { viritura: { instrumentId: "strings.contrabass" } };
+    part.transposition = { interval: { halfSteps: 12, staffDistance: 7 } };
+    part.measures[0]!.sequences[0]!.content = [
+      {
+        type: "event",
+        duration: { base: "whole" },
+        notes: [
+          { id: "below", pitch: { step: "B", octave: 0, alter: -1 } },
+          { id: "low-extension", pitch: { step: "B", octave: 0 } },
+          { id: "open-e", pitch: { step: "E", octave: 1 } },
+          { id: "previous-cutoff", pitch: { step: "E", octave: 4, alter: -1 } },
+          { id: "two-octaves", pitch: { step: "G", octave: 4 } },
+          { id: "high-extension", pitch: { step: "G", octave: 4, alter: 1 } },
+          { id: "extension-high", pitch: { step: "D", octave: 5 } },
+          { id: "above", pitch: { step: "E", octave: 5, alter: -1 } },
+        ],
+      },
+    ];
+    store.getState().loadScore(score, "double-bass.mnx");
+
+    const report = await dispatchMcpTool(store, "score.get_instruments", {});
+    expect(report.structuredContent).toMatchObject({
+      instruments: [
+        {
+          transpositionHalfSteps: 12,
+          catalogRange: { low: 23, high: 74 },
+          soundingRange: { low: 22, high: 75 },
+          noteCount: 8,
+          belowRange: 1,
+          aboveRange: 1,
+          rangeGapCount: 0,
+          violations: [
+            { noteId: "below", soundingMidi: 22, direction: "below" },
+            { noteId: "above", soundingMidi: 75, direction: "above" },
+          ],
+        },
+      ],
+    });
+    const catalog = await dispatchMcpTool(store, "score.get_instrument_catalog", { query: "strings.contrabass" });
+    expect(catalog.structuredContent).toMatchObject({
+      instruments: [{ id: "strings.contrabass", catalogRange: { low: 23, high: 74 } }],
     });
   });
 
@@ -1446,6 +1645,65 @@ describe("MCP editor tool dispatch", () => {
             { noteId: "out-104" },
           ],
         },
+      ],
+    });
+  });
+
+  it("reports and paginates the tenor trombone gap without flagging pedal or attachment notes", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    const part = score.parts[0]!;
+    part._x = { viritura: { instrumentId: "brass.trombone" } };
+    part.measures[0]!.sequences[0]!.content = [
+      {
+        type: "event",
+        id: "trombone-event",
+        duration: { base: "whole" },
+        notes: [
+          { id: "pedal", pitch: { step: "E", octave: 1 } },
+          { id: "gap", pitch: { step: "B", octave: 1 } },
+          { id: "enharmonic-gap", pitch: { step: "C", octave: 2, alter: -1 } },
+          { id: "attachment", pitch: { step: "C", octave: 2 } },
+          { id: "attachment-top", pitch: { step: "E", octave: 2, alter: -1 } },
+          { id: "ordinary", pitch: { step: "E", octave: 2 } },
+        ],
+      },
+    ];
+    store.getState().loadScore(score, "trombone.mnx");
+
+    const first = await dispatchMcpTool(store, "score.get_instruments", { violationLimit: 1 });
+    expect(first.structuredContent).toMatchObject({
+      outOfRangeCount: 1,
+      instruments: [
+        {
+          catalogRange: { low: 28, high: 77, excludedNotes: [35] },
+          noteCount: 6,
+          belowRange: 0,
+          aboveRange: 0,
+          rangeGapCount: 2,
+          outOfRange: true,
+          violations: [{ eventId: "trombone-event", noteId: "gap", soundingMidi: 35, direction: "gap" }],
+          violationsTruncated: true,
+          nextViolationOffset: 1,
+        },
+      ],
+    });
+    const last = await dispatchMcpTool(store, "score.get_instruments", { violationOffset: 1, violationLimit: 1 });
+    expect(last.structuredContent).toMatchObject({
+      instruments: [
+        {
+          rangeGapCount: 2,
+          violations: [{ noteId: "enharmonic-gap", soundingMidi: 35, direction: "gap" }],
+          violationOffset: 1,
+          nextViolationOffset: null,
+        },
+      ],
+    });
+    const catalog = await dispatchMcpTool(store, "score.get_instrument_catalog", { query: "brass.trombone" });
+    expect(catalog.structuredContent).toMatchObject({
+      instruments: [
+        { id: "brass.trombone", catalogRange: { low: 28, high: 77, excludedNotes: [35] } },
+        { id: "brass.trombone.bass", catalogRange: { low: 28, high: 70 } },
       ],
     });
   });
