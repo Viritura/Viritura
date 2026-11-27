@@ -46,6 +46,59 @@ const vstProfile: SoundProfile = {
 };
 
 describe("resolveScorePlaybackParts", () => {
+  it("keeps explicitly solo string parts unlayered", () => {
+    const input = score();
+    input.parts = [input.parts[0]!];
+    input.parts[0]!._x = { viritura: { instrumentId: "strings.violin", solo: true } };
+
+    const sound = requireSf2Sound("Solo Violin", resolveScorePlaybackParts(input)[0]!.sf2);
+    expect(sound.primary.program).toBe(40);
+    expect(sound.layers).toEqual([]);
+  });
+
+  it("switches from a string section to a soloist and back", () => {
+    const input = score();
+    input.global.measures = Array.from({ length: 3 }, () => ({ time: { count: 4, unit: 4 } }));
+    input.parts = [input.parts[0]!];
+    const part = input.parts[0]!;
+    part.name = "Violins";
+    part._x = {
+      viritura: {
+        instrumentId: "strings.group",
+        initialInstrument: "section",
+        instruments: {
+          section: { instrumentId: "strings.group", midiProgram: 48 },
+          solo: { instrumentId: "strings.violin", midiProgram: 40, solo: true },
+        },
+      },
+    };
+    part.measures = Array.from({ length: 3 }, (_, index) => ({
+      instrumentChanges: index === 1 ? [{ instrument: "solo" }] : index === 2 ? [{ instrument: "section" }] : [],
+      sequences: [
+        {
+          content: [
+            {
+              type: "event" as const,
+              duration: { base: "quarter" as const },
+              notes: [{ pitch: { step: "C", octave: 4 } }],
+            },
+          ],
+        },
+      ],
+    }));
+    const resolved = resolveScorePlaybackParts(input)[0]!;
+    const variants = resolved.instruments!.map(({ resolved: variant }) =>
+      requireSf2Sound(variant.part.name, variant.sf2),
+    );
+    expect(variants.map(({ primary }) => primary.program)).toEqual([48, 40, 48]);
+    expect(variants.map(({ layers }) => layers.length)).toEqual([0, 0, 0]);
+    expect(
+      generateTimeline(input)
+        .events.filter((event) => event.type === "noteOn")
+        .map((event) => event.playbackInstrumentKey),
+    ).toEqual(["initial", "instrument:solo", "instrument:section"]);
+  });
+
   it("keeps the initial authored assignment but defaults subsequent instrument sounds and layers", () => {
     const input = score();
     input.parts = [input.parts[0]!];

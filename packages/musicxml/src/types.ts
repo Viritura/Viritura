@@ -1,6 +1,17 @@
-// ─── MNX document output types (schema version 52) ──────────────────
+// ─── MNX document output types (schema version 57) ──────────────────
 
-import type { ChordSymbol, DynamicGroup, Jump, NoteMarkings, Notehead, Part, Swing, TextContent } from "@viritura/core";
+import type {
+  ChordSymbol,
+  DynamicGroup,
+  Fermata,
+  Jump,
+  NoteMarkings,
+  Notehead,
+  Part,
+  Swing,
+  TextContent,
+  TextRunStyle,
+} from "@viritura/core";
 
 export interface MnxDocument {
   mnx: { version: number; support?: { useLyricExtenders?: boolean } };
@@ -26,7 +37,7 @@ export interface MnxSound {
 
 interface MnxLyricsGlobal {
   lineMetadata?: Record<string, { label?: string; lang?: string }>;
-  lineOrder?: string[];
+  lineOrder: string[];
 }
 
 export interface MnxGlobalMeasure {
@@ -142,11 +153,16 @@ export interface MnxPartMeasure {
 
 interface MnxPositionedText {
   type: "expression";
-  text: TextContent;
+  text: MnxFormattedTextChunk[];
   position: MnxRhythmicPosition;
   placement?: "above" | "below";
   staff?: number;
 }
+
+/** An MNX `formatted-text` chunk; Viritura inline formatting lives in `_x`. */
+export type MnxFormattedTextChunk = ({ text: string; type?: "text" } | { type: "smufl"; glyphs: string[] }) & {
+  _x?: { viritura: { style?: TextRunStyle; smuflStyle?: TextRunStyle } };
+};
 
 export interface MnxNonArpeggio {
   position: MnxRhythmicPosition;
@@ -185,6 +201,13 @@ export interface MnxBeam {
 
 export interface MnxSequence {
   content: MnxSequenceContent[];
+  fullMeasure?: {
+    id?: string;
+    visualDuration: MnxDuration;
+    staffPosition?: number;
+    fermata?: Fermata;
+    _x?: { viritura: { caesura: NonNullable<MnxEventMarkings["caesura"]> } };
+  };
   voice?: string;
   staff?: number;
   directionHint?: string;
@@ -204,12 +227,7 @@ export interface MnxEvent {
   slurs?: MnxSlur[];
   markings?: MnxEventMarkings;
   /** Native MNX fermata (event-level since v15). */
-  fermata?: {
-    symbol?: string;
-    duration?: string;
-    placement?: "above" | "below" | "auto";
-    pointing?: "up" | "down" | "auto";
-  };
+  fermata?: Fermata;
   lyrics?: MnxEventLyrics;
   staff?: number;
   stemDirection?: string;
@@ -356,7 +374,7 @@ export interface MnxLayoutStaff {
   type: "staff";
   sources: { part: string; staff?: number }[];
   label?: string;
-  labelref?: string;
+  labelRef?: { ref?: "auto" | "name" | "shortName"; target?: string };
 }
 
 export interface MnxScore {

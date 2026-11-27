@@ -26,7 +26,7 @@ import type {
   PageSetupDefaults,
 } from "@viritura/core";
 import { generateId, DEFAULT_PAGE_SETUP, DEFAULT_PART_PAGE_SETUP } from "@viritura/core";
-import { resolveLyricExtenders } from "@viritura/core";
+import { mergeImportedFermatas, resolveLyricExtenders } from "@viritura/core";
 
 import type { SequenceContent } from "@viritura/core";
 
@@ -504,6 +504,7 @@ function parseMnxInternal(json: unknown, diagnostics: DiagnosticCollector): Scor
 
   // Auto-assign IDs to any elements that lack them
   assignMissingIds(score);
+  mergeImportedFermatas(score, diagnostics);
 
   validateSupportConsistency(score, support, diagnostics);
   for (const issue of resolveLyricExtenders(score).diagnostics) {
@@ -576,6 +577,8 @@ function applyRootExtensions(score: Score, rootX: Obj | undefined): void {
 
   const textStyles = parseRootTextStyles(rootX);
   if (textStyles) score.textStyles = textStyles;
+  const barNumbers = (rootX?.["viritura"] as Obj | undefined)?.["barNumbers"];
+  if (barNumbers) score.barNumbers = { ...(barNumbers as NonNullable<Score["barNumbers"]>) };
 
   const timeSignatures = parseRootTimeSignatures(rootX);
   if (timeSignatures) score.timeSignatures = timeSignatures;

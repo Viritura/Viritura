@@ -50,11 +50,33 @@ export interface ScoreSwitcherProps {
 
 export function ScoreSwitcher({ selectedScoreIndex, onSelectScore, onScoreContextMenu }: ScoreSwitcherProps) {
   const score = useDocumentStore((s) => s.score);
+  const entries = useMemo(() => buildScoreEntries(score), [score]);
+  return (
+    <ScoreSwitcherPicker
+      entries={entries}
+      selectedScoreIndex={selectedScoreIndex}
+      onSelectScore={onSelectScore}
+      onScoreContextMenu={onScoreContextMenu}
+    />
+  );
+}
+
+interface ScoreSwitcherPickerProps extends ScoreSwitcherProps {
+  readonly entries: readonly ScoreEntry[];
+  readonly disabled?: boolean;
+}
+
+export function ScoreSwitcherPicker({
+  entries,
+  selectedScoreIndex,
+  onSelectScore,
+  onScoreContextMenu,
+  disabled,
+}: ScoreSwitcherPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [coachmarkDismissed, setCoachmarkDismissed] = useState(readCoachmarkDismissed);
 
-  const entries = useMemo(() => buildScoreEntries(score), [score]);
   const current = entries.find((e) => e.index === selectedScoreIndex);
   const dismissCoachmark = useCallback(() => {
     persistCoachmarkDismissed();
@@ -121,6 +143,7 @@ export function ScoreSwitcher({ selectedScoreIndex, onSelectScore, onScoreContex
         <Popover.Trigger asChild>
           <SelectTrigger
             className={styles.trigger}
+            disabled={disabled}
             leading={<ListMusic size={13} style={ICON_STYLE} aria-hidden="true" />}
             aria-label={`Select score or part: ${currentLabel}`}
           >

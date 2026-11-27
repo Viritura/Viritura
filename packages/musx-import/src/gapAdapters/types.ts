@@ -1,4 +1,5 @@
-import type { DenigmaDiagnostic, DenigmaGap, DenigmaGapOutcome } from "../types";
+import type { Fretboard } from "@viritura/core";
+import type { DenigmaDiagnostic, DenigmaGap, DenigmaGapAnchor, DenigmaGapOutcome } from "../types";
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -10,6 +11,18 @@ export interface GapAdaptationResult {
 
 export interface GapApplication {
   outcome: Omit<DenigmaGapOutcome, "gapIndex" | "type" | "anchor">;
+}
+
+export interface AdaptedDenigmaGap extends DenigmaGap {
+  anchor: string;
+  end?: DenigmaGapAnchor;
+  textRanges?: Array<{ anchor: string; offset: number; length: number }>;
+  placements?: Array<
+    DenigmaGapAnchor & {
+      kind: "staff" | "system-top" | "system-bottom";
+      placement?: "above" | "below" | "float";
+    }
+  >;
 }
 
 /**
@@ -121,6 +134,22 @@ export interface ChordPayload {
   bass?: ChordPitchPayload;
   bassLowerCase?: boolean;
   bassArrangement?: "horizontal" | "vertical" | "diagonal";
+  fretboard?: FretboardGapPayload;
+}
+
+interface FretboardNotePayload {
+  string: number;
+  fret: number;
+  fingering?: number;
+  barre?: "start" | "stop";
+}
+
+interface FretboardGapPayload {
+  frameStrings: number;
+  frameFrets: number;
+  firstFret?: NonNullable<Fretboard["firstFret"]>;
+  frameNotes: FretboardNotePayload[];
+  unplayed?: string;
 }
 
 export interface NoteheadPayload {
@@ -129,27 +158,27 @@ export interface NoteheadPayload {
   glyph?: string;
 }
 
-export interface KnownExpressionGap extends DenigmaGap {
+export interface KnownExpressionGap extends AdaptedDenigmaGap {
   type: "expression";
   expression: ExpressionPayload;
 }
 
-export interface KnownSmartShapeGap extends DenigmaGap {
+export interface KnownSmartShapeGap extends AdaptedDenigmaGap {
   type: "smart-shape";
   smartShape: SmartShapePayload;
 }
 
-export interface KnownChordGap extends DenigmaGap {
+export interface KnownChordGap extends AdaptedDenigmaGap {
   type: "chord-symbol";
   chord: ChordPayload;
 }
 
-export interface KnownNoteheadGap extends DenigmaGap {
+export interface KnownNoteheadGap extends AdaptedDenigmaGap {
   type: "notehead";
   notehead: NoteheadPayload;
 }
 
-export interface KnownMarkerTextGap extends DenigmaGap {
+export interface KnownMarkerTextGap extends AdaptedDenigmaGap {
   type: "marker-text";
   marker: "segno" | "coda" | "fine" | "jump";
   text: FormattedText | string;
@@ -173,7 +202,7 @@ function isTempoPayload(value: unknown): value is TempoPayload {
   );
 }
 
-export function isExpressionGap(gap: DenigmaGap): gap is KnownExpressionGap {
+export function isExpressionGap(gap: AdaptedDenigmaGap): gap is KnownExpressionGap {
   if (gap.type !== "expression" || !isRecord(gap["expression"])) return false;
   const expression = gap["expression"];
   if (typeof expression["type"] !== "string") return false;
@@ -195,7 +224,7 @@ export function isExpressionGap(gap: DenigmaGap): gap is KnownExpressionGap {
   }
 }
 
-function isFormattedText(value: unknown): value is FormattedText {
+export function isFormattedText(value: unknown): value is FormattedText {
   if (!isRecord(value) || typeof value["plain"] !== "string") return false;
   const runs = value["runs"];
   return (
@@ -206,7 +235,7 @@ function isFormattedText(value: unknown): value is FormattedText {
 const MARKERS: ReadonlySet<unknown> = new Set(["segno", "coda", "fine", "jump"]);
 const PLACEMENTS: ReadonlySet<unknown> = new Set(["before", "after", "replace"]);
 
-export function isMarkerTextGap(gap: DenigmaGap): gap is KnownMarkerTextGap {
+export function isMarkerTextGap(gap: AdaptedDenigmaGap): gap is KnownMarkerTextGap {
   if (gap.type !== "marker-text" || gap.extent !== "partial" || !MARKERS.has(gap["marker"])) return false;
   const placement = gap["placement"];
   if (placement !== undefined && !PLACEMENTS.has(placement)) return false;
@@ -214,7 +243,7 @@ export function isMarkerTextGap(gap: DenigmaGap): gap is KnownMarkerTextGap {
   return typeof text === "string" || isFormattedText(text);
 }
 
-export function isSmartShapeGap(gap: DenigmaGap): gap is KnownSmartShapeGap {
+export function isSmartShapeGap(gap: AdaptedDenigmaGap): gap is KnownSmartShapeGap {
   if (gap.type !== "smart-shape" || !isRecord(gap["smartShape"])) return false;
   const smartShape = gap["smartShape"];
   if (typeof smartShape["shapeType"] !== "string" || typeof smartShape["kind"] !== "string") return false;
@@ -272,7 +301,52 @@ function isChordSuffix(value: unknown): value is ChordSuffixPayload {
   );
 }
 
-export function isChordGap(gap: DenigmaGap): gap is KnownChordGap {
+function isFirstFretPayload(value: unknown): value is NonNullable<Fretboard["firstFret"]> {
+  return (
+    isRecord(value) &&
+    typeof value["fret"] === "number" &&
+    Number.isSafeInteger(value["fret"]) &&
+    (value["text"] === undefined || typeof value["text"] === "string") &&
+    (value["location"] === undefined || value["location"] === "left" || value["location"] === "right")
+  );
+}
+
+function isFretboardNotePayload(value: unknown): value is FretboardNotePayload {
+  return (
+    isRecord(value) &&
+    typeof value["string"] === "number" &&
+    Number.isSafeInteger(value["string"]) &&
+    typeof value["fret"] === "number" &&
+    Number.isSafeInteger(value["fret"]) &&
+    (value["fingering"] === undefined ||
+      (typeof value["fingering"] === "number" && Number.isSafeInteger(value["fingering"]))) &&
+    (value["barre"] === undefined || value["barre"] === "start" || value["barre"] === "stop")
+  );
+}
+
+function isFretboardPayload(value: unknown): value is FretboardGapPayload {
+  if (!isRecord(value)) return false;
+  const frameStrings = value["frameStrings"];
+  const frameFrets = value["frameFrets"];
+  const firstFret = value["firstFret"];
+  const frameNotes = value["frameNotes"];
+  const unplayed = value["unplayed"];
+  if (
+    typeof frameStrings !== "number" ||
+    !Number.isSafeInteger(frameStrings) ||
+    typeof frameFrets !== "number" ||
+    !Number.isSafeInteger(frameFrets) ||
+    (firstFret !== undefined && !isFirstFretPayload(firstFret)) ||
+    !Array.isArray(frameNotes) ||
+    !frameNotes.every(isFretboardNotePayload) ||
+    (unplayed !== undefined && typeof unplayed !== "string")
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function isChordGap(gap: AdaptedDenigmaGap): gap is KnownChordGap {
   if (gap.type !== "chord-symbol" || !isRecord(gap["chord"])) return false;
   const chord = gap["chord"];
   return (
@@ -283,6 +357,7 @@ export function isChordGap(gap: DenigmaGap): gap is KnownChordGap {
     isChordSuffix(chord["suffix"]) &&
     (chord["bass"] === undefined || isChordPitch(chord["bass"])) &&
     (chord["bassLowerCase"] === undefined || typeof chord["bassLowerCase"] === "boolean") &&
+    (chord["fretboard"] === undefined || isFretboardPayload(chord["fretboard"])) &&
     (chord["bassArrangement"] === undefined ||
       chord["bassArrangement"] === "horizontal" ||
       chord["bassArrangement"] === "vertical" ||
@@ -290,7 +365,7 @@ export function isChordGap(gap: DenigmaGap): gap is KnownChordGap {
   );
 }
 
-export function isNoteheadGap(gap: DenigmaGap): gap is KnownNoteheadGap {
+export function isNoteheadGap(gap: AdaptedDenigmaGap): gap is KnownNoteheadGap {
   return (
     gap.type === "notehead" &&
     isRecord(gap["notehead"]) &&

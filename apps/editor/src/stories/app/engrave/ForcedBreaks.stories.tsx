@@ -55,8 +55,8 @@ const score = {
     {
       id: "L",
       content: [
-        { type: "staff", labelref: "shortName", sources: [{ part: "vn" }] },
-        { type: "staff", labelref: "shortName", sources: [{ part: "vc" }] },
+        { type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: "vn" }] },
+        { type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: "vc" }] },
       ],
     },
   ],

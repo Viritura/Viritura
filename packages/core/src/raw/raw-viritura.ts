@@ -8,6 +8,16 @@ export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Viritura extensions on a full-measure rest. */
+        "full-measure-rest-extensions": {
+            /** @description A caesura attached to this rest at the end of the measure. */
+            caesura?: {
+                /** @enum {string} */
+                shape?: "normal" | "thick" | "short" | "curved";
+                /** @enum {integer} */
+                marks?: 1 | 2;
+            };
+        };
         /** @description A rhythmic position within a measure, expressed as a fraction of the measure duration. */
         "rhythmic-position": {
             /** @description Fraction as [numerator, denominator]. E.g. [1, 4] = beat 2 in 4/4 time. */
@@ -128,6 +138,9 @@ export interface components {
                 ];
             };
             swing?: components["schemas"]["swing"];
+            /** @enum {integer} */
+            clickSubdivision?: 0 | 1 | 2 | 3 | 4 | 5;
+            clickGrouping?: components["schemas"]["click-grouping"];
             text?: components["schemas"]["text-content"];
             showMetronomeMark?: boolean;
             showText?: boolean;
@@ -139,12 +152,17 @@ export interface components {
         /** @description Viritura display and placement extensions on a standard MNX tempo object. */
         "tempo-extensions": {
             swing?: components["schemas"]["swing"];
+            /** @enum {integer} */
+            clickSubdivision?: 0 | 1 | 2 | 3 | 4 | 5;
+            clickGrouping?: components["schemas"]["click-grouping"];
             text?: components["schemas"]["text-content"];
             showMetronomeMark?: boolean;
             showText?: boolean;
             manualOffset?: components["schemas"]["sp-delta"];
             avoidCollisions?: boolean;
         };
+        /** @description Whole-bar pulse lengths in time-signature denominator divided by clickSubdivision units. */
+        "click-grouping": number[];
         /** @description Viritura extensions on a standard MNX key-signature object. */
         "key-extensions": {
             /** @constant */
@@ -189,6 +207,28 @@ export interface components {
             /** @description Chromatic alteration in semitones (-1 = flat, 1 = sharp). */
             alter?: number;
         };
+        "fretboard-note": {
+            string: number;
+            fret: number;
+            fingering?: string;
+            /** @enum {string} */
+            barre?: "start" | "stop";
+        };
+        "fretboard-first-fret": {
+            fret: number;
+            text?: string;
+            /** @enum {string} */
+            location?: "left" | "right";
+        };
+        /** @description Instrument-specific MusicXML-shaped chord frame. String 1 is the rightmost string. Omitted strings are unplayed; fret 0 is open. Geometry uses Viritura engraving defaults, not source page coordinates. */
+        fretboard: {
+            partId: string;
+            frameStrings: number;
+            frameFrets: number;
+            firstFret?: components["schemas"]["fretboard-first-fret"];
+            frameNotes: components["schemas"]["fretboard-note"][];
+            unplayed?: string;
+        };
         /** @description A score-wide harmony event on a global measure. Either a structured root or authored rawText is required; rawText may preserve malformed or unrecognized symbols and no-chord (NC) declarations without inventing a root. */
         "chord-symbol": {
             /** @description Rhythmic position within the measure. */
@@ -209,6 +249,8 @@ export interface components {
             extension?: 6 | 7 | 9 | 11 | 13;
             /** @description Visual override of the computed display text, not a semantic replacement. The semantic resolver rejects parseable contradictions or unsupported non-equivalent overrides. */
             textOverride?: string;
+            /** @description At most one authored diagram per source part. Physical fingerings are independent of display transposition and chord playback. */
+            fretboards?: components["schemas"]["fretboard"][];
         };
         /** @description Score-wide chord-symbol engraving choices. */
         "chord-symbol-style": {
@@ -237,8 +279,11 @@ export interface components {
             bpm?: number;
             value?: components["schemas"]["tempo-instruction"]["value"];
             swing?: components["schemas"]["swing"];
+            /** @enum {integer} */
+            clickSubdivision?: 0 | 1 | 2 | 3 | 4 | 5;
+            clickGrouping?: components["schemas"]["click-grouping"];
             showMetronomeMark?: boolean;
-        } & (unknown | unknown);
+        } & (unknown | unknown | unknown);
         /** @description One globally owned music-relative instruction displayed once above or below the visible system in every score/part view. No staff/voice or page coordinates. */
         "system-text": {
             id: string;
@@ -407,8 +452,21 @@ export interface components {
              */
             kind?: "rit" | "accel";
         } & (unknown | unknown);
+        "global-fermata": {
+            id: string;
+            position: components["schemas"]["rhythmic-position"];
+            /** @default 2 */
+            multiplier: number;
+            /**
+             * @default silent
+             * @enum {string}
+             */
+            clickBehavior: "silent" | "keepClicking";
+        };
         /** @description Viritura vendor extensions on a global measure object. */
         "measure-global-extensions": {
+            /** @description Time-anchored ensemble holds. Equal positions resolve to one shared fermata. */
+            fermatas?: components["schemas"]["global-fermata"][];
             /** @description Unified ordered tempo collection when any marking has no BPM. Mutually exclusive with standard measure tempos; prevents fabricated BPM resets. */
             tempos?: components["schemas"]["tempo-instruction"][];
             rehearsalMark?: components["schemas"]["rehearsal-mark"];
@@ -501,6 +559,8 @@ export interface components {
             transposition?: components["schemas"]["instrument-transposition"];
             /** @description General-MIDI program fallback when the standard sound ID cannot be resolved. */
             midiProgram?: number;
+            /** @description This instrument is a soloist rather than an ensemble section; independent of mixer solo. */
+            solo?: boolean;
         };
         /** @description Display control for the printed change instruction (e.g. 'To Picc.', 'in E♭'). */
         "instrument-change-instruction": {
@@ -573,23 +633,18 @@ export interface components {
             /** @description Glissando/portamento lines to target events. */
             glissandos?: components["schemas"]["glissando"][];
         };
-        /**
-         * @description Legacy Viritura notehead shape accepted on kit components and pitched notes. New documents use the native MNX notehead object.
-         * @enum {string}
-         */
-        "notehead-shape": "normal" | "x" | "circleX" | "diamond" | "slash" | "triangleUp" | "triangleDown";
+        "fermata-extensions": {
+            globalFermataId?: string;
+            /** @description Preserves intentional local notation on import, including a local override of a projected global symbol. */
+            localOnly?: boolean;
+        };
         /** @description Viritura vendor extensions on an MNX kit-component object. */
         "kit-component-extensions": {
-            /** @description Legacy notehead shape for hits on this kit component. New documents use the native MNX notehead object. */
-            notehead?: components["schemas"]["notehead-shape"];
             /** @description GS drum-kit program (bank 128) that this component's `sound.midiNumber` should play on, overriding the percussion part's default kit. Lets a single percussion staff borrow a sound from another kit (e.g. a Tam-tam/Big Gong from the Ethnic kit, pgm 49) that the part's main kit lacks. The audio engine routes such hits to a dedicated drum channel loaded with this program. */
             drumKit?: number;
         };
         /** @description Viritura vendor extensions on an MNX note object (the `_x.viritura` dict on a pitched note). */
-        "note-extensions": {
-            /** @description Legacy notehead-shape override for this pitched note. New documents use the native MNX notehead object. */
-            notehead?: components["schemas"]["notehead-shape"];
-        };
+        "note-extensions": Record<string, never>;
         /** @description A 2D position on the concert-hall stage, in meters. X runs left (negative) to right (positive); Y runs from the audience (negative) toward backstage (positive). */
         "stage-position": {
             /** @description Horizontal position in meters (left negative, right positive). */
@@ -609,6 +664,8 @@ export interface components {
             initialInstrument?: string;
             /** @description General-MIDI program (0..127). Used directly by the audio engine. */
             midiProgram?: number;
+            /** @description The part's instrument is a soloist rather than an ensemble section; independent of mixer solo. With instruments, use the active instrument definition instead. */
+            solo?: boolean;
             /** @description Instrument family for spatial placement / catalog routing. */
             family?: string;
             /** @description Spatial-audio stage position in concert-hall meters, persisted from Play mode so a user's instrument arrangement survives reload. */
@@ -668,14 +725,69 @@ export interface components {
             spatiumMm?: number;
             pageTurns?: components["schemas"]["page-turn-settings"];
         };
+        /** @description Partial bar-number house style. Score-view overrides inherit omitted fields from the document defaults. */
+        "bar-number-settings": {
+            /** @enum {unknown} */
+            frequency?: "systemStarts" | "everyBar" | "hidden";
+            /** @enum {unknown} */
+            placement?: "aboveSystem" | "belowSystem" | "belowTopInstrument";
+            placements?: ("aboveSystem" | "belowSystem" | "belowTopInstrument")[];
+            aboveGroups?: string[][];
+            /** @enum {unknown} */
+            horizontalAlignment?: "barline" | "center";
+            distance?: number;
+            onStaff?: boolean;
+            showStaffLine?: boolean;
+            showFirst?: boolean;
+            style?: components["schemas"]["bar-number-text-style"];
+            /**
+             * @deprecated
+             * @description Legacy bar-number font family. Use textStyles.barNumber.family or score-view barNumbers.style.family.
+             * @enum {unknown}
+             */
+            family?: "serif" | "sans-serif" | "monospace";
+            /**
+             * @deprecated
+             * @description Legacy bar-number size in staff spaces. Use textStyles.barNumber.size or score-view barNumbers.style.size.
+             */
+            size?: number;
+            /**
+             * @deprecated
+             * @description Legacy bar-number weight. Use textStyles.barNumber.bold or score-view barNumbers.style.bold.
+             */
+            bold?: boolean;
+            /**
+             * @deprecated
+             * @description Legacy bar-number slant. Use textStyles.barNumber.italic or score-view barNumbers.style.italic.
+             */
+            italic?: boolean;
+            /** @enum {unknown} */
+            enclosure?: "none" | "box" | "circle";
+        };
+        /** @description Options for the autoHideEmptyParts policy of this score view. Manually omitted staves are never restored by these options. */
+        "auto-hide-empty-staves": {
+            /**
+             * @description Whether the first system may hide empty instruments (hide, the default) or retains every staff in the layout (show).
+             * @enum {string}
+             */
+            firstSystem?: "hide" | "show";
+            /** @description Explicit per-system decisions that win over the policy. The listed parts stay visible on the system containing the measure. */
+            keepVisible?: components["schemas"]["auto-hide-keep-visible"][];
+        };
+        "auto-hide-keep-visible": {
+            measure: string;
+            parts: string[];
+        };
         /** @description Viritura extensions on a standard MNX score definition. */
         "score-extensions": {
             pageSetup?: components["schemas"]["page-setup"];
             /** @enum {unknown} */
             pageSetupRole?: "score" | "part";
+            barNumbers?: components["schemas"]["bar-number-settings"];
             instrumentNameDisplay?: components["schemas"]["instrument-name-display"];
-            /** @description Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged. */
+            /** @description Part IDs eligible for automatic hiding on each system in paged views of this score view only. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged. */
             autoHideEmptyParts?: string[];
+            autoHideEmptyStaves?: components["schemas"]["auto-hide-empty-staves"];
             /** @description Free text frames owned by this score view. A page locator uses a zero-based index into the final rendered page array; measure and event locators follow their target onto its rendered page. Event IDs are scoped by the required part ID. Placement is relative to an edge or corner of the printable page area, with offsets in staff spaces (+x right, +y down). Frames have automatic height and do not participate in collision avoidance. */
             textFrames?: components["schemas"]["text-frame"][];
             layoutBreaks?: components["schemas"]["layout-break"][];
@@ -752,6 +864,7 @@ export interface components {
             border?: "none" | "solid";
             /** @description Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored. */
             eraseBackground?: boolean;
+            sourceReference?: components["schemas"]["text-frame-source-reference"];
         };
         /** @description Exactly one page, global-measure, or part-scoped event locator. */
         "text-frame-locator": {
@@ -830,6 +943,13 @@ export interface components {
             color?: string;
             align?: components["schemas"]["text-alignment"];
         };
+        /** @description Sparse bar-number typography override. Document defaults use textStyles.barNumber; score views override only the fields they change. */
+        "bar-number-text-style": {
+            size?: number;
+            family?: components["schemas"]["font-family"];
+            bold?: boolean;
+            italic?: boolean;
+        };
         /** @description Per-document text style overrides keyed by role. Each entry is a partial override merged over the engine's built-in stylesheet at layout time. Stored at `_x.viritura.textStyles` on the score root. */
         "text-styles": {
             title?: components["schemas"]["text-style"];
@@ -841,6 +961,7 @@ export interface components {
             tempo?: components["schemas"]["text-style"];
             rehearsalMark?: components["schemas"]["text-style"];
             pedalText?: components["schemas"]["text-style"];
+            barNumber?: components["schemas"]["bar-number-text-style"];
             copyright?: components["schemas"]["text-style"];
         };
         /** @description Clearances a single dependent kind keeps as it settles into the keep-out field. All distances are in staff spaces (spatium). Each field is an optional partial override; omitted fields keep the engine default. */
@@ -1086,6 +1207,7 @@ export interface components {
             };
             /** @description Per-document text style overrides. */
             textStyles?: components["schemas"]["text-styles"];
+            barNumbers?: components["schemas"]["bar-number-settings"];
             /** @description Per-document placement (clearance) overrides keyed by dependent kind. */
             placement?: components["schemas"]["placement"];
             /** @description Per-document time signature engraving styles for scores and parts. */
@@ -1120,6 +1242,7 @@ export type operations = Record<string, never>;
 
 // ─── PascalCase aliases ─────────────────────────────────────────────
 // Auto-generated convenience aliases for every $def in viritura-extensions.json.
+export type FullMeasureRestExtensions = components["schemas"]["full-measure-rest-extensions"];
 export type RhythmicPosition = components["schemas"]["rhythmic-position"];
 export type MeasureRhythmicPosition = components["schemas"]["measure-rhythmic-position"];
 export type TimeExtensions = components["schemas"]["time-extensions"];
@@ -1135,12 +1258,16 @@ export type DynamicGroupExtensions = components["schemas"]["dynamic-group-extens
 export type Swing = components["schemas"]["swing"];
 export type TempoInstruction = components["schemas"]["tempo-instruction"];
 export type TempoExtensions = components["schemas"]["tempo-extensions"];
+export type ClickGrouping = components["schemas"]["click-grouping"];
 export type KeyExtensions = components["schemas"]["key-extensions"];
 export type PedalType = components["schemas"]["pedal-type"];
 export type PedalLineStyle = components["schemas"]["pedal-line-style"];
 export type Pedal = components["schemas"]["pedal"];
 export type ChordQuality = components["schemas"]["chord-quality"];
 export type ChordRoot = components["schemas"]["chord-root"];
+export type FretboardNote = components["schemas"]["fretboard-note"];
+export type FretboardFirstFret = components["schemas"]["fretboard-first-fret"];
+export type Fretboard = components["schemas"]["fretboard"];
 export type ChordSymbol = components["schemas"]["chord-symbol"];
 export type ChordSymbolStyle = components["schemas"]["chord-symbol-style"];
 export type ExpressionPlacement = components["schemas"]["expression-placement"];
@@ -1165,6 +1292,7 @@ export type SlurExtensions = components["schemas"]["slur-extensions"];
 export type MarkerText = components["schemas"]["marker-text"];
 export type MarkerTexts = components["schemas"]["marker-texts"];
 export type GradualTempo = components["schemas"]["gradual-tempo"];
+export type GlobalFermata = components["schemas"]["global-fermata"];
 export type MeasureGlobalExtensions = components["schemas"]["measure-global-extensions"];
 export type HarpPedalAlter = components["schemas"]["harp-pedal-alter"];
 export type HarpPedalTuning = components["schemas"]["harp-pedal-tuning"];
@@ -1180,7 +1308,7 @@ export type PositionedStaffConfigExtensions = components["schemas"]["positioned-
 export type EventMarkingsExtensions = components["schemas"]["event-markings-extensions"];
 export type Arpeggio = components["schemas"]["arpeggio"];
 export type EventExtensions = components["schemas"]["event-extensions"];
-export type NoteheadShape = components["schemas"]["notehead-shape"];
+export type FermataExtensions = components["schemas"]["fermata-extensions"];
 export type KitComponentExtensions = components["schemas"]["kit-component-extensions"];
 export type NoteExtensions = components["schemas"]["note-extensions"];
 export type StagePosition = components["schemas"]["stage-position"];
@@ -1191,6 +1319,9 @@ export type PageTurnWeights = components["schemas"]["page-turn-weights"];
 export type PageTurnSettings = components["schemas"]["page-turn-settings"];
 export type PageMargins = components["schemas"]["page-margins"];
 export type PageSetup = components["schemas"]["page-setup"];
+export type BarNumberSettings = components["schemas"]["bar-number-settings"];
+export type AutoHideEmptyStaves = components["schemas"]["auto-hide-empty-staves"];
+export type AutoHideKeepVisible = components["schemas"]["auto-hide-keep-visible"];
 export type ScoreExtensions = components["schemas"]["score-extensions"];
 export type TextFrame = components["schemas"]["text-frame"];
 export type TextFramePagePosition = components["schemas"]["text-frame-page-position"];
@@ -1206,6 +1337,7 @@ export type InstrumentNameDisplay = components["schemas"]["instrument-name-displ
 export type FontFamily = components["schemas"]["font-family"];
 export type TextAlignment = components["schemas"]["text-alignment"];
 export type TextStyle = components["schemas"]["text-style"];
+export type BarNumberTextStyle = components["schemas"]["bar-number-text-style"];
 export type TextStyles = components["schemas"]["text-styles"];
 export type PlacementMetrics = components["schemas"]["placement-metrics"];
 export type Placement = components["schemas"]["placement"];

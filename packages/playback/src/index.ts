@@ -15,6 +15,7 @@ export { PlaybackProvider } from "./PlaybackContext";
 export type { SoundfontLoader } from "./soundfont";
 export type { PlaybackPreviewPosition } from "./soundProfileRuntime";
 export { getChordPlaybackPart } from "@viritura/midi";
+export { exportScoreMidi } from "./midiExport";
 export { getPlaybackSnapshot, subscribePlaybackStatus, usePlaybackActions, usePlaybackState } from "./usePlayback";
 export {
   PAN_RANGE,
@@ -44,6 +45,12 @@ export {
   useTransportVisibilityActions,
   type TransportVisibilityPreferences,
 } from "./transportSettingsStore";
+export {
+  getMetronomeSound,
+  subscribeMetronomeSound,
+  useMetronomeSound,
+  useMetronomeSoundActions,
+} from "./metronomeSettingsStore";
 
 export type { ViewMode } from "./types";
 
@@ -56,3 +63,30 @@ export {
 } from "./soundProfileRuntime";
 
 export type { VstTransport, VstPartAssignment, Sf2PartAssignment, VstPreparePlan } from "./vstTransport";
+
+export {
+  buildClickSessionProgram,
+  describeClickCue,
+  ClickSessionTransport,
+  type ClickResolutionRule,
+  type ClickSessionEngine,
+  type ClickSessionOptions,
+  type ClickSessionProgram,
+  type ClickSessionSource,
+  type ClickSessionStatus,
+  type ClickSessionTransportOptions,
+  type ClickCueInput,
+} from "./clickSession";
+
+export {
+  exportScoreAudio,
+  MP3_BITRATES,
+  WAV_BIT_DEPTHS,
+  type AudioEncoding,
+  type AudioExportOptions,
+  type AudioExportResult,
+  type AudioExportSettings,
+  type AudioPartMix,
+  type Mp3Bitrate,
+  type WavBitDepth,
+} from "./audioExport";

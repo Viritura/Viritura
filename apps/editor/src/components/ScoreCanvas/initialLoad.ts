@@ -7,7 +7,7 @@ import {
   type SpatialIndex,
 } from "@viritura/renderer";
 import { buildEnrichedSpatialIndex } from "../../store/enrichSpatialIndex";
-import type { Score } from "@viritura/core";
+import type { PageSetup, Score } from "@viritura/core";
 import { computePageViewContentSize, computeSpreadContentSize, computeSpreadHContentSize } from "./viewportGeometry";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 
@@ -24,6 +24,23 @@ export function contentSizeForMode(displayList: DisplayList, viewMode: ViewMode)
   return { width: bounds.maxX, height: computeHorizonPaperGeometry(displayList).contentHeight };
 }
 
+export function scoreViewRelayoutKey(
+  scoreIndex: number,
+  viewMode: ViewMode,
+  scoreDefinitions: readonly string[],
+  selectedPartIds?: readonly string[],
+  expandedCondensingStaves?: ReadonlySet<string>,
+  pageSetupOverride?: PageSetup,
+  sourcePartIndex?: number,
+  useWrittenOverride?: boolean,
+): string {
+  const layoutClass = viewMode === "horizon" ? "horizon" : "paged";
+  const parts = (selectedPartIds ?? []).join(",");
+  const expanded = expandedCondensingStaves ? [...expandedCondensingStaves].sort().join(",") : "";
+  const pageSetup = pageSetupOverride ? JSON.stringify(pageSetupOverride) : "";
+  return `${scoreIndex}|${layoutClass}|${scoreDefinitions.join("\u001f")}|${parts}|${expanded}|${pageSetup}|${sourcePartIndex ?? ""}|${useWrittenOverride ?? ""}`;
+}
+
 interface InitialLoadArgs {
   mnxJson: string;
   getScoreInfo: (json: string) => Promise<ScoreInfo>;
@@ -32,6 +49,11 @@ interface InitialLoadArgs {
   containerWidth: number;
   debugEnabled: boolean;
   selectedScoreIndex: number;
+  selectedPartIds?: readonly string[];
+  expandedCondensingStaves?: ReadonlySet<string>;
+  pageSetupOverride?: PageSetup;
+  sourcePartIndex?: number;
+  useWrittenOverride?: boolean;
   cachedScoreInfoRef: { current: ScoreInfo | null };
   displayListRef: { current: DisplayList | null };
   spatialIndexRef: { current: SpatialIndex | null };
@@ -45,6 +67,7 @@ interface InitialLoadArgs {
   setScoreDefinitions: (defs: string[]) => void;
   setContentSize: (s: { width: number; height: number }) => void;
   clearSelection: () => void;
+  onLayoutCommitted?: (key: string) => void;
   isStale?: () => boolean;
 }
 
@@ -60,6 +83,11 @@ export async function runInitialLoad(args: InitialLoadArgs): Promise<void> {
     containerWidth,
     debugEnabled,
     selectedScoreIndex,
+    selectedPartIds,
+    expandedCondensingStaves,
+    pageSetupOverride,
+    sourcePartIndex,
+    useWrittenOverride,
     cachedScoreInfoRef,
     displayListRef,
     spatialIndexRef,
@@ -82,19 +110,20 @@ export async function runInitialLoad(args: InitialLoadArgs): Promise<void> {
     `${info.measureCount} measure${info.measureCount !== 1 ? "s" : ""} · ${info.partNames.filter(Boolean).join(", ") || "1 part"} · Rust/WASM engine`,
   );
 
-  // The view-switch relayout effect keys on `${idx}|${layoutClass}|${names}`
-  // and accepts the layout as current only when the mnxJson also matches
-  // `lastViewRelayoutJsonRef`/`lastFastPaintedJsonRef`. Seed BOTH here in that
-  // exact format so the relayout effect — which re-fires immediately because
-  // `setScoreDefinitions` is one of its deps — recognises this initial layout
-  // as already current and skips a guaranteed redundant full relayout. (On a
-  // huge condensed score that redundant relayout produced a second multi-second
-  // WASM pass + a second huge display list, which is enough to OOM-crash the
-  // page on engrave-mode entry.)
-  const layoutClass = viewMode === "horizon" ? "horizon" : "paged";
+  // Seed the same key used by view relayout to avoid a second full layout.
   const scoreNames = info.scoreCount > 1 ? info.scoreNames : [];
   setScoreDefinitions(scoreNames);
-  lastScoreDefinitionRelayoutKeyRef.current = `${selectedScoreIndex}|${layoutClass}|${scoreNames.join("\u001f")}`;
+  const layoutKey = scoreViewRelayoutKey(
+    selectedScoreIndex,
+    viewMode,
+    scoreNames,
+    selectedPartIds,
+    expandedCondensingStaves,
+    pageSetupOverride,
+    sourcePartIndex,
+    useWrittenOverride,
+  );
+  lastScoreDefinitionRelayoutKeyRef.current = layoutKey;
   lastViewRelayoutJsonRef.current = mnxJson;
 
   const t0 = performance.now();
@@ -114,6 +143,7 @@ export async function runInitialLoad(args: InitialLoadArgs): Promise<void> {
 
   clearSelection();
   setContentSize(contentSizeForMode(displayList, viewMode));
+  args.onLayoutCommitted?.(layoutKey);
   lastContainerWidthRelayoutRef.current = containerWidth;
   lastDebugRelayoutKeyRef.current = `${debugEnabled}|${selectedScoreIndex}|${info.scoreCount}`;
 }

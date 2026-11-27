@@ -18,7 +18,9 @@ selection to hear the full ensemble again.
 
 **Settings → Playback** controls which transport controls are shown (the time
 display, the follow-playback-head control, and the metronome) and whether
-the view follows the playhead.
+the view follows the playhead. Choose **Metronome sound** to use a synthesized
+oscillator, tick, or woodblock for both the metronome and the Click activity.
+Oscillator is the default, and the choice is saved on this device.
 
 Playback follows tempo, dynamics, articulations, repeats, and the document's
 sound assignments. Unpitched percussion uses its instrument's percussion map.

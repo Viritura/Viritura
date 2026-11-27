@@ -14,7 +14,7 @@
 
 import type { GlobalLyrics, LyricLineMetadataEntry } from "@viritura/core";
 import type { Sound } from "@viritura/core";
-import { generateId } from "@viritura/core";
+import { canonicalGlobalFermatas, compileClickSettings, generateId, measureTempoInstructions } from "@viritura/core";
 import { parseGlobalCaesura } from "./globalCaesura";
 import type {
   GlobalMeasure,
@@ -120,7 +120,7 @@ export function parseGlobalSounds(raw: RawSoundsGlobal): Record<string, Sound> {
 // ═══════════════════════════════════════════
 
 export function parseGlobalLyrics(raw: RawLyricsGlobal): GlobalLyrics {
-  const result: GlobalLyrics = {};
+  const result: GlobalLyrics = { lineOrder: raw.lineOrder };
   if (raw.lineMetadata) {
     const entries: Record<string, LyricLineMetadataEntry> = {};
     for (const key of Object.keys(raw.lineMetadata)) {
@@ -132,9 +132,6 @@ export function parseGlobalLyrics(raw: RawLyricsGlobal): GlobalLyrics {
     }
     result.lineMetadata = entries;
   }
-  if (raw.lineOrder) {
-    result.lineOrder = raw.lineOrder;
-  }
   return result;
 }
 
@@ -144,7 +141,11 @@ export function parseGlobalLyrics(raw: RawLyricsGlobal): GlobalLyrics {
 
 export function parseGlobalMeasures(arr: RawMeasureGlobal[] | undefined): GlobalMeasure[] {
   if (!arr) return [];
-  return arr.map(parseGlobalMeasure);
+  const measures = arr.map(parseGlobalMeasure);
+  compileClickSettings(
+    measures.map((measure) => ({ time: measure.time, instructions: measureTempoInstructions(measure) })),
+  );
+  return measures;
 }
 
 function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
@@ -178,6 +179,7 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
   // _x.viritura vendor extensions on the global measure
   const viritura = raw._x?.["viritura"] as RawMeasureGlobalExt | undefined;
   if (viritura) {
+    applyGlobalFermatas(measure, viritura);
     if (viritura.tempos !== undefined) measure.tempos = parseVendorTempos(raw, viritura);
     if (viritura.senzaMisura && measure.time) measure.time.display = "senzaMisura";
     if (viritura.rehearsalMark) {
@@ -199,12 +201,25 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
   return measure;
 }
 
+function applyGlobalFermatas(measure: GlobalMeasure, viritura: RawMeasureGlobalExt): void {
+  if (viritura.fermatas === undefined) return;
+  if (!measureGlobalExtensions(viritura)) throw new Error("Invalid global fermata extensions.");
+  const fermatas = viritura.fermatas.map((fermata) => ({
+    ...fermata,
+    position: parseRhythmicPosition(fermata.position),
+  }));
+  canonicalGlobalFermatas(fermatas);
+  measure.fermatas = fermatas;
+}
+
 function parseVendorTempos(raw: RawMeasureGlobal, viritura: RawMeasureGlobalExt): Tempo[] {
   if (raw.tempos?.length) throw new Error("Viritura tempos cannot coexist with standard measure tempos.");
   if (!measureGlobalExtensions(viritura)) throw new Error("Invalid Viritura tempo instructions.");
   if (!viritura.tempos) throw new Error("Viritura tempo instructions are missing.");
   return viritura.tempos.map((instruction): Tempo => {
     const presentation: TempoPresentation = {
+      clickSubdivision: instruction.clickSubdivision,
+      clickGrouping: instruction.clickGrouping,
       text: instruction.text,
       showText: instruction.showText,
       showMetronomeMark: instruction.showMetronomeMark,
@@ -290,6 +305,14 @@ function parseTempo(raw: RawTempo): Tempo {
   // the unvalidated parse path, where no schema validation has run.
   const viritura = raw._x?.["viritura"] as RawTempoExt | undefined;
   if (viritura) {
+    if (viritura.clickSubdivision !== undefined) {
+      const value = viritura.clickSubdivision;
+      if (!Number.isInteger(value) || value < 0 || value > 5) {
+        throw new Error("Invalid Viritura tempo click subdivision.");
+      }
+      tempo.clickSubdivision = value;
+    }
+    if (viritura.clickGrouping !== undefined) tempo.clickGrouping = viritura.clickGrouping;
     if (viritura.swing !== undefined) {
       if (!validateSwing(viritura.swing)) throw new Error("Invalid Viritura tempo swing instruction.");
       tempo.swing = parseSwing(viritura.swing);
@@ -428,6 +451,7 @@ function parseChordSymbol(raw: RawChordSymbol): ChordSymbol {
   if (raw.bass) cs.bass = parseChordRoot(raw.bass);
   if (raw.extension !== undefined) cs.extension = raw.extension;
   if (raw.textOverride !== undefined) cs.textOverride = raw.textOverride;
+  if (raw.fretboards !== undefined) cs.fretboards = structuredClone(raw.fretboards);
   return cs;
 }
 

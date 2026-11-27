@@ -37,6 +37,11 @@ pub(crate) struct MeasureLayout {
 }
 
 impl MeasureLayout {
+    /// Beat-one column after the clef, key, and time signatures, independent of centered rests.
+    pub(crate) fn beat_one_x(&self) -> f64 {
+        self.x + self.prefix_width
+    }
+
     pub(crate) fn rhythmic_voice_layouts(&self) -> impl Iterator<Item = &VoiceLayout> {
         let total_beats = super::measure::layout_total_beats(&self.resolved);
         self.voice_layouts.iter().filter(move |voice| {

@@ -140,12 +140,6 @@ export { VideoStage, type VideoStageProps } from "./VideoStage";
 export { PictureWindow, type PictureWindowProps } from "./PictureWindow";
 export { PictureSurface, type PictureSurfaceProps } from "./PictureSurface";
 export {
-  closePictureWindow,
-  currentPictureWindow,
-  isDocumentPipSupported,
-  openPictureWindow,
-} from "./documentPictureInPicture";
-export {
   DEFAULT_STREAMER_SECONDS,
   streamerState,
   streamerX,

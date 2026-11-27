@@ -5,6 +5,7 @@
  */
 
 import type { ChordSymbol, Score } from "@viritura/core";
+import type { AudioExportSettings } from "./audioExport";
 import type { PlaybackPreviewPosition } from "./soundProfileRuntime";
 
 // ═══════════════════════════════════════════
@@ -75,6 +76,10 @@ export interface PlaybackActions {
   pause(): void;
   /** Stop playback (resets position to start). */
   stop(): void;
+  /** Stop and tear down every score-playback resource (samplers, SF2 synths, native hosts)
+   * and suspend the score audio graph, e.g. so a click-only recording engine runs alone.
+   * The next play() rebuilds instruments. */
+  releaseAudio(): Promise<void>;
   /** Seek to an absolute score time in seconds. */
   seek(seconds: number): void;
   /** Temporary source-part eligibility. Null clears; [] silences all.
@@ -152,6 +157,8 @@ export interface PlaybackActions {
   setLimiterRatio(ratio: number): void;
   /** Set absolute pan on a layer's sampler (listener-relative, computed from child node position). */
   applyLayerPan(partIndex: number, layerIndex: number, pan: number): void;
+  /** Snapshot the stage, room, and master settings that offline audio export reproduces. */
+  getAudioExportSettings(partCount: number): AudioExportSettings;
 }
 
 // ═══════════════════════════════════════════

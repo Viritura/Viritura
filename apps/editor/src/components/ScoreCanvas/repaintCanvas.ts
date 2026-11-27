@@ -38,6 +38,7 @@ export interface RepaintCanvasArgs {
   measureSelection?: { startMeasure: number; endMeasure: number; startPart: number; endPart: number } | null;
   /** Element whose engine-rendered ink is replaced by a live drag preview. */
   suppressedElementId?: string;
+  bare?: boolean;
 }
 
 /** Clip to the physical page so margin overflow stays visible (the editor
@@ -64,6 +65,7 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
     viewMode = "page",
     measureSelection,
     suppressedElementId,
+    bare = false,
   } = args;
   const displayList = suppressedElementId
     ? suppressElementCommands(sourceDisplayList, suppressedElementId)
@@ -80,7 +82,9 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
   ctx.globalAlpha = 1;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   // Fill with neutral workspace background for all view modes
-  const canvasBg = getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim() || "#e0e2ea";
+  const canvasBg = bare
+    ? "#fff"
+    : getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim() || "#e0e2ea";
   ctx.fillStyle = canvasBg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -122,6 +126,7 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
     measureSelection,
     zoom,
     paperFill,
+    bare,
     visX1,
     visY1,
     visX2,
@@ -131,7 +136,7 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
   // Horizon (galley) mode: draw paper content area with padding.
   // Render it as a floating paper card using the shared --paper-shadow
   // recipe so it matches palette tiles, radial menu, library cards, etc.
-  if (viewMode === "horizon") {
+  if (viewMode === "horizon" && !bare) {
     const paper = computeHorizonPaperGeometry(displayList);
     paintPaperPage(ctx, paper.x, paper.y, paper.width, paper.height, paperFill);
   }
@@ -159,7 +164,7 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
       const page = pages[i];
       if (!page) continue;
       const pos = placements[i]!;
-      paintPaperPage(ctx, 0, pos.y, PAGE_W, page.height, paperFill);
+      if (!bare) paintPaperPage(ctx, 0, pos.y, PAGE_W, page.height, paperFill);
     }
 
     if (multiPage) {
@@ -319,6 +324,7 @@ interface FramePaintCtx {
   measureSelection?: RepaintCanvasArgs["measureSelection"];
   zoom: number;
   paperFill: string | CanvasPattern;
+  bare: boolean;
   visX1: number;
   visY1: number;
   visX2: number;
@@ -342,7 +348,7 @@ function paintSpreadView(ctx: CanvasRenderingContext2D, viewMode: "spread" | "sp
   // the binding. Page i=0 is alone (cover); subsequent pages pair up
   // (i odd = left, i even = right).
   const drawnIdx = new Set<number>();
-  for (let i = 0; i < pages.length; i++) {
+  for (let i = 0; !c.bare && i < pages.length; i++) {
     if (drawnIdx.has(i)) continue;
     const page = pages[i]!;
     const pos = placements[i]!;

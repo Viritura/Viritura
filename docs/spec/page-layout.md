@@ -58,6 +58,11 @@ Only the first fragment carries the number and opening hook; only the final
 closed fragment carries a closing hook, aligned with its repeat barline.
 Ending numbers use the 2sp default score-text size, and the bracket rises to
 leave room for them and for multi-measure-rest counts.
+At a system start, ending brackets and their continuations begin at the beat-one
+column after the clef, key, and time signatures, matching the anchor used by
+tempo and system text rather than the left staff edge or a centered rest.
+Endings starting within a system retain their barline alignment. Pedal-line
+continuations likewise resume at the new system's beat-one column.
 Continuation fragments keep the original ending's selection ID and clear the
 notes and stems on their own system. Horizon chunk seams keep one continuous
 bracket, and retained frames invalidate continuation geometry when an authored
@@ -77,6 +82,14 @@ sequence traversal builds a geometry/ink snapshot for onsets, tuplets,
 tremolos, grace attachment, accidentals, flags, displacement, and annotations.
 Spacing estimators consume that snapshot rather than independently walking raw
 `SequenceContent`.
+
+Unbeamed flags impose a minimum gap that leaves at least 0.2 sp before vertically
+overlapping rhythmic ink at the next onset. Rests use the same ink clearance on
+both sides. These collision floors survive compression, but do not become rigid
+width: duration springs can still stretch the gap when the system has room.
+Clearance is shared across aligned staves. A change-clef column already clears
+the preceding flag's full right extent, so it does not add a second flag-to-note
+gap.
 
 Measure prefixes use the leading barline's right ink edge, rather than its
 anchor or half its total width, with 0.5 sp clearance before a changed key or

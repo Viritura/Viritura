@@ -67,7 +67,11 @@ import { ScoreView } from "@viritura/score-viewer-react";
 It accepts the viewer's layout and presentation options as props: `pageWidth`,
 `pageHeight`, `pageMargins`, `spatium`, `scoreIndex`, `viewMode`, `zoom`, `gap`,
 `spreadFirstPage`, `pagesPerRow`, `pageBackground`, `contentAlign`, `ink` and
-`assetBaseUrl`. `<ScoreViewer>` accepts `contentAlign` too.
+`assetBaseUrl`. `<ScoreViewer>` accepts `contentAlign` too. Use
+`contentAlign="page"` with `<ScoreView.Playhead follow="page" />` to center
+and advance whole page/spread frames. Combine with `fitMode="page"` on
+`ScoreViewer` to fit the whole frame, and `spreadFirstPage="paired"` to pair
+the first two pages.
 Pass `bare` to remove the viewport padding when embedding a cropped fragment in
 a tight panel.
 
@@ -75,13 +79,17 @@ a tight panel.
 
 ```tsx
 <ScoreView mnx={mnx}>
-  <ScoreView.Playhead beat={beat} partId="wind.flutes.flute" follow style={{ color: "#e34935" }} />
+  <ScoreView.Playhead beat={beat} partId="wind.flutes.flute" follow />
 </ScoreView>
 ```
 
 Pass `beat` for a global quarter-note beat, or `position={{ measureIndex, beat }}`.
 `follow` keeps the playhead in view. `render` replaces the default bar with your
 own element and receives `{ x, y, height }`.
+
+The default bar uses the host's `--brand` color, falling back to Viritura viridian
+(`#215e4e`) in standalone embeds. `style={{ color: "..." }}` overrides the color
+for an individual playhead.
 
 ### Page overlays
 

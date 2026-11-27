@@ -240,6 +240,17 @@ describe("selectionReducer", () => {
         });
       });
 
+      it("preserves the expansion anchor when a group has one member", () => {
+        const measureAnchor = { partIndex: 1, staffIndex: 2, measureIndex: 0, isExpansion: true };
+        expect(
+          selectionReducer(none, {
+            type: "SELECT_ELEMENTS",
+            elementIds: ["p1/m0/s0/a"],
+            measureAnchor,
+          }),
+        ).toEqual({ kind: "single", elementId: "p1/m0/s0/a", elementType: "event", measureAnchor });
+      });
+
       it.each([{ elementIds: ["p0/m0/s0/a"] }, { elementIds: ["p0/m0/s0/a", "p0/m0/s1/b"] }])(
         "preserves explicit timing for the group $elementIds",
         ({ elementIds }) => {
@@ -326,6 +337,20 @@ describe("selectionReducer", () => {
   });
 
   describe("TOGGLE_SELECTION", () => {
+    it("retains the first selection's expansion anchor while that element remains selected", () => {
+      const measureAnchor = { partIndex: 1, staffIndex: 2, measureIndex: 0, isExpansion: true };
+      const first = selectionReducer(none, { type: "TOGGLE_SELECTION", elementId: "p1/m0/s0/a", measureAnchor });
+      const multi = selectionReducer(first, { type: "TOGGLE_SELECTION", elementId: "p1/m0/s0/b" });
+      const extended = selectionReducer(multi, { type: "TOGGLE_SELECTION", elementId: "p1/m0/s0/c" });
+      expect(extended).toMatchObject({ kind: "multi", measureAnchor });
+
+      const backToSingle = selectionReducer(multi, { type: "TOGGLE_SELECTION", elementId: "p1/m0/s0/b" });
+      expect(backToSingle).toMatchObject({ kind: "single", elementId: "p1/m0/s0/a", measureAnchor });
+
+      const withoutAnchor = selectionReducer(extended, { type: "TOGGLE_SELECTION", elementId: "p1/m0/s0/a" });
+      expect(withoutAnchor).toEqual({ kind: "multi", elementIds: ["p1/m0/s0/b", "p1/m0/s0/c"] });
+    });
+
     it("creates single from none", () => {
       const action: SelectionAction = {
         type: "TOGGLE_SELECTION",

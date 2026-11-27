@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type RefObject } from "react";
 import type { Score, ScoreDefinition, SlurShape } from "@viritura/core";
+import type { AutoHideEmptyStavesChange } from "../score/ScoreMutations";
 import type {
   ScoreCanvasHandle,
   EngraveAdornments,
@@ -105,7 +106,7 @@ export interface EngraveMode {
   // ── Embedded page setup editor ───────────────────────────────
   pageSetup: ReturnType<typeof usePageSetupEditor>;
   handleInstrumentNameDisplayChange: (settings: InstrumentNameDisplaySettings) => void;
-  handleAutoHideEmptyPartsChange: (partIds: string[]) => void;
+  handleAutoHideEmptyPartsChange: (change: AutoHideEmptyStavesChange) => void;
 }
 
 function scoreHasLayoutOverrides(score: Score | null, scoreIndex: number): boolean {

@@ -12,7 +12,7 @@ import { generateId } from "@viritura/core";
 export type InstrumentNameDisplayValue = InstrumentNameDisplayPolicy | "custom";
 
 function staffLabelRef(staff: LayoutStaff): StaffLabelRef | undefined {
-  return staff.labelref ?? staff.sources.find((source) => source.labelref)?.labelref;
+  return staff.labelRef ?? staff.sources.find((source) => source.labelRef)?.labelRef;
 }
 
 function collectStaffs(content: readonly LayoutContent[], result: LayoutStaff[]): void {
@@ -23,19 +23,50 @@ function collectStaffs(content: readonly LayoutContent[], result: LayoutStaff[])
 }
 
 function hasLiteralLabel(content: readonly LayoutContent[]): boolean {
-  return content.some((node) => node.label !== undefined || (node.type === "group" && hasLiteralLabel(node.content)));
+  return content.some(
+    (node) =>
+      node.label !== undefined ||
+      (node.type === "group"
+        ? node.labelRef !== undefined || hasLiteralLabel(node.content)
+        : node.sources.some((source) => source.label !== undefined)),
+  );
 }
 
-function uniformLayoutPolicy(content: readonly LayoutContent[]): InstrumentNameDisplayValue {
+function uniformLayoutPolicy(content: readonly LayoutContent[]): {
+  firstSystem: InstrumentNameDisplayValue;
+  subsequentSystems: InstrumentNameDisplayValue;
+} {
   const staffs: LayoutStaff[] = [];
   collectStaffs(content, staffs);
-  if (staffs.length === 0 || hasLiteralLabel(content)) return "custom";
+  if (staffs.length === 0 || hasLiteralLabel(content)) return { firstSystem: "custom", subsequentSystems: "custom" };
 
-  const refs = staffs.map(staffLabelRef);
-  if (refs.every((ref) => ref === undefined)) return "hidden";
-  if (refs.every((ref) => ref === "name")) return "full";
-  if (refs.every((ref) => ref === "shortName")) return "short";
-  return "custom";
+  if (
+    staffs.some((staff) => {
+      const refs = [staff.labelRef, ...staff.sources.map((source) => source.labelRef)].filter(
+        (ref) => ref !== undefined,
+      );
+      return (
+        refs.length > 1 ||
+        (staff.labelRef?.target !== undefined && staff.labelRef.target !== staff.sources[0]?.part) ||
+        staff.sources.some((source) => source.labelRef?.target !== undefined && source.labelRef.target !== source.part)
+      );
+    })
+  ) {
+    return { firstSystem: "custom", subsequentSystems: "custom" };
+  }
+  const refs = staffs.flatMap((staff) =>
+    [staff.labelRef, ...staff.sources.map((source) => source.labelRef)].filter((ref) => ref !== undefined),
+  );
+  if (refs.length === 0) return { firstSystem: "hidden", subsequentSystems: "hidden" };
+  if (staffs.some((staff) => staffLabelRef(staff) === undefined)) {
+    return { firstSystem: "custom", subsequentSystems: "custom" };
+  }
+  if (refs.every((ref) => (ref.ref ?? "auto") === "auto")) {
+    return { firstSystem: "full", subsequentSystems: "short" };
+  }
+  if (refs.every((ref) => ref?.ref === "name")) return { firstSystem: "full", subsequentSystems: "full" };
+  if (refs.every((ref) => ref?.ref === "shortName")) return { firstSystem: "short", subsequentSystems: "short" };
+  return { firstSystem: "custom", subsequentSystems: "custom" };
 }
 
 export function instrumentNameDisplayFor(
@@ -46,31 +77,33 @@ export function instrumentNameDisplayFor(
   subsequentSystems: InstrumentNameDisplayValue;
 } {
   if (score.instrumentNameDisplay) return score.instrumentNameDisplay;
-  const policy = uniformLayoutPolicy(content);
-  if (policy === "full") return { firstSystem: "full", subsequentSystems: "short" };
-  return { firstSystem: policy, subsequentSystems: policy };
+  return uniformLayoutPolicy(content);
 }
 
-function applyLabelRef(content: LayoutContent[], labelref: StaffLabelRef | undefined): void {
+function applyLabelRef(content: LayoutContent[], labelRef: StaffLabelRef | undefined): void {
   for (const node of content) {
     if (node.type === "group") {
       delete node.label;
-      applyLabelRef(node.content, labelref);
+      delete node.labelRef;
+      applyLabelRef(node.content, labelRef);
       continue;
     }
     delete node.label;
-    delete node.labelref;
-    for (const source of node.sources) delete source.labelref;
-    if (labelref !== undefined) node.labelref = labelref;
+    delete node.labelRef;
+    for (const source of node.sources) {
+      delete source.label;
+      delete source.labelRef;
+    }
+    if (labelRef !== undefined) node.labelRef = labelRef;
   }
 }
 
 function setInstrumentNameDisplay(
   content: readonly LayoutContent[],
-  labelref: StaffLabelRef | undefined,
+  labelRef: StaffLabelRef | undefined,
 ): LayoutContent[] {
   const next = structuredClone(content) as LayoutContent[];
-  applyLabelRef(next, labelref);
+  applyLabelRef(next, labelRef);
   return next;
 }
 
@@ -95,14 +128,16 @@ export function setScoreInstrumentNameDisplay(
   const score = scores[scoreIndex];
   if (!score) return { layouts: [...layouts], scores: [...scores] };
   const layoutIds = instrumentNameDisplayLayoutIds(score);
-  const standardLabelRef =
+  const standardLabelRef: StaffLabelRef | undefined =
     settings.firstSystem === "full" && settings.subsequentSystems === "short"
-      ? "name"
-      : settings.firstSystem === "short" && settings.subsequentSystems === "short"
-        ? "shortName"
-        : settings.firstSystem === "hidden" && settings.subsequentSystems === "hidden"
-          ? undefined
-          : "name";
+      ? { ref: "auto" }
+      : settings.firstSystem === "full" && settings.subsequentSystems === "full"
+        ? { ref: "name" }
+        : settings.firstSystem === "short" && settings.subsequentSystems === "short"
+          ? { ref: "shortName" }
+          : settings.firstSystem === "hidden" && settings.subsequentSystems === "hidden"
+            ? undefined
+            : { ref: "auto" };
   const layoutsUsedByOtherScores = new Set<string>();
   scores.forEach((candidate, index) => {
     if (index !== scoreIndex) {
@@ -120,6 +155,7 @@ export function setScoreInstrumentNameDisplay(
   });
   const usesStandardMnx =
     (settings.firstSystem === "full" && settings.subsequentSystems === "short") ||
+    (settings.firstSystem === "full" && settings.subsequentSystems === "full") ||
     (settings.firstSystem === "short" && settings.subsequentSystems === "short") ||
     (settings.firstSystem === "hidden" && settings.subsequentSystems === "hidden");
   const nextScore = { ...score };

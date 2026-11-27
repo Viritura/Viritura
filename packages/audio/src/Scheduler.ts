@@ -256,7 +256,7 @@ export class Scheduler {
       const scoreTimeDelta = click.time - this.startScoreTime;
       const audioTime = this.startAudioTime + scoreTimeDelta / this.tempoScale;
       if (audioTime >= audioNow) {
-        this.onClick(audioTime, click.accented);
+        this.onClick(audioTime, click.level);
       }
       this.nextClickIndex++;
     }

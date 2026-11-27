@@ -96,7 +96,7 @@ pub(super) fn append_instructions(
     let Some(authored) = part.measures.get(measure_index) else {
         return;
     };
-    for change in ordered_instrument_changes(authored) {
+    for (change_index, change) in ordered_instrument_changes(authored).into_iter().enumerate() {
         if change
             .instruction
             .as_ref()
@@ -109,7 +109,9 @@ pub(super) fn append_instructions(
             .instruction
             .as_ref()
             .and_then(|instruction| instruction.text.clone())
-            .unwrap_or_else(|| derived_instruction(part, measure_index, change));
+            .unwrap_or_else(|| {
+                derived_instruction(part, measure_index, change_index, change, false)
+            });
         append_expression(
             measure,
             text,
@@ -119,10 +121,11 @@ pub(super) fn append_instructions(
                 .unwrap_or(RhythmicPosition { fraction: (0, 1) }),
             source_part_index,
             false,
+            super::element_id::instrument_change(source_part_index, measure_index, change_index),
         );
     }
-    for (change_index, authored) in part.measures.iter().enumerate() {
-        for change in ordered_instrument_changes(authored) {
+    for (change_measure, authored) in part.measures.iter().enumerate() {
+        for (change_index, change) in ordered_instrument_changes(authored).into_iter().enumerate() {
             if change
                 .reminder
                 .as_ref()
@@ -132,7 +135,7 @@ pub(super) fn append_instructions(
                 continue;
             }
             let Some((anchor_index, position, staff)) =
-                reminders::anchor(score, part, change_index, change)
+                reminders::anchor(score, part, change_measure, change)
             else {
                 continue;
             };
@@ -141,9 +144,22 @@ pub(super) fn append_instructions(
                     .reminder
                     .as_ref()
                     .and_then(|reminder| reminder.text.clone())
-                    .unwrap_or_else(|| derived_reminder(part, change_index, change));
+                    .unwrap_or_else(|| {
+                        derived_reminder(part, change_measure, change_index, change)
+                    });
                 if !text.is_empty() {
-                    append_expression(measure, text, position, source_part_index, true);
+                    append_expression(
+                        measure,
+                        text,
+                        position,
+                        source_part_index,
+                        true,
+                        super::element_id::instrument_change_reminder(
+                            source_part_index,
+                            change_measure,
+                            change_index,
+                        ),
+                    );
                     if let Some(expression) =
                         measure.expressions.as_mut().and_then(|e| e.last_mut())
                     {
@@ -161,6 +177,7 @@ pub(super) fn append_instructions(
                 RhythmicPosition { fraction: (0, 1) },
                 source_part_index,
                 false,
+                super::element_id::initial_instrument_label(source_part_index),
             );
         }
     }
@@ -172,6 +189,7 @@ fn append_expression(
     position: RhythmicPosition,
     source_part_index: usize,
     instrument_reminder: bool,
+    id: String,
 ) {
     if !text.is_empty() {
         measure
@@ -179,7 +197,7 @@ fn append_expression(
             .get_or_insert_with(Vec::new)
             .push(TextExpression {
                 text: text.into(),
-                id: None,
+                id: Some(id),
                 text_type: crate::model::PositionedTextType::Expression,
                 position,
                 placement: Some(ExpressionPlacement::Above),
@@ -195,13 +213,75 @@ fn append_expression(
     }
 }
 
-fn derived_reminder(part: &Part, measure_index: usize, change: &InstrumentChange) -> String {
-    format!("To {}", derived_instruction(part, measure_index, change))
+fn derived_reminder(
+    part: &Part,
+    measure_index: usize,
+    change_index: usize,
+    change: &InstrumentChange,
+) -> String {
+    format!(
+        "To {}",
+        derived_instruction(part, measure_index, change_index, change, true)
+    )
 }
 
-fn derived_instruction(part: &Part, measure_index: usize, change: &InstrumentChange) -> String {
-    let state = ActiveInstrument::at(part, measure_index, change.fraction());
-    super::page::instrument_tuning_name(part, state)
+fn derived_instruction(
+    part: &Part,
+    measure_index: usize,
+    change_index: usize,
+    change: &InstrumentChange,
+    abbreviated: bool,
+) -> String {
+    let mut previous = measure_index.checked_sub(1).map_or_else(
+        || ActiveInstrument::initial(part),
+        |index| ActiveInstrument::at(part, index, (u32::MAX, 1)),
+    );
+    for earlier in ordered_instrument_changes(&part.measures[measure_index])
+        .into_iter()
+        .take(change_index)
+    {
+        previous.apply(part, earlier);
+    }
+    let mut active = previous;
+    active.apply(part, change);
+    let previous_id = previous
+        .definition
+        .map(|definition| definition.instrument_id.as_str())
+        .or(part.instrument_extensions.instrument_id.as_deref());
+    let next_id = active
+        .definition
+        .map(|definition| definition.instrument_id.as_str());
+    let same_instrument = change.instrument.is_none()
+        || previous_id
+            .zip(next_id)
+            .is_some_and(|(a, b)| instrument_base_id(a) == instrument_base_id(b));
+    let interval = |state: ActiveInstrument<'_>| {
+        state.transposition.map_or((0, 0), |transposition| {
+            (
+                transposition.interval.half_steps,
+                transposition.interval.staff_distance,
+            )
+        })
+    };
+    super::page::instrument_change_name(
+        part,
+        active,
+        same_instrument && interval(previous) != interval(active),
+        abbreviated,
+    )
+}
+
+fn instrument_base_id(id: &str) -> &str {
+    let Some((base, suffix)) = id.rsplit_once('.') else {
+        return id;
+    };
+    let mut chars = suffix.chars();
+    // Keyed MusicXML sound IDs share an instrument; register names do not.
+    if matches!(chars.next(), Some('a'..='g')) && matches!(chars.as_str(), "" | "flat" | "sharp") {
+        base
+    } else {
+        id
+    }
 }
 
 fn source_instrument_name<'a>(part: &'a Part, state: ActiveInstrument<'a>) -> &'a str {

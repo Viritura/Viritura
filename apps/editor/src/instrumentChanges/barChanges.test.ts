@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { parseMnx, serializeMnx, validateRawScore } from "@viritura/format";
-import { resolveActiveInstrument, type Score } from "@viritura/core";
+import { resolveActiveInstrument, type PositionedClef, type Score } from "@viritura/core";
 import { buildBlankScore, DEFAULT_NEW_SCORE_SETTINGS } from "../score/ScoreBuilder";
 import { createPlayer } from "../score/InstrumentCatalog";
 import { changeInstrumentInScore } from "../score/changeInstrument";
 import {
   barStartChange,
+  deleteInstrumentChangeByElementId,
   removeBarInstrumentChange,
   resolveBarInstrumentTarget,
   setBarInstrument,
@@ -115,6 +116,72 @@ describe("bar instrument changes", () => {
     expect(validateRawScore(serializeMnx(result.score)).ok).toBe(true);
   });
 
+  it("does not insert clefs when switching between flute and piccolo or removing the change", () => {
+    const target = { partIndex: 0, measureIndex: 1 };
+    for (const [from, to] of [
+      ["wind.flutes.flute", "wind.flutes.flute.piccolo"],
+      ["wind.flutes.flute.piccolo", "wind.flutes.flute"],
+    ] as const) {
+      const changed = setBarInstrument(scoreFor(from), target, to);
+      expect(changed.error).toBeUndefined();
+      expect(changed.score.parts[0]!.measures[1]!.clefs).toBeUndefined();
+      const returned = setBarInstrument(changed.score, { partIndex: 0, measureIndex: 2 }, from);
+      expect(returned.score.parts[0]!.measures[2]!.clefs).toBeUndefined();
+      const removed = removeBarInstrumentChange(changed.score, target);
+      expect(removed.error).toBeUndefined();
+      expect(removed.score.parts[0]!.measures[1]!.clefs).toBeUndefined();
+      expect(validateRawScore(serializeMnx(changed.score)).ok).toBe(true);
+    }
+  });
+
+  it("inserts different default clefs and removes obsolete clefs when replacing a change", () => {
+    const target = { partIndex: 0, measureIndex: 1 };
+    const changed = setBarInstrument(scoreFor(), target, "strings.cello").score;
+    expect(changed.parts[0]!.measures[1]!.clefs).toEqual([{ clef: { sign: "F", staffPosition: 2 } }]);
+    const returned = setBarInstrument(changed, { partIndex: 0, measureIndex: 2 }, "wind.flutes.flute");
+    expect(returned.score.parts[0]!.measures[2]!.clefs).toEqual([{ clef: { sign: "G", staffPosition: -2 } }]);
+    const replaced = setBarInstrument(changed, target, "wind.flutes.flute.piccolo");
+    expect(replaced.score.parts[0]!.measures[1]!.clefs).toBeUndefined();
+  });
+
+  it("compares the last positioned clef on each staff and preserves later clefs", () => {
+    const score = scoreFor("keyboard.piano");
+    score.parts[0]!.measures[0]!.clefs = [
+      { position: { fraction: [3, 4] }, clef: { sign: "G", staffPosition: -2 } },
+      { position: { fraction: [1, 2] }, clef: { sign: "F", staffPosition: 2 } },
+      { staff: 2, clef: { sign: "C", staffPosition: 0 } },
+    ];
+    const later: PositionedClef = {
+      position: { fraction: [1, 2] },
+      clef: { sign: "C", staffPosition: 0 },
+    };
+    score.parts[0]!.measures[1]!.clefs = [later];
+    const changed = setBarInstrument(score, { partIndex: 0, measureIndex: 1 }, "pluck.harp");
+    expect(changed.error).toBeUndefined();
+    expect(changed.score.parts[0]!.measures[1]!.clefs).toEqual([
+      { staff: 2, clef: { sign: "F", staffPosition: 2 } },
+      later,
+    ]);
+  });
+
+  it("rechecks the next instrument's clef after inserting or removing an earlier change", () => {
+    const later = { partIndex: 0, measureIndex: 2 };
+    const earlier = { partIndex: 0, measureIndex: 1 };
+    const score = setBarInstrument(scoreFor(), later, "wind.flutes.flute.piccolo").score;
+    expect(score.parts[0]!.measures[2]!.clefs).toBeUndefined();
+    const changed = setBarInstrument(score, earlier, "strings.cello");
+    expect(changed.error).toBeUndefined();
+    expect(changed.score.parts[0]!.measures[2]!.clefs).toEqual([{ clef: { sign: "G", staffPosition: -2 } }]);
+    const removed = removeBarInstrumentChange(changed.score, earlier);
+    expect(removed.error).toBeUndefined();
+    expect(removed.score.parts[0]!.measures[2]!.clefs).toBeUndefined();
+
+    score.parts[0]!.measures[2]!.clefs = [{ clef: { sign: "C", staffPosition: 0 } }];
+    const customized = setBarInstrument(score, earlier, "strings.cello");
+    expect(customized.error).toBeUndefined();
+    expect(customized.score.parts[0]!.measures[2]!.clefs).toEqual([{ clef: { sign: "C", staffPosition: 0 } }]);
+  });
+
   it("supports transposition-only changes and an explicit return to concert pitch", () => {
     const score = scoreFor("brass.french-horn");
     const changed = setBarTransposition(
@@ -156,9 +223,20 @@ describe("bar instrument changes", () => {
     expect(result.error).toBeUndefined();
     expect(result.score.parts[0]!.measures[1]!.instrumentChanges).toBeUndefined();
     expect(result.score.parts[0]!.measures[1]!.clefs).toEqual([
-      { clef: { sign: "G", staffPosition: -2 } },
       { position: { fraction: [1, 2] }, clef: { sign: "C", staffPosition: 0 } },
     ]);
+  });
+
+  it("deletes a selected change label but only hides a selected advance reminder", () => {
+    const target = { partIndex: 0, measureIndex: 1 };
+    const changed = setBarInstrument(scoreFor(), target, "wind.reed.oboe", undefined, { text: "To oboe" }).score;
+    const hidden = deleteInstrumentChangeByElementId(changed, "p0/m1/expr-instreminder0");
+    expect(barStartChange(hidden!.parts[0]!, 1)).toMatchObject({ reminder: { text: "To oboe", hidden: true } });
+    expect(deleteInstrumentChangeByElementId(hidden!, "p0/m1/expr-instreminder0")).toBeNull();
+    const removed = deleteInstrumentChangeByElementId(changed, "p0/m1/expr-instchange0");
+    expect(removed!.parts[0]!.measures[1]!.instrumentChanges).toBeUndefined();
+    expect(deleteInstrumentChangeByElementId(changed, "p0/m0/expr-instinitial")).toBeNull();
+    expect(barStartChange(changed.parts[0]!, 1)?.reminder).toEqual({ text: "To oboe" });
   });
 
   it("blocks unsafe staff-count and percussion-map changes without modifying the score", () => {

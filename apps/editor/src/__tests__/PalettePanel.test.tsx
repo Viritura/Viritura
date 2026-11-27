@@ -577,11 +577,17 @@ describe("PalettePanel", () => {
     expect(spans[0]!.id).toBe(spans[1]!.id);
   });
 
-  it("authors a semantic portamento between two selected notes", async () => {
+  it.each([
+    ["Portamento", "portamento", "straight", "port.", false],
+    ["Portamento", "portamento", "straight", "port.", true],
+    ["Glissando", "glissando", "wavy", "gliss.", true],
+  ])("authors a forward %s regardless of selection order", async (button, kind, style, text, reverse) => {
     useSelectionStore.setState({
       selection: {
         kind: "multi",
-        elementIds: ["p0/m1/s0/first-note", "p0/m1/s0/second-note"],
+        elementIds: reverse
+          ? ["p0/m1/s0/second-note", "p0/m1/s0/first-note"]
+          : ["p0/m1/s0/first-note", "p0/m1/s0/second-note"],
       },
     });
     const user = userEvent.setup();
@@ -595,11 +601,41 @@ describe("PalettePanel", () => {
       </TooltipPrimitives.Provider>,
     );
 
-    await user.click(await screen.findByRole("button", { name: "Portamento" }));
+    await user.click(await screen.findByRole("button", { name: button }));
 
-    expect(screen.getByTestId("glissandos-1").textContent).toBe(
-      '[{"target":"second-note","kind":"portamento","style":"straight","text":"port."}]',
+    expect(JSON.parse(screen.getByTestId("glissandos-1").textContent ?? "null")).toEqual([
+      { target: "second-note", kind, style, text },
+    ]);
+  });
+
+  it("authors a repeat-return glissando from the first-selected note", async () => {
+    const initialScore = structuredClone(SCORE);
+    initialScore.global.measures[1]!.repeatStart = {};
+    initialScore.global.measures[1]!.repeatEnd = {};
+    useSelectionStore.setState({
+      selection: {
+        kind: "multi",
+        elementIds: ["p0/m1/s0/second-note", "p0/m1/s0/first-note"],
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore initialScore={initialScore}>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
     );
+
+    await user.click(await screen.findByRole("button", { name: "Glissando" }));
+
+    const score = JSON.parse(screen.getByTestId("score").textContent ?? "{}") as Score;
+    const source = score.parts[0]!.measures[1]!.sequences[0]!.content[1]!;
+    expect(source.type === "event" && source.glissandos).toEqual([
+      { target: "first-note", kind: "glissando", style: "wavy", text: "gliss." },
+    ]);
   });
 
   it("opens chord-symbol entry from the Text palette", async () => {
@@ -627,7 +663,7 @@ describe("PalettePanel", () => {
     });
   });
 
-  it("offers the same standard and Henze fermata variants as the radial menu", async () => {
+  it("offers a global fermata and text-only local fermata", async () => {
     render(
       <TooltipPrimitives.Provider delayDuration={0}>
         <DocumentProvider>
@@ -638,14 +674,7 @@ describe("PalettePanel", () => {
       </TooltipPrimitives.Provider>,
     );
 
-    for (const name of [
-      "Normal fermata",
-      "Very short fermata",
-      "Short fermata",
-      "Long fermata",
-      "Very long fermata",
-      "Long Henze fermata",
-    ]) {
+    for (const name of ["Fermata", "Local fermata"]) {
       expect(await screen.findByRole("button", { name })).toBeTruthy();
     }
   });

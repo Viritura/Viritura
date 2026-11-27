@@ -1,0 +1,89 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.verticalAlignment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+}
+
+.presets {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.choiceGrid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.choiceButton {
+  height: 84px;
+}
+
+.choiceContent {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: var(--space-1);
+  width: 100%;
+  height: 100%;
+}
+
+.choiceSpecimen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  font-size: 15px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.choiceButtonLabel {
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-control-weight);
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.alignmentSpecimen {
+  width: 64px;
+  height: 36px;
+  overflow: visible;
+  fill: currentColor;
+  font-size: 11px;
+}
+
+.staffLine {
+  stroke: currentColor;
+  stroke-width: 0.6;
+  opacity: 0.45;
+}
+
+.barline {
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+.box,
+.circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9em;
+  height: 1.9em;
+  border: 1px solid currentColor;
+}
+
+.circle {
+  border-radius: 50%;
+}

@@ -421,6 +421,159 @@ fn note_slide_markings_reserve_horizontal_ink_clearance() {
 }
 
 #[test]
+fn flagged_notes_clear_following_noteheads() {
+    for (duration, flag_count) in [("eighth", 1), ("16th", 2), ("32nd", 3), ("64th", 4)] {
+        let score = parse_mnx(
+            &serde_json::json!({
+                "mnx": {"version": 1},
+                "global": {"measures": [{"time": {"count": 1, "unit": 4}}]},
+                "parts": [{"measures": [{
+                    "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+                    "sequences": [{"content": [
+                        {"id": "flagged", "stemDirection": "up", "duration": {"base": duration},
+                         "notes": [{"pitch": {"step": "G", "octave": 4}}]},
+                        {"id": "next", "stemDirection": "down", "duration": {"base": "quarter"},
+                         "notes": [{"pitch": {"step": "B", "octave": 4}}]}
+                    ]}]
+                }]}]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let config = LayoutConfig::default();
+        let display = layout_score(&score, 0, &config);
+        let glyph_bounds = |suffix: &str, flag: bool| {
+            display
+                .commands
+                .iter()
+                .zip(&display.element_ids)
+                .find_map(|(command, id)| match command {
+                    RenderCommand::DrawGlyph {
+                        codepoint,
+                        x,
+                        y,
+                        size,
+                        ..
+                    } if if flag {
+                        smufl::flag_glyph(flag_count, true) == Some(*codepoint)
+                    } else {
+                        id.as_ref().is_some_and(|id| id.ends_with(suffix))
+                            && is_notehead_glyph(command)
+                    } =>
+                    {
+                        let (bx, by, width, height) = smufl::glyph_bbox(*codepoint);
+                        let scale = size / 4.0;
+                        Some((
+                            x + bx * scale,
+                            y + by * scale,
+                            x + (bx + width) * scale,
+                            y + (by + height) * scale,
+                        ))
+                    }
+                    _ => None,
+                })
+                .unwrap_or_else(|| {
+                    panic!("missing glyph {suffix}, flag={flag}, duration={duration}")
+                })
+        };
+        let flag = glyph_bounds("flagged", true);
+        let head = glyph_bounds("next/n0", false);
+        assert!(flag.1 < head.3 && head.1 < flag.3);
+        assert!(
+            head.0 - flag.2 >= 0.2 * config.sp - 0.01,
+            "{duration} flag must clear the following notehead, gap={}sp",
+            (head.0 - flag.2) / config.sp
+        );
+        let first = glyph_bounds("flagged/n0", false);
+        let spacing = build_log_spacing_for_part_measure(
+            &score.parts[0].measures[0],
+            1.0,
+            0.25,
+            &config,
+            &KeySignature::default(),
+        );
+        let compressed_width = spacing.rigid_total * config.sp * 0.5;
+        let compressed_gap = spacing.lookup_x(spacing.mapping[1].0, compressed_width, 0.0)
+            - spacing.lookup_x(0.0, compressed_width, 0.0);
+        assert!(
+            compressed_gap >= flag.2 - first.0 + 0.2 * config.sp - 0.01,
+            "{duration} flag clearance must survive compression"
+        );
+    }
+}
+
+#[test]
+fn flagged_note_clearance_remains_stretchable() {
+    let spacing = spacing(
+        r#"
+        {"duration":{"base":"eighth"},"notes":[{"pitch":{"step":"G","octave":4}}]},
+        {"duration":{"base":"quarter"},"notes":[{"pitch":{"step":"B","octave":4}}]},
+        {"duration":{"base":"quarter"},"notes":[{"pitch":{"step":"D","octave":5}}]}
+        "#,
+    );
+    let base_width = spacing.total_width * spacing.base_sp;
+    let expanded_width = base_width * 1.5;
+    let position =
+        |index: usize, width: f64| spacing.lookup_x(spacing.mapping[index].0, width, 0.0);
+    let natural_flag_gap = position(1, base_width) - position(0, base_width);
+    let natural_quarter_gap = position(2, base_width) - position(1, base_width);
+    let expanded_flag_gap = position(1, expanded_width) - position(0, expanded_width);
+    let expanded_quarter_gap = position(2, expanded_width) - position(1, expanded_width);
+    let flag_stretch = (expanded_flag_gap - natural_flag_gap) / natural_flag_gap;
+    let quarter_stretch = (expanded_quarter_gap - natural_quarter_gap) / natural_quarter_gap;
+    assert!(
+        flag_stretch > 0.4,
+        "flagged gap should stretch with the system"
+    );
+    assert!(
+        (flag_stretch - quarter_stretch).abs() < 0.01,
+        "flagged and quarter gaps should retain their proportional spring stretch"
+    );
+}
+
+#[test]
+fn auto_beamed_sixteenths_do_not_reserve_flag_clearance() {
+    let content: Vec<_> = (0..16)
+        .map(|_| {
+            serde_json::json!({
+                "duration": {"base": "16th"},
+                "notes": [{"pitch": {"step": "C", "octave": 5}}]
+            })
+        })
+        .collect();
+    let spacing = |use_beams| {
+        let mut document = serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": content.clone()}]
+            }]}]
+        });
+        if use_beams {
+            document["mnx"]["support"] = serde_json::json!({"useBeams": true});
+        }
+        let score = parse_mnx(&document.to_string()).unwrap();
+        let measures = resolve_measures(&score, 0);
+        build_log_spacing_for_resolved_measure(
+            &measures[0],
+            4.0,
+            0.25,
+            &LayoutConfig::default(),
+            true,
+        )
+    };
+
+    let auto_beamed = spacing(false);
+    let flagged = spacing(true);
+    assert!(
+        flagged.minimum_total > auto_beamed.minimum_total + 10.0,
+        "unbeamed sixteenth flags should add a compression floor, but auto-beamed notes should not: auto={}, flagged={}",
+        auto_beamed.minimum_total,
+        flagged.minimum_total
+    );
+}
+
+#[test]
 fn dotted_rest_clears_adjacent_sixteenth_ink_in_both_directions() {
     let json = r#"{
         "mnx": {"version": 1},

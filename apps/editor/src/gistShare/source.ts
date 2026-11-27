@@ -1,8 +1,11 @@
 import { parseMnx } from "@viritura/format";
 import type { Score } from "@viritura/core";
+import { decompressMnx, isCompressedMnxName, isGistMnxName, mnxNameFromGistName } from "./compressedMnx";
+import { formatMiB, MAX_GIST_FILES, MAX_GIST_MNX_TOTAL_BYTES, MAX_GIST_STORED_TOTAL_BYTES } from "./shareLimits";
 
-const MAX_GIST_MNX_BYTES = 16 * 1024 * 1024;
-const MAX_GIST_METADATA_BYTES = 2 * 1024 * 1024;
+// Plain files from earlier shares could be up to 16 MiB.
+const MAX_GIST_RAW_FILE_BYTES = 16 * 1024 * 1024;
+const MAX_GIST_METADATA_BYTES = 100 * 1024 * 1024;
 const GIST_ID_PATTERN = /^[0-9a-f]{20,64}$/i;
 const GIST_REVISION_PATTERN = /^[0-9a-f]{40}$/i;
 
@@ -21,6 +24,19 @@ export interface LoadedGistMnx {
   readonly fileName: string;
   readonly mnx: string;
   readonly score: Score;
+  readonly gistUrl: string;
+}
+
+interface LoadedGistMnxFile {
+  readonly fileName: string;
+  readonly mnx: string;
+  readonly score: Score;
+}
+
+export interface LoadedGistSetlist {
+  readonly gistId: string;
+  readonly revision: string;
+  readonly files: readonly LoadedGistMnxFile[];
   readonly gistUrl: string;
 }
 
@@ -71,6 +87,17 @@ export function buildGistShareUrl(origin: string, gistId: string, revision?: str
   return url.toString();
 }
 
+export function buildGistSetlistUrl(origin: string, gistId: string, revision?: string): string {
+  assertGistId(gistId);
+  if (revision) assertRevision(revision);
+
+  const url = new URL("/", origin);
+  url.searchParams.set("open", "gist-setlist");
+  if (revision) url.searchParams.set("revision", revision.toLowerCase());
+  url.hash = new URLSearchParams({ id: gistId.toLowerCase() }).toString();
+  return url.toString();
+}
+
 export function readGistShareLocation(location: Pick<Location, "hash" | "search">): GistShareLocation {
   const fragment = new URLSearchParams(location.hash.replace(/^#/, ""));
   const gistId = fragment.get("id") ?? "";
@@ -80,7 +107,15 @@ export function readGistShareLocation(location: Pick<Location, "hash" | "search"
   return { gistId: gistId.toLowerCase(), ...(revision ? { revision: revision.toLowerCase() } : {}) };
 }
 
-export async function loadGistMnx(location: GistShareLocation, fetchImpl: FetchLike = fetch): Promise<LoadedGistMnx> {
+export function readGistSetlistLocation(location: Pick<Location, "hash" | "search">): GistShareLocation | null {
+  if (new URLSearchParams(location.search).get("open") !== "gist-setlist") return null;
+  return readGistShareLocation(location);
+}
+
+export async function loadGistSetlist(
+  location: GistShareLocation,
+  fetchImpl: FetchLike = fetch,
+): Promise<LoadedGistSetlist> {
   assertGistId(location.gistId);
   if (location.revision) assertRevision(location.revision);
 
@@ -95,36 +130,70 @@ export async function loadGistMnx(location: GistShareLocation, fetchImpl: FetchL
 
   const payloadText = await readBoundedText(response, MAX_GIST_METADATA_BYTES, "Gist metadata");
   const payload = parseGistPayload(payloadText);
-  const mnxFiles = payload.files.filter((file) => file.filename.toLowerCase().endsWith(".mnx"));
-  if (mnxFiles.length !== 1) {
-    throw new Error(
-      mnxFiles.length === 0
-        ? "This Gist does not contain an .mnx file."
-        : "This Gist must contain exactly one .mnx file.",
-    );
+  const mnxFiles = payload.files
+    .filter((file) => isGistMnxName(file.filename))
+    .sort((left, right) => left.filename.localeCompare(right.filename));
+  if (mnxFiles.length === 0) throw new Error("This Gist does not contain an .mnx file.");
+  if (mnxFiles.length > MAX_GIST_FILES) {
+    throw new Error(`This Gist has more than the ${MAX_GIST_FILES}-file setlist limit.`);
   }
 
-  const file = mnxFiles[0]!;
-  const mnx =
-    file.truncated || file.content === null
-      ? await loadRawGistFile(file.rawUrl, fetchImpl)
-      : ensureTextSize(file.content, MAX_GIST_MNX_BYTES, "MNX file");
+  const files: LoadedGistMnxFile[] = [];
+  let totalBytes = 0;
+  let storedBytes = 0;
+  const totalLimitMessage = `This Gist setlist exceeds the ${formatMiB(MAX_GIST_MNX_TOTAL_BYTES)} total load limit.`;
+  for (const file of mnxFiles) {
+    const stored =
+      file.truncated || file.content === null
+        ? await loadRawGistFile(file.rawUrl, fetchImpl)
+        : ensureTextSize(file.content, MAX_GIST_RAW_FILE_BYTES, `${file.filename}`);
+    storedBytes += new TextEncoder().encode(stored).byteLength;
+    if (storedBytes > MAX_GIST_STORED_TOTAL_BYTES) {
+      throw new Error(`This Gist setlist exceeds the ${formatMiB(MAX_GIST_STORED_TOTAL_BYTES)} stored load limit.`);
+    }
 
-  let score: Score;
-  try {
-    score = parseMnx(JSON.parse(mnx));
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "Invalid JSON";
-    throw new Error(`The Gist does not contain valid MNX: ${detail}`);
+    let mnx: string;
+    if (isCompressedMnxName(file.filename)) {
+      mnx = await decompressMnx(stored, MAX_GIST_MNX_TOTAL_BYTES - totalBytes, file.filename, totalLimitMessage);
+      totalBytes += new TextEncoder().encode(mnx).byteLength;
+    } else {
+      mnx = stored;
+      totalBytes += new TextEncoder().encode(mnx).byteLength;
+      if (totalBytes > MAX_GIST_MNX_TOTAL_BYTES) throw new Error(totalLimitMessage);
+    }
+
+    const fileName = mnxNameFromGistName(file.filename);
+    let score: Score;
+    try {
+      score = parseMnx(JSON.parse(mnx));
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Invalid JSON";
+      throw new Error(`${fileName} does not contain valid MNX: ${detail}`);
+    }
+    files.push({ fileName, mnx, score });
   }
 
   return {
     gistId: payload.id,
     revision: payload.revision,
-    fileName: file.filename,
-    mnx,
-    score,
+    files,
     gistUrl: payload.htmlUrl,
+  };
+}
+
+export async function loadGistMnx(location: GistShareLocation, fetchImpl: FetchLike = fetch): Promise<LoadedGistMnx> {
+  const setlist = await loadGistSetlist(location, fetchImpl);
+  if (setlist.files.length !== 1) {
+    throw new Error("This Gist must contain exactly one .mnx file for a score preview.");
+  }
+  const file = setlist.files[0]!;
+  return {
+    gistId: setlist.gistId,
+    revision: setlist.revision,
+    fileName: file.fileName,
+    mnx: file.mnx,
+    score: file.score,
+    gistUrl: setlist.gistUrl,
   };
 }
 
@@ -165,7 +234,7 @@ async function loadRawGistFile(rawUrl: string, fetchImpl: FetchLike): Promise<st
   if (!response.ok) {
     throw new Error(`GitHub could not load the MNX file (${response.status}).`);
   }
-  return readBoundedText(response, MAX_GIST_MNX_BYTES, "MNX file");
+  return readBoundedText(response, MAX_GIST_RAW_FILE_BYTES, "MNX file");
 }
 
 async function readBoundedText(response: Response, maxBytes: number, label: string): Promise<string> {
@@ -208,10 +277,6 @@ function ensureTextSize(value: string, maxBytes: number, label: string): string 
     throw new Error(`${label} exceeds the ${formatMiB(maxBytes)} limit.`);
   }
   return value;
-}
-
-function formatMiB(bytes: number): string {
-  return `${bytes / (1024 * 1024)} MiB`;
 }
 
 function parseGistPayload(value: string): GistPayload {

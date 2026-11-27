@@ -1,10 +1,13 @@
 use super::super::full_score::{FlatStaff, GroupRange};
+use crate::model::layout::{AutoHideFirstSystem, ScoreDefinition};
 use crate::model::{Event, Markings, PartMeasure, Score, SequenceContent};
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
 pub(super) struct EmptyStaves {
     empty_measures: HashMap<usize, Vec<bool>>,
+    keep_first_system: bool,
+    keep_visible: Vec<(usize, HashSet<usize>)>,
 }
 
 fn collect_events<'a>(content: &'a [SequenceContent], events: &mut Vec<&'a Event>) {
@@ -72,7 +75,8 @@ fn unmarked_measure(measure: &PartMeasure, index: usize) -> bool {
 }
 
 impl EmptyStaves {
-    pub(super) fn new(score: &Score, selected: &[String]) -> Self {
+    pub(super) fn new(score: &Score, definition: &ScoreDefinition) -> Self {
+        let selected = &definition.auto_hide_empty_parts;
         let measure_indices: HashMap<&str, usize> = score
             .global
             .measures
@@ -80,6 +84,33 @@ impl EmptyStaves {
             .enumerate()
             .filter_map(|(index, measure)| Some((measure.id.as_deref()?, index)))
             .collect();
+        let part_indices: HashMap<&str, usize> = score
+            .parts
+            .iter()
+            .enumerate()
+            .filter_map(|(index, part)| Some((part.id.as_deref()?, index)))
+            .collect();
+        let options = definition.auto_hide_empty_staves.as_ref();
+        let keep_first_system = options
+            .and_then(|options| options.first_system)
+            .is_some_and(|policy| policy == AutoHideFirstSystem::Show);
+        let keep_visible = options
+            .map(|options| {
+                options
+                    .keep_visible
+                    .iter()
+                    .filter_map(|entry| {
+                        let measure = *measure_indices.get(entry.measure.as_str())?;
+                        let parts = entry
+                            .parts
+                            .iter()
+                            .filter_map(|id| part_indices.get(id.as_str()).copied())
+                            .collect();
+                        Some((measure, parts))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         let mut empty_measures = HashMap::new();
         for (part_index, part) in score.parts.iter().enumerate() {
             if !part.id.as_ref().is_some_and(|id| selected.contains(id)) {
@@ -147,19 +178,37 @@ impl EmptyStaves {
             }
             empty_measures.insert(part_index, empty);
         }
-        Self { empty_measures }
+        Self {
+            empty_measures,
+            keep_first_system,
+            keep_visible,
+        }
     }
 
+    /// Prunes one system. Explicit keep-visible decisions and the first-system
+    /// option exempt parts; staves already omitted by the layout stay omitted.
     pub(super) fn prune(
         &self,
         staves: &mut Vec<FlatStaff>,
         groups: &mut Vec<GroupRange>,
         range: Range<usize>,
+        first_system: bool,
     ) {
+        if first_system && self.keep_first_system {
+            return;
+        }
+        let exempt: HashSet<usize> = self
+            .keep_visible
+            .iter()
+            .filter(|(measure, _)| range.contains(measure))
+            .flat_map(|(_, parts)| parts.iter().copied())
+            .collect();
         let hidden: HashSet<usize> = self
             .empty_measures
             .iter()
-            .filter(|(_, measures)| measures[range.clone()].iter().all(|empty| *empty))
+            .filter(|(part, measures)| {
+                !exempt.contains(part) && measures[range.clone()].iter().all(|empty| *empty)
+            })
             .map(|(&part, _)| part)
             .collect();
         let mut keep: Vec<bool> = staves

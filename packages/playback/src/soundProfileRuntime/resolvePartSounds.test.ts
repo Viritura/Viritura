@@ -137,6 +137,22 @@ describe("resolvePartSounds", () => {
     expect(new Set(sourceIds).size).toBe(sourceIds.length);
   });
 
+  it("plays imported string groups as a single ensemble sound at their section positions", () => {
+    const resolved = resolvePartSounds([
+      part("Violins", { instrumentId: "strings.group" }),
+      part("Violoncellos", { instrumentId: "strings.group" }),
+    ]);
+
+    expect(resolved.map((entry) => entry.sf2)).toMatchObject([
+      { kind: "supported", primary: { program: 48 }, layers: [] },
+      { kind: "supported", primary: { program: 48 }, layers: [] },
+    ]);
+    expect(resolved.map((entry) => entry.position)).toEqual([
+      { x: -2, y: 1 },
+      { x: 2, y: 1 },
+    ]);
+  });
+
   it("throws a typed error rather than routing a non-SF2 profile source", () => {
     const unsupported: UnsupportedSf2Sound = {
       kind: "unsupported",

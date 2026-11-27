@@ -68,10 +68,29 @@ function measureAt(timeline: MidiTimeline, beat: number): number {
   return index;
 }
 
-function continuousTo(timeline: MidiTimeline, start: MidiEvent, end: MidiEvent): boolean {
+function continuousTo(score: Score, timeline: MidiTimeline, start: MidiEvent, end: MidiEvent): boolean {
   const startBeat = start.scoreBeat ?? timeline.model.beatAtTime(start.time);
   const endBeat = end.scoreBeat ?? timeline.model.beatAtTime(end.time);
-  for (let index = measureAt(timeline, startBeat); index < measureAt(timeline, endBeat); index++) {
+  const first = measureAt(timeline, startBeat);
+  const last = measureAt(timeline, endBeat);
+  const sourceMeasure = timeline.expandedMeasureToOriginal[first]!;
+  const targetMeasure = timeline.expandedMeasureToOriginal[last]!;
+  if (last === first + 1 && targetMeasure <= sourceMeasure && score.global.measures[sourceMeasure]?.repeatEnd) {
+    let repeatStart = sourceMeasure;
+    while (repeatStart > 0 && !score.global.measures[repeatStart]?.repeatStart) repeatStart--;
+    const from = timeline.playedSpans?.[first];
+    const to = timeline.playedSpans?.[last];
+    if (
+      repeatStart === targetMeasure &&
+      Math.abs(endBeat - timeline.measureStartBeats[last]!) < 1e-9 &&
+      (!timeline.playedSpans || from?.exit === "repeat") &&
+      (!from || from.endBeat === from.measureBeats) &&
+      (!to || to.startBeat === 0)
+    ) {
+      return true;
+    }
+  }
+  for (let index = first; index < last; index++) {
     if (timeline.playedSpans) {
       if (!playedSpansContinue(timeline.playedSpans[index]!, timeline.playedSpans[index + 1])) return false;
     } else if (timeline.expandedMeasureToOriginal[index + 1] !== timeline.expandedMeasureToOriginal[index]! + 1) {
@@ -280,6 +299,7 @@ function chordOrder(sources: readonly MidiEvent[], onset: MidiEvent): number {
 }
 
 function glissandoTarget(
+  score: Score,
   timeline: MidiTimeline,
   onset: MidiEvent,
   sources: readonly MidiEvent[],
@@ -287,7 +307,7 @@ function glissandoTarget(
   type: GlissandoPlaybackType,
 ): MidiEvent | undefined {
   const viable = targets.filter(
-    (candidate) => candidate.time > onset.time + 1e-9 && continuousTo(timeline, onset, candidate),
+    (candidate) => candidate.time > onset.time + 1e-9 && continuousTo(score, timeline, onset, candidate),
   );
   if (type === "harp-pedals") return viable.find((candidate) => candidate.scoreNoteIndex === onset.scoreNoteIndex);
   const time = viable[0]?.time;
@@ -435,6 +455,12 @@ function mirrorLane(context: PlaybackContext, partIndex: number, onset: MidiEven
   }
 }
 
+function effectivePlaybackType(glissando: Glissando, activeHarp: boolean): GlissandoPlaybackType {
+  if (glissando.playbackType) return glissando.playbackType;
+  if (glissando.kind === "portamento") return "pitch-bend";
+  return activeHarp ? "harp-pedals" : "diatonic";
+}
+
 function realizeOnset(
   context: PlaybackContext,
   partIndex: number,
@@ -449,9 +475,7 @@ function realizeOnset(
   const part = context.score.parts[partIndex]!;
   const activeHarp =
     sourceWritten !== undefined && isHarpInstrumentAt(part, sourceWritten.measureIndex, sourceWritten.fraction);
-  const type =
-    glissando.playbackType ??
-    (glissando.kind === "portamento" ? "pitch-bend" : activeHarp ? "harp-pedals" : "diatonic");
+  const type = effectivePlaybackType(glissando, activeHarp);
   if (type === "harp-pedals" && !activeHarp) {
     context.diagnostics.push(
       diagnostic(
@@ -462,7 +486,7 @@ function realizeOnset(
     );
     return { realized: false, harpFailure: true };
   }
-  const target = glissandoTarget(context.timeline, onset, sources, targets, type);
+  const target = glissandoTarget(context.score, context.timeline, onset, sources, targets, type);
   if (!target) {
     if (type === "harp-pedals") {
       context.diagnostics.push(
@@ -507,13 +531,23 @@ function realizeOnset(
 function realizeGlissandoLine(
   context: PlaybackContext,
   partIndex: number,
-  source: string,
-  glissando: Glissando,
+  line: { source: string; glissando: Glissando },
   onsets: readonly MidiEvent[],
   writtenNotes: readonly HarpPedalNote[],
+  processedLines: Set<string>,
 ): void {
+  const { source, glissando } = line;
   const sources = onsets.filter((event) => event.scoreEventId === source);
   const targets = glissandoTargets(onsets, glissando.target);
+  const firstWritten = writtenNotes.find((note) => note.eventId === source);
+  const lineType = effectivePlaybackType(
+    glissando,
+    firstWritten !== undefined &&
+      isHarpInstrumentAt(context.score.parts[partIndex]!, firstWritten.measureIndex, firstWritten.fraction),
+  );
+  const lineKey = JSON.stringify([source, targets[0]?.scoreEventId ?? glissando.target, lineType]);
+  if (processedLines.has(lineKey)) return;
+  processedLines.add(lineKey);
   let realized = false;
   let harpFailure = false;
   for (const onset of sources) {
@@ -538,7 +572,7 @@ function realizeGlissandoLine(
   if (!realized && !harpFailure) {
     context.diagnostics.push({
       code: "glissando-playback-unsupported",
-      message: `Glissando from "${source}" to "${glissando.target}" has no forward pitched endpoints on a continuous playback route.`,
+      message: `Glissando from "${source}" to "${glissando.target}" has no pitched endpoints on a continuous route or a taken repeat return.`,
       playbackLaneIds: sources.flatMap((event) => (event.playbackLaneId ? [event.playbackLaneId] : [])),
     });
   }
@@ -562,8 +596,9 @@ export function applyGlissandoPlayback(score: Score, timeline: MidiTimeline): Ti
   partLines.forEach((lines, partIndex) => {
     const writtenNotes = collectHarpPedalNotes(score, partIndex);
     const onsets = original.filter((event) => event.partIndex === partIndex && event.type === "noteOn");
-    for (const { source, glissando } of lines) {
-      realizeGlissandoLine(context, partIndex, source, glissando, onsets, writtenNotes);
+    const processedLines = new Set<string>();
+    for (const line of lines) {
+      realizeGlissandoLine(context, partIndex, line, onsets, writtenNotes, processedLines);
     }
   });
   timeline.events = original.filter((event) => !context.removed.has(event)).concat(context.added);

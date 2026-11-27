@@ -88,6 +88,13 @@ interface ResolvedPartSound {
 
 Profiles may define more than one source for a part. This supports the current string ensemble layers and future intentional layered sounds. Sources are played together only when the resolved profile says so; the mixer must never accidentally duplicate a source.
 
+The built-in profile maps the MusicXML `strings.group` identity to the GM string
+ensemble sound. It uses recognizable part names for string-section seating;
+otherwise it uses the generic strings position. Specific string identities
+retain their existing layered defaults unless the active instrument explicitly
+sets `_x.viritura.solo` or its instrument definition sets `solo: true`. That
+flag selects a single solo string source and does not affect mixer solo.
+
 ## Sound sources
 
 Sound sources are a discriminated union. The runtime switches on `kind`; it must not contain names for individual plugin products.

@@ -690,8 +690,8 @@ function ScoreRow({
   onSelect: (e: RecentScore) => void;
   onForget: (id: string) => void;
 }) {
-  const isVcs = Boolean(entry.vcs);
-  const title = isVcs ? entry.vcs!.rootName : entry.scoreName;
+  const isProject = Boolean(entry.vcs);
+  const title = entry.vcs?.rootName ?? entry.scoreName;
   return (
     <div
       role="listitem"
@@ -706,7 +706,9 @@ function ScoreRow({
       tabIndex={0}
     >
       <div className={styles.itemIconWrap}>
-        {isVcs ? (
+        {entry.vcs?.versioned === false ? (
+          <FolderOpen className={styles.itemIcon} aria-hidden="true" />
+        ) : isProject ? (
           <FolderGit2 className={styles.itemIcon} aria-hidden="true" />
         ) : (
           <File className={styles.itemIcon} aria-hidden="true" />
@@ -715,9 +717,11 @@ function ScoreRow({
       <div className={styles.itemBody}>
         <div className={styles.itemName}>{title}</div>
         <div className={styles.itemMeta}>
-          <span className={isVcs ? styles.itemBadgeProject : styles.itemBadge}>{isVcs ? "Project" : "File"}</span>
-          {isVcs && <span>{entry.vcs!.scoreRelPath}</span>}
-          {isVcs && <span>·</span>}
+          <span className={isProject ? styles.itemBadgeProject : styles.itemBadge}>
+            {isProject ? "Project" : "File"}
+          </span>
+          {isProject && <span>{entry.vcs!.scoreRelPath}</span>}
+          {isProject && <span>·</span>}
           <span>{formatRelative(entry.lastOpened)}</span>
         </div>
       </div>

@@ -14,10 +14,13 @@
 import type { ValidateFunction } from "ajv/dist/2020";
 import type { Root as RawScore } from "@viritura/core/raw";
 import type { MeasureGlobalExtensions } from "@viritura/core/raw-viritura";
-import { isSupportedDynamicGlyph } from "@viritura/core";
+import { isSupportedDynamicGlyph, validateFretboard } from "@viritura/core";
 import { diagnoseMnxSchemaErrors, normaliseErrors } from "./schemaDiagnostics";
 import { validateInstrumentChanges } from "./instrumentChangeValidation";
 import { validateHarpPedals } from "./harpPedalValidation";
+import { validateLyricLines } from "./lyricValidation";
+import { validateLabelReferences } from "./layoutValidation";
+import { validateClickGroupings } from "./clickGroupingValidation";
 import {
   mnxDocument,
   rootExtensions,
@@ -31,7 +34,9 @@ import {
   tupletExtensions,
   positionedStaffConfigExtensions,
   dynamicGroupExtensions,
+  fullMeasureRestExtensions,
   eventExtensions,
+  fermataExtensions,
   eventMarkingsExtensions,
   noteExtensions,
   slurExtensions,
@@ -54,7 +59,9 @@ type ExtensionDefinition =
   | "tuplet-extensions"
   | "positioned-staff-config-extensions"
   | "dynamic-group-extensions"
+  | "full-measure-rest-extensions"
   | "event-extensions"
+  | "fermata-extensions"
   | "event-markings-extensions"
   | "note-extensions"
   | "slur-extensions"
@@ -78,7 +85,9 @@ const extensionValidators: Record<ExtensionDefinition, StandaloneValidateFunctio
   "tuplet-extensions": tupletExtensions,
   "positioned-staff-config-extensions": positionedStaffConfigExtensions,
   "dynamic-group-extensions": dynamicGroupExtensions,
+  "full-measure-rest-extensions": fullMeasureRestExtensions,
   "event-extensions": eventExtensions,
+  "fermata-extensions": fermataExtensions,
   "event-markings-extensions": eventMarkingsExtensions,
   "note-extensions": noteExtensions,
   "slur-extensions": slurExtensions,
@@ -122,7 +131,10 @@ export function validateRawScore(json: unknown): RawScoreValidationResult {
       ...validateKitReferences(value),
       ...validateInstrumentChanges(value),
       ...validateHarpPedals(value),
+      ...validateLyricLines(value),
+      ...validateLabelReferences(value),
       ...validateBeatStructures(value),
+      ...validateClickGroupings(value),
       ...validateTupletSpans(json),
       ...validateTupletDurations(json),
     ];
@@ -223,6 +235,7 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
       const type = object["type"];
       if (type !== "grace" && type !== "tuplet" && type !== "space" && type !== "tremolo") {
         validateAt(object, itemPointer, "event-extensions");
+        validateAt(asObject(object["fermata"]), `${itemPointer}/fermata`, "fermata-extensions");
         const markings = asObject(object["markings"]);
         validateAt(markings, `${itemPointer}/markings`, "event-markings-extensions");
         asObjects(object["notes"]).forEach((note, noteIndex) =>
@@ -296,6 +309,13 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
         );
       });
       asObjects(measure["sequences"]).forEach((sequence, sequenceIndex) => {
+        const fullMeasurePointer = `${measurePointer}/sequences/${sequenceIndex}/fullMeasure`;
+        validateAt(asObject(sequence["fullMeasure"]), fullMeasurePointer, "full-measure-rest-extensions");
+        validateAt(
+          asObject(asObject(sequence["fullMeasure"])?.["fermata"]),
+          `${fullMeasurePointer}/fermata`,
+          "fermata-extensions",
+        );
         visitContent(sequence["content"], `${measurePointer}/sequences/${sequenceIndex}/content`);
       });
     });
@@ -513,6 +533,16 @@ function validateChordSymbols(score: RawScore): RawScoreValidationError[] {
     const extension = measure._x?.["viritura"] as MeasureGlobalExtensions | undefined;
     extension?.chordSymbols?.forEach((chord, chordIndex) => {
       const pointer = `/global/measures/${measureIndex}/_x/viritura/chordSymbols/${chordIndex}`;
+      const partIds = new Set<string>();
+      chord.fretboards?.forEach((frame, frameIndex) => {
+        const messages = validateFretboard(frame);
+        if (partIds.has(frame.partId)) messages.push("Only one diagram per instrument is allowed on a chord.");
+        partIds.add(frame.partId);
+        if (!score.parts.some((part) => part.id === frame.partId)) messages.push("Diagram instrument does not exist.");
+        for (const message of messages) {
+          errors.push({ pointer: `${pointer}/fretboards/${frameIndex}`, message, keyword: "fretboard" });
+        }
+      });
       // Required-property unions cannot be faithfully represented by both wire generators.
       if (chord.root === undefined && chord.rawText === undefined) {
         errors.push({ pointer, message: "chord symbol requires root or rawText", keyword: "required" });

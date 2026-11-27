@@ -10,6 +10,261 @@ use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
 
+fn v57_label_document() -> serde_json::Value {
+    let measure = serde_json::json!({"sequences":[{"content":[
+        {"duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":4}}]}
+    ]}]});
+    serde_json::json!({
+        "mnx":{"version":1},
+        "global":{"measures":[
+            {"id":"m1","time":{"count":4,"unit":4}},
+            {"id":"m2"}
+        ]},
+        "parts":[
+            {"id":"p1","name":"Oboe","shortName":"Ob.",
+             "measures":[measure.clone(),measure.clone()]},
+            {"id":"p2","name":"Clarinet","shortName":"Cl.",
+             "measures":[measure.clone(),measure]}
+        ],
+        "layouts":[{"id":"L","content":[
+            {"type":"staff","sources":[{"part":"p1"}]}
+        ]}],
+        "scores":[{"name":"Score","layout":"L"}]
+    })
+}
+
+#[test]
+fn v57_label_ref_modes_and_targets_render_on_single_staff_in_both_layout_paths() {
+    use serde_json::json;
+
+    for explicit in [false, true] {
+        for (reference, target, expected) in [
+            (json!({}), None, ["Oboe", "Ob."]),
+            (json!({"ref":"auto"}), Some("p2"), ["Clarinet", "Cl."]),
+            (json!({"ref":"name"}), Some("p2"), ["Clarinet", "Clarinet"]),
+            (json!({"ref":"shortName"}), None, ["Ob.", "Ob."]),
+        ] {
+            let mut value = v57_label_document();
+            let mut reference = reference;
+            if let Some(target) = target {
+                reference["target"] = json!(target);
+            }
+            value["layouts"][0]["content"][0]["labelRef"] = reference;
+            if explicit {
+                value["scores"][0]["pages"] =
+                    json!([{"systems":[{"measure":"m1"},{"measure":"m2"}]}]);
+            } else {
+                value["scores"][0]["_x"] = json!({"viritura":{"layoutBreaks":[
+                    {"measure":"m2","kind":"system"}
+                ]}});
+            }
+            let display = layout_with_mnx_scores(
+                &parse_mnx(&value.to_string()).unwrap(),
+                &LayoutConfig {
+                    page_width: Some(800.0),
+                    ..LayoutConfig::default()
+                },
+                0,
+            );
+            let labels: Vec<_> = display
+                .commands
+                .iter()
+                .filter_map(|command| match command {
+                    RenderCommand::DrawText { text, .. }
+                        if ["Oboe", "Ob.", "Clarinet", "Cl."].contains(&text.as_str()) =>
+                    {
+                        Some(text.as_str())
+                    }
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(labels, expected, "explicit={explicit}, target={target:?}");
+        }
+    }
+}
+
+#[test]
+fn v57_group_staff_and_source_labels_are_all_rendered() {
+    use serde_json::json;
+
+    for symbol in [None, Some("bracket"), Some("brace"), Some("noSymbol")] {
+        let mut value = v57_label_document();
+        let mut group = json!({
+            "type":"group","label":"Group literal","labelRef":{"ref":"name","target":"p2"},
+            "content":[{
+                "type":"staff","label":"Staff literal","labelRef":{"ref":"name"},
+                "sources":[{
+                    "part":"p1","label":"Source literal",
+                    "labelRef":{"ref":"shortName","target":"p2"}
+                }]
+            }]
+        });
+        if let Some(symbol) = symbol {
+            group["symbol"] = json!(symbol);
+        }
+        value["layouts"][0]["content"] = json!([group]);
+        let display = layout_with_mnx_scores(
+            &parse_mnx(&value.to_string()).unwrap(),
+            &LayoutConfig::default(),
+            0,
+        );
+        let labels: Vec<_> = display
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawText { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        for expected in [
+            "Group literal",
+            "Clarinet",
+            "Staff literal",
+            "Oboe",
+            "Source literal",
+            "Cl.",
+        ] {
+            assert!(
+                labels.contains(&expected),
+                "symbol={symbol:?}, missing {expected}: {labels:?}"
+            );
+        }
+        let label_x = |wanted: &str| {
+            display
+                .commands
+                .iter()
+                .find_map(|command| match command {
+                    RenderCommand::DrawText { text, x, .. } if text == wanted => Some(*x),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        assert!(label_x("Group literal") < label_x("Staff literal"));
+    }
+}
+
+#[test]
+fn v57_nested_group_labels_have_separate_reserved_columns() {
+    for explicit in [false, true] {
+        let mut value = v57_label_document();
+        value["layouts"][0]["content"] = serde_json::json!([{
+            "type":"group","label":"Outer",
+            "content":[{
+                "type":"group","label":"Inner","symbol":"bracket",
+                "content":[{
+                    "type":"staff","label":"Staff",
+                    "sources":[{"part":"p1"}]
+                }]
+            }]
+        }]);
+        if explicit {
+            value["scores"][0]["pages"] = serde_json::json!([{"systems":[{"measure":"m1"}]}]);
+        }
+        let display = layout_with_mnx_scores(
+            &parse_mnx(&value.to_string()).unwrap(),
+            &LayoutConfig::default(),
+            0,
+        );
+        let label_x = |wanted: &str| {
+            display
+                .commands
+                .iter()
+                .find_map(|command| match command {
+                    RenderCommand::DrawText { text, x, .. } if text == wanted => Some(*x),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        assert!(label_x("Outer") > 0.0 && label_x("Outer") < label_x("Inner"));
+        assert!(label_x("Inner") < label_x("Staff"));
+        assert!(display.commands.iter().any(|command| matches!(command,
+            RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::BRACKET_TOP
+        )));
+    }
+}
+
+#[test]
+fn v57_separate_source_references_are_rendered_on_the_same_staff() {
+    let mut value = v57_label_document();
+    value["layouts"][0]["content"][0]["sources"] = serde_json::json!([
+        {"part":"p1","labelRef":{}},
+        {"part":"p2","labelRef":{"ref":"name"}}
+    ]);
+    let display = layout_with_mnx_scores(
+        &parse_mnx(&value.to_string()).unwrap(),
+        &LayoutConfig::default(),
+        0,
+    );
+    let labels: Vec<_> = display
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawText { text, .. } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert!(labels.contains(&"Oboe"), "{labels:?}");
+    assert!(labels.contains(&"Clarinet"), "{labels:?}");
+}
+
+#[test]
+fn v57_explicit_target_is_not_rewritten_as_a_condensed_source_label() {
+    let mut value = v57_label_document();
+    let mut extra_oboe = value["parts"][0].clone();
+    extra_oboe["id"] = serde_json::json!("p3");
+    value["parts"].as_array_mut().unwrap().push(extra_oboe);
+    value["layouts"][0]["content"][0]["sources"] = serde_json::json!([{"part":"p1"},{"part":"p3"}]);
+    value["layouts"][0]["content"][0]["labelRef"] = serde_json::json!({"ref":"name","target":"p2"});
+    let display = layout_with_mnx_scores(
+        &parse_mnx(&value.to_string()).unwrap(),
+        &LayoutConfig::default(),
+        0,
+    );
+    let labels: Vec<_> = display
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawText { text, .. } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert!(labels.contains(&"Clarinet"), "{labels:?}");
+    assert!(
+        !labels.contains(&"1") && !labels.contains(&"2"),
+        "{labels:?}"
+    );
+}
+
+#[test]
+fn v57_label_target_changes_invalidate_cached_layout() {
+    let mut value = v57_label_document();
+    value["layouts"][0]["content"][0]["labelRef"] = serde_json::json!({"ref":"name","target":"p2"});
+    let mut score = parse_mnx(&value.to_string()).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(800.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    let initial =
+        crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    assert!(initial.commands.iter().any(|command| matches!(command,
+        RenderCommand::DrawText { text, .. } if text == "Clarinet"
+    )));
+    score.parts[1].name = "Bassoon".into();
+    cache.set_pending_dirty_region(Some(
+        crate::layout::cache::DirtyRegion::local_part_measures(0, 0, vec![false, true]),
+    ));
+    let cached = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let fresh = layout_with_mnx_scores(&score, &config, 0);
+    assert!(cached.commands.iter().any(|command| matches!(command,
+        RenderCommand::DrawText { text, .. } if text == "Bassoon"
+    )));
+    assert_eq!(
+        serde_json::to_value(cached).unwrap(),
+        serde_json::to_value(fresh).unwrap()
+    );
+}
+
 fn auto_hide_fixture() -> serde_json::Value {
     let rest = serde_json::json!({"duration": {"base": "whole"}, "rest": {}});
     let note = serde_json::json!({"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]});
@@ -86,6 +341,44 @@ fn test_auto_hide_empty_parts_are_per_score_and_restore_whole_instruments() {
         .measure_bounds
         .iter()
         .any(|bound| bound.part_index == 1 && bound.index == 0));
+}
+
+#[test]
+fn test_auto_hide_first_system_and_keep_visible_exemptions() {
+    let piano_on_first_system = |options: serde_json::Value| {
+        let mut fixture = auto_hide_fixture();
+        fixture["scores"][0]["_x"]["viritura"]["autoHideEmptyStaves"] = options;
+        let score = parse_mnx(&fixture.to_string()).unwrap();
+        let display = layout_with_mnx_scores(&score, &auto_hide_config(), 0);
+        display
+            .measure_bounds
+            .iter()
+            .filter(|bound| bound.part_index == 1 && bound.index < 2)
+            .count()
+    };
+    assert_eq!(
+        piano_on_first_system(serde_json::json!({"firstSystem": "hide"})),
+        0
+    );
+    assert_eq!(
+        piano_on_first_system(serde_json::json!({"firstSystem": "show"})),
+        4,
+        "both piano staves stay on both first-system measures"
+    );
+    assert_eq!(
+        piano_on_first_system(serde_json::json!({
+            "keepVisible": [{"measure": "m1", "parts": ["piano"]}]
+        })),
+        4,
+        "a decision at any measure of the system keeps the part visible"
+    );
+    assert_eq!(
+        piano_on_first_system(serde_json::json!({
+            "keepVisible": [{"measure": "m3", "parts": ["piano"]}]
+        })),
+        0,
+        "a decision on another system does not leak"
+    );
 }
 
 #[test]
@@ -518,10 +811,10 @@ fn test_grand_staff_part_uses_one_centered_instrument_label() {
         { "id": "full-score", "content": [
           { "type": "group", "symbol": "brace", "content": [
             { "type": "staff", "sources": [
-              { "part": "harp", "staff": 1, "labelref": "name" }
+              { "part": "harp", "staff": 1, "labelRef": { "ref": "auto" } }
             ] },
             { "type": "staff", "sources": [
-              { "part": "harp", "staff": 2, "labelref": "name" }
+              { "part": "harp", "staff": 2, "labelRef": { "ref": "auto" } }
             ] }
           ] }
         ] }
@@ -1404,14 +1697,14 @@ fn test_condensed_staff_respects_short_and_hidden_label_policies() {
     use crate::parse::parse_mnx;
     use crate::render::RenderCommand;
 
-    let document = |labelref: &str| {
+    let document = |label_ref: &str| {
         format!(
             r#"{{
                 "mnx": {{"version": 1}},
                 "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
                 "layouts": [{{"id": "L", "content": [
-                    {{"type": "staff"{labelref}, "sources": [{{"part": "fl1"}}, {{"part": "fl2"}}]}},
-                    {{"type": "staff"{labelref}, "sources": [{{"part": "ob"}}]}}
+                    {{"type": "staff"{label_ref}, "sources": [{{"part": "fl1"}}, {{"part": "fl2"}}]}},
+                    {{"type": "staff"{label_ref}, "sources": [{{"part": "ob"}}]}}
                 ]}}],
                 "scores": [{{"name": "Score", "layout": "L"}}],
                 "parts": [
@@ -1434,7 +1727,7 @@ fn test_condensed_staff_respects_short_and_hidden_label_policies() {
             .collect::<Vec<_>>()
     };
 
-    let short = labels(document(r#", "labelref": "shortName""#));
+    let short = labels(document(r#", "labelRef": {"ref": "shortName"}"#));
     assert!(short.iter().any(|text| text == "Fl."));
     assert!(!short.iter().any(|text| text == "Flute"));
 
@@ -1457,8 +1750,8 @@ fn test_score_override_controls_first_and_subsequent_system_labels_independently
                     {{"id": "m2"}}
                 ]}},
                 "layouts": [{{"id": "L", "content": [
-                    {{"type": "staff", "labelref": "name", "sources": [{{"part": "fl"}}]}},
-                    {{"type": "staff", "labelref": "name", "sources": [{{"part": "ob"}}]}}
+                    {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "fl"}}]}},
+                    {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "ob"}}]}}
                 ]}}],
                 "scores": [{{
                     "name": "Score",
@@ -1523,15 +1816,15 @@ fn test_score_override_recovers_names_and_hides_group_labels() {
     use crate::parse::parse_mnx;
     use crate::render::RenderCommand;
 
-    let document = |labelref: &str, group_label: &str, first: &str| {
+    let document = |label_ref: &str, group_label: &str, first: &str| {
         format!(
             r#"{{
                 "mnx": {{"version": 1}},
                 "global": {{"measures": [{{"id": "m1", "time": {{"count": 4, "unit": 4}}}}]}},
                 "layouts": [{{"id": "L", "content": [{{
                     "type": "group", "symbol": "brace"{group_label}, "content": [
-                        {{"type": "staff"{labelref}, "sources": [{{"part": "fl"}}]}},
-                        {{"type": "staff"{labelref}, "sources": [{{"part": "ob"}}]}}
+                        {{"type": "staff"{label_ref}, "sources": [{{"part": "fl"}}]}},
+                        {{"type": "staff"{label_ref}, "sources": [{{"part": "ob"}}]}}
                     ]
                 }}]}}],
                 "scores": [{{
@@ -1563,13 +1856,17 @@ fn test_score_override_recovers_names_and_hides_group_labels() {
     };
 
     assert_eq!(
-        labels(document(r#", "labelref": "shortName""#, "", "full")),
+        labels(document(
+            r#", "labelRef": {"ref": "shortName"}"#,
+            "",
+            "full"
+        )),
         vec!["Flute", "Oboe"]
     );
     assert_eq!(labels(document("", "", "full")), vec!["Flute", "Oboe"]);
     assert!(
         labels(document(
-            r#", "labelref": "name""#,
+            r#", "labelRef": {"ref": "auto"}"#,
             r#", "label": "Winds""#,
             "hidden"
         ))

@@ -64,6 +64,20 @@ export function fermataId(parentEventId: string): string {
   return `${parentEventId}/ferm`;
 }
 
+export function globalFermataId(measure: number, id: string): string {
+  return `m${measure}/fermata/${sanitize(id)}`;
+}
+
+export function resolveGlobalFermata(elementId: string, score: Score) {
+  const match = /^m(\d+)\/fermata\/[^/]+$/.exec(elementId);
+  if (!match) return null;
+  const measureIndex = Number(match[1]);
+  const fermata = score.global.measures[measureIndex]?.fermatas?.find(
+    (item) => globalFermataId(measureIndex, item.id) === elementId,
+  );
+  return fermata ? { measureIndex, fermata } : null;
+}
+
 // ── Part-scoped measure elements ────────────────────────────────────
 
 export function clefId(part: number, measure: number): string {
@@ -494,6 +508,8 @@ export function getEventAncestorId(elementId: string): string {
  * Returns null if not a recognized annotation ID.
  */
 export function resolveAnnotationLocation(elementId: string): AnnotationLocation | null {
+  const numberRow = elementId.match(/^m(\d+)\/bn\d+-(?:above|below)\/mnum$/);
+  if (numberRow) return { kind: "global", type: "mnum", measureIndex: Number(numberRow[1]) };
   const systemTextLocation = resolveSystemTextLocation(elementId);
   if (systemTextLocation) return systemTextLocation;
 

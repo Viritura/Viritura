@@ -7,6 +7,7 @@ import {
   getLyricLineDisplay,
   getLyricLineIds,
   getNextLyricLineId,
+  includeLyricLine,
   isValidLanguageTag,
 } from "../../../lyrics";
 import { produce } from "../../../score/scoreClone";
@@ -22,14 +23,14 @@ type MetadataField = keyof LyricLineMetadataEntry;
 
 function updateMetadata(score: Score, lineId: string, field: MetadataField, value: string): Score {
   return produce(score, (draft) => {
-    draft.global.lyrics ??= {};
-    draft.global.lyrics.lineMetadata ??= {};
-    const entry = { ...draft.global.lyrics.lineMetadata[lineId] };
+    const lyrics = includeLyricLine(draft, lineId);
+    lyrics.lineMetadata ??= {};
+    const entry = { ...lyrics.lineMetadata[lineId] };
     if (value) entry[field] = value;
     else delete entry[field];
-    if (Object.keys(entry).length > 0) draft.global.lyrics.lineMetadata[lineId] = entry;
-    else delete draft.global.lyrics.lineMetadata[lineId];
-    if (Object.keys(draft.global.lyrics.lineMetadata).length === 0) delete draft.global.lyrics.lineMetadata;
+    if (Object.keys(entry).length > 0) lyrics.lineMetadata[lineId] = entry;
+    else delete lyrics.lineMetadata[lineId];
+    if (Object.keys(lyrics.lineMetadata).length === 0) delete lyrics.lineMetadata;
   });
 }
 
@@ -158,7 +159,7 @@ export function LyricsPanel({ embedded = false }: LyricsPanelProps) {
       [nextOrder[index], nextOrder[target]] = [nextOrder[target]!, nextOrder[index]!];
       updateScore(
         produce(score, (draft) => {
-          draft.global.lyrics ??= {};
+          draft.global.lyrics ??= { lineOrder: nextOrder };
           draft.global.lyrics.lineOrder = nextOrder;
         }),
       );
@@ -171,7 +172,7 @@ export function LyricsPanel({ embedded = false }: LyricsPanelProps) {
     const lineId = getNextLyricLineId(score);
     updateScore(
       produce(score, (draft) => {
-        draft.global.lyrics ??= {};
+        draft.global.lyrics ??= { lineOrder: [] };
         draft.global.lyrics.lineOrder = [...lineIds, lineId];
       }),
     );

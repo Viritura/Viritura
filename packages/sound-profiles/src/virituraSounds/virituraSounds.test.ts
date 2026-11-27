@@ -223,6 +223,43 @@ describe("VirituraSounds", () => {
     });
   });
 
+  it("uses a single source for an explicitly solo string, including a selected source", () => {
+    for (const input of [
+      { instrumentId: "strings.violin", solo: true },
+      { instrumentId: "strings.violin", solo: true, selectedSourceId: "strings.violin-primary" },
+    ]) {
+      const sound = virituraSoundsProfile.resolve(input)!;
+      expect(sound.sources).toEqual([{ id: "strings.violin-primary", kind: "midi", program: 40 }]);
+      expect(sound.layering).toBeUndefined();
+    }
+    expect(virituraSoundsProfile.resolve({ instrumentId: "strings.violin", solo: false })!.sources).toHaveLength(3);
+  });
+
+  it("resolves generic string groups to one ensemble sound and keeps section seating", () => {
+    const cases = [
+      ["Violins", { x: -2, y: 1 }],
+      ["Violas", { x: 1, y: 3 }],
+      ["Violoncellos", { x: 2, y: 1 }],
+      ["Contrabasses", { x: 4, y: 1 }],
+      ["Strings", { x: 0, y: 0 }],
+    ] as const;
+
+    for (const [legacyName, stagePosition] of cases) {
+      expect(virituraSoundsProfile.resolve({ instrumentId: "strings.group", legacyName })).toMatchObject({
+        resolution: "canonical",
+        selectedSourceId: "strings.group-primary",
+        sources: [{ id: "strings.group-primary", kind: "midi", program: 48 }],
+        routing: { section: "strings", stagePosition },
+        layering: undefined,
+      });
+    }
+
+    expect(virituraSoundsProfile.resolve({ instrumentId: "strings.group", explicitMidiProgram: 45 })).toMatchObject({
+      resolution: "explicit",
+      sources: [{ kind: "midi", program: 45 }],
+    });
+  });
+
   it("uses ensemble-layered sounds for untagged legacy string parts", () => {
     const cases = [
       ["Violin I", "strings.violin", 40],

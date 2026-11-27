@@ -20,9 +20,15 @@ import {
   LayeredSampler,
   SamplerGroup,
   SpatialNode,
-  DEFAULT_LISTENER_POSITION,
 } from "@viritura/audio";
 import { PAN_RANGE, type PartPatchInfo } from "./playbackReducer";
+import {
+  EQ_COLOR_BUS_FILTERS,
+  profileLayerPan,
+  sectionListenerDistance,
+  sectionPredelaySeconds,
+  sectionReverbSend,
+} from "./mixChain";
 import { type ResolvedPlaybackPart, type Sf2Layer, requireSf2Sound } from "./soundProfileRuntime";
 
 /** A configured kit provides its own MIDI key for every component. */
@@ -45,14 +51,9 @@ export interface EqColorBus {
 }
 
 /**
- * Build the four standard EQ color buses (neutral / bright / warm / nasal)
- * and route them into `masterOut`. Disconnects any nodes in `oldBuses`
- * before returning the new array so callers can swap atomically.
- *
- * Bus 0: Neutral (passthrough)
- * Bus 1: Slightly bright   — high-shelf +1.5 dB @ 3 kHz
- * Bus 2: Slightly warm     — low-shelf +1 dB @ 300 Hz, high-shelf −1 dB @ 4 kHz
- * Bus 3: Slightly nasal    — peaking +2 dB @ 1.2 kHz, Q 1.5
+ * Build the standard EQ color buses (see `EQ_COLOR_BUS_FILTERS`) and route
+ * them into `masterOut`. Disconnects any nodes in `oldBuses` before
+ * returning the new array so callers can swap atomically.
  */
 export function buildEqColorBuses(
   ctx: AudioContext,
@@ -74,55 +75,24 @@ export function buildEqColorBuses(
     }
   }
 
-  const buses: EqColorBus[] = [];
-
-  // Bus 0 — neutral
-  {
+  return EQ_COLOR_BUS_FILTERS.map((specs) => {
     const input = ctx.createGain();
-    input.connect(masterOut);
-    buses.push({ input, filters: [] });
-  }
-  // Bus 1 — bright
-  {
-    const input = ctx.createGain();
-    const hs = ctx.createBiquadFilter();
-    hs.type = "highshelf";
-    hs.frequency.value = 3000;
-    hs.gain.value = 1.5;
-    input.connect(hs);
-    hs.connect(masterOut);
-    buses.push({ input, filters: [hs] });
-  }
-  // Bus 2 — warm
-  {
-    const input = ctx.createGain();
-    const ls = ctx.createBiquadFilter();
-    ls.type = "lowshelf";
-    ls.frequency.value = 300;
-    ls.gain.value = 1.0;
-    const hs = ctx.createBiquadFilter();
-    hs.type = "highshelf";
-    hs.frequency.value = 4000;
-    hs.gain.value = -1.0;
-    input.connect(ls);
-    ls.connect(hs);
-    hs.connect(masterOut);
-    buses.push({ input, filters: [ls, hs] });
-  }
-  // Bus 3 — nasal
-  {
-    const input = ctx.createGain();
-    const pk = ctx.createBiquadFilter();
-    pk.type = "peaking";
-    pk.frequency.value = 1200;
-    pk.gain.value = 2.0;
-    pk.Q.value = 1.5;
-    input.connect(pk);
-    pk.connect(masterOut);
-    buses.push({ input, filters: [pk] });
-  }
-
-  return buses;
+    const filters = specs.map((spec) => {
+      const filter = ctx.createBiquadFilter();
+      filter.type = spec.type;
+      filter.frequency.value = spec.frequency;
+      if (spec.gain !== undefined) filter.gain.value = spec.gain;
+      if (spec.Q !== undefined) filter.Q.value = spec.Q;
+      return filter;
+    });
+    let tail: AudioNode = input;
+    for (const filter of filters) {
+      tail.connect(filter);
+      tail = filter;
+    }
+    tail.connect(masterOut);
+    return { input, filters };
+  });
 }
 
 // ═══════════════════════════════════════════
@@ -341,17 +311,16 @@ async function buildOneSectionSynth(args: {
   const refDist = Math.max(...parts.map((p) => p.refDistance));
 
   const gainNode = ctx.createGain();
-  const dist = Math.sqrt((cx - listenerPos.x) ** 2 + (cy - listenerPos.y) ** 2);
+  const dist = sectionListenerDistance({ x: cx, y: cy }, listenerPos);
   gainNode.gain.value = dist <= refDist ? 1 : refDist / dist;
   gainNode.connect(eqBusInput);
 
   let reverbSend: GainNode | null = null;
   let predelay: DelayNode | null = null;
   if (reverb) {
-    const sendLevel = Math.max(0.05, Math.min(0.9, 0.05 + dist * 0.075));
-    reverbSend = reverb.createSend(sendLevel);
+    reverbSend = reverb.createSend(sectionReverbSend(dist));
     predelay = ctx.createDelay(0.1);
-    predelay.delayTime.value = Math.min(0.04, dist * 0.003);
+    predelay.delayTime.value = sectionPredelaySeconds(dist);
     gainNode.connect(predelay);
     predelay.connect(reverbSend);
   }
@@ -492,10 +461,8 @@ async function buildProfileLayered(args: {
 
   // Apply profile layer pans so stereo spread works even
   // without SpatialBridge (e.g. playing from editor view).
-  const lx = DEFAULT_LISTENER_POSITION.x;
   for (let l = 0; l < layers.length; l++) {
-    const childX = defaultPos.x + layers[l]!.defaults.stageOffset.x;
-    layered.setLayerPan(l, Math.max(-1, Math.min(1, (childX - lx) / PAN_RANGE)));
+    layered.setLayerPan(l, profileLayerPan(defaultPos.x, layers[l]!.defaults.stageOffset.x));
   }
   return layered;
 }

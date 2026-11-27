@@ -46,6 +46,7 @@ pub(crate) mod clef;
 pub(crate) mod direction;
 pub(crate) mod duration;
 pub(crate) mod event;
+mod global_fermatas;
 pub(crate) mod key;
 pub(crate) mod kit;
 pub(crate) mod layout;
@@ -92,8 +93,12 @@ pub enum PromoteError {
     InvalidTextFrame(String),
     /// A globally owned `systemText` entry is malformed or reuses an ID.
     InvalidSystemText(String),
+    InvalidGlobalMeasureExtensions(String),
+    InvalidGlobalFermata(String),
+    InvalidFullMeasureRest(String),
     InvalidTempoInstruction(String),
     InvalidAutoHideEmptyParts(String),
+    InvalidBarNumbers(String),
 }
 
 impl std::fmt::Display for PromoteError {
@@ -118,9 +123,17 @@ impl std::fmt::Display for PromoteError {
             Self::InvalidHarpPedals(s) => write!(f, "Viritura harpPedals: {s}"),
             Self::InvalidTextFrame(reason) => write!(f, "Viritura textFrames: {reason}"),
             Self::InvalidSystemText(reason) => write!(f, "Viritura systemText: {reason}"),
+            Self::InvalidGlobalMeasureExtensions(reason) => {
+                write!(f, "Viritura global measure extensions: {reason}")
+            }
+            Self::InvalidGlobalFermata(reason) => write!(f, "Viritura fermatas: {reason}"),
+            Self::InvalidFullMeasureRest(reason) => {
+                write!(f, "Viritura full-measure rest: {reason}")
+            }
             Self::InvalidAutoHideEmptyParts(reason) => {
                 write!(f, "Viritura autoHideEmptyParts: {reason}")
             }
+            Self::InvalidBarNumbers(reason) => write!(f, "Viritura barNumbers: {reason}"),
             Self::InvalidTempoInstruction(reason) => {
                 write!(f, "Viritura tempo instruction: {reason}")
             }

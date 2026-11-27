@@ -50,9 +50,10 @@ function document(): JsonRecord {
 
 function report(gaps: DenigmaGap[]): DenigmaGapReport {
   return {
-    schemaVersion: 1,
+    schemaVersion: 3,
     producer: { name: "denigma", version: "4.0.0", commit: "5864f4e" },
     gaps,
+    fonts: {},
   };
 }
 
@@ -187,6 +188,182 @@ describe("applyDenigmaGapReport", () => {
     expect(result.outcomes.map((entry) => entry.disposition)).toEqual(["handled", "handled", "handled-partially"]);
   });
 
+  it("preserves Denigma floating generic text as system text", () => {
+    const top: DenigmaGap = {
+      anchor: "m1",
+      position: { numerator: 1, denominator: 4 },
+      extent: "complete",
+      type: "expression",
+      expression: {
+        type: "generic-text",
+        scope: "top-staff",
+        text: { plain: "Con brio" },
+        genericText: { text: "Con brio" },
+        placements: [{ kind: "system-top", anchor: "m1" }],
+      },
+    };
+    const bottom: DenigmaGap = {
+      anchor: "m1",
+      position: { numerator: 1, denominator: 2 },
+      extent: "complete",
+      type: "expression",
+      expression: {
+        type: "generic-text",
+        scope: "bottom-staff",
+        text: { plain: "Keep going" },
+        genericText: { text: "Keep going" },
+        placements: [{ kind: "system-bottom", anchor: "m1" }],
+      },
+    };
+
+    const result = apply([top, bottom, top]);
+    const parsed = result.document as { global: { measures: JsonRecord[] } };
+    const texts = viritura(parsed.global.measures[0]!)["systemText"] as JsonRecord[];
+    expect(texts).toHaveLength(2);
+    expect(texts.map(({ id, text, position, placement }) => ({ id, text, position, placement }))).toEqual([
+      {
+        id: expect.stringMatching(/^denigma-[0-9a-f]+$/),
+        text: [{ text: "Con brio" }],
+        position: { fraction: [1, 4] },
+        placement: "above",
+      },
+      {
+        id: expect.stringMatching(/^denigma-[0-9a-f]+$/),
+        text: [{ text: "Keep going" }],
+        position: { fraction: [1, 2] },
+        placement: "below",
+      },
+    ]);
+    expect(result.outcomes.map(({ disposition }) => disposition)).toEqual([
+      "handled-partially",
+      "handled-partially",
+      "handled-partially",
+    ]);
+    expect(result.outcomes[0]?.reason).toContain("inferred its vertical placement");
+  });
+
+  it("adapts floating staff-list members at system scope without duplicating staff text", () => {
+    const gap: DenigmaGap = {
+      anchor: "m1",
+      position: { numerator: 1, denominator: 4 },
+      extent: "complete",
+      type: "expression",
+      expression: {
+        type: "generic-text",
+        scope: "staff",
+        text: { plain: "Floating text" },
+        genericText: { text: "Floating text" },
+        placements: [{ kind: "system-bottom", anchor: "m1", placement: "float" }],
+      },
+    };
+
+    const result = apply([gap]);
+    const parsed = result.document as { global: { measures: JsonRecord[] }; parts: Array<{ measures: JsonRecord[] }> };
+    const systemText = viritura(parsed.global.measures[0]!)["systemText"] as JsonRecord[];
+    expect(systemText).toEqual([
+      {
+        id: expect.stringMatching(/^denigma-[0-9a-f]+$/),
+        text: [{ text: "Floating text" }],
+        position: { fraction: [1, 4] },
+        placement: "below",
+      },
+    ]);
+    expect(parsed.parts[0]!.measures[0]!["text"]).toBeUndefined();
+    expect(result.outcomes[0]?.disposition).toBe("handled-partially");
+  });
+
+  it("uses vendor text content for styled floating text and SMuFL glyphs", () => {
+    const result = apply([
+      {
+        anchor: "m1",
+        extent: "complete",
+        type: "expression",
+        expression: {
+          type: "generic-text",
+          scope: "top-staff",
+          text: {
+            plain: "dolce",
+            runs: [
+              { text: "dolce ", font: { italic: true } },
+              { text: "", glyphs: ["dynamicPiano"], font: { bold: true } },
+            ],
+          },
+          genericText: { text: "dolce" },
+        },
+      },
+    ]);
+    const parsed = result.document as { global: { measures: JsonRecord[] } };
+    const texts = viritura(parsed.global.measures[0]!)["systemText"] as JsonRecord[];
+    expect(texts[0]?.["text"]).toEqual([
+      { text: "dolce ", style: { fontStyle: "italic" } },
+      { glyphs: ["dynamicPiano"], style: { weight: "bold" } },
+    ]);
+  });
+
+  it("retains an existing staff expression for a partial floating-scope gap", () => {
+    const source = document();
+    const parts = source["parts"] as Array<{ measures: JsonRecord[] }>;
+    parts[0]!.measures[0]!["text"] = [{ id: "expression-1", type: "expression", text: [{ text: "dolce" }] }];
+    const result = applyDenigmaGapReport(
+      JSON.stringify(source),
+      report([
+        {
+          anchor: "expression-1",
+          extent: "partial",
+          type: "expression",
+          expression: { type: "generic-text", scope: "top-staff", genericText: { text: "dolce" } },
+        },
+      ]),
+    );
+    const parsed = JSON.parse(result.mnxJson) as { global: { measures: JsonRecord[] } };
+    expect(parsed.global.measures[0]!["_x"]).toBeUndefined();
+    expect(result.outcomes[0]?.disposition).toBe("handled-partially");
+    expect(result.outcomes[0]?.reason).toContain("existing staff text");
+  });
+
+  it("reports unsupported generic-text scopes instead of claiming full fidelity", () => {
+    const result = apply([
+      {
+        anchor: "P1.m1",
+        extent: "complete",
+        type: "expression",
+        expression: {
+          type: "generic-text",
+          scope: "unassigned",
+          text: { plain: "Unplaced source text" },
+          genericText: { text: "Unplaced source text" },
+        },
+      },
+    ]);
+
+    expect(result.outcomes[0]?.disposition).toBe("handled-partially");
+    expect(result.outcomes[0]?.reason).toContain("unsupported or unspecified source scope");
+  });
+
+  it("reports mixed system and staff placements as partial", () => {
+    const result = apply([
+      {
+        anchor: "m1",
+        position: { numerator: 0, denominator: 1 },
+        extent: "complete",
+        type: "expression",
+        expression: {
+          type: "generic-text",
+          scope: "top-staff",
+          text: { plain: "Mixed placement" },
+          genericText: { text: "Mixed placement" },
+          placements: [
+            { kind: "system-top", anchor: "m1" },
+            { kind: "staff", anchor: "P1.m1", staff: 1 },
+          ],
+        },
+      },
+    ]);
+
+    expect(result.outcomes[0]?.disposition).toBe("handled-partially");
+    expect(result.outcomes[0]?.reason).toContain("not all source placements");
+  });
+
   it("preserves per-run formatting and SMuFL glyph runs in expression text", () => {
     const gap: DenigmaGap = {
       anchor: "P1.m1",
@@ -232,7 +409,6 @@ describe("applyDenigmaGapReport", () => {
     const rehearsal = (text: string): DenigmaGap => ({
       anchor: "m1",
       position: { numerator: 0, denominator: 1 },
-      placements: [{ kind: "system-top", anchor: "m1" }],
       extent: "complete",
       type: "expression",
       expression: {
@@ -240,6 +416,7 @@ describe("applyDenigmaGapReport", () => {
         scope: "top-staff",
         text: { plain: text },
         rehearsalMark: { text },
+        placements: [{ kind: "system-top", anchor: "m1" }],
       },
     });
 
@@ -427,8 +604,8 @@ describe("applyDenigmaGapReport", () => {
       },
     ]);
 
-    expect(viritura(noteAt(result.document, 0))["notehead"]).toBe("x");
-    expect(viritura(noteAt(result.document, 1))["notehead"]).toBe("triangleUp");
+    expect(noteAt(result.document, 0)["notehead"]).toEqual({ shape: "x" });
+    expect(noteAt(result.document, 1)["notehead"]).toEqual({ shape: "triangle" });
     expect(noteAt(result.document, 2)["_x"]).toBeUndefined();
     expect(result.outcomes.map((entry) => entry.disposition)).toEqual([
       "handled",
@@ -437,6 +614,24 @@ describe("applyDenigmaGapReport", () => {
       "unhandled",
       "unhandled",
     ]);
+  });
+
+  it("preserves an existing native notehead rather than replacing it with a gap", () => {
+    const source = document();
+    noteAt(source, 0)["notehead"] = { shape: "square", id: "original-head" };
+    const result = applyDenigmaGapReport(
+      JSON.stringify(source),
+      report([
+        {
+          anchor: "ev1n1",
+          extent: "complete",
+          type: "notehead",
+          notehead: { shape: "x", fill: "unspecified" },
+        },
+      ]),
+    );
+    expect(noteAt(JSON.parse(result.mnxJson), 0)["notehead"]).toEqual({ shape: "square", id: "original-head" });
+    expect(result.outcomes[0]?.disposition).toBe("handled-partially");
   });
 
   it("decorates visible and playback-only standard tempo objects", () => {
@@ -539,10 +734,6 @@ describe("applyDenigmaGapReport", () => {
       {
         anchor: "m1",
         position: { numerator: 1, denominator: 4 },
-        placements: [
-          { kind: "system-top", anchor: "m1" },
-          { kind: "staff", anchor: "P1.m1" },
-        ],
         extent: "complete",
         type: "expression",
         expression: {
@@ -550,6 +741,10 @@ describe("applyDenigmaGapReport", () => {
           scope: "top-staff",
           text: { plain: "rit." },
           tempoAlteration: { text: "rit.", beatsPerMinute: 0, beatUnitEdu: 0 },
+          placements: [
+            { kind: "system-top", anchor: "m1" },
+            { kind: "staff", anchor: "P1.m1" },
+          ],
         },
       },
     ]);
@@ -573,12 +768,12 @@ describe("applyDenigmaGapReport", () => {
     const result = apply([
       {
         anchor: "ev1n1",
-        end: { anchor: "ev2n1" },
         extent: "complete",
         type: "smart-shape",
         smartShape: {
           shapeType: "glissando",
           kind: "glissando",
+          end: { anchor: "ev2n1" },
           glissando: {
             line: {
               lineStyle: "char",
@@ -600,12 +795,12 @@ describe("applyDenigmaGapReport", () => {
     const trill = (includesTrSymbol: boolean): DenigmaGap => ({
       anchor: "P1.m1",
       position: { numerator: 0, denominator: 1 },
-      end: { anchor: "P1.m1", position: { numerator: 1, denominator: 2 } },
       extent: "complete",
       type: "smart-shape",
       smartShape: {
         shapeType: includesTrSymbol ? "trill" : "trill-extension",
         kind: "trill-line",
+        end: { anchor: "P1.m1", position: { numerator: 1, denominator: 2 } },
         trillLine: { includesTrSymbol },
       },
     });
@@ -639,12 +834,12 @@ describe("applyDenigmaGapReport", () => {
     const result = apply([
       {
         anchor: "ev1n1",
-        end: { anchor: "ev2n1" },
         extent: "complete",
         type: "smart-shape",
         smartShape: {
           shapeType: "tab-slide",
           kind: "glissando",
+          end: { anchor: "ev2n1" },
           glissando: { line: { lineStyle: "solid", lineVisible: true } },
         },
       },

@@ -19,7 +19,9 @@ const DEFINITIONS: &[&str] = &[
     "kit-component-extensions",
     "part-measure-extensions",
     "dynamic-group-extensions",
+    "full-measure-rest-extensions",
     "event-extensions",
+    "fermata-extensions",
     "event-markings-extensions",
     "note-extensions",
     "slur-extensions",
@@ -86,6 +88,10 @@ pub(crate) fn validate_tempo_instruction(value: &Value) -> Result<(), String> {
     validate_definition(value, "tempo-instruction")
 }
 
+pub(crate) fn validate_tempo_extensions(value: &Value) -> Result<(), String> {
+    validate_definition(value, "tempo-extensions")
+}
+
 fn pointer_token(value: &str) -> String {
     value.replace('~', "~0").replace('/', "~1")
 }
@@ -149,6 +155,13 @@ fn visit_content(
                 item.get("markings"),
                 &format!("{item_pointer}/markings"),
                 "event-markings-extensions",
+                consumed,
+                errors,
+            );
+            validate_at(
+                item.get("fermata"),
+                &format!("{item_pointer}/fermata"),
+                "fermata-extensions",
                 consumed,
                 errors,
             );
@@ -319,6 +332,24 @@ pub(super) fn extension_errors(root: &Value) -> Vec<RawScoreValidationError> {
                 );
             }
             for (sequence_index, sequence) in array(measure, "sequences").iter().enumerate() {
+                let full_measure_pointer =
+                    format!("{measure_pointer}/sequences/{sequence_index}/fullMeasure");
+                validate_at(
+                    sequence.get("fullMeasure"),
+                    &full_measure_pointer,
+                    "full-measure-rest-extensions",
+                    &mut consumed,
+                    &mut errors,
+                );
+                validate_at(
+                    sequence
+                        .get("fullMeasure")
+                        .and_then(|rest| rest.get("fermata")),
+                    &format!("{measure_pointer}/sequences/{sequence_index}/fullMeasure/fermata"),
+                    "fermata-extensions",
+                    &mut consumed,
+                    &mut errors,
+                );
                 visit_content(
                     array(sequence, "content"),
                     &format!("{measure_pointer}/sequences/{sequence_index}/content"),
@@ -356,6 +387,50 @@ pub(super) fn extension_errors(root: &Value) -> Vec<RawScoreValidationError> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn global_fermata_extensions_validate_event_and_full_measure_markers() {
+        let marker = json!({"_x": {"viritura": {"globalFermataId": "hold", "localOnly": true}}});
+        let mut root = json!({
+            "global": {"measures": [{"_x": {"viritura": {"fermatas": [{
+                "id": "hold", "position": {"fraction": [1, 2]}, "multiplier": 2
+            }]}}}]},
+            "parts": [{"measures": [{"sequences": [
+                {"content": [{"fermata": marker.clone()}]},
+                {"fullMeasure": {"fermata": marker.clone()}, "content": []}
+            ]}]}]
+        });
+        assert!(extension_errors(&root).is_empty());
+        root["global"]["measures"][0]["_x"]["viritura"]["fermatas"][0]["multiplier"] = json!(0.5);
+        assert!(extension_errors(&root)
+            .iter()
+            .any(|error| error.pointer.ends_with("/multiplier")));
+        root["global"]["measures"][0]["_x"]["viritura"]["fermatas"][0]["multiplier"] = json!(2);
+        root["parts"][0]["measures"][0]["sequences"][1]["fullMeasure"]["fermata"]["_x"]
+            ["viritura"]["localOnly"] = json!("true");
+        assert!(extension_errors(&root)
+            .iter()
+            .any(|error| error.pointer.ends_with("/localOnly")));
+    }
+
+    #[test]
+    fn full_measure_rest_caesura_extension_is_consumed_and_validated() {
+        let mut root = json!({
+            "parts": [{"measures": [{"sequences": [{
+                "fullMeasure": {
+                    "_x": {"viritura": {"caesura": {"shape": "short", "marks": 1}}}
+                },
+                "content": []
+            }]}]}]
+        });
+        assert!(extension_errors(&root).is_empty());
+
+        root["parts"][0]["measures"][0]["sequences"][0]["fullMeasure"]["_x"]["viritura"]
+            ["caesura"]["marks"] = json!(3);
+        assert!(extension_errors(&root)
+            .iter()
+            .any(|error| error.pointer.ends_with("/caesura/marks")));
+    }
 
     #[test]
     fn validates_erase_background_as_an_optional_boolean_for_both_frame_kinds() {

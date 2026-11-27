@@ -84,8 +84,8 @@ const bracketsBracesMnx = JSON.stringify(
             label: "Strings",
             barlineStyle: "unified",
             content: [
-              { type: "staff", labelref: "name", sources: [{ part: "vn1" }] },
-              { type: "staff", labelref: "name", sources: [{ part: "vn2" }] },
+              { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "vn1" }] },
+              { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "vn2" }] },
             ],
           },
           {
@@ -218,24 +218,24 @@ const nestedGroupsMnx = JSON.stringify(
                 type: "group",
                 symbol: "square",
                 content: [
-                  { type: "staff", labelref: "name", sources: [{ part: "fl1" }] },
-                  { type: "staff", labelref: "name", sources: [{ part: "fl2" }] },
+                  { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "fl1" }] },
+                  { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "fl2" }] },
                 ],
               },
               {
                 type: "group",
                 symbol: "square",
                 content: [
-                  { type: "staff", labelref: "name", sources: [{ part: "ob1" }] },
-                  { type: "staff", labelref: "name", sources: [{ part: "ob2" }] },
+                  { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "ob1" }] },
+                  { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "ob2" }] },
                 ],
               },
               {
                 type: "group",
                 symbol: "square",
                 content: [
-                  { type: "staff", labelref: "name", sources: [{ part: "cl1" }] },
-                  { type: "staff", labelref: "name", sources: [{ part: "cl2" }] },
+                  { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "cl1" }] },
+                  { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "cl2" }] },
                 ],
               },
             ],
@@ -330,8 +330,8 @@ const noSymbolMnx = JSON.stringify(
             symbol: "noSymbol",
             barlineStyle: "unified",
             content: [
-              { type: "staff", labelref: "name", sources: [{ part: "sop" }] },
-              { type: "staff", labelref: "name", sources: [{ part: "alt" }] },
+              { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "sop" }] },
+              { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "alt" }] },
             ],
           },
           {

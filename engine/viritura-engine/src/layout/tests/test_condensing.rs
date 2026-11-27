@@ -54,6 +54,67 @@ fn default_config() -> LayoutConfig {
 }
 
 #[test]
+fn condensed_divisi_preserves_tuplet_voices_with_rests() {
+    use crate::layout::condensing::{analyze_merge_mode, MergeMode};
+    use serde_json::json;
+
+    let triplets = |octave, group| {
+        json!({
+            "type":"tuplet",
+            "inner":{"multiple":3,"duration":{"base":"eighth"}},
+            "outer":{"multiple":2,"duration":{"base":"eighth"}},
+            "content":(["C","D","E"].map(|step| json!({
+                "id":format!("triplet-{octave}-{group}-{step}"),
+                "duration":{"base":"eighth"},
+                "notes":[{"pitch":{"step":step,"octave":octave}}]
+            })))
+        })
+    };
+    let rest = json!({"duration":{"base":"half"},"rest":{}});
+    let first = json!({"sequences":[{"content":[triplets(5,0),triplets(5,1),rest]}]});
+    let second = json!({"sequences":[{"content":[rest,triplets(4,0),triplets(4,1)]}]});
+    let resting = json!({"sequences":[{"content":[
+        {"duration":{"base":"whole"},"rest":{}}
+    ]}]});
+    let document = json!({
+        "mnx":{"version":1},
+        "global":{"measures":[{"id":"m1","time":{"count":4,"unit":4}}]},
+        "parts":[
+            {"id":"cl1","measures":[first]},
+            {"id":"cl2","measures":[second]},
+            {"id":"cl3","measures":[resting]}
+        ],
+        "layouts":[{"id":"condensed","content":[{
+            "type":"staff","sources":[{"part":"cl1"},{"part":"cl2"},{"part":"cl3"}]
+        }]}],
+        "scores":[{"name":"Condensed","layout":"condensed"}]
+    });
+    let score = parse_mnx(&document.to_string()).unwrap();
+    assert_eq!(
+        analyze_merge_mode(
+            &score
+                .parts
+                .iter()
+                .map(|part| &part.measures[0])
+                .collect::<Vec<_>>()
+        ),
+        MergeMode::Divisi
+    );
+    let mut cache = LayoutCache::new();
+    for display in [
+        layout_with_mnx_scores(&score, &default_config(), 0),
+        layout_with_mnx_scores_cached(&score, &default_config(), 0, Some(&mut cache)),
+        layout_with_mnx_scores_cached(&score, &default_config(), 0, Some(&mut cache)),
+    ] {
+        assert_eq!(count_noteheads(&display), 12);
+        assert!(!display.commands.iter().any(|command| matches!(
+            command,
+            RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::REST_WHOLE
+        )));
+    }
+}
+
+#[test]
 fn doubling_oboes_condense_split_for_english_horn_and_rejoin() {
     use serde_json::json;
 
@@ -81,7 +142,7 @@ fn doubling_oboes_condense_split_for_english_horn_and_rejoin() {
         ],
         "layouts":[{"id":"condensed","content":[{
             "type":"group","symbol":"bracket","content":[
-                {"type":"staff","sources":[{"part":"ob1"},{"part":"ob2"}],"labelref":"name"}
+                {"type":"staff","sources":[{"part":"ob1"},{"part":"ob2"}],"labelRef":{"ref":"auto"}}
             ]
         }]}],
         "scores":[{"name":"Condensed","layout":"condensed"}]
@@ -857,6 +918,112 @@ fn test_condensed_auto_produces_player_labels() {
         "Auto condensing should produce 'a 2' label, found: {:?}",
         labels
     );
+}
+
+#[test]
+fn condensed_player_labels_follow_the_first_sounding_note() {
+    use serde_json::json;
+
+    let note = |base| json!({"duration":{"base":base},"notes":[{"pitch":{"step":"C","octave":5}}]});
+    for (count, unit, content, entry_beat, silent_duration) in [
+        (4, 4, json!([note("whole")]), 0.0, json!({"base":"whole"})),
+        (
+            4,
+            4,
+            json!([{"duration":{"base":"quarter"},"rest":{}}, note("half"),
+                {"duration":{"base":"quarter"},"rest":{}}]),
+            1.0,
+            json!({"base":"whole"}),
+        ),
+        (
+            3,
+            8,
+            json!([{"duration":{"base":"eighth"},"rest":{}}, note("quarter")]),
+            0.5,
+            json!({"base":"quarter","dots":1}),
+        ),
+        (
+            1,
+            4,
+            json!([{
+                "type":"tuplet",
+                "inner":{"multiple":3,"duration":{"base":"eighth"}},
+                "outer":{"multiple":2,"duration":{"base":"eighth"}},
+                "content":[{"duration":{"base":"eighth"},"rest":{}}, note("eighth"), note("eighth")]
+            }]),
+            1.0 / 3.0,
+            json!({"base":"quarter"}),
+        ),
+    ] {
+        for (playing, expected) in [(0, "1."), (1, "2."), (2, "a 2")] {
+            for authored in [false, true] {
+                let measures = |source| {
+                    if playing == source || playing == 2 {
+                        json!([{"sequences":[{"content":content}]}])
+                    } else {
+                        json!([{"sequences":[{"content":[{"duration":silent_duration,"rest":{}}]}]}])
+                    }
+                };
+                let mut document = json!({
+                    "mnx":{"version":1},
+                    "global":{"measures":[{"id":"m1","time":{"count":count,"unit":unit}}]},
+                    "parts":[
+                        {"id":"fl1","name":"Flute","measures":measures(0)},
+                        {"id":"fl2","name":"Flute","measures":measures(1)}
+                    ],
+                    "layouts":[{"id":"condensed","content":[{
+                        "type":"staff","sources":[{"part":"fl1"},{"part":"fl2"}]
+                    }]}],
+                    "scores":[{"name":"Condensed","layout":"condensed"}]
+                });
+                if authored {
+                    document["scores"][0]["pages"] = json!([{"systems":[{"measure":"m1"}]}]);
+                }
+                let score = parse_mnx(&document.to_string()).unwrap();
+                let config = default_config();
+                let mut cache = LayoutCache::new();
+                for display in [
+                    layout_with_mnx_scores(&score, &config, 0),
+                    layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache)),
+                    layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache)),
+                ] {
+                    let labels: Vec<_> = display
+                        .commands
+                        .iter()
+                        .filter_map(|command| match command {
+                            RenderCommand::DrawText { x, text, .. } if text == expected => Some(*x),
+                            _ => None,
+                        })
+                        .collect();
+                    assert_eq!(labels.len(), 1, "{expected}, authored={authored}");
+                    let first_note_x = display
+                        .commands
+                        .iter()
+                        .filter_map(|command| match command {
+                            RenderCommand::DrawGlyph { x, codepoint, .. }
+                                if smufl::is_notehead(*codepoint) =>
+                            {
+                                Some(*x)
+                            }
+                            _ => None,
+                        })
+                        .min_by(f64::total_cmp)
+                        .expect("first sounding note");
+                    assert!(
+                        (labels[0] - first_note_x).abs() < 0.01,
+                        "{expected}, authored={authored}, entry={entry_beat}: label x={} \
+                         must match first note x={first_note_x}",
+                        labels[0]
+                    );
+                    assert!(display.measure_bounds[0]
+                        .beat_anchors
+                        .iter()
+                        .any(|(beat, x)| (beat - entry_beat).abs() < 1e-6
+                            && (x - first_note_x).abs() < 0.01));
+                }
+            }
+        }
+    }
 }
 
 #[test]

@@ -114,6 +114,20 @@ suite exits instead of competing for Cargo artifacts or process-global test
 state. Use this command for full and focused engine tests rather than creating
 an alternate `CARGO_TARGET_DIR`.
 
+### .NET test hang diagnostics
+
+`pnpm test:dotnet` aborts a test host after two minutes without test progress,
+capturing a minidump, the active-test sequence, and TRX results under
+`test-results/dotnet`. PR and API deployment validation jobs have a twenty-minute
+outer limit and upload diagnostics on failure or cancellation. Tests are not
+automatically retried: inspect the sequence and dump before rerunning a hung job.
+
+API fixtures that otherwise use the default development database use
+`IsolatedApiFactory` instead. Each factory owns a temporary SQLite database with
+connection pooling disabled, so parallel host startups do not compete for the
+development database's migration lock or share authentication state. Existing
+fixtures with explicit database configuration keep their own isolation.
+
 ### Browser memory diagnostics
 
 The editor samples memory estimates and numeric editor counters every 10 seconds,
@@ -121,7 +135,9 @@ retaining at most 60 samples (roughly ten minutes). Large scores normally use
 about 0.5 GiB of JS heap and worker WASM, so absolute warnings require three
 consecutive samples at 1.5 GiB of JS heap or engraving WASM linear memory, or 80%
 of the reported JS heap limit. Growth rules are the primary signal for the same
-document: at least 128 MiB and 50% over two minutes (rapid growth), or a JS heap
+document: at least 128 MiB and 50% over two minutes (rapid growth), using only
+baselines taken after the document's first two minutes so initial layout
+allocations do not trigger a warning, or a JS heap
 512 MiB above the lowest reading taken after the document's first two minutes for
 three consecutive samples (sustained growth). Warnings have a five-minute
 cooldown; they indicate pressure, not proof of a leak.
@@ -222,6 +238,11 @@ releases; remove them when the parent dependencies require patched versions.
 Validate changes with `pnpm audit`, the affected workspace tests, and Storybook
 and VSIX tooling checks. Storybook configuration uses explicit local `.ts`
 entry points so its native ESM loader can resolve them.
+
+The `@astrojs/astro2tsx` package extension keeps its `@emnapi/runtime` in step
+with its `@emnapi/core`: mixed 1.x and 2.x versions make `astro check` fail.
+Remove the extension once upstream supplies a compatible runtime, and verify
+with `pnpm --filter @viritura/website build`.
 
 ### Rust dependency-audit exceptions
 

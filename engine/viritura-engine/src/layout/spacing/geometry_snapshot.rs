@@ -22,6 +22,7 @@ pub(super) struct SpacingSnapshot<'a> {
     pub note_slide_right: HashMap<BeatKey, f64>,
     pub right_ink_extents: HashMap<BeatKey, f64>,
     pub accidental_ink_floors: HashMap<BeatKey, f64>,
+    pub rhythmic_ink_floors: HashMap<BeatKey, f64>,
     pub clustered_tie_gaps: HashSet<(BeatKey, BeatKey)>,
     pub staff_onsets: Vec<Vec<BeatKey>>,
     pub staff_events: Vec<Vec<SpacingEvent<'a>>>,
@@ -60,6 +61,7 @@ pub(super) fn build_spacing_snapshot<'a>(
     transpositions: &[Option<(i32, i32)>],
     clef_changes: &[Option<&[(f64, Clef)]>],
     beamed_event_ids: &[HashSet<String>],
+    auto_beamed_indices: &[HashSet<(usize, usize)>],
     suppressed_note_ids: &[HashSet<String>],
     kits: &[Option<&HashMap<String, KitComponent>>],
     config: &LayoutConfig,
@@ -78,6 +80,7 @@ pub(super) fn build_spacing_snapshot<'a>(
         note_slide_right: HashMap::new(),
         right_ink_extents: HashMap::new(),
         accidental_ink_floors: HashMap::new(),
+        rhythmic_ink_floors: HashMap::new(),
         clustered_tie_gaps: HashSet::new(),
         staff_onsets: Vec::with_capacity(all_sequences.len()),
         staff_events: Vec::with_capacity(all_sequences.len()),
@@ -152,11 +155,15 @@ pub(super) fn build_spacing_snapshot<'a>(
         transpositions,
         clef_changes,
         beamed_event_ids,
+        auto_beamed_indices,
         suppressed_note_ids,
         &snapshot.onsets,
         config,
     );
     snapshot.accidental_ink_floors = ink.accidental_gap_floors;
+    for (key, floor) in ink.rhythmic_gap_floors {
+        max_entry(&mut snapshot.rhythmic_ink_floors, key, floor);
+    }
     for (key, extent) in ink.accidental_extents {
         max_entry(&mut snapshot.accidental_extents, key, extent);
     }

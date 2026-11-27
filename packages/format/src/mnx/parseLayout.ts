@@ -22,6 +22,8 @@ import type {
   PageSetup,
   PageTurnSettings,
   InstrumentNameDisplaySettings,
+  BarNumberSettings,
+  AutoHideEmptyStavesOptions,
 } from "@viritura/core";
 import { parseTextFrames } from "./parseTextFrames";
 
@@ -71,7 +73,8 @@ function parseLayoutGroup(raw: RawStaffGroup): LayoutGroup {
     content: raw.content.map(parseLayoutContent),
   };
   if (raw.symbol) group.symbol = raw.symbol;
-  if (raw.label) group.label = raw.label;
+  if (raw.label !== undefined) group.label = raw.label;
+  if (raw.labelRef) group.labelRef = raw.labelRef;
   if (raw.barlineStyle) group.barlineStyle = raw.barlineStyle;
   return group;
 }
@@ -81,8 +84,9 @@ function parseLayoutStaff(raw: RawStaff): LayoutStaff {
     type: "staff",
     sources: (raw.sources ?? []).map(parseLayoutSource),
   };
-  if (raw.label) staff.label = raw.label;
-  if (raw.labelref) staff.labelref = raw.labelref;
+  if (raw.label !== undefined) staff.label = raw.label;
+  if (raw.labelRef) staff.labelRef = raw.labelRef;
+  if (raw.symbol) staff.symbol = raw.symbol;
   return staff;
 }
 
@@ -93,13 +97,47 @@ function parseLayoutSource(raw: RawStaffSource): LayoutSource {
   if (raw.staff !== undefined) src.staff = raw.staff;
   if (raw.stem) src.stem = raw.stem;
   if (raw.voice) src.voice = raw.voice;
-  if (raw.labelref) src.labelref = raw.labelref;
+  if (raw.label !== undefined) src.label = raw.label;
+  if (raw.labelRef) src.labelRef = raw.labelRef;
   return src;
 }
 
 // ═══════════════════════════════════════════
 // MNX Score definitions
 // ═══════════════════════════════════════════
+
+function isUniqueIdList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((id): id is string => typeof id === "string" && id.length > 0) &&
+    new Set(value).size === value.length
+  );
+}
+
+function parseAutoHideEmptyStaves(value: unknown): AutoHideEmptyStavesOptions | undefined {
+  if (value === undefined) return undefined;
+  const invalid = () => new Error("Viritura autoHideEmptyStaves must contain firstSystem and keepVisible entries.");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw invalid();
+  const raw = value as Record<string, unknown>;
+  const options: AutoHideEmptyStavesOptions = {};
+  if (raw["firstSystem"] !== undefined) {
+    if (raw["firstSystem"] !== "hide" && raw["firstSystem"] !== "show") throw invalid();
+    options.firstSystem = raw["firstSystem"];
+  }
+  if (raw["keepVisible"] !== undefined) {
+    if (!Array.isArray(raw["keepVisible"])) throw invalid();
+    options.keepVisible = raw["keepVisible"].map((entry: unknown) => {
+      const record = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+      const measure = record["measure"];
+      const parts = record["parts"];
+      if (typeof measure !== "string" || measure.length === 0 || !isUniqueIdList(parts) || parts.length === 0) {
+        throw invalid();
+      }
+      return { measure, parts: [...parts] };
+    });
+  }
+  return options;
+}
 
 // eslint-disable-next-line complexity -- MNX score definitions flatten several independent optional vendor fields
 export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
@@ -121,6 +159,7 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
   // (vendor dicts are untyped in the schema; narrow-cast the known shape.)
   const viritura = raw._x?.["viritura"] as Record<string, unknown> | undefined;
   if (viritura && "textFrames" in viritura) sd.textFrames = parseTextFrames(viritura["textFrames"]);
+  if (viritura?.["barNumbers"]) sd.barNumbers = { ...(viritura["barNumbers"] as BarNumberSettings) };
   if (viritura && "autoHideEmptyParts" in viritura) {
     const parts = viritura["autoHideEmptyParts"];
     if (
@@ -132,6 +171,8 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
     }
     sd.autoHideEmptyParts = [...parts];
   }
+  const autoHideOptions = parseAutoHideEmptyStaves(viritura?.["autoHideEmptyStaves"]);
+  if (autoHideOptions) sd.autoHideEmptyStaves = autoHideOptions;
   const labelsRaw = viritura?.["instrumentNameDisplay"] as Record<string, unknown> | undefined;
   if (labelsRaw) {
     sd.instrumentNameDisplay = {

@@ -118,7 +118,10 @@ accepted implementation had reached:
   Accidental-obstacle state is replayed in either mode.
 - compact cross-system snapshots prune staff/system bounds that no surviving
   slur event or tie note can query; the headed gate requires this reduction to
-  engage on every sampled edit.
+  engage on every sampled edit. Cross-system slurs retain the events and bounds
+  on their participating staves throughout the span, including intervening
+  systems: continuation placement needs boundary notes, and collision avoidance
+  needs non-endpoint notes. Retained snapshots preserve the same context.
 - immutable MMR grouping plans are shared while the exact first-staff resolved
   snapshot and authored grouping inputs retain identity; first-staff or
   structural changes recompute normally.

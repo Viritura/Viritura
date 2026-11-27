@@ -1,0 +1,14 @@
+.message {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 0;
+  color: var(--text-muted);
+}
+
+.message p {
+  margin: 0;
+}

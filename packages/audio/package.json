@@ -5,6 +5,10 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./click": "./src/clickEngine/index.ts"
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -14,9 +18,10 @@
   "devDependencies": {
     "tsx": "^4.23.15",
     "typescript": "^5.7.0",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "dependencies": {
+    "spessasynth_core": "^4.4.10",
     "spessasynth_lib": "^4.4.7"
   }
 }

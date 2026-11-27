@@ -255,6 +255,13 @@ public sealed class GitHubRepositoriesControllerTests : IClassFixture<WebApplica
                 "main"));
         }
 
+        public Task<GitHubCreatedGist> CreateGistAsync(
+            string accessToken,
+            string description,
+            IReadOnlyDictionary<string, string> files,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<GitHubTokenBundle> ExchangeCodeAsync(string code, string redirectUri, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 

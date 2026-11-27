@@ -6,6 +6,7 @@
  */
 
 import { serializeGlobalCaesura } from "./globalCaesura";
+import { canonicalGlobalFermatas, materializeGlobalFermatas } from "@viritura/core";
 import type {
   Score,
   GlobalMeasure,
@@ -39,6 +40,7 @@ type Obj = Record<string, unknown>;
  * The output is a plain JavaScript object suitable for JSON.stringify().
  */
 export function serializeMnx(score: Score): unknown {
+  if (score.global.measures.some((measure) => measure.fermatas?.length)) score = materializeGlobalFermatas(score);
   const mnxObj: Obj = { version: score.mnx.version };
   if (score.mnx.support) {
     const supportObj: Obj = {};
@@ -97,13 +99,7 @@ function serializeRootExtensions(score: Score): Obj {
   if (score.pageSetupDefaults) virituraExt["pageSetupDefaults"] = score.pageSetupDefaults;
 
   if (score.metadata) {
-    const metaObj: Obj = {};
-    if (score.metadata.title) metaObj["title"] = score.metadata.title;
-    if (score.metadata.subtitle) metaObj["subtitle"] = score.metadata.subtitle;
-    if (score.metadata.composer) metaObj["composer"] = score.metadata.composer;
-    if (score.metadata.lyricist) metaObj["lyricist"] = score.metadata.lyricist;
-    if (score.metadata.arranger) metaObj["arranger"] = score.metadata.arranger;
-    if (score.metadata.copyright) metaObj["copyright"] = score.metadata.copyright;
+    const metaObj = serializeScoreMetadata(score.metadata);
     if (Object.keys(metaObj).length > 0) {
       virituraExt["metadata"] = metaObj;
     }
@@ -122,6 +118,7 @@ function serializeRootExtensions(score: Score): Obj {
   if (score.instrumentChangeStyle) {
     virituraExt["instrumentChangeStyle"] = { ...score.instrumentChangeStyle };
   }
+  if (score.barNumbers) virituraExt["barNumbers"] = { ...score.barNumbers };
 
   if (score.soundProfile) {
     const parts: Obj = {};
@@ -148,6 +145,17 @@ function serializeRootExtensions(score: Score): Obj {
   }
 
   return virituraExt;
+}
+
+function serializeScoreMetadata(metadata: NonNullable<Score["metadata"]>): Obj {
+  const obj: Obj = {};
+  if (metadata.title) obj["title"] = metadata.title;
+  if (metadata.subtitle) obj["subtitle"] = metadata.subtitle;
+  if (metadata.composer) obj["composer"] = metadata.composer;
+  if (metadata.lyricist) obj["lyricist"] = metadata.lyricist;
+  if (metadata.arranger) obj["arranger"] = metadata.arranger;
+  if (metadata.copyright) obj["copyright"] = metadata.copyright;
+  return obj;
 }
 
 /** Serialize score-to-picture settings (`_x.viritura.videoSync`). */
@@ -318,6 +326,7 @@ function collectMarkerText(gm: GlobalMeasure): Obj | undefined {
 
 function collectGlobalMeasureVendorExt(gm: GlobalMeasure): Obj {
   const ext: Obj = {};
+  if (gm.fermatas?.length) ext["fermatas"] = canonicalGlobalFermatas(gm.fermatas);
   if (gm.tempos?.some((tempo) => tempo.bpm === undefined)) ext["tempos"] = gm.tempos;
   if (gm.rehearsalMark) {
     const rm: Obj = { text: gm.rehearsalMark.text };
@@ -358,6 +367,8 @@ function serializeTempo(t: Tempo): Obj {
   };
   if (t.location) tObj["location"] = t.location;
   const tempoViritura: Obj = {};
+  if (t.clickSubdivision !== undefined) tempoViritura["clickSubdivision"] = t.clickSubdivision;
+  if (t.clickGrouping !== undefined) tempoViritura["clickGrouping"] = t.clickGrouping;
   if (t.swing !== undefined) tempoViritura["swing"] = t.swing;
   if (t.text !== undefined) tempoViritura["text"] = t.text;
   if (t.showMetronomeMark !== undefined) tempoViritura["showMetronomeMark"] = t.showMetronomeMark;
@@ -375,7 +386,7 @@ function serializeGlobal(score: Score): Obj {
     measures: score.global.measures.map(serializeGlobalMeasure),
   };
   if (score.global.lyrics) {
-    const lyrics: Obj = {};
+    const lyrics: Obj = { lineOrder: score.global.lyrics.lineOrder };
     if (score.global.lyrics.lineMetadata) {
       const lm: Obj = {};
       for (const [key, entry] of Object.entries(score.global.lyrics.lineMetadata)) {
@@ -385,9 +396,6 @@ function serializeGlobal(score: Score): Obj {
         lm[key] = e;
       }
       lyrics["lineMetadata"] = lm;
-    }
-    if (score.global.lyrics.lineOrder) {
-      lyrics["lineOrder"] = score.global.lyrics.lineOrder;
     }
     globalObj["lyrics"] = lyrics;
   }
@@ -465,6 +473,13 @@ function serializeFermata(fermata: NonNullable<NoteEvent["fermata"]>): Obj {
   if (fermata.duration) result["duration"] = fermata.duration;
   if (fermata.placement) result["placement"] = fermata.placement;
   if (fermata.pointing) result["pointing"] = fermata.pointing;
+  if (fermata.id) result["id"] = fermata.id;
+  const vendor = fermata._x?.["viritura"];
+  const extension = vendor && typeof vendor === "object" && !Array.isArray(vendor) ? vendor : {};
+  result["_x"] = {
+    ...fermata._x,
+    viritura: "globalFermataId" in extension ? extension : { ...extension, localOnly: true },
+  };
   return result;
 }
 
@@ -476,11 +491,15 @@ function serializeSequence(seq: Sequence): Obj {
     const fmObj: Obj = {
       visualDuration: serializeDuration(seq.fullMeasure.visualDuration),
     };
+    if (seq.fullMeasure.id) fmObj["id"] = seq.fullMeasure.id;
     if (seq.fullMeasure.staffPosition !== undefined) {
       fmObj["staffPosition"] = seq.fullMeasure.staffPosition;
     }
     if (seq.fullMeasure.fermata) {
       fmObj["fermata"] = serializeFermata(seq.fullMeasure.fermata);
+    }
+    if (seq.fullMeasure.caesura) {
+      fmObj["_x"] = { viritura: serializeGlobalCaesura(seq.fullMeasure.caesura) };
     }
     seqObj["fullMeasure"] = fmObj;
   }

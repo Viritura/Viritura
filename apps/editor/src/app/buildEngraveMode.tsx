@@ -8,6 +8,7 @@ import { Button, Panel, PreviewStatusBar, type PreviewViewMode, type WriteViewMo
 import { TransportBar } from "@viritura/playback";
 import { Eye } from "lucide-react";
 import { ScoreSwitcher } from "../scoreSwitcher";
+import { ProjectFileSwitcher } from "../projectFiles";
 import { NotationInspector } from "../components/NotationInspector";
 import { SlurPropertiesPanel } from "../components/modes/engrave/SlurPropertiesPanel";
 import { EngraveLeftPanel } from "../components/modes/engrave/EngraveLeftPanel";
@@ -138,7 +139,12 @@ export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
     onTogglePanels: args.onTogglePanels,
     toolbar: (
       <WorkspaceToolbar
-        left={<ScoreSwitcher selectedScoreIndex={engrave.activeScoreIndex} onSelectScore={handleSelectScore} />}
+        left={
+          <>
+            <ProjectFileSwitcher />
+            <ScoreSwitcher selectedScoreIndex={engrave.activeScoreIndex} onSelectScore={handleSelectScore} />
+          </>
+        }
         center={
           <WorkspaceToolbarGroup label="Engrave layout">
             <BreakToolbar

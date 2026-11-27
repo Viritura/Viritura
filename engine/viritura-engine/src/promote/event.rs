@@ -25,8 +25,9 @@ use crate::promote::duration::promote_duration;
 use crate::promote::note::{promote_kit_note_to_note, promote_note};
 use crate::promote::slur::promote_slur;
 use crate::promote::vendor_directions::extract_event_glissandos;
+use crate::promote::vendor_ext::read_viritura_ext;
 use crate::promote::PromoteError;
-use crate::raw;
+use crate::{raw, raw_viritura};
 
 // ─── Leaves ──────────────────────────────────────────────────────────
 
@@ -48,10 +49,42 @@ pub(crate) fn promote_full_measure_rest(
             dots: None,
         },
     };
+    let caesura = read_viritura_ext(r.x.as_ref())
+        .and_then(|vendor| vendor.get("caesura"))
+        .map(|value| {
+            let raw: raw_viritura::FullMeasureRestExtensionsCaesura =
+                serde_json::from_value(value.clone())
+                    .map_err(|error| PromoteError::InvalidFullMeasureRest(error.to_string()))?;
+            let style = raw.shape.map(|shape| match shape {
+                raw_viritura::FullMeasureRestExtensionsCaesuraShape::Normal => {
+                    raw::CaesuraShape::Normal
+                }
+                raw_viritura::FullMeasureRestExtensionsCaesuraShape::Thick => {
+                    raw::CaesuraShape::Thick
+                }
+                raw_viritura::FullMeasureRestExtensionsCaesuraShape::Short => {
+                    raw::CaesuraShape::Short
+                }
+                raw_viritura::FullMeasureRestExtensionsCaesuraShape::Curved => {
+                    raw::CaesuraShape::Curved
+                }
+            });
+            let marks = raw
+                .marks
+                .map(|marks| {
+                    u8::try_from(i64::from(marks))
+                        .map_err(|error| PromoteError::InvalidFullMeasureRest(error.to_string()))
+                })
+                .transpose()?;
+            Ok(crate::model::Caesura { style, marks })
+        })
+        .transpose()?;
     Ok(ModelFullMeasure {
+        id: r.id.map(String::from),
         visual_duration,
         staff_position: r.staff_position.map(|p| i32::try_from(p.0).unwrap_or(0)),
-        fermata: r.fermata.map(promote_fermata),
+        fermata: r.fermata.and_then(promote_fermata),
+        caesura,
     })
 }
 
@@ -157,7 +190,7 @@ pub(crate) fn promote_event(r: raw::Event) -> Result<ModelEvent, PromoteError> {
         slurs: (!slurs.is_empty()).then_some(slurs),
         glissandos: vendor_glissandos,
         markings: r.markings.map(promote_markings),
-        fermata: r.fermata.map(promote_fermata),
+        fermata: r.fermata.and_then(promote_fermata),
         lyrics: r.lyrics.map(promote_lyrics),
         stem_direction: r.stem_direction.map(promote_stem_direction),
     })

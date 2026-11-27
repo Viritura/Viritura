@@ -11,17 +11,90 @@ import { setKeySignature } from "@viritura/core";
 import { parseMnx, parseMnxWithDiagnostics } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
 import * as fs from "node:fs";
-import * as path from "node:path";
-
-const scoresDir = path.resolve(__dirname, "../../fixtures/mnx");
-
-/** All .mnx files in the scores directory. */
-const mnxFiles = fs
-  .readdirSync(scoresDir)
-  .filter((f) => f.endsWith(".mnx"))
-  .sort();
+import { mnxFixtures } from "./mnxCorpus";
 
 describe("MNX round-trip (parse → serialize → parse)", () => {
+  it("preserves bar-number defaults and partial layout overrides, including false values", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [{ id: "m0", time: { count: 4, unit: 4 } }] },
+      parts: [{ id: "p", measures: [{ sequences: [] }] }],
+      layouts: [{ id: "L", content: [{ type: "staff", sources: [{ part: "p" }] }] }],
+      scores: [
+        { name: "Score", layout: "L" },
+        {
+          name: "Part",
+          layout: "L",
+          _x: {
+            viritura: {
+              barNumbers: {
+                frequency: "everyBar",
+                showFirst: false,
+                italic: false,
+                enclosure: "circle",
+                onStaff: false,
+                showStaffLine: false,
+                placements: [],
+                aboveGroups: [["p"]],
+                distance: 0,
+              },
+              autoHideEmptyParts: ["p"],
+              autoHideEmptyStaves: { firstSystem: "show", keepVisible: [{ measure: "m0", parts: ["p"] }] },
+            },
+          },
+        },
+      ],
+      _x: {
+        viritura: {
+          barNumbers: {
+            placement: "aboveSystem",
+            placements: ["aboveSystem", "belowSystem"],
+            family: "sans-serif",
+            size: 1.5,
+            bold: true,
+            showFirst: true,
+            horizontalAlignment: "center",
+            distance: 3.25,
+            onStaff: true,
+          },
+        },
+      },
+    };
+    const score = parseMnx(source);
+    const saved = serializeMnx(score);
+    expect(saved._x?.["viritura"]).toMatchObject(source._x.viritura);
+    expect(saved.scores?.[1]?._x?.["viritura"]).toEqual(source.scores[1]!._x!.viritura);
+    expect(parseMnx(saved)).toEqual(score);
+    expect(score.scores?.[0]?.barNumbers).toBeUndefined();
+  });
+
+  it.each([
+    { size: 0 },
+    { size: 9 },
+    { frequency: "sometimes" },
+    { placement: "betweenStaves" },
+    { bold: "yes" },
+    { distance: -0.25 },
+    { distance: "3" },
+    { onStaff: "yes" },
+    { horizontalAlignment: "inset" },
+    { placements: ["aboveSystem", "aboveSystem"] },
+    { placements: ["betweenStaves"] },
+    { aboveGroups: [[]] },
+    { aboveGroups: [["p"], ["p"]] },
+    { aboveGroups: [["p", "p"]] },
+    { showStaffLine: "yes" },
+  ])("rejects invalid bar-number settings %j", (barNumbers) => {
+    expect(() =>
+      parseMnx({
+        mnx: { version: 1 },
+        global: { measures: [] },
+        parts: [],
+        _x: { viritura: { barNumbers } },
+      }),
+    ).toThrow();
+  });
+
   it("preserves the automatically added barline when a key change is saved", () => {
     const score = parseMnx({
       mnx: { version: 1 },
@@ -169,7 +242,7 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     expect(serializeMnx(parsed).parts[0]!.measures).toEqual(source.parts[0]!.measures);
   });
 
-  it("preserves a fermata on a full-measure rest without creating events", () => {
+  it("preserves a full-measure rest's ID, fermata and local caesura without creating events", () => {
     const source = {
       mnx: { version: 1 },
       global: { measures: [{ time: { count: 5, unit: 2 } }] },
@@ -180,7 +253,11 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
               sequences: [
                 {
                   content: [],
-                  fullMeasure: { fermata: { symbol: "square" } },
+                  fullMeasure: {
+                    id: "rest1",
+                    fermata: { symbol: "square" },
+                    _x: { viritura: { caesura: { shape: "short", marks: 1 } } },
+                  },
                 },
               ],
             },
@@ -193,9 +270,15 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     expect(parsed.parts[0]!.measures[0]!.sequences[0]).toMatchObject({
       content: [],
       fullMeasure: {
+        id: "rest1",
         visualDuration: { base: "whole" },
         fermata: { symbol: "square" },
+        caesura: { style: "short", marks: 1 },
       },
+    });
+    expect(serializeMnx(parsed).parts[0]!.measures[0]!.sequences![0]!.fullMeasure).toMatchObject({
+      id: "rest1",
+      _x: { viritura: { caesura: { shape: "short", marks: 1 } } },
     });
     expect(parseMnx(serializeMnx(parsed))).toEqual(parsed);
   });
@@ -245,14 +328,45 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
         {
           id: "score",
           content: [
-            { type: "staff", labelref: "name", sources: [{ part: "fl" }] },
-            { type: "staff", labelref: "shortName", sources: [{ part: "ob" }] },
+            { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "fl" }] },
+            { type: "staff", labelRef: { ref: "shortName" }, sources: [{ part: "ob" }] },
             { type: "staff", sources: [{ part: "cl" }] },
           ],
         },
       ],
     };
 
+    expect(serializeMnx(parseMnx(source)).layouts).toEqual(source.layouts);
+  });
+
+  it("round-trips v57 group, staff, and source label references", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [] },
+      parts: [
+        { id: "fl", name: "Flute", measures: [] },
+        { id: "ob", name: "Oboe", measures: [] },
+      ],
+      layouts: [
+        {
+          id: "score",
+          content: [
+            {
+              type: "group",
+              labelRef: { target: "ob", _c: "Group", id: "group-label", _x: { example: { key: 1 } } },
+              content: [
+                {
+                  type: "staff",
+                  symbol: "square",
+                  labelRef: { ref: "name", target: "ob" },
+                  sources: [{ part: "fl", label: "", labelRef: { ref: "shortName", target: "fl" } }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
     expect(serializeMnx(parseMnx(source)).layouts).toEqual(source.layouts);
   });
 
@@ -353,6 +467,32 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     }
   });
 
+  it("preserves first-system and per-system auto-hide decisions", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [] },
+      parts: [],
+      layouts: [],
+      scores: [
+        {
+          name: "Conductor",
+          _x: {
+            viritura: {
+              autoHideEmptyParts: ["flute"],
+              autoHideEmptyStaves: { firstSystem: "show", keepVisible: [{ measure: "m5", parts: ["flute"] }] },
+            },
+          },
+        },
+      ],
+    };
+    expect(serializeMnx(parseMnx(source)).scores).toEqual(source.scores);
+    for (const invalid of [{ firstSystem: "always" }, { keepVisible: [{ measure: "m1", parts: [] }] }]) {
+      expect(() =>
+        parseMnx({ ...source, scores: [{ name: "Invalid", _x: { viritura: { autoHideEmptyStaves: invalid } } }] }),
+      ).toThrow(/autoHideEmptyStaves/);
+    }
+  });
+
   it("preserves an explicit empty beam list that suppresses auto-beaming", () => {
     const source = {
       mnx: { version: 1 },
@@ -415,41 +555,49 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
   });
 
   it("should have MNX example files to test", () => {
-    expect(mnxFiles.length).toBeGreaterThan(0);
+    expect(mnxFixtures.length).toBeGreaterThan(0);
   });
 
-  for (const file of mnxFiles) {
-    it(`round-trips ${file}`, () => {
-      const raw = fs.readFileSync(path.join(scoresDir, file), "utf-8");
-      const originalJson = JSON.parse(raw);
+  for (const file of mnxFixtures) {
+    it(
+      `round-trips ${file.name}`,
+      () => {
+        const raw = fs.readFileSync(file.path, "utf-8");
+        const originalJson = JSON.parse(raw);
 
-      // First parse
-      const score1 = parseMnx(originalJson);
+        // First parse
+        const score1 = parseMnx(originalJson);
 
-      // Serialize back to JSON
-      const serialized = serializeMnx(score1);
+        // Serialize back to JSON
+        const serialized = serializeMnx(score1);
 
-      // Second parse
-      const score2 = parseMnx(serialized);
+        // Second parse
+        const score2 = parseMnx(serialized);
 
-      // The two Score objects must be identical
-      expect(score2).toEqual(score1);
-    });
+        // The two Score objects must be identical
+        expect(score2).toEqual(score1);
+      },
+      file.timeout,
+    );
   }
 });
 
 describe("MNX serialize → parse produces valid JSON", () => {
-  for (const file of mnxFiles) {
-    it(`serializes ${file} to valid JSON`, () => {
-      const raw = fs.readFileSync(path.join(scoresDir, file), "utf-8");
-      const originalJson = JSON.parse(raw);
-      const score = parseMnx(originalJson);
-      const serialized = serializeMnx(score);
+  for (const file of mnxFixtures) {
+    it(
+      `serializes ${file.name} to valid JSON`,
+      () => {
+        const raw = fs.readFileSync(file.path, "utf-8");
+        const originalJson = JSON.parse(raw);
+        const score = parseMnx(originalJson);
+        const serialized = serializeMnx(score);
 
-      // Must be serializable to JSON string and back
-      const jsonStr = JSON.stringify(serialized);
-      expect(() => JSON.parse(jsonStr)).not.toThrow();
-    });
+        // Must be serializable to JSON string and back
+        const jsonStr = JSON.stringify(serialized);
+        expect(() => JSON.parse(jsonStr)).not.toThrow();
+      },
+      file.timeout,
+    );
   }
 });
 
@@ -609,7 +757,7 @@ describe("MNX round-trip preserves editor wiring fields", () => {
     ]);
   });
 
-  it("migrates a per-note notehead override to native MNX", () => {
+  it("round-trips a native per-note notehead override", () => {
     const source = {
       mnx: { version: 1 },
       global: { measures: [{ time: { count: 4, unit: 4 } }] },
@@ -624,7 +772,7 @@ describe("MNX round-trip preserves editor wiring fields", () => {
                     {
                       type: "event",
                       duration: { base: "quarter" },
-                      notes: [{ pitch: { step: "E", octave: 4 }, _x: { viritura: { notehead: "diamond" } } }],
+                      notes: [{ pitch: { step: "E", octave: 4 }, notehead: { shape: "diamond" } }],
                     },
                   ],
                 },

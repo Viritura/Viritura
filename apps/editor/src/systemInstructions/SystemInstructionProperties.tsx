@@ -29,8 +29,15 @@ export function SystemInstructionProperties({
   if (!instruction) return null;
   return (
     <SystemInstructionFields
+      key={`${target.measureIndex}:${tempoIndex ?? instruction.id}`}
       instruction={instruction}
       effectiveSwing={resolveInstructionSwing(score, target.measureIndex, instruction, tempoIndex)}
+      timeSignature={
+        score.global.measures.slice(0, target.measureIndex + 1).findLast((bar) => bar.time)?.time ?? {
+          count: 4,
+          unit: 4,
+        }
+      }
       positioning={
         target.systemTextId ? (
           <StaffTextPositioningField score={score} target={target} updateScore={updateScore} />

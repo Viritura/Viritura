@@ -30,6 +30,11 @@ const FONT_ASSETS = [
 const BRANDING_ASSETS = ["favicon.svg", "viritura-logo.svg", "viritura-mark.svg"];
 const lockWaiter = new Int32Array(new SharedArrayBuffer(4));
 
+export function syncLegalNotices(publicRoot: string): void {
+  cpSync(resolve(repoRoot, "LICENSES"), resolve(publicRoot, "LICENSES"), { recursive: true });
+  copyFileSync(resolve(repoRoot, "THIRD_PARTY_NOTICES.md"), resolve(publicRoot, "THIRD_PARTY_NOTICES.md"));
+}
+
 export function syncSharedAssets(): void {
   withStageLock(sharedAssetStageLock, () => {
     mkdirSync(publicFonts, { recursive: true });
@@ -39,6 +44,7 @@ export function syncSharedAssets(): void {
     for (const asset of BRANDING_ASSETS) {
       copyFileSync(resolve(sharedBranding, asset), resolve(editorRoot, "public", asset));
     }
+    syncLegalNotices(resolve(editorRoot, "public"));
     stagePwaIcons(sharedBranding, resolve(editorRoot, "public"));
   });
 }

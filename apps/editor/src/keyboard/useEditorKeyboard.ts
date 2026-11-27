@@ -35,6 +35,7 @@ import { moveNoteInputCursor } from "./noteInputHandlers";
 export interface EditorKeyboardConfig {
   canvasRef: RefObject<ScoreCanvasHandle | null>;
   currentZoom: number;
+  suspendEditorInput?: boolean;
   /** Index of the active score tab (used to resolve the active layout). */
   selectedScoreIndex?: number;
   onNewScore: () => void;
@@ -154,7 +155,10 @@ function buildAppCallbacks(configRef: {
   };
 }
 
-function installRegistry(noteInputStateRef: { current: { active: boolean } }): () => void {
+function installRegistry(
+  noteInputStateRef: { current: { active: boolean } },
+  configRef: { current: EditorKeyboardConfig },
+): () => void {
   keyboardRegistry.setIsInputCallback(() => {
     const active = document.activeElement as HTMLElement | null;
     if (!active) return false;
@@ -165,7 +169,9 @@ function installRegistry(noteInputStateRef: { current: { active: boolean } }): (
       active.isContentEditable
     );
   });
-  keyboardRegistry.setContextCallback(() => (noteInputStateRef.current.active ? "noteInput" : "normal"));
+  keyboardRegistry.setContextCallback(() =>
+    configRef.current.suspendEditorInput ? "global" : noteInputStateRef.current.active ? "noteInput" : "normal",
+  );
   return keyboardRegistry.install();
 }
 
@@ -327,15 +333,17 @@ export function useEditorKeyboard(config: EditorKeyboardConfig): EditorKeyboardA
     redo,
   });
   const enterMidiNotes = useCallback((midiNotes: readonly number[]) => {
+    if (configRef.current.suspendEditorInput) return;
     handleMidiChordEntry(midiNotes, ctxRef.current);
   }, []);
   const moveMidiCursor = useCallback((direction: "left" | "right" | "up" | "down") => {
+    if (configRef.current.suspendEditorInput) return;
     moveNoteInputCursor(direction, ctxRef.current);
   }, []);
 
   // ─── Install registry + register bindings ──────
   useEffect(() => {
-    const uninstall = installRegistry(noteInputStateRef);
+    const uninstall = installRegistry(noteInputStateRef, configRef);
 
     const bindings = buildEditorBindings({
       canvasRef: configRef.current.canvasRef,

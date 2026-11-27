@@ -1,11 +1,13 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import { createRef, type ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayheadOverlay, PlaybackState } from "@viritura/playback";
 import type { DisplayList, ScoreInfo } from "@viritura/renderer";
-import { ScoreCanvas } from "../components/ScoreCanvas";
+import { ScoreCanvas, type ScoreCanvasHandle } from "../components/ScoreCanvas";
 import type { LayoutBackend } from "../components/ScoreCanvas/layoutBackend";
 import type { initWasmAndFont } from "../components/ScoreCanvas/initWasmAndFont";
+import { contentSizeForMode, scoreViewRelayoutKey } from "../components/ScoreCanvas/initialLoad";
+import { useScoreViewRelayout } from "../components/ScoreCanvas/relayoutEffects";
 
 const mocks = vi.hoisted(() => ({
   playback: {
@@ -73,7 +75,7 @@ vi.mock("../store/selectionStore", async (importOriginal) => ({
 vi.mock("../store/noteInputStore", () => ({
   useNoteInput: () => ({ state: { active: false } }),
 }));
-vi.mock("../components/InputCursor", () => ({ InputCursor: () => null }));
+vi.mock("../components/InputCursor", () => ({ InputCursor: () => <div data-testid="input-cursor" /> }));
 vi.mock("../components/ScoreCanvas/usePlayPauseShortcut", () => ({ usePlayPauseShortcut: vi.fn() }));
 vi.mock("../components/ScoreCanvas/initWasmAndFont", () => ({
   initWasmAndFont: mocks.initialize,
@@ -118,6 +120,7 @@ function displayList(pageCount: number): DisplayList {
       yOffset: pageNumber * 1000,
       width: 800,
       height: 1000,
+      systemIndices: [],
     })),
   };
 }
@@ -278,6 +281,66 @@ describe("ScoreCanvas playback lifecycle", () => {
     render(<ScoreCanvas viewMode="page" />);
     expect(latestOverlay().playheadPosition).toBeNull();
     expect(mocks.computeDisplayList).not.toHaveBeenCalled();
+  });
+
+  it("uses only the click playhead overlay in click interaction mode", async () => {
+    mocks.computeDisplayList.mockResolvedValue(displayList(2));
+    render(<ScoreCanvas viewMode="page" interactionMode="click" />);
+    await waitFor(() => expect(mocks.computeDisplayList).toHaveBeenCalled());
+
+    expect(mocks.overlay.mock.calls.filter(([props]) => props.onPlayheadRect !== undefined)).toHaveLength(0);
+    expect(mocks.overlay).toHaveBeenCalled();
+    expect(latestOverlay().playheadPosition).toBeNull();
+    expect(screen.queryByRole("button", { name: /follow/i })).toBeNull();
+  });
+
+  it("removes the editing cursor when switching from Write to Click", () => {
+    const mounted = render(<ScoreCanvas interactionMode="write" />);
+    expect(screen.getByTestId("input-cursor")).toBeTruthy();
+    mounted.rerender(<ScoreCanvas interactionMode="click" />);
+    expect(screen.queryByTestId("input-cursor")).toBeNull();
+  });
+
+  it.each([false, true])(
+    "restores a distant viewport only after the destination layout unless superseded (superseded=%s)",
+    async (superseded) => {
+      mocks.computeDisplayList.mockResolvedValue(displayList(1));
+      const ref = createRef<ScoreCanvasHandle>();
+      const mounted = render(<ScoreCanvas ref={ref} viewMode="page" interactionMode="click" sourcePartIndex={0} />);
+      await waitFor(() => expect(ref.current?.getDisplayList()).not.toBeNull());
+      mounted.rerender(<ScoreCanvas ref={ref} viewMode="horizon" interactionMode="write" />);
+      const saved = { zoom: 1, scrollX: 5000, scrollY: 0 };
+      act(() => ref.current!.restoreViewport(saved));
+      if (superseded) act(() => ref.current!.setScroll(100, 0));
+      mocks.setScroll.mockClear();
+      const args = vi.mocked(useScoreViewRelayout).mock.calls.at(-1)![0];
+      const destination = { ...displayList(1), width: 10000 };
+      act(() => {
+        args.displayListRef.current = destination;
+        args.onLayoutCommitted?.(scoreViewRelayoutKey(0, "horizon", []));
+        args.setContentSize(contentSizeForMode(destination, "horizon"));
+        args.setDisplayListVersion((version) => version + 1);
+      });
+      if (superseded) expect(mocks.setScroll).not.toHaveBeenCalledWith(5000, 0);
+      else expect(mocks.setScroll).toHaveBeenCalledWith(5000, 0);
+    },
+  );
+
+  it("fits after asynchronous layout finishes and reapplies an explicit Fit request", async () => {
+    const pendingLayout = deferred<DisplayList>();
+    mocks.computeDisplayList.mockReturnValue(pendingLayout.promise);
+    const mounted = render(<ScoreCanvas viewMode="page" fitToView fitRequest={0} />);
+    const viewport = screen.getByLabelText("Interactive music score").parentElement!.parentElement!;
+    Object.defineProperties(viewport, {
+      clientWidth: { configurable: true, value: 800 },
+      clientHeight: { configurable: true, value: 600 },
+    });
+    await act(async () => pendingLayout.resolve(displayList(2)));
+    expect(mocks.setZoom).toHaveBeenLastCalledWith(0.6);
+
+    Object.defineProperty(viewport, "clientHeight", { value: 900 });
+    mounted.rerender(<ScoreCanvas viewMode="page" fitToView fitRequest={1} />);
+    expect(mocks.setZoom).toHaveBeenLastCalledWith(0.9);
   });
 
   it("suppresses the retained position when asynchronous initial layout fails", async () => {

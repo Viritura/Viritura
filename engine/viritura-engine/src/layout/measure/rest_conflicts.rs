@@ -1,5 +1,9 @@
-use super::super::types::{EventLayout, VoiceLayout};
+use super::super::config::LayoutConfig;
+use super::super::types::{EventLayout, MeasureLayout};
 use crate::model::{NoteValueBase, Rest};
+
+mod ink;
+use ink::{clear_own_ink, note_ink, rest_ink, StaffInk};
 
 /// Default rest staff position (MNX convention: 0 = middle line, positive = up).
 fn default_rest_staff_position(base: &NoteValueBase) -> i32 {
@@ -9,37 +13,18 @@ fn default_rest_staff_position(base: &NoteValueBase) -> i32 {
     }
 }
 
-/// Vertical extent of a rest glyph in half-space units (above, below) from its reference position.
-/// Returns (extent_up, extent_down) where both are positive values.
-fn rest_vertical_extent(base: &NoteValueBase) -> (i32, i32) {
-    match base {
-        NoteValueBase::Whole => (1, 1),
-        NoteValueBase::Half => (1, 1),
-        NoteValueBase::Quarter => (3, 3),
-        NoteValueBase::Eighth => (1, 2),
-        NoteValueBase::Sixteenth => (1, 3),
-        NoteValueBase::ThirtySecond => (2, 3),
-        NoteValueBase::SixtyFourth => (2, 4),
-        _ => (1, 1),
-    }
-}
-
-/// Minimum clearance in half-spaces between a rest and notes/rests in another voice.
-fn rest_clearance(base: &NoteValueBase) -> i32 {
-    match base {
-        NoteValueBase::Whole | NoteValueBase::Half => 2, // 0.55sp ≈ 1.1 half-spaces → 2
-        _ => 1,                                          // 0.35sp ≈ 0.7 half-spaces → 1
-    }
-}
-
 /// Resolve vertical rest conflicts in multi-voice measures.
 ///
 /// When multiple voices share a staff, rests may collide with notes or rests
 /// in other voices. This function shifts rests vertically to avoid overlaps:
-/// - Voice 0 rests push UP (away from voice 1 notes below)
-/// - Voice 1 rests push DOWN (away from voice 0 notes above)
-pub(super) fn resolve_voice_rest_conflicts(voice_layouts: &mut [VoiceLayout]) {
-    if voice_layouts.len() < 2 {
+/// Upper-voice rests move up and lower-voice rests move down, following the
+/// resolved voice direction (including condensed sources and direction hints).
+pub(super) fn resolve_voice_rest_conflicts(
+    measure: &mut MeasureLayout,
+    sp: f64,
+    config: &LayoutConfig,
+) {
+    if measure.voice_layouts.len() < 2 {
         return;
     }
 
@@ -47,7 +32,8 @@ pub(super) fn resolve_voice_rest_conflicts(voice_layouts: &mut [VoiceLayout]) {
     // refreeze into the arena at the end. The conflict solver mixes
     // cross-voice immutable reads with per-voice mutation, which is awkward to
     // express against the columnar arena directly.
-    let mut all: Vec<Vec<EventLayout>> = voice_layouts
+    let mut all: Vec<Vec<EventLayout>> = measure
+        .voice_layouts
         .iter()
         .map(|vl| vl.events.to_events())
         .collect();
@@ -107,129 +93,120 @@ pub(super) fn resolve_voice_rest_conflicts(voice_layouts: &mut [VoiceLayout]) {
         }
     }
 
-    // Collect note positions from each voice: Vec<(x, note_positions_in_hfs_from_top)>
-    let voice_note_info: Vec<Vec<(f64, Vec<f64>)>> = all
+    place_visible_rests(measure, &mut all, sp, config);
+
+    // Refreeze the mutated event buffers back into each voice's arena.
+    for (vl, evs) in measure.voice_layouts.iter_mut().zip(all) {
+        vl.events = super::super::arena::EventArena::from_events(evs);
+    }
+}
+
+fn place_visible_rests(
+    measure: &MeasureLayout,
+    all: &mut [Vec<EventLayout>],
+    sp: f64,
+    config: &LayoutConfig,
+) {
+    if !all.iter().flatten().any(|event| {
+        event.event.is_rest()
+            && !event.shared_rest
+            && event
+                .event
+                .rest
+                .as_ref()
+                .and_then(|rest| rest.staff_position)
+                .is_none()
+    }) {
+        return;
+    }
+    let notes = note_ink(measure, all, sp, config);
+    let total_beats = super::layout_total_beats(&measure.resolved);
+    let mut rests: Vec<Vec<Option<StaffInk>>> = all
         .iter()
-        .map(|vl| {
-            vl.iter()
-                .filter(|el| !el.event.is_rest())
-                .map(|el| (el.x, el.note_positions.clone()))
+        .enumerate()
+        .map(|(vi, events)| {
+            let centered = measure.voice_layouts[vi].is_centered_bar_rest(total_beats);
+            events
+                .iter()
+                .map(|event| {
+                    (event.event.is_rest() && !event.shared_rest).then(|| StaffInk {
+                        staff: event.event.staff.unwrap_or(event.sequence_staff),
+                        bounds: rest_ink(
+                            event,
+                            event
+                                .event
+                                .rest
+                                .as_ref()
+                                .and_then(|r| r.staff_position)
+                                .unwrap_or_else(|| {
+                                    default_rest_staff_position(&event.event.duration.base)
+                                }),
+                            centered,
+                            sp,
+                        ),
+                    })
+                })
                 .collect()
         })
         .collect();
-
-    // Collect rest positions from each voice for rest-to-rest collision detection.
-    // We'll process voice 0 first, then voice 1, storing adjusted positions.
-    let mut rest_positions: Vec<Vec<(f64, i32)>> = vec![Vec::new(); all.len()];
-
-    for vi in 0..all.len().min(2) {
-        let other_vi = 1 - vi;
-        let other_notes = &voice_note_info[other_vi];
-
-        for el in all[vi].iter_mut() {
-            if !el.event.is_rest() {
+    for (vi, events) in all.iter_mut().enumerate() {
+        for (ei, event) in events.iter_mut().enumerate() {
+            let Some(rest) = &rests[vi][ei] else { continue };
+            if event
+                .event
+                .rest
+                .as_ref()
+                .and_then(|rest| rest.staff_position)
+                .is_some()
+            {
                 continue;
             }
-            // Skip shared rests — they won't be rendered
-            if el.shared_rest {
-                continue;
-            }
-            // Skip rests with explicit staff position from MNX (user-specified)
-            if let Some(pos) = el.event.rest.as_ref().and_then(|r| r.staff_position) {
-                rest_positions[vi].push((el.x, pos));
-                continue;
-            }
-
-            let base = &el.event.duration.base;
-            let default_pos = default_rest_staff_position(base);
-            let (ext_up, ext_down) = rest_vertical_extent(base);
-            let clearance = rest_clearance(base);
-
-            // Convert default staff position (MNX) to half-spaces from top
-            // hfs_from_top = 4 - mnx_pos
-            let mut current_pos = default_pos;
-
-            // Check collision with notes in the other voice
-            let mut collides = true;
-            let max_iterations = 16; // prevent infinite loops
-            let mut iterations = 0;
-
-            while collides && iterations < max_iterations {
-                collides = false;
-                let rest_hfs = 4 - current_pos; // half-spaces from top
-                let rest_top = rest_hfs - ext_up; // top extent in hfs from top (smaller = higher)
-                let rest_bottom = rest_hfs + ext_down; // bottom extent in hfs from top
-
-                // Check against notes in the other voice at the same x
-                for (nx, note_positions) in other_notes {
-                    if (*nx - el.x).abs() > 0.001 {
+            let mut dy = 0.0_f64;
+            let clearance = if matches!(
+                event.event.duration.base,
+                NoteValueBase::Whole | NoteValueBase::Half
+            ) {
+                0.55 * sp
+            } else {
+                0.35 * sp
+            };
+            for other in 0..notes.len() {
+                if other == vi {
+                    continue;
+                }
+                for obstacle in notes[other].iter().chain(rests[other].iter().flatten()) {
+                    if obstacle.staff != rest.staff
+                        || obstacle.bounds.x >= rest.bounds.x + rest.bounds.width
+                        || obstacle.bounds.x + obstacle.bounds.width <= rest.bounds.x
+                    {
                         continue;
                     }
-                    for &note_pos in note_positions {
-                        // note_pos is in half-spaces from top
-                        let note_hfs = note_pos as i32;
-                        // A notehead occupies roughly ±1 half-space
-                        let note_top = note_hfs - 1;
-                        let note_bottom = note_hfs + 1;
-
-                        // Check overlap with clearance
-                        if rest_top - clearance <= note_bottom
-                            && rest_bottom + clearance >= note_top
-                        {
-                            collides = true;
-                            break;
-                        }
-                    }
-                    if collides {
-                        break;
-                    }
-                }
-
-                // Check against rests already placed in the other voice
-                if !collides {
-                    for &(rx, rpos) in &rest_positions[other_vi] {
-                        if (rx - el.x).abs() > 0.001 {
-                            continue;
-                        }
-                        let other_hfs = 4 - rpos;
-                        // Use rest-to-rest clearance of 2 half-spaces
-                        let rest_to_rest_clearance = 2;
-                        if (rest_hfs - other_hfs).abs() < ext_up + ext_down + rest_to_rest_clearance
-                        {
-                            collides = true;
-                            break;
-                        }
-                    }
-                }
-
-                if collides {
-                    // Move in staff-line increments (2 half-spaces)
-                    if vi == 0 {
-                        current_pos += 2; // push up
+                    // Standard engraving practice keeps upper-voice rests above lower-voice ink,
+                    // and lower-voice rests below upper-voice ink, even when pitches cross.
+                    if event.stem_up {
+                        dy = dy.min(
+                            obstacle.bounds.y - clearance - rest.bounds.y - rest.bounds.height,
+                        );
                     } else {
-                        current_pos -= 2; // push down
+                        dy = dy.max(
+                            obstacle.bounds.y + obstacle.bounds.height + clearance - rest.bounds.y,
+                        );
                     }
                 }
-                iterations += 1;
             }
-
-            // Apply the adjusted position if it changed
-            if current_pos != default_pos {
-                if let Some(ref mut rest) = el.event.rest {
-                    rest.staff_position = Some(current_pos);
-                } else {
-                    el.event.rest = Some(Rest {
-                        staff_position: Some(current_pos),
-                    });
-                }
+            dy = dy.signum() * (dy.abs() / sp).ceil() * sp;
+            dy = clear_own_ink(rest, &notes[vi], event.stem_up, clearance, sp, dy);
+            let steps = (dy.abs() / sp).round() as i32;
+            if steps > 0 {
+                let position = default_rest_staff_position(&event.event.duration.base)
+                    + if event.stem_up { 2 * steps } else { -2 * steps };
+                event.event.rest = Some(Rest {
+                    staff_position: Some(position),
+                });
+                let centered = measure.voice_layouts[vi].is_centered_bar_rest(total_beats);
+                rests[vi][ei].as_mut().expect("visible rest").bounds =
+                    rest_ink(event, position, centered, sp);
             }
-
-            rest_positions[vi].push((el.x, current_pos));
         }
-    }
-
-    // Refreeze the mutated event buffers back into each voice's arena.
-    for (vl, evs) in voice_layouts.iter_mut().zip(all) {
-        vl.events = super::super::arena::EventArena::from_events(evs);
     }
 }

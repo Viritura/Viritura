@@ -105,8 +105,11 @@ pub fn expand_playback_order(measures: &[GlobalMeasure]) -> Result<Vec<usize>, S
     // Tracks how many times we've started the segment that ends at each
     // repeat-end, so we know which volta pass we're on.
     let mut pass_at: Vec<u32> = vec![0; n];
-    // The measure index of the most recent repeat-start (or 0 as implicit).
-    let mut segment_start = 0usize;
+    // Explicit repeat starts remain active while nested sections are played.
+    // End-only repeats use the most recently completed start or the implicit
+    // beginning of the score.
+    let mut segment_starts = Vec::new();
+    let mut last_segment_start = 0usize;
     // Guard against pathological infinite loops on malformed input.
     let mut budget = 100_000usize;
 
@@ -117,16 +120,25 @@ pub fn expand_playback_order(measures: &[GlobalMeasure]) -> Result<Vec<usize>, S
         budget -= 1;
 
         let m = &measures[i];
-        if m.repeat_start.is_some() {
-            segment_start = i;
+        if m.repeat_start.is_some() && segment_starts.last() != Some(&i) {
+            segment_starts.push(i);
         }
+        let segment_start = segment_starts.last().copied().unwrap_or(last_segment_start);
 
         // Volta handling: if this measure is inside an ending that does not
         // apply to the current pass, skip the whole ending span.
         if let Some(ending) = &m.ending {
             let current_pass = pass_at[segment_start] + 1;
             if !ending.numbers.contains(&current_pass) {
-                i += ending.duration.max(1) as usize;
+                let skipped_end = (i + ending.duration.max(1) as usize).min(n);
+                for skipped_measure in &measures[i..skipped_end] {
+                    if skipped_measure.repeat_end.is_some() {
+                        if let Some(start) = segment_starts.pop() {
+                            last_segment_start = start;
+                        }
+                    }
+                }
+                i = skipped_end;
                 continue;
             }
         }
@@ -137,9 +149,18 @@ pub fn expand_playback_order(measures: &[GlobalMeasure]) -> Result<Vec<usize>, S
             let times = re.times.unwrap_or(2).max(1);
             pass_at[segment_start] += 1;
             if pass_at[segment_start] < times {
+                for nested in segment_start + 1..=i {
+                    if measures[nested].repeat_start.is_some() {
+                        pass_at[nested] = 0;
+                    }
+                }
                 i = segment_start;
                 continue;
             }
+            if segment_starts.last() == Some(&segment_start) {
+                segment_starts.pop();
+            }
+            last_segment_start = segment_start;
         }
         i += 1;
     }
@@ -244,6 +265,19 @@ mod tests {
         assert_eq!(
             expand_playback_order(&measures).unwrap(),
             vec![0, 1, 2, 1, 2, 3]
+        );
+    }
+
+    #[test]
+    fn test_expand_nested_repeats_restarts_inner_pass_for_each_outer_pass() {
+        let mut measures = plain(5);
+        measures[0].repeat_start = Some(RepeatStart { times: None });
+        measures[2].repeat_start = Some(RepeatStart { times: None });
+        measures[3].repeat_end = Some(RepeatEnd { times: None });
+        measures[4].repeat_end = Some(RepeatEnd { times: None });
+        assert_eq!(
+            expand_playback_order(&measures).unwrap(),
+            vec![0, 1, 2, 3, 2, 3, 4, 0, 1, 2, 3, 2, 3, 4]
         );
     }
 

@@ -138,7 +138,10 @@ describe("applyScorePatchesToYDoc — parity with syncJsonToYDoc", () => {
   });
 
   it("setEventField (lyric extender)", () => {
-    assertParity(base, score, [
+    const seeded = structuredClone(score);
+    seeded.global.lyrics = { lineOrder: ["1"] };
+    const seededBase = projectBase(JSON.parse(JSON.stringify(serializeMnx(seeded))) as Record<string, unknown>);
+    assertParity(seededBase, seeded, [
       patch.setEventField(locator, {
         field: "lyrics",
         value: {
@@ -221,8 +224,11 @@ describe("applyScorePatchesToYDoc — parity with syncJsonToYDoc", () => {
   });
 
   it("merges offline v46 edits with a concurrent pitch edit and reopens without loss", () => {
-    const local = cloneDoc(base);
-    const remote = cloneDoc(base);
+    const seeded = structuredClone(score);
+    seeded.global.lyrics = { lineOrder: ["verse"] };
+    const seededBase = projectBase(JSON.parse(JSON.stringify(serializeMnx(seeded))) as Record<string, unknown>);
+    const local = cloneDoc(seededBase);
+    const remote = cloneDoc(seededBase);
     const localPatches = [
       patch.setNoteMarking(locator, noteId, "slideOut", { type: "falloff" }),
       patch.setEventField(locator, {
@@ -243,8 +249,8 @@ describe("applyScorePatchesToYDoc — parity with syncJsonToYDoc", () => {
       }),
     ];
     const remotePatches = [patch.setNotePitch(locator, noteId, { step: "G", octave: 4 })];
-    const localScore = applyPatchesToScore(score, localPatches);
-    const remoteScore = applyPatchesToScore(score, remotePatches);
+    const localScore = applyPatchesToScore(seeded, localPatches);
+    const remoteScore = applyPatchesToScore(seeded, remotePatches);
     syncJsonToYDoc(JSON.parse(JSON.stringify(serializeMnx(localScore))) as Record<string, unknown>, local);
     applyScorePatchesToYDoc(remotePatches, remoteScore, remote, "score");
 
@@ -258,6 +264,7 @@ describe("applyScorePatchesToYDoc — parity with syncJsonToYDoc", () => {
     const reopened = parseMnx(readJsonFromYDoc(remote));
     const expected = applyPatchesToScore(localScore, remotePatches);
     expect(serializeMnx(reopened)).toEqual(serializeMnx(expected));
+    expect(reopened.global.lyrics).toEqual({ lineOrder: ["verse"] });
     expect(reopened.global.measures[measureIndex]).toMatchObject({
       caesura: { id: "shared-caesura", marks: 2 },
       coda: { glyph: "codaSquare" },

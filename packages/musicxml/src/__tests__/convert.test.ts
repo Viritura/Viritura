@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { collectScoreEventSpans } from "@viritura/core";
+import { parseMnx } from "@viritura/format";
 import { DiagnosticCollector } from "../index";
 import { convertMusicXmlToMnx } from "../convert";
 
@@ -582,7 +584,31 @@ describe("convertMusicXmlToMnx — basics", () => {
     const exprs = measure.text!;
     expect(exprs.map((expr) => expr.text)).toEqual([
       [{ text: "sim." }],
-      [{ text: "sim.", style: { fontStyle: "italic" } }],
+      [{ text: "sim.", _x: { viritura: { style: { fontStyle: "italic" } } } }],
+    ]);
+  });
+
+  it("writes MNX formatted-text chunks for native positioned text", () => {
+    // Inline formatting belongs under `_x.viritura` on native MNX chunks, and
+    // glyph chunks need `type: "smufl"`; the vendor run shape fails the schema.
+    const xml = wrapScore(`
+      <direction placement="above">
+        <direction-type>
+          <words font-weight="bold">poco </words>
+          <symbol color="#FF0000">dynamicPiano</symbol>
+        </direction-type>
+      </direction>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    `);
+
+    const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+    expect(result.parts[0]!.measures[0]!.text![0]!.text).toEqual([
+      { text: "poco ", _x: { viritura: { style: { weight: "bold" } } } },
+      { type: "smufl", glyphs: ["dynamicPiano"], _x: { viritura: { style: { color: "#ff0000" } } } },
     ]);
   });
 
@@ -848,9 +874,11 @@ describe("convertMusicXmlToMnx — fermata & ornaments", () => {
         <notations><fermata type="upright"/></notations>
       </note>
     `);
-    const event = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!.sequences![0]!
-      .content[0]! as { markings: { fermata: { placement?: string } } };
-    expect(event.fermata).toEqual({});
+    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+    expect(converted.global.measures[0]!._x?.viritura["fermatas"]).toMatchObject([
+      { position: { fraction: [0, 1] }, multiplier: 2 },
+    ]);
+    expect(converted.parts[0]!.measures[0]!.sequences![0]!.content[0]).not.toHaveProperty("fermata");
   });
 
   it("converts inverted fermata to native MNX with placement=below", () => {
@@ -1437,6 +1465,29 @@ describe("convertMusicXmlToMnx — lyrics", () => {
     });
   });
 
+  it("includes lyric lines found inside tuplets in global order", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type>
+        <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes><normal-type>eighth</normal-type></time-modification>
+        <notations><tuplet type="start"/></notations>
+        <lyric number="3"><text>Tuplet</text></lyric>
+      </note>
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type>
+        <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes><normal-type>eighth</normal-type></time-modification>
+      </note>
+      <note>
+        <pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type>
+        <time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes><normal-type>eighth</normal-type></time-modification>
+        <notations><tuplet type="stop"/></notations>
+      </note>
+    `);
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.global.lyrics?.lineOrder).toEqual(["line-3"]);
+    expect(() => parseMnx(result)).not.toThrow();
+  });
+
   it("converts syllabic begin/end types", () => {
     const xml = wrapScore(`
       <note>
@@ -1696,6 +1747,171 @@ describe("convertMusicXmlToMnx — wholly empty measures", () => {
 
     const result = convertMusicXmlToMnx(xml);
     expect(result.parts[0]!.measures[0]!.sequences).toEqual([]);
+  });
+});
+
+describe("convertMusicXmlToMnx — full-measure rests", () => {
+  it.each([
+    ["5/4", "<beats>5</beats><beat-type>4</beat-type>", 5],
+    ["6/8", "<beats>6</beats><beat-type>8</beat-type>", 3],
+  ])("preserves a %s bar rest independently of its visual duration", (_meter, time, beats) => {
+    const xml = wrapScore(`<note><rest measure="yes"/><duration>${beats}</duration></note>`, { time });
+    const result = convertMusicXmlToMnx(xml);
+    const sequence = result.parts[0]!.measures[0]!.sequences![0]!;
+
+    expect(sequence).toMatchObject({ content: [], fullMeasure: { visualDuration: { base: "whole" } } });
+    const parsed = parseMnx(result);
+    expect(collectScoreEventSpans(parsed)[0]![0]!.duration).toBe(beats);
+  });
+
+  it("preserves an explicit visual value, position and fermata alongside another staff", () => {
+    const xml = wrapScore(
+      `<note><rest measure="yes"><display-step>D</display-step><display-octave>5</display-octave></rest>
+         <duration>5</duration><voice>1</voice><type>half</type><staff>1</staff>
+         <notations><fermata>square</fermata></notations></note>
+       <backup><duration>5</duration></backup>
+       <note><pitch><step>C</step><octave>3</octave></pitch><duration>5</duration><voice>2</voice><staff>2</staff></note>`,
+      { staves: 2, time: "<beats>5</beats><beat-type>4</beat-type>" },
+    );
+    const sequences = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!.sequences!;
+
+    expect(sequences).toHaveLength(2);
+    expect(sequences[0]).toMatchObject({
+      staff: 1,
+      content: [],
+      fullMeasure: { visualDuration: { base: "half" }, staffPosition: 2, fermata: { symbol: "square" } },
+    });
+    expect(sequences[1]).toMatchObject({ staff: 2, content: [{ notes: [{ pitch: { step: "C", octave: 3 } }] }] });
+  });
+
+  it("consolidates a full-measure fermata without keeping a duplicate local fermata", () => {
+    const xml = wrapScore(`<note><rest measure="yes"/><duration>4</duration><notations><fermata/></notations></note>`);
+    const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+
+    expect(result.parts[0]!.measures[0]!.sequences![0]!.fullMeasure).not.toHaveProperty("fermata");
+    expect(result.global.measures[0]!._x).toMatchObject({
+      viritura: { fermatas: [{ position: { fraction: [0, 1] } }] },
+    });
+    expect(parseMnx(result).global.measures[0]!.fermatas).toHaveLength(1);
+  });
+
+  it("keeps a full-measure fermata local when another part sounds without it", () => {
+    const xml = `<score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Flute</part-name></score-part>
+        <score-part id="P2"><part-name>Oboe</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+        <note><rest measure="yes"/><duration>4</duration><notations><fermata/></notations></note>
+      </measure></part>
+      <part id="P2"><measure number="1">
+        <attributes><divisions>1</divisions></attributes>
+        <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+      </measure></part>
+    </score-partwise>`;
+    const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+
+    expect(result.parts[0]!.measures[0]!.sequences![0]!.fullMeasure?.fermata).toMatchObject({
+      _x: { viritura: { localOnly: true } },
+    });
+    expect(parseMnx(result).parts[0]!.measures[0]!.sequences[0]!.fullMeasure?.fermata).toBeDefined();
+  });
+
+  it("preserves the written duration of an all-rest pickup", () => {
+    const xml = wrapScore(`<note><rest measure="yes"/><duration>1</duration></note>`).replace(
+      '<measure number="1">',
+      '<measure number="0">',
+    );
+    const diagnostics = new DiagnosticCollector();
+    const result = convertMusicXmlToMnx(xml, { diagnostics });
+    const sequence = result.parts[0]!.measures[0]!.sequences![0]!;
+
+    expect(sequence.fullMeasure).toBeUndefined();
+    expect(sequence.content).toMatchObject([{ duration: { base: "quarter" }, rest: {} }]);
+    expect(collectScoreEventSpans(parseMnx(result))[0]![0]!.duration).toBe(1);
+    expect(diagnostics.all()).toContainEqual(expect.objectContaining({ code: "musicxml-full-measure-rest" }));
+  });
+
+  it("retains an ordinary rest and reports the limitation when vendor extensions are disabled", () => {
+    const xml = wrapScore(`
+      <note><rest measure="yes"/><duration>4</duration>
+        <notations><articulations><caesura>short</caesura></articulations></notations>
+      </note>
+    `);
+    const diagnostics = new DiagnosticCollector();
+    const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: false, diagnostics });
+    const sequence = result.parts[0]!.measures[0]!.sequences![0]!;
+
+    expect(sequence.fullMeasure).toBeUndefined();
+    expect(sequence.content).toMatchObject([{ rest: {}, markings: { caesura: { shape: "short" } } }]);
+    expect(result.global.measures[0]).not.toHaveProperty("caesura");
+    expect(diagnostics.all()).toContainEqual(expect.objectContaining({ code: "musicxml-full-measure-rest" }));
+  });
+
+  it("retains a rest's local caesura on a full-measure rest with vendor extensions", () => {
+    const xml = wrapScore(
+      `
+      <note><rest measure="yes"/><duration>3.5</duration>
+        <notations><articulations><caesura>short</caesura></articulations></notations>
+      </note>
+    `,
+      { time: "<beats>7</beats><beat-type>8</beat-type>" },
+    );
+    const diagnostics = new DiagnosticCollector();
+    const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
+    const sequence = result.parts[0]!.measures[0]!.sequences![0]!;
+
+    expect(sequence).toMatchObject({
+      content: [],
+      fullMeasure: { _x: { viritura: { caesura: { shape: "short" } } } },
+    });
+    expect(result.global.measures[0]).not.toHaveProperty("caesura");
+    expect(diagnostics.all()).not.toContainEqual(expect.objectContaining({ code: "musicxml-full-measure-rest" }));
+    expect(parseMnx(result).parts[0]!.measures[0]!.sequences[0]!.fullMeasure?.caesura).toEqual({ style: "short" });
+  });
+
+  it("retains a full-measure rest that is a slur endpoint", () => {
+    const xml = `<score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Flute</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+          <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type>
+            <notations><slur type="start"/></notations></note>
+        </measure>
+        <measure number="2">
+          <note><rest measure="yes"/><duration>4</duration><notations><slur type="stop"/></notations></note>
+        </measure>
+      </part>
+    </score-partwise>`;
+    const diagnostics = new DiagnosticCollector();
+    const result = convertMusicXmlToMnx(xml, { diagnostics });
+    const start = result.parts[0]!.measures[0]!.sequences![0]!.content[0]!;
+    const endSequence = result.parts[0]!.measures[1]!.sequences![0]!;
+    const end = endSequence.content[0]!;
+
+    expect(start.type).toBeUndefined();
+    expect(end.type).toBeUndefined();
+    if (start.type !== undefined || end.type !== undefined) throw new Error("Expected ordinary events.");
+    expect(endSequence.fullMeasure).toBeUndefined();
+    expect(end.rest).toEqual({});
+    expect(start.slurs?.[0]?.target).toBe(end.id);
+    expect(diagnostics.all()).toContainEqual(expect.objectContaining({ code: "musicxml-full-measure-rest" }));
+  });
+
+  it("keeps ordinary rests and warns rather than discarding other content in a conflicting voice", () => {
+    const xml = wrapScore(
+      `<note><rest/><duration>1</duration><type>quarter</type></note>
+       <note><rest measure="yes"/><duration>3</duration><type>half</type><dot/></note>`,
+    );
+    const diagnostics = new DiagnosticCollector();
+    const sequence = convertMusicXmlToMnx(xml, { diagnostics }).parts[0]!.measures[0]!.sequences![0]!;
+
+    expect(sequence.fullMeasure).toBeUndefined();
+    expect(sequence.content).toMatchObject([
+      { rest: {}, duration: { base: "quarter" } },
+      { rest: {}, duration: { base: "half", dots: 1 } },
+    ]);
+    expect(diagnostics.all()).toContainEqual(expect.objectContaining({ code: "musicxml-full-measure-rest" }));
   });
 });
 
@@ -3022,6 +3238,9 @@ describe("convertMusicXmlToMnx — percussion", () => {
     ["slash", "slash"],
     ["plus", "plus"],
     ["circle-x", "circleX"],
+    ["circled", "circled"],
+    ["slashed", "slashed"],
+    ["back slashed", "backSlashed"],
     ["square", "square"],
   ])("maps MusicXML %s noteheads to native MNX shapes", (xmlShape, mnxShape) => {
     const xml = wrapScore(`

@@ -227,7 +227,8 @@ pub(crate) fn resolve_measures_for_staff(
         })
         .unwrap_or_else(|| (Vec::new(), Vec::new()));
 
-    base.into_iter()
+    let mut resolved: Vec<_> = base
+        .into_iter()
         .map(|rm| {
             let mut split = split_part_measure_by_staff_count(&rm.part, staff_num, staff_count);
 
@@ -270,6 +271,7 @@ pub(crate) fn resolve_measures_for_staff(
 
             ResolvedMeasure {
                 index: rm.index,
+                use_beams: rm.use_beams,
                 global: rm.global,
                 part: split,
                 chord_symbols: if staff_num == 1 {
@@ -278,12 +280,18 @@ pub(crate) fn resolve_measures_for_staff(
                     None
                 },
                 tie_continuation_ids: rm.tie_continuation_ids.clone(),
+                spanning_beams: Vec::new(),
+                repeat_glissandos: rm.repeat_glissandos,
                 measure_repeat_covered: rm.measure_repeat_covered,
                 next_has_repeat_start: rm.next_has_repeat_start,
                 prev_barline_type: rm.prev_barline_type,
                 prev_has_repeat_end: rm.prev_has_repeat_end,
                 active_time: rm.active_time,
                 active_key: rm.active_key,
+                repeat_key_restatement_from: rm.repeat_key_restatement_from,
+                repeat_time_restatement: rm.repeat_time_restatement,
+                repeat_clef_restatement: rm.repeat_clef_restatement,
+                repeat_ending_brackets: rm.repeat_ending_brackets,
                 prev_key: rm.prev_key,
                 system_end: Default::default(),
                 active_staff_lines: measure_staff_lines,
@@ -298,5 +306,8 @@ pub(crate) fn resolve_measures_for_staff(
                     .cloned(),
             }
         })
-        .collect()
+        .collect();
+    super::apply_repeat_signature_restatements(&mut resolved, &score.global.measures);
+    super::attach_spanning_beams(&mut resolved);
+    resolved
 }

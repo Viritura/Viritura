@@ -6,7 +6,7 @@ use super::direction::{
     Coda, DynamicGroup, Fine, Jump, MarkerTexts, MultiStaffPlacement, Ottava, Pedal, RehearsalMark,
     Segno, Tempo, TextExpression,
 };
-use super::event::{ArpeggioDirection, Sequence};
+use super::event::{ArpeggioDirection, Glissando, Sequence};
 use super::key::KeySignature;
 use super::kit::KitComponent;
 use super::repeat::{Ending, RepeatEnd, RepeatStart};
@@ -15,7 +15,9 @@ use super::time::{GroupingDisplay, TimeSignature};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+mod global_fermatas;
 mod tempo_wire;
+pub use global_fermatas::{GlobalFermata, GlobalFermataClickBehavior};
 
 /// Generic wrapper for the MNX `_x` vendor extension dict.
 /// `T` is the vendor-specific payload (e.g. `GlobalMeasureExtensions`).
@@ -28,6 +30,8 @@ pub struct VendorExtensions<T> {
 /// Viritura vendor extensions on a global measure (`_x.viritura`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct GlobalMeasureExtensions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fermatas: Option<Vec<GlobalFermata>>,
     /// Rehearsal mark (e.g. "A", "B")
     #[serde(skip_serializing_if = "Option::is_none", rename = "rehearsalMark")]
     pub rehearsal_mark: Option<RehearsalMark>,
@@ -112,6 +116,14 @@ pub struct GlobalCaesura {
 // patch flow). See `docs/spec/data-model-pipeline.md`.
 
 impl GlobalMeasure {
+    pub fn fermatas(&self) -> &[GlobalFermata] {
+        self.extensions
+            .as_ref()
+            .and_then(|extensions| extensions.viritura.as_ref())
+            .and_then(|vendor| vendor.fermatas.as_deref())
+            .unwrap_or_default()
+    }
+
     pub fn tempo_ramp_text_id(&self) -> Option<&str> {
         self.extensions
             .as_ref()?
@@ -314,10 +326,41 @@ pub struct NonArpeggio {
 // (full parse) or `promote::promote_part_measure_json` (external
 // patch flow). See `docs/spec/data-model-pipeline.md`.
 
+/// A glissando whose target is reached by returning across a repeat barline.
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct RepeatGlissando {
+    pub(crate) source: String,
+    pub(crate) glissando: Glissando,
+    pub(crate) start_measure: usize,
+    pub(crate) end_measure: usize,
+    pub(crate) direction: f64,
+}
+
+/// An authored beam whose members run through more than one measure.
+///
+/// Every measure the beam touches carries the same record, so each measure's
+/// layout agrees on membership and stem direction, and the system renderer can
+/// draw a continuation fragment when a system break interrupts the group.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub(crate) struct SpanningBeam {
+    /// Index of the measure whose `beams` declares the group.
+    pub(crate) declaring_measure: usize,
+    /// Position of the group within the declaring measure's `beams`.
+    pub(crate) beam_index: usize,
+    pub(crate) beam: super::beam::Beam,
+    /// Stem direction shared by the whole group, or `None` when sequence-level
+    /// intent (forced stems, contested voices) already decides each member.
+    pub(crate) stem_up: Option<bool>,
+    /// Beam count implied by each member's duration, in `beam.events` order.
+    pub(crate) member_levels: Vec<u32>,
+}
+
 /// Resolved measure — global + part data merged for rendering.
 #[derive(Debug, Clone)]
 pub struct ResolvedMeasure {
     pub index: usize,
+    /// Honor authored beams exclusively rather than supplying automatic groups.
+    pub(crate) use_beams: bool,
     pub global: GlobalMeasure,
     pub part: PartMeasure,
     /// Layout-only harmony lane cloned from global events; never part-measure data.
@@ -333,6 +376,14 @@ pub struct ResolvedMeasure {
     pub prev_has_repeat_end: bool,
     pub active_time: TimeSignature,
     pub active_key: KeySignature,
+    /// Previous-playthrough key signature restored at a repeat start.
+    pub(crate) repeat_key_restatement_from: Option<KeySignature>,
+    /// Meter restored at a repeat start after a change within the repeated span.
+    pub(crate) repeat_time_restatement: Option<TimeSignature>,
+    /// A carried clef is engraved again at a repeat start.
+    pub(crate) repeat_clef_restatement: bool,
+    /// Signature reminders inherited from a first ending are enclosed in brackets.
+    pub(crate) repeat_ending_brackets: bool,
     /// The display key in effect in the measure immediately before this one.
     /// Used to draw cancellation naturals when a key change reduces or removes
     /// accidentals (e.g. a change to an open/atonal key must show the previous
@@ -345,6 +396,10 @@ pub struct ResolvedMeasure {
     /// continuations suppress automatic accidental spacing unless the renderer
     /// elects to show a courtesy accidental at a system start.
     pub tie_continuation_ids: Vec<String>,
+    /// Authored beams crossing this measure's barlines, declared here or in a
+    /// neighbouring measure. Derived during resolution; never stored.
+    pub(crate) spanning_beams: Vec<SpanningBeam>,
+    pub(crate) repeat_glissandos: Vec<RepeatGlissando>,
     /// Staff line count in force at the start of this measure.
     /// The canonical five-line coordinate frame remains unchanged.
     pub active_staff_lines: u32,
@@ -379,16 +434,19 @@ pub(crate) struct CourtesyKeySignature {
     pub(crate) clef_sign: ClefSign,
 }
 
-/// Courtesy furniture at a system break: a clef before the system-end barline,
-/// and key and time signatures after it on staff lines that extend past it.
+/// Courtesy furniture at a system break: a clef before an ordinary barline or
+/// after an end repeat, and key and time signatures after the barline.
 /// The slot widths are shared by every staff of the system, including staves
 /// that show nothing, so barlines, beat columns, and courtesy meters align.
 #[derive(Debug, Clone, Default, Serialize)]
 pub(crate) struct SystemEndCourtesy {
     pub(crate) clef: Option<Clef>,
+    /// Courtesy clef after an end-repeat announces only the following music.
+    pub(crate) clef_after_barline: bool,
     /// Widest courtesy clef plus barline clearance on any staff, in staff
     /// spaces, reserved inside the outgoing measure before its barline.
     pub(crate) clef_slot_sp: f64,
+    pub(crate) suffix_clef_slot_sp: f64,
     pub(crate) key: Option<CourtesyKeySignature>,
     pub(crate) time: Option<TimeSignature>,
     /// Widest courtesy key on any staff of the system, in staff spaces.
@@ -439,6 +497,9 @@ impl ResolvedMeasure {
     /// while this staff follows global. A staff carrying an inherited local
     /// meter does not reprint merely because the global meter changed.
     pub fn displayed_time_signature(&self) -> Option<&TimeSignature> {
+        if let Some(time) = &self.repeat_time_restatement {
+            return Some(time);
+        }
         let staff_meter_authored_here = self
             .part
             .staff_meters

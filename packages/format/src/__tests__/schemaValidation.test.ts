@@ -27,21 +27,21 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { parseMnx } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
+import { corpusFixture, listMnxFixtures, mnxFixtures } from "./mnxCorpus";
 
 const schemaPath = path.resolve(__dirname, "../../schemas/mnx-schema.json");
 
-const mnxFiles = ["mnx", "mnx-v46"].flatMap((directory) => {
-  const scoresDir = path.resolve(__dirname, "../../fixtures", directory);
-  return fs
-    .readdirSync(scoresDir)
-    .filter((name) => name.endsWith(".mnx"))
-    .sort()
-    .map((name) => ({ name: `${directory}/${name}`, path: path.join(scoresDir, name) }));
-});
-mnxFiles.push({
-  name: "score-viewer-react-minimal/sample.mnx",
-  path: path.resolve(__dirname, "../../../../examples/score-viewer-react-minimal/public/sample.mnx"),
-});
+const mnxFiles = [
+  ...mnxFixtures.map((file) => ({ ...file, name: `mnx/${file.name}` })),
+  ...listMnxFixtures(path.resolve(__dirname, "..", "..", "fixtures", "mnx-v46")).map((file) => ({
+    ...file,
+    name: `mnx-v46/${file.name}`,
+  })),
+  corpusFixture(
+    path.resolve(__dirname, "..", "..", "..", "..", "examples", "score-viewer-react-minimal", "public", "sample.mnx"),
+    "score-viewer-react-minimal/sample.mnx",
+  ),
+];
 
 let validate: ValidateFunction;
 
@@ -66,30 +66,38 @@ function formatErrors(errors: ValidateFunction["errors"]): string {
 
 describe("MNX schema: example files on disk are valid", () => {
   for (const file of mnxFiles) {
-    it(`${file.name} validates against mnx-schema.json`, () => {
-      const raw = fs.readFileSync(file.path, "utf-8");
-      const doc = JSON.parse(raw);
-      const ok = validate(doc);
-      if (!ok) {
-        throw new Error(`Schema violations:\n${formatErrors(validate.errors)}`);
-      }
-      expect(ok).toBe(true);
-    });
+    it(
+      `${file.name} validates against mnx-schema.json`,
+      () => {
+        const raw = fs.readFileSync(file.path, "utf-8");
+        const doc = JSON.parse(raw);
+        const ok = validate(doc);
+        if (!ok) {
+          throw new Error(`Schema violations:\n${formatErrors(validate.errors)}`);
+        }
+        expect(ok).toBe(true);
+      },
+      file.timeout,
+    );
   }
 });
 
 describe("MNX schema: parser output round-trips to valid MNX", () => {
   for (const file of mnxFiles) {
-    it(`parse(${file.name}) → serialize → valid MNX`, () => {
-      const raw = fs.readFileSync(file.path, "utf-8");
-      const doc = JSON.parse(raw);
-      const score = parseMnx(doc);
-      const reserialized = serializeMnx(score);
-      const ok = validate(reserialized);
-      if (!ok) {
-        throw new Error(`Serializer produced invalid MNX for ${file.name}:\n${formatErrors(validate.errors)}`);
-      }
-      expect(ok).toBe(true);
-    });
+    it(
+      `parse(${file.name}) → serialize → valid MNX`,
+      () => {
+        const raw = fs.readFileSync(file.path, "utf-8");
+        const doc = JSON.parse(raw);
+        const score = parseMnx(doc);
+        const reserialized = serializeMnx(score);
+        const ok = validate(reserialized);
+        if (!ok) {
+          throw new Error(`Serializer produced invalid MNX for ${file.name}:\n${formatErrors(validate.errors)}`);
+        }
+        expect(ok).toBe(true);
+      },
+      file.timeout,
+    );
   }
 });

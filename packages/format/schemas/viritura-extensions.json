@@ -5,6 +5,23 @@
   "description": "Schema for _x.viritura vendor dict properties used across MNX objects. These extensions add musical notation features not yet covered by the MNX specification.",
 
   "$defs": {
+    "full-measure-rest-extensions": {
+      "type": "object",
+      "description": "Viritura extensions on a full-measure rest.",
+      "properties": {
+        "caesura": {
+          "type": "object",
+          "description": "A caesura attached to this rest at the end of the measure.",
+          "properties": {
+            "shape": { "type": "string", "enum": ["normal", "thick", "short", "curved"] },
+            "marks": { "type": "integer", "enum": [1, 2] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+
     "rhythmic-position": {
       "type": "object",
       "description": "A rhythmic position within a measure, expressed as a fraction of the measure duration.",
@@ -284,6 +301,8 @@
           "additionalProperties": false
         },
         "swing": { "$ref": "#/$defs/swing" },
+        "clickSubdivision": { "type": "integer", "enum": [0, 1, 2, 3, 4, 5] },
+        "clickGrouping": { "$ref": "#/$defs/click-grouping" },
         "text": { "$ref": "#/$defs/text-content" },
         "showMetronomeMark": { "type": "boolean" },
         "showText": { "type": "boolean" },
@@ -310,6 +329,8 @@
       "description": "Viritura display and placement extensions on a standard MNX tempo object.",
       "properties": {
         "swing": { "$ref": "#/$defs/swing" },
+        "clickSubdivision": { "type": "integer", "enum": [0, 1, 2, 3, 4, 5] },
+        "clickGrouping": { "$ref": "#/$defs/click-grouping" },
         "text": { "$ref": "#/$defs/text-content" },
         "showMetronomeMark": { "type": "boolean" },
         "showText": { "type": "boolean" },
@@ -317,6 +338,13 @@
         "avoidCollisions": { "type": "boolean" }
       },
       "additionalProperties": false
+    },
+
+    "click-grouping": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+      "description": "Whole-bar pulse lengths in time-signature denominator divided by clickSubdivision units."
     },
 
     "key-extensions": {
@@ -409,6 +437,45 @@
       "additionalProperties": false
     },
 
+    "fretboard-note": {
+      "type": "object",
+      "required": ["string", "fret"],
+      "properties": {
+        "string": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "fret": { "type": "integer", "minimum": 0, "maximum": 36 },
+        "fingering": { "type": "string", "maxLength": 8 },
+        "barre": { "type": "string", "enum": ["start", "stop"] }
+      },
+      "additionalProperties": false
+    },
+    "fretboard-first-fret": {
+      "type": "object",
+      "required": ["fret"],
+      "properties": {
+        "fret": { "type": "integer", "minimum": 1, "maximum": 36 },
+        "text": { "type": "string", "maxLength": 16 },
+        "location": { "type": "string", "enum": ["left", "right"] }
+      },
+      "additionalProperties": false
+    },
+    "fretboard": {
+      "type": "object",
+      "description": "Instrument-specific MusicXML-shaped chord frame. String 1 is the rightmost string. Omitted strings are unplayed; fret 0 is open. Geometry uses Viritura engraving defaults, not source page coordinates.",
+      "required": ["partId", "frameStrings", "frameFrets", "frameNotes"],
+      "properties": {
+        "partId": { "type": "string", "minLength": 1 },
+        "frameStrings": { "type": "integer", "minimum": 2, "maximum": 12 },
+        "frameFrets": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "firstFret": { "$ref": "#/$defs/fretboard-first-fret" },
+        "frameNotes": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/fretboard-note" }
+        },
+        "unplayed": { "type": "string", "maxLength": 8 }
+      },
+      "additionalProperties": false
+    },
     "chord-symbol": {
       "type": "object",
       "description": "A score-wide harmony event on a global measure. Either a structured root or authored rawText is required; rawText may preserve malformed or unrecognized symbols and no-chord (NC) declarations without inventing a root.",
@@ -446,6 +513,11 @@
         "textOverride": {
           "type": "string",
           "description": "Visual override of the computed display text, not a semantic replacement. The semantic resolver rejects parseable contradictions or unsupported non-equivalent overrides."
+        },
+        "fretboards": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fretboard" },
+          "description": "At most one authored diagram per source part. Physical fingerings are independent of display transposition and chord playback."
         }
       },
       "additionalProperties": false
@@ -500,6 +572,8 @@
         "bpm": { "type": "number", "exclusiveMinimum": 0 },
         "value": { "$ref": "#/$defs/tempo-instruction/properties/value" },
         "swing": { "$ref": "#/$defs/swing" },
+        "clickSubdivision": { "type": "integer", "enum": [0, 1, 2, 3, 4, 5] },
+        "clickGrouping": { "$ref": "#/$defs/click-grouping" },
         "showMetronomeMark": { "type": "boolean" }
       },
       "oneOf": [
@@ -508,6 +582,17 @@
           "required": ["swing"],
           "not": {
             "anyOf": [{ "required": ["bpm"] }, { "required": ["value"] }, { "required": ["showMetronomeMark"] }]
+          }
+        },
+        {
+          "required": ["clickSubdivision"],
+          "not": {
+            "anyOf": [
+              { "required": ["bpm"] },
+              { "required": ["value"] },
+              { "required": ["swing"] },
+              { "required": ["showMetronomeMark"] }
+            ]
           }
         }
       ],
@@ -850,10 +935,27 @@
       "additionalProperties": false
     },
 
+    "global-fermata": {
+      "type": "object",
+      "required": ["id", "position"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "position": { "$ref": "#/$defs/rhythmic-position" },
+        "multiplier": { "type": "number", "minimum": 1, "default": 2 },
+        "clickBehavior": { "type": "string", "enum": ["silent", "keepClicking"], "default": "silent" }
+      },
+      "additionalProperties": false
+    },
+
     "measure-global-extensions": {
       "type": "object",
       "description": "Viritura vendor extensions on a global measure object.",
       "properties": {
+        "fermatas": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/global-fermata" },
+          "description": "Time-anchored ensemble holds. Equal positions resolve to one shared fermata."
+        },
         "tempos": {
           "type": "array",
           "minItems": 1,
@@ -1024,6 +1126,10 @@
           "minimum": 0,
           "maximum": 127,
           "description": "General-MIDI program fallback when the standard sound ID cannot be resolved."
+        },
+        "solo": {
+          "type": "boolean",
+          "description": "This instrument is a soloist rather than an ensemble section; independent of mixer solo."
         }
       },
       "additionalProperties": false
@@ -1172,20 +1278,22 @@
       "additionalProperties": false
     },
 
-    "notehead-shape": {
-      "type": "string",
-      "enum": ["normal", "x", "circleX", "diamond", "slash", "triangleUp", "triangleDown"],
-      "description": "Legacy Viritura notehead shape accepted on kit components and pitched notes. New documents use the native MNX notehead object."
+    "fermata-extensions": {
+      "type": "object",
+      "properties": {
+        "globalFermataId": { "type": "string", "minLength": 1 },
+        "localOnly": {
+          "type": "boolean",
+          "description": "Preserves intentional local notation on import, including a local override of a projected global symbol."
+        }
+      },
+      "additionalProperties": false
     },
 
     "kit-component-extensions": {
       "type": "object",
       "description": "Viritura vendor extensions on an MNX kit-component object.",
       "properties": {
-        "notehead": {
-          "$ref": "#/$defs/notehead-shape",
-          "description": "Legacy notehead shape for hits on this kit component. New documents use the native MNX notehead object."
-        },
         "drumKit": {
           "type": "integer",
           "minimum": 0,
@@ -1199,12 +1307,7 @@
     "note-extensions": {
       "type": "object",
       "description": "Viritura vendor extensions on an MNX note object (the `_x.viritura` dict on a pitched note).",
-      "properties": {
-        "notehead": {
-          "$ref": "#/$defs/notehead-shape",
-          "description": "Legacy notehead-shape override for this pitched note. New documents use the native MNX notehead object."
-        }
-      },
+      "properties": {},
       "additionalProperties": false
     },
 
@@ -1249,6 +1352,10 @@
           "minimum": 0,
           "maximum": 127,
           "description": "General-MIDI program (0..127). Used directly by the audio engine."
+        },
+        "solo": {
+          "type": "boolean",
+          "description": "The part's instrument is a soloist rather than an ensemble section; independent of mixer solo. With instruments, use the active instrument definition instead."
         },
         "family": {
           "type": "string",
@@ -1344,19 +1451,108 @@
       "additionalProperties": false
     },
 
+    "bar-number-settings": {
+      "type": "object",
+      "description": "Partial bar-number house style. Score-view overrides inherit omitted fields from the document defaults.",
+      "properties": {
+        "frequency": { "enum": ["systemStarts", "everyBar", "hidden"] },
+        "placement": { "enum": ["aboveSystem", "belowSystem", "belowTopInstrument"] },
+        "placements": {
+          "type": "array",
+          "items": { "enum": ["aboveSystem", "belowSystem", "belowTopInstrument"] },
+          "uniqueItems": true
+        },
+        "aboveGroups": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "uniqueItems": true
+        },
+        "horizontalAlignment": { "enum": ["barline", "center"] },
+        "distance": { "type": "number", "minimum": 0 },
+        "onStaff": { "type": "boolean" },
+        "showStaffLine": { "type": "boolean" },
+        "showFirst": { "type": "boolean" },
+        "style": { "$ref": "#/$defs/bar-number-text-style" },
+        "family": {
+          "enum": ["serif", "sans-serif", "monospace"],
+          "deprecated": true,
+          "description": "Legacy bar-number font family. Use textStyles.barNumber.family or score-view barNumbers.style.family."
+        },
+        "size": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 8,
+          "deprecated": true,
+          "description": "Legacy bar-number size in staff spaces. Use textStyles.barNumber.size or score-view barNumbers.style.size."
+        },
+        "bold": {
+          "type": "boolean",
+          "deprecated": true,
+          "description": "Legacy bar-number weight. Use textStyles.barNumber.bold or score-view barNumbers.style.bold."
+        },
+        "italic": {
+          "type": "boolean",
+          "deprecated": true,
+          "description": "Legacy bar-number slant. Use textStyles.barNumber.italic or score-view barNumbers.style.italic."
+        },
+        "enclosure": { "enum": ["none", "box", "circle"] }
+      },
+      "additionalProperties": false
+    },
+
+    "auto-hide-empty-staves": {
+      "type": "object",
+      "description": "Options for the autoHideEmptyParts policy of this score view. Manually omitted staves are never restored by these options.",
+      "properties": {
+        "firstSystem": {
+          "type": "string",
+          "enum": ["hide", "show"],
+          "description": "Whether the first system may hide empty instruments (hide, the default) or retains every staff in the layout (show)."
+        },
+        "keepVisible": {
+          "type": "array",
+          "description": "Explicit per-system decisions that win over the policy. The listed parts stay visible on the system containing the measure.",
+          "items": { "$ref": "#/$defs/auto-hide-keep-visible" }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "auto-hide-keep-visible": {
+      "type": "object",
+      "required": ["measure", "parts"],
+      "properties": {
+        "measure": { "type": "string", "minLength": 1 },
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+
     "score-extensions": {
       "type": "object",
       "description": "Viritura extensions on a standard MNX score definition.",
       "properties": {
         "pageSetup": { "$ref": "#/$defs/page-setup" },
         "pageSetupRole": { "enum": ["score", "part"] },
+        "barNumbers": { "$ref": "#/$defs/bar-number-settings" },
         "instrumentNameDisplay": { "$ref": "#/$defs/instrument-name-display" },
         "autoHideEmptyParts": {
           "type": "array",
-          "description": "Part IDs eligible for automatic hiding on each system in paged views, including the first system. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.",
+          "description": "Part IDs eligible for automatic hiding on each system in paged views of this score view only. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged.",
           "items": { "type": "string", "minLength": 1 },
           "uniqueItems": true
         },
+        "autoHideEmptyStaves": { "$ref": "#/$defs/auto-hide-empty-staves" },
         "textFrames": {
           "type": "array",
           "description": "Free text frames owned by this score view. A page locator uses a zero-based index into the final rendered page array; measure and event locators follow their target onto its rendered page. Event IDs are scoped by the required part ID. Placement is relative to an edge or corner of the printable page area, with offsets in staff spaces (+x right, +y down). Frames have automatic height and do not participate in collision avoidance.",
@@ -1475,7 +1671,8 @@
         "eraseBackground": {
           "type": "boolean",
           "description": "Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored."
-        }
+        },
+        "sourceReference": { "$ref": "#/$defs/text-frame-source-reference" }
       },
       "additionalProperties": false
     },
@@ -1648,6 +1845,18 @@
       "additionalProperties": false
     },
 
+    "bar-number-text-style": {
+      "type": "object",
+      "description": "Sparse bar-number typography override. Document defaults use textStyles.barNumber; score views override only the fields they change.",
+      "properties": {
+        "size": { "type": "number", "minimum": 0.5, "maximum": 8 },
+        "family": { "$ref": "#/$defs/font-family" },
+        "bold": { "type": "boolean" },
+        "italic": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
     "text-styles": {
       "type": "object",
       "description": "Per-document text style overrides keyed by role. Each entry is a partial override merged over the engine's built-in stylesheet at layout time. Stored at `_x.viritura.textStyles` on the score root.",
@@ -1661,6 +1870,7 @@
         "tempo": { "$ref": "#/$defs/text-style" },
         "rehearsalMark": { "$ref": "#/$defs/text-style" },
         "pedalText": { "$ref": "#/$defs/text-style" },
+        "barNumber": { "$ref": "#/$defs/bar-number-text-style" },
         "copyright": { "$ref": "#/$defs/text-style" }
       },
       "additionalProperties": false
@@ -2117,6 +2327,7 @@
           "$ref": "#/$defs/text-styles",
           "description": "Per-document text style overrides."
         },
+        "barNumbers": { "$ref": "#/$defs/bar-number-settings" },
         "placement": {
           "$ref": "#/$defs/placement",
           "description": "Per-document placement (clearance) overrides keyed by dependent kind."

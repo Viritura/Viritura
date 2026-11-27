@@ -17,11 +17,11 @@ namespace Viritura.Api.Tests;
 ///   GET 404 before any PUT, GET 200 returning the exact bytes after a PUT,
 ///   ID validation, and the size cap.
 /// </summary>
-public sealed class SnapshotEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class SnapshotEndpointTests : IClassFixture<IsolatedApiFactory>
 {
     private readonly WebApplicationFactory<Program> _factory;
 
-    public SnapshotEndpointTests(WebApplicationFactory<Program> factory)
+    public SnapshotEndpointTests(IsolatedApiFactory factory)
     {
         _factory = factory;
     }

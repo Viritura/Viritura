@@ -21,6 +21,7 @@ import {
   resolveGraceLocation,
   resolveFullMeasureRestLocation,
   resolveHarpPedalLocation,
+  resolveGlobalFermata,
 } from "../score/ElementPath";
 import { articulationNamesInMarkings } from "../score/articulationNames";
 import { canonicalNavigationId } from "../navigation";
@@ -30,11 +31,8 @@ import { useViewStateStore } from "./viewStateStore";
 /** True when the element ID still resolves against the current score. */
 export function isSelectionIdValid(elementId: string, score: Score, scoreIndex?: number): boolean {
   if (!elementId.includes("/")) return false;
-  if (elementId.startsWith("text-frame/")) return textFrameExists(elementId, score, scoreIndex);
-  if (elementId.startsWith("slur/")) return slurExists(elementId, score);
-  if (elementId.startsWith("tie/")) return tieExists(elementId, score);
-  if (elementId.startsWith("gliss/")) return glissandoExists(elementId, score);
-  if (elementId.startsWith("harpPedal/")) return resolveHarpPedalLocation(elementId, score) !== null;
+  const standalone = standaloneSelectionValidity(elementId, score, scoreIndex);
+  if (standalone !== undefined) return standalone;
 
   const sequenceElement = sequenceElementExists(elementId, score);
   if (sequenceElement !== null) return sequenceElement;
@@ -51,6 +49,16 @@ export function isSelectionIdValid(elementId: string, score: Score, scoreIndex?:
   );
   if (globalElement) return globalElementExists(globalElement, score);
   return false;
+}
+
+function standaloneSelectionValidity(elementId: string, score: Score, scoreIndex?: number): boolean | undefined {
+  if (/^m\d+\/fermata\//.test(elementId)) return resolveGlobalFermata(elementId, score) !== null;
+  if (elementId.startsWith("text-frame/")) return textFrameExists(elementId, score, scoreIndex);
+  if (elementId.startsWith("slur/")) return slurExists(elementId, score);
+  if (elementId.startsWith("tie/")) return tieExists(elementId, score);
+  if (elementId.startsWith("gliss/")) return glissandoExists(elementId, score);
+  if (elementId.startsWith("harpPedal/")) return resolveHarpPedalLocation(elementId, score) !== null;
+  return undefined;
 }
 
 function sequenceElementExists(elementId: string, score: Score): boolean | null {

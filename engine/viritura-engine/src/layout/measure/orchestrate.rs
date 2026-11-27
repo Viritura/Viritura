@@ -7,6 +7,7 @@ use super::super::resolve::*;
 use super::super::skyline::{Skyline, SkylineDirection};
 use super::super::spacing::*;
 use super::super::types::*;
+use super::beam_stems::normalize_beam_group_stem_directions;
 use super::cross_staff::*;
 use super::helpers::*;
 use super::prefix_width::{compute_max_prefix_width, prefix_layout, AlignedPrefix, PrefixContext};
@@ -27,6 +28,15 @@ pub(crate) fn mid_clef_column_width_sp(clef: &Clef) -> f64 {
     MID_CLEF_LEFT_PAD_SP
         + super::super::render_signatures::change_clef_width_sp(clef)
         + MID_CLEF_RIGHT_PAD_SP
+}
+
+fn chord_symbol_content_width(rm: &ResolvedMeasure, config: &LayoutConfig, sp: f64) -> f64 {
+    super::super::render_annotations::chord_symbols_min_content_width(
+        rm.chord_symbols.as_deref(),
+        rm.active_time.measure_beats(),
+        config.chord_symbol_style,
+        sp,
+    )
 }
 
 fn event_right_edge(
@@ -463,75 +473,6 @@ pub(super) fn apply_multi_voice_horizontal_offsets(
     }
 }
 
-/// Normalize stem direction across beam groups.
-///
-/// `render_beams` uses `beam_events[0].stem_up` for the whole group, but each
-/// event's `stem_up` is computed independently based on its own note position.
-/// Events 2+ in a group may therefore have a different `stem_up` than event 0,
-/// causing slurs and articulations attached to those events to read the wrong
-/// value (standard engraving convention: slur is opposite the stem). Propagate the first
-/// event's `stem_up` to every event in the group, matching beams.rs.
-pub(super) fn normalize_beam_group_stem_directions(
-    voice_layouts: &mut [VoiceLayout],
-    rm: &ResolvedMeasure,
-) -> HashSet<String> {
-    use std::collections::HashSet;
-    let beams_owned: Vec<Beam>;
-    let beams: &[Beam] = if let Some(b) = rm.part.beams.as_ref() {
-        b.as_slice()
-    } else {
-        beams_owned = super::super::beams::auto_beam_groups(
-            voice_layouts,
-            rm.effective_beat_meter(),
-            &HashSet::new(),
-        );
-        &beams_owned
-    };
-    let beamed_ids: HashSet<String> = beams
-        .iter()
-        .flat_map(|beam| beam.events.iter().cloned())
-        .collect();
-    for beam in beams {
-        let first_stem_up = beam.events.iter().find_map(|id| {
-            voice_layouts.iter().find_map(|vl| {
-                (0..vl.events.len())
-                    .find(|&i| vl.events.id(i) == Some(id.as_str()))
-                    .map(|i| vl.events.stem_up(i))
-            })
-        });
-        let Some(stem_up) = first_stem_up else {
-            continue;
-        };
-        for id in &beam.events {
-            for vl in voice_layouts.iter_mut() {
-                for i in 0..vl.events.len() {
-                    if vl.events.id(i) == Some(id.as_str()) {
-                        // Flipping the stem direction also flips which side of
-                        // the stem a second-interval notehead is displaced to
-                        // (stem-up displaces the upper note right, stem-down the
-                        // lower note left). The `note_x_offsets` were computed in
-                        // `layout_sequence_content` with this event's ORIGINAL
-                        // stem direction; if the beam-group normalization changes
-                        // it, recompute them or the displaced noteheads end up on
-                        // the wrong side, detached from the stem by a notehead
-                        // width (standard engraving practice; the cause of
-                        // "floating" cluster noteheads in beamed chords).
-                        if vl.events.stem_up(i) != stem_up {
-                            vl.events.set_stem_up(i, stem_up);
-                            let positions = vl.events.note_positions(i).to_vec();
-                            let new_offsets = compute_seconds_displacement(&positions, stem_up);
-                            vl.events
-                                .note_x_offsets_mut(i)
-                                .copy_from_slice(&new_offsets);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    beamed_ids
-}
-
 /// Lay out a single voice (sequence) within a measure, producing a `VoiceLayout`.
 /// Handles full-measure rests, single-rest measures, and general sequence content;
 /// also positions grace notes and applies stem-direction optical correction.
@@ -574,7 +515,7 @@ pub(super) fn layout_voice_for_measure(
     } else if let Some(ref fm) = seq.full_measure {
         let rest_event = Event {
             duration: fm.visual_duration.clone(),
-            id: None,
+            id: fm.id.clone(),
             notes: None,
             rest: Some(Rest {
                 staff_position: fm.staff_position,
@@ -582,7 +523,10 @@ pub(super) fn layout_voice_for_measure(
             staff: None,
             slurs: None,
             glissandos: None,
-            markings: None,
+            markings: fm.caesura.as_ref().map(|caesura| Markings {
+                caesura: Some(caesura.clone()),
+                ..Markings::default()
+            }),
             fermata: fm.fermata.clone(),
             lyrics: None,
             stem_direction: None,
@@ -596,7 +540,7 @@ pub(super) fn layout_voice_for_measure(
             shared_rest: false,
             display_pitches: vec![],
             stem_up: true,
-            id: None,
+            id: fm.id.clone(),
             grace_notes: Vec::new(),
             num_voices,
             sequence_staff: seq_staff,
@@ -783,27 +727,30 @@ pub(super) fn layout_measure_inner(
         );
         &local_log_spacing
     };
-
     let min_content_width = if is_pickup { 1.5 * sp } else { 4.0 * sp };
     let trailing_barline_extra =
         super::super::render_barlines::trailing_barline_extra_width(rm, config, sp);
     let fixed_width =
         prefix_width + super::MEASURE_TRAILING_PADDING_SP * sp + trailing_barline_extra;
-    let rigid_measure_width = fixed_width + (log_spacing.rigid_total * sp).max(min_content_width);
+    let chord_content_width = chord_symbol_content_width(rm, config, sp);
+    let minimum_rhythmic_content_width = (log_spacing.minimum_total * sp)
+        .max(min_content_width)
+        .max(chord_content_width);
+    let rigid_measure_width = fixed_width + minimum_rhythmic_content_width;
     let forced_width = forced_width.map(|width| {
         super::super::space_requests::reconcile_caesura_rigid_width(rm, width, rigid_measure_width)
+            .max(fixed_width + chord_content_width)
     });
-    let natural_content_width =
-        (log_spacing.total_width * sp)
-            .max(min_content_width)
-            .max(skyline_min_content_width(
-                &rm.part.sequences,
-                total_beats,
-                &rm.active_key,
-                config,
-                sp,
-                common_shortest_beats,
-            ));
+    let natural_content_width = (log_spacing.total_width * sp)
+        .max(minimum_rhythmic_content_width)
+        .max(skyline_min_content_width(
+            &rm.part.sequences,
+            total_beats,
+            &rm.active_key,
+            config,
+            sp,
+            common_shortest_beats,
+        ));
     let content_width = if let Some(fw) = forced_width {
         // The forced width already includes structural barline overhead from
         // the natural-width and system-justification passes.
@@ -856,11 +803,6 @@ pub(super) fn layout_measure_inner(
     // Apply horizontal notehead offsets for multi-voice collisions.
     // See `apply_multi_voice_horizontal_offsets` for the algorithm details.
     apply_multi_voice_horizontal_offsets(&mut voice_layouts, config, sp);
-
-    // Resolve vertical rest conflicts in multi-voice contexts.
-    if voice_layouts.len() >= 2 {
-        resolve_voice_rest_conflicts(&mut voice_layouts);
-    }
 
     // Place mid-measure clefs inside the clearance already reserved by the
     // shared spacing map. No post-layout event shift is needed.
@@ -924,7 +866,7 @@ pub(super) fn layout_measure_inner(
         }
     }
 
-    MeasureLayout {
+    let mut measure = MeasureLayout {
         x: start_x,
         width: measure_width,
         resolved: rm.clone(),
@@ -941,7 +883,9 @@ pub(super) fn layout_measure_inner(
         show_system_objects: true,
         is_first_staff: true,
         is_last_staff: true,
-    }
+    };
+    resolve_voice_rest_conflicts(&mut measure, sp, config);
+    measure
 }
 
 fn has_visible_measure_prefix(

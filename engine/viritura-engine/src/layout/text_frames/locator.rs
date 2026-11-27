@@ -8,10 +8,12 @@
 
 use crate::model::{Event, Score, SequenceContent, TextFrameLocator};
 use crate::render::PageLayout;
+use std::collections::HashSet;
 
 pub(super) struct PageResolver<'a> {
     score: &'a Score,
     pages: &'a [PageLayout],
+    visible_parts: &'a HashSet<usize>,
     /// `(global measure index, system index)` for every rendered measure.
     measure_systems: &'a [(usize, usize)],
 }
@@ -21,11 +23,13 @@ impl<'a> PageResolver<'a> {
         score: &'a Score,
         pages: &'a [PageLayout],
         measure_systems: &'a [(usize, usize)],
+        visible_parts: &'a HashSet<usize>,
     ) -> Self {
         Self {
             score,
             pages,
             measure_systems,
+            visible_parts,
         }
     }
 
@@ -38,6 +42,14 @@ impl<'a> PageResolver<'a> {
                 self.page_for_measure_index(self.measure_index(measure_id)?)
             }
             TextFrameLocator::Event { part_id, event_id } => {
+                let part_index = self
+                    .score
+                    .parts
+                    .iter()
+                    .position(|part| part.id.as_deref() == Some(part_id.as_str()))?;
+                if !self.visible_parts.contains(&part_index) {
+                    return None;
+                }
                 self.page_for_measure_index(self.event_measure_index(part_id, event_id)?)
             }
         }

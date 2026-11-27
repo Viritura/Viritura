@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { patch, type Score, type ScorePatch } from "@viritura/core";
-import { parseMnx } from "@viritura/format";
+import { parseMnx, serializeMnx } from "@viritura/format";
 import { createDocumentStore } from "../store/documentStore";
 import { dispatchMcpTool } from "./toolDispatch";
 import { useMcpSessionStore } from "./sessionStore";
 import { clearPatchBatches } from "./patchBatches";
 import { clearIdempotentRequests } from "./idempotentRequests";
+import { acceptMcpProposal } from "./proposalAcceptance";
 
 function makeScore(): Score {
   return {
@@ -60,6 +61,303 @@ describe("MCP editor tool dispatch", () => {
   };
   const pitchNote4 = { kind: "setNotePitch", locator: pianoLocator, noteId: "note-4", pitch: { step: "A", octave: 4 } };
   const pitchNote1 = { kind: "setNotePitch", locator: pianoLocator, noteId: "note-1", pitch: { step: "D", octave: 4 } };
+
+  function concurrentScore(area: "part" | "measure" = "measure") {
+    const score = makeScore();
+    const neighbor = structuredClone(score.parts[0]!);
+    neighbor.id = "neighbor";
+    const event = neighbor.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type !== "event") throw new Error("Expected fixture event.");
+    event.id = "neighbor-event";
+    event.notes = [{ id: "neighbor-note", pitch: { step: "C", octave: 5 } }];
+    if (area === "part") score.parts.push(neighbor);
+    else {
+      score.global.measures.push({});
+      score.parts[0]!.measures.push(neighbor.measures[0]!);
+    }
+    const locator = {
+      sequencePath: {
+        partId: area === "part" ? "neighbor" : "keyboard.piano",
+        measureIndex: area === "part" ? 0 : 1,
+        voice: 0,
+      },
+      eventId: "neighbor-event",
+    };
+    return {
+      score,
+      concurrentPatch: patch.setNotePitch(locator, "neighbor-note", { step: "F", octave: 5 }),
+    };
+  }
+
+  it.each(["part", "measure"] as const)(
+    "accepts a stale patch base after an unrelated %s edit and preserves both edits",
+    async (area) => {
+      const { score, concurrentPatch } = concurrentScore(area);
+      const store = createDocumentStore();
+      store.getState().loadScore(parseMnx(serializeMnx(score)));
+      const read = await dispatchMcpTool(store, "score.get_notes", {});
+      const { revision: baseRevision } = read.structuredContent as { revision: string };
+      store.getState().commitPatches([concurrentPatch]);
+      // Remote Yjs projections reparse MNX and can reorder otherwise unchanged object keys.
+      store.getState().loadScore(parseMnx(JSON.parse(store.getState().mnxJson)), "test.mnx", undefined, true);
+      useMcpSessionStore.getState().start({ autoAccept: true });
+
+      const result = await dispatchMcpTool(store, "preview.propose_patches", {
+        patches: [pitchNote1],
+        baseRevision,
+      });
+
+      expect(result.structuredContent).toMatchObject({ status: "accepted" });
+      expect(store.getState().workingScore!.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+        notes: [expect.objectContaining({ pitch: { step: "D", octave: 4 } }), {}, {}],
+      });
+      const saved = parseMnx(JSON.parse(store.getState().mnxJson));
+      expect(
+        saved.parts[area === "part" ? 1 : 0]!.measures[area === "part" ? 0 : 1]!.sequences[0]!.content[0],
+      ).toMatchObject({ notes: [{ id: "neighbor-note", pitch: { step: "F", octave: 5 } }] });
+      expect(store.getState().lastCommittedPatches).toEqual([pitchNote1]);
+    },
+  );
+
+  it.each([false, true])("checks pending/replayed proposals by patch area (overlap: %s)", async (overlap) => {
+    const { score, concurrentPatch } = concurrentScore();
+    const store = createDocumentStore();
+    store.getState().loadScore(score);
+    const args = { patches: [pitchNote1], requestId: "concurrent-review" };
+    const staged = await dispatchMcpTool(store, "preview.propose_patches", args);
+    const { proposalId } = staged.structuredContent as { proposalId: string };
+    const proposal = useMcpSessionStore.getState().proposals[proposalId]!;
+    store
+      .getState()
+      .commitPatches(
+        overlap ? [patch.setNotePitch(pianoLocator, "note-1", { step: "E", octave: 4 })] : [concurrentPatch],
+      );
+
+    const status = await dispatchMcpTool(store, "preview.get_status", { proposalId });
+    const replay = await dispatchMcpTool(store, "preview.propose_patches", args);
+    expect(status.structuredContent).toMatchObject({ status: overlap ? "stale" : "pending" });
+    expect(replay.structuredContent).toMatchObject({ status: overlap ? "stale" : "pending", replayed: true });
+    if (overlap) {
+      const before = store.getState().workingScore;
+      expect(() => acceptMcpProposal(store, proposal)).toThrow("score changed");
+      expect(store.getState().workingScore).toBe(before);
+    } else {
+      acceptMcpProposal(store, proposal);
+      expect(useMcpSessionStore.getState().proposals[proposalId]!.status).toBe("accepted");
+      const saved = parseMnx(JSON.parse(store.getState().mnxJson));
+      expect(saved.parts[0]!.measures[1]!.sequences[0]!.content[0]).toMatchObject({
+        notes: [{ pitch: { step: "F", octave: 5 } }],
+      });
+      expect(saved.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+        notes: [{ pitch: { step: "D", octave: 4 } }, {}, {}],
+      });
+    }
+  });
+
+  it.each([false, true])("rechecks all batch chunks against concurrent edits (overlap: %s)", async (overlap) => {
+    const { score, concurrentPatch } = concurrentScore();
+    const store = createDocumentStore();
+    store.getState().loadScore(score);
+    const read = await dispatchMcpTool(store, "score.overview", {});
+    const { revision: baseRevision } = read.structuredContent as { revision: string };
+    await dispatchMcpTool(store, "preview.propose_patches", {
+      batchId: "concurrent-batch",
+      patches: [addNote4],
+      final: false,
+      baseRevision,
+    });
+    store
+      .getState()
+      .commitPatches(
+        overlap ? [patch.setNotePitch(pianoLocator, "note-1", { step: "E", octave: 4 })] : [concurrentPatch],
+      );
+    expect(
+      (await dispatchMcpTool(store, "preview.get_batch", { batchId: "concurrent-batch" })).structuredContent,
+    ).toMatchObject({ status: overlap ? "stale" : "batching" });
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    const final = await dispatchMcpTool(store, "preview.propose_patches", {
+      batchId: "concurrent-batch",
+      patches: [pitchNote4],
+      ...(!overlap ? { baseRevision } : {}),
+    });
+    if (overlap) {
+      expect(final.structuredContent).toMatchObject({ code: "batch_stale" });
+      expect(useMcpSessionStore.getState().proposals).toEqual({});
+    } else {
+      expect(final.structuredContent).toMatchObject({ status: "accepted" });
+      expect(store.getState().workingScore!.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+        notes: [{}, {}, {}, { id: "note-4", pitch: { step: "A", octave: 4 } }],
+      });
+      expect(
+        parseMnx(JSON.parse(store.getState().mnxJson)).parts[0]!.measures[1]!.sequences[0]!.content[0],
+      ).toMatchObject({ notes: [{ pitch: { step: "F", octave: 5 } }] });
+    }
+  });
+
+  it("protects new batch areas changed since the first chunk", async () => {
+    const { score, concurrentPatch } = concurrentScore();
+    const store = createDocumentStore();
+    store.getState().loadScore(score);
+    await dispatchMcpTool(store, "preview.propose_patches", {
+      batchId: "expanding-batch",
+      patches: [addNote4],
+      final: false,
+    });
+    store.getState().commitPatches([concurrentPatch]);
+    const final = await dispatchMcpTool(store, "preview.propose_patches", {
+      batchId: "expanding-batch",
+      patches: [concurrentPatch],
+    });
+    expect(final.structuredContent).toMatchObject({ code: "batch_stale" });
+  });
+
+  it("allows later batch chunks to target a part created by an earlier chunk", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore());
+    const newPart = {
+      id: "new-part",
+      name: "New Part",
+      measures: [
+        {
+          sequences: [
+            {
+              content: [
+                {
+                  type: "event" as const,
+                  id: "new-event",
+                  duration: { base: "whole" as const },
+                  notes: [{ id: "new-note", pitch: { step: "C" as const, octave: 4 as const } }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const first = await dispatchMcpTool(store, "preview.propose_patches", {
+      batchId: "create-part",
+      patches: [patch.addPart(newPart)],
+      final: false,
+    });
+    expect(first.structuredContent).toMatchObject({ status: "batching", patchCount: 1 });
+
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    const final = await dispatchMcpTool(store, "preview.propose_patches", {
+      batchId: "create-part",
+      patches: [
+        patch.setNotePitch(
+          { sequencePath: { partId: "new-part", measureIndex: 0, voice: 0 }, eventId: "new-event" },
+          "new-note",
+          { step: "D", octave: 4 },
+        ),
+      ],
+    });
+
+    expect(final.structuredContent).toMatchObject({ status: "accepted" });
+    expect(
+      store.getState().workingScore!.parts.find((part) => part.id === "new-part")!.measures[0]!.sequences[0]!
+        .content[0],
+    ).toMatchObject({ notes: [{ id: "new-note", pitch: { step: "D", octave: 4 } }] });
+  });
+
+  it.each([false, true])("checks stale chord-note requests by patch area (overlap: %s)", async (overlap) => {
+    const { score, concurrentPatch } = concurrentScore();
+    const store = createDocumentStore();
+    store.getState().loadScore(score);
+    const read = await dispatchMcpTool(store, "score.overview", {});
+    const { revision: baseRevision } = read.structuredContent as { revision: string };
+    store
+      .getState()
+      .commitPatches(
+        overlap ? [patch.setNotePitch(pianoLocator, "note-1", { step: "E", octave: 4 })] : [concurrentPatch],
+      );
+    useMcpSessionStore.getState().start({ autoAccept: true });
+    const result = await dispatchMcpTool(store, "preview.propose_chord_notes", {
+      baseRevision,
+      changes: [
+        {
+          partId: "keyboard.piano",
+          measure: 1,
+          voice: 0,
+          eventId: "event-1",
+          pitches: [{ step: "B", octave: 4 }],
+        },
+      ],
+    });
+    expect(result.structuredContent).toMatchObject(overlap ? { code: "revision_conflict" } : { status: "accepted" });
+    expect(store.getState().workingScore!.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes).toHaveLength(
+      overlap ? 3 : 4,
+    );
+  });
+
+  it("does not reuse proposals or batches in another document store with matching content", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore());
+    const staged = await dispatchMcpTool(store, "preview.propose_patches", { patches: [pitchNote1] });
+    const { proposalId } = staged.structuredContent as { proposalId: string };
+    await dispatchMcpTool(store, "preview.propose_patches", {
+      batchId: "old-store",
+      patches: [addNote4],
+      final: false,
+    });
+    const otherStore = createDocumentStore();
+    otherStore.getState().loadScore(makeScore());
+    const before = otherStore.getState().workingScore;
+
+    expect(() => acceptMcpProposal(otherStore, useMcpSessionStore.getState().proposals[proposalId]!)).toThrow(
+      "score changed",
+    );
+    const final = await dispatchMcpTool(otherStore, "preview.propose_patches", {
+      batchId: "old-store",
+      patches: [pitchNote4],
+    });
+    expect(final.structuredContent).toMatchObject({ code: "batch_stale" });
+    expect(otherStore.getState().workingScore).toBe(before);
+  });
+
+  it.each(["unknown", "reload", "structure", "context"] as const)(
+    "rejects unsafe stale patch bases (%s)",
+    async (reason) => {
+      const { score } = concurrentScore();
+      const store = createDocumentStore();
+      store.getState().loadScore(score);
+      const read = await dispatchMcpTool(store, "score.overview", {});
+      const { revision } = read.structuredContent as { revision: string };
+      if (reason === "reload") store.getState().loadScore(score);
+      if (reason === "structure") store.getState().commitPatches([patch.insertMeasures(0, [{}])]);
+      if (reason === "context")
+        store
+          .getState()
+          .commitPatches([
+            { kind: "setGlobalMeasureField", measureIndex: 0, update: { field: "key", value: { fifths: 1 } } },
+          ]);
+      const result = await dispatchMcpTool(store, "preview.propose_patches", {
+        patches: [pitchNote1],
+        baseRevision: reason === "unknown" ? "unobserved" : revision,
+      });
+      expect(result.structuredContent).toMatchObject({ code: "revision_conflict" });
+    },
+  );
+
+  it("keeps whole-document MNX proposals exact-revision gated on staging and acceptance", async () => {
+    const { score, concurrentPatch } = concurrentScore();
+    const store = createDocumentStore();
+    store.getState().loadScore(score);
+    const mnx = serializeMnx(store.getState().workingScore!);
+    const staged = await dispatchMcpTool(store, "preview.propose_mnx", { mnx });
+    const { proposalId, revision: baseRevision } = staged.structuredContent as {
+      proposalId: string;
+      revision: string;
+    };
+    store.getState().commitPatches([concurrentPatch]);
+    const before = store.getState().workingScore;
+    const conflict = await dispatchMcpTool(store, "preview.propose_mnx", { mnx, baseRevision });
+    expect(conflict.structuredContent).toMatchObject({ code: "revision_conflict" });
+    expect(() => acceptMcpProposal(store, useMcpSessionStore.getState().proposals[proposalId]!)).toThrow(
+      "score changed",
+    );
+    expect(store.getState().workingScore).toBe(before);
+  });
 
   it("round-trips raw MNX content and note extensions through validation and acceptance", async () => {
     const store = createDocumentStore();
@@ -147,6 +445,10 @@ describe("MCP editor tool dispatch", () => {
       ],
     });
     expect(result.structuredContent).toMatchObject({ status: "pending" });
+    const proposal = Object.values(useMcpSessionStore.getState().proposals)[0]!;
+    const proposed = parseMnx(JSON.parse(proposal.proposedMnx!));
+    expect(proposed.global.lyrics).toEqual({ lineOrder: ["1", "2"] });
+    expect(proposal.repairMnx).toBeDefined();
     const invalid = await dispatchMcpTool(store, "preview.propose_patches", {
       patches: [
         {
@@ -164,6 +466,42 @@ describe("MCP editor tool dispatch", () => {
       ],
     });
     expect(invalid.structuredContent).toMatchObject({ code: "invalid_patches" });
+  });
+
+  it("appends newly proposed lyric lines without reordering existing lines or metadata", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    score.global.lyrics = {
+      lineOrder: ["refrain", "verse"],
+      lineMetadata: { verse: { label: "Verse", lang: "en" } },
+    };
+    store.getState().loadScore(score, "test.mnx");
+    useMcpSessionStore.getState().start({ autoAccept: true });
+
+    const result = await dispatchMcpTool(store, "preview.propose_patches", {
+      patches: [
+        {
+          kind: "setSequenceContent",
+          sequencePath: pianoLocator.sequencePath,
+          content: [
+            {
+              type: "event",
+              id: "sung",
+              duration: { base: "whole" },
+              notes: [{ pitch: { step: "C", octave: 4 } }],
+              lyrics: { lines: { verse: { text: "Hello" }, chorus: { text: "Again" } } },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(result.structuredContent).toMatchObject({ status: "accepted" });
+    const saved = parseMnx(JSON.parse(store.getState().mnxJson));
+    expect(saved.global.lyrics).toEqual({
+      lineOrder: ["refrain", "verse", "chorus"],
+      lineMetadata: { verse: { label: "Verse", lang: "en" } },
+    });
   });
 
   it("rejects unknown patch kinds and MNX fields that would be discarded", async () => {
@@ -957,6 +1295,34 @@ describe("MCP editor tool dispatch", () => {
     const validation = result.structuredContent as { valid: boolean; diagnostics: string[] };
     expect(validation.valid).toBe(false);
     expect(validation.diagnostics.length).toBeGreaterThan(0);
+  });
+
+  it("validates global fermata patches and reports uncovered physical staves", async () => {
+    const store = createDocumentStore();
+    const score = makeScore();
+    store.getState().loadScore(score, "test.mnx");
+    const patches = [
+      {
+        kind: "setGlobalMeasureField",
+        measureIndex: 0,
+        update: {
+          field: "fermatas",
+          value: [{ id: "global-hold", position: { fraction: [0, 1] }, multiplier: 3, clickBehavior: "keepClicking" }],
+        },
+      },
+    ];
+    const valid = await dispatchMcpTool(store, "score.validate", { patches });
+    expect(valid.structuredContent).toMatchObject({ valid: true, mode: "patches" });
+    score.parts[0]!.staves = 2;
+    store.getState().loadScore(score, "test.mnx");
+    const missing = await dispatchMcpTool(store, "score.validate", { patches });
+    expect(missing.structuredContent).toMatchObject({
+      valid: false,
+      diagnostics: [expect.stringContaining("staff 2")],
+    });
+    patches[0]!.update.value[0]!.multiplier = 0.5;
+    const invalid = await dispatchMcpTool(store, "score.validate", { patches });
+    expect(invalid.structuredContent).toMatchObject({ valid: false });
   });
 
   it("rejects a validate call that supplies neither or both inputs", async () => {

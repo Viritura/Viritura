@@ -587,6 +587,8 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
             dots: None,
         }),
         swing: None,
+        click_subdivision: None,
+        click_grouping: None,
         location: None,
         text: Some("Grandioso ma non troppo".to_string().into()),
         show_metronome_mark: Some(false),
@@ -612,6 +614,7 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
         coda: None,
         extensions: with_mark.then(|| VendorExtensions {
             viritura: Some(GlobalMeasureExtensions {
+                fermatas: None,
                 rehearsal_mark: Some(RehearsalMark {
                     text: "30".to_string().into(),
                     style: Some(RehearsalMarkStyle::Boxed),
@@ -1796,8 +1799,8 @@ fn test_longest_label_hugs_left_margin() {
             "mnx": {{"version": 1}},
             "global": {{"measures": [{global}]}},
             "layouts": [{{"id": "L", "content": [
-                {{"type": "staff", "labelref": "name", "sources": [{{"part": "a"}}]}},
-                {{"type": "staff", "labelref": "name", "sources": [{{"part": "b"}}]}}
+                {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "a"}}]}},
+                {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "b"}}]}}
             ]}}],
             "scores": [{{"name": "Full Score", "layout": "L"}}],
             "parts": [
@@ -1863,8 +1866,8 @@ fn test_staff_labels_follow_the_staff_label_text_style() {
             "mnx": {{"version": 1}},
             "global": {{"measures": [{global}]}},
             "layouts": [{{"id": "L", "content": [
-                {{"type": "staff", "labelref": "name", "sources": [{{"part": "a"}}]}},
-                {{"type": "staff", "labelref": "name", "sources": [{{"part": "b"}}]}}
+                {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "a"}}]}},
+                {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "b"}}]}}
             ]}}],
             "scores": [{{"name": "Full Score", "layout": "L"}}],
             "parts": [
@@ -1933,8 +1936,8 @@ fn test_staff_label_gutter_grows_with_the_style_size() {
                 "mnx": {{"version": 1}},
                 "global": {{"measures": [{global}]}},
                 "layouts": [{{"id": "L", "content": [
-                    {{"type": "staff", "labelref": "name", "sources": [{{"part": "a"}}]}},
-                    {{"type": "staff", "labelref": "name", "sources": [{{"part": "b"}}]}}
+                    {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "a"}}]}},
+                    {{"type": "staff", "labelRef": {{"ref": "auto"}}, "sources": [{{"part": "b"}}]}}
                 ]}}],
                 "scores": [{{"name": "Full Score", "layout": "L"}}],
                 "parts": [

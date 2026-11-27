@@ -264,7 +264,11 @@ pub(crate) fn measure_tempo_fit_width(
 
 fn tempo_anchor_x(ml: &MeasureLayout, tempo: &Tempo, sp: f64) -> f64 {
     let beat = tempo.location.as_ref().map_or(0.0, |loc| loc.beats());
-    let x_origin = ml.x + ml.prefix_width;
+    beat_anchor_x(ml, beat, sp)
+}
+
+fn beat_anchor_x(ml: &MeasureLayout, beat: f64, sp: f64) -> f64 {
+    let x_origin = ml.beat_one_x();
     if beat == 0.0 {
         return x_origin;
     }
@@ -299,6 +303,17 @@ pub(super) fn tempo_marking_envelope(
     right: f64,
     sp: f64,
 ) -> Option<(f64, f64)> {
+    if let Some(text) = super::system_instruction::source_text(measures, eid) {
+        let (measure, _) = eid.split_once("/systemText/")?;
+        let measure: usize = measure.strip_prefix('m')?.parse().ok()?;
+        let ml = measures.iter().find(|ml| ml.resolved.index == measure)?;
+        if text.manual_offset.is_some() || !text.avoid_collisions.unwrap_or(true) {
+            return Some((left, left));
+        }
+        let anchor = beat_anchor_x(ml, text.position.beats(), sp);
+        let (min, max) = tempo_x_envelope(ml, anchor);
+        return Some((min, max.min((ml.x + ml.width - (right - left)).max(left))));
+    }
     let (measure, index) = eid.rsplit_once("/tempo")?;
     let index: usize = index.parse().ok()?;
     let measure: usize = measure.strip_prefix('m')?.parse().ok()?;
@@ -697,6 +712,8 @@ mod tests {
                 dots: None,
             }),
             swing: None,
+            click_subdivision: None,
+            click_grouping: None,
             location: None,
             text: Some(text),
             show_metronome_mark: None,

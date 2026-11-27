@@ -10,6 +10,8 @@ import {
   articulationId,
   tremoloId,
   fermataId,
+  globalFermataId,
+  resolveGlobalFermata,
   clefId,
   keySigId,
   dynamicId,
@@ -42,6 +44,8 @@ import {
   resolveAnnotationLocation,
   getEventAtLocation,
 } from "../ElementPath";
+import { isSelectionIdValid } from "../../store/useSelectionPruner";
+import { parseElementType } from "../elementTypes";
 
 // ═══════════════════════════════════════════
 // Helpers
@@ -74,6 +78,17 @@ function makeScore(): Score {
 // ═══════════════════════════════════════════
 
 describe("ID construction", () => {
+  it("resolves shared projected fermata IDs without depending on event rhythm", () => {
+    const score = makeScore();
+    score.global.measures[0]!.fermatas = [{ id: "shared/hold", position: { fraction: [1, 4] } }];
+    const id = globalFermataId(0, "shared/hold");
+    expect(resolveGlobalFermata(id, score)?.fermata.id).toBe("shared/hold");
+    expect(parseElementType(id)).toBe("fermata");
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [];
+    expect(isSelectionIdValid(id, score)).toBe(true);
+    delete score.global.measures[0]!.fermatas;
+    expect(isSelectionIdValid(id, score)).toBe(false);
+  });
   it("eventSuffix uses MNX id when present", () => {
     expect(eventSuffix("my-note", 0)).toBe("my-note");
   });
@@ -312,6 +327,13 @@ describe("resolveEventFromSubElement", () => {
 // ═══════════════════════════════════════════
 
 describe("resolveAnnotationLocation", () => {
+  it("resolves each placed number copy to its global measure", () => {
+    expect(resolveAnnotationLocation("m5/bn2-above/mnum")).toEqual({
+      kind: "global",
+      type: "mnum",
+      measureIndex: 5,
+    });
+  });
   it.each(["m12/chord3", "m12/chord3/p0/staff1", "m12/chord3/p9/staff2"])(
     "resolves %s to the global chord, not its display part",
     (id) => {

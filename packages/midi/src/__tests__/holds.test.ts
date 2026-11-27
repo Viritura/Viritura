@@ -1,56 +1,391 @@
 import { describe, it, expect } from "vitest";
-import type { Score } from "@viritura/core";
-import { generateTimeline } from "../timeline";
+import type { Duration, GlobalMeasure, NoteEvent, Pitch, Score, SequenceContent } from "@viritura/core";
+import { generateTimeline, generatePerformanceEvents, compilePlaybackTiming } from "../index";
 import { buildHoldSchedule } from "../holds";
 
-type Step = "C" | "D" | "E" | "F" | "G" | "B" | "A";
-
-function note(step: Step, octave: number, base: string, extra?: Record<string, unknown>) {
+function note(step: Pitch["step"], octave: number, base: Duration["base"], extra: Partial<NoteEvent> = {}): NoteEvent {
   return { type: "event", duration: { base }, notes: [{ pitch: { step, octave } }], ...extra };
 }
 
-/** quarter-note seconds at 120 bpm. */
 const Q = 0.5;
-// Onset/offset times carry deterministic ±15ms humanization jitter, so all
-// time assertions use a 50ms tolerance (precision 1). The hold shifts under
-// test are ≥0.25s, comfortably above the jitter floor.
+// Browser playback has deterministic timing humanization up to 15 ms.
 const PREC = 1;
 
-/**
- * Build a one-part score from per-measure content arrays. Each measure is a
- * list of content items. All measures 4/4 @ 120 bpm.
- */
-function buildScore(measures: object[][], globalExtra: object[] = []): Score {
+function buildScore(measures: SequenceContent[][], globalExtra: GlobalMeasure[] = []): Score {
   return {
     mnx: { version: 1 },
     global: {
       measures: measures.map((_, i) => ({
         time: { count: 4, unit: 4 },
-        tempos: [{ bpm: 120, value: { base: "quarter" } } as never],
-        ...(globalExtra[i] ?? {}),
+        tempos: [{ bpm: 120, value: { base: "quarter" } }],
+        ...globalExtra[i],
       })),
     },
-    parts: [
-      {
-        id: "p1",
-        name: "Violin",
-        measures: measures.map((content) => ({ sequences: [{ content }] })),
-      } as never,
-    ],
+    parts: [{ id: "p1", name: "Violin", measures: measures.map((content) => ({ sequences: [{ content }] })) }],
   };
 }
 
 function noteOns(tl: ReturnType<typeof generateTimeline>) {
-  return tl.events.filter((e) => e.type === "noteOn");
-}
-function noteOffs(tl: ReturnType<typeof generateTimeline>) {
-  return tl.events.filter((e) => e.type === "noteOff");
-}
-function onsetTimes(tl: ReturnType<typeof generateTimeline>) {
-  return noteOns(tl).map((e) => e.time);
+  return tl.events.filter((event) => event.type === "noteOn");
 }
 
-describe("generateTimeline — fermata holds", () => {
+function noteOffs(tl: ReturnType<typeof generateTimeline>) {
+  return tl.events.filter((event) => event.type === "noteOff");
+}
+
+function holds(score: Score) {
+  return buildHoldSchedule(
+    score,
+    score.global.measures.map((_, i) => i),
+    score.global.measures,
+  );
+}
+
+function ensembleScore(position: [number, number] = [0, 1]): Score {
+  const score = buildScore(
+    [[note("C", 5, "whole")], [note("G", 5, "whole")]],
+    [{ fermatas: [{ id: "ensemble", position: { fraction: position } }] }],
+  );
+  score.parts.push({
+    id: "vc",
+    name: "Cello",
+    measures: [
+      {
+        sequences: [
+          {
+            content: [note("C", 3, "half"), { type: "event", duration: { base: "half" }, rest: {} }],
+          },
+        ],
+      },
+      { sequences: [{ content: [note("G", 3, "whole")] }] },
+    ],
+  });
+  return score;
+}
+
+describe("global fermata holds", () => {
+  it.each([{}, { duration: "long" }, { duration: "none" }] satisfies NonNullable<NoteEvent["fermata"]>[])(
+    "leaves local fermata notation %j inaudible",
+    (fermata) => {
+      const score = buildScore([[note("C", 5, "half", { fermata }), note("D", 5, "half")]]);
+      expect(holds(score)).toEqual([[]]);
+      expect(compilePlaybackTiming(score).duration).toBe(2);
+      expect(noteOns(generateTimeline(score))[1]!.time).toBeCloseTo(1, PREC);
+      expect(generatePerformanceEvents(score, 0).find((event) => event.kind === "noteOn")?.note.duration).toBe(1);
+    },
+  );
+
+  it.each([
+    { multiplier: undefined, seconds: 4 },
+    { multiplier: 2.5, seconds: 5 },
+    { multiplier: 1, seconds: 2 },
+  ])("uses the global multiplier $multiplier independently of local hints", ({ multiplier, seconds }) => {
+    const score = buildScore(
+      [[note("C", 5, "whole", { fermata: { duration: "none" } })], [note("D", 5, "whole")]],
+      [{ fermatas: [{ id: "hold", position: { fraction: [0, 1] }, multiplier }] }],
+    );
+    const tl = generateTimeline(score);
+    expect(tl.measureStartTimes[1]).toBe(seconds);
+    if (multiplier !== 1) expect(noteOffs(tl)[0]!.time).toBeCloseTo(seconds, PREC);
+    expect(generatePerformanceEvents(score, 0).find((event) => event.kind === "noteOn")).toMatchObject({
+      kind: "noteOn",
+      note: { duration: seconds },
+    });
+  });
+
+  it("inserts the hold at the driver's end, not at an interior global anchor", () => {
+    const score = buildScore(
+      [[note("C", 5, "half"), note("D", 5, "half")]],
+      [{ fermatas: [{ id: "interior", position: { fraction: [1, 4] } }] }],
+    );
+    expect(holds(score)[0]).toEqual([
+      {
+        atBeat: 2,
+        extraBeats: 2,
+        kind: "fermata",
+        startBeat: 1,
+        spanEndBeat: 2,
+        clickBehavior: "silent",
+        fermataId: "interior",
+      },
+    ]);
+    const tl = generateTimeline(score);
+    expect(noteOns(tl)[1]!.time).toBeCloseTo(2, PREC);
+    expect(noteOffs(tl).find((event) => event.midiNote === 72)!.time).toBeCloseTo(noteOns(tl)[1]!.time, PREC);
+  });
+
+  it("uses the shortest duration when sounding events have the same latest onset", () => {
+    const score = ensembleScore();
+    expect(holds(score)[0]![0]).toMatchObject({ atBeat: 2, extraBeats: 2 });
+    const tl = generateTimeline(score, { partPrograms: [40, 42] });
+    expect(tl.measureStartTimes[1]).toBe(3);
+    expect(noteOffs(tl).find((event) => event.midiNote === 48)!.time).toBeCloseTo(2, PREC);
+    expect(noteOffs(tl).find((event) => event.midiNote === 72)!.time).toBeCloseTo(3, PREC);
+    for (const partIndex of [0, 1]) {
+      const native = generatePerformanceEvents(score, partIndex).filter((event) => event.kind === "noteOn");
+      expect(native[1]!.time).toBe(3);
+      expect(native[0]!.note.duration).toBe(partIndex === 0 ? 3 : 2);
+    }
+  });
+
+  it("prioritizes the latest onset over a shorter earlier sounding event", () => {
+    const score = buildScore(
+      [[note("C", 5, "half"), note("D", 5, "half")]],
+      [{ fermatas: [{ id: "latest", position: { fraction: [1, 4] } }] }],
+    );
+    score.parts.push({
+      name: "Later voice",
+      measures: [
+        {
+          sequences: [
+            {
+              content: [
+                { type: "event", duration: { base: "quarter" }, rest: {} },
+                note("E", 4, "half", { duration: { base: "half", dots: 1 } }),
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    expect(holds(score)[0]![0]).toMatchObject({ startBeat: 1, atBeat: 4, extraBeats: 3 });
+    expect(compilePlaybackTiming(score).duration).toBe(3.5);
+  });
+
+  it("sustains overlapping long notes through a later quarter-note driver's hold", () => {
+    const score = ensembleScore([3, 4]);
+    score.parts[1]!.measures[0]!.sequences[0]!.content = [
+      note("C", 3, "half"),
+      note("D", 3, "quarter"),
+      note("E", 3, "quarter"),
+    ];
+    expect(holds(score)[0]![0]).toMatchObject({ atBeat: 4, extraBeats: 1, startBeat: 3 });
+    const tl = generateTimeline(score);
+    expect(tl.measureStartTimes[1]).toBe(2.5);
+    expect(noteOffs(tl).find((event) => event.midiNote === 72)!.time).toBeCloseTo(2.5, PREC);
+  });
+
+  it("canonicalizes equivalent fractional positions into one hold", () => {
+    const score = buildScore(
+      [[note("C", 5, "whole")]],
+      [
+        {
+          fermatas: [
+            { id: "first", position: { fraction: [1, 2] } },
+            { id: "duplicate", position: { fraction: [2, 4] } },
+          ],
+        },
+      ],
+    );
+    expect(holds(score)[0]).toHaveLength(1);
+    expect(compilePlaybackTiming(score).duration).toBe(4);
+  });
+
+  it("keeps distinct global times separate even when a whole note bridges them", () => {
+    const score = ensembleScore();
+    score.global.measures[0]!.fermatas = [
+      { id: "first", position: { fraction: [0, 1] } },
+      { id: "last", position: { fraction: [3, 4] } },
+    ];
+    score.parts[1]!.measures[0]!.sequences[0]!.content = [
+      note("C", 3, "quarter"),
+      note("D", 3, "quarter"),
+      note("E", 3, "quarter"),
+      note("F", 3, "quarter"),
+    ];
+    expect(holds(score)[0]!.map((hold) => [hold.atBeat, hold.extraBeats])).toEqual([
+      [1, 1],
+      [4, 1],
+    ]);
+    const tl = generateTimeline(score);
+    expect(tl.measureStartTimes[1]).toBe(3);
+    expect(noteOffs(tl).find((event) => event.midiNote === 72)!.time).toBeCloseTo(3, PREC);
+    expect(noteOffs(tl).find((event) => event.midiNote === 48)!.time).toBeCloseTo(1, PREC);
+    expect(noteOns(tl).find((event) => event.midiNote === 53)!.time).toBeCloseTo(2, PREC);
+    expect(noteOffs(tl).find((event) => event.midiNote === 53)!.time).toBeCloseTo(3, PREC);
+  });
+
+  it("uses ordinary rests and full-measure rests as duration drivers", () => {
+    const score = buildScore(
+      [[{ type: "event", duration: { base: "half" }, rest: {} }], [note("D", 5, "whole")]],
+      [{ fermatas: [{ id: "rest", position: { fraction: [0, 1] } }] }],
+    );
+    expect(holds(score)[0]![0]).toMatchObject({ atBeat: 2, extraBeats: 2 });
+    expect(compilePlaybackTiming(score).measureStartTimes[1]).toBe(3);
+    score.parts[0]!.measures[0]!.sequences = [
+      {
+        content: [],
+        fullMeasure: { visualDuration: { base: "whole" } },
+      },
+    ];
+    expect(holds(score)[0]![0]).toMatchObject({ atBeat: 4, extraBeats: 4 });
+    expect(compilePlaybackTiming(score).measureStartTimes[1]).toBe(4);
+  });
+
+  it("does not let grace notes drive holds or create carriers where no timed event sounds", () => {
+    const score = buildScore(
+      [[{ type: "grace", content: [note("D", 5, "32nd")] }, note("C", 5, "whole")]],
+      [{ fermatas: [{ id: "grace", position: { fraction: [0, 1] } }] }],
+    );
+    expect(holds(score)[0]![0]).toMatchObject({ atBeat: 4, extraBeats: 4 });
+    score.parts[0]!.measures[0]!.sequences[0]!.content.pop();
+    expect(holds(score)).toEqual([[]]);
+  });
+
+  it("scales a fitMeasure staff's duration and carrier matching to the global axis", () => {
+    const score = buildScore(
+      [
+        [
+          note("C", 5, "quarter", { duration: { base: "quarter", dots: 1 } }),
+          note("D", 5, "quarter", { duration: { base: "quarter", dots: 1 } }),
+        ],
+      ],
+      [{ time: { count: 2, unit: 4 }, fermatas: [{ id: "staff", position: { fraction: [0, 1] } }] }],
+    );
+    score.parts[0]!.staves = 2;
+    score.parts[0]!.measures[0]!.staffMeters = [
+      { staff: 2, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" },
+    ];
+    score.parts[0]!.measures[0]!.sequences[0]!.staff = 2;
+    expect(holds(score)[0]![0]).toMatchObject({ atBeat: 1, extraBeats: 1 });
+    const tl = generateTimeline(score);
+    expect(noteOffs(tl)[0]!.time).toBeCloseTo(1, PREC);
+    expect(noteOns(tl)[1]!.time).toBeCloseTo(1, PREC);
+  });
+
+  it("uses the scaled duration and exact onset of a triplet eighth driver", () => {
+    const score = ensembleScore([11, 12]);
+    score.parts[1]!.measures[0]!.sequences[0]!.content = [
+      note("C", 3, "half"),
+      note("D", 3, "quarter"),
+      {
+        type: "tuplet",
+        inner: { multiple: 3, duration: { base: "eighth" } },
+        outer: { multiple: 2, duration: { base: "eighth" } },
+        content: [note("E", 3, "eighth"), note("F", 3, "eighth"), note("G", 3, "eighth")],
+      },
+    ];
+    const hold = holds(score)[0]![0]!;
+    expect(hold.startBeat).toBeCloseTo(11 / 3);
+    expect(hold.atBeat).toBeCloseTo(4);
+    expect(hold.extraBeats).toBeCloseTo(1 / 3);
+    const tl = generateTimeline(score);
+    expect(tl.measureStartTimes[1]).toBeCloseTo(2 + 1 / 6);
+    expect(noteOffs(tl).find((event) => event.midiNote === 72)!.time).toBeCloseTo(2 + 1 / 6, PREC);
+  });
+
+  it("keeps a slurred carrier ringing through its global hold", () => {
+    const score = buildScore(
+      [[note("C", 5, "half", { slurs: [{ target: "n2" }] }), note("D", 5, "half", { id: "n2" })]],
+      [{ fermatas: [{ id: "slur", position: { fraction: [0, 1] } }] }],
+    );
+    const tl = generateTimeline(score);
+    expect(noteOffs(tl).find((event) => event.midiNote === 72)!.time).toBeCloseTo(2, PREC);
+  });
+
+  it.each(["silent", "keepClicking"] satisfies ("silent" | "keepClicking")[])(
+    "exports %s click behavior with the hold timing",
+    (clickBehavior) => {
+      const score = buildScore(
+        [[note("C", 5, "whole")]],
+        [{ fermatas: [{ id: "click", position: { fraction: [0, 1] }, clickBehavior }] }],
+      );
+      const timing = compilePlaybackTiming(score);
+      expect(holds(score)[0]![0]!.clickBehavior).toBe(clickBehavior);
+      expect(timing.fermataHolds).toEqual([{ beat: 4, extraBeats: 4, clickBehavior }]);
+      expect(generateTimeline(score).fermataHolds).toEqual(timing.fermataHolds);
+    },
+  );
+
+  it("times a hold at a ritardando endpoint using the endpoint tempo", () => {
+    const score = buildScore(
+      [[note("C", 5, "whole")], [note("D", 5, "whole")]],
+      [
+        {
+          id: "m0",
+          gradualTempo: {
+            position: { fraction: [0, 1] },
+            end: { measure: "m1", position: { fraction: [0, 1] } },
+            endBpm: 60,
+          },
+          fermatas: [{ id: "rit", position: { fraction: [0, 1] } }],
+        },
+        { id: "m1", tempos: [{ bpm: 60, value: { base: "quarter" } }] },
+      ],
+    );
+    const timing = compilePlaybackTiming(score);
+    expect(timing.measureStartTimes[1]).toBeCloseTo(4 * Math.log(2) + 4, 10);
+  });
+
+  it("does not automatically copy global time anchors through a per-part simile", () => {
+    const score = buildScore(
+      [[note("C", 5, "whole", { fermata: {} })], [], [note("G", 5, "whole")]],
+      [{ fermatas: [{ id: "source", position: { fraction: [0, 1] } }] }],
+    );
+    score.parts[0]!.measures[1]!.measureRepeat = { number: 1 };
+    expect(compilePlaybackTiming(score).measureStartTimes).toEqual([0, 4, 6]);
+    score.global.measures[1]!.fermatas = [{ id: "simile", position: { fraction: [0, 1] } }];
+    expect(compilePlaybackTiming(score).measureStartTimes).toEqual([0, 4, 8]);
+  });
+
+  it("honors an explicit global fermata in a cadenza while keeping local notation visual-only", () => {
+    const score = buildScore(
+      [
+        [note("C", 5, "whole", { fermata: {} }), note("D", 5, "half", { fermata: { duration: "long" } })],
+        [note("G", 5, "whole")],
+      ],
+      [
+        {
+          time: { count: 4, unit: 4, display: "senzaMisura" },
+          fermatas: [{ id: "cadenza", position: { fraction: [1, 1] } }],
+        },
+      ],
+    );
+    expect(compilePlaybackTiming(score).measureStartTimes[1]).toBe(4);
+    const tl = generateTimeline(score);
+    expect(tl.measureStartTimes[1]).toBe(4);
+    expect(noteOffs(tl).find((event) => event.midiNote === 74)!.time).toBeCloseTo(4, PREC);
+    const native = generatePerformanceEvents(score, 0).filter((event) => event.kind === "noteOn");
+    expect(native[1]!.note.duration).toBe(2);
+    expect(native[2]!.time).toBe(4);
+  });
+});
+
+describe("generateTimeline - caesura pauses", () => {
+  it("places a 7/8 bar-rest caesura at the measure end and merges simultaneous pauses", () => {
+    const score = buildScore(
+      [[], [note("D", 5, "quarter")]],
+      [{ time: { count: 7, unit: 8 } }, { time: { count: 7, unit: 8 } }],
+    );
+    score.parts[0]!.measures[0]!.sequences = [
+      {
+        content: [],
+        fullMeasure: { visualDuration: { base: "whole" }, caesura: { style: "short" } },
+      },
+    ];
+    score.parts.push({
+      name: "Other voice",
+      measures: [
+        {
+          sequences: [
+            {
+              content: [
+                note("C", 4, "half", {
+                  duration: { base: "half", dots: 2 },
+                  markings: { caesura: { style: "short" } },
+                }),
+              ],
+            },
+          ],
+        },
+        { sequences: [{ content: [] }] },
+      ],
+    });
+
+    expect(holds(score)[0]).toEqual([{ atBeat: 3.5, extraBeats: 0.5, kind: "caesura" }]);
+    expect(noteOns(generateTimeline(score)).find((event) => event.midiNote === 74)!.time).toBeCloseTo(2, PREC);
+  });
+
   it("max-merges coincident global/event caesuras across parts and both grand staves", () => {
     const score = buildScore(
       [[note("C", 4, "whole", { markings: { caesura: { style: "short", marks: 1 } } })]],
@@ -62,581 +397,62 @@ describe("generateTimeline — fermata holds", () => {
       content: structuredClone(score.parts[0]!.measures[0]!.sequences[0]!.content),
     });
     score.parts.push(structuredClone(score.parts[0]!));
-    expect(buildHoldSchedule(score, [0], score.global.measures)).toEqual([
-      [{ atBeat: 4, extraBeats: 1, kind: "caesura" }],
-    ]);
+    expect(holds(score)).toEqual([[{ atBeat: 4, extraBeats: 1, kind: "caesura" }]]);
     score.global.measures[0]!.caesura!.marks = 1;
-    expect(buildHoldSchedule(score, [0], score.global.measures)[0]).toHaveLength(1);
+    expect(holds(score)[0]).toHaveLength(1);
     score.global.measures[0]!.caesura!.style = "short";
-    expect(buildHoldSchedule(score, [0], score.global.measures)[0]![0]!.extraBeats).toBe(0.5);
-  });
-  it("scales a fitMeasure staff's fermata span and carrier matching to the global axis", () => {
-    const score: Score = {
-      mnx: { version: 1 },
-      global: {
-        measures: [
-          {
-            time: { count: 2, unit: 4 },
-            tempos: [{ bpm: 120, value: { base: "quarter" } } as never],
-          },
-        ],
-      },
-      parts: [
-        {
-          id: "keyboard.piano",
-          name: "Piano",
-          staves: 2,
-          measures: [
-            {
-              staffMeters: [{ staff: 2, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" }],
-              sequences: [
-                {
-                  staff: 2,
-                  content: [
-                    {
-                      type: "event",
-                      duration: { base: "quarter", dots: 1 },
-                      notes: [{ pitch: { step: "C", octave: 5 } }],
-                      fermata: {},
-                    },
-                    {
-                      type: "event",
-                      duration: { base: "quarter", dots: 1 },
-                      notes: [{ pitch: { step: "D", octave: 5 } }],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        } as never,
-      ],
-    };
-
-    const tl = generateTimeline(score);
-    const firstOff = noteOffs(tl).find((event) => event.midiNote === 72)!;
-    const secondOn = noteOns(tl).find((event) => event.midiNote === 74)!;
-    expect(firstOff.time).toBeCloseTo(1, PREC);
-    expect(secondOn.time).toBeCloseTo(1, PREC);
+    expect(holds(score)[0]![0]!.extraBeats).toBe(0.5);
   });
 
-  it("extends the held note's noteOff by the fermata multiplier", () => {
-    // Whole-note C5 with a normal fermata (×2) → sounds ~2 whole notes.
-    const tl = generateTimeline(buildScore([[note("C", 5, "whole", { fermata: {} })]]));
-    const off = noteOffs(tl)[0]!;
-    // Whole note = 4 quarters = 2s; ×2 = 4s.
-    expect(off.time).toBeCloseTo(4 * Q * 2, PREC);
-  });
-
-  it("respects the fermata duration hint (long = ×2.5)", () => {
-    const tl = generateTimeline(buildScore([[note("C", 5, "whole", { fermata: { duration: "long" } })]]));
-    const off = noteOffs(tl)[0]!;
-    expect(off.time).toBeCloseTo(2.0 * 2.5, PREC); // 2s × 2.5
-  });
-
-  it("shifts a following note in the same measure by the hold", () => {
-    // Half-note C5 (fermata ×2) then half-note D5. Hold inserts 1 half = 1s.
-    const tl = generateTimeline(buildScore([[note("C", 5, "half", { fermata: {} }), note("D", 5, "half")]]));
-    const times = onsetTimes(tl);
-    // Note 1 at 0; note 2 normally at 1s, shifted by (2-1)*1s = +1s → 2s.
-    expect(times[0]).toBeCloseTo(0, PREC);
-    expect(times[1]).toBeCloseTo(2.0, PREC);
-  });
-
-  it("shifts all subsequent measures by the hold", () => {
-    // M1: whole-note C5 fermata ×2 (inserts +2s). M2: whole-note D5.
-    const tl = generateTimeline(buildScore([[note("C", 5, "whole", { fermata: {} })], [note("D", 5, "whole")]]));
-    const times = onsetTimes(tl);
-    // M2 normally at 2s; +2s hold → 4s.
-    expect(times[1]).toBeCloseTo(4.0, PREC);
-  });
-
-  it("the held noteOff meets the next note's shifted onset (no gap)", () => {
-    const tl = generateTimeline(buildScore([[note("C", 5, "half", { fermata: {} }), note("D", 5, "half")]]));
-    const off1 = noteOffs(tl).find((e) => e.midiNote === 72)!; // C5
-    const on2 = noteOns(tl).find((e) => e.midiNote === 74)!; // D5
-    expect(off1.time).toBeCloseTo(on2.time, PREC);
-  });
-
-  it("duration 'none' inserts no hold", () => {
-    const tl = generateTimeline(
-      buildScore([[note("C", 5, "half", { fermata: { duration: "none" } }), note("D", 5, "half")]]),
-    );
-    expect(onsetTimes(tl)[1]).toBeCloseTo(1.0, PREC); // unshifted
-  });
-
-  it("aligns parts: a fermata in one part shifts the other part too", () => {
-    const score: Score = {
-      mnx: { version: 1 },
-      global: {
-        measures: [
-          { time: { count: 4, unit: 4 }, tempos: [{ bpm: 120, value: { base: "quarter" } } as never] },
-          { time: { count: 4, unit: 4 } },
-        ],
-      },
-      parts: [
-        {
-          id: "p1",
-          name: "Violin",
-          measures: [
-            { sequences: [{ content: [note("C", 5, "whole", { fermata: {} })] }] },
-            { sequences: [{ content: [note("E", 5, "whole")] }] },
-          ],
-        } as never,
-        // Part 2 has NO fermata, but must still wait.
-        {
-          id: "p2",
-          name: "Cello",
-          measures: [
-            { sequences: [{ content: [note("C", 3, "whole")] }] },
-            { sequences: [{ content: [note("E", 3, "whole")] }] },
-          ],
-        } as never,
-      ],
-    };
-    const tl = generateTimeline(score, { partPrograms: [40, 42] });
-    // Both parts' measure-2 notes (E5=76, E3=52) start at 4s (2s + 2s hold).
-    const e5 = noteOns(tl).find((e) => e.midiNote === 76)!;
-    const e3 = noteOns(tl).find((e) => e.midiNote === 52)!;
-    expect(e5.time).toBeCloseTo(4.0, PREC);
-    expect(e3.time).toBeCloseTo(4.0, PREC);
-  });
-});
-
-describe("generateTimeline — caesura pauses", () => {
   it("scales a fitMeasure staff's caesura position to the global axis", () => {
-    const score: Score = {
-      mnx: { version: 1 },
-      global: {
-        measures: [
-          {
-            time: { count: 2, unit: 4 },
-            tempos: [{ bpm: 120, value: { base: "quarter" } } as never],
-          },
+    const score = buildScore(
+      [
+        [
+          note("C", 5, "quarter", { duration: { base: "quarter", dots: 1 }, markings: { caesura: {} } }),
+          note("D", 5, "quarter", { duration: { base: "quarter", dots: 1 } }),
         ],
-      },
-      parts: [
-        {
-          id: "keyboard.piano",
-          name: "Piano",
-          staves: 2,
-          measures: [
-            {
-              staffMeters: [{ staff: 2, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" }],
-              sequences: [
-                {
-                  staff: 2,
-                  content: [
-                    {
-                      type: "event",
-                      duration: { base: "quarter", dots: 1 },
-                      notes: [{ pitch: { step: "C", octave: 5 } }],
-                      markings: { caesura: {} },
-                    },
-                    {
-                      type: "event",
-                      duration: { base: "quarter", dots: 1 },
-                      notes: [{ pitch: { step: "D", octave: 5 } }],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        } as never,
       ],
-    };
-
-    const tl = generateTimeline(score);
-    const secondOn = noteOns(tl).find((event) => event.midiNote === 74)!;
-    expect(secondOn.time).toBeCloseTo(1, PREC);
+      [{ time: { count: 2, unit: 4 } }],
+    );
+    score.parts[0]!.staves = 2;
+    score.parts[0]!.measures[0]!.staffMeters = [
+      { staff: 2, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" },
+    ];
+    score.parts[0]!.measures[0]!.sequences[0]!.staff = 2;
+    expect(noteOns(generateTimeline(score))[1]!.time).toBeCloseTo(1, PREC);
   });
 
   it("inserts silence after the carrier without extending it", () => {
-    // Quarter C5 with caesura, then quarter D5. Caesura = 1 beat = 0.5s.
     const tl = generateTimeline(
       buildScore([[note("C", 5, "quarter", { markings: { caesura: {} } }), note("D", 5, "quarter")]]),
     );
-    const offC = noteOffs(tl).find((e) => e.midiNote === 72)!;
-    const onD = noteOns(tl).find((e) => e.midiNote === 74)!;
-    // Carrier C5 ends at its natural ~0.45s (0.9 scale), NOT extended.
-    expect(offC.time).toBeLessThan(Q + 0.05);
-    // D5 normally at 0.5s; +1 beat (0.5s) caesura → 1.0s.
-    expect(onD.time).toBeCloseTo(1.0, PREC);
+    expect(noteOffs(tl).find((event) => event.midiNote === 72)!.time).toBeLessThan(Q + 0.05);
+    expect(noteOns(tl).find((event) => event.midiNote === 74)!.time).toBeCloseTo(1, PREC);
   });
 
   it("a short caesura inserts half a beat", () => {
     const tl = generateTimeline(
       buildScore([[note("C", 5, "quarter", { markings: { caesura: { style: "short" } } }), note("D", 5, "quarter")]]),
     );
-    const onD = noteOns(tl).find((e) => e.midiNote === 74)!;
-    // 0.5s + 0.5 beat (0.25s) → 0.75s.
-    expect(onD.time).toBeCloseTo(0.75, PREC);
+    expect(noteOns(tl).find((event) => event.midiNote === 74)!.time).toBeCloseTo(0.75, PREC);
   });
 
   it("a global measure caesura pauses at the measure end", () => {
-    // M1 four quarters + global caesura; M2 one whole note.
     const tl = generateTimeline(
       buildScore(
         [
           [note("C", 5, "quarter"), note("C", 5, "quarter"), note("C", 5, "quarter"), note("C", 5, "quarter")],
           [note("D", 5, "whole")],
         ],
-        [{ caesura: {} }, {}],
+        [{ caesura: {} }],
       ),
     );
-    const onD = noteOns(tl).find((e) => e.midiNote === 74)!;
-    // M2 normally at 2s; +1 beat (0.5s) → 2.5s.
-    expect(onD.time).toBeCloseTo(2.5, PREC);
+    expect(noteOns(tl).find((event) => event.midiNote === 74)!.time).toBeCloseTo(2.5, PREC);
   });
 
-  it("no holds → onsets are unchanged", () => {
-    const tl = generateTimeline(buildScore([[note("C", 5, "half"), note("D", 5, "half")]]));
-    const times = onsetTimes(tl);
-    expect(times[0]).toBeCloseTo(0, PREC);
-    expect(times[1]).toBeCloseTo(1.0, PREC);
-  });
-});
-
-describe("generateTimeline — mixed-duration fermatas (ensemble alignment)", () => {
-  // When a bar carries fermatas on notes of different durations, the SHORTEST
-  // fermata'd note drives the hold (it reveals the true ensemble hold); the
-  // longer fermata'd notes merely coexist as a hint and sustain to the same
-  // release. They must NOT each double their own (long) duration.
-  function mixedFermataScore(): Score {
-    return {
-      mnx: { version: 1 },
-      global: {
-        measures: [
-          { time: { count: 4, unit: 4 }, tempos: [{ bpm: 120, value: { base: "quarter" } } as never] },
-          { time: { count: 4, unit: 4 } },
-        ],
-      },
-      parts: [
-        {
-          id: "vln",
-          name: "Violin",
-          measures: [
-            { sequences: [{ content: [note("C", 5, "whole", { fermata: {} })] }] },
-            { sequences: [{ content: [note("G", 5, "whole")] }] },
-          ],
-        } as never,
-        {
-          id: "vc",
-          name: "Cello",
-          // Half-note fermata (beats 0–2), then a half rest (beats 2–4).
-          measures: [
-            {
-              sequences: [
-                {
-                  content: [
-                    note("C", 3, "half", { fermata: {} }),
-                    { type: "event", duration: { base: "half" }, rest: {} },
-                  ],
-                },
-              ],
-            },
-            { sequences: [{ content: [note("G", 3, "whole")] }] },
-          ],
-        } as never,
-      ],
-    };
-  }
-
-  it("drives the hold from the SHORTEST fermata, not the longest", () => {
-    const tl = generateTimeline(mixedFermataScore(), { partPrograms: [40, 42] });
-    // Shortest fermata = the half note (2 beats ×2 → +2 beats = +1s). The whole
-    // note must NOT double its own 4 beats. M2 onset: 2s + 1s = 3s.
-    const g5 = noteOns(tl).find((e) => e.midiNote === 79)!; // G5, part 1 M2
-    const g3 = noteOns(tl).find((e) => e.midiNote === 55)!; // G3, part 2 M2
-    expect(g5.time).toBeCloseTo(3.0, PREC);
-    expect(g3.time).toBeCloseTo(3.0, PREC);
-  });
-
-  it("extends each fermata note IN PLACE, not to a unified bar-end release", () => {
-    const tl = generateTimeline(mixedFermataScore(), { partPrograms: [40, 42] });
-    const offC5 = noteOffs(tl).find((e) => e.midiNote === 72)!; // C5 whole (part 1)
-    const offC3 = noteOffs(tl).find((e) => e.midiNote === 48)!; // C3 half (part 2)
-    // The hold (+2 beats = 1s) is inserted at the DRIVING half note's end (beat
-    // 2). The half note (driver) is held ~×2 in place → ends at beat 4 = 2s.
-    // The whole note rings THROUGH the inserted hold → its natural 2s + 1s = 3s.
-    // They do NOT cut to a single common release; each extends where it sits.
-    expect(offC3.time).toBeCloseTo(2.0, PREC);
-    expect(offC5.time).toBeCloseTo(3.0, PREC);
-  });
-
-  it("a short fermata inside held whole notes holds only its own length", () => {
-    // Canonical case: most parts hold a whole-note fermata; one part subdivides
-    // the bar and fermatas the LAST quarter. The hold is one doubled quarter
-    // (+1 beat), NOT a doubled whole note (+4 beats). All resolve at the bar end.
-    const score: Score = {
-      mnx: { version: 1 },
-      global: {
-        measures: [
-          { time: { count: 4, unit: 4 }, tempos: [{ bpm: 120, value: { base: "quarter" } } as never] },
-          { time: { count: 4, unit: 4 } },
-        ],
-      },
-      parts: [
-        {
-          id: "held",
-          name: "Violin",
-          measures: [
-            { sequences: [{ content: [note("C", 5, "whole", { fermata: {} })] }] },
-            { sequences: [{ content: [note("G", 5, "whole")] }] },
-          ],
-        } as never,
-        {
-          id: "subdiv",
-          name: "Viola",
-          measures: [
-            {
-              sequences: [
-                {
-                  content: [
-                    note("E", 4, "quarter"),
-                    note("E", 4, "quarter"),
-                    note("E", 4, "quarter"),
-                    note("E", 4, "quarter", { fermata: {} }),
-                  ],
-                },
-              ],
-            },
-            { sequences: [{ content: [note("G", 4, "whole")] }] },
-          ],
-        } as never,
-      ],
-    };
-    const tl = generateTimeline(score, { partPrograms: [40, 41] });
-    // Quarter fermata ×2 → +1 beat (0.5s). M2 onset: 2s + 0.5s = 2.5s.
-    const g5 = noteOns(tl).find((e) => e.midiNote === 79)!;
-    const g4 = noteOns(tl).find((e) => e.midiNote === 67)!;
-    expect(g5.time).toBeCloseTo(2.5, PREC);
-    expect(g4.time).toBeCloseTo(2.5, PREC);
-    // The held whole note resolves at the same 2.5s — it is NOT doubled to 4s.
-    const offC5 = noteOffs(tl).find((e) => e.midiNote === 72)!;
-    expect(offC5.time).toBeCloseTo(2.5, PREC);
-  });
-
-  it("uses the shortest note's own fermata-duration hint", () => {
-    // Part 1: half note, LONG fermata (×2.5). Part 2: whole note, normal (×2).
-    // The half is the shortest, so its ×2.5 drives: (2.5-1)×2 beats = +3 beats
-    // = +1.5s. M2 onset: 2s + 1.5s = 3.5s. (Old "longest extension" rule gave 4s.)
-    const score: Score = {
-      mnx: { version: 1 },
-      global: {
-        measures: [
-          { time: { count: 4, unit: 4 }, tempos: [{ bpm: 120, value: { base: "quarter" } } as never] },
-          { time: { count: 4, unit: 4 } },
-        ],
-      },
-      parts: [
-        {
-          id: "a",
-          name: "Violin",
-          measures: [
-            {
-              sequences: [
-                {
-                  content: [
-                    note("C", 5, "half", { fermata: { duration: "long" } }),
-                    { type: "event", duration: { base: "half" }, rest: {} },
-                  ],
-                },
-              ],
-            },
-            { sequences: [{ content: [note("G", 5, "whole")] }] },
-          ],
-        } as never,
-        {
-          id: "b",
-          name: "Viola",
-          measures: [
-            { sequences: [{ content: [note("C", 4, "whole", { fermata: {} })] }] },
-            { sequences: [{ content: [note("G", 4, "whole")] }] },
-          ],
-        } as never,
-      ],
-    };
-    const tl = generateTimeline(score, { partPrograms: [40, 41] });
-    const g5 = noteOns(tl).find((e) => e.midiNote === 79)!;
-    const g4 = noteOns(tl).find((e) => e.midiNote === 67)!;
-    expect(g5.time).toBeCloseTo(3.5, PREC);
-    expect(g4.time).toBeCloseTo(3.5, PREC);
-  });
-});
-
-describe("generateTimeline — fermata grouping by overlapping spans", () => {
-  it("two non-overlapping fermatas in one bar insert TWO separate holds", () => {
-    // Bar: quarter fermata (beat 0), two quarters, quarter fermata (beat 3),
-    // then a follow-up bar. The two fermatas don't overlap → two distinct holds
-    // of +1 beat each (0.5s). M2 onset: 2s + 0.5 + 0.5 = 3.0s.
-    const tl = generateTimeline(
-      buildScore([
-        [
-          note("C", 5, "quarter", { fermata: {} }),
-          note("D", 5, "quarter"),
-          note("E", 5, "quarter"),
-          note("F", 5, "quarter", { fermata: {} }),
-        ],
-        [note("G", 5, "whole")],
-      ]),
-    );
-    const onsets = onsetTimes(tl);
-    // Note 1 (beat0) at 0. Note 2 (beat1): shifted by hold1 (+0.5) → 1.0s.
-    expect(onsets[1]).toBeCloseTo(1.0, PREC);
-    // M2 (G5) after both holds: 2s + 0.5 + 0.5 = 3.0s.
-    const g5 = noteOns(tl).find((e) => e.midiNote === 79)!;
-    expect(g5.time).toBeCloseTo(3.0, PREC);
-  });
-
-  it("each disjoint fermata carrier resumes at its OWN group", () => {
-    const tl = generateTimeline(
-      buildScore([
-        [
-          note("C", 5, "quarter", { fermata: {} }),
-          note("D", 5, "quarter"),
-          note("E", 5, "quarter"),
-          note("F", 5, "quarter", { fermata: {} }),
-        ],
-      ]),
-    );
-    // First fermata quarter (C5=72) doubles in place: ends at ~1.0s (0.5 + 0.5 hold).
-    const offC = noteOffs(tl).find((e) => e.midiNote === 72)!;
-    expect(offC.time).toBeCloseTo(1.0, PREC);
-    // Last fermata quarter (F5=77): onset at beat3 shifted by hold1 (+0.5) → 2.0s;
-    // its own ×2 hold doubles its 0.5s length → ends at 3.0s.
-    const onF = noteOns(tl).find((e) => e.midiNote === 77)!;
-    const offF = noteOffs(tl).find((e) => e.midiNote === 77)!;
-    expect(onF.time).toBeCloseTo(2.0, PREC);
-    expect(offF.time).toBeCloseTo(3.0, PREC);
-  });
-
-  it("an overlapping (bridged) span stays ONE hold", () => {
-    // Whole-note fermata spans the whole bar; a quarter fermata on beat 3 sits
-    // under it → they overlap → ONE group. Shortest (quarter ×2) drives: +1 beat.
-    const score: Score = {
-      mnx: { version: 1 },
-      global: {
-        measures: [
-          { time: { count: 4, unit: 4 }, tempos: [{ bpm: 120, value: { base: "quarter" } } as never] },
-          { time: { count: 4, unit: 4 } },
-        ],
-      },
-      parts: [
-        {
-          id: "held",
-          name: "Violin",
-          measures: [
-            { sequences: [{ content: [note("C", 5, "whole", { fermata: {} })] }] },
-            { sequences: [{ content: [note("G", 5, "whole")] }] },
-          ],
-        } as never,
-        {
-          id: "sub",
-          name: "Viola",
-          measures: [
-            {
-              sequences: [
-                {
-                  content: [
-                    note("E", 4, "quarter"),
-                    note("E", 4, "quarter"),
-                    note("E", 4, "quarter"),
-                    note("E", 4, "quarter", { fermata: {} }),
-                  ],
-                },
-              ],
-            },
-            { sequences: [{ content: [note("G", 4, "whole")] }] },
-          ],
-        } as never,
-      ],
-    };
-    const tl = generateTimeline(score, { partPrograms: [40, 41] });
-    // Single merged group, +1 beat (0.5s). M2 at 2s + 0.5 = 2.5s (NOT 3.0s).
-    const g5 = noteOns(tl).find((e) => e.midiNote === 79)!;
-    expect(g5.time).toBeCloseTo(2.5, PREC);
-  });
-
-  it("a fermata on a note INSIDE a tuplet drives the (scaled) shortest hold", () => {
-    // Mirrors the Rhapsody clarinet bar before reh. 1: most parts hold a
-    // whole-note fermata [0,4), while the clarinet solo's fermata sits on a
-    // triplet eighth (3 eighths in the space of 2 → each ~0.333 beats) at the
-    // back half of the bar. The triplet eighth is the SHORTEST span and must
-    // drive the hold: +(2-1)*0.333 = +0.333 beats (≈0.167s), NOT the whole bar.
-    const score: Score = {
-      mnx: { version: 1 },
-      global: {
-        measures: [
-          { time: { count: 4, unit: 4 }, tempos: [{ bpm: 120, value: { base: "quarter" } } as never] },
-          { time: { count: 4, unit: 4 } },
-        ],
-      },
-      parts: [
-        {
-          id: "held",
-          name: "Violin",
-          measures: [
-            { sequences: [{ content: [note("C", 5, "whole", { fermata: {} })] }] },
-            { sequences: [{ content: [note("B", 5, "whole")] }] },
-          ],
-        } as never,
-        {
-          id: "clarinet",
-          name: "Clarinet",
-          measures: [
-            {
-              sequences: [
-                {
-                  content: [
-                    note("C", 5, "half"),
-                    note("D", 5, "quarter"),
-                    {
-                      type: "tuplet",
-                      inner: { multiple: 3, duration: { base: "eighth" } },
-                      outer: { multiple: 2, duration: { base: "eighth" } },
-                      content: [
-                        note("E", 5, "eighth"),
-                        note("F", 5, "eighth"),
-                        note("G", 5, "eighth", { fermata: {} }),
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-            { sequences: [{ content: [note("B", 4, "whole")] }] },
-          ],
-        } as never,
-      ],
-    };
-    const tl = generateTimeline(score, { partPrograms: [40, 41] });
-    // Triplet eighth ≈ 0.333 beats; ×2 hold = +0.333 beats = +0.167s.
-    // M2 onset: 2s + 0.167s ≈ 2.17s. Crucially NOT 4s (whole-note doubled).
-    // M2 uses B (83/71) so it isn't confused with the M1 triplet G5 (79).
-    const b5 = noteOns(tl).find((e) => e.midiNote === 83)!;
-    expect(b5.time).toBeCloseTo(2.17, PREC);
-    expect(b5.time).toBeLessThan(2.5);
-  });
-
-  it("a SLURRED fermata note still rings through its hold (slur doesn't pin it)", () => {
-    // A fermata note that is also the start of a slur must hold for its
-    // extended (fermata) duration — the legato resolver must NOT pin its
-    // release to the next note's onset (which would drop the held time).
-    const tl = generateTimeline(
-      buildScore([
-        [
-          note("C", 5, "half", { fermata: {}, slurs: [{ target: "n2" }] }),
-          { type: "event", duration: { base: "half" }, id: "n2", notes: [{ pitch: { step: "D", octave: 5 } }] },
-        ],
-      ]),
-    );
-    // Half note (2 beats = 1s) ×2 fermata → rings ~2s (its 1s + 1s hold).
-    const onC = noteOns(tl).find((e) => e.midiNote === 72)!;
-    const offC = noteOffs(tl).find((e) => e.midiNote === 72)!;
-    expect(onC.time).toBeCloseTo(0, PREC);
-    // Held duration ≈ 2s — NOT cut to ~1s (the next note's onset).
-    expect(offC.time - onC.time).toBeCloseTo(2.0, PREC);
+  it("no holds leave onsets unchanged", () => {
+    const ons = noteOns(generateTimeline(buildScore([[note("C", 5, "half"), note("D", 5, "half")]])));
+    expect(ons[0]!.time).toBeCloseTo(0, PREC);
+    expect(ons[1]!.time).toBeCloseTo(1, PREC);
   });
 });

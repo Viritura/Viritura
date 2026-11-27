@@ -24,6 +24,8 @@ export interface LoadMusicFontOptions {
    * that the host registers itself.
    */
   readonly textFont?: boolean;
+  /** Register the fonts in another document, such as a picture-in-picture window. */
+  readonly targetFonts?: FontFaceSet;
 }
 
 interface FaceSpec {
@@ -62,6 +64,21 @@ const TEXT_FACES: readonly FaceSpec[] = [
   })),
 ];
 
+async function loadFaces(faces: readonly FaceSpec[], target: FontFaceSet): Promise<FontLoadResult> {
+  const basePath = resolveBasePath();
+  const results = await Promise.allSettled(faces.map((face) => face.create(basePath).load()));
+  const failed: string[] = [];
+  for (const [i, result] of results.entries()) {
+    if (result.status === "fulfilled") {
+      target.add(result.value);
+    } else {
+      failed.push(faces[i]!.name);
+      console.warn(`Failed to load ${faces[i]!.name} font:`, result.reason);
+    }
+  }
+  return { failed };
+}
+
 /**
  * Loads a set of faces once. A result is cached only when the required face
  * loaded, so a failed fetch (network, CSP, wrong asset base) can be retried.
@@ -69,20 +86,7 @@ const TEXT_FACES: readonly FaceSpec[] = [
 function faceGroupLoader(faces: readonly FaceSpec[], required: string | null): () => Promise<FontLoadResult> {
   let loaded = false;
   let pending: Promise<FontLoadResult> | null = null;
-  const load = async (): Promise<FontLoadResult> => {
-    const basePath = resolveBasePath();
-    const results = await Promise.allSettled(faces.map((face) => face.create(basePath).load()));
-    const failed: string[] = [];
-    for (const [i, result] of results.entries()) {
-      if (result.status === "fulfilled") {
-        document.fonts.add(result.value);
-      } else {
-        failed.push(faces[i]!.name);
-        console.warn(`Failed to load ${faces[i]!.name} font:`, result.reason);
-      }
-    }
-    return { failed };
-  };
+  const load = () => loadFaces(faces, document.fonts);
   return async () => {
     if (loaded) return { failed: [] };
     if (pending) return pending;
@@ -109,6 +113,9 @@ const loadTextFaces = faceGroupLoader(TEXT_FACES, null);
  * default, the bundled text and rehearsal fonts so Canvas can use them.
  */
 export async function loadMusicFont(opts: LoadMusicFontOptions = {}): Promise<FontLoadResult> {
+  if (opts.targetFonts && (typeof document === "undefined" || opts.targetFonts !== document.fonts)) {
+    return loadFaces(opts.textFont === false ? MUSIC_FACES : [...MUSIC_FACES, ...TEXT_FACES], opts.targetFonts);
+  }
   const groups = opts.textFont === false ? [loadMusicFaces()] : [loadMusicFaces(), loadTextFaces()];
   const results = await Promise.all(groups);
   return { failed: results.flatMap((result) => result.failed) };

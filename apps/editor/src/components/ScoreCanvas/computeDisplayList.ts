@@ -8,6 +8,8 @@ import { PX_PER_MM } from "./constants";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import { projectHiddenRestsForWrite, scoreHasHiddenRests, tintHiddenRestPlaceholders } from "./hiddenRestProjection";
 import { recordRenderedStaffSources } from "./renderedStaffSources";
+import { sourcePartMnx } from "./sourcePartProjection";
+import { scorePitchMnx } from "./scorePitchProjection";
 
 interface ComputeDisplayListArgs {
   mnxJson: string;
@@ -15,6 +17,8 @@ interface ComputeDisplayListArgs {
   scoreIdx: number;
   patchInfo?: PatchInfo;
   partIndex: number;
+  sourcePartIndex?: number;
+  useWrittenOverride?: boolean;
   viewMode: ViewMode;
   selectedPartIds: string[] | undefined;
   expandedCondensingStaves: Set<string> | undefined;
@@ -23,6 +27,7 @@ interface ComputeDisplayListArgs {
   perfTracker: PerfTracker;
   setLayoutPerfDebug: (info: Record<string, unknown>) => void;
   pageSetupRef: { current: PageSetup };
+  pageSetupOverride?: PageSetup;
   showHiddenRests: boolean;
 }
 
@@ -50,8 +55,9 @@ function resolvePageSetup(
   scoreIdx: number,
   viewMode: ViewMode,
   pageSetupRef: { current: PageSetup },
+  pageSetupOverride?: PageSetup,
 ): { sp: number; pageWidthPx: number; pageSetupJson: string } {
-  const ps = resolveScorePageSetup(score, scoreIdx);
+  const ps = pageSetupOverride ?? resolveScorePageSetup(score, scoreIdx);
   pageSetupRef.current = ps;
 
   const sp = ps.spatiumMm * PX_PER_MM;
@@ -84,13 +90,35 @@ export function tryRelayoutScoreView(args: {
   score: Score | null;
   engine: LayoutBackend | null;
   pageSetupRef: { current: PageSetup };
+  pageSetupOverride?: PageSetup;
+  sourcePartIndex?: number;
+  useWrittenOverride?: boolean;
 }): Promise<DisplayList | null> {
-  const { scoreIdx, viewMode, selectedPartIds, expandedCondensingStaves, score, engine, pageSetupRef } = args;
+  const {
+    scoreIdx,
+    viewMode,
+    selectedPartIds,
+    expandedCondensingStaves,
+    score,
+    engine,
+    pageSetupRef,
+    pageSetupOverride,
+    sourcePartIndex,
+    useWrittenOverride,
+  } = args;
   if (!engine || !engine.hasRetainedScore()) return Promise.resolve(null);
+  if (sourcePartIndex !== undefined) return Promise.resolve(null);
+  if (useWrittenOverride !== undefined) return Promise.resolve(null);
   if (scoreHasHiddenRests(score)) return Promise.resolve(null);
   if (selectedPartIds && selectedPartIds.length >= 1) return Promise.resolve(null);
   if (expandedCondensingStaves && expandedCondensingStaves.size > 0) return Promise.resolve(null);
-  const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(score, scoreIdx, viewMode, pageSetupRef);
+  const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(
+    score,
+    scoreIdx,
+    viewMode,
+    pageSetupRef,
+    pageSetupOverride,
+  );
   return engine
     .relayoutRetainedScore(sp, pageWidthPx, pageSetupJson, scoreIdx)
     .then((displayList) => (displayList ? recordRenderedStaffSources(displayList, score) : null));
@@ -135,6 +163,37 @@ export async function prewarmPatchChain(args: {
   await engine.applyPatchAndLayout("{}", sp, pageWidthPx, pageSetupJson, scoreIdx);
 }
 
+function projectLayoutJson(args: ComputeDisplayListArgs): string {
+  const {
+    mnxJson,
+    scoreIdx,
+    patchInfo,
+    sourcePartIndex,
+    useWrittenOverride,
+    selectedPartIds,
+    expandedCondensingStaves,
+    showHiddenRests,
+  } = args;
+
+  // Incremental edits intentionally pass an empty `mnxJson`; their patch
+  // contains the changed measures and the fallback callback provides the
+  // complete immutable document. Projection rewrites (selection filtering and
+  // condensed expansion) need that complete document before they can inject
+  // synthetic layout content.
+  const needsFullJson =
+    useWrittenOverride !== undefined ||
+    sourcePartIndex !== undefined ||
+    (selectedPartIds?.length ?? 0) > 0 ||
+    (expandedCondensingStaves?.size ?? 0) > 0 ||
+    (patchInfo !== undefined && patchInfo.prebuiltPatchJson === undefined);
+  const sourceJson = needsFullJson ? (patchInfo?.fallbackJson?.() ?? mnxJson) : mnxJson;
+  const pitchJson =
+    useWrittenOverride !== undefined && sourcePartIndex === undefined
+      ? scorePitchMnx(sourceJson, scoreIdx, useWrittenOverride)
+      : sourceJson;
+  return showHiddenRests ? projectHiddenRestsForWrite(pitchJson) : pitchJson;
+}
+
 /**
  * Resolve active page setup, build the WASM page-setup JSON, apply
  * staff-filter / condensing-expansion injections, and dispatch to
@@ -143,11 +202,12 @@ export async function prewarmPatchChain(args: {
  */
 export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<DisplayList> {
   const {
-    mnxJson,
     info,
     scoreIdx,
     patchInfo,
     partIndex,
+    sourcePartIndex,
+    useWrittenOverride,
     viewMode,
     selectedPartIds,
     expandedCondensingStaves,
@@ -156,26 +216,20 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
     perfTracker,
     setLayoutPerfDebug,
     pageSetupRef,
+    pageSetupOverride,
     showHiddenRests,
   } = args;
 
-  const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(score, scoreIdx, viewMode, pageSetupRef);
+  const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(
+    score,
+    scoreIdx,
+    viewMode,
+    pageSetupRef,
+    pageSetupOverride,
+  );
+  if (!engine) return Promise.reject(new Error("Layout backend not ready"));
 
-  if (!engine) {
-    return Promise.reject(new Error("Layout backend not ready"));
-  }
-
-  // Incremental edits intentionally pass an empty `mnxJson`; their patch
-  // contains the changed measures and the fallback callback provides the
-  // complete immutable document. Projection rewrites (selection filtering and
-  // condensed expansion) need that complete document before they can inject
-  // synthetic layout content.
-  const needsFullJson =
-    (selectedPartIds?.length ?? 0) > 0 ||
-    (expandedCondensingStaves?.size ?? 0) > 0 ||
-    (patchInfo !== undefined && patchInfo.prebuiltPatchJson === undefined);
-  const sourceJson = needsFullJson ? (patchInfo?.fallbackJson?.() ?? mnxJson) : mnxJson;
-  const layoutJson = showHiddenRests ? projectHiddenRestsForWrite(sourceJson) : sourceJson;
+  const layoutJson = projectLayoutJson(args);
   const layoutPatchInfo =
     showHiddenRests && patchInfo
       ? {
@@ -192,6 +246,19 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
     promise.then((displayList) =>
       recordRenderedStaffSources(showHiddenRests ? tintHiddenRestPlaceholders(displayList) : displayList, score),
     );
+
+  if (sourcePartIndex !== undefined) {
+    const json = sourcePartMnx(layoutJson, sourcePartIndex, useWrittenOverride);
+    const part = score?.parts[sourcePartIndex];
+    return engine
+      .computeMnxScoreLayout(json, sp, pageWidthPx, 0, pageSetupJson)
+      .then((displayList) =>
+        recordRenderedStaffSources(
+          showHiddenRests ? tintHiddenRestPlaceholders(displayList) : displayList,
+          score && part ? { ...score, parts: [part] } : null,
+        ),
+      );
+  }
 
   // Staff filter: inject synthetic layout when staves are ctrl/shift-selected
   if (selectedPartIds && selectedPartIds.length >= 1) {
@@ -211,6 +278,10 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
   if (expandedCondensingStaves && expandedCondensingStaves.size > 0) {
     const expandedJson = injectExpandedStaves(layoutJson, scoreIdx, expandedCondensingStaves);
     return finish(engine.computeMnxScoreLayout(expandedJson, sp, pageWidthPx, scoreIdx, pageSetupJson));
+  }
+
+  if (useWrittenOverride !== undefined) {
+    return finish(engine.computeMnxScoreLayout(layoutJson, sp, pageWidthPx, scoreIdx, pageSetupJson));
   }
 
   return finish(

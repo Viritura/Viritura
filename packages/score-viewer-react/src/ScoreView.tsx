@@ -38,7 +38,7 @@ interface ScorePlayheadProps {
   beat?: number;
   position?: { readonly measureIndex: number; readonly beat: number };
   partId?: string;
-  follow?: boolean;
+  follow?: boolean | "page";
   render?: (pos: { x: number; y: number; height: number }) => ReactNode;
   className?: string;
   style?: CSSProperties;
@@ -55,8 +55,12 @@ function ScorePlayhead({ beat, position, partId, follow, render, className, styl
   const left = geometry && page ? page.x + geometry.x * zoom : 0;
   const top = geometry && page ? page.y + geometry.y * zoom : 0;
   const height = geometry ? geometry.height * zoom : 0;
+  const geometryPage = geometry?.page;
   useEffect(() => {
-    if (!follow || !viewer || !geometry) return;
+    if (follow === "page" && viewer && geometryPage != null) viewer.scrollToPage(geometryPage);
+  }, [follow, viewer, geometryPage, pagePositions, zoom]);
+  useEffect(() => {
+    if (follow !== true || !viewer || !geometry) return;
     const viewport = viewer.viewport;
     if (left < viewport.scrollLeft || left > viewport.scrollLeft + viewport.clientWidth) {
       viewport.scrollTo({ left: Math.max(0, left - viewport.clientWidth / 3) });
@@ -72,7 +76,7 @@ function ScorePlayhead({ beat, position, partId, follow, render, className, styl
     top,
     height,
     zIndex: 5,
-    color: "#e34935",
+    color: "var(--brand, #215e4e)",
     pointerEvents: "none",
     ...style,
   };
@@ -87,6 +91,7 @@ function ScorePlayhead({ beat, position, partId, follow, render, className, styl
 function ScoreViewComponent({
   mnx,
   assetBaseUrl,
+  useWorker = false,
   pageWidth = 800,
   pageHeight,
   pageMargins,
@@ -114,6 +119,7 @@ function ScoreViewComponent({
 }: ScoreViewProps) {
   const container = useRef<HTMLDivElement>(null);
   const handle = useRef<ScoreViewerHandle | null>(null);
+  const defaultPadding = useRef("");
   const callbacks = useRef({ onReady, onPaint, onError, pageClassName, pageStyle });
   useEffect(() => {
     callbacks.current = { onReady, onPaint, onError, pageClassName, pageStyle };
@@ -128,6 +134,7 @@ function ScoreViewComponent({
     if (!container.current) return;
     const mounted = mountScore(container.current, mnx, {
       assetBaseUrl,
+      useWorker,
       pageWidth,
       pageHeight,
       pageMargins,
@@ -164,6 +171,7 @@ function ScoreViewComponent({
       },
     });
     handle.current = mounted;
+    defaultPadding.current = mounted.viewport.style.padding;
     if (bare) mounted.viewport.style.padding = "0";
     setViewer(mounted);
     return () => {
@@ -173,6 +181,11 @@ function ScoreViewComponent({
     // Mount exactly once. Subsequent score/option changes use the handle.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- imperative viewer lifecycle is owned by the mount
   }, []);
+
+  useEffect(() => {
+    const viewport = handle.current?.viewport;
+    viewport?.style.setProperty("padding", bare ? "0" : defaultPadding.current);
+  }, [bare]);
 
   useEffect(() => {
     if (firstMnxEffect.current) {
@@ -193,6 +206,7 @@ function ScoreViewComponent({
   useEffect(() => {
     handle.current?.setOptions({
       assetBaseUrl,
+      useWorker,
       pageWidth,
       pageHeight,
       pageMargins,
@@ -209,6 +223,7 @@ function ScoreViewComponent({
     });
   }, [
     assetBaseUrl,
+    useWorker,
     pageWidth,
     pageHeight,
     pageMargins?.top,

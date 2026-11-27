@@ -3,7 +3,10 @@ use crate::layout::text_styles::TextStyle;
 use crate::model::{InstrumentNameDisplayPolicy, InstrumentNameDisplaySettings};
 use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
 mod active_names;
-pub(super) use active_names::{staves_at as active_staves_at, variants as label_variants};
+pub(super) use active_names::{
+    dependency_salt as label_dependency_salt, groups_at as active_groups_at, resolve_components,
+    staves_at as active_staves_at,
+};
 
 /// Color used for expansion source staves — blue-tinted gray derived from primary accent #2a7bc8.
 pub(super) const EXPANSION_COLOR: &str = "#667890";
@@ -96,6 +99,66 @@ pub(super) fn policy_for_system(
     })
 }
 
+pub(super) fn label_snapshots(
+    staves: &[FlatStaff],
+    groups: &[GroupRange],
+    score: &crate::model::Score,
+) -> Vec<(Vec<FlatStaff>, Vec<GroupRange>)> {
+    active_names::change_indices(score)
+        .into_iter()
+        .map(|index| {
+            (
+                active_staves_at(staves, score, index),
+                active_groups_at(groups, score, index),
+            )
+        })
+        .collect()
+}
+
+/// Place nested group labels to the left of the staff and inner-group labels.
+pub(super) fn label_column_layout(
+    staves: &[FlatStaff],
+    groups: &[GroupRange],
+    is_first_system: bool,
+    policy: Option<InstrumentNameDisplayPolicy>,
+    sp: f64,
+    style: &TextStyle,
+) -> (f64, Vec<f64>) {
+    let staff_width = staves
+        .iter()
+        .filter_map(|staff| {
+            label_text(staff, is_first_system, policy)
+                .map(|label| label_gutter_extent(label, &staff.condensed_numbers, sp, style))
+        })
+        .fold(0.0_f64, f64::max);
+    let gap = 0.5 * sp;
+    let mut offsets = vec![0.0; groups.len()];
+    let mut ends: Vec<Option<f64>> = vec![None; groups.len()];
+    let mut extent = staff_width;
+    for (index, group) in groups.iter().enumerate() {
+        let Some(label) = group_label_text(group, is_first_system, policy) else {
+            continue;
+        };
+        let mut offset = if staff_width > 0.0 {
+            staff_width + gap
+        } else {
+            0.0
+        };
+        for (inner_index, inner) in groups[..index].iter().enumerate() {
+            if inner.first_staff >= group.first_staff && inner.last_staff <= group.last_staff {
+                if let Some(end) = ends[inner_index] {
+                    offset = offset.max(end + gap);
+                }
+            }
+        }
+        let end = offset + label_gutter_extent(label, &[], sp, style);
+        offsets[index] = offset;
+        ends[index] = Some(end);
+        extent = extent.max(end);
+    }
+    (extent, offsets)
+}
+
 /// Instrument-label gutters for first and subsequent authored systems.
 pub(super) fn explicit_label_margins(
     system_flat_staves: &[(Vec<FlatStaff>, Vec<GroupRange>)],
@@ -106,37 +169,13 @@ pub(super) fn explicit_label_margins(
 ) -> (f64, f64) {
     let variants: Vec<_> = system_flat_staves
         .iter()
-        .map(|(staves, groups)| (label_variants(staves, score), groups.clone()))
+        .flat_map(|(staves, groups)| label_snapshots(staves, groups, score))
         .collect();
-    let system_flat_staves = &variants;
-    let margin = |policy: Option<InstrumentNameDisplayPolicy>,
-                  is_first_system: bool,
-                  include_group_labels: bool| {
-        let widest = system_flat_staves
+    let margin = |policy: Option<InstrumentNameDisplayPolicy>, is_first_system: bool| {
+        let widest = variants
             .iter()
-            .filter(|(staves, _)| staves.len() > 1)
-            .flat_map(|(staves, groups)| {
-                staves
-                    .iter()
-                    .filter_map(move |staff| {
-                        label_text(staff, is_first_system, policy)
-                            .map(|label| (label, &staff.condensed_numbers))
-                    })
-                    .map(|(label, numbers)| label_gutter_extent(label, numbers, sp, label_style))
-                    .chain(
-                        (include_group_labels
-                            && policy != Some(InstrumentNameDisplayPolicy::Hidden))
-                        .then_some(groups)
-                        .into_iter()
-                        .flatten()
-                        .filter_map(|group| {
-                            group
-                                .label
-                                .as_deref()
-                                .map(|label| label_gutter_extent(label, &[], sp, label_style))
-                        }),
-                    )
-                    .collect::<Vec<_>>()
+            .map(|(staves, groups)| {
+                label_column_layout(staves, groups, is_first_system, policy, sp, label_style).0
             })
             .fold(0.0_f64, f64::max);
         if widest > 0.0 {
@@ -146,8 +185,8 @@ pub(super) fn explicit_label_margins(
         }
     };
     (
-        margin(settings.map(|value| value.first_system), true, true),
-        margin(settings.map(|value| value.subsequent_systems), false, false),
+        margin(settings.map(|value| value.first_system), true),
+        margin(settings.map(|value| value.subsequent_systems), false),
     )
 }
 
@@ -184,14 +223,12 @@ pub(super) fn render_staff_labels(
             index >= group.first_staff && index <= group.last_staff && group.symbol == "brace"
         });
         let shared_part_brace = containing_brace.filter(|group| {
-            group.label.is_none()
+            group_label_text(group, is_first_system, policy).is_none()
                 && group.first_staff < group.last_staff
                 && staves_share_single_part(flat_staves, group)
                 && staves_share_label(flat_staves, group, is_first_system, policy)
         });
-        if containing_brace.is_some_and(|group| group.label.is_some())
-            || shared_part_brace.is_some_and(|group| index != group.first_staff)
-        {
+        if shared_part_brace.is_some_and(|group| index != group.first_staff) {
             continue;
         }
 
@@ -304,6 +341,23 @@ pub(super) fn label_text(
             .short_label
             .as_deref()
             .or(flat_staff.label.as_deref()),
+    }
+}
+
+pub(super) fn group_label_text(
+    group: &GroupRange,
+    is_first_system: bool,
+    policy: Option<InstrumentNameDisplayPolicy>,
+) -> Option<&str> {
+    match policy {
+        Some(InstrumentNameDisplayPolicy::Full) => group.resolved_full_label.as_deref(),
+        Some(InstrumentNameDisplayPolicy::Short) => group
+            .resolved_short_label
+            .as_deref()
+            .or(group.resolved_full_label.as_deref()),
+        Some(InstrumentNameDisplayPolicy::Hidden) => None,
+        None if is_first_system => group.label.as_deref(),
+        None => group.short_label.as_deref().or(group.label.as_deref()),
     }
 }
 

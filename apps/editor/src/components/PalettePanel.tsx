@@ -75,7 +75,7 @@ import {
   createTupletFromRange,
   parseTupletRatio,
 } from "../commands/tupletCommands";
-import { addGlissando, type GlissandoKind } from "../commands/glissandoCommands";
+import { addGlissando, resolveGlissandoSelectionEvents, type GlissandoKind } from "../commands/glissandoCommands";
 import {
   durationToBeats,
   sequenceContentBeats,
@@ -405,12 +405,12 @@ export function PalettePanel({
       const score = store.getState().score;
       const selected = useSelectionStore.getState().selection;
       if (!score) return;
-      const events = resolveCondensedSelectionEvents(score, selected, selectedScoreIndex);
-      if (events.length !== 2) {
-        toast.error("Select exactly two notes or chords for this line.");
-        return;
-      }
       try {
+        const events = resolveGlissandoSelectionEvents(score, selected, selectedScoreIndex);
+        if (events.length !== 2) {
+          toast.error("Select exactly two notes or chords for this line.");
+          return;
+        }
         const nextScore = produce(score, (draft) => {
           const source = getEventAtLocation(draft, events[0]!);
           const target = getEventAtLocation(draft, events[1]!);
@@ -423,7 +423,6 @@ export function PalettePanel({
             sourceEventId: source.id,
             targetEventId: target.id,
             kind,
-            style: "straight",
             text: kind === "portamento" ? "port." : "gliss.",
           });
         });
@@ -1064,6 +1063,14 @@ export function PalettePanel({
     (shape: FermataSymbol) => () =>
       applySelectionScore((score, sel) =>
         applyBreathFermata(score, sel, { kind: "fermata", shape }, selectedScoreIndex),
+      ),
+    [applySelectionScore, selectedScoreIndex],
+  );
+
+  const handleLocalFermata = useCallback(
+    () =>
+      applySelectionScore((score, sel) =>
+        applyBreathFermata(score, sel, { kind: "fermata", shape: "normal" }, selectedScoreIndex, true),
       ),
     [applySelectionScore, selectedScoreIndex],
   );
@@ -1763,42 +1770,8 @@ export function PalettePanel({
             useBravura
             onClick={handleBreathMark("salzedo")}
           />
-          <PaletteButton
-            label={SMUFL.fermataAbove}
-            title="Normal fermata"
-            useBravura
-            onClick={handleFermata("normal")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataVeryShortAbove}
-            title="Very short fermata"
-            useBravura
-            onClick={handleFermata("doubleAngled")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataShortAbove}
-            title="Short fermata"
-            useBravura
-            onClick={handleFermata("angled")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataLongAbove}
-            title="Long fermata"
-            useBravura
-            onClick={handleFermata("square")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataVeryLongAbove}
-            title="Very long fermata"
-            useBravura
-            onClick={handleFermata("doubleSquare")}
-          />
-          <PaletteButton
-            label={SMUFL.fermataLongHenzeAbove}
-            title="Long Henze fermata"
-            useBravura
-            onClick={handleFermata("doubleDot")}
-          />
+          <PaletteButton label={SMUFL.fermataAbove} title="Fermata" useBravura onClick={handleFermata("normal")} />
+          <PaletteButton label="Local fermata" title="Local fermata" onClick={handleLocalFermata} />
           <PaletteButton label={SMUFL.caesura} title="Caesura" useBravura onClick={handleSetCaesura} />
         </div>
       ),

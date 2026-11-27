@@ -37,7 +37,7 @@ export function injectExpandedStaves(mnxJson: string, scoreIdx: number, expanded
           for (const src of sources) {
             result.push({
               type: "staff",
-              sources: [{ ...src, labelref: "name" }],
+              sources: [{ ...src, labelRef: { ref: "auto" } }],
               _expansion: true,
             });
           }
@@ -100,7 +100,7 @@ export function injectSyntheticLayout(
         .filter((id) => sourcePartIds.has(id))
         .map((pid) => ({
           type: "staff",
-          sources: [{ part: pid, labelref: "name" }],
+          sources: [{ part: pid, labelRef: { ref: "auto" } }],
         }));
 
   const syntheticLayout = { id: syntheticLayoutId, content: filteredContent };

@@ -7,7 +7,7 @@ import type { LyricInputState } from "../components/LyricInput";
 import type { DocumentStore } from "../store/documentStore";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import type { LyricLineType, SequenceContent, Score } from "@viritura/core";
-import { getLyricLineIds } from "../lyrics";
+import { getLyricLineIds, includeLyricLine } from "../lyrics";
 import { setActiveLyricLineId } from "../store/overlayStore";
 
 export interface LyricStateRef {
@@ -84,9 +84,7 @@ export function useLyricHandlers({
           ...(type !== "whole" ? { type } : {}),
           ...(extender ? { extender } : {}),
         };
-        draft.global.lyrics ??= {};
-        const lineOrder = draft.global.lyrics.lineOrder ?? [];
-        if (!lineOrder.includes(lineId)) draft.global.lyrics.lineOrder = [...lineOrder, lineId];
+        includeLyricLine(draft, lineId);
       });
       if (newScore !== score) updateScore(newScore);
     },

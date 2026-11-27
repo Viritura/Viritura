@@ -59,6 +59,8 @@ export interface EditorScorePreviewProps {
    * stories that need to demonstrate multi-system behaviour (e.g. abbreviated labels).
    */
   viewMode?: "horizon" | "page" | "spread" | "spread-h";
+  /** Score view (`scores[]` index) to render. Defaults to the first view. */
+  selectedScoreIndex?: number;
   /** Initial canvas framing. Storybook previews default to centered. */
   scrollAnchor?: ScrollAnchor | ScrollAnchorAxes;
   /** Override automatic Horizon fit when a story needs horizontal scrolling. */
@@ -81,6 +83,7 @@ function EditorScorePreviewInner({
   showEditor = true,
   editorRatio = 0.45,
   viewMode = "horizon",
+  selectedScoreIndex = 0,
   scrollAnchor = "center",
   fitToWidth,
   expandCondensingSources = false,
@@ -125,7 +128,7 @@ function EditorScorePreviewInner({
     try {
       const parsed = JSON.parse(liveMnx || mnxJson);
       const scores = parsed.scores ?? [];
-      const sd = scores[0];
+      const sd = scores[selectedScoreIndex];
       if (!sd) return undefined;
       const layoutId = sd.layout ?? sd.pages?.[0]?.systems?.[0]?.layout;
       if (!layoutId) return undefined;
@@ -148,7 +151,7 @@ function EditorScorePreviewInner({
     } catch {
       return undefined;
     }
-  }, [expandCondensingSources, liveMnx, mnxJson]);
+  }, [expandCondensingSources, liveMnx, mnxJson, selectedScoreIndex]);
 
   // Handle Monaco editor changes — live re-render on valid JSON
   const handleEditorChange = useCallback((value: string | undefined) => {
@@ -178,6 +181,7 @@ function EditorScorePreviewInner({
           ref={canvasRef}
           keepLayoutBackendAlive
           viewMode={viewMode}
+          selectedScoreIndex={selectedScoreIndex}
           initialZoom={1.0}
           scrollAnchor={scrollAnchor}
           fitToWidth={fitToWidth ?? viewMode === "horizon"}

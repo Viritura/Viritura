@@ -289,6 +289,11 @@ fn merge_beam_shape(
                 .unwrap_or((bbox.y, bottom));
             endpoint.beam_top_y = Some(endpoint.beam_top_y.map_or(top, |y| y.min(top)));
             endpoint.beam_bottom_y = Some(endpoint.beam_bottom_y.map_or(bottom, |y| y.max(bottom)));
+            endpoint.beam_x_extent = Some(
+                endpoint
+                    .beam_x_extent
+                    .map_or((bbox.x, right), |(lo, hi)| (lo.min(bbox.x), hi.max(right))),
+            );
         }
     }
 

@@ -15,6 +15,7 @@ export function partSoundProfileInput(
     selectedSourceId,
     legacyName: instrument?.name ?? part?.name ?? fallbackLegacyName,
     explicitMidiProgram: instrument ? instrument.midiProgram : part?._x?.viritura?.midiProgram,
+    solo: instrument ? instrument.solo : part?._x?.viritura?.solo,
     hasKit: Object.keys(part?.kit ?? {}).length > 0,
   };
 }

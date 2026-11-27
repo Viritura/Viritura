@@ -48,7 +48,7 @@ describe("native navigation itinerary", () => {
 
     expect(expandPlaybackItinerary(score).filter((span) => span.measureIndex >= 5)).toEqual([
       { measureIndex: 5, startBeat: 1, endBeat: 4, measureBeats: 4 },
-      { measureIndex: 6, startBeat: 0, endBeat: 4, measureBeats: 4 },
+      { measureIndex: 6, startBeat: 0, endBeat: 4, measureBeats: 4, exit: "repeat" },
       { measureIndex: 5, startBeat: 0, endBeat: 4, measureBeats: 4 },
       { measureIndex: 6, startBeat: 0, endBeat: 4, measureBeats: 4 },
       { measureIndex: 7, startBeat: 0, endBeat: 4, measureBeats: 4 },

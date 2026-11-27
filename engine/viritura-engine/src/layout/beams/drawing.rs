@@ -54,15 +54,20 @@ pub(super) fn render_between_staff_beam(
             .iter()
             .copied()
             .fold(f64::NEG_INFINITY, f64::max);
+        let anchors = crate::layout::render_events::event_stem_anchors(
+            event,
+            stem_up,
+            ml.resolved.kit.as_ref(),
+        );
         let (stem_x, notehead_y) = if stem_up {
             (
-                event.x + smufl::STEM_UP_SE.0 * sp - stem_width * 0.5,
-                event_y + bottom * sp * 0.5,
+                event.x + anchors.up_se.0 * sp - stem_width * 0.5,
+                event_y + bottom * sp * 0.5 + anchors.up_se.1 * sp,
             )
         } else {
             (
-                event.x + smufl::STEM_DOWN_NW.0 * sp + stem_width * 0.5,
-                event_y + top * sp * 0.5,
+                event.x + anchors.down_nw.0 * sp + stem_width * 0.5,
+                event_y + top * sp * 0.5 + anchors.down_nw.1 * sp,
             )
         };
         stems.push((stem_x, stem_up, notehead_y));
@@ -226,10 +231,25 @@ pub(super) fn reposition_rests_under_beam(
     let last_beat = beam_events.last().unwrap().beat_position;
     let first_x = stem_tips.first().unwrap().0;
     for voice in &ml.voice_layouts {
+        if !beam_events.iter().any(|member| {
+            (0..voice.events.len()).any(|index| {
+                member
+                    .id
+                    .as_deref()
+                    .is_some_and(|id| voice.events.id(index) == Some(id))
+            })
+        }) {
+            continue;
+        }
         for index in 0..voice.events.len() {
             let event = voice.events.event(index);
             let beat = voice.events.beat_position(index);
             if !event.is_rest()
+                || event
+                    .rest
+                    .as_ref()
+                    .and_then(|rest| rest.staff_position)
+                    .is_some()
                 || beat <= first_beat
                 || beat >= last_beat
                 || event.duration.base.flag_count() == 0

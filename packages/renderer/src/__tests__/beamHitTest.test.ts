@@ -49,4 +49,16 @@ describe("selectionGroupMembers", () => {
   it("returns exact beam members", () => {
     expect(selectionGroupMembers(displayList, "p0/m0/beam0")).toEqual(["p0/m0/s0/a", "p0/m0/s0/b"]);
   });
+
+  it("combines split beam members from separate system segments", () => {
+    const split: DisplayList = {
+      ...displayList,
+      selectionGroups: [
+        { elementId: "p0/m0/beam0", memberIds: ["p0/m0/s0/a", "p0/m0/s0/b"] },
+        { elementId: "p0/m0/beam0", memberIds: ["p0/m0/s0/b", "p0/m1/s0/c"] },
+        { elementId: "p0/m0/beam1", memberIds: ["p0/m0/s0/other"] },
+      ],
+    };
+    expect(selectionGroupMembers(split, "p0/m0/beam0")).toEqual(["p0/m0/s0/a", "p0/m0/s0/b", "p0/m1/s0/c"]);
+  });
 });

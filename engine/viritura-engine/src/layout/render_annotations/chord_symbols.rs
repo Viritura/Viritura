@@ -4,6 +4,8 @@
 mod display_interpretation;
 #[path = "chord_symbols/display_spelling.rs"]
 mod display_spelling;
+#[path = "chord_symbols/fretboards.rs"]
+mod fretboards;
 #[cfg(test)]
 #[path = "chord_symbols/tests.rs"]
 mod tests;
@@ -23,6 +25,8 @@ use crate::render::*;
 
 const CHORD_FONT_SIZE_SP: f64 = 2.4;
 const ACCIDENTAL_GAP_SP: f64 = 0.05;
+const CHORD_GAP_SP: f64 = 0.75;
+const CHORD_NOTE_CLEARANCE_SP: f64 = 0.5;
 
 enum ChordRun {
     Text {
@@ -496,7 +500,84 @@ pub(crate) fn chord_symbol_dimensions(
     sp: f64,
 ) -> (f64, f64) {
     let (_, width, ascent) = chord_symbol_runs(chord, style, sp);
-    (width, ascent)
+    match chord.fretboards.first() {
+        Some(frame) => {
+            let (frame_width, frame_height) = fretboards::dimensions(frame, sp);
+            (
+                width.max(frame_width),
+                ascent + fretboards::LABEL_GAP * sp + frame_height,
+            )
+        }
+        None => (width, ascent),
+    }
+}
+
+/// Minimum rhythmic content width that keeps sequential chord symbols clear
+/// of one another and the closing barline.
+pub(crate) fn chord_symbols_min_content_width(
+    chords: Option<&[ChordSymbol]>,
+    total_beats: f64,
+    style: ChordSymbolStyle,
+    sp: f64,
+) -> f64 {
+    let Some(chords) = chords.filter(|chords| !chords.is_empty()) else {
+        return 0.0;
+    };
+    if total_beats <= 0.0 {
+        return 0.0;
+    }
+
+    let mut extents: Vec<_> = chords
+        .iter()
+        .map(|chord| {
+            let (width, _) = chord_symbol_dimensions(chord, style, sp);
+            (chord.position.beats() / total_beats, width)
+        })
+        .collect();
+    extents.sort_by(|left, right| left.0.total_cmp(&right.0));
+
+    let gap = CHORD_GAP_SP * sp;
+    let mut required = 0.0_f64;
+    for pair in extents.windows(2) {
+        let fraction = pair[1].0 - pair[0].0;
+        if fraction > f64::EPSILON {
+            required = required.max((pair[0].1 + gap) / fraction);
+        }
+    }
+    if let Some((fraction, width)) = extents.last() {
+        let remaining = 1.0 - fraction;
+        if remaining > f64::EPSILON {
+            required = required.max((width + gap) / remaining);
+        }
+    }
+    required
+}
+
+/// Extra upward movement needed for a chord symbol to clear noteheads and
+/// stems occupying its horizontal ink span.
+pub(crate) fn chord_symbol_vertical_lift(
+    ml: &MeasureLayout,
+    chord: &ChordSymbol,
+    chord_x: f64,
+    staff_y: f64,
+    sp: f64,
+    config: &LayoutConfig,
+) -> f64 {
+    let (width, _) = chord_symbol_dimensions(chord, config.chord_symbol_style, sp);
+    let note_top = super::substrate_obstacles::highest_point_in_range(
+        ml,
+        staff_y,
+        sp,
+        config.stem_length,
+        chord_x,
+        chord_x + width,
+    );
+    let attach_gap = config
+        .placement
+        .resolve(ElementKind::ChordSymbol)
+        .attach_gap;
+    let chord_bottom = staff_y - attach_gap * sp;
+    (chord_bottom - note_top + CHORD_NOTE_CLEARANCE_SP * sp).max(0.0)
 }
 
 /// Render chord symbols above the staff at their rhythmic positions.
@@ -519,14 +600,26 @@ pub(crate) fn render_chord_symbols(
         .placement
         .resolve(ElementKind::ChordSymbol)
         .attach_gap;
-    let chord_baseline_y = staff_y - attach_gap * sp;
     let measure_index = ml.resolved.index;
 
     for (index, chord) in chords.iter().enumerate() {
         let chord_x = x_origin + (chord.position.beats() / total_beats) * content_width;
         let source_index = chord.source_index.unwrap_or(index);
         let element_id = element_id::global_chord_symbol(measure_index, source_index);
-        let (runs, _, _) = chord_symbol_runs(chord, config.chord_symbol_style, sp);
+        let (runs, _, ascent) = chord_symbol_runs(chord, config.chord_symbol_style, sp);
+        let vertical_lift = chord_symbol_vertical_lift(ml, chord, chord_x, staff_y, sp, config);
+        let chord_baseline_y = staff_y - attach_gap * sp - vertical_lift;
+        if let Some(frame) = chord.fretboards.first() {
+            let (_, height) = fretboards::dimensions(frame, sp);
+            fretboards::render(
+                dl,
+                frame,
+                chord_x,
+                chord_baseline_y - ascent - fretboards::LABEL_GAP * sp - height,
+                sp,
+                &element_id,
+            );
+        }
         for run in runs {
             let command = match run {
                 ChordRun::Text {

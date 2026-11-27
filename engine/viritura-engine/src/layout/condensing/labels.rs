@@ -85,6 +85,22 @@ impl PlayerLabel {
     }
 }
 
+pub(crate) fn first_sounding_position(part: &PartMeasure, ratio: f64) -> RhythmicPosition {
+    let beat = part
+        .sequences
+        .iter()
+        .enumerate()
+        .flat_map(|(index, sequence)| sequence_timeline(sequence, index, 1, ratio).events)
+        .filter(|timed| !timed.event.notes().is_empty())
+        .map(|timed| timed.key)
+        .min()
+        .map_or(0.0, BeatKey::beats);
+    // Match spacing's microbeat precision; MNX positions use whole-note units.
+    RhythmicPosition {
+        fraction: ((beat * 1_000_000.0).round() as u32, 4_000_000),
+    }
+}
+
 /// Analyze the music from multiple source part-measures to determine the merge mode.
 ///
 /// N-way correct: with 3+ sources, all pairs are compared. The merge mode is

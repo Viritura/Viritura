@@ -156,6 +156,7 @@ export interface PaintScoreFrameArgs {
   selection: SelectionState;
   viewMode: ViewMode;
   printPreview: boolean;
+  bare?: boolean;
   safeAreaLeft: number;
   hitboxOverlayEnabled: boolean;
   performanceOverlayEnabled: boolean;
@@ -203,6 +204,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
     selection,
     viewMode,
     printPreview,
+    bare = false,
     safeAreaLeft,
     hitboxOverlayEnabled,
     performanceOverlayEnabled,
@@ -296,6 +298,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
       selectionVoiceIndex: args.selectionVoiceIndex,
       dragPreview: null,
       viewMode,
+      bare,
       measureSelection:
         selection.kind === "measure"
           ? {
@@ -309,7 +312,9 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
     });
   } else {
     usedTileCache = true;
-    const canvasBg = getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim() || "#e0e2ea";
+    const canvasBg = bare
+      ? "#fff"
+      : getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim() || "#e0e2ea";
     const tileCtx = canvas.getContext("2d");
     const paper = tileCtx ? getPaperPattern(tileCtx) : { pattern: null, cream: PAPER_CREAM_FALLBACK, ready: null };
     const paperFill: string | CanvasPattern = paper.pattern ?? paper.cream;
@@ -328,7 +333,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
       glyphAtlas,
       viewMode,
       canvasBg,
-      paperFill,
+      paperFill: bare ? null : paperFill,
       pageStackGap: viewMode === "page" ? PAGE_STACK_GAP : 0,
     });
   }
@@ -359,7 +364,12 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
     );
 
     // Margin guides
-    if (!printPreview && (viewMode === "page" || viewMode === "spread" || viewMode === "spread-h") && dl.pages) {
+    if (
+      !printPreview &&
+      !bare &&
+      (viewMode === "page" || viewMode === "spread" || viewMode === "spread-h") &&
+      dl.pages
+    ) {
       const mPxOverlay = {
         top: pageSetup.margins.top * PX_PER_MM,
         right: pageSetup.margins.right * PX_PER_MM,

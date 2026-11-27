@@ -17,6 +17,7 @@ import { Panel, WriteStatusBar, type WriteViewMode as ViewMode } from "@viritura
 import { SetupPanel } from "../components/modes/setup/SetupPanel";
 import { WorkspaceToolbar } from "../components/WorkspaceToolbar";
 import { ScoreSwitcher } from "../scoreSwitcher";
+import { ProjectFileSwitcher } from "../projectFiles";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import { formatZoomPercent } from "../zoomScale";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
@@ -128,7 +129,12 @@ export function buildSetupMode(args: BuildSetupModeArgs): WorkspaceMode {
     // switcher — which doubles as the "you are previewing X" indicator.
     toolbar: (
       <WorkspaceToolbar
-        left={<ScoreSwitcher selectedScoreIndex={args.selectedScoreIndex} onSelectScore={args.handleSelectScore} />}
+        left={
+          <>
+            <ProjectFileSwitcher />
+            <ScoreSwitcher selectedScoreIndex={args.selectedScoreIndex} onSelectScore={args.handleSelectScore} />
+          </>
+        }
       />
     ),
     statusBar: (

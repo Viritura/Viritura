@@ -9,6 +9,7 @@
  * each notehead at its correct staff position with its correct notehead shape.
  */
 
+import { noteheadFromEditorShape } from "@viritura/core";
 import type { KitComponentEdit } from "./types";
 
 /** Components ordered the way they appear on the staff (top of staff first),
@@ -47,7 +48,12 @@ export function buildKitSliceMnx(rows: readonly KitComponentEdit[]): object {
   for (const c of ordered) {
     const soundId = `snd-${c.id}`;
     const comp: Record<string, unknown> = { name: c.name, sound: soundId, staffPosition: c.staffPosition };
-    if (c.notehead !== "normal") comp._x = { viritura: { notehead: c.notehead } };
+    if (c.notehead === "custom") {
+      if (c.originalNotehead?.shape !== "custom") throw new Error("Custom noteheads require a SMuFL glyph");
+      comp.notehead = c.originalNotehead;
+    } else if (c.notehead !== "normal") {
+      comp.notehead = noteheadFromEditorShape(c.notehead);
+    }
     kit[c.id] = comp;
     sounds[soundId] = { midiNumber: c.midiKey, name: c.name };
   }

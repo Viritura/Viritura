@@ -296,7 +296,7 @@ describe("paintPlayhead", () => {
     const ctx = mockCtx();
     paintPlayhead(ctx, 100, 0, 500);
 
-    expect(ctx.strokeStyle).toBe("rgba(33, 150, 243, 0.6)");
+    expect(ctx.strokeStyle).toBe("#215e4e");
     expect(ctx.lineWidth).toBe(2);
   });
 

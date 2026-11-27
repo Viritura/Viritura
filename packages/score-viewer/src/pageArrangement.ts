@@ -10,6 +10,7 @@ export interface ArrangePagesOptions {
   readonly pages: readonly { readonly width: number; readonly height: number; readonly offsetY: number }[];
   readonly zoom: number;
   readonly gap: number;
+  readonly frameGap?: number;
   readonly viewMode: ScoreViewMode;
   readonly pagesPerRow?: number;
   readonly spreadFirstPage?: ScoreSpreadFirstPage;
@@ -43,6 +44,7 @@ export function arrangePages(options: ArrangePagesOptions): ScoreArrangement {
       gap,
       options.spreadFirstPage ?? "single",
       viewMode === "spread-horizontal",
+      options.frameGap ?? gap,
     );
   } else {
     const columns = Math.max(1, Math.floor(options.pagesPerRow ?? 1));
@@ -55,7 +57,7 @@ export function arrangePages(options: ArrangePagesOptions): ScoreArrangement {
     let y = 0;
     for (const height of rows) {
       offsets.push(y);
-      y += height + gap;
+      y += height + (options.frameGap ?? gap);
     }
     positions = heights.map((height, index) => ({
       page: index,
@@ -78,6 +80,7 @@ function arrangeSpreads(
   gap: number,
   first: ScoreSpreadFirstPage,
   horizontal: boolean,
+  frameGap: number,
 ): ScorePagePosition[] {
   const positions: ScorePagePosition[] = [];
   const spreadWidth = width * 2 + gap;
@@ -89,8 +92,8 @@ function arrangeSpreads(
     indices.forEach((page, column) => {
       positions[page] = { page, x: x + offset + column * (width + gap), y, width, height: heights[page] ?? 0 };
     });
-    if (horizontal) x += spreadWidth + gap;
-    else y += Math.max(...indices.map((page) => heights[page] ?? 0)) + gap;
+    if (horizontal) x += spreadWidth + frameGap;
+    else y += Math.max(...indices.map((page) => heights[page] ?? 0)) + frameGap;
   };
   if (first === "single" && heights.length) {
     place([0]);
@@ -101,6 +104,41 @@ function arrangeSpreads(
     index += 2;
   }
   return positions;
+}
+
+export function pageFrame(
+  positions: readonly ScorePagePosition[],
+  page: number,
+  viewMode: ScoreViewMode,
+  first: ScoreSpreadFirstPage = "single",
+): { x: number; y: number; width: number; height: number } | undefined {
+  if (!positions[page]) return undefined;
+  if (viewMode !== "spread" && viewMode !== "spread-horizontal") return positions[page];
+  const start = first === "single" ? (page === 0 ? 0 : 1 + Math.floor((page - 1) / 2) * 2) : Math.floor(page / 2) * 2;
+  const pair = positions.slice(start, start + (first === "single" && page === 0 ? 1 : 2));
+  if (pair.length === 0) return undefined;
+  const x = Math.min(...pair.map((position) => position.x));
+  const y = Math.min(...pair.map((position) => position.y));
+  return {
+    x,
+    y,
+    width: Math.max(...pair.map((position) => position.x + position.width)) - x,
+    height: Math.max(...pair.map((position) => position.y + position.height)) - y,
+  };
+}
+
+export function pageFrameGap(
+  pages: readonly { width: number; height: number }[],
+  zoom: number,
+  gap: number,
+  viewMode: ScoreViewMode,
+  viewport: { width: number; height: number },
+): number {
+  const horizontal = viewMode === "spread-horizontal";
+  const extent = horizontal
+    ? Math.max(0, ...pages.map((page) => page.width)) * zoom * 2 + gap
+    : Math.max(0, ...pages.map((page) => page.height)) * zoom;
+  return Math.max(gap, (horizontal ? viewport.width : viewport.height) - extent);
 }
 
 /** Offset that places content inside the viewport's inner box; oversized axes stay at the start so they scroll. */

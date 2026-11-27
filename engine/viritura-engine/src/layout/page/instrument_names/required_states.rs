@@ -60,8 +60,8 @@ pub(super) fn names(part: &Part) -> Vec<RequiredName> {
                     && other.interval.0.rem_euclid(12) == state.interval.0.rem_euclid(12)
             });
             RequiredName {
-                full: active_name(part, state.active, full, same_pitch_other_octave),
-                short: active_name(part, state.active, &short, same_pitch_other_octave),
+                full: state_name(part, state.active, full, same_pitch_other_octave),
+                short: state_name(part, state.active, &short, same_pitch_other_octave),
             }
         })
         .collect()
@@ -80,9 +80,41 @@ pub(super) fn active_names(part: &Part, measure_index: usize) -> RequiredName {
         .and_then(|d| d.name.as_deref())
         .unwrap_or(&part.name);
     RequiredName {
-        full: active_name(part, active, full, distinguish_octave),
-        short: active_name(part, active, &short_name(part, active), distinguish_octave),
+        full: state_name(part, active, full, distinguish_octave),
+        short: state_name(part, active, &short_name(part, active), distinguish_octave),
     }
+}
+
+fn state_name(
+    part: &Part,
+    active: ActiveInstrument<'_>,
+    authored: &str,
+    distinguish_octave: bool,
+) -> String {
+    let (interval, default_interval) = active_intervals(part, active);
+    // The part transposition is a default only for the initial instrument.
+    let has_active_default = active.definition.is_none_or(|definition| {
+        definition.transposition.is_some()
+            || ActiveInstrument::initial(part)
+                .definition
+                .is_some_and(|initial| std::ptr::eq(initial, definition))
+    });
+    if !distinguish_octave
+        && interval == (0, 0)
+        && (!has_active_default || interval == default_interval)
+    {
+        return authored.to_string();
+    }
+    // A pure octave has seven staff steps per twelve semitones.
+    if !distinguish_octave
+        && has_active_default
+        && interval == default_interval
+        && interval.0 != 0
+        && i64::from(interval.0) * 7 == i64::from(interval.1) * 12
+    {
+        return authored.to_string();
+    }
+    active_name(part, active, authored, distinguish_octave)
 }
 
 fn active_name(
@@ -95,6 +127,17 @@ fn active_name(
         .definition
         .and_then(|d| d.name.as_deref())
         .unwrap_or(&part.name);
+    let (interval, default_interval) = active_intervals(part, active);
+    format_name(
+        authored,
+        full,
+        interval,
+        default_interval,
+        distinguish_octave,
+    )
+}
+
+fn active_intervals(part: &Part, active: ActiveInstrument<'_>) -> ((i32, i32), (i32, i32)) {
     let interval = active.transposition.map_or((0, 0), |t| {
         (t.interval.half_steps, t.interval.staff_distance)
     });
@@ -105,13 +148,7 @@ fn active_name(
         .map_or((0, 0), |t| {
             (t.interval.half_steps, t.interval.staff_distance)
         });
-    format_name(
-        authored,
-        full,
-        interval,
-        default_interval,
-        distinguish_octave,
-    )
+    (interval, default_interval)
 }
 
 fn short_name(part: &Part, active: ActiveInstrument<'_>) -> String {
@@ -130,8 +167,28 @@ fn short_name(part: &Part, active: ActiveInstrument<'_>) -> String {
         .unwrap_or_else(|| super::super::abbreviate_part_name(full))
 }
 
-pub(crate) fn instrument_tuning_name(part: &Part, active: ActiveInstrument<'_>) -> String {
-    active_name(part, active, &short_name(part, active), false)
+pub(crate) fn instrument_change_name(
+    part: &Part,
+    active: ActiveInstrument<'_>,
+    include_tuning: bool,
+    abbreviated: bool,
+) -> String {
+    let name = if abbreviated {
+        short_name(part, active)
+    } else {
+        active
+            .definition
+            .and_then(|d| d.name.as_deref())
+            .unwrap_or(&part.name)
+            .to_string()
+    };
+    if include_tuning {
+        return active_name(part, active, &name, false);
+    }
+    let (interval, default_interval) = active_intervals(part, active);
+    let (pitch, _) = tuning(interval);
+    let (default_pitch, _) = tuning(default_interval);
+    without_tuning(&name, &pitch, &default_pitch)
 }
 
 fn tuning(interval: (i32, i32)) -> (String, i64) {
@@ -168,15 +225,7 @@ fn format_name(
 ) -> String {
     let (pitch, octave) = tuning(interval);
     let (default_pitch, _) = tuning(default_interval);
-    let mut base = authored.to_string();
-    for suffix in [format!(" in {default_pitch}"), format!(" in {pitch}")] {
-        if let Some(index) = base.find(&suffix) {
-            let end = index + suffix.len();
-            if end == base.len() || base[end..].starts_with(' ') {
-                base.replace_range(index..end, "");
-            }
-        }
-    }
+    let mut base = without_tuning(authored, &pitch, &default_pitch);
     let lower = full.to_lowercase();
     let qualifier = if lower.contains("horn") && interval.0.rem_euclid(12) == 2 {
         match interval {
@@ -207,6 +256,19 @@ fn format_name(
         label.push_str(&format!(" (sounds {pitch}{octave} for written C4)"));
     }
     label
+}
+
+fn without_tuning(authored: &str, pitch: &str, default_pitch: &str) -> String {
+    let mut base = authored.to_string();
+    for suffix in [format!(" in {default_pitch}"), format!(" in {pitch}")] {
+        if let Some(index) = base.find(&suffix) {
+            let end = index + suffix.len();
+            if end == base.len() || base[end..].starts_with(' ') {
+                base.replace_range(index..end, "");
+            }
+        }
+    }
+    base
 }
 
 pub(crate) fn initial_instruction(part: &Part) -> Option<String> {

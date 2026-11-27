@@ -2,18 +2,15 @@ import { childText, findChild, findChildren } from "../xmlHelpers";
 import type {
   MnxGlobalMeasure,
   MnxClef,
-  MnxGraceEvent,
   MnxDynamic,
   MnxOttava,
   MnxPart,
   MnxPartMeasure,
   MnxRhythmicPosition,
   MnxSystemText,
+  MnxSequence,
   MnxSequenceContent,
-  MnxSpace,
-  MnxEvent,
   MnxTie,
-  MnxTuplet,
   PartInfo,
 } from "../types";
 import { IdGenerator } from "./idGenerator";
@@ -22,8 +19,21 @@ import type { ActiveBeam } from "./beamImport";
 import { type GlissandoState, type SlurState } from "./notes";
 import { type TransposeInterval } from "./pitchDuration";
 import type { Interval, TextContent } from "@viritura/core";
+import { validateFretboard } from "@viritura/core";
 import type { ImportedHarmonySource } from "./harmonyConsolidation";
 import type { OpenLyricExtender } from "./lyricExtenders";
+import { nativeFormattedText } from "./textRuns";
+import { sourcePitchTimeline } from "./pitchTimeline";
+
+function collectLyricLineIds(content: readonly MnxSequenceContent[], ids: Set<string>): void {
+  for (const item of content) {
+    if (item.type === undefined) {
+      for (const id of Object.keys(item.lyrics?.lines ?? {})) ids.add(id);
+    } else if (item.type === "tuplet" || item.type === "grace" || item.type === "tremolo") {
+      collectLyricLineIds(item.content, ids);
+    }
+  }
+}
 
 function readTransposeInterval(transpose: Element | null): TransposeInterval | undefined {
   if (!transpose) return undefined;
@@ -53,9 +63,13 @@ function parsePartTransposition(
   transposition?: MnxPart["transposition"];
 } {
   const m1 = findChild(partEl, "measure");
-  const a = m1 ? findChild(m1, "attributes") : null;
-  const partTranspose = readTransposeInterval(a ? findChild(a, "transpose") : null);
-  const forPart = concertScore && a ? findChild(a, "for-part") : null;
+  const attributes = m1 ? findChildren(m1, "attributes") : [];
+  const partTranspose = readTransposeInterval(
+    attributes.map((a) => findChild(a, "transpose")).find((element) => element !== null) ?? null,
+  );
+  const forPart = concertScore
+    ? (attributes.map((a) => findChild(a, "for-part")).find((element) => element !== null) ?? null)
+    : null;
   const writtenTranspose =
     readTransposeInterval(forPart ? findChild(forPart, "part-transpose") : null) ?? partTranspose;
   if (!writtenTranspose) return {};
@@ -219,6 +233,7 @@ export function buildParts(
   const lyricLineIds = new Set<string>();
   const lyricMetadataCandidates = new Map<string, LyricMetadataCandidates>();
   const systemTextOrigins = new Map<number, Map<string, Set<number>>>();
+  let reportedTextFormattingLoss = false;
   const openSlurs = new Map<string, SlurState>();
   const openGlissandos = new Map<string, GlissandoState>();
   // Tie pairing persists across measures so ties spanning a barline resolve.
@@ -248,6 +263,7 @@ export function buildParts(
     }
 
     const { partTranspose, transposition } = parsePartTransposition(partEl, concertScore);
+    const noteTranspositions = sourcePitchTimeline(partEl);
     if (transposition) mnxPart.transposition = transposition;
 
     // Multi-staff detection from the first measure's attributes.
@@ -335,7 +351,7 @@ export function buildParts(
         partMeasureEls.length,
         vendorExt,
         partTranspose,
-        { ...flags, harmonyTranspositions },
+        { ...flags, harmonyTranspositions, noteTranspositions },
         activeClefs,
         activeTuplets,
         activeBeams,
@@ -364,7 +380,17 @@ export function buildParts(
 
       if (result.chordSymbols.length > 0) {
         mnxPart._x = { ...mnxPart._x, viritura: { ...mnxPart._x?.viritura, chordSymbolVisibility: "show" } };
-        for (const { chord, staff } of result.chordSymbols) {
+        for (const { chord, staff, frame } of result.chordSymbols) {
+          if (frame) {
+            const errors = validateFretboard(frame);
+            if (errors.length === 0) chord.fretboards = [{ ...frame, partId: info.id }];
+            else
+              flags.diagnostics?.warn(
+                `/parts/${partIdx}/measures/${mi}/harmony/frame`,
+                `Chord diagram omitted: ${[...new Set(errors)].join(" ")}`,
+                "musicxml-frame-unsupported",
+              );
+          }
           harmonySources.push({ partIndex: partIdx, staff, measureIndex: mi, chordSymbols: [chord] });
         }
       }
@@ -376,7 +402,8 @@ export function buildParts(
       openOttava = pairOttavaEvents(result.ottavaEvents, mi, measureId, openOttava, ottavasByMeasure);
 
       // Build sequences from voices
-      const sequences = [];
+      const sequences: MnxSequence[] = [];
+      const unconvertedFullMeasureRests = new Set(result.fullMeasureRests.keys());
       const sortedVoiceNums = Array.from(result.voices.keys()).sort();
       // MusicXML voice numbers are unique across the whole part (a grand staff
       // typically uses 1,2 then 5,6), so the upper/lower ranking that feeds
@@ -396,12 +423,37 @@ export function buildParts(
         const events = result.voices.get(voiceNum)!;
         if (events.length === 0) continue;
 
-        const seq: {
-          content: typeof events;
-          voice?: string;
-          staff?: number;
-          directionHint?: string;
-        } = { content: events };
+        const seq: MnxSequence = { content: events };
+        const event = events.length === 1 && events[0]?.type === undefined ? events[0] : undefined;
+        const fullRest = event ? result.fullMeasureRests.get(event) : undefined;
+        const caesura = event?.markings?.caesura;
+        const preservesMarkings =
+          !event?.markings ||
+          (vendorExt && caesura !== undefined && Object.keys(event.markings).every((key) => key === "caesura"));
+        // Pickup length is inferred from written content, not fullMeasure rests.
+        const isPickup = mi === 0 && globalMeasures[mi]?.number === 0;
+        if (
+          event &&
+          fullRest &&
+          !isPickup &&
+          !fullRest.hasEventAnchors &&
+          preservesMarkings &&
+          !event.slurs &&
+          !event.lyrics &&
+          !event._x &&
+          event.staff === undefined &&
+          event.stemDirection === undefined
+        ) {
+          seq.content = [];
+          seq.fullMeasure = {
+            ...(event.id ? { id: event.id } : {}),
+            visualDuration: fullRest.visualDuration,
+            ...(event.rest?.staffPosition !== undefined ? { staffPosition: event.rest.staffPosition } : {}),
+            ...(event.fermata ? { fermata: event.fermata } : {}),
+            ...(caesura ? { _x: { viritura: { caesura } } } : {}),
+          };
+          unconvertedFullMeasureRests.delete(event);
+        }
 
         // Assign voice name if multiple voices
         if (result.voices.size > 1) {
@@ -420,14 +472,22 @@ export function buildParts(
         sequences.push(seq);
       }
 
+      if (unconvertedFullMeasureRests.size > 0) {
+        flags.diagnostics?.warn(
+          `/parts/${partIdx}/measures/${mi}/sequences`,
+          "A full-measure rest could not be represented as an MNX full-measure rest without losing timing, content, or notation.",
+          "musicxml-full-measure-rest",
+        );
+      }
+
       // Drop phantom voices that hold only `space` placeholders — leftovers
       // from the backup/forward cursor idiom (a voice positioned but never
       // given real notes). They render as empty voice slots. Only drop them
       // when at least one *real* voice survives, so a genuinely empty bar
       // (a `<forward>`-only measure) still keeps its space sequence and isn't
       // emitted bare.
-      const isSpaceOnly = (seq: { content: MnxSequenceContent[] }): boolean =>
-        seq.content.every((c) => "type" in c && c.type === "space");
+      const isSpaceOnly = (seq: MnxSequence): boolean =>
+        !seq.fullMeasure && seq.content.every((c) => "type" in c && c.type === "space");
       const realSequences = sequences.filter((s) => !isSpaceOnly(s));
       const finalSequences = realSequences.length > 0 ? realSequences : sequences;
 
@@ -443,17 +503,7 @@ export function buildParts(
 
       // Collect lyric line IDs
       for (const seq of finalSequences) {
-        for (const content of seq.content) {
-          if (!("type" in content && (content as MnxGraceEvent | MnxTuplet | MnxSpace).type)) {
-            const evt = content as MnxEvent;
-            if (evt.lyrics?.lines) {
-              // eslint-disable-next-line max-depth -- nested traversal of seq.content → event → lyrics.lines
-              for (const lineId of Object.keys(evt.lyrics.lines)) {
-                lyricLineIds.add(lineId);
-              }
-            }
-          }
-        }
+        collectLyricLineIds(seq.content, lyricLineIds);
       }
 
       // Hairpins are standard gradual dynamic groups. Pair their MusicXML
@@ -570,7 +620,25 @@ export function buildParts(
       const exprs = exprByMeasure.get(mi);
       const pedals = pedalsByMeasure.get(mi);
       const measure = mnxPart.measures[mi]!;
-      if (exprs) measure.text = exprs.map((expression) => ({ ...expression, type: "expression" }));
+      if (exprs) {
+        if (
+          !vendorExt &&
+          !reportedTextFormattingLoss &&
+          exprs.some((expression) => expression.text.some((chunk) => chunk.style))
+        ) {
+          flags.diagnostics?.warn(
+            "/direction/words",
+            "Text formatting dropped — enable Viritura extensions to preserve it",
+            "musicxml-text-formatting",
+          );
+          reportedTextFormattingLoss = true;
+        }
+        measure.text = exprs.map((expression) => ({
+          ...expression,
+          text: nativeFormattedText(expression.text, vendorExt),
+          type: "expression",
+        }));
+      }
       if (pedals) {
         measure._x = { viritura: { ...measure._x?.viritura, pedals } };
       }

@@ -137,6 +137,7 @@ function useWriteArgs(): WriteStatusBarProps {
     maxZoom: 4,
     onZoomChange: setZoom,
     onResetZoom: () => setZoom(1),
+    onZoomToFit: () => setZoom(0.75),
     onCalibrate: () => undefined,
     viewMode,
     onViewModeChange: setViewMode,

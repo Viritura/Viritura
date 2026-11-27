@@ -1,8 +1,10 @@
 import {
   resolveActiveInstrument,
+  type Clef,
   type InstrumentChange,
   type InstrumentDefinition,
   type Part,
+  type PositionedClef,
   type Score,
   type Transposition,
 } from "@viritura/core";
@@ -90,11 +92,43 @@ function ensureInstruments(part: Part): string | undefined {
   return undefined;
 }
 
+function clefBeforeMeasure(part: Part, measureIndex: number, staff: number): Clef | undefined {
+  for (let index = measureIndex - 1; index >= 0; index--) {
+    let latest: PositionedClef | undefined;
+    for (const entry of part.measures[index]!.clefs ?? []) {
+      if ((entry.staff ?? 1) !== staff) continue;
+      const position: readonly [number, number] = entry.position?.fraction ?? [0, 1];
+      const previous: readonly [number, number] = latest?.position?.fraction ?? [0, 1];
+      if (!latest || position[0] * previous[1] >= previous[0] * position[1]) latest = entry;
+    }
+    if (latest) return latest.clef;
+  }
+  return undefined;
+}
+
+function sameClef(previous: Clef | undefined, clef: Clef): boolean {
+  return (
+    previous?.sign === clef.sign &&
+    previous.staffPosition === clef.staffPosition &&
+    (previous.octave ?? 0) === (clef.octave ?? 0) &&
+    previous.glyph === clef.glyph
+  );
+}
+
 function updateClefs(part: Part, measureIndex: number, instrument: CatalogInstrument): void {
   const measure = part.measures[measureIndex]!;
   const later = (measure.clefs ?? []).filter((clef) => (clef.position?.fraction[0] ?? 0) !== 0);
   const template = createCatalogPart(instrument, part.id ?? "", { name: instrument.name }, 1, 0).part;
-  measure.clefs = [...(template.measures[0]?.clefs ?? []), ...later];
+  const changed = (template.measures[0]?.clefs ?? []).filter(({ clef, staff }) => {
+    const previous = clefBeforeMeasure(part, measureIndex, staff ?? 1);
+    return !sameClef(previous, clef);
+  });
+  measure.clefs = [...changed, ...later];
+  if (measure.clefs.length === 0) delete measure.clefs;
+}
+
+function updateStaffConfigs(part: Part, measureIndex: number, instrument: CatalogInstrument): void {
+  const measure = part.measures[measureIndex]!;
   measure.staffConfigs = [
     ...Array.from({ length: part.staves ?? 1 }, (_, index) => ({
       config: { lines: instrument.staffLines?.[index + 1] ?? 5 },
@@ -102,6 +136,37 @@ function updateClefs(part: Part, measureIndex: number, instrument: CatalogInstru
     })),
     ...(measure.staffConfigs ?? []).filter((config) => (config.position?.fraction[0] ?? 0) !== 0),
   ];
+}
+
+function updateNextInstrumentClefs(part: Part, measureIndex: number): string | undefined {
+  for (let index = measureIndex + 1; index < part.measures.length; index++) {
+    if (!barStartChange(part, index)?.instrument) continue;
+    const id = resolveActiveInstrument(part, index).instrument?.instrumentId;
+    const instrument = id ? getCatalogInstrument(id) : undefined;
+    if (!instrument) return "Cannot update the following instrument's clefs; its catalog entry is unavailable.";
+    const measure = part.measures[index]!;
+    const template = createCatalogPart(instrument, part.id ?? "", { name: instrument.name }, 1, 0).part;
+    const overrides = (measure.clefs ?? []).filter(
+      (entry) =>
+        (entry.position?.fraction[0] ?? 0) === 0 &&
+        !template.measures[0]?.clefs?.some(
+          (initial) => (initial.staff ?? 1) === (entry.staff ?? 1) && sameClef(initial.clef, entry.clef),
+        ),
+    );
+    updateClefs(part, index, instrument);
+    if (overrides.length > 0) {
+      measure.clefs = [
+        ...overrides,
+        ...(measure.clefs ?? []).filter(
+          (entry) =>
+            (entry.position?.fraction[0] ?? 0) !== 0 ||
+            !overrides.some((override) => (override.staff ?? 1) === (entry.staff ?? 1)),
+        ),
+      ];
+    }
+    break;
+  }
+  return undefined;
 }
 
 export function setBarInstrument(
@@ -135,6 +200,9 @@ export function setBarInstrument(
     ...(previousReminder ? { reminder: previousReminder } : {}),
   });
   updateClefs(nextPart, target.measureIndex, instrument);
+  updateStaffConfigs(nextPart, target.measureIndex, instrument);
+  const clefError = updateNextInstrumentClefs(nextPart, target.measureIndex);
+  if (clefError) return { score, error: clefError };
   return { score: next };
 }
 
@@ -183,6 +251,32 @@ export function removeBarInstrumentChange(score: Score, target: BarInstrumentTar
     if (!instrument)
       return { score, error: "Cannot restore the previous instrument's clefs; its catalog entry is unavailable." };
     updateClefs(nextPart, target.measureIndex, instrument);
+    updateStaffConfigs(nextPart, target.measureIndex, instrument);
+    const clefError = updateNextInstrumentClefs(nextPart, target.measureIndex);
+    if (clefError) return { score, error: clefError };
   }
   return { score: next };
+}
+
+const CHANGE_LABEL_ID = /^p(\d+)\/m(\d+)\/expr-inst(change|reminder)\d+$/;
+
+/**
+ * Deletes what a rendered instrument-change label names: the change label removes
+ * the change itself; an advance reminder ("To Flute") hides only that reminder.
+ */
+export function deleteInstrumentChangeByElementId(score: Score, elementId: string): Score | null {
+  const match = CHANGE_LABEL_ID.exec(elementId);
+  if (!match) return null;
+  const target = { partIndex: Number(match[1]), measureIndex: Number(match[2]) };
+  if (match[3] === "change") {
+    const result = removeBarInstrumentChange(score, target);
+    return result.error ? null : result.score;
+  }
+  const part = score.parts[target.partIndex];
+  const change = part ? barStartChange(part, target.measureIndex) : undefined;
+  if (!change || change.reminder?.hidden) return null;
+  const next = structuredClone(score);
+  const nextChange = barStartChange(next.parts[target.partIndex]!, target.measureIndex)!;
+  nextChange.reminder = { ...nextChange.reminder, hidden: true };
+  return next;
 }

@@ -3,67 +3,13 @@ use super::super::*;
 use crate::layout::volta::render_source_ottavas;
 
 mod measure_bounds;
+mod measure_widths;
 mod page_geometry;
 use crate::layout::staff_brace::brace_geometry;
 mod spanner_endpoints;
 use measure_bounds::push_grand_staff_measure_bounds;
+pub(in crate::layout) use measure_widths::compute_grand_staff_natural_widths;
 use spanner_endpoints::collect_staff_spanner_endpoints;
-
-pub(in crate::layout) fn compute_grand_staff_natural_widths(
-    all_resolved: &[Vec<ResolvedMeasure>],
-    all_resolved_ottavas: &[Vec<ResolvedOttavaRange>],
-    sp: f64,
-    config: &LayoutConfig,
-    common_shortest_beats: f64,
-    mut cache: Option<&mut cache::LayoutCache>,
-) -> (Vec<Vec<f64>>, Vec<Vec<u64>>) {
-    let mut natural_widths_per_staff: Vec<Vec<f64>> = Vec::new();
-    let mut gs_content_hash_grid: Vec<Vec<u64>> = Vec::new();
-    for (si, resolved) in all_resolved.iter().enumerate() {
-        let mut widths = Vec::new();
-        let mut hashes = Vec::new();
-        for rm in resolved {
-            let content_hash = measure_content_hash(rm);
-            hashes.push(content_hash);
-            // Staff-specific cache key: combine measure index with staff index
-            let cache_key = rm.index * 100 + si;
-
-            let width = if let Some(ref mut c) = cache {
-                if let Some(cached_w) = c.get_natural_width(cache_key, content_hash) {
-                    cached_w
-                } else {
-                    let ml = layout_measure(
-                        rm,
-                        sp,
-                        0.0,
-                        config,
-                        None,
-                        &all_resolved_ottavas[si],
-                        common_shortest_beats,
-                    );
-                    c.set_natural_width(cache_key, content_hash, ml.width);
-                    ml.width
-                }
-            } else {
-                let ml = layout_measure(
-                    rm,
-                    sp,
-                    0.0,
-                    config,
-                    None,
-                    &all_resolved_ottavas[si],
-                    common_shortest_beats,
-                );
-                ml.width
-            };
-
-            widths.push(width);
-        }
-        natural_widths_per_staff.push(widths);
-        gs_content_hash_grid.push(hashes);
-    }
-    (natural_widths_per_staff, gs_content_hash_grid)
-}
 
 /// Grand-staff helper — layout every measure on every staff for one system
 /// (shared spacing already merged), honouring the layout cache.
@@ -311,7 +257,14 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
                 lyric_line_order,
                 Some(staff_y_offsets),
                 Some(staff_y_offsets),
-                shared_lane.is_bottom,
+                render_measure::should_render_ordinary_measure_number(
+                    &shared_lane,
+                    Some(si),
+                    staff_y,
+                    Some(staff_y_offsets),
+                    Some(staff_y_offsets),
+                    config,
+                ),
                 use_beams,
                 use_accidental_display,
                 Some(&slur_map),
@@ -328,7 +281,6 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
                 part_index,
                 &global_beamed_ids,
                 render_measure::measure_leading_clef_gap(ml, sp, &clef_change_measures),
-                shared_lane.is_bottom,
                 shared_lane.is_top,
                 shared_lane.center_y,
             );
@@ -395,6 +347,22 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
             Some(staff_y_offsets),
         );
         render_pedals(dl, layouts, staff_y, sp, config, part_index);
+        let number_context = render_annotations::BarNumberStaffContext::simple(
+            &config.bar_numbers,
+            si,
+            staff_y_offsets.len(),
+            staff_y_offsets.len().saturating_sub(1),
+        );
+        render_annotations::flow_bar_numbers(
+            dl,
+            staff_cmd_start,
+            config,
+            layouts,
+            staff_y,
+            !number_context.placements.is_empty(),
+            Some(&number_context),
+            &clef_change_measures,
+        );
 
         collect_staff_spanner_endpoints(
             layouts,
@@ -719,42 +687,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         let natural_total: f64 = max_widths.iter().sum();
         margin_left + natural_total + config.margin_right * sp
     };
-    let page_geometry::GrandStaffPages {
-        pages,
-        positions,
-        gaps,
-        total_height,
-    } = page_geometry::position_grand_staff_pages(
-        config,
-        &systems,
-        &all_resolved,
-        &all_resolved_ottavas,
-        common_shortest_beats,
-        staff_height,
-        inter_staff_gap,
-    );
-
-    let mut dl = DisplayList::new(page_w, total_height);
-    dl.set_parts(score, [part_index]);
-    dl.extend_page_furniture(page::render_first_page_copyright(
-        score.metadata(),
-        config,
-        page_w,
-    ));
-    let barline_w = config.barline_width * sp;
-    let lyric_line_order = score
-        .global
-        .lyrics
-        .as_ref()
-        .and_then(|gl| gl.line_order.as_deref());
-
-    // Accumulators for the cross-system slur post-pass. Same rationale as in
-    // `layout_score_cached` (single-staff path).
-    let mut global_slur_events: Vec<slurs::GlobalSlurEvent> = Vec::new();
-    let mut global_tie_notes: Vec<GlobalTieNote> = Vec::new();
-    let mut slur_bounds: std::collections::HashMap<(usize, usize, usize), slurs::SystemSlurBounds> =
-        std::collections::HashMap::new();
-
+    let mut prepared_systems = Vec::with_capacity(system_count);
     for (sys_idx, sys_measures) in systems.iter().enumerate() {
         let natural_total: f64 = sys_measures.iter().map(|&mi| max_widths[mi]).sum();
         let avail_w = content_width.unwrap_or(natural_total);
@@ -767,12 +700,6 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         } else {
             1.0
         };
-
-        let staff_y_offsets: Vec<f64> = (0..num_staves)
-            .map(|i| positions[sys_idx] + i as f64 * (staff_height + gaps[sys_idx]))
-            .collect();
-
-        // Layout measures for each staff
         let (merged_spacings, max_prefix_widths) = compute_system_spacing(
             &all_resolved,
             sys_measures,
@@ -781,8 +708,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
             config,
             None,
         );
-
-        let mut all_sys_layouts = layout_grand_staff_system_measures(
+        let mut layouts = layout_grand_staff_system_measures(
             &all_resolved,
             &all_resolved_ottavas,
             sys_measures,
@@ -802,19 +728,57 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
             part_index,
             cache.as_deref_mut(),
         );
+        let visual_staves: Vec<_> = (1..=num_staves)
+            .map(|staff| (part_index, staff as u32))
+            .collect();
+        fix_cross_staff_note_positions(&mut layouts, &visual_staves, sp, config);
+        prepared_systems.push(layouts);
+    }
+    let page_geometry::GrandStaffPages {
+        pages,
+        positions,
+        gaps,
+        total_height,
+    } = page_geometry::position_grand_staff_pages(
+        config,
+        &prepared_systems,
+        staff_height,
+        inter_staff_gap,
+        score,
+        part_index,
+    );
 
-        // Fix note positions for cross-staff events: recompute using the target staff's clef
-        {
-            let visual_staves: Vec<(usize, u32)> =
-                (1..=num_staves).map(|s| (part_index, s as u32)).collect();
-            fix_cross_staff_note_positions(&mut all_sys_layouts, &visual_staves, sp, config);
-        }
+    let mut dl = DisplayList::new(page_w, total_height);
+    dl.set_parts(score, [part_index]);
+    dl.extend_page_furniture(page::render_first_page_copyright(
+        score.metadata(),
+        config,
+        page_w,
+    ));
+    let barline_w = config.barline_width * sp;
+    let lyric_line_order = score
+        .global
+        .lyrics
+        .as_ref()
+        .map(|gl| gl.line_order.as_slice());
+
+    // Accumulators for the cross-system slur post-pass. Same rationale as in
+    // `layout_score_cached` (single-staff path).
+    let mut global_slur_events: Vec<slurs::GlobalSlurEvent> = Vec::new();
+    let mut global_tie_notes: Vec<GlobalTieNote> = Vec::new();
+    let mut slur_bounds: std::collections::HashMap<(usize, usize, usize), slurs::SystemSlurBounds> =
+        std::collections::HashMap::new();
+
+    for (sys_idx, all_sys_layouts) in prepared_systems.iter().enumerate() {
+        let staff_y_offsets: Vec<f64> = (0..num_staves)
+            .map(|i| positions[sys_idx] + i as f64 * (staff_height + gaps[sys_idx]))
+            .collect();
 
         // Draw staff lines and render each staff's contents
         let system_shape_start = dl.element_shapes.len();
         render_grand_staff_system_staves(
             &mut dl,
-            &all_sys_layouts,
+            all_sys_layouts,
             &staff_y_offsets,
             margin_left,
             sp,
@@ -845,7 +809,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
 
         render_grand_staff_system_connectors(
             &mut dl,
-            &all_sys_layouts,
+            all_sys_layouts,
             &staff_y_offsets,
             num_staves,
             margin_left,
@@ -859,7 +823,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
 
         crate::layout::time_signatures::spanning::render_grand_staff_meters(
             &mut dl,
-            &all_sys_layouts,
+            all_sys_layouts,
             &staff_y_offsets,
             config,
         );

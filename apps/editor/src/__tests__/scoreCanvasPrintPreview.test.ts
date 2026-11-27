@@ -34,7 +34,7 @@ describe("ScoreCanvas printPreview", () => {
 
   it("suppresses margin guides when printPreview is set", () => {
     // The guard in the overlay block must include `!printPreview`.
-    expect(SOURCE).toMatch(/!printPreview\s*&&\s*\(viewMode\s*===\s*"page"/);
+    expect(SOURCE).toMatch(/!printPreview\s*&&(\s*[!\w]+\s*&&)*\s*\(viewMode\s*===\s*"page"/);
   });
 
   it("suppresses selection overlay when printPreview is set", () => {
@@ -43,7 +43,7 @@ describe("ScoreCanvas printPreview", () => {
   });
 
   it("conditionally renders InputCursor only when not printPreview", () => {
-    expect(SOURCE).toMatch(/\{!printPreview\s*&&\s*\(\s*<InputCursor/);
+    expect(SOURCE).toMatch(/\{!printPreview\s*&&[^&(]*(&&[^&(]*)*\(\s*<InputCursor/);
   });
 
   it("disables pointer events on the canvas when printPreview is set", () => {

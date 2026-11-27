@@ -25,6 +25,7 @@ RUN corepack enable
 WORKDIR /workspace
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY patches/ ./patches/
 COPY apps/desktop/package.json ./apps/desktop/package.json
 COPY apps/editor/package.json ./apps/editor/package.json
 COPY apps/server-ui/package.json ./apps/server-ui/package.json

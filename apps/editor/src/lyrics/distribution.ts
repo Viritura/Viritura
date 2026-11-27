@@ -11,6 +11,7 @@ import { getContentArrayForLocation, getNoteEventAtLocation, type EventLocation 
 import { produce } from "../score/scoreClone";
 import type { SelectionState } from "../store/selectionStore";
 import { resolveSelectionEvents } from "../store/selectionUtils";
+import { includeLyricLine } from "./lineMetadata";
 
 type LyricMappingSeverity = "error" | "warning";
 
@@ -482,6 +483,7 @@ export function applyLyricDistributionPlan(
     const tokens = plan.assignments.map((assignment, index) =>
       assignToken(draft, assignment, plan.lineId, previous?.tokens[index]?.id ?? generateId()),
     );
+    if (tokens.some((token) => !token.skip)) includeLyricLine(draft, plan.lineId);
     const source: LyricWorkflowSource = {
       id: sourceId,
       lineId: plan.lineId,
@@ -599,12 +601,15 @@ function followToken(token: LyricWorkflowToken, lineId: string, indexed: Readonl
   }
   token.partId = indexedEvent.partId;
   token.sequenceIndex = indexedEvent.sequenceIndex;
-  indexedEvent.event.lyrics ??= {};
-  indexedEvent.event.lyrics.lines ??= {};
   if (token.skip) {
-    delete indexedEvent.event.lyrics.lines[lineId];
+    delete indexedEvent.event.lyrics?.lines?.[lineId];
+    if (indexedEvent.event.lyrics?.lines && Object.keys(indexedEvent.event.lyrics.lines).length === 0) {
+      delete indexedEvent.event.lyrics;
+    }
     return;
   }
+  indexedEvent.event.lyrics ??= {};
+  indexedEvent.event.lyrics.lines ??= {};
   indexedEvent.event.lyrics.lines[lineId] = {
     text: token.text ?? "",
     ...(token.type && { type: token.type }),
@@ -638,7 +643,10 @@ export function repairLyricSource(
     for (const token of draftSource.tokens) {
       if (tokenIds && !tokenIds.has(token.id)) continue;
       if (action === "detach") detachToken(token);
-      else followToken(token, draftSource.lineId, indexed);
+      else {
+        followToken(token, draftSource.lineId, indexed);
+        if (token.eventId && !token.skip) includeLyricLine(draft, draftSource.lineId);
+      }
     }
   });
 }

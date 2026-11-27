@@ -4,6 +4,8 @@
  */
 
 import type { TextFrame } from "./textFrame";
+import type { BarNumberSettings } from "./score";
+import type { LabelRef as RawLabelRef } from "../raw";
 
 /**
  * Page dimensions.
@@ -431,18 +433,19 @@ export interface LayoutGroup {
   content: LayoutContent[];
   symbol?: string;
   label?: string;
+  labelRef?: StaffLabelRef;
   barlineStyle?: string;
 }
 
-/** Standard MNX reference to a part's full or abbreviated staff label. */
-export type StaffLabelRef = "name" | "shortName";
+/** Standard MNX reference to a part's full or abbreviated label. */
+export type StaffLabelRef = RawLabelRef;
 
 /** Instrument-name rendering choice for one class of systems. */
 export type InstrumentNameDisplayPolicy = "full" | "short" | "hidden";
 
 /**
  * Viritura score-level override for instrument names. The conventional MNX
- * `labelref: "name"` behavior (full first, short later) needs no override.
+ * `labelRef: { ref: "auto" }` behavior (full first, short later) needs no override.
  */
 export interface InstrumentNameDisplaySettings {
   firstSystem: InstrumentNameDisplayPolicy;
@@ -457,12 +460,27 @@ export interface LayoutBreak {
   kind: "system" | "page";
 }
 
+/** Parts that stay visible on the system containing `measure`, regardless of automatic hiding. */
+export interface AutoHideKeepVisible {
+  measure: string;
+  parts: string[];
+}
+
+/** Options for a score view's automatic empty-staff hiding. */
+export interface AutoHideEmptyStavesOptions {
+  /** `show` retains every layout staff on the first system. Omitted means `hide`. */
+  firstSystem?: "hide" | "show";
+  /** Explicit per-system force-show decisions that win over the policy. */
+  keepVisible?: AutoHideKeepVisible[];
+}
+
 /** A staff node in the layout tree. */
 export interface LayoutStaff {
   type: "staff";
   sources: LayoutSource[];
   label?: string;
-  labelref?: StaffLabelRef;
+  labelRef?: StaffLabelRef;
+  symbol?: string;
 }
 
 /** A source mapping a part (and optionally a staff/voice within it) to a layout staff. */
@@ -471,7 +489,8 @@ export interface LayoutSource {
   staff?: number;
   stem?: string;
   voice?: string;
-  labelref?: StaffLabelRef;
+  label?: string;
+  labelRef?: StaffLabelRef;
 }
 
 /** A multimeasure rest range within a score definition. */
@@ -482,6 +501,8 @@ export interface MultimeasureRestRange {
 
 /** MNX score definition — describes page/system structure for one score view. */
 export interface ScoreDefinition {
+  /** Overrides the document's bar-number house style for this score view only. */
+  barNumbers?: BarNumberSettings;
   name?: string;
   layout?: string;
   multimeasureRests?: MultimeasureRestRange[];
@@ -494,8 +515,10 @@ export interface ScoreDefinition {
   pageSetupRole?: PageSetupRole;
   /** Independent instrument-name policies for the first and later systems. */
   instrumentNameDisplay?: InstrumentNameDisplaySettings;
-  /** Parts eligible for rest-only system hiding in paged views, including the first system. */
+  /** Parts eligible for rest-only system hiding in paged views of this score view. */
   autoHideEmptyParts?: string[];
+  /** First-system behavior and per-system decisions for `autoHideEmptyParts`. */
+  autoHideEmptyStaves?: AutoHideEmptyStavesOptions;
   /** Forced starts consumed by automatic system and page flow. */
   layoutBreaks?: LayoutBreak[];
   /** Free text frames owned by this score view, not by staffs or systems. */

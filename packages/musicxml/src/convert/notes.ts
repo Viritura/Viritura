@@ -3,6 +3,7 @@ import { childElements, childText, findChild, findChildren, notationChild, notat
 import type { MnxEvent, MnxEventMarkings, MnxGlissando, MnxNote, MnxSlur, MnxTie } from "../types";
 import { IdGenerator } from "./idGenerator";
 import { convertPitch, type TransposeInterval } from "./pitchDuration";
+import type { FermataSymbol } from "@viritura/core";
 
 export interface SlurState {
   startEventId: string;
@@ -349,12 +350,50 @@ export function extractMarkings(noteEl: Element, vendorExt: boolean): MnxEventMa
 }
 
 /** Extract native MNX fermata (event-level since v15) from a <note>'s <notations>. */
-export function extractFermata(noteEl: Element): { placement?: "above" | "below" } | undefined {
+const FERMATA_SYMBOLS = new Map<string, FermataSymbol>([
+  ["angled", "angled"],
+  ["square", "square"],
+  ["doubleAngled", "doubleAngled"],
+  ["doubleSquare", "doubleSquare"],
+  ["doubleDot", "doubleDot"],
+  ["halfCurve", "halfCurve"],
+  ["curlew", "curlew"],
+]);
+
+export function extractFermata(noteEl: Element, vendorExt = false): MnxEvent["fermata"] {
   const fermataEl = notationChild(noteEl, "fermata");
   if (!fermataEl) return undefined;
   const fermataType = fermataEl.getAttribute("type") ?? "upright";
-  const fermata: { placement?: "above" | "below" } = {};
+  const fermata: NonNullable<MnxEvent["fermata"]> = {};
   if (fermataType === "inverted") fermata.placement = "below";
+  const shape = fermataEl.textContent?.trim();
+  if (shape && shape !== "normal") {
+    const symbol = shape.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+    const recognized = FERMATA_SYMBOLS.get(symbol);
+    if (recognized) fermata.symbol = recognized;
+  }
+  if (vendorExt) {
+    const marker = notationChildren(noteEl, "other-notation").find((element) =>
+      element.textContent?.startsWith("viritura-fermata:"),
+    );
+    if (marker?.textContent) {
+      const parsed: unknown = JSON.parse(marker.textContent.slice("viritura-fermata:".length));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        throw new Error("Invalid MusicXML fermata metadata.");
+      const value = parsed as Record<string, unknown>;
+      if (
+        (value["globalFermataId"] !== undefined && typeof value["globalFermataId"] !== "string") ||
+        (value["localOnly"] !== undefined && typeof value["localOnly"] !== "boolean")
+      )
+        throw new Error("Invalid MusicXML fermata metadata.");
+      fermata._x = {
+        viritura: {
+          ...(typeof value["globalFermataId"] === "string" ? { globalFermataId: value["globalFermataId"] } : {}),
+          ...(typeof value["localOnly"] === "boolean" ? { localOnly: value["localOnly"] } : {}),
+        },
+      };
+    }
+  }
   return fermata;
 }
 

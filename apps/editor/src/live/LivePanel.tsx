@@ -18,6 +18,7 @@ import { Button } from "@viritura/ui";
 import type { CollaboratorIdentity } from "@viritura/crdt";
 import { CollaboratorPresence } from "./CollaboratorPresence";
 import { useLiveSessionStore } from "./liveSessionStore";
+import { useDocumentStore } from "../store/DocumentContext";
 import { buildShareUrl, clearLiveRoomIdFromUrl, setLiveRoomIdInUrl } from "./liveUrl";
 
 const ROOT_STYLE: CSSProperties = {
@@ -104,8 +105,13 @@ export function LivePanel({ identity, scoreId }: LivePanelProps) {
   const roomId = useLiveSessionStore((s) => s.roomId);
   const startLive = useLiveSessionStore((s) => s.startLive);
   const stopLive = useLiveSessionStore((s) => s.stopLive);
+  const readOnlyReason = useDocumentStore((s) => s.readOnlyReason);
 
   const handleStart = useCallback(() => {
+    if (readOnlyReason !== null) {
+      toast.info(readOnlyReason);
+      return;
+    }
     if (!identity) {
       toast.error("Pick a display name before going live.");
       return;
@@ -117,7 +123,7 @@ export function LivePanel({ identity, scoreId }: LivePanelProps) {
       if (ok) toast.success("Live session started — link copied.");
       else toast.message("Live session started", { description: shareUrl });
     });
-  }, [identity, scoreId, startLive]);
+  }, [identity, readOnlyReason, scoreId, startLive]);
 
   const handleCopy = useCallback(() => {
     if (!roomId) return;
@@ -146,7 +152,14 @@ export function LivePanel({ identity, scoreId }: LivePanelProps) {
             account required.
           </div>
         </div>
-        <Button onClick={handleStart} variant="primary" size="sm" label="Start live session" />
+        <Button
+          onClick={handleStart}
+          variant="primary"
+          size="sm"
+          label="Start live session"
+          disabled={readOnlyReason !== null}
+          tooltip={readOnlyReason ?? undefined}
+        />
       </div>
     );
   }

@@ -118,7 +118,7 @@ export function addPartToScoreLayout(score: Score, partId: string, layoutId: str
   const inst = resolvePartInstrument(score, partId);
   const newStaffNode: LayoutContent = inst
     ? buildStaffNodeForPart(inst, partId)
-    : ({ type: "staff", sources: [{ part: partId, labelref: "name" }] } as LayoutStaff);
+    : ({ type: "staff", sources: [{ part: partId, labelRef: { ref: "auto" } }] } as LayoutStaff);
   const familyLabel = inst ? FAMILY_META[inst.family as InstrumentFamily]?.label : undefined;
 
   const newLayouts = layouts.map((l) =>
@@ -177,7 +177,7 @@ function staffNodeFor(score: Score, part: Part): LayoutContent {
   const inst = part.id ? resolvePartInstrument(score, part.id) : undefined;
   return inst && part.id
     ? buildStaffNodeForPart(inst, part.id)
-    : ({ type: "staff", sources: [{ part: part.id!, labelref: "name" }] } as LayoutStaff);
+    : ({ type: "staff", sources: [{ part: part.id!, labelRef: { ref: "auto" } }] } as LayoutStaff);
 }
 
 /**

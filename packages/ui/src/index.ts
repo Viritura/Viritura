@@ -111,6 +111,12 @@ export { Slider, type SliderProps } from "./Slider/Slider";
 export { Select, SelectTrigger, type SelectOption, type SelectProps, type SelectTriggerProps } from "./Select";
 export { SearchInput, type SearchInputProps, type SearchInputSize } from "./SearchInput/SearchInput";
 export { Combobox, type ComboboxOption, type ComboboxProps } from "./Combobox";
+export {
+  MultiSelectPopover,
+  type MultiSelectPopoverGroup,
+  type MultiSelectPopoverOption,
+  type MultiSelectPopoverProps,
+} from "./MultiSelectPopover";
 export { ButtonGroup, type ButtonGroupProps, type ButtonGroupOption } from "./ButtonGroup/ButtonGroup";
 export { GlyphButtonGroup, type GlyphButtonGroupOption, type GlyphButtonGroupProps } from "./GlyphButtonGroup";
 export { Tooltip, TooltipPrimitives, type TooltipProps } from "./Tooltip/Tooltip";
@@ -140,6 +146,14 @@ export {
   type VirituraMarkProps,
   type VirituraWordmarkProps,
 } from "./BrandLogo";
+
+// ── Platform hosts ──
+export {
+  closePictureWindow,
+  currentPictureWindow,
+  isDocumentPipSupported,
+  openPictureWindow,
+} from "./pictureInPicture";
 
 // ── Error Handling ──
 export { ErrorBoundary, type ErrorBoundaryProps } from "./ErrorBoundary";

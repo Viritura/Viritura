@@ -51,7 +51,7 @@ import type {
   AccidentalEnclosureSymbol,
   Pitch,
 } from "@viritura/core";
-import { legacyNotehead, type NoteValueBase, type StemDirection, type Step, type Octave } from "@viritura/core";
+import type { NoteValueBase, StemDirection, Step, Octave } from "@viritura/core";
 
 import type {
   Sequence as RawSequence,
@@ -74,8 +74,8 @@ import type {
 import type {
   EventExtensions as RawEventExt,
   EventMarkingsExtensions as RawEventMarkingsExt,
+  FullMeasureRestExtensions as RawFullMeasureRestExt,
   SlurExtensions as RawSlurExt,
-  NoteExtensions as RawNoteExt,
   TupletExtensions as RawTupletExt,
   Glissando as RawGlissando,
 } from "@viritura/core/raw-viritura";
@@ -104,10 +104,19 @@ function parseSequence(raw: RawSequence): Sequence {
     seq.fullMeasure = {
       visualDuration: fm.visualDuration ? parseDuration(fm.visualDuration) : { base: "whole" },
     };
+    if (fm.id) seq.fullMeasure.id = fm.id;
     if (fm.staffPosition !== undefined) {
       seq.fullMeasure.staffPosition = fm.staffPosition;
     }
-    if (fm.fermata) seq.fullMeasure.fermata = { ...fm.fermata };
+    if (fm.fermata) seq.fullMeasure.fermata = structuredClone(fm.fermata);
+    const extension = fm._x?.viritura as RawFullMeasureRestExt | undefined;
+    if (extension?.caesura) {
+      const { shape, marks } = extension.caesura;
+      seq.fullMeasure.caesura = {
+        ...(shape === undefined ? {} : { style: shape }),
+        ...(marks === undefined ? {} : { marks }),
+      };
+    }
   }
   if (raw.staff !== undefined) seq.staff = raw.staff;
   if (raw.voice !== undefined) seq.voice = raw.voice;
@@ -264,6 +273,8 @@ function parseEvent(raw: RawEvent): NoteEvent {
     if (f.duration) fermata.duration = f.duration as FermataDuration;
     if (f.placement) fermata.placement = f.placement as Placement;
     if (f.pointing) fermata.pointing = f.pointing;
+    if (f._x) fermata._x = structuredClone(f._x);
+    if (f.id) fermata.id = f.id;
     event.fermata = fermata;
   }
 
@@ -482,9 +493,7 @@ function parseNote(raw: RawNote): Note {
     if (raw.written.diatonicDelta !== undefined) note.written.diatonicDelta = raw.written.diatonicDelta;
   }
 
-  const viritura = raw._x?.["viritura"] as RawNoteExt | undefined;
   if (raw.notehead) note.notehead = raw.notehead;
-  else if (viritura?.notehead) note.notehead = legacyNotehead(viritura.notehead);
 
   if (raw.markings) note.markings = raw.markings;
 

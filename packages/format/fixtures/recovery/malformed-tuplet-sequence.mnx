@@ -22,7 +22,7 @@
                 {
                     "sources": [
                         {
-                            "labelref": "name",
+                            "labelRef": {"ref": "auto"},
                             "part": "P1",
                             "staff": 1
                         }
@@ -37,7 +37,7 @@
                 {
                     "sources": [
                         {
-                            "labelref": "name",
+                            "labelRef": {"ref": "auto"},
                             "part": "P1",
                             "staff": 1
                         }
@@ -52,7 +52,7 @@
                 {
                     "sources": [
                         {
-                            "labelref": "shortName",
+                            "labelRef": {"ref": "shortName"},
                             "part": "P1",
                             "staff": 1
                         }

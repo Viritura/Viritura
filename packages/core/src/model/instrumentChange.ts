@@ -37,6 +37,8 @@ export interface InstrumentDefinition {
   transposition?: Transposition;
   /** General-MIDI program fallback for unresolvable standard sound IDs. */
   midiProgram?: number;
+  /** This instrument is a soloist, not an ensemble section. */
+  solo?: boolean;
 }
 
 /** Display control for the printed change instruction. */

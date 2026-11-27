@@ -1,7 +1,6 @@
 #![allow(unused_imports)]
 
 use super::super::*;
-use super::instrument_labels::label_text;
 use super::measure_widths::MeasureWidthBudget;
 use super::mmr_grouping::MmrPlan;
 use super::page_turn_planning::single_source_part_index;
@@ -187,6 +186,7 @@ pub(super) fn plan_system_breaks(
     score: &Score,
     config: &LayoutConfig,
     flat_staves: &[FlatStaff],
+    group_ranges: &[GroupRange],
     budget: &MeasureWidthBudget,
     mmr: &MmrPlan,
     forced_system_starts: &[usize],
@@ -194,27 +194,14 @@ pub(super) fn plan_system_breaks(
     cache: Option<&mut cache::LayoutCache>,
 ) -> SystemBreakPlan {
     let sp = config.sp;
-    let variants = super::instrument_labels::label_variants(flat_staves, score);
-    let label_staves = &variants;
+    let variants = super::instrument_labels::label_snapshots(flat_staves, group_ranges, score);
     let label_style = config
         .text_styles
         .resolve(crate::layout::text_styles::TextRole::StaffLabel);
     // Add label margin for part names and brackets.
     // First system uses full labels; subsequent systems use short (abbreviated) labels.
-    // Single-staff layouts (an extracted part, or a solo score) are NOT indented
-    // with an instrument name in the margin — standard engraving practice places
-    // the name in the header instead. Only reserve the gutter when there are two
-    // or more staves to disambiguate.
     let first_policy = instrument_name_display.map(|settings| settings.first_system);
     let subsequent_policy = instrument_name_display.map(|settings| settings.subsequent_systems);
-    let has_first_labels = flat_staves.len() > 1
-        && label_staves
-            .iter()
-            .any(|staff| label_text(staff, true, first_policy).is_some());
-    let has_subsequent_labels = flat_staves.len() > 1
-        && label_staves
-            .iter()
-            .any(|staff| label_text(staff, false, subsequent_policy).is_some());
     // Gap between the right edge of the instrument name and the system's left
     // margin (where brackets/braces sit). Matches `render_staff_labels`, which
     // right-anchors labels at `margin_left - 2.8 sp`. Sizing the gutter as
@@ -222,31 +209,29 @@ pub(super) fn plan_system_breaks(
     // margin exactly, with no wasted space.
     const LABEL_GAP_SP: f64 = 2.8;
     let label_gap = LABEL_GAP_SP * sp;
-    let first_label_margin = if has_first_labels {
-        label_staves
+    let label_margin = |is_first, policy| {
+        let extent = variants
             .iter()
-            .filter_map(|staff| {
-                label_text(staff, true, first_policy).map(|label| (label, &staff.condensed_numbers))
+            .map(|(staves, groups)| {
+                super::instrument_labels::label_column_layout(
+                    staves,
+                    groups,
+                    is_first,
+                    policy,
+                    sp,
+                    label_style,
+                )
+                .0
             })
-            .map(|(l, cn)| label_gutter_extent(l, cn, sp, label_style))
-            .fold(0.0_f64, f64::max)
-            + label_gap
-    } else {
-        0.0
+            .fold(0.0_f64, f64::max);
+        if extent > 0.0 {
+            extent + label_gap
+        } else {
+            0.0
+        }
     };
-    let subseq_label_margin = if has_subsequent_labels {
-        label_staves
-            .iter()
-            .filter_map(|staff| {
-                label_text(staff, false, subsequent_policy)
-                    .map(|label| (label, &staff.condensed_numbers))
-            })
-            .map(|(l, cn)| label_gutter_extent(l, cn, sp, label_style))
-            .fold(0.0_f64, f64::max)
-            + label_gap
-    } else {
-        0.0
-    };
+    let first_label_margin = label_margin(true, first_policy);
+    let subseq_label_margin = label_margin(false, subsequent_policy);
     let base_margin_l = if config.page_width.is_some() {
         config.page_margin_left * sp
     } else {

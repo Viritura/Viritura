@@ -1,4 +1,5 @@
-import type { ISampler, SpatialNode, SpatialPosition } from "@viritura/audio";
+import { reverbPresetWetLevel, type ISampler, type SpatialNode, type SpatialPosition } from "@viritura/audio";
+import type { AudioExportSettings } from "./audioExport";
 import type { VstTransport } from "./vstTransport";
 
 /** User intent outlives the disposable audio graph. */
@@ -25,6 +26,36 @@ export function createMixerSettings(): MixerSettings {
     limiterRatio: 12,
     reverbPreset: "musikvereinsaal",
     reverbWet: undefined,
+  };
+}
+
+/** Snapshot the playback stage, room, and master bus for offline audio export. */
+export function audioExportSettings(
+  settings: MixerSettings,
+  listener: SpatialPosition,
+  partCount: number,
+): AudioExportSettings {
+  const parts = Array.from({ length: partCount }, (_, index) => index);
+  return {
+    stage: {
+      listener: { ...listener },
+      positions: parts.map((index) => {
+        const position = settings.positions.get(index);
+        return position ? { ...position } : null;
+      }),
+      layerPans: parts.map((index) => {
+        const pans = settings.layerPans.get(index);
+        if (!pans?.size) return null;
+        const layers: (number | null)[] = Array.from({ length: Math.max(...pans.keys()) + 1 }, () => null);
+        for (const [layer, pan] of pans) layers[layer] = pan;
+        return layers;
+      }),
+    },
+    reverbPresetId: settings.reverbPreset,
+    reverbWet: settings.reverbWet ?? reverbPresetWetLevel(settings.reverbPreset),
+    airEqGainDb: settings.airEQGain,
+    limiterThresholdDb: settings.limiterThreshold,
+    limiterRatio: settings.limiterRatio,
   };
 }
 

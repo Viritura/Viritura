@@ -4277,11 +4277,13 @@ impl<'de> ::serde::Deserialize<'de> for Id {
 ///    "start": {
 ///      "$ref": "#/$defs/id"
 ///    }
-///  }
+///  },
+///  "additionalProperties": false
 ///}
 /// ```
 /// </details>
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
 pub struct IdPair {
     pub end: Id,
     pub start: Id,
@@ -4932,6 +4934,157 @@ impl ::std::convert::From<&KitNote> for KitNote {
         value.clone()
     }
 }
+///`LabelRef`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "properties": {
+///    "ref": {
+///      "$ref": "#/$defs/label-ref-type"
+///    },
+///    "target": {
+///      "$ref": "#/$defs/id"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct LabelRef {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(
+        rename = "ref",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub ref_: ::std::option::Option<LabelRefType>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub target: ::std::option::Option<Id>,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&LabelRef> for LabelRef {
+    fn from(value: &LabelRef) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for LabelRef {
+    fn default() -> Self {
+        Self {
+            c: Default::default(),
+            id: Default::default(),
+            ref_: Default::default(),
+            target: Default::default(),
+            x: Default::default(),
+        }
+    }
+}
+///`LabelRefType`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "auto",
+///    "name",
+///    "shortName"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum LabelRefType {
+    #[serde(rename = "auto")]
+    Auto,
+    #[serde(rename = "name")]
+    Name,
+    #[serde(rename = "shortName")]
+    ShortName,
+}
+impl ::std::convert::From<&Self> for LabelRefType {
+    fn from(value: &LabelRefType) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for LabelRefType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Auto => f.write_str("auto"),
+            Self::Name => f.write_str("name"),
+            Self::ShortName => f.write_str("shortName"),
+        }
+    }
+}
+impl ::std::str::FromStr for LabelRefType {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "auto" => Ok(Self::Auto),
+            "name" => Ok(Self::Name),
+            "shortName" => Ok(Self::ShortName),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for LabelRefType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LabelRefType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LabelRefType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///`LanguageCode`
 ///
 /// <details><summary>JSON schema</summary>
@@ -5496,6 +5649,9 @@ impl ::std::default::Default for Lyrics {
 ///      "$ref": "#/$defs/global-attrs"
 ///    }
 ///  ],
+///  "required": [
+///    "lineOrder"
+///  ],
 ///  "properties": {
 ///    "lineMetadata": {
 ///      "$ref": "#/$defs/lyric-lines-metadata"
@@ -5504,7 +5660,9 @@ impl ::std::default::Default for Lyrics {
 ///      "type": "array",
 ///      "items": {
 ///        "$ref": "#/$defs/lyric-line-id"
-///      }
+///      },
+///      "minItems": 1,
+///      "uniqueItems": true
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -5527,12 +5685,8 @@ pub struct LyricsGlobal {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub line_metadata: ::std::option::Option<LyricLinesMetadata>,
-    #[serde(
-        rename = "lineOrder",
-        default,
-        skip_serializing_if = "::std::vec::Vec::is_empty"
-    )]
-    pub line_order: ::std::vec::Vec<LyricLineId>,
+    #[serde(rename = "lineOrder")]
+    pub line_order: Vec<LyricLineId>,
     #[serde(
         rename = "_x",
         default,
@@ -5543,17 +5697,6 @@ pub struct LyricsGlobal {
 impl ::std::convert::From<&LyricsGlobal> for LyricsGlobal {
     fn from(value: &LyricsGlobal) -> Self {
         value.clone()
-    }
-}
-impl ::std::default::Default for LyricsGlobal {
-    fn default() -> Self {
-        Self {
-            c: Default::default(),
-            id: Default::default(),
-            line_metadata: Default::default(),
-            line_order: Default::default(),
-            x: Default::default(),
-        }
     }
 }
 ///`MeasureCount`
@@ -6184,7 +6327,7 @@ impl ::std::convert::From<&Mnx> for Mnx {
 ///
 /// ```json
 ///{
-///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/52",
+///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/57",
 ///  "title": "MNX document",
 ///  "description": "An encoding of Common Western Music Notation.",
 ///  "$ref": "#/$defs/root"
@@ -6918,19 +7061,16 @@ impl ::std::convert::From<&NoteValueQuantity> for NoteValueQuantity {
 ///      "$ref": "#/$defs/global-attrs"
 ///    }
 ///  ],
+///  "required": [
+///    "shape"
+///  ],
 ///  "properties": {
 ///    "glyph": {
 ///      "$ref": "#/$defs/smufl-glyph"
 ///    },
 ///    "shape": {
-///      "default": "default",
 ///      "$ref": "#/$defs/notehead-shape"
 ///    }
-///  },
-///  "dependentRequired": {
-///    "glyph": [
-///      "shape"
-///    ]
 ///  },
 ///  "dependentSchemas": {
 ///    "shape": {
@@ -6964,7 +7104,6 @@ pub struct Notehead {
     pub glyph: ::std::option::Option<SmuflGlyph>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
-    #[serde(default = "defaults::notehead_shape")]
     pub shape: NoteheadShape,
     #[serde(
         rename = "_x",
@@ -6978,17 +7117,6 @@ impl ::std::convert::From<&Notehead> for Notehead {
         value.clone()
     }
 }
-impl ::std::default::Default for Notehead {
-    fn default() -> Self {
-        Self {
-            c: Default::default(),
-            glyph: Default::default(),
-            id: Default::default(),
-            shape: defaults::notehead_shape(),
-            x: Default::default(),
-        }
-    }
-}
 ///`NoteheadShape`
 ///
 /// <details><summary>JSON schema</summary>
@@ -6997,7 +7125,6 @@ impl ::std::default::Default for Notehead {
 ///{
 ///  "type": "string",
 ///  "enum": [
-///    "default",
 ///    "oval",
 ///    "x",
 ///    "diamond",
@@ -7006,6 +7133,9 @@ impl ::std::default::Default for Notehead {
 ///    "slash",
 ///    "plus",
 ///    "circleX",
+///    "circled",
+///    "slashed",
+///    "backSlashed",
 ///    "square",
 ///    "custom"
 ///  ]
@@ -7025,8 +7155,6 @@ impl ::std::default::Default for Notehead {
     PartialOrd
 )]
 pub enum NoteheadShape {
-    #[serde(rename = "default")]
-    Default,
     #[serde(rename = "oval")]
     Oval,
     #[serde(rename = "x")]
@@ -7043,6 +7171,12 @@ pub enum NoteheadShape {
     Plus,
     #[serde(rename = "circleX")]
     CircleX,
+    #[serde(rename = "circled")]
+    Circled,
+    #[serde(rename = "slashed")]
+    Slashed,
+    #[serde(rename = "backSlashed")]
+    BackSlashed,
     #[serde(rename = "square")]
     Square,
     #[serde(rename = "custom")]
@@ -7056,7 +7190,6 @@ impl ::std::convert::From<&Self> for NoteheadShape {
 impl ::std::fmt::Display for NoteheadShape {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
-            Self::Default => f.write_str("default"),
             Self::Oval => f.write_str("oval"),
             Self::X => f.write_str("x"),
             Self::Diamond => f.write_str("diamond"),
@@ -7065,6 +7198,9 @@ impl ::std::fmt::Display for NoteheadShape {
             Self::Slash => f.write_str("slash"),
             Self::Plus => f.write_str("plus"),
             Self::CircleX => f.write_str("circleX"),
+            Self::Circled => f.write_str("circled"),
+            Self::Slashed => f.write_str("slashed"),
+            Self::BackSlashed => f.write_str("backSlashed"),
             Self::Square => f.write_str("square"),
             Self::Custom => f.write_str("custom"),
         }
@@ -7076,7 +7212,6 @@ impl ::std::str::FromStr for NoteheadShape {
         value: &str,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
-            "default" => Ok(Self::Default),
             "oval" => Ok(Self::Oval),
             "x" => Ok(Self::X),
             "diamond" => Ok(Self::Diamond),
@@ -7085,6 +7220,9 @@ impl ::std::str::FromStr for NoteheadShape {
             "slash" => Ok(Self::Slash),
             "plus" => Ok(Self::Plus),
             "circleX" => Ok(Self::CircleX),
+            "circled" => Ok(Self::Circled),
+            "slashed" => Ok(Self::Slashed),
+            "backSlashed" => Ok(Self::BackSlashed),
             "square" => Ok(Self::Square),
             "custom" => Ok(Self::Custom),
             _ => Err("invalid value".into()),
@@ -10153,8 +10291,8 @@ impl ::std::default::Default for Staccato {
 ///    "label": {
 ///      "$ref": "#/$defs/staff-label"
 ///    },
-///    "labelref": {
-///      "$ref": "#/$defs/staff-labelref"
+///    "labelRef": {
+///      "$ref": "#/$defs/label-ref"
 ///    },
 ///    "sources": {
 ///      "type": "array",
@@ -10186,8 +10324,12 @@ pub struct Staff {
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub label: ::std::option::Option<StaffLabel>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub labelref: ::std::option::Option<StaffLabelref>,
+    #[serde(
+        rename = "labelRef",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub label_ref: ::std::option::Option<LabelRef>,
     pub sources: ::std::vec::Vec<StaffSource>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub symbol: ::std::option::Option<StaffSymbol>,
@@ -10349,6 +10491,9 @@ impl ::std::fmt::Display for StaffCount {
 ///    "label": {
 ///      "$ref": "#/$defs/staff-label"
 ///    },
+///    "labelRef": {
+///      "$ref": "#/$defs/label-ref"
+///    },
 ///    "symbol": {
 ///      "$ref": "#/$defs/staff-symbol"
 ///    },
@@ -10380,6 +10525,12 @@ pub struct StaffGroup {
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub label: ::std::option::Option<StaffLabel>,
+    #[serde(
+        rename = "labelRef",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub label_ref: ::std::option::Option<LabelRef>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub symbol: ::std::option::Option<StaffSymbol>,
     #[serde(rename = "type")]
@@ -10542,87 +10693,6 @@ impl ::std::fmt::Display for StaffLabel {
         self.0.fmt(f)
     }
 }
-///`StaffLabelref`
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "type": "string",
-///  "enum": [
-///    "name",
-///    "shortName"
-///  ]
-///}
-/// ```
-/// </details>
-#[derive(
-    ::serde::Deserialize,
-    ::serde::Serialize,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd
-)]
-pub enum StaffLabelref {
-    #[serde(rename = "name")]
-    Name,
-    #[serde(rename = "shortName")]
-    ShortName,
-}
-impl ::std::convert::From<&Self> for StaffLabelref {
-    fn from(value: &StaffLabelref) -> Self {
-        value.clone()
-    }
-}
-impl ::std::fmt::Display for StaffLabelref {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Self::Name => f.write_str("name"),
-            Self::ShortName => f.write_str("shortName"),
-        }
-    }
-}
-impl ::std::str::FromStr for StaffLabelref {
-    type Err = self::error::ConversionError;
-    fn from_str(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        match value {
-            "name" => Ok(Self::Name),
-            "shortName" => Ok(Self::ShortName),
-            _ => Err("invalid value".into()),
-        }
-    }
-}
-impl ::std::convert::TryFrom<&str> for StaffLabelref {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<&::std::string::String> for StaffLabelref {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<::std::string::String> for StaffLabelref {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: ::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
 ///`StaffNumber`
 ///
 /// <details><summary>JSON schema</summary>
@@ -10768,8 +10838,8 @@ impl ::std::fmt::Display for StaffPosition {
 ///    "label": {
 ///      "$ref": "#/$defs/staff-label"
 ///    },
-///    "labelref": {
-///      "$ref": "#/$defs/staff-labelref"
+///    "labelRef": {
+///      "$ref": "#/$defs/label-ref"
 ///    },
 ///    "part": {
 ///      "$ref": "#/$defs/id"
@@ -10800,8 +10870,12 @@ pub struct StaffSource {
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub label: ::std::option::Option<StaffLabel>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub labelref: ::std::option::Option<StaffLabelref>,
+    #[serde(
+        rename = "labelRef",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub label_ref: ::std::option::Option<LabelRef>,
     pub part: Id,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub staff: ::std::option::Option<StaffNumber>,
@@ -13211,11 +13285,5 @@ impl ::std::convert::TryFrom<::std::string::String> for YesNoAuto {
         value: ::std::string::String,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
-    }
-}
-/// Generation of default values for serde.
-pub mod defaults {
-    pub(super) fn notehead_shape() -> super::NoteheadShape {
-        super::NoteheadShape::Default
     }
 }

@@ -27,7 +27,25 @@ export { DEFAULT_ENGINE_OPTIONS } from "./types";
 
 // Metronome
 export { Metronome } from "./Metronome";
-export type { MetronomeOptions, MetronomeBeat } from "./Metronome";
+export type { MetronomeOptions } from "./Metronome";
+
+// Click-only recording engine (dedicated AudioContext + click worklet)
+export {
+  ClickEngine,
+  ClickEngineError,
+  DEFAULT_CLICK_START_LEAD_SECONDS,
+  compileClickProgram,
+  type ClickEngineErrorCode,
+  type ClickEngineEvent,
+  type ClickEngineOptions,
+  type ClickLevel,
+  type ClickProgramEvent,
+  type ClickStartReceipt,
+  type CompiledClickProgram,
+  DEFAULT_CLICK_SOUND,
+  isClickSound,
+  type ClickSound,
+} from "./clickEngine";
 
 // SF2 SoundFont sampler (via spessasynth_lib)
 export {
@@ -45,6 +63,8 @@ export {
 export { LayeredSampler } from "./LayeredSampler";
 export type { LayerConfig } from "./LayeredSampler";
 export { SamplerGroup } from "./SamplerGroup";
+export { OfflineSf2Synth } from "./offlineSynth";
+export { dispatchSamplerEvent, samplerRoutingKey } from "./samplerEvents";
 
 // GM program mapping
 export {
@@ -72,8 +92,31 @@ export {
 export type { SpatialPosition, SpatialConfig, OrchestraSection } from "./SpatialNode";
 
 // Reverb engine
-export { ReverbEngine, REVERB_PRESETS } from "./ReverbEngine";
+export {
+  ReverbEngine,
+  REVERB_PRESETS,
+  REVERB_RETURN_HIGHPASS,
+  REVERB_SEND_INPUT_GAIN,
+  reverbPresetWetLevel,
+} from "./ReverbEngine";
 export type { ReverbPreset } from "./ReverbEngine";
+
+// Offline DSP equivalents of the Web Audio nodes used by playback
+export {
+  CompressorCurve,
+  PartitionedConvolver,
+  StereoBiquad,
+  StereoCompressor,
+  StereoDelay,
+  biquadCoefficients,
+  convolverNormalizationScale,
+  decodeWav,
+  resampleChannels,
+  type BiquadSpec,
+  type CompressorSpec,
+  type DecodedWav,
+  type ImpulseResponse,
+} from "./offlineDsp";
 
 // SoundFont capability manifests (what a font can play; drives percussion
 // sound resolution + the editor's drum-kit mapping UI)

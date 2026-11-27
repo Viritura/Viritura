@@ -349,7 +349,9 @@ describe("useFileSaveActions external changes", () => {
     await act(() => result.current.handleSave());
 
     await waitFor(() => {
-      expect(toastError).toHaveBeenCalledWith("Saved, but version history could not be updated");
+      expect(toastError).toHaveBeenCalledWith("Saved, but version history could not be updated", {
+        description: "Commit failed",
+      });
     });
   });
 

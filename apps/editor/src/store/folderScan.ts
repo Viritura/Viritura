@@ -9,7 +9,7 @@
  *
  * We deliberately keep the scan shallow + capped so a user who picks their
  * home directory by mistake doesn't hang the UI. If the limit is reached we
- * surface what we found and let the user pick.
+ * surface what we found in the project file switcher.
  */
 
 /** A single `.mnx` file discovered inside a project folder. */
@@ -29,6 +29,8 @@ export interface ScanOptions {
   maxResults?: number;
   /** Directory names to skip (case-sensitive). Defaults to common noise. */
   ignore?: ReadonlySet<string>;
+  /** Propagate directory read errors instead of returning partial results. */
+  failOnError?: boolean;
 }
 
 const DEFAULT_IGNORE: ReadonlySet<string> = new Set([
@@ -61,14 +63,16 @@ export async function scanForMnxFiles(
     try {
       // FSA spec: `entries()` yields [name, handle] tuples.
       entries = dir.entries() as AsyncIterable<[string, FileSystemHandle]>;
-    } catch {
+    } catch (error) {
+      if (options.failOnError) throw error;
       return;
     }
     // Collect first so we can sort children for stable output.
     const items: Array<[string, FileSystemHandle]> = [];
     try {
       for await (const item of entries) items.push(item);
-    } catch {
+    } catch (error) {
+      if (options.failOnError) throw error;
       return;
     }
     items.sort((a, b) => a[0].localeCompare(b[0]));
@@ -91,4 +95,22 @@ export async function scanForMnxFiles(
 
   await visit(root, [], 0);
   return results;
+}
+
+/**
+ * Choose which score opens with a project folder: the one last opened from a
+ * folder of the same name, otherwise the first in scan order. Folder handles
+ * are matched by name because handle identity checks can stall indefinitely.
+ */
+export function pickDefaultScore<T extends { relativePath: string }>(
+  folderName: string,
+  scores: readonly T[],
+  recents: readonly { vcs?: { rootName: string; scoreRelPath: string } }[],
+): T | undefined {
+  for (const recent of recents) {
+    if (recent.vcs?.rootName !== folderName) continue;
+    const match = scores.find((score) => score.relativePath === recent.vcs!.scoreRelPath);
+    if (match) return match;
+  }
+  return scores[0];
 }

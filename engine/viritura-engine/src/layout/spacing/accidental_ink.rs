@@ -83,6 +83,34 @@ struct TimedEvent<'a> {
     is_beamed: bool,
 }
 
+pub(crate) fn laid_out_rhythmic_ink(
+    event: &super::super::types::EventLayout,
+    is_beamed: bool,
+    sp: f64,
+    config: &LayoutConfig,
+) -> Vec<crate::render::BoundingBox> {
+    let timed = TimedEvent {
+        beat_key: BeatKey::new(event.beat_position),
+        event: &event.event,
+        positions: event.note_positions.clone(),
+        offsets: event.note_x_offsets.clone(),
+        stem_up: event.stem_up,
+        is_beamed,
+    };
+    rhythmic_ink(&timed, config, false)
+        .0
+        .into_iter()
+        .map(|ink| {
+            crate::render::BoundingBox::new(
+                event.x + ink.left * sp,
+                ink.top * sp,
+                (ink.right - ink.left) * sp,
+                (ink.bottom - ink.top) * sp,
+            )
+        })
+        .collect()
+}
+
 struct VisibleAccidental {
     position: f64,
     alter: i32,
@@ -94,6 +122,7 @@ fn timed_event<'a>(
     source: SpacingEvent<'a>,
     clef_changes: Option<&[(f64, Clef)]>,
     beamed_ids: Option<&HashSet<String>>,
+    auto_beamed_indices: Option<&HashSet<(usize, usize)>>,
     transposition: Option<(i32, i32)>,
 ) -> Option<TimedEvent<'a>> {
     let event = source.event;
@@ -128,7 +157,9 @@ fn timed_event<'a>(
     let is_beamed = event
         .id
         .as_deref()
-        .is_some_and(|id| beamed_ids.is_some_and(|ids| ids.contains(id)));
+        .is_some_and(|id| beamed_ids.is_some_and(|ids| ids.contains(id)))
+        || auto_beamed_indices
+            .is_some_and(|indices| indices.contains(&(source.sequence_index, source.event_index)));
     Some(TimedEvent {
         beat_key: source.key,
         event,
@@ -139,7 +170,11 @@ fn timed_event<'a>(
     })
 }
 
-fn rhythmic_ink(event: &TimedEvent<'_>, config: &LayoutConfig) -> Vec<InkRect> {
+fn rhythmic_ink(
+    event: &TimedEvent<'_>,
+    config: &LayoutConfig,
+    estimate_beams: bool,
+) -> (Vec<InkRect>, Option<InkRect>) {
     let mut ink = Vec::new();
     let notehead = smufl::notehead_glyph(&event.event.duration.base);
     let (head_x, head_y, head_width, head_height) = smufl::glyph_bbox(notehead);
@@ -154,8 +189,11 @@ fn rhythmic_ink(event: &TimedEvent<'_>, config: &LayoutConfig) -> Vec<InkRect> {
         add_ledger_ink(&mut ink, position, note_x, head_width, config);
     }
 
-    if !event.event.duration.base.has_stem() || event.positions.is_empty() {
-        return ink;
+    if !event.event.duration.base.has_stem()
+        || event.positions.is_empty()
+        || (event.is_beamed && !estimate_beams)
+    {
+        return (ink, None);
     }
 
     let top_position = event
@@ -178,7 +216,7 @@ fn rhythmic_ink(event: &TimedEvent<'_>, config: &LayoutConfig) -> Vec<InkRect> {
     } else {
         config.stem_length
     };
-    if event.stem_up {
+    let flag = if event.stem_up {
         let stem_x = anchors.up_se.0 - stem_width * 0.5;
         let stem_bottom = bottom_position * 0.5 + anchors.up_se.1;
         let flag_y = (top_position * 0.5 - stem_length).min(2.0);
@@ -188,7 +226,7 @@ fn rhythmic_ink(event: &TimedEvent<'_>, config: &LayoutConfig) -> Vec<InkRect> {
             flag_y
         };
         ink.push(line_rect(stem_x, stem_top, stem_bottom, stem_width));
-        add_flag_or_beam_ink(&mut ink, event, stem_x, flag_y, flag_count, stem_width);
+        add_flag_or_beam_ink(&mut ink, event, stem_x, flag_y, flag_count, stem_width)
     } else {
         let stem_x = anchors.down_nw.0 + stem_width * 0.5;
         let stem_top = top_position * 0.5 + anchors.down_nw.1;
@@ -199,9 +237,9 @@ fn rhythmic_ink(event: &TimedEvent<'_>, config: &LayoutConfig) -> Vec<InkRect> {
             flag_y
         };
         ink.push(line_rect(stem_x, stem_top, stem_bottom, stem_width));
-        add_flag_or_beam_ink(&mut ink, event, stem_x, flag_y, flag_count, stem_width);
-    }
-    ink
+        add_flag_or_beam_ink(&mut ink, event, stem_x, flag_y, flag_count, stem_width)
+    };
+    (ink, flag)
 }
 
 fn rest_ink(event: &Event) -> Vec<InkRect> {
@@ -283,7 +321,7 @@ fn add_flag_or_beam_ink(
     stem_tip: f64,
     flag_count: u32,
     stem_width: f64,
-) {
+) -> Option<InkRect> {
     if event.is_beamed {
         let levels = flag_count.max(1);
         let depth = 0.5 + f64::from(levels.saturating_sub(1)) * 0.75;
@@ -300,13 +338,16 @@ fn add_flag_or_beam_ink(
         });
     } else if let Some(flag) = smufl::flag_glyph(flag_count, event.stem_up) {
         let (x, y, width, height) = smufl::glyph_bbox(flag);
-        ink.push(InkRect {
+        let rect = InkRect {
             left: stem_x + x,
             right: stem_x + x + width,
             top: stem_tip + y,
             bottom: stem_tip + y + height,
-        });
+        };
+        ink.push(rect);
+        return Some(rect);
     }
+    None
 }
 
 fn visible_accidentals(
@@ -484,14 +525,15 @@ fn ledger_crosses(position: f64, top: f64, bottom: f64) -> bool {
     false
 }
 
-/// Minimum onset-to-onset distances required for an accidental's actual SMuFL
-/// ink to clear rhythmic ink at the immediately preceding shared onset.
+/// Minimum onset-to-onset distances required for rhythmic and accidental
+/// SMuFL ink to clear ink at the immediately preceding shared onset.
 ///
 /// Each outer sequence slice is one aligned staff contribution. The max fold
 /// across those slices is therefore a shared-column reservation: one staff's
 /// flag or beam can widen the gap, but every staff keeps the same onset x.
 pub(super) struct InkSnapshot {
     pub(super) accidental_gap_floors: HashMap<BeatKey, f64>,
+    pub(super) rhythmic_gap_floors: HashMap<BeatKey, f64>,
     pub(super) accidental_extents: HashMap<BeatKey, f64>,
     pub(super) right_extents: HashMap<BeatKey, f64>,
 }
@@ -537,11 +579,13 @@ pub(super) fn ink_snapshot(
     transpositions: &[Option<(i32, i32)>],
     clef_changes: &[Option<&[(f64, Clef)]>],
     beamed_event_ids: &[HashSet<String>],
+    auto_beamed_indices: &[HashSet<(usize, usize)>],
     suppressed_note_ids: &[HashSet<String>],
     all_onsets: &[BeatKey],
     config: &LayoutConfig,
 ) -> InkSnapshot {
     let mut floors = HashMap::new();
+    let mut rhythmic_floors = HashMap::new();
     let mut accidental_extents = HashMap::new();
     let mut right_extents = HashMap::new();
     for (staff_index, sources) in staff_events.iter().enumerate() {
@@ -552,6 +596,7 @@ pub(super) fn ink_snapshot(
                     *source,
                     clef_changes.get(staff_index).copied().flatten(),
                     beamed_event_ids.get(staff_index),
+                    auto_beamed_indices.get(staff_index),
                     transpositions.get(staff_index).copied().flatten(),
                 )
             })
@@ -560,6 +605,7 @@ pub(super) fn ink_snapshot(
         let mut obstacles: HashMap<BeatKey, Vec<InkRect>> = HashMap::new();
         let mut accidentals: HashMap<BeatKey, Vec<AccidentalInkRect>> = HashMap::new();
         let mut rest_onsets = HashSet::new();
+        let mut flags: HashMap<BeatKey, Vec<InkRect>> = HashMap::new();
         for source in sources {
             if source.event.is_rest() {
                 rest_onsets.insert(source.key);
@@ -576,10 +622,14 @@ pub(super) fn ink_snapshot(
             .copied()
             .unwrap_or(&default_key);
         for event in &events {
+            let (rhythmic, flag) = rhythmic_ink(event, config, true);
             obstacles
                 .entry(event.beat_key)
                 .or_default()
-                .extend(rhythmic_ink(event, config));
+                .extend(rhythmic);
+            if let Some(flag) = flag {
+                flags.entry(event.beat_key).or_default().push(flag);
+            }
             let visible = visible_accidentals(
                 event,
                 active_key,
@@ -632,25 +682,40 @@ pub(super) fn ink_snapshot(
         for pair in all_onsets.windows(2) {
             let previous_key = pair[0];
             let next_key = pair[1];
-            if rest_onsets.contains(&previous_key) || rest_onsets.contains(&next_key) {
-                if let (Some(previous_ink), Some(next_ink)) =
-                    (obstacles.get(&previous_key), obstacles.get(&next_key))
-                {
-                    let mut required = 0.0_f64;
-                    for &previous in previous_ink {
-                        for &next in next_ink {
-                            if previous.overlaps_vertically(next) {
-                                required =
-                                    required.max(previous.right - next.left + RHYTHMIC_INK_GAP_SP);
-                            }
+            // A change-clef column already clears the preceding flag's full
+            // right extent; do not reserve a second flag-to-note gap there.
+            let has_change_clef = clef_changes
+                .get(staff_index)
+                .copied()
+                .flatten()
+                .is_some_and(|changes| {
+                    changes.iter().any(|(beat, _)| {
+                        *beat > previous_key.beats() + 0.001 && *beat <= next_key.beats() + 0.001
+                    })
+                });
+            let rest_gap = rest_onsets.contains(&previous_key) || rest_onsets.contains(&next_key);
+            let previous_ink = if rest_gap {
+                obstacles.get(&previous_key)
+            } else if !has_change_clef {
+                flags.get(&previous_key)
+            } else {
+                None
+            };
+            if let (Some(previous_ink), Some(next_ink)) = (previous_ink, obstacles.get(&next_key)) {
+                let mut required = 0.0_f64;
+                for &previous in previous_ink {
+                    for &next in next_ink {
+                        if previous.overlaps_vertically(next) {
+                            required =
+                                required.max(previous.right - next.left + RHYTHMIC_INK_GAP_SP);
                         }
                     }
-                    if required > 0.0 {
-                        floors
-                            .entry(next_key)
-                            .and_modify(|floor: &mut f64| *floor = floor.max(required))
-                            .or_insert(required);
-                    }
+                }
+                if required > 0.0 {
+                    rhythmic_floors
+                        .entry(next_key)
+                        .and_modify(|floor: &mut f64| *floor = floor.max(required))
+                        .or_insert(required);
                 }
             }
             let (Some(previous_ink), Some(next_accidentals)) =
@@ -678,6 +743,7 @@ pub(super) fn ink_snapshot(
     }
     InkSnapshot {
         accidental_gap_floors: floors,
+        rhythmic_gap_floors: rhythmic_floors,
         accidental_extents,
         right_extents,
     }

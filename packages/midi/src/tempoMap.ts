@@ -187,8 +187,7 @@ export function buildTempoModel(globalMeasures: readonly GlobalMeasure[], holds?
 
   regions = compileTempoRamps(regions, gradualDecls, globalMeasures, measureStartBeats, cumBeats);
 
-  // Insertions (fermata/caesura gaps). Seconds use the tempo at the measure
-  // start (matching the legacy hold seconds), computed from a regions-only model.
+  // Convert each gap at its insertion tempo, including sub-bar ramps.
   const regionsModel = TempoModel.build(regions);
   const insertions: TempoInsertion[] = [];
   if (holds) {
@@ -196,9 +195,9 @@ export function buildTempoModel(globalMeasures: readonly GlobalMeasure[], holds?
       const measureHolds = holds[m];
       if (!measureHolds || measureHolds.length === 0) continue;
       const startBeat = measureStartBeats[m]!;
-      const spb = regionsModel.spbAtBeat(startBeat);
       for (const hold of measureHolds) {
-        insertions.push({ beat: startBeat + hold.atBeat, seconds: hold.extraBeats * spb });
+        const beat = startBeat + hold.atBeat;
+        insertions.push({ beat, seconds: hold.extraBeats * regionsModel.spbAtBeat(beat) });
       }
     }
   }

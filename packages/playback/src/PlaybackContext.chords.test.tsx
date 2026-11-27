@@ -3,12 +3,23 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PlaybackEngine, Sf2Synth } from "@viritura/audio";
+import { Metronome, PlaybackEngine, Sf2Synth } from "@viritura/audio";
 import { voiceChordSymbol, type ChordSymbol, type Score } from "@viritura/core";
 import { PlaybackProvider } from "./PlaybackContext";
 import { SCORE_CHANGE_DEBOUNCE_MS } from "./playbackReducer";
 import { getPlaybackSnapshot } from "./usePlayback";
 import { ChordTestDevice, nativeTransport, recordingSynth } from "./chordTestDevice";
+import { useMetronomeSoundActions } from "./metronomeSettingsStore";
+
+function SoundPreferenceControls() {
+  const { setSound } = useMetronomeSoundActions();
+  return (
+    <>
+      <button data-sound="woodblock" onClick={() => setSound("woodblock")} />
+      <button data-sound="tick" onClick={() => setSound("tick")} />
+    </>
+  );
+}
 
 const symbol: ChordSymbol = {
   position: { fraction: [0, 1] },
@@ -707,7 +718,7 @@ describe("global chords through the real browser provider", () => {
     synth.cancelScheduledNotes.mockClear();
     act(() => actions().stop());
     expect(synth.cancelScheduledNotes).toHaveBeenCalled();
-    expect(synth.destroy).toHaveBeenCalledOnce();
+    expect(synth.destroy).not.toHaveBeenCalled();
     clearNotes();
     await flush(3100);
     expect(notes(0)).toEqual([]);
@@ -821,6 +832,8 @@ describe("global chords through the real browser provider", () => {
     });
     expect(synths).toHaveLength(2);
     act(() => actions().stop());
+    expect(synths.every((synth) => synth.destroy.mock.calls.length === 0)).toBe(true);
+    act(() => root.unmount());
     expect(synths.every((synth) => synth.destroy.mock.calls.length === 1)).toBe(true);
   });
 
@@ -870,6 +883,8 @@ describe("global chords through the real browser provider", () => {
         if (synth.synth.noteOn.mock.calls.length) expect(synth.destroy).not.toHaveBeenCalled();
       }
       act(() => actions().stop());
+      expect(previewSynth!.destroy).not.toHaveBeenCalled();
+      act(() => root.unmount());
       expect(synths.every((synth) => synth.destroy.mock.calls.length === 1)).toBe(true);
     },
   );
@@ -883,6 +898,50 @@ describe("global chords through the real browser provider", () => {
     expect(resolver.mock.calls.at(-1)?.[0]).toBeTypeOf("function");
     await play();
     expect(clicks.mock.calls.at(-1)?.[0]).toHaveLength(4);
+  });
+
+  it("applies sound preference changes to the regular playback metronome", async () => {
+    const soundChanges = vi.spyOn(Metronome.prototype, "setSound");
+    await mount();
+    await preview();
+    const settings = document.createElement("div");
+    const settingsRoot = createRoot(settings);
+    act(() => settingsRoot.render(<SoundPreferenceControls />));
+    try {
+      act(() => settings.querySelector<HTMLButtonElement>('[data-sound="woodblock"]')!.click());
+      expect(soundChanges).toHaveBeenLastCalledWith("woodblock");
+    } finally {
+      act(() => settings.querySelector<HTMLButtonElement>('[data-sound="tick"]')!.click());
+      act(() => settingsRoot.unmount());
+    }
+  });
+
+  it("plays the selected metronome sound when enabled before audio starts", async () => {
+    await mount();
+    const settings = document.createElement("div");
+    const settingsRoot = createRoot(settings);
+    act(() => settingsRoot.render(<SoundPreferenceControls />));
+    try {
+      act(() => {
+        settings.querySelector<HTMLButtonElement>('[data-sound="woodblock"]')!.click();
+        actions().toggleMetronome();
+      });
+      await play();
+
+      const context = piano().context;
+      const sources = vi.mocked(context.createBufferSource);
+      expect(sources).toHaveBeenCalled();
+      const scheduled = sources.mock.results[0]!.value.buffer;
+
+      const reference = new Metronome({ audioContext: context, sound: "woodblock" });
+      reference.scheduleClick(context.currentTime, "accent");
+      const expected = sources.mock.results.at(-1)!.value.buffer;
+      expect(scheduled?.getChannelData(0)).toEqual(expected?.getChannelData(0));
+      reference.dispose();
+    } finally {
+      act(() => settings.querySelector<HTMLButtonElement>('[data-sound="tick"]')!.click());
+      act(() => settingsRoot.unmount());
+    }
   });
 
   it("keeps a shared cold graph alive when Play supersedes chord and note previews", async () => {

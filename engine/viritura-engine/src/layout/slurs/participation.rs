@@ -71,6 +71,11 @@ pub(crate) struct EndpointSnapshot {
     pub(crate) beam_top_y: Option<f64>,
     #[allow(dead_code)]
     pub(crate) beam_bottom_y: Option<f64>,
+    /// Horizontal union of the beam polygons crossing this endpoint's stem.
+    /// Tells a stem-side slur tip whether the beam continues under the slur.
+    pub(crate) beam_x_extent: Option<(f64, f64)>,
+    /// True for an unbeamed note that draws a flag (always right of the stem).
+    pub(crate) has_flag: bool,
     /// Right edge X of the leftmost accidental on this event (so a slur
     /// starting here can clear it). Used by S2 (A2) and S4 (D3). `None`
     /// when no accidental. Exact local extents include enclosure glyphs.
@@ -152,6 +157,8 @@ pub(crate) fn endpoint_snapshot(
         mag,
         beam_top_y: None,
         beam_bottom_y: None,
+        beam_x_extent: None,
+        has_flag: false,
         accidental_right_x: None,
         dot_right_x: None,
         articulation_extent: None,
@@ -372,6 +379,7 @@ pub(super) fn build_slur_event_obstacle_maps(
                     // merged below by the slur render pass.
                     endpoint.accidental_right_x = acc_right_x;
                     endpoint.dot_right_x = dot_right_x_val;
+                    endpoint.has_flag = !endpoint.is_beamed && ev.duration.base.flag_count() > 0;
                     event_map.insert(id.to_string(), EventRenderInfo { endpoint });
                 }
 

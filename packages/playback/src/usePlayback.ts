@@ -9,7 +9,9 @@
  * read via the hooks below.
  */
 
+import { DEFAULT_LISTENER_POSITION } from "@viritura/audio";
 import { create } from "zustand";
+import { audioExportSettings, createMixerSettings } from "./mixerSettings";
 import {
   initialPlaybackState,
   playbackReducer,
@@ -29,6 +31,7 @@ const FALLBACK_ACTIONS: PlaybackActions = {
   play: noopAsync,
   pause: noop,
   stop: noop,
+  releaseAudio: noopAsync,
   seek: noop,
   setSelectionPartIds: noop,
   setSelectionStaffCount: noop,
@@ -57,6 +60,8 @@ const FALLBACK_ACTIONS: PlaybackActions = {
   setLimiterThreshold: noop,
   setLimiterRatio: noop,
   applyLayerPan: noop,
+  getAudioExportSettings: (partCount) =>
+    audioExportSettings(createMixerSettings(), DEFAULT_LISTENER_POSITION, partCount),
 };
 
 // ═══════════════════════════════════════════

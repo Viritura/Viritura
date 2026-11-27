@@ -87,6 +87,10 @@ export type Swing = { mode: "straight" } | { mode: "swing"; subdivision: "eighth
 
 /** Shared presentation of metronomic and swing-only tempo markings. */
 export interface TempoPresentation {
+  /** Clicks per meter beat, or denominator divisions with clickGrouping. 0 silences clicks without changing timing. */
+  clickSubdivision?: 0 | 1 | 2 | 3 | 4 | 5;
+  /** Whole-bar pulse lengths in denominator/subdivision units; requires an explicit positive clickSubdivision. */
+  clickGrouping?: number[];
   location?: RhythmicPosition;
   /** Optional text label (e.g. "Allegro"). Viritura extension (_x.viritura.text). */
   text?: TextContent;
@@ -278,19 +282,28 @@ export interface SystemText extends MusicText {
 }
 
 /** Playback properties of a music-anchored system instruction, never a page frame. */
-export type SystemTempo =
-  | {
-      bpm: number;
-      value: TempoNoteValue;
-      swing?: Swing;
-      showMetronomeMark?: boolean;
-    }
-  | {
-      bpm?: never;
-      value?: never;
-      swing: Swing;
-      showMetronomeMark?: never;
-    };
+export type SystemTempo = Pick<TempoPresentation, "clickSubdivision" | "clickGrouping"> &
+  (
+    | {
+        bpm: number;
+        value: TempoNoteValue;
+        swing?: Swing;
+        showMetronomeMark?: boolean;
+      }
+    | {
+        bpm?: never;
+        value?: never;
+        swing: Swing;
+        showMetronomeMark?: never;
+      }
+    | {
+        bpm?: never;
+        value?: never;
+        swing?: never;
+        showMetronomeMark?: never;
+        clickSubdivision: NonNullable<TempoPresentation["clickSubdivision"]>;
+      }
+  );
 
 /** Tempo instructions from both legacy tempo markings and shared system instructions. */
 export function measureTempoInstructions(measure: GlobalMeasure): Tempo[] {
@@ -400,6 +413,27 @@ export interface ChordRoot {
   alter?: number;
 }
 
+/** One played string in a MusicXML-shaped chord frame. */
+export interface FretboardNote {
+  /** MusicXML numbering: 1 is the rightmost string. */
+  string: number;
+  /** Absolute fret; 0 denotes an open string. */
+  fret: number;
+  fingering?: string;
+  /** Paired endpoints on the same fret, start on the higher-numbered string. */
+  barre?: "start" | "stop";
+}
+
+export interface Fretboard {
+  partId: string;
+  frameStrings: number;
+  frameFrets: number;
+  firstFret?: { fret: number; text?: string; location?: "left" | "right" };
+  /** Omitted strings are unplayed. */
+  frameNotes: FretboardNote[];
+  unplayed?: string;
+}
+
 /** A time-anchored harmony event rendered as a chord symbol above the staff. */
 export interface ChordSymbol {
   position: RhythmicPosition;
@@ -414,6 +448,8 @@ export interface ChordSymbol {
   extension?: 6 | 7 | 9 | 11 | 13;
   /** Visual override only; the semantic resolver rejects contradictory or unsupported non-equivalent text. */
   textOverride?: string;
+  /** Authored physical voicings, one per instrument; not used for chord playback. */
+  fretboards?: Fretboard[];
 }
 
 // ═══════════════════════════════════════════
@@ -455,12 +491,25 @@ export interface GlobalMeasure {
   coda?: Coda;
   /** Native MNX caesura shared by every staff at the ending barline. */
   caesura?: GlobalCaesura;
+  /** Time-anchored ensemble holds, stored in `_x.viritura.fermatas`. */
+  fermatas?: GlobalFermata[];
   /** Gradual tempo change (rit./accel.) playback curve (Viritura extension) */
   gradualTempo?: GradualTempo;
   /** Score-wide harmony events at rhythmic positions in this measure. */
   chordSymbols?: ChordSymbol[];
   /** Shared music-relative text, independent of any source part or staff. */
   systemText?: SystemText[];
+}
+
+/** One ensemble hold projected onto every voice sounding at its position. */
+export interface GlobalFermata {
+  id: string;
+  /** Fraction of a whole note from the measure start. */
+  position: RhythmicPosition;
+  /** Total duration factor; omission means 2. Must be finite and at least 1. */
+  multiplier?: number;
+  /** Click behavior during the inserted hold; omission means silent. */
+  clickBehavior?: "silent" | "keepClicking";
 }
 
 export interface GlobalCaesura extends Caesura {

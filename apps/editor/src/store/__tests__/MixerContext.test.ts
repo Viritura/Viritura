@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { CHORDS_PART_ID } from "@viritura/core";
-import { mixerReducer, initialMixerState, type MixerState, type MixerChannelState } from "../mixerStore";
+import {
+  getMixerPartMixes,
+  mixerReducer,
+  initialMixerState,
+  type MixerState,
+  type MixerChannelState,
+} from "../mixerStore";
 import { MIXER_DEFAULT_GAIN, MIXER_MAX_GAIN } from "../mixerGain";
 
 /** Helper: access channel by index with non-null assertion (test convenience). */
@@ -23,6 +29,32 @@ function stateWithChannels(count: number, overrides?: Partial<MixerChannelState>
   }));
   return base;
 }
+
+describe("resolved mixer settings", () => {
+  it("composes group/master faders without assigning the Chords track to an instrument group", () => {
+    const state = stateWithChannels(2, [{ pan: -0.3, ensembleEnabled: false }, { muted: true }]);
+    state.chordsPartIndex = 1;
+    state.groups = { Strings: { volume: 1.5, muted: false, solo: false } };
+    state.partGroups = ["Strings", "Strings"];
+    state.masterVolume = 1.2;
+    const mix = getMixerPartMixes(state);
+    expect(mix[0]).toMatchObject({ pan: -0.3, muted: false, ensembleEnabled: false });
+    expect(mix[0]!.volume).toBeCloseTo(0.9);
+    expect(mix[1]).toMatchObject({ volume: 0.6, muted: true });
+  });
+
+  it.each(["channel", "group", "master"] as const)("resolves %s mute/solo into export settings", (scope) => {
+    const state = stateWithChannels(3);
+    state.chordsPartIndex = 2;
+    state.groups = { Strings: { volume: 1, muted: false, solo: scope === "group" } };
+    state.partGroups = ["Strings", "", ""];
+    if (scope === "channel") state.channels[0]!.solo = true;
+    if (scope === "master") state.masterMuted = true;
+    expect(getMixerPartMixes(state).map((mix) => mix.muted)).toEqual(
+      scope === "master" ? [true, true, true] : [false, true, true],
+    );
+  });
+});
 
 describe("mixerReducer", () => {
   describe("derived Chords", () => {

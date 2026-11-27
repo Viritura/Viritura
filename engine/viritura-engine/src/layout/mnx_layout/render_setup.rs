@@ -73,6 +73,12 @@ pub(super) fn prepare_render_retention(
     );
     let context_hash =
         super::super::instrument_changes::state_salt(score, flat_staves, context_hash);
+    let context_hash = super::instrument_labels::label_dependency_salt(
+        score,
+        flat_staves,
+        group_ranges,
+        context_hash,
+    );
     let context_hash = super::super::volta::ending_dependency_hash(score, context_hash);
     if config.page_width.is_none() {
         return (context_hash, true);
@@ -110,6 +116,7 @@ pub(super) fn score_render_context_hash(
         staff.short_label.hash(&mut hasher);
         staff.resolved_full_label.hash(&mut hasher);
         staff.resolved_short_label.hash(&mut hasher);
+        staff.label_components.hash(&mut hasher);
         staff.expansion.hash(&mut hasher);
         staff.condensed_numbers.hash(&mut hasher);
         for source in &staff.sources {
@@ -124,7 +131,12 @@ pub(super) fn score_render_context_hash(
         group.last_staff.hash(&mut hasher);
         group.symbol.hash(&mut hasher);
         group.label.hash(&mut hasher);
+        group.short_label.hash(&mut hasher);
+        group.resolved_full_label.hash(&mut hasher);
+        group.resolved_short_label.hash(&mut hasher);
+        group.label_components.hash(&mut hasher);
         group.depth.hash(&mut hasher);
+        group.source_parts.hash(&mut hasher);
     }
     hasher.finish()
 }

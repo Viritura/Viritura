@@ -25,6 +25,7 @@ function instrumentPart(part: Part, instrument: InstrumentDefinition | undefined
         ...part._x?.viritura,
         instrumentId: instrument.instrumentId,
         midiProgram: instrument.midiProgram,
+        solo: instrument.solo,
         initialInstrument: undefined,
         instruments: undefined,
       },

@@ -23,7 +23,7 @@ import type {
 } from "@viritura/core";
 import type { Part } from "@viritura/core";
 import type { PositionedClef, Clef } from "@viritura/core";
-import { legacyNotehead, type ClefSign, type KitComponent } from "@viritura/core";
+import type { ClefSign, KitComponent } from "@viritura/core";
 
 import type {
   Part as RawPart,
@@ -83,6 +83,7 @@ function parsePart(raw: RawPart, useLegacyKeyFlipDefault: boolean): Part {
     const ext: NonNullable<NonNullable<Part["_x"]>["viritura"]> = {};
     if (typeof viritura.instrumentId === "string") ext.instrumentId = viritura.instrumentId;
     if (typeof viritura.midiProgram === "number") ext.midiProgram = viritura.midiProgram;
+    if (typeof viritura.solo === "boolean") ext.solo = viritura.solo;
     if (typeof viritura.family === "string") ext.family = viritura.family;
     const sp = viritura.spatial;
     if (sp && typeof sp.x === "number" && typeof sp.y === "number") {
@@ -134,6 +135,7 @@ function parseInstrumentDefinition(
     instrument.transposition = parseTransposition(raw.transposition, useLegacyKeyFlipDefault);
   }
   if (raw.midiProgram !== undefined) instrument.midiProgram = raw.midiProgram;
+  if (raw.solo !== undefined) instrument.solo = raw.solo;
   return instrument;
 }
 
@@ -171,7 +173,6 @@ function parseKitComponent(raw: RawKitComponent): KitComponent {
   if (typeof raw.sound === "string") c.sound = raw.sound;
   const viritura = raw._x?.["viritura"] as RawKitComponentExt | undefined;
   if (raw.notehead) c.notehead = raw.notehead;
-  else if (viritura?.notehead) c.notehead = legacyNotehead(viritura.notehead);
   if (typeof viritura?.drumKit === "number") {
     c.drumKit = viritura.drumKit;
   }

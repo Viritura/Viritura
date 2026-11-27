@@ -36,6 +36,88 @@ function errorsFor(document: unknown) {
 }
 
 describe("actionable MNX schema diagnostics", () => {
+  it.each([{}, { shape: "default" }])("rejects obsolete or missing notehead shapes", (notehead) => {
+    const event = { ...noteEvent(), notes: [{ pitch: { step: "C", octave: 4 }, notehead }] };
+    expect(validateRawScore(scoreWith([event])).ok).toBe(false);
+  });
+
+  it.each(["circled", "slashed", "backSlashed"])("accepts the v56 %s notehead", (shape) => {
+    const event = { ...noteEvent(), notes: [{ pitch: { step: "C", octave: 4 }, notehead: { shape } }] };
+    expect(validateRawScore(scoreWith([event])).ok).toBe(true);
+  });
+
+  it("rejects the retired Viritura notehead extension", () => {
+    expect(validateRawScore(scoreWith([noteEvent(0, { viritura: { notehead: "x" } })])).ok).toBe(false);
+  });
+
+  it.each(["arpeggios", "nonArpeggios"])("rejects extra attributes on %s spans", (field) => {
+    const document = scoreWith([]);
+    Object.assign(document.parts[0]!.measures[0]!, {
+      [field]: [{ position: { fraction: [0, 1] }, span: { start: "a", end: "b", id: "obsolete" } }],
+    });
+    expect(validateRawScore(document).ok).toBe(false);
+  });
+
+  it("requires global lyric order for events with lyrics", () => {
+    const event = { ...noteEvent(), lyrics: { lines: { "1": { text: "Hello" } } } };
+    expect(errorsFor(scoreWith([event]))).toContainEqual({
+      pointer: "/global/lyrics",
+      message: "is required when any event has lyrics",
+      keyword: "required",
+    });
+  });
+
+  it("checks lyric line references in metadata and nested events", () => {
+    const event = { ...noteEvent(), lyrics: { lines: { "2/~": { text: "Hello" } } } };
+    const document = {
+      ...scoreWith([
+        {
+          type: "tuplet",
+          inner: { duration: { base: "quarter" }, multiple: 1 },
+          outer: { duration: { base: "quarter" }, multiple: 1 },
+          content: [event],
+        },
+      ]),
+      global: { measures: [{}], lyrics: { lineOrder: ["1"], lineMetadata: { "3": { label: "Verse" } } } },
+    };
+    expect(errorsFor(document)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ pointer: "/global/lyrics/lineMetadata/3", keyword: "reference" }),
+        expect.objectContaining({ pointer: `${eventPointer}/content/0/lyrics/lines/2~1~0`, keyword: "reference" }),
+      ]),
+    );
+    document.global.lyrics.lineOrder.push("2/~", "3");
+    expect(validateRawScore(document).ok).toBe(true);
+  });
+
+  it("rejects label targets that do not identify a part", () => {
+    const document = {
+      ...scoreWith([]),
+      layouts: [
+        {
+          content: [
+            {
+              type: "group",
+              labelRef: { target: "missing-group" },
+              content: [
+                {
+                  type: "staff",
+                  labelRef: { target: "missing-staff" },
+                  sources: [{ part: "p1", labelRef: { target: "missing-source" } }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(errorsFor(document).map((error) => error.pointer)).toEqual([
+      "/layouts/0/content/0/labelRef/target",
+      "/layouts/0/content/0/content/0/labelRef/target",
+      "/layouts/0/content/0/content/0/sources/0/labelRef/target",
+    ]);
+  });
+
   it("accepts ordinary events without a type and namespaced third-party data", () => {
     const document = scoreWith([noteEvent(0, { exampleApp: { string: 1, fret: 0 } })], {
       exampleApp: { capo: 0, tuning: [40, 45, 50, 55, 59, 64] },

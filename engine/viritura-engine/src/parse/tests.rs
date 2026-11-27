@@ -3,6 +3,128 @@
 use super::*;
 
 #[test]
+fn test_parse_click_only_system_instruction() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "time": {"count": 4, "unit": 4},
+            "_x": {"viritura": {"systemText": [{
+                "id": "click", "text": [{"text": "Click triplets"}],
+                "position": {"fraction": [1, 8]},
+                "tempo": {"clickSubdivision": 3}
+            }]}}
+        }]},
+        "parts": []
+    }"#;
+    let score = parse_mnx(json).expect("click-only instructions must parse without a BPM");
+    let instructions = score.global.measures[0].system_text().unwrap();
+    let instruction = &instructions[0];
+    let tempo = instruction.tempo.as_ref().unwrap();
+    assert_eq!(tempo.click_subdivision, Some(3));
+    assert!(tempo.bpm.is_none());
+}
+
+#[test]
+fn test_parse_grouped_and_silent_click_instructions() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "time": {"count": 6, "unit": 8},
+            "_x": {"viritura": {
+                "rehearsalMark": {"text": [{"text": "M"}]},
+                "chordSymbols": [{"position": {"fraction": [0, 1]}, "rawText": "C"}],
+                "systemText": [
+                {
+                    "id": "group", "text": [{"text": "2+3"}],
+                    "position": {"fraction": [0, 1]},
+                    "tempo": {"clickSubdivision": 2, "clickGrouping": [3, 3, 2, 2, 2]}
+                },
+                {
+                    "id": "free", "text": [{"text": "Free time"}],
+                    "position": {"fraction": [3, 8]},
+                    "tempo": {"clickSubdivision": 0}
+                }
+            ]}}
+        }]},
+        "parts": []
+    }"#;
+    let score = parse_mnx(json).expect("grouped and silent click instructions must parse");
+    let instructions = score.global.measures[0].system_text().unwrap();
+    assert_eq!(
+        instructions[0].tempo.as_ref().unwrap().click_grouping,
+        Some(vec![3, 3, 2, 2, 2])
+    );
+    assert_eq!(
+        instructions[1].tempo.as_ref().unwrap().click_subdivision,
+        Some(0)
+    );
+    assert_eq!(
+        score.global.measures[0]
+            .rehearsal_mark()
+            .unwrap()
+            .text
+            .plain_text(),
+        "M"
+    );
+    assert_eq!(
+        score.global.measures[0].chord_symbols().unwrap()[0].display_text(),
+        "C"
+    );
+}
+
+#[test]
+fn test_click_settings_round_trip_on_standard_and_vendor_tempos() {
+    let json = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {
+                "time": {"count": 6, "unit": 8},
+                "tempos": [{
+                    "bpm": 85.0, "value": {"base": "quarter"},
+                    "_x": {"viritura": {"clickSubdivision": 2, "clickGrouping": [3, 3, 2, 2, 2]}}
+                }]
+            },
+            {
+                "_x": {"viritura": {
+                    "rehearsalMark": {"text": [{"text": "M"}]},
+                    "tempos": [
+                        {"bpm": 85.0, "value": {"base": "quarter"},
+                         "clickSubdivision": 2, "clickGrouping": [3, 3, 2, 2, 2]},
+                        {"swing": {"mode": "straight"}, "clickSubdivision": 0}
+                    ]
+                }}
+            }
+        ]},
+        "parts": []
+    });
+    let score = parse_mnx(&json.to_string()).expect("tempo click settings must parse");
+    let standard = serde_json::to_value(&score.global.measures[0]).unwrap();
+    assert_eq!(
+        standard["tempos"][0]["_x"]["viritura"],
+        json["global"]["measures"][0]["tempos"][0]["_x"]["viritura"]
+    );
+    let vendor = serde_json::to_value(&score.global.measures[1]).unwrap();
+    assert_eq!(
+        vendor["_x"]["viritura"]["tempos"],
+        json["global"]["measures"][1]["_x"]["viritura"]["tempos"]
+    );
+    assert_eq!(
+        score.global.measures[1]
+            .rehearsal_mark()
+            .unwrap()
+            .text
+            .plain_text(),
+        "M"
+    );
+    assert_eq!(
+        crate::promote::promote_global_measure_json(&vendor)
+            .unwrap()
+            .tempos,
+        score.global.measures[1].tempos
+    );
+}
+
+#[test]
 fn test_parse_hello_world() {
     let json = r#"{
         "mnx": {"version": 1},
@@ -774,11 +896,7 @@ fn test_parse_lyric_line_metadata_mnx_file() {
     assert_eq!(metadata["2"].lang.as_deref(), Some("nl"));
     assert_eq!(metadata["4"].lang.as_deref(), Some("es"));
 
-    let line_order = global_lyrics
-        .line_order
-        .as_ref()
-        .expect("lineOrder should be present");
-    assert_eq!(line_order, &["1", "2", "3", "4"]);
+    assert_eq!(global_lyrics.line_order, ["1", "2", "3", "4"]);
 
     // Event lyrics use lines map format
     let event0 = score.parts[0].measures[0].sequences[0].content[0]

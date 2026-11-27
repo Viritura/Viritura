@@ -1,3 +1,5 @@
+import type { ClickLevel, ClickProgramEvent } from "./clickEngine";
+
 // ═══════════════════════════════════════════
 // MIDI Timeline types
 // ═══════════════════════════════════════════
@@ -81,7 +83,7 @@ export interface ISampler {
    *  instrument's release tail. Sustain may defer release until pedal-up.
    *  `altKitProgram` mirrors {@link noteOn} so the release targets the same channel. */
   noteOff(midiNote: number, time?: number, altKitProgram?: number): void;
-  /** Immediately release all sounding notes. */
+  /** Immediately release all sounding notes and discard pending MIDI for these voices. */
   allNotesOff(): void;
   /** Reversible playback-only mute, independent of mixer gain and controllers.
    * Silences current voices but retains queued note events at their original
@@ -220,15 +222,13 @@ export type ScheduleCallback = (event: MidiEvent, audioTime: number) => void;
  * through sub-bar tempo changes / rit. / fermata holds (unlike a reactive
  * beat-crossing click, which is jittered by the playhead poll interval).
  */
-export interface ClickEvent {
+export interface ClickEvent extends ClickProgramEvent {
   /** Absolute score time (seconds) of the click. */
   readonly time: number;
-  /** Whether this click is the accented (downbeat) click of its measure. */
-  readonly accented: boolean;
 }
 
 /** Callback invoked by the Scheduler for each click within the schedule window. */
-export type ClickCallback = (audioTime: number, accented: boolean) => void;
+export type ClickCallback = (audioTime: number, level: ClickLevel) => void;
 
 /** Scheduler configuration. */
 export interface SchedulerConfig {

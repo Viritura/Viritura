@@ -31,6 +31,8 @@ interface UseViewportOptions {
    * Used by follow-the-playhead to detach. Should be a stable reference.
    */
   onUserInteract?: () => void;
+  /** Whether the shared mouse-drag handler owns panning. */
+  mouseDragEnabled?: boolean;
 }
 
 interface UseViewportResult {
@@ -68,6 +70,7 @@ export function useViewport({
   scrollAnchor = "center",
   safeArea,
   onUserInteract,
+  mouseDragEnabled = true,
 }: UseViewportOptions): UseViewportResult {
   const safeLeft = safeArea?.left ?? 0;
   const safeTop = safeArea?.top ?? 0;
@@ -132,7 +135,7 @@ export function useViewport({
   useViewportReclamp({ ...effectDeps, restScrollX, restScrollY });
   useViewportWheel(effectDeps);
   useViewportPinch(effectDeps);
-  useViewportMouseDrag({ ...effectDeps, dragRef, dragLockRef, setIsDragging });
+  useViewportMouseDrag({ ...effectDeps, dragRef, dragLockRef, setIsDragging, enabled: mouseDragEnabled });
 
   const resetViewport = useCallback(() => {
     // Re-read calibration so reset picks up any newly-saved value.

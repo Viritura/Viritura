@@ -61,6 +61,27 @@ describe("memory pressure recorder", () => {
     }
   });
 
+  it.each([false, true])("ignores settled initial layout growth (document switch: %s)", (switchDocument) => {
+    const recorder = new MemoryRecorder("test");
+    if (switchDocument) recorder.sample({ ...INITIAL, timestamp: -10000, documentGeneration: 0 });
+    // Reproduces the reported 31-part, 269-measure score's initial load.
+    const heaps = [408030108, 620154123, 402732773, 402428949];
+    for (let index = 0; index < 60; index++) {
+      expect(
+        recorder.sample({
+          ...INITIAL,
+          timestamp: index * 10000,
+          parts: 31,
+          measures: 269,
+          heapUsedBytes: heaps[index] ?? 404173510,
+          mainWasmBytes: 3538944,
+          workerWasmBytes: index === 0 ? 3538944 : 427098112,
+          workerSampleAgeMs: 9347,
+        }),
+      ).toBeNull();
+    }
+  });
+
   it("resets the sustained-pressure count after a transient spike", () => {
     const recorder = new MemoryRecorder("test");
     recorder.sample({ ...INITIAL, heapUsedBytes: 1600 * MIB });
@@ -77,7 +98,8 @@ describe("memory pressure recorder", () => {
   ])("does not warn just below pressure or growth thresholds: %o", ({ before, after, limit }) => {
     const recorder = new MemoryRecorder("test");
     recorder.sample({ ...INITIAL, heapUsedBytes: before * MIB, heapLimitBytes: limit * MIB });
-    for (let index = 1; index <= 12; index++) {
+    recorder.sample({ ...INITIAL, timestamp: 120000, heapUsedBytes: before * MIB, heapLimitBytes: limit * MIB });
+    for (let index = 13; index <= 24; index++) {
       expect(
         recorder.sample({
           ...INITIAL,
@@ -90,14 +112,43 @@ describe("memory pressure recorder", () => {
   });
 
   it.each(["heapUsedBytes", "mainWasmBytes", "workerWasmBytes"] as const)(
-    "detects growth in %s only after two minutes",
+    "detects growth in %s over two minutes after the initial load window",
     (key) => {
       const recorder = new MemoryRecorder("test");
       recorder.sample({ ...INITIAL, [key]: 256 * MIB });
-      expect(recorder.sample({ ...INITIAL, timestamp: 119999, [key]: 384 * MIB })).toBeNull();
-      expect(recorder.sample({ ...INITIAL, timestamp: 120000, [key]: 384 * MIB })?.reason).toBe("rapid-growth");
+      expect(recorder.sample({ ...INITIAL, timestamp: 120000, [key]: 256 * MIB })).toBeNull();
+      expect(recorder.sample({ ...INITIAL, timestamp: 239999, [key]: 384 * MIB })).toBeNull();
+      expect(recorder.sample({ ...INITIAL, timestamp: 240000, [key]: 384 * MIB })?.reason).toBe("rapid-growth");
     },
   );
+
+  it("ignores a recycled layout worker regrowing to the document's working set", () => {
+    const recorder = new MemoryRecorder("test");
+    // Mirrors a large orchestral score: the worker reaches ~360 MiB, is
+    // recreated by a canvas remount, then regrows on its first layout.
+    const readings = [3.375, 359, 359, 359, null, ...Array<number>(26).fill(3.375), 216];
+    readings.forEach((worker, index) => {
+      expect(
+        recorder.sample({
+          ...INITIAL,
+          timestamp: index * 10000,
+          heapUsedBytes: 400 * MIB,
+          workerWasmBytes: worker === null ? null : worker * MIB,
+          workerSampleAgeMs: worker === null ? null : 0,
+        }),
+      ).toBeNull();
+    });
+  });
+
+  it("still detects a recycled worker growing well past its predecessor's peak", () => {
+    const recorder = new MemoryRecorder("test");
+    const readings = [...Array<number>(14).fill(256), ...Array<number>(12).fill(4), 640];
+    const reasons = readings.map(
+      (worker, index) =>
+        recorder.sample({ ...INITIAL, timestamp: index * 10000, workerWasmBytes: worker * MIB })?.reason,
+    );
+    expect(reasons.at(-1)).toBe("rapid-growth");
+  });
 
   it("ignores stale worker readings for pressure and growth", () => {
     const stale = STALE_WORKER_SAMPLE_MS + 1;
@@ -114,8 +165,9 @@ describe("memory pressure recorder", () => {
     }
     const growth = new MemoryRecorder("test");
     growth.sample({ ...INITIAL, workerWasmBytes: 256 * MIB });
+    growth.sample({ ...INITIAL, timestamp: 120000, workerWasmBytes: 256 * MIB });
     expect(
-      growth.sample({ ...INITIAL, timestamp: 120000, workerWasmBytes: 512 * MIB, workerSampleAgeMs: stale }),
+      growth.sample({ ...INITIAL, timestamp: 240000, workerWasmBytes: 512 * MIB, workerSampleAgeMs: stale }),
     ).toBeNull();
   });
 

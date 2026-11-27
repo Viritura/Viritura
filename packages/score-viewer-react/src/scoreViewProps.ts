@@ -5,6 +5,7 @@ import type { ScoreContentAlign, ScorePageMargins, ScoreSpreadFirstPage, ScoreVi
 export interface ScoreViewProps {
   mnx: string | object;
   assetBaseUrl?: string;
+  useWorker?: boolean;
   pageWidth?: number;
   pageHeight?: number;
   pageMargins?: ScorePageMargins;

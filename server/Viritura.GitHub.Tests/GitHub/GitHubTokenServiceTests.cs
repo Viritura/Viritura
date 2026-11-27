@@ -9,7 +9,7 @@ namespace Viritura.GitHub.Tests.GitHub;
 public sealed class GitHubTokenServiceTests
 {
     [Fact]
-    public void BuildAuthorizationUrl_OmitsLegacyOAuthScopeByDefault()
+    public void BuildAuthorizationUrl_RequestsOnlyGitHubAppOfflineAccess()
     {
         var service = CreateService(new GitHubAuthOptions
         {
@@ -19,27 +19,12 @@ public sealed class GitHubTokenServiceTests
 
         var authorizationUrl = service.BuildAuthorizationUrl("state-value");
 
-        Assert.DoesNotContain("scope=", authorizationUrl, StringComparison.Ordinal);
+        Assert.Contains("scope=offline_access", authorizationUrl, StringComparison.Ordinal);
         Assert.Contains("client_id=client-id", authorizationUrl, StringComparison.Ordinal);
         Assert.Contains(
             "redirect_uri=http%3A%2F%2Fapi.viritura.localhost%2Fgithub%2Fauth%2Fcallback",
             authorizationUrl,
             StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void BuildAuthorizationUrl_IncludesExplicitCompatibilityScope()
-    {
-        var service = CreateService(new GitHubAuthOptions
-        {
-            ClientId = "client-id",
-            RedirectUri = "http://api.viritura.localhost/github/auth/callback",
-            Scope = "read:user"
-        });
-
-        var authorizationUrl = service.BuildAuthorizationUrl("state-value");
-
-        Assert.Contains("scope=read%3Auser", authorizationUrl, StringComparison.Ordinal);
     }
 
     private static GitHubTokenService CreateService(GitHubAuthOptions options) =>
@@ -84,6 +69,13 @@ public sealed class GitHubTokenServiceTests
         public Task<GitHubCreatedRepository> CreateRepositoryAsync(
             string accessToken,
             GitHubCreateRepository repository,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<GitHubCreatedGist> CreateGistAsync(
+            string accessToken,
+            string description,
+            IReadOnlyDictionary<string, string> files,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 

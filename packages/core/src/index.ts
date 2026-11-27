@@ -17,3 +17,5 @@ export * from "./id";
 export * from "./partDisplay";
 export * from "./diagnostics";
 export * from "./handoff";
+export * from "./fermatas";
+export * from "./click";

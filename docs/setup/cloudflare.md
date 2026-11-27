@@ -120,9 +120,21 @@ API or OAuth behavior from preview origins; production CORS and OAuth callbacks
 remain limited to canonical origins.
 
 The `_headers` and `_redirects` files under each application's `public`
-directory provide security headers, immutable caching for fingerprinted assets,
-HTML revalidation, cross-origin isolation for the editor, and SPA fallback
-routing. The website Pages HTTP CSP intentionally contains only
+directory provide security headers, caching rules, cross-origin isolation for
+the editor, and routing. The editor's root `404.html` disables Pages' default
+SPA fallback; `_redirects` explicitly serves the app for shared-score links.
+Shared-score rewrites target `/`, the canonical editor entry URL, rather than
+`/index.html`: Pages canonicalizes the latter with a redirect to `/`, losing
+the shared-score path before the client router loads.
+Missing `/assets/*` and `/wasm/*` files therefore return 404 rather than editor
+HTML. Those paths require cache revalidation even for successful responses:
+Pages applies the same path-based headers to errors, so immutable caching would
+also cache a missing file. The Pages workflow verifies these responses and the
+shared-score route on preview and production, and waits for the exact built
+layout worker as well as the build marker before smoke-testing the editor.
+If an old immutable fallback response is already cached, purge its URL from any
+custom-domain cache; browsers that cached it may still need a later asset URL.
+The website Pages HTTP CSP intentionally contains only
 `frame-ancestors 'self'` because Astro and the MNX Storybook emit their own CSP
 meta policies with generated script/style hashes. The website post-build step
 removes `wasm-unsafe-eval` from every page except `/mnx/`,

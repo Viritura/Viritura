@@ -5,5 +5,6 @@ export {
   setBarInstrument,
   setBarTransposition,
   removeBarInstrumentChange,
+  deleteInstrumentChangeByElementId,
 } from "./barChanges";
 export { synchronizeInitialInstrument } from "./initialInstrument";

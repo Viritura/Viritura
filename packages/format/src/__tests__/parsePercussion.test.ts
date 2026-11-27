@@ -21,7 +21,7 @@ const drumKitMnx = {
       name: "Drum Kit",
       kit: {
         kick: { name: "Kick", sound: "snd-kick", staffPosition: -4 },
-        snare: { name: "Snare", sound: "snd-snare", staffPosition: 0, _x: { viritura: { notehead: "x" } } },
+        snare: { name: "Snare", sound: "snd-snare", staffPosition: 0, notehead: { shape: "x" } },
         gong: { name: "Tam-tam", sound: "snd-snare", staffPosition: -3, _x: { viritura: { drumKit: 49 } } },
       },
       measures: [

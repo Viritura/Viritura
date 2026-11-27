@@ -248,6 +248,25 @@ describe("setEventNotehead — percussion kit-notes", () => {
     expect(next).toBe(score);
   });
 
+  it("updates a per-note override while preserving its metadata", () => {
+    const score = makePercussionScoreWithNotes();
+    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type !== "event") throw new Error("expected event");
+    event.kitNotes![0]!.notehead = { shape: "custom", glyph: "noteheadXBlack", id: "override", _c: "keep" };
+    expect(getEventNotehead(score, PERC_LOC)).toBe("custom");
+
+    const normal = setEventNotehead(score, { ...PERC_LOC, notehead: "normal" })!;
+    expect(getEventNotehead(normal, PERC_LOC)).toBe("normal");
+    expect(kitRefs(normal)[0]).toBe("kit-snare");
+
+    const cross = setEventNotehead(score, { ...PERC_LOC, notehead: "x" })!;
+    expect(getEventNotehead(cross, PERC_LOC)).toBe("x");
+    expect(kitRefs(cross)[0]).toBe("kit-snare");
+    const changed = cross.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (changed.type !== "event") throw new Error("expected event");
+    expect(changed.kitNotes![0]!.notehead).toEqual({ shape: "x", id: "override", _c: "keep" });
+  });
+
   it("reuses an existing matching component instead of duplicating", () => {
     const score = makePercussionScoreWithNotes();
     // Add a second snare hit so two notes reference kit-snare.

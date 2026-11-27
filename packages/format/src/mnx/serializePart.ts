@@ -51,6 +51,7 @@ export function serializePart(part: Part, helpers: PartSerializerHelpers): Obj {
   if (partExt) {
     if (partExt.instrumentId !== undefined) ext["instrumentId"] = partExt.instrumentId;
     if (partExt.midiProgram !== undefined) ext["midiProgram"] = partExt.midiProgram;
+    if (partExt.solo !== undefined) ext["solo"] = partExt.solo;
     if (partExt.family !== undefined) ext["family"] = partExt.family;
     if (partExt.spatial !== undefined) ext["spatial"] = { x: partExt.spatial.x, y: partExt.spatial.y };
     if (partExt.instruments !== undefined) {
@@ -88,6 +89,7 @@ function serializeInstrumentDefinition(instrument: InstrumentDefinition): Obj {
   if (instrument.shortName !== undefined) out["shortName"] = instrument.shortName;
   if (instrument.transposition) out["transposition"] = serializeTransposition(instrument.transposition);
   if (instrument.midiProgram !== undefined) out["midiProgram"] = instrument.midiProgram;
+  if (instrument.solo !== undefined) out["solo"] = instrument.solo;
   return out;
 }
 

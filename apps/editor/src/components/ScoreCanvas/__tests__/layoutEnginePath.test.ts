@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { EMPTY_LAYOUT_METRICS, PerfTracker, type DisplayList, type ScoreInfo } from "@viritura/renderer";
 import { runLayoutEnginePath } from "../layoutEnginePath";
+import { computeDisplayListImpl, tryRelayoutScoreView } from "../computeDisplayList";
 import type { LayoutBackend } from "../layoutBackend";
+import { DEFAULT_PART_PAGE_SETUP } from "@viritura/core";
+import { parseMnx, serializeMnx } from "@viritura/format";
+import { getRenderedStaffSources } from "../renderedStaffSources";
+import multipleLayouts from "../../../../../../packages/format/fixtures/mnx/multiple-layouts.mnx?raw";
 
 const DISPLAY_LIST: DisplayList = {
   commands: [],
@@ -64,6 +69,102 @@ describe("runLayoutEnginePath", () => {
     expect(engine.computeFullScoreLayout).toHaveBeenCalledWith("{}", 12, 800, "{}", 0);
     expect(engine.computeLayout).not.toHaveBeenCalled();
   });
+
+  describe("source part layout", () => {
+    it.each([
+      [undefined, true],
+      [false, false],
+    ])(
+      "lays out the selected source part with override %s (written: %s)",
+      async (useWrittenOverride, expectedWritten) => {
+        const engine = createBackend();
+        const score = parseMnx(JSON.parse(multipleLayouts));
+        const projectedList: DisplayList = {
+          ...DISPLAY_LIST,
+          measureBounds: [
+            {
+              index: 0,
+              staffIndex: 0,
+              partIndex: 0,
+              x: 0,
+              y: 0,
+              width: 100,
+              height: 40,
+              prefixWidth: 0,
+              totalBeats: 4,
+              beatAnchors: [],
+            },
+          ],
+        };
+        vi.mocked(engine.computeMnxScoreLayout).mockResolvedValue(projectedList);
+        const result = await computeDisplayListImpl({
+          engine,
+          mnxJson: multipleLayouts,
+          info: scoreInfo(score.parts.length),
+          scoreIdx: 0,
+          partIndex: 0,
+          sourcePartIndex: 1,
+          useWrittenOverride,
+          viewMode: "horizon",
+          selectedPartIds: [score.parts[1]!.id!],
+          expandedCondensingStaves: undefined,
+          score,
+          perfTracker: new PerfTracker(),
+          setLayoutPerfDebug: vi.fn(),
+          pageSetupRef: { current: DEFAULT_PART_PAGE_SETUP },
+          showHiddenRests: false,
+        });
+        const call = vi.mocked(engine.computeMnxScoreLayout).mock.calls[0];
+        expect(call).toBeDefined();
+        const projected = parseMnx(JSON.parse(call![0]));
+        expect(projected.parts.map((part) => part.id)).toEqual([score.parts[1]!.id]);
+        expect(projected.scores?.[0]?.useWritten).toBe(expectedWritten);
+        expect(call![3]).toBe(0);
+        expect(getRenderedStaffSources(result)).toEqual([
+          { staffIndex: 0, measureIndex: 0, partIds: [score.parts[1]!.id] },
+        ]);
+      },
+    );
+  });
+
+  it.each([true, false])(
+    "projects pitch %s for only the selected score without changing the retained document",
+    async (useWritten) => {
+      const engine = createBackend();
+      vi.spyOn(engine, "hasRetainedScore").mockReturnValue(true);
+      const score = parseMnx(JSON.parse(multipleLayouts));
+      score.scores![0]!.useWritten = true;
+      score.scores![1]!.useWritten = !useWritten;
+      const original = structuredClone(score);
+      const args = {
+        engine,
+        mnxJson: JSON.stringify(serializeMnx(score)),
+        info: scoreInfo(score.parts.length),
+        scoreIdx: 1,
+        partIndex: 0,
+        useWrittenOverride: useWritten,
+        viewMode: "page" as const,
+        selectedPartIds: undefined,
+        expandedCondensingStaves: undefined,
+        score,
+        perfTracker: new PerfTracker(),
+        setLayoutPerfDebug: vi.fn(),
+        pageSetupRef: { current: DEFAULT_PART_PAGE_SETUP },
+        showHiddenRests: false,
+      };
+      expect(await tryRelayoutScoreView(args)).toBeNull();
+      await computeDisplayListImpl(args);
+      const call = vi.mocked(engine.computeMnxScoreLayout).mock.calls[0]!;
+      const projected = parseMnx(JSON.parse(call[0]));
+      expect(projected.scores?.[1]?.useWritten).toBe(useWritten);
+      expect(projected.scores?.[0]?.useWritten).toBe(true);
+      expect(projected.parts).toEqual(original.parts);
+      expect(score).toEqual(original);
+      expect(call[3]).toBe(1);
+      expect(engine.relayoutRetainedScore).not.toHaveBeenCalled();
+      expect(engine.computeFullScoreLayout).not.toHaveBeenCalled();
+    },
+  );
 
   it("preserves the only authored score's written view and source layout", async () => {
     const engine = createBackend();

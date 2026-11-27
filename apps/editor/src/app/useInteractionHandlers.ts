@@ -35,6 +35,7 @@ import type { RefObject, MutableRefObject } from "react";
 import type { useNoteInput } from "../store/noteInputStore";
 import type { EditorKeyboardActions } from "../keyboard/useEditorKeyboard";
 import { useLyricEntryCommand } from "../lyrics";
+import type { FolderOpenActions } from "./useFolderOpen";
 
 type NoteInputState = ReturnType<typeof useNoteInput>["state"];
 type JumpBarActions = ReturnType<typeof useJumpBarActions>;
@@ -56,6 +57,7 @@ interface UseInteractionHandlersParams {
   onSwitchScore: (index: number) => void;
   noteInputState: NoteInputState;
   lyricEntryEnabled: boolean;
+  suspendEditorInput?: boolean;
   // editing helpers
   getSelectedMeasureIndex: () => number | null;
   getSelectedPartIndex: () => number | null;
@@ -103,7 +105,7 @@ interface UseInteractionHandlersParams {
   // radial menu state
   radialMenu: RadialMenuState | null;
   // drag-and-drop
-  openFolderHandle: (handle: FileSystemDirectoryHandle) => Promise<void>;
+  openFolderHandle: FolderOpenActions["openFolderHandle"];
   setIsDragOver: (over: boolean) => void;
   setFileError: (err: string | null) => void;
   setOpenedFile: (file: OpenFileResult | null) => void;
@@ -146,6 +148,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     selectedScoreIndex,
     onSwitchScore,
     noteInputState,
+    suspendEditorInput,
     lyricEntryEnabled,
     getSelectedMeasureIndex,
     getSelectedPartIndex,
@@ -209,6 +212,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
 
   const { enterMidiNotes, moveMidiCursor } = useAppKeyboardWiring({
     canvasRef,
+    suspendEditorInput,
     leftPanelRef,
     rightPanelRef,
     mousePositionRef,

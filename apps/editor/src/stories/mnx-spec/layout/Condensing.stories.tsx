@@ -245,6 +245,41 @@ export const Divisi: StoryObj = {
   name: "Divisi — different rhythms, separate voices",
 };
 
+const tripletHandoffMnx = JSON.stringify({
+  mnx: { version: 1 },
+  global: { measures: [{ id: "m1", time: { count: 4, unit: 4 }, key: { fifths: 0 } }] },
+  parts: [5, 4].map((octave, index) => {
+    const run = Array.from({ length: 4 }, (_, group) => ({
+      type: "tuplet",
+      inner: { multiple: 3, duration: { base: "16th" } },
+      outer: { multiple: 2, duration: { base: "16th" } },
+      content: ["C", "D", "E"].map((step) => ({
+        id: `cl${index + 1}-triplet${group}-${step}`,
+        duration: { base: "16th" },
+        notes: [{ pitch: { step, octave } }],
+      })),
+    }));
+    const rest = { duration: { base: "half" }, rest: {} };
+    return {
+      id: `cl${index + 1}`,
+      name: "Clarinet",
+      measures: [{ sequences: [{ content: index === 0 ? [...run, rest] : [rest, ...run] }] }],
+    };
+  }),
+  layouts: [
+    {
+      id: "cond",
+      content: [{ type: "staff", label: "Cl. 1, 2", sources: [{ part: "cl1" }, { part: "cl2" }] }],
+    },
+  ],
+  scores: [{ name: "Condensed", layout: "cond" }],
+});
+
+export const TripletHandoff: StoryObj = {
+  render: () => <ScorePreview mnxJson={tripletHandoffMnx} />,
+  name: "Divisi triplet handoff with leading and trailing rests",
+};
+
 // ═══════════════════════════════════════════════════
 // Solo — one part rests
 // ═══════════════════════════════════════════════════
@@ -303,6 +338,53 @@ const soloMnx = JSON.stringify(
 export const Solo: StoryObj = {
   render: () => <ScorePreview mnxJson={soloMnx} />,
   name: "Solo — one part rests, '1.' label",
+};
+
+export const DelayedPlayerEntry: StoryObj = {
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1 },
+        global: { measures: [{ time: { count: 4, unit: 4 } }] },
+        parts: [0, 1].map((index) => ({
+          id: `fl${index + 1}`,
+          name: "Flute",
+          measures: [
+            {
+              sequences: [
+                {
+                  content:
+                    index === 0
+                      ? [
+                          { duration: { base: "quarter" }, rest: {} },
+                          {
+                            type: "tuplet",
+                            inner: { multiple: 6, duration: { base: "16th" } },
+                            outer: { multiple: 4, duration: { base: "16th" } },
+                            content: ["G", "F", "E", "D", "C", "B"].map((step) => ({
+                              duration: { base: "16th" },
+                              notes: [{ pitch: { step, octave: 5 } }],
+                            })),
+                          },
+                          { duration: { base: "half" }, rest: {} },
+                        ]
+                      : [{ duration: { base: "whole" }, rest: {} }],
+                },
+              ],
+            },
+          ],
+        })),
+        layouts: [
+          {
+            id: "cond",
+            content: [{ type: "staff", label: "Fl. 1, 2", sources: [{ part: "fl1" }, { part: "fl2" }] }],
+          },
+        ],
+        scores: [{ name: "Condensed", layout: "cond" }],
+      })}
+    />
+  ),
+  name: "Player label follows a rest to the first tuplet note",
 };
 
 // ═══════════════════════════════════════════════════

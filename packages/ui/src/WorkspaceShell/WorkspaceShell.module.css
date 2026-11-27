@@ -10,6 +10,7 @@
   min-height: 0;
   /* Accent tokens consumed by Panel / status pill / tinted descendants. */
   --accent-rgb: 33, 94, 78;
+  --on-accent: #fff;
   --accent-grad: linear-gradient(135deg, #215e4e 0%, #3f8a74 100%);
   /* Workspace mesh — single source of truth shared with the UI
    * storybook preview backdrop (packages/ui/.storybook/preview.ts). */

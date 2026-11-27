@@ -155,6 +155,12 @@ pub(super) fn render_system_staves_and_contents(
         );
         let context_hash =
             super::super::instrument_changes::state_salt(score, flat_staves, context_hash);
+        let context_hash = super::instrument_labels::label_dependency_salt(
+            score,
+            flat_staves,
+            group_ranges,
+            context_hash,
+        );
         let mut hasher = DefaultHasher::new();
         context_hash.hash(&mut hasher);
         retention
@@ -217,6 +223,8 @@ pub(super) fn render_system_staves_and_contents(
             tie_maps_per_staff,
             staff_idx,
             &mut acc_obstacles,
+            None,
+            group_ranges,
         );
         if let (Some(retention), Some(hash)) = (retention.as_deref_mut(), hash) {
             retention.capture(hash, dl, start, &acc_obstacles[obstacle_start..]);

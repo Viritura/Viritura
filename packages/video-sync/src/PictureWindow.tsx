@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { closePictureWindow, isDocumentPipSupported, openPictureWindow } from "./documentPictureInPicture";
+import { closePictureWindow, isDocumentPipSupported, openPictureWindow } from "@viritura/ui";
 import styles from "./PictureWindow.module.css";
 
 export interface PictureWindowProps {

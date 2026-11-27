@@ -1398,6 +1398,23 @@ describe("NotationInspector", () => {
     await waitFor(() => expect(placement.textContent).toContain("Below"));
   });
 
+  it("edits a shared fermata's multiplier and click behavior", async () => {
+    const initialScore = buildScore();
+    initialScore.global.measures[0]!.fermatas = [{ id: "shared-hold", position: { fraction: [0, 1] } }];
+    render(withProviders(<Harness elementId="m0/fermata/shared-hold" initialScore={initialScore} />));
+    const multiplier = await screen.findByTestId("notation-fermata-multiplier");
+    expect(screen.getByText("Applies to all staves.")).toBeTruthy();
+    fireEvent.change(multiplier, { target: { value: "3" } });
+    await waitFor(() => expect(currentScore().global.measures[0]!.fermatas![0]!.multiplier).toBe(3));
+    fireEvent.change(multiplier, { target: { value: "0.5" } });
+    expect(currentScore().global.measures[0]!.fermatas![0]!.multiplier).toBe(3);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("notation-fermata-click"));
+    await user.click(await screen.findByRole("option", { name: "Keep clicking" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.fermatas![0]!.clickBehavior).toBe("keepClicking"));
+    expect(screen.queryByTestId("notation-fermata-symbol")).toBeNull();
+  });
+
   it("authors and resets a selected rest staff position", async () => {
     render(withProviders(<Harness elementId="p0/m0/s1/rest1" />));
 

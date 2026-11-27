@@ -90,12 +90,65 @@ function uncondenseExcludedInstruments(content: LayoutContent[], partMap: Map<st
         return item.sources.map((src) => ({
           type: "staff" as const,
           sources: [src],
-          ...(item.labelref ? { labelref: item.labelref } : {}),
+          ...(item.labelRef ? { labelRef: item.labelRef } : {}),
         }));
       }
     }
     return [item];
   });
+}
+
+function sourceKey(source: LayoutSource): string {
+  return `${source.part}\u0000${source.staff ?? 1}`;
+}
+
+function collectMergedStaves(content: readonly LayoutContent[], out: LayoutStaff[] = []): LayoutStaff[] {
+  for (const node of content) {
+    if (node.type === "group") collectMergedStaves(node.content, out);
+    else if (node.sources.length > 1 && new Set(node.sources.map((s) => s.part)).size === node.sources.length) {
+      out.push(node);
+    }
+  }
+  return out;
+}
+
+/**
+ * Re-apply the multi-source (condensed) staves of `previous` onto `rebuilt`,
+ * a regenerated one-staff-per-source layout. Each merged staff replaces the
+ * first of its sources' staves; the remaining source staves are removed.
+ * Merges whose sources are no longer all present as single staves are dropped.
+ */
+export function preserveCondensedStaves(rebuilt: LayoutContent[], previous: readonly LayoutContent[]): LayoutContent[] {
+  const merges = new Map<string, { staff: LayoutStaff; keys: Set<string> }>();
+  for (const staff of collectMergedStaves(previous)) {
+    const merge = { staff, keys: new Set(staff.sources.map(sourceKey)) };
+    for (const key of merge.keys) merges.set(key, merge);
+  }
+  if (merges.size === 0) return rebuilt;
+
+  const singles = new Set<string>();
+  const collectSingles = (content: readonly LayoutContent[]) => {
+    for (const node of content) {
+      if (node.type === "group") collectSingles(node.content);
+      else if (node.sources.length === 1) singles.add(sourceKey(node.sources[0]!));
+    }
+  };
+  collectSingles(rebuilt);
+
+  const placed = new Set<LayoutStaff>();
+  const apply = (content: readonly LayoutContent[]): LayoutContent[] =>
+    content.flatMap((node): LayoutContent[] => {
+      if (node.type === "group") {
+        const groupContent = apply(node.content);
+        return groupContent.length > 0 ? [{ ...node, content: groupContent }] : [];
+      }
+      const merge = node.sources.length === 1 ? merges.get(sourceKey(node.sources[0]!)) : undefined;
+      if (!merge || ![...merge.keys].every((key) => singles.has(key))) return [node];
+      if (placed.has(merge.staff)) return [];
+      placed.add(merge.staff);
+      return [{ ...merge.staff, sources: merge.staff.sources.map((s) => ({ ...s })) }];
+    });
+  return apply(rebuilt);
 }
 
 /** Find an existing layout with identical content, or return undefined. */
@@ -162,7 +215,12 @@ function condenseGroupContent(group: LayoutGroup, partMap: Map<string, Part>): L
     // Find the next unpaired staff with the same initial instrument
     let pairIndex = -1;
     for (let j = i + 1; j < staves.length; j++) {
-      if (!paired.has(j) && matchingInstruments(partMap.get(current.partId), partMap.get(staves[j]!.partId))) {
+      const candidate = staves[j]!;
+      if (
+        !paired.has(j) &&
+        candidate.partId !== current.partId &&
+        matchingInstruments(partMap.get(current.partId), partMap.get(candidate.partId))
+      ) {
         pairIndex = j;
         break;
       }
@@ -182,7 +240,7 @@ function condenseGroupContent(group: LayoutGroup, partMap: Map<string, Part>): L
         type: "staff",
         sources: combinedSources,
         label: current.node.label,
-        labelref: current.node.labelref,
+        labelRef: current.node.labelRef,
       } as LayoutStaff);
     } else {
       // Solo — keep as-is

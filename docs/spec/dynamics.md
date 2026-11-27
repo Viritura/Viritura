@@ -4,9 +4,9 @@ Canonical reference for how Viritura stores, engraves, edits, and plays
 dynamics. Dynamics are standard MNX dynamic-group variants; Viritura defines
 no separate hairpin storage.
 
-> **Upstream baseline:** `w3c-cg/mnx@f2a9b5b9864f3c9bfdc74380ff2a760f74c7ce54`
-> (schema 46, 2026-10-14). `mnx.version` remains `1` — the project follows the
-> single rolling-draft policy.
+> **Upstream baseline:** `w3c-cg/mnx@72d6668efd0f965229b9f90caca9bba5220a69fc`
+> (schema 57, 2026-11-25). The schema revision is independent of `mnx.version`;
+> the project follows a single rolling-draft policy.
 
 ## 1. Storage
 
@@ -164,6 +164,12 @@ The inspector exposes variant-appropriate fields — value/residual value/
 affixes for immediate and accent, direction/endpoint/optional start
 value/orientation for gradual, louder-softer and affixes for relative, and
 staff, voice, orientation, manual placement, and collision pinning for all.
+
+Immediate and accent markings can be entered on explicitly selected notes or
+rests, including full-measure rests. They use the selected onset and staff,
+so a rest on the upper staff of a grand staff can anchor a dynamic while the
+lower staff plays. Multi-selections apply the marking at each selected onset;
+range selections continue to skip intervening rests.
 
 ### 6.3 Clipboard
 

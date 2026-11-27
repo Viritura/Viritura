@@ -7,6 +7,9 @@ use super::pitch::Pitch;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+mod full_measure_rest;
+pub use full_measure_rest::FullMeasure;
+
 /// A rest marker with optional staff position override.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Rest {
@@ -55,8 +58,10 @@ pub struct Note {
     pub kit_component: Option<String>,
     /// MNX `kit-note.perform` (currently a stub object).
     pub perform: Option<PerformOptions>,
-    /// Viritura `_x.viritura.notehead` override for a pitched note.
+    /// Resolved native MNX notehead.
     pub notehead: Option<NoteheadShape>,
+    /// Original native object, including glyph and global attributes.
+    pub notehead_wire: Option<serde_json::Value>,
     /// Native MNX markings attached to this individual note.
     pub markings: Option<NoteMarkings>,
     /// Source part index for condensing (internal, not serialized).
@@ -89,6 +94,7 @@ impl Default for Note {
             kit_component: None,
             perform: None,
             notehead: None,
+            notehead_wire: None,
             markings: None,
             source_part_index: None,
             source_event_id: None,
@@ -123,20 +129,10 @@ struct NoteRaw {
     kit_component: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     perform: Option<PerformOptions>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "_x")]
-    x: Option<NoteVendorExtensions>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    notehead: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     markings: Option<NoteMarkings>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct NoteVirituraExtensions {
-    notehead: NoteheadShape,
-}
-
-#[derive(Serialize, Deserialize)]
-struct NoteVendorExtensions {
-    viritura: NoteVirituraExtensions,
 }
 
 fn placeholder_pitch() -> Pitch {
@@ -163,9 +159,8 @@ impl Serialize for Note {
             staff: self.staff,
             kit_component: self.kit_component.clone(),
             perform: self.perform.clone(),
-            x: self.notehead.map(|notehead| NoteVendorExtensions {
-                viritura: NoteVirituraExtensions { notehead },
-            }),
+            notehead: crate::model::kit::native_notehead(self.notehead, &self.notehead_wire)
+                .map_err(serde::ser::Error::custom)?,
             markings: self.markings.clone(),
         };
         raw.serialize(serializer)
@@ -330,6 +325,15 @@ pub use crate::raw::UpDown;
 /// `symbol = Normal`, `duration = Auto`, `placement = Auto`, `pointing = Auto`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Fermata {
+    /// Layout-only shared owners. Authored local notation remains unchanged.
+    #[serde(skip)]
+    pub projected_global_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_c")]
+    pub class: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_x")]
+    pub extensions: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub symbol: Option<FermataSymbol>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -974,21 +978,6 @@ pub struct MultiNoteTremolo {
     /// Alternate duration for individual notes within the tremolo (MNX `individualDuration`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub individual_duration: Option<Duration>,
-}
-
-/// Visual duration for a full-measure rest (MNX fullMeasure).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct FullMeasure {
-    /// The visual duration to display (e.g., whole rest)
-    #[serde(rename = "visualDuration")]
-    pub visual_duration: Duration,
-    /// Explicit staff position override (MNX staffPosition).
-    /// 0 = middle line, positive = up, negative = down.
-    #[serde(skip_serializing_if = "Option::is_none", rename = "staffPosition")]
-    pub staff_position: Option<i32>,
-    /// Fermata attached to this meter-independent bar rest.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fermata: Option<Fermata>,
 }
 
 /// A sequence (voice) within a measure.

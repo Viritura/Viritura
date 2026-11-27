@@ -6,7 +6,7 @@
  */
 
 import type { ClefSign, LayoutContent, LayoutGroup, LayoutStaff, Part, Score, ScoreDefinition } from "@viritura/core";
-import { pruneMixerSettings, resolvePartDisplayNames } from "@viritura/core";
+import { pruneFretboards, pruneMixerSettings, resolvePartDisplayNames } from "@viritura/core";
 import {
   type Player,
   FAMILY_META,
@@ -18,6 +18,7 @@ import {
 import { buildLayouts, buildScoreDefinitions } from "./layoutBuilder";
 import { buildInitialStaffConfigs, createCatalogPart, persistedPartNames } from "./catalogPart";
 import { buildOrchestralLayoutGroups, orchestralInstrumentGroup } from "./layoutGrouping";
+import { preserveCondensedStaves } from "../app/condensedLayout";
 
 // ─── Extract players from an existing Score ──────────────────────
 
@@ -327,6 +328,7 @@ function resolveNewInstrumentNames(
 export function buildStaffNodeForPart(
   inst: NonNullable<ReturnType<typeof getCatalogInstrument>>,
   partId: string,
+  labelSingleStaff = true,
 ): LayoutContent {
   const staves = inst.staves ?? 1;
   if (staves > 1 && inst.bracketSymbol === "brace") {
@@ -334,14 +336,14 @@ export function buildStaffNodeForPart(
     for (let s = 1; s <= staves; s++) {
       staffNodes.push({
         type: "staff",
-        sources: [{ part: partId, staff: s, labelref: "name" }],
+        sources: [{ part: partId, staff: s, labelRef: { ref: "auto" } }],
       });
     }
     return { type: "group", content: staffNodes, symbol: "brace" } as LayoutGroup;
   }
   return {
     type: "staff",
-    sources: [{ part: partId, labelref: "name" }],
+    sources: [{ part: partId, ...(labelSingleStaff ? { labelRef: { ref: "auto" as const } } : {}) }],
   } as LayoutStaff;
 }
 
@@ -429,7 +431,7 @@ function canonicalLayoutContent(
           node:
             instrument && part.id
               ? buildStaffNodeForPart(instrument, part.id)
-              : ({ type: "staff", sources: [{ part: part.id!, labelref: "name" }] } as LayoutStaff),
+              : ({ type: "staff", sources: [{ part: part.id!, labelRef: { ref: "auto" } }] } as LayoutStaff),
         };
       }),
   );
@@ -508,14 +510,14 @@ export function addInstrumentToScore(score: Score, instrumentId: string, targetL
       ? {
           ...layout,
           content: canonicalIds.has(layout.id)
-            ? canonicalLayoutContent(scoreWithPart, layout, newPartId)
+            ? preserveCondensedStaves(canonicalLayoutContent(scoreWithPart, layout, newPartId), layout.content)
             : appendStaffToFullScoreContent(layout.content, familyLabel, newStaffNode),
         }
       : layout,
   );
 
   // Per-part layout
-  newLayouts.push({ id: `L-${newPartId}`, content: [buildStaffNodeForPart(inst, newPartId)] });
+  newLayouts.push({ id: `L-${newPartId}`, content: [buildStaffNodeForPart(inst, newPartId, false)] });
 
   // Per-part score definition
   const newScoreDef: ScoreDefinition = {
@@ -565,7 +567,7 @@ export function removeInstrumentFromScore(score: Score, partId: string): Score {
     (score.scores ?? []).filter((sd) => sd.layout !== perPartLayoutId),
   );
 
-  return pruneMixerSettings({ ...score, parts: newParts, layouts: newLayouts, scores: newScores });
+  return pruneMixerSettings(pruneFretboards({ ...score, parts: newParts, layouts: newLayouts, scores: newScores }));
 }
 
 // ─── Reorder an instrument ───────────────────────────────────────

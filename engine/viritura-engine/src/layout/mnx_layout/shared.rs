@@ -640,9 +640,9 @@ pub(super) fn build_virtual_part_measure(
         all_sequences
             .into_iter()
             .filter(|seq| {
-                seq.content
+                collect_flat_events(&seq.content, 0.0, 1.0)
                     .iter()
-                    .any(|c| matches!(c, SequenceContent::Event(ev) if !ev.is_rest()))
+                    .any(|(_, event)| !event.is_rest())
             })
             .collect()
     } else {
@@ -740,30 +740,36 @@ pub(super) fn append_partial_unison_label(
 }
 
 /// Render group brackets and braces in the left margin of a system, including
-/// any group labels (e.g. "Hpsd." on a labelled brace).
+/// any group labels.
 ///
 /// Pure visual writer: appends to `dl`, reads nothing back. Caller has already
 /// resolved `staff_y_offsets` (system Y positions for this system).
 #[allow(clippy::too_many_arguments)] // pipeline boundary ΓÇö all inputs are required
 pub(super) fn render_group_brackets_and_braces(
     dl: &mut DisplayList,
+    flat_staves: &[FlatStaff],
     group_ranges: &[GroupRange],
     staff_y_offsets: &[f64],
     margin_left: f64,
+    label_x: f64,
     staff_height: f64,
     sp: f64,
     config: &LayoutConfig,
-    render_brace_labels: bool,
+    is_first_system: bool,
+    policy: Option<InstrumentNameDisplayPolicy>,
 ) {
     super::staff_grouping::render_group_brackets_and_braces(
         dl,
+        flat_staves,
         group_ranges,
         staff_y_offsets,
         margin_left,
+        label_x,
         staff_height,
         sp,
         config,
-        render_brace_labels,
+        is_first_system,
+        policy,
     );
 }
 
@@ -813,6 +819,8 @@ pub(super) fn render_system_staff_content(
     tie_maps_per_staff: Option<&[HashMap<String, bool>]>,
     staff_idx: usize,
     acc_obstacles: &mut Vec<AccidentalObstacle>,
+    number_staff_y: Option<&[super::super::render_annotations::BarNumberRowPositions]>,
+    number_groups: &[GroupRange],
 ) {
     let Some(measure_layouts) = all_staff_layouts.get(staff_idx) else {
         return;
@@ -831,6 +839,17 @@ pub(super) fn render_system_staff_content(
     let recolor_start = dl.commands.len();
     let tie_override = tie_maps_per_staff.and_then(|maps| maps.get(staff_idx));
     let bounds_start = dl.measure_bounds.len();
+    let number_context = super::super::render_annotations::number_staff_context(
+        &config.bar_numbers,
+        staff_idx,
+        flat_staves,
+        number_groups,
+        score,
+        number_staff_y
+            .and_then(|rows| rows.get(staff_idx))
+            .copied()
+            .unwrap_or_default(),
+    );
     render_system_contents(
         dl,
         measure_layouts,
@@ -851,6 +870,7 @@ pub(super) fn render_system_staff_content(
         clef_change_measures,
         acc_obstacles,
         tie_override,
+        Some(&number_context),
     );
     super::staff_sources::assign_measure_sources(
         &mut dl.measure_bounds[bounds_start..],

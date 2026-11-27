@@ -19,6 +19,21 @@
   max-width: 8.5rem;
 }
 
+.roleSizeControl {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.roleSizeInput {
+  width: 4.75rem;
+}
+
+.roleSizeUnit {
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}
+
 /* Layered on top of the shared form-input chrome from InputSurface. */
 .editor {
   min-height: 2.25rem;

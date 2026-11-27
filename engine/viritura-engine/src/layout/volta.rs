@@ -239,8 +239,7 @@ fn render_volta_brackets_filtered<M: Borrow<MeasureLayout>>(
                 continue;
             };
             let end_i = measure_layouts.iter().rposition(overlaps).unwrap();
-            let ml = measure_layouts[i].borrow();
-            let last_ml = measure_layouts[end_i].borrow();
+            let (ml, last_ml) = (measure_layouts[i].borrow(), measure_layouts[end_i].borrow());
             let starts_here = ml.resolved.index == measure_index;
             let ends_here = last_ml.resolved.index
                 + last_ml.multimeasure_rest_count.unwrap_or(1) as usize
@@ -248,7 +247,11 @@ fn render_volta_brackets_filtered<M: Borrow<MeasureLayout>>(
             if !should_render(i, end_i, starts_here, ends_here) {
                 continue;
             }
-            let x_left = ml.x;
+            let x_left = if ml.is_first_on_system {
+                ml.beat_one_x()
+            } else {
+                ml.x
+            };
             let span_end = end_i + 1;
             let is_open = ending.open.unwrap_or(false) || !ends_here;
             let closes_at_repeat = score.global.measures[end_measure - 1].repeat_end.is_some();
@@ -558,7 +561,7 @@ fn render_ottava_segment<M: Borrow<MeasureLayout>>(
 
     let total_beats = ml.resolved.active_time.measure_beats();
     let content_width = super::render_barlines::rhythmic_content_width(ml, sp);
-    let x_origin = ml.x + ml.prefix_width;
+    let x_origin = ml.beat_one_x();
     let above = match ott.placement {
         Some(crate::model::Placement::Above) => true,
         Some(crate::model::Placement::Below) => false,

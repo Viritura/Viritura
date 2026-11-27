@@ -1,14 +1,18 @@
 //! Per-system measure-layout construction for authored MNX systems.
 
+mod repeat_signatures;
+
 use super::super::cache::LayoutCache;
-use super::super::condensing::{label_for_mode_styled, LabelStyle, MergeMode};
+use super::super::condensing::{
+    first_sounding_position, label_for_mode_styled, LabelStyle, MergeMode,
+};
 use super::super::config::LayoutConfig;
 use super::super::full_score::{compute_system_object_staves, FlatStaff, GroupRange};
 use super::super::measure::{
     compute_system_spacing, compute_system_start_prefix_extra, fix_cross_staff_note_positions,
     layout_measure_with_shared_spacing,
 };
-use super::super::resolve::resolve_all_ottavas;
+use super::super::resolve::{attach_system_spanning_beams, resolve_all_ottavas};
 use super::super::types::MeasureLayout;
 use super::cache_hashing::explicit_measure_layout_hash;
 use super::resolve_condensing::flat_staff_meter_states;
@@ -498,6 +502,12 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 !meter_state.compatible,
             );
             meter_state.apply_authored_change(&mut virtual_part);
+            crate::layout::resolve::project_global_fermatas_on_staff(
+                &mut virtual_part,
+                &global,
+                active_time.measure_beats(),
+                meter_state.effective.as_ref(),
+            );
             let measure_staff_lines = super::super::staff_lines::resolve_measure_staff_lines(
                 &mut active_staff_lines,
                 virtual_part.staff_configs.as_deref(),
@@ -513,13 +523,18 @@ pub(super) fn build_explicit_system_layouts<'a>(
                         LabelStyle::Orchestral,
                     );
                     if let Some(text) = label.text() {
+                        let ratio = meter_state
+                            .effective
+                            .as_ref()
+                            .map_or(1.0, |meter| meter.ratio_to_global.as_f64());
+                        let position = first_sounding_position(&virtual_part, ratio);
                         virtual_part.expressions.get_or_insert_with(Vec::new).push(
                             TextExpression {
                                 text: text.into(),
                                 id: None,
                                 text_type: crate::model::PositionedTextType::Expression,
                                 frame: None,
-                                position: RhythmicPosition { fraction: (0, 1) },
+                                position,
                                 placement: Some(ExpressionPlacement::Above),
                                 staff: None,
                                 voice: None,
@@ -568,6 +583,16 @@ pub(super) fn build_explicit_system_layouts<'a>(
             if let Some(clef) = virtual_part.clefs.as_ref().and_then(|clefs| clefs.last()) {
                 last_clef = Some(clef.clone());
             }
+            let repeat_signature = flat_staff.sources.first().and_then(|source| {
+                all_resolved
+                    .get(source.part_index)
+                    .and_then(|measures| measures.get(measure_index))
+            });
+            let repeat_clef_restatement =
+                repeat_signature.is_some_and(|measure| measure.repeat_clef_restatement);
+            if repeat_clef_restatement {
+                repeat_signatures::restate_clef(&mut virtual_part);
+            }
 
             let (display_key, diatonic_adjustment) = crate::layout::resolve::resolve_display_key(
                 &active_key,
@@ -581,6 +606,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 );
             virtual_resolved.push(ResolvedMeasure {
                 system_end: Default::default(),
+                use_beams: super::super::support_flags::engraving_flags(score).0,
                 index: measure_index,
                 chord_symbols: super::chord_symbols::visible_global_chord_symbols(
                     score,
@@ -602,8 +628,27 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 prev_has_repeat_end,
                 active_time: active_time.clone(),
                 active_key: display_key.clone(),
+                repeat_key_restatement_from: repeat_signature
+                    .and_then(|measure| measure.repeat_key_restatement_from.clone()),
+                repeat_time_restatement: repeat_signature
+                    .and_then(|measure| measure.repeat_time_restatement.clone()),
+                repeat_clef_restatement,
+                repeat_ending_brackets: repeat_signature
+                    .is_some_and(|measure| measure.repeat_ending_brackets),
                 prev_key: previous_display_key.clone(),
                 tie_continuation_ids: Vec::new(),
+                spanning_beams: Vec::new(),
+                repeat_glissandos: effective_staff
+                    .sources
+                    .iter()
+                    .flat_map(|source| {
+                        super::super::glissando::resolve_repeat_glissandos(
+                            score,
+                            source.part_index,
+                            measure_index,
+                        )
+                    })
+                    .collect(),
                 active_staff_lines: measure_staff_lines,
                 transposition,
                 written_diatonic_adjustment: diatonic_adjustment,
@@ -631,6 +676,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 last.system_end = end.system_end.clone();
             }
         }
+        attach_system_spanning_beams(&mut virtual_resolved, all_resolved, &flat_staff.sources);
         let staff_ottavas = resolve_all_ottavas(&virtual_resolved);
         let mut system_x = margin_left;
         let mut measure_layouts = Vec::new();

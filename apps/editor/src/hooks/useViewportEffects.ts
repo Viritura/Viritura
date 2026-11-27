@@ -250,6 +250,7 @@ interface MouseDragDeps extends ViewportEffectDeps {
   dragRef: MutableRefObject<{ startX: number; startY: number } | null>;
   dragLockRef: MutableRefObject<boolean>;
   setIsDragging: Dispatch<SetStateAction<boolean>>;
+  enabled: boolean;
 }
 
 /** Left/middle-click drag-to-pan with dragLock guard for spanner gestures. */
@@ -265,10 +266,11 @@ export function useViewportMouseDrag(deps: MouseDragDeps) {
     dragRef,
     dragLockRef,
     setIsDragging,
+    enabled,
   } = deps;
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || !enabled) return;
 
     const onMouseDown = (e: MouseEvent) => {
       if (e.button === 1) {
@@ -318,5 +320,5 @@ export function useViewportMouseDrag(deps: MouseDragDeps) {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [contentWidth, contentHeight]);
+  }, [contentWidth, contentHeight, enabled]);
 }

@@ -26,14 +26,30 @@ impl TrailingSpace {
     fn for_measure(measure: &ResolvedMeasure, config: &LayoutConfig) -> Self {
         let barline_buffer =
             super::super::render_barlines::trailing_barline_content_buffer_sp(measure, config);
-        let Some(caesura) = &measure.global.caesura else {
+        let global = measure
+            .global
+            .caesura
+            .as_ref()
+            .map(|caesura| &caesura.marking);
+        let local = measure
+            .part
+            .sequences
+            .iter()
+            .filter_map(|sequence| sequence.full_measure.as_ref()?.caesura.as_ref());
+        let width = global
+            .into_iter()
+            .chain(local)
+            .map(|caesura| {
+                let glyph = smufl::caesura_glyph(&caesura.style, caesura.marks);
+                smufl::glyph_bbox(glyph).2
+            })
+            .reduce(f64::max);
+        let Some(width) = width else {
             return Self {
                 buffer_sp: barline_buffer,
                 has_caesura: false,
             };
         };
-        let glyph = smufl::caesura_glyph(&caesura.marking.style, caesura.marking.marks);
-        let (_, _, width, _) = smufl::glyph_bbox(glyph);
         let caesura_buffer = super::super::measure::MEASURE_TRAILING_PADDING_SP
             + super::super::render_barlines::trailing_barline_extra_width(measure, config, 1.0)
             - width
@@ -166,6 +182,7 @@ pub(crate) fn build_log_spacing_for_part_measure(
         Some(&clef_changes),
         &arpeggio_set,
         &beamed_ids,
+        &HashSet::new(),
         &suppressed_note_ids,
         None,
         TrailingSpace::regular(config),
@@ -181,7 +198,9 @@ pub(crate) fn build_log_spacing_for_resolved_measure(
 ) -> LogSpacing {
     let arpeggio_set = build_standard_arpeggio_set(&[&measure.part]);
     let clef_changes = clef_changes_for_part_measure(&measure.part);
-    let beamed_ids = super::super::beams::collect_beamed_event_ids(&measure.part);
+    let beamed_ids = super::super::beams::collect_resolved_beamed_event_ids(measure);
+    let auto_beamed_indices =
+        super::super::measure::auto_beamed_event_indices_for_spacing(measure, config, total_beats);
     let suppressed_note_ids = if is_system_start {
         HashSet::new()
     } else {
@@ -192,7 +211,7 @@ pub(crate) fn build_log_spacing_for_resolved_measure(
         .as_ref()
         .map(|effective| effective.ratio_to_global.as_f64())
         .unwrap_or(1.0);
-    build_log_spacing_with_arpeggios(
+    let spacing = build_log_spacing_with_arpeggios(
         &measure.part.sequences,
         ratio,
         total_beats,
@@ -203,10 +222,12 @@ pub(crate) fn build_log_spacing_for_resolved_measure(
         Some(&clef_changes),
         &arpeggio_set,
         &beamed_ids,
+        &auto_beamed_indices,
         &suppressed_note_ids,
         measure.kit.as_ref(),
         TrailingSpace::for_measure(measure, config),
-    )
+    );
+    spacing
 }
 
 fn build_log_spacing_with_arpeggios(
@@ -220,6 +241,7 @@ fn build_log_spacing_with_arpeggios(
     clef_changes: Option<&[(f64, Clef)]>,
     standard_arpeggio_set: &HashSet<BeatKey>,
     beamed_event_ids: &HashSet<String>,
+    auto_beamed_indices: &HashSet<(usize, usize)>,
     suppressed_note_ids: &HashSet<String>,
     kit: Option<&HashMap<String, KitComponent>>,
     trailing_space: TrailingSpace,
@@ -230,6 +252,7 @@ fn build_log_spacing_with_arpeggios(
     let transpositions = [transposition];
     let clef_changes = [clef_changes];
     let beamed_event_ids = [beamed_event_ids.clone()];
+    let auto_beamed_indices = [auto_beamed_indices.clone()];
     let suppressed_note_ids = [suppressed_note_ids.clone()];
     build_spacing_from_sequences(
         &all_sequences,
@@ -242,6 +265,7 @@ fn build_log_spacing_with_arpeggios(
         &clef_changes,
         standard_arpeggio_set,
         &beamed_event_ids,
+        &auto_beamed_indices,
         &suppressed_note_ids,
         &[kit],
         trailing_space,
@@ -273,6 +297,7 @@ pub(crate) fn build_merged_log_spacing_for_part_measures(
         .iter()
         .map(|measure| super::super::beams::collect_beamed_event_ids(measure))
         .collect();
+    let auto_beamed_indices = vec![HashSet::new(); part_measures.len()];
     let suppressed_note_ids = vec![HashSet::new(); part_measures.len()];
     let transpositions = vec![None; part_measures.len()];
     let staff_ratios = vec![1.0; part_measures.len()];
@@ -287,6 +312,7 @@ pub(crate) fn build_merged_log_spacing_for_part_measures(
         &clef_refs,
         &arpeggio_set,
         &beamed_event_ids,
+        &auto_beamed_indices,
         &suppressed_note_ids,
         &vec![None; part_measures.len()],
         TrailingSpace::regular(config),
@@ -332,7 +358,17 @@ pub(crate) fn build_merged_log_spacing_for_resolved_measures(
         .collect();
     let beamed_event_ids: Vec<HashSet<String>> = measures
         .iter()
-        .map(|measure| super::super::beams::collect_beamed_event_ids(&measure.part))
+        .map(|measure| super::super::beams::collect_resolved_beamed_event_ids(measure))
+        .collect();
+    let auto_beamed_indices: Vec<HashSet<(usize, usize)>> = measures
+        .iter()
+        .map(|measure| {
+            super::super::measure::auto_beamed_event_indices_for_spacing(
+                measure,
+                config,
+                total_beats,
+            )
+        })
         .collect();
     let suppressed_note_ids: Vec<HashSet<String>> = measures
         .iter()
@@ -355,6 +391,7 @@ pub(crate) fn build_merged_log_spacing_for_resolved_measures(
         &clef_refs,
         &arpeggio_set,
         &beamed_event_ids,
+        &auto_beamed_indices,
         &suppressed_note_ids,
         &measures
             .iter()
@@ -379,6 +416,7 @@ fn build_merged_log_spacing_with_arpeggios(
     clef_changes: &[Option<&[(f64, Clef)]>],
     standard_arpeggio_set: &HashSet<BeatKey>,
     beamed_event_ids: &[HashSet<String>],
+    auto_beamed_indices: &[HashSet<(usize, usize)>],
     suppressed_note_ids: &[HashSet<String>],
     kits: &[Option<&HashMap<String, KitComponent>>],
     trailing_space: TrailingSpace,
@@ -394,6 +432,7 @@ fn build_merged_log_spacing_with_arpeggios(
         clef_changes,
         standard_arpeggio_set,
         beamed_event_ids,
+        auto_beamed_indices,
         suppressed_note_ids,
         kits,
         trailing_space,
@@ -432,6 +471,96 @@ fn collect_mid_clef_columns(
     columns
 }
 
+fn extend_minimum_width(
+    current: &mut f64,
+    rigid_before: f64,
+    rigid_after: f64,
+    rhythmic_floor: f64,
+    gap_floor: f64,
+) {
+    *current = (*current
+        + (rigid_after - rigid_before)
+            .max(0.0)
+            .max(rhythmic_floor)
+            .max(gap_floor))
+    .max(rigid_after)
+}
+
+struct OnsetGapClearance {
+    collision_floor: f64,
+    previous_notehead_extent: f64,
+    displaced_floor: f64,
+    accidental_floor: f64,
+    accidental_ink_floor: f64,
+    rhythmic_ink_floor: f64,
+    grace_after_floor: f64,
+}
+
+fn onset_gap_clearance(
+    snapshot: &SpacingSnapshot<'_>,
+    beat_key: BeatKey,
+    next_key: Option<BeatKey>,
+    config: &LayoutConfig,
+) -> OnsetGapClearance {
+    let cross_staff_min = if snapshot.cross_staff_onsets.contains(&beat_key)
+        || next_key.is_some_and(|key| snapshot.cross_staff_onsets.contains(&key))
+    {
+        config.min_note_spacing + 0.4
+    } else {
+        0.0
+    };
+    let previous_notehead_extent = if snapshot.second_onsets.contains(&beat_key) {
+        4.0 * config.notehead_rx
+    } else {
+        2.0 * config.notehead_rx
+    };
+    let note_marking_min = snapshot.note_slide_gap(beat_key, next_key, previous_notehead_extent);
+    let displaced_floor = if next_key.is_some() && snapshot.second_onsets.contains(&beat_key) {
+        displaced_notehead_gap_floor(config)
+    } else {
+        0.0
+    };
+    let accidental_floor = next_key
+        .and_then(|key| {
+            snapshot
+                .accidental_extents
+                .get(&key)
+                .map(|&width| previous_notehead_extent + accidental_padding_sp(width))
+        })
+        .unwrap_or(0.0);
+    let accidental_ink_floor = next_key
+        .and_then(|key| snapshot.accidental_ink_floors.get(&key))
+        .copied()
+        .unwrap_or(0.0);
+    let rhythmic_ink_floor = next_key
+        .and_then(|key| snapshot.rhythmic_ink_floors.get(&key))
+        .copied()
+        .unwrap_or(0.0);
+    let grace_after_floor = after_grace_gap_floor(snapshot, beat_key, next_key);
+    let notehead_floor = config
+        .shortest_duration_space
+        .max(2.0 * config.notehead_rx + 0.5);
+    let collision_floor = config
+        .min_note_spacing
+        .max(notehead_floor)
+        .max(cross_staff_min)
+        .max(note_marking_min)
+        .max(displaced_floor)
+        .max(accidental_floor)
+        .max(accidental_ink_floor)
+        .max(rhythmic_ink_floor)
+        .max(grace_after_floor);
+    OnsetGapClearance {
+        collision_floor,
+        previous_notehead_extent,
+        displaced_floor,
+        accidental_floor,
+        accidental_ink_floor,
+        rhythmic_ink_floor,
+        grace_after_floor,
+    }
+}
+
 fn build_spacing_from_sequences(
     all_sequences: &[&[Sequence]],
     staff_ratios: &[f64],
@@ -443,6 +572,7 @@ fn build_spacing_from_sequences(
     clef_changes: &[Option<&[(f64, Clef)]>],
     standard_arpeggio_set: &HashSet<BeatKey>,
     beamed_event_ids: &[HashSet<String>],
+    auto_beamed_indices: &[HashSet<(usize, usize)>],
     suppressed_note_ids: &[HashSet<String>],
     kits: &[Option<&HashMap<String, KitComponent>>],
     trailing_space: TrailingSpace,
@@ -454,6 +584,7 @@ fn build_spacing_from_sequences(
         transpositions,
         clef_changes,
         beamed_event_ids,
+        auto_beamed_indices,
         suppressed_note_ids,
         kits,
         config,
@@ -467,6 +598,8 @@ fn build_spacing_from_sequences(
             total_width: config.shortest_duration_space,
             rigid_widths: vec![0.0],
             rigid_total: 0.0,
+            minimum_widths: vec![0.0],
+            minimum_total: 0.0,
             base_sp: config.sp,
         };
     }
@@ -477,9 +610,10 @@ fn build_spacing_from_sequences(
 
     let mut mapping = Vec::new();
     let mut rigid_widths = Vec::new();
+    let mut minimum_widths = Vec::new();
     let mut cum_width = 0.0;
     let mut cum_rigid = 0.0;
-
+    let mut cum_minimum: f64 = 0.0;
     for (index, &beat_key) in snapshot.onsets.iter().enumerate() {
         let onset = beat_key.beats();
         // A leading Space can make a positive-beat clef target the first visible
@@ -523,8 +657,10 @@ fn build_spacing_from_sequences(
             cum_rigid += constraint.rigid_floor;
         }
 
+        cum_minimum = cum_minimum.max(cum_rigid);
         mapping.push((onset, cum_width));
         rigid_widths.push(cum_rigid);
+        minimum_widths.push(cum_minimum);
 
         let rigid_before_gap = cum_rigid;
         let next_key = snapshot.onsets.get(index + 1).copied();
@@ -545,62 +681,18 @@ fn build_spacing_from_sequences(
                     rigid: false,
                     reason: SpaceReason::Caesura,
                 });
-        let cross_staff_min = if snapshot.cross_staff_onsets.contains(&beat_key)
-            || next_key.is_some_and(|key| snapshot.cross_staff_onsets.contains(&key))
-        {
-            config.min_note_spacing + 0.4
-        } else {
-            0.0
-        };
-        let previous_notehead_extent = if snapshot.second_onsets.contains(&beat_key) {
-            4.0 * config.notehead_rx
-        } else {
-            2.0 * config.notehead_rx
-        };
-        let note_marking_min =
-            snapshot.note_slide_gap(beat_key, next_key, previous_notehead_extent);
-        let displaced_floor = if next_onset.is_some() && snapshot.second_onsets.contains(&beat_key)
-        {
-            displaced_notehead_gap_floor(config)
-        } else {
-            0.0
-        };
-        let accidental_floor = next_key
-            .and_then(|key| {
-                snapshot
-                    .accidental_extents
-                    .get(&key)
-                    .map(|&width| previous_notehead_extent + accidental_padding_sp(width))
-            })
-            .unwrap_or(0.0);
-        let accidental_ink_floor = next_key
-            .and_then(|key| snapshot.accidental_ink_floors.get(&key))
-            .copied()
-            .unwrap_or(0.0);
-        let grace_after_floor = after_grace_gap_floor(&snapshot, beat_key, next_key);
-        let notehead_floor = config
-            .shortest_duration_space
-            .max(2.0 * config.notehead_rx + 0.5);
-        let collision_floor = config
-            .min_note_spacing
-            .max(notehead_floor)
-            .max(cross_staff_min)
-            .max(note_marking_min)
-            .max(displaced_floor)
-            .max(accidental_floor)
-            .max(accidental_ink_floor)
-            .max(grace_after_floor);
+        let clearance = onset_gap_clearance(&snapshot, beat_key, next_key, config);
         let clef_column = next_key
             .and_then(|key| clef_columns.get(&key))
             .copied()
             .unwrap_or(0.0);
         let clef_floor = if clef_column > 0.0 {
-            collision_floor.max(
+            clearance.collision_floor.max(
                 snapshot
                     .right_ink_extents
                     .get(&beat_key)
                     .copied()
-                    .unwrap_or(previous_notehead_extent),
+                    .unwrap_or(clearance.previous_notehead_extent),
             ) + clef_column
         } else {
             0.0
@@ -613,7 +705,7 @@ fn build_spacing_from_sequences(
             };
 
         let base_advance = gap_width
-            .max(collision_floor)
+            .max(clearance.collision_floor)
             .max(fermata_min)
             .max(clef_floor)
             .max(tie_floor);
@@ -629,19 +721,26 @@ fn build_spacing_from_sequences(
         // The clef column is physical ink clearance and must survive system
         // compression; only the surrounding rhythmic spring is elastic.
         cum_rigid += clef_column.min(gap_advance);
-        cum_rigid += (accidental_ink_floor - accidental_floor)
+        cum_rigid += (clearance.accidental_ink_floor - clearance.accidental_floor)
             .max(0.0)
             .min(gap_advance);
-        if displaced_floor > 0.0
+        if clearance.displaced_floor > 0.0
             && next_key.is_none_or(|key| !snapshot.accidental_extents.contains_key(&key))
         {
-            cum_rigid += displaced_floor.min(gap_advance);
+            cum_rigid += clearance.displaced_floor.min(gap_advance);
         }
         let existing_gap_rigid = cum_rigid - rigid_before_gap;
-        let grace_after_rigid = (grace_after_floor - accidental_floor).max(0.0);
+        let grace_after_rigid = (clearance.grace_after_floor - clearance.accidental_floor).max(0.0);
         // After-grace ink and a following change clef occupy consecutive columns,
         // so compression must preserve their sum rather than their maximum.
         cum_rigid += (gap_rigid.max(grace_after_rigid + clef_column) - existing_gap_rigid).max(0.0);
+        extend_minimum_width(
+            &mut cum_minimum,
+            rigid_before_gap,
+            cum_rigid,
+            clearance.rhythmic_ink_floor,
+            gap_rigid,
+        );
     }
 
     LogSpacing {
@@ -649,6 +748,8 @@ fn build_spacing_from_sequences(
         total_width: cum_width,
         rigid_widths,
         rigid_total: cum_rigid,
+        minimum_widths,
+        minimum_total: cum_minimum.max(cum_rigid),
         base_sp: config.sp,
     }
 }

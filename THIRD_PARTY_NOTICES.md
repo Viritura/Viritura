@@ -21,13 +21,13 @@ created with these fonts.
 
 ## SpessaSynth
 
-The browser audio worklet is generated during application development/build from the
-package-manager dependency rather than stored as a vendored bundle:
+The browser audio worklet and offline MP3 synthesis use package-manager
+dependencies rather than a vendored bundle:
 
-- `spessasynth_lib` 4.3.1, copyright its contributors,
+- `spessasynth_lib` 4.4.8, copyright its contributors,
   [Apache License 2.0](LICENSES/Apache-2.0.txt),
   <https://github.com/spessasus/spessasynth_lib>
-- `spessasynth_core` 4.3.22, copyright its contributors,
+- `spessasynth_core` 4.4.10, copyright its contributors,
   [Apache License 2.0](LICENSES/Apache-2.0.txt),
   <https://github.com/spessasus/spessasynth_core>
 
@@ -35,6 +35,23 @@ package-manager dependency rather than stored as a vendored bundle:
 from the installed `spessasynth_lib` package into Git-ignored application
 public-assets directories. The package distributions include the Apache 2.0
 license and no separate `NOTICE` file.
+
+## MP3 encoding
+
+MP3 export includes these components:
+
+- [`@audio/encode-mp3` 2.0.1](https://github.com/audiojs/encode/tree/8d914d0a76e5266b6a2591c11ea43aa0aeec1189/packages/encode-mp3),
+  copyright 2026 Dmitry Iv., under the [MIT License](LICENSES/audio-encode-mp3-MIT.txt).
+- [`wasm-media-encoders` 0.7.0](https://github.com/arseneyr/wasm-media-encoders/tree/4a45333baadbab312d1cc0911151dfad23157c51),
+  copyright 2020-2024 arseneyr, under the [MIT License](LICENSES/wasm-media-encoders-MIT.txt).
+- A WebAssembly build of [`libmp3lame`](https://github.com/arseneyr/lame/tree/98db548e8e851defbba3184125ce10725355c332),
+  by the LAME Project and contributors, under the
+  [GNU Library General Public License, version 2](LICENSES/LGPL-2.0.txt).
+
+The linked sources and the `wasm-media-encoders` Makefile provide the encoder
+source and build recipe. To replace or modify the LAME build, rebuild
+`wasm-media-encoders`, rebuild `@audio/encode-mp3` against that version, and
+rebuild Viritura with the replacement package.
 
 ## Denigma
 

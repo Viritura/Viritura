@@ -11,25 +11,44 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                       | Extensions                                                                                                                   |
-| -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks, textFrames                                                                   |
-| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                            |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                      |
-| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                      |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, harpPedals, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                             |
-| positioned text                              | `parts[].measures[].text[]._x.viritura`         | frame, pagePosition, manualOffset, avoidCollisions                                                                           |
-| formatted-text chunk                         | `parts[].measures[].text[].text[]._x.viritura`  | style, smuflStyle                                                                                                            |
-| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                        |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                 |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                                   |
-| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                         |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                        |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                                     |
+| MNX Object                                         | JSON Path                                       | Extensions                                                                                                                               |
+| -------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)             | `_x.viritura`                                   | metadata, textStyles, barNumbers, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, mixer, videoSync, lyricWorkflow |
+| score definition                                   | `scores[]._x.viritura`                          | pageSetup, barNumbers, instrumentNameDisplay, layoutBreaks, textFrames                                                                   |
+| [source part](#source-part-extensions)             | `parts[]._x.viritura`                           | instrumentId, midiProgram, solo, family, spatial, chordSymbolVisibility, instruments, initialInstrument                                  |
+| [measure-global](#global-measure-extensions)       | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                                  |
+| [time signature](#time-signature-extensions)       | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                                  |
+| [part-measure](#part-measure-extensions)           | `parts[].measures[]._x.viritura`                | pedals, harpPedals, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                                         |
+| positioned text                                    | `parts[].measures[].text[]._x.viritura`         | frame, pagePosition, manualOffset, avoidCollisions                                                                                       |
+| formatted-text chunk                               | `parts[].measures[].text[].text[]._x.viritura`  | style, smuflStyle                                                                                                                        |
+| positioned staff configuration                     | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                                    |
+| [dynamic-group](#dynamic-group-extensions)         | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                                            |
+| [full-measure rest](#full-measure-rest-extensions) | `...sequences[].fullMeasure._x.viritura`        | caesura                                                                                                                                  |
+| [event-markings](#event-markings-extensions)       | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                                             |
+| [event](#event-extensions)                         | `...content[]._x.viritura`                      | glissandos                                                                                                                               |
+| [tuplet](#cross-barline-tuplet-fragments)          | `...content[]._x.viritura`                      | span                                                                                                                                     |
+| [slur](#slur-extensions)                           | `...content[].slurs[]._x.viritura`              | shape                                                                                                                                    |
+| [kit-component](#kit-component-extensions)         | `parts[].kit[]._x.viritura`                     | drumKit                                                                                                                                  |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
+
+## Full-Measure Rest Extensions
+
+`fullMeasure._x.viritura.caesura` stores a caesura belonging to a single
+full-measure rest. Its optional `shape` and `marks` properties use the same
+values as an MNX event caesura. The mark appears and pauses playback at the
+end of the measure, and prevents that measure from being hidden in a
+multimeasure rest. It does not create a global score-wide notation.
+
+```json
+{
+  "content": [],
+  "fullMeasure": {
+    "visualDuration": { "base": "whole" },
+    "_x": { "viritura": { "caesura": { "shape": "short" } } }
+  }
+}
+```
 
 ## Time Signature Extensions
 
@@ -384,6 +403,87 @@ restores both the bars and their ramp.
 MusicXML/MXL import and reconstruction of sampled tempo automation are outside
 this feature's scope. Ramps do not imply MIDI velocity or dynamics changes.
 
+### Tempo-owned click subdivisions and grouping
+
+Tempo markings carry optional `_x.viritura.clickSubdivision`, an integer from
+0 to 5. Unified vendor tempo entries and `systemText[].tempo` carry the same
+property directly. Without a custom grouping, positive values specify evenly spaced clicks per meter-grouped beat,
+not per metronome note value. For example, 3 splits each dotted-quarter beat of
+6/8 into three eighth-note clicks. **0 means no clicks**, including during
+keep-clicking fermata holds. It does not stop playback, remove elapsed time,
+or change the tempo model: use it for an unclicked ritardando or free-time
+passage. Starting in a silent passage skips the synthetic countoff/count-in.
+
+Optional `clickGrouping` specifies a repeating whole-bar pattern. With a
+grouping present, `clickSubdivision` instead divides the time-signature
+denominator note into grid units. Each positive integer in the grouping is
+the duration until the next click, in those units. An explicit division from
+1 to 5 is required, and the groups must sum to `time.count * clickSubdivision`.
+The parser and playback compiler reject mismatches rather than rescaling them.
+
+For 6/8, this gives two dotted eighths followed by three eighths:
+
+```json
+{
+  "bpm": 85,
+  "value": { "base": "quarter" },
+  "_x": {
+    "viritura": {
+      "clickSubdivision": 2,
+      "clickGrouping": [3, 3, 2, 2, 2]
+    }
+  }
+}
+```
+
+The grid unit is a sixteenth, the total is 12, and the five click onsets are
+0, 3, 6, 8, and 10 sixteenths into the bar. The same grouping in 12/8 with
+division 1 uses eighths. A grouping overrides click positions only, not meter
+beaming: measure starts are accented, positions coinciding with meter beats
+use the beat sound, and other positions use the subdivision sound. Synthetic
+countoff bars use the same grouping. Partial bars and partial-bar jump visits
+clip the nominal bar grid rather than stretching it to their played duration.
+
+Omission on a tempo with BPM means 1 (beats only): each such tempo sets the
+click setting only until the next one, so grouping or silence never carries into a
+following BPM-bearing tempo without an explicit setting. Instructions without BPM (click-only or swing-only system
+text) change the click setting only when they set it; an explicit 1 there resets
+to beats only until the next tempo. Co-located instructions use the last
+explicit setting. Every explicit subdivision without grouping clears any
+previous grouping, including 0 to silence clicks. A carried grouping must
+remain valid for each bar's meter; reset or replace it when changing meters
+if its total no longer fits. Changes take effect at the marking's exact rhythmic position;
+inside a grouped beat, the new subdivision grid begins at that position and
+resets at the next grouped-beat boundary. Custom grouping remains anchored to
+the written bar start, even when enabled mid-bar. Repeats and jumps use the setting
+effective at the destination in the written score. Starting partway through
+the score uses that position's setting for the synthetic countoff too, and
+the countoff cue reports the actual number of clicks, including subdivisions.
+
+These settings affect the Click activity and editor metronome. They do not change note timing,
+swing, printed tempo markings, or the continuous tempo model; click timestamps
+still follow tempo changes and ramps. Existing explicit session resolution
+rules override score-owned click settings from their starting measure onward.
+
+Edit **Clicks per beat** (0 to 5, default 1) in the selected tempo's Notation
+Properties. On a tempo with BPM, choosing 1 removes the stored setting. System
+text without BPM also offers **Follow tempo**, which removes the click change
+and returns click-only text to ordinary text; choosing 1 there stores an
+explicit reset. Enter a pattern such as `3+3+2+2+2` in **Click grouping**, choose
+its **Click grid division**, and select **Apply click grouping**. Invalid
+patterns show an error without changing the score. Clearing the grouping and
+applying restores regular meter clicks. **No clicks (free time)** stores 0
+and clears the grouping without altering BPM or swing.
+
+For a single-bar exception, place a click-only system instruction at that
+bar's start and restore the previous setting at the following bar's start.
+For example, in grouped 6/8, `{ "clickSubdivision": 3 }` replaces the pattern
+with six evenly spaced eighth-note clicks; the next bar can restore
+`{ "clickSubdivision": 2, "clickGrouping": [3, 3, 2, 2, 2] }`.
+Neither instruction needs BPM. Set `showText: false` on the system text to
+keep this playback metadata out of the printed score. These are explicit
+positioned changes, not automatically expiring overrides.
+
 ### Tempo-owned swing instructions
 
 Tempo markings carry optional `_x.viritura.swing`:
@@ -512,7 +612,8 @@ unsupported scope. Staff-specific tempo ownership and inspector scope controls
 are not implemented in this slice. Disabling vendor extensions reports explicit
 swing loss through the existing import diagnostics.
 
-MusicXML conversion is import-only. The existing MuseScore clipboard adapter
+MusicXML export writes explicit swing instructions in tempo sound elements.
+The existing MuseScore clipboard adapter
 does not transport tempo directions; this change does not invent clipboard
 source encodings. Native MNX persistence retains the full unified collection.
 
@@ -641,6 +742,11 @@ not saved as a destructive removal or a manual system-layout override.
 Adding music automatically restores the instrument. Existing manually
 omitted staves remain omitted.
 
+The list belongs to one score view. **Apply to all score views** or **Apply
+to all part views** copies the current view's list (limited to each view's
+instruments) and first-system choice to every view with the same role (score
+or part). Per-system `keepVisible` decisions stay with their own view.
+
 ```json
 {
   "name": "Full Score",
@@ -653,11 +759,65 @@ omitted staves remain omitted.
 }
 ```
 
+### `autoHideEmptyStaves`
+
+Per-view decisions that refine `autoHideEmptyParts`. Schema def:
+`auto-hide-empty-staves`.
+
+| Field         | Type                   | Meaning                                                                                             |
+| ------------- | ---------------------- | --------------------------------------------------------------------------------------------------- |
+| `firstSystem` | `"hide"` \| `"show"`   | `"show"` keeps every staff on the first system, as in a full-score opening. Omitted means `"hide"`. |
+| `keepVisible` | `{ measure, parts }[]` | Keeps the listed parts on the system containing global measure `measure`, even when empty.          |
+
+Precedence, highest first:
+
+1. Manual omissions from an explicit or per-system layout always win. The
+   automatic policy only removes staves; it never restores a staff a layout
+   omits.
+2. `firstSystem: "show"` and matching `keepVisible` entries keep a staff.
+3. Otherwise, selected empty instruments hide.
+
+`keepVisible` is keyed by measure ID, not system index, so decisions follow
+the music when systems reflow. A decision whose measure no longer starts a
+system still applies to whichever system now contains it. In page view, a
+hidden staff appears as a ghost rail; clicking it adds a `keepVisible`
+entry, and hiding that staff from the rail again removes the entry. Entries
+with an empty measure ID, no parts, or duplicate parts are rejected; IDs that
+match nothing are ignored.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "autoHideEmptyParts": ["flute", "oboe"],
+      "autoHideEmptyStaves": {
+        "firstSystem": "show",
+        "keepVisible": [{ "measure": "m9", "parts": ["oboe"] }]
+      }
+    }
+  }
+}
+```
+
+Finale import maps hidden empty staves to this policy. When Finale omits an
+instrument's staves from whole systems where they are empty, Viritura
+restores the full system layout and opts the instrument in, with
+`keepVisible` or `firstSystem` decisions for systems where Finale showed it
+empty. Systems Finale hid while the staff had music, partial-system
+collapses, and reordered system layouts keep Finale's explicit staff lists.
+Cutaway staves import fully visible with a warning; see
+[#574](https://github.com/Viritura/Viritura/issues/574).
+
 ## Source Part Extensions
 
 `_x.viritura` on an MNX source part (`parts[]`). Schema def: `part-extensions`.
 Instrument identity and placement use `instrumentId`, `midiProgram` (0–127),
 `family`, and `spatial` (`{ x, y }` in stage meters).
+
+`solo: true` identifies a soloist rather than a section. The built-in profile
+uses a single solo string sound instead of ensemble layers. This is separate
+from mixer solo. When `instruments` is present, set `solo` on the active
+instrument definition instead.
 
 `instrumentId` is a [MusicXML standard sound ID](https://www.w3.org/2021/06/musicxml40/listings/sounds.xml/)
 (for example `wind.reed.clarinet.bflat`, `brass.french-horn`,
@@ -678,7 +838,8 @@ similar model.
 
 - `instruments`: map from a document-local key to an `instrument-definition`:
   `instrumentId` (required MusicXML sound ID), optional `name`, `shortName`,
-  `transposition` (same shape as MNX `part-transposition`), and `midiProgram`.
+  `transposition` (same shape as MNX `part-transposition`), `midiProgram`, and
+  `solo`.
 - `initialInstrument`: key of the instrument active at the start of the part.
   Required when `instruments` is present.
 
@@ -768,6 +929,110 @@ layout staff. Chord events also have no `displayStaff` property.
 
 ## Score Root Extensions
 
+### `barNumbers`
+
+Document-wide defaults live at `_x.viritura.barNumbers`. Each score view can
+override individual fields at `scores[]._x.viritura.barNumbers`; omitted fields
+inherit the document house style. Engrave mode exposes both scopes under
+**House Style > Bar Numbers**. Resetting a layout's overrides restores inheritance.
+
+| Field                 | Values                                                                      | Default                                                               |
+| --------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `frequency`           | `systemStarts`, `everyBar`, `hidden`                                        | `systemStarts`                                                        |
+| `placement`           | `aboveSystem`, `belowSystem` (legacy `belowTopInstrument` remains readable) | `belowSystem`                                                         |
+| `placements`          | array of system placements; empty disables system copies                    | inherits `placement` when omitted                                     |
+| `aboveGroups`         | arrays of member part IDs for outermost brackets, per layout                | no additional group copies                                            |
+| `horizontalAlignment` | `barline`, `center`                                                         | `barline` for ordinary bars; legacy centered rest ranges when omitted |
+| `distance`            | non-negative staff spaces                                                   | placement attach gap (normally 0.5); 0.5 for rest ranges              |
+| `onStaff`             | boolean, reserve a vertically justified number row                          | `false`                                                               |
+| `showStaffLine`       | boolean, paint the reserved row's line                                      | `true`                                                                |
+| `showFirst`           | boolean, prints bar 1 when eligible                                         | `false`                                                               |
+| `style`               | sparse `size`, `family`, `bold`, `italic` overrides                         | inherits `textStyles.barNumber`                                       |
+| `enclosure`           | `none`, `box`, `circle`                                                     | `none`                                                                |
+
+Bar-number typography is the `barNumber` text-style role stored at
+`_x.viritura.textStyles.barNumber`. Its size is stored in staff spaces like
+other text roles, so it scales with the score. A score view's
+`barNumbers.style` overrides only the fields it specifies. The style controls
+show the equivalent point size for the selected layout's staff size while
+continuing to store staff spaces. Older flat `family`, `size`, `bold`, and
+`italic` fields remain readable for compatibility; new edits write the shared
+style representation.
+
+The **Classical** preset restores the default frequency, below-system placement,
+barline alignment, unenclosed italic serif text, and content-following spacing.
+The **Film score** preset uses every bar, **Show on first bar**, separate space
+with a visible staff line, centered boxed numbers, and 8 pt bold upright serif text.
+It selects the outer Strings bracket when available, identified by its label
+or member instrument identities, otherwise falling back to below the system.
+Presets replace settings in the current scope. House-style presets preserve
+existing layout overrides; Film score adds per-layout placement only where
+placement has not already been overridden. The point size is converted using
+the selected layout's staff size and remains proportional when staff size changes.
+
+The Classical default places numbers below the whole system.
+The obsolete `belowTopInstrument` value is read as `belowSystem`.
+Whole-system placement uses the outer visible staff, including grand
+staves and systems whose staff membership changes. Numbers clear clefs and
+other musical ink, including rehearsal frames, by moving away from the staff.
+Bar 0 remains unprinted, including when `showFirst` is enabled. Collapsed
+multimeasure rests retain their range labels rather than printing each hidden
+bar; `hidden` suppresses those labels as well.
+
+`center` uses the complete printed measure width, including its opening
+signatures. `barline` alignment follows the visible barline after any
+pre-barline clef change. Ordinary numbers use it by default; multimeasure-rest
+ranges retain their centered default unless alignment is explicitly set.
+`distance` is the minimum gap from the musical staff to the number
+ink; collision clearance can increase it.
+
+`placements` is a multi-selection: above and below the system can be combined.
+A layout override can additionally
+choose individual outermost bracket groups through `aboveGroups`. These choices
+use member part IDs, not group labels or tree positions, and stay specific to
+that score view. Hidden member staves do not remove a group's numbers while
+other selected members remain visible. Groups with identical member part IDs
+share a selection. Coincident locations share one copy.
+The editor labels each bracket choice with its group name, falling back to the
+first instrument's name in layout order (or its part ID if unnamed).
+An explicit empty array clears the corresponding inherited choices.
+Legacy `placement` remains supported; an explicit legacy layout placement
+replaces inherited `placements`.
+
+The editor's **Bar number vertical alignment** options are **Follow musical content** and
+**Reserve separate space**. With `onStaff` (**Reserve separate space**), each selected location creates a
+source-free display row, not a musical or playback part. Numbers are vertically
+centered together. `showStaffLine: false` hides only the line, preserving the
+same row geometry and spacing; when shown, the line breaks around text and
+enclosures. Without a reserved row, numbers follow local musical content and
+clear collisions individually. The whole reserved row clears
+musical ink together. Its measured envelope participates in normal inter-staff
+spacing and page fitting, so a row below the top instrument pushes subsequent
+instruments down as needed. A row above a bracket similarly reserves space
+between that group and the preceding group. Frequency and first-bar visibility still apply;
+`hidden` removes the line as well as its labels.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "barNumbers": { "placement": "aboveSystem", "family": "sans-serif" }
+    }
+  },
+  "scores": [
+    {
+      "name": "Rehearsal layout",
+      "layout": "orchestra",
+      "_x": {
+        "viritura": {
+          "barNumbers": { "frequency": "everyBar", "showFirst": true, "enclosure": "box" }
+        }
+      }
+    }
+  ]
+}
+```
+
 `_x.viritura` on the top-level score object. Schema def: `root-extensions`.
 
 ### `pageSetupDefaults`
@@ -815,7 +1080,7 @@ Score-level bibliographic metadata (`score-metadata`). The engine consumes `titl
 
 Per-document text style overrides (`text-styles`), keyed by role. Each entry is a partial [`text-style`](#text-style) merged over the engine's built-in stylesheet at layout time — a document only stores the properties it changes, so adding style properties never requires a model migration.
 
-Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, `tempo`, `rehearsalMark`, `pedalText`, `copyright`.
+Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, `tempo`, `rehearsalMark`, `pedalText`, `barNumber`, `copyright`.
 
 `rehearsalMark` defaults to 2.8sp bold sans-serif. Sans-serif text uses
 `Arial, sans-serif` in the browser without bundling a sans-serif font.
@@ -870,6 +1135,12 @@ in these positions. Readers widen such a string to a single-chunk array before
 schema validation, so older files keep loading; writers always emit the array
 form.
 
+Native positioned text writes inline formatting under each chunk's
+`_x.viritura`; SMuFL chunks also have `type: "smufl"`. Readers repair
+MusicXML-converted files that placed formatting directly on native chunks or
+omitted the glyph type. MusicXML import omits inline formatting when vendor
+extensions are disabled.
+
 Inline `size` is a positive multiplier over the owning text role's resolved
 size. It is a **relative** unit — the CSS `em` equivalent — not an absolute
 point size, so score text keeps its proportion when the staff size changes.
@@ -890,13 +1161,10 @@ underline and strikeout independently, so a run may need several at once.
 [{ "text": "con ", "style": { "fontStyle": "italic" } }, { "glyphs": ["dynamicMezzoForte"] }, { "text": " subito" }]
 ```
 
-This Viritura representation is an implementation bridge, not a claim about
-the final MNX text encoding. The ordered text/glyph/style content is kept
-independent from its semantic owner, anchor, placement, and lifecycle. Text
-frames with wrapping and geometry remain separate objects; measure- and
-page-anchored text frames are not navigation-marker text. Serialization
-adapters can map this content to the MNX representation once that proposal is
-standardized.
+This is the Viritura vendor-content representation. Native positioned text
+uses MNX formatted-text chunks and keeps the optional styling in vendor
+extensions. Text frames with wrapping and geometry remain separate objects;
+measure- and page-anchored text frames are not navigation-marker text.
 
 #### Text size across formats
 
@@ -1272,6 +1540,84 @@ instead of silently choosing another voice.
 
 Extensions on `global.measures[]._x.viritura`.
 
+### `fermatas`
+
+Global fermatas are shared ensemble holds, distinct from local MNX event
+fermatas. The default Fermata action creates a global object; **Local fermata**
+creates staff-only notation and never inserts playback time.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "fermatas": [
+        {
+          "id": "shared-fermata",
+          "position": { "fraction": [3, 4] },
+          "multiplier": 2,
+          "clickBehavior": "silent"
+        }
+      ]
+    }
+  }
+}
+```
+
+`position` is a fraction of a whole note from the measure start, not a fraction
+of the bar or a reference to an event. Re-rhythming does not move it. At that
+instant, every voice projects a symbol onto its sounding main event or rest,
+including events that began earlier and full-measure rests. Grace notes do not
+consume this time axis. A global fermata breaks a multi-measure rest. Missing
+carriers are reported by score validation instead of inventing a rest.
+
+The driver is the latest-onset event sounding at the position across the
+ensemble; equal onsets choose the shortest duration. Playback inserts
+`(multiplier - 1) * driverDuration` at the driver's end, using the tempo at that
+insertion beat, including within tempo ramps. The default multiplier is 2;
+finite values at least 1 are supported. Longer overlapping notes sustain
+through the hold. Explicit global holds also work in open-meter measures;
+local cadenza notation remains timing-neutral. Caesuras retain their existing
+pause behavior.
+
+`clickBehavior` defaults to `silent`. `keepClicking` continues the current
+metronome pulse/subdivision at the insertion tempo while musical position is
+held, then resumes the score grid. Session tempo scaling applies to both
+music and hold clicks. Explicit hold lengths and tap-to-resume are not
+implemented.
+
+Equal measure/position entries are one fermata, including equivalent fractions.
+The lexicographically lowest id wins with its settings, independently of CRDT
+insertion order. Projected symbols select this shared object; inspector edits
+apply to all staves. Bar insertion/removal moves or removes the containing
+global measure. Clipboard data carries presence, never the shared object:
+pasting merges with existing settings at the destination or creates a default
+global fermata at a new position.
+
+Legacy import promotes strictly same-onset fermatas across staves. A lone
+fermata is promoted only when every other sounding staff is silent or resting.
+Non-aligned annotations remain local with `unmerged-local-fermata` notices.
+MNX duration hints seed multipliers: `none` 1, `veryShort` 1.25, `short` 1.5,
+`normal`/`auto`/omitted 2, `long` 2.5, `veryLong` 3. Imported non-normal symbols
+and explicit placement/pointing remain local overrides after promotion.
+
+MNX export retains the global array and materializes notation on every
+projected event/full-measure rest. On the **fermata object**,
+`_x.viritura.globalFermataId` identifies the shared source and
+`_x.viritura.localOnly: true` preserves intentional local notation or a local
+override. Re-import removes export-only projected symbols and retains the
+exact global anchor/settings. Local-only exports use the same explicit marker
+to avoid accidental promotion. Standard duration hints approximate arbitrary
+multipliers for other readers; the extension preserves the exact value.
+
+MusicXML materializes standard `<fermata>` notation too. A
+`miscellaneous-field` named `viritura-global-fermatas` retains the global
+per-measure arrays; hidden `other-notation` records starting with
+`viritura-fermata:` retain shared/local identities. Import with vendor
+extensions enabled restores these exact anchors rather than inferring them
+from overlapping notes. Strict MusicXML-to-MNX conversion keeps standard
+local notation; Viritura's MNX parser subsequently applies the legacy
+auto-merge rules.
+
 ### `systemText`
 
 The #282 follow-up introduces globally owned music-relative text. One authored
@@ -1315,6 +1661,16 @@ Conversion to staff text is rejected while playback settings or hidden text
 would be lost. Switching BPM on/off preserves rich text, framing, placement,
 manual offset and collision settings.
 
+Above-system instructions use the same outer collision layer as legacy tempo
+markings, including clearance from neighboring staff ink, multimeasure-rest
+counts, curves, rehearsal frames and tuplets. This applies with or without
+playback or a visible metronome. `avoidCollisions: false` pins the instruction
+instead of applying the automatic collision pass.
+
+A visible metronome mark, including its parentheses, uses the score's Tempo
+text weight (bold by default), matching standalone tempo markings. Authored
+text runs keep their own formatting.
+
 MusicXML `<direction system="only-top">` words map to global system text only
 when their placement is above or omitted. `system="none"` and directions with
 no `system` attribute retain the existing staff-expression mapping.
@@ -1324,9 +1680,20 @@ be represented faithfully by the current single-boundary global-text model.
 Those cases preserve the words as staff text and emit a
 `musicxml-system-relation` warning instead of silently changing their scope.
 
-Denigma adaptation and its representative rectangular-block fixtures are
-explicitly deferred until source payloads and units are established; no
-geometry or units are inferred.
+Denigma's explicit `top-staff` and `bottom-staff` generic-text scopes map to
+above- and below-system text for complete expression gaps, with a partial
+outcome because the gap does not provide vertical placement relative to that
+staff. When one source assignment reports both system and staff placements,
+the adapter also reports the unpreserved staff copies. Existing staff text
+referenced by a partial gap remains staff-scoped with a partial outcome.
+Other unsupported or unspecified generic-text scopes retain visible text with
+a partial outcome. The pinned Denigma exporter normally writes generic text
+as native positioned text without a scope gap, so its floating scope cannot
+yet be recovered in that path.
+
+Denigma's rectangular-block adapter and representative measure/page fixtures
+remain deferred until Denigma emits the source payloads and establishes their
+geometry and units; no frame geometry or units are inferred.
 
 ### `rehearsalMark`
 
@@ -1430,6 +1797,71 @@ it, without changing stored harmony.
 | `bass`         | [ChordRoot](#chord-root)               | No       | Concert slash bass note                                        |
 | `extension`    | `6` \| `7` \| `9` \| `11` \| `13`      | No       | Chord extension                                                |
 | `textOverride` | string                                 | No       | Display override, not a replacement for the underlying harmony |
+| `fretboards`   | Fretboard[]                            | No       | Instrument-specific authored chord diagrams                    |
+
+#### Fretboard diagrams
+
+`fretboards` is a temporary, MusicXML `<frame>`-shaped extension. Each diagram
+has a `partId` referencing an existing instrument, with at most one diagram per
+instrument on a chord occurrence. The shared harmony still belongs to the global
+progression. Identical imported harmonies combine diagrams from different instruments;
+conflicting harmonies retain the existing topmost-source policy and diagnostics.
+Different diagrams for the same instrument retain the first source diagram and
+produce a separate diagram-conflict diagnostic.
+
+| Property       | Type                                     | Description                                                                      |
+| -------------- | ---------------------------------------- | -------------------------------------------------------------------------------- |
+| `partId`       | string                                   | Source instrument ID, not a layout or staff index                                |
+| `frameStrings` | integer, 2–12                            | Number of strings                                                                |
+| `frameFrets`   | integer, 1–12                            | Number of displayed fret spaces                                                  |
+| `firstFret`    | `{ fret, text?, location? }`             | First displayed absolute fret, default 1; optional label and `left`/`right` side |
+| `frameNotes`   | `{ string, fret, fingering?, barre? }[]` | One entry per played string; string 1 is rightmost; fret 0 is open               |
+| `unplayed`     | string                                   | Indicator for omitted strings; default `x`, empty string hides it                |
+
+Stopped frets must fit inside the displayed range, bounded by absolute fret 36.
+Fingerings are strings up to 8 characters; first-fret labels allow 16 characters;
+unplayed indicators allow 8 characters. A barre uses paired `start` and `stop`
+markers on notes at the same stopped fret, starting on the higher-numbered string.
+The initial model supports one barre per fret and one played position per string.
+
+```json
+{
+  "partId": "guitar",
+  "frameStrings": 6,
+  "frameFrets": 4,
+  "firstFret": { "fret": 3, "text": "III", "location": "left" },
+  "frameNotes": [
+    { "string": 6, "fret": 3, "fingering": "1", "barre": "start" },
+    { "string": 5, "fret": 5, "fingering": "3" },
+    { "string": 4, "fret": 5, "fingering": "4" },
+    { "string": 3, "fret": 4, "fingering": "2" },
+    { "string": 2, "fret": 3 },
+    { "string": 1, "fret": 3, "barre": "stop" }
+  ]
+}
+```
+
+Diagrams follow their occurrence through chord-track moves, text edits and undo;
+removing an instrument removes its diagrams. Physical frets are not transposed
+when chord labels are projected into written pitch. Editing harmony retains authored
+fingerings, so authors must revise diagrams when changing the musical voicing.
+Diagrams do not change synthesized chord playback and contain no inferred tuning.
+They render above the chord label, using the same source-part visibility and
+selection identity, with their complete extent included in collision geometry.
+
+MusicXML import/export maps these fields to `<frame>` and its children. Source
+page coordinates, size, color and special fingering presentation produce explicit
+import diagnostics rather than pretending to preserve appearance. Unsupported
+multiple-note-per-string frames are diagnosed and omitted while retaining harmony.
+All-unplayed diagrams are valid in the extension but cannot be exported as a valid
+MusicXML frame, which requires at least one frame-note; export diagnoses the omission.
+Unsupported harmony exported as text also diagnoses a diagram omission.
+
+When native MNX fretboards stabilize, a versioned migration must preserve source
+instrument association, absolute fret numbering, open/unplayed states, labels,
+fingerings and paired barres. Keep this extension readable until an equivalent native
+mapping exists; do not rename it automatically or synthesize tuning. Migration
+fixtures and bidirectional round-trip tests are required before changing storage.
 
 The schema requires `position`; the parsers additionally enforce the
 `root`-or-`rawText` constraint. Rootless text does not acquire an invented root.
@@ -1511,8 +1943,9 @@ MuseScore StaffList clipboard harmony uses concert-pitch root and bass TPCs;
 the receiving application applies destination written transposition. Unsupported
 content exports with preservation warnings, using raw text or disambiguating
 root/bass structure. Conversion fails if that representation would silently
-change the harmony's meaning. MusicXML/MXL support here is import, not a
-MusicXML export contract.
+change the harmony's meaning. MusicXML/MXL export projects root and bass for the
+selected score view, uses standard chord kinds and degree operations where
+representable, and retains unsupported harmony as text with diagnostics.
 
 #### Derived playback
 
@@ -1874,14 +2307,22 @@ score-wide `showChangeLabel` and `showAdvanceReminder` defaults (both true
 when omitted). **Engrave → House Style → Instrument Changes** edits these
 defaults. Change-point labels use the same visibility inheritance rule.
 Neither its custom text nor its visibility changes the `instruction` label
-at the declaration. Automatic labels within the music use the active
-instrument's `shortName` (or its automatic abbreviation) and tuning for
-both instrument switches and transposition-only changes: `Cl in B♭` at
-the opening, `To Cl in C` as the advance reminder, and `Cl in C` at the
-change. Authored abbreviation punctuation and custom label text are
-preserved. Frontmatter retains full instrument names. Octave-only labels
-include, for example, `(sounds C5 for written C4)`. These labels use sounding
-pitch for written C, not numeric MNX interval counts.
+at the declaration. Automatic advance reminders use `To ` followed by the active
+instrument's `shortName` (or its automatic abbreviation). At the change itself,
+the label uses the full instrument name without `To `. When switching
+instruments they do not add the tuning, for example `To E.Hn.` and `English Horn`.
+When the same instrument changes tuning, they include the new key, for
+example `To Cl in A` and `Clarinet in A`. Keyed catalog variants of the same
+instrument count as one instrument; register-qualified IDs such as bass
+clarinet remain distinct.
+Authored label text is preserved. The initial label, system names, and
+frontmatter retain meaningful tuning information. An instrument's default
+octave transposition is implicit in its name, so a piccolo label reads `Picc.`
+rather than `Picc. in C (sounds C5 for written C4)`. Unusual octave-distinct
+tunings of the same instrument remain distinguishable; their labels use
+sounding pitch for written C, not numeric MNX interval counts.
+Generated labels participate in the same text-expression collision rules as
+authored directions, including on multimeasure rests.
 
 An enabled reminder automatically attaches **just after the last preceding
 sounding notehead**, so the player can use the following rest. It stays
@@ -1984,8 +2425,10 @@ clicked staff. Instrument choices must keep the same staff count and be
 pitched instruments. Percussion-map swaps and changes of staff count need
 separate source parts; this extension does not define per-instrument kits.
 Changing instrument also sets the catalog's clefs and staff-line counts at
-the bar start, preserving later-positioned staff changes. Removing it
-restores the previous instrument's catalog defaults there.
+the bar start, preserving later-positioned staff changes. A clef is inserted
+only when it differs from the clef already in effect on that staff, so
+flute/piccolo changes do not repeat the treble clef. Removing a change
+restores the previous instrument's catalog defaults without redundant clefs.
 
 Setup's **Change instrument** still replaces the starting instrument for the
 whole part; its **Customize tuning** section edits the starting transposition.
@@ -2011,10 +2454,16 @@ names on later systems. Changes later in the system do not alter its staff
 label. Frontmatter lists **all required states** in first-use order.
 Returning to the same instrument and interval does
 not repeat its entry; unused instrument definitions and unchanged-state
-reminders do not add entries. Octave differences remain distinct:
+reminders do not add entries. Different octave tunings of the same instrument
+remain distinct:
 B-flat horn uses **alto** / **basso**, and E-flat clarinet uses
 **piccolo** / **alto**. Other octave-distinct tunings state the sounding
-pitch for written C4. Explicit author-supplied layout labels remain intact.
+pitch for written C4; the default octave transposition of a different
+instrument needs no such explanation. Explicit author-supplied layout labels
+remain intact.
+Nontransposing instruments likewise omit a derived `in C` suffix when using
+their default tuning, so a piccolo/flute player's header reads `Piccolo` and
+`Flute`. Authored names and nondefault or octave-distinct tunings remain intact.
 
 Extracted parts use the same required-state list in the boxed instrument
 header on the first page, including a dedicated title page. Automatic
@@ -2131,6 +2580,12 @@ Extensions on `event._x.viritura` (on the event object itself, not inside markin
 
 Array of glissando/portamento lines connecting this event to target events.
 
+New lines created in the editor default to wavy for glissando and straight for
+portamento. Outside a shared repeat, the editor orders selected endpoints by
+musical time. When both endpoints are in the same repeated section, selection
+order determines the direction: select the source first and the target second.
+This applies to both multi-selections and two-note ranges.
+
 Copy/paste and repeat assign fresh IDs to both endpoints and retarget each copied
 line to the copied target, including across selected staves and voices. Lines
 whose targets are outside the copied selection are omitted from the pasted events.
@@ -2152,11 +2607,20 @@ setting at that score position. Distinct enharmonic strings remain distinct
 attacks. Chromatic and diatonic chord endpoints pair notes in ascending pitch
 order, reusing the highest target note if the source chord has more notes.
 Transitions use an isolated lane per source note, so other voices are not
-detuned or released. Lines do not cross playback jumps. Missing, backward,
-simultaneous, percussion, or unsupported harp-pedal endpoints produce a
-playback diagnostic. Unknown harp tuning preserves the authored endpoints
-without inventing interior pitches. Text visibility and line style do not
-affect sound.
+detuned or released.
+A line from a repeat-end measure to the matching repeat-start downbeat plays
+only on passes that take that repeat. The final pass retains ordinary source-note
+playback. Both an earlier entry source and the repeat-return source can target the
+same downbeat without duplicating its attack. The return is engraved as separate
+outgoing and incoming fragments, including across systems or horizon chunks;
+the incoming fragment reserves space before the downbeat.
+Other playback jumps are not crossed. Missing, unsupported backward, simultaneous,
+percussion, or unsupported harp-pedal endpoints produce a playback diagnostic.
+Unknown harp tuning preserves the authored endpoints without inventing interior
+pitches. Text visibility and line style do not affect sound.
+Repeated lines between the same endpoints with the same effective playback type
+play once. Adding a line to an existing endpoint pair updates that line instead
+of adding a duplicate, preserving playback settings not explicitly changed.
 
 The line inspector exposes the playback type for both glissando and portamento.
 Desktop native/Lua playback does not yet support these transitions; parts with
@@ -2220,23 +2684,10 @@ handles and to hit-test edits without re-decoding the painted crescent.
 
 Extensions on `parts[].kit[]._x.viritura` (on a drum-kit component).
 
-### `notehead`
+### `drumKit`
 
-Legacy notehead shape for hits on this kit component. MNX 52 has native
-`notehead` objects on `note`, `kit-note`, and `kit-component`, including
-SMuFL glyphs for custom shapes. Viritura accepts this extension when reading
-older scores, prefers a native notehead when both forms are present, and writes
-the native MNX field.
-
-Legacy values: `"normal"`, `"x"`, `"circleX"`, `"diamond"`, `"slash"`,
-`"triangleUp"`, `"triangleDown"`, `"plus"`, and `"square"`. Native MNX
-uses `"oval"` for `"normal"` and `"triangle"` for `"triangleUp"`.
-
-A legacy pitched `note` may carry the same `_x.viritura.notehead` as a per-note override.
-Playback does not sound pitched notes with `"x"`, `"circleX"`, or `"slash"` noteheads:
-those mark unpitched techniques (claps, taps, spoken or percussive effects, rhythmic
-slashes) that MIDI cannot reproduce. Diamond (harmonic) and triangle (shape-note)
-noteheads still sound their pitch. Kit hits always sound through the percussion map.
+An optional GS drum-kit program (0 through 127) overriding the percussion
+part's default kit for this component's sound.
 
 ```json
 {
@@ -2246,7 +2697,7 @@ noteheads still sound their pitch. Kit hits always sound through the percussion 
   "staffPosition": 5,
   "_x": {
     "viritura": {
-      "notehead": "x"
+      "drumKit": 49
     }
   }
 }

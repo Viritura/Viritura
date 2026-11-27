@@ -7,6 +7,120 @@ use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
 
+#[test]
+fn global_fermata_isolates_rest_in_auto_and_authored_multimeasure_ranges() {
+    let score = parse_mnx(&serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}}, {},
+            {"_x": {"viritura": {"fermatas": [{"id": "hold", "position": {"fraction": [1, 2]}}]}}},
+            {}, {}
+        ]},
+        "parts": [{"measures": (0..5).map(|_| serde_json::json!({
+            "sequences": [{"content": [], "fullMeasure": {}}]
+        })).collect::<Vec<_>>()}]
+    }).to_string()).unwrap();
+    let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+    assert_eq!(
+        crate::layout::resolve::detect_multimeasure_rest_groups(&resolved),
+        [(0, 2), (3, 2)]
+    );
+    let authored = std::collections::HashMap::from([(0, 5)]);
+    let (ranges, skipped) = crate::layout::resolve::split_authored_mmr_ranges(&authored, &resolved);
+    assert_eq!(ranges, std::collections::HashMap::from([(0, 2), (3, 2)]));
+    assert!(!skipped.contains(&2));
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    for display in [
+        layout_score(&score, 0, &config),
+        layout_with_mnx_scores(&score, &config, 0),
+    ] {
+        assert_eq!(hbar_count(&display, config.sp), 2);
+        assert_eq!(
+            display
+                .commands
+                .iter()
+                .zip(&display.element_ids)
+                .filter(|(_, id)| id.as_deref() == Some("m2/fermata/hold"))
+                .count(),
+            1
+        );
+    }
+}
+
+#[test]
+fn test_end_repeat_followed_by_clef_change_and_multimeasure_rest() {
+    let score = parse_mnx(
+        r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}, "repeatStart": {}},
+            {"repeatEnd": {}}, {}, {}
+        ]},
+        "parts": [{"measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+            ]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [
+                {"pitch": {"step": "D", "octave": 5}}
+            ]}]}]},
+            {"clefs": [{"clef": {"sign": "F", "staffPosition": 2}}], "sequences": [
+                {"content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}}
+            ]},
+            {"sequences": [{"content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}}]}
+        ]}]
+    }"#,
+    )
+    .unwrap();
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    for display in [
+        layout_score(&score, 0, &config),
+        layout_with_mnx_scores(&score, &config, 0),
+    ] {
+        assert_eq!(hbar_count(&display, config.sp), 1);
+        let clef_left = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| display.element_ids[*index].as_deref() == Some("p0/m2/clef"))
+            .filter_map(|(_, command)| command.bbox())
+            .map(|bbox| bbox.x)
+            .fold(f64::INFINITY, f64::min);
+        let repeat_right = display
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| display.element_ids[*index].as_deref() == Some("m2/barline"))
+            .filter_map(|(_, command)| match command {
+                RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::REPEAT_RIGHT => {
+                    command.bbox()
+                }
+                _ => None,
+            })
+            .map(|bbox| bbox.x + bbox.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            clef_left.is_finite() && repeat_right.is_finite(),
+            "clef={clef_left}, repeat={repeat_right}, commands={:?}",
+            display
+                .commands
+                .iter()
+                .zip(&display.element_ids)
+                .filter(|(command, _)| {
+                    matches!(command, RenderCommand::DrawGlyph { codepoint, .. }
+                    if *codepoint == smufl::F_CLEF || *codepoint == smufl::REPEAT_RIGHT)
+                })
+                .collect::<Vec<_>>(),
+        );
+        assert!(clef_left > repeat_right);
+    }
+}
+
 fn hbar_count(dl: &DisplayList, sp: f64) -> usize {
     dl.commands
         .iter()
@@ -855,6 +969,31 @@ fn test_multimeasure_rest_disabled() {
 }
 
 #[test]
+fn full_measure_caesura_interrupts_detected_and_authored_multimeasure_rests() {
+    let rest = serde_json::json!({"sequences": [{"content": [], "fullMeasure": {}}]});
+    let mut pause = rest.clone();
+    pause["sequences"][0]["fullMeasure"]["_x"] = serde_json::json!({"viritura": {"caesura": {}}});
+    let score = parse_mnx(
+        &serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 7, "unit": 8}}, {}, {}, {}, {}]},
+            "parts": [{"measures": [rest.clone(), rest.clone(), pause, rest.clone(), rest]}]
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+    assert_eq!(
+        crate::layout::resolve::detect_multimeasure_rest_groups(&resolved),
+        vec![(0, 2), (3, 2)]
+    );
+    let authored = std::collections::HashMap::from([(0, 5)]);
+    let (starts, skipped) = crate::layout::resolve::split_authored_mmr_ranges(&authored, &resolved);
+    assert_eq!(starts, std::collections::HashMap::from([(0, 2), (3, 2)]));
+    assert!(!skipped.contains(&2));
+}
+
+#[test]
 fn test_multimeasure_rest_auto_detect_breaks_at_caesura_and_tempo() {
     // A run of full-measure rests interrupted by a caesura (bar 3) and tempo
     // changes (bars 3, 4) must NOT be collapsed into one multimeasure rest.
@@ -919,6 +1058,54 @@ fn test_multimeasure_rest_auto_detect_breaks_at_fermata() {
         groups,
         vec![(0, 2), (3, 2)],
         "expected MMRs over bars 1-2 and 4-5 with the fermata bar isolated, got {groups:?}"
+    );
+}
+
+#[test]
+fn test_multimeasure_rest_breaks_at_full_measure_rest_fermata() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}}, {}, {}, {}, {}
+        ]},
+        "parts": [{"measures": [
+            {"sequences": [{"content": [], "fullMeasure": {}}]},
+            {"sequences": [{"content": [], "fullMeasure": {}}]},
+            {"sequences": [{"content": [], "fullMeasure": {"fermata": {}}}]},
+            {"sequences": [{"content": [], "fullMeasure": {}}]},
+            {"sequences": [{"content": [], "fullMeasure": {}}]}
+        ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+
+    assert_eq!(
+        crate::layout::resolve::detect_multimeasure_rest_groups(&resolved),
+        vec![(0, 2), (3, 2)]
+    );
+    let authored = std::collections::HashMap::from([(0, 5)]);
+    let (starts, skipped) = crate::layout::resolve::split_authored_mmr_ranges(&authored, &resolved);
+    assert_eq!(starts, std::collections::HashMap::from([(0, 2), (3, 2)]));
+    assert_eq!(skipped, std::collections::HashSet::from([1, 4]));
+
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    let display = layout_score(&score, 0, &config);
+    assert_eq!(hbar_count(&display, config.sp), 2);
+    assert_eq!(
+        display
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::FERMATA_ABOVE
+                )
+            })
+            .count(),
+        1
     );
 }
 
@@ -2015,6 +2202,8 @@ fn test_tempo_text_clears_multimeasure_rest_number() {
             dots: None,
         }),
         swing: None,
+        click_subdivision: None,
+        click_grouping: None,
         location: None,
         text: Some("Allegro molto vivace".to_string().into()),
         show_metronome_mark: Some(true),
@@ -2108,6 +2297,8 @@ fn test_tempo_text_clears_neighbouring_multimeasure_rest_number() {
             dots: None,
         }),
         swing: None,
+        click_subdivision: None,
+        click_grouping: None,
         location: None,
         text: Some(
             "Allegro molto vivace ed appassionato assai"

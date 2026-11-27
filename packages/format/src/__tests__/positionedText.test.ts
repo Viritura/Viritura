@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { migrateLegacyTextContent } from "../mnx/legacyTextContent";
 import { parseMnx } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
 
@@ -61,6 +62,86 @@ describe("native part-measure positioned text", () => {
     expect(parseMnx(serialized).parts[0]?.measures[0]?.expressions?.[0]?.text).toEqual(
       score.parts[0]?.measures[0]?.expressions?.[0]?.text,
     );
+  });
+
+  it("repairs vendor-shaped chunks written into native positioned text", () => {
+    // Earlier MusicXML conversions wrote chunk-level `style` and untyped glyph
+    // runs into native `text`, which the MNX schema rejects.
+    const text = [
+      {
+        type: "expression",
+        text: [
+          { text: "rit.", style: { fontStyle: "italic" } },
+          { glyphs: ["dynamicPiano"], smuflStyle: { color: "#ff0000" } },
+        ],
+        position: { fraction: [0, 1] },
+      },
+    ];
+    const score = parseMnx(document({ text }));
+    expect(score.parts[0]?.measures[0]?.expressions?.[0]?.text).toEqual([
+      { text: "rit.", style: { fontStyle: "italic" } },
+      { glyphs: ["dynamicPiano"], smuflStyle: { color: "#ff0000" } },
+    ]);
+
+    const serialized = serializeMnx(score) as { parts: { measures: { text?: { text: unknown }[] }[] }[] };
+    expect(serialized.parts[0]?.measures[0]?.text?.[0]?.text).toEqual([
+      { text: "rit.", _x: { viritura: { style: { fontStyle: "italic" } } } },
+      { type: "smufl", glyphs: ["dynamicPiano"], _x: { viritura: { smuflStyle: { color: "#ff0000" } } } },
+    ]);
+  });
+
+  it("preserves existing nonconflicting extension data during migration", () => {
+    const input = document({
+      text: [
+        {
+          text: [
+            {
+              text: "dolce",
+              style: { fontStyle: "italic" },
+              _x: { other: { value: 1 }, viritura: { smuflStyle: { color: "#ff0000" } } },
+            },
+          ],
+        },
+      ],
+    });
+    const original = structuredClone(input);
+    const migrated = migrateLegacyTextContent(input);
+    expect(input).toEqual(original);
+    expect(migrated).toMatchObject({
+      parts: [
+        {
+          measures: [
+            {
+              text: [
+                {
+                  text: [
+                    {
+                      text: "dolce",
+                      _x: {
+                        other: { value: 1 },
+                        viritura: { style: { fontStyle: "italic" }, smuflStyle: { color: "#ff0000" } },
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it.each([
+    ["invalid extension container", { _x: "invalid" }],
+    ["invalid Viritura extension", { _x: { viritura: "invalid" } }],
+    ["conflicting styles", { _x: { viritura: { style: { weight: "bold" } } } }],
+  ])("rejects a legacy chunk with %s instead of discarding it", (_description, existing) => {
+    const input = document({ text: [{ text: [{ text: "dolce", style: { fontStyle: "italic" }, ...existing }] }] });
+    const original = structuredClone(input);
+    expect(migrateLegacyTextContent(input)).toEqual(original);
+    expect(() => parseMnx(input)).toThrow("MNX schema validation failed");
+    expect(input).toEqual(original);
   });
 
   it("rejects the retired Viritura expressions extension", () => {

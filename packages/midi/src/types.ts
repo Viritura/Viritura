@@ -7,6 +7,7 @@
  */
 
 import type { TempoModel } from "./tempoModel";
+import type { TimeSignature } from "@viritura/core";
 import type { PlayedMeasureSpan } from "./navigation";
 
 /** A single MIDI channel-voice event. */
@@ -70,6 +71,8 @@ export interface TempoMapEntry {
 
 /** The complete MIDI timeline generated from a Score. */
 export interface MidiTimeline {
+  /** Fermata insertion beats on the performed axis, with shared click policy. */
+  fermataHolds?: { beat: number; extraBeats: number; clickBehavior: "silent" | "keepClicking" }[];
   playedSpans?: PlayedMeasureSpan[];
   /** Time-ordered MIDI events (noteOn and noteOff interleaved) */
   events: MidiEvent[];
@@ -98,7 +101,7 @@ export interface MidiTimeline {
    *  `measureStartBeats`). Lets a consumer derive the metronome click grid per
    *  measure (which beats click, where the accent falls) without re-resolving
    *  the score's meter changes. */
-  measureTimeSignatures: { count: number; unit: number }[];
+  measureTimeSignatures: TimeSignature[];
   /** Explicit degradation notices for physical MIDI allocation and unsupported rhythm scope. */
   diagnostics?: TimelineDiagnostic[];
 }

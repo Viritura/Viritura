@@ -827,9 +827,20 @@ pub(crate) fn render_beams(
 
         // Compute stem X and notehead reference Y (stem-side) for each event
         // Using SMuFL stemUpSE/stemDownNW anchor points from Bravura metadata.
-        let note_info: Vec<(f64, f64)> = beam_events
+        let stem_anchors: Vec<_> = beam_events
             .iter()
             .map(|el| {
+                crate::layout::render_events::event_stem_anchors(
+                    el,
+                    stem_up,
+                    ml.resolved.kit.as_ref(),
+                )
+            })
+            .collect();
+        let note_info: Vec<(f64, f64)> = beam_events
+            .iter()
+            .zip(&stem_anchors)
+            .map(|(el, anchors)| {
                 let top_pos = el
                     .note_positions
                     .iter()
@@ -844,11 +855,11 @@ pub(crate) fn render_beams(
                 let eff_y =
                     super::super::render_measure::cross_staff_y(el, staff_y, staff_y_offsets);
                 if stem_up {
-                    let sx = el.x + smufl::STEM_UP_SE.0 * sp - stem_w * 0.5;
+                    let sx = el.x + anchors.up_se.0 * sp - stem_w * 0.5;
                     let ny = eff_y + top_pos * sp * 0.5;
                     (sx, ny)
                 } else {
-                    let sx = el.x + smufl::STEM_DOWN_NW.0 * sp + stem_w * 0.5;
+                    let sx = el.x + anchors.down_nw.0 * sp + stem_w * 0.5;
                     let ny = eff_y + bottom_pos * sp * 0.5;
                     (sx, ny)
                 }
@@ -887,12 +898,12 @@ pub(crate) fn render_beams(
 
             let eff_y = super::super::render_measure::cross_staff_y(el, staff_y, staff_y_offsets);
             if stem_up {
-                let stem_bottom = eff_y + bottom_pos * sp * 0.5;
+                let stem_bottom = eff_y + bottom_pos * sp * 0.5 + stem_anchors[i].up_se.1 * sp;
                 // Stem goes from notehead up to beam center
                 let stem_end = beam_y_at_stem + beam_center_offset;
                 dl.stem(stem_x, stem_end, stem_bottom, config.stem_width * sp);
             } else {
-                let stem_top = eff_y + top_pos * sp * 0.5;
+                let stem_top = eff_y + top_pos * sp * 0.5 + stem_anchors[i].down_nw.1 * sp;
                 // Stem goes from notehead down to beam center
                 let stem_end = beam_y_at_stem - beam_center_offset;
                 dl.stem(stem_x, stem_top, stem_end, config.stem_width * sp);

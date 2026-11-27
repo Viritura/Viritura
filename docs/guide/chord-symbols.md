@@ -162,6 +162,30 @@ unsupported, rather than played as a different chord.
 Press `Delete` or `Backspace` with a chord symbol selected to remove that
 harmony event without changing the underlying note or rest.
 
+## Chord diagrams
+
+Select an engraved chord symbol, then choose **Add chord diagram** in
+**Properties**. The diagram belongs to that instrument: guitar and ukulele can
+show different fingerings for the same chord change.
+
+Choose the string count, displayed frets and first fret. For each string, choose
+**Unplayed**, **Open**, or a stopped fret, and optionally enter its fingering.
+String 1 is the rightmost string. To add a barre, choose **Start** on its
+higher-numbered string and **Stop** on its lower-numbered string at the same fret.
+Choose **Apply diagram** to save all fields together, or **Remove diagram** to
+remove only that instrument's diagram.
+
+Diagrams appear above the chord label wherever the instrument shows chord symbols.
+They move with the chord change and participate in undo/redo. Changing the chord
+name retains the authored diagram; check that the fingering still describes the
+new harmony. Written-pitch views change chord spelling, not physical frets.
+Diagrams do not change chord audition or playback, and suggested fingerings are
+not generated automatically.
+
+MusicXML imports and exports ordinary chord frames. Appearance details such as
+source colors and exact page placement are replaced by Viritura's engraving.
+Conversion diagnostics identify unsupported diagrams or details.
+
 ## Placement in scores and parts
 
 Use the instrument's **Chord Symbols** control in Setup, or chord visibility in

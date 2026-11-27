@@ -18,6 +18,7 @@ public sealed class GitHubOAuthClient(
     private static readonly Uri ViewerUrl = new("https://api.github.com/user", UriKind.Absolute);
     private static readonly Uri ViewerInstallationsUrl = new("https://api.github.com/user/installations?per_page=100", UriKind.Absolute);
     private static readonly Uri UserRepositoriesUrl = new("https://api.github.com/user/repos", UriKind.Absolute);
+    private static readonly Uri GistsUrl = new("https://api.github.com/gists", UriKind.Absolute);
 
     public async Task<GitHubTokenBundle> ExchangeCodeAsync(string code, string redirectUri, CancellationToken cancellationToken = default)
     {
@@ -167,6 +168,41 @@ public sealed class GitHubOAuthClient(
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
         return ReadRepository(document.RootElement);
+    }
+
+    public async Task<GitHubCreatedGist> CreateGistAsync(
+        string accessToken,
+        string description,
+        IReadOnlyDictionary<string, string> files,
+        CancellationToken cancellationToken = default)
+    {
+        var gistFiles = files.ToDictionary(file => file.Key, file => new { content = file.Value });
+        using var request = new HttpRequestMessage(HttpMethod.Post, GistsUrl)
+        {
+            Content = JsonContent.Create(new
+            {
+                description,
+                @public = false,
+                files = gistFiles
+            })
+        };
+        AddGitHubHeaders(request, accessToken);
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        var root = document.RootElement;
+        var id = root.GetProperty("id").GetString();
+        var htmlUrl = root.GetProperty("html_url").GetString();
+        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(htmlUrl))
+        {
+            throw new InvalidOperationException("GitHub Gist response did not include its ID and URL.");
+        }
+
+        return new GitHubCreatedGist(
+            id,
+            htmlUrl);
     }
 
     private static GitHubCreatedRepository ReadRepository(JsonElement root) =>

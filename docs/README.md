@@ -3,19 +3,20 @@
 Documentation for Viritura — a web-native collaborative music notation editor built around the W3C MNX format.
 
 Project status and prioritization are maintained in GitHub. This directory owns
-technical specifications, active design documents, user guides, and operational
-runbooks.
+technical specifications, active design documents, experiment records, user
+guides, and operational runbooks.
 
 ## Folder map
 
-| Folder                       | Purpose                                                                                                            |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| [`overview/`](overview/)     | What Viritura is, why it exists, and its current technology choices.                                               |
-| [`guide/`](guide/)           | Task-oriented user documentation published at `viritura.com/docs` and linked from in-app Help.                     |
-| [`developers/`](developers/) | Documentation for embedding the score engine, viewer and React components, published at `viritura.com/developers`. |
-| [`spec/`](spec/)             | Stable reference material: data model, MNX coverage, Viritura extensions, file format, keyboard shortcuts.         |
-| [`plans/`](plans/)           | Active or in-flight design documents. Each carries a status banner.                                                |
-| [`setup/`](setup/)           | Local development, authentication, deployment, hosting, and production configuration runbooks.                     |
+| Folder                         | Purpose                                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| [`overview/`](overview/)       | What Viritura is, why it exists, and its current technology choices.                                               |
+| [`guide/`](guide/)             | Task-oriented user documentation published at `viritura.com/docs` and linked from in-app Help.                     |
+| [`developers/`](developers/)   | Documentation for embedding the score engine, viewer and React components, published at `viritura.com/developers`. |
+| [`spec/`](spec/)               | Stable reference material: data model, MNX coverage, Viritura extensions, file format, keyboard shortcuts.         |
+| [`plans/`](plans/)             | Active or in-flight design documents. Each carries a status banner.                                                |
+| [`experiments/`](experiments/) | Completed or shelved experiments and their findings.                                                               |
+| [`setup/`](setup/)             | Local development, authentication, deployment, hosting, and production configuration runbooks.                     |
 
 ## Where to start
 
@@ -30,11 +31,13 @@ runbooks.
 - **Working on read-only score sharing:** read [plans/read-only-sharing.md](plans/read-only-sharing.md), [spec/auth.md](spec/auth.md), and [plans/production-infrastructure.md](plans/production-infrastructure.md).
 - **Working on the engine or layout:** [spec/data-model-pipeline.md](spec/data-model-pipeline.md), the performance [single source of truth](plans/performance-architecture.md), and the target-achieved/current-follow-ups [60 FPS incremental-layout plan](plans/sixty-fps-incremental-layout.md).
 - **Working on MNX parsing/serialization:** [spec/music-notationref-coverage.md](spec/music-notationref-coverage.md), [spec/viritura-extensions.md](spec/viritura-extensions.md), [spec/mnx-converter-coverage.md](spec/mnx-converter-coverage.md), [spec/dynamics.md](spec/dynamics.md).
-- **Implementing the MNX v40 to v46 upgrade:** [plans/mnx-v46-end-to-end-support.md](plans/mnx-v46-end-to-end-support.md) defines v46-only delivery, repository asset migration and the stacked PR sequence.
+- **Reviewing the earlier MNX v40 to v46 upgrade:** [plans/mnx-v46-end-to-end-support.md](plans/mnx-v46-end-to-end-support.md) records its delivery plan and asset migration.
 - **Working on the editor UI:** [spec/engrave-mode.md](spec/engrave-mode.md), [spec/keyboard-shortcuts.md](spec/keyboard-shortcuts.md), [plans/score-and-parts.md](plans/score-and-parts.md).
 - **Planning harp pedals:** [plans/harp-support.md](plans/harp-support.md) covers explicit settings, ranked pedal solutions with enharmonic alternatives, pedal-aware glissandos, and red noteheads.
 - **Working on external MCP integration:** [spec/mcp-integration.md](spec/mcp-integration.md).
 - **Working on film/video scoring:** [plans/video-sync.md](plans/video-sync.md) — native Picture-in-Picture, shared transport synchronization, and the boundary between Video Reference and Advanced Scoring to Picture.
+- **Working on click sessions (Click activity):** [spec/click-sessions.md](spec/click-sessions.md): click-only engine, countoff, programmable subdivisions, folder and Gist setlists, and recording qualification.
+- **Reviewing the server-synchronized click track experiment:** [experiments/server-synchronized-click-track.md](experiments/server-synchronized-click-track.md).
 - **Embedding Viritura's renderer in another app:** read [developers/overview.md](developers/overview.md).
 - **Looking at what's next:** browse [plans/](plans/) for in-flight work.
 
@@ -115,6 +118,7 @@ animation stops as soon as a reader focuses or interacts with the control.
 | [selection-behavior-matrix](spec/selection-behavior-matrix.md)                        | What each editing action does for every selection kind (capability contract)                                                                                        |
 | [auth](spec/auth.md)                                                                  | Authentication, sessions, 2FA, OAuth, GitHub App                                                                                                                    |
 | [mcp-integration](spec/mcp-integration.md)                                            | External MCP relay, OAuth/session routing, tool catalogue, proposal review, and known limitations                                                                   |
+| [click-sessions](spec/click-sessions.md)                                              | Click activity: click-only engine, countoff, subdivisions, setlists, timing guarantees, and qualification                                                           |
 | [orchestral-audio](spec/orchestral-audio.md)                                          | Concert-hall playback engine: section pooling, convolution reverb, master bus                                                                                       |
 | [sound-profiles](spec/sound-profiles.md)                                              | Proposed sound-profile model: instrument identity, MIDI/SF2 and VST routing, VirituraSounds compatibility baseline                                                  |
 | [instrument-profiles-vst](plans/instrument-profiles-vst.md)                           | Remaining mixer, diagnostics, audio-routing, custom-binding, and profile-portability work                                                                           |

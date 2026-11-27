@@ -25,6 +25,12 @@ public interface IGitHubOAuthClient
         GitHubCreateRepository repository,
         CancellationToken cancellationToken = default);
 
+    Task<GitHubCreatedGist> CreateGistAsync(
+        string accessToken,
+        string description,
+        IReadOnlyDictionary<string, string> files,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Revokes the user's OAuth grant on GitHub (DELETE /applications/{client_id}/grant).
     /// Best-effort: returns true if GitHub accepted the revocation (204) or the grant was already gone (404).

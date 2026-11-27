@@ -32,9 +32,8 @@ describe("buildKitSliceMnx", () => {
     // Crash (sp 6) is the first (leftmost) event.
     const content = part.measures[0].sequences[0].content;
     expect(content.map((c: any) => c.kitNotes[0].kitComponent)).toEqual(["crash", "snare"]);
-    // Notehead shape is carried as the Viritura vendor extension.
-    expect(part.kit.crash._x.viritura.notehead).toBe("x");
-    expect(part.kit.snare._x).toBeUndefined(); // "normal" omitted
+    expect(part.kit.crash.notehead).toEqual({ shape: "x" });
+    expect(part.kit.snare.notehead).toBeUndefined(); // "normal" omitted
     // Sounds carry the chosen MIDI keys.
     expect(slice.global.sounds["snd-crash"].midiNumber).toBe(49);
     // Percussion clef present.
@@ -47,6 +46,17 @@ describe("buildKitSliceMnx", () => {
     expect(content).toHaveLength(1);
     expect(content[0].rest).toBeDefined();
     expect(Object.keys(slice.parts[0].kit)).toHaveLength(0);
+  });
+
+  it("preserves the custom glyph in a component preview", () => {
+    const slice = buildKitSliceMnx([
+      row({
+        id: "custom",
+        notehead: "custom",
+        originalNotehead: { shape: "custom", glyph: "noteheadXBlack" },
+      }),
+    ]) as any;
+    expect(slice.parts[0].kit.custom.notehead).toEqual({ shape: "custom", glyph: "noteheadXBlack" });
   });
 
   it("scales page width with component count", () => {

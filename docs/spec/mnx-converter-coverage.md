@@ -4,10 +4,10 @@ For the source-validated, row-by-row comparison against the W3C Music Notation
 Reference, see [music-notationref-coverage.md](./music-notationref-coverage.md).
 
 Status snapshot of how Viritura's MNX parser/serializer and MusicXML → MNX
-converter cover MNX schema version 46, including remaining import and
+converter cover MNX schema version 57, including remaining import and
 editor-integration gaps.
 
-## v46 integration status
+## Integration status
 
 - Explicit dynamic glyphs, shared barline caesuras and note-local
   scoop/plop/falloff/doit use native MNX fields. The four note markings engrave
@@ -20,8 +20,8 @@ editor-integration gaps.
   Structural-edit reference lifecycle and staff-local timing remain under
   integration review; schema acceptance alone does not establish those paths.
 - The pinned Denigma producer was exercised on its eight acceptance scores.
-  The current pin (`45c3f626`) emits document version `52` and gap-report
-  schema v2; all adapted outputs validate against MNX schema 52. Acceptance
+  The current pin (`66e154a5`) emits document version `57` and gap-report
+  schema v2; all adapted outputs validate against MNX schema 57. Acceptance
   checks native noteheads, positioned text, and text-formatting ranges. No
   old-draft adapter is applied; unsupported output requires a producer update.
 - The corpus gate covers native fixtures, v46 fixtures and the embedded
@@ -82,6 +82,11 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 **Features attached to native MNX output:**
 
 - Notes (pitch, octave, alter), rests, chords, grace notes, dotted notes, accidental display
+- Full-measure rests (`<rest measure="yes">`), including their visual value,
+  staff position, fermata, and local caesura when vendor extensions are enabled.
+  Pickup rests, conflicting voice content, and unsupported event-anchored
+  notation are retained as ordinary events with an import warning. A rest with
+  a local caesura also uses that fallback when extensions are disabled.
 - Multiple voices, ties (with IDs and `side`; `<tied placement>` → `tie.side`; `<tied type="let-ring">` → `tie.lv`), articulations (full SMuFL-aware mapping table)
 - Fermatas, bow directions, and single-note and multi-note tremolos
 - Non-arpeggiate chord brackets
@@ -99,6 +104,9 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 - Tempo (`<metronome>` and `<sound tempo>` with mid-measure `location.fraction` positioning)
 - Volta endings (multi-number support, duration post-processing for start→stop range, `discontinue` → `open: true`)
 - Navigation: segno/coda (with SMuFL `glyph` and color), Fine, all native jump types and rhythmic offsets
+- Staff `<words>` directions and embedded SMuFL symbols as positioned text;
+  inline formatting is preserved under `_x.viritura` only when extensions are enabled;
+  otherwise its loss is reported in import diagnostics
 - MusicXML colors on keys, clefs, volta endings, grace groups, and segnos
 - Beam grouping (per voice / level), ottava lines, multi-staff parts (grand staff with brace grouping), and cross-staff note/event assignments
 - `<stem>up\|down</stem>` → `event.stemDirection`
@@ -107,7 +115,7 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 **Features attached as `_x.viritura` vendor extensions** (no MNX-native equivalent yet):
 
 - Trills, mordents, turn variants, event-level arpeggios, and fingerings
-- Rehearsal marks, text `<words>` directions, and pedal markings
+- Rehearsal marks, system text, and pedal markings
 - Score metadata (title, creators, work, and movement details)
 - Glissando/slide spans and common chord symbols
 - `<instrument-sound>` as the part's instrument identity, so catalog matching
@@ -128,6 +136,39 @@ written-pitch score preserves its authored written clefs through the existing
 - Generic `DiagnosticCollector` lives in [`packages/core/src/diagnostics.ts`](../../packages/core/src/diagnostics.ts) so `format` and `musicxml` share the type without a new dep edge.
 
 **Test coverage:** 148 package tests across [`packages/musicxml/src/__tests__/`](../../packages/musicxml/src/__tests__/) covering the feature areas above with focused synthetic XML fixtures.
+
+### Score → MusicXML export (`packages/musicxml`)
+
+`convertScoreToMusicXml(score, { scoreIndex })` returns MusicXML 4.0 XML and
+shared conversion diagnostics. `convertScoreToMxl` returns compressed archive
+bytes and the same diagnostics. Both accept the typed in-memory `Score`;
+omitting `scoreIndex` exports all instruments at written pitch.
+
+Publish uses the selected score definitions, with one file per selected view.
+Layout sources determine instrument order and staff/voice filtering. Multiple
+browser outputs use a ZIP; approved folder destinations receive separate files.
+The compressed reader follows `META-INF/container.xml`, including nested
+`.musicxml` root files; legacy single-file archives remain importable with a
+diagnostic, while ambiguous archives fail.
+
+Export covers exact rational rhythm, polyphony, chords, spaces, pickups,
+full-measure rests, nested tuplets, tremolos, percussion, transposition and
+key spelling, instrument changes, notation spanners, lyrics, harmony, tempo,
+dynamics, shared caesuras, pedals, navigation, metadata, and page defaults. MusicXML's transpose
+direction is the inverse of the native sounding-to-written interval.
+Authored enharmonic key flips adjust the written key and diatonic transpose together.
+Octave shifts serialize displayed pitches while retaining sounding playback.
+Import resolves transpose and octave-shift changes in musical time, independently
+of XML voice order, and respects positioned direction offsets.
+Harmony degree alterations use MusicXML's kind-relative conventions, while added
+degrees use its dominant-based intervals. Hexadecimal CSS colors are normalized
+to uppercase RGB or ARGB. Specialized ornaments retain their canonical SMuFL glyphs.
+
+Diagnostics explain nonportable playback curves and editor data, unsupported
+ornament spellings or note values, missing extract endpoints, and layout
+reflow. Invalid selections, rhythm, or references fail explicitly; overfilled
+ordinary measures are not silently truncated. Output is not an exact printed
+layout or a lossless native-document round trip.
 
 ### Public converter UI (`apps/website/src/routes/mnx-converter/`)
 

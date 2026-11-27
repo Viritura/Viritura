@@ -21,6 +21,11 @@ fn sanitize(mnx_id: &str) -> String {
     mnx_id.replace('/', "_")
 }
 
+/// Shared owner of all staff and voice projections of one global hold.
+pub fn global_fermata(measure: usize, id: &str) -> String {
+    format!("m{measure}/fermata/{}", sanitize(id))
+}
+
 /// Event ID suffix — uses the MNX `id` if present, otherwise `e{index}`.
 pub fn event_suffix(mnx_id: Option<&str>, index: usize) -> String {
     mnx_id
@@ -158,6 +163,39 @@ pub fn ottava(part: usize, measure: usize, index: usize) -> String {
 /// Expression: `p{part}/m{measure}/expr{index}`
 pub fn expression(part: usize, measure: usize, index: usize) -> String {
     format!("p{}/m{}/expr{}", part, measure, index)
+}
+
+/// Rendered ID of a resolved text expression: its explicit ID when present,
+/// otherwise the positional expression ID.
+pub fn text_expression(
+    expression: &crate::model::TextExpression,
+    part: usize,
+    measure: usize,
+    index: usize,
+) -> String {
+    expression.id.clone().unwrap_or_else(|| {
+        self::expression(
+            expression.source_part_index.unwrap_or(part),
+            measure,
+            expression.source_expression_index.unwrap_or(index),
+        )
+    })
+}
+
+/// Instrument-change label: `p{part}/m{measure}/expr-instchange{index}`.
+/// The `/expr` infix keeps the label in expression stacking passes.
+pub fn instrument_change(part: usize, measure: usize, index: usize) -> String {
+    format!("p{}/m{}/expr-instchange{}", part, measure, index)
+}
+
+/// Advance reminder for the change in `measure`: `p{part}/m{measure}/expr-instreminder{index}`.
+pub fn instrument_change_reminder(part: usize, measure: usize, index: usize) -> String {
+    format!("p{}/m{}/expr-instreminder{}", part, measure, index)
+}
+
+/// Starting-instrument label: `p{part}/m0/expr-instinitial`.
+pub fn initial_instrument_label(part: usize) -> String {
+    format!("p{}/m0/expr-instinitial", part)
 }
 
 /// Global harmony event: `m{measure}/chord{index}`.

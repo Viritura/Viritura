@@ -33,6 +33,7 @@ Repository permissions:
 - Metadata: Read-only
 
 Account permissions:
+- Gists: Read and write
 - Email addresses: Read-only, optional
 ```
 
@@ -73,6 +74,10 @@ Viritura__GitHub__ClientId=<client-id>
 Viritura__GitHub__ClientSecret=<client-secret>
 Viritura__GitHub__AppSlug=<app-slug>
 ```
+
+The GitHub App's `Gists: Read and write` account permission is required for
+Share to create secret Gists. After adding it to the app, users must reauthorize
+Viritura to approve the permission.
 
 ## Run The Local GitHub Flow
 

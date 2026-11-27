@@ -42,7 +42,7 @@ for (const outcome of result.gapOutcomes) {
 
 The result includes standard MNX, Denigma diagnostics, and the versioned
 structured conversion-gap report produced by Denigma. Viritura applies its
-supported schema-v1/v2 adapters in the worker and returns one outcome for every
+schema-v3 adapters in the worker and returns one outcome for every
 source gap. The consuming editor validates the adapted document against the
 MNX and Viritura extension schemas before loading it. Gap payloads use stable
 target MNX IDs as anchors. Unknown fields and gap types remain visible as
@@ -52,15 +52,22 @@ discarded.
 The current adapters preserve:
 
 - score-wide chord roots, slash bass notes, normalized qualities, common
-  extensions, and source text provenance;
+  extensions, source text provenance, and structured instrument-specific
+  fretboards when present in the gap payload;
 - native MNX per-note and percussion-kit notehead shapes, with legacy
-  schema-v1 notehead-gap support;
-- generic expressive text and performance instructions as expressions, with
-  per-run bold/italic/underline/strikethrough and SMuFL glyph runs preserved;
+  Denigma notehead-gap support;
+- generic expressive text and performance instructions mapped to staff
+  expressions or music-relative system text according to available Denigma
+  scope; inferred placement and mixed/unsupported scopes receive partial
+  outcomes, while per-run bold/italic/underline/strikethrough and SMuFL glyph
+  runs are preserved. Native generic text without a scope gap remains staff
+  text;
 - rehearsal marks;
 - tempo text, metronome visibility, and playback-only tempo visibility;
 - ordinary straight and standard wavy glissandos with one plain center label;
 - trill symbols and event-anchored trill-extension spans.
+- measure text-block presentation and per-page text frames, including page
+  placement, alignment, and source-unit metadata.
 
 Chord-suffix typography and visibility flags, arbitrary notehead glyphs and
 explicit fills, source font names and sizes, performance-technique playback
@@ -68,7 +75,7 @@ semantics, multiple rehearsal marks in one measure, separate displayed/playback
 metronome values, note-specific chord endpoints, custom/dashed/invisible lines,
 and tab slides remain explicit partial or unhandled outcomes.
 
-The pinned producer emits MNX schema 52 and gap-report schema 2. Native
+The pinned producer emits MNX schema 57 and gap-report schema 3. Native
 positioned text retains its voice and grace-note position; partial technique
 gaps do not create duplicate expressions. Text-formatting ranges restore
 bold, italic, underline, and strikethrough through `_x.viritura.style`, using
@@ -76,7 +83,9 @@ Unicode scalar offsets for text and list offsets for SMuFL glyphs. All ranges
 resolve against the original content before splitting, including overlapping
 ranges. Source fonts, sizes, baseline offsets, tracking, and hidden-text
 formatting remain partial losses. Text-insert substitutions retain the
-producer's visible fallback; dynamic insert semantics remain unhandled.
+producer's visible fallback; dynamic insert semantics remain unhandled. Page
+text frames retain converted EVPU geometry and page-specific placements;
+fixed frame heights and future-page assignment repetition remain partial losses.
 
 ### Global harmony and source pitch
 
@@ -84,6 +93,12 @@ Chord events are written only to
 `global.measures[n]._x.viritura.chordSymbols`. Source parts receive
 `_x.viritura.chordSymbolVisibility: "show"` (including previously hidden parts);
 no part-measure chord arrays or per-chord display-staff fields are created.
+Structured Denigma chord fretboards are mapped to the source instrument's
+`fretboards` entry when supported. Unsupported diagrams, such as barres whose
+endpoints fall on different frets, are omitted with a partial-import diagnostic
+while their chord symbols are retained. The currently pinned Denigma runtime
+predates this optional payload, so MUSX diagram import becomes available once
+the producer change is published and the runtime pin is refreshed.
 Incoming events replace only matching exact rational positions. Multiple source
 parts/staves coalesce into one harmony stream: the topmost part, then topmost
 staff, wins regardless of gap order. Equivalent harmony is silent; discarded
@@ -91,13 +106,13 @@ different harmony is reported through import diagnostics.
 
 The pinned Denigma revision classifies both chord roots and slash basses as
 **written** pitches (`KeyContext::Written` in
-[`mnx_chords.cpp`](https://github.com/openmusx/denigma/blob/4eb6d168ee1cb52791607ed1c4bb1a454959444d/src/formats/mnx/mnx_chords.cpp)).
+[`mnx_chords.cpp`](https://github.com/openmusx/denigma/blob/7da485a34de1618d7147d3a95a402bad14b5c9f4/src/formats/mnx/mnx_chords.cpp)).
 The adapter negates the **source** MNX part's sounding-to-written
 `transposition.interval` to store concert harmony, preserving diatonic spelling.
 Absent transposition means unison; `prefersWrittenPitches` does not change this
 source representation. No destination instrument or display preference is used.
 This assumes Denigma's part-level interval describes all chord-bearing staves
-and measures in that part; the schema-v1 gap payload supplies no separate
+and measures in that part; the gap payload supplies no separate
 staff-specific or time-varying transposition metadata.
 
 The shared core resolver distinguishes supported harmony, silent `NC`/`N.C.`,
@@ -113,3 +128,23 @@ suffix aliases remain in `rawText` (with concert-normalized roots and basses) an
 aliases, casing, visibility, or suffix typography. Unsupported harmony keeps its
 raw display text and diagnostics. Existing explicitly authored `textOverride`
 values at untouched global positions remain unchanged.
+
+### Hidden staves
+
+Denigma exports Finale's "hide staves when empty" results (optimized systems
+and whole-system collapse) as per-system layouts that omit staves. After the
+gap adaptation, `adaptHiddenStaves` turns those omissions back into
+Viritura's automatic policy when that is lossless: an instrument whose staves
+are omitted only from whole systems where they are empty is opted into
+`autoHideEmptyParts`, its omitting system layouts are restored from the
+score layout (keeping each system's label style), and `autoHideEmptyStaves`
+records `keepVisible` or `firstSystem: "show"` for systems where Finale
+showed it empty. Emptiness is judged more strictly than the engine's, including fermatas on rests and markings that continue from earlier measures, so restored staves hide again on those systems unless every staff on the system is empty.
+
+Instruments hidden while they contain music, partially omitted, or in reordered
+or shared system layouts keep Finale's explicit staff lists, reported as info.
+Staves collapsed for part of a system import visible.
+
+Denigma exports cutaway staves (`hideMode` cutaway, including assigned staff
+styles) fully visible. The adapter reads Denigma's cached EnigmaXML to warn when
+a document uses them; cutaway rendering is tracked in #574.

@@ -334,6 +334,65 @@ fn test_hairpin_on_second_part_renders_in_mnx_score_layout() {
 // ═══════════════════════════════════════════
 
 #[test]
+fn test_pedal_system_continuations_start_after_signatures() {
+    let json = build_mnx_score_with_extension(
+        0,
+        r#""pedals": [{
+            "type": "sustain", "style": "bracket",
+            "position": {"fraction": [0, 1]},
+            "end": {"measure": "m3", "position": {"fraction": [1, 1]}}
+        }]"#,
+    );
+    let mut score = parse_mnx(&json).unwrap();
+    score.scores[0].pages = vec![crate::model::layout::PageDefinition {
+        systems: (1..=3)
+            .map(|index| crate::model::layout::SystemDefinition {
+                measure: format!("m{index}"),
+                layout: None,
+                layout_changes: Vec::new(),
+            })
+            .collect(),
+    }];
+    let config = LayoutConfig {
+        page_width: Some(500.0),
+        ..LayoutConfig::default()
+    };
+    let display = layout_with_mnx_scores(&score, &config, 0);
+    let id = crate::layout::element_id::pedal(0, 0, 0);
+    let lines: Vec<_> = display
+        .commands
+        .iter()
+        .zip(&display.element_ids)
+        .filter_map(|(command, owner)| match command {
+            RenderCommand::DrawLine { x1, y1, y2, .. }
+                if owner.as_deref() == Some(id.as_str()) && (y1 - y2).abs() < 1e-6 =>
+            {
+                Some((*x1, *y1))
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(lines.len(), 3, "one pedal fragment per authored system");
+    for bound in display
+        .measure_bounds
+        .iter()
+        .filter(|bound| bound.staff_index == 0)
+    {
+        let y = bound.y + 4.0 * config.sp + config.pedal_min_distance * config.sp;
+        let (x, _) = lines
+            .iter()
+            .find(|(_, line_y)| (line_y - y).abs() < 1e-6)
+            .unwrap();
+        assert!(bound.prefix_width > 0.0);
+        assert!(
+            (x - bound.x - bound.prefix_width).abs() < 1e-6,
+            "pedal in system {} must start at beat one, got {x}",
+            bound.system_index
+        );
+    }
+}
+
+#[test]
 fn test_pedal_renders_in_mnx_score_layout() {
     let json = build_mnx_score_with_extension(
         0,

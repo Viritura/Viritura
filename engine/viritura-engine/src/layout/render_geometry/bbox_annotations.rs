@@ -3,8 +3,7 @@
 use super::super::config::LayoutConfig;
 use super::super::element_id;
 use super::super::render_annotations::{
-    below_staff_number_top_y, chord_symbol_dimensions, highest_point_in_range,
-    measure_number_value, rehearsal_mark_x_extent, tempo_metronome_runs,
+    chord_symbol_dimensions, highest_point_in_range, rehearsal_mark_x_extent, tempo_metronome_runs,
 };
 use super::super::render_barlines::{render_barline, BarlineKind};
 use super::super::render_measure::MIDDLE_LINE_POS;
@@ -32,10 +31,8 @@ pub(crate) fn chord_symbol_bboxes(
     let total_beats = ml.resolved.active_time.measure_beats();
     let content_width = super::super::render_barlines::rhythmic_content_width(ml, sp);
     let x_origin = ml.x + ml.prefix_width;
-    // Mirror `render_chord_symbols`: Alphabetic baseline edge-anchored from the
-    // table (`chordSymbol.attachGap`). The cap band spans up from the baseline;
-    // the box bottom IS the baseline (chord symbols carry no descenders), so the
-    // near-staff edge sits exactly `attach_gap` above the staff.
+    // Mirror `render_chord_symbols`: the box bottom is the alphabetic baseline,
+    // lifted when needed to clear notes and stems within the chord's ink span.
     let attach_gap = config
         .placement
         .resolve(ElementKind::ChordSymbol)
@@ -46,7 +43,15 @@ pub(crate) fn chord_symbol_bboxes(
         let beat_pos = beat / total_beats;
         let chord_x = x_origin + beat_pos * content_width;
         let (width, ascent) = chord_symbol_dimensions(chord, config.chord_symbol_style, sp);
-        let bbox = BoundingBox::new(chord_x, chord_baseline_y - ascent, width, ascent);
+        let vertical_lift = super::super::render_annotations::chord_symbol_vertical_lift(
+            ml, chord, chord_x, staff_y, sp, config,
+        );
+        let bbox = BoundingBox::new(
+            chord_x,
+            chord_baseline_y - vertical_lift - ascent,
+            width,
+            ascent,
+        );
         bboxes.push(ElementBBox {
             element_id: element_id::global_chord_symbol(
                 ml.resolved.index,
@@ -58,88 +63,6 @@ pub(crate) fn chord_symbol_bboxes(
     bboxes
 }
 
-pub(super) fn bbox_measure_numbers(
-    bboxes: &mut Vec<ElementBBox>,
-    ml: &MeasureLayout,
-    staff_y: f64,
-    sp: f64,
-    measure_idx: usize,
-    config: &LayoutConfig,
-    render_measure_number_here: bool,
-    render_mmr_count_here: bool,
-    mmr_count_y_override: Option<f64>,
-) {
-    // Mirror `render_measure_numbers`. A collapsed multimeasure rest renders a
-    // `{start}–{end}` range label instead of a single number (a separate render
-    // path), so emit the range box here — otherwise the range is the only
-    // below-staff number with no selection/measure-extent box, an inconsistency
-    // with regular bar numbers.
-    if let Some(count) = ml.multimeasure_rest_count {
-        if render_measure_number_here {
-            bbox_multimeasure_number_range(bboxes, ml, staff_y, sp, count, config);
-        }
-        if render_mmr_count_here {
-            bbox_multimeasure_count_number(bboxes, ml, staff_y, sp, mmr_count_y_override, config);
-        }
-        return;
-    }
-    if !render_measure_number_here {
-        return;
-    }
-    let number = match measure_number_value(ml) {
-        Some(n) => n,
-        None => return,
-    };
-    // The renderer draws the number below the staff (baseline Top, left-aligned)
-    // at `below_staff_number_top_y`, at font size 2.0sp in serif italic. Digits
-    // are a flat 0.5em advance in serif faces, so the real ink width matches
-    // `serif_bold_text_width`.
-    let font_size = 2.0 * sp;
-    let num_y = below_staff_number_top_y(ml, staff_y, sp, config);
-    let num_x = ml.x;
-    let text = number.to_string();
-    let text_w = smufl::serif_bold_text_width(&text, font_size);
-    let bbox = BoundingBox::new(num_x, num_y, text_w, font_size);
-    bboxes.push(ElementBBox {
-        element_id: element_id::measure_number(measure_idx),
-        bbox,
-    });
-}
-
-/// Selection / measure-extent box for a collapsed multimeasure rest's
-/// `{start}–{end}` bar-number range label. Mirrors
-/// `render_annotations::render_multimeasure_number_range` exactly so the box
-/// tracks the drawn text (centered under the H-bar, one line below the staff).
-fn bbox_multimeasure_number_range(
-    bboxes: &mut Vec<ElementBBox>,
-    ml: &MeasureLayout,
-    staff_y: f64,
-    sp: f64,
-    count: u32,
-    config: &LayoutConfig,
-) {
-    let start = match ml.resolved.global.number {
-        Some(0) => return,
-        Some(n) => n,
-        None => ml.resolved.index as i32 + 1,
-    };
-    let end = start + count as i32 - 1;
-
-    let font_size = 2.0 * sp;
-    let text = format!("{start}\u{2013}{end}");
-    let prefix = super::super::render_measure::multimeasure_rest_structural_prefix(ml, sp, config);
-    let center_x = ((ml.x + prefix) + (ml.x + ml.width)) / 2.0;
-    let num_y = staff_y + 4.0 * sp + 0.5 * sp;
-    let text_w = smufl::serif_bold_text_width(&text, font_size);
-    // Drawn centered (align Center), so the box's left edge is half the width
-    // left of the centre.
-    let bbox = BoundingBox::new(center_x - text_w * 0.5, num_y, text_w, font_size);
-    bboxes.push(ElementBBox {
-        element_id: element_id::measure_number(ml.resolved.index),
-        bbox,
-    });
-}
-
 /// Selection / obstacle box for a collapsed multimeasure rest's count number
 /// (the large digits centred above the staff). Mirrors the geometry in
 /// `multimeasure_rest_number_extent` (which the count renderer and the tempo
@@ -148,7 +71,7 @@ fn bbox_multimeasure_number_range(
 /// no `ElementBBox`, so the lift overlay can't see it as an obstacle (a tempo
 /// cleared over it would show no nearest-ink band) and measure-extent
 /// refinement would miss it.
-fn bbox_multimeasure_count_number(
+pub(super) fn bbox_multimeasure_count_number(
     bboxes: &mut Vec<ElementBBox>,
     ml: &MeasureLayout,
     staff_y: f64,

@@ -50,6 +50,7 @@ export type SelectableElementType =
   | "note-marking"
   | "accidental"
   | "text-frame"
+  | "instrument-change"
   | "unknown";
 
 /**
@@ -72,6 +73,8 @@ const PREFIX_MAP: ReadonlyArray<readonly [string, SelectableElementType]> = [
   ["hairpin", "hairpin"],
   ["pedal", "pedal"],
   ["ottava", "ottava"],
+  // Engine-synthesized instrument-change labels (`expr-instchange0`, `expr-instreminder0`, `expr-instinitial`).
+  ["expr-inst", "instrument-change"],
   ["expr", "expression"],
   ["slur", "slur"],
   ["tie", "tie"],
@@ -111,6 +114,7 @@ const PREFIX_MAP: ReadonlyArray<readonly [string, SelectableElementType]> = [
 export function parseElementType(elementId: string): SelectableElementType {
   if (!elementId) return "unknown";
   if (elementId.startsWith("harpPedal/")) return "harp-pedal";
+  if (/^m\d+\/fermata\/[^/]+$/.test(elementId)) return "fermata";
   if (elementId.startsWith("trill-line/")) return "trill";
   if (elementId.startsWith("gliss/")) return "glissando";
   if (/\/n\d+\/(?:slideIn|slideOut)$/.test(elementId)) return "note-marking";
@@ -168,6 +172,7 @@ const MEASURE_LEVEL: ReadonlySet<SelectableElementType> = new Set([
   "harp-pedal",
   "ottava",
   "expression",
+  "instrument-change",
   "measure-number",
   "measure-repeat",
   "barline",

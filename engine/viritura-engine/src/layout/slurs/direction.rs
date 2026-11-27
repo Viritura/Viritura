@@ -18,8 +18,8 @@ pub(super) struct SlurDirection {
 ///   1. **Explicit override**  — `slur.side` ("up" / "down") always wins.
 ///   2. **Mixed-stem default** — opposite stems → above
 ///   3. **Stem-opposite default** — single-stem-dir → opposite the stem.
-///   4. **Contour-following auto-side** — when inner notes form a clear
-///      mountain or valley, flip to the opposite side,
+///   4. **Contour-following auto-side** — for matching endpoint stems, when
+///      inner notes form a clear mountain or valley, flip to the opposite side,
 ///      subject to *register guard* (don't flip a high mountain through
 ///      the staff) and *long-phrase suppression* (≥ `LONG_PHRASE_INNER_THRESHOLD`
 ///      inner notes keep the default).
@@ -65,7 +65,11 @@ pub(super) fn decide_curve_direction(
         _ if src.stem_up != tgt.stem_up => true,
         _ => !src.stem_up,
     };
-    let contour_above = if !super::side_is_auto(&slur.side) || multi_voice || grace_slur {
+    let contour_above = if !super::side_is_auto(&slur.side)
+        || multi_voice
+        || grace_slur
+        || src.stem_up != tgt.stem_up
+    {
         base_above
     } else {
         contour_auto_side(

@@ -32,7 +32,10 @@ export {
   formatChordSymbolText,
   rewriteChordSymbolBase,
   resolveChordSymbol,
+  resolveChordSymbolDegrees,
   transposeChordSymbol,
+  validateFretboard,
+  pruneFretboards,
   voiceChordSymbol,
   compareChordSymbolPositions,
   upsertGlobalChordSymbol,
@@ -56,3 +59,4 @@ export {
 } from "./lyricExtenders";
 export { pruneMixerSettings } from "./mixer";
 export { removeGlobalMeasures } from "./measureDeletion";
+export { expandMeasureRepeats, expandScoreMeasureRepeats } from "./measureRepeats";

@@ -73,6 +73,30 @@ export const REVERB_PRESETS: ReverbPreset[] = [
   },
 ];
 
+/** Gain applied to the summed reverb sends so the slider at ~25% gives a natural reverb level. */
+export const REVERB_SEND_INPUT_GAIN = 4;
+
+/**
+ * Reverb return high-pass that removes sub-200 Hz content from the wet signal
+ * to prevent low-frequency mud buildup (standard orchestral mixing practice).
+ * Q 0.707 is Butterworth (no resonant peak).
+ */
+export const REVERB_RETURN_HIGHPASS = { type: "highpass", frequency: 200, Q: 0.707 } as const;
+
+/** Default wet levels per IR preset (slider 0–1, input gain 4×). */
+const PRESET_WET_LEVELS: Record<string, number> = {
+  musikvereinsaal: 0.25,
+  "scala-milan": 0.22,
+  "french-salon": 0.18,
+  "masonic-lodge": 0.2,
+  "st-nicolaes": 0.28,
+};
+
+/** The wet level a preset starts with before the user adjusts it. */
+export function reverbPresetWetLevel(presetId: string): number {
+  return presetId === "none" ? 0 : (PRESET_WET_LEVELS[presetId] ?? 0.1);
+}
+
 export class ReverbEngine {
   private readonly ctx: AudioContext;
   private readonly wetGain: GainNode;
@@ -88,16 +112,13 @@ export class ReverbEngine {
     const dest = destination ?? ctx.destination;
 
     // Input mixer — all reverb sends connect here.
-    // Gain of 4.0 so the slider at ~25% gives a natural reverb level.
     this.inputNode = ctx.createGain();
-    this.inputNode.gain.value = 4;
+    this.inputNode.gain.value = REVERB_SEND_INPUT_GAIN;
 
-    // Reverb return HPF — removes sub-200 Hz content from the wet signal
-    // to prevent low-frequency mud buildup (standard orchestral mixing practice).
     this.reverbHPF = ctx.createBiquadFilter();
-    this.reverbHPF.type = "highpass";
-    this.reverbHPF.frequency.value = 200;
-    this.reverbHPF.Q.value = 0.707; // Butterworth (no resonant peak)
+    this.reverbHPF.type = REVERB_RETURN_HIGHPASS.type;
+    this.reverbHPF.frequency.value = REVERB_RETURN_HIGHPASS.frequency;
+    this.reverbHPF.Q.value = REVERB_RETURN_HIGHPASS.Q;
     this.reverbHPF.connect(dest);
 
     // Wet output — controls reverb return volume (additive on top of dry).
@@ -158,8 +179,7 @@ export class ReverbEngine {
     }
 
     // Set wet/dry ratio from preset defaults
-    const wet = PRESET_WET_LEVELS[preset.id] ?? 0.1;
-    this.setWetLevel(wet);
+    this.setWetLevel(reverbPresetWetLevel(preset.id));
 
     // Fetch and decode the impulse response. The preset URL is stored
     // base-relative (no leading slash) so we resolve it against Vite's
@@ -222,12 +242,3 @@ export class ReverbEngine {
     }
   }
 }
-
-/** Default wet levels per IR preset (slider 0–1, input gain 4×). */
-const PRESET_WET_LEVELS: Record<string, number> = {
-  musikvereinsaal: 0.25,
-  "scala-milan": 0.22,
-  "french-salon": 0.18,
-  "masonic-lodge": 0.2,
-  "st-nicolaes": 0.28,
-};

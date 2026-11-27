@@ -1,0 +1,692 @@
+diff --git a/index.cjs b/index.cjs
+index 35398b067d249e58d0b17753626e17cb3d68ea70..198f02bab1a9ca529834bc8bedf850ed12fafd07 100644
+--- a/index.cjs
++++ b/index.cjs
+@@ -14544,6 +14544,246 @@ const types = {
+   ref_delta: 0b1110000,
+ };
+ 
++// Viritura patch: push packfiles encode changed blobs as REF_DELTA objects
++// against the same path in the parent commit, as native Git does.
++const DELTA_BLOCK_SIZE = 16;
++const DELTA_MAX_COPY = 0x10000;
++const DELTA_MAX_INSERT = 0x7f;
++const DELTA_MAX_DEPTH = 50;
++const DELTA_MAX_CANDIDATES = 8;
++const DELTA_HASH_BASE = 0x01000193;
++const DELTA_HASH_DROP = (() => {
++  let power = 1;
++  for (let i = 0; i < DELTA_BLOCK_SIZE - 1; i++) {
++    power = Math.imul(power, DELTA_HASH_BASE);
++  }
++  return power >>> 0
++})();
++
++function deltaBlockHash(buffer, offset) {
++  let hash = 0;
++  for (let i = 0; i < DELTA_BLOCK_SIZE; i++) {
++    hash = (Math.imul(hash, DELTA_HASH_BASE) + buffer[offset + i]) >>> 0;
++  }
++  return hash
++}
++
++function deltaRollHash(hash, outgoing, incoming) {
++  const withoutOutgoing = (hash - Math.imul(outgoing, DELTA_HASH_DROP)) >>> 0;
++  return (Math.imul(withoutOutgoing, DELTA_HASH_BASE) + incoming) >>> 0
++}
++
++function writeDeltaSize(out, size) {
++  while (size >= 0x80) {
++    out.push((size & 0x7f) | 0x80);
++    size = Math.floor(size / 0x80);
++  }
++  out.push(size);
++}
++
++function writeDeltaCopy(out, offset, size) {
++  let command = 0x80;
++  const operands = [];
++  for (let i = 0; i < 4; i++) {
++    const byte = (offset >>> (8 * i)) & 0xff;
++    if (byte !== 0) {
++      command |= 1 << i;
++      operands.push(byte);
++    }
++  }
++  for (let i = 0; i < 3; i++) {
++    const byte = (size >>> (8 * i)) & 0xff;
++    if (byte !== 0) {
++      command |= 0x10 << i;
++      operands.push(byte);
++    }
++  }
++  out.push(command, ...operands);
++}
++
++/**
++ * Encodes `target` as a git delta against `source`, or returns null when the
++ * delta would not be meaningfully smaller than storing `target` whole.
++ *
++ * @param {Uint8Array} source
++ * @param {Uint8Array} target
++ * @returns {Uint8Array | null}
++ */
++function createDelta(source, target) {
++  const maxSize = Math.floor(target.length / 2) - 20;
++  if (
++    maxSize <= 0 ||
++    source.length < DELTA_BLOCK_SIZE ||
++    target.length < DELTA_BLOCK_SIZE
++  ) {
++    return null
++  }
++  const index = new Map();
++  for (let i = 0; i + DELTA_BLOCK_SIZE <= source.length; i += DELTA_BLOCK_SIZE) {
++    const hash = deltaBlockHash(source, i);
++    const bucket = index.get(hash);
++    if (bucket === undefined) index.set(hash, [i]);
++    else if (bucket.length < DELTA_MAX_CANDIDATES) bucket.push(i);
++  }
++  const out = [];
++  writeDeltaSize(out, source.length);
++  writeDeltaSize(out, target.length);
++  let insertStart = 0;
++  function flushInsert(end) {
++    for (let start = insertStart; start < end; start += DELTA_MAX_INSERT) {
++      const length = Math.min(DELTA_MAX_INSERT, end - start);
++      out.push(length);
++      for (let i = 0; i < length; i++) out.push(target[start + i]);
++    }
++  }
++  let position = 0;
++  let hash = deltaBlockHash(target, 0);
++  while (position + DELTA_BLOCK_SIZE <= target.length) {
++    const bucket = index.get(hash);
++    let bestOffset = -1;
++    let bestLength = 0;
++    if (bucket !== undefined) {
++      for (const offset of bucket) {
++        const limit = Math.min(source.length - offset, target.length - position);
++        let length = 0;
++        while (length < limit && source[offset + length] === target[position + length]) {
++          length++;
++        }
++        if (length > bestLength) {
++          bestLength = length;
++          bestOffset = offset;
++        }
++      }
++    }
++    if (bestLength >= DELTA_BLOCK_SIZE) {
++      let back = 0;
++      while (
++        bestOffset - back > 0 &&
++        position - back > insertStart &&
++        source[bestOffset - back - 1] === target[position - back - 1]
++      ) {
++        back++;
++      }
++      flushInsert(position - back);
++      let copyOffset = bestOffset - back;
++      let remaining = bestLength + back;
++      while (remaining > 0) {
++        const length = Math.min(remaining, DELTA_MAX_COPY);
++        writeDeltaCopy(out, copyOffset, length);
++        copyOffset += length;
++        remaining -= length;
++      }
++      position += bestLength;
++      insertStart = position;
++      if (out.length > maxSize) return null
++      if (position + DELTA_BLOCK_SIZE <= target.length) {
++        hash = deltaBlockHash(target, position);
++      }
++      continue
++    }
++    if (position + DELTA_BLOCK_SIZE < target.length) {
++      hash = deltaRollHash(hash, target[position], target[position + DELTA_BLOCK_SIZE]);
++    }
++    position++;
++  }
++  flushInsert(target.length);
++  if (out.length > maxSize) return null
++  return Uint8Array.from(out)
++}
++
++/**
++ * Pairs each pushed blob with the blob at the same path in its commit's first
++ * parent. A base is usable when it is also in the pack or already on the remote.
++ *
++ * @returns {Promise<Map<string, string>>} target oid -> base oid
++ */
++async function planPushDeltas({ fs, cache, gitdir, commits, objects, remoteObjects }) {
++  const bases = new Map();
++  async function readTree(oid) {
++    const { object } = await _readObject({ fs, cache, gitdir, oid });
++    return GitTree.from(object)
++  }
++  async function pairTrees(treeOid, baseTreeOid) {
++    if (treeOid === baseTreeOid) return
++    const tree = await readTree(treeOid);
++    const baseEntries = new Map();
++    for (const entry of await readTree(baseTreeOid)) baseEntries.set(entry.path, entry);
++    for (const entry of tree) {
++      const baseEntry = baseEntries.get(entry.path);
++      if (!baseEntry || baseEntry.type !== entry.type || baseEntry.oid === entry.oid) {
++        continue
++      }
++      if (entry.type === 'tree') {
++        await pairTrees(entry.oid, baseEntry.oid);
++      } else if (
++        entry.type === 'blob' &&
++        objects.has(entry.oid) &&
++        !bases.has(entry.oid) &&
++        (objects.has(baseEntry.oid) || remoteObjects.has(baseEntry.oid))
++      ) {
++        bases.set(entry.oid, baseEntry.oid);
++      }
++    }
++  }
++  // listCommitsAndTags yields tips first; walk oldest first so each blob
++  // pairs with its predecessor rather than a later revision.
++  for (const oid of [...commits].reverse()) {
++    try {
++      const { type, object } = await _readObject({ fs, cache, gitdir, oid });
++      if (type !== 'commit') continue
++      const headers = GitCommit.from(object).headers();
++      const parent = headers.parent[0];
++      if (!parent) continue
++      const parentCommit = await _readObject({ fs, cache, gitdir, oid: parent });
++      const parentTree = GitCommit.from(parentCommit.object).headers().tree;
++      await pairTrees(headers.tree, parentTree);
++    } catch (e) {
++      // Delta planning is an optimization; unreadable history sends full objects.
++    }
++  }
++  return bases
++}
++
++/**
++ * Orders oids so every in-pack delta base precedes its dependents, dropping
++ * delta bases that would form a cycle or exceed the maximum chain depth.
++ */
++function orderForDeltas(oids, deltaBases) {
++  const inPack = new Set(oids);
++  const depth = new Map();
++  const ordered = [];
++  for (const start of oids) {
++    if (depth.has(start)) continue
++    const chain = [];
++    const onChain = new Set();
++    let current = start;
++    while (current !== undefined && inPack.has(current) && !depth.has(current)) {
++      if (onChain.has(current)) {
++        deltaBases.delete(chain[chain.length - 1]);
++        break
++      }
++      chain.push(current);
++      onChain.add(current);
++      current = deltaBases.get(current);
++    }
++    for (let i = chain.length - 1; i >= 0; i--) {
++      const oid = chain[i];
++      const base = deltaBases.get(oid);
++      let chainDepth = 0;
++      if (base !== undefined) {
++        chainDepth = (inPack.has(base) ? depth.get(base) : 0) + 1;
++        if (chainDepth > DELTA_MAX_DEPTH) {
++          deltaBases.delete(oid);
++          chainDepth = 0;
++        }
++      }
++      depth.set(oid, chainDepth);
++      ordered.push(oid);
++    }
++  }
++  return ordered
++}
++
+ /**
+  * @param {object} args
+  * @param {import('../models/FileSystem.js').FileSystem} args.fs
+@@ -14551,6 +14791,7 @@ const types = {
+  * @param {string} [args.dir] - The [working tree](dir-vs-gitdir.md) directory path
+  * @param {string} [args.gitdir=join(dir, '.git')] - [required] The [git directory](dir-vs-gitdir.md) path
+  * @param {string[]} args.oids
++ * @param {Map<string, string>} [args.deltaBases] - target oid -> REF_DELTA base oid
+  */
+ async function _pack({
+   fs,
+@@ -14558,6 +14799,7 @@ async function _pack({
+   dir,
+   gitdir = join(dir, '.git'),
+   oids,
++  deltaBases = new Map(),
+ }) {
+   const hash = createSha1();
+   const outputStream = [];
+@@ -14566,7 +14808,7 @@ async function _pack({
+     outputStream.push(buff);
+     hash.update(buff);
+   }
+-  async function writeObject({ stype, object }) {
++  async function writeObject({ stype, object, baseOid }) {
+     // Object type is encoded in bits 654
+     const type = types[stype];
+     // The length encoding gets complicated.
+@@ -14589,6 +14831,7 @@ async function _pack({
+       write(padHex(2, byte), 'hex');
+       length = length >>> 7;
+     }
++    if (baseOid) write(baseOid, 'hex');
+     // Lastly, we can compress and write the object.
+     write(Buffer.from(await deflate(object)));
+   }
+@@ -14596,8 +14839,17 @@ async function _pack({
+   write('00000002', 'hex');
+   // Write a 4 byte (32-bit) int
+   write(padHex(8, oids.length), 'hex');
+-  for (const oid of oids) {
++  for (const oid of orderForDeltas(oids, deltaBases)) {
+     const { type, object } = await _readObject({ fs, cache, gitdir, oid });
++    const baseOid = deltaBases.get(oid);
++    if (baseOid) {
++      const base = await _readObject({ fs, cache, gitdir, oid: baseOid });
++      const delta = base.type === type ? createDelta(base.object, object) : null;
++      if (delta) {
++        await writeObject({ object: delta, stype: 'ref_delta', baseOid });
++        continue
++      }
++    }
+     await writeObject({ write, object, stype: type });
+   }
+   // Write SHA1 checksum
+@@ -15144,6 +15396,7 @@ async function _push({
+   const thinPack = !httpRemote.capabilities.has('no-thin');
+ 
+   let objects = new Set();
++  let deltaBases = new Map();
+   if (!_delete) {
+     const finish = [...httpRemote.refs.values()];
+     let skipObjects = new Set();
+@@ -15171,8 +15424,9 @@ async function _push({
+     }
+ 
+     // If remote does not have the commit, figure out the objects to send
++    let commits = [];
+     if (!finish.includes(oid)) {
+-      const commits = await listCommitsAndTags({
++      commits = await listCommitsAndTags({
+         fs,
+         cache,
+         gitdir,
+@@ -15212,6 +15466,15 @@ async function _push({
+       }
+     }
+ 
++    deltaBases = await planPushDeltas({
++      fs,
++      cache,
++      gitdir,
++      commits,
++      objects,
++      remoteObjects: thinPack ? skipObjects : new Set(),
++    });
++
+     if (oid === oldoid) force = true;
+     if (!force) {
+       // Is it a tag that already exists?
+@@ -15255,6 +15518,7 @@ async function _push({
+         cache,
+         gitdir,
+         oids: [...objects],
++        deltaBases,
+       });
+   const res = await GitRemoteHTTP.connect({
+     http,
+diff --git a/index.js b/index.js
+index 415e39b18385ed2c768df46e5d32a484fec69fba..52d24fb3831e55cc9f1ef08b11d6481e68f6822a 100644
+--- a/index.js
++++ b/index.js
+@@ -14532,6 +14532,246 @@ const types = {
+   ref_delta: 0b1110000,
+ };
+ 
++// Viritura patch: push packfiles encode changed blobs as REF_DELTA objects
++// against the same path in the parent commit, as native Git does.
++const DELTA_BLOCK_SIZE = 16;
++const DELTA_MAX_COPY = 0x10000;
++const DELTA_MAX_INSERT = 0x7f;
++const DELTA_MAX_DEPTH = 50;
++const DELTA_MAX_CANDIDATES = 8;
++const DELTA_HASH_BASE = 0x01000193;
++const DELTA_HASH_DROP = (() => {
++  let power = 1;
++  for (let i = 0; i < DELTA_BLOCK_SIZE - 1; i++) {
++    power = Math.imul(power, DELTA_HASH_BASE);
++  }
++  return power >>> 0
++})();
++
++function deltaBlockHash(buffer, offset) {
++  let hash = 0;
++  for (let i = 0; i < DELTA_BLOCK_SIZE; i++) {
++    hash = (Math.imul(hash, DELTA_HASH_BASE) + buffer[offset + i]) >>> 0;
++  }
++  return hash
++}
++
++function deltaRollHash(hash, outgoing, incoming) {
++  const withoutOutgoing = (hash - Math.imul(outgoing, DELTA_HASH_DROP)) >>> 0;
++  return (Math.imul(withoutOutgoing, DELTA_HASH_BASE) + incoming) >>> 0
++}
++
++function writeDeltaSize(out, size) {
++  while (size >= 0x80) {
++    out.push((size & 0x7f) | 0x80);
++    size = Math.floor(size / 0x80);
++  }
++  out.push(size);
++}
++
++function writeDeltaCopy(out, offset, size) {
++  let command = 0x80;
++  const operands = [];
++  for (let i = 0; i < 4; i++) {
++    const byte = (offset >>> (8 * i)) & 0xff;
++    if (byte !== 0) {
++      command |= 1 << i;
++      operands.push(byte);
++    }
++  }
++  for (let i = 0; i < 3; i++) {
++    const byte = (size >>> (8 * i)) & 0xff;
++    if (byte !== 0) {
++      command |= 0x10 << i;
++      operands.push(byte);
++    }
++  }
++  out.push(command, ...operands);
++}
++
++/**
++ * Encodes `target` as a git delta against `source`, or returns null when the
++ * delta would not be meaningfully smaller than storing `target` whole.
++ *
++ * @param {Uint8Array} source
++ * @param {Uint8Array} target
++ * @returns {Uint8Array | null}
++ */
++function createDelta(source, target) {
++  const maxSize = Math.floor(target.length / 2) - 20;
++  if (
++    maxSize <= 0 ||
++    source.length < DELTA_BLOCK_SIZE ||
++    target.length < DELTA_BLOCK_SIZE
++  ) {
++    return null
++  }
++  const index = new Map();
++  for (let i = 0; i + DELTA_BLOCK_SIZE <= source.length; i += DELTA_BLOCK_SIZE) {
++    const hash = deltaBlockHash(source, i);
++    const bucket = index.get(hash);
++    if (bucket === undefined) index.set(hash, [i]);
++    else if (bucket.length < DELTA_MAX_CANDIDATES) bucket.push(i);
++  }
++  const out = [];
++  writeDeltaSize(out, source.length);
++  writeDeltaSize(out, target.length);
++  let insertStart = 0;
++  function flushInsert(end) {
++    for (let start = insertStart; start < end; start += DELTA_MAX_INSERT) {
++      const length = Math.min(DELTA_MAX_INSERT, end - start);
++      out.push(length);
++      for (let i = 0; i < length; i++) out.push(target[start + i]);
++    }
++  }
++  let position = 0;
++  let hash = deltaBlockHash(target, 0);
++  while (position + DELTA_BLOCK_SIZE <= target.length) {
++    const bucket = index.get(hash);
++    let bestOffset = -1;
++    let bestLength = 0;
++    if (bucket !== undefined) {
++      for (const offset of bucket) {
++        const limit = Math.min(source.length - offset, target.length - position);
++        let length = 0;
++        while (length < limit && source[offset + length] === target[position + length]) {
++          length++;
++        }
++        if (length > bestLength) {
++          bestLength = length;
++          bestOffset = offset;
++        }
++      }
++    }
++    if (bestLength >= DELTA_BLOCK_SIZE) {
++      let back = 0;
++      while (
++        bestOffset - back > 0 &&
++        position - back > insertStart &&
++        source[bestOffset - back - 1] === target[position - back - 1]
++      ) {
++        back++;
++      }
++      flushInsert(position - back);
++      let copyOffset = bestOffset - back;
++      let remaining = bestLength + back;
++      while (remaining > 0) {
++        const length = Math.min(remaining, DELTA_MAX_COPY);
++        writeDeltaCopy(out, copyOffset, length);
++        copyOffset += length;
++        remaining -= length;
++      }
++      position += bestLength;
++      insertStart = position;
++      if (out.length > maxSize) return null
++      if (position + DELTA_BLOCK_SIZE <= target.length) {
++        hash = deltaBlockHash(target, position);
++      }
++      continue
++    }
++    if (position + DELTA_BLOCK_SIZE < target.length) {
++      hash = deltaRollHash(hash, target[position], target[position + DELTA_BLOCK_SIZE]);
++    }
++    position++;
++  }
++  flushInsert(target.length);
++  if (out.length > maxSize) return null
++  return Uint8Array.from(out)
++}
++
++/**
++ * Pairs each pushed blob with the blob at the same path in its commit's first
++ * parent. A base is usable when it is also in the pack or already on the remote.
++ *
++ * @returns {Promise<Map<string, string>>} target oid -> base oid
++ */
++async function planPushDeltas({ fs, cache, gitdir, commits, objects, remoteObjects }) {
++  const bases = new Map();
++  async function readTree(oid) {
++    const { object } = await _readObject({ fs, cache, gitdir, oid });
++    return GitTree.from(object)
++  }
++  async function pairTrees(treeOid, baseTreeOid) {
++    if (treeOid === baseTreeOid) return
++    const tree = await readTree(treeOid);
++    const baseEntries = new Map();
++    for (const entry of await readTree(baseTreeOid)) baseEntries.set(entry.path, entry);
++    for (const entry of tree) {
++      const baseEntry = baseEntries.get(entry.path);
++      if (!baseEntry || baseEntry.type !== entry.type || baseEntry.oid === entry.oid) {
++        continue
++      }
++      if (entry.type === 'tree') {
++        await pairTrees(entry.oid, baseEntry.oid);
++      } else if (
++        entry.type === 'blob' &&
++        objects.has(entry.oid) &&
++        !bases.has(entry.oid) &&
++        (objects.has(baseEntry.oid) || remoteObjects.has(baseEntry.oid))
++      ) {
++        bases.set(entry.oid, baseEntry.oid);
++      }
++    }
++  }
++  // listCommitsAndTags yields tips first; walk oldest first so each blob
++  // pairs with its predecessor rather than a later revision.
++  for (const oid of [...commits].reverse()) {
++    try {
++      const { type, object } = await _readObject({ fs, cache, gitdir, oid });
++      if (type !== 'commit') continue
++      const headers = GitCommit.from(object).headers();
++      const parent = headers.parent[0];
++      if (!parent) continue
++      const parentCommit = await _readObject({ fs, cache, gitdir, oid: parent });
++      const parentTree = GitCommit.from(parentCommit.object).headers().tree;
++      await pairTrees(headers.tree, parentTree);
++    } catch (e) {
++      // Delta planning is an optimization; unreadable history sends full objects.
++    }
++  }
++  return bases
++}
++
++/**
++ * Orders oids so every in-pack delta base precedes its dependents, dropping
++ * delta bases that would form a cycle or exceed the maximum chain depth.
++ */
++function orderForDeltas(oids, deltaBases) {
++  const inPack = new Set(oids);
++  const depth = new Map();
++  const ordered = [];
++  for (const start of oids) {
++    if (depth.has(start)) continue
++    const chain = [];
++    const onChain = new Set();
++    let current = start;
++    while (current !== undefined && inPack.has(current) && !depth.has(current)) {
++      if (onChain.has(current)) {
++        deltaBases.delete(chain[chain.length - 1]);
++        break
++      }
++      chain.push(current);
++      onChain.add(current);
++      current = deltaBases.get(current);
++    }
++    for (let i = chain.length - 1; i >= 0; i--) {
++      const oid = chain[i];
++      const base = deltaBases.get(oid);
++      let chainDepth = 0;
++      if (base !== undefined) {
++        chainDepth = (inPack.has(base) ? depth.get(base) : 0) + 1;
++        if (chainDepth > DELTA_MAX_DEPTH) {
++          deltaBases.delete(oid);
++          chainDepth = 0;
++        }
++      }
++      depth.set(oid, chainDepth);
++      ordered.push(oid);
++    }
++  }
++  return ordered
++}
++
+ /**
+  * @param {object} args
+  * @param {import('../models/FileSystem.js').FileSystem} args.fs
+@@ -14539,6 +14779,7 @@ const types = {
+  * @param {string} [args.dir] - The [working tree](dir-vs-gitdir.md) directory path
+  * @param {string} [args.gitdir=join(dir, '.git')] - [required] The [git directory](dir-vs-gitdir.md) path
+  * @param {string[]} args.oids
++ * @param {Map<string, string>} [args.deltaBases] - target oid -> REF_DELTA base oid
+  */
+ async function _pack({
+   fs,
+@@ -14546,6 +14787,7 @@ async function _pack({
+   dir,
+   gitdir = join(dir, '.git'),
+   oids,
++  deltaBases = new Map(),
+ }) {
+   const hash = createSha1();
+   const outputStream = [];
+@@ -14554,7 +14796,7 @@ async function _pack({
+     outputStream.push(buff);
+     hash.update(buff);
+   }
+-  async function writeObject({ stype, object }) {
++  async function writeObject({ stype, object, baseOid }) {
+     // Object type is encoded in bits 654
+     const type = types[stype];
+     // The length encoding gets complicated.
+@@ -14577,6 +14819,7 @@ async function _pack({
+       write(padHex(2, byte), 'hex');
+       length = length >>> 7;
+     }
++    if (baseOid) write(baseOid, 'hex');
+     // Lastly, we can compress and write the object.
+     write(Buffer.from(await deflate(object)));
+   }
+@@ -14584,8 +14827,17 @@ async function _pack({
+   write('00000002', 'hex');
+   // Write a 4 byte (32-bit) int
+   write(padHex(8, oids.length), 'hex');
+-  for (const oid of oids) {
++  for (const oid of orderForDeltas(oids, deltaBases)) {
+     const { type, object } = await _readObject({ fs, cache, gitdir, oid });
++    const baseOid = deltaBases.get(oid);
++    if (baseOid) {
++      const base = await _readObject({ fs, cache, gitdir, oid: baseOid });
++      const delta = base.type === type ? createDelta(base.object, object) : null;
++      if (delta) {
++        await writeObject({ object: delta, stype: 'ref_delta', baseOid });
++        continue
++      }
++    }
+     await writeObject({ write, object, stype: type });
+   }
+   // Write SHA1 checksum
+@@ -15132,6 +15384,7 @@ async function _push({
+   const thinPack = !httpRemote.capabilities.has('no-thin');
+ 
+   let objects = new Set();
++  let deltaBases = new Map();
+   if (!_delete) {
+     const finish = [...httpRemote.refs.values()];
+     let skipObjects = new Set();
+@@ -15159,8 +15412,9 @@ async function _push({
+     }
+ 
+     // If remote does not have the commit, figure out the objects to send
++    let commits = [];
+     if (!finish.includes(oid)) {
+-      const commits = await listCommitsAndTags({
++      commits = await listCommitsAndTags({
+         fs,
+         cache,
+         gitdir,
+@@ -15200,6 +15454,15 @@ async function _push({
+       }
+     }
+ 
++    deltaBases = await planPushDeltas({
++      fs,
++      cache,
++      gitdir,
++      commits,
++      objects,
++      remoteObjects: thinPack ? skipObjects : new Set(),
++    });
++
+     if (oid === oldoid) force = true;
+     if (!force) {
+       // Is it a tag that already exists?
+@@ -15243,6 +15506,7 @@ async function _push({
+         cache,
+         gitdir,
+         oids: [...objects],
++        deltaBases,
+       });
+   const res = await GitRemoteHTTP.connect({
+     http,

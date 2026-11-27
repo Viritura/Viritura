@@ -21,12 +21,14 @@ function isSoundfont(buffer: ArrayBuffer): boolean {
   );
 }
 
-async function loadHostSoundfont(loader: SoundfontLoader): Promise<ArrayBuffer | null> {
+async function loadHostSoundfont(loader: SoundfontLoader, signal?: AbortSignal): Promise<ArrayBuffer | null> {
   try {
     const buffer = await loader.load();
+    signal?.throwIfAborted();
     if (!isSoundfont(buffer)) throw new Error("The bundled file is not a RIFF/sfbk SoundFont.");
     return buffer;
   } catch (error) {
+    signal?.throwIfAborted();
     console.warn("[Audio] Bundled SoundFont failed to load:", error);
     toast.warning("Bundled sound library failed to load", {
       description: "Playback will be silent. Restore the bundled SoundFont or reinstall the desktop app.",
@@ -35,16 +37,18 @@ async function loadHostSoundfont(loader: SoundfontLoader): Promise<ArrayBuffer |
   }
 }
 
-export async function loadSoundfont(loader?: SoundfontLoader): Promise<ArrayBuffer | null> {
+export async function loadSoundfont(loader?: SoundfontLoader, signal?: AbortSignal): Promise<ArrayBuffer | null> {
+  signal?.throwIfAborted();
   // A host source is authoritative, including failures: never fall through to a network download.
-  if (loader) return loadHostSoundfont(loader);
+  if (loader) return loadHostSoundfont(loader, signal);
 
   const env = import.meta.env;
   const configuredAssetBaseUrl = env?.VITE_VIRITURA_ASSET_BASE_URL?.trim();
   const baseUrl = configuredAssetBaseUrl ? `${configuredAssetBaseUrl.replace(/\/+$/, "")}/` : (env?.BASE_URL ?? "/");
   const sf2Url = `${baseUrl}sounds/Shan-SGM-Pro-15.sf2`;
   try {
-    const response = await fetch(sf2Url);
+    const response = signal ? await fetch(sf2Url, { signal }) : await fetch(sf2Url);
+    signal?.throwIfAborted();
     if (!response.ok) {
       console.warn("SF2 SoundFont not available — playback will be silent");
       toast.warning("Sound library unavailable", {
@@ -54,6 +58,7 @@ export async function loadSoundfont(loader?: SoundfontLoader): Promise<ArrayBuff
     }
     // SPA fallbacks can return HTML with status 200, and valid SF2 can have the wrong MIME type.
     const buffer = await response.arrayBuffer();
+    signal?.throwIfAborted();
     if (!isSoundfont(buffer)) {
       if (response.headers.get("Content-Type")?.startsWith("text/html")) {
         console.warn(`[Audio] ${sf2Url} returned an HTML page instead of the SoundFont.`);
@@ -70,6 +75,7 @@ export async function loadSoundfont(loader?: SoundfontLoader): Promise<ArrayBuff
     }
     return buffer;
   } catch (error) {
+    signal?.throwIfAborted();
     console.warn("[Audio] SF2 fetch failed:", error);
     toast.warning("Sound library failed to load", {
       description: `Playback will be silent. Check your network connection or that ${sf2Url} is deployed.`,

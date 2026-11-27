@@ -11,6 +11,50 @@ use crate::render::*;
 // Rehearsal marks
 // ================================================
 #[test]
+fn rehearsal_mark_renders_with_hidden_click_instruction() {
+    let source = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 6, "unit": 8}},
+            {"_x": {"viritura": {
+                "rehearsalMark": {"text": [{"text": "M"}]},
+                "systemText": [{
+                    "id": "click", "text": [{"text": "Click pattern"}],
+                    "showText": false, "position": {"fraction": [0, 1]},
+                    "tempo": {"clickSubdivision": 2, "clickGrouping": [3, 3, 2, 2, 2]}
+                }]
+            }}}
+        ]},
+        "parts": [{"id": "p", "measures": [
+            {"sequences": [{"content": [{"duration": {"base": "half", "dots": 1}, "rest": {}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "half", "dots": 1}, "rest": {}}]}]}
+        ]}],
+        "layouts": [{"id": "L", "content": [{"type": "staff", "sources": [{"part": "p"}]}]}],
+        "scores": [{"name": "Solo", "layout": "L"}]
+    });
+    let score = parse_mnx(&source.to_string()).unwrap();
+    let renderers: [fn(&Score, &LayoutConfig) -> DisplayList; 3] = [
+        |score, config| layout_score(score, 0, config),
+        |score, config| layout_with_mnx_scores(score, config, 0),
+        crate::layout::layout_full_score,
+    ];
+    for render in renderers {
+        let display = render(&score, &LayoutConfig::default());
+        assert!(display
+            .commands
+            .iter()
+            .zip(&display.element_ids)
+            .any(|(command, id)| {
+                id.as_deref() == Some("m1/rehearsal")
+                    && matches!(command, RenderCommand::DrawText { text, .. } if text == "M")
+            }));
+        assert!(!display.commands.iter().any(
+            |command| matches!(command, RenderCommand::DrawText { text, .. } if text.contains("Click pattern"))
+        ));
+    }
+}
+
+#[test]
 fn rehearsal_mark_clears_an_ascending_cross_bar_slur() {
     let mut notes: Vec<_> = ["C", "D", "E", "F", "G", "A", "B", "C"]
         .iter()

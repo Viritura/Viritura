@@ -1,14 +1,14 @@
 /**
- * Renders the score-chooser + folder-confirm dialogs driven by
- * `useModalFlowStore`. Mount once near the App root; any caller in any
- * package can then `await openScoreChooser(...)` / `await openFolderConfirm(...)`
+ * Renders the promise-driven dialogs from `useModalFlowStore`. Mount once
+ * near the App root; any caller in any package can then
+ * `await openFolderConfirm(...)` / `await openUnsavedChangesConfirm(...)`
  * without needing to thread state or props.
  *
  * See `store/modalFlowStore.ts` for the promise-returning helpers and the
  * rationale (Phase A4 of the App state-extraction sweep).
  */
 
-import { ScoreChooserDialog } from "./ScoreChooserDialog";
+import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import { FolderConfirmDialog } from "./FolderConfirmDialog";
 import { ExternalChangeDialog } from "./ExternalChangeDialog";
 import { PromptDialog } from "@viritura/ui";
@@ -18,12 +18,12 @@ import { useModalFlowStore } from "../store/modalFlowStore";
 import { PickupBarDialog } from "./PickupBarDialog";
 
 export function ModalFlowHost(): React.JSX.Element {
-  const scoreChooser = useModalFlowStore((s) => s.scoreChooser);
+  const unsavedChanges = useModalFlowStore((s) => s.unsavedChanges);
   const folderConfirm = useModalFlowStore((s) => s.folderConfirm);
   const projectName = useModalFlowStore((s) => s.projectName);
   const pickupDuration = useModalFlowStore((s) => s.pickupDuration);
   const externalChange = useModalFlowStore((s) => s.externalChange);
-  const setScoreChooser = useModalFlowStore((s) => s._setScoreChooser);
+  const setUnsavedChanges = useModalFlowStore((s) => s._setUnsavedChanges);
   const setFolderConfirm = useModalFlowStore((s) => s._setFolderConfirm);
   const setProjectName = useModalFlowStore((s) => s._setProjectName);
   const setPickupDuration = useModalFlowStore((s) => s._setPickupDuration);
@@ -31,18 +31,17 @@ export function ModalFlowHost(): React.JSX.Element {
 
   return (
     <>
-      {scoreChooser && (
-        <ScoreChooserDialog
+      {unsavedChanges && (
+        <UnsavedChangesDialog
           open
-          folderName={scoreChooser.folderName}
-          scores={scoreChooser.scores}
-          onChoose={(score) => {
-            scoreChooser.resolve(score);
-            setScoreChooser(null);
+          fileName={unsavedChanges.fileName}
+          onChoose={(choice) => {
+            unsavedChanges.resolve(choice);
+            setUnsavedChanges(null);
           }}
           onCancel={() => {
-            scoreChooser.resolve(null);
-            setScoreChooser(null);
+            unsavedChanges.resolve(null);
+            setUnsavedChanges(null);
           }}
         />
       )}

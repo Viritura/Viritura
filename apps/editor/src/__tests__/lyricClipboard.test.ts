@@ -197,6 +197,62 @@ describe("lyric clipboard behavior", () => {
     expect(pasted.global.lyrics?.lineMetadata?.original).toEqual({ label: "Target verse", lang: "de" });
   });
 
+  it("adds line order for pasted notation from sources without global lyric metadata", () => {
+    const target = scoreWithLyrics();
+    delete target.global.lyrics;
+    delete (target.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent).lyrics;
+    const pasted = applyPaste(
+      target,
+      {
+        content: [
+          {
+            type: "event",
+            duration: { base: "quarter" },
+            notes: [{ pitch: { step: "E", octave: 4 } }],
+            lyrics: { lines: { verse: { text: "Source" } } },
+          },
+        ],
+        sourceTimeSignature: { count: 4, unit: 4 },
+        sourceKeySignature: { fifths: 0 },
+      },
+      0,
+      0,
+      0,
+      1,
+    );
+    expect(pasted.global.lyrics?.lineOrder).toEqual(["verse"]);
+  });
+
+  it("preserves line order when copying an empty event lyrics object", () => {
+    const source = scoreWithLyrics();
+    (source.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent).lyrics = {};
+    const copied = buildClipboardSelection(source, {
+      kind: "single",
+      elementId: "p0/m0/s0/source",
+      elementType: "event",
+    })!;
+    expect(copied.lyrics?.lineOrder).toEqual(["original"]);
+  });
+
+  it("rejects pasted empty lyrics when no line order can be determined", () => {
+    const target = scoreWithLyrics();
+    delete target.global.lyrics;
+    expect(() =>
+      applyPaste(
+        target,
+        {
+          content: [{ type: "event", duration: { base: "quarter" }, rest: {}, lyrics: {} }],
+          sourceTimeSignature: { count: 4, unit: 4 },
+          sourceKeySignature: { fifths: 0 },
+        },
+        0,
+        0,
+        0,
+        0,
+      ),
+    ).toThrow("Cannot paste event lyrics without a global lyric line order.");
+  });
+
   it("rejects malformed lyric metadata in clipboard fragments", () => {
     const malformed = JSON.stringify({
       type: "viritura/fragment",

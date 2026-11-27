@@ -45,7 +45,7 @@ const ZOOM_LABEL_STYLE: CSSProperties = {
   fontVariantNumeric: "tabular-nums",
 };
 
-export type ScoreFitMode = "none" | "width" | "page";
+export type ScoreFitMode = "none" | "width" | "page" | "height";
 export type ScoreViewerControlSurface = "floating-status" | "toolbar" | "none";
 
 export interface ScoreViewerScoreOption {

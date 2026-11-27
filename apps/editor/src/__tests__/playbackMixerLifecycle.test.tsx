@@ -34,7 +34,6 @@ vi.mock("@viritura/audio", async (importOriginal) => {
     ),
     Metronome: vi.fn(
       class {
-        static getBeatsForMeasure = actual.Metronome.getBeatsForMeasure;
         setEnabled = vi.fn();
         scheduleClick = vi.fn();
         dispose = vi.fn();
@@ -314,7 +313,7 @@ describe("PlaybackProvider web mixer lifecycle", () => {
   });
 
   it("applies pre-initialization master FX and retains them across sampler reloads", async () => {
-    await mount();
+    const view = await mount();
     await act(async () => {
       actions().setAirEQGain(5);
       actions().setLimiterThreshold(-16);
@@ -333,11 +332,15 @@ describe("PlaybackProvider web mixer lifecycle", () => {
       expect(reverb.presetId).toBe("scala-milan");
       expect(reverb.wetLevel).toBe(0.6);
       act(() => actions().stop());
+      if (generation === 0) {
+        view.rerender(<PlaybackProvider score={makeScore("Harpsichord")}>{null}</PlaybackProvider>);
+        await flush(SCORE_CHANGE_DEBOUNCE_MS);
+      }
     }
   });
 
-  it("restores fader, pan and effective mute/solo on newly constructed channels after stop/play", async () => {
-    await mount();
+  it("reuses silenced channels through repeated stop/play and releases them on unmount", async () => {
+    const view = await mount();
     setWebMix();
     await play();
     expect(synths).toHaveLength(1);
@@ -345,13 +348,28 @@ describe("PlaybackProvider web mixer lifecycle", () => {
     expectChannel(synths[0]!, 1, 16383, 95);
     expectChannel(synths[0]!, 2, 0, 64);
 
-    act(() => actions().stop());
-    expect(synths[0]!.destroy).toHaveBeenCalledOnce();
-    await play();
-    expect(synths).toHaveLength(2);
-    expectChannel(synths[1]!, 0, 8192, 32);
-    expectChannel(synths[1]!, 1, 16383, 95);
-    expectChannel(synths[1]!, 2, 0, 64);
+    for (let cycle = 0; cycle < 5; cycle++) {
+      const synth = synths[0]!;
+      synth.cancelScheduledNotes.mockClear();
+      synth.synth.controllerChange.mockClear();
+      synth.synth.programChange.mockClear();
+      synth.synth.programChange(0, 45);
+      synth.synth.controllerChange(0, 64, 127);
+      synth.synth.controllerChange(0, 66, 127);
+      act(() => actions().stop());
+      expect(synth.cancelScheduledNotes).toHaveBeenCalledWith([0], -Infinity, true);
+      expect(synth.synth.controllerChange).toHaveBeenCalledWith(0, 120, 0);
+      expect(synth.synth.programChange.mock.calls.filter(([channel]) => channel === 0).at(-1)).toEqual([0, 0]);
+      for (const pedal of [64, 66]) {
+        expect(
+          synth.synth.controllerChange.mock.calls.filter(([channel, cc]) => channel === 0 && cc === pedal).at(-1),
+        ).toEqual([0, pedal, 0]);
+      }
+      expect(synth.destroy).not.toHaveBeenCalled();
+      expect(getPlaybackSnapshot().state.playheadPosition).toBeNull();
+      await play();
+      expect(synths).toHaveLength(1);
+    }
 
     act(() => {
       actions().stop();
@@ -359,10 +377,13 @@ describe("PlaybackProvider web mixer lifecycle", () => {
       actions().applyMix(0, 0.25, -0.5, true, false);
     });
     await play();
-    expect(synths).toHaveLength(3);
-    expectChannel(synths[2]!, 0, 0, 32);
-    expectChannel(synths[2]!, 1, 16383, 95);
-    expectChannel(synths[2]!, 2, 0, 64);
+    expect(synths).toHaveLength(1);
+    expectChannel(synths[0]!, 0, 0, 32);
+    expectChannel(synths[0]!, 1, 16383, 95);
+    expectChannel(synths[0]!, 2, 0, 64);
+    view.unmount();
+    expect(synths[0]!.destroy).toHaveBeenCalledOnce();
+    expect(synths[0]!.context.close).toHaveBeenCalledOnce();
   });
 
   it.each(["profile", "lane"] as const)("retains mixer intent through a %s reload", async (reload) => {
@@ -424,13 +445,13 @@ describe("PlaybackProvider web mixer lifecycle", () => {
     await act(async () => {
       await actions().previewNote(67, 2);
     });
-    expect(synths).toHaveLength(2);
-    expectChannel(synths[1]!, 0, 8192, 32);
-    expectChannel(synths[1]!, 2, 0, 64);
+    expect(synths).toHaveLength(1);
+    expectChannel(synths[0]!, 0, 8192, 32);
+    expectChannel(synths[0]!, 2, 0, 64);
   });
 
   it("retains disabled ensemble layers and their pan overrides across recreation", async () => {
-    await mount(makeScore("Violin", 1));
+    const view = await mount(makeScore("Violin", 1));
     act(() => {
       actions().setEnsembleLayer(0, false);
       actions().applyLayerPan(0, 0, -0.75);
@@ -450,6 +471,10 @@ describe("PlaybackProvider web mixer lifecycle", () => {
       expectChannel(synth, 1, Math.round(16383 / Math.SQRT2), 16);
       expectChannel(synth, 2, Math.round(16383 / Math.SQRT2), 111);
       act(() => actions().stop());
+      if (generation === 0) {
+        view.rerender(<PlaybackProvider score={makeScore("Viola", 1)}>{null}</PlaybackProvider>);
+        await flush(SCORE_CHANGE_DEBOUNCE_MS);
+      }
     }
   });
 });
@@ -470,8 +495,10 @@ describe.each(["web", "native"] as const)("PlaybackProvider %s selection eligibi
       actions().setSelectionPartIds(selected);
     });
     for (let generation = 0; generation < 2; generation++) {
+      synths[0]?.synth.noteOn.mockClear();
       await play();
-      const synth = synths[generation]!;
+      expect(synths).toHaveLength(1);
+      const synth = synths[0]!;
       expect(noteChannels(synth)).toEqual(host ? [] : allowed);
       expectChannel(synth, 0, 8192, 32);
       expectChannel(synth, 1, 16383, 95);
@@ -530,10 +557,12 @@ describe.each(["web", "native"] as const)("PlaybackProvider %s selection eligibi
     expectChannel(synth, 0, 16383, 32);
     expectChannel(synth, 2, 0, 64);
     act(() => actions().stop());
+    synth.synth.noteOn.mockClear();
     await play();
-    expect(noteChannels(synths[1]!)).toEqual(host ? [] : [0, 1, 2]);
-    expectChannel(synths[1]!, 0, 16383, 32);
-    expectChannel(synths[1]!, 2, 0, 64);
+    expect(synths).toHaveLength(1);
+    expect(noteChannels(synth)).toEqual(host ? [] : [0, 1, 2]);
+    expectChannel(synth, 0, 16383, 32);
+    expectChannel(synth, 2, 0, 64);
     if (host) expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set([2]));
   });
 
@@ -562,7 +591,7 @@ describe.each(["web", "native"] as const)("PlaybackProvider %s selection eligibi
 
   it("uses live selection and mixer edits during SF2 creation on each restart", async () => {
     const host = mode === "native" ? nativeTransport() : undefined;
-    await mount(makeScore(), host);
+    const view = await mount(makeScore(), host);
     setWebMix();
     for (let generation = 0; generation < 2; generation++) {
       const ready = deferred<void>();
@@ -591,6 +620,14 @@ describe.each(["web", "native"] as const)("PlaybackProvider %s selection eligibi
       expectChannel(synths[generation]!, 1, 0, 95);
       if (host) expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set(generation === 0 ? [0, 1, 2] : [1, 2]));
       act(() => actions().stop());
+      if (generation === 0) {
+        view.rerender(
+          <PlaybackProvider score={makeScore("Harpsichord")} vstTransport={host} audioRenderMode={mode}>
+            {null}
+          </PlaybackProvider>,
+        );
+        await flush(SCORE_CHANGE_DEBOUNCE_MS);
+      }
     }
   });
 });
@@ -621,19 +658,21 @@ describe("PlaybackProvider native selection preparation", () => {
     await mount(score, host, createSoundProfileRegistry([virituraSoundsProfile, profile]));
     act(() => actions().setSelectionPartIds(["part-0"]));
     for (let generation = 0; generation < 2; generation++) {
+      synths[0]?.synth.noteOn.mockClear();
       await play();
       expect(host.prepare.mock.calls.at(-1)![1].vstParts.map(({ partIndex }) => partIndex)).toEqual([0]);
-      expect(noteChannels(synths[generation]!)).toEqual(owned ? [] : [0]);
+      expect(synths).toHaveLength(1);
+      expect(noteChannels(synths[0]!)).toEqual(owned ? [] : [0]);
       expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set([1, 2]));
       act(() => actions().stop());
     }
     await play();
-    synths[2]!.synth.noteOn.mockClear();
+    synths[0]!.synth.noteOn.mockClear();
     act(() => {
       actions().setSelectionPartIds(["part-1"]);
       actions().seek(0);
     });
-    expect(noteChannels(synths[2]!)).toEqual([]);
+    expect(noteChannels(synths[0]!)).toEqual([]);
     expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set([0, 2]));
   });
 
@@ -723,7 +762,7 @@ describe("PlaybackProvider native selection preparation", () => {
     act(() => actions().seek(0));
     expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set());
     expect(synths.flatMap((synth) => synth.synth.noteOn.mock.calls.map(([, note]) => note))).toEqual([38]);
-    expect(percussion.cancelScheduledNotes).toHaveBeenCalledWith([channel], -Infinity);
+    expect(percussion.cancelScheduledNotes).toHaveBeenCalledWith([channel], -Infinity, true);
     expect(percussion.cancelScheduledNotes.mock.invocationCallOrder[0]).toBeLessThan(
       percussion.synth.noteOn.mock.invocationCallOrder[0]!,
     );

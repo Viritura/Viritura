@@ -80,11 +80,35 @@ fn read_avoid_collisions(ext: Option<&serde_json::Map<String, serde_json::Value>
 pub(crate) fn promote_tempo(raw: raw::Tempo) -> Result<Tempo, PromoteError> {
     // Hoist Viritura tempo extensions (text, showMetronomeMark, showText).
     let ext = read_viritura_ext(raw.x.as_ref());
+    if let Some(ext) = ext {
+        let click_settings = ["clickSubdivision", "clickGrouping"]
+            .into_iter()
+            .filter_map(|name| ext.get(name).map(|value| (name.to_owned(), value.clone())))
+            .collect::<serde_json::Map<_, _>>();
+        if !click_settings.is_empty() {
+            crate::validator::validate_tempo_extensions(&serde_json::Value::Object(click_settings))
+                .map_err(PromoteError::InvalidTempoInstruction)?;
+        }
+    }
     if let Some(swing) = ext.and_then(|value| value.get("swing")) {
         crate::validator::validate_swing(swing).map_err(PromoteError::InvalidTempoInstruction)?;
     }
     let swing = ext
         .and_then(|value| value.get("swing"))
+        .map(|value| {
+            serde_json::from_value(value.clone())
+                .map_err(|error| PromoteError::InvalidTempoInstruction(error.to_string()))
+        })
+        .transpose()?;
+    let click_subdivision = ext
+        .and_then(|value| value.get("clickSubdivision"))
+        .map(|value| {
+            serde_json::from_value(value.clone())
+                .map_err(|error| PromoteError::InvalidTempoInstruction(error.to_string()))
+        })
+        .transpose()?;
+    let click_grouping = ext
+        .and_then(|value| value.get("clickGrouping"))
         .map(|value| {
             serde_json::from_value(value.clone())
                 .map_err(|error| PromoteError::InvalidTempoInstruction(error.to_string()))
@@ -110,6 +134,8 @@ pub(crate) fn promote_tempo(raw: raw::Tempo) -> Result<Tempo, PromoteError> {
             dots: raw.value.dots.map(|d| u32::try_from(d.0).unwrap_or(0)),
         }),
         swing,
+        click_subdivision,
+        click_grouping,
         location: raw.location.map(promote_rhythmic_position),
         text,
         show_metronome_mark,
@@ -169,6 +195,34 @@ mod swing_tests {
             );
         }
     }
+
+    #[test]
+    fn rejects_invalid_standard_tempo_click_settings() {
+        for extension in [
+            json!({"clickSubdivision": 6}),
+            json!({"clickSubdivision": 2, "clickGrouping": []}),
+            json!({"clickSubdivision": 2, "clickGrouping": [0]}),
+        ] {
+            let input = json!({"tempos": [{
+                "bpm": 90, "value": {"base": "quarter"}, "_x": {"viritura": extension}
+            }]});
+            assert!(promote_global_measure_json(&input).is_err());
+        }
+    }
+
+    #[test]
+    fn standard_tempo_click_settings_allow_unknown_extensions() {
+        let input = json!({"tempos": [{
+            "bpm": 90, "value": {"base": "quarter"}, "_x": {"viritura": {
+                "clickSubdivision": 2, "clickGrouping": [3, 3, 2, 2, 2],
+                "futureSetting": true
+            }}
+        }]});
+        let measure = promote_global_measure_json(&input).unwrap();
+        let tempo = &measure.tempos.unwrap()[0];
+        assert_eq!(tempo.click_subdivision, Some(2));
+        assert_eq!(tempo.click_grouping, Some(vec![3, 3, 2, 2, 2]));
+    }
 }
 
 pub(crate) fn promote_vendor_tempos(
@@ -192,6 +246,8 @@ pub(crate) fn promote_vendor_tempos(
                 bpm: Option<f64>,
                 value: Option<TempoNoteValue>,
                 swing: Option<crate::model::direction::Swing>,
+                click_subdivision: Option<u8>,
+                click_grouping: Option<Vec<u64>>,
                 location: Option<RhythmicPosition>,
                 text: Option<crate::model::TextContent>,
                 show_metronome_mark: Option<bool>,
@@ -205,6 +261,8 @@ pub(crate) fn promote_vendor_tempos(
                 bpm: instruction.bpm,
                 value: instruction.value,
                 swing: instruction.swing,
+                click_subdivision: instruction.click_subdivision,
+                click_grouping: instruction.click_grouping,
                 location: instruction.location,
                 text: instruction.text,
                 show_metronome_mark: instruction.show_metronome_mark,

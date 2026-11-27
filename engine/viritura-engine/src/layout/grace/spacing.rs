@@ -140,11 +140,7 @@ impl GraceSpacingContext<'_> {
         for note in event.notes() {
             let cp = notehead_for_note(Some(note), &event.duration.base, self.kit);
             let (bbox_x, _, _, _) = smufl::glyph_bbox(cp);
-            let origin = if cp == smufl::NOTEHEAD_DOUBLE_WHOLE {
-                smufl::NOTEHEAD_DOUBLE_WHOLE_ORIGIN.0
-            } else {
-                0.0
-            };
+            let origin = smufl::notehead_origin(cp);
             left = left.max(origin - bbox_x);
             right = right.max(smufl::notehead_right_extent(cp));
             if let Some(markings) = &note.markings {

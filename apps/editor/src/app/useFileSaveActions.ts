@@ -42,7 +42,9 @@ async function saveVersionedProject(adapter: ProjectAdapter, json: string, recor
       .commitCurrent(json, { auto: false })
       .catch((err) => {
         console.error("Background commit failed:", err);
-        toast.error("Saved, but version history could not be updated");
+        toast.error("Saved, but version history could not be updated", {
+          description: err instanceof Error ? err.message : String(err),
+        });
       });
   } catch (err) {
     console.error("Save failed:", err);
@@ -101,9 +103,24 @@ export function useFileSaveActions({
     [store],
   );
 
+  // A read-only document can only be saved as a detached copy; never bind it to a file handle or project.
+  const saveReadOnlyCopy = useCallback(async (json: string, name: string) => {
+    try {
+      const handle = await fileSaveAs(json, name || "score.mnx");
+      if (handle) toast.success("Saved a copy. Open it to edit.");
+    } catch (err) {
+      console.error("Save a copy failed:", err);
+      toast.error("Save a copy failed");
+    }
+  }, []);
+
   const handleSave = useCallback(async () => {
     const { json, fileName: name, documentGeneration } = getSaveSnapshot(store);
     if (!json) return;
+    if (store.getState().readOnlyReason) {
+      await saveReadOnlyCopy(json, name);
+      return;
+    }
     const projectAdapter = useProjectStore.getState().adapter;
     let diskJson: string | null = null;
     try {
@@ -152,11 +169,15 @@ export function useFileSaveActions({
       console.error("Save failed:", err);
       toast.error("Save failed");
     }
-  }, [store, fileHandle, setFileHandle, resetHistory, recordSavedSnapshot]);
+  }, [store, fileHandle, setFileHandle, resetHistory, recordSavedSnapshot, saveReadOnlyCopy]);
 
   const handleSaveAs = useCallback(async () => {
     const { json, fileName: name, documentGeneration } = getSaveSnapshot(store);
     if (!json) return;
+    if (store.getState().readOnlyReason) {
+      await saveReadOnlyCopy(json, name);
+      return;
+    }
     try {
       const downloadFallback = !isFileSystemAccessSupported();
       const handle = await fileSaveAs(json, name || "score.mnx");
@@ -170,7 +191,7 @@ export function useFileSaveActions({
       console.error("Save As failed:", err);
       toast.error("Save As failed");
     }
-  }, [store, setFileHandle]);
+  }, [store, setFileHandle, saveReadOnlyCopy]);
 
   const handleDownload = useCallback(() => {
     const { json, fileName: name, documentGeneration } = getSaveSnapshot(store);

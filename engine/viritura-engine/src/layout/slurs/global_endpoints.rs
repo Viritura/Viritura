@@ -105,6 +105,7 @@ pub(crate) fn collect_global_slur_events(
                     beamed_ids.contains(event_id),
                     articulation_relation,
                 );
+                endpoint.has_flag = !endpoint.is_beamed && event.duration.base.flag_count() > 0;
                 if notes.iter().any(has_visible_accidental) {
                     endpoint.accidental_right_x = Some(voice.events.x(event_index) - 0.12 * sp);
                 }

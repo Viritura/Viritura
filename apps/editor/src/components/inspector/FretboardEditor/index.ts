@@ -1,0 +1,1 @@
+export { FretboardEditor } from "./FretboardEditor";

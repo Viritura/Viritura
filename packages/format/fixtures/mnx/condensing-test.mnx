@@ -445,7 +445,7 @@
           "content": [
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "019e62f6-d708-7977-bb3e-c3bc4067ff66"
@@ -454,7 +454,7 @@
             },
             {
               "type": "staff",
-              "labelref": "name",
+              "labelRef": {"ref": "auto"},
               "sources": [
                 {
                   "part": "019e62f6-d708-751f-8948-345a59223505"

@@ -18,6 +18,7 @@ pub(super) struct ResolvedStaffSet {
     pub(super) measures: Vec<ResolvedStaffSnapshot>,
     pub(super) ottavas: Vec<Arc<[ResolvedOttavaRange]>>,
     pub(super) duration_histogram: DurationHistogram,
+    pub(super) resolved_start: Option<usize>,
     pub(super) resolved_end: Option<usize>,
 }
 
@@ -78,10 +79,12 @@ pub(super) fn resolve_staves_with_condensing_labels(
     // condensing staves still run a full per-staff resolve because their label
     // sequence depends on prior merge modes; unaffected condensing staves are
     // safe to reuse wholesale.
+    let repeat_navigation = crate::layout::resolve::has_repeat_navigation(&score.global.measures);
     let scope_on = cache
         .as_deref()
         .map(|c| c.range_scope().scoped_resolve)
-        .unwrap_or(false);
+        .unwrap_or(false)
+        && !repeat_navigation;
     let effective_range = cache::LayoutCache::effective_dirty_range(
         dirty_region.map(cache::DirtyRegion::measure_range),
         measure_count,
@@ -90,8 +93,16 @@ pub(super) fn resolve_staves_with_condensing_labels(
     let salt = super::super::instrument_changes::state_salt(
         score,
         flat_staves,
-        resolve_staves_salt(flat_staves, use_written, measure_count),
+        super::super::glissando::repeat_glissando_state_salt(
+            score,
+            resolve_staves_salt(flat_staves, use_written, measure_count),
+        ),
     );
+    if repeat_navigation {
+        if let Some(cache) = cache.as_deref_mut() {
+            let _ = cache.take_resolved_staves(salt);
+        }
+    }
     let resolved_content_unchanged =
         dirty_region.is_some_and(|region| !region.flags.contains(cache::DirtyFlags::CONTENT));
 
@@ -113,6 +124,7 @@ pub(super) fn resolve_staves_with_condensing_labels(
         .unwrap_or_default();
 
     let mut resolved_span = 0usize;
+    let mut resolved_start = None;
     let mut resolved_end = None;
     let mut staff_aux_reuses = 0usize;
     let mut all_staff_resolved: Vec<ResolvedStaffSnapshot> = Vec::with_capacity(flat_staves.len());
@@ -193,6 +205,7 @@ pub(super) fn resolve_staves_with_condensing_labels(
                 boundary_states,
                 boundary_fps,
                 this_span,
+                spanning_changed,
             ) = resolve_staff_scoped(
                 score,
                 flat_staff,
@@ -207,6 +220,11 @@ pub(super) fn resolve_staves_with_condensing_labels(
             resolved_span += this_span;
             let end = dirty_start + this_span - 1;
             resolved_end = Some(resolved_end.map_or(end, |prior: usize| prior.max(end)));
+            if let Some((start, end)) = spanning_changed {
+                resolved_start =
+                    Some(resolved_start.map_or(start, |prior: usize| prior.min(start)));
+                resolved_end = Some(resolved_end.map_or(end, |prior: usize| prior.max(end)));
+            }
             staff_aux_reuses += usize::from(staff_aux_reused);
             merge_duration_histogram(&mut duration_histogram, &staff_duration_histogram);
             fresh_cache.push(cache::CachedResolvedStaff {
@@ -238,6 +256,16 @@ pub(super) fn resolve_staves_with_condensing_labels(
             &initial_state,
             scope_on,
         );
+        if repeat_navigation {
+            crate::layout::resolve::apply_repeat_signature_restatements(
+                &mut resolved,
+                &score.global.measures,
+            );
+            crate::layout::resolve::apply_repeat_courtesy_accidentals(
+                &mut resolved,
+                &score.global.measures,
+            );
+        }
         resolved_span += measure_count;
 
         // Phase 2: condensing labels. Skip entirely for non-condensing staves
@@ -255,6 +283,17 @@ pub(super) fn resolve_staves_with_condensing_labels(
         }
         if let (true, Some(region), Some(layout_cache)) = (affected, dirty_region, cache.as_deref())
         {
+            for measure in resolved.iter().take(region.measure_start) {
+                if layout_cache
+                    .natural_width_content_hash(measure.index * 1000 + staff_idx)
+                    .is_some_and(|prior| prior != measure_content_hash(measure))
+                {
+                    resolved_start = Some(
+                        resolved_start
+                            .map_or(measure.index, |start: usize| start.min(measure.index)),
+                    );
+                }
+            }
             for measure in resolved.iter().skip(region.measure_end + 1) {
                 if layout_cache
                     .natural_width_content_hash(measure.index * 1000 + staff_idx)
@@ -301,6 +340,7 @@ pub(super) fn resolve_staves_with_condensing_labels(
         measures: all_staff_resolved,
         ottavas: all_staff_ottavas,
         duration_histogram,
+        resolved_start,
         resolved_end,
     }
 }
@@ -353,6 +393,7 @@ pub(super) fn resolve_staff_full(
     Vec<Option<MergeMode>>,
 ) {
     let meter_states = flat_staff_meter_states(flat_staff, score, measure_count);
+    let repeat_navigation = crate::layout::resolve::has_repeat_navigation(&score.global.measures);
     let mut state = initial.clone();
     let mut resolved = Vec::with_capacity(measure_count);
     let mut condensing_modes: Vec<Option<MergeMode>> = Vec::with_capacity(measure_count);
@@ -367,8 +408,15 @@ pub(super) fn resolve_staff_full(
         Vec::new()
     };
     for (mi, meter_state) in meter_states.iter().enumerate() {
-        let (rm, mode) =
-            resolve_one_measure_phase1(mi, score, flat_staff, use_written, &mut state, meter_state);
+        let (rm, mode) = resolve_one_measure_phase1(
+            mi,
+            score,
+            flat_staff,
+            use_written,
+            &mut state,
+            meter_state,
+            repeat_navigation,
+        );
         resolved.push(rm);
         condensing_modes.push(mode);
         if track_state {
@@ -380,13 +428,15 @@ pub(super) fn resolve_staff_full(
             ));
         }
     }
+    crate::layout::resolve::attach_spanning_beams(&mut resolved);
     (resolved, boundary_states, boundary_fps, condensing_modes)
 }
 
 /// Output of [`resolve_staff_scoped`]: the same four arrays as
 /// [`resolve_staff_full`] needed by a non-condensing staff (resolved measures,
 /// boundary states, boundary fingerprints) plus the count of measures that
-/// actually re-ran (the "resolved span").
+/// actually re-ran (the "resolved span") and the measure range, if any, whose
+/// spanning beams changed outside that span.
 pub(super) type ScopedResolveResult = (
     ResolvedStaffSnapshot,
     Arc<[ResolvedOttavaRange]>,
@@ -395,6 +445,7 @@ pub(super) type ScopedResolveResult = (
     Vec<cache::BoundaryState>,
     Vec<u64>,
     usize,
+    Option<(usize, usize)>,
 );
 
 /// Range-scoped per-staff Phase 1 resolve. Restarts at `dirty_start` from the
@@ -453,6 +504,7 @@ pub(super) fn resolve_staff_scoped(
             use_written,
             &mut state,
             &meter_states[mi],
+            false,
         );
         let old_duration = collect_duration_histogram(std::slice::from_ref(&resolved_mut[mi]));
         let new_duration = collect_duration_histogram(std::slice::from_ref(&rm));
@@ -486,6 +538,10 @@ pub(super) fn resolve_staff_scoped(
         }
     }
 
+    // A beam edited inside the dirty span can change the spanning groups
+    // recorded on neighbouring measures outside it.
+    let spanning_changed = crate::layout::resolve::attach_spanning_beams(resolved_mut);
+
     let this_span = converged_at
         .map(|c| c - dirty_start + 1)
         .unwrap_or(measure_count - dirty_start);
@@ -504,6 +560,7 @@ pub(super) fn resolve_staff_scoped(
         boundary_states,
         boundary_fps,
         this_span,
+        spanning_changed,
     )
 }
 
@@ -517,6 +574,7 @@ pub(super) fn resolve_one_measure_phase1(
     use_written: bool,
     state: &mut cache::BoundaryState,
     meter_state: &FlatStaffMeterState,
+    repeat_navigation: bool,
 ) -> (ResolvedMeasure, Option<MergeMode>) {
     let (transposition, key_fifths_flip_at) =
         super::structure_flattening::flat_staff_transposition_at(
@@ -557,6 +615,12 @@ pub(super) fn resolve_one_measure_phase1(
     let (mut virtual_pm, condensing_mode) =
         build_virtual_part_measure(flat_staff, mi, score, !meter_state.compatible);
     meter_state.apply_authored_change(&mut virtual_pm);
+    crate::layout::resolve::project_global_fermatas_on_staff(
+        &mut virtual_pm,
+        &global,
+        state.active_time.measure_beats(),
+        meter_state.effective.as_ref(),
+    );
     let measure_staff_lines = super::super::staff_lines::resolve_measure_staff_lines(
         &mut state.active_staff_lines,
         virtual_pm.staff_configs.as_deref(),
@@ -595,11 +659,16 @@ pub(super) fn resolve_one_measure_phase1(
     let display_transposition = transposition
         .map(|(staff_distance, half_steps)| (staff_distance + diatonic_adjustment, half_steps));
     let incoming_ties: Vec<_> = state.tie_targets.iter().cloned().collect();
+    let empty_accidental_state = HashMap::new();
     state.accidental_state = crate::layout::resolve::apply_automatic_courtesy_accidentals(
         &mut virtual_pm,
         display_transposition,
         &incoming_ties,
-        &state.accidental_state,
+        if repeat_navigation {
+            &empty_accidental_state
+        } else {
+            &state.accidental_state
+        },
     );
     let mut new_tie_targets = Vec::new();
     for sequence in &virtual_pm.sequences {
@@ -611,6 +680,7 @@ pub(super) fn resolve_one_measure_phase1(
         measure_barline_context(&score.global.measures, mi);
     let rm = ResolvedMeasure {
         system_end: Default::default(),
+        use_beams: super::super::support_flags::engraving_flags(score).0,
         index: mi,
         chord_symbols: {
             let mut chord_staff = flat_staff.clone();
@@ -630,8 +700,20 @@ pub(super) fn resolve_one_measure_phase1(
         prev_has_repeat_end,
         active_time: state.active_time.clone(),
         active_key: display_key.clone(),
+        repeat_key_restatement_from: None,
+        repeat_time_restatement: None,
+        repeat_clef_restatement: false,
+        repeat_ending_brackets: false,
         prev_key: state.prev_display_key.clone(),
         tie_continuation_ids: Vec::new(),
+        spanning_beams: Vec::new(),
+        repeat_glissandos: flat_staff
+            .sources
+            .iter()
+            .flat_map(|source| {
+                super::super::glissando::resolve_repeat_glissandos(score, source.part_index, mi)
+            })
+            .collect(),
         active_staff_lines: measure_staff_lines,
         transposition,
         written_diatonic_adjustment: diatonic_adjustment,
@@ -754,6 +836,11 @@ pub(super) fn apply_condensing_labels(
                         false
                     };
                     if !placed_early {
+                        let ratio = resolved[mi]
+                            .effective_staff_meter
+                            .as_ref()
+                            .map_or(1.0, |meter| meter.ratio_to_global.as_f64());
+                        let position = first_sounding_position(&resolved[mi].part, ratio);
                         resolved[mi]
                             .part
                             .expressions
@@ -763,7 +850,7 @@ pub(super) fn apply_condensing_labels(
                                 id: None,
                                 text_type: crate::model::PositionedTextType::Expression,
                                 frame: None,
-                                position: RhythmicPosition { fraction: (0, 1) },
+                                position,
                                 placement: Some(ExpressionPlacement::Above),
                                 staff: None,
                                 voice: None,

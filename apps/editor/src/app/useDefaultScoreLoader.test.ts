@@ -1,12 +1,106 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
 import type { Score } from "@viritura/core";
+import type { OpenFileResult } from "../commands/fileCommands";
 import { useImportErrorLogStore } from "../importErrorLog";
 import { useDefaultScoreLoader } from "./useDefaultScoreLoader";
 
+afterEach(() => vi.restoreAllMocks());
+
 describe("useDefaultScoreLoader", () => {
+  it("does not reload an immediately opened project score when its file state updates", () => {
+    const loadScore = vi.fn();
+    const file: OpenFileResult = {
+      filename: "score.mnx",
+      mnxJson: JSON.stringify({ mnx: { version: 1 }, global: { measures: [] }, parts: [] }),
+      fileHandle: null,
+    };
+    const { result, rerender } = renderHook(
+      ({ openedFile }) =>
+        useDefaultScoreLoader({
+          store: { getState: () => ({ mnxJson: "" }) } as never,
+          loadScore,
+          resetHistory: vi.fn(),
+          openedFile,
+          setSelectedScoreIndex: vi.fn(),
+          setFileHandle: vi.fn(),
+          setFileError: vi.fn(),
+        }),
+      { initialProps: { openedFile: null as OpenFileResult | null } },
+    );
+
+    act(() => expect(result.current.loadOpenedFile(file)).toBe(true));
+    rerender({ openedFile: file });
+    expect(loadScore).toHaveBeenCalledOnce();
+  });
+
+  it("warns when an opened MNX fermata stays local beside another sounding staff", async () => {
+    const warning = vi.spyOn(toast, "warning").mockReturnValue("notice");
+    const loadScore = vi.fn();
+    const setFileError = vi.fn();
+    renderHook(() =>
+      useDefaultScoreLoader({
+        store: { getState: () => ({ mnxJson: "" }) } as never,
+        loadScore,
+        resetHistory: vi.fn(),
+        openedFile: {
+          filename: "local-fermata.mnx",
+          fileHandle: null,
+          mnxJson: JSON.stringify({
+            mnx: { version: 1 },
+            global: { measures: [{ time: { count: 4, unit: 4 } }] },
+            parts: [
+              {
+                measures: [
+                  {
+                    sequences: [
+                      {
+                        content: [
+                          {
+                            duration: { base: "whole" },
+                            notes: [{ pitch: { step: "C", octave: 4 } }],
+                            fermata: {},
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                measures: [
+                  {
+                    sequences: [
+                      {
+                        content: [
+                          {
+                            duration: { base: "whole" },
+                            notes: [{ pitch: { step: "E", octave: 4 } }],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+        },
+        setSelectedScoreIndex: vi.fn(),
+        setFileHandle: vi.fn(),
+        setFileError,
+      }),
+    );
+    await waitFor(() => expect(loadScore).toHaveBeenCalled());
+    expect(setFileError).toHaveBeenCalledWith(null);
+    expect(warning).toHaveBeenCalledExactlyOnceWith("Imported local-fermata.mnx with 1 warning", {
+      description: expect.stringContaining("measure 1, part 1, staff 1"),
+    });
+    expect((loadScore.mock.calls[0]![0] as Score).global.measures[0]!.fermatas).toBeUndefined();
+  });
   it("surfaces opened-file schema failures through the on-screen error state", async () => {
     const loadScore = vi.fn();
     const setFileError = vi.fn();
@@ -127,6 +221,52 @@ describe("useDefaultScoreLoader", () => {
       sourceFilename: "crumbfill.musx",
       producer: "denigma 4.0.0 (0426d4215db4); mnxdom 3.1.0 (ee14988)",
       recovered: [expect.objectContaining({ logId: "E1", measureId: "m2", voice: "s1layer1" })],
+    });
+  });
+
+  it("migrates legacy text before recovering and marking an invalid sequence", async () => {
+    useImportErrorLogStore.setState({ log: null });
+    const source = JSON.parse(
+      readFileSync(
+        resolve(process.cwd(), "../../packages/format/fixtures/recovery/malformed-tuplet-sequence.mnx"),
+        "utf8",
+      ),
+    ) as { parts: { measures: { text?: unknown[] }[] }[] };
+    source.parts[0]!.measures[0]!.text = [
+      { type: "expression", text: [{ text: "dolce", style: { fontStyle: "italic" } }] },
+    ];
+    const loadScore = vi.fn();
+    const setFileHandle = vi.fn();
+    const setFileError = vi.fn();
+    const openedFile = {
+      filename: "legacy-with-invalid-sequence.mnx",
+      mnxJson: JSON.stringify(source),
+      fileHandle: {} as FileSystemFileHandle,
+    };
+
+    renderHook(() =>
+      useDefaultScoreLoader({
+        store: { getState: () => ({ mnxJson: "" }) } as never,
+        loadScore,
+        resetHistory: vi.fn(),
+        openedFile,
+        setSelectedScoreIndex: vi.fn(),
+        setFileHandle,
+        setFileError,
+      }),
+    );
+
+    await waitFor(() => expect(loadScore).toHaveBeenCalled());
+    const score = loadScore.mock.calls[0]![0] as Score;
+    expect(score.parts[0]!.measures[0]!.expressions?.[0]?.text).toEqual([
+      { text: "dolce", style: { fontStyle: "italic" } },
+    ]);
+    expect(score.parts[0]!.measures[1]!.expressions?.[0]?.text).toEqual([{ text: "Import error E1" }]);
+    expect(setFileHandle).toHaveBeenCalledWith(null);
+    expect(setFileError).toHaveBeenCalledWith(null);
+    expect(useImportErrorLogStore.getState().log).toMatchObject({
+      status: "recovered",
+      recovered: [expect.objectContaining({ logId: "E1", measureIndex: 1 })],
     });
   });
 });

@@ -1,16 +1,36 @@
 import {
   useFollowActions,
   useFollowEnabled,
+  useMetronomeSound,
+  useMetronomeSoundActions,
   useTransportVisibilityActions,
   useTransportVisibilityPreferences,
 } from "@viritura/playback";
-import { SettingsRow, Switch } from "@viritura/ui";
+import type { ClickSound } from "@viritura/audio";
+import { ButtonGroup, SettingsRow, Switch } from "@viritura/ui";
+import { useClickSettingsStore, type ClickFlashMode } from "../../../store/clickSettingsStore";
+
+const CLICK_SOUND_OPTIONS: Array<{ value: ClickSound; label: string }> = [
+  { value: "oscillator", label: "Oscillator" },
+  { value: "tick", label: "Tick" },
+  { value: "woodblock", label: "Woodblock" },
+];
+
+const CLICK_FLASH_OPTIONS: Array<{ value: ClickFlashMode; label: string }> = [
+  { value: "beat", label: "Every beat" },
+  { value: "measure", label: "Measure only" },
+  { value: "off", label: "Off" },
+];
 
 export function PlaybackPanel() {
   const { showTimeDisplay, showFollow, showMetronome } = useTransportVisibilityPreferences();
   const { setVisibility } = useTransportVisibilityActions();
   const followEnabled = useFollowEnabled();
   const { setEnabled: setFollowEnabled } = useFollowActions();
+  const sound = useMetronomeSound();
+  const { setSound } = useMetronomeSoundActions();
+  const flashMode = useClickSettingsStore((state) => state.flashMode);
+  const setFlashMode = useClickSettingsStore((state) => state.setFlashMode);
 
   return (
     <>
@@ -57,6 +77,36 @@ export function PlaybackPanel() {
             aria-describedby={descriptionId}
             checked={showMetronome}
             onCheckedChange={(checked) => setVisibility({ showMetronome: checked })}
+          />
+        )}
+      </SettingsRow>
+      <SettingsRow
+        layout="stacked"
+        label="Metronome sound"
+        description="Choose the sound used by the metronome and Click activity."
+      >
+        {({ labelId, descriptionId }) => (
+          <ButtonGroup
+            options={CLICK_SOUND_OPTIONS}
+            value={sound}
+            onChange={setSound}
+            ariaLabelledBy={labelId}
+            ariaDescribedBy={descriptionId}
+          />
+        )}
+      </SettingsRow>
+      <SettingsRow
+        layout="stacked"
+        label="Click player flash"
+        description="Flash on each beat or only on the first beat of each bar. Disabled when reduced motion is enabled."
+      >
+        {({ labelId, descriptionId }) => (
+          <ButtonGroup
+            options={CLICK_FLASH_OPTIONS}
+            value={flashMode}
+            onChange={setFlashMode}
+            ariaLabelledBy={labelId}
+            ariaDescribedBy={descriptionId}
           />
         )}
       </SettingsRow>

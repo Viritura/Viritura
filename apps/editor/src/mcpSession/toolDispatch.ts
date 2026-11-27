@@ -17,11 +17,12 @@ import { getScoreTimeline, getScoreVideoSync, getSectionTimings } from "./scoreT
 import { searchAnnotations } from "./annotationSearch";
 import { getNoteTable } from "./noteTable";
 import { useMcpSessionStore, type McpProposal } from "./sessionStore";
-import { acceptMcpProposal } from "./proposalAcceptance";
+import { acceptMcpProposal, isMcpProposalCurrent } from "./proposalAcceptance";
 import { appendPatchBatch, discardPatchBatch, getPatchBatch } from "./patchBatches";
 import { readScorePatches } from "./scorePatches";
 import { previewPatches, previewRepairs } from "./patchPreview";
 import { executeIdempotentRequest } from "./idempotentRequests";
+import { getDocumentIdentity, getRevisionBase, patchesStillApplicable, rememberRevision } from "./patchRevisions";
 
 const MAX_WHOLE_DOCUMENT_PREVIEW_BYTES = 512 * 1024;
 
@@ -40,7 +41,8 @@ export async function dispatchMcpTool(
     try {
       const input = isObject(args) ? args : {};
       if (name.startsWith("preview.") && name !== "preview.get_status" && name !== "preview.get_batch") {
-        const conflict = checkBaseRevision(documentStore, input);
+        const patchTool = name === "preview.propose_patches" || name === "preview.propose_chord_notes";
+        const conflict = checkBaseRevision(documentStore, input, patchTool || name === "preview.cancel_batch");
         if (conflict) return conflict;
       }
       return dispatch(documentStore, name, args);
@@ -60,12 +62,13 @@ export async function dispatchMcpTool(
     output.replayed = true;
     if (typeof output.proposalId === "string") {
       let proposal = useMcpSessionStore.getState().proposals[output.proposalId];
-      if (proposal?.status === "pending" && proposal.originalRevision !== documentStore.getState().scoreRevision) {
+      if (proposal?.status === "pending" && !isMcpProposalCurrent(documentStore, proposal)) {
         useMcpSessionStore.getState().setProposalStatus(proposal.id, "stale");
         proposal = useMcpSessionStore.getState().proposals[proposal.id];
       }
       if (proposal) {
         output.status = proposal.status;
+        rememberRevision(documentStore);
         return {
           ...result,
           content: [{ type: "text", text: `Proposal ${proposal.id} is ${proposal.status} (replayed request).` }],
@@ -77,17 +80,24 @@ export async function dispatchMcpTool(
       }
     }
   }
-  if (documentStore.getState().workingScore) output.revision = documentStore.getState().scoreRevision;
+  if (documentStore.getState().workingScore) {
+    output.revision = documentStore.getState().scoreRevision;
+    rememberRevision(documentStore);
+  }
   return { ...result, structuredContent: output };
 }
 
-function checkBaseRevision(documentStore: DocumentStore, input: Record<string, unknown>): McpToolResult | null {
+function checkBaseRevision(
+  documentStore: DocumentStore,
+  input: Record<string, unknown>,
+  allowStale = false,
+): McpToolResult | null {
   if (input.baseRevision === undefined) return null;
   if (typeof input.baseRevision !== "string" || input.baseRevision.length === 0) {
     return failure("invalid_revision", "baseRevision must be a non-empty revision string.");
   }
   const currentRevision = documentStore.getState().scoreRevision;
-  if (input.baseRevision !== currentRevision) {
+  if (!allowStale && input.baseRevision !== currentRevision) {
     return failure("revision_conflict", "The score changed since the requested base revision.", {
       baseRevision: input.baseRevision,
       currentRevision,
@@ -319,6 +329,8 @@ function proposePatches(documentStore: DocumentStore, args: unknown): McpToolRes
   } catch (error) {
     return failure("invalid_patches", error instanceof Error ? error.message : String(error));
   }
+  const conflict = checkPatchRevision(documentStore, patches, input.baseRevision);
+  if (conflict) return conflict;
   const summary = typeof input.summary === "string" ? input.summary.slice(0, 240) : undefined;
   if (batchId === undefined) {
     if (final === false) return failure("invalid_batch", "final: false requires a batchId.");
@@ -343,7 +355,14 @@ function proposePatchBatch(
   const state = documentStore.getState();
   if (!state.workingScore || !state.mnxJson) return failure("no_document", "No score is open in Viritura.");
 
-  const result = appendPatchBatch(batchId, state.workingScore, state.scoreRevision, patches, !final);
+  const result = appendPatchBatch(
+    batchId,
+    state.workingScore,
+    state.scoreRevision,
+    getDocumentIdentity(documentStore),
+    patches,
+    !final,
+  );
   if (!result.ok) return failure(result.code, result.message);
   const patchCount = result.patches.length;
   if (!final) {
@@ -521,6 +540,7 @@ function proposeChordNotes(documentStore: DocumentStore, args: unknown): McpTool
     patches,
     typeof input.summary === "string" ? input.summary.slice(0, 240) : `Add ${patches.length} chord notes`,
     input.allowRhythmTruncation === true,
+    input.baseRevision,
   );
 }
 
@@ -529,10 +549,13 @@ function stageProposal(
   patches: readonly ScorePatch[],
   summary: string,
   allowRhythmTruncation = false,
+  baseRevision?: unknown,
 ): McpToolResult {
   const state = documentStore.getState();
   const score = state.workingScore;
   if (!score || !state.mnxJson) return failure("no_document", "No score is open in Viritura.");
+  const conflict = checkPatchRevision(documentStore, patches, baseRevision);
+  if (conflict) return conflict;
 
   const preview = previewPatches(score, patches);
   const repairFailure = rejectUnsafeRepairs(preview, allowRhythmTruncation);
@@ -545,6 +568,7 @@ function stageProposal(
     patches: preview.effectivePatches,
     originalMnx: JSON.stringify(serializeMnx(score)),
     originalRevision: state.scoreRevision,
+    patchBase: { score: structuredClone(score), documentIdentity: getDocumentIdentity(documentStore) },
     proposedMnx:
       state.mnxJson.length <= MAX_WHOLE_DOCUMENT_PREVIEW_BYTES ? JSON.stringify(proposedDocument, null, 2) : null,
     ...(preview.needsDocumentCommit ? { repairMnx: proposedJson } : {}),
@@ -626,7 +650,7 @@ function getProposalStatus(documentStore: DocumentStore, args: unknown): McpTool
   }
   let proposal = useMcpSessionStore.getState().proposals[input.proposalId];
   if (!proposal) return failure("proposal_not_found", "No proposal with that id exists in this editor session.");
-  if (proposal.status === "pending" && proposal.originalRevision !== documentStore.getState().scoreRevision) {
+  if (proposal.status === "pending" && !isMcpProposalCurrent(documentStore, proposal)) {
     useMcpSessionStore.getState().setProposalStatus(proposal.id, "stale");
     proposal = useMcpSessionStore.getState().proposals[input.proposalId]!;
   }
@@ -646,7 +670,8 @@ function readPatchBatch(documentStore: DocumentStore, args: unknown): McpToolRes
   if (typeof input.batchId !== "string" || input.batchId.length === 0) {
     return failure("invalid_batch", "batchId must be a non-empty string.");
   }
-  const batch = getPatchBatch(input.batchId, documentStore.getState().scoreRevision);
+  const state = documentStore.getState();
+  const batch = getPatchBatch(input.batchId, state.workingScore, getDocumentIdentity(documentStore));
   if (!batch) return failure("batch_not_found", "No open batch with that id exists in this editor session.");
   return success(batch, `Batch ${batch.batchId} is ${batch.status}.`);
 }
@@ -662,6 +687,26 @@ function cancelPatchBatch(args: unknown): McpToolResult {
 
 function success(value: object, text: string): McpToolResult {
   return { content: [{ type: "text", text }], structuredContent: value };
+}
+
+function checkPatchRevision(
+  documentStore: DocumentStore,
+  patches: readonly ScorePatch[],
+  baseRevision: unknown,
+): McpToolResult | null {
+  const state = documentStore.getState();
+  if (baseRevision === undefined || baseRevision === state.scoreRevision) return null;
+  const base = typeof baseRevision === "string" ? getRevisionBase(documentStore, baseRevision) : undefined;
+  if (
+    base &&
+    state.workingScore &&
+    patchesStillApplicable(base, state.workingScore, getDocumentIdentity(documentStore), patches)
+  )
+    return null;
+  return failure("revision_conflict", "The patch area changed or the base revision is no longer available.", {
+    baseRevision,
+    currentRevision: state.scoreRevision,
+  });
 }
 
 function failure(code: string, message: string, details?: object): McpToolResult {

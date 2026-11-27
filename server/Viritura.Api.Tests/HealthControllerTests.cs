@@ -6,11 +6,11 @@ using Xunit;
 
 namespace Viritura.Api.Tests;
 
-public sealed class HealthControllerTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class HealthControllerTests : IClassFixture<IsolatedApiFactory>
 {
     private readonly WebApplicationFactory<Program> _factory;
 
-    public HealthControllerTests(WebApplicationFactory<Program> factory)
+    public HealthControllerTests(IsolatedApiFactory factory)
     {
         _factory = factory;
     }

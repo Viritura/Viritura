@@ -191,15 +191,17 @@ defines pedal positions and glyphs.
 
 ### Inputs and scope
 
-The editor's current Auto command solves the whole part in a cancellable
-worker. Tie-chain handling and ranked tuning-state search are implemented;
-bounded-selection application and restoration remain follow-up work.
+The editor's Auto command solves the whole harp part in a cancellable worker.
+Bounded-selection solving is intentionally out of scope: the greedy pass already
+holds each setting until the next note that needs a change, and manual snapshots
+act as fixed anchors, so a user who wants to constrain a passage places a
+manual setting rather than solving a selection.
 
-**Calculate harp pedals** solves the active harp part or a bounded selection.
+**Calculate harp pedals** solves the active harp part.
 Always run the spelling-preserving pass and the enharmonic search before
 deciding whether to auto-apply or open a solution dialog. Preserve every manual
-snapshot as a hard anchor. Recompute only calculated snapshots inside the chosen
-scope; change note spelling only as part of an applied enharmonic solution.
+snapshot as a hard anchor. Recompute only calculated snapshots; change note
+spelling only as part of an applied enharmonic solution.
 Do not run or persist the calculator automatically whenever notes change.
 
 Build one ordered stream of musical constraints across both staves and all
@@ -216,7 +218,7 @@ that policy rather than promising sub-grace pedal choreography.
 
 ### Spelling-preserving baseline: longest compatible prefix
 
-For each region bounded by manual snapshots or the requested end:
+For each region bounded by manual snapshots or the part end:
 
 1. If a manual snapshot fixes the current boundary, retain it exactly and
    advance until its first incompatible onset. A conflict at the manual
@@ -296,11 +298,9 @@ category rules below specify how to prioritize them:
 3. Use deterministic spelling and placement tie-breaks for otherwise equivalent
    results, and preserve existing calculated IDs where the content is unchanged.
 
-Include transitions into and out of the selected region when their tuning is
-known, including any required restoration setting. Do not count the first
-setting in an unknown initial state as a pedal-setting _change_ or assign it
-invented individual pedal movements. All candidates must use the same boundaries
-and cost accounting.
+Do not count the first setting in an unknown initial state as a pedal-setting
+_change_ or assign it invented individual pedal movements. All candidates must
+use the same boundaries and cost accounting.
 
 If the enhanced search finds a better zero-respelling path than the greedy
 baseline, use it as the "No respelling" candidate before comparing alternatives.
@@ -366,17 +366,8 @@ Required candidate-flow cases:
   voices, and staves. Update spelling-dependent accidental display and derived
   notation consistently. Do not transpose notes or break ties to obtain a
   better pedal cost.
-- A tie chain crossing the selected boundary keeps its original spelling
-  unless the entire chain is in scope. Never silently respell notes outside
-  the selected region or overwrite a locked manual snapshot.
-- Carry held-note constraints across both scope boundaries. Any required
-  restoration must remain compatible with notes whose notated duration extends
-  beyond the selection; do not truncate those notes to make a candidate valid.
-- For a bounded selection, preserve tuning outside it. Restore the original
-  known tuning at the exclusive end when needed, unless an existing manual
-  snapshot already does so. If the original following state was unknown,
-  block bounded application and explain that the scope must extend through
-  the part/harp segment end or to a user-established boundary setting.
+- Never overwrite a manual snapshot. Do not truncate held notes to make a
+  candidate valid.
 - Revalidate against the current document revision before auto-application or
   dialog Apply. If the source changed, recompute both passes and the candidate
   count rather than applying stale patches. Repeated calculation with unchanged
@@ -474,13 +465,13 @@ work into a native transport rewrite.
 
 ## 8. Delivery sequence and acceptance gates
 
-| Phase                 | Deliverable                                                                                                                                                            | Required evidence before moving on                                                                                                                                                                                                                                                    |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Contract and state | Vendor schema, generated artifacts, TS/Rust models, parse/promote/demote, shared resolver and structured issues.                                                       | Full/delta round-trips; schema rejection cases; both-staff inheritance; exact mid-measure boundaries; unknown state; instrument changes.                                                                                                                                              |
-| 2. Explicit settings  | Typed add/update/move/remove patches, command/dialog/properties, diagram engraving, hit-testing, undo/redo, and collaboration.                                         | Save/reopen; remote edits; fast/full Yjs parity; duplicate-position conflicts; part extracts; collision and system/page placement; an MNX Storybook story.                                                                                                                            |
-| 3. Ranked calculator  | Shared constraints, greedy baseline, enharmonic search, up to three ranked candidates, single-solution auto-apply, choice dialog, atomic edits, and scope restoration. | No-respelling preference; strict pedal-cost improvements; minimal versus maximum respelling; zero/one/two/three valid candidates; deduplication; exact sounding-pitch preservation; ties/manual anchors/scope boundaries; stale-result rejection; atomic undo/redo and collaboration. |
-| 4. Playback           | Harp-pedal glissando mode, instrument-aware default, timed state lookup, diagnostics, and unchanged ordinary-note pitch.                                               | Exact generated pitches/times; ascending/descending; enharmonic duplicates; C-flat/B-sharp; mid-gliss changes; chords/cross-staff spans; repeats/jumps/seeking; explicit override and non-harp regressions; native fallback.                                                          |
-| 5. Warning UX         | Cached analysis and red notehead-only overlay, with no warning banner or explanatory text.                                                                             | One bad chord note only; red remains visible when selected; mismatch playback unchanged; fix/delete/undo/remote edit refresh; selection/retention/zoom; warnings absent from exports and print preview; app Storybook story.                                                          |
+| Phase                 | Deliverable                                                                                                                                         | Required evidence before moving on                                                                                                                                                                                                                                   |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Contract and state | Vendor schema, generated artifacts, TS/Rust models, parse/promote/demote, shared resolver and structured issues.                                    | Full/delta round-trips; schema rejection cases; both-staff inheritance; exact mid-measure boundaries; unknown state; instrument changes.                                                                                                                             |
+| 2. Explicit settings  | Typed add/update/move/remove patches, command/dialog/properties, diagram engraving, hit-testing, undo/redo, and collaboration.                      | Save/reopen; remote edits; fast/full Yjs parity; duplicate-position conflicts; part extracts; collision and system/page placement; an MNX Storybook story.                                                                                                           |
+| 3. Ranked calculator  | Shared constraints, greedy baseline, enharmonic search, up to three ranked candidates, single-solution auto-apply, choice dialog, and atomic edits. | No-respelling preference; strict pedal-cost improvements; minimal versus maximum respelling; zero/one/two/three valid candidates; deduplication; exact sounding-pitch preservation; ties/manual anchors; stale-result rejection; atomic undo/redo and collaboration. |
+| 4. Playback           | Harp-pedal glissando mode, instrument-aware default, timed state lookup, diagnostics, and unchanged ordinary-note pitch.                            | Exact generated pitches/times; ascending/descending; enharmonic duplicates; C-flat/B-sharp; mid-gliss changes; chords/cross-staff spans; repeats/jumps/seeking; explicit override and non-harp regressions; native fallback.                                         |
+| 5. Warning UX         | Cached analysis and red notehead-only overlay, with no warning banner or explanatory text.                                                          | One bad chord note only; red remains visible when selected; mismatch playback unchanged; fix/delete/undo/remote edit refresh; selection/retention/zoom; warnings absent from exports and print preview; app Storybook story.                                         |
 
 Phases 2 and 3 depend on phase 1; playback and warning analysis also depend
 on the shared contract. Ship the complete vertical slice only after all five

@@ -1,4 +1,5 @@
 /* eslint-disable complexity -- canvas interaction layer; each handler is irreducibly large but cohesive */
+/* eslint-disable max-lines -- pointer handlers share canvas interaction state and delegate specialized hit testing and dragging to sibling modules */
 import { markPerformance } from "@viritura/renderer";
 import type React from "react";
 import {
@@ -75,7 +76,8 @@ export interface CanvasHandlerCtx {
   spannerDragRef: Ref<SpannerDragState | null>;
   slurHandleDragRef: Ref<SlurHandleDragState | null>;
   textExpressionDragRef: Ref<TextExpressionDragState | null>;
-  interactionModeRef: Ref<"write" | "engrave">;
+  interactionModeRef: Ref<"write" | "engrave" | "click">;
+  onClickMeasureRef: Ref<((measureIndex: number) => void) | undefined>;
   pageSetupRef: Ref<PageSetup>;
   engraveAdornmentsRef: Ref<EngraveAdornments | undefined>;
   partIdByIndexRef: Ref<readonly string[]>;
@@ -107,7 +109,7 @@ export interface CanvasHandlerCtx {
   selectElement: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
   selectElements: (ids: readonly string[]) => void;
   extendSelection: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
-  toggleSelection: (id: string) => void;
+  toggleSelection: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
   clearSelection: () => void;
   selectMeasure: (partIndex: number, staffIndex: number, measureIndex: number, localStaffIndex?: number) => void;
   extendMeasure: (partIndex: number, staffIndex: number, measureIndex: number, localStaffIndex?: number) => void;
@@ -123,6 +125,14 @@ export interface CanvasHandlerCtx {
 
 export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
   markPerformance("viritura:input-event");
+  if (ctx.interactionModeRef.current === "click") {
+    const canvas = ctx.canvasRef.current;
+    if (!canvas) return;
+    const point = screenToEngine(e, canvas, ctx.viewport, ctx.displayListRef.current, ctx.viewMode);
+    const hit = point ? pointerToMeasure(point.scoreX, point.scoreY, ctx.displayListRef.current?.measureBounds) : null;
+    if (hit) ctx.onClickMeasureRef.current?.(hit.measureIndex);
+    return;
+  }
   // Perf overlay buttons take precedence
   if (ctx.performanceOverlayEnabled) {
     const canvas = ctx.canvasRef.current;
@@ -376,6 +386,7 @@ function selectMeasureOrClear(
 }
 
 export function handleCanvasMouseDownImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+  if (ctx.interactionModeRef.current === "click") return;
   // Capture the middle pointer so the viewport's native drag listener keeps
   // receiving movement after the pointer leaves the canvas. Do not prevent
   // this pointerdown: useViewport starts panning from its compatibility
@@ -729,6 +740,7 @@ function commitSlurShapeDrag(ctx: CanvasHandlerCtx, drag: SlurHandleDragState): 
 }
 
 export function handleCanvasMouseUpImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+  if (ctx.interactionModeRef.current === "click") return;
   if (e.button === 1) {
     releaseMiddlePointer(e, ctx.panPointerIdRef);
     return;
@@ -747,6 +759,7 @@ export function handleCanvasMouseUpImpl(e: React.PointerEvent<HTMLCanvasElement>
 }
 
 export function handleCanvasPointerCancelImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+  if (ctx.interactionModeRef.current === "click") return;
   releaseMiddlePointer(e, ctx.panPointerIdRef);
   ctx.mouseDownPosRef.current = null;
   ctx.dragOccurredRef.current = true;
@@ -757,6 +770,7 @@ function capturePointer(e: React.PointerEvent<HTMLCanvasElement>): void {
 }
 
 export function handleCanvasMouseMoveImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+  if (ctx.interactionModeRef.current === "click") return;
   const start = ctx.mouseDownPosRef.current;
   if (start) {
     // Returning to the press position does not turn a pan/drag into a click.
@@ -845,6 +859,7 @@ export function handleCanvasMouseMoveImpl(e: React.PointerEvent<HTMLCanvasElemen
 }
 
 export function handleCanvasMouseLeaveImpl(ctx: CanvasHandlerCtx): void {
+  if (ctx.interactionModeRef.current === "click") return;
   if (ctx.interactionModeRef.current === "write") {
     if (ctx.hoverSlurHandleKeyRef.current) {
       ctx.hoverSlurHandleKeyRef.current = null;
@@ -892,6 +907,10 @@ function updateSlurHandleHover(
 }
 
 export function handleCanvasContextMenuImpl(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+  if (ctx.interactionModeRef.current === "click") {
+    e.preventDefault();
+    return;
+  }
   if (ctx.interactionModeRef.current !== "engrave") {
     openWriteSelectionContextMenu(e, ctx);
     return;

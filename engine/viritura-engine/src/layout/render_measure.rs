@@ -22,67 +22,22 @@ use crate::render::*;
 use std::collections::{HashMap, HashSet};
 
 mod clef_changes;
+mod cross_staff;
 mod global_caesuras;
 mod measure_repeats;
 mod multimeasure_rests;
+mod repeat_signatures;
 mod shared_lanes;
 
 pub(crate) use clef_changes::*;
+pub(super) use cross_staff::{cross_staff_y, cross_staff_y_scalar};
 pub(crate) use measure_repeats::*;
 pub(crate) use multimeasure_rests::*;
+pub(crate) use repeat_signatures::*;
 pub(crate) use shared_lanes::*;
 
 /// Middle staff line position in half-spaces from the top line.
 pub(super) const MIDDLE_LINE_POS: f64 = 4.0;
-
-/// Compute the effective staff_y for a cross-staff event.
-/// If the event has a `staff` override that differs from its parent sequence's
-/// staff, anchor it to the target staff's Y.
-///
-/// `event.staff` (and `sequence_staff`) are **part-relative** staff numbers
-/// (1 = the part's top staff). `staff_y_offsets` holds the Y of every visual
-/// staff in the *whole system* (across all parts), so we must NOT index it with
-/// the part-relative staff number directly — for any part that isn't the first
-/// in the system that would land the note on some other part's staff (e.g. a
-/// piano cross-staff note jumping onto a flute staff). Instead we recover the
-/// current staff's visual index from `staff_y` (the caller always passes
-/// `staff_y_offsets[vi]`) and shift by the part-relative delta, since a part's
-/// staves are contiguous in system order.
-/// Falls back to the default `staff_y` when no cross-staff override is active.
-pub(super) fn cross_staff_y(
-    el: &EventLayout,
-    staff_y: f64,
-    staff_y_offsets: Option<&[f64]>,
-) -> f64 {
-    cross_staff_y_scalar(el.event.staff, el.sequence_staff, staff_y, staff_y_offsets)
-}
-
-/// Arena-friendly variant of [`cross_staff_y`] taking the two scalar fields it
-/// reads (`event.staff`, `sequence_staff`) directly, so callers iterating the
-/// `EventArena` need not materialize an `EventLayout`.
-pub(super) fn cross_staff_y_scalar(
-    event_staff: Option<u32>,
-    sequence_staff: u32,
-    staff_y: f64,
-    staff_y_offsets: Option<&[f64]>,
-) -> f64 {
-    if let Some(target_staff) = event_staff {
-        if target_staff != sequence_staff {
-            if let Some(offsets) = staff_y_offsets {
-                // Recover this staff's visual index by matching its Y, then
-                // offset by the part-relative staff delta.
-                if let Some(cur_idx) = offsets.iter().position(|&y| (y - staff_y).abs() < 0.5) {
-                    let delta = target_staff as i64 - sequence_staff as i64;
-                    let tgt = cur_idx as i64 + delta;
-                    if tgt >= 0 && (tgt as usize) < offsets.len() {
-                        return offsets[tgt as usize];
-                    }
-                }
-            }
-        }
-    }
-    staff_y
-}
 
 // ═══════════════════════════════════════════
 // Rendering into DisplayList
@@ -209,14 +164,15 @@ fn render_measure_prefix(
         .and_then(|clefs| clefs.iter().find(|c| c.position.is_none()));
 
     // Mid-system start-of-measure clef change. Standard engraving practice
-    // engraves it BEFORE the preceding barline (at the end of the previous
-    // measure), not after it. `clef_change_measures` is the measure-level set
+    // engraves it before an ordinary preceding barline, but after an end
+    // repeat when it applies only to following music. `clef_change_measures` is the measure-level set
     // (any part of this measure changes clef), so the shared barline shifts
     // right by the same leading gap on EVERY staff and stays vertically aligned
     // even when only one part actually changes clef. The leading-gap space is
     // reserved uniformly by `compute_prefix_width`.
-    let is_clef_change_measure =
-        !is_first && !ml.is_first_on_system && clef_change_measures.contains(&rm.index);
+    let is_clef_change_measure = !is_first
+        && !ml.is_first_on_system
+        && (clef_change_measures.contains(&rm.index) || rm.repeat_clef_restatement);
     // Footprint of the 2/3-size change clef drawn in the leading gap.
     let leading_clef_gap = prefix.leading_clef_gap;
 
@@ -232,7 +188,7 @@ fn render_measure_prefix(
     // default for single-staff parts.
     //
     // A repeat-start barline that opens a system (or the piece), or coincides
-    // with a key change, is deferred: the clef and key signature come first,
+    // with a key or time change, is deferred: the clef and signatures come first,
     // with the start-repeat barline drawn immediately before the music (see
     // below). Its 1.5sp slot is reserved at the end of the prefix region, and
     // no ordinary barline is drawn before a mid-system key change.
@@ -243,7 +199,7 @@ fn render_measure_prefix(
         // actually changes clef) in the leading gap BEFORE the barline, then
         // advance the cursor past the gap uniformly so the barline lands at the
         // same x on every staff regardless of which parts changed clef.
-        if is_clef_change_measure {
+        if is_clef_change_measure && !rm.prev_has_repeat_end {
             if let Some(pc) = explicit_clef_change {
                 // Right-align the change clef against the barline's LEFT ink
                 // edge (not its center) with a fixed pad, so it clears wide
@@ -269,7 +225,19 @@ fn render_measure_prefix(
             dl.tag_command(ci, element_id::barline(rm.index));
         }
         x_cursor += prefix.barline_advance;
+        x_cursor +=
+            render_repeat_ending_left_bracket_at(dl, ml, x_cursor, staff_y, sp, config, true);
+        if is_clef_change_measure && rm.prev_has_repeat_end {
+            if let Some(pc) = explicit_clef_change {
+                let cmd_idx = dl.commands.len();
+                render_change_clef(dl, x_cursor, staff_y, sp, &pc.clef);
+                dl.tag_command(cmd_idx, element_id::clef(ml.part_index, rm.index));
+            }
+            x_cursor += CLEF_CHANGE_LEADING_GAP_SP * sp;
+        }
     }
+
+    x_cursor += render_repeat_ending_left_bracket_at(dl, ml, x_cursor, staff_y, sp, config, false);
 
     // Condensing change marker: small dashed line above the staff at the barline
     // where a condensing mode transition occurs (e.g., unison → divisi).
@@ -312,9 +280,13 @@ fn render_measure_prefix(
     // Key signature — render on key changes, at the start of the score, and
     // at the start of each system (continuation key signatures).
     // Ref:— key signatures repeat at every system start.
-    let is_key_change = rm.key_signature_changed();
+    let is_key_change = rm.key_signature_changed() || rm.repeat_key_restatement_from.is_some();
+    let cancel_from = rm
+        .repeat_key_restatement_from
+        .as_ref()
+        .unwrap_or(&rm.prev_key);
     let cancel_count = if is_key_change {
-        rm.prev_key.cancellation_count(&rm.active_key)
+        cancel_from.cancellation_count(&rm.active_key)
     } else {
         0
     };
@@ -328,7 +300,7 @@ fn render_measure_prefix(
             .map(|pc| &pc.clef.sign)
             .unwrap_or(&ClefSign::G);
         let cancel_prev = if cancel_count > 0 {
-            Some(&rm.prev_key)
+            Some(cancel_from)
         } else {
             None
         };
@@ -382,36 +354,20 @@ fn render_measure_prefix(
         x_cursor += time_sig_reserve;
     }
 
+    if rm.repeat_ending_brackets {
+        draw_repeat_signature_bracket(dl, x_cursor, staff_y, sp, config, rm.index, false);
+        x_cursor += REPEAT_SIGNATURE_BRACKET_SP * sp;
+    }
+
     // A deferred repeat-start barline sits immediately after the clef/key/time
     // prefix — its reserved 1.5sp slot ends one trailing pad (1.2sp) before the
     // first note. Anchoring to the aligned prefix keeps it vertical across
     // staves whose key signatures differ in width.
     if defer_repeat_start {
-        let bar_x = (x_cursor + 0.5 * sp).max(deferred_repeat_start_x(ml, sp));
-        let cmd_idx = dl.commands.len();
-        render_barline(
-            dl,
-            bar_x,
-            staff_y,
-            staff_height,
-            sp,
-            config,
-            &BarlineKind::RepeatStart,
-        );
-        for ci in cmd_idx..dl.commands.len() {
-            dl.tag_command(ci, element_id::barline(rm.index));
-        }
+        render_deferred_repeat_start(dl, ml, x_cursor, staff_y, sp, config);
     }
 
     x_cursor
-}
-
-/// Aligned x of a deferred start-repeat barline: the end of the shared prefix
-/// minus the onset gap and the 1.5sp repeat slot, inset by its 0.5sp approach.
-pub(crate) fn deferred_repeat_start_x(ml: &MeasureLayout, sp: f64) -> f64 {
-    ml.x + ml.prefix_width
-        - ml.first_onset_padding
-        - (super::measure::PREFIX_TO_ONSET_GAP_SP + 1.0) * sp
 }
 
 /// Collect every notehead in a measure as an accidental-clearance obstacle
@@ -504,11 +460,7 @@ pub(crate) fn render_measure(
     // that aligns to the barline (the rehearsal mark) must shift with it.
     let leading_clef_gap = measure_leading_clef_gap(ml, sp, clef_change_measures);
     let shared_lane = shared_staff_lane(staff_y, sp, shared_lane_staff_y_offsets);
-    let render_mmr_range_here = if shared_lane.center_y.is_some() {
-        shared_lane.is_bottom
-    } else {
-        render_ordinary_measure_number
-    };
+    let render_mmr_range_here = render_ordinary_measure_number;
 
     // Handle multimeasure rest rendering
     if let Some(count) = ml.multimeasure_rest_count {
@@ -560,7 +512,15 @@ pub(crate) fn render_measure(
             &[],
             shared_lane_staff_y_offsets,
         );
-        render_measure_numbers(dl, ml, staff_y, sp, config, render_mmr_range_here);
+        render_measure_numbers(
+            dl,
+            ml,
+            staff_y,
+            sp,
+            config,
+            render_mmr_range_here,
+            leading_clef_gap,
+        );
         return;
     }
 
@@ -1072,7 +1032,15 @@ pub(crate) fn render_measure(
     render_chord_symbols(dl, ml, staff_y, sp, config);
 
     // Render measure numbers below the designated staff.
-    render_measure_numbers(dl, ml, staff_y, sp, config, render_ordinary_measure_number);
+    render_measure_numbers(
+        dl,
+        ml,
+        staff_y,
+        sp,
+        config,
+        render_ordinary_measure_number,
+        leading_clef_gap,
+    );
 
     // Render breath marks above staff
     render_breath_marks(dl, ml, staff_y, sp, config);

@@ -29,6 +29,8 @@ pub struct LayoutGroup {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub label_ref: Option<LayoutLabelRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub barline_style: Option<String>,
 }
 
@@ -37,13 +39,14 @@ pub struct LayoutGroup {
 /// Model-internal type — construction goes through
 /// `promote::layout::promote_layout_staff`.
 #[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct LayoutStaff {
     #[serde(default)]
     pub sources: Vec<LayoutSource>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub labelref: Option<String>,
+    pub label_ref: Option<LayoutLabelRef>,
     /// Staff symbol type (MNX `symbol`): "brace", "bracket", "square", "noSymbol".
     /// Nested brackets render as full brackets; `square` is the thin sub-bracket.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -77,6 +80,7 @@ pub struct LayoutStaff {
 
 /// A source mapping a part (and optionally a staff/voice within it) to a layout staff.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct LayoutSource {
     pub part: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -86,7 +90,23 @@ pub struct LayoutSource {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub voice: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub labelref: Option<String>,
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label_ref: Option<LayoutLabelRef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LayoutLabelRef {
+    #[serde(rename = "ref", skip_serializing_if = "Option::is_none")]
+    pub reference: Option<crate::raw::LabelRefType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+    #[serde(rename = "_c", skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(rename = "_x", skip_serializing_if = "Option::is_none")]
+    pub extensions: Option<serde_json::Value>,
 }
 
 impl LayoutStaff {
@@ -121,6 +141,8 @@ pub struct MultimeasureRestRange {
 #[serde(rename_all = "camelCase")]
 pub struct ScoreDefinition {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub bar_numbers: Option<super::score::BarNumberSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// Top-level layout reference for automatic system layout.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -139,12 +161,39 @@ pub struct ScoreDefinition {
     pub instrument_name_display: Option<InstrumentNameDisplaySettings>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub auto_hide_empty_parts: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_hide_empty_staves: Option<AutoHideEmptyStaves>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub layout_breaks: Vec<LayoutBreak>,
     /// Free rectangular text frames shown on this score view's pages
     /// (`_x.viritura.textFrames`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub text_frames: Vec<super::text_frame::TextFrame>,
+}
+
+/// Options for `auto_hide_empty_parts` (`_x.viritura.autoHideEmptyStaves`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AutoHideEmptyStaves {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_system: Option<AutoHideFirstSystem>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub keep_visible: Vec<AutoHideKeepVisible>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum AutoHideFirstSystem {
+    Hide,
+    Show,
+}
+
+/// Parts kept visible on the system that contains `measure`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AutoHideKeepVisible {
+    pub measure: String,
+    pub parts: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]

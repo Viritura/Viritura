@@ -301,6 +301,16 @@ pub(crate) fn collect_beamed_event_ids(part_measure: &PartMeasure) -> HashSet<St
     ids
 }
 
+/// Collect event IDs that belong to an authored beam in a resolved measure,
+/// including members of barline-crossing beams declared in a neighbour.
+pub(crate) fn collect_resolved_beamed_event_ids(measure: &ResolvedMeasure) -> HashSet<String> {
+    let mut ids = collect_beamed_event_ids(&measure.part);
+    for spanning in &measure.spanning_beams {
+        ids.extend(spanning.beam.events.iter().cloned());
+    }
+    ids
+}
+
 /// Collect event IDs from explicit beam declarations across all measures.
 /// Does NOT include auto-beamed events. Used to prevent auto-beaming of events
 /// that belong to cross-barline beams declared in other measures.
@@ -337,6 +347,11 @@ pub(crate) fn collect_explicit_beamed_event_ids(
             {
                 ids.extend(beam.events.iter().cloned());
             }
+        }
+        // Members of a beam broken by a system break remain beamed even
+        // though the partner system's events are not laid out here.
+        for spanning in &ml.resolved.spanning_beams {
+            ids.extend(spanning.beam.events.iter().cloned());
         }
     }
     ids

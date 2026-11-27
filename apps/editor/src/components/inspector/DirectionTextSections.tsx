@@ -158,6 +158,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
           onBassAlterChange={chordSymbol.setBassAlter}
           onVisibilityChange={chordSymbol.setVisibility}
           onTextOverrideChange={chordSymbol.setTextOverride}
+          onFretboardChange={chordSymbol.setFretboard}
         />
       )}
       <OttavaInspector score={score} target={target} updateScore={updateScore} />

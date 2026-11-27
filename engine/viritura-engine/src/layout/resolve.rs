@@ -3,6 +3,15 @@
 use super::types::*;
 use crate::model::*;
 
+mod global_fermatas;
+pub(crate) use global_fermatas::project_on_staff as project_global_fermatas_on_staff;
+mod repeat_accidentals;
+mod repeat_signatures;
+mod spanning_beams;
+pub(crate) use repeat_accidentals::{apply_repeat_courtesy_accidentals, has_repeat_navigation};
+pub(crate) use repeat_signatures::apply_repeat_signature_restatements;
+pub(crate) use spanning_beams::{attach_spanning_beams, attach_system_spanning_beams};
+
 /// Whether `index` lies inside a measure-repeat span in this part. MNX encodes
 /// the sign only on the first covered bar, so later covered bars must derive
 /// this state by looking backward.
@@ -259,6 +268,7 @@ fn incoming_tie_targets(measures: &[PartMeasure], index: usize) -> Vec<String> {
 pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<ResolvedMeasure> {
     let part = &score.parts[part_index];
     let globals = &score.global.measures;
+    let use_beams = super::support_flags::engraving_flags(score).0;
 
     // Resolve staff 1's effective staff-local meter at every measure index up
     // front (inherits until changed/reset — see `crate::model::staff_meter`).
@@ -288,6 +298,8 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
     let count = globals.len().max(part.measures.len());
     let mut prev_display_key = KeySignature::default();
     let mut previous_accidental_state = AccidentalState::new();
+    let empty_accidental_state = AccidentalState::new();
+    let repeat_navigation = has_repeat_navigation(globals);
     for i in 0..count {
         let (transposition, key_fifths_flip_at) =
             ActiveInstrument::at(part, i, (0, 1)).display_transposition(use_written);
@@ -355,6 +367,9 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
                         chord.source_index = Some(index);
                         chord.source_part_index = Some(part_index);
                         chord
+                            .fretboards
+                            .retain(|frame| Some(frame.part_id.as_str()) == part.id.as_deref());
+                        chord
                     })
                     .collect()
             })
@@ -366,6 +381,12 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         if let Some(ref k) = global.key {
             active_key = k.clone();
         }
+        global_fermatas::project(
+            &mut part_measure,
+            &global,
+            active_time.measure_beats(),
+            staff_meter_table.get(i),
+        );
 
         // Carry forward clefs across measures: if this measure has no start clef,
         // inject the last active clef with position (0,1) so it participates in
@@ -406,7 +427,11 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             &mut part_measure,
             display_transposition,
             &incoming_ties,
-            &previous_accidental_state,
+            if repeat_navigation {
+                &empty_accidental_state
+            } else {
+                &previous_accidental_state
+            },
         );
         let measure_staff_lines = super::staff_lines::resolve_measure_staff_lines(
             &mut active_staff_lines,
@@ -419,6 +444,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             index: i,
             global,
             part: part_measure,
+            use_beams,
             chord_symbols,
             measure_repeat_covered: measure_is_covered_by_repeat(&part.measures, i),
             next_has_repeat_start,
@@ -426,9 +452,15 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             prev_has_repeat_end,
             active_time: active_time.clone(),
             active_key: display_key.clone(),
+            repeat_key_restatement_from: None,
+            repeat_time_restatement: None,
+            repeat_clef_restatement: false,
+            repeat_ending_brackets: false,
             prev_key: prev_display_key.clone(),
             system_end: Default::default(),
             tie_continuation_ids: incoming_ties,
+            spanning_beams: Vec::new(),
+            repeat_glissandos: super::glissando::resolve_repeat_glissandos(score, part_index, i),
             active_staff_lines: measure_staff_lines,
             transposition,
             written_diatonic_adjustment: diatonic_adjustment,
@@ -440,6 +472,11 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         previous_accidental_state = current_accidental_state;
         prev_display_key = display_key;
     }
+    if repeat_navigation {
+        apply_repeat_signature_restatements(&mut result, globals);
+        apply_repeat_courtesy_accidentals(&mut result, globals);
+    }
+    attach_spanning_beams(&mut result);
     result
 }
 
@@ -453,11 +490,11 @@ pub(crate) fn measure_barline_context(
             .and_then(|measure| measure.barline.as_ref())
             .map(|barline| barline.barline_type),
         previous.is_some_and(|measure| measure.repeat_end.is_some()),
-        // A repeat start coinciding with a key change is drawn after the new
-        // key, so the preceding measure reserves no trailing repeat width.
-        globals
-            .get(index + 1)
-            .is_some_and(|measure| measure.repeat_start.is_some() && measure.key.is_none()),
+        // A repeat start coinciding with a key or time change follows the
+        // signature, so the preceding measure reserves no trailing repeat width.
+        globals.get(index + 1).is_some_and(|measure| {
+            measure.repeat_start.is_some() && measure.key.is_none() && measure.time.is_none()
+        }),
     )
 }
 
@@ -647,7 +684,8 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
     }
     let cur = &resolved[i];
     let g = &cur.global;
-    let starts_here = g.caesura.is_some()
+    let starts_here = !g.fermatas().is_empty()
+        || g.caesura.is_some()
         || g.time.is_some()
         || cur
             .chord_symbols
@@ -681,7 +719,8 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
                 | BarlineType::HeavyHeavy
         )
     );
-    let ends_prev = pg.caesura.is_some()
+    let ends_prev = !pg.fermatas().is_empty()
+        || pg.caesura.is_some()
         || prev_barline_breaks
         || pg
             .system_text()
@@ -711,8 +750,8 @@ fn has_staff_configs(measure: &PartMeasure) -> bool {
 /// or a derived advance instrument reminder.
 /// All three must isolate the bar that carries them so the performer sees the
 /// pause/hold rather than having it absorbed into a collapsed H-bar. The
-/// fermata is a top-level `Event.fermata` field (per MNX v15), while
-/// caesura/breath live under `Event.markings`.
+/// Fermatas and caesuras may be on events or full-measure rests; breaths
+/// live under `Event.markings`.
 fn part_interrupts_mmr(pm: &PartMeasure) -> bool {
     pm.harp_pedals
         .as_ref()
@@ -723,15 +762,18 @@ fn part_interrupts_mmr(pm: &PartMeasure) -> bool {
                 .any(|expression| expression.instrument_reminder)
         })
         || pm.sequences.iter().any(|s| {
-            s.content.iter().any(|c| match c {
-                SequenceContent::Event(e) => {
-                    e.fermata.is_some()
-                        || e.markings
-                            .as_ref()
-                            .is_some_and(|mk| mk.caesura.is_some() || mk.breath.is_some())
-                }
-                _ => false,
-            })
+            s.full_measure
+                .as_ref()
+                .is_some_and(|rest| rest.fermata.is_some() || rest.caesura.is_some())
+                || s.content.iter().any(|c| match c {
+                    SequenceContent::Event(e) => {
+                        e.fermata.is_some()
+                            || e.markings
+                                .as_ref()
+                                .is_some_and(|mk| mk.caesura.is_some() || mk.breath.is_some())
+                    }
+                    _ => false,
+                })
         })
 }
 

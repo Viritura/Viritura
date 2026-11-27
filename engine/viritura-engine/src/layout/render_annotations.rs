@@ -26,7 +26,7 @@ mod marking_geometry;
 mod measure_numbers;
 pub(super) use marking_geometry::publish_marking_geometry;
 use marking_geometry::{
-    framed_expression_is_pinned, marking_extent, sync_marking_geometry, translate_authored_bounds,
+    marking_extent, marking_is_pinned, sync_marking_geometry, translate_authored_bounds,
 };
 #[path = "render_annotations/rehearsal_marks.rs"]
 mod rehearsal_marks;
@@ -38,7 +38,8 @@ mod tempo;
 mod text_content;
 
 pub(crate) use chord_symbols::{
-    chord_symbol_dimensions, chord_symbol_for_display, render_chord_symbols,
+    chord_symbol_dimensions, chord_symbol_for_display, chord_symbol_vertical_lift,
+    chord_symbols_min_content_width, render_chord_symbols,
 };
 use curve_clearance::slur_upper_edge_over_span;
 #[cfg(test)]
@@ -54,8 +55,12 @@ pub(crate) use dynamics::{
 };
 pub(crate) use expressions::{render_text_expressions, system_text_vertical_extras};
 pub(crate) use jump_markers::render_jump_markers;
+#[cfg(test)]
+pub(crate) use measure_numbers::below_staff_number_top_y;
 pub(crate) use measure_numbers::{
-    below_staff_number_top_y, measure_number_value, render_measure_numbers, start_clef,
+    flow_bar_numbers, has_multiple_number_locations, number_label, number_location_key,
+    number_staff_context, render_measure_numbers, reserves_number_ink, start_clef,
+    BarNumberRowPositions, BarNumberStaffContext,
 };
 #[allow(unused_imports)]
 // Public annotation barrel; tempo consumes the rehearsal API through its sibling module.
@@ -113,6 +118,7 @@ struct GatedBox {
 struct FlatTop {
     eid: String,
     rank: i32,
+    kind: ElementKind,
     left: f64,
     right: f64,
     top: f64,
@@ -565,9 +571,6 @@ pub(crate) fn flow_above_staff_dependents(
     // gap a dependent keeps as it clears slurs, flat tops, rehearsal frames and
     // tuplets is visible in the debug overlay and tunable via
     // `placementDefaults.json` rather than a single baked-in literal.
-    let expr_clearance = placement.resolve(ElementKind::Expression).padding.vertical * sp;
-    let tempo_clearance = placement.resolve(ElementKind::Tempo).padding.vertical * sp;
-
     // Pinned curve obstacles: slurs arching above the chord.
     let slurs: Vec<SlurGeometry> = dl.slur_geometries
         [slur_geom_start.min(dl.slur_geometries.len())..]
@@ -628,13 +631,10 @@ pub(crate) fn flow_above_staff_dependents(
     // Each carries its grounded stack_rank so the outward order is data-driven:
     // expressions (rank 4) settle nearer the staff, tempo (rank 6) rises above
     // them, all in one pass.
-    let expr_rank = placement.resolve(ElementKind::Expression).stack_rank;
-    let tempo_rank = placement.resolve(ElementKind::Tempo).stack_rank;
-    let caesura_metrics = placement.resolve(ElementKind::Caesura);
-
     struct Mover {
         eid: String,
         rank: i32,
+        kind: ElementKind,
         left: f64,
         right: f64,
         top: f64,
@@ -649,7 +649,7 @@ pub(crate) fn flow_above_staff_dependents(
         let Some(id) = dl.element_ids.get(idx).and_then(|o| o.as_ref()).cloned() else {
             continue;
         };
-        let rank = if id.contains("/expr") {
+        let kind = if id.contains("/expr") {
             // Only above-staff expressions. Both above- and below-staff
             // expressions now render on the alphabetic baseline (matching
             // tempo); the `y < staff_y` test (ink centre above the top line) is
@@ -659,21 +659,27 @@ pub(crate) fn flow_above_staff_dependents(
                     if matches!(baseline, TextBaseline::Alphabetic) && *y < staff_y => {}
                 _ => continue,
             }
-            expr_rank
+            ElementKind::Expression
+        } else if id.contains("/systemText/") {
+            let Some(text) = system_instruction::source_text(measure_layouts, &id) else {
+                continue;
+            };
+            if text.placement != Some(crate::model::ExpressionPlacement::Above) {
+                continue;
+            }
+            // System instructions occupy the tempo layer regardless of whether
+            // playback or metronome visibility is enabled.
+            ElementKind::Tempo
         } else if id.contains("/tempo") {
-            tempo_rank
+            ElementKind::Tempo
         } else if id.starts_with('m') && id.ends_with("/caesura") {
-            caesura_metrics.stack_rank
+            ElementKind::Caesura
         } else {
             continue;
         };
-        let clearance = if id.starts_with('m') && id.ends_with("/caesura") {
-            caesura_metrics.padding.vertical * sp
-        } else if rank == tempo_rank {
-            tempo_clearance
-        } else {
-            expr_clearance
-        };
+        let metrics = placement.resolve(kind);
+        let rank = metrics.stack_rank;
+        let clearance = metrics.padding.vertical * sp;
         if seen.iter().any(|e| e == &id) {
             continue;
         }
@@ -684,6 +690,7 @@ pub(crate) fn flow_above_staff_dependents(
         movers.push(Mover {
             eid: id,
             rank,
+            kind,
             left,
             right,
             top,
@@ -721,10 +728,11 @@ pub(crate) fn flow_above_staff_dependents(
         .fold(f64::NEG_INFINITY, f64::max);
     for m in &movers {
         let (mut left, mut right, mut top, mut bottom) = (m.left, m.right, m.top, m.bottom);
-        if m.eid.ends_with("/caesura") || framed_expression_is_pinned(measure_layouts, &m.eid) {
+        if m.eid.ends_with("/caesura") || marking_is_pinned(measure_layouts, &m.eid) {
             placed_tops.push(FlatTop {
                 eid: m.eid.clone(),
                 rank: m.rank,
+                kind: m.kind,
                 left,
                 right,
                 top,
@@ -743,7 +751,13 @@ pub(crate) fn flow_above_staff_dependents(
             let (min_left, _max_left) =
                 tempo::tempo_marking_envelope(measure_layouts, &m.eid, left, right, sp)
                     .unwrap_or_else(|| {
-                        neutral_x_envelope(measure_layouts, left, right, sp, m.rank == tempo_rank)
+                        neutral_x_envelope(
+                            measure_layouts,
+                            left,
+                            right,
+                            sp,
+                            m.kind == ElementKind::Tempo,
+                        )
                     });
             let overflow = right - system_right;
             let dx = (min_left - left).max(-overflow);
@@ -756,7 +770,7 @@ pub(crate) fn flow_above_staff_dependents(
 
         // Horizontal-first dodge is tempo-only. Expressions now stay rhythmically
         // anchored and resolve slur collisions by lifting vertically in Stage A.
-        if m.eid.contains("/tempo") {
+        if m.kind == ElementKind::Tempo {
             let dy_slur = clear_below_ceiling(
                 bottom,
                 slur_ceiling_over_span(&slurs, left, right),
@@ -800,7 +814,7 @@ pub(crate) fn flow_above_staff_dependents(
         // vertical ink clearance, so the box dodge uses a small side gap. The
         // dodge is taken ONLY when it fully clears (otherwise Stage B lifts as
         // before), so it never worsens placement.
-        if m.eid.contains("/tempo") && !rehearsal_boxes.is_empty() {
+        if m.kind == ElementKind::Tempo && !rehearsal_boxes.is_empty() {
             let (min_left, max_left) =
                 tempo::tempo_marking_envelope(measure_layouts, &m.eid, left, right, sp)
                     .unwrap_or_else(|| neutral_x_envelope(measure_layouts, left, right, sp, true));
@@ -835,8 +849,7 @@ pub(crate) fn flow_above_staff_dependents(
         // that slide *fully* removes the column overlap (a partial slide pays
         // the "text drifts off its beat" cost without buying the lower stack).
         for ft in placed_tops.iter_mut() {
-            if ft.eid.ends_with("/caesura") || framed_expression_is_pinned(measure_layouts, &ft.eid)
-            {
+            if ft.eid.ends_with("/caesura") || marking_is_pinned(measure_layouts, &ft.eid) {
                 continue;
             }
             if ft.rank >= m.rank {
@@ -887,7 +900,7 @@ pub(crate) fn flow_above_staff_dependents(
 
         // Vertical lift, outward staging. Stage A: curves (slurs + ties) and the
         // flat tops already placed by nearer movers, gated on horizontal overlap.
-        let mut ceiling = if m.rank == tempo_rank || m.eid.ends_with("/caesura") {
+        let mut ceiling = if matches!(m.kind, ElementKind::Tempo | ElementKind::Caesura) {
             fixed_ink_boxes
                 .iter()
                 .filter(|(ink_left, ink_right, _, _)| *ink_right >= left && *ink_left <= right)
@@ -917,7 +930,7 @@ pub(crate) fn flow_above_staff_dependents(
             // tempo does not stack over another tempo's flat top. It still
             // clears slurs, ties, high notes, rehearsal frames and tuplets
             // (the other stages) and still rises over lower-ranked expressions.
-            if m.rank == tempo_rank && ft.rank == tempo_rank {
+            if m.kind == ElementKind::Tempo && ft.kind == ElementKind::Tempo {
                 continue;
             }
             ceiling = Some(ceiling.map_or(ft.top, |cur| cur.min(ft.top)));
@@ -926,23 +939,16 @@ pub(crate) fn flow_above_staff_dependents(
         top -= total_dy;
         bottom -= total_dy;
 
-        // Stage B: rehearsal-mark frames (gated on horizontal AND vertical
-        // overlap with the mover's *current* box). Only tempo markings clear a
-        // rehearsal-mark frame: a tempo and a rehearsal mark are co-equal system
-        // objects that share the topmost line, so a tempo overhanging a mark's
-        // column rises above it. A performance direction (expression) is NOT a
-        // system object — the rehearsal mark owns the top slot and already
-        // dodges sideways around directions (see `render_rehearsal_marks`), so
-        // lifting the direction over the mark too would be redundant double
-        // avoidance that floats it far above the staff. Directions therefore
-        // stay put under the mark and rely on the mark's own horizontal dodge.
+        // Stage B: tempo clears overlapping rehearsal frames. Expressions
+        // remain inside the rehearsal layer; the frame clears their final ink
+        // below, including directions that overhang from a preceding measure.
         let mut box_ceiling: Option<f64> = None;
-        if m.rank == tempo_rank || m.eid.ends_with("/caesura") {
+        if matches!(m.kind, ElementKind::Tempo | ElementKind::Caesura) {
             for mb in &rehearsal_boxes {
                 if mb.right < left || mb.left > right {
                     continue;
                 }
-                if mb.bottom < top || mb.top > bottom {
+                if mb.bottom + m.clearance < top || mb.top - m.clearance > bottom {
                     continue;
                 }
                 box_ceiling = Some(box_ceiling.map_or(mb.top, |cur| cur.min(mb.top)));
@@ -970,9 +976,29 @@ pub(crate) fn flow_above_staff_dependents(
 
         // One lift, applied to commands + bbox + shapes together.
         shift_marking(dl, staff_cmd_start, &m.eid, total_dy);
+        if m.kind == ElementKind::Expression {
+            for frame in &mut rehearsal_boxes {
+                if frame.right < left || frame.left > right {
+                    continue;
+                }
+                if measure_layouts
+                    .iter()
+                    .find(|ml| Some(ml.resolved.index) == frame.measure_index)
+                    .and_then(|ml| ml.resolved.global.rehearsal_mark())
+                    .is_some_and(|mark| mark.avoid_collisions == Some(false))
+                {
+                    continue;
+                }
+                let dy = clear_below_ceiling(frame.bottom, Some(top - dy_c), rehearsal_clearance);
+                shift_marking(dl, staff_cmd_start, &frame.eid, dy);
+                frame.top -= dy;
+                frame.bottom -= dy;
+            }
+        }
         placed_tops.push(FlatTop {
             eid: m.eid.clone(),
             rank: m.rank,
+            kind: m.kind,
             left,
             right,
             top: top - dy_c,

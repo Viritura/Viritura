@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   beginGitHubLogin,
   consumeGitHubOAuthReturnIntent,
+  createGitHubGist,
   createGitHubRepository,
   findGitHubRepository,
   listGitHubRepositories,
@@ -168,6 +169,35 @@ describe("GitHub API client", () => {
       }),
     );
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain("token-123");
+  });
+
+  it("creates a Gist through the authenticated API with CSRF protection", async () => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ token: "csrf-123", headerName: "X-XSRF-TOKEN" }))
+      .mockResolvedValueOnce(jsonResponse({ id: "gist-id", htmlUrl: "https://gist.github.com/user/gist-id" }, 201));
+    const files = { "01 - score.mnx": '{"mnx":{}}' };
+
+    await expect(createGitHubGist({ files }, "https://localhost:5001")).resolves.toEqual({
+      id: "gist-id",
+      htmlUrl: "https://gist.github.com/user/gist-id",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://localhost:5001/auth/csrf",
+      expect.objectContaining({ credentials: "include", method: "GET" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://localhost:5001/github/gists",
+      expect.objectContaining({
+        credentials: "include",
+        method: "POST",
+        headers: expect.objectContaining({ "X-XSRF-TOKEN": "csrf-123" }),
+        body: JSON.stringify({ files }),
+      }),
+    );
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain("access_token");
   });
 
   it("finds an accessible GitHub repository and treats 404 as not ready", async () => {

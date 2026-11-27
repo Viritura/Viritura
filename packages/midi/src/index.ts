@@ -10,11 +10,13 @@ export type { MidiTimeline, MidiEvent, TempoMapEntry, TimelineDiagnostic } from 
 
 // Timeline generator
 export { generateTimeline, durationBeats, expandMeasureOrder } from "./timeline";
+export { writeMidiFile } from "./midiFile";
 export { expandPlaybackItinerary } from "./repeatExpansion";
 export { NavigationError } from "./navigation";
 export type { PlayedMeasureSpan } from "./navigation";
 export { expandMeasureRepeats, expandScoreMeasureRepeats } from "./measureRepeats";
 export type { TimelineOptions } from "./timeline";
+export { compilePlaybackTiming, type PlaybackTiming } from "./playbackTiming";
 export { playbackInstruments, instrumentSamplerKey } from "./instrumentPlayback";
 export type { PlaybackInstrument, InstrumentPrograms } from "./instrumentPlayback";
 export { getChordPlaybackPart } from "./chordPlayback";

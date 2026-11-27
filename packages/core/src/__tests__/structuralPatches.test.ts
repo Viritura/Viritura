@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Score } from "../model/score";
 import type { Part } from "../model/part";
-import type { RemoveMeasureExpressionPatch, SetSequenceContentPatch } from "../patches";
+import type { RemoveMeasureExpressionPatch, SetGlobalMeasureFieldPatch, SetSequenceContentPatch } from "../patches";
 import { applyPatchesToScore, patch, patchAffectedMeasures, PatchTargetMissing } from "../patches";
 
 function makeScore(): Score {
@@ -75,6 +75,65 @@ describe("structural patches — global measures", () => {
     expect(() =>
       applyPatchesToScore(score, [patch.setGlobalMeasureField(9, { field: "time", value: { count: 2, unit: 4 } })]),
     ).toThrow(PatchTargetMissing);
+  });
+
+  it.each([-1, 0.5, NaN, Infinity, -Infinity])("rejects invalid numeric global measure index %s", (measureIndex) => {
+    const score = makeScore();
+    expect(() =>
+      applyPatchesToScore(score, [
+        patch.setGlobalMeasureField(measureIndex, { field: "time", value: { count: 2, unit: 4 } }),
+      ]),
+    ).toThrow(PatchTargetMissing);
+    expect(score).toEqual(makeScore());
+  });
+
+  it.each(["__proto__", "constructor", "prototype", "0", null, true, {}, []])(
+    "rejects a non-numeric global measure index %j from JSON",
+    (measureIndex) => {
+      const score = makeScore();
+      const untrustedPatch: SetGlobalMeasureFieldPatch = JSON.parse(
+        JSON.stringify({
+          kind: "setGlobalMeasureField",
+          measureIndex,
+          update: { field: "time", value: { count: 2, unit: 4 } },
+        }),
+      );
+      const prototypeTime = Object.getOwnPropertyDescriptor(Array.prototype, "time");
+      const constructorTime = Object.getOwnPropertyDescriptor(Array, "time");
+      try {
+        expect(() => applyPatchesToScore(score, [untrustedPatch])).toThrow(PatchTargetMissing);
+        expect(Object.getOwnPropertyDescriptor(Array.prototype, "time")).toEqual(prototypeTime);
+        expect(Object.getOwnPropertyDescriptor(Array, "time")).toEqual(constructorTime);
+        expect(score).toEqual(makeScore());
+      } finally {
+        if (prototypeTime) Object.defineProperty(Array.prototype, "time", prototypeTime);
+        else Reflect.deleteProperty(Array.prototype, "time");
+        if (constructorTime) Object.defineProperty(Array, "time", constructorTime);
+        else Reflect.deleteProperty(Array, "time");
+      }
+    },
+  );
+
+  it("cannot clear a global field on Array.prototype", () => {
+    const score = makeScore();
+    const untrustedPatch: SetGlobalMeasureFieldPatch = JSON.parse(
+      JSON.stringify({
+        kind: "setGlobalMeasureField",
+        measureIndex: "__proto__",
+        update: { field: "time" },
+      }),
+    );
+    const prototypeTime = Object.getOwnPropertyDescriptor(Array.prototype, "time");
+    const time = { count: 7, unit: 8 };
+    try {
+      Object.defineProperty(Array.prototype, "time", { configurable: true, writable: true, value: time });
+      expect(() => applyPatchesToScore(score, [untrustedPatch])).toThrow(PatchTargetMissing);
+      expect(Object.getOwnPropertyDescriptor(Array.prototype, "time")?.value).toBe(time);
+      expect(score).toEqual(makeScore());
+    } finally {
+      if (prototypeTime) Object.defineProperty(Array.prototype, "time", prototypeTime);
+      else Reflect.deleteProperty(Array.prototype, "time");
+    }
   });
 });
 
@@ -357,9 +416,19 @@ describe("structural patches — parts and score-level", () => {
   });
 
   it("removePart drops a part by id", () => {
-    const score = applyPatchesToScore(makeScore(), [patch.addPart({ id: "p2", name: "Cello", measures: [] })]);
+    const initial = makeScore();
+    initial.global.measures[0]!.chordSymbols = [
+      {
+        position: { fraction: [0, 1] },
+        root: { step: "C" },
+        fretboards: [{ partId: "p1", frameStrings: 6, frameFrets: 4, frameNotes: [{ string: 1, fret: 3 }] }],
+      },
+    ];
+    const score = applyPatchesToScore(initial, [patch.addPart({ id: "p2", name: "Cello", measures: [] })]);
     const next = applyPatchesToScore(score, [patch.removePart("p1")]);
     expect(next.parts.map((p) => p.id)).toEqual(["p2"]);
+    expect(next.global.measures[0]!.chordSymbols![0]).not.toHaveProperty("fretboards");
+    expect(score.global.measures[0]!.chordSymbols![0]!.fretboards).toHaveLength(1);
   });
 
   it("setPartField updates name and clears optional fields", () => {

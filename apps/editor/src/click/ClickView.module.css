@@ -1,0 +1,395 @@
+.controller {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* Keep the shared canvas visible while hiding the app chrome during a take. */
+.performing {
+  z-index: 500;
+}
+
+.toolbar {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  container: click-toolbar / inline-size;
+}
+
+.toolbar[hidden] {
+  display: none;
+}
+
+.statusBar {
+  position: relative;
+  z-index: 21;
+}
+
+.scorePicker {
+  width: clamp(64px, 35cqw, 300px);
+  min-width: 0;
+}
+
+.filePicker {
+  width: clamp(64px, 25cqw, 220px);
+}
+
+.scorePicker button,
+.filePicker button {
+  max-width: 100%;
+}
+
+@container click-toolbar (max-width: 480px) {
+  .scorePicker [role="status"] {
+    left: auto;
+    right: 0;
+    max-width: calc(100vw - 24px);
+  }
+
+  .tempo label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .toolbar .tempo input {
+    width: 60px;
+  }
+}
+
+@container click-toolbar (max-width: 220px) {
+  .scorePicker,
+  .filePicker {
+    width: 64px;
+  }
+
+  .toolbar .tempo {
+    gap: var(--space-1);
+  }
+
+  .toolbar .tempo input {
+    width: 32px;
+  }
+}
+
+@media (max-width: 600px), (pointer: coarse) {
+  .scorePicker button,
+  .filePicker button,
+  .statusBar button {
+    min-height: 44px;
+  }
+
+  .statusBar input {
+    height: 44px;
+  }
+}
+
+/* One row must fit a phone: the status zone is a fixed height with the
+   transport directly above it, so the bar cannot wrap. */
+@media (max-width: 600px) {
+  .statusBar,
+  .statusBar > div {
+    gap: var(--space-1);
+  }
+
+  .statusBar {
+    padding-inline: var(--space-1);
+  }
+
+  .statusBar [role="radiogroup"] button {
+    padding-inline: var(--space-2);
+  }
+
+  .statusBar input[type="range"] {
+    /* Slider width is an inline style from the shared primitive. */
+    width: 40px !important;
+  }
+}
+
+.floatingTransport {
+  --expanded-width: min(560px, calc(100% - 24px));
+  position: absolute;
+  z-index: 10;
+  right: calc((100% - var(--expanded-width)) / 2);
+  bottom: calc(var(--workspace-status-zone-height, 0px) + 12px);
+  width: var(--expanded-width);
+  max-height: calc(100% - 16px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) var(--click-pulse, 0%), transparent),
+    0 0 20px 4px color-mix(in srgb, var(--accent) calc(var(--click-pulse, 0%) * 0.45), transparent),
+    0 8px 32px rgb(0 0 0 / 18%);
+  cursor: grab;
+  user-select: none;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floatingTransport,
+  .pipController {
+    --click-pulse: 0% !important;
+  }
+}
+
+.dragSurface {
+  position: absolute;
+  inset: 0;
+  /* Keep touch-action off the ancestor so each dial controls its own gestures. */
+  touch-action: none;
+}
+
+.floatingTransport:active {
+  cursor: grabbing;
+}
+
+.floatingTransport:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.transportContent {
+  position: relative;
+  padding: 10px 12px 12px;
+  pointer-events: none;
+}
+
+.transportContent
+  :is(button, input, select, textarea, a, label, [role="listbox"], [contenteditable="true"], [tabindex]) {
+  pointer-events: auto;
+}
+
+.transportContent button {
+  min-height: 44px;
+}
+
+.navigation {
+  min-width: 0;
+  cursor: auto;
+}
+
+.navigationGrid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-areas:
+    "meter rehearsal"
+    "tempo bars";
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.startMeter {
+  grid-area: meter;
+  display: flex;
+  justify-content: center;
+}
+
+.startTempo {
+  grid-area: tempo;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  white-space: nowrap;
+  font-size: var(--type-small-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.rehearsalTrack {
+  grid-area: rehearsal;
+  min-width: 0;
+}
+
+.barTrack {
+  grid-area: bars;
+  min-width: 0;
+}
+
+.navigationGrid:has(.rehearsalTrack:empty) .barTrack {
+  grid-row: 1 / 3;
+}
+
+.controlStrip {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.navigation + .controlStrip {
+  margin-top: var(--space-3);
+}
+
+.settings {
+  flex: 1;
+  min-width: 0;
+}
+
+.countoff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+}
+
+.tempo {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+  font-size: var(--type-small-size);
+}
+
+.tempo input {
+  width: 120px;
+  min-height: 44px;
+  accent-color: var(--accent);
+}
+
+.tempo output {
+  min-width: 4ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.transport {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.transport button {
+  min-width: 100px;
+  min-height: 56px;
+  margin: 0;
+}
+
+.floatingTransport[data-compact="true"] {
+  width: max-content;
+  max-width: calc(100% - 24px);
+}
+
+.compactControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.currentBar {
+  flex: 0 0 auto;
+  min-width: 1ch;
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.compactControls .transport,
+.compactControls .transport button {
+  width: auto;
+}
+
+@media (max-width: 480px) {
+  .controlStrip {
+    flex-wrap: wrap;
+  }
+
+  .settings {
+    flex-basis: 100%;
+  }
+
+  .transport {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.error {
+  padding: var(--space-4);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-md);
+  color: var(--danger, #b42318);
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: var(--space-5);
+  color: var(--text-muted);
+  text-align: center;
+  pointer-events: none;
+}
+
+.detachedNote {
+  margin: 0;
+  max-width: 16ch;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.controllerNotice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.controllerNotice p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-muted);
+}
+
+/* Root of the Document Picture-in-Picture window; it is the whole viewport there. */
+.pipController {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 100vh;
+  overflow: auto;
+  padding: 12px;
+  background: var(--surface);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--accent) var(--click-pulse, 0%), transparent),
+    inset 0 0 20px 4px color-mix(in srgb, var(--accent) calc(var(--click-pulse, 0%) * 0.45), transparent);
+  color: var(--text);
+  user-select: none;
+}
+
+.pipContent {
+  position: relative;
+}
+
+/* The window is sized to the compact controls on Start, so reserve room for bar:beat. */
+.pipController .currentBar {
+  min-width: 5ch;
+}
+
+.pipController button {
+  min-height: 44px;
+}

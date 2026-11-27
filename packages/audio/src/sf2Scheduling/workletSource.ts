@@ -37,8 +37,17 @@ export function buildSchedulingWorklet(vendorSource: string): string {
       };
       const receive = (event) => {
         const message = event.data;
+        if (message?.type === "destroyWorklet") {
+          forward(event);
+          queue = [];
+          // A live MessagePort retains the processor after process() returns
+          // false, including its decoder and other audio-thread allocations.
+          port.onmessage = null;
+          realPort.close();
+          return;
+        }
         if (message?.type === "viritura:cancelScheduledNotes") {
-          const { channels, fromAudioTime } = message;
+          const { channels, fromAudioTime, allMidi } = message;
           const owned = new Set(channels);
           queue = queue.filter((event) => {
             const { messageData, channelOffset, options } = event.data.data;
@@ -46,7 +55,7 @@ export function buildSchedulingWorklet(vendorSource: string): string {
             const kind = status & 0xf0;
             const bendState = kind === 0xb0 && [6, 38, 100, 101, 120].includes(messageData[1]);
             return !(options.time >= fromAudioTime &&
-              (kind === 0x80 || kind === 0x90 || kind === 0xe0 || bendState) &&
+              (allMidi || kind === 0x80 || kind === 0x90 || kind === 0xe0 || bendState) &&
               owned.has((status & 0x0f) + channelOffset));
           });
           return;

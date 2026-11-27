@@ -1,15 +1,11 @@
-import Ajv2020, { type ErrorObject } from "ajv/dist/2020";
+import Ajv2020, { type ErrorObject, type ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { mnxDocument } from "../mnx/standaloneValidators";
+import { mnxFixtures } from "./mnxCorpus";
 
-const fixturePath = resolve(__dirname, "../../fixtures/mnx");
-const schema = JSON.parse(readFileSync(resolve(__dirname, "../../schemas/mnx-schema.json"), "utf8"));
-const fixtures = readdirSync(fixturePath)
-  .filter((file) => file.endsWith(".mnx"))
-  .map((file) => JSON.parse(readFileSync(resolve(fixturePath, file), "utf8")));
 const invalidDocuments = [
   {},
   { mnx: { version: 1 }, global: { measures: [] }, parts: [], inventedProperty: true },
@@ -21,14 +17,32 @@ function comparableErrors(errors: ErrorObject[] | null | undefined) {
 }
 
 describe("standalone MNX validator parity", () => {
-  it("matches runtime AJV for fixtures and representative failures", () => {
+  const standaloneValidator: ((data: unknown) => boolean) & Pick<ValidateFunction, "errors"> = mnxDocument;
+  let runtimeValidator: ValidateFunction;
+
+  beforeAll(() => {
+    const schema = JSON.parse(readFileSync(resolve(__dirname, "../../schemas/mnx-schema.json"), "utf8"));
     const ajv = new Ajv2020({ strict: false, allErrors: true });
     addFormats(ajv);
-    const runtimeValidator = ajv.compile(schema);
+    runtimeValidator = ajv.compile(schema);
+  });
 
-    for (const document of [...fixtures, ...invalidDocuments]) {
-      expect(mnxDocument(document)).toBe(runtimeValidator(document));
-      expect(comparableErrors(mnxDocument.errors)).toEqual(comparableErrors(runtimeValidator.errors));
-    }
+  function expectParity(document: unknown): void {
+    expect(standaloneValidator(document)).toBe(runtimeValidator(document));
+    expect(comparableErrors(standaloneValidator.errors)).toEqual(comparableErrors(runtimeValidator.errors));
+  }
+
+  for (const file of mnxFixtures) {
+    it(
+      `matches runtime AJV for ${file.name}`,
+      () => {
+        expectParity(JSON.parse(readFileSync(file.path, "utf8")));
+      },
+      file.timeout,
+    );
+  }
+
+  it("matches runtime AJV for representative failures", () => {
+    for (const document of invalidDocuments) expectParity(document);
   });
 });

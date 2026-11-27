@@ -31,7 +31,9 @@
           "type": "boolean"
         }
       },
-      "required": ["show"],
+      "required": [
+        "show"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -46,12 +48,17 @@
           "$ref": "#/$defs/accidental-enclosure-symbol"
         }
       },
-      "required": ["symbol"],
+      "required": [
+        "symbol"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "accidental-enclosure-symbol": {
-      "enum": ["parentheses", "brackets"],
+      "enum": [
+        "parentheses",
+        "brackets"
+      ],
       "type": "string"
     },
     "alter": {
@@ -77,7 +84,10 @@
           "$ref": "#/$defs/id-pair"
         }
       },
-      "required": ["position", "span"],
+      "required": [
+        "position",
+        "span"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -92,7 +102,9 @@
           "$ref": "#/$defs/barline-type"
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -132,12 +144,18 @@
           "type": "array"
         }
       },
-      "required": ["events"],
+      "required": [
+        "events"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "beam-hook-direction": {
-      "enum": ["left", "right", "auto"],
+      "enum": [
+        "left",
+        "right",
+        "auto"
+      ],
       "type": "string"
     },
     "beam-list": {
@@ -160,7 +178,9 @@
           "$ref": "#/$defs/placement"
         }
       },
-      "required": ["direction"],
+      "required": [
+        "direction"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -186,7 +206,13 @@
       "unevaluatedProperties": false
     },
     "breath-mark-symbol": {
-      "enum": ["comma", "tick", "upbow", "salzedo", "auto"],
+      "enum": [
+        "comma",
+        "tick",
+        "upbow",
+        "salzedo",
+        "auto"
+      ],
       "type": "string"
     },
     "caesura": {
@@ -209,7 +235,12 @@
       "unevaluatedProperties": false
     },
     "caesura-shape": {
-      "enum": ["normal", "thick", "short", "curved"],
+      "enum": [
+        "normal",
+        "thick",
+        "short",
+        "curved"
+      ],
       "type": "string"
     },
     "clef": {
@@ -241,12 +272,20 @@
           "$ref": "#/$defs/staff-position"
         }
       },
-      "required": ["sign", "staffPosition"],
+      "required": [
+        "sign",
+        "staffPosition"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "clef-sign": {
-      "enum": ["C", "F", "G", "P"],
+      "enum": [
+        "C",
+        "F",
+        "G",
+        "P"
+      ],
       "type": "string"
     },
     "coda": {
@@ -266,7 +305,9 @@
           "$ref": "#/$defs/rhythmic-position"
         }
       },
-      "required": ["location"],
+      "required": [
+        "location"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -274,7 +315,11 @@
       "type": "string"
     },
     "direction-hint": {
-      "enum": ["upper", "lower", "auto"],
+      "enum": [
+        "upper",
+        "lower",
+        "auto"
+      ],
       "type": "string"
     },
     "dynamic-group-accent": {
@@ -328,7 +373,11 @@
           "$ref": "#/$defs/voice-name"
         }
       },
-      "required": ["position", "type", "value"],
+      "required": [
+        "position",
+        "type",
+        "value"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -383,7 +432,12 @@
           "$ref": "#/$defs/wedge-type"
         }
       },
-      "required": ["end", "position", "type", "wedgeType"],
+      "required": [
+        "end",
+        "position",
+        "type",
+        "wedgeType"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -429,7 +483,11 @@
           "$ref": "#/$defs/voice-name"
         }
       },
-      "required": ["position", "type", "value"],
+      "required": [
+        "position",
+        "type",
+        "value"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -478,7 +536,11 @@
           "$ref": "#/$defs/voice-name"
         }
       },
-      "required": ["position", "relativeValue", "type"],
+      "required": [
+        "position",
+        "relativeValue",
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -502,11 +564,18 @@
       "type": "array"
     },
     "dynamic-prefix": {
-      "enum": ["s", "r", ""],
+      "enum": [
+        "s",
+        "r",
+        ""
+      ],
       "type": "string"
     },
     "dynamic-suffix": {
-      "enum": ["z", ""],
+      "enum": [
+        "z",
+        ""
+      ],
       "type": "string"
     },
     "dynamic-value": {
@@ -552,7 +621,9 @@
           "$ref": "#/$defs/ending-open"
         }
       },
-      "required": ["duration"],
+      "required": [
+        "duration"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -618,7 +689,9 @@
           "type": "string"
         }
       },
-      "required": ["duration"],
+      "required": [
+        "duration"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -639,7 +712,9 @@
           "$ref": "#/$defs/event-lyric-line-type"
         }
       },
-      "required": ["text"],
+      "required": [
+        "text"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -661,7 +736,12 @@
       "unevaluatedProperties": false
     },
     "event-lyric-line-type": {
-      "enum": ["start", "middle", "end", "whole"],
+      "enum": [
+        "start",
+        "middle",
+        "end",
+        "whole"
+      ],
       "type": "string"
     },
     "event-lyric-lines": {
@@ -747,11 +827,28 @@
       "unevaluatedProperties": false
     },
     "fermata-duration": {
-      "enum": ["auto", "none", "veryLong", "long", "normal", "short", "veryShort"],
+      "enum": [
+        "auto",
+        "none",
+        "veryLong",
+        "long",
+        "normal",
+        "short",
+        "veryShort"
+      ],
       "type": "string"
     },
     "fermata-symbol": {
-      "enum": ["normal", "angled", "square", "doubleAngled", "doubleSquare", "doubleDot", "halfCurve", "curlew"],
+      "enum": [
+        "normal",
+        "angled",
+        "square",
+        "doubleAngled",
+        "doubleSquare",
+        "doubleDot",
+        "halfCurve",
+        "curlew"
+      ],
       "type": "string"
     },
     "fifths": {
@@ -771,7 +868,9 @@
           "$ref": "#/$defs/rhythmic-position"
         }
       },
-      "required": ["location"],
+      "required": [
+        "location"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -837,7 +936,9 @@
           "$ref": "#/$defs/sounds-global"
         }
       },
-      "required": ["measures"],
+      "required": [
+        "measures"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -882,12 +983,19 @@
           "type": "string"
         }
       },
-      "required": ["content", "type"],
+      "required": [
+        "content",
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "grace-type": {
-      "enum": ["makeTime", "stealFollowing", "stealPrevious"],
+      "enum": [
+        "makeTime",
+        "stealFollowing",
+        "stealPrevious"
+      ],
       "type": "string"
     },
     "id": {
@@ -895,6 +1003,7 @@
       "type": "string"
     },
     "id-pair": {
+      "additionalProperties": false,
       "properties": {
         "end": {
           "$ref": "#/$defs/id"
@@ -903,7 +1012,10 @@
           "$ref": "#/$defs/id"
         }
       },
-      "required": ["end", "start"],
+      "required": [
+        "end",
+        "start"
+      ],
       "type": "object"
     },
     "integer-signed": {
@@ -927,7 +1039,10 @@
           "$ref": "#/$defs/integer-signed"
         }
       },
-      "required": ["halfSteps", "staffDistance"],
+      "required": [
+        "halfSteps",
+        "staffDistance"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -945,12 +1060,23 @@
           "$ref": "#/$defs/jump-type"
         }
       },
-      "required": ["location", "type"],
+      "required": [
+        "location",
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "jump-type": {
-      "enum": ["dc", "dcAlCoda", "dcAlFine", "dsAlCoda", "dsAlFine", "segno", "toCoda"],
+      "enum": [
+        "dc",
+        "dcAlCoda",
+        "dcAlFine",
+        "dsAlCoda",
+        "dsAlFine",
+        "segno",
+        "toCoda"
+      ],
       "type": "string"
     },
     "key": {
@@ -967,7 +1093,9 @@
           "$ref": "#/$defs/fifths"
         }
       },
-      "required": ["fifths"],
+      "required": [
+        "fifths"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1000,7 +1128,9 @@
           "$ref": "#/$defs/staff-position"
         }
       },
-      "required": ["staffPosition"],
+      "required": [
+        "staffPosition"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1027,9 +1157,36 @@
           "$ref": "#/$defs/tie-list"
         }
       },
-      "required": ["kitComponent"],
+      "required": [
+        "kitComponent"
+      ],
       "type": "object",
       "unevaluatedProperties": false
+    },
+    "label-ref": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/label-ref-type"
+        },
+        "target": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "label-ref-type": {
+      "enum": [
+        "auto",
+        "name",
+        "shortName"
+      ],
+      "type": "string"
     },
     "language-code": {
       "type": "string"
@@ -1048,12 +1205,20 @@
           "$ref": "#/$defs/measure-rhythmic-position"
         }
       },
-      "required": ["layout", "location"],
+      "required": [
+        "layout",
+        "location"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "line-type": {
-      "enum": ["dashed", "dotted", "solid", "wavy"],
+      "enum": [
+        "dashed",
+        "dotted",
+        "solid",
+        "wavy"
+      ],
       "type": "string"
     },
     "lyric-line-id": {
@@ -1116,9 +1281,14 @@
           "items": {
             "$ref": "#/$defs/lyric-line-id"
           },
-          "type": "array"
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         }
       },
+      "required": [
+        "lineOrder"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1206,7 +1376,9 @@
           "$ref": "#/$defs/staff-position"
         }
       },
-      "required": ["number"],
+      "required": [
+        "number"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1229,7 +1401,9 @@
           "$ref": "#/$defs/multi-staff-placement"
         }
       },
-      "required": ["count"],
+      "required": [
+        "count"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1247,7 +1421,10 @@
           "$ref": "#/$defs/rhythmic-position"
         }
       },
-      "required": ["measure", "position"],
+      "required": [
+        "measure",
+        "position"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1270,7 +1447,9 @@
           "$ref": "#/$defs/version-number"
         }
       },
-      "required": ["version"],
+      "required": [
+        "version"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1303,12 +1482,22 @@
           "type": "string"
         }
       },
-      "required": ["content", "marks", "outer", "type"],
+      "required": [
+        "content",
+        "marks",
+        "outer",
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "multi-staff-placement": {
-      "enum": ["above", "auto", "below", "between"],
+      "enum": [
+        "above",
+        "auto",
+        "below",
+        "between"
+      ],
       "type": "string"
     },
     "multimeasure-rest": {
@@ -1328,7 +1517,10 @@
           "$ref": "#/$defs/id"
         }
       },
-      "required": ["duration", "start"],
+      "required": [
+        "duration",
+        "start"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1346,7 +1538,10 @@
           "$ref": "#/$defs/id-pair"
         }
       },
-      "required": ["position", "span"],
+      "required": [
+        "position",
+        "span"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1382,7 +1577,9 @@
           "$ref": "#/$defs/written"
         }
       },
-      "required": ["pitch"],
+      "required": [
+        "pitch"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1417,7 +1614,9 @@
           "$ref": "#/$defs/integer-unsigned"
         }
       },
-      "required": ["base"],
+      "required": [
+        "base"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1457,7 +1656,10 @@
           "$ref": "#/$defs/positive-integer"
         }
       },
-      "required": ["duration", "multiple"],
+      "required": [
+        "duration",
+        "multiple"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1467,9 +1669,6 @@
           "$ref": "#/$defs/global-attrs"
         }
       ],
-      "dependentRequired": {
-        "glyph": ["shape"]
-      },
       "dependentSchemas": {
         "shape": {
           "if": {
@@ -1480,7 +1679,9 @@
             }
           },
           "then": {
-            "required": ["glyph"]
+            "required": [
+              "glyph"
+            ]
           }
         }
       },
@@ -1489,16 +1690,17 @@
           "$ref": "#/$defs/smufl-glyph"
         },
         "shape": {
-          "$ref": "#/$defs/notehead-shape",
-          "default": "default"
+          "$ref": "#/$defs/notehead-shape"
         }
       },
+      "required": [
+        "shape"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "notehead-shape": {
       "enum": [
-        "default",
         "oval",
         "x",
         "diamond",
@@ -1507,6 +1709,9 @@
         "slash",
         "plus",
         "circleX",
+        "circled",
+        "slashed",
+        "backSlashed",
         "square",
         "custom"
       ],
@@ -1541,16 +1746,35 @@
           "$ref": "#/$defs/voice-name"
         }
       },
-      "required": ["end", "position", "value"],
+      "required": [
+        "end",
+        "position",
+        "value"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "ottava-amount": {
-      "enum": [1, 2, -1, -2, 3, -3],
+      "enum": [
+        1,
+        2,
+        -1,
+        -2,
+        3,
+        -3
+      ],
       "type": "integer"
     },
     "ottava-amount-or-zero": {
-      "enum": [1, 2, -1, -2, 3, -3, 0],
+      "enum": [
+        1,
+        2,
+        -1,
+        -2,
+        3,
+        -3,
+        0
+      ],
       "type": "integer"
     },
     "page": {
@@ -1570,7 +1794,9 @@
           "type": "array"
         }
       },
-      "required": ["systems"],
+      "required": [
+        "systems"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1606,7 +1832,9 @@
           "$ref": "#/$defs/part-transposition"
         }
       },
-      "required": ["measures"],
+      "required": [
+        "measures"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1669,7 +1897,9 @@
           "type": "array"
         }
       },
-      "required": ["sequences"],
+      "required": [
+        "sequences"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1696,7 +1926,9 @@
           "type": "boolean"
         }
       },
-      "required": ["interval"],
+      "required": [
+        "interval"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1727,12 +1959,19 @@
           "$ref": "#/$defs/step"
         }
       },
-      "required": ["octave", "step"],
+      "required": [
+        "octave",
+        "step"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "placement": {
-      "enum": ["above", "below", "auto"],
+      "enum": [
+        "above",
+        "below",
+        "auto"
+      ],
       "type": "string"
     },
     "positioned-clef": {
@@ -1752,7 +1991,9 @@
           "$ref": "#/$defs/staff-number"
         }
       },
-      "required": ["clef"],
+      "required": [
+        "clef"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1773,7 +2014,9 @@
           "$ref": "#/$defs/staff-number"
         }
       },
-      "required": ["config"],
+      "required": [
+        "config"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1803,7 +2046,9 @@
           "$ref": "#/$defs/voice-name"
         }
       },
-      "required": ["text"],
+      "required": [
+        "text"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1812,7 +2057,10 @@
       "type": "integer"
     },
     "relative-dynamic-value": {
-      "enum": ["louder", "softer"],
+      "enum": [
+        "louder",
+        "softer"
+      ],
       "type": "string"
     },
     "repeat-end": {
@@ -1871,7 +2119,9 @@
           "$ref": "#/$defs/integer-unsigned"
         }
       },
-      "required": ["fraction"],
+      "required": [
+        "fraction"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1907,7 +2157,11 @@
           "type": "array"
         }
       },
-      "required": ["global", "mnx", "parts"],
+      "required": [
+        "global",
+        "mnx",
+        "parts"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1940,7 +2194,9 @@
           "type": "boolean"
         }
       },
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1964,7 +2220,9 @@
           "$ref": "#/$defs/rhythmic-position"
         }
       },
-      "required": ["location"],
+      "required": [
+        "location"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1991,7 +2249,9 @@
           "$ref": "#/$defs/voice-name"
         }
       },
-      "required": ["content"],
+      "required": [
+        "content"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2032,12 +2292,17 @@
           "$ref": "#/$defs/slide-into-note-type"
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "slide-into-note-type": {
-      "enum": ["scoop", "plop"],
+      "enum": [
+        "scoop",
+        "plop"
+      ],
       "type": "string"
     },
     "slide-out-of-note": {
@@ -2051,12 +2316,17 @@
           "$ref": "#/$defs/slide-out-of-note-type"
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "slide-out-of-note-type": {
-      "enum": ["falloff", "doit"],
+      "enum": [
+        "falloff",
+        "doit"
+      ],
       "type": "string"
     },
     "slur": {
@@ -2085,12 +2355,18 @@
           "$ref": "#/$defs/id"
         }
       },
-      "required": ["target"],
+      "required": [
+        "target"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "slur-side": {
-      "enum": ["up", "down", "auto"],
+      "enum": [
+        "up",
+        "down",
+        "auto"
+      ],
       "type": "string"
     },
     "smufl-font": {
@@ -2154,7 +2430,10 @@
           "type": "string"
         }
       },
-      "required": ["duration", "type"],
+      "required": [
+        "duration",
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2210,8 +2489,8 @@
         "label": {
           "$ref": "#/$defs/staff-label"
         },
-        "labelref": {
-          "$ref": "#/$defs/staff-labelref"
+        "labelRef": {
+          "$ref": "#/$defs/label-ref"
         },
         "sources": {
           "items": {
@@ -2227,7 +2506,10 @@
           "type": "string"
         }
       },
-      "required": ["sources", "type"],
+      "required": [
+        "sources",
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2265,6 +2547,9 @@
         "label": {
           "$ref": "#/$defs/staff-label"
         },
+        "labelRef": {
+          "$ref": "#/$defs/label-ref"
+        },
         "symbol": {
           "$ref": "#/$defs/staff-symbol"
         },
@@ -2273,19 +2558,23 @@
           "type": "string"
         }
       },
-      "required": ["content", "type"],
+      "required": [
+        "content",
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "staff-group-barline-style": {
-      "enum": ["individual", "instrument", "unified", "mensurstrich"],
+      "enum": [
+        "individual",
+        "instrument",
+        "unified",
+        "mensurstrich"
+      ],
       "type": "string"
     },
     "staff-label": {
-      "type": "string"
-    },
-    "staff-labelref": {
-      "enum": ["name", "shortName"],
       "type": "string"
     },
     "staff-number": {
@@ -2305,8 +2594,8 @@
         "label": {
           "$ref": "#/$defs/staff-label"
         },
-        "labelref": {
-          "$ref": "#/$defs/staff-labelref"
+        "labelRef": {
+          "$ref": "#/$defs/label-ref"
         },
         "part": {
           "$ref": "#/$defs/id"
@@ -2321,20 +2610,38 @@
           "$ref": "#/$defs/voice-name"
         }
       },
-      "required": ["part"],
+      "required": [
+        "part"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "staff-symbol": {
-      "enum": ["bracket", "square", "brace", "noSymbol"],
+      "enum": [
+        "bracket",
+        "square",
+        "brace",
+        "noSymbol"
+      ],
       "type": "string"
     },
     "stem-direction": {
-      "enum": ["up", "down"],
+      "enum": [
+        "up",
+        "down"
+      ],
       "type": "string"
     },
     "step": {
-      "enum": ["A", "B", "C", "D", "E", "F", "G"],
+      "enum": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G"
+      ],
       "type": "string"
     },
     "stress-marking": {
@@ -2411,7 +2718,9 @@
           "$ref": "#/$defs/id"
         }
       },
-      "required": ["measure"],
+      "required": [
+        "measure"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2426,7 +2735,9 @@
           "$ref": "#/$defs/system-layout-content"
         }
       },
-      "required": ["content"],
+      "required": [
+        "content"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2460,7 +2771,10 @@
           "$ref": "#/$defs/note-value"
         }
       },
-      "required": ["bpm", "value"],
+      "required": [
+        "bpm",
+        "value"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2497,7 +2811,10 @@
           "type": "string"
         }
       },
-      "required": ["glyphs", "type"],
+      "required": [
+        "glyphs",
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2516,12 +2833,17 @@
           "type": "string"
         }
       },
-      "required": ["text"],
+      "required": [
+        "text"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "text-type": {
-      "enum": ["general", "expression"],
+      "enum": [
+        "general",
+        "expression"
+      ],
       "type": "string"
     },
     "tie": {
@@ -2554,7 +2876,12 @@
       "type": "array"
     },
     "tie-target-type": {
-      "enum": ["nextNote", "crossVoice", "arpeggio", "crossJump"],
+      "enum": [
+        "nextNote",
+        "crossVoice",
+        "arpeggio",
+        "crossJump"
+      ],
       "type": "string"
     },
     "time": {
@@ -2574,16 +2901,31 @@
           "$ref": "#/$defs/time-signature-unit"
         }
       },
-      "required": ["count", "unit"],
+      "required": [
+        "count",
+        "unit"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "time-signature-display": {
-      "enum": ["common", "cut"],
+      "enum": [
+        "common",
+        "cut"
+      ],
       "type": "string"
     },
     "time-signature-unit": {
-      "enum": [1, 2, 4, 8, 16, 32, 64, 128],
+      "enum": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128
+      ],
       "type": "integer"
     },
     "tremolo-single": {
@@ -2602,7 +2944,9 @@
           "$ref": "#/$defs/placement"
         }
       },
-      "required": ["marks"],
+      "required": [
+        "marks"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2642,12 +2986,21 @@
           "type": "string"
         }
       },
-      "required": ["content", "inner", "outer", "type"],
+      "required": [
+        "content",
+        "inner",
+        "outer",
+        "type"
+      ],
       "type": "object",
       "unevaluatedProperties": false
     },
     "tuplet-display-setting": {
-      "enum": ["noNumber", "inner", "both"],
+      "enum": [
+        "noNumber",
+        "inner",
+        "both"
+      ],
       "type": "string"
     },
     "unstress-marking": {
@@ -2665,11 +3018,18 @@
       "unevaluatedProperties": false
     },
     "up-down": {
-      "enum": ["up", "down"],
+      "enum": [
+        "up",
+        "down"
+      ],
       "type": "string"
     },
     "up-down-auto": {
-      "enum": ["up", "down", "auto"],
+      "enum": [
+        "up",
+        "down",
+        "auto"
+      ],
       "type": "string"
     },
     "vendor-dict": {
@@ -2692,7 +3052,10 @@
       "type": "string"
     },
     "wedge-type": {
-      "enum": ["increasing", "decreasing"],
+      "enum": [
+        "increasing",
+        "decreasing"
+      ],
       "type": "string"
     },
     "written": {
@@ -2710,11 +3073,15 @@
       "unevaluatedProperties": false
     },
     "yes-no-auto": {
-      "enum": ["yes", "no", "auto"],
+      "enum": [
+        "yes",
+        "no",
+        "auto"
+      ],
       "type": "string"
     }
   },
-  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/52",
+  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/57",
   "$ref": "#/$defs/root",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "An encoding of Common Western Music Notation.",

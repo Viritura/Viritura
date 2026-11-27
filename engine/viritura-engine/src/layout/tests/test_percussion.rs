@@ -22,7 +22,7 @@ const DRUM_KIT_MNX: &str = r#"{
         "kit": {
             "kick":  {"name": "Kick",  "sound": "snd-kick",  "staffPosition": -4},
             "snare": {"name": "Snare", "sound": "snd-snare", "staffPosition": 0,
-                      "_x": {"viritura": {"notehead": "x"}}}
+                      "notehead": {"shape": "x"}}
         },
         "measures": [{
             "clefs": [{"clef": {"sign": "P", "staffPosition": 0}}],
@@ -197,7 +197,7 @@ fn test_shaped_notehead_glyph_selector() {
     );
     assert_eq!(
         smufl::shaped_notehead_glyph(Some(&NoteheadShape::Slash), &Quarter),
-        smufl::NOTEHEAD_SLASH_VERTICAL_BLACK
+        smufl::NOTEHEAD_SLASH_BLACK
     );
     assert_eq!(
         smufl::shaped_notehead_glyph(Some(&NoteheadShape::TriangleUp), &Quarter),

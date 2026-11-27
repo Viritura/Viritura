@@ -116,6 +116,9 @@ very long scores stay responsive.
 | `assetBaseUrl`   | module dir | Base URL containing `wasm/`, `fonts/` and `score-engine.worker.js`                 |
 | `textFont`       | `true`     | `false` to skip Libertinus Serif and use the page's `serif` font                   |
 
+`contentAlign: "page"` centers and spaces page/spread frames. Call
+`viewer.scrollToPage(pageIndex)` to center the frame containing a zero-based page.
+
 ### Callbacks
 
 | Callback    | Called when                                                              |
@@ -139,6 +142,9 @@ viewer.setOptions({ playhead: null }); // hide
 A position is either a global quarter-note beat or a measure index and a beat
 within that measure. `partId` picks the staff the cursor aligns to. With
 `follow: true`, the viewer scrolls to keep the playhead in view.
+
+The cursor uses the host's `--brand` color, falling back to Viritura viridian
+(`#215e4e`) in standalone embeds.
 
 `viewer.playheadGeometry()` returns the current cursor rectangle if you want to
 draw your own. `viewer.scrollToPosition(position)` scrolls to a position

@@ -27,8 +27,10 @@ export function consolidateImportedHarmony(
     for (const warning of warnings) {
       diagnostics?.warn(
         ptr("parts", warning.discardedPartIndex, "measures", measureIndex, "harmony"),
-        `Conflicting chord symbols at ${warning.position.fraction.join("/")}: kept the topmost source staff in part ${warning.keptPartIndex + 1}.`,
-        "musicxml-harmony-conflict",
+        warning.kind === "fretboard"
+          ? `Conflicting chord diagrams at ${warning.position.fraction.join("/")}: kept the first diagram for the instrument.`
+          : `Conflicting chord symbols at ${warning.position.fraction.join("/")}: kept the topmost source staff in part ${warning.keptPartIndex + 1}.`,
+        warning.kind === "fretboard" ? "musicxml-frame-conflict" : "musicxml-harmony-conflict",
       );
     }
   }

@@ -105,6 +105,11 @@ pub(super) fn layout_auto_flow_mnx_score(
     if let Some(ref mut c) = cache {
         c.check_config(config);
         super::super::instrument_changes::revalidate(c, score, flat_staves, &mut dirty_region);
+        if c.check_repeat_glissandos(super::super::glissando::repeat_glissando_state_salt(
+            score, 0,
+        )) {
+            dirty_region = None;
+        }
     }
 
     // Env-gated phase timing probe (no-op unless VIRITURA_LAYOUT_TIMING is set).
@@ -164,6 +169,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         measures: all_staff_resolved,
         ottavas: all_staff_ottavas,
         duration_histogram,
+        resolved_start,
         resolved_end,
     } = resolve_staves_with_condensing_labels(
         score,
@@ -175,6 +181,9 @@ pub(super) fn layout_auto_flow_mnx_score(
     // Carried clef/key state can change geometry beyond the authored patch.
     if let (Some(region), Some(end)) = (dirty_region.as_mut(), resolved_end) {
         region.measure_end = region.measure_end.max(end);
+    }
+    if let (Some(region), Some(start)) = (dirty_region.as_mut(), resolved_start) {
+        region.measure_start = region.measure_start.min(start);
     }
     let dirty_range = dirty_region.as_ref().map(cache::DirtyRegion::measure_range);
 
@@ -228,6 +237,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         score,
         config,
         flat_staves,
+        group_ranges,
         &budget,
         &mmr,
         &forced_system_starts,
@@ -405,7 +415,9 @@ pub(super) fn layout_auto_flow_mnx_score(
     // the SAME global offsets that position the staves — see the chunked branch
     // of `total_height` below.
     let chunked_global_offsets: Option<StaffYPlacement> = if chunked {
-        if config.emit_layout_debug {
+        if config.emit_layout_debug
+            || super::super::render_annotations::reserves_number_ink(&config.bar_numbers)
+        {
             let staff_count = flat_staves.len();
             let mut global_view: Vec<Vec<&MeasureLayout>> = vec![Vec::new(); staff_count];
             for sys in &precomp_layouts {
@@ -426,6 +438,7 @@ pub(super) fn layout_auto_flow_mnx_score(
                 staff_height,
                 config,
                 false,
+                score,
             ))
         } else {
             Some(compute_chunked_global_offsets(
@@ -505,7 +518,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         .global
         .lyrics
         .as_ref()
-        .and_then(|gl| gl.line_order.as_deref());
+        .map(|gl| gl.line_order.as_slice());
 
     // Debug capture: per-system staff-pair gap reasoning + bottom-staff Y.
     let mut dbg_staff_pairs: Vec<Vec<crate::render::StaffPairDebug>> = if config.emit_layout_debug {
@@ -942,7 +955,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     }
     // Before overlay extraction, so reused patch systems reconstruct exactly.
     let plan = (systems.as_slice(), visible_indices.as_slice());
-    append_text_frames_by_plan(&mut dl, score, text_frames, config, plan);
+    append_text_frames_by_plan(&mut dl, score, text_frames, config, plan, flat_staves);
 
     // Assemble + store the patch-frame delta (paged path only; the unpaged
     // `fit_unpaged_bounds` below never runs when `patch_valid`).

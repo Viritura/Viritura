@@ -202,7 +202,12 @@ mod tests {
             last_staff: last,
             symbol: symbol.into(),
             label: None,
+            short_label: None,
+            resolved_full_label: None,
+            resolved_short_label: None,
+            label_components: Vec::new(),
             depth: 0,
+            source_parts: Vec::new(),
         }
     }
 

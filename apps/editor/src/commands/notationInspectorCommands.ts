@@ -1,3 +1,4 @@
+import { resolveGlobalFermata } from "../score/ElementPath";
 import type {
   Fermata,
   Glissando,
@@ -73,6 +74,9 @@ function resolveSingleSelectionTarget(
   score: Score,
 ): NotationSelectionTarget | null {
   const { elementId } = selection;
+  const globalFermata = resolveGlobalFermata(elementId, score);
+  if (globalFermata)
+    return { elementId, elementType: "fermata", partIndex: 0, measureIndex: globalFermata.measureIndex };
   if (/\/tuplet\d+$/.test(elementId)) {
     const location = resolveTupletSelectionLocation(score, elementId);
     return location

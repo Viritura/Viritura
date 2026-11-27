@@ -24,7 +24,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { CHORDS_PART_ID, type ChordSymbol, type Score } from "@viritura/core";
 import { toast } from "sonner";
-import { dispatchPlayback, setPlaybackActions } from "./usePlayback";
+import { dispatchPlayback, getPlaybackSnapshot, setPlaybackActions } from "./usePlayback";
 import {
   computePartSignature,
   DEFAULT_VOLUME,
@@ -34,7 +34,7 @@ import {
   type PlaybackState,
 } from "./playbackReducer";
 import { applyPartLevel, applySectionLevels, recomputeSectionGain, type PartLevelRefs } from "./partLevels";
-import { applyNativeMixer, applySamplerSettings, createMixerSettings } from "./mixerSettings";
+import { applyNativeMixer, applySamplerSettings, audioExportSettings, createMixerSettings } from "./mixerSettings";
 import {
   applyDetuneSpread,
   buildEqColorBuses,
@@ -83,6 +83,8 @@ import { usePercussionPreview } from "./usePercussionPreview";
 import { useMelodicPreview } from "./useMelodicPreview";
 import { generateTimeline, getChordPlaybackPart, type MidiTimeline as ScoreMidiTimeline } from "@viritura/midi";
 import { buildClickTrack, countInLeadSeconds } from "./clickTrack";
+import type { ClickSessionSource } from "./clickSession";
+import { getMetronomeSound, subscribeMetronomeSound } from "./metronomeSettingsStore";
 import { createPlayheadResolver, sourceMeasureBeatToSeconds } from "./playheadResolver";
 import { requirePlayableTimeline, resolveTransportStart, type PendingPlaybackStart } from "./transportStart";
 import type { SoundfontLoader } from "./soundfont";
@@ -90,6 +92,15 @@ import { useSoundfontBuffer } from "./useSoundfontBuffer";
 import { createPublishedChordPreview } from "./chordPreview";
 import { createMixerIdentity, playbackPartIds } from "./mixerIdentity";
 import { applyMasterVolume } from "./masterVolume";
+import {
+  AIR_EQ_FREQUENCY,
+  LIMITER_ATTACK_SECONDS,
+  LIMITER_KNEE_DB,
+  LIMITER_RELEASE_SECONDS,
+  sectionListenerDistance,
+  sectionPredelaySeconds,
+  sectionReverbSend,
+} from "./mixChain";
 
 // ═══════════════════════════════════════════
 // Provider
@@ -147,6 +158,15 @@ function samplerSignature(score: Score, timeline: EngineMidiTimeline | null): st
   if (getChordPlaybackPart(score)) laneMap.set(score.parts.length, [CHORDS_PART_ID]);
   const lanes = [...laneMap.entries()].map(([partIndex, ids]) => `${partIndex}:${ids.join(",")}`).join("|");
   return `${computePartSignature(score)}#${playbackPartIds(score).join("|")}#${JSON.stringify(score.soundProfile ?? null)}#${lanes}`;
+}
+
+function countInLeadForStart(
+  enabled: boolean,
+  source: ClickSessionSource | null,
+  wasStopped: boolean,
+  startAt: number,
+): number | null {
+  return enabled && source && wasStopped && startAt <= 1e-6 ? countInLeadSeconds(source) : null;
 }
 
 // eslint-disable-next-line max-lines-per-function, max-statements -- audio-engine provider shell: declares ~30 refs/state for transport, scheduler, sampler, MIDI, mute/solo/level state, then wires effects for soundfont load, score-change reschedule, visible-parts gain, and tab-visibility throttle. Helpers are extracted (PartLevelRefs bundle, useFastLayoutCallback, schedulers); the remaining body is cohesive provider wiring that does not decompose cleanly.
@@ -251,12 +271,7 @@ export function PlaybackProvider({
   const clickTrackRef = useRef<readonly ClickEvent[]>([]);
   /** Tempo/meter source for (re)building the click track without a full
    *  timeline regen (e.g. when the count-in toggles). */
-  const clickSourceRef = useRef<{
-    model: import("@viritura/midi").MidiTimeline["model"];
-    measureStartBeats: number[];
-    measureTimeSignatures: { count: number; unit: number }[];
-    playedSpans?: import("@viritura/midi").PlayedMeasureSpan[];
-  } | null>(null);
+  const clickSourceRef = useRef<ClickSessionSource | null>(null);
   /** Live mirror of `countInEnabled` so play()/click rebuilds read it without a
    *  store round-trip (matches how the metronome toggle drives the engine). */
   const countInEnabledRef = useRef(false);
@@ -284,6 +299,7 @@ export function PlaybackProvider({
   /** Current listener position for distance-based reverb scaling. */
   const listenerPosRef = useRef<SpatialPosition>({ ...DEFAULT_LISTENER_POSITION });
   const metronomeRef = useRef<Metronome | null>(null);
+  useEffect(() => subscribeMetronomeSound((sound) => metronomeRef.current?.setSound(sound)), []);
   // Re-entrancy guard: prevents rapid Play clicks / Space presses from starting
   // multiple overlapping transports before the first play() finishes its async
   // preparation (AudioContext resume, sampler build, VST host prepare).
@@ -358,16 +374,16 @@ export function PlaybackProvider({
       // Air EQ: gentle high-shelf boost to add presence/shimmer to GM instruments
       const airEQ = ctx.createBiquadFilter();
       airEQ.type = "highshelf";
-      airEQ.frequency.value = 8000;
+      airEQ.frequency.value = AIR_EQ_FREQUENCY;
       airEQ.gain.value = mixerSettingsRef.current.airEQGain;
 
       // Limiter: prevent clipping, gentle glue compression
       const limiter = ctx.createDynamicsCompressor();
       limiter.threshold.value = mixerSettingsRef.current.limiterThreshold;
       limiter.ratio.value = mixerSettingsRef.current.limiterRatio;
-      limiter.knee.value = 6;
-      limiter.attack.value = 0.002;
-      limiter.release.value = 0.18;
+      limiter.knee.value = LIMITER_KNEE_DB;
+      limiter.attack.value = LIMITER_ATTACK_SECONDS;
+      limiter.release.value = LIMITER_RELEASE_SECONDS;
 
       masterOut.connect(airEQ);
       airEQ.connect(limiter);
@@ -402,8 +418,9 @@ export function PlaybackProvider({
       metronomeRef.current = new Metronome({
         audioContext: audioCtxRef.current,
         destination: masterOutRef.current!,
+        sound: getMetronomeSound(),
       });
-      metronomeRef.current.setEnabled(false); // off by default
+      metronomeRef.current.setEnabled(getPlaybackSnapshot().state.metronomeEnabled);
     }
     if (!engineRef.current || !engineRef.current.getTimeline) {
       engineRef.current = new PlaybackEngine(audioCtxRef.current);
@@ -412,9 +429,7 @@ export function PlaybackProvider({
       // they land sample-accurately on the audio clock. Metronome.scheduleClick
       // no-ops while disabled, so toggling the metronome on/off mid-playback
       // takes effect within one schedule window without rebuilding anything.
-      engineRef.current.setClickCallback((audioTime, accented) =>
-        metronomeRef.current?.scheduleClick(audioTime, accented),
-      );
+      engineRef.current.setClickCallback((audioTime, level) => metronomeRef.current?.scheduleClick(audioTime, level));
 
       // Forward playhead events to React state.
       engineRef.current.on("playhead", (detail) => {
@@ -826,9 +841,29 @@ export function PlaybackProvider({
     // Playing -> stopped is synchronized by the engine state callback.
     if (engineRef.current?.getState() !== "playing") stopNativeHost();
     engineRef.current?.stop();
-    disposeAllSamplers();
+    // Keep the valid graph warm; stopping already cancels queued notes and
+    // silences voices. Routing changes and unmount own sampler disposal.
+    for (const sampler of samplersRef.current.values()) {
+      sampler.resetTechniqueState?.();
+      sampler.sendControl?.(64, 0);
+      sampler.sendControl?.(66, 0);
+    }
     dispatchPlayback({ type: "STOP" });
-  }, [disposeAllSamplers, chordPreview, stopNativeHost]);
+  }, [chordPreview, stopNativeHost]);
+
+  const releaseAudio = useCallback(async () => {
+    stop();
+    disposeAllSamplers();
+    vstOwnedPartsRef.current = new Set<number>();
+    const transport = vstTransportRef.current;
+    const ctx = audioCtxRef.current;
+    await Promise.all([
+      transport?.release().catch((error: unknown) => {
+        console.warn("[Audio] Native host release failed:", error);
+      }),
+      ctx?.state === "running" ? ctx.suspend() : undefined,
+    ]);
+  }, [stop, disposeAllSamplers]);
 
   const seek = useCallback(
     (seconds: number) => {
@@ -867,21 +902,14 @@ export function PlaybackProvider({
     }
   }, []);
 
-  /** Number of count-in beats = one bar of the first measure (default 4). */
-  const countInBeatsForScore = useCallback((): number => {
-    const ts = clickSourceRef.current?.measureTimeSignatures[0];
-    return ts ? (ts.count * 4) / ts.unit : 4;
-  }, []);
-
   /** Rebuild the click track from the cached tempo/meter source (honoring the
    *  count-in toggle) and push it to the engine. */
   const applyClickTrack = useCallback(() => {
     const src = clickSourceRef.current;
     if (!src) return;
-    const countInBeats = countInEnabledRef.current ? countInBeatsForScore() : 0;
-    clickTrackRef.current = buildClickTrack(src, { countInBeats });
+    clickTrackRef.current = buildClickTrack(src, { countIn: countInEnabledRef.current });
     engineRef.current?.setClickTrack(clickTrackRef.current);
-  }, [countInBeatsForScore]);
+  }, []);
 
   const toggleCountIn = useCallback(() => {
     dispatchPlayback({ type: "TOGGLE_COUNT_IN" });
@@ -984,6 +1012,11 @@ export function PlaybackProvider({
     }
   }, []);
 
+  const getAudioExportSettings = useCallback(
+    (partCount: number) => audioExportSettings(mixerSettingsRef.current, listenerPosRef.current, partCount),
+    [],
+  );
+
   /**
    * Scale a part's reverb send gain based on distance from the listener.
    * Closer instruments sound drier (intimate/present); farther instruments
@@ -1033,18 +1066,12 @@ export function PlaybackProvider({
       // by design). The dry section gain is normalized separately against its
       // loudest current member.
       for (const [section, entry] of sectionSynthsRef.current) {
-        const dx = entry.position.x - x;
-        const dy = entry.position.y - y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dist = sectionListenerDistance(entry.position, { x, y });
         if (entry.reverbSend) {
-          const target = Math.max(0.05, Math.min(0.9, 0.05 + dist * 0.075));
-          entry.reverbSend.gain.setTargetAtTime(target, ctx?.currentTime ?? 0, 0.05);
+          entry.reverbSend.gain.setTargetAtTime(sectionReverbSend(dist), ctx?.currentTime ?? 0, 0.05);
         }
         if (entry.predelay) {
-          // 3 ms/m, capped at 40 ms. Front desks: ~0 ms (in your face);
-          // back of stage at 12-14 m: ~36-40 ms (sits behind the room).
-          const target = Math.min(0.04, dist * 0.003);
-          entry.predelay.delayTime.setTargetAtTime(target, ctx?.currentTime ?? 0, 0.05);
+          entry.predelay.delayTime.setTargetAtTime(sectionPredelaySeconds(dist), ctx?.currentTime ?? 0, 0.05);
         }
         recomputeSectionGain(section, levelRefs);
       }
@@ -1351,15 +1378,11 @@ export function PlaybackProvider({
         // Count-in: when enabled and starting fresh from the top (not resuming a
         // pause), begin the transport before score time 0 so the prepended
         // (negative-time) count-in clicks play into the downbeat.
-        if (countInEnabledRef.current && clickSourceRef.current && wasStopped && startAt <= 1e-6) {
-          const lead = countInLeadSeconds(clickSourceRef.current, countInBeatsForScore());
-          engine.play(-lead);
-        } else {
-          engine.play(startAt);
-        }
+        const lead = countInLeadForStart(countInEnabledRef.current, clickSourceRef.current, wasStopped, startAt);
+        engine.play(lead === null ? startAt : -lead);
         pendingStartRef.current = null;
         if (vstTransport && vstOwnedPartsRef.current.size > 0) {
-          void vstTransport.start(startAt);
+          void vstTransport.start(lead === null ? startAt : engine.getScoreTimeSeconds());
         }
       } catch (err) {
         console.error("Failed to start playback:", err);
@@ -1371,15 +1394,7 @@ export function PlaybackProvider({
         playStartInFlightRef.current = false;
       }
     },
-    [
-      ensureEngine,
-      score,
-      createSamplersForScore,
-      countInBeatsForScore,
-      prepareNativeHost,
-      applyViewPartFilter,
-      chordPreview,
-    ],
+    [ensureEngine, score, createSamplersForScore, prepareNativeHost, applyViewPartFilter, chordPreview],
   );
 
   // --- Score change → regenerate timeline only ---
@@ -1445,9 +1460,13 @@ export function PlaybackProvider({
         // full timeline regen.
         clickSourceRef.current = {
           model: midiTimeline.model,
+          duration: midiTimeline.duration,
           measureStartBeats: midiTimeline.measureStartBeats,
           measureTimeSignatures: midiTimeline.measureTimeSignatures,
           playedSpans: midiTimeline.playedSpans,
+          expandedMeasureToOriginal: midiTimeline.expandedMeasureToOriginal,
+          fermataHolds: midiTimeline.fermataHolds,
+          globalMeasures: score.global.measures,
         };
         applyClickTrack();
 
@@ -1510,6 +1529,7 @@ export function PlaybackProvider({
       play,
       pause,
       stop,
+      releaseAudio,
       seek,
       setSelectionPartIds,
       setSelectionStaffCount,
@@ -1538,11 +1558,13 @@ export function PlaybackProvider({
       setLimiterThreshold,
       setLimiterRatio,
       applyLayerPan,
+      getAudioExportSettings,
     }),
     [
       play,
       pause,
       stop,
+      releaseAudio,
       seek,
       setSelectionPartIds,
       setSelectionStaffCount,
@@ -1571,6 +1593,7 @@ export function PlaybackProvider({
       setLimiterThreshold,
       setLimiterRatio,
       applyLayerPan,
+      getAudioExportSettings,
     ],
   );
 

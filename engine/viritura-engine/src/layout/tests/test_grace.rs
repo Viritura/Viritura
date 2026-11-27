@@ -737,7 +737,7 @@ fn test_grace_collision_transposed_shaped_heads_preserve_source() {
                 {
                     "id": "g1", "duration": {"base": "eighth", "dots": 2},
                     "notes": [{"pitch": {"step": "C", "octave": 5},
-                               "_x": {"viritura": {"notehead": "slash"}}}]
+                               "notehead": {"shape": "slash"}}]
                 },
                 grace_collision_event("g2", 1, 0)
             ]},
@@ -924,7 +924,7 @@ fn test_grace_full_score_shapes_dots_and_explicit_accidentals() {
     ] {
         let mut grace = grace_regression_event("g", "E", -1);
         grace["duration"] = serde_json::json!({"base": duration, "dots": 2});
-        grace["notes"][0]["_x"] = serde_json::json!({"viritura": {"notehead": shape}});
+        grace["notes"][0]["notehead"] = serde_json::json!({"shape": shape});
         grace["notes"][0]["accidentalDisplay"] = serde_json::json!({
             "show": true, "force": true, "enclosure": {"symbol": "parentheses"}
         });
@@ -1135,7 +1135,7 @@ fn test_grace_full_score_beamed_diamonds_use_scaled_shape_anchors() {
         .enumerate()
         .map(|(i, step)| {
             let mut event = grace_regression_event(&format!("g{i}"), step, 0);
-            event["notes"][0]["_x"] = serde_json::json!({"viritura": {"notehead": "diamond"}});
+            event["notes"][0]["notehead"] = serde_json::json!({"shape": "diamond"});
             event
         })
         .collect();
@@ -1186,7 +1186,7 @@ fn test_grace_full_score_kit_shapes_exclude_accidentals() {
     );
     doc["parts"][0]["kit"] = serde_json::json!({
         "snare": {"name": "Snare", "staffPosition": 0,
-            "_x": {"viritura": {"notehead": "x"}}}
+            "notehead": {"shape": "x"}}
     });
     let config = LayoutConfig::default();
     let score = parse_mnx(&doc.to_string()).unwrap();

@@ -1,6 +1,6 @@
 //! Resolution of authored MNX system anchors and their layout inheritance.
 
-use super::super::full_score::{FlatSource, FlatStaff, GroupRange};
+use super::super::full_score::{FlatLabel, FlatSource, FlatStaff, GroupRange};
 use super::super::page::resolve_part_display_names;
 use super::explicit_system_breaks::SystemLayoutChanges;
 use super::structure_flattening::{flatten_layout, flatten_layout_for_measures};
@@ -156,6 +156,11 @@ fn default_flat_staves(score: &Score) -> StaffGroupLayout {
             short_label: Some(display_names[index].display_short_name.clone()),
             resolved_full_label: Some(display_names[index].display_name.clone()),
             resolved_short_label: Some(display_names[index].display_short_name.clone()),
+            label_components: vec![FlatLabel::Part {
+                part_index: index,
+                reference: Some(crate::raw::LabelRefType::Auto),
+                base_name: false,
+            }],
             expansion: false,
             condensed_numbers: Vec::new(),
             chord_symbol_source: None,

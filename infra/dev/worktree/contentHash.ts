@@ -34,6 +34,10 @@ function packageManifests(repositoryRoot: string, directory: string): string[] {
 }
 
 export function getNodeDependencyInputs(repositoryRoot: string): string[] {
+  const manifest = JSON.parse(readFileSync(resolve(repositoryRoot, "package.json"), "utf8")) as {
+    pnpm?: { patchedDependencies?: Record<string, string> };
+  };
+  const patches = Object.values(manifest.pnpm?.patchedDependencies ?? {}).map((path) => resolve(repositoryRoot, path));
   return [
     "package.json",
     "pnpm-lock.yaml",
@@ -43,9 +47,15 @@ export function getNodeDependencyInputs(repositoryRoot: string): string[] {
     "infra/dev/worktree/dev.Dockerfile",
   ]
     .map((path) => resolve(repositoryRoot, path))
+    .concat(patches)
     .concat(packageManifests(repositoryRoot, "apps"))
     .concat(packageManifests(repositoryRoot, "packages"))
-    .concat(packageManifests(repositoryRoot, "examples"));
+    .concat(packageManifests(repositoryRoot, "examples"))
+    .concat(
+      readdirSync(resolve(repositoryRoot, "patches"), { withFileTypes: true })
+        .filter((entry) => entry.isFile() && entry.name.endsWith(".patch"))
+        .map((entry) => resolve(repositoryRoot, "patches", entry.name)),
+    );
 }
 
 export function getApiRestoreInputs(repositoryRoot: string): string[] {

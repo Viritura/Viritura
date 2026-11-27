@@ -14,6 +14,7 @@
  */
 
 import type { TextContent, TextContentChunk, TextDecoration, TextRunStyle } from "@viritura/core";
+import type { MnxFormattedTextChunk } from "../types";
 import { childElements } from "../xmlHelpers";
 import { normalizeMusicXmlColor } from "./colors";
 
@@ -112,4 +113,21 @@ function trimEdges(chunks: TextContentChunk[]): TextContent | undefined {
 /** The visible text of a chunk list, for deduplication and diagnostics. */
 export function plainOf(content: TextContent): string {
   return content.map((chunk) => ("text" in chunk ? chunk.text : "")).join("");
+}
+
+/**
+ * Encode chunks as MNX `formatted-text` for native positioned text. Unlike the
+ * vendor `text-content` shape, inline formatting moves under `_x.viritura` and
+ * glyph runs carry `type: "smufl"`.
+ */
+export function nativeFormattedText(content: TextContent, vendorExt: boolean): MnxFormattedTextChunk[] {
+  return content.map((chunk) => {
+    const native: MnxFormattedTextChunk =
+      "text" in chunk ? { text: chunk.text } : { type: "smufl", glyphs: chunk.glyphs };
+    const viritura: { style?: TextRunStyle; smuflStyle?: TextRunStyle } = {};
+    if (vendorExt && chunk.style) viritura.style = chunk.style;
+    if (vendorExt && "glyphs" in chunk && chunk.smuflStyle) viritura.smuflStyle = chunk.smuflStyle;
+    if (Object.keys(viritura).length > 0) native._x = { viritura };
+    return native;
+  });
 }
