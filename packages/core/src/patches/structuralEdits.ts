@@ -12,18 +12,16 @@ import type { Draft } from "immer";
 import type { Score } from "../model/score";
 import type { GlobalMeasure, PartMeasure } from "../model/measure";
 import type { Part } from "../model/part";
-import { PatchTargetMissing } from "./locate";
+import { PatchTargetMissing, resolvePartMeasure } from "./locate";
 import { removeGlobalMeasures } from "../operations/measureDeletion";
 import { canonicalGlobalFermatas } from "../fermatas";
 import type {
   AddMeasureExpressionPatch,
   GlobalMeasureField,
   InsertMeasuresPatch,
-  MeasurePath,
   PartMeasureField,
   RemoveMeasureExpressionPatch,
   RemoveMeasuresPatch,
-  SequencePath,
   SetGlobalMeasureFieldPatch,
   SetMeasureExpressionPatch,
   SetPartMeasureFieldPatch,
@@ -47,8 +45,12 @@ function assign<T>(target: Record<string, unknown>, key: string, value: T | unde
 }
 
 export function applySetGlobalMeasureField(draft: Draft<Score>, p: SetGlobalMeasureFieldPatch): void {
-  const measure = (draft as Score).global.measures[p.measureIndex];
-  if (!measure) throw new PatchTargetMissing(`Global measure ${p.measureIndex} not found`);
+  const { measureIndex } = p;
+  if (!Number.isInteger(measureIndex) || measureIndex < 0) {
+    throw new PatchTargetMissing("measureIndex must be a non-negative integer");
+  }
+  const measure = (draft as Score).global.measures.at(measureIndex);
+  if (!measure) throw new PatchTargetMissing(`Global measure ${measureIndex} not found`);
   writeGlobalMeasureField(measure, p.update);
 }
 
@@ -173,19 +175,6 @@ export function applySetSequenceContent(draft: Draft<Score>, p: SetSequenceConte
   // A full-measure rest marker overrides content during layout, so written
   // content must replace it (as note entry does).
   if (p.content.length > 0) delete sequence.fullMeasure;
-}
-
-function resolvePartMeasure(score: Score, path: MeasurePath | SequencePath): PartMeasure {
-  const { measureIndex } = path;
-  if (!Number.isInteger(measureIndex) || measureIndex < 0) {
-    throw new PatchTargetMissing("measureIndex must be a non-negative integer");
-  }
-  const part = score.parts.find((pt) => pt.id === path.partId);
-  if (!part) throw new PatchTargetMissing(`Part "${path.partId}" not found`);
-  // Avoid property-key lookup on the untrusted index.
-  const measure = part.measures.at(measureIndex);
-  if (!measure) throw new PatchTargetMissing(`Measure ${measureIndex} not found in part "${path.partId}"`);
-  return measure;
 }
 
 function clampIndex(index: number, length: number): number {
