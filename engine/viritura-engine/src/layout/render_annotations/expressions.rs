@@ -121,6 +121,14 @@ pub(crate) fn render_text_expressions(
             )
         })
         .collect();
+    expressions.extend(
+        ml.resolved
+            .part
+            .harp_pedals
+            .iter()
+            .flatten()
+            .map(super::harp_pedals::diagram_expression),
+    );
     if let Some(system_text) = ml.resolved.global.system_text() {
         for text in system_text {
             let is_above = matches!(text.placement, Some(ExpressionPlacement::Above));

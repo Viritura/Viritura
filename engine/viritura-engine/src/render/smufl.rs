@@ -674,6 +674,10 @@ pub mod smufl {
     pub const CHORD_FLAT: u32 = 0xED60;
     pub const CHORD_NATURAL: u32 = 0xED61;
     pub const CHORD_SHARP: u32 = 0xED62;
+    pub const HARP_PEDAL_RAISED: u32 = 0xE680;
+    pub const HARP_PEDAL_CENTERED: u32 = 0xE681;
+    pub const HARP_PEDAL_LOWERED: u32 = 0xE682;
+    pub const HARP_PEDAL_DIVIDER: u32 = 0xE683;
     pub const CHORD_DOUBLE_SHARP: u32 = 0xED63;
     pub const CHORD_DOUBLE_FLAT: u32 = 0xED64;
     pub const CHORD_DIMINISHED: u32 = 0xE870;
@@ -1781,6 +1785,10 @@ pub mod smufl {
             CHORD_FLAT => (0.004, -3.0, 1.132, 3.004),
             CHORD_NATURAL => (0.0, -3.004, 0.736, 3.004),
             CHORD_SHARP => (0.0, -3.048, 1.24, 3.1),
+            HARP_PEDAL_RAISED => (0.004, -2.624, 1.0, 1.184),
+            HARP_PEDAL_CENTERED => (0.004, -2.0, 1.0, 1.0),
+            HARP_PEDAL_LOWERED => (0.0, -1.56, 1.0, 1.192),
+            HARP_PEDAL_DIVIDER => (0.0, -3.0, 1.0, 3.0),
             CHORD_DOUBLE_SHARP => (0.0, -1.796, 1.776, 1.796),
             CHORD_AUGMENTED => (0.0, -1.584, 1.58, 1.58),
             CHORD_DIMINISHED => (0.0, -1.892, 1.892, 1.892),
@@ -2031,6 +2039,10 @@ pub mod smufl {
     /// Reference: https://w3c.github.io/smufl/latest/tables/dynamics.html
     pub fn smufl_name_to_codepoint(name: &str) -> Option<u32> {
         match name {
+            "harpPedalRaised" => Some(HARP_PEDAL_RAISED),
+            "harpPedalCentered" => Some(HARP_PEDAL_CENTERED),
+            "harpPedalLowered" => Some(HARP_PEDAL_LOWERED),
+            "harpPedalDivider" => Some(HARP_PEDAL_DIVIDER),
             "metNoteDoubleWhole" => Some(MET_NOTE_DOUBLE_WHOLE),
             "metNoteWhole" => Some(MET_NOTE_WHOLE),
             "metNoteHalfUp" => Some(MET_NOTE_HALF_UP),

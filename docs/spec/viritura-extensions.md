@@ -18,7 +18,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                            |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                      |
 | [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                      |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                                         |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, harpPedals, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                             |
 | positioned text                              | `parts[].measures[].text[]._x.viritura`         | frame, pagePosition, manualOffset, avoidCollisions                                                                           |
 | formatted-text chunk                         | `parts[].measures[].text[].text[]._x.viritura`  | style, smuflStyle                                                                                                            |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                        |
@@ -1589,6 +1589,42 @@ Array of piano pedal markings.
 | `voice`    | string                                                | No       | Voice name                                                                         |
 
 **SMuFL glyphs**: U+E650 (Ped), U+E655 (\*), U+E659 (Sost.)
+
+### `harpPedals`
+
+Full seven-pedal snapshots for a double-action harp, shared by all voices and
+staves of the part. These are separate from piano `pedals` and MIDI CC64.
+
+```json
+{
+  "harpPedals": [
+    {
+      "id": "harp-setting-1",
+      "position": { "fraction": [0, 1] },
+      "tuning": { "D": -1, "C": 0, "B": -1, "E": -1, "F": 0, "G": 0, "A": -1 },
+      "source": "manual"
+    }
+  ]
+}
+```
+
+`id`, `position`, and `tuning` are required. All seven tuning letters must be
+present, each with alteration `-1` (flat), `0` (natural), or `1` (sharp).
+Positions use non-negative integer fractions with a positive denominator;
+grace positions are not supported. IDs must be unique throughout the score,
+and equivalent fractions cannot define two settings in one part measure.
+Optional `source` is `"manual"` (also the meaning of omission) or `"calculated"`.
+Optional `staff` must reference a staff of the part and affects printing only.
+
+The initial rendering uses full diagrams below the lower staff by default,
+or below the explicitly chosen staff. Diagram order is D C B, divider, E F G A.
+Bravura glyphs U+E680 (flat), U+E681 (natural), U+E682 (sharp), and U+E683
+(divider) share a baseline and one-staff-space advance. Layout reuses the
+positioned-annotation collision and selection geometry pipeline.
+
+The model and diagram rendering are implemented; pedal-state resolution,
+calculation, MusicXML conversion, pedal-aware playback, and red noteheads are
+follow-up work described in [the harp plan](../plans/harp-support.md).
 
 ### Positioned text (`text[]`)
 

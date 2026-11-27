@@ -17,6 +17,7 @@ import type { MeasureGlobalExtensions } from "@viritura/core/raw-viritura";
 import { isSupportedDynamicGlyph } from "@viritura/core";
 import { diagnoseMnxSchemaErrors, normaliseErrors } from "./schemaDiagnostics";
 import { validateInstrumentChanges } from "./instrumentChangeValidation";
+import { validateHarpPedals } from "./harpPedalValidation";
 import {
   mnxDocument,
   rootExtensions,
@@ -120,6 +121,7 @@ export function validateRawScore(json: unknown): RawScoreValidationResult {
       ...validateDynamicGroups(value),
       ...validateKitReferences(value),
       ...validateInstrumentChanges(value),
+      ...validateHarpPedals(value),
       ...validateBeatStructures(value),
       ...validateTupletSpans(json),
       ...validateTupletDurations(json),

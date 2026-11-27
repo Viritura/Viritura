@@ -252,6 +252,15 @@ function serializePedal(p: Pedal): Obj {
 function collectPartMeasureVendorExt(pm: PartMeasure): Obj {
   const ext: Obj = {};
   if (pm.pedals && pm.pedals.length > 0) ext["pedals"] = pm.pedals.map(serializePedal);
+  if (pm.harpPedals?.length) {
+    ext["harpPedals"] = pm.harpPedals.map((setting) => ({
+      id: setting.id,
+      position: { fraction: [...setting.position.fraction] },
+      tuning: { ...setting.tuning },
+      ...(setting.source !== undefined ? { source: setting.source } : {}),
+      ...(setting.staff !== undefined ? { staff: setting.staff } : {}),
+    }));
+  }
   if (pm.condensingOverride) ext["condensingOverride"] = pm.condensingOverride;
   if (pm.groupingDisplayOverrides && pm.groupingDisplayOverrides.length > 0) {
     ext["groupingDisplayOverrides"] = pm.groupingDisplayOverrides.map((override) => ({

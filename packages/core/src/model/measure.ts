@@ -487,6 +487,8 @@ export interface PartMeasure {
   dynamics?: DynamicGroup[];
   /** Ottava markings in this measure */
   ottavas?: Ottava[];
+  /** Part-wide harp pedal settings, independent of piano pedal spans. */
+  harpPedals?: import("./harp").HarpPedalSetting[];
   /** Piano pedal markings in this measure */
   pedals?: Pedal[];
   /** Text expressions in this measure (e.g. "dolce", "rit.", "a tempo") */

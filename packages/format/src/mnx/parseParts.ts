@@ -216,6 +216,13 @@ function parsePartMeasure(raw: RawPartMeasure, useLegacyKeyFlipDefault: boolean)
     if (viritura.pedals) {
       pm.pedals = viritura.pedals.map(parsePedal);
     }
+    if (viritura.harpPedals?.length) {
+      pm.harpPedals = viritura.harpPedals.map((setting) => ({
+        ...setting,
+        position: { fraction: [...parseRhythmicPosition(setting.position).fraction] },
+        tuning: { ...setting.tuning },
+      }));
+    }
     if (viritura.condensingOverride) {
       pm.condensingOverride = viritura.condensingOverride;
     }

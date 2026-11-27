@@ -289,6 +289,35 @@ pub(crate) fn promote_part_measure(
         .collect::<Result<Vec<_>, _>>()?;
 
     let vendor = extract_part_measure_vendor_with_fallback(r.x.as_ref(), Some(original_json));
+    let harp_pedals: Option<Vec<crate::model::HarpPedalSetting>> = original_json
+        .pointer("/_x/viritura/harpPedals")
+        .map(|settings| serde_json::from_value(settings.clone()))
+        .transpose()
+        .map_err(|error| PromoteError::InvalidHarpPedals(error.to_string()))?;
+    let mut positions = Vec::new();
+    let mut ids = std::collections::HashSet::new();
+    for setting in harp_pedals.iter().flatten() {
+        let (n, d) = setting.position.fraction;
+        if setting.id.is_empty() || !ids.insert(&setting.id) {
+            return Err(PromoteError::InvalidHarpPedals(
+                "setting IDs must be non-empty and unique".into(),
+            ));
+        }
+        if d == 0 || setting.staff == Some(0) {
+            return Err(PromoteError::InvalidHarpPedals(
+                "denominator and staff must be positive".into(),
+            ));
+        }
+        if positions
+            .iter()
+            .any(|&(pn, pd)| u64::from(n) * u64::from(pd) == u64::from(pn) * u64::from(d))
+        {
+            return Err(PromoteError::InvalidHarpPedals(
+                "setting positions must be unique within a part measure".into(),
+            ));
+        }
+        positions.push((n, d));
+    }
     let instrument_changes: Option<Vec<crate::model::InstrumentChange>> = original_json
         .pointer("/_x/viritura/instrumentChanges")
         .map(|changes| serde_json::from_value(changes.clone()))
@@ -321,6 +350,7 @@ pub(crate) fn promote_part_measure(
         measure_repeat,
         staff_configs,
         pedals: vendor.pedals,
+        harp_pedals,
         expressions: (!native_text.is_empty()).then_some(native_text),
         condensing_override: vendor.condensing_override,
         grouping_display_overrides: vendor.grouping_display_overrides,

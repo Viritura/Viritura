@@ -93,6 +93,16 @@ Add `parts[].measures[]._x.viritura.harpPedals[]`. Example:
 
 ### Resolver semantics
 
+The first implementation slice provides schema/model persistence and full
+Bravura diagrams, including Storybook examples. Diagrams initially render below
+the lower staff by default; `staff` explicitly selects another presentation
+staff. State resolution and the subsequent stages below remain planned.
+
+For future MusicXML import, fill partial pedal changes from the preceding known
+setting. Do not infer natural pedals if the preceding state is unknown; preserve
+the unresolved imported notation separately and surface an import diagnostic
+rather than manufacturing a complete tuning snapshot.
+
 Create a cohesive `harp` feature folder in `@viritura/core`, exported through
 package barrels. It owns pedal types, ordered state resolution, source-note
 compatibility, and the calculator. MIDI owns performed-time realization.

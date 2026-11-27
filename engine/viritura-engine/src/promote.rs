@@ -85,6 +85,7 @@ pub enum PromoteError {
     UnsupportedNavigationExtension(String),
     /// Provisional instrument change cannot be engraved or decoded safely.
     UnsupportedInstrumentChange(String),
+    InvalidHarpPedals(String),
     /// Authored marker text has no owning marker on the same measure.
     MarkerTextWithoutOwner(&'static str),
     /// A `textFrames` entry is malformed or reuses another frame's ID.
@@ -114,6 +115,7 @@ impl std::fmt::Display for PromoteError {
             Self::UnsupportedInstrumentChange(s) => {
                 write!(f, "MNX instrument change is not supported: {s}")
             }
+            Self::InvalidHarpPedals(s) => write!(f, "Viritura harpPedals: {s}"),
             Self::InvalidTextFrame(reason) => write!(f, "Viritura textFrames: {reason}"),
             Self::InvalidSystemText(reason) => write!(f, "Viritura systemText: {reason}"),
             Self::InvalidAutoHideEmptyParts(reason) => {
