@@ -575,8 +575,6 @@ export interface BeamSelectionInfo {
   readonly maxLevel: number;
   readonly selectedEventCount: number;
   readonly beamletState: BeamletState | null;
-  /** True when the selected notes sit in more than one measure. */
-  readonly spansBarline: boolean;
 }
 
 function beamletStateAtLevel(
@@ -601,12 +599,11 @@ function beamletStateAtLevel(
 }
 
 export function getBeamSelectionInfo(score: Score | null, selection: Selection, level: number): BeamSelectionInfo {
-  const unavailable = { isAvailable: false, maxLevel: 0, beamletState: null, spansBarline: false };
-  if (!score) return { ...unavailable, selectedEventCount: 0 };
+  if (!score) return { isAvailable: false, maxLevel: 0, selectedEventCount: 0, beamletState: null };
   const locations = resolveSelectionEvents(selection, score);
   const events = locations.map((location) => ({ location, event: eventAtLocation(score, location) }));
   if (events.length === 0 || events.some(({ event }) => !event?.notes?.length || beamFlagCount(event) === 0)) {
-    return { ...unavailable, selectedEventCount: events.length };
+    return { isAvailable: false, maxLevel: 0, selectedEventCount: events.length, beamletState: null };
   }
   const maxLevel = Math.min(...events.map(({ event }) => beamFlagCount(event!)));
   const singleEvent = events.length === 1 ? events[0] : undefined;
@@ -614,7 +611,6 @@ export function getBeamSelectionInfo(score: Score | null, selection: Selection, 
     isAvailable: true,
     maxLevel,
     selectedEventCount: events.length,
-    spansBarline: new Set(locations.map((location) => location.measureIndex)).size > 1,
     beamletState:
       singleEvent?.event && level >= 2
         ? beamletStateAtLevel(score, { loc: singleEvent.location, event: singleEvent.event }, level)
