@@ -55,5 +55,11 @@ function distanceToSegmentSquared(px: number, py: number, x1: number, y1: number
 
 /** Resolve a rendered group to its exact member event element IDs. */
 export function selectionGroupMembers(displayList: DisplayList | null | undefined, elementId: string): string[] {
-  return displayList?.selectionGroups?.find((group) => group.elementId === elementId)?.memberIds ?? [];
+  const members = new Set<string>();
+  for (const group of displayList?.selectionGroups ?? []) {
+    if (group.elementId === elementId) {
+      for (const member of group.memberIds) members.add(member);
+    }
+  }
+  return [...members];
 }

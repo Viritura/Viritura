@@ -66,11 +66,19 @@ function beamableEventSelection(
     return null;
   }
 
+  const crossesBarline = orderedLocations.some((loc) => loc.measureIndex !== first.measureIndex);
+  let firstStaff: number | undefined;
   let previous: EventLocation | null = null;
   for (const loc of orderedLocations) {
     if (previous && !followsInVoice(score, previous, loc)) return null;
     const event = eventAtLocation(score, loc);
     if (!event?.notes?.length || beamFlagCount(event) < minimumFlagCount) return null;
+    if (crossesBarline) {
+      const sequence = score.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex];
+      const staff = event.staff ?? sequence?.staff ?? 1;
+      if (firstStaff !== undefined && staff !== firstStaff) return null;
+      firstStaff = staff;
+    }
     previous = loc;
   }
 

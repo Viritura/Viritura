@@ -279,8 +279,18 @@ fn render_fragment(
             dl.push_shape_cmd(ci, eid.clone(), ElementKind::Beam, None, None);
         }
     }
-    dl.push_selection_group(
-        eid,
-        super::beam_member_element_ids(measure_layouts, &spanning.beam.events),
-    );
+    let members = super::beam_member_element_ids(measure_layouts, &spanning.beam.events);
+    if let Some(group) = dl
+        .selection_groups
+        .iter_mut()
+        .find(|group| group.element_id == eid)
+    {
+        for member in members {
+            if !group.member_ids.contains(&member) {
+                group.member_ids.push(member);
+            }
+        }
+    } else {
+        dl.push_selection_group(eid, members);
+    }
 }

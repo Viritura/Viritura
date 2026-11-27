@@ -1738,6 +1738,19 @@ fn test_beam_across_system_break_draws_fragments_on_both_systems() {
         2,
         "no auto-beam should duplicate the incoming fragment"
     );
+    let members: std::collections::HashSet<&str> = dl
+        .selection_groups
+        .iter()
+        .filter(|group| group.element_id == "p0/m0/beam0")
+        .flat_map(|group| group.member_ids.iter().map(String::as_str))
+        .collect();
+    assert_eq!(
+        members,
+        ["p0/m0/s0/a", "p0/m0/s0/b", "p0/m1/s0/c", "p0/m1/s0/d"]
+            .into_iter()
+            .collect::<std::collections::HashSet<_>>(),
+        "selecting either fragment should include every beam member"
+    );
 }
 
 #[test]

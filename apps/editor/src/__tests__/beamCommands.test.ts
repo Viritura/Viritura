@@ -458,4 +458,17 @@ describe("beamTogetherSelection across a barline", () => {
 
     expect(canBeamTogetherSelection(value, selection)).toBe(false);
   });
+
+  it("rejects a note-level staff change in a cross-barline run", () => {
+    const value = twoMeasureScore();
+    const first = value.parts[0]!.measures[0]!.sequences[0]!.content[3]!;
+    const second = value.parts[0]!.measures[1]!.sequences[0]!.content[0]!;
+    if (first.type !== "event" || second.type !== "event") throw new Error("Expected note events");
+    second.staff = 2;
+    const selection: Selection = { kind: "multi", elementIds: ["p0/m0/s0/e4", "p0/m1/s0/e5"] };
+
+    expect(canBeamTogetherSelection(value, selection)).toBe(false);
+    expect(beamTogetherSelection(value, selection)).toBe(false);
+    expect(value.parts[0]!.measures[0]!.beams).toBeUndefined();
+  });
 });
