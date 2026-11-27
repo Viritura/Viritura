@@ -3,7 +3,7 @@ import type { HarpPedalCalculatedSetting, HarpPedalSpellingEdit } from "./calcul
 
 export const PEDAL_LETTERS: readonly HarpPedalLetter[] = ["D", "C", "B", "E", "F", "G", "A"];
 const POWERS = PEDAL_LETTERS.map((_, index) => 3 ** index);
-export const TUNING_COUNT = 3 ** PEDAL_LETTERS.length;
+const TUNING_COUNT = 3 ** PEDAL_LETTERS.length;
 
 export const PEDAL_TUNINGS: readonly HarpPedalTuning[] = Array.from({ length: TUNING_COUNT }, (_, index) => {
   const tuning: Record<HarpPedalLetter, HarpPedalAlter> = { D: 0, C: 0, B: 0, E: 0, F: 0, G: 0, A: 0 };
@@ -14,7 +14,7 @@ export const PEDAL_TUNINGS: readonly HarpPedalTuning[] = Array.from({ length: TU
   return tuning;
 });
 
-export interface SearchPath {
+interface SearchPath {
   previous?: SearchPath;
   setting?: HarpPedalCalculatedSetting;
   edits: readonly HarpPedalSpellingEdit[];

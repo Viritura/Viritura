@@ -86,10 +86,6 @@ export function pedalId(part: number, measure: number, index: number): string {
   return `p${part}/m${measure}/pedal${index}`;
 }
 
-export function harpPedalId(id: string): string {
-  return `harpPedal/${id}`;
-}
-
 /** Harp pedal IDs are score-wide, not prefixed by their part or measure. */
 export function resolveHarpPedalLocation(elementId: string, score: Score) {
   if (!elementId.startsWith("harpPedal/")) return null;

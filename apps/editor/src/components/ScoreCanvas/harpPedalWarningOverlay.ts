@@ -55,15 +55,6 @@ export function harpPedalWarningGlyphs(score: Score, displayList: DisplayList, v
   return glyphs;
 }
 
-export function paintHarpPedalWarnings(
-  ctx: CanvasRenderingContext2D,
-  score: Score,
-  displayList: DisplayList,
-  version: number,
-): void {
-  paintHarpPedalWarningGlyphs(ctx, harpPedalWarningGlyphs(score, displayList, version));
-}
-
 export function paintHarpPedalWarningGlyphs(ctx: CanvasRenderingContext2D, glyphs: readonly NoteheadGlyph[]): void {
   ctx.save();
   for (const command of glyphs) paintCommand(ctx, command);
