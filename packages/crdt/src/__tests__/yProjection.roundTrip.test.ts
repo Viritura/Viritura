@@ -22,6 +22,37 @@ const scoresDir = resolve(here, "../../../format/fixtures/mnx");
 const mnxFiles = readdirSync(scoresDir).filter((f) => f.endsWith(".mnx"));
 
 describe("yProjection round-trip (schema-blind walker)", () => {
+  it("transports full part-wide harp pedal snapshots without conflating piano pedals", () => {
+    const original = {
+      parts: [
+        {
+          measures: [
+            {
+              _x: {
+                viritura: {
+                  harpPedals: [
+                    {
+                      id: "harp-setting",
+                      position: { fraction: [1, 2] },
+                      tuning: { D: -1, C: 0, B: -1, E: -1, F: 0, G: 0, A: -1 },
+                      source: "calculated",
+                      staff: 2,
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const sender = new Y.Doc();
+    projectJsonIntoYDoc(original, sender);
+    const receiver = new Y.Doc();
+    Y.applyUpdate(receiver, Y.encodeStateAsUpdate(sender));
+    expect(readJsonFromYDoc(receiver)).toEqual(original);
+  });
+
   it("found MNX example files", () => {
     expect(mnxFiles.length).toBeGreaterThan(0);
   });

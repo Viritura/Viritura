@@ -154,6 +154,7 @@ mod tests {
             measure_repeat: None,
             staff_configs: None,
             pedals: None,
+            harp_pedals: None,
             expressions: None,
             condensing_override: None,
             grouping_display_overrides: None,

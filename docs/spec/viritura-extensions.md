@@ -18,7 +18,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | [source part](#source-part-extensions)             | `parts[]._x.viritura`                           | instrumentId, midiProgram, solo, family, spatial, chordSymbolVisibility, instruments, initialInstrument                                  |
 | [measure-global](#global-measure-extensions)       | `global.measures[]._x.viritura`                 | rehearsalMark, markerText, chordSymbols                                                                                                  |
 | [time signature](#time-signature-extensions)       | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                                                  |
-| [part-measure](#part-measure-extensions)           | `parts[].measures[]._x.viritura`                | pedals, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                                                     |
+| [part-measure](#part-measure-extensions)           | `parts[].measures[]._x.viritura`                | pedals, harpPedals, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                                         |
 | positioned text                                    | `parts[].measures[].text[]._x.viritura`         | frame, pagePosition, manualOffset, avoidCollisions                                                                                       |
 | formatted-text chunk                               | `parts[].measures[].text[].text[]._x.viritura`  | style, smuflStyle                                                                                                                        |
 | positioned staff configuration                     | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                                    |
@@ -2023,6 +2023,71 @@ Array of piano pedal markings.
 
 **SMuFL glyphs**: U+E650 (Ped), U+E655 (\*), U+E659 (Sost.)
 
+### `harpPedals`
+
+Full seven-pedal snapshots for a double-action harp, shared by all voices and
+staves of the part. These are separate from piano `pedals` and MIDI CC64.
+
+```json
+{
+  "harpPedals": [
+    {
+      "id": "harp-setting-1",
+      "position": { "fraction": [0, 1] },
+      "tuning": { "D": -1, "C": 0, "B": -1, "E": -1, "F": 0, "G": 0, "A": -1 },
+      "source": "manual"
+    }
+  ]
+}
+```
+
+`id`, `position`, and `tuning` are required. All seven tuning letters must be
+present, each with alteration `-1` (flat), `0` (natural), or `1` (sharp).
+Positions use non-negative integer fractions with a positive denominator;
+grace positions are not supported. IDs must be unique throughout the score,
+and equivalent fractions cannot define two settings in one part measure.
+Optional `source` is `"manual"` (also the meaning of omission) or `"calculated"`.
+Optional `staff` must reference a staff of the part and affects printing only.
+
+Optional `placement` uses the dynamic placement values `"above"`, `"below"`,
+`"between"`, or `"auto"`. Omission and `"auto"` place the marking in an
+available inter-staff gap, otherwise below the associated staff. Explicit
+`"between"` uses that gap when available and falls back below when it is not.
+When `staff` is omitted, `"above"` uses the top staff and `"below"` the bottom
+staff; an explicit `staff` makes those placements relative to that staff.
+Optional `manualOffset` is a `[dx, dy]` adjustment in spatia (sp), with positive
+`dy` moving up; `avoidCollisions` defaults to `true`.
+
+Diagram order is D C B, divider, E F G A.
+Bravura glyphs U+E680 (flat), U+E681 (natural), U+E682 (sharp), and U+E683
+(divider) share a baseline and one-staff-space advance. Layout reuses the
+positioned-annotation placement, collision, and selection geometry pipeline.
+Between staves, the horizontal pedal bar is centered in the gap before manual
+offsets and collision avoidance.
+
+Optional `display` selects how the setting is printed:
+
+| Value       | Printed as                                                                      |
+| ----------- | ------------------------------------------------------------------------------- |
+| `"diagram"` | Pedal diagram (also the meaning of omission).                                   |
+| `"names"`   | All seven pedal names in foot order, feet separated: `D♭ C♮ B♭ \| E♭ F♮ G♮ A♭`. |
+| `"changes"` | Only the pedals that differ from the preceding setting: `C♯ F♮`.                |
+
+Names are upright letters followed by SMuFL accidentals. The full `"names"`
+display erases underlying ink within its text frame by default. `"changes"`
+compares against the latest earlier setting of the same part in written order;
+repeats and jumps are not followed. It prints all seven names when there is no
+earlier setting or no pedal differs, so the marking never disappears. `display`
+affects printing only; the stored `tuning` is always the full snapshot.
+
+Manual pedal editing, ranked whole-part calculation, harp-pedal glissando
+playback, and red notehead mismatch overlays are implemented. Calculation
+keeps tie-chain spelling coherent and respects notated sustain, and ranks complete
+spelling-preserving, minimally respelled, and minimum-pedal-cost alternatives.
+Auto runs in a cancellable worker; no provisional result is applied.
+Bounded-region restoration and MusicXML pedal import/export remain planned.
+See [the harp plan](../plans/harp-support.md).
+
 ### Positioned text (`text[]`)
 
 Staff text expressions and performance directions use native MNX
@@ -2525,28 +2590,34 @@ Copy/paste and repeat assign fresh IDs to both endpoints and retarget each copie
 line to the copied target, including across selected staves and voices. Lines
 whose targets are outside the copied selection are omitted from the pasted events.
 
-| Property       | Type                                            | Required | Description                                                 |
-| -------------- | ----------------------------------------------- | -------- | ----------------------------------------------------------- |
-| `target`       | string                                          | **Yes**  | ID of the target event                                      |
-| `kind`         | `"glissando"` \| `"portamento"`                 | No       | Semantic kind, independent of its label. Default: glissando |
-| `style`        | `"straight"` \| `"wavy"`                        | No       | Line style. Default: `"straight"`                           |
-| `playbackType` | `"chromatic"` \| `"diatonic"` \| `"pitch-bend"` | No       | Default: diatonic for glissando, pitch bend for portamento  |
-| `text`         | string                                          | No       | Optional text label (e.g. "gliss.", "port.")                |
-| `showText`     | boolean                                         | No       | Whether to display the label. Default: `true`               |
+| Property       | Type                                                               | Required | Description                                                                                               |
+| -------------- | ------------------------------------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------- |
+| `target`       | string                                                             | **Yes**  | ID of the target event                                                                                    |
+| `kind`         | `"glissando"` \| `"portamento"`                                    | No       | Semantic kind, independent of its label. Default: glissando                                               |
+| `style`        | `"straight"` \| `"wavy"`                                           | No       | Line style. Default: `"straight"`                                                                         |
+| `playbackType` | `"chromatic"` \| `"diatonic"` \| `"pitch-bend"` \| `"harp-pedals"` | No       | Default: harp pedals for active harp glissandos, diatonic for other glissandos, pitch bend for portamento |
+| `text`         | string                                                             | No       | Optional text label (e.g. "gliss.", "port.")                                                              |
+| `showText`     | boolean                                                            | No       | Whether to display the label. Default: `true`                                                             |
 
 Playback runs from the source onset to the target onset. Chromatic playback
 visits every intermediate semitone; diatonic playback follows the source key
-signature. Chord endpoints pair notes in ascending pitch order, reusing the
-highest target note if the source chord has more notes. Transitions use an
-isolated lane per source note, so other voices are not detuned or released.
+signature. Harp-pedal playback walks the physical spelled strings between
+matching note indices and resolves each interior attack against the pedal
+setting at that score position. Distinct enharmonic strings remain distinct
+attacks. Chromatic and diatonic chord endpoints pair notes in ascending pitch
+order, reusing the highest target note if the source chord has more notes.
+Transitions use an isolated lane per source note, so other voices are not
+detuned or released.
 A line from a repeat-end measure to the matching repeat-start downbeat plays
 only on passes that take that repeat. The final pass retains ordinary source-note
 playback. Both an earlier entry source and the repeat-return source can target the
 same downbeat without duplicating its attack. The return is engraved as separate
 outgoing and incoming fragments, including across systems or horizon chunks;
 the incoming fragment reserves space before the downbeat.
-Other playback jumps are not crossed. Missing, unsupported backward, simultaneous, or percussion endpoints
-produce a playback diagnostic. Text visibility and line style do not affect sound.
+Other playback jumps are not crossed. Missing, unsupported backward, simultaneous,
+percussion, or unsupported harp-pedal endpoints produce a playback diagnostic.
+Unknown harp tuning preserves the authored endpoints without inventing interior
+pitches. Text visibility and line style do not affect sound.
 Repeated lines between the same endpoints with the same effective playback type
 play once. Adding a line to an existing endpoint pair updates that line instead
 of adding a duplicate, preserving playback settings not explicitly changed.

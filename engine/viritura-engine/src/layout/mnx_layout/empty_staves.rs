@@ -54,6 +54,7 @@ fn unmarked_measure(measure: &PartMeasure, index: usize) -> bool {
     }) && measure.dynamics.as_ref().is_none_or(Vec::is_empty)
         && measure.expressions.as_ref().is_none_or(Vec::is_empty)
         && measure.pedals.as_ref().is_none_or(Vec::is_empty)
+        && measure.harp_pedals.as_ref().is_none_or(Vec::is_empty)
         && measure.ottavas.as_ref().is_none_or(Vec::is_empty)
         && measure.arpeggios.as_ref().is_none_or(Vec::is_empty)
         && measure.non_arpeggios.as_ref().is_none_or(Vec::is_empty)

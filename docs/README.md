@@ -33,6 +33,7 @@ guides, and operational runbooks.
 - **Working on MNX parsing/serialization:** [spec/music-notationref-coverage.md](spec/music-notationref-coverage.md), [spec/viritura-extensions.md](spec/viritura-extensions.md), [spec/mnx-converter-coverage.md](spec/mnx-converter-coverage.md), [spec/dynamics.md](spec/dynamics.md).
 - **Reviewing the earlier MNX v40 to v46 upgrade:** [plans/mnx-v46-end-to-end-support.md](plans/mnx-v46-end-to-end-support.md) records its delivery plan and asset migration.
 - **Working on the editor UI:** [spec/engrave-mode.md](spec/engrave-mode.md), [spec/keyboard-shortcuts.md](spec/keyboard-shortcuts.md), [plans/score-and-parts.md](plans/score-and-parts.md).
+- **Planning harp pedals:** [plans/harp-support.md](plans/harp-support.md) covers explicit settings, ranked pedal solutions with enharmonic alternatives, pedal-aware glissandos, and red noteheads.
 - **Working on external MCP integration:** [spec/mcp-integration.md](spec/mcp-integration.md).
 - **Working on film/video scoring:** [plans/video-sync.md](plans/video-sync.md) — native Picture-in-Picture, shared transport synchronization, and the boundary between Video Reference and Advanced Scoring to Picture.
 - **Working on click sessions (Click activity):** [spec/click-sessions.md](spec/click-sessions.md): click-only engine, countoff, programmable subdivisions, folder and Gist setlists, and recording qualification.

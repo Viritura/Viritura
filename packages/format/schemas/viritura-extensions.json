@@ -729,8 +729,8 @@
         },
         "playbackType": {
           "type": "string",
-          "enum": ["chromatic", "diatonic", "pitch-bend"],
-          "description": "Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento."
+          "enum": ["chromatic", "diatonic", "pitch-bend", "harp-pedals"],
+          "description": "Playback interpolation. Omission means harp pedals for an active harp glissando, diatonic for other glissandos, and pitch-bend for portamento."
         },
         "text": {
           "type": "string",
@@ -984,6 +984,63 @@
       "additionalProperties": false
     },
 
+    "harp-pedal-alter": {
+      "type": "integer",
+      "enum": [-1, 0, 1],
+      "description": "Double-action harp pedal position: flat (-1), natural (0), or sharp (1)."
+    },
+    "harp-pedal-tuning": {
+      "type": "object",
+      "required": ["D", "C", "B", "E", "F", "G", "A"],
+      "properties": {
+        "D": { "$ref": "#/$defs/harp-pedal-alter" },
+        "C": { "$ref": "#/$defs/harp-pedal-alter" },
+        "B": { "$ref": "#/$defs/harp-pedal-alter" },
+        "E": { "$ref": "#/$defs/harp-pedal-alter" },
+        "F": { "$ref": "#/$defs/harp-pedal-alter" },
+        "G": { "$ref": "#/$defs/harp-pedal-alter" },
+        "A": { "$ref": "#/$defs/harp-pedal-alter" }
+      },
+      "additionalProperties": false
+    },
+    "harp-pedal-setting": {
+      "type": "object",
+      "description": "A full seven-pedal snapshot applying to the entire part from its rhythmic position onward. Staff controls diagram placement only.",
+      "required": ["id", "position", "tuning"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "position": {
+          "type": "object",
+          "required": ["fraction"],
+          "properties": {
+            "fraction": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "additionalProperties": false,
+          "description": "A non-negative fraction with a strictly positive denominator; grace positions are not supported."
+        },
+        "tuning": { "$ref": "#/$defs/harp-pedal-tuning" },
+        "source": { "type": "string", "enum": ["manual", "calculated"] },
+        "staff": { "type": "integer", "minimum": 1 },
+        "placement": {
+          "type": "string",
+          "enum": ["above", "below", "between", "auto"],
+          "description": "Diagram placement relative to the associated staff. Default/auto uses the inter-staff gap when available, otherwise below."
+        },
+        "manualOffset": { "$ref": "#/$defs/sp-delta" },
+        "avoidCollisions": { "type": "boolean" },
+        "display": {
+          "type": "string",
+          "enum": ["diagram", "names", "changes"],
+          "description": "How the setting is printed: a pedal diagram (default), all seven pedal names, or only the pedals that differ from the preceding setting in written order. Changes falls back to all names when there is no preceding setting or nothing differs."
+        }
+      },
+      "additionalProperties": false
+    },
     "part-measure-extensions": {
       "type": "object",
       "description": "Viritura vendor extensions on a part measure object.",
@@ -992,6 +1049,11 @@
           "type": "array",
           "items": { "$ref": "#/$defs/pedal" },
           "description": "Piano pedal markings."
+        },
+        "harpPedals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/harp-pedal-setting" },
+          "description": "Part-wide double-action harp pedal snapshots, independent of piano pedal spans."
         },
         "condensingOverride": {
           "type": "string",

@@ -16,7 +16,7 @@ impl DisplayList {
             .enumerate()
             .filter(|(_, command)| matches!(command, RenderCommand::EraseRect { .. }))
             .filter_map(|(index, _)| self.element_ids.get(index)?.as_ref())
-            .filter(|id| id.contains("/expr"))
+            .filter(|id| id.contains("/expr") || id.starts_with("harpPedal/"))
             .cloned()
             .collect();
         if ids.is_empty() {

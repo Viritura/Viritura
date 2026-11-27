@@ -190,6 +190,16 @@ const cases: CoverageCase[] = [
   },
   { kind: "expression", id: "p0/m1/expr0", present: (s) => Boolean(s.parts[0]!.measures[1]!.expressions?.length) },
   { kind: "pedal", id: "p0/m1/pedal0", present: (s) => Boolean(s.parts[0]!.measures[1]!.pedals?.length) },
+  {
+    kind: "harp-pedal",
+    id: "harpPedal/harp",
+    prepare: (s) => {
+      s.parts[0]!.measures[1]!.harpPedals = [
+        { id: "harp", position: { fraction: [0, 1] }, tuning: { D: 0, C: 0, B: 0, E: 0, F: 0, G: 0, A: 0 } },
+      ];
+    },
+    present: (s) => s.parts[0]!.measures[1]!.harpPedals !== undefined,
+  },
   { kind: "ottava", id: "p0/m1/ottava0", present: (s) => Boolean(s.parts[0]!.measures[1]!.ottavas?.length) },
   { kind: "tempo", id: "m1/tempo0", present: (s) => Boolean(s.global.measures[1]!.tempos?.length) },
   { kind: "chord-symbol", id: "m1/chord0", present: (s) => Boolean(s.global.measures[1]!.chordSymbols?.length) },

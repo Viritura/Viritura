@@ -91,6 +91,7 @@ export const WithValidation: Story = {
           title="Measure number"
           placeholder="1–999"
           inputType="number"
+          submitLabel="Apply"
           validate={(v) => {
             const n = Number(v);
             if (!Number.isFinite(n)) return "Must be a number";

@@ -204,6 +204,8 @@ pub struct PartMeasure {
     /// Staff-line configuration changes in this measure (MNX `staffConfigs`).
     #[serde(skip_serializing_if = "Option::is_none", rename = "staffConfigs")]
     pub staff_configs: Option<Vec<PositionedStaffConfig>>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "harpPedals")]
+    pub harp_pedals: Option<Vec<super::harp::HarpPedalSetting>>,
     /// Piano pedal markings in this measure (Viritura extension `_x.viritura.pedals[]`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pedals: Option<Vec<Pedal>>,

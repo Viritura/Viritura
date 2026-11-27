@@ -3,9 +3,9 @@ use super::super::full_score::{FlatStaff, GroupRange};
 use super::super::types::MeasureLayout;
 use crate::model::{MultiStaffPlacement, Score, SequenceContent};
 
-fn has_between_dynamic(layouts: &[&MeasureLayout]) -> bool {
+fn has_between_annotation(layouts: &[&MeasureLayout]) -> bool {
     layouts.iter().any(|layout| {
-        layout
+        let has_between_dynamic = layout
             .resolved
             .part
             .dynamics
@@ -14,7 +14,22 @@ fn has_between_dynamic(layouts: &[&MeasureLayout]) -> bool {
                 dynamics
                     .iter()
                     .any(|dynamic| dynamic.placement == Some(MultiStaffPlacement::Between))
-            })
+            });
+        let has_between_harp_pedal =
+            layout
+                .resolved
+                .part
+                .harp_pedals
+                .as_ref()
+                .is_some_and(|settings| {
+                    settings.iter().any(|setting| {
+                        matches!(
+                            setting.placement,
+                            None | Some(MultiStaffPlacement::Auto | MultiStaffPlacement::Between)
+                        )
+                    })
+                });
+        has_between_dynamic || has_between_harp_pedal
     })
 }
 
@@ -76,11 +91,12 @@ pub(super) fn compute_staff_y_offsets_for_system(
                 .as_ref()
                 .is_some_and(|dynamics| !dynamics.is_empty())
         });
-        let has_between_dynamics = layouts_share_part(
-            &all_staff_layouts[staff_index - 1],
-            &all_staff_layouts[staff_index],
-        ) && (has_between_dynamic(&all_staff_layouts[staff_index - 1])
-            || has_between_dynamic(&all_staff_layouts[staff_index]));
+        let has_between_annotations =
+            layouts_share_part(
+                &all_staff_layouts[staff_index - 1],
+                &all_staff_layouts[staff_index],
+            ) && (has_between_annotation(&all_staff_layouts[staff_index - 1])
+                || has_between_annotation(&all_staff_layouts[staff_index]));
         let has_lyrics = all_staff_layouts[staff_index - 1].iter().any(|layout| {
             layout.resolved.part.sequences.iter().any(|sequence| {
                 sequence.content.iter().any(|content| {
@@ -90,8 +106,8 @@ pub(super) fn compute_staff_y_offsets_for_system(
                 })
             })
         });
-        if has_between_dynamics {
-            // Standard engraving practice: an inter-staff dynamic reserves a
+        if has_between_annotations {
+            // Standard engraving practice: an inter-staff direction reserves a
             // shared lane large enough for the glyph and clearance on both
             // adjoining staves, rather than moving outside the grand staff.
             lowest_above = lowest_above.max(staff_bottom + 5.5 * sp);

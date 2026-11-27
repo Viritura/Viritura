@@ -59,6 +59,7 @@ export function buildSelectionContextMenuItems(
       action: callbacks.onBarInstrumentChange,
       disabled: !state.canChangeBarInstrument,
     },
+    { label: "Set harp pedals", action: callbacks.onSetHarpPedals, disabled: !state.canSetHarpPedals },
     SEPARATOR,
     { label: "Explode to Staves", action: callbacks.onExplodeSelection, disabled: !canDistribute },
     { label: "Reduce to Staff", action: callbacks.onReduceSelection, disabled: !canDistribute },

@@ -51,6 +51,7 @@ import { scoreHasLyrics } from "../lyrics";
 import { useOverlayStore } from "../store/overlayStore";
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
+import { isHarpInstrumentAt } from "@viritura/core";
 
 interface NotationInspectorProps {
   preferredSection?: InspectorSection | null;
@@ -106,6 +107,12 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     if (!score) return null;
     return resolveNotationSelectionTarget(selection, score);
   }, [selection, score]);
+  const harpPedalDefault = Boolean(
+    target &&
+    score &&
+    score.parts[target.partIndex] &&
+    isHarpInstrumentAt(score.parts[target.partIndex]!, target.measureIndex),
+  );
 
   const {
     selectedEvent,
@@ -384,6 +391,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           <GlissandoSection
             key={`${target?.elementId}:${selectedGlissando.target}`}
             glissando={selectedGlissando}
+            harpPedalDefault={harpPedalDefault}
             focusedSection={focusedSection}
             error={glissandoError}
             onTargetChange={handleGlissandoTargetChange}

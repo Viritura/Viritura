@@ -71,29 +71,32 @@ describe("ink knockout", () => {
     expect(culled.clip).toHaveBeenCalledTimes(1);
   });
 
-  it("raises staff knockout foreground above later barlines but below page furniture, keeping tags and opacity", () => {
-    const dl: DisplayList = {
-      width: 100,
-      height: 100,
-      commands: [
-        { type: "SetOpacity", opacity: 0.4 },
-        mask,
-        foreground,
-        { type: "SetOpacity", opacity: 1 },
-        ink,
-        { ...foreground, y: 50 },
-      ],
-      elementIds: [null, "p0/m0/expr0", "p0/m0/expr0", null, "barline", "text-frame/page"],
-    };
-    const out = normalizeErasingFrameOrder(dl);
-    const index = (id: string) => out.elementIds!.indexOf(id);
-    expect(index("barline")).toBeLessThan(index("p0/m0/expr0"));
-    expect(index("p0/m0/expr0")).toBeLessThan(index("text-frame/page"));
-    expect(out.commands[index("p0/m0/expr0")]).toEqual(mask);
-    expect(out.commands[index("p0/m0/expr0") - 1]).toEqual({ type: "SetOpacity", opacity: 0.4 });
-    expect(out.commands[index("text-frame/page") - 1]).toEqual({ type: "SetOpacity", opacity: 1 });
-    expect(normalizeErasingFrameOrder({ ...dl, ...out })).toEqual(out);
-  });
+  it.each(["p0/m0/expr0", "harpPedal/hp"])(
+    "raises staff knockout %s above later barlines but below page furniture, keeping tags and opacity",
+    (frameId) => {
+      const dl: DisplayList = {
+        width: 100,
+        height: 100,
+        commands: [
+          { type: "SetOpacity", opacity: 0.4 },
+          mask,
+          foreground,
+          { type: "SetOpacity", opacity: 1 },
+          ink,
+          { ...foreground, y: 50 },
+        ],
+        elementIds: [null, frameId, frameId, null, "barline", "text-frame/page"],
+      };
+      const out = normalizeErasingFrameOrder(dl);
+      const index = (id: string) => out.elementIds!.indexOf(id);
+      expect(index("barline")).toBeLessThan(index(frameId));
+      expect(index(frameId)).toBeLessThan(index("text-frame/page"));
+      expect(out.commands[index(frameId)]).toEqual(mask);
+      expect(out.commands[index(frameId) - 1]).toEqual({ type: "SetOpacity", opacity: 0.4 });
+      expect(out.commands[index("text-frame/page") - 1]).toEqual({ type: "SetOpacity", opacity: 1 });
+      expect(normalizeErasingFrameOrder({ ...dl, ...out })).toEqual(out);
+    },
+  );
 
   it("decodes and paints binary ink knockout tag 13", () => {
     const data = new Float32Array([

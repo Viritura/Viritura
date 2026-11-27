@@ -312,14 +312,14 @@ export type GlissandoStyle = "straight" | "wavy";
 /** Musical meaning of a glissando-family line, independent of its label. */
 export type GlissandoKind = "glissando" | "portamento";
 
-export type GlissandoPlaybackType = "chromatic" | "diatonic" | "pitch-bend";
+export type GlissandoPlaybackType = "chromatic" | "diatonic" | "pitch-bend" | "harp-pedals";
 
 /** Glissando line connecting two notes at different pitches. */
 export interface Glissando {
   target: string;
   kind?: GlissandoKind;
   style?: GlissandoStyle;
-  /** Omission means diatonic for glissando, pitch bend for portamento. */
+  /** Omission uses harp pedals for active harp glissandos, otherwise diatonic or pitch bend for portamento. */
   playbackType?: GlissandoPlaybackType;
   text?: string;
   showText?: boolean;

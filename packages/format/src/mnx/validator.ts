@@ -17,6 +17,7 @@ import type { MeasureGlobalExtensions } from "@viritura/core/raw-viritura";
 import { isSupportedDynamicGlyph, validateFretboard } from "@viritura/core";
 import { diagnoseMnxSchemaErrors, normaliseErrors } from "./schemaDiagnostics";
 import { validateInstrumentChanges } from "./instrumentChangeValidation";
+import { validateHarpPedals } from "./harpPedalValidation";
 import { validateLyricLines } from "./lyricValidation";
 import { validateLabelReferences } from "./layoutValidation";
 import { validateClickGroupings } from "./clickGroupingValidation";
@@ -129,6 +130,7 @@ export function validateRawScore(json: unknown): RawScoreValidationResult {
       ...validateDynamicGroups(value),
       ...validateKitReferences(value),
       ...validateInstrumentChanges(value),
+      ...validateHarpPedals(value),
       ...validateLyricLines(value),
       ...validateLabelReferences(value),
       ...validateBeatStructures(value),

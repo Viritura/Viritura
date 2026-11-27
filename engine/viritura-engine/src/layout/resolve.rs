@@ -331,6 +331,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             measure_repeat: None,
             staff_configs: None,
             pedals: None,
+            harp_pedals: None,
             expressions: None,
             condensing_override: None,
             grouping_display_overrides: None,
@@ -344,6 +345,9 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             part_index,
             score,
         );
+        if let Some(settings) = part_measure.harp_pedals.as_deref_mut() {
+            crate::model::annotate_preceding_harp_tunings(settings, &part.measures, i);
+        }
         let chord_symbols = if !part.shows_chord_symbols() {
             None
         } else {
@@ -749,24 +753,28 @@ fn has_staff_configs(measure: &PartMeasure) -> bool {
 /// Fermatas and caesuras may be on events or full-measure rests; breaths
 /// live under `Event.markings`.
 fn part_interrupts_mmr(pm: &PartMeasure) -> bool {
-    pm.expressions.as_ref().is_some_and(|expressions| {
-        expressions
-            .iter()
-            .any(|expression| expression.instrument_reminder)
-    }) || pm.sequences.iter().any(|s| {
-        s.full_measure
-            .as_ref()
-            .is_some_and(|rest| rest.fermata.is_some() || rest.caesura.is_some())
-            || s.content.iter().any(|c| match c {
-                SequenceContent::Event(e) => {
-                    e.fermata.is_some()
-                        || e.markings
-                            .as_ref()
-                            .is_some_and(|mk| mk.caesura.is_some() || mk.breath.is_some())
-                }
-                _ => false,
-            })
-    })
+    pm.harp_pedals
+        .as_ref()
+        .is_some_and(|settings| !settings.is_empty())
+        || pm.expressions.as_ref().is_some_and(|expressions| {
+            expressions
+                .iter()
+                .any(|expression| expression.instrument_reminder)
+        })
+        || pm.sequences.iter().any(|s| {
+            s.full_measure
+                .as_ref()
+                .is_some_and(|rest| rest.fermata.is_some() || rest.caesura.is_some())
+                || s.content.iter().any(|c| match c {
+                    SequenceContent::Event(e) => {
+                        e.fermata.is_some()
+                            || e.markings
+                                .as_ref()
+                                .is_some_and(|mk| mk.caesura.is_some() || mk.breath.is_some())
+                    }
+                    _ => false,
+                })
+        })
 }
 
 // ═══════════════════════════════════════════

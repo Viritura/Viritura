@@ -40,6 +40,8 @@ export interface MidiEvent {
   scoreDurationBeats?: number;
   /** Score event ID (may have been minted by the parser). */
   scoreEventId?: string;
+  /** Index of this note in its authored score event, when applicable. */
+  scoreNoteIndex?: number;
   /** GM program number — only present for `type: "programChange"`. */
   program?: number;
   /** GS drum-kit program (bank 128) this note should play on, overriding the
@@ -111,6 +113,8 @@ export interface TimelineDiagnostic {
     | "percussion-lane-collapse"
     | "instrument-program-unavailable"
     | "glissando-playback-unsupported"
+    | "harp-pedal-playback-unsupported"
+    | "harp-pedal-state-unknown"
     | "swing-staff-meter-unsupported";
   message: string;
   playbackLaneIds: string[];

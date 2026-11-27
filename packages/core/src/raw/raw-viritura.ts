@@ -348,10 +348,10 @@ export interface components {
             /** @description Line style. Default: 'straight'. */
             style?: components["schemas"]["glissando-style"];
             /**
-             * @description Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento.
+             * @description Playback interpolation. Omission means harp pedals for an active harp glissando, diatonic for other glissandos, and pitch-bend for portamento.
              * @enum {string}
              */
-            playbackType?: "chromatic" | "diatonic" | "pitch-bend";
+            playbackType?: "chromatic" | "diatonic" | "pitch-bend" | "harp-pedals";
             /** @description Optional text label (e.g. 'gliss.', 'port.'). */
             text?: string;
             /** @description Whether to display the text label. Default: true. */
@@ -482,10 +482,50 @@ export interface components {
              */
             senzaMisura?: true;
         };
+        /**
+         * @description Double-action harp pedal position: flat (-1), natural (0), or sharp (1).
+         * @enum {integer}
+         */
+        "harp-pedal-alter": -1 | 0 | 1;
+        "harp-pedal-tuning": {
+            D: components["schemas"]["harp-pedal-alter"];
+            C: components["schemas"]["harp-pedal-alter"];
+            B: components["schemas"]["harp-pedal-alter"];
+            E: components["schemas"]["harp-pedal-alter"];
+            F: components["schemas"]["harp-pedal-alter"];
+            G: components["schemas"]["harp-pedal-alter"];
+            A: components["schemas"]["harp-pedal-alter"];
+        };
+        /** @description A full seven-pedal snapshot applying to the entire part from its rhythmic position onward. Staff controls diagram placement only. */
+        "harp-pedal-setting": {
+            id: string;
+            /** @description A non-negative fraction with a strictly positive denominator; grace positions are not supported. */
+            position: {
+                fraction: number[];
+            };
+            tuning: components["schemas"]["harp-pedal-tuning"];
+            /** @enum {string} */
+            source?: "manual" | "calculated";
+            staff?: number;
+            /**
+             * @description Diagram placement relative to the associated staff. Default/auto uses the inter-staff gap when available, otherwise below.
+             * @enum {string}
+             */
+            placement?: "above" | "below" | "between" | "auto";
+            manualOffset?: components["schemas"]["sp-delta"];
+            avoidCollisions?: boolean;
+            /**
+             * @description How the setting is printed: a pedal diagram (default), all seven pedal names, or only the pedals that differ from the preceding setting in written order. Changes falls back to all names when there is no preceding setting or nothing differs.
+             * @enum {string}
+             */
+            display?: "diagram" | "names" | "changes";
+        };
         /** @description Viritura vendor extensions on a part measure object. */
         "part-measure-extensions": {
             /** @description Piano pedal markings. */
             pedals?: components["schemas"]["pedal"][];
+            /** @description Part-wide double-action harp pedal snapshots, independent of piano pedal spans. */
+            harpPedals?: components["schemas"]["harp-pedal-setting"][];
             /**
              * @description User-specified condensing mode override for this measure.
              * @enum {string}
@@ -1254,6 +1294,9 @@ export type MarkerTexts = components["schemas"]["marker-texts"];
 export type GradualTempo = components["schemas"]["gradual-tempo"];
 export type GlobalFermata = components["schemas"]["global-fermata"];
 export type MeasureGlobalExtensions = components["schemas"]["measure-global-extensions"];
+export type HarpPedalAlter = components["schemas"]["harp-pedal-alter"];
+export type HarpPedalTuning = components["schemas"]["harp-pedal-tuning"];
+export type HarpPedalSetting = components["schemas"]["harp-pedal-setting"];
 export type PartMeasureExtensions = components["schemas"]["part-measure-extensions"];
 export type InstrumentTransposition = components["schemas"]["instrument-transposition"];
 export type InstrumentDefinition = components["schemas"]["instrument-definition"];

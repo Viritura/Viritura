@@ -16,6 +16,7 @@ const STYLE_OPTIONS = [
 
 export interface GlissandoSectionProps {
   glissando: Glissando;
+  harpPedalDefault: boolean;
   focusedSection: InspectorSection | null;
   error: string | null;
   onTargetChange: (value: string) => void;
@@ -28,6 +29,7 @@ export interface GlissandoSectionProps {
 
 export function GlissandoSection({
   glissando,
+  harpPedalDefault,
   focusedSection,
   error,
   onTargetChange,
@@ -68,12 +70,16 @@ export function GlissandoSection({
         Playback type
         <Select
           data-testid="notation-glissando-playback-type"
-          value={glissando.playbackType ?? (glissando.kind === "portamento" ? "pitch-bend" : "diatonic")}
+          value={
+            glissando.playbackType ??
+            (glissando.kind === "portamento" ? "pitch-bend" : harpPedalDefault ? "harp-pedals" : "diatonic")
+          }
           onValueChange={onPlaybackTypeChange}
           options={[
             { value: "chromatic", label: "Chromatic" },
             { value: "diatonic", label: "Diatonic" },
             { value: "pitch-bend", label: "Pitch bend" },
+            { value: "harp-pedals", label: "Harp pedals" },
           ]}
         />
       </label>

@@ -91,7 +91,7 @@ export const Interactive: StoryObj<InteractiveArgs> = {
   argTypes: {
     lineType: { control: { type: "select" }, options: ["straight", "wavy"] },
     kind: { control: { type: "select" }, options: ["glissando", "portamento"] },
-    playbackType: { control: { type: "select" }, options: ["chromatic", "diatonic", "pitch-bend"] },
+    playbackType: { control: { type: "select" }, options: ["chromatic", "diatonic", "pitch-bend", "harp-pedals"] },
   },
   render: ({ lineType, kind, playbackType }) => {
     const mnx = buildMnx({

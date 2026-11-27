@@ -83,8 +83,8 @@ export interface MeasureArgs {
   }>;
   /** Viritura global measure extensions */
   virituraGlobal?: Record<string, unknown>;
-  /** Part measure events per voice */
-  voices?: EventArgs[][];
+  /** Part measure events per voice, optionally assigned to a home staff. */
+  voices?: Array<EventArgs[] | { staff: number; events: EventArgs[] }>;
   /** Full-measure rest (replaces voices with a single fullMeasure sequence) */
   fullMeasure?: { visualDuration?: string; staffPosition?: number };
   /** Clef for this measure */
@@ -343,9 +343,11 @@ export function buildMnx(args: ScoreArgs): string {
       pm.sequences = [{ content: [], fullMeasure: fm }];
     } else {
       const voices = m.voices ?? [[{ duration: "whole", notes: [{ step: "C", octave: 4 }] }]];
-      pm.sequences = voices.map((events) => ({
-        content: events.map(buildEvent),
-      }));
+      pm.sequences = voices.map((voice) =>
+        Array.isArray(voice)
+          ? { content: voice.map(buildEvent) }
+          : { staff: voice.staff, content: voice.events.map(buildEvent) },
+      );
     }
 
     return pm;

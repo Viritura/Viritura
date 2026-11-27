@@ -52,7 +52,9 @@ function ChordEntryPopover({ editing, onClose, onNavigate }: ChordEntryPopoverPr
       key={editor ? `${editor.point.measureIndex}:${editor.point.beat}:${editor.point.position?.graceIndex}` : "closed"}
       open={editor !== null}
       onClose={onClose}
-      onSubmit={editing.commit}
+      onSubmit={(value) => {
+        editing.commit(value);
+      }}
       onNavigate={onNavigate}
       spaceNavigation="measure"
       position={editor?.position ?? { x: 0, y: 0 }}

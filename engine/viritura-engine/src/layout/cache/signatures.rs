@@ -22,6 +22,12 @@ pub(crate) fn measure_content_hash(rm: &ResolvedMeasure) -> u64 {
     if let Ok(json) = serde_json::to_string(&rm.part) {
         json.hash(&mut hasher);
     }
+    // Derived (unserialized) context that changes how pedal changes print.
+    for setting in rm.part.harp_pedals.iter().flatten() {
+        if let Ok(json) = serde_json::to_string(&setting.preceding_tuning) {
+            json.hash(&mut hasher);
+        }
+    }
     if let Some(chords) = &rm.chord_symbols {
         if let Ok(json) = serde_json::to_string(chords) {
             json.hash(&mut hasher);

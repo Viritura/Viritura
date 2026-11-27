@@ -176,6 +176,25 @@ pub fn promote_root(root_json: serde_json::Value) -> Result<ModelScore, PromoteE
             .unwrap_or(serde_json::Value::Null);
         parts.push(promote_part(raw_part, &pj)?);
     }
+    let mut harp_ids = std::collections::HashSet::new();
+    for part in &parts {
+        for setting in part
+            .measures
+            .iter()
+            .flat_map(|measure| measure.harp_pedals.iter().flatten())
+        {
+            if !harp_ids.insert(&setting.id) {
+                return Err(PromoteError::InvalidHarpPedals(
+                    "setting IDs must be unique throughout the score".into(),
+                ));
+            }
+            if setting.staff.is_some_and(|staff| staff > part.staves) {
+                return Err(PromoteError::InvalidHarpPedals(
+                    "presentation staff must belong to the part".into(),
+                ));
+            }
+        }
+    }
 
     // Layouts: pass per-layout JSON for content dispatch.
     let layouts_json = root_json

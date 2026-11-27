@@ -20,6 +20,8 @@ use wasm_bindgen::prelude::*;
 
 #[cfg(test)]
 mod clef_paste_tests;
+#[cfg(test)]
+mod harp_pedal_patch_tests;
 
 /// Recursively collect slur target event ids and tie target note ids referenced
 /// by events in `content` (descending into tuplet/tremolo/grace containers).
@@ -54,6 +56,74 @@ fn collect_connector_targets(content: &[SequenceContent], out: &mut Vec<String>)
             SequenceContent::Space(_) | SequenceContent::Other(_) => {}
         }
     }
+}
+
+fn include_measure(start: &mut Option<usize>, end: &mut Option<usize>, index: usize) {
+    *start = Some(start.map_or(index, |s| s.min(index)));
+    *end = Some(end.map_or(index, |e| e.max(index)));
+}
+
+/// Replaces one part measure from a patch and widens the dirty range to every
+/// measure whose layout depends on it.
+fn replace_part_measure(
+    measures: &mut [PartMeasure],
+    (pi, mi): (usize, usize),
+    pm_json: &serde_json::Value,
+    global_measure_indices: &[(String, usize)],
+    (changed_start, changed_end): (&mut Option<usize>, &mut Option<usize>),
+) -> Result<(), JsValue> {
+    let repeat_span = |measure: &PartMeasure| {
+        measure
+            .measure_repeat
+            .as_ref()
+            .map_or(1, |repeat| repeat.number.max(1)) as usize
+    };
+    // A slur or tie target may live in a different measure. Collect both old
+    // and new targets so adding, retargeting, or removing a connector
+    // refreshes both endpoint measures.
+    let mut connector_target_ids: Vec<String> = Vec::new();
+    for seq in &measures[mi].sequences {
+        collect_connector_targets(&seq.content, &mut connector_target_ids);
+    }
+    let pm = promote_part_measure_json(pm_json).map_err(|e| {
+        JsValue::from_str(&format!("Part {} measure {} parse error: {}", pi, mi, e))
+    })?;
+    for seq in &pm.sequences {
+        collect_connector_targets(&seq.content, &mut connector_target_ids);
+    }
+    let staff_spanner_end_indices =
+        staff_spanner_dependency_indices(&measures[mi], &pm, global_measure_indices);
+    let repeat_end =
+        (mi + repeat_span(&measures[mi]).max(repeat_span(&pm)) - 1).min(measures.len() - 1);
+    let harp_pedals_changed = measures[mi].harp_pedals != pm.harp_pedals;
+    measures[mi] = pm;
+
+    include_measure(changed_start, changed_end, mi);
+    include_measure(changed_start, changed_end, repeat_end);
+    if let Some(next) = harp_pedals_changed
+        .then(|| next_harp_pedal_measure(measures, mi))
+        .flatten()
+    {
+        include_measure(changed_start, changed_end, next);
+    }
+    for target_mi in staff_spanner_end_indices {
+        include_measure(changed_start, changed_end, target_mi);
+    }
+    for target_id in &connector_target_ids {
+        if let Some(target_mi) = find_connector_target_measure_index(measures, target_id) {
+            include_measure(changed_start, changed_end, target_mi);
+        }
+    }
+    Ok(())
+}
+
+/// A "changes" pedal marking is printed relative to the preceding setting, so
+/// editing one setting must re-render the next measure that carries one.
+fn next_harp_pedal_measure(measures: &[PartMeasure], after: usize) -> Option<usize> {
+    measures[after + 1..]
+        .iter()
+        .position(|measure| measure.harp_pedals.as_ref().is_some_and(|s| !s.is_empty()))
+        .map(|offset| after + 1 + offset)
 }
 
 /// Find the index of the measure containing a connector target event or note.
@@ -1331,8 +1401,7 @@ impl LayoutEngine {
                         JsValue::from_str(&format!("Global measure {} parse error: {}", idx, e))
                     })?;
                     score.global.measures[idx] = gm;
-                    changed_start = Some(changed_start.map_or(idx, |s| s.min(idx)));
-                    changed_end = Some(changed_end.map_or(idx, |e| e.max(idx)));
+                    include_measure(&mut changed_start, &mut changed_end, idx);
                 }
             }
         }
@@ -1349,68 +1418,14 @@ impl LayoutEngine {
                                 JsValue::from_str(&format!("Invalid measure index: {}", mi_str))
                             })?;
                             if mi < score.parts[pi].measures.len() {
-                                let old_repeat_span = score.parts[pi].measures[mi]
-                                    .measure_repeat
-                                    .as_ref()
-                                    .map_or(1, |repeat| repeat.number.max(1));
-                                // A slur or tie target may live in a different measure.
-                                // Collect both old and new targets so adding, retargeting,
-                                // or removing a connector refreshes both endpoint measures.
-                                let mut connector_target_ids: Vec<String> = Vec::new();
-                                for seq in &score.parts[pi].measures[mi].sequences {
-                                    collect_connector_targets(
-                                        &seq.content,
-                                        &mut connector_target_ids,
-                                    );
-                                }
-                                let pm = promote_part_measure_json(pm_json).map_err(|e| {
-                                    JsValue::from_str(&format!(
-                                        "Part {} measure {} parse error: {}",
-                                        pi, mi, e
-                                    ))
-                                })?;
-                                for seq in &pm.sequences {
-                                    collect_connector_targets(
-                                        &seq.content,
-                                        &mut connector_target_ids,
-                                    );
-                                }
-                                let staff_spanner_end_indices = staff_spanner_dependency_indices(
-                                    &score.parts[pi].measures[mi],
-                                    &pm,
+                                replace_part_measure(
+                                    &mut score.parts[pi].measures,
+                                    (pi, mi),
+                                    pm_json,
                                     &global_measure_indices,
-                                );
-                                let new_repeat_span = pm
-                                    .measure_repeat
-                                    .as_ref()
-                                    .map_or(1, |repeat| repeat.number.max(1));
-                                score.parts[pi].measures[mi] = pm;
+                                    (&mut changed_start, &mut changed_end),
+                                )?;
                                 affected_parts[pi] = true;
-                                changed_start = Some(changed_start.map_or(mi, |s| s.min(mi)));
-                                let repeat_end =
-                                    (mi + old_repeat_span.max(new_repeat_span) as usize - 1)
-                                        .min(score.parts[pi].measures.len() - 1);
-                                changed_end =
-                                    Some(changed_end.map_or(repeat_end, |e| e.max(repeat_end)));
-                                for target_mi in staff_spanner_end_indices {
-                                    changed_start =
-                                        Some(changed_start.map_or(target_mi, |s| s.min(target_mi)));
-                                    changed_end =
-                                        Some(changed_end.map_or(target_mi, |e| e.max(target_mi)));
-                                }
-                                for target_id in &connector_target_ids {
-                                    if let Some(target_mi) = find_connector_target_measure_index(
-                                        &score.parts[pi].measures,
-                                        target_id,
-                                    ) {
-                                        changed_start = Some(
-                                            changed_start.map_or(target_mi, |s| s.min(target_mi)),
-                                        );
-                                        changed_end = Some(
-                                            changed_end.map_or(target_mi, |e| e.max(target_mi)),
-                                        );
-                                    }
-                                }
                             }
                         }
                     }

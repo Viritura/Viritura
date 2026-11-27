@@ -127,6 +127,14 @@ pub(super) fn split_part_measure_by_staff_count(
                 .collect();
             (!filtered.is_empty()).then_some(filtered)
         }),
+        harp_pedals: pm.harp_pedals.as_ref().and_then(|settings| {
+            let filtered: Vec<_> = settings
+                .iter()
+                .filter(|setting| setting.presentation_staff(staff_count) == staff_num)
+                .cloned()
+                .collect();
+            (!filtered.is_empty()).then_some(filtered)
+        }),
         expressions: pm.expressions.as_ref().and_then(|expressions| {
             let filtered: Vec<_> = expressions
                 .iter()

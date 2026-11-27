@@ -100,6 +100,20 @@ export function pedalId(part: number, measure: number, index: number): string {
   return `p${part}/m${measure}/pedal${index}`;
 }
 
+/** Harp pedal IDs are score-wide, not prefixed by their part or measure. */
+export function resolveHarpPedalLocation(elementId: string, score: Score) {
+  if (!elementId.startsWith("harpPedal/")) return null;
+  const id = elementId.slice("harpPedal/".length);
+  if (!id) return null;
+  for (const [partIndex, part] of score.parts.entries()) {
+    for (const [measureIndex, measure] of part.measures.entries()) {
+      const settingIndex = measure.harpPedals?.findIndex((setting) => setting.id === id) ?? -1;
+      if (settingIndex >= 0) return { partIndex, measureIndex, settingIndex };
+    }
+  }
+  return null;
+}
+
 export function ottavaId(part: number, measure: number, index: number): string {
   return `p${part}/m${measure}/ottava${index}`;
 }

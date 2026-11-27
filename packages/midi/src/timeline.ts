@@ -986,7 +986,7 @@ function processNoteEvent(
   // the fermata extension and release the note at its natural end).
   const legatoOut = !fermataHeld && isInteriorSlurNote(ctx, event);
 
-  for (const note of event.notes ?? []) {
+  for (const [noteIndex, note] of (event.notes ?? []).entries()) {
     // Pitches in the Viritura model are stored as concert (sounding) pitch.
     // The part's transposition is rendering metadata only — no adjustment needed.
     const midiNote = noteToMidi(note);
@@ -1018,6 +1018,7 @@ function processNoteEvent(
           scoreBeat: ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio,
           scoreDurationBeats: beats * ctx.staffMeterRatio,
           scoreEventId: event.id,
+          scoreNoteIndex: noteIndex,
         },
       );
     }
@@ -1113,6 +1114,7 @@ interface ScoreNoteMetadata {
   scoreBeat: number;
   scoreDurationBeats: number;
   scoreEventId?: string;
+  scoreNoteIndex: number;
 }
 
 function emitFreshNote(

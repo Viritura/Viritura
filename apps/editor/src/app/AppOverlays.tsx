@@ -13,6 +13,7 @@ import { HelpDialog } from "../components/HelpDialog";
 import { getTransposeSelectionInfo, TransposeDialog } from "../components/TransposeDialog";
 import { OrchestralStaffSplitDialog } from "../orchestralStaffSplit";
 import { BarInstrumentChangeDialogs } from "../instrumentChanges";
+import { HarpPedalPopover } from "../harpPedals";
 import { DrumKitDialogHost } from "../components/DrumKitDialog";
 import { ImportErrorLogDialogHost } from "../importErrorLog";
 import type { CondensingMode } from "../components/CondensingPopover";
@@ -142,6 +143,7 @@ function ScoreTextEntryPopovers({
   staffTextPopover,
   chordSymbolPopover,
   selectedScoreIndex,
+  harpPedalOverlay,
 }: {
   store: DocumentStore;
   updateScore: (next: Score) => void;
@@ -149,6 +151,11 @@ function ScoreTextEntryPopovers({
   staffTextPopover: StaffTextPopoverState | null;
   chordSymbolPopover: ChordSymbolPopoverState | null;
   selectedScoreIndex: number;
+  harpPedalOverlay: {
+    open: boolean;
+    positionRef: RefObject<{ x: number; y: number }>;
+    selection: SelectionState;
+  };
 }) {
   return (
     <>
@@ -185,6 +192,14 @@ function ScoreTextEntryPopovers({
         popover={chordSymbolPopover}
         updateScore={updateScore}
         selectedScoreIndex={selectedScoreIndex}
+      />
+      <HarpPedalPopover
+        open={harpPedalOverlay.open}
+        onClose={() => closeDialog("harpPedals")}
+        position={harpPedalOverlay.positionRef.current}
+        store={store}
+        selection={harpPedalOverlay.selection}
+        updateScore={updateScore}
       />
     </>
   );
@@ -295,7 +310,6 @@ export function AppOverlays(props: AppOverlaysProps) {
     githubInstallation,
     activeProjectStatus,
     pageSetupTargetIndex,
-    setPageSetupTargetIndex,
     handleApplyPageSetup,
     handleResetPageSetup,
     handleTransposeDialog,
@@ -387,7 +401,7 @@ export function AppOverlays(props: AppOverlaysProps) {
         open={dialogs.pageSetup}
         onClose={() => {
           closeDialog("pageSetup");
-          setPageSetupTargetIndex(null);
+          props.setPageSetupTargetIndex(null);
         }}
         onApply={handleApplyPageSetup}
         onResetToDefault={handleResetPageSetup}
@@ -450,6 +464,7 @@ export function AppOverlays(props: AppOverlaysProps) {
         staffTextPopover={staffTextPopover}
         chordSymbolPopover={props.chordSymbolPopover}
         selectedScoreIndex={selectedScoreIndex}
+        harpPedalOverlay={{ open: dialogs.harpPedals, positionRef: mousePositionRef, selection }}
       />
 
       <LyricInputOverlay

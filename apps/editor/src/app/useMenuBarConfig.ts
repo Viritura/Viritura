@@ -18,6 +18,7 @@ export interface MenuBarConfigDeps {
   selection: SelectionState;
   canTranspose: boolean;
   canChangeBarInstrument?: boolean;
+  canSetHarpPedals?: boolean;
   canDistribute: boolean;
   canSwapStaffContents: boolean;
   recentScores: readonly RecentScore[];
@@ -63,6 +64,20 @@ export interface MenuBarConfig {
   recentMenuEntries: { id: string; label: string; sublabel?: string }[];
 }
 
+function useRecentMenuEntries(recentScores: readonly RecentScore[]): MenuBarConfig["recentMenuEntries"] {
+  return useMemo(
+    () =>
+      [...recentScores]
+        .sort((a, b) => b.lastOpened - a.lastOpened)
+        .map((entry) =>
+          entry.vcs
+            ? { id: entry.id, label: entry.vcs.rootName, sublabel: entry.vcs.scoreRelPath }
+            : { id: entry.id, label: entry.scoreName },
+        ),
+    [recentScores],
+  );
+}
+
 /**
  * Build the merged MenuBar callbacks/state/recents config. The caller is
  * responsible for registering them via `useRegisterMenuCallbacks`/`State`/
@@ -76,6 +91,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
     selection,
     canTranspose,
     canChangeBarInstrument,
+    canSetHarpPedals,
     canDistribute,
     recentScores,
     handleOpenFile,
@@ -169,6 +185,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       },
       onTranspose: () => openDialog("transpose"),
       onBarInstrumentChange: () => openDialog("barInstrumentChange"),
+      onSetHarpPedals: () => openDialog("harpPedals"),
       onSplitOrchestralStaves: () => openDialog("orchestralStaffSplit"),
       onSetTimeSignature: handleSetTimeSignature,
       onSetKeySignature: handleSetKeySignature,
@@ -241,6 +258,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       canDeleteSelectedBars: selection.kind === "measure",
       canTranspose,
       canChangeBarInstrument,
+      canSetHarpPedals,
       canDistribute,
       canSwapStaffContents: deps.canSwapStaffContents,
       canUseChordTrack,
@@ -253,6 +271,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       selection,
       canTranspose,
       canChangeBarInstrument,
+      canSetHarpPedals,
       canDistribute,
       deps.canSwapStaffContents,
       canUseChordTrack,
@@ -260,15 +279,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
     ],
   );
 
-  const recentMenuEntries = useMemo(() => {
-    return [...recentScores]
-      .sort((a, b) => b.lastOpened - a.lastOpened)
-      .map((entry) =>
-        entry.vcs
-          ? { id: entry.id, label: entry.vcs.rootName, sublabel: entry.vcs.scoreRelPath }
-          : { id: entry.id, label: entry.scoreName },
-      );
-  }, [recentScores]);
+  const recentMenuEntries = useRecentMenuEntries(recentScores);
 
   return { menuCallbacks, menuState, recentMenuEntries };
 }
