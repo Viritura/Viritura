@@ -24,6 +24,7 @@ export type SelectableElementType =
   | "dynamic"
   | "hairpin"
   | "pedal"
+  | "harp-pedal"
   | "ottava"
   | "expression"
   | "system-text"
@@ -109,6 +110,7 @@ const PREFIX_MAP: ReadonlyArray<readonly [string, SelectableElementType]> = [
  */
 export function parseElementType(elementId: string): SelectableElementType {
   if (!elementId) return "unknown";
+  if (elementId.startsWith("harpPedal/")) return "harp-pedal";
   if (elementId.startsWith("trill-line/")) return "trill";
   if (elementId.startsWith("gliss/")) return "glissando";
   if (/\/n\d+\/(?:slideIn|slideOut)$/.test(elementId)) return "note-marking";
@@ -163,6 +165,7 @@ const MEASURE_LEVEL: ReadonlySet<SelectableElementType> = new Set([
   "dynamic",
   "hairpin",
   "pedal",
+  "harp-pedal",
   "ottava",
   "expression",
   "measure-number",

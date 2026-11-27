@@ -51,6 +51,7 @@ import type { ActivityView } from "../../components/activityRegistry";
 import { getTransposeSelectionInfo } from "../../components/TransposeDialog";
 import { resolveBarInstrumentTarget } from "../../instrumentChanges";
 import { resolveStaffSwapTarget } from "../../commands/staffSwap";
+import { resolveHarpPedalTarget } from "../../harpPedals";
 import { usePublishJumpBarCatalog } from "../../app/useJumpBarDestinations";
 import { MidiControllerBridge } from "../../midiController";
 
@@ -559,14 +560,16 @@ function AppInner({
   usePublishJumpBarCatalog(jumpBarActions, store, canvasRef);
 
   // ─── MenuBar wiring (config + recents + callbacks + state) ──────
-  const { hasDocument, canTranspose, canChangeBarInstrument, canSwapStaffContents } = useDocumentStore(
-    useShallow((s) => ({
-      hasDocument: s.score !== null,
-      canTranspose: getTransposeSelectionInfo(s.score, selection).noteCount > 0,
-      canChangeBarInstrument: resolveBarInstrumentTarget(s.score, selection) !== null,
-      canSwapStaffContents: resolveStaffSwapTarget(s.score, selection) !== null,
-    })),
-  );
+  const { hasDocument, canTranspose, canChangeBarInstrument, canSwapStaffContents, canSetHarpPedals } =
+    useDocumentStore(
+      useShallow((s) => ({
+        hasDocument: s.score !== null,
+        canTranspose: getTransposeSelectionInfo(s.score, selection).noteCount > 0,
+        canChangeBarInstrument: resolveBarInstrumentTarget(s.score, selection) !== null,
+        canSwapStaffContents: resolveStaffSwapTarget(s.score, selection) !== null,
+        canSetHarpPedals: resolveHarpPedalTarget(s.workingScore ?? s.score, selection) !== null,
+      })),
+    );
   const { buildSelectionMenuItems } = useMenuBarWiring({
     isActiveView,
     supportsWritePanels: modeKind === "write",
@@ -577,6 +580,7 @@ function AppInner({
     selection,
     canTranspose,
     canChangeBarInstrument,
+    canSetHarpPedals,
     canSwapStaffContents,
     canDistribute,
     recentScores,

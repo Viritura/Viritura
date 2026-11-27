@@ -1,5 +1,11 @@
 import type { Score } from "@viritura/core";
-import { addressesWholeEvent, eventId, eventSuffix, resolveFullMeasureRestLocation } from "../../score/ElementPath";
+import {
+  addressesWholeEvent,
+  eventId,
+  eventSuffix,
+  resolveFullMeasureRestLocation,
+  resolveHarpPedalLocation,
+} from "../../score/ElementPath";
 import { parseElementType } from "../../score/elementTypes";
 import {
   deleteAnnotation,
@@ -110,6 +116,17 @@ export const deletionOperations: Record<DeletionTargetKind, DeletionOperation> =
   dynamic: annotation,
   hairpin: annotation,
   pedal: annotation,
+  "harp-pedal": {
+    kind: "leaf",
+    remove: (score, id) => {
+      const location = resolveHarpPedalLocation(id, score);
+      if (!location) return null;
+      const measure = score.parts[location.partIndex]!.measures[location.measureIndex]!;
+      measure.harpPedals!.splice(location.settingIndex, 1);
+      if (measure.harpPedals!.length === 0) delete measure.harpPedals;
+      return score;
+    },
+  },
   ottava: annotation,
   expression: annotation,
   "system-text": annotation,
@@ -171,6 +188,7 @@ export const deletionOperations: Record<DeletionTargetKind, DeletionOperation> =
 };
 
 export function resolveDeletionTarget(elementId: string): DeletionTarget {
+  if (elementId.startsWith("harpPedal/")) return { kind: "harp-pedal", elementId };
   if (/^p\d+\/m\d+\/s\d+\/tuplet\d+$/.test(elementId)) return { kind: "tuplet", elementId };
   if (/^slur\/[^/]+\/[^/]+$/.test(elementId)) return { kind: "slur", elementId };
   if (/^tie\/[^/]+\/[^/]+$/.test(elementId)) return { kind: "tie", elementId };

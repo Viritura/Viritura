@@ -115,6 +115,20 @@ describe("buildSelectionContextMenuItems", () => {
     expect(onBarInstrumentChange).toHaveBeenCalledOnce();
   });
 
+  it.each([false, true])("gates harp pedal entry on the current harp target: %s", (canSetHarpPedals) => {
+    const onSetHarpPedals = vi.fn();
+    const items = buildSelectionContextMenuItems(
+      { ...callbacks, onSetHarpPedals },
+      { ...state, canSetHarpPedals },
+      { hasSelection: true },
+    );
+    expect(enabled(items, "Set harp pedals")).toBe(canSetHarpPedals);
+    if (canSetHarpPedals) {
+      items.find((item) => item.label === "Set harp pedals")?.action?.();
+      expect(onSetHarpPedals).toHaveBeenCalledOnce();
+    }
+  });
+
   it.each([false, true])("gates staff swapping on the shared two-staff capability: %s", (canSwapStaffContents) => {
     const onSwapStaffContents = vi.fn();
     const items = buildSelectionContextMenuItems(

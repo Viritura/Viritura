@@ -259,6 +259,10 @@ function collectPartMeasureVendorExt(pm: PartMeasure): Obj {
       tuning: { ...setting.tuning },
       ...(setting.source !== undefined ? { source: setting.source } : {}),
       ...(setting.staff !== undefined ? { staff: setting.staff } : {}),
+      ...(setting.placement !== undefined ? { placement: setting.placement } : {}),
+      ...(setting.manualOffset !== undefined ? { manualOffset: [...setting.manualOffset] } : {}),
+      ...(setting.avoidCollisions !== undefined ? { avoidCollisions: setting.avoidCollisions } : {}),
+      ...(setting.display !== undefined ? { display: setting.display } : {}),
     }));
   }
   if (pm.condensingOverride) ext["condensingOverride"] = pm.condensingOverride;

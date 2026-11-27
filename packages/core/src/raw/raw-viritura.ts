@@ -303,10 +303,10 @@ export interface components {
             /** @description Line style. Default: 'straight'. */
             style?: components["schemas"]["glissando-style"];
             /**
-             * @description Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento.
+             * @description Playback interpolation. Omission means harp pedals for an active harp glissando, diatonic for other glissandos, and pitch-bend for portamento.
              * @enum {string}
              */
-            playbackType?: "chromatic" | "diatonic" | "pitch-bend";
+            playbackType?: "chromatic" | "diatonic" | "pitch-bend" | "harp-pedals";
             /** @description Optional text label (e.g. 'gliss.', 'port.'). */
             text?: string;
             /** @description Whether to display the text label. Default: true. */
@@ -449,6 +449,18 @@ export interface components {
             /** @enum {string} */
             source?: "manual" | "calculated";
             staff?: number;
+            /**
+             * @description Diagram placement relative to the associated staff. Default/auto uses the inter-staff gap when available, otherwise below.
+             * @enum {string}
+             */
+            placement?: "above" | "below" | "between" | "auto";
+            manualOffset?: components["schemas"]["sp-delta"];
+            avoidCollisions?: boolean;
+            /**
+             * @description How the setting is printed: a pedal diagram (default), all seven pedal names, or only the pedals that differ from the preceding setting in written order. Changes falls back to all names when there is no preceding setting or nothing differs.
+             * @enum {string}
+             */
+            display?: "diagram" | "names" | "changes";
         };
         /** @description Viritura vendor extensions on a part measure object. */
         "part-measure-extensions": {

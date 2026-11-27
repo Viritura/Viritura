@@ -18,6 +18,7 @@ import type {
   StaffMeterChange,
   InstrumentChange,
   InstrumentDefinition,
+  HarpPedalSetting,
   Transposition,
 } from "@viritura/core";
 import type { Part } from "@viritura/core";
@@ -217,11 +218,16 @@ function parsePartMeasure(raw: RawPartMeasure, useLegacyKeyFlipDefault: boolean)
       pm.pedals = viritura.pedals.map(parsePedal);
     }
     if (viritura.harpPedals?.length) {
-      pm.harpPedals = viritura.harpPedals.map((setting) => ({
-        ...setting,
-        position: { fraction: [...parseRhythmicPosition(setting.position).fraction] },
-        tuning: { ...setting.tuning },
-      }));
+      pm.harpPedals = viritura.harpPedals.map((setting): HarpPedalSetting => {
+        const { manualOffset, ...rest } = setting;
+        const offset: [number, number] | undefined = manualOffset ? [manualOffset[0]!, manualOffset[1]!] : undefined;
+        return {
+          ...rest,
+          position: { fraction: [...parseRhythmicPosition(setting.position).fraction] },
+          tuning: { ...setting.tuning },
+          ...(offset ? { manualOffset: offset } : {}),
+        };
+      });
     }
     if (viritura.condensingOverride) {
       pm.condensingOverride = viritura.condensingOverride;

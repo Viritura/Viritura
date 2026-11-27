@@ -53,6 +53,7 @@ export interface MenuBarCallbacks {
   readonly onToggleChordTrack?: () => void;
   readonly onTranspose?: () => void;
   readonly onBarInstrumentChange?: () => void;
+  readonly onSetHarpPedals?: () => void;
   readonly onExplodeSelection?: () => void | Promise<void>;
   readonly onReduceSelection?: () => void | Promise<void>;
   readonly onSelectChordTopNote?: () => void;
@@ -84,6 +85,7 @@ export interface MenuBarState {
   readonly canSwapStaffContents?: boolean;
   readonly canTranspose?: boolean;
   readonly canChangeBarInstrument?: boolean;
+  readonly canSetHarpPedals?: boolean;
   readonly hasDocument?: boolean;
   readonly canDistribute?: boolean;
   readonly canUseChordTrack?: boolean;
@@ -183,6 +185,7 @@ function editItems(callbacks: MenuBarCallbacks, state: MenuBarState): MenuItemDe
       action: callbacks.onBarInstrumentChange,
       disabled: !state.canChangeBarInstrument,
     },
+    { label: "Set harp pedals", action: callbacks.onSetHarpPedals, disabled: !state.canSetHarpPedals },
     {
       label: "Split Combined Orchestral Parts",
       action: callbacks.onSplitOrchestralStaves,

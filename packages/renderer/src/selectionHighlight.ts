@@ -92,6 +92,16 @@ export function commandsForElement(
   return collected.length > 0 ? collected : undefined;
 }
 
+/** Render commands tagged directly with `elementId`, excluding descendants. */
+export function commandsForExactElement(
+  displayList: DisplayList,
+  elementId: string,
+  version?: number,
+): RenderCommand[] | undefined {
+  const commands = getIndex(displayList, version).exact.get(elementId);
+  return commands && commands.length > 0 ? commands : undefined;
+}
+
 function getIndex(displayList: DisplayList, version: number | undefined): CommandIndex {
   const cached = indexCache.get(displayList);
   // An undefined version never matches, so an un-versioned caller rebuilds

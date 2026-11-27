@@ -8,6 +8,10 @@ const setting: HarpPedalSetting = {
   tuning: { D: -1, C: 0, B: -1, E: -1, F: 0, G: 0, A: -1 },
   source: "calculated",
   staff: 2,
+  placement: "between",
+  manualOffset: [0.5, 1],
+  avoidCollisions: false,
+  display: "changes",
 };
 
 function document(settings: unknown[] = [setting]) {
@@ -36,12 +40,21 @@ describe("harp pedal snapshots", () => {
     expect(parsed).toEqual(setting);
     expect(parsed.tuning).not.toBe(setting.tuning);
     expect(parsed.position.fraction).not.toBe(setting.position.fraction);
+    expect(parsed.manualOffset).not.toBe(setting.manualOffset);
     expect(parseMnx(serializeMnx(score))).toEqual(score);
     expect(score.parts[0]!.measures[0]!.pedals).toBeUndefined();
   });
 
   it("preserves omitted source and staff rather than manufacturing defaults", () => {
-    const { source: _source, staff: _staff, ...manual } = setting;
+    const {
+      source: _source,
+      staff: _staff,
+      placement: _placement,
+      manualOffset: _manualOffset,
+      avoidCollisions: _avoidCollisions,
+      display: _display,
+      ...manual
+    } = setting;
     const score = parseMnx(document([manual]));
     expect(score.parts[0]!.measures[0]!.harpPedals).toEqual([manual]);
     expect(parseMnx(serializeMnx(score))).toEqual(score);
@@ -67,6 +80,9 @@ describe("harp pedal snapshots", () => {
     { ...setting, position: { fraction: [1, 2], graceIndex: 0 } },
     { ...setting, source: "imported" },
     { ...setting, staff: 3 },
+    { ...setting, placement: "inside" },
+    { ...setting, display: "letters" },
+    { ...setting, manualOffset: [1] },
     { ...setting, id: "" },
   ])("rejects malformed or incomplete settings: %j", (invalid) => {
     expect(() => parseMnx(document([invalid]))).toThrow();

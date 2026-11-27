@@ -1841,12 +1841,13 @@ impl ::std::convert::TryFrom<::std::string::String> for FontFamily {
 ///      "$ref": "#/$defs/glissando-kind"
 ///    },
 ///    "playbackType": {
-///      "description": "Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento.",
+///      "description": "Playback interpolation. Omission means harp pedals for an active harp glissando, diatonic for other glissandos, and pitch-bend for portamento.",
 ///      "type": "string",
 ///      "enum": [
 ///        "chromatic",
 ///        "diatonic",
-///        "pitch-bend"
+///        "pitch-bend",
+///        "harp-pedals"
 ///      ]
 ///    },
 ///    "showText": {
@@ -1876,7 +1877,7 @@ pub struct Glissando {
     ///Semantic kind. Default: 'glissando'.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub kind: ::std::option::Option<GlissandoKind>,
-    ///Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento.
+    ///Playback interpolation. Omission means harp pedals for an active harp glissando, diatonic for other glissandos, and pitch-bend for portamento.
     #[serde(
         rename = "playbackType",
         default,
@@ -1986,18 +1987,19 @@ impl ::std::convert::TryFrom<::std::string::String> for GlissandoKind {
         value.parse()
     }
 }
-///Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento.
+///Playback interpolation. Omission means harp pedals for an active harp glissando, diatonic for other glissandos, and pitch-bend for portamento.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento.",
+///  "description": "Playback interpolation. Omission means harp pedals for an active harp glissando, diatonic for other glissandos, and pitch-bend for portamento.",
 ///  "type": "string",
 ///  "enum": [
 ///    "chromatic",
 ///    "diatonic",
-///    "pitch-bend"
+///    "pitch-bend",
+///    "harp-pedals"
 ///  ]
 ///}
 /// ```
@@ -2021,6 +2023,8 @@ pub enum GlissandoPlaybackType {
     Diatonic,
     #[serde(rename = "pitch-bend")]
     PitchBend,
+    #[serde(rename = "harp-pedals")]
+    HarpPedals,
 }
 impl ::std::convert::From<&Self> for GlissandoPlaybackType {
     fn from(value: &GlissandoPlaybackType) -> Self {
@@ -2033,6 +2037,7 @@ impl ::std::fmt::Display for GlissandoPlaybackType {
             Self::Chromatic => f.write_str("chromatic"),
             Self::Diatonic => f.write_str("diatonic"),
             Self::PitchBend => f.write_str("pitch-bend"),
+            Self::HarpPedals => f.write_str("harp-pedals"),
         }
     }
 }
@@ -2045,6 +2050,7 @@ impl ::std::str::FromStr for GlissandoPlaybackType {
             "chromatic" => Ok(Self::Chromatic),
             "diatonic" => Ok(Self::Diatonic),
             "pitch-bend" => Ok(Self::PitchBend),
+            "harp-pedals" => Ok(Self::HarpPedals),
             _ => Err("invalid value".into()),
         }
     }
@@ -3090,9 +3096,34 @@ impl<'de> ::serde::Deserialize<'de> for HarpPedalAlter {
 ///    "tuning"
 ///  ],
 ///  "properties": {
+///    "avoidCollisions": {
+///      "type": "boolean"
+///    },
+///    "display": {
+///      "description": "How the setting is printed: a pedal diagram (default), all seven pedal names, or only the pedals that differ from the preceding setting in written order. Changes falls back to all names when there is no preceding setting or nothing differs.",
+///      "type": "string",
+///      "enum": [
+///        "diagram",
+///        "names",
+///        "changes"
+///      ]
+///    },
 ///    "id": {
 ///      "type": "string",
 ///      "minLength": 1
+///    },
+///    "manualOffset": {
+///      "$ref": "#/$defs/sp-delta"
+///    },
+///    "placement": {
+///      "description": "Diagram placement relative to the associated staff. Default/auto uses the inter-staff gap when available, otherwise below.",
+///      "type": "string",
+///      "enum": [
+///        "above",
+///        "below",
+///        "between",
+///        "auto"
+///      ]
 ///    },
 ///    "position": {
 ///      "description": "A non-negative fraction with a strictly positive denominator; grace positions are not supported.",
@@ -3133,7 +3164,25 @@ impl<'de> ::serde::Deserialize<'de> for HarpPedalAlter {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct HarpPedalSetting {
+    #[serde(
+        rename = "avoidCollisions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub avoid_collisions: ::std::option::Option<bool>,
+    ///How the setting is printed: a pedal diagram (default), all seven pedal names, or only the pedals that differ from the preceding setting in written order. Changes falls back to all names when there is no preceding setting or nothing differs.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub display: ::std::option::Option<HarpPedalSettingDisplay>,
     pub id: HarpPedalSettingId,
+    #[serde(
+        rename = "manualOffset",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub manual_offset: ::std::option::Option<SpDelta>,
+    ///Diagram placement relative to the associated staff. Default/auto uses the inter-staff gap when available, otherwise below.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub placement: ::std::option::Option<HarpPedalSettingPlacement>,
     pub position: HarpPedalSettingPosition,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub source: ::std::option::Option<HarpPedalSettingSource>,
@@ -3144,6 +3193,93 @@ pub struct HarpPedalSetting {
 impl ::std::convert::From<&HarpPedalSetting> for HarpPedalSetting {
     fn from(value: &HarpPedalSetting) -> Self {
         value.clone()
+    }
+}
+///How the setting is printed: a pedal diagram (default), all seven pedal names, or only the pedals that differ from the preceding setting in written order. Changes falls back to all names when there is no preceding setting or nothing differs.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "How the setting is printed: a pedal diagram (default), all seven pedal names, or only the pedals that differ from the preceding setting in written order. Changes falls back to all names when there is no preceding setting or nothing differs.",
+///  "type": "string",
+///  "enum": [
+///    "diagram",
+///    "names",
+///    "changes"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum HarpPedalSettingDisplay {
+    #[serde(rename = "diagram")]
+    Diagram,
+    #[serde(rename = "names")]
+    Names,
+    #[serde(rename = "changes")]
+    Changes,
+}
+impl ::std::convert::From<&Self> for HarpPedalSettingDisplay {
+    fn from(value: &HarpPedalSettingDisplay) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for HarpPedalSettingDisplay {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Diagram => f.write_str("diagram"),
+            Self::Names => f.write_str("names"),
+            Self::Changes => f.write_str("changes"),
+        }
+    }
+}
+impl ::std::str::FromStr for HarpPedalSettingDisplay {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "diagram" => Ok(Self::Diagram),
+            "names" => Ok(Self::Names),
+            "changes" => Ok(Self::Changes),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for HarpPedalSettingDisplay {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for HarpPedalSettingDisplay {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for HarpPedalSettingDisplay {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///`HarpPedalSettingId`
@@ -3221,6 +3357,98 @@ impl<'de> ::serde::Deserialize<'de> for HarpPedalSettingId {
             .map_err(|e: self::error::ConversionError| {
                 <D::Error as ::serde::de::Error>::custom(e.to_string())
             })
+    }
+}
+///Diagram placement relative to the associated staff. Default/auto uses the inter-staff gap when available, otherwise below.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Diagram placement relative to the associated staff. Default/auto uses the inter-staff gap when available, otherwise below.",
+///  "type": "string",
+///  "enum": [
+///    "above",
+///    "below",
+///    "between",
+///    "auto"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum HarpPedalSettingPlacement {
+    #[serde(rename = "above")]
+    Above,
+    #[serde(rename = "below")]
+    Below,
+    #[serde(rename = "between")]
+    Between,
+    #[serde(rename = "auto")]
+    Auto,
+}
+impl ::std::convert::From<&Self> for HarpPedalSettingPlacement {
+    fn from(value: &HarpPedalSettingPlacement) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for HarpPedalSettingPlacement {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Above => f.write_str("above"),
+            Self::Below => f.write_str("below"),
+            Self::Between => f.write_str("between"),
+            Self::Auto => f.write_str("auto"),
+        }
+    }
+}
+impl ::std::str::FromStr for HarpPedalSettingPlacement {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "above" => Ok(Self::Above),
+            "below" => Ok(Self::Below),
+            "between" => Ok(Self::Between),
+            "auto" => Ok(Self::Auto),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for HarpPedalSettingPlacement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for HarpPedalSettingPlacement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for HarpPedalSettingPlacement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///A non-negative fraction with a strictly positive denominator; grace positions are not supported.

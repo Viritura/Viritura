@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { HarpPedalSetting, HarpPedalTuning } from "@viritura/core";
+import type { HarpPedalDisplay, HarpPedalSetting, HarpPedalTuning, MultiStaffPlacement } from "@viritura/core";
 import { ScorePreview } from "../../storyFixtures/ScorePreview";
 import { buildMnx } from "../../storyFixtures/buildMnx";
 
@@ -14,7 +14,17 @@ const NATURAL: HarpPedalTuning = { D: 0, C: 0, B: 0, E: 0, F: 0, G: 0, A: 0 };
 const A_FLAT_MAJOR: HarpPedalTuning = { D: -1, C: 0, B: -1, E: -1, F: 0, G: 0, A: -1 };
 const E_MAJOR: HarpPedalTuning = { D: 1, C: 1, B: 0, E: 0, F: 1, G: 1, A: 0 };
 
-function harpScore(tunings: HarpPedalTuning[], staff?: number): string {
+interface HarpScoreOptions {
+  staff?: number;
+  placements?: Array<MultiStaffPlacement | undefined>;
+  displays?: Array<HarpPedalDisplay | undefined>;
+  settingIndices?: number[];
+}
+
+function harpScore(
+  tunings: HarpPedalTuning[],
+  { staff, placements, displays, settingIndices }: HarpScoreOptions = {},
+): string {
   return buildMnx({
     partName: "Harp",
     staves: 2,
@@ -25,6 +35,8 @@ function harpScore(tunings: HarpPedalTuning[], staff?: number): string {
         tuning,
         source: "manual",
         ...(staff !== undefined ? { staff } : {}),
+        ...(placements?.[index] !== undefined ? { placement: placements[index] } : {}),
+        ...(displays?.[index] !== undefined ? { display: displays[index] } : {}),
       };
       return {
         id: `m${index + 1}`,
@@ -38,13 +50,21 @@ function harpScore(tunings: HarpPedalTuning[], staff?: number): string {
             }
           : {}),
         voices: [
-          [
-            { duration: "half", notes: [{ step: "C", octave: 5, alter: tuning.C }], staff: 1 },
-            { duration: "half", notes: [{ step: "E", octave: 5, alter: tuning.E }], staff: 1 },
-          ],
-          [{ duration: "whole", notes: [{ step: "A", octave: 2, alter: tuning.A }], staff: 2 }],
+          {
+            staff: 1,
+            events: [
+              { duration: "half", notes: [{ step: "C", octave: 5, alter: tuning.C }] },
+              { duration: "half", notes: [{ step: "E", octave: 5, alter: tuning.E }] },
+            ],
+          },
+          {
+            staff: 2,
+            events: [{ duration: "whole", notes: [{ step: "A", octave: 2, alter: tuning.A }] }],
+          },
         ],
-        virituraPartMeasure: { harpPedals: [setting] },
+        ...(settingIndices === undefined || settingIndices.includes(index)
+          ? { virituraPartMeasure: { harpPedals: [setting] } }
+          : {}),
       };
     }),
   });
@@ -70,7 +90,55 @@ export const AllPedalPositions: StoryObj = {
 
 export const UpperStaffPlacement: StoryObj = {
   name: "Diagram below the upper staff",
-  render: () => <ScorePreview mnxJson={harpScore([A_FLAT_MAJOR], 1)} />,
+  render: () => <ScorePreview mnxJson={harpScore([A_FLAT_MAJOR], { staff: 1 })} />,
+};
+
+export const PlacementOptions: StoryObj = {
+  name: "Above, between, and below",
+  render: () => (
+    <ScorePreview
+      mnxJson={harpScore([A_FLAT_MAJOR, NATURAL, E_MAJOR], { placements: ["above", "between", "below"] })}
+    />
+  ),
+};
+
+export const FullPedalDiagram: StoryObj = {
+  name: "Full pedal diagram",
+  render: () => <ScorePreview mnxJson={harpScore([A_FLAT_MAJOR], { displays: ["diagram"] })} />,
+};
+
+export const FullWrittenPedals: StoryObj = {
+  name: "Full written pedals",
+  render: () => (
+    <ScorePreview
+      mnxJson={harpScore([A_FLAT_MAJOR, A_FLAT_MAJOR, A_FLAT_MAJOR], {
+        displays: ["names"],
+        settingIndices: [0],
+      })}
+    />
+  ),
+};
+
+export const ChangedWrittenPedals: StoryObj = {
+  name: "Written pedal changes",
+  render: () => (
+    <ScorePreview
+      mnxJson={harpScore([NATURAL, { ...NATURAL, E: -1 }, A_FLAT_MAJOR], {
+        displays: ["diagram", "changes", "changes"],
+      })}
+    />
+  ),
+};
+
+export const DisplayModes: StoryObj = {
+  name: "Diagram, all names, and changes only",
+  render: () => (
+    <ScorePreview
+      mnxJson={harpScore([NATURAL, A_FLAT_MAJOR, E_MAJOR, NATURAL], {
+        displays: ["diagram", "names", "changes", "changes"],
+      })}
+    />
+  ),
 };
 
 export const MidMeasureChange: StoryObj = {

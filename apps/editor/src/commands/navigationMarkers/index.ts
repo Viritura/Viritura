@@ -1,10 +1,9 @@
-import type { Jump, RhythmicPosition, Score, SequenceContent } from "@viritura/core";
+import type { Jump, RhythmicPosition, Score } from "@viritura/core";
 import type { Selection } from "../../store/selectionStore";
 import { resolveSelectionEvents } from "../../store/selectionUtils";
 import { resolveFullMeasureRestLocation } from "../../score/ElementPath";
-import { sequenceContentBeats, durationToBeats } from "../noteCommands";
 import { getActiveTimeSignature } from "../cursorCommands";
-import { beatPositionToFraction } from "../../app/timedAnnotationPosition";
+import { beatPositionToFraction, sequenceContentBoundary } from "../../app/timedAnnotationPosition";
 import { produce } from "../../score/scoreClone";
 
 export type NavigationMarkerKind = "segno" | "coda" | "fine" | "jump";
@@ -19,21 +18,6 @@ export const JUMP_LABELS: Record<Jump["type"], string> = {
   segno: "D.S.",
   toCoda: "To Coda",
 };
-
-/** Walk the selected content path, scaling each enclosing tuplet's musical time. */
-function eventBoundary(content: readonly SequenceContent[], path: readonly number[], end: boolean): number {
-  const index = path[0]!;
-  const before = content.slice(0, index).reduce((sum, item) => sum + sequenceContentBeats(item), 0);
-  const item = content[index];
-  if (!item) return before;
-  if (path.length === 1) return before + (end ? sequenceContentBeats(item) : 0);
-  if (item.type === "grace") return before;
-  if (item.type !== "tuplet" && item.type !== "tremolo") return before;
-  const innerTime = item.content.reduce((sum, child) => sum + sequenceContentBeats(child), 0);
-  const outerTime =
-    item.type === "tuplet" ? item.outer.multiple * durationToBeats(item.outer.duration) : sequenceContentBeats(item);
-  return before + eventBoundary(item.content, path.slice(1), end) * (innerTime > 0 ? outerTime / innerTime : 1);
-}
 
 function navigationMarkerPosition(score: Score, selection: Selection, concluding: boolean) {
   if (selection.kind === "single") {
@@ -82,7 +66,7 @@ function navigationMarkerPosition(score: Score, selection: Selection, concluding
       const path =
         event.contentPath ??
         (event.tupletIndex !== undefined ? [event.tupletIndex, event.eventIndex] : [event.eventIndex]);
-      const beat = eventBoundary(sequence.content, path, concluding);
+      const beat = sequenceContentBoundary(sequence.content, path, concluding);
       return [{ measureIndex: event.measureIndex, beat }];
     })
     .sort((a, b) => a.measureIndex - b.measureIndex || a.beat - b.beat);

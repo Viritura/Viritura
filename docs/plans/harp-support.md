@@ -1,6 +1,6 @@
 # Harp Pedals: Implementation Plan
 
-> **Status:** Proposed; no application behavior is changed by this document.
+> **Status:** Implementation in progress; persisted harp pedal snapshots and diagram rendering are implemented.
 > Source-audited at `90a417c8` on 2026-11-18.
 
 ## 1. Goals and confirmed behavior
@@ -40,17 +40,17 @@ baseline is not itself a proof of globally minimal pedal changes.
 
 ## 2. Current implementation and integration points
 
-| Area                  | Verified baseline                                                                                                                                                                                                                                                                        | Planned integration                                                                                                                                            |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Instrument identity   | [Catalog](../../apps/editor/src/score/instrumentCatalogDataExtras.ts) has `pluck.harp`, two staves, brace, and GM program 46. [Active-instrument resolution](../../packages/core/src/model/instrumentChange.ts) supports mid-part changes.                                               | Resolve the active semantic identity, not the name or chosen sound patch. Keep different harp parts independent.                                               |
-| Score model           | [PartMeasure](../../packages/core/src/model/measure.ts) has positioned directions and piano `pedals`, but no harp tuning.                                                                                                                                                                | Add a separate `harpPedals` collection; do not reuse sustain-pedal spans or CC64.                                                                              |
-| Persistence           | [Vendor schema](../../packages/format/schemas/viritura-extensions.json), [TS parser](../../packages/format/src/mnx/parseParts.ts), and [serializer](../../packages/format/src/mnx/serializePart.ts) own measure extensions.                                                              | Add vendor-schema definitions, regenerate wire types/validators, and wire both decoded models using the [data-model pipeline](../spec/data-model-pipeline.md). |
-| Editing/collaboration | [Typed patches](../../packages/core/src/patches/types.ts), [delta serialization](../../packages/format/src/mnx/deltaSerializer.ts), and [Yjs patch projection](../../packages/crdt/src/yProjection/applyScorePatchesToYDoc.ts) are distinct integration surfaces.                        | Add typed pedal mutations, undo/redo, bounded projection, and fast/full persistence parity.                                                                    |
-| Glissando playback    | [Realization](../../packages/midi/src/glissandoPlayback/index.ts) runs after navigation, with chromatic, key-based diatonic, and bend modes. Its diatonic mode uses a set of pitch classes.                                                                                              | Add pedal/string realization without replacing ordinary non-harp glissando behavior.                                                                           |
-| Playback consumers    | [Timeline](../../packages/midi/src/timeline.ts) feeds MIDI/SoundFont playback. [Native transport](../../apps/editor/src/instrumentProfiles/vstTransport.ts) currently routes parts with glissandos to browser SoundFont playback rather than the separate native performance-event path. | Preserve and test that explicit fallback; do not claim new native/VST glissando support.                                                                       |
-| Notehead rendering    | [Element-command lookup](../../packages/renderer/src/selectionHighlight.ts) indexes notehead descendants such as `/n0`; [score painting](../../apps/editor/src/components/ScoreCanvas/paintScoreFrame.ts) already layers interactive overlays over cached ink.                           | Re-ink only affected noteheads in an editor-only warning layer, without changing saved colors or Rust musical layout.                                          |
+| Area                  | Verified baseline                                                                                                                                                                                                                                                                        | Planned integration                                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Instrument identity   | [Catalog](../../apps/editor/src/score/instrumentCatalogDataExtras.ts) has `pluck.harp`, two staves, brace, and GM program 46. [Active-instrument resolution](../../packages/core/src/model/instrumentChange.ts) supports mid-part changes.                                               | Resolve the active semantic identity, not the name or chosen sound patch. Keep different harp parts independent.      |
+| Score model           | [PartMeasure](../../packages/core/src/model/measure.ts) stores full seven-pedal snapshots in `harpPedals`, independent from piano `pedals`.                                                                                                                                              | Add typed pedal mutations, undo/redo, bounded projection, and fast/full persistence parity.                           |
+| Persistence           | [Vendor schema](../../packages/format/schemas/viritura-extensions.json), [TS parser](../../packages/format/src/mnx/parseParts.ts), [serializer](../../packages/format/src/mnx/serializePart.ts), and Rust promotion implement and validate pedal snapshots.                              | Add MusicXML import/export and editing controls without weakening strict snapshot validation.                         |
+| Editing/collaboration | [Typed patches](../../packages/core/src/patches/types.ts), [delta serialization](../../packages/format/src/mnx/deltaSerializer.ts), and [Yjs patch projection](../../packages/crdt/src/yProjection/applyScorePatchesToYDoc.ts) are distinct integration surfaces.                        | Add typed pedal mutations, undo/redo, bounded projection, and fast/full persistence parity.                           |
+| Glissando playback    | [Realization](../../packages/midi/src/glissandoPlayback/index.ts) runs after navigation, with chromatic, key-based diatonic, and bend modes. Its diatonic mode uses a set of pitch classes.                                                                                              | Add pedal/string realization without replacing ordinary non-harp glissando behavior.                                  |
+| Playback consumers    | [Timeline](../../packages/midi/src/timeline.ts) feeds MIDI/SoundFont playback. [Native transport](../../apps/editor/src/instrumentProfiles/vstTransport.ts) currently routes parts with glissandos to browser SoundFont playback rather than the separate native performance-event path. | Preserve and test that explicit fallback; do not claim new native/VST glissando support.                              |
+| Notehead rendering    | [Element-command lookup](../../packages/renderer/src/selectionHighlight.ts) indexes notehead descendants such as `/n0`; [score painting](../../apps/editor/src/components/ScoreCanvas/paintScoreFrame.ts) already layers interactive overlays over cached ink.                           | Re-ink only affected noteheads in an editor-only warning layer, without changing saved colors or Rust musical layout. |
 
-No harp-pedal authoring/model implementation was found in the audited paths.
+The first implementation slice adds the snapshot model and full Bravura diagrams.
 Existing generic harp sounds and cross-staff glissando engraving remain useful
 and should not be reimplemented.
 
@@ -84,9 +84,11 @@ Add `parts[].measures[]._x.viritura.harpPedals[]`. Example:
   Editing a calculated snapshot manually changes its source to manual.
 - The decoded `PartMeasure.harpPedals` promotes the wire collection, following
   existing measure-extension patterns. Do not hand-edit generated files.
-- Begin with one canonical diagram presentation. Printed placement overrides
-  may target a staff, but the musical setting always belongs to the whole part.
-  Visibility must never control whether a setting affects playback.
+- Per-setting `display` chooses a diagram (default), all seven pedal names, or
+  only the names that changed since the preceding setting. Printed placement
+  overrides may target a staff, but the musical setting always belongs to the
+  whole part. Presentation must never control whether a setting affects
+  playback; the stored tuning is always the full snapshot.
 - Reject invalid alterations, duplicate IDs, and duplicate positions within
   the same part measure. Compare fractions exactly, including equivalent
   fractions; array order must not decide conflicting settings.
@@ -94,9 +96,17 @@ Add `parts[].measures[]._x.viritura.harpPedals[]`. Example:
 ### Resolver semantics
 
 The first implementation slice provides schema/model persistence and full
-Bravura diagrams, including Storybook examples. Diagrams initially render below
-the lower staff by default; `staff` explicitly selects another presentation
-staff. State resolution and the subsequent stages below remain planned.
+Bravura diagrams, including Storybook examples. `placement` supports above,
+below, between, and auto; auto defaults to the inter-staff gap when available,
+otherwise below the associated staff. `staff` selects the presentation staff,
+and optional manual offset/collision controls follow the positioned-expression
+pipeline. `display` prints a diagram, all pedal names, or only changes relative
+to the latest earlier setting in written order (falling back to all names when
+there is none or nothing differs). In horizon view, a long written marking can
+extend beyond the edge of a short score; horizontal fitting remains pending.
+The editor now resolves state within active harp-instrument segments and offers
+manual entry from the Edit and score context menus. The subsequent calculator,
+playback, and warning stages remain planned.
 
 For future MusicXML import, fill partial pedal changes from the preceding known
 setting. Do not infer natural pedals if the preceding state is unknown; preserve
@@ -145,13 +155,25 @@ certify those physical details.
   the same part-wide snapshot; deduplicate multi-staff selections.
 - Present controls in physical diagram order **D C B | E F G A**, with
   flat/natural/sharp states, keyboard access, and readable labels.
+- The text popover also accepts seven positions such as `^--|--v^`: `^` is
+  flat, `-` is natural, and `v` is sharp. The divider and spaces are optional.
+  Up/down controls and the text input stay synchronized. **Auto** is disabled
+  until the calculation stage is implemented.
+  Typing a pedal symbol overwrites the character at the cursor and advances
+  to the next pedal, skipping the divider; typing at the end does not append.
+  Up and down arrows adjust the pedal at the cursor without advancing, with
+  the last pedal selected when the cursor is at the end.
+- The popover does not choose display mode or placement. New settings omit
+  both so score-level engraving defaults apply; editing an existing setting
+  preserves any per-setting values it already has.
 - Add/select/move/delete a diagram through the normal command/selection
   system. Multiple settings within one measure must be possible.
   An unresolved selection reports an error, never defaults to measure 1.
 - Apply all seven values atomically, in one undoable collaborative edit.
   A local draft must detect a concurrently changed/deleted snapshot rather
   than blindly overwriting another user's changes.
-- Draw one diagram for the part, below the lower staff by default. Rust owns
+- Draw one marking for the part, between staves by default when available and
+  otherwise below the associated staff. Rust owns
   geometry, rhythmic anchoring, horizontal spacing, collision avoidance,
   measure-rest consolidation barriers, and page/system placement. Carry the
   stable setting ID through selection/hit-testing and part extracts.
@@ -168,6 +190,10 @@ defines pedal positions and glyphs.
 ## 5. Pedal calculation and ranked enharmonic alternatives
 
 ### Inputs and scope
+
+The editor's current Auto command solves the whole part in a cancellable
+worker. Tie-chain handling and ranked tuning-state search are implemented;
+bounded-selection application and restoration remain follow-up work.
 
 **Calculate harp pedals** solves the active harp part or a bounded selection.
 Always run the spelling-preserving pass and the enharmonic search before
@@ -246,6 +272,15 @@ of all note spellings. Track the selected string/spelling for active held/tied
 notes across transitions; 2,187 bounds tuning configurations, not the entire
 state space when those assignments are included. Cache feasibility results and
 prune dominated states without silently dropping musical constraints.
+
+The implemented search carries physical-string assignments through each tied
+chain's notated sounding intervals and counts edits to every source note in
+that chain. Cross-jump ties share one spelling without inventing sustain through
+unplayed written measures. Laissez-vibrer ties do not extend the notated release.
+The tuning transition uses a seven-axis Hamming-distance transform; alterations
+never requested by any note spelling or manual anchor are safely dominated by
+their natural replacements. It does not cap the candidate frontier or return a
+partially completed search as a solution.
 
 Measure each complete, feasible candidate with the following metrics; the
 category rules below specify how to prioritize them:

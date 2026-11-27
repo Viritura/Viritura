@@ -569,14 +569,19 @@ pub(super) fn build_virtual_part_measure(
                     .extend(p.iter().filter(|x| legacy_staff_matches(x.staff)).cloned());
             }
             if let Some(ref settings) = pm.harp_pedals {
-                harp_pedals.get_or_insert_with(Vec::new).extend(
-                    settings
-                        .iter()
-                        .filter(|setting| {
-                            legacy_staff_matches(Some(setting.staff.unwrap_or(part.staves)))
-                        })
-                        .cloned(),
+                let mut settings: Vec<_> = settings
+                    .iter()
+                    .filter(|setting| {
+                        legacy_staff_matches(Some(setting.presentation_staff(part.staves)))
+                    })
+                    .cloned()
+                    .collect();
+                crate::model::annotate_preceding_harp_tunings(
+                    &mut settings,
+                    &part.measures,
+                    measure_index,
                 );
+                harp_pedals.get_or_insert_with(Vec::new).extend(settings);
             }
             if let Some(ref o) = pm.ottavas {
                 ottavas

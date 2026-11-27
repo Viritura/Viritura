@@ -32,6 +32,7 @@ export {
   paintSpannerDragPreview,
 } from "./hitTest";
 export { getHitboxDebugKind, HITBOX_DEBUG_STYLES } from "./hitboxDebug";
+export { commandsForElement, commandsForExactElement } from "./selectionHighlight";
 export type { HitboxDebugBounds, HitboxDebugKind, HitboxDebugOptions } from "./hitboxDebug";
 export { hitTestBeamInk, isBeamElementId, selectionGroupMembers } from "./beamHitTest";
 export type { ElementBBox, ScoreElementType, SpannerHandleHit, SpannerHandleEnd, DragSnapPoint } from "./hitTest";

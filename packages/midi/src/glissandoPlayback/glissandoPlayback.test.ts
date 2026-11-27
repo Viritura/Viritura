@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { Glissando, NoteEvent, Score } from "@viritura/core";
+import {
+  harpPedalFractionFromNumber,
+  resolveHarpPedalState,
+  type Glissando,
+  type NoteEvent,
+  type Score,
+} from "@viritura/core";
 import { generateTimeline } from "../timeline";
 
 function scoreFor(glissando: Partial<Glissando> = {}, fifths = 0): Score {
@@ -37,6 +43,12 @@ function scoreFor(glissando: Partial<Glissando> = {}, fifths = 0): Score {
   };
 }
 
+function harpScoreFor(glissando: Partial<Glissando> = {}): Score {
+  const score = scoreFor(glissando);
+  score.parts[0]!._x = { viritura: { instrumentId: "pluck.harp" } };
+  return score;
+}
+
 function source(score: Score): NoteEvent {
   const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
   if (event.type !== "event") throw new Error("Expected event");
@@ -56,6 +68,85 @@ describe("glissando playback", () => {
     expect(offTimes).toHaveLength(4);
     offTimes.forEach((time, index) => expect(time).toBeCloseTo((target.time * (index + 1)) / 4));
     expect(timeline.diagnostics).toEqual([]);
+  });
+
+  it("defaults active harp glissandos to the authored strings and current pedals", () => {
+    const score = harpScoreFor();
+    score.parts[0]!.measures[0]!.harpPedals = [
+      {
+        id: "initial",
+        position: { fraction: [0, 1] },
+        tuning: { D: 1, C: 0, B: 0, E: 0, F: 0, G: 0, A: 0 },
+      },
+    ];
+    const timeline = generateTimeline(score);
+    const notes = timeline.events.filter((event) => event.type === "noteOn");
+    expect(notes.map((event) => event.midiNote)).toEqual([60, 63, 64, 65, 67]);
+    expect(notes.map((event) => event.scoreNoteIndex)).toEqual([0, 0, 0, 0, 0]);
+    expect(timeline.diagnostics).toEqual([]);
+  });
+
+  it("resolves pedal changes during a physical string sweep and keeps enharmonic unisons", () => {
+    const score = harpScoreFor();
+    source(score).duration = { base: "whole" };
+    score.parts[0]!.measures[0]!.sequences[0]!.content.splice(1);
+    score.global.measures.push({});
+    score.parts[0]!.measures.push({
+      sequences: [
+        {
+          content: [
+            {
+              type: "event",
+              id: "target",
+              duration: { base: "quarter" },
+              notes: [{ pitch: { step: "G", octave: 4 } }],
+            },
+          ],
+        },
+      ],
+    });
+    score.parts[0]!.measures[0]!.harpPedals = [
+      { id: "initial", position: { fraction: [0, 1] }, tuning: { D: 0, C: 0, B: 0, E: 0, F: 0, G: 0, A: 0 } },
+      { id: "mid-sweep", position: { fraction: [1, 2] }, tuning: { D: 0, C: 0, B: 0, E: 1, F: 0, G: 0, A: 0 } },
+    ];
+    expect(harpPedalFractionFromNumber(0.5)).toEqual([1, 2]);
+    expect(resolveHarpPedalState(score.parts[0]!, 0, [1, 2])?.tuning.E).toBe(1);
+
+    const timeline = generateTimeline(score);
+    const notes = timeline.events.filter((event) => event.type === "noteOn");
+    expect(notes[2]!.scoreBeat).toBeCloseTo(2);
+    expect(notes.map((event) => event.midiNote)).toEqual([60, 62, 65, 65, 67]);
+    expect(notes[2]!.time).toBeCloseTo(notes[3]!.time - 0.5);
+    expect(timeline.diagnostics).toEqual([]);
+  });
+
+  it("preserves ordinary endpoints and reports an unknown initial tuning", () => {
+    const timeline = generateTimeline(harpScoreFor());
+    expect(timeline.events.filter((event) => event.type === "noteOn").map((event) => event.midiNote)).toEqual([60, 67]);
+    expect(timeline.diagnostics?.map((diagnostic) => diagnostic.code)).toContain("harp-pedal-state-unknown");
+  });
+
+  it("preserves explicit playback overrides on harp parts", () => {
+    const score = harpScoreFor({ playbackType: "diatonic" });
+    score.parts[0]!.measures[0]!.harpPedals = [
+      {
+        id: "initial",
+        position: { fraction: [0, 1] },
+        tuning: { D: 1, C: 0, B: 0, E: 0, F: 0, G: 0, A: 0 },
+      },
+    ];
+    expect(
+      generateTimeline(score)
+        .events.filter((event) => event.type === "noteOn")
+        .map((event) => event.midiNote),
+    ).toEqual([60, 62, 64, 65, 67]);
+  });
+
+  it("rejects an explicit harp-pedal mode on a non-harp part", () => {
+    const score = scoreFor({ playbackType: "harp-pedals" });
+    const timeline = generateTimeline(score);
+    expect(timeline.events.filter((event) => event.type === "noteOn").map((event) => event.midiNote)).toEqual([60, 67]);
+    expect(timeline.diagnostics?.map((diagnostic) => diagnostic.code)).toContain("harp-pedal-playback-unsupported");
   });
 
   it("plays every chromatic semitone regardless of kind or displayed text", () => {

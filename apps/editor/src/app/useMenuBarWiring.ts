@@ -14,6 +14,7 @@ import type { MenuBarCallbacks, MenuBarState } from "../components/MenuBar";
 import { useSelectionStore } from "../store/selectionStore";
 import { useDocumentStoreApi } from "../store/DocumentContext";
 import { resolveStaffSwapTarget } from "../commands/staffSwap";
+import { resolveHarpPedalTarget } from "../harpPedals";
 
 interface UseMenuBarWiringParams extends MenuBarConfigDeps {
   isActiveView: boolean | undefined;
@@ -74,6 +75,11 @@ export function useMenuBarWiring({
           canDeleteSelectedBars: useSelectionStore.getState().selection.kind === "measure",
           canSwapStaffContents:
             resolveStaffSwapTarget(store.getState().score, useSelectionStore.getState().selection) !== null,
+          canSetHarpPedals:
+            resolveHarpPedalTarget(
+              store.getState().workingScore ?? store.getState().score,
+              useSelectionStore.getState().selection,
+            ) !== null,
         },
         context,
       ),

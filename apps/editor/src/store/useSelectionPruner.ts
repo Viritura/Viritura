@@ -20,6 +20,7 @@ import {
   resolveAnnotationLocation,
   resolveGraceLocation,
   resolveFullMeasureRestLocation,
+  resolveHarpPedalLocation,
 } from "../score/ElementPath";
 import { articulationNamesInMarkings } from "../score/articulationNames";
 import { canonicalNavigationId } from "../navigation";
@@ -33,7 +34,26 @@ export function isSelectionIdValid(elementId: string, score: Score, scoreIndex?:
   if (elementId.startsWith("slur/")) return slurExists(elementId, score);
   if (elementId.startsWith("tie/")) return tieExists(elementId, score);
   if (elementId.startsWith("gliss/")) return glissandoExists(elementId, score);
+  if (elementId.startsWith("harpPedal/")) return resolveHarpPedalLocation(elementId, score) !== null;
 
+  const sequenceElement = sequenceElementExists(elementId, score);
+  if (sequenceElement !== null) return sequenceElement;
+
+  const canonicalId = canonicalNavigationId(elementId);
+  if (/^m\d+\/chord/.test(canonicalId) && !/^m\d+\/chord\d+$/.test(canonicalId)) return false;
+  const annotation = resolveAnnotationLocation(canonicalId);
+  if (annotation) return annotationExists(annotation, score);
+
+  const partElement = elementId.match(/^p(\d+)\/m(\d+)\/(clef|key|beam|gracebeam|measurerepeat)(\d*)$/);
+  if (partElement) return partElementExists(partElement, score);
+  const globalElement = elementId.match(
+    /^m(\d+)\/(time|barline|caesura|segno|coda|fine|jump|rehearsal|volta|mnum|mmrcount)$/,
+  );
+  if (globalElement) return globalElementExists(globalElement, score);
+  return false;
+}
+
+function sequenceElementExists(elementId: string, score: Score): boolean | null {
   const graceMatch = elementId.match(/^(p\d+\/m\d+\/s\d+\/[^/]+\/grace\/[^/]+)(?:\/(.+))?$/);
   if (graceMatch) {
     const location = resolveGraceLocation(graceMatch[1]!, score);
@@ -54,19 +74,7 @@ export function isSelectionIdValid(elementId: string, score: Score, scoreIndex?:
     if (!event) return suffix === "" && resolveFullMeasureRestLocation(elementId, score) !== null;
     return suffix === "" || eventSubElementExists(suffix, event);
   }
-
-  const canonicalId = canonicalNavigationId(elementId);
-  if (/^m\d+\/chord/.test(canonicalId) && !/^m\d+\/chord\d+$/.test(canonicalId)) return false;
-  const annotation = resolveAnnotationLocation(canonicalId);
-  if (annotation) return annotationExists(annotation, score);
-
-  const partElement = elementId.match(/^p(\d+)\/m(\d+)\/(clef|key|beam|gracebeam|measurerepeat)(\d*)$/);
-  if (partElement) return partElementExists(partElement, score);
-  const globalElement = elementId.match(
-    /^m(\d+)\/(time|barline|caesura|segno|coda|fine|jump|rehearsal|volta|mnum|mmrcount)$/,
-  );
-  if (globalElement) return globalElementExists(globalElement, score);
-  return false;
+  return null;
 }
 
 /** A frame in the active score view (or any view when unknown) still carries this ID. */

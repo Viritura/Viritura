@@ -130,7 +130,7 @@ pub(super) fn split_part_measure_by_staff_count(
         harp_pedals: pm.harp_pedals.as_ref().and_then(|settings| {
             let filtered: Vec<_> = settings
                 .iter()
-                .filter(|setting| setting.staff.unwrap_or(staff_count) == staff_num)
+                .filter(|setting| setting.presentation_staff(staff_count) == staff_num)
                 .cloned()
                 .collect();
             (!filtered.is_empty()).then_some(filtered)

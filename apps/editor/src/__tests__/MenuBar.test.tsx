@@ -37,6 +37,18 @@ function renderMenuBar(overrides: Partial<MenuBarCallbacks> = {}, state: MenuBar
 }
 
 describe("MenuBar", () => {
+  it.each([false, true])("gates harp pedal entry in Edit: %s", async (canSetHarpPedals) => {
+    const onSetHarpPedals = vi.fn();
+    const { user } = renderMenuBar({ onSetHarpPedals }, { hasDocument: true, canSetHarpPedals });
+    await user.click(screen.getByText("Edit"));
+    const item = screen.getByRole("menuitem", { name: "Set harp pedals" });
+    expect(item.getAttribute("data-disabled") === null).toBe(canSetHarpPedals);
+    if (canSetHarpPedals) {
+      await user.click(item);
+      expect(onSetHarpPedals).toHaveBeenCalledOnce();
+    }
+  });
+
   it.each([false, true])("gates Swap Staff Contents on a two-staff bar selection: %s", async (canSwapStaffContents) => {
     const onSwapStaffContents = vi.fn();
     const { user } = renderMenuBar(

@@ -644,8 +644,8 @@
         },
         "playbackType": {
           "type": "string",
-          "enum": ["chromatic", "diatonic", "pitch-bend"],
-          "description": "Playback interpolation. Omission means diatonic for glissando and pitch-bend for portamento."
+          "enum": ["chromatic", "diatonic", "pitch-bend", "harp-pedals"],
+          "description": "Playback interpolation. Omission means harp pedals for an active harp glissando, diatonic for other glissandos, and pitch-bend for portamento."
         },
         "text": {
           "type": "string",
@@ -923,7 +923,19 @@
         },
         "tuning": { "$ref": "#/$defs/harp-pedal-tuning" },
         "source": { "type": "string", "enum": ["manual", "calculated"] },
-        "staff": { "type": "integer", "minimum": 1 }
+        "staff": { "type": "integer", "minimum": 1 },
+        "placement": {
+          "type": "string",
+          "enum": ["above", "below", "between", "auto"],
+          "description": "Diagram placement relative to the associated staff. Default/auto uses the inter-staff gap when available, otherwise below."
+        },
+        "manualOffset": { "$ref": "#/$defs/sp-delta" },
+        "avoidCollisions": { "type": "boolean" },
+        "display": {
+          "type": "string",
+          "enum": ["diagram", "names", "changes"],
+          "description": "How the setting is printed: a pedal diagram (default), all seven pedal names, or only the pedals that differ from the preceding setting in written order. Changes falls back to all names when there is no preceding setting or nothing differs."
+        }
       },
       "additionalProperties": false
     },

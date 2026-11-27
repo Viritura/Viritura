@@ -1,10 +1,29 @@
-import type { Sequence } from "@viritura/core";
+import type { Sequence, SequenceContent } from "@viritura/core";
 import { durationToBeats, sequenceContentBeats } from "../commands/noteCommands";
 
 export interface TimedAnnotationTarget {
   eventIndex: number;
   tupletIndex?: number;
   graceContainerIndex?: number;
+}
+
+/** Walk a content path, scaling each enclosing tuplet or tremolo. */
+export function sequenceContentBoundary(
+  content: readonly SequenceContent[],
+  path: readonly number[],
+  end = false,
+): number {
+  const index = path[0]!;
+  const before = content.slice(0, index).reduce((sum, item) => sum + sequenceContentBeats(item), 0);
+  const item = content[index];
+  if (!item) return before;
+  if (path.length === 1) return before + (end ? sequenceContentBeats(item) : 0);
+  if (item.type !== "tuplet" && item.type !== "tremolo") return before;
+  const innerTime = item.content.reduce((sum, child) => sum + sequenceContentBeats(child), 0);
+  const outerTime = sequenceContentBeats(item);
+  return (
+    before + sequenceContentBoundary(item.content, path.slice(1), end) * (innerTime > 0 ? outerTime / innerTime : 1)
+  );
 }
 
 export function eventBeatPosition(sequence: Sequence, target: TimedAnnotationTarget): number {

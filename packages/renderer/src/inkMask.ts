@@ -14,7 +14,7 @@ export function normalizeErasingFrameOrder(displayList: DisplayList): Pick<Displ
   const ids = new Set(
     commands.flatMap((command, index) => {
       const id = elementIds[index];
-      return command.type === "EraseRect" && id?.includes("/expr") ? [id] : [];
+      return command.type === "EraseRect" && (id?.includes("/expr") || id?.startsWith("harpPedal/")) ? [id] : [];
     }),
   );
   if (ids.size === 0) return { commands, elementIds: displayList.elementIds };

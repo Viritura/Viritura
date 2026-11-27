@@ -28,6 +28,7 @@ import type { PageSetup, Score } from "@viritura/core";
 import { PAGE_STACK_GAP, computePagePlacements, placementCommandOffset, drawMarginGuides } from "./viewportGeometry";
 import { getPaperPattern, PAPER_CREAM_FALLBACK } from "./paperPattern";
 import { repaintCanvas } from "./repaintCanvas";
+import { harpPedalWarningGlyphs, paintHarpPedalWarningGlyphs } from "./harpPedalWarningOverlay";
 import { paintEngraveAdornments, paintWriteSlurHandles } from "./paintEngraveAdornments";
 import { resolveSelectedHiddenClefOverlay } from "./selectedHiddenClef";
 import { useLayoutDebugStore } from "../../debug/layoutDebugStore";
@@ -247,6 +248,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
   const endFrame = perfTracker.beginFrame();
 
   const ctx = canvas.getContext("2d");
+  const warningGlyphs = !printPreview && score ? harpPedalWarningGlyphs(score, dl, displayListVersion) : [];
   markPerformance("viritura:paint-setup-end");
   try {
     measurePerformance("viritura:paint-setup", "viritura:paint-frame-entry", "viritura:paint-setup-end");
@@ -404,6 +406,8 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
           paintSelectionOverlay(ctx, spatialIndex, selectedIds, dl, displayListVersion, args.selectionVoiceIndex);
         }
       }
+
+      if (warningGlyphs.length > 0) paintHarpPedalWarningGlyphs(ctx, warningGlyphs);
 
       if (!printPreview && spatialIndex && hitboxOverlayEnabled) {
         paintHitboxDebug(ctx, spatialIndex, {

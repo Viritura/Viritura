@@ -76,7 +76,9 @@ export function ChordSymbolEntryPopover({ store, popover, updateScore, selectedS
       key={`${popover?.partIndex}:${popover?.measureIndex}:${popover?.sequenceIndex}:${popover?.eventIndex}:${popover?.rhythmicPosition?.fraction.join("/")}`}
       open={popover !== null}
       onClose={() => setChordSymbolPopover(null)}
-      onSubmit={commit}
+      onSubmit={(value) => {
+        commit(value);
+      }}
       position={popover?.position ?? { x: 0, y: 0 }}
       title={popover?.concertPitch ? "Chord Symbol (Concert pitch)" : "Chord Symbol"}
       placeholder="e.g. C#m7, Bb7, C/E"

@@ -1,0 +1,42 @@
+.popover {
+  width: min(320px, calc(100vw - 32px));
+}
+
+.pedals {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.pedal,
+.leftDivider {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--text);
+  font-size: var(--type-small-size);
+}
+
+.leftDivider {
+  border-right: 1px solid rgba(var(--accent-rgb, 33, 94, 78), 0.4);
+  padding-right: var(--space-1);
+}
+
+.auto {
+  justify-self: center;
+}
+
+.solutionDialog {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.solutionPreview {
+  display: grid;
+  gap: var(--space-1);
+  max-height: 240px;
+  overflow: auto;
+  margin: 0;
+  padding-left: var(--space-5);
+}

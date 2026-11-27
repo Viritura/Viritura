@@ -100,7 +100,7 @@ pub(crate) fn render_text_expressions(
 ) {
     let mi = ml.resolved.index;
     let pi = ml.part_index;
-    let mut expressions: Vec<(TextExpression, String)> = ml
+    let mut expressions: Vec<(TextExpression, String, Option<f64>)> = ml
         .resolved
         .part
         .expressions
@@ -118,6 +118,7 @@ pub(crate) fn render_text_expressions(
                         expression.source_expression_index.unwrap_or(index),
                     )
                 }),
+                None,
             )
         })
         .collect();
@@ -136,6 +137,7 @@ pub(crate) fn render_text_expressions(
                 expressions.push((
                     system_text_expression(text, &ml.resolved, config),
                     element_id::system_text(mi, &text.id),
+                    None,
                 ));
             }
         }
@@ -161,7 +163,7 @@ pub(crate) fn render_text_expressions(
 
     let mut pending: Vec<PendingExpr> = Vec::new();
 
-    for (expr, text_element_id) in &expressions {
+    for (expr, text_element_id, between_baseline_offset) in &expressions {
         let is_expression = expr.text_type == PositionedTextType::Expression;
         let is_above = matches!(expr.placement, Some(ExpressionPlacement::Above))
             || (!is_expression && expr.placement.is_none());
@@ -258,7 +260,11 @@ pub(crate) fn render_text_expressions(
                 })
             });
 
-        let base_y = if inline_dynamic_is_explicit {
+        let base_y = if let (Some(center_y), Some(offset)) =
+            (between_center, between_baseline_offset)
+        {
+            center_y + offset * font_size
+        } else if inline_dynamic_is_explicit {
             inline_dynamic
                 .expect("explicit inline dynamic exists")
                 .baseline_y

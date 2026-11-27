@@ -333,6 +333,9 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             part_index,
             score,
         );
+        if let Some(settings) = part_measure.harp_pedals.as_deref_mut() {
+            crate::model::annotate_preceding_harp_tunings(settings, &part.measures, i);
+        }
         let chord_symbols = if !part.shows_chord_symbols() {
             None
         } else {

@@ -1,4 +1,18 @@
-import { FLAT_ORDER, SHARP_ORDER, walkSequenceEvents, type Glissando, type Score } from "@viritura/core";
+import {
+  FLAT_ORDER,
+  SHARP_ORDER,
+  collectHarpPedalNotes,
+  harpPedalFractionFromNumber,
+  harpPedalSpellingMidi,
+  isHarpInstrumentAt,
+  resolveHarpPedalState,
+  walkSequenceEvents,
+  type Glissando,
+  type GlissandoPlaybackType,
+  type HarpPedalNote,
+  type HarpPedalTuning,
+  type Score,
+} from "@viritura/core";
 import type { MidiEvent, MidiTimeline, TimelineDiagnostic } from "../types";
 import { playedSpansContinue } from "../navigation";
 
@@ -117,6 +131,91 @@ function renderSteps(
   return events;
 }
 
+type HarpString = Pick<HarpPedalNote["pitch"], "step" | "octave">;
+
+const HARP_STEPS = ["C", "D", "E", "F", "G", "A", "B"] as const;
+
+function harpStringOrdinal(string: HarpString): number {
+  return string.octave * 7 + HARP_STEPS.indexOf(string.step);
+}
+
+function harpStringSweep(start: HarpString, end: HarpString): HarpString[] | undefined {
+  const first = harpStringOrdinal(start);
+  const last = harpStringOrdinal(end);
+  const direction = Math.sign(last - first);
+  if (!direction) return [{ ...start }];
+  const strings: HarpString[] = [];
+  for (let ordinal = first; direction * (last - ordinal) > 0; ordinal += direction) {
+    strings.push({
+      step: HARP_STEPS[Math.floor(ordinal % 7)]!,
+      octave: Math.floor(ordinal / 7) as HarpPedalNote["pitch"]["octave"],
+    });
+    if (strings.length >= 128) return undefined;
+  }
+  return strings;
+}
+
+function tuningAtAttack(
+  score: Score,
+  timeline: MidiTimeline,
+  partIndex: number,
+  beat: number,
+): HarpPedalTuning | undefined {
+  const part = score.parts[partIndex];
+  if (!part) return undefined;
+  const expandedIndex = measureAt(timeline, beat);
+  const measureIndex = timeline.expandedMeasureToOriginal[expandedIndex];
+  if (measureIndex === undefined) return undefined;
+  const span = timeline.playedSpans?.[expandedIndex];
+  const measureStartBeat = timeline.measureStartBeats[expandedIndex];
+  if (measureStartBeat === undefined) return undefined;
+  const measureBeats =
+    span?.measureBeats ??
+    ((timeline.measureTimeSignatures[expandedIndex]?.count ?? 4) * 4) /
+      (timeline.measureTimeSignatures[expandedIndex]?.unit ?? 4);
+  const beatInSourceMeasure = (span?.startBeat ?? 0) + beat - measureStartBeat;
+  const position = harpPedalFractionFromNumber(beatInSourceMeasure / measureBeats);
+  if (!isHarpInstrumentAt(part, measureIndex, position)) return undefined;
+  return resolveHarpPedalState(part, measureIndex, position)?.tuning;
+}
+
+function renderHarpPedalSweep(
+  on: MidiEvent,
+  off: MidiEvent,
+  target: MidiEvent,
+  strings: readonly HarpString[],
+  timeline: MidiTimeline,
+  score: Score,
+  partIndex: number,
+): MidiEvent[] | undefined {
+  const duration = target.time - on.time;
+  const startBeat = on.scoreBeat ?? timeline.model.beatAtTime(on.time);
+  const targetBeat = target.scoreBeat ?? timeline.model.beatAtTime(target.time);
+  const events: MidiEvent[] = [];
+  for (let index = 0; index < strings.length; index++) {
+    const string = strings[index]!;
+    const time = on.time + (duration * index) / strings.length;
+    const end = on.time + (duration * (index + 1)) / strings.length;
+    const scoreBeat = startBeat + ((targetBeat - startBeat) * index) / strings.length;
+    const endScoreBeat = startBeat + ((targetBeat - startBeat) * (index + 1)) / strings.length;
+    let midiNote = on.midiNote;
+    if (index > 0) {
+      const tuning = tuningAtAttack(score, timeline, partIndex, scoreBeat);
+      if (!tuning) return undefined;
+      midiNote = harpPedalSpellingMidi({ ...string, alter: tuning[string.step] });
+    }
+    events.push({
+      ...on,
+      midiNote,
+      time,
+      scoreBeat,
+      scoreDurationBeats: endScoreBeat - scoreBeat,
+    });
+    events.push({ ...off, midiNote, time: end });
+  }
+  return events;
+}
+
 function renderBend(on: MidiEvent, off: MidiEvent, target: MidiEvent, lane: string): MidiEvent[] {
   const base = { ...on, playbackLaneId: lane };
   const end = target.time;
@@ -157,86 +256,316 @@ function renderBend(on: MidiEvent, off: MidiEvent, target: MidiEvent, lane: stri
   return events;
 }
 
+interface PlaybackContext {
+  score: Score;
+  timeline: MidiTimeline;
+  original: MidiEvent[];
+  releases: Map<MidiEvent, MidiEvent>;
+  removed: Set<MidiEvent>;
+  added: MidiEvent[];
+  mirroredLanes: Set<string>;
+  diagnostics: TimelineDiagnostic[];
+}
+
+function glissandoTargets(onsets: readonly MidiEvent[], targetId: string): MidiEvent[] {
+  const exact = onsets.filter((event) => event.scoreEventId === targetId);
+  return exact.length > 0 ? exact : onsets.filter((event) => event.scoreEventId?.replaceAll("/", "_") === targetId);
+}
+
+function chordOrder(sources: readonly MidiEvent[], onset: MidiEvent): number {
+  return sources
+    .filter((event) => Math.abs(event.time - onset.time) < 1e-9)
+    .sort((left, right) => left.midiNote - right.midiNote)
+    .indexOf(onset);
+}
+
+function glissandoTarget(
+  timeline: MidiTimeline,
+  onset: MidiEvent,
+  sources: readonly MidiEvent[],
+  targets: readonly MidiEvent[],
+  type: GlissandoPlaybackType,
+): MidiEvent | undefined {
+  const viable = targets.filter(
+    (candidate) => candidate.time > onset.time + 1e-9 && continuousTo(timeline, onset, candidate),
+  );
+  if (type === "harp-pedals") return viable.find((candidate) => candidate.scoreNoteIndex === onset.scoreNoteIndex);
+  const time = viable[0]?.time;
+  if (time === undefined) return undefined;
+  const chord = viable
+    .filter((candidate) => Math.abs(candidate.time - time) < 1e-9)
+    .sort((left, right) => left.midiNote - right.midiNote);
+  const sourceOrder = chordOrder(sources, onset);
+  return chord[Math.min(sourceOrder, chord.length - 1)];
+}
+
+function diagnostic(code: TimelineDiagnostic["code"], message: string, onset: MidiEvent): TimelineDiagnostic {
+  return {
+    code,
+    message,
+    playbackLaneIds: onset.playbackLaneId ? [onset.playbackLaneId] : [],
+  };
+}
+
+function harpPedalSweepEvents(
+  context: PlaybackContext,
+  partIndex: number,
+  source: string,
+  targetId: string,
+  onset: MidiEvent,
+  off: MidiEvent,
+  target: MidiEvent,
+  sourceWritten: HarpPedalNote | undefined,
+  writtenNotes: readonly HarpPedalNote[],
+  lane: string,
+): MidiEvent[] | TimelineDiagnostic {
+  const targetWritten = writtenNotes.find(
+    (note) => note.eventId === target.scoreEventId && note.noteIndex === target.scoreNoteIndex,
+  );
+  if (
+    !sourceWritten ||
+    !targetWritten ||
+    Math.abs(sourceWritten.pitch.alter) > 1 ||
+    Math.abs(targetWritten.pitch.alter) > 1 ||
+    harpPedalSpellingMidi(sourceWritten.pitch) !== onset.midiNote ||
+    harpPedalSpellingMidi(targetWritten.pitch) !== target.midiNote
+  ) {
+    return diagnostic(
+      "harp-pedal-playback-unsupported",
+      `Harp glissando endpoints "${source}" and "${targetId}" do not have supported exact string spellings.`,
+      onset,
+    );
+  }
+  const strings = harpStringSweep(sourceWritten.pitch, targetWritten.pitch);
+  if (!strings) {
+    return diagnostic(
+      "harp-pedal-playback-unsupported",
+      `Harp glissando from "${source}" to "${targetId}" exceeds the supported string span.`,
+      onset,
+    );
+  }
+  const events = renderHarpPedalSweep(
+    { ...onset, playbackLaneId: lane },
+    { ...off, playbackLaneId: lane },
+    target,
+    strings,
+    context.timeline,
+    context.score,
+    partIndex,
+  );
+  return (
+    events ??
+    diagnostic(
+      "harp-pedal-state-unknown",
+      `Harp glissando from "${source}" to "${targetId}" crosses an unknown or inactive harp-pedal state.`,
+      onset,
+    )
+  );
+}
+
+function renderGlissandoEvents(
+  context: PlaybackContext,
+  {
+    partIndex,
+    source,
+    glissando,
+    type,
+    onset,
+    off,
+    target,
+    sourceWritten,
+    writtenNotes,
+    lane,
+  }: {
+    partIndex: number;
+    source: string;
+    glissando: Glissando;
+    type: GlissandoPlaybackType;
+    onset: MidiEvent;
+    off: MidiEvent;
+    target: MidiEvent;
+    sourceWritten: HarpPedalNote | undefined;
+    writtenNotes: readonly HarpPedalNote[];
+    lane: string;
+  },
+): MidiEvent[] | TimelineDiagnostic {
+  const { score, timeline } = context;
+  if (type === "pitch-bend") {
+    const events = renderBend(onset, off, target, lane);
+    const bendOnset = events.find((event) => event.type === "noteOn")!;
+    bendOnset.scoreDurationBeats =
+      timeline.model.beatAtTime(target.time) - (onset.scoreBeat ?? timeline.model.beatAtTime(onset.time));
+    return events;
+  }
+  if (type === "harp-pedals") {
+    return harpPedalSweepEvents(
+      context,
+      partIndex,
+      source,
+      glissando.target,
+      onset,
+      off,
+      target,
+      sourceWritten,
+      writtenNotes,
+      lane,
+    );
+  }
+  const key = type === "diatonic" ? keyPitches(score, timeline, onset) : undefined;
+  return renderSteps(
+    { ...onset, playbackLaneId: lane },
+    { ...off, playbackLaneId: lane },
+    target,
+    steppedPitches(onset.midiNote, target.midiNote, key),
+    timeline,
+  );
+}
+
+function mirrorLane(context: PlaybackContext, partIndex: number, onset: MidiEvent, lane: string): void {
+  if (context.mirroredLanes.has(lane)) return;
+  context.mirroredLanes.add(lane);
+  for (const event of context.original) {
+    if (
+      event.partIndex === partIndex &&
+      event.playbackLaneId === onset.playbackLaneId &&
+      (event.type === "programChange" || event.type === "controlChange")
+    ) {
+      context.added.push({ ...event, playbackLaneId: lane });
+    }
+  }
+}
+
+function realizeOnset(
+  context: PlaybackContext,
+  partIndex: number,
+  source: string,
+  glissando: Glissando,
+  sources: readonly MidiEvent[],
+  targets: readonly MidiEvent[],
+  onset: MidiEvent,
+  sourceWritten: HarpPedalNote | undefined,
+  writtenNotes: readonly HarpPedalNote[],
+): { realized: boolean; harpFailure: boolean } {
+  const part = context.score.parts[partIndex]!;
+  const activeHarp =
+    sourceWritten !== undefined && isHarpInstrumentAt(part, sourceWritten.measureIndex, sourceWritten.fraction);
+  const type =
+    glissando.playbackType ??
+    (glissando.kind === "portamento" ? "pitch-bend" : activeHarp ? "harp-pedals" : "diatonic");
+  if (type === "harp-pedals" && !activeHarp) {
+    context.diagnostics.push(
+      diagnostic(
+        "harp-pedal-playback-unsupported",
+        `Glissando from "${source}" requests harp pedals outside an active harp segment.`,
+        onset,
+      ),
+    );
+    return { realized: false, harpFailure: true };
+  }
+  const target = glissandoTarget(context.timeline, onset, sources, targets, type);
+  if (!target) {
+    if (type === "harp-pedals") {
+      context.diagnostics.push(
+        diagnostic(
+          "harp-pedal-playback-unsupported",
+          `Harp glissando from "${source}" to "${glissando.target}" has no matching note-index endpoints on a continuous playback route.`,
+          onset,
+        ),
+      );
+      return { realized: false, harpFailure: true };
+    }
+    return { realized: false, harpFailure: false };
+  }
+  const off = context.releases.get(onset);
+  if (!off || onset.channel === 9) return { realized: false, harpFailure: false };
+  const sourceOrder = chordOrder(sources, onset);
+  const lane = `${onset.playbackLaneId ?? `part:${partIndex}`}:gliss:${source}:${onset.scoreNoteIndex ?? sourceOrder}`;
+  const generated = renderGlissandoEvents(context, {
+    partIndex,
+    source,
+    glissando,
+    type,
+    onset,
+    off,
+    target,
+    sourceWritten,
+    writtenNotes,
+    lane,
+  });
+  if (!Array.isArray(generated)) {
+    context.diagnostics.push(generated);
+    return { realized: false, harpFailure: type === "harp-pedals" };
+  }
+  context.removed.add(onset);
+  context.removed.add(off);
+  context.added.push(...generated);
+  // Mirror dynamics, pedal, and timbre state into the isolated note lane.
+  mirrorLane(context, partIndex, onset, lane);
+  return { realized: true, harpFailure: false };
+}
+
+function realizeGlissandoLine(
+  context: PlaybackContext,
+  partIndex: number,
+  source: string,
+  glissando: Glissando,
+  onsets: readonly MidiEvent[],
+  writtenNotes: readonly HarpPedalNote[],
+): void {
+  const sources = onsets.filter((event) => event.scoreEventId === source);
+  const targets = glissandoTargets(onsets, glissando.target);
+  let realized = false;
+  let harpFailure = false;
+  for (const onset of sources) {
+    if (context.removed.has(onset)) continue;
+    const sourceWritten = writtenNotes.find(
+      (note) => note.eventId === source && note.noteIndex === onset.scoreNoteIndex,
+    );
+    const result = realizeOnset(
+      context,
+      partIndex,
+      source,
+      glissando,
+      sources,
+      targets,
+      onset,
+      sourceWritten,
+      writtenNotes,
+    );
+    realized ||= result.realized;
+    harpFailure ||= result.harpFailure;
+  }
+  if (!realized && !harpFailure) {
+    context.diagnostics.push({
+      code: "glissando-playback-unsupported",
+      message: `Glissando from "${source}" to "${glissando.target}" has no forward pitched endpoints on a continuous playback route.`,
+      playbackLaneIds: sources.flatMap((event) => (event.playbackLaneId ? [event.playbackLaneId] : [])),
+    });
+  }
+}
+
 /** Realize after navigation, so a line cannot sweep through an unplayed route. */
 export function applyGlissandoPlayback(score: Score, timeline: MidiTimeline): TimelineDiagnostic[] {
   const partLines = score.parts.map((_part, partIndex) => linesForPart(score, partIndex));
   if (partLines.every((lines) => lines.length === 0)) return [];
-  const diagnostics: TimelineDiagnostic[] = [];
   const original = [...timeline.events];
-  const releases = releasesFor(original);
-  const removed = new Set<MidiEvent>();
-  const added: MidiEvent[] = [];
-  const mirroredLanes = new Set<string>();
+  const context: PlaybackContext = {
+    score,
+    timeline,
+    original,
+    releases: releasesFor(original),
+    removed: new Set(),
+    added: [],
+    mirroredLanes: new Set(),
+    diagnostics: [],
+  };
   partLines.forEach((lines, partIndex) => {
+    const writtenNotes = collectHarpPedalNotes(score, partIndex);
+    const onsets = original.filter((event) => event.partIndex === partIndex && event.type === "noteOn");
     for (const { source, glissando } of lines) {
-      const onsets = original.filter((event) => event.partIndex === partIndex && event.type === "noteOn");
-      const sources = onsets.filter((event) => event.scoreEventId === source);
-      const exactTargets = onsets.filter((event) => event.scoreEventId === glissando.target);
-      const targets =
-        exactTargets.length > 0
-          ? exactTargets
-          : onsets.filter((event) => event.scoreEventId?.replaceAll("/", "_") === glissando.target);
-      let realized = false;
-      for (const onset of sources) {
-        if (removed.has(onset)) continue;
-        const time = targets.find(
-          (target) => target.time > onset.time + 1e-9 && continuousTo(timeline, onset, target),
-        )?.time;
-        if (time === undefined) continue;
-        const sourceChord = sources
-          .filter((event) => Math.abs(event.time - onset.time) < 1e-9)
-          .sort((a, b) => a.midiNote - b.midiNote);
-        const targetChord = targets
-          .filter((event) => Math.abs(event.time - time) < 1e-9)
-          .sort((a, b) => a.midiNote - b.midiNote);
-        const target = targetChord[Math.min(sourceChord.indexOf(onset), targetChord.length - 1)]!;
-        const off = releases.get(onset);
-        if (!off || onset.channel === 9) continue;
-        realized = true;
-        const type = glissando.playbackType ?? (glissando.kind === "portamento" ? "pitch-bend" : "diatonic");
-        removed.add(onset);
-        removed.add(off);
-        const lane = `${onset.playbackLaneId ?? `part:${partIndex}`}:gliss:${source}:${sourceChord.indexOf(onset)}`;
-        if (type === "pitch-bend") {
-          const bendEvents = renderBend(onset, off, target, lane);
-          const bendOnset = bendEvents.find((event) => event.type === "noteOn")!;
-          bendOnset.scoreDurationBeats =
-            timeline.model.beatAtTime(target.time) - (onset.scoreBeat ?? timeline.model.beatAtTime(onset.time));
-          added.push(...bendEvents);
-        } else {
-          const key = type === "diatonic" ? keyPitches(score, timeline, onset) : undefined;
-          added.push(
-            ...renderSteps(
-              { ...onset, playbackLaneId: lane },
-              { ...off, playbackLaneId: lane },
-              target,
-              steppedPitches(onset.midiNote, target.midiNote, key),
-              timeline,
-            ),
-          );
-        }
-        // Mirror dynamics, pedal, and timbre state into the isolated note lane.
-        if (!mirroredLanes.has(lane)) {
-          mirroredLanes.add(lane);
-          for (const event of original) {
-            if (
-              event.partIndex === partIndex &&
-              event.playbackLaneId === onset.playbackLaneId &&
-              (event.type === "programChange" || event.type === "controlChange")
-            ) {
-              added.push({ ...event, playbackLaneId: lane });
-            }
-          }
-        }
-      }
-      if (!realized)
-        diagnostics.push({
-          code: "glissando-playback-unsupported",
-          message: `Glissando from "${source}" to "${glissando.target}" has no forward pitched endpoints on a continuous playback route.`,
-          playbackLaneIds: sources.flatMap((event) => (event.playbackLaneId ? [event.playbackLaneId] : [])),
-        });
+      realizeGlissandoLine(context, partIndex, source, glissando, onsets, writtenNotes);
     }
   });
-  timeline.events = original.filter((event) => !removed.has(event)).concat(added);
-  return diagnostics;
+  timeline.events = original.filter((event) => !context.removed.has(event)).concat(context.added);
+  return context.diagnostics;
 }
