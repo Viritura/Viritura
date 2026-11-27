@@ -124,7 +124,7 @@ pub(super) fn render_group_brackets_and_braces(
         }
 
         if let Some(label) =
-            super::instrument_labels::group_label_text(group, is_first_system, policy)
+            super::instrument_labels::group_label_text(group, staves, is_first_system, policy)
         {
             render_group_label(
                 dl,

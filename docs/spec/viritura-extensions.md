@@ -701,8 +701,18 @@ automatic casting and pagination.
 
 Controls instrument names independently on the first and subsequent systems.
 Both `firstSystem` and `subsequentSystems` accept `full`, `short`, or `hidden`.
+Configure these for each score or part in **Engrave > Layouts > Instrument
+Labels**. Newly created individual parts hide system labels, including on grand
+staves; their instrument names appear in the first-page part header instead.
+Full scores retain instrument names and abbreviations. Existing authored MNX
+labels remain in the file when a display policy is changed. For a named
+single-instrument group, full and short policies use the instrument's name and
+abbreviation without repeating the preserved group label.
+
 The extension is omitted when standard MNX layout references can represent the
-same policy directly: full-then-short, short-only, or hidden.
+same policy directly: full-then-short, full-only, short-only, or hidden. An
+override remains necessary when an instrument group has a label that cannot be
+controlled by staff references alone.
 
 ```json
 {
@@ -1091,7 +1101,9 @@ The optional score-definition `pageSetupRole` (`score` or `part`) disambiguates
 solo-player extracts and section scores. New editor-created layouts record their
 role. Older documents retain layout-membership inference: a layout referencing
 fewer parts than the document total uses part defaults; otherwise score defaults.
-Missing project profiles retain the built-in A4 defaults.
+The same role identifies the first-page instrument header for a part, including
+an extract from a single-instrument document; score roles do not receive that
+header. Missing project profiles retain the built-in A4 defaults.
 
 ### `metadata`
 

@@ -62,9 +62,8 @@ pub fn layout_with_mnx_scores(
     layout_with_mnx_scores_cached(score, config, score_index, None)
 }
 
-/// Render the page-1 title block, the part-score instrument name (when only
-/// a subset of parts is shown), and page numbers on pages 2+. No-op when
-/// `config.page_width` is `None` (galley mode).
+/// Render the page-1 title block, the part-score instrument name, and page
+/// numbers on pages 2+. No-op when `config.page_width` is `None` (galley mode).
 fn render_explicit_chrome(
     dl: &mut DisplayList,
     score: &Score,
@@ -511,7 +510,7 @@ pub fn layout_with_mnx_scores_cached(
             .flat_map(|staff| staff.sources.iter().map(|source| source.part_index))
             .collect();
         let part_score_name = resolve_part_score_name(
-            score_def.name.as_deref(),
+            score_def,
             &score.parts,
             &shown.into_iter().collect::<Vec<_>>(),
         );
@@ -717,7 +716,7 @@ pub fn layout_with_mnx_scores_cached(
         })
         .collect();
     let part_score_name = resolve_part_score_name(
-        score_def.name.as_deref(),
+        score_def,
         &score.parts,
         &shown.into_iter().collect::<Vec<_>>(),
     );

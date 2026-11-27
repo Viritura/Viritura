@@ -214,6 +214,21 @@ describe("buildLayouts", () => {
     expect(layouts[2]!.id).toBe("L-P2");
     expect(layouts[2]!.content).toEqual([{ type: "staff", sources: [{ part: "P2" }] }]);
   });
+
+  it("omits repeated labels from a grand-staff part but keeps them in the full score", () => {
+    const layouts = buildLayouts([createPlayer("keyboard.piano")], ["P1"]);
+    const full = layouts[0]!.content[0] as LayoutGroup;
+    const part = layouts[1]!.content[0] as LayoutGroup;
+
+    expect(full.content).toEqual([
+      { type: "staff", sources: [{ part: "P1", staff: 1, labelRef: { ref: "auto" } }] },
+      { type: "staff", sources: [{ part: "P1", staff: 2, labelRef: { ref: "auto" } }] },
+    ]);
+    expect(part.content).toEqual([
+      { type: "staff", sources: [{ part: "P1", staff: 1 }] },
+      { type: "staff", sources: [{ part: "P1", staff: 2 }] },
+    ]);
+  });
 });
 
 describe("buildScoreDefinitions", () => {
@@ -422,6 +437,10 @@ describe("addInstrumentToScore", () => {
     expect(perPartLayout!.content).toHaveLength(1);
     expect((perPartLayout!.content[0] as LayoutGroup).symbol).toBe("brace");
     expect((perPartLayout!.content[0] as LayoutGroup).content).toHaveLength(2);
+    expect((perPartLayout!.content[0] as LayoutGroup).content).toEqual([
+      { type: "staff", sources: [{ part: pianoPartId, staff: 1 }] },
+      { type: "staff", sources: [{ part: pianoPartId, staff: 2 }] },
+    ]);
   });
 
   it("updates score definition names when renumbering", () => {

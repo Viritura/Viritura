@@ -112,6 +112,21 @@ describe("instrument name display policy", () => {
       subsequentSystems: "hidden",
     });
     expect(updated.layouts[0]!.content[0]).toMatchObject({ label: "Piano", showGroupName: true });
+    expect(updated.scores[0]!.instrumentNameDisplay).toEqual({
+      firstSystem: "hidden",
+      subsequentSystems: "hidden",
+    });
+    expect(instrumentNameDisplayFor(updated.layouts[0]!.content, updated.scores[0]!)).toEqual({
+      firstSystem: "hidden",
+      subsequentSystems: "hidden",
+    });
+
+    const shown = setScoreInstrumentNameDisplay(updated.layouts, updated.scores, 0, {
+      firstSystem: "full",
+      subsequentSystems: "short",
+    });
+    expect(shown.layouts[0]!.content[0]).toMatchObject({ label: "Piano" });
+    expect(shown.scores[0]!.instrumentNameDisplay).toEqual({ firstSystem: "full", subsequentSystems: "short" });
   });
 
   it("does not classify section names as custom instrument labels", () => {

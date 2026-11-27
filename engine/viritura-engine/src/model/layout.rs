@@ -159,6 +159,8 @@ pub struct ScoreDefinition {
     #[serde(default)]
     pub pages: Vec<PageDefinition>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_setup_role: Option<PageSetupRole>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub instrument_name_display: Option<InstrumentNameDisplaySettings>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub auto_hide_empty_parts: Vec<String>,
@@ -209,6 +211,13 @@ pub struct LayoutBreak {
 pub enum LayoutBreakKind {
     System,
     Page,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub enum PageSetupRole {
+    Score,
+    Part,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]

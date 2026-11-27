@@ -35,6 +35,15 @@ function hasLiteralLabel(content: readonly LayoutContent[]): boolean {
   });
 }
 
+function hasInstrumentGroupLabel(content: readonly LayoutContent[]): boolean {
+  return content.some(
+    (node) =>
+      node.type === "group" &&
+      ((collectPartIdsInLayout(node.content).size <= 1 && (node.label !== undefined || node.labelRef !== undefined)) ||
+        hasInstrumentGroupLabel(node.content)),
+  );
+}
+
 function uniformLayoutPolicy(content: readonly LayoutContent[]): {
   firstSystem: InstrumentNameDisplayValue;
   subsequentSystems: InstrumentNameDisplayValue;
@@ -155,10 +164,11 @@ export function setScoreInstrumentNameDisplay(
     return [layout, { ...updated, id }];
   });
   const usesStandardMnx =
-    (settings.firstSystem === "full" && settings.subsequentSystems === "short") ||
-    (settings.firstSystem === "full" && settings.subsequentSystems === "full") ||
-    (settings.firstSystem === "short" && settings.subsequentSystems === "short") ||
-    (settings.firstSystem === "hidden" && settings.subsequentSystems === "hidden");
+    !layouts.some((layout) => layoutIds.has(layout.id) && hasInstrumentGroupLabel(layout.content)) &&
+    ((settings.firstSystem === "full" && settings.subsequentSystems === "short") ||
+      (settings.firstSystem === "full" && settings.subsequentSystems === "full") ||
+      (settings.firstSystem === "short" && settings.subsequentSystems === "short") ||
+      (settings.firstSystem === "hidden" && settings.subsequentSystems === "hidden"));
   const nextScore = { ...score };
   if (usesStandardMnx) delete nextScore.instrumentNameDisplay;
   else nextScore.instrumentNameDisplay = settings;

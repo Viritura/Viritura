@@ -328,7 +328,7 @@ function resolveNewInstrumentNames(
 export function buildStaffNodeForPart(
   inst: NonNullable<ReturnType<typeof getCatalogInstrument>>,
   partId: string,
-  labelSingleStaff = true,
+  labelStaves = true,
 ): LayoutContent {
   const staves = inst.staves ?? 1;
   if (staves > 1 && inst.bracketSymbol === "brace") {
@@ -336,14 +336,14 @@ export function buildStaffNodeForPart(
     for (let s = 1; s <= staves; s++) {
       staffNodes.push({
         type: "staff",
-        sources: [{ part: partId, staff: s, labelRef: { ref: "auto" } }],
+        sources: [{ part: partId, staff: s, ...(labelStaves ? { labelRef: { ref: "auto" as const } } : {}) }],
       });
     }
     return { type: "group", content: staffNodes, symbol: "brace" } as LayoutGroup;
   }
   return {
     type: "staff",
-    sources: [{ part: partId, ...(labelSingleStaff ? { labelRef: { ref: "auto" as const } } : {}) }],
+    sources: [{ part: partId, ...(labelStaves ? { labelRef: { ref: "auto" as const } } : {}) }],
   } as LayoutStaff;
 }
 
