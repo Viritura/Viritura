@@ -7,6 +7,45 @@ import { SystemInstructionFields } from "./SystemInstructionFields";
 
 afterEach(cleanup);
 
+it("applies a validated denominator-based grouping atomically and can switch it to no clicks", async () => {
+  const user = userEvent.setup();
+  const instruction: SystemText = {
+    id: "group",
+    text: [{ text: "2+3" }],
+    position: { fraction: [0, 1] },
+  };
+  const change = vi.fn<(instruction: SystemText) => void>();
+  const { rerender } = render(
+    <TooltipPrimitives.Provider>
+      <SystemInstructionFields instruction={instruction} timeSignature={{ count: 6, unit: 8 }} onChange={change} />
+    </TooltipPrimitives.Provider>,
+  );
+  await user.type(screen.getByRole("textbox", { name: "Click grouping" }), "3+3+2+2+2");
+  await user.click(screen.getByRole("button", { name: "Apply click grouping" }));
+  expect(screen.getByRole("alert").textContent).toContain("sum to 6");
+  expect(change).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("combobox", { name: "Click grid division" }));
+  await user.click(screen.getByRole("option", { name: "2", exact: true }));
+  expect(change).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Apply click grouping" }));
+  const grouped = { ...instruction, tempo: { clickSubdivision: 2 as const, clickGrouping: [3, 3, 2, 2, 2] } };
+  expect(change).toHaveBeenLastCalledWith(grouped);
+  rerender(
+    <TooltipPrimitives.Provider>
+      <SystemInstructionFields instruction={grouped} timeSignature={{ count: 6, unit: 8 }} onChange={change} />
+    </TooltipPrimitives.Provider>,
+  );
+  await user.click(screen.getByRole("combobox", { name: "Click grid division" }));
+  await user.click(screen.getByRole("option", { name: "No clicks (free time)" }));
+  expect(change).toHaveBeenLastCalledWith({ ...instruction, tempo: { clickSubdivision: 0 } });
+  rerender(
+    <TooltipPrimitives.Provider>
+      <SystemInstructionFields instruction={{ ...instruction, tempo: { clickSubdivision: 0 } }} onChange={change} />
+    </TooltipPrimitives.Provider>,
+  );
+  expect(screen.getByRole("combobox", { name: "Clicks per beat" }).textContent).toContain("No clicks");
+});
+
 it("sets and clears click-only subdivisions without fabricating BPM", async () => {
   const user = userEvent.setup();
   const instruction: SystemText = {

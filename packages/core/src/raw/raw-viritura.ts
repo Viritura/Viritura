@@ -139,7 +139,8 @@ export interface components {
             };
             swing?: components["schemas"]["swing"];
             /** @enum {integer} */
-            clickSubdivision?: 1 | 2 | 3 | 4 | 5;
+            clickSubdivision?: 0 | 1 | 2 | 3 | 4 | 5;
+            clickGrouping?: components["schemas"]["click-grouping"];
             text?: components["schemas"]["text-content"];
             showMetronomeMark?: boolean;
             showText?: boolean;
@@ -152,13 +153,16 @@ export interface components {
         "tempo-extensions": {
             swing?: components["schemas"]["swing"];
             /** @enum {integer} */
-            clickSubdivision?: 1 | 2 | 3 | 4 | 5;
+            clickSubdivision?: 0 | 1 | 2 | 3 | 4 | 5;
+            clickGrouping?: components["schemas"]["click-grouping"];
             text?: components["schemas"]["text-content"];
             showMetronomeMark?: boolean;
             showText?: boolean;
             manualOffset?: components["schemas"]["sp-delta"];
             avoidCollisions?: boolean;
         };
+        /** @description Whole-bar pulse lengths in time-signature denominator divided by clickSubdivision units. */
+        "click-grouping": number[];
         /** @description Viritura extensions on a standard MNX key-signature object. */
         "key-extensions": {
             /** @constant */
@@ -252,7 +256,8 @@ export interface components {
             value?: components["schemas"]["tempo-instruction"]["value"];
             swing?: components["schemas"]["swing"];
             /** @enum {integer} */
-            clickSubdivision?: 1 | 2 | 3 | 4 | 5;
+            clickSubdivision?: 0 | 1 | 2 | 3 | 4 | 5;
+            clickGrouping?: components["schemas"]["click-grouping"];
             showMetronomeMark?: boolean;
         } & (unknown | unknown | unknown);
         /** @description One globally owned music-relative instruction displayed once above or below the visible system in every score/part view. No staff/voice or page coordinates. */
@@ -1198,6 +1203,7 @@ export type DynamicGroupExtensions = components["schemas"]["dynamic-group-extens
 export type Swing = components["schemas"]["swing"];
 export type TempoInstruction = components["schemas"]["tempo-instruction"];
 export type TempoExtensions = components["schemas"]["tempo-extensions"];
+export type ClickGrouping = components["schemas"]["click-grouping"];
 export type KeyExtensions = components["schemas"]["key-extensions"];
 export type PedalType = components["schemas"]["pedal-type"];
 export type PedalLineStyle = components["schemas"]["pedal-line-style"];

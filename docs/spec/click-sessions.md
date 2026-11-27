@@ -136,11 +136,21 @@ count-in use the same compiler.
 - One click per beat from `resolveMeter`, including authored irregular grouping
   (10/8 as `3+2+2+3` gives four beat clicks). Resolution is never inferred
   from BPM.
-- Tempo markings carry `_x.viritura.clickSubdivision` (1 to 5), edited as
+- Tempo markings carry `_x.viritura.clickSubdivision` (0 to 5), edited as
   **Clicks per beat** in the tempo inspector. Omitted means 1: a subdivision
-  lasts until the next tempo and never carries over. Click-only instructions,
-  including mid-bar positions and `systemText[].tempo`, store an explicit value
-  without fabricating BPM.
+  lasts until the next tempo and never carries over. Zero silences clicks
+  without changing playback timing. Click-only instructions, including mid-bar
+  positions and `systemText[].tempo`, store an explicit value without
+  fabricating BPM.
+- Optional `clickGrouping` defines a repeating whole-bar click pattern. With a
+  grouping, `clickSubdivision` divides the time-signature denominator note into
+  grid units, and each group length gives the distance to the next click. For
+  example, 6/8 with division 2 and `[3, 3, 2, 2, 2]` gives five clicks on a
+  sixteenth-note grid. Group lengths must total `time.count * clickSubdivision`.
+  A single-bar exception can use a click-only instruction at that bar's start
+  and restore the prior pattern at the next bar; these are positioned changes,
+  not automatically expiring overrides. See the
+  [click metadata contract](viritura-extensions.md#tempo-owned-click-subdivisions-and-grouping).
 - Subdivisions divide each resolved beat equally; unequal groups therefore give
   unequal tick spacing. A boundary click belongs to the new region exactly
   once. Subdivisions stay straight; score swing never alters a click.

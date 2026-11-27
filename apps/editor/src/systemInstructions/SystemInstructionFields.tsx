@@ -1,4 +1,4 @@
-import type { ResolvedTempoSwing, Swing, SystemText, Tempo } from "@viritura/core";
+import type { ResolvedTempoSwing, Swing, SystemText, Tempo, TimeSignature } from "@viritura/core";
 import type { ReactNode } from "react";
 import { FormField, Select } from "@viritura/ui";
 import { TempoSection } from "../components/inspector/TempoSection";
@@ -11,11 +11,13 @@ export function SystemInstructionFields({
   onChange,
   positioning,
   effectiveSwing,
+  timeSignature,
 }: {
   instruction: SystemText;
   onChange: (instruction: SystemText) => void;
   positioning?: ReactNode;
   effectiveSwing?: ResolvedTempoSwing;
+  timeSignature?: TimeSignature;
 }) {
   const playback = instruction.tempo;
   const tempo: Tempo = playback
@@ -27,9 +29,9 @@ export function SystemInstructionFields({
       onChange({
         ...instruction,
         tempo: swing
-          ? { swing, clickSubdivision: playback?.clickSubdivision }
+          ? { swing, clickSubdivision: playback?.clickSubdivision, clickGrouping: playback?.clickGrouping }
           : playback?.clickSubdivision !== undefined
-            ? { clickSubdivision: playback.clickSubdivision }
+            ? { clickSubdivision: playback.clickSubdivision, clickGrouping: playback.clickGrouping }
             : undefined,
       });
   };
@@ -43,18 +45,38 @@ export function SystemInstructionFields({
         onBpmChange={(bpm) => onChange(withInstructionBpm(instruction, bpm))}
         onSwingChange={setSwing}
         clickSubdivisionCanFollow={playback?.bpm === undefined}
+        timeSignature={timeSignature}
         onClickSubdivisionChange={(clickSubdivision) => {
           // A tempo already means one click per beat, so 1 is stored by omission;
           // without BPM, an explicit 1 is a mid-tempo reset.
           const tempo =
             playback?.bpm !== undefined
-              ? { ...playback, clickSubdivision: clickSubdivision === 1 ? undefined : clickSubdivision }
+              ? {
+                  ...playback,
+                  clickGrouping: undefined,
+                  clickSubdivision: clickSubdivision === 1 ? undefined : clickSubdivision,
+                }
               : playback?.swing
-                ? { ...playback, clickSubdivision }
+                ? { ...playback, clickGrouping: undefined, clickSubdivision }
                 : clickSubdivision === undefined
                   ? undefined
                   : { clickSubdivision };
           onChange({ ...instruction, tempo });
+        }}
+        onClickGroupingChange={({ clickSubdivision, clickGrouping }) => {
+          if (clickSubdivision === undefined) throw new Error("Click grouping changes require a division.");
+          const settings = {
+            clickSubdivision:
+              clickSubdivision === 1 && !clickGrouping && playback?.bpm !== undefined ? undefined : clickSubdivision,
+            clickGrouping,
+          };
+          onChange({
+            ...instruction,
+            tempo:
+              playback?.bpm !== undefined || playback?.swing
+                ? { ...playback, ...settings }
+                : { clickSubdivision, clickGrouping },
+          });
         }}
         onValueBaseChange={(base) => {
           if (playback?.bpm !== undefined) {

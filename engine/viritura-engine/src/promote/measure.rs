@@ -139,7 +139,7 @@ pub(crate) fn promote_global_measure_with_json(
 ) -> Result<ModelGlobalMeasure, PromoteError> {
     reject_retired_navigation_extensions(original_json)?;
     let repeat_start_json = original_json.and_then(|v| v.get("repeatStart"));
-    let vendor = extract_global_measure_vendor(r.x.as_ref());
+    let vendor = extract_global_measure_vendor(r.x.as_ref())?;
     let fermatas = super::global_fermatas::extract_fermatas(r.x.as_ref())?;
     let system_text = super::system_text::extract_system_text(r.x.as_ref())?;
     let gradual_tempo = super::vendor_ext::read_viritura_ext(r.x.as_ref())

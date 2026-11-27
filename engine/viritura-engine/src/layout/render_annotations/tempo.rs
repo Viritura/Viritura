@@ -712,6 +712,8 @@ mod tests {
                 dots: None,
             }),
             swing: None,
+            click_subdivision: None,
+            click_grouping: None,
             location: None,
             text: Some(text),
             show_metronome_mark: None,

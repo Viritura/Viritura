@@ -1,10 +1,11 @@
-import type { Tempo, NoteValueBase, TextContent, Swing, ResolvedTempoSwing } from "@viritura/core";
+import type { Tempo, NoteValueBase, TextContent, Swing, ResolvedTempoSwing, TimeSignature } from "@viritura/core";
 import { Checkbox, FormField, FormInput, SectionLabel, Select } from "@viritura/ui";
 import { sectionStyle } from "./types";
 import { ManualOffsetFields, type ManualOffsetControl } from "./DirectionTextSection";
 import { useDebouncedInput } from "../../hooks/useDebouncedInput";
 import { TextContentEditor, type InheritedTextStyle } from "./TextContentEditor";
 import { SwingControls } from "./SwingControls";
+import { ClickSettingsFields } from "./ClickSettingsFields";
 import styles from "./TempoSection.module.css";
 
 const BEAT_BASE_OPTIONS: { value: NoteValueBase; label: string }[] = [
@@ -25,13 +26,14 @@ const DOTS_OPTIONS: { value: "0" | "1" | "2"; label: string }[] = [
 // Stable identity so an absent tempo text does not look like a new value on
 // every render, which would make the debounced input reset in a loop.
 const NO_TEXT: TextContent = [];
-const FOLLOW = "follow";
 
 export interface TempoSectionProps {
   tempo: Tempo;
   effectiveSwing?: ResolvedTempoSwing;
   onSwingChange: (swing: Swing | undefined) => void;
   onClickSubdivisionChange?: (subdivision: Tempo["clickSubdivision"]) => void;
+  onClickGroupingChange?: (settings: Pick<Tempo, "clickSubdivision" | "clickGrouping">) => void;
+  timeSignature?: TimeSignature;
   /** Offer "Follow tempo" for instructions that do not set a tempo themselves. */
   clickSubdivisionCanFollow?: boolean;
   onBpmChange: (bpm: number) => void;
@@ -53,6 +55,8 @@ export function TempoSection({
   effectiveSwing,
   onSwingChange,
   onClickSubdivisionChange,
+  onClickGroupingChange,
+  timeSignature = { count: 4, unit: 4 },
   clickSubdivisionCanFollow = false,
   onBpmChange,
   onValueBaseChange,
@@ -126,32 +130,14 @@ export function TempoSection({
       )}
       <SwingControls swing={tempo.swing} effective={effectiveSwing} onChange={onSwingChange} />
       {onClickSubdivisionChange && (
-        <FormField label="Clicks per beat">
-          <Select
-            value={tempo.clickSubdivision ? String(tempo.clickSubdivision) : clickSubdivisionCanFollow ? FOLLOW : "1"}
-            options={[
-              ...(clickSubdivisionCanFollow ? [{ value: FOLLOW, label: "Follow tempo" }] : []),
-              ...[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) })),
-            ]}
-            onValueChange={(value) => {
-              if (value === FOLLOW) {
-                onClickSubdivisionChange(undefined);
-                return;
-              }
-              const subdivision = Number(value);
-              if (
-                subdivision !== 1 &&
-                subdivision !== 2 &&
-                subdivision !== 3 &&
-                subdivision !== 4 &&
-                subdivision !== 5
-              ) {
-                throw new RangeError("Click subdivision must be an integer from 1 to 5.");
-              }
-              onClickSubdivisionChange(subdivision);
-            }}
-          />
-        </FormField>
+        <ClickSettingsFields
+          key={`${tempo.clickSubdivision ?? "follow"}:${tempo.clickGrouping?.join(",") ?? ""}`}
+          tempo={tempo}
+          timeSignature={timeSignature}
+          canFollow={clickSubdivisionCanFollow}
+          onSubdivisionChange={onClickSubdivisionChange}
+          onGroupingChange={onClickGroupingChange}
+        />
       )}
       <div className={styles.group} role="group" aria-label="Appearance">
         <SectionLabel className={styles.groupTitle} label="Appearance" />

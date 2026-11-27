@@ -25,6 +25,264 @@ const times = (events: readonly ClickProgramEvent[]) => events.map((event) => Nu
 const levels = (events: readonly ClickProgramEvent[]) => events.map((event) => event.level);
 
 describe("buildClickSessionProgram", () => {
+  it.each(["timing", "timeline"] as const)(
+    "overrides one grouped bar with six eighths and restores grouping on the next bar using %s",
+    (pipeline) => {
+      const score: Score = {
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            {
+              number: 111,
+              time: { count: 6, unit: 8 },
+              repeatStart: {},
+              tempos: [{ bpm: 60, value: { base: "quarter" }, clickSubdivision: 2, clickGrouping: [3, 3, 2, 2, 2] }],
+            },
+            {
+              number: 112,
+              systemText: [
+                {
+                  id: "eighths",
+                  text: [{ text: "Click eighths" }],
+                  showText: false,
+                  position: { fraction: [0, 1] },
+                  tempo: { clickSubdivision: 3 },
+                },
+              ],
+            },
+            {
+              number: 113,
+              repeatEnd: {},
+              systemText: [
+                {
+                  id: "restore-grouping",
+                  text: [{ text: "Click grouping" }],
+                  showText: false,
+                  position: { fraction: [0, 1] },
+                  tempo: { clickSubdivision: 2, clickGrouping: [3, 3, 2, 2, 2] },
+                },
+              ],
+            },
+          ],
+        },
+        parts: [],
+      };
+      const timing = pipeline === "timing" ? compilePlaybackTiming(score) : generateTimeline(score);
+      const source = { ...timing, globalMeasures: score.global.measures };
+      const program = buildClickSessionProgram(source, { countoff: false });
+      const groupedOffsets = [0, 0.75, 1.5, 2, 2.5];
+      const eighthOffsets = [0, 0.5, 1, 1.5, 2, 2.5];
+      expect(times(program.events)).toEqual(
+        [groupedOffsets, eighthOffsets, groupedOffsets, groupedOffsets, eighthOffsets, groupedOffsets].flatMap(
+          (offsets, bar) => offsets.map((offset) => bar * 3 + offset),
+        ),
+      );
+      expect(buildClickSessionProgram(source, { startMeasure: 1 }).countoffClicks).toBe(6);
+      expect(buildClickSessionProgram(source, { startMeasure: 2 }).countoffClicks).toBe(5);
+    },
+  );
+
+  it("does not replay future positioned click changes in synthetic countoff bars", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            time: { count: 6, unit: 8 },
+            systemText: [
+              {
+                id: "group",
+                text: [{ text: "2+3" }],
+                position: { fraction: [1, 8] },
+                tempo: { clickSubdivision: 2, clickGrouping: [3, 3, 2, 2, 2] },
+              },
+            ],
+          },
+        ],
+      },
+      parts: [],
+    };
+    const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
+    const program = buildClickSessionProgram(source);
+    expect(program.countoffClicks).toBe(2);
+    expect(times(program.events)).toEqual([0, 0.75, 1.5, 1.875, 2.25, 2.5, 2.75]);
+  });
+
+  it("keeps a positioned grouping anchored to the bar grid and preserves it through a hold", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            time: { count: 6, unit: 8 },
+            tempos: [{ bpm: 120, value: { base: "quarter" } }],
+            systemText: [
+              {
+                id: "group",
+                text: [{ text: "2+3" }],
+                position: { fraction: [1, 8] },
+                tempo: { clickSubdivision: 2, clickGrouping: [3, 3, 2, 2, 2] },
+              },
+            ],
+            fermatas: [{ id: "hold", position: { fraction: [0, 1] }, clickBehavior: "keepClicking" }],
+          },
+        ],
+      },
+      parts: [
+        {
+          name: "Rests",
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    { type: "event", duration: { base: "quarter", dots: 1 }, rest: {} },
+                    { type: "event", duration: { base: "quarter", dots: 1 }, rest: {} },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
+    const program = buildClickSessionProgram(source, { countoff: false });
+    const begin = source.model.timeAtBeat(1.5, "release");
+    const end = source.model.timeAtBeat(1.5);
+    expect(times(program.events.filter((event) => event.time < begin - 1e-9))).toEqual([0, 0.375]);
+    const during = program.events.filter((event) => event.time >= begin - 1e-9 && event.time < end - 1e-9);
+    expect(times(during)).toEqual([0.75, 1.125, 1.375]);
+    expect(levels(during)).toEqual(["subdivision", "beat", "subdivision"]);
+  });
+
+  it.each([
+    { count: 6, subdivision: 2, unitSeconds: 0.25 },
+    { count: 12, subdivision: 1, unitSeconds: 0.5 },
+  ] as const)(
+    "uses denominator-based grouping in $count/8 for score clicks and countoff",
+    ({ count, subdivision, unitSeconds }) => {
+      const score: Score = {
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            {
+              time: { count, unit: 8 },
+              tempos: [
+                { bpm: 60, value: { base: "quarter" }, clickSubdivision: subdivision, clickGrouping: [3, 3, 2, 2, 2] },
+              ],
+            },
+            {},
+          ],
+        },
+        parts: [],
+      };
+      const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
+      const program = buildClickSessionProgram(source);
+      const offsets = [0, 3, 6, 8, 10].map((position) => position * unitSeconds);
+      const barSeconds = 12 * unitSeconds;
+      expect(program.countoffClicks).toBe(5);
+      expect(program.countoffSeconds).toBe(barSeconds);
+      expect(times(program.events)).toEqual([0, 1, 2].flatMap((bar) => offsets.map((time) => bar * barSeconds + time)));
+      expect(levels(program.events.slice(0, 5))).toEqual(
+        count === 6
+          ? ["accent", "subdivision", "beat", "subdivision", "subdivision"]
+          : ["accent", "beat", "beat", "subdivision", "subdivision"],
+      );
+      expect(buildClickSessionProgram(source, { startMeasure: 1 }).countoffClicks).toBe(5);
+    },
+  );
+
+  it("silences a mid-bar rit and keep-clicking hold without changing timing, then resumes regular clicks", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            id: "rit",
+            time: { count: 4, unit: 4 },
+            tempos: [{ bpm: 120, value: { base: "quarter" }, clickSubdivision: 2 }],
+            systemText: [
+              {
+                id: "free",
+                text: [{ text: "Free time" }],
+                position: { fraction: [1, 2] },
+                tempo: { clickSubdivision: 0 },
+              },
+            ],
+            gradualTempo: {
+              position: { fraction: [1, 2] },
+              end: { measure: "rit", position: { fraction: [1, 1] } },
+              endBpm: 60,
+            },
+            fermatas: [{ id: "hold", position: { fraction: [3, 4] }, clickBehavior: "keepClicking" }],
+          },
+          {},
+          { tempos: [{ bpm: 120, value: { base: "quarter" } }] },
+        ],
+      },
+      parts: [
+        {
+          name: "Rests",
+          measures: Array.from({ length: 3 }, () => ({
+            sequences: [
+              {
+                content: Array.from({ length: 4 }, () => ({
+                  type: "event" as const,
+                  duration: { base: "quarter" as const },
+                  rest: {},
+                })),
+              },
+            ],
+          })),
+        },
+      ],
+    };
+    const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
+    const program = buildClickSessionProgram(source, { countoff: false, tempoPercent: 50 });
+    const resume = source.model.timeAtBeat(source.measureStartBeats[2]!) * 2;
+    expect(times(program.events.filter((event) => event.time < resume - 1e-9))).toEqual([0, 0.5, 1, 1.5]);
+    expect(program.events.find((event) => event.time >= resume - 1e-9)?.time).toBeCloseTo(resume);
+    expect(program.duration).toBeCloseTo(source.duration * 2);
+    const silentStart = buildClickSessionProgram(source, { startMeasure: 1 });
+    expect(silentStart.countoffClicks).toBe(0);
+    expect(silentStart.countoffSeconds).toBe(0);
+    const muted = buildClickSessionProgram(source, { resolutions: [{ fromMeasure: 0, subdivision: 0 }] });
+    expect(muted.events).toEqual([]);
+    expect(muted.duration).toBeCloseTo(source.duration);
+  });
+
+  it("uses the written grouping grid through repeats and a partial-bar jump", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            time: { count: 6, unit: 8 },
+            tempos: [{ bpm: 60, value: { base: "quarter" }, clickSubdivision: 2, clickGrouping: [3, 3, 2, 2, 2] }],
+            repeatStart: {},
+            segno: { location: { fraction: [3, 8] } },
+          },
+          { repeatEnd: {} },
+          { fine: { location: { fraction: [3, 8] } } },
+          { jump: { type: "dsAlFine", location: { fraction: [3, 4] } } },
+        ],
+      },
+      parts: [],
+    };
+    const source = { ...compilePlaybackTiming(score), globalMeasures: score.global.measures };
+    const visit = source.playedSpans!.findIndex((span) => span.measureIndex === 0 && span.startBeat === 1.5);
+    expect(visit).toBeGreaterThan(0);
+    const repeated = buildClickSessionProgram(source, { countoff: false });
+    expect(times(repeated.events.slice(0, 15))).toEqual([
+      0, 0.75, 1.5, 2, 2.5, 3, 3.75, 4.5, 5, 5.5, 6, 6.75, 7.5, 8, 8.5,
+    ]);
+    const program = buildClickSessionProgram(source, { startTimelineMeasure: visit, countoff: false });
+    expect(times(program.events.slice(0, 3))).toEqual([0, 0.5, 1]);
+    expect(levels(program.events.slice(0, 3))).toEqual(["beat", "subdivision", "subdivision"]);
+    expect(buildClickSessionProgram(source, { startTimelineMeasure: visit }).countoffClicks).toBe(5);
+  });
+
   it.each(["silent", "keepClicking"] as const)(
     "keeps coincident hold policies separate from each other and a caesura (%s first)",
     (firstPolicy) => {

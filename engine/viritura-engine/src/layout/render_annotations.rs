@@ -946,7 +946,7 @@ pub(crate) fn flow_above_staff_dependents(
                 if mb.right < left || mb.left > right {
                     continue;
                 }
-                if mb.bottom < top || mb.top > bottom {
+                if mb.bottom + m.clearance < top || mb.top - m.clearance > bottom {
                     continue;
                 }
                 box_ceiling = Some(box_ceiling.map_or(mb.top, |cur| cur.min(mb.top)));

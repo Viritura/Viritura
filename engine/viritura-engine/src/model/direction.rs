@@ -111,6 +111,10 @@ pub struct Tempo {
     pub value: Option<TempoNoteValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub swing: Option<Swing>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "clickSubdivision")]
+    pub click_subdivision: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "clickGrouping")]
+    pub click_grouping: Option<Vec<u64>>,
     /// Optional rhythmic position within the measure (defaults to start)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub location: Option<RhythmicPosition>,

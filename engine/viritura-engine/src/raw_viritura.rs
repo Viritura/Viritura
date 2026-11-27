@@ -2480,6 +2480,45 @@ impl ::std::convert::TryFrom<::std::string::String> for ChordSymbolStyleRootCase
         value.parse()
     }
 }
+///Whole-bar pulse lengths in time-signature denominator divided by clickSubdivision units.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Whole-bar pulse lengths in time-signature denominator divided by clickSubdivision units.",
+///  "type": "array",
+///  "items": {
+///    "type": "integer"
+///  },
+///  "minItems": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct ClickGrouping(pub ::std::vec::Vec<i64>);
+impl ::std::ops::Deref for ClickGrouping {
+    type Target = ::std::vec::Vec<i64>;
+    fn deref(&self) -> &::std::vec::Vec<i64> {
+        &self.0
+    }
+}
+impl ::std::convert::From<ClickGrouping> for ::std::vec::Vec<i64> {
+    fn from(value: ClickGrouping) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&ClickGrouping> for ClickGrouping {
+    fn from(value: &ClickGrouping) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<::std::vec::Vec<i64>> for ClickGrouping {
+    fn from(value: ::std::vec::Vec<i64>) -> Self {
+        Self(value)
+    }
+}
 ///Viritura engraving placement extensions on a standard MNX dynamic-group object.
 ///
 /// <details><summary>JSON schema</summary>
@@ -11659,9 +11698,13 @@ impl ::std::default::Default for SystemLayoutExtensions {
 ///    "bpm": {
 ///      "type": "number"
 ///    },
+///    "clickGrouping": {
+///      "$ref": "#/$defs/click-grouping"
+///    },
 ///    "clickSubdivision": {
 ///      "type": "integer",
 ///      "enum": [
+///        0,
 ///        1,
 ///        2,
 ///        3,
@@ -11687,7 +11730,15 @@ impl ::std::default::Default for SystemLayoutExtensions {
 #[serde(untagged, deny_unknown_fields)]
 pub enum SystemTempo {
     Variant0(SystemTempoVariant0),
-    Variant1 { swing: Swing },
+    Variant1 {
+        #[serde(
+            rename = "clickGrouping",
+            default,
+            skip_serializing_if = "::std::option::Option::is_none"
+        )]
+        click_grouping: ::std::option::Option<ClickGrouping>,
+        swing: Swing,
+    },
     Variant2(SystemTempoVariant2),
 }
 impl ::std::convert::From<&Self> for SystemTempo {
@@ -11718,9 +11769,13 @@ impl ::std::convert::From<SystemTempoVariant2> for SystemTempo {
 ///        "bpm": {
 ///          "type": "number"
 ///        },
+///        "clickGrouping": {
+///          "$ref": "#/$defs/click-grouping"
+///        },
 ///        "clickSubdivision": {
 ///          "type": "integer",
 ///          "enum": [
+///            0,
 ///            1,
 ///            2,
 ///            3,
@@ -11839,9 +11894,13 @@ impl ::std::convert::From<&Self> for SystemTempoVariant0 {
 ///        "bpm": {
 ///          "type": "number"
 ///        },
+///        "clickGrouping": {
+///          "$ref": "#/$defs/click-grouping"
+///        },
 ///        "clickSubdivision": {
 ///          "type": "integer",
 ///          "enum": [
+///            0,
 ///            1,
 ///            2,
 ///            3,
@@ -12137,9 +12196,13 @@ impl<'de> ::serde::Deserialize<'de> for SystemTextId {
 ///    "avoidCollisions": {
 ///      "type": "boolean"
 ///    },
+///    "clickGrouping": {
+///      "$ref": "#/$defs/click-grouping"
+///    },
 ///    "clickSubdivision": {
 ///      "type": "integer",
 ///      "enum": [
+///        0,
 ///        1,
 ///        2,
 ///        3,
@@ -12176,6 +12239,12 @@ pub struct TempoExtensions {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub avoid_collisions: ::std::option::Option<bool>,
+    #[serde(
+        rename = "clickGrouping",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub click_grouping: ::std::option::Option<ClickGrouping>,
     #[serde(
         rename = "clickSubdivision",
         default,
@@ -12214,6 +12283,7 @@ impl ::std::default::Default for TempoExtensions {
     fn default() -> Self {
         Self {
             avoid_collisions: Default::default(),
+            click_grouping: Default::default(),
             click_subdivision: Default::default(),
             manual_offset: Default::default(),
             show_metronome_mark: Default::default(),
@@ -12231,6 +12301,7 @@ impl ::std::default::Default for TempoExtensions {
 ///{
 ///  "type": "integer",
 ///  "enum": [
+///    0,
 ///    1,
 ///    2,
 ///    3,
@@ -12265,7 +12336,7 @@ impl ::std::convert::TryFrom<i64> for TempoExtensionsClickSubdivision {
     fn try_from(
         value: i64,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        if ![1_i64, 2_i64, 3_i64, 4_i64, 5_i64].contains(&value) {
+        if ![0_i64, 1_i64, 2_i64, 3_i64, 4_i64, 5_i64].contains(&value) {
             Err("invalid value".into())
         } else {
             Ok(Self(value))
@@ -12352,9 +12423,13 @@ impl<'de> ::serde::Deserialize<'de> for TempoExtensionsClickSubdivision {
 ///    "bpm": {
 ///      "type": "number"
 ///    },
+///    "clickGrouping": {
+///      "$ref": "#/$defs/click-grouping"
+///    },
 ///    "clickSubdivision": {
 ///      "type": "integer",
 ///      "enum": [
+///        0,
 ///        1,
 ///        2,
 ///        3,
@@ -12451,6 +12526,12 @@ pub enum TempoInstruction {
         )]
         avoid_collisions: ::std::option::Option<bool>,
         #[serde(
+            rename = "clickGrouping",
+            default,
+            skip_serializing_if = "::std::option::Option::is_none"
+        )]
+        click_grouping: ::std::option::Option<ClickGrouping>,
+        #[serde(
             rename = "clickSubdivision",
             default,
             skip_serializing_if = "::std::option::Option::is_none"
@@ -12515,9 +12596,13 @@ impl ::std::convert::From<TempoInstructionVariant2> for TempoInstruction {
 ///        "bpm": {
 ///          "type": "number"
 ///        },
+///        "clickGrouping": {
+///          "$ref": "#/$defs/click-grouping"
+///        },
 ///        "clickSubdivision": {
 ///          "type": "integer",
 ///          "enum": [
+///            0,
 ///            1,
 ///            2,
 ///            3,
@@ -12689,6 +12774,7 @@ impl ::std::convert::From<&Self> for TempoInstructionVariant0 {
 ///{
 ///  "type": "integer",
 ///  "enum": [
+///    0,
 ///    1,
 ///    2,
 ///    3,
@@ -12723,7 +12809,7 @@ impl ::std::convert::TryFrom<i64> for TempoInstructionVariant1ClickSubdivision {
     fn try_from(
         value: i64,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        if ![1_i64, 2_i64, 3_i64, 4_i64, 5_i64].contains(&value) {
+        if ![0_i64, 1_i64, 2_i64, 3_i64, 4_i64, 5_i64].contains(&value) {
             Err("invalid value".into())
         } else {
             Ok(Self(value))
@@ -12823,9 +12909,13 @@ impl ::std::convert::From<&Self> for TempoInstructionVariant1LocationFractionIte
 ///        "bpm": {
 ///          "type": "number"
 ///        },
+///        "clickGrouping": {
+///          "$ref": "#/$defs/click-grouping"
+///        },
 ///        "clickSubdivision": {
 ///          "type": "integer",
 ///          "enum": [
+///            0,
 ///            1,
 ///            2,
 ///            3,
@@ -17810,6 +17900,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "chord-symbol-style": {
 ///      "$ref": "#/$defs/chord-symbol-style"
 ///    },
+///    "click-grouping": {
+///      "$ref": "#/$defs/click-grouping"
+///    },
 ///    "dynamic-group-extensions": {
 ///      "$ref": "#/$defs/dynamic-group-extensions"
 ///    },
@@ -18186,6 +18279,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub chord_symbol_style: ::std::option::Option<ChordSymbolStyle>,
+    #[serde(
+        rename = "click-grouping",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub click_grouping: ::std::option::Option<ClickGrouping>,
     #[serde(
         rename = "dynamic-group-extensions",
         default,
@@ -18826,6 +18925,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             chord_root: Default::default(),
             chord_symbol: Default::default(),
             chord_symbol_style: Default::default(),
+            click_grouping: Default::default(),
             dynamic_group_extensions: Default::default(),
             event_extensions: Default::default(),
             event_markings_extensions: Default::default(),

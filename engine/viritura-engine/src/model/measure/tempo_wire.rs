@@ -62,6 +62,8 @@ impl From<GlobalMeasure> for GlobalMeasureWire {
                         let mut vendor = Map::new();
                         for name in [
                             "swing",
+                            "clickSubdivision",
+                            "clickGrouping",
                             "text",
                             "showMetronomeMark",
                             "showText",

@@ -36,6 +36,13 @@ function makeScore(): Score {
 }
 
 describe("buildClickTrack", () => {
+  it("does not insert a silent count-in when the opening click subdivision is zero", () => {
+    const score = makeScore();
+    score.global.measures[0]!.tempos![0]!.clickSubdivision = 0;
+    const source = { ...generateTimeline(score), globalMeasures: score.global.measures };
+    expect(countInLeadSeconds(source)).toBe(0);
+    expect(buildClickTrack(source, { countIn: true })).toEqual([]);
+  });
   it.each(["linear", "early", "late", "smooth"] as const)(
     "follows a native %s ramp and keeps the count-in constant",
     (curve) => {

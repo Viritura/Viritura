@@ -1,5 +1,5 @@
 import type { ClickEvent } from "@viritura/audio";
-import type { MidiTimeline } from "@viritura/midi";
+import { clickSettingAt, compileClickSettings, measureTempoInstructions } from "@viritura/core";
 import { buildClickSessionProgram, type ClickSessionSource } from "./clickSession";
 
 /** Options for {@link buildClickTrack}. */
@@ -16,9 +16,18 @@ export interface ClickTrackOptions {
  * time playback must start from for the count-in to be heard. Uses the opening
  * tempo (seconds per quarter at beat 0).
  */
-export function countInLeadSeconds(timeline: Pick<MidiTimeline, "model" | "measureTimeSignatures">): number {
+export function countInLeadSeconds(
+  timeline: Pick<ClickSessionSource, "model" | "measureTimeSignatures" | "globalMeasures">,
+): number {
   const meter = timeline.measureTimeSignatures[0];
   if (!meter) return 0;
+  const setting = compileClickSettings(
+    (timeline.globalMeasures ?? []).map((measure) => ({
+      time: measure.time,
+      instructions: measureTempoInstructions(measure),
+    })),
+  )[0];
+  if (setting && clickSettingAt(setting, 0).subdivision === 0) return 0;
   return ((meter.count * 4) / meter.unit) * timeline.model.spbAtBeat(0);
 }
 
