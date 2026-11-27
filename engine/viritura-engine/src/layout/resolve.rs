@@ -7,8 +7,10 @@ mod global_fermatas;
 pub(crate) use global_fermatas::project_on_staff as project_global_fermatas_on_staff;
 mod repeat_accidentals;
 mod repeat_signatures;
+mod spanning_beams;
 pub(crate) use repeat_accidentals::{apply_repeat_courtesy_accidentals, has_repeat_navigation};
 pub(crate) use repeat_signatures::apply_repeat_signature_restatements;
+pub(crate) use spanning_beams::{attach_spanning_beams, attach_system_spanning_beams};
 
 /// Whether `index` lies inside a measure-repeat span in this part. MNX encodes
 /// the sign only on the first covered bar, so later covered bars must derive
@@ -450,6 +452,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             prev_key: prev_display_key.clone(),
             system_end: Default::default(),
             tie_continuation_ids: incoming_ties,
+            spanning_beams: Vec::new(),
             repeat_glissandos: super::glissando::resolve_repeat_glissandos(score, part_index, i),
             active_staff_lines: measure_staff_lines,
             transposition,
@@ -466,6 +469,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         apply_repeat_signature_restatements(&mut result, globals);
         apply_repeat_courtesy_accidentals(&mut result, globals);
     }
+    attach_spanning_beams(&mut result);
     result
 }
 

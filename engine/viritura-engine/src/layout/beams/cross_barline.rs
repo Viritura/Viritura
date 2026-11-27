@@ -255,8 +255,28 @@ pub(crate) fn render_cross_barline_beams(
                 .flat_map(|vl| (0..vl.events.len()).map(|i| vl.events.to_event_layout(i)))
         })
         .collect();
+    render_complete_cross_barline_beams(dl, measure_layouts, &all_events, staff_y, sp, config);
+    super::continuation::render_spanning_beam_fragments(
+        dl,
+        measure_layouts,
+        &all_events,
+        staff_y,
+        sp,
+        config,
+    );
+}
+
+/// Draw barline-crossing beams whose members all lie on this system.
+fn render_complete_cross_barline_beams(
+    dl: &mut DisplayList,
+    measure_layouts: &[MeasureLayout],
+    all_events: &[EventLayout],
+    staff_y: f64,
+    sp: f64,
+    config: &LayoutConfig,
+) {
     let mut event_map: HashMap<&str, &EventLayout> = HashMap::new();
-    for el in &all_events {
+    for el in all_events {
         if let Some(ref id) = el.id {
             event_map.insert(id.as_str(), el);
         }
@@ -298,6 +318,14 @@ pub(crate) fn render_cross_barline_beams(
                 .collect();
 
             if beam_events.len() < 2 {
+                continue;
+            }
+
+            // A broken barline-crossing group draws as per-system fragments.
+            let is_spanning = ml.resolved.spanning_beams.iter().any(|spanning| {
+                spanning.declaring_measure == ml.resolved.index && spanning.beam_index == beam_idx
+            });
+            if is_spanning && beam_events.len() < beam.events.len() {
                 continue;
             }
 

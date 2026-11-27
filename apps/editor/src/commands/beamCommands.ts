@@ -40,6 +40,12 @@ interface BeamSelection {
   readonly locations: readonly EventLocation[];
 }
 
+/**
+ * Selected events form one beamable run when they are consecutive notes of
+ * the same voice. The run may cross barlines: each measure it leaves must end
+ * on a selected event and the next measure must start on one, so the join
+ * reads as one group continuing over the barline.
+ */
 function beamableEventSelection(
   score: Score,
   locations: readonly EventLocation[],
@@ -47,26 +53,33 @@ function beamableEventSelection(
 ): BeamSelection | null {
   if (locations.length < 2) return null;
 
-  const orderedLocations = [...locations].sort((a, b) => a.eventIndex - b.eventIndex);
+  const orderedLocations = [...locations].sort(
+    (a, b) => a.measureIndex - b.measureIndex || a.eventIndex - b.eventIndex,
+  );
   const first = orderedLocations[0]!;
   if (
     orderedLocations.some(
       (loc) =>
-        loc.partIndex !== first.partIndex ||
-        loc.measureIndex !== first.measureIndex ||
-        loc.sequenceIndex !== first.sequenceIndex ||
-        loc.tupletIndex !== undefined,
+        loc.partIndex !== first.partIndex || loc.sequenceIndex !== first.sequenceIndex || loc.tupletIndex !== undefined,
     )
   ) {
     return null;
   }
 
-  let previousEventIndex = first.eventIndex - 1;
+  const crossesBarline = orderedLocations.some((loc) => loc.measureIndex !== first.measureIndex);
+  let firstStaff: number | undefined;
+  let previous: EventLocation | null = null;
   for (const loc of orderedLocations) {
-    if (loc.eventIndex !== previousEventIndex + 1) return null;
+    if (previous && !followsInVoice(score, previous, loc)) return null;
     const event = eventAtLocation(score, loc);
     if (!event?.notes?.length || beamFlagCount(event) < minimumFlagCount) return null;
-    previousEventIndex = loc.eventIndex;
+    if (crossesBarline) {
+      const sequence = score.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex];
+      const staff = event.staff ?? sequence?.staff ?? 1;
+      if (firstStaff !== undefined && staff !== firstStaff) return null;
+      firstStaff = staff;
+    }
+    previous = loc;
   }
 
   return {
@@ -75,6 +88,18 @@ function beamableEventSelection(
     sequenceIndex: first.sequenceIndex,
     locations: orderedLocations,
   };
+}
+
+function followsInVoice(score: Score, previous: EventLocation, next: EventLocation): boolean {
+  if (next.measureIndex === previous.measureIndex) return next.eventIndex === previous.eventIndex + 1;
+  if (next.measureIndex !== previous.measureIndex + 1 || next.eventIndex !== 0) return false;
+  const measures = score.parts[previous.partIndex]?.measures;
+  const previousSequence = measures?.[previous.measureIndex]?.sequences[previous.sequenceIndex];
+  const nextSequence = measures?.[next.measureIndex]?.sequences[next.sequenceIndex];
+  if (!previousSequence || !nextSequence) return false;
+  if ((previousSequence.voice ?? null) !== (nextSequence.voice ?? null)) return false;
+  if ((previousSequence.staff ?? 1) !== (nextSequence.staff ?? 1)) return false;
+  return previous.eventIndex === previousSequence.content.length - 1;
 }
 
 function beamSelectionIds(score: Score, selection: BeamSelection, createMissingIds: boolean): string[] | null {
@@ -105,7 +130,7 @@ function beamSelectionsForWriteback(
   const targets = planSelectionWriteback(score, selection, selectedScoreIndex).sourceEvents;
   const locationsByVoice = new Map<string, EventLocation[]>();
   for (const loc of targets) {
-    const key = `${loc.partIndex}/${loc.measureIndex}/${loc.sequenceIndex}`;
+    const key = `${loc.partIndex}/${loc.sequenceIndex}`;
     const locations = locationsByVoice.get(key) ?? [];
     locations.push(loc);
     locationsByVoice.set(key, locations);

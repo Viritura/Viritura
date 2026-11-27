@@ -40,6 +40,9 @@ pub(crate) fn measure_content_hash(rm: &ResolvedMeasure) -> u64 {
     serde_json::to_string(&rm.repeat_glissandos)
         .expect("resolved repeat glissandos must serialize")
         .hash(&mut hasher);
+    serde_json::to_string(&rm.spanning_beams)
+        .expect("resolved spanning beams must serialize")
+        .hash(&mut hasher);
     rm.active_staff_lines.hash(&mut hasher);
     if let Ok(json) = serde_json::to_string(&rm.active_time) {
         json.hash(&mut hasher);
