@@ -183,7 +183,7 @@ fn render_group_label(
     let font_size = style.size_px(sp);
     let baseline_y = (top_y + bottom_y) * 0.5
         + crate::layout::text_styles::cap_center_offset_from_baseline(style.family, font_size);
-    let lines = super::instrument_labels::build_label_lines(label, &[]);
+    let lines = super::instrument_labels::build_label_lines(label);
     let line_height = font_size * 1.15;
     for (index, line) in lines.iter().enumerate() {
         if vertical {

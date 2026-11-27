@@ -22,40 +22,21 @@ pub(super) fn split_label_transposition(label: &str) -> (&str, Option<&str>) {
     }
 }
 
-/// Build final staff-label lines, merging condensed player numbers into transposing labels.
-pub(super) fn build_label_lines(label: &str, condensed_numbers: &[u32]) -> Vec<String> {
+/// Build staff-label name lines, putting a transposition on its own line.
+///
+/// Condensed player numbers are never merged into these lines: standard
+/// engraving practice prints one shared instrument name with the player
+/// numbers stacked in a separate column, transposing or not.
+pub(super) fn build_label_lines(label: &str) -> Vec<String> {
     if label.contains('\n') {
-        return label
-            .lines()
-            .flat_map(|line| build_label_lines(line, condensed_numbers))
-            .collect();
+        return label.lines().flat_map(build_label_lines).collect();
     }
     let (line1, line2) = split_label_transposition(label);
-    if condensed_numbers.is_empty() {
-        let mut lines = vec![line1.to_string()];
-        if let Some(line2) = line2 {
-            lines.push(line2.to_string());
-        }
-        return lines;
-    }
-
+    let mut lines = vec![line1.to_string()];
     if let Some(line2) = line2 {
-        let base_lines = [line1.to_string(), line2.to_string()];
-        let mut result = Vec::new();
-        for (index, number) in condensed_numbers.iter().enumerate() {
-            if index < base_lines.len() {
-                result.push(format!("{} {}", base_lines[index], number));
-            } else {
-                result.push(number.to_string());
-            }
-        }
-        for line in base_lines.iter().skip(condensed_numbers.len()) {
-            result.push(line.clone());
-        }
-        result
-    } else {
-        vec![line1.to_string()]
+        lines.push(line2.to_string());
     }
+    lines
 }
 
 /// Pixel extent from the right-hand anchor to the label's leftmost glyph.
@@ -72,13 +53,11 @@ pub(super) fn label_gutter_extent(
     use crate::layout::text_styles::text_width;
 
     let label_font_size = style.size_px(sp);
-    let max_line_width = build_label_lines(label, condensed_numbers)
+    let max_line_width = build_label_lines(label)
         .iter()
         .map(|line| text_width(line, label_font_size, style.family, style.bold))
         .fold(0.0_f64, f64::max);
-    let has_number_column =
-        !condensed_numbers.is_empty() && split_label_transposition(label).1.is_none();
-    let number_offset = if has_number_column {
+    let number_offset = if !condensed_numbers.is_empty() {
         label_font_size * 0.75 + 0.5 * sp
     } else {
         0.0
@@ -156,7 +135,7 @@ pub(super) fn label_column_layout(
             }
         }
         let width = if group.source_parts.len() > 1 {
-            build_label_lines(label, &[]).len() as f64 * style.size_px(sp) * 1.15
+            build_label_lines(label).len() as f64 * style.size_px(sp) * 1.15
         } else {
             label_gutter_extent(label, &[], sp, style)
         };
@@ -272,9 +251,8 @@ pub(super) fn render_staff_labels(
 
         let recolor_start = dl.commands.len();
         let condensed_numbers = &label_staff.condensed_numbers;
-        let has_number_column =
-            !condensed_numbers.is_empty() && split_label_transposition(text).1.is_none();
-        let lines = build_label_lines(text, condensed_numbers);
+        let has_number_column = !condensed_numbers.is_empty();
+        let lines = build_label_lines(text);
         let number_column_gap = 0.5 * sp;
         let number_column_width = label_font_size * 0.75;
         let name_x = if has_number_column {
