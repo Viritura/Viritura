@@ -1,6 +1,18 @@
 import type { Score } from "./score";
 import { defaultPageSetupForScore, type PageSetup, type PageTurnSettings } from "./layout";
 
+const POINTS_PER_MM = 72 / 25.4;
+
+/** Convert a staff-space font size to points for a page setup's staff size. */
+export function staffSpacesToPoints(sizeSp: number, spatiumMm: number): number {
+  return sizeSp * spatiumMm * POINTS_PER_MM;
+}
+
+/** Convert a point size back to the staff-space value stored in the score. */
+export function pointsToStaffSpaces(sizePt: number, spatiumMm: number): number {
+  return sizePt / (spatiumMm * POINTS_PER_MM);
+}
+
 function inheritPageTurns(defaults?: PageTurnSettings, stored?: PageTurnSettings): PageTurnSettings | undefined {
   if (!stored) return defaults;
   if (!defaults) return stored;

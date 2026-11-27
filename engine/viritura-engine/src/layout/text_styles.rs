@@ -143,6 +143,8 @@ pub enum TextRole {
     RehearsalMark,
     /// Pedal text markings ("Ped.", etc.).
     PedalText,
+    /// Measure numbers printed above or below a staff.
+    BarNumber,
     /// Copyright notice (small, centered at the foot of the title page).
     Copyright,
 }
@@ -165,6 +167,7 @@ pub struct TextStylesheet {
     pub tempo: TextStyle,
     pub rehearsal_mark: TextStyle,
     pub pedal_text: TextStyle,
+    pub bar_number: TextStyle,
     pub copyright: TextStyle,
 }
 
@@ -199,6 +202,7 @@ impl TextStylesheet {
             TextRole::Tempo => &self.tempo,
             TextRole::RehearsalMark => &self.rehearsal_mark,
             TextRole::PedalText => &self.pedal_text,
+            TextRole::BarNumber => &self.bar_number,
             TextRole::Copyright => &self.copyright,
         }
     }
@@ -217,7 +221,7 @@ impl TextStylesheet {
             let Some(style) = self.style_mut_for_key(role_key) else {
                 continue;
             };
-            merge_style_fields(style, role_val);
+            merge_style_fields(style, role_val, role_key == "barNumber");
         }
     }
 
@@ -233,6 +237,7 @@ impl TextStylesheet {
             "tempo" => Some(&mut self.tempo),
             "rehearsalMark" => Some(&mut self.rehearsal_mark),
             "pedalText" => Some(&mut self.pedal_text),
+            "barNumber" => Some(&mut self.bar_number),
             "copyright" => Some(&mut self.copyright),
             _ => None,
         }
@@ -240,12 +245,14 @@ impl TextStylesheet {
 }
 
 /// Apply the present fields of a partial style JSON object onto `style`.
-fn merge_style_fields(style: &mut TextStyle, val: &serde_json::Value) {
+fn merge_style_fields(style: &mut TextStyle, val: &serde_json::Value, bar_number: bool) {
     let Some(obj) = val.as_object() else {
         return;
     };
     if let Some(size) = obj.get("size").and_then(|v| v.as_f64()) {
-        style.size_sp = size;
+        if !bar_number || (0.5..=8.0).contains(&size) {
+            style.size_sp = size;
+        }
     }
     if let Some(family) = obj.get("family").and_then(|v| v.as_str()) {
         match family {
@@ -622,6 +629,7 @@ mod tests {
             TextRole::PageNumber,
             TextRole::Tempo,
             TextRole::PedalText,
+            TextRole::BarNumber,
             TextRole::Copyright,
         ] {
             let style = sheet.resolve(role);
@@ -654,6 +662,7 @@ mod tests {
         let mut sheet = TextStylesheet::default();
         let json = serde_json::json!({
             "tempo": { "size": 3.0, "italic": true, "family": "sans-serif" },
+            "barNumber": { "size": 3.5, "bold": true },
             "title": { "color": "#FF0000" }
         });
         sheet.merge_json(&json);
@@ -663,6 +672,14 @@ mod tests {
         assert!(tempo.italic);
         assert!(tempo.bold, "bold should remain at its default (true)");
         assert_eq!(tempo.family, FontFamily::SansSerif);
+
+        let bar_number = sheet.resolve(TextRole::BarNumber);
+        assert_eq!(bar_number.size_sp, 3.5);
+        assert!(bar_number.bold);
+        assert!(
+            bar_number.italic,
+            "unspecified bar-number style keeps its default"
+        );
 
         let title = sheet.resolve(TextRole::Title);
         assert_eq!(title.color, "#FF0000");
@@ -674,6 +691,13 @@ mod tests {
         let mut sheet = TextStylesheet::default();
         sheet.merge_json(&serde_json::json!({ "title": { "color": "red" } }));
         assert_eq!(sheet.resolve(TextRole::Title).color, "#000000");
+    }
+
+    #[test]
+    fn bar_number_size_obeys_its_text_style_range() {
+        let mut sheet = TextStylesheet::default();
+        sheet.merge_json(&serde_json::json!({ "barNumber": { "size": 9.0 } }));
+        assert_eq!(sheet.resolve(TextRole::BarNumber).size_sp, 2.0);
     }
 
     #[test]

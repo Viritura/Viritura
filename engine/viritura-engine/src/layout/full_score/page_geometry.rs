@@ -109,43 +109,7 @@ fn number_ink_extras(
                     Some(layout)
                 })
                 .collect();
-            let extras = super::super::system_spacing::number_ink_extras(
-                &layouts, score, part_index, config,
-            );
-            if placement != BarNumberPlacement::BelowTopInstrument
-                || visual_index + 1 >= resolved.len()
-                || extras.1 == 0.0
-            {
-                return extras;
-            }
-            let next = visual_index + 1;
-            let next_layouts: Vec<_> = layouts
-                .iter()
-                .filter_map(|template| {
-                    let mut layout = super::super::layout_measure(
-                        resolved[next].get(template.resolved.index)?,
-                        config.sp,
-                        template.x,
-                        config,
-                        Some(template.width),
-                        &ottavas[next],
-                        shortest_beats,
-                    );
-                    layout.is_first_on_system = template.is_first_on_system;
-                    layout.part_index = part_index + 1;
-                    Some(layout)
-                })
-                .collect();
-            let mut without_numbers = config.clone();
-            without_numbers.bar_numbers.frequency = Some(crate::model::BarNumberFrequency::Hidden);
-            let above = super::super::system_spacing::staff_ink_extras(
-                &next_layouts,
-                score,
-                part_index + 1,
-                &without_numbers,
-            )
-            .0;
-            (extras.0, extras.1 + above)
+            super::super::system_spacing::number_ink_extras(&layouts, score, part_index, config)
         })
         .collect()
 }
@@ -249,7 +213,6 @@ pub(super) fn compute_full_score_page_layout(
         .clone()
         .unwrap_or_else(|| vec![config.bar_numbers.placement.unwrap_or_default()]);
     let mut extras = vec![(0.0_f64, 0.0_f64); system_count];
-    let mut between_numbers = 0.0_f64;
     for placement in placements {
         let mut local = config.clone();
         local.bar_numbers.placements = None;
@@ -270,18 +233,9 @@ pub(super) fn compute_full_score_page_layout(
             match placement {
                 BarNumberPlacement::AboveSystem => extent.0 = extent.0.max(above),
                 BarNumberPlacement::BelowSystem => extent.1 = extent.1.max(below),
-                BarNumberPlacement::BelowTopInstrument => {
-                    between_numbers = between_numbers.max(below)
-                }
             }
         }
     }
-    let number_gap = if between_numbers > 0.0 {
-        between_numbers + sp
-    } else {
-        0.0
-    };
-    let inter_staff_gap = inter_staff_gap.max(number_gap);
     let margin_top = margin_top.max(extras.iter().map(|extra| extra.0).fold(0.0_f64, f64::max));
     let single_system_height = visual_staff_count as f64 * staff_height
         + (visual_staff_count - 1) as f64 * inter_staff_gap;
@@ -311,11 +265,8 @@ pub(super) fn compute_full_score_page_layout(
         );
         for (index, (position, (above, _))) in positions.iter_mut().zip(&extras).enumerate() {
             *position += above;
-            if config.bar_numbers.on_staff == Some(true)
-                || config.bar_numbers.distance.is_some()
-                || number_gap > 7.0 * sp
-            {
-                gaps[index] = (inter_staff_gap + gaps[index] - 7.0 * sp).max(number_gap);
+            if config.bar_numbers.on_staff == Some(true) || config.bar_numbers.distance.is_some() {
+                gaps[index] = (inter_staff_gap + gaps[index] - 7.0 * sp).max(0.0);
             }
         }
         (positions, gaps)

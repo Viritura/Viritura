@@ -28,7 +28,7 @@ pub(super) fn place(
     let height = labels
         .iter()
         .map(|label| label.y_bottom - label.y_top)
-        .fold(config.bar_numbers.size.unwrap_or(2.0) * sp, f64::max);
+        .fold(super::bar_number_style(config).size_sp * sp, f64::max);
     let distance = config.bar_numbers.distance.unwrap_or(metrics.attach_gap) * sp;
     let center = row_y.unwrap_or_else(|| {
         if above {

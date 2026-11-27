@@ -460,16 +460,7 @@ pub(crate) fn render_measure(
     // that aligns to the barline (the rehearsal mark) must shift with it.
     let leading_clef_gap = measure_leading_clef_gap(ml, sp, clef_change_measures);
     let shared_lane = shared_staff_lane(staff_y, sp, shared_lane_staff_y_offsets);
-    let render_mmr_range_here = if config.bar_numbers.on_staff == Some(true)
-        || config.bar_numbers.placement.unwrap_or_default()
-            != BarNumberPlacement::BelowTopInstrument
-    {
-        render_ordinary_measure_number
-    } else if shared_lane.center_y.is_some() {
-        shared_lane.is_bottom
-    } else {
-        render_ordinary_measure_number
-    };
+    let render_mmr_range_here = render_ordinary_measure_number;
 
     // Handle multimeasure rest rendering
     if let Some(count) = ml.multimeasure_rest_count {

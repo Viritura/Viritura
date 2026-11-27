@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { findPageSizePreset, formatPageSizeLabel, formatStaffSizeLabel } from "../model/layout";
+import { pointsToStaffSpaces, staffSpacesToPoints } from "../model/pageSetup";
 
 describe("findPageSizePreset", () => {
   it("matches A4 in mm", () => {
@@ -53,6 +54,14 @@ describe("formatStaffSizeLabel", () => {
     expect(formatStaffSizeLabel(1.75)).toBe("7 mm staff");
     // Rastral 6 (default full score): spatium 1.25 → 5mm staff
     expect(formatStaffSizeLabel(1.25)).toBe("5 mm staff");
+  });
+
+  describe("staff-space font size conversion", () => {
+    it("converts through the selected staff-space size and round-trips", () => {
+      const points = staffSpacesToPoints(2, 1.25);
+      expect(points).toBeCloseTo(7.0866, 3);
+      expect(pointsToStaffSpaces(points, 1.25)).toBeCloseTo(2);
+    });
   });
 
   it("renders fractional staff sizes", () => {

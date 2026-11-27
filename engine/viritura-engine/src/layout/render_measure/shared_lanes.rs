@@ -5,7 +5,6 @@ use super::multimeasure_rest_number_extent;
 
 pub(crate) struct SharedStaffLane {
     pub is_top: bool,
-    pub is_bottom: bool,
     pub center_y: Option<f64>,
 }
 
@@ -17,11 +16,6 @@ pub(crate) fn shared_staff_lane(
     let shared = staff_y_offsets.filter(|offsets| offsets.len() > 1);
     SharedStaffLane {
         is_top: shared.is_none_or(|offsets| (staff_y - offsets[0]).abs() < 0.01),
-        is_bottom: shared.is_none_or(|offsets| {
-            offsets
-                .last()
-                .is_some_and(|bottom| (staff_y - bottom).abs() < 0.01)
-        }),
         center_y: shared.map(|offsets| {
             (offsets[0] + offsets.last().copied().unwrap_or(offsets[0]) + 4.0 * sp) * 0.5
         }),
@@ -29,11 +23,11 @@ pub(crate) fn shared_staff_lane(
 }
 
 pub(crate) fn should_render_ordinary_measure_number(
-    lane: &SharedStaffLane,
-    staff_idx: Option<usize>,
+    _lane: &SharedStaffLane,
+    _staff_idx: Option<usize>,
     staff_y: f64,
     staff_y_offsets: Option<&[f64]>,
-    shared_offsets: Option<&[f64]>,
+    _shared_offsets: Option<&[f64]>,
     config: &LayoutConfig,
 ) -> bool {
     use crate::model::BarNumberPlacement;
@@ -44,17 +38,6 @@ pub(crate) fn should_render_ordinary_measure_number(
         BarNumberPlacement::BelowSystem => staff_y_offsets
             .and_then(|offsets| offsets.last())
             .is_none_or(|bottom| (staff_y - bottom).abs() < 0.01),
-        BarNumberPlacement::BelowTopInstrument => {
-            if lane.center_y.is_some() {
-                lane.is_bottom
-                    && staff_y_offsets
-                        .and_then(|offsets| offsets.first())
-                        .zip(shared_offsets.and_then(|offsets| offsets.first()))
-                        .is_none_or(|(system_top, part_top)| (system_top - part_top).abs() < 0.01)
-            } else {
-                staff_idx.is_none_or(|index| index == 0)
-            }
-        }
     }
 }
 

@@ -209,7 +209,7 @@ fn default_barline_alignment_follows_shared_mid_system_clef_changes() {
 }
 
 #[test]
-fn paginated_legacy_numbers_clear_the_following_instrument() {
+fn paginated_numbers_clear_the_bottom_instrument() {
     let mut source = bar_number_fixture(4);
     source["global"]["measures"][0]["tempos"] = json!([{"bpm": 120, "value": {"base": "quarter"}}]);
     for multiple in [false, true] {
@@ -242,8 +242,8 @@ fn paginated_legacy_numbers_clear_the_following_instrument() {
                 })
                 .unwrap();
             assert!(
-                number.bbox.y + number.bbox.height < measure.y,
-                "number {:?} must clear the following staff at {}",
+                number.bbox.y > measure.y + measure.height,
+                "number {:?} must clear the bottom staff at {}",
                 number.bbox,
                 measure.y
             );
@@ -276,20 +276,20 @@ fn paginated_legacy_numbers_clear_the_following_instrument() {
         assert!(
             lower_tempos
                 .iter()
-                .all(|(top, _)| *top > number.bbox.y + number.bbox.height),
-            "following instrument markings must clear number {:?}: {lower_tempos:?}",
+                .all(|(_, bottom)| *bottom < number.bbox.y),
+            "bottom instrument markings must clear number {:?}: {lower_tempos:?}",
             number.bbox
         );
     }
 }
 
 #[test]
-fn styled_mnx_numbers_clear_the_following_instrument() {
+fn styled_mnx_numbers_clear_bottom_instrument_expressions() {
     let mut source = bar_number_fixture(4);
     source["global"]["measures"][0]["number"] = json!(2);
     source["parts"][1]["measures"][0]["text"] = json!([{
         "type": "expression", "text": [{"text": "arco"}],
-        "position": {"fraction": [0, 1]}, "placement": "above"
+        "position": {"fraction": [0, 1]}, "placement": "below"
     }]);
     source["_x"] = json!({"viritura": {"barNumbers": {"size": 8, "enclosure": "circle"}}});
     let score = parse_mnx(&source.to_string()).unwrap();
@@ -311,25 +311,60 @@ fn styled_mnx_numbers_clear_the_following_instrument() {
             .find(|measure| measure.part_index == 1 && measure.index == 0)
             .unwrap();
         assert!(
-            number.bbox.y + number.bbox.height < lower_staff.y,
-            "number {:?} must clear the following staff at {} for {page_width:?}",
+            number.bbox.y > lower_staff.y + lower_staff.height,
+            "number {:?} must clear the bottom staff at {} for {page_width:?}",
             number.bbox,
             lower_staff.y
         );
-        let expression_top = display
+        let expression_bottom = display
             .commands
             .iter()
             .find(
                 |command| matches!(command, RenderCommand::DrawText { text, .. } if text == "arco"),
             )
             .and_then(crate::layout::page::vertical_ink_extent)
-            .map(|(top, _)| top)
+            .map(|(_, bottom)| bottom)
             .unwrap();
         assert!(
-            expression_top > number.bbox.y + number.bbox.height,
-            "following instrument expression at {expression_top} must clear number {:?}",
+            expression_bottom < number.bbox.y,
+            "bottom instrument expression at {expression_bottom} must clear number {:?}",
             number.bbox
         );
+    }
+}
+
+#[test]
+fn bar_number_role_and_score_view_style_merge() {
+    let mut source = bar_number_fixture(2);
+    source["_x"] = json!({"viritura": {
+        "textStyles": {"barNumber": {"size": 3.0, "family": "sans-serif", "italic": false}},
+        "barNumbers": {"frequency": "everyBar", "showFirst": true}
+    }});
+    source["scores"][1]["_x"] = json!({"viritura": {
+        "barNumbers": {"style": {"size": 4.0, "bold": true}}
+    }});
+    let score = parse_mnx(&source.to_string()).unwrap();
+    let config = LayoutConfig::default();
+
+    for (score_index, expected_size, expected_font) in
+        [(0, 3.0, "sans-serif"), (1, 4.0, "sans-serif bold")]
+    {
+        let display = crate::layout::layout_with_mnx_scores(&score, &config, score_index);
+        let (font, size) = display
+            .commands
+            .iter()
+            .zip(&display.element_ids)
+            .find_map(|(command, id)| match command {
+                RenderCommand::DrawText { font, size, .. }
+                    if id.as_deref().is_some_and(|id| id.ends_with("/mnum")) =>
+                {
+                    Some((font.as_str(), *size))
+                }
+                _ => None,
+            })
+            .expect("first bar number is visible");
+        assert_eq!(font, expected_font);
+        assert!((size - expected_size * config.sp).abs() < 1e-6);
     }
 }
 
@@ -644,14 +679,12 @@ fn invalid_bar_number_locations_are_rejected() {
 }
 
 #[test]
-fn single_line_bar_number_staff_has_one_center_and_displaces_the_next_instrument() {
+fn single_line_bar_number_staff_has_one_center_and_reserves_system_space() {
     let mut source = bar_number_fixture(12);
     let config = LayoutConfig {
         page_width: Some(450.0),
         ..LayoutConfig::default()
     };
-    let baseline =
-        crate::layout::layout_with_mnx_scores(&parse_mnx(&source.to_string()).unwrap(), &config, 0);
     source["_x"] = json!({"viritura": {"barNumbers": {
         "frequency": "everyBar", "showFirst": true, "onStaff": true, "distance": 3,
         "size": 4, "enclosure": "circle", "horizontalAlignment": "center"
@@ -675,21 +708,19 @@ fn single_line_bar_number_staff_has_one_center_and_displaces_the_next_instrument
                     && row.element_id == format!("m{}/bar-number-staff", bounds.index)
             })
             .unwrap();
-        let piano_bottom = display
+        let system_bottom = display
             .measure_bounds
             .iter()
-            .filter(|measure| {
-                measure.system_index == bounds.system_index && measure.part_index == 0
-            })
+            .filter(|measure| measure.system_index == bounds.system_index)
             .map(|measure| measure.y + measure.height)
             .fold(0.0_f64, f64::max);
-        assert!(row.bbox.y >= piano_bottom + 3.0 * config.sp - 1e-6);
+        assert!(row.bbox.y >= system_bottom + 3.0 * config.sp - 1e-6);
         for measure in display.measure_bounds.iter().filter(|measure| {
             measure.system_index == bounds.system_index && measure.part_index == 1
         }) {
             assert!(
-                measure.y > row.bbox.y + row.bbox.height,
-                "number staff must reserve an inter-staff row"
+                measure.y + measure.height < row.bbox.y,
+                "number staff must sit below the whole system"
             );
             let label = display
                 .element_bboxes
@@ -714,16 +745,16 @@ fn single_line_bar_number_staff_has_one_center_and_displaces_the_next_instrument
             }
         }
         assert!(row.bbox.y + row.bbox.height <= display.height + 1e-6);
-    }
-    let first_violin = |display: &DisplayList| {
-        display
+        if let Some(next_top) = display
             .measure_bounds
             .iter()
-            .find(|bounds| bounds.part_index == 1 && bounds.index == 0)
-            .unwrap()
-            .y
-    };
-    assert!(first_violin(&display) > first_violin(&baseline));
+            .filter(|measure| measure.system_index == bounds.system_index + 1)
+            .map(|measure| measure.y)
+            .min_by(f64::total_cmp)
+        {
+            assert!(next_top > row.bbox.y + row.bbox.height);
+        }
+    }
 }
 
 #[test]
@@ -787,13 +818,13 @@ fn configured_distance_reserves_space_even_without_the_number_staff() {
                 .iter()
                 .find(|element| element.element_id == format!("m{}/mnum", measure.index))
                 .unwrap();
-            assert!(measure.y > number.bbox.y + number.bbox.height);
+            assert!(number.bbox.y >= measure.y + measure.height + 8.0 * config.sp - 1e-6);
         }
     }
 }
 
 #[test]
-fn number_staff_clears_markings_above_the_following_instrument() {
+fn number_staff_clears_markings_on_the_bottom_instrument() {
     let mut source = bar_number_fixture(2);
     source["global"]["measures"][0]["tempos"] = json!([{"bpm": 120, "value": {"base": "quarter"}}]);
     source["_x"] = json!({"viritura": {"barNumbers": {
@@ -830,10 +861,10 @@ fn number_staff_clears_markings_above_the_following_instrument() {
             !lower_tempos.is_empty(),
             "missing lower tempo for {page_width:?}"
         );
-        for (top, _) in lower_tempos {
+        for (_, bottom) in lower_tempos {
             assert!(
-                top > row.bbox.y + row.bbox.height,
-                "lower instrument marking at {top} must clear row {:?} for {page_width:?}",
+                bottom < row.bbox.y,
+                "bottom instrument marking at {bottom} must clear row {:?} for {page_width:?}",
                 row.bbox
             );
         }
@@ -885,10 +916,14 @@ fn bar_number_layout_overrides_inherit_house_style_without_affecting_other_views
 #[test]
 fn every_bar_numbers_follow_configured_staff_across_systems() {
     let mut source = bar_number_fixture(12);
-    for placement in ["belowSystem", "belowTopInstrument"] {
-        source["_x"] = json!({"viritura": {"barNumbers": {
-            "frequency": "everyBar", "showFirst": true, "placement": placement, "enclosure": "box"
-        }}});
+    for placement in [None, Some("belowSystem"), Some("belowTopInstrument")] {
+        let mut settings = json!({
+            "frequency": "everyBar", "showFirst": true, "enclosure": "box"
+        });
+        if let Some(placement) = placement {
+            settings["placement"] = json!(placement);
+        }
+        source["_x"] = json!({"viritura": {"barNumbers": settings}});
         let score = parse_mnx(&source.to_string()).unwrap();
         let config = LayoutConfig {
             page_width: Some(450.0),
@@ -910,9 +945,7 @@ fn every_bar_numbers_follow_configured_staff_across_systems() {
             let bottom = dl
                 .measure_bounds
                 .iter()
-                .filter(|bounds| {
-                    bounds.index == index && (placement == "belowSystem" || bounds.part_index == 0)
-                })
+                .filter(|bounds| bounds.index == index)
                 .map(|bounds| bounds.y + 4.0 * config.sp)
                 .max_by(f64::total_cmp)
                 .unwrap();
@@ -920,17 +953,6 @@ fn every_bar_numbers_follow_configured_staff_across_systems() {
                 number.y > bottom,
                 "bar {index} must be below the configured instrument/system"
             );
-            if placement == "belowTopInstrument" {
-                let next_staff = dl
-                    .measure_bounds
-                    .iter()
-                    .find(|bounds| bounds.index == index && bounds.part_index == 1)
-                    .unwrap();
-                assert!(
-                    number.y + number.height < next_staff.y,
-                    "top-instrument numbers must clear the next instrument"
-                );
-            }
         }
     }
 }

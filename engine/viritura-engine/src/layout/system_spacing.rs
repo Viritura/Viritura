@@ -68,21 +68,6 @@ pub(super) fn number_ink_extras(
         })
 }
 
-pub(super) fn staff_ink_extras(
-    layouts: &[MeasureLayout],
-    score: &Score,
-    part_index: usize,
-    config: &LayoutConfig,
-) -> (f64, f64) {
-    render_staff_ink(layouts, score, part_index, config)
-        .commands
-        .iter()
-        .filter_map(super::page::vertical_ink_extent)
-        .fold((0.0_f64, 0.0_f64), |(above, below), (top, bottom)| {
-            (above.max(-top), below.max(bottom - 4.0 * config.sp))
-        })
-}
-
 fn render_staff_ink(
     layouts: &[MeasureLayout],
     score: &Score,

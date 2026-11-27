@@ -108,9 +108,9 @@ pub enum BarNumberFrequency {
 #[serde(rename_all = "camelCase")]
 pub enum BarNumberPlacement {
     AboveSystem,
-    BelowSystem,
     #[default]
-    BelowTopInstrument,
+    #[serde(alias = "belowTopInstrument")]
+    BelowSystem,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -128,6 +128,36 @@ pub enum BarNumberHorizontalAlignment {
     #[default]
     Barline,
     Center,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BarNumberTextStyle {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub family: Option<crate::layout::text_styles::FontFamily>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bold: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub italic: Option<bool>,
+}
+
+impl BarNumberTextStyle {
+    fn overlay(&mut self, other: &Self) {
+        if other.size.is_some() {
+            self.size = other.size;
+        }
+        if other.family.is_some() {
+            self.family = other.family;
+        }
+        if other.bold.is_some() {
+            self.bold = other.bold;
+        }
+        if other.italic.is_some() {
+            self.italic = other.italic;
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -152,6 +182,9 @@ pub struct BarNumberSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub show_first: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub style: Option<BarNumberTextStyle>,
+    /// Legacy flat typography fields; new data uses `style` or `textStyles.barNumber`.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub family: Option<crate::layout::text_styles::FontFamily>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<f64>,
@@ -172,6 +205,11 @@ impl BarNumberSettings {
         }
         if let Some(groups) = &other.above_groups {
             self.above_groups = Some(groups.clone());
+        }
+        if let Some(style) = &other.style {
+            self.style
+                .get_or_insert_with(BarNumberTextStyle::default)
+                .overlay(style);
         }
         macro_rules! overlay {
             ($($field:ident),*) => {$(
@@ -230,6 +268,16 @@ impl BarNumberSettings {
         {
             return Err(crate::promote::PromoteError::InvalidBarNumbers(
                 "size must be between 0.5 and 8 staff spaces".into(),
+            ));
+        }
+        if settings
+            .style
+            .as_ref()
+            .and_then(|style| style.size)
+            .is_some_and(|size| !size.is_finite() || !(0.5..=8.0).contains(&size))
+        {
+            return Err(crate::promote::PromoteError::InvalidBarNumbers(
+                "style.size must be between 0.5 and 8 staff spaces".into(),
             ));
         }
         Ok(settings)

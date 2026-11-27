@@ -887,25 +887,43 @@ override individual fields at `scores[]._x.viritura.barNumbers`; omitted fields
 inherit the document house style. Engrave mode exposes both scopes under
 **House Style > Bar Numbers**. Resetting a layout's overrides restores inheritance.
 
-| Field                 | Values                                                       | Default                                                               |
-| --------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
-| `frequency`           | `systemStarts`, `everyBar`, `hidden`                         | `systemStarts`                                                        |
-| `placement`           | `aboveSystem`, `belowSystem`, `belowTopInstrument`           | `belowTopInstrument`                                                  |
-| `placements`          | array of system placements; empty disables system copies     | inherits `placement` when omitted                                     |
-| `aboveGroups`         | arrays of member part IDs for outermost brackets, per layout | no additional group copies                                            |
-| `horizontalAlignment` | `barline`, `center`                                          | `barline` for ordinary bars; legacy centered rest ranges when omitted |
-| `distance`            | non-negative staff spaces                                    | placement attach gap (normally 0.5); 0.5 for rest ranges              |
-| `onStaff`             | boolean, reserve a vertically justified number row           | `false`                                                               |
-| `showStaffLine`       | boolean, paint the reserved row's line                       | `true`                                                                |
-| `showFirst`           | boolean, prints bar 1 when eligible                          | `false`                                                               |
-| `family`              | `serif`, `sans-serif`, `monospace`                           | `serif`                                                               |
-| `size`                | 0.5 to 8 staff spaces                                        | 2                                                                     |
-| `bold`                | boolean                                                      | `false`                                                               |
-| `italic`              | boolean                                                      | `true`                                                                |
-| `enclosure`           | `none`, `box`, `circle`                                      | `none`                                                                |
+| Field                 | Values                                                                      | Default                                                               |
+| --------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `frequency`           | `systemStarts`, `everyBar`, `hidden`                                        | `systemStarts`                                                        |
+| `placement`           | `aboveSystem`, `belowSystem` (legacy `belowTopInstrument` remains readable) | `belowSystem`                                                         |
+| `placements`          | array of system placements; empty disables system copies                    | inherits `placement` when omitted                                     |
+| `aboveGroups`         | arrays of member part IDs for outermost brackets, per layout                | no additional group copies                                            |
+| `horizontalAlignment` | `barline`, `center`                                                         | `barline` for ordinary bars; legacy centered rest ranges when omitted |
+| `distance`            | non-negative staff spaces                                                   | placement attach gap (normally 0.5); 0.5 for rest ranges              |
+| `onStaff`             | boolean, reserve a vertically justified number row                          | `false`                                                               |
+| `showStaffLine`       | boolean, paint the reserved row's line                                      | `true`                                                                |
+| `showFirst`           | boolean, prints bar 1 when eligible                                         | `false`                                                               |
+| `style`               | sparse `size`, `family`, `bold`, `italic` overrides                         | inherits `textStyles.barNumber`                                       |
+| `enclosure`           | `none`, `box`, `circle`                                                     | `none`                                                                |
 
-The default preserves the existing placement below the top instrument's lowest
-staff. Whole-system placement uses the outer visible staff, including grand
+Bar-number typography is the `barNumber` text-style role stored at
+`_x.viritura.textStyles.barNumber`. Its size is stored in staff spaces like
+other text roles, so it scales with the score. A score view's
+`barNumbers.style` overrides only the fields it specifies. The style controls
+show the equivalent point size for the selected layout's staff size while
+continuing to store staff spaces. Older flat `family`, `size`, `bold`, and
+`italic` fields remain readable for compatibility; new edits write the shared
+style representation.
+
+The **Classical** preset restores the default frequency, below-system placement,
+barline alignment, unenclosed italic serif text, and content-following spacing.
+The **Film score** preset uses every bar, **Show on first bar**, separate space
+with a visible staff line, centered boxed numbers, and 8 pt bold upright serif text.
+It selects the outer Strings bracket when available, identified by its label
+or member instrument identities, otherwise falling back to below the system.
+Presets replace settings in the current scope. House-style presets preserve
+existing layout overrides; Film score adds per-layout placement only where
+placement has not already been overridden. The point size is converted using
+the selected layout's staff size and remains proportional when staff size changes.
+
+The Classical default places numbers below the whole system.
+The obsolete `belowTopInstrument` value is read as `belowSystem`.
+Whole-system placement uses the outer visible staff, including grand
 staves and systems whose staff membership changes. Numbers clear clefs and
 other musical ink, including rehearsal frames, by moving away from the staff.
 Bar 0 remains unprinted, including when `showFirst` is enabled. Collapsed
@@ -919,18 +937,21 @@ ranges retain their centered default unless alignment is explicitly set.
 `distance` is the minimum gap from the musical staff to the number
 ink; collision clearance can increase it.
 
-`placements` is a multi-selection: above the system, below the system, and
-below the top instrument can be combined. A layout override can additionally
+`placements` is a multi-selection: above and below the system can be combined.
+A layout override can additionally
 choose individual outermost bracket groups through `aboveGroups`. These choices
 use member part IDs, not group labels or tree positions, and stay specific to
 that score view. Hidden member staves do not remove a group's numbers while
 other selected members remain visible. Groups with identical member part IDs
 share a selection. Coincident locations share one copy.
+The editor labels each bracket choice with its group name, falling back to the
+first instrument's name in layout order (or its part ID if unnamed).
 An explicit empty array clears the corresponding inherited choices.
 Legacy `placement` remains supported; an explicit legacy layout placement
 replaces inherited `placements`.
 
-With `onStaff` (**Reserve a bar-number row**), each selected location creates a
+The editor's **Bar number vertical alignment** options are **Follow musical content** and
+**Reserve separate space**. With `onStaff` (**Reserve separate space**), each selected location creates a
 source-free display row, not a musical or playback part. Numbers are vertically
 centered together. `showStaffLine: false` hides only the line, preserving the
 same row geometry and spacing; when shown, the line breaks around text and
@@ -1010,7 +1031,7 @@ Score-level bibliographic metadata (`score-metadata`). The engine consumes `titl
 
 Per-document text style overrides (`text-styles`), keyed by role. Each entry is a partial [`text-style`](#text-style) merged over the engine's built-in stylesheet at layout time — a document only stores the properties it changes, so adding style properties never requires a model migration.
 
-Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, `tempo`, `rehearsalMark`, `pedalText`, `copyright`.
+Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, `tempo`, `rehearsalMark`, `pedalText`, `barNumber`, `copyright`.
 
 `rehearsalMark` defaults to 2.8sp bold sans-serif. Sans-serif text uses
 `Arial, sans-serif` in the browser without bundling a sans-serif font.

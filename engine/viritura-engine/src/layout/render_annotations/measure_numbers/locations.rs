@@ -41,7 +41,7 @@ pub(crate) fn simple_number_locations(
     settings: &BarNumberSettings,
     staff: usize,
     staff_count: usize,
-    top_instrument_bottom: usize,
+    _top_instrument_bottom: usize,
 ) -> Vec<BarNumberPlacement> {
     let placements = settings
         .placements
@@ -52,7 +52,6 @@ pub(crate) fn simple_number_locations(
         let target = match placement {
             BarNumberPlacement::AboveSystem => 0,
             BarNumberPlacement::BelowSystem => staff_count.saturating_sub(1),
-            BarNumberPlacement::BelowTopInstrument => top_instrument_bottom,
         };
         let side = if placement == BarNumberPlacement::AboveSystem {
             placement

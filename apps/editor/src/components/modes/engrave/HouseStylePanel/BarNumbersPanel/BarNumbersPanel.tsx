@@ -1,11 +1,30 @@
 import { useState } from "react";
-import { Button, Checkbox, FormField, FormInput, Select } from "@viritura/ui";
-import { DEFAULT_BAR_NUMBER_SETTINGS, type BarNumberSettings } from "@viritura/core";
+import { Info } from "lucide-react";
+import { Button, ButtonGroup, Checkbox, FormField, FormInput, Select, type ButtonGroupOption } from "@viritura/ui";
+import {
+  DEFAULT_BAR_NUMBER_SETTINGS,
+  DEFAULT_PAGE_SETUP,
+  DEFAULT_TEXT_STYLES,
+  resolveScorePageSetup,
+  type BarNumberSettings,
+  type BarNumberTextStyle,
+} from "@viritura/core";
 import { toast } from "sonner";
+import { TextStyleToolbar } from "../../../../inspector/TextContentEditor";
 import { useDocumentStore, useDocumentStoreApi } from "../../../../../store/DocumentContext";
 import { useViewStateStore } from "../../../../../store/viewStateStore";
 import styles from "./BarNumbersPanel.module.css";
-import { bracketMatchesSelection, bracketPlacements } from "./bracketPlacements";
+import { bracketPlacements } from "./bracketPlacements";
+import { BarNumberPlacementSetting } from "./BarNumberPlacementSetting";
+import { EnclosureChoice, HorizontalAlignmentChoice } from "./BarNumberStyleChoices";
+import { effectiveBarNumberStyle, updateBarNumberStyle } from "./barNumberStyle";
+import { applyBarNumberPreset, type BarNumberPreset } from "./barNumberPresets";
+
+const FREQUENCY_OPTIONS = [
+  { value: "systemStarts", label: "Systems", tooltip: "First bar of each system" },
+  { value: "everyBar", label: "Every bar" },
+  { value: "hidden", label: "Hidden" },
+] satisfies ButtonGroupOption<Required<BarNumberSettings>["frequency"]>[];
 
 interface ChoiceProps<T extends string> {
   label: string;
@@ -82,17 +101,23 @@ export function BarNumbersPanel() {
   const [requestedScope, setScope] = useState<"document" | "layout">("document");
   const definition = score?.scores?.[scoreIndex];
   const scope = definition ? requestedScope : "document";
+  const numberStyle = score ? effectiveBarNumberStyle(score, scoreIndex, scope) : DEFAULT_TEXT_STYLES.barNumber!;
+  const spatiumMm = score ? resolveScorePageSetup(score, scoreIndex).spatiumMm : DEFAULT_PAGE_SETUP.spatiumMm;
   const settings = {
     ...DEFAULT_BAR_NUMBER_SETTINGS,
     ...score?.barNumbers,
     ...(scope === "layout" ? definition?.barNumbers : {}),
   };
+  const choiceSettings = { ...settings, ...numberStyle };
   const selectedPlacements =
     scope === "layout" &&
     definition?.barNumbers?.placement !== undefined &&
     definition.barNumbers.placements === undefined
       ? [definition.barNumbers.placement]
       : (settings.placements ?? [settings.placement]);
+  const placements = [
+    ...new Set(selectedPlacements.map((placement) => (placement === "belowTopInstrument" ? "belowSystem" : placement))),
+  ];
   const groups = bracketPlacements(score, scoreIndex);
   function commit(next: BarNumberSettings | undefined) {
     const document = store.getState();
@@ -120,6 +145,49 @@ export function BarNumbersPanel() {
     const stored = scope === "document" ? current?.barNumbers : current?.scores?.[scoreIndex]?.barNumbers;
     commit({ ...stored, [field]: value });
   }
+  function updateStyle(changes: Partial<BarNumberTextStyle>) {
+    const current = store.getState().workingScore ?? store.getState().score;
+    if (!current) {
+      toast.error("Open a score before changing its bar-number style.");
+      return;
+    }
+    if (scope === "layout" && !current.scores?.[scoreIndex]) {
+      toast.error("Select a score layout before changing its bar-number style.");
+      return;
+    }
+    store.getState().updateScore(updateBarNumberStyle(current, scoreIndex, scope, changes));
+  }
+  function applyPreset(preset: BarNumberPreset) {
+    const document = store.getState();
+    const current = document.workingScore ?? document.score;
+    if (!current) {
+      toast.error("Open a score before applying a bar-number preset.");
+      return;
+    }
+    if (scope === "layout" && !current.scores?.[scoreIndex]) {
+      toast.error("Select a score layout before applying a bar-number preset.");
+      return;
+    }
+    document.updateScore(applyBarNumberPreset(current, scoreIndex, scope, preset));
+  }
+  function resetStyleAndSettings() {
+    if (scope === "layout") {
+      commit(undefined);
+      return;
+    }
+    const current = store.getState().workingScore ?? store.getState().score;
+    if (!current) {
+      toast.error("Open a score before resetting its bar-number style.");
+      return;
+    }
+    const textStyles = { ...(current.textStyles ?? {}) };
+    delete textStyles.barNumber;
+    store.getState().updateScore({
+      ...current,
+      barNumbers: undefined,
+      textStyles: Object.keys(textStyles).length ? textStyles : undefined,
+    });
+  }
   return (
     <div className={styles.root} data-testid="bar-numbers-panel">
       <Choice
@@ -131,79 +199,72 @@ export function BarNumbersPanel() {
         ]}
         onChange={setScope}
       />
-      <Choice
-        label="Frequency"
-        value={settings.frequency}
-        options={[
-          { value: "systemStarts", label: "System starts" },
-          { value: "everyBar", label: "Every bar" },
-          { value: "hidden", label: "Hidden" },
-        ]}
-        onChange={(value) => update("frequency", value)}
-      />
-      <FormField label="Placement (select any)">
-        <div>
-          {(
-            [
-              ["aboveSystem", "Above the whole system"],
-              ["belowSystem", "Below the whole system"],
-              ["belowTopInstrument", "Below the top instrument"],
-            ] as const
-          ).map(([value, label]) => (
-            <Checkbox
-              key={value}
-              label={label}
-              checked={selectedPlacements.includes(value)}
-              onChange={(event) =>
-                update(
-                  "placements",
-                  event.target.checked
-                    ? [...selectedPlacements, value]
-                    : selectedPlacements.filter((placement) => placement !== value),
-                )
-              }
-            />
-          ))}
-          {scope === "layout" &&
-            groups.map((group, index) => (
-              <Checkbox
-                key={`${JSON.stringify(group.parts)}-${index}`}
-                label={`Above ${group.label} bracket`}
-                checked={settings.aboveGroups?.some((parts) => bracketMatchesSelection(group, parts)) ?? false}
-                onChange={(event) => {
-                  const selected = settings.aboveGroups ?? [];
-                  update(
-                    "aboveGroups",
-                    event.target.checked
-                      ? [...selected, group.parts]
-                      : selected.filter((parts) => !bracketMatchesSelection(group, parts)),
-                  );
-                }}
-              />
-            ))}
+      <FormField label="Presets">
+        <div className={styles.presets}>
+          <Button size="sm" variant="default" onClick={() => applyPreset("classical")}>
+            Classical
+          </Button>
+          <Button size="sm" variant="default" onClick={() => applyPreset("film")}>
+            Film score
+          </Button>
         </div>
       </FormField>
-      <Checkbox
-        label="Reserve a bar-number row"
-        checked={settings.onStaff}
-        onChange={(event) => update("onStaff", event.target.checked)}
-      />
-      {settings.onStaff && (
-        <Checkbox
-          label="Show staff line"
-          checked={settings.showStaffLine}
-          onChange={(event) => update("showStaffLine", event.target.checked)}
+      <FormField label="Frequency">
+        <ButtonGroup
+          options={FREQUENCY_OPTIONS}
+          value={settings.frequency}
+          onChange={(value) => update("frequency", value)}
         />
-      )}
-      <Choice
-        label="Horizontal alignment"
-        value={settings.horizontalAlignment}
-        options={[
-          { value: "barline", label: "Aligned with barline" },
-          { value: "center", label: "Centered within bar" },
-        ]}
-        onChange={(value) => update("horizontalAlignment", value)}
+      </FormField>
+      <Checkbox
+        label="Show on first bar"
+        checked={settings.showFirst}
+        onChange={(event) => update("showFirst", event.target.checked)}
       />
+      <BarNumberPlacementSetting
+        scope={scope}
+        placements={placements}
+        aboveGroups={settings.aboveGroups}
+        groups={groups}
+        onChange={(changes) => {
+          const current = store.getState().workingScore ?? store.getState().score;
+          const stored = scope === "document" ? current?.barNumbers : current?.scores?.[scoreIndex]?.barNumbers;
+          commit({ ...stored, ...changes });
+        }}
+      />
+      <div className={styles.verticalAlignment}>
+        <FormField
+          label="Bar number vertical alignment"
+          action={
+            <Button
+              variant="ghost"
+              size="sm"
+              shape="icon"
+              ariaLabel="About bar number vertical alignment"
+              tooltip="Follow musical content lets numbers move to clear nearby markings. Reserve separate space creates a staff-like row to align the numbers and keep room for them, whether its line is shown or hidden."
+            >
+              <Info size={14} />
+            </Button>
+          }
+        >
+          <ButtonGroup
+            options={[
+              { value: "content", label: "Follow musical content" },
+              { value: "separate", label: "Reserve separate space" },
+            ]}
+            value={settings.onStaff ? "separate" : "content"}
+            onChange={(value) => update("onStaff", value === "separate")}
+          />
+        </FormField>
+        {settings.onStaff && (
+          <Checkbox
+            label="Show staff line"
+            checked={settings.showStaffLine}
+            onChange={(event) => update("showStaffLine", event.target.checked)}
+          />
+        )}
+      </div>
+      <HorizontalAlignmentChoice settings={choiceSettings} onChange={(value) => update("horizontalAlignment", value)} />
       <NumberSetting
         key={`distance:${scope}:${scoreIndex}`}
         label="Distance from staff (staff spaces)"
@@ -213,55 +274,19 @@ export function BarNumbersPanel() {
         error="Bar number distance must be a finite, non-negative number of staff spaces."
         onCommit={(value) => update("distance", value)}
       />
-      <Checkbox
-        label="Show bar 1"
-        checked={settings.showFirst}
-        onChange={(event) => update("showFirst", event.target.checked)}
+      <TextStyleToolbar
+        mode="role"
+        activeStyle={numberStyle}
+        spatiumMm={spatiumMm}
+        minSizeSp={0.5}
+        maxSizeSp={8}
+        onApplyStyle={updateStyle}
+        onInvalidSize={(min, max) => toast.error(`Bar number size must be between ${min} and ${max} pt.`)}
       />
-      <Choice
-        label="Font family"
-        value={settings.family}
-        options={[
-          { value: "serif", label: "Serif" },
-          { value: "sans-serif", label: "Sans serif" },
-          { value: "monospace", label: "Monospace" },
-        ]}
-        onChange={(value) => update("family", value)}
-      />
-      <NumberSetting
-        key={`size:${scope}:${scoreIndex}`}
-        label="Size (staff spaces)"
-        name="Bar number size"
-        value={settings.size}
-        min={0.5}
-        max={8}
-        error="Bar number size must be between 0.5 and 8 staff spaces."
-        onCommit={(value) => update("size", value)}
-      />
-      <Checkbox label="Bold" checked={settings.bold} onChange={(event) => update("bold", event.target.checked)} />
-      <Checkbox label="Italic" checked={settings.italic} onChange={(event) => update("italic", event.target.checked)} />
-      <Choice
-        label="Enclosure"
-        value={settings.enclosure}
-        options={[
-          { value: "none", label: "None" },
-          { value: "box", label: "Box" },
-          { value: "circle", label: "Circle" },
-        ]}
-        onChange={(value) => update("enclosure", value)}
-      />
-      <Button variant="ghost" onClick={() => commit(undefined)}>
+      <EnclosureChoice settings={choiceSettings} onChange={(value) => update("enclosure", value)} />
+      <Button variant="default" size="sm" fullWidth onClick={resetStyleAndSettings}>
         {scope === "layout" ? "Reset layout overrides" : "Reset bar number house style"}
       </Button>
-      <p className={styles.description}>
-        {scope === "layout"
-          ? "Only edited fields override the house style. Other layouts are unchanged."
-          : "Layouts inherit these defaults unless they have their own overrides."}{" "}
-        Bar 0 is never printed. Distance is a minimum: musical markings may require more clearance. A reserved row keeps
-        numbers vertically aligned and clears space even when its line is hidden. Otherwise, numbers follow the local
-        musical content. Bracket choices are specific to the current layout.
-        {!definition && " Create a layout in the Layouts tab to add layout-specific overrides."}
-      </p>
     </div>
   );
 }

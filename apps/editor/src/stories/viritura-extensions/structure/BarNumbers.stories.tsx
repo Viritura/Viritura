@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { BarNumberSettings } from "@viritura/core";
+import { DEFAULT_PAGE_SETUP, pointsToStaffSpaces, type BarNumberSettings } from "@viritura/core";
 import { ScorePreview } from "../../storyFixtures/ScorePreview";
 import { buildMnx } from "../../storyFixtures/buildMnx";
 
@@ -41,6 +41,31 @@ export const EveryBarAbove: StoryObj = {
       bold: true,
       italic: false,
       enclosure: "box",
+    }),
+};
+
+export const Classical: StoryObj = {
+  name: "Classical defaults below the system",
+  render: () => preview({}),
+};
+
+export const FilmScore: StoryObj = {
+  name: "Film score style, falling back below the system",
+  render: () =>
+    preview({
+      frequency: "everyBar",
+      showFirst: true,
+      placements: ["belowSystem"],
+      onStaff: true,
+      showStaffLine: true,
+      horizontalAlignment: "center",
+      enclosure: "box",
+      style: {
+        size: pointsToStaffSpaces(8, DEFAULT_PAGE_SETUP.spatiumMm),
+        family: "serif",
+        bold: true,
+        italic: false,
+      },
     }),
 };
 
