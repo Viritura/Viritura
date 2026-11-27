@@ -4,6 +4,8 @@
 mod display_interpretation;
 #[path = "chord_symbols/display_spelling.rs"]
 mod display_spelling;
+#[path = "chord_symbols/fretboards.rs"]
+mod fretboards;
 #[cfg(test)]
 #[path = "chord_symbols/tests.rs"]
 mod tests;
@@ -496,7 +498,16 @@ pub(crate) fn chord_symbol_dimensions(
     sp: f64,
 ) -> (f64, f64) {
     let (_, width, ascent) = chord_symbol_runs(chord, style, sp);
-    (width, ascent)
+    match chord.fretboards.first() {
+        Some(frame) => {
+            let (frame_width, frame_height) = fretboards::dimensions(frame, sp);
+            (
+                width.max(frame_width),
+                ascent + fretboards::LABEL_GAP * sp + frame_height,
+            )
+        }
+        None => (width, ascent),
+    }
 }
 
 /// Render chord symbols above the staff at their rhythmic positions.
@@ -526,7 +537,18 @@ pub(crate) fn render_chord_symbols(
         let chord_x = x_origin + (chord.position.beats() / total_beats) * content_width;
         let source_index = chord.source_index.unwrap_or(index);
         let element_id = element_id::global_chord_symbol(measure_index, source_index);
-        let (runs, _, _) = chord_symbol_runs(chord, config.chord_symbol_style, sp);
+        let (runs, _, ascent) = chord_symbol_runs(chord, config.chord_symbol_style, sp);
+        if let Some(frame) = chord.fretboards.first() {
+            let (_, height) = fretboards::dimensions(frame, sp);
+            fretboards::render(
+                dl,
+                frame,
+                chord_x,
+                chord_baseline_y - ascent - fretboards::LABEL_GAP * sp - height,
+                sp,
+                &element_id,
+            );
+        }
         for run in runs {
             let command = match run {
                 ChordRun::Text {

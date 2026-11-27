@@ -1655,6 +1655,13 @@ impl ::std::convert::TryFrom<::std::string::String> for ChordRootStep {
 ///        13
 ///      ]
 ///    },
+///    "fretboards": {
+///      "description": "At most one authored diagram per source part. Physical fingerings are independent of display transposition and chord playback.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/fretboard"
+///      }
+///    },
 ///    "kindText": {
 ///      "description": "Authored quality spelling retained alongside the normalized quality.",
 ///      "type": "string"
@@ -1693,6 +1700,9 @@ pub struct ChordSymbol {
     ///Chord extension (6th, 7th, 9th, 11th, 13th).
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub extension: ::std::option::Option<ChordSymbolExtension>,
+    ///At most one authored diagram per source part. Physical fingerings are independent of display transposition and chord playback.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub fretboards: ::std::vec::Vec<Fretboard>,
     ///Authored quality spelling retained alongside the normalized quality.
     #[serde(
         rename = "kindText",
@@ -3165,6 +3175,638 @@ impl ::std::convert::TryFrom<::std::string::String> for FontFamily {
         value: ::std::string::String,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
+    }
+}
+///Instrument-specific MusicXML-shaped chord frame. String 1 is the rightmost string. Omitted strings are unplayed; fret 0 is open. Geometry uses Viritura engraving defaults, not source page coordinates.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Instrument-specific MusicXML-shaped chord frame. String 1 is the rightmost string. Omitted strings are unplayed; fret 0 is open. Geometry uses Viritura engraving defaults, not source page coordinates.",
+///  "type": "object",
+///  "required": [
+///    "frameFrets",
+///    "frameNotes",
+///    "frameStrings",
+///    "partId"
+///  ],
+///  "properties": {
+///    "firstFret": {
+///      "$ref": "#/$defs/fretboard-first-fret"
+///    },
+///    "frameFrets": {
+///      "type": "integer"
+///    },
+///    "frameNotes": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/fretboard-note"
+///      },
+///      "maxItems": 12
+///    },
+///    "frameStrings": {
+///      "type": "integer"
+///    },
+///    "partId": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "unplayed": {
+///      "type": "string",
+///      "maxLength": 8
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Fretboard {
+    #[serde(
+        rename = "firstFret",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub first_fret: ::std::option::Option<FretboardFirstFret>,
+    #[serde(rename = "frameFrets")]
+    pub frame_frets: i64,
+    #[serde(rename = "frameNotes")]
+    pub frame_notes: ::std::vec::Vec<FretboardNote>,
+    #[serde(rename = "frameStrings")]
+    pub frame_strings: i64,
+    #[serde(rename = "partId")]
+    pub part_id: FretboardPartId,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub unplayed: ::std::option::Option<FretboardUnplayed>,
+}
+impl ::std::convert::From<&Fretboard> for Fretboard {
+    fn from(value: &Fretboard) -> Self {
+        value.clone()
+    }
+}
+///`FretboardFirstFret`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "fret"
+///  ],
+///  "properties": {
+///    "fret": {
+///      "type": "integer"
+///    },
+///    "location": {
+///      "type": "string",
+///      "enum": [
+///        "left",
+///        "right"
+///      ]
+///    },
+///    "text": {
+///      "type": "string",
+///      "maxLength": 16
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FretboardFirstFret {
+    pub fret: i64,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub location: ::std::option::Option<FretboardFirstFretLocation>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub text: ::std::option::Option<FretboardFirstFretText>,
+}
+impl ::std::convert::From<&FretboardFirstFret> for FretboardFirstFret {
+    fn from(value: &FretboardFirstFret) -> Self {
+        value.clone()
+    }
+}
+///`FretboardFirstFretLocation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "left",
+///    "right"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum FretboardFirstFretLocation {
+    #[serde(rename = "left")]
+    Left,
+    #[serde(rename = "right")]
+    Right,
+}
+impl ::std::convert::From<&Self> for FretboardFirstFretLocation {
+    fn from(value: &FretboardFirstFretLocation) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for FretboardFirstFretLocation {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Left => f.write_str("left"),
+            Self::Right => f.write_str("right"),
+        }
+    }
+}
+impl ::std::str::FromStr for FretboardFirstFretLocation {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "left" => Ok(Self::Left),
+            "right" => Ok(Self::Right),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for FretboardFirstFretLocation {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for FretboardFirstFretLocation {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for FretboardFirstFretLocation {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`FretboardFirstFretText`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "maxLength": 16
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct FretboardFirstFretText(::std::string::String);
+impl ::std::ops::Deref for FretboardFirstFretText {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<FretboardFirstFretText> for ::std::string::String {
+    fn from(value: FretboardFirstFretText) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&FretboardFirstFretText> for FretboardFirstFretText {
+    fn from(value: &FretboardFirstFretText) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for FretboardFirstFretText {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 16usize {
+            return Err("longer than 16 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for FretboardFirstFretText {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for FretboardFirstFretText {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for FretboardFirstFretText {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for FretboardFirstFretText {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`FretboardNote`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "fret",
+///    "string"
+///  ],
+///  "properties": {
+///    "barre": {
+///      "type": "string",
+///      "enum": [
+///        "start",
+///        "stop"
+///      ]
+///    },
+///    "fingering": {
+///      "type": "string",
+///      "maxLength": 8
+///    },
+///    "fret": {
+///      "type": "integer"
+///    },
+///    "string": {
+///      "type": "integer"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FretboardNote {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub barre: ::std::option::Option<FretboardNoteBarre>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub fingering: ::std::option::Option<FretboardNoteFingering>,
+    pub fret: i64,
+    pub string: i64,
+}
+impl ::std::convert::From<&FretboardNote> for FretboardNote {
+    fn from(value: &FretboardNote) -> Self {
+        value.clone()
+    }
+}
+///`FretboardNoteBarre`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "start",
+///    "stop"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum FretboardNoteBarre {
+    #[serde(rename = "start")]
+    Start,
+    #[serde(rename = "stop")]
+    Stop,
+}
+impl ::std::convert::From<&Self> for FretboardNoteBarre {
+    fn from(value: &FretboardNoteBarre) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for FretboardNoteBarre {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Start => f.write_str("start"),
+            Self::Stop => f.write_str("stop"),
+        }
+    }
+}
+impl ::std::str::FromStr for FretboardNoteBarre {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "start" => Ok(Self::Start),
+            "stop" => Ok(Self::Stop),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for FretboardNoteBarre {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for FretboardNoteBarre {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for FretboardNoteBarre {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`FretboardNoteFingering`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "maxLength": 8
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct FretboardNoteFingering(::std::string::String);
+impl ::std::ops::Deref for FretboardNoteFingering {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<FretboardNoteFingering> for ::std::string::String {
+    fn from(value: FretboardNoteFingering) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&FretboardNoteFingering> for FretboardNoteFingering {
+    fn from(value: &FretboardNoteFingering) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for FretboardNoteFingering {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 8usize {
+            return Err("longer than 8 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for FretboardNoteFingering {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for FretboardNoteFingering {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for FretboardNoteFingering {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for FretboardNoteFingering {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`FretboardPartId`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct FretboardPartId(::std::string::String);
+impl ::std::ops::Deref for FretboardPartId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<FretboardPartId> for ::std::string::String {
+    fn from(value: FretboardPartId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&FretboardPartId> for FretboardPartId {
+    fn from(value: &FretboardPartId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for FretboardPartId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for FretboardPartId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for FretboardPartId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for FretboardPartId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for FretboardPartId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`FretboardUnplayed`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "maxLength": 8
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct FretboardUnplayed(::std::string::String);
+impl ::std::ops::Deref for FretboardUnplayed {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<FretboardUnplayed> for ::std::string::String {
+    fn from(value: FretboardUnplayed) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&FretboardUnplayed> for FretboardUnplayed {
+    fn from(value: &FretboardUnplayed) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for FretboardUnplayed {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 8usize {
+            return Err("longer than 8 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for FretboardUnplayed {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for FretboardUnplayed {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for FretboardUnplayed {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for FretboardUnplayed {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
     }
 }
 ///Viritura extensions on a full-measure rest.
@@ -17797,6 +18439,15 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "font-family": {
 ///      "$ref": "#/$defs/font-family"
 ///    },
+///    "fretboard": {
+///      "$ref": "#/$defs/fretboard"
+///    },
+///    "fretboard-first-fret": {
+///      "$ref": "#/$defs/fretboard-first-fret"
+///    },
+///    "fretboard-note": {
+///      "$ref": "#/$defs/fretboard-note"
+///    },
 ///    "full-measure-rest-extensions": {
 ///      "$ref": "#/$defs/full-measure-rest-extensions"
 ///    },
@@ -18193,6 +18844,20 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub font_family: ::std::option::Option<FontFamily>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub fretboard: ::std::option::Option<Fretboard>,
+    #[serde(
+        rename = "fretboard-first-fret",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub fretboard_first_fret: ::std::option::Option<FretboardFirstFret>,
+    #[serde(
+        rename = "fretboard-note",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub fretboard_note: ::std::option::Option<FretboardNote>,
     #[serde(
         rename = "full-measure-rest-extensions",
         default,
@@ -18797,6 +19462,9 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             fermata_extensions: Default::default(),
             fingering: Default::default(),
             font_family: Default::default(),
+            fretboard: Default::default(),
+            fretboard_first_fret: Default::default(),
+            fretboard_note: Default::default(),
             full_measure_rest_extensions: Default::default(),
             glissando: Default::default(),
             glissando_kind: Default::default(),

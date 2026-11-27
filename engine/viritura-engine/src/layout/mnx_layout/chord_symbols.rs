@@ -81,6 +81,10 @@ pub(super) fn visible_global_chord_symbols(
                 );
                 chord.source_index = Some(index);
                 chord.source_part_index = Some(source);
+                let part_id = score.parts.get(source).and_then(|part| part.id.as_deref());
+                chord
+                    .fretboards
+                    .retain(|frame| Some(frame.part_id.as_str()) == part_id);
                 chord
             })
             .collect(),

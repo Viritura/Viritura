@@ -137,7 +137,7 @@ pub(crate) fn extract_global_measure_vendor(
                 .chord_symbols
                 .into_iter()
                 .map(promote_chord_symbol)
-                .collect(),
+                .collect::<Result<Vec<_>, _>>()?,
         ),
     })
 }
@@ -322,8 +322,21 @@ fn positioned_text_extensions(
         .map(|extensions| &extensions.0)
 }
 
-fn promote_chord_symbol(r: raw_viritura::ChordSymbol) -> ModelChordSymbol {
-    ModelChordSymbol {
+fn promote_chord_symbol(r: raw_viritura::ChordSymbol) -> Result<ModelChordSymbol, PromoteError> {
+    let fretboards: Vec<crate::model::chord_symbol::Fretboard> =
+        r.fretboards.into_iter().map(Into::into).collect();
+    let mut parts = std::collections::HashSet::new();
+    for frame in &fretboards {
+        frame
+            .validate()
+            .map_err(|message| PromoteError::InvalidGlobalMeasureExtensions(message.into()))?;
+        if !parts.insert(&frame.part_id) {
+            return Err(PromoteError::InvalidGlobalMeasureExtensions(
+                "Duplicate fretboard instrument".into(),
+            ));
+        }
+    }
+    Ok(ModelChordSymbol {
         position: promote_rhythmic_position_local(r.position),
         source_index: None,
         source_part_index: None,
@@ -334,7 +347,8 @@ fn promote_chord_symbol(r: raw_viritura::ChordSymbol) -> ModelChordSymbol {
         bass: r.bass.map(promote_chord_root),
         extension: r.extension.and_then(|e| u32::try_from(*e).ok()),
         text_override: r.text_override,
-    }
+        fretboards,
+    })
 }
 
 fn promote_chord_root(r: raw_viritura::ChordRoot) -> ModelChordRoot {

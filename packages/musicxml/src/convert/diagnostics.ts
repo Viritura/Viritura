@@ -1,4 +1,5 @@
 import { DiagnosticCollector, ptr } from "@viritura/core";
+import { collectFretboardDiagnostics } from "./fretboards";
 
 /**
  * Scan the MusicXML root for constructs that this converter drops or
@@ -8,6 +9,7 @@ import { DiagnosticCollector, ptr } from "@viritura/core";
  * a 1:1 location for the dropped data.
  */
 export function collectLossyDiagnostics(root: Element, dx: DiagnosticCollector, vendorExt: boolean): void {
+  if (vendorExt) collectFretboardDiagnostics(root, dx);
   const words = root.getElementsByTagName("words");
   for (let index = 0; index < words.length; index++) {
     if (words[index]?.textContent?.trim().toLowerCase() !== "swung 16ths") continue;
@@ -77,6 +79,7 @@ export function collectLossyDiagnostics(root: Element, dx: DiagnosticCollector, 
       "musicxml-swing",
     );
     note("harmony", "info", "Chord symbols dropped — enable Viritura extensions to preserve", "musicxml-harmony");
+    note("frame", "info", "Chord diagrams dropped; enable Viritura extensions to preserve", "musicxml-frame");
     note("glissando", "info", "Glissando dropped — enable Viritura extensions to preserve", "musicxml-glissando");
     note("slide", "info", "Slide dropped — enable Viritura extensions to preserve", "musicxml-slide");
     note("trill-mark", "info", "Trill marks dropped — enable vendor extensions to preserve", "musicxml-trill");

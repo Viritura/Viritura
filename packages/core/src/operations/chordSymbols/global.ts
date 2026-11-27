@@ -1,4 +1,4 @@
-import type { ChordSymbol, GlobalMeasure, RhythmicPosition } from "../../model";
+import type { ChordSymbol, Fretboard, GlobalMeasure, RhythmicPosition } from "../../model";
 import { resolveChordSymbol } from "./resolution";
 import { formatChordSymbolText } from "./text";
 
@@ -49,6 +49,7 @@ export interface ChordSymbolConflict {
   keptPartIndex: number;
   discardedPartIndex: number;
   message: string;
+  kind?: "fretboard";
 }
 
 export interface ChordSymbolMergeResult {
@@ -76,7 +77,8 @@ function sameHarmony(a: ChordSymbol, b: ChordSymbol): boolean {
  * Merge only incoming selections into a global measure. At conflicting incoming
  * onsets the topmost source wins (first symbol wins ties within one source).
  * Existing harmony is replaced only at incoming onsets, never consulted as a
- * competing source. Equivalent incoming harmony coalesces without a warning.
+ * competing source. Equivalent incoming harmony coalesces; different diagrams
+ * for the same instrument retain the first diagram with a warning.
  */
 export function mergeGlobalChordSymbols(
   measure: GlobalMeasure,
@@ -91,7 +93,22 @@ export function mergeGlobalChordSymbols(
         (entry) => compareChordSymbolPositions(entry.chord.position, chord.position) === 0,
       );
       if (!previous) accepted.push({ chord, partIndex: source.partIndex });
-      else if (!sameHarmony(previous.chord, chord))
+      else if (sameHarmony(previous.chord, chord) && chord.fretboards?.length) {
+        const frames = [...(previous.chord.fretboards ?? [])];
+        for (const frame of chord.fretboards) {
+          const existing = frames.find((candidate) => candidate.partId === frame.partId);
+          if (!existing) frames.push(frame);
+          else if (!sameFretboard(existing, frame))
+            warnings.push({
+              position: chord.position,
+              keptPartIndex: previous.partIndex,
+              discardedPartIndex: source.partIndex,
+              message: "Conflicting chord diagrams: kept the topmost source part.",
+              kind: "fretboard",
+            });
+        }
+        previous.chord = { ...previous.chord, fretboards: frames };
+      } else if (!sameHarmony(previous.chord, chord))
         warnings.push({
           position: chord.position,
           keptPartIndex: previous.partIndex,
@@ -104,4 +121,19 @@ export function mergeGlobalChordSymbols(
     measure: accepted.reduce((result, entry) => upsertGlobalChordSymbol(result, entry.chord), measure),
     warnings,
   };
+}
+
+function sameFretboard(a: Fretboard, b: Fretboard): boolean {
+  const shape = (frame: Fretboard) => [
+    frame.frameStrings,
+    frame.frameFrets,
+    frame.firstFret?.fret ?? 1,
+    frame.firstFret?.text,
+    frame.firstFret?.location ?? "left",
+    frame.unplayed ?? "x",
+    [...frame.frameNotes]
+      .sort((left, right) => left.string - right.string)
+      .map((note) => [note.string, note.fret, note.fingering, note.barre]),
+  ];
+  return JSON.stringify(shape(a)) === JSON.stringify(shape(b));
 }

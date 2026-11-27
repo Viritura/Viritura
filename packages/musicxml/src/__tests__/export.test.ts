@@ -52,6 +52,56 @@ const texts = (xml: string, tag: string) =>
   Array.from(document(xml).getElementsByTagName(tag)).map((element) => element.textContent);
 
 describe("MusicXML export", () => {
+  it("diagnoses all-unplayed diagrams rather than emitting a schema-invalid empty frame", () => {
+    const source = score();
+    source.parts[0]!.chordSymbolVisibility = "show";
+    source.global.measures[0]!.chordSymbols = [
+      {
+        position: { fraction: [0, 1] },
+        root: { step: "C" },
+        fretboards: [{ partId: "clarinet", frameStrings: 6, frameFrets: 4, frameNotes: [] }],
+      },
+    ];
+    const diagnostics = new DiagnosticCollector();
+    const exported = convertScoreToMusicXml(source, { diagnostics });
+    expect(texts(exported.xml, "frame")).toHaveLength(0);
+    expect(diagnostics.all().some((entry) => entry.code === "musicxml-frame-empty")).toBe(true);
+  });
+  it("exports only the instrument's frame and round-trips its full musical structure", () => {
+    const source = score();
+    source.parts[0]!.chordSymbolVisibility = "show";
+    source.parts[1]!.chordSymbolVisibility = "show";
+    const frame = {
+      partId: "clarinet",
+      frameStrings: 6,
+      frameFrets: 4,
+      firstFret: { fret: 3, text: "III", location: "right" as const },
+      unplayed: "",
+      frameNotes: [
+        { string: 6, fret: 3, fingering: "1", barre: "start" as const },
+        { string: 2, fret: 0 },
+        { string: 1, fret: 3, barre: "stop" as const },
+      ],
+    };
+    source.global.measures[0]!.chordSymbols = [
+      {
+        position: { fraction: [0, 1] },
+        root: { step: "C" },
+        fretboards: [frame, { ...frame, partId: "cello", frameStrings: 4, frameNotes: [{ string: 1, fret: 3 }] }],
+      },
+    ];
+    const xml = convertScoreToMusicXml(source).xml;
+    expect(texts(xml, "frame-strings")).toEqual(["6", "4"]);
+    const imported = parseMnx(convertMusicXmlToMnx(xml, { includeVendorExtensions: true }));
+    expect(
+      imported.global.measures[0]!.chordSymbols![0]!.fretboards?.map((entry) => ({
+        ...entry,
+        partId: source.parts[imported.parts.findIndex((part) => part.id === entry.partId)]!.id,
+      })),
+    ).toEqual(source.global.measures[0]!.chordSymbols![0]!.fretboards);
+    expect(texts(convertScoreToMusicXml(source, { scoreIndex: 1 }).xml, "frame-strings")).toEqual(["6"]);
+  });
+
   it.each([
     ["circled", "circled"],
     ["slashed", "slashed"],

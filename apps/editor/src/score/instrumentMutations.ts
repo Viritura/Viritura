@@ -6,7 +6,7 @@
  */
 
 import type { ClefSign, LayoutContent, LayoutGroup, LayoutStaff, Part, Score, ScoreDefinition } from "@viritura/core";
-import { pruneMixerSettings, resolvePartDisplayNames } from "@viritura/core";
+import { pruneFretboards, pruneMixerSettings, resolvePartDisplayNames } from "@viritura/core";
 import {
   type Player,
   FAMILY_META,
@@ -567,7 +567,7 @@ export function removeInstrumentFromScore(score: Score, partId: string): Score {
     (score.scores ?? []).filter((sd) => sd.layout !== perPartLayoutId),
   );
 
-  return pruneMixerSettings({ ...score, parts: newParts, layouts: newLayouts, scores: newScores });
+  return pruneMixerSettings(pruneFretboards({ ...score, parts: newParts, layouts: newLayouts, scores: newScores }));
 }
 
 // ─── Reorder an instrument ───────────────────────────────────────

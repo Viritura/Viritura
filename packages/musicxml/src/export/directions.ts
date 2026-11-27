@@ -456,6 +456,7 @@ export function buildDirections(
             chord,
             displayInterval(measure.key.fifths, displayTransposition(state, useWritten)),
             diagnostics,
+            plan.selection.part.id,
           ),
         });
       }

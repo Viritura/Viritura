@@ -413,6 +413,27 @@ export interface ChordRoot {
   alter?: number;
 }
 
+/** One played string in a MusicXML-shaped chord frame. */
+export interface FretboardNote {
+  /** MusicXML numbering: 1 is the rightmost string. */
+  string: number;
+  /** Absolute fret; 0 denotes an open string. */
+  fret: number;
+  fingering?: string;
+  /** Paired endpoints on the same fret, start on the higher-numbered string. */
+  barre?: "start" | "stop";
+}
+
+export interface Fretboard {
+  partId: string;
+  frameStrings: number;
+  frameFrets: number;
+  firstFret?: { fret: number; text?: string; location?: "left" | "right" };
+  /** Omitted strings are unplayed. */
+  frameNotes: FretboardNote[];
+  unplayed?: string;
+}
+
 /** A time-anchored harmony event rendered as a chord symbol above the staff. */
 export interface ChordSymbol {
   position: RhythmicPosition;
@@ -427,6 +448,8 @@ export interface ChordSymbol {
   extension?: 6 | 7 | 9 | 11 | 13;
   /** Visual override only; the semantic resolver rejects contradictory or unsupported non-equivalent text. */
   textOverride?: string;
+  /** Authored physical voicings, one per instrument; not used for chord playback. */
+  fretboards?: Fretboard[];
 }
 
 // ═══════════════════════════════════════════

@@ -1814,12 +1814,65 @@ fn test_cached_global_chord_edit_matches_fresh() {
             serde_json::json!("G");
         let dl = cached_harmony_matches_fresh(&value, &config, &mut cache);
         assert_eq!(harmony_text_runs(&dl, "m0/chord0")[0].0, "G");
+        value["global"]["measures"][0]["_x"]["viritura"]["chordSymbols"][0]["fretboards"] = serde_json::json!([{
+            "partId": "flute-source", "frameStrings": 4, "frameFrets": 4,
+            "frameNotes": [{"string": 1, "fret": 3}]
+        }]);
+        let diagram = cached_harmony_matches_fresh(&value, &config, &mut cache);
+        assert!(diagram
+            .commands
+            .iter()
+            .any(|command| matches!(command, RenderCommand::DrawCircle { .. })));
         value["global"]["measures"][0]["_x"]["viritura"]["chordSymbols"] = serde_json::json!([]);
         assert_harmony_copies(
             &cached_harmony_matches_fresh(&value, &config, &mut cache),
             0,
         );
     }
+}
+
+#[test]
+fn test_fretboards_project_only_to_their_source_instrument() {
+    let mut value = harmony_layout_fixture(serde_json::json!([
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]},
+        {"type": "staff", "sources": [{"part": "clarinet-source"}]}
+    ]));
+    value["parts"][2]["_x"]["viritura"]["chordSymbolVisibility"] = serde_json::json!("show");
+    value["global"]["measures"][0]["_x"]["viritura"]["chordSymbols"][0]["fretboards"] = serde_json::json!([
+        {"partId": "keyboard-source", "frameStrings": 6, "frameFrets": 4, "frameNotes": [{"string": 1, "fret": 3}]},
+        {"partId": "clarinet-source", "frameStrings": 4, "frameFrets": 4, "frameNotes": [{"string": 1, "fret": 2}, {"string": 2, "fret": 2}]}
+    ]);
+    let score = parse_mnx(&value.to_string()).unwrap();
+    for part_index in [1, 2] {
+        let resolved = resolve_measures(&score, part_index);
+        let frames = &resolved[0].chord_symbols.as_ref().unwrap()[0].fretboards;
+        assert_eq!(frames.len(), 1);
+        assert_eq!(
+            Some(frames[0].part_id.as_str()),
+            score.parts[part_index].id.as_deref()
+        );
+    }
+    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+    let dots = dl
+        .commands
+        .iter()
+        .zip(&dl.element_ids)
+        .filter(|(command, id)| {
+            matches!(command, RenderCommand::DrawCircle { .. })
+                && id.as_deref().is_some_and(|id| id.starts_with("m0/chord0"))
+        })
+        .count();
+    assert_eq!(
+        dots, 3,
+        "one keyboard diagram and one clarinet diagram, not a copy on every staff"
+    );
+    assert_eq!(
+        score.global.measures[0].chord_symbols().unwrap()[0]
+            .fretboards
+            .len(),
+        2
+    );
 }
 
 #[test]

@@ -437,6 +437,45 @@
       "additionalProperties": false
     },
 
+    "fretboard-note": {
+      "type": "object",
+      "required": ["string", "fret"],
+      "properties": {
+        "string": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "fret": { "type": "integer", "minimum": 0, "maximum": 36 },
+        "fingering": { "type": "string", "maxLength": 8 },
+        "barre": { "type": "string", "enum": ["start", "stop"] }
+      },
+      "additionalProperties": false
+    },
+    "fretboard-first-fret": {
+      "type": "object",
+      "required": ["fret"],
+      "properties": {
+        "fret": { "type": "integer", "minimum": 1, "maximum": 36 },
+        "text": { "type": "string", "maxLength": 16 },
+        "location": { "type": "string", "enum": ["left", "right"] }
+      },
+      "additionalProperties": false
+    },
+    "fretboard": {
+      "type": "object",
+      "description": "Instrument-specific MusicXML-shaped chord frame. String 1 is the rightmost string. Omitted strings are unplayed; fret 0 is open. Geometry uses Viritura engraving defaults, not source page coordinates.",
+      "required": ["partId", "frameStrings", "frameFrets", "frameNotes"],
+      "properties": {
+        "partId": { "type": "string", "minLength": 1 },
+        "frameStrings": { "type": "integer", "minimum": 2, "maximum": 12 },
+        "frameFrets": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "firstFret": { "$ref": "#/$defs/fretboard-first-fret" },
+        "frameNotes": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/fretboard-note" }
+        },
+        "unplayed": { "type": "string", "maxLength": 8 }
+      },
+      "additionalProperties": false
+    },
     "chord-symbol": {
       "type": "object",
       "description": "A score-wide harmony event on a global measure. Either a structured root or authored rawText is required; rawText may preserve malformed or unrecognized symbols and no-chord (NC) declarations without inventing a root.",
@@ -474,6 +513,11 @@
         "textOverride": {
           "type": "string",
           "description": "Visual override of the computed display text, not a semantic replacement. The semantic resolver rejects parseable contradictions or unsupported non-equivalent overrides."
+        },
+        "fretboards": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fretboard" },
+          "description": "At most one authored diagram per source part. Physical fingerings are independent of display transposition and chord playback."
         }
       },
       "additionalProperties": false

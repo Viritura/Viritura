@@ -10,6 +10,7 @@ export {
   type ChordSymbolVoicing,
 } from "./resolution";
 export { transposeChordSymbol } from "./transpose";
+export { validateFretboard, pruneFretboards } from "./fretboard";
 export {
   compareChordSymbolPositions,
   upsertGlobalChordSymbol,

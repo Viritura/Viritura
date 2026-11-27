@@ -22,6 +22,62 @@ fn text_runs(chord: &ChordSymbol) -> String {
 }
 
 #[test]
+fn fretboard_geometry_covers_open_muted_shifted_fingered_and_barre_ink() {
+    for strings in [4, 5, 6, 7] {
+        let symbol = chord(json!({
+            "root": {"step": "C"},
+            "fretboards": [{
+                "partId": "guitar", "frameStrings": strings, "frameFrets": 4,
+                "firstFret": {"fret": 3, "text": "III", "location": "right"},
+                "frameNotes": [
+                    {"string": strings, "fret": 3, "fingering": "1", "barre": "start"},
+                    {"string": 2, "fret": 0},
+                    {"string": 1, "fret": 3, "barre": "stop"}
+                ]
+            }]
+        }));
+        let frame = &symbol.fretboards[0];
+        frame.validate().unwrap();
+        let (width, height) = fretboards::dimensions(frame, 10.0);
+        let mut dl = DisplayList::new(width, height);
+        fretboards::render(&mut dl, frame, 0.0, 0.0, 10.0, "m0/chord0");
+        assert!(dl
+            .element_ids
+            .iter()
+            .all(|id| id.as_deref() == Some("m0/chord0")));
+        assert_eq!(
+            dl.commands
+                .iter()
+                .filter(|command| matches!(command, RenderCommand::DrawCircle { .. }))
+                .count(),
+            2
+        );
+        assert!(dl
+            .commands
+            .iter()
+            .any(|command| matches!(command, RenderCommand::DrawEllipse { filled: false, .. })));
+        assert!(dl
+            .commands
+            .iter()
+            .any(|command| matches!(command, RenderCommand::DrawText { text, .. } if text == "x")));
+        assert!(dl.commands.iter().any(
+            |command| matches!(command, RenderCommand::DrawText { text, .. } if text == "III")
+        ));
+        assert!(dl.commands.iter().any(
+            |command| matches!(command, RenderCommand::DrawLine { width, .. } if *width == 5.5)
+        ));
+        let (_, ascent) = chord_symbol_dimensions(&symbol, Default::default(), 10.0);
+        assert!(ascent > height);
+        for command in &dl.commands {
+            if let RenderCommand::DrawCircle { cx, cy, r, .. } = command {
+                assert!(*cx - r >= 0.0 && *cx + r <= width);
+                assert!(*cy - r >= 0.0 && *cy + r <= height);
+            }
+        }
+    }
+}
+
+#[test]
 fn modifier_chords_use_canonical_semantic_runs() {
     for (raw, expected) in [
         ("Cadd79omit5/E", "Cadd7add9omit5/E"),

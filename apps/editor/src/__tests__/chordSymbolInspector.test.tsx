@@ -205,6 +205,28 @@ afterEach(() => {
 });
 
 describe("global chord symbol inspector", () => {
+  it("creates, edits and removes only the selected instrument's diagram", async () => {
+    const { user, getScore } = renderInspector();
+    await user.click(screen.getByRole("button", { name: "Add chord diagram" }));
+    const strings = screen.getByRole("spinbutton", { name: "String count" });
+    await user.clear(strings);
+    await user.type(strings, "4");
+    await user.click(
+      within(screen.getByRole("group", { name: "String 4" })).getByRole("combobox", { name: "Position" }),
+    );
+    await user.click(within(screen.getByRole("listbox")).getByRole("option", { name: "Open", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Apply diagram" }));
+    const stored = getScore().global.measures[0]!.chordSymbols![0]!;
+    expect(stored.fretboards?.[0]?.partId).toBe("clarinet");
+    expect(stored.fretboards?.[0]?.frameStrings).toBe(4);
+    await user.clear(chordInput());
+    await user.type(chordInput(), "Dm");
+    await user.tab();
+    expect(getScore().global.measures[0]!.chordSymbols![0]!.fretboards).toEqual(stored.fretboards);
+    await user.click(screen.getByRole("button", { name: "Remove diagram" }));
+    expect(getScore().global.measures[0]!.chordSymbols![0]!.fretboards).toBeUndefined();
+  });
+
   it("labels a chord with the active interval at its rhythmic position rather than the initial piccolo interval", () => {
     const initial = buildScore();
     initial.parts[1]!.transposition = { interval: { halfSteps: -12, staffDistance: -7 } };

@@ -451,6 +451,7 @@ function parseChordSymbol(raw: RawChordSymbol): ChordSymbol {
   if (raw.bass) cs.bass = parseChordRoot(raw.bass);
   if (raw.extension !== undefined) cs.extension = raw.extension;
   if (raw.textOverride !== undefined) cs.textOverride = raw.textOverride;
+  if (raw.fretboards !== undefined) cs.fretboards = structuredClone(raw.fretboards);
   return cs;
 }
 

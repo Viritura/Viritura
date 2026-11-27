@@ -44,6 +44,44 @@ function expectRejected(source: unknown) {
 }
 
 describe("central chord-symbol contract", () => {
+  it.each([4, 5, 6, 7])("round-trips a complete %i-string diagram", (frameStrings) => {
+    expectChordRoundtrip({
+      ...structuredChord,
+      fretboards: [
+        {
+          partId: "p1",
+          frameStrings,
+          frameFrets: 4,
+          firstFret: { fret: 3, text: "III", location: "right" },
+          unplayed: "",
+          frameNotes: [
+            { string: frameStrings, fret: 3, fingering: "1", barre: "start" },
+            { string: 2, fret: 0, fingering: "0" },
+            { string: 1, fret: 3, barre: "stop" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("rejects dangling instruments, duplicate diagrams, off-grid stops and unpaired barres", () => {
+    const frame = {
+      partId: "p1",
+      frameStrings: 6,
+      frameFrets: 4,
+      frameNotes: [{ string: 1, fret: 3 }],
+    };
+    for (const fretboards of [
+      [{ ...frame, partId: "missing" }],
+      [frame, frame],
+      [{ ...frame, frameNotes: [{ string: 7, fret: 1 }] }],
+      [{ ...frame, frameNotes: [{ string: 1, fret: 5 }] }],
+      [{ ...frame, frameNotes: [{ string: 1, fret: 3, barre: "start" }] }],
+      [{ ...frame, firstFret: { fret: 35 } }],
+    ])
+      expectRejected(scoreWithChords([{ ...structuredChord, fretboards }]));
+  });
+
   const modifierCases: {
     text: string;
     quality: ChordSymbol["quality"];

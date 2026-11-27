@@ -34,6 +34,8 @@ export {
   resolveChordSymbol,
   resolveChordSymbolDegrees,
   transposeChordSymbol,
+  validateFretboard,
+  pruneFretboards,
   voiceChordSymbol,
   compareChordSymbolPositions,
   upsertGlobalChordSymbol,

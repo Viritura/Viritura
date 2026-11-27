@@ -26,6 +26,7 @@ export function editChordTrackText(score: Score, point: TrackPoint, text: string
   const chord = {
     ...parseChordSymbolText(text, existing?.position ?? position),
     ...(existing?.textOverride !== undefined && { textOverride: existing.textOverride }),
+    ...(existing?.fretboards !== undefined && { fretboards: existing.fretboards }),
   };
   if (existing && JSON.stringify(existing) === JSON.stringify(chord)) return score;
   const updated = upsertGlobalChordSymbol(measure, chord);

@@ -13,6 +13,7 @@ import type { Part } from "../model/part";
 import { PatchTargetMissing } from "./locate";
 import { normalizePartMeasures } from "./structuralEdits";
 import { pruneMixerSettings } from "../operations/mixer";
+import { pruneFretboards } from "../operations/chordSymbols";
 import type {
   AddPartPatch,
   PartField,
@@ -39,6 +40,7 @@ export function applyRemovePart(draft: Draft<Score>, p: RemovePartPatch): void {
   const idx = score.parts.findIndex((pt) => pt.id === p.partId);
   if (idx < 0) throw new PatchTargetMissing(`removePart: part "${p.partId}" not found`);
   score.parts.splice(idx, 1);
+  score.global = pruneFretboards(score).global;
   if (score.mixer) score.mixer = pruneMixerSettings(score).mixer;
 }
 

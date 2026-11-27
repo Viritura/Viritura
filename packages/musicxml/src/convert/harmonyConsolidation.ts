@@ -27,8 +27,8 @@ export function consolidateImportedHarmony(
     for (const warning of warnings) {
       diagnostics?.warn(
         ptr("parts", warning.discardedPartIndex, "measures", measureIndex, "harmony"),
-        `Conflicting chord symbols at ${warning.position.fraction.join("/")}: kept the topmost source staff in part ${warning.keptPartIndex + 1}.`,
-        "musicxml-harmony-conflict",
+        `Conflicting chord ${warning.kind === "fretboard" ? "diagrams" : "symbols"} at ${warning.position.fraction.join("/")}: kept the topmost source staff in part ${warning.keptPartIndex + 1}.`,
+        warning.kind === "fretboard" ? "musicxml-frame-conflict" : "musicxml-harmony-conflict",
       );
     }
   }

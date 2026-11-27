@@ -66,6 +66,7 @@ export function applyChordSymbolEdit(
   const chord = {
     ...parsedConcert,
     ...(existing?.textOverride !== undefined && { textOverride: existing.textOverride }),
+    ...(existing?.fretboards !== undefined && { fretboards: existing.fretboards }),
   };
   const updated = upsertGlobalChordSymbol(measure, chord);
 

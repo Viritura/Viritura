@@ -7,6 +7,7 @@ import {
   resolveChordSymbol,
   transposeChordSymbol,
   upsertGlobalChordSymbol,
+  pruneFretboards,
   type ChordSymbol,
   type ChordSymbolConflict,
   type ChordSymbolSource,
@@ -63,6 +64,40 @@ const INVALID_POSITIONS = [
 ];
 
 describe("transposeChordSymbol", () => {
+  it("retains instrument-specific physical fingerings through display transposition and source merging", () => {
+    const frame = { partId: "guitar", frameStrings: 6, frameFrets: 5, frameNotes: [{ string: 1, fret: 0 }] };
+    const first = { ...chord("C"), fretboards: [frame] };
+    expect(transposeChordSymbol(first, { staffDistance: 1, halfSteps: 2 }).fretboards).toEqual([frame]);
+    const second = { ...chord("C"), fretboards: [{ ...frame, partId: "ukulele", frameStrings: 4 }] };
+    expect(
+      mergeGlobalChordSymbols({}, [
+        { partIndex: 0, chordSymbols: [first] },
+        { partIndex: 1, chordSymbols: [second] },
+      ]).measure.chordSymbols?.[0]?.fretboards,
+    ).toEqual([...first.fretboards, ...second.fretboards]);
+    expect(first.fretboards).toEqual([frame]);
+    const equivalent = { ...first, fretboards: [{ ...frame, unplayed: "x", firstFret: { fret: 1 } }] };
+    expect(mergeGlobalChordSymbols({}, [{ partIndex: 0, chordSymbols: [first, equivalent] }]).warnings).toEqual([]);
+    const conflicting = { ...first, fretboards: [{ ...frame, frameNotes: [{ string: 1, fret: 3 }] }] };
+    expect(
+      mergeGlobalChordSymbols({}, [
+        { partIndex: 0, chordSymbols: [first] },
+        { partIndex: 0, chordSymbols: [conflicting] },
+      ]).warnings[0]?.kind,
+    ).toBe("fretboard");
+  });
+
+  it("prunes only removed instruments' diagrams without mutating the input", () => {
+    const frame = { partId: "guitar", frameStrings: 6, frameFrets: 5, frameNotes: [] };
+    const original = {
+      mnx: { version: 1 },
+      parts: [],
+      global: { measures: [{ chordSymbols: [{ ...chord("C"), fretboards: [frame] }] }] },
+    };
+    expect(pruneFretboards(original).global.measures[0]?.chordSymbols?.[0]).not.toHaveProperty("fretboards");
+    expect(original.global.measures[0]?.chordSymbols?.[0]?.fretboards).toEqual([frame]);
+  });
+
   const spellings: { text: string; interval: Interval; expected: string }[] = [
     { text: "C/E", interval: { staffDistance: 1, halfSteps: 2 }, expected: "D/F#" },
     { text: "C/E", interval: { staffDistance: -1, halfSteps: -2 }, expected: "Bb/D" },

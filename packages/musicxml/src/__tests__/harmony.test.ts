@@ -72,6 +72,58 @@ function expectGlobalOnly(document: MnxDocument, sourcePartIndices: number[]): v
 }
 
 describe("MusicXML global harmony merging", () => {
+  it("combines different instrument frames on equivalent harmony and diagnoses source appearance loss", () => {
+    const frame = (strings: number) => `<frame width="60" unplayed="">
+      <frame-strings>${strings}</frame-strings><frame-frets>4</frame-frets>
+      <first-fret text="III" location="right">3</first-fret>
+      <frame-note><string>${strings}</string><fret>3</fret><fingering>1</fingering><barre type="start"/></frame-note>
+      <frame-note><string>1</string><fret>3</fret><barre type="stop"/></frame-note>
+    </frame>`;
+    const { document, diagnostics } = importHarmony([
+      { measures: [harmony("C", "major", frame(6))] },
+      { measures: [harmony("C", "major", frame(4))] },
+    ]);
+    const frames = document.global.measures[0]?._x?.viritura.chordSymbols?.[0]?.fretboards;
+    expect(frames?.map((entry) => [entry.partId, entry.frameStrings])).toEqual([
+      ["P0", 6],
+      ["P1", 4],
+    ]);
+    expect(frames?.[0]?.firstFret).toEqual({ fret: 3, text: "III", location: "right" });
+    expect(diagnostics.some((entry) => entry.code === "musicxml-frame-appearance")).toBe(true);
+  });
+
+  it("retains harmony and diagnoses an unsupported off-grid frame", () => {
+    const { document, diagnostics } = importHarmony([
+      {
+        measures: [
+          harmony(
+            "C",
+            "major",
+            `
+      <frame><frame-strings>6</frame-strings><frame-frets>4</frame-frets>
+      <frame-note><string>1</string><fret>8</fret></frame-note></frame>`,
+          ),
+        ],
+      },
+    ]);
+    const imported = document.global.measures[0]?._x?.viritura.chordSymbols?.[0];
+    expect(imported?.root?.step).toBe("C");
+    expect(imported).not.toHaveProperty("fretboards");
+    expect(diagnostics.some((entry) => entry.code === "musicxml-frame-unsupported")).toBe(true);
+  });
+
+  it("diagnoses differing diagrams for the same instrument without reporting a harmony conflict", () => {
+    const frame = (fret: number) => `<frame><frame-strings>6</frame-strings><frame-frets>4</frame-frets>
+      <frame-note><string>1</string><fret>${fret}</fret></frame-note></frame>`;
+    const { document, diagnostics } = importHarmony([
+      { measures: [harmony("C", "major", frame(1)) + harmony("C", "major", frame(3))] },
+    ]);
+    const frames = document.global.measures[0]?._x?.viritura.chordSymbols?.[0]?.fretboards;
+    expect(frames?.[0]?.frameNotes).toEqual([{ string: 1, fret: 1 }]);
+    expect(diagnostics.some((entry) => entry.code === "musicxml-frame-conflict")).toBe(true);
+    expect(diagnostics.some((entry) => entry.code === "musicxml-harmony-conflict")).toBe(false);
+  });
+
   it("immutably merges incoming positions without losing untouched global harmony or other extensions", () => {
     const originalChord: ChordSymbol = {
       position: { fraction: [3, 4] },

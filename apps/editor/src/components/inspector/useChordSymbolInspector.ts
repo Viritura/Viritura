@@ -6,6 +6,7 @@ import {
   transposeChordSymbol,
   type ChordQuality,
   type ChordSymbol,
+  type Fretboard,
   type Part,
   type Score,
 } from "@viritura/core";
@@ -91,7 +92,7 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
     : chordDisplayInterval(score, selectedScoreIndex, sourcePartIndex, measureIndex, stored);
   const chord = stored && sourcePart ? transposeChordSymbol(stored, displayInterval) : null;
 
-  function commit(displayChord: ChordSymbol) {
+  function commit(displayChord: ChordSymbol, audition = true) {
     if (!score || !stored || measureIndex === undefined || chordIndex === undefined) return;
     const concertChord = transposeChordSymbol(displayChord, {
       halfSteps: -displayInterval.halfSteps,
@@ -103,7 +104,7 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
     });
     updateScore(nextScore);
     // Audio failures must not roll back an already committed notation edit.
-    if (!fromTrack || trackAudition) void previewChord(concertChord, nextScore).catch(() => {});
+    if (audition && (!fromTrack || trackAudition)) void previewChord(concertChord, nextScore).catch(() => {});
   }
 
   function mutateChord(mutate: (selected: ChordSymbol) => void) {
@@ -131,6 +132,7 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
         commit({
           ...parseChordSymbolText(text, chord.position),
           ...(chord.textOverride !== undefined && { textOverride: chord.textOverride }),
+          ...(chord.fretboards !== undefined && { fretboards: chord.fretboards }),
         });
     },
     setRootStep: (step: string) =>
@@ -166,6 +168,12 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
     },
     setTextOverride: (text: string) => {
       if (chord) commit({ ...chord, textOverride: text.trim() === "" ? undefined : text });
+    },
+    setFretboard: (frame: Fretboard | undefined) => {
+      if (!chord || !sourcePart) return;
+      const frames = (chord.fretboards ?? []).filter((candidate) => candidate.partId !== sourcePart.id);
+      if (frame) frames.push(frame);
+      commit({ ...chord, fretboards: frames.length ? frames : undefined }, false);
     },
   };
 }
