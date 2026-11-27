@@ -6,9 +6,11 @@ import { TimeSignatureAppearance } from "./TimeSignatureAppearance";
 import { PageTurnsPanel } from "./PageTurnsPanel";
 import { ChordSymbolsPanel } from "./ChordSymbolsPanel";
 import { InstrumentChangesPanel } from "./InstrumentChangesPanel";
+import { BarNumbersPanel } from "./BarNumbersPanel";
 import styles from "./HouseStylePanel.module.css";
 
-type HouseStyleCategory = "time-signatures" | "chord-symbols" | "text-styles" | "page-turns" | "instrument-changes";
+type HouseStyleCategory =
+  "time-signatures" | "chord-symbols" | "text-styles" | "page-turns" | "instrument-changes" | "bar-numbers";
 
 interface CategoryDefinition {
   id: HouseStyleCategory;
@@ -18,6 +20,12 @@ interface CategoryDefinition {
 }
 
 const CATEGORIES: readonly CategoryDefinition[] = [
+  {
+    id: "bar-numbers",
+    title: "Bar Numbers",
+    keywords: "bar measure numbers every system layout font size bold italic box circle above below grand staff",
+    render: () => <BarNumbersPanel />,
+  },
   {
     id: "instrument-changes",
     title: "Instrument Changes",
@@ -59,6 +67,7 @@ const DEFAULT_OPEN: Record<HouseStyleCategory, boolean> = {
   "page-turns": false,
   "text-styles": false,
   "instrument-changes": false,
+  "bar-numbers": false,
 };
 
 /** Searchable score-wide engraving controls with the live canvas beside them. */

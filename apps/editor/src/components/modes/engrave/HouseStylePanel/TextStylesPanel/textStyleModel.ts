@@ -29,7 +29,8 @@ export function roleLabel(role: string): string {
   return TEXT_STYLE_ROLE_LABELS[role] ?? role;
 }
 
-export const ROLE_ORDER: readonly string[] = TEXT_STYLE_ROLES;
+// Bar numbers have their own placement-aware style controls and point display.
+export const ROLE_ORDER: readonly string[] = TEXT_STYLE_ROLES.filter((role) => role !== "barNumber");
 
 /**
  * Fallback for a role that isn't in the defaults table. `ROLE_ORDER` is

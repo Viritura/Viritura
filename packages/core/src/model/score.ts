@@ -37,13 +37,69 @@ export interface TextStyleOverride {
   align?: TextAlignment;
 }
 
+/** Bar-number typography uses the shared text-style fields that affect glyphs. */
+export type BarNumberTextStyle = Pick<TextStyleOverride, "size" | "family" | "bold" | "italic">;
+
 /**
  * Per-document text style overrides — a partial map of role name → partial
  * style. Stored in root `_x.viritura.textStyles` and merged over the engine
  * defaults at layout time. Roles: title, subtitle, composer, arranger,
- * staffLabel, pageNumber, tempo, pedalText, copyright.
+ * staffLabel, pageNumber, tempo, pedalText, copyright, barNumber.
  */
 export type TextStyles = Partial<Record<string, TextStyleOverride>>;
+
+/** House-style defaults, with optional overrides on each score view. */
+export interface BarNumberSettings {
+  frequency?: "systemStarts" | "everyBar" | "hidden";
+  /** `belowTopInstrument` is accepted only for legacy documents. */
+  placement?: "aboveSystem" | "belowSystem" | "belowTopInstrument";
+  /** Selected system locations; replaces legacy placement when present. */
+  placements?: ("aboveSystem" | "belowSystem" | "belowTopInstrument")[];
+  /** Layout-specific outer brackets, identified by their member part IDs. */
+  aboveGroups?: string[][];
+  horizontalAlignment?: "barline" | "center";
+  /** Minimum distance from the musical staff, in staff spaces. */
+  distance?: number;
+  /** Reserve a vertically aligned row independently of local musical content. */
+  onStaff?: boolean;
+  /** Show the line of a reserved bar-number row. */
+  showStaffLine?: boolean;
+  showFirst?: boolean;
+  /** Sparse typography override for this score view; inherits `textStyles.barNumber`. */
+  style?: BarNumberTextStyle;
+  /** @deprecated Use `textStyles.barNumber` or the score view's `style`. */
+  family?: FontFamily;
+  /** @deprecated Use `textStyles.barNumber.size` or the score view's `style.size`. */
+  size?: number;
+  /** @deprecated Use `textStyles.barNumber` or the score view's `style`. */
+  bold?: boolean;
+  /** @deprecated Use `textStyles.barNumber` or the score view's `style`. */
+  italic?: boolean;
+  enclosure?: "none" | "box" | "circle";
+}
+
+export const DEFAULT_BAR_NUMBER_SETTINGS: Required<
+  Pick<
+    BarNumberSettings,
+    | "frequency"
+    | "placement"
+    | "horizontalAlignment"
+    | "distance"
+    | "onStaff"
+    | "showStaffLine"
+    | "showFirst"
+    | "enclosure"
+  >
+> = {
+  frequency: "systemStarts",
+  placement: "belowSystem",
+  horizontalAlignment: "barline",
+  distance: 0.5,
+  onStaff: false,
+  showStaffLine: true,
+  showFirst: false,
+  enclosure: "none",
+};
 
 /** Glyph treatment, independent of placement, distribution, and scale. */
 export type TimeSignatureRenderStyle = "standard" | "narrow" | "outsideStaff" | "singleNumber" | "noteValue";
@@ -320,6 +376,8 @@ export interface Score {
   metadata?: ScoreMetadata;
   /** Per-document text style overrides (root _x.viritura.textStyles). */
   textStyles?: TextStyles;
+  /** Document defaults, stored in root `_x.viritura.barNumbers`. */
+  barNumbers?: BarNumberSettings;
   /** Time signature engraving styles (root `_x.viritura.timeSignatures`). */
   timeSignatures?: TimeSignatureStyles;
   /** Chord-symbol engraving style (root `_x.viritura.chordSymbolStyle`). */

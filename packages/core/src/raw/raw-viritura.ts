@@ -671,6 +671,45 @@ export interface components {
             spatiumMm?: number;
             pageTurns?: components["schemas"]["page-turn-settings"];
         };
+        /** @description Partial bar-number house style. Score-view overrides inherit omitted fields from the document defaults. */
+        "bar-number-settings": {
+            /** @enum {unknown} */
+            frequency?: "systemStarts" | "everyBar" | "hidden";
+            /** @enum {unknown} */
+            placement?: "aboveSystem" | "belowSystem" | "belowTopInstrument";
+            placements?: ("aboveSystem" | "belowSystem" | "belowTopInstrument")[];
+            aboveGroups?: string[][];
+            /** @enum {unknown} */
+            horizontalAlignment?: "barline" | "center";
+            distance?: number;
+            onStaff?: boolean;
+            showStaffLine?: boolean;
+            showFirst?: boolean;
+            style?: components["schemas"]["bar-number-text-style"];
+            /**
+             * @deprecated
+             * @description Legacy bar-number font family. Use textStyles.barNumber.family or score-view barNumbers.style.family.
+             * @enum {unknown}
+             */
+            family?: "serif" | "sans-serif" | "monospace";
+            /**
+             * @deprecated
+             * @description Legacy bar-number size in staff spaces. Use textStyles.barNumber.size or score-view barNumbers.style.size.
+             */
+            size?: number;
+            /**
+             * @deprecated
+             * @description Legacy bar-number weight. Use textStyles.barNumber.bold or score-view barNumbers.style.bold.
+             */
+            bold?: boolean;
+            /**
+             * @deprecated
+             * @description Legacy bar-number slant. Use textStyles.barNumber.italic or score-view barNumbers.style.italic.
+             */
+            italic?: boolean;
+            /** @enum {unknown} */
+            enclosure?: "none" | "box" | "circle";
+        };
         /** @description Options for the autoHideEmptyParts policy of this score view. Manually omitted staves are never restored by these options. */
         "auto-hide-empty-staves": {
             /**
@@ -690,6 +729,7 @@ export interface components {
             pageSetup?: components["schemas"]["page-setup"];
             /** @enum {unknown} */
             pageSetupRole?: "score" | "part";
+            barNumbers?: components["schemas"]["bar-number-settings"];
             instrumentNameDisplay?: components["schemas"]["instrument-name-display"];
             /** @description Part IDs eligible for automatic hiding on each system in paged views of this score view only. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged. */
             autoHideEmptyParts?: string[];
@@ -848,6 +888,13 @@ export interface components {
             color?: string;
             align?: components["schemas"]["text-alignment"];
         };
+        /** @description Sparse bar-number typography override. Document defaults use textStyles.barNumber; score views override only the fields they change. */
+        "bar-number-text-style": {
+            size?: number;
+            family?: components["schemas"]["font-family"];
+            bold?: boolean;
+            italic?: boolean;
+        };
         /** @description Per-document text style overrides keyed by role. Each entry is a partial override merged over the engine's built-in stylesheet at layout time. Stored at `_x.viritura.textStyles` on the score root. */
         "text-styles": {
             title?: components["schemas"]["text-style"];
@@ -859,6 +906,7 @@ export interface components {
             tempo?: components["schemas"]["text-style"];
             rehearsalMark?: components["schemas"]["text-style"];
             pedalText?: components["schemas"]["text-style"];
+            barNumber?: components["schemas"]["bar-number-text-style"];
             copyright?: components["schemas"]["text-style"];
         };
         /** @description Clearances a single dependent kind keeps as it settles into the keep-out field. All distances are in staff spaces (spatium). Each field is an optional partial override; omitted fields keep the engine default. */
@@ -1104,6 +1152,7 @@ export interface components {
             };
             /** @description Per-document text style overrides. */
             textStyles?: components["schemas"]["text-styles"];
+            barNumbers?: components["schemas"]["bar-number-settings"];
             /** @description Per-document placement (clearance) overrides keyed by dependent kind. */
             placement?: components["schemas"]["placement"];
             /** @description Per-document time signature engraving styles for scores and parts. */
@@ -1210,6 +1259,7 @@ export type PageTurnWeights = components["schemas"]["page-turn-weights"];
 export type PageTurnSettings = components["schemas"]["page-turn-settings"];
 export type PageMargins = components["schemas"]["page-margins"];
 export type PageSetup = components["schemas"]["page-setup"];
+export type BarNumberSettings = components["schemas"]["bar-number-settings"];
 export type AutoHideEmptyStaves = components["schemas"]["auto-hide-empty-staves"];
 export type AutoHideKeepVisible = components["schemas"]["auto-hide-keep-visible"];
 export type ScoreExtensions = components["schemas"]["score-extensions"];
@@ -1227,6 +1277,7 @@ export type InstrumentNameDisplay = components["schemas"]["instrument-name-displ
 export type FontFamily = components["schemas"]["font-family"];
 export type TextAlignment = components["schemas"]["text-alignment"];
 export type TextStyle = components["schemas"]["text-style"];
+export type BarNumberTextStyle = components["schemas"]["bar-number-text-style"];
 export type TextStyles = components["schemas"]["text-styles"];
 export type PlacementMetrics = components["schemas"]["placement-metrics"];
 export type Placement = components["schemas"]["placement"];

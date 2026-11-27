@@ -57,6 +57,7 @@ pub(in crate::layout) fn render_systems_pass2(
             &clef_change_measures,
             &mut Vec::new(),
             None,
+            None,
         );
 
         render_glissandos(

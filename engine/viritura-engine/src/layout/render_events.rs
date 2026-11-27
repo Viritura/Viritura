@@ -67,6 +67,17 @@ pub(super) fn extreme_stem_anchor(
     smufl::stem_anchors(cp_at(idx))
 }
 
+/// The stem anchors of the notehead that an event's stem attaches to.
+pub(crate) fn event_stem_anchors(
+    event: &EventLayout,
+    stem_up: bool,
+    kit: Option<&HashMap<String, KitComponent>>,
+) -> smufl::StemAnchors {
+    extreme_stem_anchor(&event.note_positions, stem_up, |i| {
+        notehead_for_note(event.event.notes().get(i), &event.event.duration.base, kit)
+    })
+}
+
 /// Compute per-note dot Y offsets for augmentation dots.
 ///
 /// When a note is on a staff line and has a second above or below, shift its

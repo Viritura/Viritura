@@ -22,6 +22,7 @@ import type {
   PageSetup,
   PageTurnSettings,
   InstrumentNameDisplaySettings,
+  BarNumberSettings,
   AutoHideEmptyStavesOptions,
 } from "@viritura/core";
 import { parseTextFrames } from "./parseTextFrames";
@@ -155,6 +156,7 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
   // (vendor dicts are untyped in the schema; narrow-cast the known shape.)
   const viritura = raw._x?.["viritura"] as Record<string, unknown> | undefined;
   if (viritura && "textFrames" in viritura) sd.textFrames = parseTextFrames(viritura["textFrames"]);
+  if (viritura?.["barNumbers"]) sd.barNumbers = { ...(viritura["barNumbers"] as BarNumberSettings) };
   if (viritura && "autoHideEmptyParts" in viritura) {
     const parts = viritura["autoHideEmptyParts"];
     if (

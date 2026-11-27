@@ -16,5 +16,6 @@
     "align": "center"
   },
   "pedalText": { "size": 2.0, "family": "serif", "bold": false, "italic": true, "color": "#000000", "align": "left" },
+  "barNumber": { "size": 2.0, "family": "serif", "bold": false, "italic": true, "color": "#000000", "align": "left" },
   "copyright": { "size": 1.5, "family": "serif", "bold": false, "italic": false, "color": "#000000", "align": "center" }
 }

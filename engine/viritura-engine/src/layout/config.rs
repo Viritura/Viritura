@@ -19,6 +19,7 @@ pub enum PageInset {
 /// Layout configuration.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LayoutConfig {
+    pub bar_numbers: crate::model::score::BarNumberSettings,
     /// Pixels per spatium (staff space).
     pub sp: f64,
     /// Left margin in spatium.
@@ -288,6 +289,7 @@ impl Default for LayoutConfig {
         // rather than a free literal.
         let pedal_min_distance = placement.resolve(ElementKind::Pedal).attach_gap;
         Self {
+            bar_numbers: Default::default(),
             sp: 12.0,
             margin_left: 5.0,
             margin_top: 5.0,

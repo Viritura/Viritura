@@ -121,12 +121,20 @@ fn flatten_content_recursive(
                     continue;
                 }
                 if let Some(symbol) = &group.symbol {
+                    let mut source_parts: Vec<_> = staves[first_staff..]
+                        .iter()
+                        .flat_map(|staff| &staff.sources)
+                        .map(|source| source.part_index)
+                        .collect();
+                    source_parts.sort_unstable();
+                    source_parts.dedup();
                     groups.push(GroupRange {
                         first_staff,
                         last_staff: staves.len() - 1,
                         symbol: symbol.clone(),
                         label: group.label.clone(),
                         depth: bracket_depth,
+                        source_parts,
                     });
                 }
             }

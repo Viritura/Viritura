@@ -123,3 +123,86 @@ fn slash_notehead_geometry_matches_bravura_metadata() {
         }
     }
 }
+
+#[test]
+fn beamed_slash_stems_attach_where_unbeamed_ones_do() {
+    let slash = |id: &str, base: &str, step: &str| {
+        format!(
+            r#"{{"id": "{id}", "duration": {{"base": "{base}"}}, "notes": [{{"pitch": {{"step": "{step}", "octave": 4}}, "notehead": {{"shape": "slash"}}}}]}}"#
+        )
+    };
+    let content = [
+        slash("down", "quarter", "B"),
+        slash("down1", "eighth", "B"),
+        slash("down2", "eighth", "B"),
+        slash("up", "quarter", "E"),
+        slash("up1", "eighth", "E"),
+        slash("up2", "eighth", "E"),
+    ]
+    .join(",");
+    let score = parse_mnx(&format!(
+        r#"{{
+            "mnx": {{"version": 1}},
+            "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
+            "parts": [{{"measures": [{{
+                "beams": [{{"events": ["down1", "down2"]}}, {{"events": ["up1", "up2"]}}],
+                "sequences": [{{"content": [{content}]}}]
+            }}]}}]
+        }}"#
+    ))
+    .unwrap();
+
+    let config = LayoutConfig::default();
+    let display_list = layout_score(&score, 0, &config);
+    let noteheads: Vec<(f64, f64)> = display_list
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawGlyph {
+                x, y, codepoint, ..
+            } if smufl::is_notehead(*codepoint) => Some((*x, *y)),
+            _ => None,
+        })
+        .collect();
+    let stems: Vec<(f64, f64, f64)> = display_list
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawLine { x1, y1, x2, y2, .. } if x1 == x2 => {
+                Some((*x1, y1.min(*y2), y1.max(*y2)))
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(noteheads.len(), 6);
+    // Where each stem meets its notehead, relative to the notehead.
+    let attachments: Vec<(f64, f64)> = noteheads
+        .iter()
+        .enumerate()
+        .map(|(index, &(x, y))| {
+            let stem_up = index >= 3;
+            // An up-stem is on the notehead's right, a down-stem on its left.
+            let side = if stem_up {
+                0.0..3.0 * config.sp
+            } else {
+                -config.sp..config.sp
+            };
+            let (stem_x, top, bottom) = stems
+                .iter()
+                .copied()
+                .find(|&(stem_x, top, bottom)| {
+                    side.contains(&(stem_x - x)) && top <= y + config.sp && bottom >= y - config.sp
+                })
+                .unwrap();
+            (stem_x - x, if stem_up { bottom } else { top } - y)
+        })
+        .collect();
+
+    for (unbeamed, beamed) in [(0, 1), (0, 2), (3, 4), (3, 5)] {
+        let (a, b) = (attachments[unbeamed], attachments[beamed]);
+        assert!(
+            (a.0 - b.0).abs() < 1e-6 && (a.1 - b.1).abs() < 1e-6,
+            "note {beamed}: {b:?}, unbeamed: {a:?}"
+        );
+    }
+}

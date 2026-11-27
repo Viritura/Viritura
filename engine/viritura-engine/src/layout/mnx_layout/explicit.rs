@@ -238,6 +238,7 @@ fn render_explicit_system(
         let StaffYPlacement {
             offsets: new_offsets,
             pair_debug: sys_pair_dbg,
+            number_staff_y: _,
         } = compute_staff_y_offsets_for_system(
             &staff_layout_view,
             flat_staves,
@@ -249,6 +250,7 @@ fn render_explicit_system(
             staff_height,
             ctx.config,
             false,
+            ctx.score,
         );
         staff_y_offsets = new_offsets;
 
@@ -409,6 +411,17 @@ pub fn layout_with_mnx_scores_cached(
     let context = crate::layout::orchestration::mnx_layout_context(score, score_index);
     let merged_config =
         crate::layout::orchestration::config_with_document_overrides(score, config, context);
+    let mut merged_config = merged_config;
+    if let Some(settings) = score
+        .scores
+        .get(score_index)
+        .and_then(|view| view.bar_numbers.as_ref())
+    {
+        merged_config
+            .get_or_insert_with(|| config.clone())
+            .bar_numbers
+            .overlay(settings);
+    }
     let config = merged_config.as_ref().unwrap_or(config);
 
     // Fall back to regular layout if no layouts/scores defined

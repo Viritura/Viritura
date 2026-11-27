@@ -111,6 +111,9 @@ export class MemoryRecorder {
 
   sample(sample: MemorySample): MemoryReport | null {
     const previous = this.samples.at(-1);
+    if (!previous || previous.documentGeneration !== sample.documentGeneration) {
+      this.documentStartedAt = sample.timestamp;
+    }
     if (previous && previous.documentGeneration !== sample.documentGeneration) {
       this.mark("document", sample.timestamp, sample.documentGeneration);
     }
@@ -128,10 +131,11 @@ export class MemoryRecorder {
       (workerBytes ?? 0) >= HIGH_BYTES;
     this.highSamples = high ? this.highSamples + 1 : 0;
 
-    // Compare the same document over a real time window, not a few transient allocations.
+    // Initial layout establishes the working set; only post-load readings are growth baselines.
     const baseline = this.samples.findLast(
       (earlier) =>
         earlier.documentGeneration === sample.documentGeneration &&
+        earlier.timestamp - this.documentStartedAt >= GROWTH_WINDOW_MS &&
         sample.timestamp - earlier.timestamp >= GROWTH_WINDOW_MS,
     );
     this.trackWasmInstances(sample, previous);
@@ -175,7 +179,6 @@ export class MemoryRecorder {
    */
   private trackSustainedGrowth(sample: MemorySample, previous: MemorySample | undefined): boolean {
     if (!previous || previous.documentGeneration !== sample.documentGeneration) {
-      this.documentStartedAt = sample.timestamp;
       this.documentHeapFloor = null;
       this.sustainedSamples = 0;
     }

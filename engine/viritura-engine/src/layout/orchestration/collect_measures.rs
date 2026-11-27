@@ -15,8 +15,14 @@ pub(in crate::layout) fn config_with_document_overrides(
     let pj = score.placement_json();
     let time_signature_settings = score.time_signature_styles().resolve(context);
     let chord_symbol_style = score.chord_symbol_style();
+    let bar_numbers = score
+        .vendor_ext
+        .as_ref()
+        .and_then(|ext| ext.viritura.as_ref())
+        .and_then(|ext| ext.bar_numbers.as_ref());
     if ts.is_none()
         && pj.is_none()
+        && bar_numbers.is_none()
         && time_signature_settings == config.time_signature_settings
         && chord_symbol_style == config.chord_symbol_style
         && super::super::page::copyright_footer_height(score.metadata(), config)
@@ -25,6 +31,9 @@ pub(in crate::layout) fn config_with_document_overrides(
         return None;
     }
     let mut c = config.clone();
+    if let Some(settings) = bar_numbers {
+        c.bar_numbers.overlay(settings);
+    }
     if let Some(ts) = ts {
         c.text_styles.merge_json(ts);
     }
