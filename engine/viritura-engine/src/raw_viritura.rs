@@ -541,6 +541,8 @@ impl<'de> ::serde::Deserialize<'de> for AutoHideKeepVisiblePartsItem {
 ///      "uniqueItems": true
 ///    },
 ///    "bold": {
+///      "description": "Legacy bar-number weight. Use textStyles.barNumber.bold or score-view barNumbers.style.bold.",
+///      "deprecated": true,
 ///      "type": "boolean"
 ///    },
 ///    "distance": {
@@ -554,6 +556,8 @@ impl<'de> ::serde::Deserialize<'de> for AutoHideKeepVisiblePartsItem {
 ///      ]
 ///    },
 ///    "family": {
+///      "description": "Legacy bar-number font family. Use textStyles.barNumber.family or score-view barNumbers.style.family.",
+///      "deprecated": true,
 ///      "enum": [
 ///        "serif",
 ///        "sans-serif",
@@ -574,6 +578,8 @@ impl<'de> ::serde::Deserialize<'de> for AutoHideKeepVisiblePartsItem {
 ///      ]
 ///    },
 ///    "italic": {
+///      "description": "Legacy bar-number slant. Use textStyles.barNumber.italic or score-view barNumbers.style.italic.",
+///      "deprecated": true,
 ///      "type": "boolean"
 ///    },
 ///    "onStaff": {
@@ -604,7 +610,12 @@ impl<'de> ::serde::Deserialize<'de> for AutoHideKeepVisiblePartsItem {
 ///      "type": "boolean"
 ///    },
 ///    "size": {
+///      "description": "Legacy bar-number size in staff spaces. Use textStyles.barNumber.size or score-view barNumbers.style.size.",
+///      "deprecated": true,
 ///      "type": "number"
+///    },
+///    "style": {
+///      "$ref": "#/$defs/bar-number-text-style"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -622,12 +633,14 @@ pub struct BarNumberSettings {
     pub above_groups: ::std::option::Option<
         Vec<Vec<BarNumberSettingsAboveGroupsItemItem>>,
     >,
+    ///Legacy bar-number weight. Use textStyles.barNumber.bold or score-view barNumbers.style.bold.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub bold: ::std::option::Option<bool>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub distance: ::std::option::Option<f64>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub enclosure: ::std::option::Option<BarNumberSettingsEnclosure>,
+    ///Legacy bar-number font family. Use textStyles.barNumber.family or score-view barNumbers.style.family.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub family: ::std::option::Option<BarNumberSettingsFamily>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -640,6 +653,7 @@ pub struct BarNumberSettings {
     pub horizontal_alignment: ::std::option::Option<
         BarNumberSettingsHorizontalAlignment,
     >,
+    ///Legacy bar-number slant. Use textStyles.barNumber.italic or score-view barNumbers.style.italic.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub italic: ::std::option::Option<bool>,
     #[serde(
@@ -666,6 +680,8 @@ pub struct BarNumberSettings {
     pub show_staff_line: ::std::option::Option<bool>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub size: ::std::option::Option<f64>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub style: ::std::option::Option<BarNumberTextStyle>,
 }
 impl ::std::convert::From<&BarNumberSettings> for BarNumberSettings {
     fn from(value: &BarNumberSettings) -> Self {
@@ -689,6 +705,7 @@ impl ::std::default::Default for BarNumberSettings {
             show_first: Default::default(),
             show_staff_line: Default::default(),
             size: Default::default(),
+            style: Default::default(),
         }
     }
 }
@@ -858,12 +875,14 @@ impl ::std::convert::TryFrom<::std::string::String> for BarNumberSettingsEnclosu
         value.parse()
     }
 }
-///`BarNumberSettingsFamily`
+///Legacy bar-number font family. Use textStyles.barNumber.family or score-view barNumbers.style.family.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
+///  "description": "Legacy bar-number font family. Use textStyles.barNumber.family or score-view barNumbers.style.family.",
+///  "deprecated": true,
 ///  "enum": [
 ///    "serif",
 ///    "sans-serif",
@@ -1279,6 +1298,59 @@ impl ::std::convert::TryFrom<::std::string::String> for BarNumberSettingsPlaceme
         value: ::std::string::String,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
+    }
+}
+///Sparse bar-number typography override. Document defaults use textStyles.barNumber; score views override only the fields they change.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Sparse bar-number typography override. Document defaults use textStyles.barNumber; score views override only the fields they change.",
+///  "type": "object",
+///  "properties": {
+///    "bold": {
+///      "type": "boolean"
+///    },
+///    "family": {
+///      "$ref": "#/$defs/font-family"
+///    },
+///    "italic": {
+///      "type": "boolean"
+///    },
+///    "size": {
+///      "type": "number"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BarNumberTextStyle {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub bold: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub family: ::std::option::Option<FontFamily>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub italic: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub size: ::std::option::Option<f64>,
+}
+impl ::std::convert::From<&BarNumberTextStyle> for BarNumberTextStyle {
+    fn from(value: &BarNumberTextStyle) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for BarNumberTextStyle {
+    fn default() -> Self {
+        Self {
+            bold: Default::default(),
+            family: Default::default(),
+            italic: Default::default(),
+            size: Default::default(),
+        }
     }
 }
 ///Harmonic quality of a chord symbol.
@@ -15876,6 +15948,9 @@ impl<'de> ::serde::Deserialize<'de> for TextStyleColor {
 ///    "arranger": {
 ///      "$ref": "#/$defs/text-style"
 ///    },
+///    "barNumber": {
+///      "$ref": "#/$defs/bar-number-text-style"
+///    },
 ///    "composer": {
 ///      "$ref": "#/$defs/text-style"
 ///    },
@@ -15913,6 +15988,12 @@ impl<'de> ::serde::Deserialize<'de> for TextStyleColor {
 pub struct TextStyles {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub arranger: ::std::option::Option<TextStyle>,
+    #[serde(
+        rename = "barNumber",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub bar_number: ::std::option::Option<BarNumberTextStyle>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub composer: ::std::option::Option<TextStyle>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -15957,6 +16038,7 @@ impl ::std::default::Default for TextStyles {
     fn default() -> Self {
         Self {
             arranger: Default::default(),
+            bar_number: Default::default(),
             composer: Default::default(),
             copyright: Default::default(),
             page_number: Default::default(),
@@ -17713,6 +17795,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "bar-number-settings": {
 ///      "$ref": "#/$defs/bar-number-settings"
 ///    },
+///    "bar-number-text-style": {
+///      "$ref": "#/$defs/bar-number-text-style"
+///    },
 ///    "chord-quality": {
 ///      "$ref": "#/$defs/chord-quality"
 ///    },
@@ -18071,6 +18156,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub bar_number_settings: ::std::option::Option<BarNumberSettings>,
+    #[serde(
+        rename = "bar-number-text-style",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub bar_number_text_style: ::std::option::Option<BarNumberTextStyle>,
     #[serde(
         rename = "chord-quality",
         default,
@@ -18730,6 +18821,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             auto_hide_empty_staves: Default::default(),
             auto_hide_keep_visible: Default::default(),
             bar_number_settings: Default::default(),
+            bar_number_text_style: Default::default(),
             chord_quality: Default::default(),
             chord_root: Default::default(),
             chord_symbol: Default::default(),

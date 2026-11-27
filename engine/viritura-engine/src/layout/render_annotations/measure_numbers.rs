@@ -5,7 +5,7 @@ use super::super::dependent_stacking::{resolve_stacking, StackBox, StackSide};
 use super::super::element_id;
 use super::super::render_measure;
 use super::super::render_signatures;
-use super::super::text_styles::{text_width, FontFamily, TextAlignment, TextStyle};
+use super::super::text_styles::{text_width, TextRole, TextStyle};
 use super::super::types::*;
 use crate::model::*;
 use crate::render::*;
@@ -82,7 +82,7 @@ fn render_number_label(
                         x2,
                         y2,
                         width,
-                        color: "#000000".into(),
+                        color: label.style.color.clone(),
                     },
                     eid.clone(),
                 );
@@ -96,7 +96,7 @@ fn render_number_label(
                 ry: b.height * 0.5,
                 angle: 0.0,
                 filled: false,
-                color: "#000000".into(),
+                color: label.style.color.clone(),
             },
             eid.clone(),
         ),
@@ -108,7 +108,7 @@ fn render_number_label(
             text: label.text,
             font: label.style.font_string(),
             size: label.style.size_sp * sp,
-            color: "#000000".into(),
+            color: label.style.color.clone(),
             align: label.align,
             baseline: TextBaseline::Top,
         },
@@ -190,14 +190,7 @@ pub(crate) fn number_label(
         centered = alignment == BarNumberHorizontalAlignment::Center;
         x = ml.x + if centered { ml.width * 0.5 } else { 0.0 };
     }
-    let style = TextStyle {
-        size_sp: settings.size.unwrap_or(2.0),
-        family: settings.family.unwrap_or(FontFamily::Serif),
-        bold: settings.bold.unwrap_or(false),
-        italic: settings.italic.unwrap_or(true),
-        color: "#000000".into(),
-        align: TextAlignment::Left,
-    };
+    let style = bar_number_style(config);
     let size = style.size_sp * sp;
     let width = text_width(&text, size, style.family, style.bold);
     let padding = if settings.enclosure.unwrap_or_default() == BarNumberEnclosure::None {
@@ -242,6 +235,38 @@ pub(crate) fn number_label(
         bbox: BoundingBox::new(left, top, box_width, box_height),
         style,
     })
+}
+
+pub(crate) fn bar_number_style(config: &LayoutConfig) -> TextStyle {
+    let settings = &config.bar_numbers;
+    let mut style = config.text_styles.resolve(TextRole::BarNumber).clone();
+    if let Some(size) = settings.size {
+        style.size_sp = size;
+    }
+    if let Some(family) = settings.family {
+        style.family = family;
+    }
+    if let Some(bold) = settings.bold {
+        style.bold = bold;
+    }
+    if let Some(italic) = settings.italic {
+        style.italic = italic;
+    }
+    if let Some(override_style) = &settings.style {
+        if let Some(size) = override_style.size {
+            style.size_sp = size;
+        }
+        if let Some(family) = override_style.family {
+            style.family = family;
+        }
+        if let Some(bold) = override_style.bold {
+            style.bold = bold;
+        }
+        if let Some(italic) = override_style.italic {
+            style.italic = italic;
+        }
+    }
+    style
 }
 
 pub(crate) fn measure_number_value(ml: &MeasureLayout, config: &LayoutConfig) -> Option<i32> {

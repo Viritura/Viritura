@@ -16,6 +16,7 @@ export function bracketMatchesSelection(group: BracketPlacement, selected: strin
 export function bracketPlacements(score: Score | null, scoreIndex: number): BracketPlacement[] {
   const layout = score?.layouts?.find((layout) => layout.id === score.scores?.[scoreIndex]?.layout);
   if (!layout || !score) return [];
+  const scoreParts = score.parts;
   const result: BracketPlacement[] = [];
   function partsIn(content: LayoutContent[]): string[] {
     return [
@@ -24,7 +25,7 @@ export function bracketPlacements(score: Score | null, scoreIndex: number): Brac
           node.type === "staff" ? node.sources.map((source) => source.part) : partsIn(node.content),
         ),
       ),
-    ].sort();
+    ];
   }
   function visit(content: LayoutContent[], depth: number) {
     for (const node of content) {
@@ -32,9 +33,10 @@ export function bracketPlacements(score: Score | null, scoreIndex: number): Brac
       const bracket = node.symbol === "bracket" || node.symbol === "square";
       if (bracket && depth === 0) {
         const parts = partsIn(node.content);
-        if (parts.length) {
-          const names = parts.map((id) => score?.parts.find((part) => part.id === id)?.name || id);
-          result.push({ parts, label: node.label || names.join(", ") });
+        const firstPart = parts[0];
+        if (firstPart) {
+          const name = scoreParts.find((part) => part.id === firstPart)?.name || firstPart;
+          result.push({ parts: parts.sort(), label: node.label || name });
         }
       }
       visit(node.content, depth + (["bracket", "square"].includes(node.symbol ?? "bracket") ? 1 : 0));
