@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { resolveClickGrouping, type Tempo, type TimeSignature } from "@viritura/core";
 import { Button, FormField, FormInput, Select } from "@viritura/ui";
+import { parseClickGroupingInput } from "./clickGroupingInput";
 
 interface ClickSettingsFieldsProps {
   tempo: Tempo;
@@ -43,11 +44,11 @@ export function ClickSettingsFields({
       setError(undefined);
       return;
     }
-    if (!/^\d+(?:\s*(?:[,+]\s*|\s+)\d+)*$/.test(text)) {
+    const clickGrouping = parseClickGroupingInput(text);
+    if (!clickGrouping) {
       setError("Enter positive group lengths separated by +, commas, or spaces.");
       return;
     }
-    const clickGrouping = text.split(/[,+\s]+/).map(Number);
     try {
       resolveClickGrouping(timeSignature, subdivision, clickGrouping);
     } catch (cause) {
