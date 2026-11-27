@@ -2,6 +2,8 @@ import { useState } from "react";
 import { validateFretboard, type Fretboard, type FretboardNote } from "@viritura/core";
 import { Button, FormInput, Select } from "@viritura/ui";
 import { labelStyle } from "../types";
+import styles from "./FretboardEditor.module.css";
+import { FretboardGrid } from "./FretboardGrid";
 
 interface Props {
   partId: string;
@@ -17,17 +19,19 @@ export function FretboardEditor({ partId, value, onChange }: Props) {
   const errors = validateFretboard(draft);
   const first = draft.firstFret?.fret ?? 1;
   const stringCount = Math.min(12, Math.max(2, Math.trunc(draft.frameStrings) || 2));
-  const fretCount = Math.min(12, Math.max(1, Math.trunc(draft.frameFrets) || 1));
+  const strings = Array.from({ length: stringCount }, (_, index) => stringCount - index);
+
   function updateNote(string: number, note: FretboardNote | undefined) {
     setDraft({
       ...draft,
       frameNotes: [...draft.frameNotes.filter((entry) => entry.string !== string), ...(note ? [note] : [])],
     });
   }
+
   return (
-    <fieldset>
+    <fieldset className={styles.editor}>
       <legend>Chord diagram</legend>
-      <p>String 1 is the rightmost string. Fingerings are authored, not generated from the chord name.</p>
+      <p>Click a fret to place or clear a note. String 1 is the rightmost string.</p>
       <label style={labelStyle}>
         String count
         <FormInput
@@ -97,73 +101,47 @@ export function FretboardEditor({ partId, value, onChange }: Props) {
           onChange={(event) => setDraft({ ...draft, unplayed: event.target.value })}
         />
       </label>
-      {Array.from({ length: stringCount }, (_, index) => stringCount - index).map((string) => {
-        const note = draft.frameNotes.find((entry) => entry.string === string);
-        const options = [
-          { value: "", label: "Unplayed" },
-          { value: "0", label: "Open" },
-          ...Array.from({ length: fretCount }, (_, index) => ({
-            value: String(first + index),
-            label: `Fret ${first + index}`,
-          })),
-        ];
-        return (
-          <fieldset key={string}>
-            <legend>String {string}</legend>
-            <label style={labelStyle}>
-              Position
-              <Select
-                value={note ? String(note.fret) : ""}
-                options={options}
-                onValueChange={(fret) =>
-                  updateNote(
-                    string,
-                    fret === ""
-                      ? undefined
-                      : {
-                          ...note,
-                          string,
-                          fret: Number(fret),
-                          ...(fret === "0" ? { barre: undefined } : {}),
-                        },
-                  )
-                }
-              />
-            </label>
-            {note && (
-              <>
-                <label style={labelStyle}>
-                  Fingering
-                  <FormInput
-                    maxLength={8}
-                    value={note.fingering ?? ""}
-                    onChange={(event) => updateNote(string, { ...note, fingering: event.target.value || undefined })}
-                  />
-                </label>
-                {note.fret > 0 && (
-                  <label style={labelStyle}>
-                    Barre endpoint
-                    <Select
-                      value={note.barre ?? ""}
-                      options={[
-                        { value: "", label: "None" },
-                        { value: "start", label: "Start" },
-                        { value: "stop", label: "Stop" },
-                      ]}
-                      onValueChange={(barre) =>
-                        updateNote(string, {
-                          ...note,
-                          barre: barre === "start" ? "start" : barre === "stop" ? "stop" : undefined,
-                        })
-                      }
-                    />
-                  </label>
-                )}
-              </>
-            )}
-          </fieldset>
-        );
-      })}
+
+      <FretboardGrid frame={draft} onNoteChange={updateNote} />
+
+      <details className={styles.noteDetails}>
+        <summary>Fingerings and barre endpoints</summary>
+        {strings.map((string) => {
+          const note = draft.frameNotes.find((entry) => entry.string === string);
+          if (!note || note.fret === 0) return null;
+          return (
+            <fieldset key={string}>
+              <legend>String {string}</legend>
+              <label style={labelStyle}>
+                Fingering
+                <FormInput
+                  maxLength={8}
+                  value={note.fingering ?? ""}
+                  onChange={(event) => updateNote(string, { ...note, fingering: event.target.value || undefined })}
+                />
+              </label>
+              <label style={labelStyle}>
+                Barre endpoint
+                <Select
+                  value={note.barre ?? ""}
+                  options={[
+                    { value: "", label: "None" },
+                    { value: "start", label: "Start" },
+                    { value: "stop", label: "Stop" },
+                  ]}
+                  onValueChange={(barre) =>
+                    updateNote(string, {
+                      ...note,
+                      barre: barre === "start" ? "start" : barre === "stop" ? "stop" : undefined,
+                    })
+                  }
+                />
+              </label>
+            </fieldset>
+          );
+        })}
+      </details>
+
       {errors.length > 0 && <p role="alert">{[...new Set(errors)].join(" ")}</p>}
       <Button disabled={errors.length > 0} onClick={() => onChange(draft)}>
         Apply diagram

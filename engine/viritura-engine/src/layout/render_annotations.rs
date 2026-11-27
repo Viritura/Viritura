@@ -37,7 +37,8 @@ mod tempo;
 mod text_content;
 
 pub(crate) use chord_symbols::{
-    chord_symbol_dimensions, chord_symbol_for_display, render_chord_symbols,
+    chord_symbol_dimensions, chord_symbol_for_display, chord_symbol_vertical_lift,
+    chord_symbols_min_content_width, render_chord_symbols,
 };
 use curve_clearance::slur_upper_edge_over_span;
 #[cfg(test)]

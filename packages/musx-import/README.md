@@ -52,7 +52,8 @@ discarded.
 The current adapters preserve:
 
 - score-wide chord roots, slash bass notes, normalized qualities, common
-  extensions, and source text provenance;
+  extensions, source text provenance, and structured instrument-specific
+  fretboards when present in the gap payload;
 - native MNX per-note and percussion-kit notehead shapes, with legacy
   schema-v1 notehead-gap support;
 - generic expressive text and performance instructions mapped to staff
@@ -88,6 +89,10 @@ Chord events are written only to
 `global.measures[n]._x.viritura.chordSymbols`. Source parts receive
 `_x.viritura.chordSymbolVisibility: "show"` (including previously hidden parts);
 no part-measure chord arrays or per-chord display-staff fields are created.
+Structured Denigma chord fretboards are mapped to the source instrument's
+`fretboards` entry. The currently pinned Denigma runtime predates this optional
+payload, so MUSX diagram import becomes available once the producer change is
+published and the runtime pin is refreshed.
 Incoming events replace only matching exact rational positions. Multiple source
 parts/staves coalesce into one harmony stream: the topmost part, then topmost
 staff, wins regardless of gap order. Equivalent harmony is silent; discarded

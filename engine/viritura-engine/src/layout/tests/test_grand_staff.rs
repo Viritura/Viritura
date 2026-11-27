@@ -1321,6 +1321,38 @@ fn assert_harmony_copies(dl: &DisplayList, expected: usize) {
 }
 
 #[test]
+fn lower_instrument_chord_diagrams_clear_the_staff_above() {
+    let mut value = harmony_layout_fixture(serde_json::json!([
+        {"type": "staff", "sources": [{"part": "flute-source"}]},
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]},
+        {"type": "staff", "sources": [{"part": "clarinet-source"}]}
+    ]));
+    value["parts"][2]["_x"]["viritura"]["chordSymbolVisibility"] = serde_json::json!("show");
+    value["global"]["measures"][0]["_x"]["viritura"]["chordSymbols"][0]["fretboards"] = serde_json::json!([{
+        "partId": "clarinet-source", "frameStrings": 6, "frameFrets": 4,
+        "frameNotes": [{"string": 1, "fret": 3}]
+    }]);
+    let score = parse_mnx(&value.to_string()).unwrap();
+    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+    let staff_lines = harmony_staff_lines(&dl);
+    assert_eq!(staff_lines.len(), 20);
+    let lower_diagram = dl
+        .element_bboxes
+        .iter()
+        .filter(|bbox| bbox.element_id == "m0/chord0")
+        .max_by(|left, right| left.bbox.y.total_cmp(&right.bbox.y))
+        .expect("the lower instrument chord diagram has a selection box");
+
+    assert!(
+        lower_diagram.bbox.y >= staff_lines[14],
+        "lower chord diagram must clear the staff immediately above: bbox top {}, upper staff bottom {}",
+        lower_diagram.bbox.y,
+        staff_lines[14]
+    );
+}
+
+#[test]
 fn test_global_chords_project_once_on_grand_staff_with_source_indices() {
     let value = harmony_layout_fixture(serde_json::json!([
         {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},

@@ -6,6 +6,7 @@ import {
   transposeChordSymbol,
   type ChordRoot,
   type ChordSymbol,
+  type Fretboard,
   type Interval,
 } from "@viritura/core";
 import type { DenigmaDiagnostic, DenigmaGap } from "../types";
@@ -125,7 +126,27 @@ function applyDegrees(symbol: ChordSymbol, parsed: ChordSymbol, degrees: ChordPa
   symbol.quality = "other";
 }
 
-function toChordSymbol(chord: ChordPayload, gap: DenigmaGap, interval: Interval): ChordSymbol {
+function toFretboard(payload: NonNullable<ChordPayload["fretboard"]>, partId: string): Fretboard {
+  return {
+    partId,
+    frameStrings: payload.frameStrings,
+    frameFrets: payload.frameFrets,
+    ...(payload.firstFret !== undefined && { firstFret: payload.firstFret }),
+    frameNotes: payload.frameNotes.map((note) => ({
+      string: note.string,
+      fret: note.fret,
+      ...(note.fingering !== undefined && { fingering: String(note.fingering) }),
+      ...(note.barre !== undefined && { barre: note.barre }),
+    })),
+    ...(payload.unplayed !== undefined && { unplayed: payload.unplayed }),
+  };
+}
+
+function chordFretboardFields(chord: ChordPayload, partId: string): Partial<Pick<ChordSymbol, "fretboards">> {
+  return chord.fretboard ? { fretboards: [toFretboard(chord.fretboard, partId)] } : {};
+}
+
+function toChordSymbol(chord: ChordPayload, gap: DenigmaGap, interval: Interval, partId: string): ChordSymbol {
   if (
     gap.position !== undefined &&
     (!isRecord(gap.position) ||
@@ -154,7 +175,7 @@ function toChordSymbol(chord: ChordPayload, gap: DenigmaGap, interval: Interval)
     chord.suffix.degrees.length === 0 &&
     resolveChordSymbol(noChord).status === "silent"
   ) {
-    return noChord;
+    return { ...noChord, ...chordFretboardFields(chord, partId) };
   }
   // Visibility and letter casing must not remove harmonic information from rawText.
   const text =
@@ -167,6 +188,7 @@ function toChordSymbol(chord: ChordPayload, gap: DenigmaGap, interval: Interval)
     rawText: text,
     ...(chord.suffix.suffixText ? { kindText: chord.suffix.suffixText } : {}),
     ...(mapping?.extension !== undefined ? { extension: mapping.extension } : {}),
+    ...chordFretboardFields(chord, partId),
   };
   applyDegrees(symbol, parsed, chord.suffix.degrees);
   // Source aliases and typography are provenance, not authored display overrides.
@@ -233,10 +255,17 @@ export function applyChordSymbolGaps(
       });
       return;
     }
+    const partId = target.part["id"];
+    if (typeof partId !== "string" || partId.length === 0) {
+      applications.set(gapIndex, {
+        outcome: { disposition: "unhandled", reason: "Chord-symbol source part ID is unavailable." },
+      });
+      return;
+    }
     if (gap.staff !== undefined && (!Number.isSafeInteger(gap.staff) || gap.staff < 1)) {
       throw new Error("Invalid source staff while adapting Denigma chord symbols.");
     }
-    const chordSymbol = toChordSymbol(gap.chord, gap, sourceToConcert(target.part));
+    const chordSymbol = toChordSymbol(gap.chord, gap, sourceToConcert(target.part), partId);
     const resolution = resolveChordSymbol(chordSymbol);
     const reason =
       resolution.status === "unsupported"

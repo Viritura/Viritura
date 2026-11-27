@@ -31,10 +31,8 @@ pub(crate) fn chord_symbol_bboxes(
     let total_beats = ml.resolved.active_time.measure_beats();
     let content_width = super::super::render_barlines::rhythmic_content_width(ml, sp);
     let x_origin = ml.x + ml.prefix_width;
-    // Mirror `render_chord_symbols`: Alphabetic baseline edge-anchored from the
-    // table (`chordSymbol.attachGap`). The cap band spans up from the baseline;
-    // the box bottom IS the baseline (chord symbols carry no descenders), so the
-    // near-staff edge sits exactly `attach_gap` above the staff.
+    // Mirror `render_chord_symbols`: the box bottom is the alphabetic baseline,
+    // lifted when needed to clear notes and stems within the chord's ink span.
     let attach_gap = config
         .placement
         .resolve(ElementKind::ChordSymbol)
@@ -45,7 +43,15 @@ pub(crate) fn chord_symbol_bboxes(
         let beat_pos = beat / total_beats;
         let chord_x = x_origin + beat_pos * content_width;
         let (width, ascent) = chord_symbol_dimensions(chord, config.chord_symbol_style, sp);
-        let bbox = BoundingBox::new(chord_x, chord_baseline_y - ascent, width, ascent);
+        let vertical_lift = super::super::render_annotations::chord_symbol_vertical_lift(
+            ml, chord, chord_x, staff_y, sp, config,
+        );
+        let bbox = BoundingBox::new(
+            chord_x,
+            chord_baseline_y - vertical_lift - ascent,
+            width,
+            ascent,
+        );
         bboxes.push(ElementBBox {
             element_id: element_id::global_chord_symbol(
                 ml.resolved.index,
