@@ -114,10 +114,13 @@ though some instruments can play lower pedal notes.
 
 For bowed strings, yellow marks high notes beyond typical section writing but
 within the full ranges used here: violin above A6 through E7, viola above A5
-through E6, cello above E5 through A5, and double bass above sounding G3
-through D4. These upper limits vary with the player and source. Double bass
-notes from sounding B0 through D-sharp1 are yellow for a five-string instrument;
-below B0 is red. Standard four-string basses begin at E1.
+through E6, and cello above E5 through A5. These upper limits vary with the
+player and source.
+
+For double bass, sounding G-sharp4 through D5 are yellow. Above D5 is red as a
+writing guideline, not an absolute physical limit. Sounding B0 is yellow for a
+five-string bass; C1 through D-sharp1 are yellow for a five-string bass or a
+low-C extension. Below B0 is red. Standard four-string basses begin at E1.
 
 ## Percussion maps
 

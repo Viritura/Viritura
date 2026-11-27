@@ -1527,11 +1527,14 @@ describe("MCP editor tool dispatch", () => {
         type: "event",
         duration: { base: "whole" },
         notes: [
+          { id: "below", pitch: { step: "B", octave: 0, alter: -1 } },
           { id: "low-extension", pitch: { step: "B", octave: 0 } },
           { id: "open-e", pitch: { step: "E", octave: 1 } },
-          { id: "section-high", pitch: { step: "G", octave: 3 } },
-          { id: "high-extension", pitch: { step: "G", octave: 3, alter: 1 } },
-          { id: "above", pitch: { step: "E", octave: 4, alter: -1 } },
+          { id: "previous-cutoff", pitch: { step: "E", octave: 4, alter: -1 } },
+          { id: "two-octaves", pitch: { step: "G", octave: 4 } },
+          { id: "high-extension", pitch: { step: "G", octave: 4, alter: 1 } },
+          { id: "extension-high", pitch: { step: "D", octave: 5 } },
+          { id: "above", pitch: { step: "E", octave: 5, alter: -1 } },
         ],
       },
     ];
@@ -1542,15 +1545,22 @@ describe("MCP editor tool dispatch", () => {
       instruments: [
         {
           transpositionHalfSteps: 12,
-          catalogRange: { low: 23, high: 62 },
-          soundingRange: { low: 23, high: 63 },
-          noteCount: 5,
-          belowRange: 0,
+          catalogRange: { low: 23, high: 74 },
+          soundingRange: { low: 22, high: 75 },
+          noteCount: 8,
+          belowRange: 1,
           aboveRange: 1,
           rangeGapCount: 0,
-          violations: [{ noteId: "above", soundingMidi: 63, direction: "above" }],
+          violations: [
+            { noteId: "below", soundingMidi: 22, direction: "below" },
+            { noteId: "above", soundingMidi: 75, direction: "above" },
+          ],
         },
       ],
+    });
+    const catalog = await dispatchMcpTool(store, "score.get_instrument_catalog", { query: "strings.contrabass" });
+    expect(catalog.structuredContent).toMatchObject({
+      instruments: [{ id: "strings.contrabass", catalogRange: { low: 23, high: 74 } }],
     });
   });
 

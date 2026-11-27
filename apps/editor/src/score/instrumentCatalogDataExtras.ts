@@ -3,12 +3,12 @@
  * Concatenated with the primary file in InstrumentCatalog.ts.
  * Split for the lint max-lines threshold.
  *
- * Bowed-string ranges distinguish practical section limits from full playing
- * ranges and use sounding pitch:
+ * Bowed-string range references, using sounding pitch:
  * https://modwheel.net/guides/orchestral-instrument-ranges
  * https://orchestralibrary.com/reftables/rang.html
  *
- * Double-bass low-extension context:
+ * Double-bass harmonics and low-extension context:
+ * https://andrewhugill.com/OrchestraManual/bass_muteharmonics.html
  * https://iro.uiowa.edu/esploro/outputs/doctoral/The-double-bass-extension-a-compendium/9984097365702771
  */
 
@@ -290,8 +290,8 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     midiProgram: 43,
     scoreOrder: 3,
     rangeLow: 23,
-    rangeHigh: 62,
-    standardRangeLow: 28, // B0 through D-sharp1 assume a five-string bass.
-    standardRangeHigh: 55, // Above G3 is high section writing; D4 is a full-range limit.
+    rangeHigh: 74,
+    standardRangeLow: 28, // B0 needs a fifth string; C1 through D-sharp1 can use a low-C extension.
+    standardRangeHigh: 67, // G-sharp4 through D5 are high-register cautions.
   },
 ];
