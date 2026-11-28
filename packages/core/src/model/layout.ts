@@ -45,10 +45,28 @@ export interface PageSetup {
 
 export type PageSetupRole = "score" | "part";
 
-/** Project defaults, independent of each score definition's page-setup override. */
+/** Sparse page-setup values stored at one inheritance layer. Omitted fields inherit. */
+export interface PageSetupOverride {
+  width?: number;
+  height?: number;
+  orientation?: PageSetup["orientation"];
+  margins?: Partial<PageSetup["margins"]>;
+  spatiumMm?: number;
+  pageTurns?: PageTurnSettings;
+}
+
+/** Default score and part layout profiles (root `_x.viritura.pageSetupDefaults`). */
 export interface PageSetupDefaults {
-  score?: PageSetup;
-  part?: PageSetup;
+  score?: PageSetupOverride;
+  part?: PageSetupOverride;
+}
+
+/** Named page-setup profile shared by score views of one role. */
+export interface LayoutProfile {
+  id: string;
+  name: string;
+  role: PageSetupRole;
+  pageSetup?: PageSetupOverride;
 }
 
 /** Editor-facing auto page-turn settings, mirrored into the engine's
@@ -238,9 +256,42 @@ export function defaultPageSetupForScore(
   totalPartCount?: number,
   defaults?: PageSetupDefaults,
 ): PageSetup {
-  return pageSetupRoleForScore(scores, scoreIndex, layouts, totalPartCount) === "part"
-    ? (defaults?.part ?? DEFAULT_PART_PAGE_SETUP)
-    : (defaults?.score ?? DEFAULT_PAGE_SETUP);
+  const role = pageSetupRoleForScore(scores, scoreIndex, layouts, totalPartCount);
+  return applyPageSetupOverride(builtInPageSetup(role), defaults?.[role]);
+}
+
+/** Built-in page setup for a role, before any project profile applies. */
+export function builtInPageSetup(role: PageSetupRole): PageSetup {
+  return role === "part" ? DEFAULT_PART_PAGE_SETUP : DEFAULT_PAGE_SETUP;
+}
+
+function inheritPageTurns(base?: PageTurnSettings, layer?: PageTurnSettings): PageTurnSettings | undefined {
+  if (!layer) return base;
+  if (!base) return layer;
+  return {
+    ...base,
+    ...layer,
+    ...(base.weights || layer.weights ? { weights: { ...base.weights, ...layer.weights } } : {}),
+  };
+}
+
+/** Layer sparse values over a complete page setup. Margins and page turns merge per field. */
+export function applyPageSetupOverride(base: PageSetup, layer: PageSetupOverride | undefined): PageSetup {
+  if (!layer) return base;
+  const pageTurns = inheritPageTurns(base.pageTurns, layer.pageTurns);
+  return {
+    width: layer.width ?? base.width,
+    height: layer.height ?? base.height,
+    orientation: layer.orientation ?? base.orientation,
+    margins: {
+      top: layer.margins?.top ?? base.margins.top,
+      right: layer.margins?.right ?? base.margins.right,
+      bottom: layer.margins?.bottom ?? base.margins.bottom,
+      left: layer.margins?.left ?? base.margins.left,
+    },
+    spatiumMm: layer.spatiumMm ?? base.spatiumMm,
+    ...(pageTurns ? { pageTurns } : {}),
+  };
 }
 
 export function pageSetupRoleForScore(
@@ -510,10 +561,12 @@ export interface ScoreDefinition {
   /** Whether this score displays transposed (written) pitches. */
   useWritten?: boolean;
   pages?: PageDefinition[];
-  /** Per-score page setup (page size, margins, staff size). */
-  pageSetup?: Partial<PageSetup>;
+  /** Sparse per-score page setup overrides; omitted fields inherit from the layout profile. */
+  pageSetup?: PageSetupOverride;
   /** Explicit role when layout membership alone is ambiguous (e.g. a solo part). */
   pageSetupRole?: PageSetupRole;
+  /** Named layout profile ID; absent uses the project default profile for the role. */
+  layoutProfile?: string;
   /** Independent instrument-name policies for the first and later systems. */
   instrumentNameDisplay?: InstrumentNameDisplaySettings;
   /** Parts eligible for rest-only system hiding in paged views of this score view. */

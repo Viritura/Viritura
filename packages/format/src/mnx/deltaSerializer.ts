@@ -68,6 +68,7 @@ export class DeltaSerializer {
   private layoutsRef: unknown = undefined;
   private scoresRef: unknown = undefined;
   private pageSetupDefaultsRef: unknown = undefined;
+  private layoutProfilesRef: unknown = undefined;
   private metadataRef: unknown = undefined;
   private textStylesRef: unknown = undefined;
   private barNumbersRef: unknown = undefined;
@@ -84,6 +85,7 @@ export class DeltaSerializer {
   private layoutsCache = "";
   private scoresCache = "";
   private pageSetupDefaultsCache = "";
+  private layoutProfilesCache = "";
   private metadataCache = "";
   private textStylesCache = "";
   private barNumbersCache = "";
@@ -249,6 +251,11 @@ export class DeltaSerializer {
         value: score.pageSetupDefaults,
         refKey: "pageSetupDefaultsRef" as const,
         cacheKey: "pageSetupDefaultsCache" as const,
+      },
+      {
+        value: score.layoutProfiles,
+        refKey: "layoutProfilesRef" as const,
+        cacheKey: "layoutProfilesCache" as const,
       },
       {
         value: score.mnx,
@@ -423,6 +430,8 @@ export class DeltaSerializer {
     this.scoresRef = undefined;
     this.pageSetupDefaultsCache = "";
     this.pageSetupDefaultsRef = undefined;
+    this.layoutProfilesCache = "";
+    this.layoutProfilesRef = undefined;
     this.metadataCache = "";
     this.metadataRef = undefined;
     this.textStylesCache = "";

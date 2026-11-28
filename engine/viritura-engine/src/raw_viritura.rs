@@ -7108,6 +7108,294 @@ impl ::std::default::Default for LayoutGroupExtensions {
         }
     }
 }
+///Named page-setup profile shared by score views of one role. Omitted page-setup fields inherit the built-in default for the role.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Named page-setup profile shared by score views of one role. Omitted page-setup fields inherit the built-in default for the role.",
+///  "type": "object",
+///  "required": [
+///    "id",
+///    "name",
+///    "role"
+///  ],
+///  "properties": {
+///    "id": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "name": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "pageSetup": {
+///      "$ref": "#/$defs/page-setup"
+///    },
+///    "role": {
+///      "enum": [
+///        "score",
+///        "part"
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct LayoutProfile {
+    pub id: LayoutProfileId,
+    pub name: LayoutProfileName,
+    #[serde(
+        rename = "pageSetup",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub page_setup: ::std::option::Option<PageSetup>,
+    pub role: LayoutProfileRole,
+}
+impl ::std::convert::From<&LayoutProfile> for LayoutProfile {
+    fn from(value: &LayoutProfile) -> Self {
+        value.clone()
+    }
+}
+///`LayoutProfileId`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct LayoutProfileId(::std::string::String);
+impl ::std::ops::Deref for LayoutProfileId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<LayoutProfileId> for ::std::string::String {
+    fn from(value: LayoutProfileId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&LayoutProfileId> for LayoutProfileId {
+    fn from(value: &LayoutProfileId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for LayoutProfileId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for LayoutProfileId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LayoutProfileId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LayoutProfileId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for LayoutProfileId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`LayoutProfileName`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct LayoutProfileName(::std::string::String);
+impl ::std::ops::Deref for LayoutProfileName {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<LayoutProfileName> for ::std::string::String {
+    fn from(value: LayoutProfileName) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&LayoutProfileName> for LayoutProfileName {
+    fn from(value: &LayoutProfileName) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for LayoutProfileName {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for LayoutProfileName {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LayoutProfileName {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LayoutProfileName {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for LayoutProfileName {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`LayoutProfileRole`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "enum": [
+///    "score",
+///    "part"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum LayoutProfileRole {
+    #[serde(rename = "score")]
+    Score,
+    #[serde(rename = "part")]
+    Part,
+}
+impl ::std::convert::From<&Self> for LayoutProfileRole {
+    fn from(value: &LayoutProfileRole) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for LayoutProfileRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Score => f.write_str("score"),
+            Self::Part => f.write_str("part"),
+        }
+    }
+}
+impl ::std::str::FromStr for LayoutProfileRole {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "score" => Ok(Self::Score),
+            "part" => Ok(Self::Part),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for LayoutProfileRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LayoutProfileRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LayoutProfileRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///Viritura engraving properties on a layout staff.
 ///
 /// <details><summary>JSON schema</summary>
@@ -8571,19 +8859,14 @@ impl ::std::convert::TryFrom<::std::string::String> for OrnamentType {
         value.parse()
     }
 }
-///`PageMargins`
+///Page margins in mm. Omitted sides inherit from the layout profile or built-in default.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
+///  "description": "Page margins in mm. Omitted sides inherit from the layout profile or built-in default.",
 ///  "type": "object",
-///  "required": [
-///    "bottom",
-///    "left",
-///    "right",
-///    "top"
-///  ],
 ///  "properties": {
 ///    "bottom": {
 ///      "type": "number"
@@ -8605,14 +8888,28 @@ impl ::std::convert::TryFrom<::std::string::String> for OrnamentType {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct PageMargins {
-    pub bottom: f64,
-    pub left: f64,
-    pub right: f64,
-    pub top: f64,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub bottom: ::std::option::Option<f64>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub left: ::std::option::Option<f64>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub right: ::std::option::Option<f64>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub top: ::std::option::Option<f64>,
 }
 impl ::std::convert::From<&PageMargins> for PageMargins {
     fn from(value: &PageMargins) -> Self {
         value.clone()
+    }
+}
+impl ::std::default::Default for PageMargins {
+    fn default() -> Self {
+        Self {
+            bottom: Default::default(),
+            left: Default::default(),
+            right: Default::default(),
+            top: Default::default(),
+        }
     }
 }
 ///`PageSetup`
@@ -10729,6 +11026,13 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 ///      },
 ///      "additionalProperties": false
 ///    },
+///    "layoutProfiles": {
+///      "description": "Additional named layout profiles. Score views select one with layoutProfile.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/layout-profile"
+///      }
+///    },
 ///    "lyricWorkflow": {
 ///      "description": "Original lyric source text and stable token anchors for distribution and repair.",
 ///      "$ref": "#/$defs/lyric-workflow"
@@ -10742,7 +11046,7 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 ///      "$ref": "#/$defs/score-mixer-settings"
 ///    },
 ///    "pageSetupDefaults": {
-///      "description": "Independent project defaults for score and part page geometry. Per-score pageSetup values override these.",
+///      "description": "Default score and part layout profiles. Omitted fields inherit built-in defaults; per-score pageSetup values override these.",
 ///      "type": "object",
 ///      "properties": {
 ///        "part": {
@@ -10803,6 +11107,13 @@ pub struct RootExtensions {
     pub instrument_change_style: ::std::option::Option<
         RootExtensionsInstrumentChangeStyle,
     >,
+    ///Additional named layout profiles. Score views select one with layoutProfile.
+    #[serde(
+        rename = "layoutProfiles",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub layout_profiles: ::std::vec::Vec<LayoutProfile>,
     ///Original lyric source text and stable token anchors for distribution and repair.
     #[serde(
         rename = "lyricWorkflow",
@@ -10865,6 +11176,7 @@ impl ::std::default::Default for RootExtensions {
             bar_numbers: Default::default(),
             chord_symbol_style: Default::default(),
             instrument_change_style: Default::default(),
+            layout_profiles: Default::default(),
             lyric_workflow: Default::default(),
             metadata: Default::default(),
             mixer: Default::default(),
@@ -10921,13 +11233,13 @@ impl ::std::default::Default for RootExtensionsInstrumentChangeStyle {
         }
     }
 }
-///Independent project defaults for score and part page geometry. Per-score pageSetup values override these.
+///Default score and part layout profiles. Omitted fields inherit built-in defaults; per-score pageSetup values override these.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Independent project defaults for score and part page geometry. Per-score pageSetup values override these.",
+///  "description": "Default score and part layout profiles. Omitted fields inherit built-in defaults; per-score pageSetup values override these.",
 ///  "type": "object",
 ///  "properties": {
 ///    "part": {
@@ -10996,6 +11308,11 @@ impl ::std::default::Default for RootExtensionsPageSetupDefaults {
 ///        "$ref": "#/$defs/layout-break"
 ///      }
 ///    },
+///    "layoutProfile": {
+///      "description": "ID of a root layoutProfiles entry with the same role. Absent uses the project default profile for the role (pageSetupDefaults).",
+///      "type": "string",
+///      "minLength": 1
+///    },
 ///    "pageSetup": {
 ///      "$ref": "#/$defs/page-setup"
 ///    },
@@ -11053,6 +11370,13 @@ pub struct ScoreExtensions {
         skip_serializing_if = "::std::vec::Vec::is_empty"
     )]
     pub layout_breaks: ::std::vec::Vec<LayoutBreak>,
+    ///ID of a root layoutProfiles entry with the same role. Absent uses the project default profile for the role (pageSetupDefaults).
+    #[serde(
+        rename = "layoutProfile",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub layout_profile: ::std::option::Option<ScoreExtensionsLayoutProfile>,
     #[serde(
         rename = "pageSetup",
         default,
@@ -11086,6 +11410,7 @@ impl ::std::default::Default for ScoreExtensions {
             bar_numbers: Default::default(),
             instrument_name_display: Default::default(),
             layout_breaks: Default::default(),
+            layout_profile: Default::default(),
             page_setup: Default::default(),
             page_setup_role: Default::default(),
             text_frames: Default::default(),
@@ -11162,6 +11487,85 @@ for ScoreExtensionsAutoHideEmptyPartsItem {
     }
 }
 impl<'de> ::serde::Deserialize<'de> for ScoreExtensionsAutoHideEmptyPartsItem {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///ID of a root layoutProfiles entry with the same role. Absent uses the project default profile for the role (pageSetupDefaults).
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "ID of a root layoutProfiles entry with the same role. Absent uses the project default profile for the role (pageSetupDefaults).",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct ScoreExtensionsLayoutProfile(::std::string::String);
+impl ::std::ops::Deref for ScoreExtensionsLayoutProfile {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<ScoreExtensionsLayoutProfile> for ::std::string::String {
+    fn from(value: ScoreExtensionsLayoutProfile) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&ScoreExtensionsLayoutProfile>
+for ScoreExtensionsLayoutProfile {
+    fn from(value: &ScoreExtensionsLayoutProfile) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for ScoreExtensionsLayoutProfile {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for ScoreExtensionsLayoutProfile {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for ScoreExtensionsLayoutProfile {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ScoreExtensionsLayoutProfile {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for ScoreExtensionsLayoutProfile {
     fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
     where
         D: ::serde::Deserializer<'de>,
@@ -19193,6 +19597,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "layout-group-extensions": {
 ///      "$ref": "#/$defs/layout-group-extensions"
 ///    },
+///    "layout-profile": {
+///      "$ref": "#/$defs/layout-profile"
+///    },
 ///    "layout-staff-extensions": {
 ///      "$ref": "#/$defs/layout-staff-extensions"
 ///    },
@@ -19681,6 +20088,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub layout_group_extensions: ::std::option::Option<LayoutGroupExtensions>,
+    #[serde(
+        rename = "layout-profile",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub layout_profile: ::std::option::Option<LayoutProfile>,
     #[serde(
         rename = "layout-staff-extensions",
         default,
@@ -20202,6 +20615,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             kit_component_extensions: Default::default(),
             layout_break: Default::default(),
             layout_group_extensions: Default::default(),
+            layout_profile: Default::default(),
             layout_staff_extensions: Default::default(),
             lyric_workflow: Default::default(),
             lyric_workflow_source: Default::default(),

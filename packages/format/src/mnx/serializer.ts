@@ -97,6 +97,9 @@ export function serializeMnx(score: Score): unknown {
 function serializeRootExtensions(score: Score): Obj {
   const virituraExt: Obj = {};
   if (score.pageSetupDefaults) virituraExt["pageSetupDefaults"] = score.pageSetupDefaults;
+  if (score.layoutProfiles && score.layoutProfiles.length > 0) {
+    virituraExt["layoutProfiles"] = score.layoutProfiles.map((profile) => ({ ...profile }));
+  }
 
   if (score.metadata) {
     const metaObj = serializeScoreMetadata(score.metadata);

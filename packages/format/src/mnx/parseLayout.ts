@@ -19,7 +19,7 @@ import type {
   SystemDefinition,
   LayoutChange,
   MultimeasureRestRange,
-  PageSetup,
+  PageSetupOverride,
   PageTurnSettings,
   InstrumentNameDisplaySettings,
   BarNumberSettings,
@@ -195,68 +195,68 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
   const psRaw = viritura?.["pageSetup"] as Record<string, unknown> | undefined;
   const role = viritura?.["pageSetupRole"];
   if (role === "score" || role === "part") sd.pageSetupRole = role;
-  if (psRaw) {
-    const pageSetup: Partial<PageSetup> = {};
-    if (psRaw["width"] !== undefined) pageSetup.width = psRaw["width"] as number;
-    if (psRaw["height"] !== undefined) pageSetup.height = psRaw["height"] as number;
-    if (psRaw["orientation"]) pageSetup.orientation = psRaw["orientation"] as "portrait" | "landscape";
-    if (psRaw["margins"]) {
-      const m = psRaw["margins"] as Record<string, unknown>;
-      pageSetup.margins = {
-        top: (m["top"] as number) ?? 15,
-        right: (m["right"] as number) ?? 10,
-        bottom: (m["bottom"] as number) ?? 15,
-        left: (m["left"] as number) ?? 15,
-      };
-    }
-    if (psRaw["spatiumMm"] !== undefined) pageSetup.spatiumMm = psRaw["spatiumMm"] as number;
-    const ptRaw = psRaw["pageTurns"] as Record<string, unknown> | undefined;
-    if (ptRaw && ptRaw["enabled"] !== undefined) {
-      const weightsRaw = ptRaw["weights"] as Record<string, unknown> | undefined;
-      const pageTurns: PageTurnSettings = {
-        enabled: ptRaw["enabled"] as boolean,
-        ...(ptRaw["preset"] ? { preset: ptRaw["preset"] as "relaxed" | "professional" } : {}),
-        ...(ptRaw["comfortableSecs"] !== undefined ? { comfortableSecs: ptRaw["comfortableSecs"] as number } : {}),
-        ...(ptRaw["vsSecs"] !== undefined ? { vsSecs: ptRaw["vsSecs"] as number } : {}),
-        ...(ptRaw["minAcceptableSecs"] !== undefined
-          ? { minAcceptableSecs: ptRaw["minAcceptableSecs"] as number }
-          : {}),
-        ...(ptRaw["targetFillFraction"] !== undefined
-          ? { targetFillFraction: ptRaw["targetFillFraction"] as number }
-          : {}),
-        ...(ptRaw["minFillFraction"] !== undefined ? { minFillFraction: ptRaw["minFillFraction"] as number } : {}),
-        ...(ptRaw["verticalJustifyThreshold"] !== undefined
-          ? { verticalJustifyThreshold: ptRaw["verticalJustifyThreshold"] as number }
-          : {}),
-        ...(ptRaw["allowPartialPages"] !== undefined
-          ? { allowPartialPages: ptRaw["allowPartialPages"] as boolean }
-          : {}),
-        ...(ptRaw["allowIntentionalBlanks"] !== undefined
-          ? { allowIntentionalBlanks: ptRaw["allowIntentionalBlanks"] as boolean }
-          : {}),
-        ...(ptRaw["titlePage"] ? { titlePage: ptRaw["titlePage"] as PageTurnSettings["titlePage"] } : {}),
-        ...(ptRaw["firstPageRecto"] !== undefined ? { firstPageRecto: ptRaw["firstPageRecto"] as boolean } : {}),
-        ...(ptRaw["emitVsMarks"] !== undefined ? { emitVsMarks: ptRaw["emitVsMarks"] as boolean } : {}),
-        ...(ptRaw["defaultBpm"] !== undefined ? { defaultBpm: ptRaw["defaultBpm"] as number } : {}),
-      };
-      if (weightsRaw) {
-        pageTurns.weights = {
-          ...(weightsRaw["density"] !== undefined ? { density: weightsRaw["density"] as number } : {}),
-          ...(weightsRaw["turn"] !== undefined ? { turn: weightsRaw["turn"] as number } : {}),
-          ...(weightsRaw["sparse"] !== undefined ? { sparse: weightsRaw["sparse"] as number } : {}),
-          ...(weightsRaw["titlePage"] !== undefined ? { titlePage: weightsRaw["titlePage"] as number } : {}),
-          ...(weightsRaw["blankPage"] !== undefined ? { blankPage: weightsRaw["blankPage"] as number } : {}),
-          ...(weightsRaw["timeMarking"] !== undefined ? { timeMarking: weightsRaw["timeMarking"] as number } : {}),
-        };
-      }
-      pageSetup.pageTurns = pageTurns;
-    }
-    if (Object.keys(pageSetup).length > 0) {
-      sd.pageSetup = pageSetup;
-    }
-  }
+  const layoutProfile = viritura?.["layoutProfile"];
+  if (typeof layoutProfile === "string" && layoutProfile.length > 0) sd.layoutProfile = layoutProfile;
+  const pageSetup = psRaw ? parsePageSetupOverride(psRaw) : undefined;
+  if (pageSetup) sd.pageSetup = pageSetup;
 
   return sd;
+}
+
+function parsePageSetupOverride(psRaw: Record<string, unknown>): PageSetupOverride | undefined {
+  const pageSetup: PageSetupOverride = {};
+  if (psRaw["width"] !== undefined) pageSetup.width = psRaw["width"] as number;
+  if (psRaw["height"] !== undefined) pageSetup.height = psRaw["height"] as number;
+  if (psRaw["orientation"]) pageSetup.orientation = psRaw["orientation"] as "portrait" | "landscape";
+  if (psRaw["margins"]) {
+    const m = psRaw["margins"] as Record<string, unknown>;
+    const margins: NonNullable<PageSetupOverride["margins"]> = {};
+    for (const side of ["top", "right", "bottom", "left"] as const) {
+      if (typeof m[side] === "number") margins[side] = m[side];
+    }
+    if (Object.keys(margins).length > 0) pageSetup.margins = margins;
+  }
+  if (psRaw["spatiumMm"] !== undefined) pageSetup.spatiumMm = psRaw["spatiumMm"] as number;
+  const ptRaw = psRaw["pageTurns"] as Record<string, unknown> | undefined;
+  if (ptRaw && ptRaw["enabled"] !== undefined) pageSetup.pageTurns = parsePageTurns(ptRaw);
+  return Object.keys(pageSetup).length > 0 ? pageSetup : undefined;
+}
+
+function parsePageTurns(ptRaw: Record<string, unknown>): PageTurnSettings {
+  const pageTurns: PageTurnSettings = {
+    enabled: ptRaw["enabled"] as boolean,
+    ...(ptRaw["preset"] ? { preset: ptRaw["preset"] as "relaxed" | "professional" } : {}),
+    ...(ptRaw["comfortableSecs"] !== undefined ? { comfortableSecs: ptRaw["comfortableSecs"] as number } : {}),
+    ...(ptRaw["vsSecs"] !== undefined ? { vsSecs: ptRaw["vsSecs"] as number } : {}),
+    ...(ptRaw["minAcceptableSecs"] !== undefined ? { minAcceptableSecs: ptRaw["minAcceptableSecs"] as number } : {}),
+    ...(ptRaw["targetFillFraction"] !== undefined ? { targetFillFraction: ptRaw["targetFillFraction"] as number } : {}),
+    ...(ptRaw["minFillFraction"] !== undefined ? { minFillFraction: ptRaw["minFillFraction"] as number } : {}),
+    ...(ptRaw["verticalJustifyThreshold"] !== undefined
+      ? { verticalJustifyThreshold: ptRaw["verticalJustifyThreshold"] as number }
+      : {}),
+    ...(ptRaw["allowPartialPages"] !== undefined ? { allowPartialPages: ptRaw["allowPartialPages"] as boolean } : {}),
+    ...(ptRaw["allowIntentionalBlanks"] !== undefined
+      ? { allowIntentionalBlanks: ptRaw["allowIntentionalBlanks"] as boolean }
+      : {}),
+    ...(ptRaw["titlePage"] ? { titlePage: ptRaw["titlePage"] as PageTurnSettings["titlePage"] } : {}),
+    ...(ptRaw["firstPageRecto"] !== undefined ? { firstPageRecto: ptRaw["firstPageRecto"] as boolean } : {}),
+    ...(ptRaw["emitVsMarks"] !== undefined ? { emitVsMarks: ptRaw["emitVsMarks"] as boolean } : {}),
+    ...(ptRaw["defaultBpm"] !== undefined ? { defaultBpm: ptRaw["defaultBpm"] as number } : {}),
+  };
+  const weightsRaw = ptRaw["weights"] as Record<string, unknown> | undefined;
+  if (weightsRaw) pageTurns.weights = parsePageTurnWeights(weightsRaw);
+  return pageTurns;
+}
+
+function parsePageTurnWeights(weightsRaw: Record<string, unknown>): NonNullable<PageTurnSettings["weights"]> {
+  return {
+    ...(weightsRaw["density"] !== undefined ? { density: weightsRaw["density"] as number } : {}),
+    ...(weightsRaw["turn"] !== undefined ? { turn: weightsRaw["turn"] as number } : {}),
+    ...(weightsRaw["sparse"] !== undefined ? { sparse: weightsRaw["sparse"] as number } : {}),
+    ...(weightsRaw["titlePage"] !== undefined ? { titlePage: weightsRaw["titlePage"] as number } : {}),
+    ...(weightsRaw["blankPage"] !== undefined ? { blankPage: weightsRaw["blankPage"] as number } : {}),
+    ...(weightsRaw["timeMarking"] !== undefined ? { timeMarking: weightsRaw["timeMarking"] as number } : {}),
+  };
 }
 
 function parsePageDefinition(raw: RawPage): PageDefinition {

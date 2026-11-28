@@ -10,6 +10,7 @@ import { describe, it, expect } from "vitest";
 import { setKeySignature } from "@viritura/core";
 import { parseMnx, parseMnxWithDiagnostics } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
+import { validateRawScore } from "../mnx/validator";
 import * as fs from "node:fs";
 import { mnxFixtures } from "./mnxCorpus";
 
@@ -951,5 +952,52 @@ describe("MNX round-trip preserves page-turn settings", () => {
 
     expect(score2.scores?.[0]?.pageSetup?.pageTurns).toEqual(pageTurns);
     expect(score2).toEqual(score1);
+  });
+});
+
+describe("MNX round-trip preserves layout profiles", () => {
+  it("keeps named profiles, profile assignment, and sparse page overrides", () => {
+    const doc = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          name: "Violin",
+          measures: [
+            {
+              clefs: [{ clef: { sign: "G", staffPosition: -2 } }],
+              sequences: [{ content: [{ duration: { base: "whole" }, notes: [{ pitch: { step: "C", octave: 4 } }] }] }],
+            },
+          ],
+        },
+      ],
+      scores: [
+        {
+          name: "Violin",
+          _x: {
+            viritura: {
+              pageSetupRole: "part",
+              layoutProfile: "large",
+              pageSetup: { margins: { left: 22 } },
+            },
+          },
+        },
+      ],
+      _x: {
+        viritura: {
+          pageSetupDefaults: { part: { spatiumMm: 1.75 } },
+          layoutProfiles: [{ id: "large", name: "Large print", role: "part", pageSetup: { spatiumMm: 2 } }],
+        },
+      },
+    };
+    const score1 = parseMnx(doc);
+    expect(score1.pageSetupDefaults).toEqual({ part: { spatiumMm: 1.75 } });
+    expect(score1.layoutProfiles?.[0]?.name).toBe("Large print");
+    expect(score1.scores?.[0]?.layoutProfile).toBe("large");
+    expect(score1.scores?.[0]?.pageSetup).toEqual({ margins: { left: 22 } });
+
+    const serialized = serializeMnx(score1);
+    expect(validateRawScore(serialized).ok).toBe(true);
+    expect(parseMnx(serialized)).toEqual(score1);
   });
 });

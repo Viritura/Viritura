@@ -1079,24 +1079,34 @@ between that group and the preceding group. Frequency and first-bar visibility s
 
 `_x.viritura` on the top-level score object. Schema def: `root-extensions`.
 
-### `pageSetupDefaults`
+### `pageSetupDefaults` and `layoutProfiles`
 
-Independent project page profiles keyed by `score` and `part`. Each profile uses
-the same shape as `scores[]._x.viritura.pageSetup`: width/height in millimetres,
-orientation, margins, `spatiumMm`, and optional page-turn settings.
+Page geometry inherits through three layers, one field at a time:
 
-Settings > Page Defaults stores separate user profiles locally on this device.
-They are copied into new documents, not applied live to existing documents.
-Engrave > Layouts > Page setup for edits either project profile or the current
-layout's override. Project profiles apply to inheriting layouts, including newly
-created layouts. Custom layouts keep their effective settings unless the user
-explicitly selects **Replace custom layouts** when applying to all scores/parts.
-These changes are document edits and participate in saving, collaboration, and undo.
+1. Built-in defaults for the role (A4 portrait; parts use a larger staff and page-turn-aware pagination).
+2. The layout profile assigned to the score view.
+3. The score view's own `scores[]._x.viritura.pageSetup` overrides.
 
-Per-layout `pageSetup` values override the project profile. Resetting a layout
-removes that override. Explicit values are preserved on serialization even when
-equal to application defaults, so an A4 override over Letter stays A4 after reopening.
+`pageSetupDefaults` holds the two default profiles, keyed by `score` and `part`.
+`layoutProfiles` adds named profiles (`id`, `name`, `role`, optional `pageSetup`),
+such as a large-print part. A score view selects one with
+`scores[]._x.viritura.layoutProfile`; when absent, missing, or a different role,
+the default profile for the view's role applies. Named profiles inherit built-in
+defaults directly, not the default profile.
 
+Every `pageSetup` value at every layer is sparse: width/height in millimetres,
+orientation, each margin side, `spatiumMm`, and `pageTurns` can be stored
+independently. Omitted fields inherit, so editing a profile reaches every layout
+that does not override that field. Margins merge per side and page-turn settings
+merge per key. Explicit values are preserved on serialization even when equal to
+application defaults, so an A4 override over a Letter profile stays A4.
+
+Engrave edits these layers in place: the Layout panel edits the current score
+view, its profile picker assigns a profile, and the house-style editor edits the
+profiles. Resetting a field removes it from that layer. These changes are
+document edits and participate in saving, collaboration, and undo. Settings >
+Defaults for new projects stores personal profiles locally on this device; they
+are copied into new documents, not applied live to existing documents.
 The optional score-definition `pageSetupRole` (`score` or `part`) disambiguates
 solo-player extracts and section scores. New editor-created layouts record their
 role. Older documents retain layout-membership inference: a layout referencing

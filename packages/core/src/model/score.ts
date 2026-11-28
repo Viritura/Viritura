@@ -1,6 +1,6 @@
 import type { GlobalMeasure } from "./measure";
 import type { Part } from "./part";
-import type { LayoutDefinition, PageSetupDefaults, ScoreDefinition } from "./layout";
+import type { LayoutDefinition, LayoutProfile, PageSetupDefaults, ScoreDefinition } from "./layout";
 import type { Sound } from "./kit";
 import type { GroupingDisplay } from "./time";
 import type { InstrumentChangeStyle } from "./instrumentChange";
@@ -372,6 +372,8 @@ export interface Score {
   scores?: ScoreDefinition[];
   /** Independent score/part page defaults (root `_x.viritura.pageSetupDefaults`). */
   pageSetupDefaults?: PageSetupDefaults;
+  /** Additional named layout profiles (root `_x.viritura.layoutProfiles`). */
+  layoutProfiles?: LayoutProfile[];
   /** Score-level metadata (title, composer, etc.) */
   metadata?: ScoreMetadata;
   /** Per-document text style overrides (root _x.viritura.textStyles). */

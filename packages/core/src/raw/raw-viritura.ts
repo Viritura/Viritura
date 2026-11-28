@@ -715,11 +715,12 @@ export interface components {
             defaultBpm?: number;
             weights?: components["schemas"]["page-turn-weights"];
         };
+        /** @description Page margins in mm. Omitted sides inherit from the layout profile or built-in default. */
         "page-margins": {
-            top: number;
-            right: number;
-            bottom: number;
-            left: number;
+            top?: number;
+            right?: number;
+            bottom?: number;
+            left?: number;
         };
         "page-setup": {
             width?: number;
@@ -729,6 +730,14 @@ export interface components {
             margins?: components["schemas"]["page-margins"];
             spatiumMm?: number;
             pageTurns?: components["schemas"]["page-turn-settings"];
+        };
+        /** @description Named page-setup profile shared by score views of one role. Omitted page-setup fields inherit the built-in default for the role. */
+        "layout-profile": {
+            id: string;
+            name: string;
+            /** @enum {unknown} */
+            role: "score" | "part";
+            pageSetup?: components["schemas"]["page-setup"];
         };
         /** @description Partial bar-number house style. Score-view overrides inherit omitted fields from the document defaults. */
         "bar-number-settings": {
@@ -788,6 +797,8 @@ export interface components {
             pageSetup?: components["schemas"]["page-setup"];
             /** @enum {unknown} */
             pageSetupRole?: "score" | "part";
+            /** @description ID of a root layoutProfiles entry with the same role. Absent uses the project default profile for the role (pageSetupDefaults). */
+            layoutProfile?: string;
             barNumbers?: components["schemas"]["bar-number-settings"];
             instrumentNameDisplay?: components["schemas"]["instrument-name-display"];
             /** @description Part IDs eligible for automatic hiding on each system in paged views of this score view only. All staves of the part must contain only unmarked rests or spaces. Staff-specific annotations and spanning markings keep the part visible. At least one instrument remains visible. Horizon views are unchanged. */
@@ -1205,11 +1216,13 @@ export interface components {
         "root-extensions": {
             /** @description Score-level bibliographic metadata. */
             metadata?: components["schemas"]["score-metadata"];
-            /** @description Independent project defaults for score and part page geometry. Per-score pageSetup values override these. */
+            /** @description Default score and part layout profiles. Omitted fields inherit built-in defaults; per-score pageSetup values override these. */
             pageSetupDefaults?: {
                 score?: components["schemas"]["page-setup"];
                 part?: components["schemas"]["page-setup"];
             };
+            /** @description Additional named layout profiles. Score views select one with layoutProfile. */
+            layoutProfiles?: components["schemas"]["layout-profile"][];
             /** @description Per-document text style overrides. */
             textStyles?: components["schemas"]["text-styles"];
             barNumbers?: components["schemas"]["bar-number-settings"];
@@ -1325,6 +1338,7 @@ export type PageTurnWeights = components["schemas"]["page-turn-weights"];
 export type PageTurnSettings = components["schemas"]["page-turn-settings"];
 export type PageMargins = components["schemas"]["page-margins"];
 export type PageSetup = components["schemas"]["page-setup"];
+export type LayoutProfile = components["schemas"]["layout-profile"];
 export type BarNumberSettings = components["schemas"]["bar-number-settings"];
 export type AutoHideEmptyStaves = components["schemas"]["auto-hide-empty-staves"];
 export type AutoHideKeepVisible = components["schemas"]["auto-hide-keep-visible"];

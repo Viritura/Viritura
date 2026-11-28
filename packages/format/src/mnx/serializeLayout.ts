@@ -83,6 +83,7 @@ export function serializeScoreDefinition(sd: ScoreDefinition): Obj {
   const viritura: Obj = {};
   if (sd.barNumbers) viritura["barNumbers"] = { ...sd.barNumbers };
   if (sd.pageSetupRole) viritura["pageSetupRole"] = sd.pageSetupRole;
+  if (sd.layoutProfile) viritura["layoutProfile"] = sd.layoutProfile;
   if (sd.instrumentNameDisplay) {
     viritura["instrumentNameDisplay"] = { ...sd.instrumentNameDisplay };
   }
@@ -168,12 +169,11 @@ function serializePageSetup(ps: NonNullable<ScoreDefinition["pageSetup"]>): Obj 
   if (ps.orientation !== undefined) psObj["orientation"] = ps.orientation;
   if (ps.spatiumMm !== undefined) psObj["spatiumMm"] = ps.spatiumMm;
   if (ps.margins) {
-    psObj["margins"] = {
-      top: ps.margins.top,
-      right: ps.margins.right,
-      bottom: ps.margins.bottom,
-      left: ps.margins.left,
-    };
+    const margins: Obj = {};
+    for (const side of ["top", "right", "bottom", "left"] as const) {
+      if (ps.margins[side] !== undefined) margins[side] = ps.margins[side];
+    }
+    if (Object.keys(margins).length > 0) psObj["margins"] = margins;
   }
   if (ps.pageTurns) {
     psObj["pageTurns"] = {

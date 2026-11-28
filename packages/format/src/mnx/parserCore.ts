@@ -24,8 +24,9 @@ import type {
   LyricWorkflowSource,
   LyricWorkflowToken,
   PageSetupDefaults,
+  LayoutProfile,
 } from "@viritura/core";
-import { generateId, DEFAULT_PAGE_SETUP, DEFAULT_PART_PAGE_SETUP } from "@viritura/core";
+import { generateId } from "@viritura/core";
 import { mergeImportedFermatas, resolveLyricExtenders } from "@viritura/core";
 
 import type { SequenceContent } from "@viritura/core";
@@ -558,19 +559,10 @@ function hasVirituraExtensions(root: unknown): boolean {
  */
 function applyRootExtensions(score: Score, rootX: Obj | undefined): void {
   const pageSetupDefaults = (rootX?.["viritura"] as Obj | undefined)?.["pageSetupDefaults"];
-  if (pageSetupDefaults) {
-    const stored = pageSetupDefaults as PageSetupDefaults;
-    score.pageSetupDefaults = {};
-    for (const role of ["score", "part"] as const) {
-      const setup = stored[role];
-      if (!setup) continue;
-      const defaults = role === "score" ? DEFAULT_PAGE_SETUP : DEFAULT_PART_PAGE_SETUP;
-      score.pageSetupDefaults[role] = {
-        ...defaults,
-        ...setup,
-        margins: { ...defaults.margins, ...setup.margins },
-      };
-    }
+  if (pageSetupDefaults) score.pageSetupDefaults = structuredClone(pageSetupDefaults as PageSetupDefaults);
+  const layoutProfiles = (rootX?.["viritura"] as Obj | undefined)?.["layoutProfiles"];
+  if (Array.isArray(layoutProfiles) && layoutProfiles.length > 0) {
+    score.layoutProfiles = structuredClone(layoutProfiles as LayoutProfile[]);
   }
   const metadata = parseRootMetadata(rootX);
   if (metadata) score.metadata = metadata;

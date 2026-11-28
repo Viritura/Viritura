@@ -1,5 +1,12 @@
 import type { Score } from "./score";
-import { defaultPageSetupForScore, type PageSetup, type PageTurnSettings } from "./layout";
+import {
+  applyPageSetupOverride,
+  builtInPageSetup,
+  pageSetupRoleForScore,
+  type LayoutProfile,
+  type PageSetup,
+  type PageSetupRole,
+} from "./layout";
 
 const POINTS_PER_MM = 72 / 25.4;
 
@@ -13,31 +20,27 @@ export function pointsToStaffSpaces(sizePt: number, spatiumMm: number): number {
   return sizePt / (spatiumMm * POINTS_PER_MM);
 }
 
-function inheritPageTurns(defaults?: PageTurnSettings, stored?: PageTurnSettings): PageTurnSettings | undefined {
-  if (!stored) return defaults;
-  if (!defaults) return stored;
-  return {
-    ...defaults,
-    ...stored,
-    ...(defaults.weights || stored.weights ? { weights: { ...defaults.weights, ...stored.weights } } : {}),
-  };
+/** Role of a score view, inferred from layout membership unless stored explicitly. */
+export function scorePageSetupRole(score: Score | null, scoreIndex: number): PageSetupRole {
+  return pageSetupRoleForScore(score?.scores, scoreIndex, score?.layouts, score?.parts.length);
 }
 
-/** Project defaults are portable; user preferences are only copied when creating a document. */
+/** Named profile assigned to a score view, ignoring missing IDs and role mismatches. */
+export function assignedLayoutProfile(score: Score | null, scoreIndex: number): LayoutProfile | undefined {
+  const id = score?.scores?.[scoreIndex]?.layoutProfile;
+  if (!id) return undefined;
+  const role = scorePageSetupRole(score, scoreIndex);
+  return score?.layoutProfiles?.find((profile) => profile.id === id && profile.role === role);
+}
+
+/** Page setup a score view inherits before its own overrides: built-in default, then its profile. */
+export function profilePageSetupForScore(score: Score | null, scoreIndex: number): PageSetup {
+  const role = scorePageSetupRole(score, scoreIndex);
+  const named = assignedLayoutProfile(score, scoreIndex);
+  return applyPageSetupOverride(builtInPageSetup(role), named ? named.pageSetup : score?.pageSetupDefaults?.[role]);
+}
+
+/** Effective page setup: built-in default, then the layout profile, then the score view's overrides. */
 export function resolveScorePageSetup(score: Score | null, scoreIndex: number): PageSetup {
-  const defaults = defaultPageSetupForScore(
-    score?.scores,
-    scoreIndex,
-    score?.layouts,
-    score?.parts.length,
-    score?.pageSetupDefaults,
-  );
-  const stored = score?.scores?.[scoreIndex]?.pageSetup;
-  const pageTurns = inheritPageTurns(defaults.pageTurns, stored?.pageTurns);
-  return {
-    ...defaults,
-    ...stored,
-    margins: { ...defaults.margins, ...stored?.margins },
-    ...(pageTurns ? { pageTurns } : {}),
-  };
+  return applyPageSetupOverride(profilePageSetupForScore(score, scoreIndex), score?.scores?.[scoreIndex]?.pageSetup);
 }

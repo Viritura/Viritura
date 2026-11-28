@@ -1440,7 +1440,7 @@
 
     "page-margins": {
       "type": "object",
-      "required": ["top", "right", "bottom", "left"],
+      "description": "Page margins in mm. Omitted sides inherit from the layout profile or built-in default.",
       "properties": {
         "top": { "type": "number", "minimum": 0 },
         "right": { "type": "number", "minimum": 0 },
@@ -1459,6 +1459,19 @@
         "margins": { "$ref": "#/$defs/page-margins" },
         "spatiumMm": { "type": "number", "exclusiveMinimum": 0 },
         "pageTurns": { "$ref": "#/$defs/page-turn-settings" }
+      },
+      "additionalProperties": false
+    },
+
+    "layout-profile": {
+      "type": "object",
+      "description": "Named page-setup profile shared by score views of one role. Omitted page-setup fields inherit the built-in default for the role.",
+      "required": ["id", "name", "role"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "role": { "enum": ["score", "part"] },
+        "pageSetup": { "$ref": "#/$defs/page-setup" }
       },
       "additionalProperties": false
     },
@@ -1556,6 +1569,11 @@
       "properties": {
         "pageSetup": { "$ref": "#/$defs/page-setup" },
         "pageSetupRole": { "enum": ["score", "part"] },
+        "layoutProfile": {
+          "type": "string",
+          "minLength": 1,
+          "description": "ID of a root layoutProfiles entry with the same role. Absent uses the project default profile for the role (pageSetupDefaults)."
+        },
         "barNumbers": { "$ref": "#/$defs/bar-number-settings" },
         "instrumentNameDisplay": { "$ref": "#/$defs/instrument-name-display" },
         "autoHideEmptyParts": {
@@ -2328,12 +2346,17 @@
         },
         "pageSetupDefaults": {
           "type": "object",
-          "description": "Independent project defaults for score and part page geometry. Per-score pageSetup values override these.",
+          "description": "Default score and part layout profiles. Omitted fields inherit built-in defaults; per-score pageSetup values override these.",
           "properties": {
             "score": { "$ref": "#/$defs/page-setup" },
             "part": { "$ref": "#/$defs/page-setup" }
           },
           "additionalProperties": false
+        },
+        "layoutProfiles": {
+          "type": "array",
+          "description": "Additional named layout profiles. Score views select one with layoutProfile.",
+          "items": { "$ref": "#/$defs/layout-profile" }
         },
         "textStyles": {
           "$ref": "#/$defs/text-styles",
