@@ -1,6 +1,7 @@
 import { walkSequenceEvents, type NoteEvent, type Score } from "@viritura/core";
 import { getEventAtLocation, type EventLocation } from "../../score/ElementPath";
 import { deleteNote } from "../noteCommands";
+import { dropReferencesToNotes } from "../noteReferences";
 
 /** Re-resolve by identity after each rest merge or container unwrapping. */
 export function deleteEventTargets(score: Score, locations: readonly EventLocation[]): Score {
@@ -9,6 +10,7 @@ export function deleteEventTargets(score: Score, locations: readonly EventLocati
     return event?.type === "event" ? [{ location, event }] : [];
   });
   const replacements = new Map<NoteEvent, NoteEvent>();
+  const removedIds = new Set<string>();
   for (const target of targets) {
     const { partIndex, measureIndex, sequenceIndex } = target.location;
     const sequence = score.parts[partIndex]!.measures[measureIndex]!.sequences[sequenceIndex]!;
@@ -21,13 +23,17 @@ export function deleteEventTargets(score: Score, locations: readonly EventLocati
     const childIndex = found.path[1];
     const container = sequence.content[rootIndex];
     const tremoloEvents = container?.type === "tremolo" ? [...container.content] : null;
-    deleteNote(score, {
-      partIndex,
-      measureIndex,
-      voice: sequenceIndex,
-      eventIndex: childIndex ?? rootIndex,
-      tupletIndex: childIndex === undefined ? undefined : rootIndex,
-    });
+    deleteNote(
+      score,
+      {
+        partIndex,
+        measureIndex,
+        voice: sequenceIndex,
+        eventIndex: childIndex ?? rootIndex,
+        tupletIndex: childIndex === undefined ? undefined : rootIndex,
+      },
+      removedIds,
+    );
     if (tremoloEvents) {
       for (const [index, original] of tremoloEvents.entries()) {
         const restored = sequence.content[rootIndex + index];
@@ -35,5 +41,6 @@ export function deleteEventTargets(score: Score, locations: readonly EventLocati
       }
     }
   }
+  dropReferencesToNotes(score, removedIds);
   return score;
 }

@@ -220,6 +220,14 @@ function kitComponents(score: Score, index: number): string[] {
 }
 
 describe("removeChordNotes — percussion kit notes", () => {
+  it("removes a kit-note tie targeting a deleted chord member", () => {
+    const score = makeKitScore();
+    eventAt(score, 0).kitNotes![0]!.id = "removed-kit-note";
+    eventAt(score, 1).kitNotes![0]!.ties = [{ target: "removed-kit-note" }, { lv: true }];
+    expect(removeChordNotes(score, KIT_CHORD, [0])).toBe("removed");
+    expect(eventAt(score, 1).kitNotes![0]!.ties).toEqual([{ lv: true }]);
+  });
+
   it("removes one drum and leaves the other sounding", () => {
     const score = makeKitScore();
     expect(removeChordNotes(score, KIT_CHORD, [0])).toBe("removed");

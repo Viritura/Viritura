@@ -3,6 +3,7 @@ import type { SelectionState } from "../../store/selectionStore";
 import { cloneScore } from "../../score/scoreClone";
 import { measureSelectionStaffOffsets, partStaffOffset } from "../../clipboard/clipboardTrackMapping";
 import { clearStaffAnnotations, collectContentIds } from "./staffContent";
+import { collectNoteIds, dropReferencesToNotes } from "../noteReferences";
 
 export type MeasureContentSelection = Extract<SelectionState, { kind: "measure" }>;
 
@@ -14,6 +15,7 @@ export function clearMeasureContent(score: Score, selection: MeasureContentSelec
   const startMeasure = Math.min(selection.startMeasure, selection.endMeasure);
   const endMeasure = Math.max(selection.startMeasure, selection.endMeasure);
   const staffOffsets = measureSelectionStaffOffsets(score, selection);
+  const removedNoteIds = new Set<string>();
   for (let p = startPart; p <= endPart; p++) {
     const part = next.parts[p];
     if (!part) continue;
@@ -29,6 +31,7 @@ export function clearMeasureContent(score: Score, selection: MeasureContentSelec
       for (const sequence of measure.sequences) {
         if (!selectsStaff(sequence.staff ?? 1)) continue;
         if (!allStaves) collectContentIds(sequence.content, removedIds);
+        collectNoteIds(sequence.content, removedNoteIds);
         sequence.content = [];
         sequence.fullMeasure = sequence.fullMeasure ?? { visualDuration: { base: "whole" } };
         delete sequence.fullMeasure.fermata;
@@ -47,5 +50,6 @@ export function clearMeasureContent(score: Score, selection: MeasureContentSelec
       delete measure.measureRepeat;
     }
   }
+  dropReferencesToNotes(next, removedNoteIds);
   return next;
 }

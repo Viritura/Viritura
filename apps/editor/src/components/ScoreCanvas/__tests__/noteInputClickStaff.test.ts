@@ -125,6 +125,61 @@ function runClick(
 afterEach(() => resetNoteInputStore());
 
 describe("addNoteAtClick — staff/voice resolution on lower staves", () => {
+  it("writes an LV tie immediately when tie entry has no target", () => {
+    const score = makeTwoPartScore();
+    const result = runClick(score, { ...makeNoteInputState(), tieActive: true });
+    expect(result.parts[1]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.ties).toEqual([{ lv: true }]);
+    expect(score.parts[1]!.measures[0]!.sequences[0]!.content[0]!.notes).toBeUndefined();
+  });
+
+  it.each(["F", "G"] as const)("resolves tie entry on the inserted note before an existing %s", (step) => {
+    const score = makeTwoPartScore();
+    score.parts[1]!.measures[0]!.sequences[0]!.content = [
+      { type: "event", duration: { base: "quarter" }, rest: {} },
+      {
+        type: "event",
+        id: "following",
+        duration: { base: "half", dots: 1 },
+        notes: [{ id: "following-note", pitch: { step, octave: 5 } }],
+      },
+    ];
+    const result = runClick(score, { ...makeNoteInputState(), currentDuration: "quarter", tieActive: true });
+    const content = result.parts[1]!.measures[0]!.sequences[0]!.content;
+    expect(content[0]!.notes![0]!.ties).toEqual(step === "F" ? [{ target: "following-note" }] : [{ lv: true }]);
+    expect(content[1]!.notes![0]!.ties).toBeUndefined();
+  });
+
+  it("resolves tie entry inside a tuplet without touching its final note", () => {
+    const score = makeTwoPartScore();
+    score.parts[1]!.measures[0]!.sequences[0]!.content = [
+      {
+        type: "tuplet",
+        inner: { duration: { base: "quarter" }, multiple: 3 },
+        outer: { duration: { base: "quarter" }, multiple: 2 },
+        content: [
+          { type: "event", duration: { base: "quarter" }, rest: {} },
+          {
+            type: "event",
+            duration: { base: "quarter" },
+            notes: [{ id: "tuplet-target", pitch: { step: "F", octave: 5 } }],
+          },
+          {
+            type: "event",
+            duration: { base: "quarter" },
+            notes: [{ id: "tuplet-last", pitch: { step: "G", octave: 5 } }],
+          },
+        ],
+      },
+      { type: "event", duration: { base: "half" }, rest: {} },
+    ];
+    const result = runClick(score, { ...makeNoteInputState(), currentDuration: "quarter", tieActive: true });
+    const tuplet = result.parts[1]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(tuplet.type).toBe("tuplet");
+    if (tuplet.type !== "tuplet") throw new Error("Expected a tuplet");
+    expect(tuplet.content[0]!.notes![0]!.ties).toEqual([{ target: "tuplet-target" }]);
+    expect(tuplet.content[2]!.notes![0]!.ties).toBeUndefined();
+  });
+
   it("clicks the active clarinet's written F-sharp and previews stored concert E without re-transposing", () => {
     const score = makeTwoPartScore();
     score.scores = [{ useWritten: true }];

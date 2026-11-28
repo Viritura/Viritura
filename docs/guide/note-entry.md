@@ -143,7 +143,9 @@ continues there.
   note, or adds an open-ended laissez vibrer (l.v.) tie when there is no match.
   Press it again to remove the connection. The separate **Tie** and
   **Laissez vibrer tie** palette buttons let you choose explicitly.
-- In note input, `T` toggles a pending tie for note entry.
+- In note input, `T` toggles tie entry. Clicking a new note ties it to an
+  adjacent same-pitch note already in the score, or adds a laissez vibrer
+  tie when there is no match. No unfinished tie is stored.
 - `S` begins a slur to the next note.
 - `/` toggles **grace‑note** entry in note input — the next note(s) you enter
   become grace notes attached to the following main note.

@@ -12,6 +12,7 @@ import {
 import type { ScorePatch } from "@viritura/core";
 import { splitEventDurations } from "../score/eventFragments";
 import { mergeAdjacentRests } from "./restMerging";
+import { collectNoteIds, dropReferencesToNotes } from "./noteReferences";
 export { mergeAdjacentRests } from "./restMerging";
 
 // ═══════════════════════════════════════════
@@ -858,7 +859,7 @@ function collapseRestOnlyTuplet(score: Score, sequence: Sequence, measureIndex: 
   mergeAdjacentRests(sequence, undefined, time, score);
 }
 
-export function deleteNote(score: Score, params: DeleteNoteParams): Score {
+export function deleteNote(score: Score, params: DeleteNoteParams, batchRemovedIds?: Set<string>): Score {
   const { measureIndex, partIndex, voice, eventIndex, tupletIndex } = params;
 
   const part = score.parts[partIndex];
@@ -883,9 +884,14 @@ export function deleteNote(score: Score, params: DeleteNoteParams): Score {
       }));
       const event = restored[eventIndex];
       if (!event) throw new Error(`Event ${eventIndex} not found`);
-      if (!isRest(event)) restored[eventIndex] = createRest(event.duration);
+      const removedIds = batchRemovedIds ?? new Set<string>();
+      if (!isRest(event)) {
+        collectNoteIds([event], removedIds);
+        restored[eventIndex] = createRest(event.duration);
+      }
       sequence.content.splice(tupletIndex, 1, ...restored);
       collapseRestOnlySequence(sequence);
+      if (!batchRemovedIds) dropReferencesToNotes(score, removedIds);
       return score;
     }
     contentArray = container.content;
@@ -901,6 +907,8 @@ export function deleteNote(score: Score, params: DeleteNoteParams): Score {
     return score;
   }
 
+  const removedIds = batchRemovedIds ?? new Set<string>();
+  collectNoteIds([event], removedIds);
   if (tupletIndex === undefined) {
     const ts = getEffectiveTimeSignature(score, measureIndex);
     const startBeat = sequence.content.slice(0, eventIndex).reduce((sum, item) => sum + sequenceContentBeats(item), 0);
@@ -916,6 +924,7 @@ export function deleteNote(score: Score, params: DeleteNoteParams): Score {
     collapseRestOnlyTuplet(score, sequence, measureIndex, tupletIndex);
   }
   collapseRestOnlySequence(sequence);
+  if (!batchRemovedIds) dropReferencesToNotes(score, removedIds);
 
   return score;
 }
