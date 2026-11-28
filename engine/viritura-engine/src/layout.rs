@@ -112,12 +112,14 @@ pub fn layout_score_cached(
     cache: Option<&mut cache::LayoutCache>,
 ) -> DisplayList {
     let merged_config = config_with_document_overrides(score, config, LayoutContext::Score);
-    layout_score_with_config_cached(
-        score,
-        part_index,
-        merged_config.as_ref().unwrap_or(config),
-        cache,
-    )
+    crate::drawing_recorder::layout(score, || {
+        layout_score_with_config_cached(
+            score,
+            part_index,
+            merged_config.as_ref().unwrap_or(config),
+            cache,
+        )
+    })
 }
 
 #[allow(clippy::too_many_lines)] // single-part cached layout pipeline; staged passes share orchestration state

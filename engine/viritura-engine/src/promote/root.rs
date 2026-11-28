@@ -151,6 +151,10 @@ fn promote_root_vendor(
 
 /// Convert a full MNX document JSON value into a [`ModelScore`].
 pub fn promote_root(root_json: serde_json::Value) -> Result<ModelScore, PromoteError> {
+    crate::drawing_recorder::parse(root_json, promote_root_unrecorded)
+}
+
+fn promote_root_unrecorded(root_json: serde_json::Value) -> Result<ModelScore, PromoteError> {
     // Normalise pre-spec aliases (e.g. `dotted-half` → `half` + dots) once,
     // so both raw deserialisation and our per-event content dispatch see
     // schema-conformant shapes.
