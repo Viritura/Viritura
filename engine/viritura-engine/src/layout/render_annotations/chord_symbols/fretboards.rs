@@ -48,9 +48,20 @@ fn side_padding(frame: &Fretboard, sp: f64) -> (f64, f64) {
 
 pub(super) fn dimensions(frame: &Fretboard, sp: f64) -> (f64, f64) {
     let (left, right) = side_padding(frame, sp);
+    let extra_fingering_row = (1..=frame.frame_strings).any(|string| {
+        frame
+            .frame_notes
+            .iter()
+            .filter(|note| note.string == string && note.fingering.is_some())
+            .count()
+            > 1
+    });
     (
         left + (frame.frame_strings - 1) as f64 * STRING_GAP * sp + right,
-        (TOP + frame.frame_frets as f64 * FRET_GAP + BOTTOM) * sp,
+        (TOP + frame.frame_frets as f64 * FRET_GAP
+            + BOTTOM
+            + if extra_fingering_row { 1.1 } else { 0.0 })
+            * sp,
     )
 }
 
@@ -120,41 +131,49 @@ pub(super) fn render(dl: &mut DisplayList, frame: &Fretboard, x: f64, top: f64, 
     }
     for string in 1..=frame.frame_strings {
         let x = string_x(string);
-        match frame.frame_notes.iter().find(|note| note.string == string) {
-            None => push(text(
+        let mut notes: Vec<_> = frame
+            .frame_notes
+            .iter()
+            .filter(|note| note.string == string)
+            .collect();
+        notes.sort_unstable_by_key(|note| note.fret);
+        let mut fingering_row = 0;
+        for note in &notes {
+            if note.fret == 0 {
+                push(RenderCommand::DrawEllipse {
+                    cx: x,
+                    cy: grid_y - 0.75 * sp,
+                    rx: 0.25 * sp,
+                    ry: 0.25 * sp,
+                    angle: 0.0,
+                    filled: false,
+                    color: "#000000".into(),
+                });
+            } else {
+                push(RenderCommand::DrawCircle {
+                    cx: x,
+                    cy: fret_y(note.fret),
+                    r: 0.28 * sp,
+                    color: "#000000".into(),
+                });
+            }
+            if let Some(finger) = &note.fingering {
+                push(text(
+                    x,
+                    grid_bottom + (0.8 + f64::from(fingering_row) * 1.1) * sp,
+                    finger.clone(),
+                    TextAlign::Center,
+                ));
+                fingering_row += 1;
+            }
+        }
+        if notes.is_empty() {
+            push(text(
                 x,
                 grid_y - 0.75 * sp,
                 frame.unplayed.clone().unwrap_or_else(|| "x".into()),
                 TextAlign::Center,
-            )),
-            Some(note) => {
-                if note.fret == 0 {
-                    push(RenderCommand::DrawEllipse {
-                        cx: x,
-                        cy: grid_y - 0.75 * sp,
-                        rx: 0.25 * sp,
-                        ry: 0.25 * sp,
-                        angle: 0.0,
-                        filled: false,
-                        color: "#000000".into(),
-                    });
-                } else {
-                    push(RenderCommand::DrawCircle {
-                        cx: x,
-                        cy: fret_y(note.fret),
-                        r: 0.28 * sp,
-                        color: "#000000".into(),
-                    });
-                }
-                if let Some(finger) = &note.fingering {
-                    push(text(
-                        x,
-                        grid_bottom + 0.8 * sp,
-                        finger.clone(),
-                        TextAlign::Center,
-                    ));
-                }
-            }
+            ));
         }
     }
     let label = label(frame);

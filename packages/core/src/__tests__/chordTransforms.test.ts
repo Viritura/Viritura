@@ -98,6 +98,22 @@ describe("transposeChordSymbol", () => {
     expect(original.global.measures[0]?.chordSymbols?.[0]?.fretboards).toEqual([frame]);
   });
 
+  it("merges equivalent barre diagrams regardless of same-string position order", () => {
+    const frame = {
+      partId: "guitar",
+      frameStrings: 6,
+      frameFrets: 5,
+      frameNotes: [
+        { string: 6, fret: 3, barre: "start" as const },
+        { string: 1, fret: 3, barre: "stop" as const },
+        { string: 1, fret: 5 },
+      ],
+    };
+    const first = { ...chord("C"), fretboards: [frame] };
+    const reordered = { ...first, fretboards: [{ ...frame, frameNotes: [...frame.frameNotes].reverse() }] };
+    expect(mergeGlobalChordSymbols({}, [{ partIndex: 0, chordSymbols: [first, reordered] }]).warnings).toEqual([]);
+  });
+
   const spellings: { text: string; interval: Interval; expected: string }[] = [
     { text: "C/E", interval: { staffDistance: 1, halfSteps: 2 }, expected: "D/F#" },
     { text: "C/E", interval: { staffDistance: -1, halfSteps: -2 }, expected: "Bb/D" },

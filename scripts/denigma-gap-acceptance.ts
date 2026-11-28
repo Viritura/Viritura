@@ -129,6 +129,30 @@ function assertCaseSpecificAdaptations(
   ) {
     throw new Error("measure_text.musx left a text-block frame gap unhandled.");
   }
+  if (testCase.file === "chords.musx") {
+    const diagramGapIndexes = gapReport.gaps.flatMap((gap, index) => {
+      if (gap.type !== "chord-symbol") return [];
+      const chord = gap["chord"];
+      const key = typeof chord === "object" && chord !== null && !Array.isArray(chord) ? chord["fretboard"] : undefined;
+      return typeof key === "string" && gapReport.fretboards?.[key]?.kind === "diagram" ? [index] : [];
+    });
+    const importedFrames = records(parsed).filter(
+      (entry) =>
+        typeof entry["partId"] === "string" &&
+        typeof entry["frameStrings"] === "number" &&
+        typeof entry["frameFrets"] === "number" &&
+        Array.isArray(entry["frameNotes"]),
+    );
+    if (
+      diagramGapIndexes.length !== 23 ||
+      importedFrames.length !== diagramGapIndexes.length ||
+      diagramGapIndexes.some((index) => outcomes[index]?.disposition === "unhandled")
+    ) {
+      throw new Error(
+        `chords.musx expected 23 imported fretboard diagrams; found ${importedFrames.length} for ${diagramGapIndexes.length} diagram gaps.`,
+      );
+    }
+  }
   if (testCase.file === "page_text.musx") {
     const pageFrames = records(parsed).filter(
       (entry) => typeof entry["id"] === "string" && entry["id"].startsWith("denigma-page-text-"),
@@ -267,7 +291,7 @@ async function convertFixture(testCase: AcceptanceCase): Promise<void> {
       }
       const gapReport = JSON.parse(readUtf8(gapPointer, gapSize)) as DenigmaGapReport;
       if (
-        gapReport.schemaVersion !== 3 ||
+        gapReport.schemaVersion !== 4 ||
         !Array.isArray(gapReport.gaps) ||
         (gapReport.fonts !== undefined &&
           (!gapReport.fonts || typeof gapReport.fonts !== "object" || Array.isArray(gapReport.fonts)))

@@ -214,7 +214,7 @@ describe("global chord symbol inspector", () => {
     await user.click(screen.getByRole("button", { name: "Set string 4 to open" }));
     await user.click(screen.getByText("Fingerings and barre endpoints"));
     await user.type(
-      within(screen.getByRole("group", { name: "String 4" })).getByRole("textbox", { name: "Fingering" }),
+      within(screen.getByRole("group", { name: "String 4, fret 0" })).getByRole("textbox", { name: "Fingering" }),
       "0",
     );
     await user.click(screen.getByRole("button", { name: "Set string 2 to fret 3" }));

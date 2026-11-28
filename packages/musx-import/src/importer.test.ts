@@ -50,7 +50,7 @@ describe("createMusxImporter", () => {
       result: {
         mnxJson: '{"global":{"measures":[]},"parts":[]}',
         gapReport: {
-          schemaVersion: 3,
+          schemaVersion: 4,
           producer: { name: "denigma", version: "4.0.0", commit: "abc123" },
           gaps: [],
           fonts: {},
@@ -129,7 +129,7 @@ describe("createMusxImporter", () => {
       result: {
         mnxJson: '{"global":{"measures":[]},"parts":[]}',
         gapReport: {
-          schemaVersion: 3,
+          schemaVersion: 4,
           producer: { name: "denigma", version: "4.0.0", commit: "abc123" },
           gaps: [],
           fonts: {},
@@ -165,7 +165,7 @@ describe("createMusxImporter", () => {
       result: {
         mnxJson: '{"global":{"measures":[]},"parts":[]}',
         gapReport: {
-          schemaVersion: 3,
+          schemaVersion: 4,
           producer: { name: "denigma", version: "4.0.0", commit: "abc123" },
           gaps: [],
           fonts: {},

@@ -10,7 +10,7 @@ import {
   type Fretboard,
   type Interval,
 } from "@viritura/core";
-import type { DenigmaDiagnostic } from "../types";
+import type { DenigmaDiagnostic, DenigmaFretboardPayload } from "../types";
 import { ensureArrayProperty, ensureViritura, type MeasureTarget, type TargetIndex } from "./targetIndex";
 import {
   isChordGap,
@@ -135,20 +135,138 @@ function applyDegrees(symbol: ChordSymbol, parsed: ChordSymbol, degrees: ChordPa
   symbol.quality = "other";
 }
 
-function toFretboard(payload: NonNullable<ChordPayload["fretboard"]>, partId: string): Fretboard {
-  return {
+interface FretboardConversion {
+  frame?: Fretboard;
+  reasons: string[];
+}
+
+type DenigmaDiagramFretboard = Extract<DenigmaFretboardPayload, { kind: "diagram" }>;
+
+function mapFretboardCells(
+  payload: DenigmaDiagramFretboard,
+  reasons: string[],
+): { frameNotes: Fretboard["frameNotes"]; mutedStrings: Set<number>; blankStrings: Set<number> } {
+  const frameNotes: Fretboard["frameNotes"] = [];
+  const seenStrings = new Set<number>();
+  const mutedStrings = new Set<number>();
+  const blankStrings = new Set<number>();
+  for (const cell of payload.cells) {
+    seenStrings.add(cell.string);
+    if (cell.shape === "muted") {
+      mutedStrings.add(cell.string);
+      continue;
+    }
+    if (cell.shape === "none") {
+      blankStrings.add(cell.string);
+      continue;
+    }
+    if (cell.shape === "custom") reasons.push("Custom fretboard markers were imported as standard dots.");
+    if (cell.shape === "closed" && cell.fret < 1) {
+      reasons.push("Could not preserve a closed fretboard marker at fret zero.");
+      continue;
+    }
+    frameNotes.push({
+      string: cell.string,
+      fret: cell.shape === "open" ? 0 : cell.fret,
+      ...(cell.finger !== undefined && cell.finger > 0 ? { fingering: String(cell.finger) } : {}),
+    });
+  }
+  for (let string = 1; string <= payload.strings; string++) {
+    if (!seenStrings.has(string)) blankStrings.add(string);
+  }
+  return { frameNotes, mutedStrings, blankStrings };
+}
+
+interface BarreAssignment {
+  note: Fretboard["frameNotes"][number];
+  marker: "start" | "stop";
+  isExisting: boolean;
+}
+
+function barreAssignment(
+  frameNotes: Fretboard["frameNotes"],
+  string: number,
+  fret: number,
+  marker: BarreAssignment["marker"],
+): BarreAssignment | undefined {
+  const notes = frameNotes.filter((note) => note.string === string);
+  const atBarre = notes.find((note) => note.fret === fret);
+  if (atBarre) return atBarre.barre === undefined ? { note: atBarre, marker, isExisting: true } : undefined;
+  if (notes.length === 0 || notes.some((note) => note.fret < fret) || !notes.some((note) => note.fret > fret)) {
+    return undefined;
+  }
+  return { note: { string, fret }, marker, isExisting: false };
+}
+
+function applyFretboardBarres(
+  payload: DenigmaDiagramFretboard,
+  frameNotes: Fretboard["frameNotes"],
+  reasons: string[],
+): void {
+  for (const barre of payload.barres) {
+    if (
+      barre.fret < 1 ||
+      barre.startString < 1 ||
+      barre.endString > payload.strings ||
+      barre.startString >= barre.endString
+    ) {
+      reasons.push("Could not preserve a malformed fretboard barre.");
+      continue;
+    }
+    const startAssignment = barreAssignment(frameNotes, barre.endString, barre.fret, "start");
+    const stopAssignment = barreAssignment(frameNotes, barre.startString, barre.fret, "stop");
+    if (!startAssignment || !stopAssignment) {
+      reasons.push("Could not preserve a barre whose endpoint string has no compatible played fret.");
+      continue;
+    }
+    for (const assignment of [startAssignment, stopAssignment]) {
+      if (assignment.isExisting) assignment.note.barre = assignment.marker;
+      else frameNotes.push({ ...assignment.note, barre: assignment.marker });
+    }
+  }
+}
+
+function toFretboard(payload: DenigmaFretboardPayload, partId: string): FretboardConversion {
+  if (payload.kind === "font") {
+    return { reasons: ["Font-based chord diagrams are not supported; preserved the chord symbol."] };
+  }
+  if (payload.fretboardNumber < 1 || payload.fretboardNumber > 36) {
+    return { reasons: ["Could not preserve a diagram with an invalid first fret; preserved the chord symbol."] };
+  }
+  if (payload.fretboardNumber > 1 && !payload.showFretboardNumber) {
+    return {
+      reasons: ["Could not preserve a hidden fret number on a shifted diagram; preserved the chord symbol."],
+    };
+  }
+  const reasons: string[] = [];
+  const { frameNotes, mutedStrings, blankStrings } = mapFretboardCells(payload, reasons);
+  if (mutedStrings.size > 0 && blankStrings.size > 0) {
+    reasons.push("Mixed muted and blank unplayed strings cannot be represented individually.");
+  }
+  applyFretboardBarres(payload, frameNotes, reasons);
+
+  const firstFret =
+    payload.fretboardNumber > 1
+      ? {
+          fret: payload.fretboardNumber,
+          text: `${payload.fretboardNumber}${payload.fretNumberText ?? ""}`,
+          location: "right" as const,
+        }
+      : undefined;
+  const frame: Fretboard = {
     partId,
-    frameStrings: payload.frameStrings,
-    frameFrets: payload.frameFrets,
-    ...(payload.firstFret !== undefined && { firstFret: payload.firstFret }),
-    frameNotes: payload.frameNotes.map((note) => ({
-      string: note.string,
-      fret: note.fret,
-      ...(note.fingering !== undefined && { fingering: String(note.fingering) }),
-      ...(note.barre !== undefined && { barre: note.barre }),
-    })),
-    ...(payload.unplayed !== undefined && { unplayed: payload.unplayed }),
+    frameStrings: payload.strings,
+    frameFrets: payload.frets,
+    ...(firstFret ? { firstFret } : {}),
+    frameNotes,
+    ...(mutedStrings.size > 0 ? { unplayed: "x" } : blankStrings.size > 0 ? { unplayed: "" } : {}),
   };
+  const errors = validateFretboard(frame);
+  if (errors.length > 0) {
+    reasons.push(`Could not preserve chord diagram: ${[...new Set(errors)].join(" ")}`);
+    return { reasons };
+  }
+  return { frame, reasons };
 }
 
 function toChordSymbol(
@@ -246,10 +364,16 @@ interface MeasureChords {
   sources: ChordOccurrence[];
 }
 
+function sourcePartId(part: JsonRecord): string | undefined {
+  const partId = part["id"];
+  return typeof partId === "string" && partId.length > 0 ? partId : undefined;
+}
+
 export function applyChordSymbolGaps(
   gaps: readonly NormalizedGap[],
   index: TargetIndex,
   diagnostics: DenigmaDiagnostic[],
+  fretboards: Record<string, DenigmaFretboardPayload>,
 ): Map<number, GapApplication> {
   const applications = new Map<number, GapApplication>();
   const measures = new Map<number, MeasureChords>();
@@ -266,8 +390,8 @@ export function applyChordSymbolGaps(
       });
       return;
     }
-    const partId = target.part["id"];
-    if (typeof partId !== "string" || partId.length === 0) {
+    const partId = sourcePartId(target.part);
+    if (!partId) {
       applications.set(gapIndex, {
         outcome: { disposition: "unhandled", reason: "Chord-symbol source part ID is unavailable." },
       });
@@ -276,14 +400,10 @@ export function applyChordSymbolGaps(
     if (gap.staff !== undefined && (!Number.isSafeInteger(gap.staff) || gap.staff < 1)) {
       throw new Error("Invalid source staff while adapting Denigma chord symbols.");
     }
-    const fretboard = gap.chord.fretboard ? toFretboard(gap.chord.fretboard, partId) : undefined;
-    const fretboardErrors = fretboard ? validateFretboard(fretboard) : [];
-    const chordSymbol = toChordSymbol(
-      gap.chord,
-      gap,
-      sourceToConcert(target.part),
-      fretboardErrors.length === 0 ? fretboard : undefined,
-    );
+    const fretboardPayload = gap.chord.fretboard === undefined ? undefined : fretboards[gap.chord.fretboard];
+    const fretboardConversion = fretboardPayload ? toFretboard(fretboardPayload, partId) : undefined;
+    const fretboard = fretboardConversion?.frame;
+    const chordSymbol = toChordSymbol(gap.chord, gap, sourceToConcert(target.part), fretboard);
     const resolution = resolveChordSymbol(chordSymbol);
     const harmonyReason =
       resolution.status === "unsupported"
@@ -291,11 +411,7 @@ export function applyChordSymbolGaps(
         : complexPresentation(gap.chord) && (resolution.status !== "silent" || !gap.chord.showSuffix)
           ? "Preserved full concert harmonic text for house-style rendering; Finale suffix typography and visibility fields cannot be represented."
           : undefined;
-    const diagramReason =
-      fretboardErrors.length > 0
-        ? `Could not preserve chord diagram: ${[...new Set(fretboardErrors)].join(" ")}`
-        : undefined;
-    const reason = [harmonyReason, diagramReason].filter(Boolean).join(" ") || undefined;
+    const reason = [harmonyReason, ...(fretboardConversion?.reasons ?? [])].filter(Boolean).join(" ") || undefined;
     applications.set(gapIndex, {
       outcome: { disposition: reason ? "handled-partially" : "handled", ...(reason ? { reason } : {}) },
     });

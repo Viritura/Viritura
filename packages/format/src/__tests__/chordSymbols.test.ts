@@ -64,6 +64,27 @@ describe("central chord-symbol contract", () => {
     });
   });
 
+  it("round-trips a twelve-string diagram with a barre contact below a played fret", () => {
+    expectChordRoundtrip({
+      ...structuredChord,
+      fretboards: [
+        {
+          partId: "p1",
+          frameStrings: 12,
+          frameFrets: 4,
+          frameNotes: [
+            ...Array.from({ length: 12 }, (_, index) => ({
+              string: index + 1,
+              fret: index === 11 ? 1 : 2,
+              ...(index === 11 ? { barre: "start" } : {}),
+            })),
+            { string: 1, fret: 1, barre: "stop" },
+          ],
+        },
+      ],
+    });
+  });
+
   it("rejects dangling instruments, duplicate diagrams, off-grid stops and unpaired barres", () => {
     const frame = {
       partId: "p1",

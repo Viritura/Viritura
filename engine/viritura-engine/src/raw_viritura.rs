@@ -3203,7 +3203,7 @@ impl ::std::convert::TryFrom<::std::string::String> for FontFamily {
 ///      "items": {
 ///        "$ref": "#/$defs/fretboard-note"
 ///      },
-///      "maxItems": 12
+///      "maxItems": 24
 ///    },
 ///    "frameStrings": {
 ///      "type": "integer"

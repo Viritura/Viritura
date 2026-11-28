@@ -4,7 +4,7 @@ import styles from "./FretboardEditor.module.css";
 
 interface Props {
   frame: Fretboard;
-  onNoteChange: (string: number, note: FretboardNote | undefined) => void;
+  onNoteChange: (string: number, note: FretboardNote | undefined, existingFret?: number) => void;
 }
 
 export function FretboardGrid({ frame, onNoteChange }: Props) {
@@ -15,8 +15,13 @@ export function FretboardGrid({ frame, onNoteChange }: Props) {
   const gridStyle = { gridTemplateColumns: `2.5rem repeat(${stringCount}, minmax(2.25rem, 1fr))` };
 
   function setFret(string: number, fret: number) {
-    const note = frame.frameNotes.find((entry) => entry.string === string);
-    onNoteChange(string, note?.fret === fret ? undefined : { ...note, string, fret });
+    const note = frame.frameNotes.find((entry) => entry.string === string && entry.fret === fret);
+    if (note) {
+      onNoteChange(string, undefined, fret);
+      return;
+    }
+    const playedNote = frame.frameNotes.find((entry) => entry.string === string && !entry.barre);
+    onNoteChange(string, { ...playedNote, string, fret });
   }
 
   return (
@@ -30,7 +35,8 @@ export function FretboardGrid({ frame, onNoteChange }: Props) {
         ))}
         <span className={styles.stateLabel}>State</span>
         {strings.map((string) => {
-          const note = frame.frameNotes.find((entry) => entry.string === string);
+          const notes = frame.frameNotes.filter((entry) => entry.string === string);
+          const openNote = notes.find((entry) => entry.fret === 0);
           return (
             <div className={styles.stringState} key={string}>
               <Button
@@ -39,8 +45,8 @@ export function FretboardGrid({ frame, onNoteChange }: Props) {
                 variant="ghost"
                 className={styles.stateButton}
                 ariaLabel={`Set string ${string} to open`}
-                active={note?.fret === 0}
-                onClick={() => onNoteChange(string, note?.fret === 0 ? undefined : { string, fret: 0 })}
+                active={openNote !== undefined}
+                onClick={() => onNoteChange(string, openNote ? undefined : { string, fret: 0 }, openNote?.fret)}
               >
                 O
               </Button>
@@ -50,7 +56,7 @@ export function FretboardGrid({ frame, onNoteChange }: Props) {
                 variant="ghost"
                 className={styles.stateButton}
                 ariaLabel={`Set string ${string} to unplayed`}
-                active={note === undefined}
+                active={notes.length === 0}
                 onClick={() => onNoteChange(string, undefined)}
               >
                 {frame.unplayed ?? "x"}
@@ -63,7 +69,7 @@ export function FretboardGrid({ frame, onNoteChange }: Props) {
             {fret}
           </span>,
           ...strings.map((string) => {
-            const selected = frame.frameNotes.find((entry) => entry.string === string)?.fret === fret;
+            const selected = frame.frameNotes.some((entry) => entry.string === string && entry.fret === fret);
             return (
               <Button
                 size="xs"

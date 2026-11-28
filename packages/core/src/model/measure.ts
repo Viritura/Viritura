@@ -413,7 +413,7 @@ export interface ChordRoot {
   alter?: number;
 }
 
-/** One played string in a MusicXML-shaped chord frame. */
+/** One MusicXML frame position; a lower-fret barre endpoint may share a string with its played note. */
 export interface FretboardNote {
   /** MusicXML numbering: 1 is the rightmost string. */
   string: number;

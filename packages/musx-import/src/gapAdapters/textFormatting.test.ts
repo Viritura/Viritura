@@ -60,7 +60,7 @@ function adapt(elements: JsonRecord[], gaps: DenigmaGap[]) {
     ],
   };
   const report: DenigmaGapReport = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     producer: { name: "denigma", version: "4.0.0", commit: "66e154a5" },
     gaps,
     fonts: { ...fontTable },

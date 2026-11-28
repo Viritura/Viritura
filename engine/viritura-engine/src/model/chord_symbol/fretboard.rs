@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub use crate::raw_viritura::{
     FretboardFirstFretLocation as FretboardLabelLocation, FretboardNoteBarre as BarreEndpoint,
@@ -51,16 +51,16 @@ impl Fretboard {
         {
             return Err("Invalid fretboard instrument or fret range");
         }
-        let mut strings = HashSet::new();
+        let mut strings: HashMap<i64, Vec<&FretboardNote>> = HashMap::new();
         let mut barres: HashMap<i64, (Option<i64>, Option<i64>)> = HashMap::new();
         for note in &self.frame_notes {
             if !(1..=self.frame_strings).contains(&note.string)
-                || !strings.insert(note.string)
                 || (note.fret != 0
                     && !(self.first()..self.first() + self.frame_frets).contains(&note.fret))
             {
                 return Err("Invalid fretboard string or stopped position");
             }
+            strings.entry(note.string).or_default().push(note);
             if let Some(endpoint) = note.barre {
                 if note.fret == 0 {
                     return Err("An open string cannot be a barre endpoint");
@@ -73,6 +73,26 @@ impl Fretboard {
                 if slot.replace(note.string).is_some() {
                     return Err("Duplicate barre endpoint");
                 }
+            }
+        }
+        for notes in strings.values().filter(|notes| notes.len() > 1) {
+            let mut endpoint = None;
+            let mut played = None;
+            for note in notes {
+                let slot = if note.barre.is_some() {
+                    &mut endpoint
+                } else {
+                    &mut played
+                };
+                if slot.replace(*note).is_some() {
+                    return Err("Invalid repeated fretboard string position");
+                }
+            }
+            let (Some(endpoint), Some(played)) = (endpoint, played) else {
+                return Err("Invalid repeated fretboard string position");
+            };
+            if notes.len() != 2 || endpoint.fret == 0 || endpoint.fret >= played.fret {
+                return Err("Invalid repeated fretboard string position");
             }
         }
         for pair in barres.values() {

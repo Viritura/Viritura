@@ -1,5 +1,11 @@
 import type { TextContent } from "@viritura/core";
-import type { DenigmaDiagnostic, DenigmaGapOutcome, DenigmaGapReport } from "../types";
+import {
+  isDenigmaFretboardPayload,
+  hasKnownFretboardReferences,
+  type DenigmaDiagnostic,
+  type DenigmaGapOutcome,
+  type DenigmaGapReport,
+} from "../types";
 import { applyTextFormattingGaps } from "./textFormatting";
 import { applyChordSymbolGaps } from "./chordSymbols";
 import { formattedTextContent, hasUnimportedFormatting } from "./textRuns";
@@ -627,12 +633,16 @@ export function applyDenigmaGapReport(
   report: DenigmaGapReport,
   indentSpaces?: number,
 ): GapAdaptationResult {
+  const fretboards = report.fretboards === undefined ? {} : report.fretboards;
   if (
-    report.schemaVersion !== 3 ||
+    report.schemaVersion !== 4 ||
     (report.fonts !== undefined && !isRecord(report.fonts)) ||
-    !Array.isArray(report.gaps)
+    !isRecord(fretboards) ||
+    !Array.isArray(report.gaps) ||
+    !Object.values(fretboards).every(isDenigmaFretboardPayload) ||
+    !hasKnownFretboardReferences(report.gaps, fretboards)
   ) {
-    throw new Error(`Unsupported Denigma gap-report schema version ${String(report.schemaVersion)}.`);
+    throw new Error(`Unsupported or malformed Denigma gap-report schema version ${String(report.schemaVersion)}.`);
   }
   let parsed: unknown;
   try {
@@ -645,7 +655,7 @@ export function applyDenigmaGapReport(
   const diagnostics: DenigmaDiagnostic[] = [];
   const gaps = normalizeGapReport(report);
   const formattingApplications = applyTextFormattingGaps(gaps, index);
-  const chordApplications = applyChordSymbolGaps(gaps, index, diagnostics);
+  const chordApplications = applyChordSymbolGaps(gaps, index, diagnostics, fretboards);
   const outcomes = gaps.map((gap, gapIndex) => {
     let application: GapApplication;
     if (isPageTextGap(gap)) {

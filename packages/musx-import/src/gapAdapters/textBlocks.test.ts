@@ -42,8 +42,8 @@ function adapt(
     scores,
   };
   const report: DenigmaGapReport = {
-    schemaVersion: 3,
-    producer: { name: "denigma", version: "4.0.0", commit: "7da485a3" },
+    schemaVersion: 4,
+    producer: { name: "denigma", version: "4.0.0", commit: "21346acd" },
     gaps,
     fonts,
   };

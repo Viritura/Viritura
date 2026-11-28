@@ -1855,20 +1855,24 @@ conflicting harmonies retain the existing topmost-source policy and diagnostics.
 Different diagrams for the same instrument retain the first source diagram and
 produce a separate diagram-conflict diagnostic.
 
-| Property       | Type                                     | Description                                                                      |
-| -------------- | ---------------------------------------- | -------------------------------------------------------------------------------- |
-| `partId`       | string                                   | Source instrument ID, not a layout or staff index                                |
-| `frameStrings` | integer, 2–12                            | Number of strings                                                                |
-| `frameFrets`   | integer, 1–12                            | Number of displayed fret spaces                                                  |
-| `firstFret`    | `{ fret, text?, location? }`             | First displayed absolute fret, default 1; optional label and `left`/`right` side |
-| `frameNotes`   | `{ string, fret, fingering?, barre? }[]` | One entry per played string; string 1 is rightmost; fret 0 is open               |
-| `unplayed`     | string                                   | Indicator for omitted strings; default `x`, empty string hides it                |
+| Property       | Type                                     | Description                                                                                                |
+| -------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `partId`       | string                                   | Source instrument ID, not a layout or staff index                                                          |
+| `frameStrings` | integer, 2–12                            | Number of strings                                                                                          |
+| `frameFrets`   | integer, 1–12                            | Number of displayed fret spaces                                                                            |
+| `firstFret`    | `{ fret, text?, location? }`             | First displayed absolute fret, default 1; optional label and `left`/`right` side                           |
+| `frameNotes`   | `{ string, fret, fingering?, barre? }[]` | String 1 is rightmost; fret 0 is open; a lower-fret barre endpoint may share a string with its played note |
+| `unplayed`     | string                                   | Indicator for omitted strings; default `x`, empty string hides it                                          |
 
 Stopped frets must fit inside the displayed range, bounded by absolute fret 36.
 Fingerings are strings up to 8 characters; first-fret labels allow 16 characters;
 unplayed indicators allow 8 characters. A barre uses paired `start` and `stop`
 markers on notes at the same stopped fret, starting on the higher-numbered string.
-The initial model supports one barre per fret and one played position per string.
+The model supports one barre per fret and one played position per string. When a
+barre endpoint string is played at a higher fret, it has an additional frame
+position at the barre fret carrying the endpoint marker. This lower position
+describes the barre contact, not a second sounding note. No other duplicate
+string positions are valid.
 
 ```json
 {
@@ -1898,7 +1902,8 @@ selection identity, with their complete extent included in collision geometry.
 MusicXML import/export maps these fields to `<frame>` and its children. Source
 page coordinates, size, color and special fingering presentation produce explicit
 import diagnostics rather than pretending to preserve appearance. Unsupported
-multiple-note-per-string frames are diagnosed and omitted while retaining harmony.
+duplicate-string frames that do not encode a lower-fret barre endpoint are
+diagnosed and omitted while retaining harmony.
 All-unplayed diagrams are valid in the extension but cannot be exported as a valid
 MusicXML frame, which requires at least one frame-note; export diagnoses the omission.
 Unsupported harmony exported as text also diagnoses a diagram omission.

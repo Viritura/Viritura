@@ -469,7 +469,7 @@
         "firstFret": { "$ref": "#/$defs/fretboard-first-fret" },
         "frameNotes": {
           "type": "array",
-          "maxItems": 12,
+          "maxItems": 24,
           "items": { "$ref": "#/$defs/fretboard-note" }
         },
         "unplayed": { "type": "string", "maxLength": 8 }

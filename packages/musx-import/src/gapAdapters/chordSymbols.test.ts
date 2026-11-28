@@ -6,7 +6,7 @@ import {
   type ChordSymbol,
 } from "@viritura/core";
 import { describe, expect, it } from "vitest";
-import type { DenigmaGapReport } from "../types";
+import type { DenigmaFretboardPayload, DenigmaGapReport } from "../types";
 import { applyDenigmaGapReport } from "./applyGapReport";
 import type { JsonRecord, KnownChordGap } from "./types";
 
@@ -60,12 +60,13 @@ function chordGap(step = "C", suffixText = "maj7", quality = "major-seventh"): K
   };
 }
 
-function apply(gaps: KnownChordGap[], source = document()) {
+function apply(gaps: KnownChordGap[], source = document(), fretboards: Record<string, DenigmaFretboardPayload> = {}) {
   const report: DenigmaGapReport = {
-    schemaVersion: 3,
-    producer: { name: "denigma", version: "4.0.0", commit: "5864f4e" },
+    schemaVersion: 4,
+    producer: { name: "denigma", version: "4.0.0", commit: "21346acd" },
     gaps,
     fonts: {},
+    ...(Object.keys(fretboards).length > 0 ? { fretboards } : {}),
   };
   const result = applyDenigmaGapReport(JSON.stringify(source), report);
   const parsed = JSON.parse(result.mnxJson) as RawDocument;
@@ -126,78 +127,194 @@ describe("global MUSX chord symbols", () => {
 
   it("maps structured Denigma fretboards to their source instrument", () => {
     const gap = chordGap();
-    gap.chord.fretboard = {
+    gap.chord.fretboard = "1";
+    const result = apply([gap], document(), {
+      "1": {
+        kind: "diagram",
+        strings: 6,
+        frets: 4,
+        fretboardNumber: 5,
+        showFretboardNumber: true,
+        fretNumberText: "fr.",
+        cells: [
+          { string: 6, fret: 5, shape: "closed", finger: 1 },
+          { string: 5, fret: 7, shape: "closed", finger: 3 },
+          { string: 2, fret: 0, shape: "open" },
+          { string: 1, fret: 7, shape: "closed" },
+        ],
+        barres: [{ fret: 5, startString: 1, endString: 6 }],
+      },
+    });
+    expect(result.chords[0]?.fretboards?.[0]).toMatchObject({
+      partId: "P1",
       frameStrings: 6,
       frameFrets: 4,
       firstFret: { fret: 5, text: "5fr.", location: "right" },
-      unplayed: "x",
+      unplayed: "",
       frameNotes: [
-        { string: 6, fret: 5, fingering: 1, barre: "start" },
-        { string: 5, fret: 7, fingering: 3 },
+        { string: 6, fret: 5, fingering: "1", barre: "start" },
+        { string: 5, fret: 7, fingering: "3" },
         { string: 2, fret: 0 },
+        { string: 1, fret: 7 },
         { string: 1, fret: 5, barre: "stop" },
       ],
-    };
-    const result = apply([gap]);
-    expect(result.chords[0]?.fretboards).toEqual([
-      {
-        partId: "P1",
-        frameStrings: 6,
-        frameFrets: 4,
-        firstFret: { fret: 5, text: "5fr.", location: "right" },
-        unplayed: "x",
-        frameNotes: [
-          { string: 6, fret: 5, fingering: "1", barre: "start" },
-          { string: 5, fret: 7, fingering: "3" },
-          { string: 2, fret: 0 },
-          { string: 1, fret: 5, barre: "stop" },
-        ],
-      },
-    ]);
+    });
     expect(result.outcomes[0]?.disposition).toBe("handled");
   });
 
-  it("leaves malformed Denigma fretboards unhandled instead of importing partial diagrams", () => {
+  it("reports unsupported font diagrams as partial while preserving chord harmony", () => {
     const gap = chordGap();
-    gap.chord.fretboard = {
-      frameStrings: 6,
-      frameFrets: 4,
-      frameNotes: [{ string: 6, fret: Number.NaN }],
-    };
-    const result = apply([gap]);
-    expect(result.chords).toEqual([]);
-    expect(result.outcomes[0]?.disposition).toBe("unhandled");
+    gap.chord.fretboard = "1";
+    const result = apply([gap], document(), { "1": { kind: "font" } });
+
+    expect(result.chords[0]).toMatchObject({ root: { step: "C" } });
+    expect(result.chords[0]?.fretboards).toBeUndefined();
+    expect(result.outcomes[0]).toMatchObject({
+      disposition: "handled-partially",
+      reason: expect.stringContaining("Font-based chord diagrams are not supported"),
+    });
   });
 
-  it("preserves harmony and reports a partial import for unsupported barre endpoints", () => {
+  it("omits shifted diagrams when their fret number is hidden", () => {
     const gap = chordGap();
-    gap.chord.fretboard = {
-      frameStrings: 6,
-      frameFrets: 4,
-      frameNotes: [
-        { string: 6, fret: 1, barre: "start" },
-        { string: 1, fret: 3, barre: "stop" },
-      ],
-    };
-    const result = apply([gap]);
-    expect(result.chords[0]).toMatchObject({ root: { step: "C" } });
+    gap.chord.fretboard = "1";
+    const result = apply([gap], document(), {
+      "1": {
+        kind: "diagram",
+        strings: 6,
+        frets: 4,
+        fretboardNumber: 3,
+        showFretboardNumber: false,
+        cells: [{ string: 1, fret: 3, shape: "closed" }],
+        barres: [],
+      },
+    });
+
+    expect(result.chords[0]?.fretboards).toBeUndefined();
+    expect(result.outcomes[0]).toMatchObject({
+      disposition: "handled-partially",
+      reason: expect.stringContaining("hidden fret number"),
+    });
+  });
+
+  it("rejects a chord gap that references a missing fretboard table entry", () => {
+    const gap = chordGap();
+    gap.chord.fretboard = "missing";
+
+    expect(() => apply([gap])).toThrow("Unsupported or malformed Denigma gap-report schema version 4.");
+  });
+
+  it("keeps supported diagram cells when custom dots and mixed unplayed states are partial", () => {
+    const gap = chordGap();
+    gap.chord.fretboard = "1";
+    const cells = [
+      { string: 1, fret: 3, shape: "custom" as const },
+      { string: 2, fret: 0, shape: "muted" as const },
+      { string: 3, fret: 0, shape: "none" as const },
+      { string: 4, fret: 2, shape: "closed" as const },
+      { string: 5, fret: 2, shape: "closed" as const },
+      { string: 6, fret: 2, shape: "closed" as const },
+    ];
+    const result = apply([gap], document(), {
+      "1": {
+        kind: "diagram",
+        strings: 6,
+        frets: 4,
+        fretboardNumber: 1,
+        showFretboardNumber: true,
+        cells,
+        barres: [],
+      },
+    });
+
+    expect(result.chords[0]?.fretboards?.[0]).toMatchObject({
+      unplayed: "x",
+      frameNotes: expect.arrayContaining([
+        { string: 1, fret: 3 },
+        { string: 4, fret: 2 },
+      ]),
+    });
+    expect(result.outcomes[0]).toMatchObject({
+      disposition: "handled-partially",
+      reason: expect.stringContaining("Custom fretboard markers"),
+    });
+    expect(result.outcomes[0]?.reason).toContain("Mixed muted and blank");
+  });
+
+  it("omits a malformed Denigma diagram while preserving its chord symbol", () => {
+    const gap = chordGap();
+    gap.chord.fretboard = "1";
+    const result = apply([gap], document(), {
+      "1": {
+        kind: "diagram",
+        strings: 6,
+        frets: 4,
+        fretboardNumber: 1,
+        showFretboardNumber: true,
+        cells: [{ string: 6, fret: 40, shape: "closed" }],
+        barres: [],
+      },
+    });
+    expect(result.chords[0]?.root).toEqual({ step: "C" });
     expect(result.chords[0]?.fretboards).toBeUndefined();
     expect(result.outcomes[0]).toMatchObject({
       disposition: "handled-partially",
       reason: expect.stringContaining("Could not preserve chord diagram"),
     });
-    expect(result.diagnostics[0]?.message).toContain("paired endpoints on one fret");
+  });
+
+  it("preserves harmony and reports a partial import for unsupported barre endpoints", () => {
+    const gap = chordGap();
+    gap.chord.fretboard = "1";
+    const result = apply([gap], document(), {
+      "1": {
+        kind: "diagram",
+        strings: 6,
+        frets: 4,
+        fretboardNumber: 1,
+        showFretboardNumber: true,
+        cells: [{ string: 6, fret: 1, shape: "closed" }],
+        barres: [{ fret: 1, startString: 1, endString: 6 }],
+      },
+    });
+    expect(result.chords[0]).toMatchObject({ root: { step: "C" } });
+    expect(result.chords[0]?.fretboards?.[0]?.frameNotes).toEqual([{ string: 6, fret: 1 }]);
+    expect(result.outcomes[0]).toMatchObject({
+      disposition: "handled-partially",
+      reason: expect.stringContaining("Could not preserve a barre"),
+    });
+    expect(result.diagnostics[0]?.message).toContain("endpoint string has no compatible played fret");
   });
 
   it("reports conflicting diagrams without calling them different harmony", () => {
     const upper = chordGap();
     const first = chordGap();
     first.anchor = "P2.m1";
-    first.chord.fretboard = { frameStrings: 6, frameFrets: 4, frameNotes: [{ string: 1, fret: 1 }] };
+    first.chord.fretboard = "1";
     const second = structuredClone(first);
     second.staff = 2;
-    second.chord.fretboard!.frameNotes[0]!.fret = 3;
-    const result = apply([second, upper, first], document(2));
+    second.chord.fretboard = "2";
+    const fretboards: Record<string, DenigmaFretboardPayload> = {
+      "1": {
+        kind: "diagram",
+        strings: 6,
+        frets: 4,
+        fretboardNumber: 1,
+        showFretboardNumber: true,
+        cells: [{ string: 1, fret: 1, shape: "closed" }],
+        barres: [],
+      },
+      "2": {
+        kind: "diagram",
+        strings: 6,
+        frets: 4,
+        fretboardNumber: 1,
+        showFretboardNumber: true,
+        cells: [{ string: 1, fret: 3, shape: "closed" }],
+        barres: [],
+      },
+    };
+    const result = apply([second, upper, first], document(2), fretboards);
     expect(result.chords[0]?.fretboards?.[0]).toMatchObject({
       partId: "P2",
       frameNotes: [{ string: 1, fret: 1 }],
