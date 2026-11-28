@@ -41,6 +41,30 @@ describe("condensed instrument identity", () => {
     ]);
   });
 
+  it("shares one staff label instead of labelling each condensed player", () => {
+    const labelled = (refs: [string, string]): LayoutContent[] => [
+      {
+        type: "group",
+        symbol: "bracket",
+        content: refs.map((ref, index) => ({
+          type: "staff" as const,
+          sources: [{ part: `ob${index + 1}`, labelRef: { ref: ref as "auto" } }],
+        })),
+      },
+    ];
+    expect(buildCondensedLayoutContent(labelled(["auto", "auto"]), parts)).toEqual([
+      {
+        type: "group",
+        symbol: "bracket",
+        content: [{ type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "ob1" }, { part: "ob2" }] }],
+      },
+    ]);
+    const custom = buildCondensedLayoutContent(labelled(["auto", "shortName"]), parts);
+    expect(custom[0]?.type === "group" && custom[0].content[0]).toMatchObject({
+      sources: [{ labelRef: { ref: "auto" } }, { labelRef: { ref: "shortName" } }],
+    });
+  });
+
   it("does not pair matching names with different identities or intervals", () => {
     for (const second of [
       { ...parts[1]!, _x: { viritura: { instrumentId: "wind.reed.english-horn" } } },
