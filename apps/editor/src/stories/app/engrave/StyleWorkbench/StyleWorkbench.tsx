@@ -1,35 +1,54 @@
 import { useState } from "react";
-import { BookOpen, Undo2 } from "lucide-react";
-import { Badge, Button, ButtonGroup, Tabs, TooltipPrimitives } from "@viritura/ui";
+import { Undo2 } from "lucide-react";
+import { Badge, Button, ButtonGroup, Select, Tabs, TooltipPrimitives } from "@viritura/ui";
 import {
   DESTINATIONS,
+  findLayout,
   initialProject,
+  isModifiedFromOrigin,
   PRESETS,
+  scopeLabel,
   type Category,
   type Destination,
-  type Navigation,
+  type HouseStyle,
+  type NavigatorMode,
   type Project,
   type Scope,
-  type StylePreset,
 } from "./styleModel";
+import { HouseStyleEditor } from "./HouseStyleEditor";
+import { LayoutEditor, SelectionPlaceholder } from "./LayoutEditor";
+import { LayoutNavigator } from "./LayoutNavigator";
 import { ScorePreview } from "./ScorePreview";
-import { OverridesReview, StyleLibrary, TransferSettings } from "./StyleDialogs";
-import { SettingsEditor, SelectionPlaceholder } from "./SettingsEditor";
-import { WorkbenchNavigation } from "./WorkbenchNavigation";
+import { NewProfileDialog, OverridesReview, StyleLibrary, TransferSettings } from "./StyleDialogs";
 import styles from "./StyleWorkbench.module.css";
 
-export function StyleWorkbench({ initialNavigation = "tabs" }: { initialNavigation?: Navigation }) {
-  const [navigation, setNavigation] = useState(initialNavigation);
+interface WorkbenchProps {
+  initialNavigator?: NavigatorMode;
+  initialDestination?: Destination;
+}
+
+type DialogKind = "library" | "overrides" | "transfer" | "profile" | null;
+
+export function StyleWorkbench({ initialNavigator = "list", initialDestination = "house" }: WorkbenchProps) {
+  const [navigator, setNavigator] = useState(initialNavigator);
   const [project, setProject] = useState(initialProject);
   const [history, setHistory] = useState<Project[]>([]);
-  const [presets, setPresets] = useState<StylePreset[]>(PRESETS);
-  const [layoutId, setLayoutId] = useState("full");
-  const [destination, setDestination] = useState<Destination>("project");
-  const [projectScope, setProjectScope] = useState<Exclude<Scope, "layout">>("score");
-  const [categoryId, setCategoryId] = useState<Category>("numbers");
-  const [dialog, setDialog] = useState<"library" | "overrides" | "transfer" | null>(null);
-  const [status, setStatus] = useState("Ready. Try changing a default, then inspect Cello's protected overrides.");
-  const layout = project.layouts.find((entry) => entry.id === layoutId)!;
+  const [library, setLibrary] = useState<HouseStyle[]>(PRESETS);
+  const [viewId, setViewId] = useState("violin");
+  const [destination, setDestination] = useState<Destination>(initialDestination);
+  const [requestedScope, setStyleScope] = useState<Scope>({ kind: "profile", id: "part" });
+  const [categoryId, setCategoryId] = useState<Category>("page");
+  const [dialog, setDialog] = useState<DialogKind>(null);
+  const [status, setStatus] = useState(
+    "Editing the Part profile. Change its staff size, then flip through the parts to see every one update.",
+  );
+  const layout = findLayout(project, viewId);
+  const styleScope: Scope =
+    requestedScope.kind === "profile" && !project.style.profiles.some((entry) => entry.id === requestedScope.id)
+      ? { kind: "common" }
+      : requestedScope;
+  const editing: Scope = destination === "house" ? styleScope : { kind: "layout", id: layout.id };
+  const modified = isModifiedFromOrigin(project, library);
   const totalOverrides = project.layouts.reduce((count, entry) => count + Object.keys(entry.overrides).length, 0);
   function commit(next: Project, message: string) {
     setHistory((current) => [...current, project]);
@@ -41,81 +60,120 @@ export function StyleWorkbench({ initialNavigation = "tabs" }: { initialNavigati
     if (!previous) return;
     setProject(previous);
     setHistory((current) => current.slice(0, -1));
-    setStatus("Undid the last project change.");
+    setStatus("Undid the last change.");
+  }
+  function editProfile(id: string) {
+    setStyleScope({ kind: "profile", id });
+    setDestination("house");
   }
   return (
     <TooltipPrimitives.Provider>
       <div className={styles.root}>
-        <PrototypeHeader
-          navigation={navigation}
-          onNavigation={setNavigation}
-          onReset={() => {
-            setProject(initialProject());
-            setHistory([]);
-            setPresets(PRESETS);
-            setStatus("Reset all mock data.");
-          }}
-        />
+        <header className={styles.prototypeBar}>
+          <div>
+            <Badge variant="warning">Design sandbox</Badge>
+            <strong>Engrave / House style workbench</strong>
+          </div>
+          <div className={styles.toolbar}>
+            <span>Layout switching</span>
+            <ButtonGroup
+              ariaLabel="Layout switching experiment"
+              options={[
+                { value: "list", label: "Always-visible list" },
+                { value: "dropdown", label: "Top-nav dropdown" },
+              ]}
+              value={navigator}
+              onChange={setNavigator}
+            />
+            <Button
+              size="sm"
+              onClick={() => {
+                setProject(initialProject());
+                setHistory([]);
+                setLibrary(PRESETS);
+                setStatus("Reset all mock data.");
+              }}
+            >
+              Reset demo
+            </Button>
+          </div>
+        </header>
         <header className={styles.projectBar}>
           <div>
             <h1>Evening Sketches</h1>
-            <p>Engrave / 1 score, 2 parts</p>
+            <p>
+              Engrave / {project.layouts.filter((entry) => entry.role === "score").length} score,{" "}
+              {project.layouts.filter((entry) => entry.role === "part").length} parts / house style {project.style.name}
+            </p>
           </div>
+          {navigator === "dropdown" && (
+            <div className={styles.switcher}>
+              <Select
+                aria-label="Active layout"
+                value={viewId}
+                options={project.layouts.map((entry) => ({ value: entry.id, label: entry.name }))}
+                onValueChange={setViewId}
+              />
+            </div>
+          )}
           <div className={styles.toolbar}>
-            <Button onClick={() => setDialog("library")}>
-              <BookOpen size={15} />
-              House-style library
-            </Button>
             <Button onClick={() => setDialog("overrides")}>{totalOverrides} layout overrides</Button>
-            <Button
-              ariaLabel="Undo project change"
-              tooltip="Undo project change"
-              disabled={!history.length}
-              onClick={undo}
-            >
+            <Button ariaLabel="Undo change" tooltip="Undo change" disabled={!history.length} onClick={undo}>
               <Undo2 size={15} />
               Undo
             </Button>
           </div>
         </header>
-        <div className={styles.workspace}>
-          <WorkbenchNavigation
-            navigation={navigation}
-            project={project}
-            layoutId={layoutId}
-            destination={destination}
-            categoryId={categoryId}
-            onDestination={setDestination}
-            onLayout={setLayoutId}
-            onCategory={setCategoryId}
-          />
+        <div className={navigator === "list" ? styles.workspace : styles.workspaceCompact}>
+          {navigator === "list" && (
+            <LayoutNavigator project={project} viewId={viewId} editing={editing} onView={setViewId} />
+          )}
           <main className={styles.editor}>
-            {navigation === "tabs" && (
-              <Tabs
-                tabs={DESTINATIONS}
-                activeTab={destination}
-                onTabChange={(id) => {
-                  const entry = DESTINATIONS.find((item) => item.id === id);
-                  if (entry) setDestination(entry.id);
-                }}
+            <Tabs
+              tabs={DESTINATIONS}
+              activeTab={destination}
+              onTabChange={(id) => {
+                const entry = DESTINATIONS.find((item) => item.id === id);
+                if (entry) setDestination(entry.id);
+              }}
+            />
+            {destination === "house" && (
+              <HouseStyleEditor
+                project={project}
+                scope={styleScope}
+                modified={modified}
+                viewing={layout}
+                categoryId={categoryId}
+                onScope={setStyleScope}
+                onCategory={setCategoryId}
+                onCommit={commit}
+                onNewProfile={() => setDialog("profile")}
+                onView={setViewId}
+                onLibrary={() => setDialog("library")}
               />
             )}
-            {destination === "selection" ? (
-              <SelectionPlaceholder layout={layout} onLayout={() => setDestination("layout")} />
-            ) : (
-              <SettingsEditor
+            {destination === "layout" && (
+              <LayoutEditor
                 project={project}
                 layout={layout}
-                scope={destination === "project" ? projectScope : "layout"}
                 categoryId={categoryId}
-                onScope={setProjectScope}
-                onLayout={() => setDestination("layout")}
-                onTransfer={() => setDialog("transfer")}
+                onCategory={setCategoryId}
                 onCommit={commit}
+                onTransfer={() => setDialog("transfer")}
+                onEditProfile={editProfile}
               />
             )}
+            {destination === "selection" && (
+              <SelectionPlaceholder layout={layout} onLayout={() => setDestination("layout")} />
+            )}
           </main>
-          <ScorePreview project={project} layout={layout} />
+          <ScorePreview
+            project={project}
+            layout={layout}
+            editing={editing}
+            editingLabel={scopeLabel(project, editing)}
+            onView={setViewId}
+          />
         </div>
         <footer className={styles.status} role="status">
           {status}
@@ -124,12 +182,21 @@ export function StyleWorkbench({ initialNavigation = "tabs" }: { initialNavigati
         {dialog === "library" && (
           <StyleLibrary
             project={project}
-            presets={presets}
+            library={library}
+            modified={modified}
             onClose={() => setDialog(null)}
             onCommit={commit}
-            onSave={(preset) => {
-              setPresets((current) => [...current, preset]);
-              setStatus(`Saved ${preset.name} to the mock library.`);
+            onSave={(style) => setLibrary((current) => [...current, style])}
+          />
+        )}
+        {dialog === "profile" && (
+          <NewProfileDialog
+            project={project}
+            sourceId={styleScope.kind === "profile" ? styleScope.id : layout.profileId}
+            onClose={() => setDialog(null)}
+            onCreate={(next, id, message) => {
+              commit(next, message);
+              editProfile(id);
             }}
           />
         )}
@@ -148,7 +215,7 @@ export function StyleWorkbench({ initialNavigation = "tabs" }: { initialNavigati
             onClose={() => setDialog(null)}
             onCommit={commit}
             onInspect={(id, category) => {
-              setLayoutId(id);
+              setViewId(id);
               setCategoryId(category);
               setDestination("layout");
             }}
@@ -156,38 +223,5 @@ export function StyleWorkbench({ initialNavigation = "tabs" }: { initialNavigati
         )}
       </div>
     </TooltipPrimitives.Provider>
-  );
-}
-
-function PrototypeHeader({
-  navigation,
-  onNavigation,
-  onReset,
-}: {
-  navigation: Navigation;
-  onNavigation: (navigation: Navigation) => void;
-  onReset: () => void;
-}) {
-  return (
-    <header className={styles.prototypeBar}>
-      <div>
-        <Badge variant="warning">Design sandbox</Badge>
-        <strong>Engrave / Style workbench</strong>
-      </div>
-      <div className={styles.toolbar}>
-        <span>Navigation experiment</span>
-        <ButtonGroup
-          options={[
-            { value: "tabs", label: "Destination tabs" },
-            { value: "scope-first", label: "Scope first" },
-          ]}
-          value={navigation}
-          onChange={onNavigation}
-        />
-        <Button size="sm" onClick={onReset}>
-          Reset demo
-        </Button>
-      </div>
-    </header>
   );
 }
