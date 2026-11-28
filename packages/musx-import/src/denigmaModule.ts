@@ -1,11 +1,13 @@
-import type {
-  DenigmaDiagnostic,
-  DenigmaDiagnosticSeverity,
-  DenigmaGap,
-  DenigmaGapAnchor,
-  DenigmaGapReport,
-  MusxImportOptions,
-  MusxImportResult,
+import {
+  hasKnownFretboardReferences,
+  isDenigmaFretboardPayload,
+  type DenigmaDiagnostic,
+  type DenigmaDiagnosticSeverity,
+  type DenigmaGap,
+  type DenigmaGapAnchor,
+  type DenigmaGapReport,
+  type MusxImportOptions,
+  type MusxImportResult,
 } from "./types";
 import { validateMusxArchive } from "./archiveLimits";
 import { applyDenigmaGapReport } from "./gapAdapters";
@@ -213,31 +215,39 @@ function hasKnownFontReferences(value: unknown, fonts: Record<string, unknown>):
   });
 }
 
-function isGapReport(value: unknown): value is DenigmaGapReport {
-  const fonts =
-    isRecord(value) && value.fonts === undefined
-      ? {}
-      : isRecord(value) && isRecord(value.fonts)
-        ? value.fonts
-        : undefined;
+function isGapProducer(value: unknown): boolean {
   return (
     isRecord(value) &&
-    value.schemaVersion === 3 &&
-    isRecord(value.producer) &&
-    typeof value.producer.name === "string" &&
-    typeof value.producer.version === "string" &&
-    typeof value.producer.commit === "string" &&
-    Array.isArray(value.gaps) &&
-    value.gaps.every(isGap) &&
-    fonts !== undefined &&
-    Object.values(fonts).every(isRecord) &&
-    hasKnownFontReferences(value.gaps, fonts) &&
-    (value.leadingBlankPageSlots === undefined ||
-      (typeof value.leadingBlankPageSlots === "number" &&
-        Number.isSafeInteger(value.leadingBlankPageSlots) &&
-        value.leadingBlankPageSlots >= 0)) &&
-    (value.arrowheads === undefined || isRecord(value.arrowheads))
+    typeof value.name === "string" &&
+    typeof value.version === "string" &&
+    typeof value.commit === "string"
   );
+}
+
+function isValidGapReportMetadata(value: Record<string, unknown>): boolean {
+  const slots = value.leadingBlankPageSlots;
+  if (slots !== undefined && (typeof slots !== "number" || !Number.isSafeInteger(slots) || slots < 0)) {
+    return false;
+  }
+  return value.arrowheads === undefined || isRecord(value.arrowheads);
+}
+
+function isGapReport(value: unknown): value is DenigmaGapReport {
+  if (!isRecord(value) || value.schemaVersion !== 4 || !isGapProducer(value.producer)) return false;
+  if (!Array.isArray(value.gaps) || !value.gaps.every(isGap)) return false;
+  const fonts = value.fonts === undefined ? {} : value.fonts;
+  if (!isRecord(fonts) || !Object.values(fonts).every(isRecord) || !hasKnownFontReferences(value.gaps, fonts)) {
+    return false;
+  }
+  const fretboards = value.fretboards === undefined ? {} : value.fretboards;
+  if (
+    !isRecord(fretboards) ||
+    !Object.values(fretboards).every(isDenigmaFretboardPayload) ||
+    !hasKnownFretboardReferences(value.gaps, fretboards)
+  ) {
+    return false;
+  }
+  return isValidGapReportMetadata(value);
 }
 
 function readGapReport(module: DenigmaModule, resultPointer: number): DenigmaGapReport {

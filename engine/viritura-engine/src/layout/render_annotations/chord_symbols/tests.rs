@@ -78,6 +78,52 @@ fn fretboard_geometry_covers_open_muted_shifted_fingered_and_barre_ink() {
 }
 
 #[test]
+fn fretboard_renders_a_barre_endpoint_and_higher_note_on_the_same_string() {
+    let symbol = chord(json!({
+        "root": {"step": "C"},
+        "fretboards": [{
+            "partId": "guitar", "frameStrings": 6, "frameFrets": 5,
+            "frameNotes": [
+                {"string": 6, "fret": 3, "barre": "start"},
+                {"string": 1, "fret": 3, "fingering": "1", "barre": "stop"},
+                {"string": 1, "fret": 5, "fingering": "3"}
+            ]
+        }]
+    }));
+    let frame = &symbol.fretboards[0];
+    frame.validate().unwrap();
+    let (width, height) = fretboards::dimensions(frame, 10.0);
+    let mut dl = DisplayList::new(width, height);
+    fretboards::render(&mut dl, frame, 0.0, 0.0, 10.0, "m0/chord0");
+
+    assert_eq!(
+        dl.commands
+            .iter()
+            .filter(|command| matches!(command, RenderCommand::DrawCircle { .. }))
+            .count(),
+        3
+    );
+    assert!(dl
+        .commands
+        .iter()
+        .any(|command| matches!(command, RenderCommand::DrawLine { width, .. } if *width == 5.5)));
+    let fingerings: Vec<_> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawText { x, y, text, .. } if text == "1" || text == "3" => {
+                Some((*x, *y, text.as_str()))
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(fingerings.len(), 2);
+    assert_eq!(fingerings[0].0, fingerings[1].0);
+    assert!(fingerings[1].1 - fingerings[0].1 >= 10.0);
+    assert!(fingerings[1].1 + 5.0 <= height);
+}
+
+#[test]
 fn chord_diagrams_reserve_width_between_anchors_and_before_the_barline() {
     let chords = vec![
         chord(json!({

@@ -132,7 +132,7 @@ function sameFretboard(a: Fretboard, b: Fretboard): boolean {
     frame.firstFret?.location ?? "left",
     frame.unplayed ?? "x",
     [...frame.frameNotes]
-      .sort((left, right) => left.string - right.string)
+      .sort((left, right) => left.string - right.string || left.fret - right.fret)
       .map((note) => [note.string, note.fret, note.fingering, note.barre]),
   ];
   return JSON.stringify(shape(a)) === JSON.stringify(shape(b));

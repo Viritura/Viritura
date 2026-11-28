@@ -50,8 +50,8 @@ function document(): JsonRecord {
 
 function report(gaps: DenigmaGap[]): DenigmaGapReport {
   return {
-    schemaVersion: 3,
-    producer: { name: "denigma", version: "4.0.0", commit: "5864f4e" },
+    schemaVersion: 4,
+    producer: { name: "denigma", version: "4.0.0", commit: "21346acd" },
     gaps,
     fonts: {},
   };

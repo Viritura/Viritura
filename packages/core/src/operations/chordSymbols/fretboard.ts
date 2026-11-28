@@ -41,30 +41,66 @@ export function validateFretboard(frame: Omit<Fretboard, "partId">): string[] {
 function validateFrameNotes(frame: Omit<Fretboard, "partId">): string[] {
   const errors: string[] = [];
   const first = frame.firstFret?.fret ?? 1;
+  const strings = new Map<number, Fretboard["frameNotes"]>();
+  const barres = new Map<number, { start?: number; stop?: number }>();
+  for (const note of frame.frameNotes) validateFrameNote(note, frame, first, strings, barres, errors);
+  validateRepeatedStringPositions(strings, errors);
+  validateBarrePairs(barres, errors);
+  return errors;
+}
+
+function validateFrameNote(
+  note: Fretboard["frameNotes"][number],
+  frame: Omit<Fretboard, "partId">,
+  first: number,
+  strings: Map<number, Fretboard["frameNotes"]>,
+  barres: Map<number, { start?: number; stop?: number }>,
+  errors: string[],
+): void {
   const integer = (value: number, min: number, max: number) =>
     Number.isSafeInteger(value) && value >= min && value <= max;
-  const strings = new Set<number>();
-  const barres = new Map<number, { start?: number; stop?: number }>();
-  for (const note of frame.frameNotes) {
-    if (!integer(note.string, 1, frame.frameStrings) || strings.has(note.string))
-      errors.push("Each string may have at most one note and must be within the diagram.");
-    strings.add(note.string);
-    if (!integer(note.fret, 0, 36) || (note.fret !== 0 && (note.fret < first || note.fret >= first + frame.frameFrets)))
-      errors.push("Stopped notes must fall within the displayed fret range.");
-    if ((note.fingering?.length ?? 0) > 8) errors.push("Fingerings may contain at most 8 characters.");
-    if (note.barre === undefined) continue;
-    if (note.fret === 0 || !["start", "stop"].includes(note.barre)) {
-      errors.push("Barre endpoints require a stopped fret and a start or stop marker.");
-      continue;
-    }
-    const endpoints = barres.get(note.fret) ?? {};
-    if (endpoints[note.barre] !== undefined) errors.push("A fret may have only one barre.");
-    endpoints[note.barre] = note.string;
-    barres.set(note.fret, endpoints);
+  if (!integer(note.string, 1, frame.frameStrings)) {
+    errors.push("Strings must be within the diagram.");
+  } else {
+    const notes = strings.get(note.string) ?? [];
+    notes.push(note);
+    strings.set(note.string, notes);
   }
+  if (!integer(note.fret, 0, 36) || (note.fret !== 0 && (note.fret < first || note.fret >= first + frame.frameFrets)))
+    errors.push("Stopped notes must fall within the displayed fret range.");
+  if ((note.fingering?.length ?? 0) > 8) errors.push("Fingerings may contain at most 8 characters.");
+  if (note.barre === undefined) return;
+  if (note.fret === 0 || !["start", "stop"].includes(note.barre)) {
+    errors.push("Barre endpoints require a stopped fret and a start or stop marker.");
+    return;
+  }
+  const endpoints = barres.get(note.fret) ?? {};
+  if (endpoints[note.barre] !== undefined) errors.push("A fret may have only one barre.");
+  endpoints[note.barre] = note.string;
+  barres.set(note.fret, endpoints);
+}
+
+function validateRepeatedStringPositions(strings: Map<number, Fretboard["frameNotes"]>, errors: string[]): void {
+  for (const notes of strings.values()) {
+    if (notes.length === 1) continue;
+    const barreNote = notes.find((note) => note.barre !== undefined);
+    const playedNotes = notes.filter((note) => note !== barreNote);
+    if (
+      notes.length !== 2 ||
+      barreNote === undefined ||
+      barreNote.fret === 0 ||
+      playedNotes.length !== 1 ||
+      playedNotes[0]!.barre !== undefined ||
+      barreNote.fret >= playedNotes[0]!.fret
+    ) {
+      errors.push("A string may have a second note only for a lower-fret barre endpoint.");
+    }
+  }
+}
+
+function validateBarrePairs(barres: Map<number, { start?: number; stop?: number }>, errors: string[]): void {
   for (const { start, stop } of barres.values()) {
     if (start === undefined || stop === undefined || start <= stop)
       errors.push("A barre needs paired endpoints on one fret, starting on the higher-numbered string.");
   }
-  return errors;
 }

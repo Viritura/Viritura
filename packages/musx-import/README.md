@@ -94,11 +94,13 @@ Chord events are written only to
 `_x.viritura.chordSymbolVisibility: "show"` (including previously hidden parts);
 no part-measure chord arrays or per-chord display-staff fields are created.
 Structured Denigma chord fretboards are mapped to the source instrument's
-`fretboards` entry when supported. Unsupported diagrams, such as barres whose
-endpoints fall on different frets, are omitted with a partial-import diagnostic
-while their chord symbols are retained. The currently pinned Denigma runtime
-predates this optional payload, so MUSX diagram import becomes available once
-the producer change is published and the runtime pin is refreshed.
+`fretboards` entry when supported. Denigma schema v4 stores diagrams in a
+deduplicated table and references them from chord gaps; the adapter converts
+their cells and barres to the MusicXML-shaped extension. A barre endpoint on a
+string played at a higher fret becomes a second, non-sounding frame position.
+Font-based diagrams, custom markers, mixed muted and blank strings, and
+unrepresentable barres produce partial-import diagnostics while retaining the
+chord symbol.
 Incoming events replace only matching exact rational positions. Multiple source
 parts/staves coalesce into one harmony stream: the topmost part, then topmost
 staff, wins regardless of gap order. Equivalent harmony is silent; discarded
@@ -106,7 +108,7 @@ different harmony is reported through import diagnostics.
 
 The pinned Denigma revision classifies both chord roots and slash basses as
 **written** pitches (`KeyContext::Written` in
-[`mnx_chords.cpp`](https://github.com/openmusx/denigma/blob/7da485a34de1618d7147d3a95a402bad14b5c9f4/src/formats/mnx/mnx_chords.cpp)).
+[`mnx_chords.cpp`](https://github.com/openmusx/denigma/blob/21346acd79b7638c865d9425ffef13ac7943f804/src/formats/mnx/mnx_chords.cpp)).
 The adapter negates the **source** MNX part's sounding-to-written
 `transposition.interval` to store concert harmony, preserving diatonic spelling.
 Absent transposition means unison; `prefersWrittenPitches` does not change this

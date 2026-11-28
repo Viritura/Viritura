@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatChordSymbolText, parseChordSymbolText, resolveChordSymbol } from "../operations";
+import { formatChordSymbolText, parseChordSymbolText, resolveChordSymbol, validateFretboard } from "../operations";
 import type { ChordQuality, ChordSymbol } from "../model";
 
 const POSITION = { fraction: [1, 4] as [number, number] };
@@ -107,5 +107,39 @@ describe("generated chord text", () => {
       if (resolved.status !== "supported") continue;
       expect(resolveChordSymbol(parseChordSymbolText(formatChordSymbolText(chord), POSITION))).toEqual(resolved);
     }
+  });
+});
+
+describe("fretboard validation", () => {
+  const frame = {
+    frameStrings: 6,
+    frameFrets: 5,
+    frameNotes: [
+      { string: 6, fret: 3, barre: "start" as const },
+      { string: 1, fret: 3, barre: "stop" as const },
+      { string: 1, fret: 5 },
+    ],
+  };
+
+  it("allows a barre endpoint below the played fret on the same string", () => {
+    expect(validateFretboard(frame)).toEqual([]);
+  });
+
+  it.each([
+    [
+      { string: 1, fret: 3 },
+      { string: 1, fret: 5 },
+    ],
+    [
+      { string: 1, fret: 5, barre: "stop" as const },
+      { string: 1, fret: 3 },
+    ],
+  ])("rejects duplicate string positions that do not encode a lower barre endpoint", (first, second) => {
+    expect(
+      validateFretboard({
+        ...frame,
+        frameNotes: [frame.frameNotes[0]!, first, second],
+      }),
+    ).toContain("A string may have a second note only for a lower-fret barre endpoint.");
   });
 });

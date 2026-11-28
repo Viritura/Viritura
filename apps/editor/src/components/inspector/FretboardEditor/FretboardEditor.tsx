@@ -11,6 +11,22 @@ interface Props {
   onChange: (frame: Fretboard | undefined) => void;
 }
 
+function withoutBarre(note: FretboardNote): FretboardNote {
+  const detached = { ...note };
+  delete detached.barre;
+  return detached;
+}
+
+function detachBarre(frameNotes: FretboardNote[], fret: number): FretboardNote[] {
+  return frameNotes.flatMap((note) => {
+    if (note.fret !== fret || note.barre === undefined) return [note];
+    const higherPlayedNote = frameNotes.some(
+      (candidate) => candidate.string === note.string && candidate.fret > fret && candidate.barre === undefined,
+    );
+    return higherPlayedNote ? [] : [withoutBarre(note)];
+  });
+}
+
 export function FretboardEditor({ partId, value, onChange }: Props) {
   const [draft, setDraft] = useState<Fretboard>(value ?? { partId, frameStrings: 6, frameFrets: 5, frameNotes: [] });
   const [editing, setEditing] = useState(Boolean(value));
@@ -21,10 +37,39 @@ export function FretboardEditor({ partId, value, onChange }: Props) {
   const stringCount = Math.min(12, Math.max(2, Math.trunc(draft.frameStrings) || 2));
   const strings = Array.from({ length: stringCount }, (_, index) => stringCount - index);
 
-  function updateNote(string: number, note: FretboardNote | undefined) {
-    setDraft({
-      ...draft,
-      frameNotes: [...draft.frameNotes.filter((entry) => entry.string !== string), ...(note ? [note] : [])],
+  function updateNote(string: number, note: FretboardNote | undefined, existingFret?: number) {
+    setDraft((current) => {
+      let frameNotes = [...current.frameNotes];
+      if (existingFret !== undefined) {
+        const existing = frameNotes.find((entry) => entry.string === string && entry.fret === existingFret);
+        const removeBarreContact =
+          existing?.barre !== undefined &&
+          note?.barre === undefined &&
+          frameNotes.some(
+            (entry) => entry.string === string && entry.fret > existing.fret && entry.barre === undefined,
+          );
+        if (existing?.barre && existing.barre !== note?.barre) {
+          frameNotes = detachBarre(frameNotes, existing.fret);
+        }
+        frameNotes = frameNotes.filter((entry) => entry.string !== string || entry.fret !== existingFret);
+        if (note && !removeBarreContact) {
+          frameNotes.push(note.barre === undefined ? withoutBarre(note) : note);
+        }
+      } else if (note === undefined || note.fret === 0) {
+        const barreFrets = new Set(
+          frameNotes.filter((entry) => entry.string === string && entry.barre).map((entry) => entry.fret),
+        );
+        for (const fret of barreFrets) frameNotes = detachBarre(frameNotes, fret);
+        frameNotes = frameNotes.filter((entry) => entry.string !== string);
+        if (note) frameNotes.push(note);
+      } else {
+        const existingBarre = frameNotes.find(
+          (entry) => entry.string === string && entry.barre && entry.fret === note.fret,
+        );
+        if (existingBarre) return current;
+        frameNotes = [...frameNotes.filter((entry) => entry.string !== string || entry.barre !== undefined), note];
+      }
+      return { ...current, frameNotes };
     });
   }
 
@@ -106,42 +151,50 @@ export function FretboardEditor({ partId, value, onChange }: Props) {
 
       <details className={styles.noteDetails}>
         <summary>Fingerings and barre endpoints</summary>
-        {strings.map((string) => {
-          const note = draft.frameNotes.find((entry) => entry.string === string);
-          if (!note) return null;
-          return (
-            <fieldset key={string}>
-              <legend>String {string}</legend>
-              <label style={labelStyle}>
-                Fingering
-                <FormInput
-                  maxLength={8}
-                  value={note.fingering ?? ""}
-                  onChange={(event) => updateNote(string, { ...note, fingering: event.target.value || undefined })}
-                />
-              </label>
-              {note.fret > 0 && (
+        {strings.flatMap((string) =>
+          draft.frameNotes
+            .filter((entry) => entry.string === string)
+            .map((note) => (
+              <fieldset key={`${string}-${note.fret}`}>
+                <legend>
+                  String {string}, fret {note.fret}
+                </legend>
                 <label style={labelStyle}>
-                  Barre endpoint
-                  <Select
-                    value={note.barre ?? ""}
-                    options={[
-                      { value: "", label: "None" },
-                      { value: "start", label: "Start" },
-                      { value: "stop", label: "Stop" },
-                    ]}
-                    onValueChange={(barre) =>
-                      updateNote(string, {
-                        ...note,
-                        barre: barre === "start" ? "start" : barre === "stop" ? "stop" : undefined,
-                      })
+                  Fingering
+                  <FormInput
+                    maxLength={8}
+                    value={note.fingering ?? ""}
+                    onChange={(event) =>
+                      updateNote(string, { ...note, fingering: event.target.value || undefined }, note.fret)
                     }
                   />
                 </label>
-              )}
-            </fieldset>
-          );
-        })}
+                {note.fret > 0 && (
+                  <label style={labelStyle}>
+                    Barre endpoint
+                    <Select
+                      value={note.barre ?? ""}
+                      options={[
+                        { value: "", label: "None" },
+                        { value: "start", label: "Start" },
+                        { value: "stop", label: "Stop" },
+                      ]}
+                      onValueChange={(barre) =>
+                        updateNote(
+                          string,
+                          {
+                            ...note,
+                            barre: barre === "start" ? "start" : barre === "stop" ? "stop" : undefined,
+                          },
+                          note.fret,
+                        )
+                      }
+                    />
+                  </label>
+                )}
+              </fieldset>
+            )),
+        )}
       </details>
 
       {errors.length > 0 && <p role="alert">{[...new Set(errors)].join(" ")}</p>}
