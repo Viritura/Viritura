@@ -2,6 +2,7 @@ import type { Score, NoteEvent, Sequence } from "@viritura/core";
 import { walkSequenceEvents, setClef, removeGlobalMeasures } from "@viritura/core";
 import { cloneScore } from "../../score/scoreClone";
 import { parseClefElementId } from "../../score/clefElementId";
+import { collectNoteIds, dropReferencesToNotes } from "../noteReferences";
 
 /**
  * Yield NoteEvents from a single sequence's content, flattening every event
@@ -171,7 +172,13 @@ export function removeMeasureRangeFromScore(
       }),
     };
   }
-  return {
+  const removedIds = new Set<string>();
+  for (const part of score.parts) {
+    for (const measure of part.measures.slice(startM, endM + 1)) {
+      for (const sequence of measure.sequences) collectNoteIds(sequence.content, removedIds);
+    }
+  }
+  const next = {
     ...score,
     global: {
       ...score.global,
@@ -182,4 +189,8 @@ export function removeMeasureRangeFromScore(
       measures: [...part.measures.slice(0, startM), ...part.measures.slice(endM + 1)],
     })),
   };
+  if (removedIds.size === 0) return next;
+  const cleaned = cloneScore(next);
+  dropReferencesToNotes(cleaned, removedIds);
+  return cleaned;
 }
