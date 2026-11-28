@@ -68,16 +68,6 @@ function displayPosition(context: NoteContext, position: number, staff: number, 
   return [node(context.xml, "display-step", step), node(context.xml, "display-octave", octave)];
 }
 
-function activeOttava(context: NoteContext, timed: TimedEvent, staff: number): number {
-  if (!context.plan.selection.staves.has(staff)) return 0;
-  const position = add(context.plan.measureStarts[context.measureIndex]!, timed.position);
-  return context.plan.ottavaSpans.reduce((value, span) => {
-    if (span.staff !== staff || (span.voice !== undefined && span.voice !== context.sequence.sequence.voice))
-      return value;
-    return compare(position, span.start) >= 0 && compare(position, span.end) < 0 ? value + span.value : value;
-  }, 0);
-}
-
 function pitchElement(context: NoteContext, timed: TimedEvent, note: Note | KitNote | undefined): XmlElement {
   if (!note) {
     const rest = timed.event.rest;
@@ -102,8 +92,7 @@ function pitchElement(context: NoteContext, timed: TimedEvent, note: Note | KitN
   const transposition = displayTransposition(state, context.useWritten);
   const measure = context.plan.measures[context.measureIndex]!;
   const pitch = writtenPitch(note, displayInterval(measure.key.atonal ? 0 : measure.key.fifths, transposition));
-  pitch.octave -= activeOttava(context, timed, note.staff ?? timed.event.staff ?? context.sequence.sourceStaff);
-  if (pitch.octave < 0 || pitch.octave > 9) throw new Error("Displayed pitch is outside MusicXML's octave range.");
+  if (pitch.octave < 0 || pitch.octave > 9) throw new Error("Written pitch is outside MusicXML's octave range.");
   return node(context.xml, "pitch", [
     node(context.xml, "step", pitch.step),
     pitch.alter ? node(context.xml, "alter", pitch.alter) : undefined,

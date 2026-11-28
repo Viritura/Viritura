@@ -10,8 +10,8 @@ import {
   type TimeSignature,
 } from "@viritura/core";
 import type { ExportPart, ExportSequence, PartPlan } from "./types";
-import { includesDirection, includesSequence } from "./selection";
-import { add, compare, multiply, ONE, rational, timeSequence, ZERO } from "./rhythm";
+import { includesSequence } from "./selection";
+import { compare, ONE, rational, timeSequence, ZERO } from "./rhythm";
 
 export function preparePart(score: Score, original: ExportPart, diagnostics: DiagnosticCollector): PartPlan {
   original.part.measures.forEach((measure, mi) => {
@@ -152,36 +152,5 @@ export function preparePart(score: Score, original: ExportPart, diagnostics: Dia
     if (state.instrumentKey !== undefined && !state.instrument)
       throw new Error(`Unknown instrument "${state.instrumentKey}".`);
   }
-  let cursor = ZERO;
-  const measureStarts = measures.map((measure) => {
-    const start = cursor;
-    cursor = add(cursor, measure.duration);
-    return start;
-  });
-  const measureIds = new Map(score.global.measures.map((measure, mi) => [measure.id, mi]));
-  const ottavaSpans = selection.part.measures.flatMap((measure, mi) =>
-    (measure.ottavas ?? [])
-      .filter((ottava) => includesDirection(selection, ottava.staff ?? 1, ottava.voice))
-      .map((ottava) => {
-        const endIndex = measureIds.get(ottava.end.measure);
-        if (endIndex === undefined) throw new Error("Ottava references a missing measure.");
-        if (![-3, -2, -1, 1, 2, 3].includes(ottava.value)) throw new Error("Invalid octave-shift value.");
-        const staff = ottava.staff ?? 1;
-        const at = (index: number, fraction: [number, number]) => {
-          const ratio = measures[index]!.staffMeters.get(staff)?.ratioToGlobal;
-          return add(
-            measureStarts[index]!,
-            multiply(rational(...fraction), ratio ? rational(ratio.num, ratio.den) : ONE),
-          );
-        };
-        return {
-          start: at(mi, ottava.position.fraction),
-          end: at(endIndex, ottava.end.position.fraction),
-          staff,
-          voice: ottava.voice,
-          value: ottava.value,
-        };
-      }),
-  );
-  return { selection, measures, initialInstrument, instrumentChanges, measureStarts, ottavaSpans };
+  return { selection, measures, initialInstrument, instrumentChanges };
 }

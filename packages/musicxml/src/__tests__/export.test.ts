@@ -117,6 +117,141 @@ describe("MusicXML export", () => {
     expect(importedEvent.notes![0]!.notehead).toEqual({ shape });
   });
 
+  it.each([
+    ["down", 8, 1],
+    ["up", 8, -1],
+    ["down", 15, 2],
+    ["up", 15, -2],
+  ] as const)("round-trips %s size %i across measures with an inclusive mid-measure end", (type, size, value) => {
+    const note = (step: string) =>
+      `<note><pitch><step>${step}</step><octave>5</octave></pitch><duration>1</duration><type>quarter</type></note>`;
+    const xml = `<score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Test</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+          ${note("C")}
+          <direction><direction-type><octave-shift type="${type}" size="${size}"/></direction-type></direction>
+          ${note("G")}${note("A")}${note("B")}
+        </measure>
+        <measure number="2">
+          <direction><direction-type><octave-shift type="continue" size="${size}"/></direction-type></direction>
+          ${note("G")}${note("A")}
+          <direction><direction-type><octave-shift type="stop" size="${size}"/></direction-type></direction>
+          ${note("B")}${note("C")}
+        </measure>
+      </part>
+    </score-partwise>`;
+    const imported = convertMusicXmlToMnx(xml);
+    const decoded = parseMnx(imported);
+    expect(decoded.parts[0]!.measures[0]!.ottavas![0]).toMatchObject({
+      value,
+      position: { fraction: [1, 4] },
+      end: { measure: decoded.global.measures[1]!.id, position: { fraction: [1, 4] } },
+    });
+    const exported = convertScoreToMusicXml(decoded).xml;
+    expect(texts(exported, "octave")).toEqual(Array(8).fill("5"));
+    expect(texts(exported, "step")).toEqual(["C", "G", "A", "B", "G", "A", "B", "C"]);
+    const roundtrip = parseMnx(convertMusicXmlToMnx(exported));
+    expect(roundtrip.parts[0]!.measures[0]!.ottavas).toEqual(
+      decoded.parts[0]!.measures[0]!.ottavas!.map((span) => ({
+        ...span,
+        end: { ...span.end, measure: roundtrip.global.measures[1]!.id },
+      })),
+    );
+    for (let mi = 0; mi < 2; mi++)
+      expect(roundtrip.parts[0]!.measures[mi]!.sequences[0]!.content).toMatchObject(
+        decoded.parts[0]!.measures[mi]!.sequences[0]!.content.map((event) => {
+          if (event.type !== "event") throw new Error("Expected ordinary event.");
+          return { notes: event.notes?.map((note) => ("pitch" in note ? { pitch: note.pitch } : {})) };
+        }),
+      );
+  });
+
+  it.each(["voice", "staff"] as const)("preserves concurrent %s-scoped spans despite XML voice order", (scope) => {
+    const staff = scope === "staff" ? 2 : 1;
+    const shift = (type: string, voice: number, staff: number, offset: number) => `<direction>
+      <direction-type><octave-shift type="${type}" size="${voice === 1 ? 8 : 15}" number="${scope === "staff" ? 1 : voice}"/></direction-type>
+      <offset>${offset}</offset>${scope === "voice" ? `<voice>${voice}</voice>` : ""}<staff>${staff}</staff>
+    </direction>`;
+    const notes = (voice: number, staff: number) =>
+      ["G", "A", "B", "C"]
+        .map(
+          (step) => `<note><pitch><step>${step}</step><octave>${voice === 1 ? 5 : 3}</octave></pitch>
+            <duration>1</duration><voice>${voice}</voice><type>quarter</type><staff>${staff}</staff></note>`,
+        )
+        .join("");
+    const xml = `<score-partwise version="4.0">
+      <part-list><score-part id="P1"><part-name>Test</part-name></score-part></part-list>
+      <part id="P1"><measure number="1">
+        <attributes><divisions>1</divisions><staves>${staff}</staves><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+        ${notes(1, 1)}
+        ${shift("down", 1, 1, -3)}${shift("stop", 1, 1, -1)}
+        <backup><duration>4</duration></backup>
+        ${shift("up", 2, staff, 0)}${notes(2, staff)}${shift("stop", 2, staff, -3)}
+      </measure></part>
+    </score-partwise>`;
+    const decoded = parseMnx(convertMusicXmlToMnx(xml));
+    const spans = decoded.parts[0]!.measures[0]!.ottavas!;
+    expect(spans).toHaveLength(2);
+    expect(spans).toContainEqual(
+      expect.objectContaining({
+        value: 1,
+        ...(scope === "voice" ? { voice: "v1" } : {}),
+        staff: 1,
+        position: { fraction: [1, 4] },
+        end: { measure: decoded.global.measures[0]!.id, position: { fraction: [1, 2] } },
+      }),
+    );
+    expect(spans).toContainEqual(
+      expect.objectContaining({
+        value: -2,
+        ...(scope === "voice" ? { voice: "v2" } : {}),
+        staff,
+        end: { measure: decoded.global.measures[0]!.id, position: { fraction: [0, 1] } },
+      }),
+    );
+    const exported = convertScoreToMusicXml(decoded).xml;
+    expect(texts(exported, "octave")).toEqual(["5", "5", "5", "5", "3", "3", "3", "3"]);
+    const roundtrip = parseMnx(convertMusicXmlToMnx(exported));
+    expect(roundtrip.parts[0]!.measures[0]!.ottavas).toEqual(
+      spans.map((span) => ({ ...span, end: { ...span.end, measure: roundtrip.global.measures[0]!.id } })),
+    );
+  });
+
+  it("ends a staff-wide ottava before the next onset even when another voice sustains", () => {
+    const source = score();
+    const measure = source.parts[0]!.measures[0]!;
+    measure.sequences = [
+      { voice: "upper", content: [whole("sustain", "G", 5)] },
+      {
+        voice: "lower",
+        content: [1, 2, 3, 4].map((i) => ({
+          ...whole(`quarter${i}`, "C", 3),
+          duration: { base: "quarter" },
+        })),
+      },
+    ];
+    measure.ottavas = [
+      { value: 1, position: { fraction: [0, 1] }, end: { measure: "m1", position: { fraction: [0, 1] } } },
+    ];
+    const result = convertScoreToMusicXml(source, { scoreIndex: 1 });
+    const imported = convertMusicXmlToMnx(result.xml);
+    expect(imported.parts[0]!.measures[0]!.ottavas![0]!.end.position.fraction).toEqual([0, 1]);
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({ code: "musicxml-ottava-endpoint" }));
+  });
+
+  it("warns and retains a legacy ottava stop that is not an event onset", () => {
+    const source = score();
+    source.parts[0]!.measures[0]!.ottavas = [
+      { value: 1, position: { fraction: [0, 1] }, end: { measure: "m1", position: { fraction: [1, 2] } } },
+    ];
+    const result = convertScoreToMusicXml(source, { scoreIndex: 1 });
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "musicxml-ottava-endpoint" }));
+    expect(texts(result.xml, "octave")).toEqual(["4"]);
+    expect(convertMusicXmlToMnx(result.xml).parts[0]!.measures[0]!.ottavas![0]!.end.position.fraction).toEqual([0, 1]);
+  });
+
   it("round-trips shared fermata identity, exact anchor and settings across overlapping rhythms and part exports", () => {
     const source = score();
     source.global.measures[0]!.fermatas = [
@@ -424,7 +559,7 @@ describe("MusicXML export", () => {
       },
     ];
     const xml = convertScoreToMusicXml(source, { scoreIndex: 1 }).xml;
-    expect(texts(xml, "octave")).toEqual(["5", "4", "4", "5"]);
+    expect(texts(xml, "octave")).toEqual(["5", "5", "5", "5"]);
     const imported = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
     expect(imported.parts[0]!.measures[0]!.sequences![0]!.content).toHaveLength(4);
     for (const event of imported.parts[0]!.measures[0]!.sequences![0]!.content)
@@ -457,7 +592,7 @@ describe("MusicXML export", () => {
     measure.ottavas = [
       {
         position: { fraction: [0, 1] },
-        end: { measure: "m1", position: { fraction: [1, 1] } },
+        end: { measure: "m1", position: { fraction: [0, 1] } },
         value: 1,
         voice: "upper",
       },
@@ -471,6 +606,10 @@ describe("MusicXML export", () => {
       { notes: [{ pitch: { octave: 5 } }] },
       { notes: [{ pitch: { octave: 4 } }] },
     ]);
+    expect(imported.parts[0]!.measures[0]!.ottavas![0]).toMatchObject({
+      voice: imported.parts[0]!.measures[0]!.sequences![0]!.voice,
+      end: { position: { fraction: [0, 1] } },
+    });
     source.layouts![1]!.content = [{ type: "staff", sources: [{ part: "clarinet", voice: "upper" }] }];
     const selected = convertScoreToMusicXml(source, { scoreIndex: 1 }).xml;
     expect(texts(selected, "note")).toHaveLength(1);

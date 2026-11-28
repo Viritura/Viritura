@@ -97,6 +97,29 @@ function techniques(events: readonly PerformanceEvent[]): TechniqueEvent[] {
 }
 
 describe("generatePerformanceEvents", () => {
+  it.each([1, -1, 2, -2])("plays MNX encoded pitches unchanged under ottava %i", (value) => {
+    const source = buildScore([
+      {
+        notes: [
+          { octave: 6, id: "shifted" },
+          { octave: 4, id: "unshifted" },
+        ],
+      },
+      {
+        notes: [
+          { octave: 3, id: "final" },
+          { octave: 4, id: "after" },
+        ],
+      },
+    ]);
+    source.global.measures[0]!.id = "m1";
+    source.global.measures[1]!.id = "m2";
+    source.parts[0]!.measures[0]!.ottavas = [
+      { value, position: { fraction: [0, 1] }, end: { measure: "m2", position: { fraction: [0, 1] } } },
+    ];
+    expect(noteOns(generatePerformanceEvents(source, 0)).map((event) => event.note.pitch)).toEqual([84, 60, 48, 60]);
+  });
+
   it("emits sorted reset, noteOn, and noteOff events for a simple two-note score", () => {
     const events = generatePerformanceEvents(
       buildScore([

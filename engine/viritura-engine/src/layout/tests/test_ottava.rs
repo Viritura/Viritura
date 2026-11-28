@@ -63,6 +63,91 @@ fn ottava_commands(display: &DisplayList) -> Vec<&RenderCommand> {
 }
 
 #[test]
+fn test_ottava_voice_scope_and_inclusive_mid_measure_endpoint() {
+    for value in [1, -1, 2, -2] {
+        let sequences = |measure| {
+            ["upper", "lower"].map(|voice| {
+                serde_json::json!({
+                    "voice": voice,
+                    "content": (0..4).map(|event| serde_json::json!({
+                        "id": format!("{voice}-m{measure}-e{event}"),
+                        "duration": {"base": "quarter"},
+                        "notes": [{"pitch": {
+                            "step": if voice == "upper" { "G" } else { "C" },
+                            "octave": if voice == "upper" { 5 } else { 2 }
+                        }}]
+                    })).collect::<Vec<_>>()
+                })
+            })
+        };
+        let json = serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [
+                {"id": "m1", "time": {"count": 4, "unit": 4}},
+                {"id": "m2"}
+            ]},
+            "parts": [{"measures": [
+                {
+                    "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+                    "sequences": sequences(0),
+                    "ottavas": [{
+                        "value": value, "voice": "upper",
+                        "position": {"fraction": [1, 4]},
+                        "end": {"measure": "m2", "position": {"fraction": [1, 4]}}
+                    }]
+                },
+                {"sequences": sequences(1)}
+            ]}]
+        });
+        let mut score = crate::parse::parse_mnx(&json.to_string()).unwrap();
+        let config = LayoutConfig::default();
+        let shifted = layout_score(&score, 0, &config);
+        score.parts[0].measures[0].ottavas = None;
+        let plain = layout_score(&score, 0, &config);
+        let head_y = |display: &DisplayList| {
+            display
+                .commands
+                .iter()
+                .zip(&display.element_ids)
+                .filter_map(|(command, id)| {
+                    if let RenderCommand::DrawGlyph {
+                        y,
+                        codepoint: 0xE0A4,
+                        ..
+                    } = command
+                    {
+                        Some((id.clone(), *y))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+        };
+        let shifted_heads = head_y(&shifted);
+        let plain_heads = head_y(&plain);
+        assert_eq!(shifted_heads.len(), 16);
+        assert_eq!(plain_heads.len(), 16);
+        for ((shifted_id, shifted_y), (plain_id, plain_y)) in shifted_heads.iter().zip(&plain_heads)
+        {
+            assert_eq!(shifted_id, plain_id);
+            let id = shifted_id.as_deref().unwrap();
+            let affected = id.contains("upper-")
+                && ((id.contains("-m0-") && !id.contains("-e0"))
+                    || (id.contains("-m1-") && (id.contains("-e0") || id.contains("-e1"))));
+            let expected = if affected {
+                f64::from(value) * 3.5 * config.sp
+            } else {
+                0.0
+            };
+            assert!(
+                (shifted_y - plain_y - expected).abs() < 0.01,
+                "{id}: ottava {value} must only shift the scoped inclusive events"
+            );
+        }
+    }
+}
+
+#[test]
 fn test_authored_measure_cache_updates_ottava_pitch_geometry_after_endpoint_edits() {
     use crate::layout::cache::LayoutCache;
     use crate::layout::layout_with_mnx_scores_cached;

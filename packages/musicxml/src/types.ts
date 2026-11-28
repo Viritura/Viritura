@@ -191,6 +191,7 @@ export interface MnxOttava {
   position: MnxRhythmicPosition;
   end: { measure: string; position: MnxRhythmicPosition };
   staff?: number;
+  voice?: string;
 }
 
 export interface MnxBeam {

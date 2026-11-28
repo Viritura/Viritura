@@ -74,6 +74,26 @@ properties, and explain two common format mistakes:
 
 ### MusicXML → MNX converter (`packages/musicxml`)
 
+**Ottava pitch contract.** MusicXML `<pitch>` already accounts for octave
+lines: `octave-shift type="down" size="8"` displays the encoded pitch one
+octave lower (8va), and `up` displays it higher (8vb). MNX likewise encodes
+pitches taking ottava into account. Import applies only the instrument's
+written-to-sounding transposition, never an extra ottava shift. Export applies
+only the inverse instrument transposition. Layout shifts these pitches for
+display, respecting staff and voice scope; playback uses the encoded sounding
+pitch unchanged. Sizes 15 and 22 follow the same rule for two and three octaves.
+
+MusicXML stop boundaries become MNX's inclusive last affected event onset.
+Export places the stop after that final event, before any following onset in
+the scoped voices. Legacy endpoints that do not coincide with an event onset
+retain their stop boundary and produce an export warning. Spans are paired by staff and
+MusicXML number in rhythmic order, including offsets and cross-measure spans,
+and retain their optional voice scope.
+
+Sources: [MusicXML 4.0 octave-shift](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/octave-shift/),
+[MNX ottava](https://mnx.formats.music/docs/mnx-reference/objects/ottava/),
+and the [MNX/MusicXML ottava comparison](https://mnx.formats.music/docs/comparisons/musicxml/#ottavas-8va).
+
 **Layout.** All converter logic lives in `packages/musicxml/src/convert/` per
 concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 `globalMeasures.ts`, `idGenerator.ts`, `layout.ts`, `measureNotes.ts`,

@@ -578,6 +578,11 @@ pub(super) fn layout_voice_for_measure(
         }
     } else {
         let mut pending_grace: Vec<GraceNoteLayout> = Vec::new();
+        let voice_ottavas: Vec<_> = resolved_ottavas
+            .iter()
+            .filter(|ottava| ottava.voice.is_none() || ottava.voice == seq.voice)
+            .cloned()
+            .collect();
         layout_sequence_content(
             &seq.content,
             &mut events,
@@ -593,7 +598,7 @@ pub(super) fn layout_voice_for_measure(
             num_voices,
             vi,
             rm.index,
-            resolved_ottavas,
+            &voice_ottavas,
             log_spacing,
             StemContext::for_sequence(seq, contesting_voices),
             seq_staff,
