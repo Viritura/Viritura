@@ -30,7 +30,7 @@ interface WorkbenchProps {
 
 type DialogKind = "library" | "overrides" | "transfer" | "profile" | null;
 
-export function StyleWorkbench({ initialNavigator = "list", initialDestination = "layout" }: WorkbenchProps) {
+export function StyleWorkbench({ initialNavigator = "dropdown", initialDestination = "layout" }: WorkbenchProps) {
   const [navigator, setNavigator] = useState(initialNavigator);
   const [project, setProject] = useState(initialProject);
   const [history, setHistory] = useState<Project[]>([]);

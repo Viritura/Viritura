@@ -8,7 +8,7 @@ afterEach(cleanup);
 describe("style workbench", () => {
   it("keeps the edited profile when changing the preview and allows switching profiles", async () => {
     const user = userEvent.setup();
-    render(<StyleWorkbench initialDestination="house" />);
+    render(<StyleWorkbench initialDestination="house" initialNavigator="list" />);
 
     await user.click(screen.getByRole("button", { name: "View Horn in F" }));
     expect(screen.getByText(/Horn in F uses Large-print part/)).toBeTruthy();
@@ -30,7 +30,7 @@ describe("style workbench", () => {
 
   it("updates profile previews while preserving layout overrides", async () => {
     const user = userEvent.setup();
-    render(<StyleWorkbench initialDestination="house" />);
+    render(<StyleWorkbench initialDestination="house" initialNavigator="list" />);
 
     await user.click(screen.getByRole("combobox", { name: "Staff size" }));
     await user.click(screen.getByRole("option", { name: "8 mm" }));
@@ -69,8 +69,10 @@ describe("style workbench", () => {
     expect(within(main).queryAllByRole("tab")).toHaveLength(0);
     expect(within(main).getByText("Editing house style")).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: /View Cello/ }));
+    await user.click(screen.getByRole("combobox", { name: "Active layout" }));
+    await user.click(screen.getByRole("option", { name: "Cello" }));
     expect(within(main).getByText("Editing house style")).toBeTruthy();
+    expect(within(main).getByRole("combobox", { name: "Editing" }).textContent).toContain("Part profile");
     expect(screen.getByRole("img", { name: "Cello first page" })).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Done" }));

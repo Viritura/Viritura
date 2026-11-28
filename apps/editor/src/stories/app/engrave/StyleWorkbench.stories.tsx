@@ -21,6 +21,9 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const HouseStyleWithLayoutList: Story = { args: { initialNavigator: "list", initialDestination: "house" } };
+export const HouseStyleWithLayoutList: Story = {
+  name: "House style",
+  args: { initialNavigator: "dropdown", initialDestination: "house" },
+};
 export const TopNavDropdown: Story = { args: { initialNavigator: "dropdown", initialDestination: "house" } };
-export const LayoutOverrides: Story = { args: { initialNavigator: "list", initialDestination: "layout" } };
+export const LayoutOverrides: Story = { args: { initialNavigator: "dropdown", initialDestination: "layout" } };
