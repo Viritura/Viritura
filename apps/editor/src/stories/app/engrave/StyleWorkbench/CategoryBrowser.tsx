@@ -26,10 +26,10 @@ interface CategoryBrowserProps {
 function matchingFields(
   category: CategoryDefinition,
   terms: string[],
-  modifiedOnly: boolean,
+  customOnly: boolean,
   isModified: (field: FieldDefinition) => boolean,
 ): FieldDefinition[] {
-  const fields = modifiedOnly ? category.fields.filter(isModified) : category.fields;
+  const fields = customOnly ? category.fields.filter(isModified) : category.fields;
   if (!terms.length) return fields;
   const matches = (text: string) => terms.every((term) => text.toLowerCase().includes(term));
   if (matches(category.label)) return fields;
@@ -38,13 +38,13 @@ function matchingFields(
 
 export function CategoryBrowser({ project, scope, open, onOpenChange, renderCategory }: CategoryBrowserProps) {
   const [query, setQuery] = useState("");
-  const [modifiedOnly, setModifiedOnly] = useState(false);
+  const [customOnly, setCustomOnly] = useState(false);
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const searching = terms.length > 0 || modifiedOnly;
+  const searching = terms.length > 0 || customOnly;
   const visible = CATEGORIES.filter((category) => scope.kind !== "common" || !category.profileOnly)
     .map((category) => ({
       category,
-      fields: matchingFields(category, terms, modifiedOnly, (field) => isModifiedAtScope(project, scope, field.id)),
+      fields: matchingFields(category, terms, customOnly, (field) => isModifiedAtScope(project, scope, field.id)),
     }))
     .filter(({ fields }) => fields.length > 0);
   const anyOpen = visible.some(({ category }) => searching || open[category.id]);
@@ -65,10 +65,10 @@ export function CategoryBrowser({ project, scope, open, onOpenChange, renderCate
         />
         <IconButton
           size="md"
-          active={modifiedOnly}
-          tooltip={modifiedOnly ? "Show all settings" : "Show only settings set here"}
-          aria-label="Modified only"
-          onClick={() => setModifiedOnly((current) => !current)}
+          active={customOnly}
+          tooltip={customOnly ? "Show all settings" : "Show only custom settings"}
+          aria-label="Custom only"
+          onClick={() => setCustomOnly((current) => !current)}
         >
           <ListFilter size={14} />
         </IconButton>
@@ -93,7 +93,7 @@ export function CategoryBrowser({ project, scope, open, onOpenChange, renderCate
           </Collapsible>
         );
       })}
-      {!visible.length && <p className={styles.hint}>{modifiedOnly ? "Nothing set here." : "No matching settings."}</p>}
+      {!visible.length && <p className={styles.hint}>{customOnly ? "No custom settings." : "No matching settings."}</p>}
     </div>
   );
 }

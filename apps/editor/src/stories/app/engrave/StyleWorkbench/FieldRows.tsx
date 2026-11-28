@@ -1,16 +1,9 @@
-import { ArrowUpToLine, RotateCcw } from "lucide-react";
-import { Button, IconButton, Select } from "@viritura/ui";
+import { Button, Select } from "@viritura/ui";
 import {
   changeField,
   downstreamOverrides,
   fieldChain,
-  findProfile,
-  inheritedValue,
   isModifiedAtScope,
-  layer,
-  parentScope,
-  promoteField,
-  resetDownstream,
   resolveField,
   scopeLabel,
   type ChainStep,
@@ -18,6 +11,7 @@ import {
   type Project,
   type Scope,
 } from "./styleModel";
+import { FieldActions } from "./StyleActions";
 import styles from "./StyleWorkbench.module.css";
 
 export interface FieldEditorProps {
@@ -29,10 +23,6 @@ export interface FieldEditorProps {
   onJump: (scope: Scope) => void;
 }
 
-function parentName(project: Project, scope: Scope): string {
-  return scope.kind === "profile" ? findProfile(project, scope.id).name : "House";
-}
-
 function SourceTrail({
   field,
   steps,
@@ -42,6 +32,7 @@ function SourceTrail({
   steps: ChainStep[];
   onJump: (scope: Scope) => void;
 }) {
+  if (steps.length < 2) return null;
   const winner = [...steps].reverse().find((step) => step.value !== undefined);
   const current = steps.at(-1);
   return (
@@ -75,9 +66,6 @@ export function FieldRows({ project, scope, fields, onCommit, onJump }: FieldEdi
   return fields.map((field) => {
     const resolved = resolveField(project, scope, field.id);
     const explicit = isModifiedAtScope(project, scope, field.id);
-    const inherited = inheritedValue(project, scope, field.id);
-    const parent =
-      explicit && layer(project, scope)[field.id] !== undefined ? parentScope(project, scope, field.id) : undefined;
     const below = downstreamOverrides(project, scope, field.id);
     const name = field.label.toLowerCase();
     return (
@@ -86,38 +74,7 @@ export function FieldRows({ project, scope, fields, onCommit, onJump }: FieldEdi
           <span className={styles.fieldLabel}>{field.label}</span>
           <SourceTrail field={field} steps={fieldChain(project, scope, field.id)} onJump={onJump} />
           <span className={styles.fieldActions}>
-            {parent && (
-              <IconButton
-                size="xs"
-                variant="ghost"
-                tooltip={`Move to ${parentName(project, parent)}`}
-                aria-label={`Move ${name} to ${parentName(project, parent)}`}
-                onClick={() =>
-                  onCommit(
-                    promoteField(project, scope, field.id),
-                    `${field.label} ${resolved.value} moved to ${parentName(project, parent)}.`,
-                  )
-                }
-              >
-                <ArrowUpToLine size={12} />
-              </IconButton>
-            )}
-            {explicit && (
-              <IconButton
-                size="xs"
-                variant="ghost"
-                tooltip={`Reset to ${inherited.value} (${inherited.source})`}
-                aria-label={`Reset ${name}`}
-                onClick={() =>
-                  onCommit(
-                    changeField(project, scope, field.id),
-                    `${field.label} in ${target} reset to ${inherited.value}.`,
-                  )
-                }
-              >
-                <RotateCcw size={12} />
-              </IconButton>
-            )}
+            <FieldActions project={project} scope={scope} field={field} onCommit={onCommit} />
           </span>
         </div>
         <Select
@@ -130,7 +87,7 @@ export function FieldRows({ project, scope, fields, onCommit, onJump }: FieldEdi
         />
         {below.length > 0 && (
           <div className={styles.downstream}>
-            <span>Overridden in</span>
+            <span>Custom in</span>
             {below.map((entry) => (
               <Button
                 key={`${entry.scope.kind}:${entry.name}`}
@@ -138,26 +95,12 @@ export function FieldRows({ project, scope, fields, onCommit, onJump }: FieldEdi
                 variant="link"
                 className={styles.downstreamChip}
                 tooltip={`${entry.name}: ${entry.value}`}
-                ariaLabel={entry.name}
+                ariaLabel={`${entry.name} custom setting`}
                 onClick={() => onJump(entry.scope)}
               >
                 {entry.name}
               </Button>
             ))}
-            <Button
-              size="sm"
-              variant="link"
-              ariaLabel={`Clear ${name} overrides`}
-              tooltip={`Make ${below.length === 1 ? "it" : "them"} inherit ${resolved.value}`}
-              onClick={() =>
-                onCommit(
-                  resetDownstream(project, scope, field.id),
-                  `Cleared ${below.length} ${name} ${below.length === 1 ? "override" : "overrides"}.`,
-                )
-              }
-            >
-              Clear
-            </Button>
           </div>
         )}
       </div>

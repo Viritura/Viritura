@@ -1,7 +1,6 @@
 import { Button, Checkbox, FormField, Select } from "@viritura/ui";
 import {
   assignProfile,
-  clearCategory,
   findProfile,
   type CategoryDefinition,
   type FieldDefinition,
@@ -10,6 +9,7 @@ import {
   type Scope,
 } from "./styleModel";
 import { FieldRows } from "./FieldRows";
+import { SectionActions } from "./StyleActions";
 import { CategoryBrowser, type OpenCategories } from "./CategoryBrowser";
 import styles from "./StyleWorkbench.module.css";
 
@@ -50,7 +50,7 @@ export function LayoutEditor({
           onValueChange={(id) =>
             onCommit(
               assignProfile(project, layout.id, id),
-              `${layout.name} now uses ${findProfile(project, id).name}; its own overrides are kept.`,
+              `${layout.name} now uses ${findProfile(project, id).name}; its custom settings are kept.`,
             )
           }
         />
@@ -96,7 +96,6 @@ function LayoutCategoryDetail({
   category: CategoryDefinition;
   fields: FieldDefinition[];
 }) {
-  const profile = findProfile(project, layout.profileId);
   const scope = { kind: "layout", id: layout.id } as const;
   return (
     <>
@@ -126,21 +125,13 @@ function LayoutCategoryDetail({
         </div>
       )}
       <div className={styles.categoryActions}>
-        <Button
-          size="sm"
-          disabled={!category.fields.some(({ id }) => layout.overrides[id] !== undefined)}
-          onClick={() =>
-            onCommit(
-              clearCategory(project, scope, category.id),
-              `${layout.name} ${category.label.toLowerCase()} follows ${profile.name} again; manual breaks kept.`,
-            )
-          }
-        >
-          Reset section
-        </Button>
-        <Button size="sm" onClick={() => onTransfer(category)}>
-          Copy to layouts
-        </Button>
+        <SectionActions
+          project={project}
+          scope={scope}
+          category={category}
+          onCommit={onCommit}
+          onCopy={() => onTransfer(category)}
+        />
       </div>
     </>
   );
@@ -156,7 +147,7 @@ export function SelectionPlaceholder({ layout, onLayout }: { layout: MockLayout;
           {layout.manualBreaks} manual breaks in {layout.name}
         </strong>
       </div>
-      <Button onClick={onLayout}>Back to This Layout</Button>
+      <Button onClick={onLayout}>Back to Layout</Button>
     </div>
   );
 }

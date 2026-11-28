@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Checkbox, IconButton } from "@viritura/ui";
-import { affectedLayouts, findProfile, type MockLayout, type Project, type Scope } from "./styleModel";
+import { findProfile, type MockLayout, type Project } from "./styleModel";
 import { pageGeometry, paperLabel } from "./pageGeometry";
 import { PageSheet } from "./PageSheet";
 import styles from "./StyleWorkbench.module.css";
@@ -9,14 +9,12 @@ import styles from "./StyleWorkbench.module.css";
 interface PreviewProps {
   project: Project;
   layout: MockLayout;
-  editing: Scope;
   editingLabel: string;
   onView: (id: string) => void;
 }
 
-export function ScorePreview({ project, layout, editing, editingLabel, onView }: PreviewProps) {
+export function ScorePreview({ project, layout, editingLabel, onView }: PreviewProps) {
   const [showMargins, setShowMargins] = useState(true);
-  const affected = new Set(affectedLayouts(project, editing).map((entry) => entry.id));
   const index = project.layouts.findIndex((entry) => entry.id === layout.id);
   const step = (offset: number) => {
     const next = project.layouts.at((index + offset) % project.layouts.length);
@@ -35,7 +33,6 @@ export function ScorePreview({ project, layout, editing, editingLabel, onView }:
         <div>
           <span className={styles.eyebrow}>Editing</span>
           <strong>{editingLabel}</strong>
-          {!affected.has(layout.id) && <small>Not shown in this preview</small>}
         </div>
       </div>
       <div className={styles.previewHeading}>

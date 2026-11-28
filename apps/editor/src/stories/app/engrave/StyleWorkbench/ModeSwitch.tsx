@@ -18,7 +18,7 @@ export function HouseStyleEntry({
     <span className={styles.houseStyleEntry}>
       <span className={styles.hint}>House style</span>
       <strong>{name}</strong>
-      {modified && <Badge variant="warning">Edited</Badge>}
+      {modified && <Badge variant="warning">Custom</Badge>}
       <Button
         size="sm"
         active={destination === "house"}

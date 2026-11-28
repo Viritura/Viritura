@@ -58,50 +58,19 @@
 .projectBar {
   padding: var(--space-5);
 }
-.workspace,
 .workspaceCompact {
   display: grid;
-  grid-template-columns: 250px 400px minmax(340px, 1fr);
+  grid-template-columns: 420px minmax(340px, 1fr);
   flex: 1;
   min-height: 0;
   border-top: 1px solid var(--border);
 }
-.workspace > *,
 .workspaceCompact > * {
   min-height: 0;
   overflow-y: auto;
 }
-.workspaceCompact {
-  grid-template-columns: 420px minmax(340px, 1fr);
-}
 .switcher {
   min-width: 220px;
-}
-.groupHeading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--text-muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-top: var(--space-2);
-}
-.layoutName {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.affectedDot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex: none;
-}
-.customText {
-  color: var(--warning, var(--accent)) !important;
 }
 .scopeList {
   display: grid;
@@ -148,33 +117,6 @@
   text-align: center;
   font-size: 12px;
 }
-.rail {
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-}
-.railSection {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--border);
-}
-.railSection > button {
-  justify-content: flex-start;
-}
-.railHeading {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.railHeading .eyebrow {
-  margin-bottom: 0;
-}
-.legend {
-  color: var(--text-muted);
-  font-size: 11px;
-}
 .eyebrow {
   display: block;
   color: var(--text-muted);
@@ -182,34 +124,6 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 8px;
-}
-.layoutButton {
-  justify-content: space-between !important;
-  text-align: left;
-  height: auto !important;
-  min-height: 0 !important;
-  padding-block: var(--space-2) !important;
-  white-space: normal !important;
-  line-height: 1.3;
-}
-.layoutButton > span {
-  display: block;
-  width: 100%;
-}
-.layoutButton small {
-  display: block;
-  color: var(--text-muted);
-  font-size: 11px;
-  margin-top: 4px;
-}
-.railFooter {
-  margin-top: auto;
-  padding: var(--space-4);
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.railFooter strong {
-  color: var(--text);
 }
 .editor {
   background: var(--surface);
@@ -491,9 +405,6 @@
 }
 
 @media (max-width: 1100px) {
-  .workspace {
-    grid-template-columns: 210px 370px minmax(290px, 1fr);
-  }
   .workspaceCompact {
     grid-template-columns: 370px minmax(290px, 1fr);
   }
@@ -502,9 +413,6 @@
   }
 }
 @media (max-width: 880px) {
-  .workspace {
-    grid-template-columns: 200px minmax(0, 1fr);
-  }
   .workspaceCompact {
     grid-template-columns: 1fr;
   }
@@ -516,17 +424,8 @@
   }
 }
 @media (max-width: 550px) {
-  .workspace {
-    grid-template-columns: 1fr;
-  }
   .context {
     grid-template-columns: 1fr;
-  }
-  .rail {
-    border-right: 0;
-  }
-  .railFooter {
-    display: none;
   }
   .editorBody {
     padding: var(--space-4);

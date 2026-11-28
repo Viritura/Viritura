@@ -8,9 +8,10 @@ afterEach(cleanup);
 describe("style workbench", () => {
   it("keeps the edited profile when changing the preview and allows switching profiles", async () => {
     const user = userEvent.setup();
-    render(<StyleWorkbench initialDestination="house" initialNavigator="list" />);
+    render(<StyleWorkbench initialDestination="house" />);
 
-    await user.click(screen.getByRole("button", { name: "View Horn in F" }));
+    await user.click(screen.getByRole("combobox", { name: "Active layout" }));
+    await user.click(screen.getByRole("option", { name: /^Horn in F/ }));
     expect(screen.getByText(/Horn in F uses Large-print part/)).toBeTruthy();
     expect(within(screen.getByRole("main")).getByRole("combobox", { name: "Editing" }).textContent).toContain(
       "Part profile",
@@ -30,15 +31,12 @@ describe("style workbench", () => {
 
   it("updates profile previews while preserving layout overrides", async () => {
     const user = userEvent.setup();
-    render(<StyleWorkbench initialDestination="house" initialNavigator="list" />);
+    render(<StyleWorkbench initialDestination="house" />);
 
     await user.click(screen.getByRole("combobox", { name: "Staff size" }));
     await user.click(screen.getByRole("option", { name: "8 mm" }));
-    expect(
-      within(screen.getByRole("navigation", { name: "Layouts" })).getAllByText("Part / 5 pp").length,
-    ).toBeGreaterThan(0);
-
-    await user.click(screen.getByRole("button", { name: /View Cello/ }));
+    await user.click(screen.getByRole("combobox", { name: "Active layout" }));
+    await user.click(screen.getByRole("option", { name: /^Cello/ }));
     await user.click(screen.getByRole("button", { name: "Done" }));
     expect(screen.getByRole("combobox", { name: "Inside margin" }).textContent).toContain("20 mm");
     expect(screen.getByRole("combobox", { name: "Staff size" }).textContent).toContain("8 mm");
@@ -49,12 +47,12 @@ describe("style workbench", () => {
     render(<StyleWorkbench />);
 
     await user.click(screen.getByRole("combobox", { name: "Active layout" }));
-    await user.click(screen.getByRole("option", { name: "Cello" }));
+    await user.click(screen.getByRole("option", { name: /^Cello/ }));
     await user.click(screen.getByRole("button", { name: /^Bar numbers/ }));
     expect(screen.getByRole("combobox", { name: "Frequency" }).textContent).toContain("Every bar");
-    await user.click(screen.getByRole("button", { name: "Reset frequency" }));
+    await user.click(screen.getByRole("button", { name: "Frequency actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Reset to System starts" }));
     expect(screen.getByRole("combobox", { name: "Frequency" }).textContent).toContain("System starts");
-    expect(screen.queryByRole("button", { name: "Reset frequency" })).toBeNull();
 
     const trail = screen.getByRole("list", { name: "Frequency sources" });
     await user.click(within(trail).getByRole("button", { name: "House: System starts" }));
@@ -70,25 +68,26 @@ describe("style workbench", () => {
     await user.click(screen.getByRole("option", { name: "Shared settings" }));
     await user.click(screen.getByRole("button", { name: /^Bar numbers/ }));
     expect(screen.queryByText("Default")).toBeNull();
-    expect(screen.getByRole("list", { name: "Frequency sources" }).textContent).toBe("House");
+    expect(screen.queryByRole("list", { name: "Frequency sources" })).toBeNull();
 
     await user.click(screen.getByRole("combobox", { name: "Frequency" }));
     await user.click(screen.getByRole("option", { name: "Hidden" }));
-    await user.click(screen.getByRole("button", { name: "Reset frequency" }));
+    await user.click(screen.getByRole("button", { name: "Frequency actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Reset to System starts" }));
     expect(screen.getByRole("combobox", { name: "Frequency" }).textContent).toContain("System starts");
-    expect(screen.queryByRole("button", { name: "Reset frequency" })).toBeNull();
   });
 
-  it("shows downstream overrides and clears them so house edits propagate", async () => {
+  it("shows downstream custom settings and clears them so house edits propagate", async () => {
     const user = userEvent.setup();
     render(<StyleWorkbench initialDestination="house" />);
 
     await user.click(screen.getByRole("combobox", { name: "Editing" }));
     await user.click(screen.getByRole("option", { name: "Shared settings" }));
     await user.click(screen.getByRole("button", { name: /^Bar numbers/ }));
-    expect(screen.getByRole("button", { name: "Cello" })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Clear frequency overrides" }));
-    expect(screen.queryByRole("button", { name: "Clear frequency overrides" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Cello custom setting" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Frequency actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Clear 1 downstream custom setting" }));
+    expect(screen.queryByRole("button", { name: "Frequency actions" })).toBeNull();
   });
 
   it("opens house style from the project bar instead of a layout tab", async () => {
@@ -108,7 +107,7 @@ describe("style workbench", () => {
     expect(within(main).getByText("Editing house style")).toBeTruthy();
 
     await user.click(screen.getByRole("combobox", { name: "Active layout" }));
-    await user.click(screen.getByRole("option", { name: "Cello" }));
+    await user.click(screen.getByRole("option", { name: /^Cello/ }));
     expect(within(main).getByText("Editing house style")).toBeTruthy();
     expect(within(main).getByRole("combobox", { name: "Editing" }).textContent).toContain("Part profile");
     expect(screen.getByRole("img", { name: "Cello first page" })).toBeTruthy();
@@ -123,6 +122,45 @@ describe("style workbench", () => {
     expect(screen.queryByRole("radiogroup", { name: "Preview mode" })).toBeNull();
     expect(screen.queryByRole("radio", { name: "All layouts" })).toBeNull();
     expect(screen.getByRole("img", { name: "Violin I first page" })).toBeTruthy();
+  });
+
+  it("shows layout role, profile, and custom count in the single layout picker", async () => {
+    const user = userEvent.setup();
+    render(<StyleWorkbench />);
+
+    expect(screen.queryByText("Layout switching")).toBeNull();
+    await user.click(screen.getByRole("combobox", { name: "Active layout" }));
+    const cello = screen.getByRole("option", { name: /^Cello · Part/ });
+    expect(cello.textContent).toContain("Part · 2 custom");
+    expect(screen.getByRole("option", { name: /^Full score · Score/ }).textContent).toContain("Score · 1 custom");
+  });
+
+  it("groups field reset and promotion actions in one menu", async () => {
+    const user = userEvent.setup();
+    render(<StyleWorkbench />);
+
+    await user.click(screen.getByRole("combobox", { name: "Active layout" }));
+    await user.click(screen.getByRole("option", { name: /^Cello · Part/ }));
+    await user.click(screen.getByRole("button", { name: "Inside margin actions" }));
+    expect(screen.getByRole("menuitem", { name: "Reset to 15 mm" })).toBeTruthy();
+    await user.click(screen.getByRole("menuitem", { name: "Move to Part" }));
+
+    expect(screen.getByRole("combobox", { name: "Inside margin" }).textContent).toContain("20 mm");
+    expect(screen.queryByRole("button", { name: "Inside margin actions" })).toBeNull();
+  });
+
+  it("groups section reset and copy actions in one menu", async () => {
+    const user = userEvent.setup();
+    render(<StyleWorkbench />);
+
+    await user.click(screen.getByRole("combobox", { name: "Active layout" }));
+    await user.click(screen.getByRole("option", { name: /^Cello · Part/ }));
+    await user.click(screen.getByRole("button", { name: "Page and staff actions" }));
+    expect(screen.getByRole("menuitem", { name: "Reset section" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Copy settings to layouts" })).toBeTruthy();
+    await user.click(screen.getByRole("menuitem", { name: "Reset section" }));
+
+    expect(screen.getByRole("combobox", { name: "Inside margin" }).textContent).toContain("15 mm");
   });
 
   it("applies built-in presets without saving project edits and preserves layout overrides", async () => {
@@ -148,7 +186,7 @@ describe("style workbench", () => {
     expect(screen.getByRole("combobox", { name: "Staff size" }).textContent).toContain("6.5 mm");
 
     await user.click(screen.getByRole("combobox", { name: "Active layout" }));
-    await user.click(screen.getByRole("option", { name: "Cello" }));
+    await user.click(screen.getByRole("option", { name: /^Cello/ }));
     await user.click(screen.getByRole("button", { name: "Done" }));
     expect(screen.getByRole("combobox", { name: "Inside margin" }).textContent).toContain("20 mm");
     expect(screen.getByRole("combobox", { name: "Staff size" }).textContent).toContain("6.5 mm");
