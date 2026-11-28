@@ -18,6 +18,7 @@ import {
 import { HouseStyleEditor } from "./HouseStyleEditor";
 import { LayoutEditor, SelectionPlaceholder } from "./LayoutEditor";
 import { LayoutNavigator } from "./LayoutNavigator";
+import type { OpenCategories } from "./CategoryBrowser";
 import { ScorePreview } from "./ScorePreview";
 import { NewProfileDialog, OverridesReview, StyleLibrary, TransferSettings } from "./StyleDialogs";
 import styles from "./StyleWorkbench.module.css";
@@ -37,7 +38,8 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
   const [viewId, setViewId] = useState("violin");
   const [destination, setDestination] = useState<Destination>(initialDestination);
   const [requestedScope, setStyleScope] = useState<Scope>({ kind: "profile", id: "part" });
-  const [categoryId, setCategoryId] = useState<Category>("page");
+  const [openCategories, setOpenCategories] = useState<OpenCategories>({ page: true });
+  const [transferCategory, setTransferCategory] = useState<Category>("page");
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [status, setStatus] = useState("");
   const layout = findLayout(project, viewId);
@@ -137,9 +139,9 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
                 scope={styleScope}
                 modified={modified}
                 viewing={layout}
-                categoryId={categoryId}
+                openCategories={openCategories}
                 onScope={setStyleScope}
-                onCategory={setCategoryId}
+                onOpenCategories={setOpenCategories}
                 onCommit={commit}
                 onNewProfile={() => setDialog("profile")}
                 onView={setViewId}
@@ -150,10 +152,13 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
               <LayoutEditor
                 project={project}
                 layout={layout}
-                categoryId={categoryId}
-                onCategory={setCategoryId}
+                openCategories={openCategories}
+                onOpenCategories={setOpenCategories}
                 onCommit={commit}
-                onTransfer={() => setDialog("transfer")}
+                onTransfer={(category) => {
+                  setTransferCategory(category.id);
+                  setDialog("transfer");
+                }}
                 onEditProfile={editProfile}
               />
             )}
@@ -197,7 +202,7 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
           <TransferSettings
             project={project}
             source={layout}
-            category={categoryId}
+            category={transferCategory}
             onClose={() => setDialog(null)}
             onCommit={commit}
           />
@@ -209,7 +214,7 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
             onCommit={commit}
             onInspect={(id, category) => {
               setViewId(id);
-              setCategoryId(category);
+              setOpenCategories((current) => ({ ...current, [category]: true }));
               setDestination("layout");
             }}
           />

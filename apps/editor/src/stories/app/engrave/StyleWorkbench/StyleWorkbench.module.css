@@ -1,5 +1,7 @@
 .root {
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
   background: var(--bg);
   color: var(--text);
   font-family: inherit;
@@ -30,7 +32,6 @@
 .projectBar,
 .toolbar,
 .previewHeading,
-.categoryHeading,
 .provenance,
 .overrideRow {
   display: flex;
@@ -62,8 +63,14 @@
 .workspaceCompact {
   display: grid;
   grid-template-columns: 250px 400px minmax(340px, 1fr);
-  min-height: 780px;
+  flex: 1;
+  min-height: 0;
   border-top: 1px solid var(--border);
+}
+.workspace > *,
+.workspaceCompact > * {
+  min-height: 0;
+  overflow-y: auto;
 }
 .workspaceCompact {
   grid-template-columns: 420px minmax(340px, 1fr);
@@ -277,9 +284,21 @@
   font-size: 12px;
   line-height: 1.5;
 }
-.categoryHeading {
-  margin-top: var(--space-3);
+.categoryBrowser {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-3) calc(var(--space-2) * -1) 0;
 }
+.customCount {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
+  font-size: 11px;
+  text-align: center;
+}
+
 .field {
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--border);
