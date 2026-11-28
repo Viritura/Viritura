@@ -17,6 +17,7 @@
 //! `model::*` types deliberately have no `Deserialize` impls; the promote
 //! walker is the single ingest seam. See `docs/spec/data-model-pipeline.md`.
 
+mod drawing_recorder;
 pub mod layout;
 pub mod model;
 pub mod parse;

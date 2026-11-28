@@ -75,6 +75,9 @@
     "notationref:preview": "tsx scripts/notationref-audit/index.ts",
     "notationref:update": "tsx scripts/notationref-audit/index.ts --write",
     "notationref:test": "tsx --test scripts/notationref-audit/update.test.ts",
+    "render:record": "tsx tools/render-report/record.ts",
+    "render:draw": "tsx tools/render-report/draw.ts",
+    "render:diff": "tsx tools/render-report/diff.ts",
     "test:dev-stack": "node --experimental-strip-types --test infra/dev/worktree/*.test.ts",
     "hooks:install": "tsx scripts/setup-git-hooks.ts",
     "prepare": "tsx scripts/setup-git-hooks.ts"

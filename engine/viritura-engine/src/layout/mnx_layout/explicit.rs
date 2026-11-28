@@ -50,18 +50,6 @@ use super::system_connectors::{
     render_system_connectors, render_system_start_barline, SystemConnectorPlacement,
 };
 
-/// Layout a score using MNX layout definitions and score definitions.
-///
-/// Uses the first score definition (or falls back to `layout_full_score`
-/// if no scores/layouts are defined).
-pub fn layout_with_mnx_scores(
-    score: &Score,
-    config: &LayoutConfig,
-    score_index: usize,
-) -> DisplayList {
-    layout_with_mnx_scores_cached(score, config, score_index, None)
-}
-
 /// Render the page-1 title block, the part-score instrument name, and page
 /// numbers on pages 2+. No-op when `config.page_width` is `None` (galley mode).
 fn render_explicit_chrome(
@@ -382,8 +370,8 @@ fn render_explicit_system(
     );
 }
 
-#[allow(clippy::too_many_lines)] // top-level cached layout entry; cohesive pipeline stage
-pub fn layout_with_mnx_scores_cached(
+#[allow(clippy::too_many_lines)] // cached MNX score layout; cohesive pipeline stage
+pub(super) fn layout_with_mnx_scores_unrecorded(
     score: &Score,
     config: &LayoutConfig,
     score_index: usize,

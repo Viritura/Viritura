@@ -85,7 +85,9 @@ pub fn layout_full_score_cached(
         config,
         LayoutContext::Score,
     );
-    layout_full_score_with_config_cached(score, merged_config.as_ref().unwrap_or(config), cache)
+    crate::drawing_recorder::layout(score, || {
+        layout_full_score_with_config_cached(score, merged_config.as_ref().unwrap_or(config), cache)
+    })
 }
 
 #[allow(clippy::too_many_lines)] // single multi-part assembly pass; cohesive pipeline stage

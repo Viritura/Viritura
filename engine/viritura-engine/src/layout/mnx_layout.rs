@@ -3,7 +3,8 @@
 // Folder structure (cohesion unit per AGENTS.md):
 //   shared.rs    — helpers used by BOTH the auto-flow and explicit-pages paths
 //   auto_flow.rs — `layout_auto_flow_mnx_score` and its phase helpers
-//   explicit.rs  — `layout_with_mnx_scores[_cached]` and its phase helpers
+//   entry.rs     — `layout_with_mnx_scores[_cached]`, the public entry points
+//   explicit.rs  — the explicit-pages layout behind them, and its phase helpers
 //
 // Public surface is re-exported below; siblings reach shared items via
 // `super::shared::*` (marked `pub(super)`) to keep them folder-internal.
@@ -29,6 +30,7 @@ mod authored_systems;
 mod cache_hashing;
 mod chord_symbols;
 mod empty_staves;
+mod entry;
 mod explicit;
 mod explicit_pagination;
 mod explicit_staff_retention;
@@ -48,4 +50,4 @@ mod structure_flattening;
 mod system_connectors;
 
 pub(super) use chord_symbols::above_staff_protrusion;
-pub use explicit::{layout_with_mnx_scores, layout_with_mnx_scores_cached};
+pub use entry::{layout_with_mnx_scores, layout_with_mnx_scores_cached};
