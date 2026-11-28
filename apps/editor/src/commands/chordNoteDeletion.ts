@@ -16,8 +16,8 @@
  */
 
 import type { Score, NoteEvent } from "@viritura/core";
-import { walkSequenceEvents } from "@viritura/core";
 import { resolveEventLocation, getEventAtLocation } from "../score/ElementPath";
+import { dropReferencesToNotes } from "./noteReferences";
 
 /** Matches the trailing `/n{index}` segment the engine tags noteheads with. */
 const NOTEHEAD_SUFFIX = /\/n(\d+)$/;
@@ -109,7 +109,8 @@ export function removeEventChordNotes(
       if (id) removedIds.add(id);
       notes!.splice(index, 1);
     } else {
-      kitNotes!.splice(index - pitchedCount, 1);
+      const [removed] = kitNotes!.splice(index - pitchedCount, 1);
+      if (removed?.id) removedIds.add(removed.id);
     }
   }
 
@@ -137,32 +138,4 @@ export function thinSelectedChords(score: Score, elementIds: readonly string[], 
     else if (outcome === "wholeEvent") wholeEventIds.push(eventId);
   }
   return removed;
-}
-
-/** Drop ties aimed at a removed note and slur endpoints that named one. */
-function dropReferencesToNotes(score: Score, removedIds: ReadonlySet<string>): void {
-  for (const part of score.parts) {
-    for (const measure of part.measures) {
-      for (const sequence of measure.sequences) {
-        for (const { event } of walkSequenceEvents(sequence.content)) {
-          pruneEventReferences(event, removedIds);
-        }
-      }
-    }
-  }
-}
-
-function pruneEventReferences(event: NoteEvent, removedIds: ReadonlySet<string>): void {
-  for (const note of event.notes ?? []) {
-    if (!note.ties) continue;
-    const kept = note.ties.filter((tie) => !(tie.target !== undefined && removedIds.has(tie.target)));
-    if (kept.length === note.ties.length) continue;
-    if (kept.length === 0) delete note.ties;
-    else note.ties = kept;
-  }
-
-  for (const slur of event.slurs ?? []) {
-    if (slur.startNote !== undefined && removedIds.has(slur.startNote)) delete slur.startNote;
-    if (slur.endNote !== undefined && removedIds.has(slur.endNote)) delete slur.endNote;
-  }
 }

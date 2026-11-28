@@ -7,6 +7,7 @@
 import type { Duration, Grace, Note, NoteEvent, Pitch, Score, SequenceContent } from "@viritura/core";
 import { isRest } from "@viritura/core";
 import { resolveVoiceTarget, type VoiceTarget } from "../voiceLanes";
+import { collectNoteIds, dropReferencesToNotes } from "./noteReferences";
 import {
   generateEventId,
   generateNoteId,
@@ -265,8 +266,11 @@ export function backspaceInNoteInput(score: Score, partIndex: number, voice: Voi
     for (let i = sequence.content.length - 1; i >= 0; i--) {
       const event = sequence.content[i]! as NoteEvent;
       if (!isRest(event)) {
+        const removedIds = new Set<string>();
+        collectNoteIds([event], removedIds);
         sequence.content.splice(i, 1);
         trimTrailingRests(sequence.content);
+        dropReferencesToNotes(score, removedIds);
         return true;
       }
     }

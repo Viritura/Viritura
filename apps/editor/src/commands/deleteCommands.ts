@@ -7,6 +7,7 @@ import {
   resolveGraceLocation,
 } from "../score/ElementPath";
 import { removeEventChordNotes } from "./chordNoteDeletion";
+import { collectNoteIds, dropReferencesToNotes } from "./noteReferences";
 import { cloneScore } from "../score/scoreClone";
 import { condensedStaffSourcePartIndices } from "../score/condensedWriteback";
 import { canonicalNavigationId } from "../navigation";
@@ -333,10 +334,13 @@ export function deleteGraceNote(score: Score, loc: GraceLocation): Score {
     if (result === "removed") return newScore;
   }
 
+  const removedIds = new Set<string>();
+  collectNoteIds([event], removedIds);
   grace.content.splice(loc.graceNoteIndex, 1);
   if (grace.content.length === 0) {
     container.splice(loc.graceContainerIndex, 1);
   }
+  dropReferencesToNotes(newScore, removedIds);
   return newScore;
 }
 

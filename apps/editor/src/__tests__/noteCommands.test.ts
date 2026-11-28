@@ -905,6 +905,38 @@ describe("addRest", () => {
 describe("deleteNote", () => {
   beforeEach(() => resetIdCounter());
 
+  it.each(["tuplet", "tremolo"] as const)("removes ties targeting a deleted %s member", (kind) => {
+    const score = makeEmptyScore({ count: 4, unit: 4 });
+    const source: NoteEvent = {
+      type: "event",
+      duration: { base: "quarter" },
+      notes: [{ id: "source", pitch: { step: "C", octave: 4 }, ties: [{ target: "target" }] }],
+    };
+    const target: NoteEvent = {
+      type: "event",
+      duration: { base: "quarter" },
+      notes: [{ id: "target", pitch: { step: "C", octave: 4 } }],
+    };
+    seq(score).content = [
+      source,
+      kind === "tuplet"
+        ? {
+            type: "tuplet",
+            inner: { duration: { base: "quarter" }, multiple: 3 },
+            outer: { duration: { base: "quarter" }, multiple: 2 },
+            content: [target, { type: "event", duration: { base: "quarter" }, rest: {} }],
+          }
+        : {
+            type: "tremolo",
+            marks: 2,
+            outer: { duration: { base: "quarter" }, multiple: 2 },
+            content: [target, { type: "event", duration: { base: "quarter" }, rest: {} }],
+          },
+    ];
+    deleteNote(score, { measureIndex: 0, partIndex: 0, voice: 0, tupletIndex: 1, eventIndex: 0 });
+    expect(source.notes![0]!.ties).toBeUndefined();
+  });
+
   it("replaces a note with a rest of same duration", () => {
     const score = makeScoreWithQuarterRests();
     // Add a note first
@@ -1861,6 +1893,21 @@ describe("accidentalDisplay helpers", () => {
 // ═══════════════════════════════════════════
 
 describe("backspaceInNoteInput", () => {
+  it("removes ties to the deleted note", () => {
+    const score = makeEmptyScore({ count: 4, unit: 4 });
+    const source: NoteEvent = {
+      type: "event",
+      duration: { base: "quarter" },
+      notes: [{ id: "source", pitch: { step: "C", octave: 4 }, ties: [{ target: "target" }] }],
+    };
+    seq(score).content = [
+      source,
+      { type: "event", duration: { base: "quarter" }, notes: [{ id: "target", pitch: { step: "C", octave: 4 } }] },
+    ];
+    expect(backspaceInNoteInput(score, 0, 0)).toBe(true);
+    expect(source.notes![0]!.ties).toBeUndefined();
+  });
+
   beforeEach(() => resetIdCounter());
 
   it("deletes the last note in a sequence", () => {

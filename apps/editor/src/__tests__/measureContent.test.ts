@@ -87,6 +87,19 @@ function expectClearedRectangle(result: Score, original: Score): void {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("bar content deletion and cutting", () => {
+  it("removes ties into cleared bars without modifying the original score", () => {
+    const score = makeScore();
+    const source = score.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent;
+    const target = score.parts[0]!.measures[1]!.sequences[0]!.content[0] as NoteEvent;
+    target.notes![0]!.id = "target-note";
+    source.notes![0]!.ties = [{ target: "target-note" }, { lv: true }];
+    const result = computeDeleteSelection(score, bars);
+    if (result.kind !== "measure") throw new Error("Expected bar clearing");
+    const nextSource = result.score.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent;
+    expect(nextSource.notes![0]!.ties).toEqual([{ lv: true }]);
+    expect(source.notes![0]!.ties).toEqual([{ target: "target-note" }, { lv: true }]);
+  });
+
   it("menu Delete clears reversed multi-bar/multi-part selections without mutating the source", () => {
     const score = makeScore();
     const original = structuredClone(score);

@@ -26,6 +26,42 @@ function events(score: Score): NoteEvent[] {
 }
 
 describe("shared deletion semantics", () => {
+  it.each(["p0/m0/s0/b", "p0/m0/s0/b/n0"])("removes incoming ties when deleting a whole event via %s", (elementId) => {
+    const score = fixture();
+    events(score)[0]!.notes![0]!.ties = [{ target: "b-note" }, { lv: true }];
+    const result = computeDeleteSelection(score, { kind: "single", elementId });
+    if (result.kind !== "single") throw new Error("Expected event deletion");
+    expect(events(result.score)[0]!.notes![0]!.ties).toEqual([{ lv: true }]);
+    expect(events(result.score)[1]!.rest).toBeDefined();
+    expect(events(score)[0]!.notes![0]!.ties).toEqual([{ target: "b-note" }, { lv: true }]);
+  });
+
+  it("removes incoming ties when deleting a grace note", () => {
+    const score = fixture();
+    const sequence = score.parts[0]!.measures[0]!.sequences[0]!;
+    events(score)[0]!.notes![0]!.ties = [{ target: "g-note" }];
+    sequence.content.splice(1, 0, { type: "grace", content: [note("g")] });
+    const result = computeDeleteSelection(score, { kind: "single", elementId: "p0/m0/s0/b/grace/g" });
+    if (result.kind !== "single") throw new Error("Expected grace note deletion");
+    expect(events(result.score)[0]!.notes![0]!.ties).toBeUndefined();
+    expect(events(score)[0]!.notes![0]!.ties).toEqual([{ target: "g-note" }]);
+  });
+
+  it("cleans ties across bars for multi-note deletion while retaining unrelated ties", () => {
+    const score = fixture();
+    const first = events(score)[0]!;
+    first.notes![0]!.ties = [{ target: "b-note" }, { target: "c-note" }, { target: "keep-note" }];
+    score.global.measures.push({});
+    score.parts[0]!.measures.push({ sequences: [{ content: [note("c"), note("keep")] }] });
+    const result = computeDeleteSelection(score, {
+      kind: "multi",
+      elementIds: ["p0/m0/s0/b", "p0/m1/s0/c"],
+    });
+    if (result.kind !== "multi") throw new Error("Expected multi-note deletion");
+    expect(events(result.score)[0]!.notes![0]!.ties).toEqual([{ target: "keep-note" }]);
+    expect(first.notes![0]!.ties).toHaveLength(3);
+  });
+
   it("selects a surviving replacement rest inside the original tuplet", () => {
     const score = fixture();
     score.parts[0]!.measures[0]!.sequences[0]!.content = [

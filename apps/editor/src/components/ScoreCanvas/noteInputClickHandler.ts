@@ -23,11 +23,13 @@ import {
 import {
   addNoteWithAutoTie,
   addSlur,
+  addTie,
   addRest,
   addPitchToChord,
   addGraceNote,
   findLastNoteEvent,
   durationToBeats,
+  sequenceContentBeats,
   getEffectiveTimeSignature,
   type AddNoteParams,
 } from "../../commands/noteCommands";
@@ -661,30 +663,41 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
         kitComponent: kitComponentId ?? undefined,
       });
 
-      // If tie mode is active, add a tie to the just-added note
       if (noteInputState.tieActive) {
         resultScore = produceScoreMutation(resultScore, (draft) => {
           const seq = draft.parts[partIndex]?.measures[measureIndex]?.sequences[seqIndex];
           if (seq) {
-            // Find the last note event (the one we just added) — search inside tuplets too
-            outer: for (let i = seq.content.length - 1; i >= 0; i--) {
-              const item = seq.content[i];
-              if (item && item.type === "tuplet") {
-                for (let j = item.content.length - 1; j >= 0; j--) {
-                  const ev = item.content[j];
-                  if (ev && ev.type === "event" && ev.notes && ev.notes.length > 0) {
-                    for (const note of ev.notes) {
-                      note.ties = [{}];
-                    }
-                    break outer;
+            let position = 0;
+            for (const [i, item] of seq.content.entries()) {
+              if (item.type === "tuplet") {
+                const innerBeats = durationToBeats(item.inner.duration) * item.inner.multiple;
+                const scale = innerBeats > 0 ? sequenceContentBeats(item) / innerBeats : 1;
+                let innerPosition = position;
+                for (const [j, ev] of item.content.entries()) {
+                  if (ev.type === "event" && Math.abs(innerPosition - beatPosition) < 1e-9) {
+                    addTie(draft, {
+                      partIndex,
+                      measureIndex,
+                      sequenceIndex: seqIndex,
+                      tupletIndex: i,
+                      eventIndex: j,
+                      autoLaissezVibrer: true,
+                    });
+                    return;
                   }
+                  innerPosition += sequenceContentBeats(ev) * scale;
                 }
-              } else if (item && item.type === "event" && item.notes && item.notes.length > 0) {
-                for (const note of item.notes) {
-                  note.ties = [{}];
-                }
-                break;
+              } else if (item.type === "event" && Math.abs(position - beatPosition) < 1e-9) {
+                addTie(draft, {
+                  partIndex,
+                  measureIndex,
+                  sequenceIndex: seqIndex,
+                  eventIndex: i,
+                  autoLaissezVibrer: true,
+                });
+                return;
               }
+              position += sequenceContentBeats(item);
             }
           }
         });

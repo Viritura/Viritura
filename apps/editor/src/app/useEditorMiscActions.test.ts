@@ -209,6 +209,20 @@ describe("Swap Staff Contents", () => {
 });
 
 describe("Delete Selected Bars", () => {
+  it("removes ties into deleted bars without changing the original score", () => {
+    const score = makeScore();
+    const source = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    const target = score.parts[0]!.measures[1]!.sequences[0]!.content[0]!;
+    if (source.type !== "event" || target.type !== "event") throw new Error("Expected events");
+    target.notes![0]!.id = "target-note";
+    source.notes![0]!.ties = [{ target: "target-note" }, { lv: true }];
+    const result = removeMeasureRangeFromScore(score, 1, 1)!;
+    const remaining = result.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (remaining.type !== "event") throw new Error("Expected event");
+    expect(remaining.notes![0]!.ties).toEqual([{ lv: true }]);
+    expect(source.notes![0]!.ties).toEqual([{ target: "target-note" }, { lv: true }]);
+  });
+
   it("uses the live reversed bar range and removes it from every part in one update", () => {
     const { result, updateScore, clearSelection, score } = harness();
     act(() => {
