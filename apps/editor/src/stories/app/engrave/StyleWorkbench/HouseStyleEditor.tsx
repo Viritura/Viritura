@@ -1,5 +1,5 @@
 import { BookOpen, Plus } from "lucide-react";
-import { Badge, Button, FormField, Select } from "@viritura/ui";
+import { Button, FormField, Select } from "@viritura/ui";
 import {
   affectedLayouts,
   clearCategory,
@@ -18,7 +18,6 @@ import styles from "./StyleWorkbench.module.css";
 interface HouseStyleEditorProps {
   project: Project;
   scope: Scope;
-  modified: boolean;
   viewing: MockLayout;
   openCategories: OpenCategories;
   onScope: (scope: Scope) => void;
@@ -102,16 +101,12 @@ function ProfileSummary({ project, scope, viewing, onScope, onView, onCommit }: 
 }
 
 export function HouseStyleEditor(props: HouseStyleEditorProps) {
-  const { project, scope, modified, openCategories, onOpenCategories, onCommit, onLibrary } = props;
+  const { project, scope, openCategories, onOpenCategories, onCommit, onLibrary } = props;
   const settings = layer(project, scope);
   return (
     <div className={styles.editorBody}>
       <div className={styles.styleIdentity}>
-        <div>
-          <strong>{project.style.name}</strong>
-          <p>Project house style</p>
-        </div>
-        {modified && <Badge variant="warning">Edited</Badge>}
+        <strong>{project.style.name}</strong>
         <Button size="sm" onClick={onLibrary}>
           <BookOpen size={14} />
           Library

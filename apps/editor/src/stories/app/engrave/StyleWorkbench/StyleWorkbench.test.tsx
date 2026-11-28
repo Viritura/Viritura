@@ -8,7 +8,7 @@ afterEach(cleanup);
 describe("style workbench", () => {
   it("keeps the edited profile when changing the preview and allows switching profiles", async () => {
     const user = userEvent.setup();
-    render(<StyleWorkbench />);
+    render(<StyleWorkbench initialDestination="house" />);
 
     await user.click(screen.getByRole("button", { name: "View Horn in F" }));
     expect(screen.getByText(/Horn in F uses Large-print part/)).toBeTruthy();
@@ -30,7 +30,7 @@ describe("style workbench", () => {
 
   it("updates profile previews while preserving layout overrides", async () => {
     const user = userEvent.setup();
-    render(<StyleWorkbench />);
+    render(<StyleWorkbench initialDestination="house" />);
 
     await user.click(screen.getByRole("combobox", { name: "Staff size" }));
     await user.click(screen.getByRole("option", { name: "8 mm" }));
@@ -39,23 +39,47 @@ describe("style workbench", () => {
     ).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("button", { name: /View Cello/ }));
-    await user.click(screen.getByRole("tab", { name: "This Layout" }));
+    await user.click(screen.getByRole("button", { name: "Done" }));
     expect(screen.getByRole("combobox", { name: "Inside margin" }).textContent).toContain("20 mm");
     expect(screen.getByRole("combobox", { name: "Staff size" }).textContent).toContain("8 mm");
   });
 
   it("can pin an inherited value and restore inheritance", async () => {
     const user = userEvent.setup();
-    render(<StyleWorkbench />);
+    render(<StyleWorkbench initialDestination="house" />);
 
     await user.click(screen.getByRole("button", { name: "Customize orientation" }));
     await user.click(screen.getByRole("button", { name: "Use inherited orientation" }));
     expect(screen.getByRole("button", { name: "Customize orientation" })).toBeTruthy();
   });
 
-  it("searches across collapsed sections and restores them when cleared", async () => {
+  it("opens house style from the project bar instead of a layout tab", async () => {
     const user = userEvent.setup();
     render(<StyleWorkbench />);
+
+    const main = screen.getByRole("main");
+    expect(
+      within(main)
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent),
+    ).toEqual(["Layout", "Selection"]);
+    expect(within(main).getByRole("combobox", { name: "Layout profile" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Edit house style" }));
+    expect(within(main).queryAllByRole("tab")).toHaveLength(0);
+    expect(within(main).getByText("Editing house style")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /View Cello/ }));
+    expect(within(main).getByText("Editing house style")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Cello first page" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    expect(within(main).getByRole("heading", { name: "Cello" })).toBeTruthy();
+  });
+
+  it("searches across collapsed sections and restores them when cleared", async () => {
+    const user = userEvent.setup();
+    render(<StyleWorkbench initialDestination="house" />);
 
     expect(screen.queryByRole("combobox", { name: "Slur thickness" })).toBeNull();
     await user.type(screen.getByRole("textbox", { name: "Search settings" }), "thickness");

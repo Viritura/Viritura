@@ -16,9 +16,9 @@ export type Category =
   | "chords";
 export type Destination = "house" | "layout" | "selection";
 export type NavigatorMode = "list" | "dropdown";
-export const DESTINATIONS: { id: Destination; label: string }[] = [
-  { id: "house", label: "House Style" },
-  { id: "layout", label: "This Layout" },
+/** Tabs for the viewed layout. House style is a project-level mode, not a tab. */
+export const LAYOUT_TABS: { id: Exclude<Destination, "house">; label: string }[] = [
+  { id: "layout", label: "Layout" },
   { id: "selection", label: "Selection" },
 ];
 export type Field =

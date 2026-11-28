@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Undo2 } from "lucide-react";
-import { Badge, Button, ButtonGroup, Select, Tabs, TooltipPrimitives } from "@viritura/ui";
+import { Badge, Button, ButtonGroup, Select, TooltipPrimitives } from "@viritura/ui";
 import {
-  DESTINATIONS,
   findLayout,
   initialProject,
   isModifiedFromOrigin,
@@ -18,6 +17,7 @@ import {
 import { HouseStyleEditor } from "./HouseStyleEditor";
 import { LayoutEditor, SelectionPlaceholder } from "./LayoutEditor";
 import { LayoutNavigator } from "./LayoutNavigator";
+import { HouseStyleEntry, PanelModeHeader } from "./ModeSwitch";
 import type { OpenCategories } from "./CategoryBrowser";
 import { ScorePreview } from "./ScorePreview";
 import { NewProfileDialog, OverridesReview, StyleLibrary, TransferSettings } from "./StyleDialogs";
@@ -30,7 +30,7 @@ interface WorkbenchProps {
 
 type DialogKind = "library" | "overrides" | "transfer" | "profile" | null;
 
-export function StyleWorkbench({ initialNavigator = "list", initialDestination = "house" }: WorkbenchProps) {
+export function StyleWorkbench({ initialNavigator = "list", initialDestination = "layout" }: WorkbenchProps) {
   const [navigator, setNavigator] = useState(initialNavigator);
   const [project, setProject] = useState(initialProject);
   const [history, setHistory] = useState<Project[]>([]);
@@ -113,6 +113,12 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
             </div>
           )}
           <div className={styles.toolbar}>
+            <HouseStyleEntry
+              name={project.style.name}
+              modified={modified}
+              destination={destination}
+              onDestination={setDestination}
+            />
             <Button onClick={() => setDialog("overrides")}>{totalOverrides} overrides</Button>
             <Button ariaLabel="Undo change" tooltip="Undo change" disabled={!history.length} onClick={undo}>
               <Undo2 size={15} />
@@ -125,19 +131,11 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
             <LayoutNavigator project={project} viewId={viewId} editing={editing} onView={setViewId} />
           )}
           <main className={styles.editor}>
-            <Tabs
-              tabs={DESTINATIONS}
-              activeTab={destination}
-              onTabChange={(id) => {
-                const entry = DESTINATIONS.find((item) => item.id === id);
-                if (entry) setDestination(entry.id);
-              }}
-            />
+            <PanelModeHeader destination={destination} onDestination={setDestination} />
             {destination === "house" && (
               <HouseStyleEditor
                 project={project}
                 scope={styleScope}
-                modified={modified}
                 viewing={layout}
                 openCategories={openCategories}
                 onScope={setStyleScope}
