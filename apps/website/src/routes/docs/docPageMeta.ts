@@ -108,6 +108,13 @@ const GUIDE_PAGES: readonly Omit<DocPageMeta, "section">[] = [
     file: "docs/guide/playback-and-piano-roll.md",
   },
   {
+    slug: "click",
+    path: "/docs/click",
+    title: "Click Sessions",
+    group: "Shape & Hear",
+    file: "docs/guide/click.md",
+  },
+  {
     slug: "scoring-to-picture",
     path: "/docs/scoring-to-picture",
     title: "Scoring to Picture",

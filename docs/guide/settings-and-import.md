@@ -33,6 +33,8 @@ display, the follow-playback-head control, and the metronome) and whether the
 view follows the playhead during playback. **Metronome sound** selects the
 oscillator, tick, or woodblock used by both the metronome and the Click activity.
 Oscillator is the default.
+**Click player flash** controls beat feedback in Click. See
+[Click Sessions](/docs/click).
 
 ## MIDI input
 
@@ -78,6 +80,10 @@ result as a standalone `.mnx` document.
 Finale MUSX files are limited to 64 MiB. Viritura checks the converted document
 before opening it and reports warnings when Finale-specific details cannot be
 carried across.
+
+Some older MNX documents use draft notation structures that the current editor
+cannot open directly. Keep the original file; if you have a MusicXML export,
+you can import that as a new document and check the result.
 
 Import settings control whether to retain Viritura-specific notation details
 and how to handle stem directions and metronome marks in MusicXML files. Finale
