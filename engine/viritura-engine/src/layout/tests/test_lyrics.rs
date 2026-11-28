@@ -130,6 +130,72 @@ fn test_lyric_extender_sparse_verse_rows_share_system_text_context() {
 }
 
 #[test]
+fn test_lyric_extenders_draw_in_line_order_on_every_layout() {
+    let base = serde_json::json!({
+        "mnx": {"version": 1, "support": {"useLyricExtenders": true}},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}}, {"id": "m1"}, {"id": "m2"}
+        ]},
+        "parts": [{"id": "singer", "measures": [
+            {"sequences": [{"content": [{"id": "start", "duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "C", "octave": 4}}],
+                "lyrics": {"lines": {
+                    "1": {"text": "One", "extender": {"target": "end"}},
+                    "2": {"text": "Two", "extender": {"target": "end"}},
+                    "3": {"text": "Three", "extender": {"target": "end"}}
+                }}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "D", "octave": 4}}]}]}]},
+            {"sequences": [{"content": [{"id": "end", "duration": {"base": "whole"},
+                "notes": [{"pitch": {"step": "E", "octave": 4}}]}]}]}
+        ]}],
+        "layouts": [{"id": "voice", "content": [
+            {"type": "staff", "sources": [{"part": "singer"}]}
+        ]}],
+        "scores": [{"name": "Singer", "pages": [{"systems": [
+            {"measure": "m0", "layout": "voice"},
+            {"measure": "m1", "layout": "voice"},
+            {"measure": "m2", "layout": "voice"}
+        ]}]}]
+    });
+    let mut custom = base.clone();
+    custom["global"]["lyrics"] = serde_json::json!({"lineOrder": ["3", "1", "2"]});
+    let config = LayoutConfig::default();
+
+    for json in [base, custom] {
+        let source = json.to_string();
+        let render = || {
+            let score = crate::parse::parse_mnx(&source).unwrap();
+            crate::layout::layout_with_mnx_scores(&score, &config, 0)
+        };
+        let first = render();
+        let extender_rows: Vec<f64> = first
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawLine { y1, width, .. }
+                    if (*width - 0.12 * config.sp).abs() < 1e-6 =>
+                {
+                    Some(*y1)
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(extender_rows.len(), 9, "three lines across three systems");
+        for system_rows in extender_rows.chunks(3) {
+            assert!(
+                system_rows.windows(2).all(|pair| pair[0] < pair[1]),
+                "extenders must be emitted top row first: {system_rows:?}"
+            );
+        }
+        let first_json = serde_json::to_string(&first).unwrap();
+        for _ in 0..32 {
+            assert_eq!(serde_json::to_string(&render()).unwrap(), first_json);
+        }
+    }
+}
+
+#[test]
 fn test_lyric_extender_full_measure_rest_insert_and_remove_match_cold_layout() {
     use crate::layout::cache::LayoutCache;
     use crate::layout::layout_with_mnx_scores_cached;
