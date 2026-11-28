@@ -10,55 +10,68 @@ import {
   DialogPrimaryButton,
   FormField,
   FormInput,
+  Select,
 } from "@viritura/ui";
 import {
-  adoptPreset,
+  adoptStyle,
   CATEGORIES,
+  categoryDefinition,
   clearCategory,
   copyCategory,
-  resolveField,
+  duplicateProfile,
+  findProfile,
+  resolveLayout,
+  snapshotStyle,
   type Category,
+  type HouseStyle,
   type MockLayout,
   type Project,
-  type StylePreset,
 } from "./styleModel";
 import styles from "./StyleWorkbench.module.css";
 
+type Commit = (project: Project, message: string) => void;
+
 interface LibraryProps {
   project: Project;
-  presets: StylePreset[];
+  library: HouseStyle[];
+  modified: boolean;
   onClose: () => void;
-  onCommit: (project: Project, message: string) => void;
-  onSave: (preset: StylePreset) => void;
+  onCommit: Commit;
+  onSave: (style: HouseStyle) => void;
 }
 
-export function StyleLibrary({ project, presets, onClose, onCommit, onSave }: LibraryProps) {
-  const [selectedId, setSelectedId] = useState(project.adopted.id);
-  const [preserve, setPreserve] = useState(true);
+function effectiveChanges(before: Project, after: Project): string[] {
+  return before.layouts.flatMap((layout, index) => {
+    const next = after.layouts[index]!;
+    const profileChange =
+      findProfile(before, layout.profileId).name === findProfile(after, next.profileId).name
+        ? []
+        : [`${layout.name}: profile ${findProfile(after, next.profileId).name}`];
+    return [
+      ...profileChange,
+      ...CATEGORIES.flatMap((category) =>
+        category.fields.flatMap(({ id, label }) => {
+          const from = resolveLayout(before, layout, id);
+          const to = resolveLayout(after, next, id);
+          return from === to ? [] : [`${layout.name}: ${label} ${from} to ${to}`];
+        }),
+      ),
+    ];
+  });
+}
+
+export function StyleLibrary({ project, library, modified, onClose, onCommit, onSave }: LibraryProps) {
+  const [selectedId, setSelectedId] = useState(project.origin.id);
   const [name, setName] = useState("");
-  const selected = presets.find((preset) => preset.id === selectedId)!;
-  const next = adoptPreset(project, selected, preserve);
-  const changes = project.layouts.flatMap((layout) =>
-    CATEGORIES.flatMap((category) =>
-      category.fields.flatMap(({ id, label }) => {
-        const before = resolveField(project, "layout", layout, id).value;
-        const after = resolveField(next, "layout", layout, id).value;
-        return before === after ? [] : [`${layout.name}: ${label} ${before} -> ${after}`];
-      }),
-    ),
-  );
+  const selected = library.find((style) => style.id === selectedId) ?? library[0]!;
+  const next = adoptStyle(project, selected);
+  const changes = effectiveChanges(project, next);
   const overrideCount = project.layouts.reduce((total, layout) => total + Object.keys(layout.overrides).length, 0);
   function save() {
-    const preset: StylePreset = {
-      id: `saved-${presets.length}`,
-      name: name.trim(),
-      description: "Saved from this mock project's reusable defaults.",
-      common: { ...project.adopted.common, ...project.adjustments.common },
-      score: { ...project.adopted.score, ...project.adjustments.score },
-      part: { ...project.adopted.part, ...project.adjustments.part },
-    };
-    onSave(preset);
-    setSelectedId(preset.id);
+    const style = snapshotStyle(project, `saved-${library.length}`, name.trim());
+    onSave(style);
+    onCommit({ ...project, origin: { id: style.id, name: style.name } }, `Saved ${style.name} to the library.`);
+    setSelectedId(style.id);
     setName("");
   }
   return (
@@ -66,33 +79,43 @@ export function StyleLibrary({ project, presets, onClose, onCommit, onSave }: Li
       <DialogHeader title="House-style library" onClose={onClose} />
       <DialogBody>
         <p className={styles.hint}>
-          Adopt a snapshot into this project. Library edits never change existing projects automatically.
+          The project keeps its own copy of the house style. Library edits never change existing projects, and project
+          edits reach the library only when you save.
         </p>
+        <div className={styles.saveStyle}>
+          <FormField label="Save this project's house style, including all layout profiles">
+            <FormInput
+              aria-label="New house-style name"
+              placeholder="My concert style"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </FormField>
+          <Button disabled={!name.trim()} onClick={save}>
+            Save to library
+          </Button>
+        </div>
+        <h3>Replace with a library style</h3>
         <div className={styles.libraryGrid}>
-          {presets.map((preset) => (
+          {library.map((style) => (
             <Button
-              key={preset.id}
-              active={selectedId === preset.id}
-              onClick={() => setSelectedId(preset.id)}
+              key={style.id}
+              active={selectedId === style.id}
+              onClick={() => setSelectedId(style.id)}
               className={styles.preset}
             >
-              <strong>{preset.name}</strong>
-              <span>{preset.description}</span>
+              <strong>{style.name}</strong>
+              <span>{style.description}</span>
+              <span>Profiles: {style.profiles.map((profile) => profile.name).join(", ")}</span>
             </Button>
           ))}
         </div>
-        <Checkbox
-          label="Preserve project adjustments"
-          checked={preserve}
-          onChange={(event) => setPreserve(event.target.checked)}
-        />
         <p>
           <Badge variant="success">{overrideCount} layout overrides protected</Badge>
         </p>
-        {!preserve && (
+        {modified && (
           <p className={styles.warning}>
-            Project Common, Scores and Parts adjustments will be cleared. Individual layout overrides and manual
-            decisions are still preserved.
+            Edits made to this project&rsquo;s house style will be replaced. Save them first to keep a reusable copy.
           </p>
         )}
         <h3>Review effective changes</h3>
@@ -103,33 +126,67 @@ export function StyleLibrary({ project, presets, onClose, onCommit, onSave }: Li
             <li>No effective layout values change.</li>
           )}
         </ul>
-        <div className={styles.saveStyle}>
-          <FormField label="Save project defaults as a reusable style">
-            <FormInput
-              aria-label="New house-style name"
-              placeholder="My concert style"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </FormField>
-          <Button disabled={!name.trim()} onClick={save}>
-            Save snapshot
-          </Button>
-        </div>
-        <p className={styles.hint}>
-          Saved styles live only in this prototype session. Layout overrides, bracket selections and manual breaks are
-          excluded.
-        </p>
       </DialogBody>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <DialogPrimaryButton
           onClick={() => {
-            onCommit(next, `Adopted ${selected.name}; layout overrides preserved.`);
+            onCommit(next, `Applied ${selected.name} to all layouts; layout overrides preserved.`);
             onClose();
           }}
         >
-          Adopt {selected.name}
+          Apply {selected.name}
+        </DialogPrimaryButton>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+interface NewProfileProps {
+  project: Project;
+  sourceId: string;
+  onClose: () => void;
+  onCreate: (project: Project, id: string, message: string) => void;
+}
+
+export function NewProfileDialog({ project, sourceId, onClose, onCreate }: NewProfileProps) {
+  const [source, setSource] = useState(sourceId);
+  const [name, setName] = useState("");
+  return (
+    <Dialog open onClose={onClose}>
+      <DialogHeader title="New layout profile" onClose={onClose} />
+      <DialogBody>
+        <p className={styles.hint}>
+          Profiles are reusable print setups inside the house style, for example Study score or Large-print part.
+        </p>
+        <FormField label="Start from">
+          <Select
+            aria-label="Start from"
+            value={source}
+            options={project.style.profiles.map((profile) => ({ value: profile.id, label: profile.name }))}
+            onValueChange={setSource}
+          />
+        </FormField>
+        <FormField label="Name">
+          <FormInput
+            aria-label="Profile name"
+            placeholder="Study score"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </FormField>
+      </DialogBody>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <DialogPrimaryButton
+          disabled={!name.trim()}
+          onClick={() => {
+            const created = duplicateProfile(project, source, name);
+            onCreate(created.project, created.id, `Created the ${name.trim()} profile.`);
+            onClose();
+          }}
+        >
+          Create profile
         </DialogPrimaryButton>
       </DialogActions>
     </Dialog>
@@ -141,18 +198,18 @@ interface TransferProps {
   source: MockLayout;
   category: Category;
   onClose: () => void;
-  onCommit: (project: Project, message: string) => void;
+  onCommit: Commit;
 }
 
 export function TransferSettings({ project, source, category, onClose, onCommit }: TransferProps) {
   const [targets, setTargets] = useState<string[]>([]);
-  const label = CATEGORIES.find((entry) => entry.id === category)!.label;
+  const label = categoryDefinition(category).label.toLowerCase();
   return (
     <Dialog open onClose={onClose}>
-      <DialogHeader title={`Copy ${label.toLowerCase()}`} onClose={onClose} />
+      <DialogHeader title={`Copy ${label}`} onClose={onClose} />
       <DialogBody>
         <p>
-          Copy effective {label.toLowerCase()} from <strong>{source.name}</strong> to:
+          Copy effective {label} from <strong>{source.name}</strong> to:
         </p>
         <div className={styles.checkList}>
           {project.layouts
@@ -162,19 +219,18 @@ export function TransferSettings({ project, source, category, onClose, onCommit 
                 key={layout.id}
                 label={layout.name}
                 checked={targets.includes(layout.id)}
-                onChange={(event) => {
+                onChange={(event) =>
                   setTargets((current) =>
                     event.target.checked ? [...current, layout.id] : current.filter((id) => id !== layout.id),
-                  );
-                }}
+                  )
+                }
               />
             ))}
         </div>
         <p className={styles.warning}>
-          These fields become explicit overrides, replacing existing overrides in this category on selected layouts.
-          They stop following project defaults.
+          These fields become explicit overrides on the selected layouts and stop following their profile. To change
+          every layout on a profile, edit the profile in House Style instead.
         </p>
-        <p className={styles.hint}>Other categories, specific bracket placement and manual breaks are unchanged.</p>
       </DialogBody>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
@@ -183,7 +239,7 @@ export function TransferSettings({ project, source, category, onClose, onCommit 
           onClick={() => {
             onCommit(
               copyCategory(project, source.id, targets, category),
-              `Copied ${label.toLowerCase()} to ${targets.length} ${targets.length === 1 ? "layout" : "layouts"} as explicit overrides.`,
+              `Copied ${label} to ${targets.length} ${targets.length === 1 ? "layout" : "layouts"} as overrides.`,
             );
             onClose();
           }}
@@ -199,7 +255,7 @@ interface OverridesProps {
   project: Project;
   onClose: () => void;
   onInspect: (id: string, category: Category) => void;
-  onCommit: (project: Project, message: string) => void;
+  onCommit: Commit;
 }
 
 export function OverridesReview({ project, onClose, onInspect, onCommit }: OverridesProps) {
@@ -214,9 +270,9 @@ export function OverridesReview({ project, onClose, onInspect, onCommit }: Overr
         {project.layouts.map((layout) => (
           <section className={styles.overrideGroup} key={layout.id}>
             <h3>
-              {layout.name} <Badge variant="muted">{layout.role === "score" ? "Score" : "Part"}</Badge>
+              {layout.name} <Badge variant="muted">{findProfile(project, layout.profileId).name}</Badge>
             </h3>
-            {Object.keys(layout.overrides).length === 0 && <p className={styles.hint}>Fully follows project style.</p>}
+            {Object.keys(layout.overrides).length === 0 && <p className={styles.hint}>Fully follows its profile.</p>}
             {CATEGORIES.filter((category) => category.fields.some(({ id }) => layout.overrides[id] !== undefined)).map(
               (category) => (
                 <div className={styles.overrideRow} key={category.id}>
@@ -242,12 +298,12 @@ export function OverridesReview({ project, onClose, onInspect, onCommit }: Overr
                     size="sm"
                     onClick={() =>
                       onCommit(
-                        clearCategory(project, "layout", layout.id, category.id),
-                        `${layout.name} now follows project ${category.label.toLowerCase()}.`,
+                        clearCategory(project, { kind: "layout", id: layout.id }, category.id),
+                        `${layout.name} now follows its profile for ${category.label.toLowerCase()}.`,
                       )
                     }
                   >
-                    Use project settings
+                    Use profile settings
                   </Button>
                 </div>
               ),
