@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Badge, Button, ButtonGroup, Checkbox, IconButton } from "@viritura/ui";
+import { Checkbox, IconButton } from "@viritura/ui";
 import { affectedLayouts, findProfile, type MockLayout, type Project, type Scope } from "./styleModel";
 import { pageGeometry, paperLabel } from "./pageGeometry";
 import { PageSheet } from "./PageSheet";
@@ -15,7 +15,6 @@ interface PreviewProps {
 }
 
 export function ScorePreview({ project, layout, editing, editingLabel, onView }: PreviewProps) {
-  const [mode, setMode] = useState<"page" | "overview">("page");
   const [showMargins, setShowMargins] = useState(true);
   const affected = new Set(affectedLayouts(project, editing).map((entry) => entry.id));
   const index = project.layouts.findIndex((entry) => entry.id === layout.id);
@@ -51,54 +50,16 @@ export function ScorePreview({ project, layout, editing, editingLabel, onView }:
             {index + 1} of {project.layouts.length}
           </span>
         </div>
-        <ButtonGroup
-          ariaLabel="Preview mode"
-          options={[
-            { value: "page", label: "Page" },
-            { value: "overview", label: "All layouts" },
-          ]}
-          value={mode}
-          onChange={setMode}
-        />
         <Checkbox label="Margins" checked={showMargins} onChange={(event) => setShowMargins(event.target.checked)} />
       </div>
-      {mode === "page" ? (
-        <>
-          <div className={styles.paperWell}>
-            <div className={styles.paper}>
-              <PageSheet project={project} layout={layout} showMargins={showMargins} />
-            </div>
-          </div>
-          <p className={styles.previewFacts}>
-            {paperLabel(project, layout)} staff / {geometry.barsPerSystem} bars per system / about {geometry.pages}{" "}
-            pages
-          </p>
-        </>
-      ) : (
-        <div className={styles.overview}>
-          {project.layouts.map((entry) => (
-            <Button
-              key={entry.id}
-              variant="ghost"
-              active={entry.id === layout.id}
-              ariaLabel={`View ${entry.name}`}
-              className={[
-                styles.thumbnail,
-                entry.id === layout.id ? styles.thumbnailViewing : "",
-                affected.has(entry.id) ? styles.thumbnailAffected : "",
-              ].join(" ")}
-              onClick={() => onView(entry.id)}
-            >
-              <PageSheet project={project} layout={entry} showMargins={showMargins} label={`${entry.name} thumbnail`} />
-              <strong>{entry.name}</strong>
-              <small>
-                {paperLabel(project, entry)} / {pageGeometry(project, entry).pages} pp
-              </small>
-              {affected.has(entry.id) && <Badge variant="accent">In scope</Badge>}
-            </Button>
-          ))}
+      <div className={styles.paperWell}>
+        <div className={styles.paper}>
+          <PageSheet project={project} layout={layout} showMargins={showMargins} />
         </div>
-      )}
+      </div>
+      <p className={styles.previewFacts}>
+        {paperLabel(project, layout)} staff / {geometry.barsPerSystem} bars per system / about {geometry.pages} pages
+      </p>
       <p className={styles.previewNote}>Mock preview · page counts are estimates</p>
     </section>
   );

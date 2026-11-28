@@ -20,10 +20,9 @@ import {
   copyCategory,
   duplicateProfile,
   findProfile,
+  PRESETS,
   resolveLayout,
-  snapshotStyle,
   type Category,
-  type HouseStyle,
   type MockLayout,
   type Project,
 } from "./styleModel";
@@ -31,13 +30,11 @@ import styles from "./StyleWorkbench.module.css";
 
 type Commit = (project: Project, message: string) => void;
 
-interface LibraryProps {
+interface StylePresetsProps {
   project: Project;
-  library: HouseStyle[];
   modified: boolean;
   onClose: () => void;
   onCommit: Commit;
-  onSave: (style: HouseStyle) => void;
 }
 
 function effectiveChanges(before: Project, after: Project): string[] {
@@ -60,41 +57,20 @@ function effectiveChanges(before: Project, after: Project): string[] {
   });
 }
 
-export function StyleLibrary({ project, library, modified, onClose, onCommit, onSave }: LibraryProps) {
+export function StylePresets({ project, modified, onClose, onCommit }: StylePresetsProps) {
   const [selectedId, setSelectedId] = useState(project.origin.id);
-  const [name, setName] = useState("");
-  const selected = library.find((style) => style.id === selectedId) ?? library[0]!;
+  const selected = PRESETS.find((style) => style.id === selectedId);
+  if (!selected) throw new Error(`Unknown house style preset: ${selectedId}`);
   const next = adoptStyle(project, selected);
   const changes = effectiveChanges(project, next);
   const overrideCount = project.layouts.reduce((total, layout) => total + Object.keys(layout.overrides).length, 0);
-  function save() {
-    const style = snapshotStyle(project, `saved-${library.length}`, name.trim());
-    onSave(style);
-    onCommit({ ...project, origin: { id: style.id, name: style.name } }, `Saved ${style.name} to the library.`);
-    setSelectedId(style.id);
-    setName("");
-  }
   return (
     <Dialog open onClose={onClose} size="wide">
-      <DialogHeader title="House-style library" onClose={onClose} />
+      <DialogHeader title="House style presets" onClose={onClose} />
       <DialogBody>
-        <p className={styles.hint}>Project edits are saved to the library only when you choose to save them.</p>
-        <div className={styles.saveStyle}>
-          <FormField label="Save project style">
-            <FormInput
-              aria-label="New house-style name"
-              placeholder="My concert style"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </FormField>
-          <Button disabled={!name.trim()} onClick={save}>
-            Save to library
-          </Button>
-        </div>
-        <h3>Replace with a library style</h3>
-        <div className={styles.libraryGrid}>
-          {library.map((style) => (
+        <p className={styles.hint}>Each preset includes score and part profiles.</p>
+        <div className={styles.presetGrid}>
+          {PRESETS.map((style) => (
             <Button
               key={style.id}
               active={selectedId === style.id}
@@ -110,7 +86,9 @@ export function StyleLibrary({ project, library, modified, onClose, onCommit, on
           <Badge variant="success">{overrideCount} overrides preserved</Badge>
         </p>
         {modified && (
-          <p className={styles.warning}>Project style edits will be replaced. Save them first to keep a copy.</p>
+          <p className={styles.warning}>
+            Your house style edits and profiles will be replaced. You can undo this change.
+          </p>
         )}
         {changes.length ? (
           <details>

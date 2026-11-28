@@ -5,11 +5,9 @@ import {
   findLayout,
   initialProject,
   isModifiedFromOrigin,
-  PRESETS,
   scopeLabel,
   type Category,
   type Destination,
-  type HouseStyle,
   type NavigatorMode,
   type Project,
   type Scope,
@@ -20,7 +18,7 @@ import { LayoutNavigator } from "./LayoutNavigator";
 import { HouseStyleEntry, PanelModeHeader } from "./ModeSwitch";
 import type { OpenCategories } from "./CategoryBrowser";
 import { ScorePreview } from "./ScorePreview";
-import { NewProfileDialog, OverridesReview, StyleLibrary, TransferSettings } from "./StyleDialogs";
+import { NewProfileDialog, OverridesReview, StylePresets, TransferSettings } from "./StyleDialogs";
 import styles from "./StyleWorkbench.module.css";
 
 interface WorkbenchProps {
@@ -28,13 +26,12 @@ interface WorkbenchProps {
   initialDestination?: Destination;
 }
 
-type DialogKind = "library" | "overrides" | "transfer" | "profile" | null;
+type DialogKind = "presets" | "overrides" | "transfer" | "profile" | null;
 
 export function StyleWorkbench({ initialNavigator = "dropdown", initialDestination = "layout" }: WorkbenchProps) {
   const [navigator, setNavigator] = useState(initialNavigator);
   const [project, setProject] = useState(initialProject);
   const [history, setHistory] = useState<Project[]>([]);
-  const [library, setLibrary] = useState<HouseStyle[]>(PRESETS);
   const [viewId, setViewId] = useState("violin");
   const [destination, setDestination] = useState<Destination>(initialDestination);
   const [requestedScope, setStyleScope] = useState<Scope>({ kind: "profile", id: "part" });
@@ -48,7 +45,7 @@ export function StyleWorkbench({ initialNavigator = "dropdown", initialDestinati
       ? { kind: "common" }
       : requestedScope;
   const editing: Scope = destination === "house" ? styleScope : { kind: "layout", id: layout.id };
-  const modified = isModifiedFromOrigin(project, library);
+  const modified = isModifiedFromOrigin(project);
   const totalOverrides = project.layouts.reduce((count, entry) => count + Object.keys(entry.overrides).length, 0);
   function commit(next: Project, message: string) {
     setHistory((current) => [...current, project]);
@@ -90,7 +87,6 @@ export function StyleWorkbench({ initialNavigator = "dropdown", initialDestinati
               onClick={() => {
                 setProject(initialProject());
                 setHistory([]);
-                setLibrary(PRESETS);
                 setStatus("Reset all mock data.");
               }}
             >
@@ -143,7 +139,7 @@ export function StyleWorkbench({ initialNavigator = "dropdown", initialDestinati
                 onCommit={commit}
                 onNewProfile={() => setDialog("profile")}
                 onView={setViewId}
-                onLibrary={() => setDialog("library")}
+                onPresets={() => setDialog("presets")}
               />
             )}
             {destination === "layout" && (
@@ -175,15 +171,8 @@ export function StyleWorkbench({ initialNavigator = "dropdown", initialDestinati
         <div className={styles.srOnly} role="status">
           {status}
         </div>
-        {dialog === "library" && (
-          <StyleLibrary
-            project={project}
-            library={library}
-            modified={modified}
-            onClose={() => setDialog(null)}
-            onCommit={commit}
-            onSave={(style) => setLibrary((current) => [...current, style])}
-          />
+        {dialog === "presets" && (
+          <StylePresets project={project} modified={modified} onClose={() => setDialog(null)} onCommit={commit} />
         )}
         {dialog === "profile" && (
           <NewProfileDialog

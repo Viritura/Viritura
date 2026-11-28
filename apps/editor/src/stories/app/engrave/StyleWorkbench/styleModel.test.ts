@@ -66,7 +66,7 @@ describe("style workbench house style", () => {
     expect(deleteProfile(initialProject(), "score").style.profiles).toHaveLength(3);
   });
 
-  it("applies a library style while preserving overrides and remapping missing profiles", () => {
+  it("applies a preset while preserving overrides and remapping missing profiles", () => {
     const initial = initialProject();
     const adopted = adoptStyle(initial, PRESETS[1]);
     expect(findLayout(adopted, "horn").profileId).toBe("part");

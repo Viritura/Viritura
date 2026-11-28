@@ -79,6 +79,47 @@ describe("style workbench", () => {
     expect(within(main).getByRole("heading", { name: "Cello" })).toBeTruthy();
   });
 
+  it("keeps the preview focused on one layout with no all-layouts toggle", () => {
+    render(<StyleWorkbench />);
+
+    expect(screen.queryByRole("radiogroup", { name: "Preview mode" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "All layouts" })).toBeNull();
+    expect(screen.getByRole("img", { name: "Violin I first page" })).toBeTruthy();
+  });
+
+  it("applies built-in presets without saving project edits and preserves layout overrides", async () => {
+    const user = userEvent.setup();
+    render(<StyleWorkbench initialDestination="house" />);
+
+    await user.click(screen.getByRole("combobox", { name: "Staff size" }));
+    await user.click(screen.getByRole("option", { name: "8 mm" }));
+    await user.click(screen.getByRole("button", { name: "Presets" }));
+    let dialog = screen.getByRole("dialog", { name: "House style presets" });
+    expect(within(dialog).getByRole("button", { name: /^Classical/ })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: /^Film/ })).toBeTruthy();
+    expect(within(dialog).queryByRole("button", { name: /save/i })).toBeNull();
+    expect(within(dialog).getByText(/Your house style edits and profiles will be replaced/)).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: /^Film/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("combobox", { name: "Staff size" }).textContent).toContain("8 mm");
+
+    await user.click(screen.getByRole("button", { name: "Presets" }));
+    dialog = screen.getByRole("dialog", { name: "House style presets" });
+    await user.click(within(dialog).getByRole("button", { name: /^Film/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Apply Film" }));
+    expect(screen.getByRole("combobox", { name: "Staff size" }).textContent).toContain("6.5 mm");
+
+    await user.click(screen.getByRole("combobox", { name: "Active layout" }));
+    await user.click(screen.getByRole("option", { name: "Cello" }));
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.getByRole("combobox", { name: "Inside margin" }).textContent).toContain("20 mm");
+    expect(screen.getByRole("combobox", { name: "Staff size" }).textContent).toContain("6.5 mm");
+
+    await user.click(screen.getByRole("button", { name: "Undo change" }));
+    expect(screen.getByRole("combobox", { name: "Staff size" }).textContent).toContain("8 mm");
+    expect(screen.getByRole("combobox", { name: "Inside margin" }).textContent).toContain("20 mm");
+  });
+
   it("searches across collapsed sections and restores them when cleared", async () => {
     const user = userEvent.setup();
     render(<StyleWorkbench initialDestination="house" />);

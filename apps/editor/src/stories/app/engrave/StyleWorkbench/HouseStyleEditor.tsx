@@ -25,7 +25,7 @@ interface HouseStyleEditorProps {
   onCommit: (project: Project, message: string) => void;
   onNewProfile: () => void;
   onView: (id: string) => void;
-  onLibrary: () => void;
+  onPresets: () => void;
 }
 
 function ScopeList({ project, scope, onScope, onNewProfile }: HouseStyleEditorProps) {
@@ -101,15 +101,15 @@ function ProfileSummary({ project, scope, viewing, onScope, onView, onCommit }: 
 }
 
 export function HouseStyleEditor(props: HouseStyleEditorProps) {
-  const { project, scope, openCategories, onOpenCategories, onCommit, onLibrary } = props;
+  const { project, scope, openCategories, onOpenCategories, onCommit, onPresets } = props;
   const settings = layer(project, scope);
   return (
     <div className={styles.editorBody}>
       <div className={styles.styleIdentity}>
         <strong>{project.style.name}</strong>
-        <Button size="sm" onClick={onLibrary}>
+        <Button size="sm" onClick={onPresets}>
           <BookOpen size={14} />
-          Library
+          Presets
         </Button>
       </div>
       <ScopeList {...props} />

@@ -155,46 +155,6 @@
   text-align: center;
   font-size: 12px;
 }
-.overview {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--space-3);
-  align-items: start;
-}
-.thumbnail {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-  opacity: 0.65;
-  height: auto !important;
-  min-height: 0 !important;
-  white-space: normal !important;
-}
-.thumbnail svg {
-  width: 100%;
-  box-shadow: var(--elevation-1);
-}
-.thumbnail small {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-.thumbnailAffected {
-  opacity: 1;
-}
-.thumbnailViewing {
-  opacity: 1;
-  outline: 2px solid var(--accent);
-}
 .rail {
   background: var(--surface);
   border-right: 1px solid var(--border);
@@ -389,7 +349,7 @@
   white-space: nowrap;
   border: 0;
 }
-.libraryGrid {
+.presetGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-3);
@@ -417,13 +377,6 @@
   padding-left: 20px;
   font-size: 12px;
   line-height: 1.8;
-}
-.saveStyle {
-  margin-top: var(--space-5);
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-3);
-  align-items: end;
 }
 .warning {
   font-size: 12px;
@@ -494,8 +447,7 @@
   .editorBody {
     padding: var(--space-4);
   }
-  .libraryGrid,
-  .saveStyle {
+  .presetGrid {
     grid-template-columns: 1fr;
   }
   .overrideRow {
