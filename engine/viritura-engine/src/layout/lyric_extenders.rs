@@ -5,7 +5,7 @@ use super::types::MeasureLayout;
 use crate::model::*;
 use crate::render::*;
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 #[cfg(test)]
@@ -522,6 +522,26 @@ pub(super) fn render_part_system_extenders(
     );
 }
 
+/// Visit an event's lyric lines in the system's row order so the display list
+/// does not depend on hash-map iteration order. Lines missing from the row
+/// order follow, sorted by ID.
+fn lines_in_draw_order<'a>(
+    lines: &'a HashMap<String, LyricLine>,
+    ordered_lines: &[String],
+) -> Vec<(&'a String, &'a LyricLine)> {
+    let mut entries: Vec<_> = lines.iter().collect();
+    entries.sort_by_key(|(line_id, _)| {
+        (
+            ordered_lines
+                .iter()
+                .position(|id| id == *line_id)
+                .unwrap_or(usize::MAX),
+            *line_id,
+        )
+    });
+    entries
+}
+
 pub(super) fn render_system_extenders(
     dl: &mut DisplayList,
     measure_layouts: &[MeasureLayout],
@@ -590,7 +610,7 @@ pub(super) fn render_system_extenders(
         else {
             continue;
         };
-        for (line_id, line) in lines {
+        for (line_id, line) in lines_in_draw_order(lines, ordered_lines) {
             let Some(target) = target_for(score, source, line_id, line, &events, explicit_policy)
             else {
                 continue;
