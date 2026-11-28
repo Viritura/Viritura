@@ -202,11 +202,32 @@ const BUILT_IN: Record<Field, string> = {
   chordStyle: "Standard",
 };
 
+const HOUSE_FIELDS = CATEGORIES.filter((category) => !category.profileOnly).flatMap((category) =>
+  category.fields.map(({ id }) => id),
+);
+const PROFILE_FIELDS = CATEGORIES.filter((category) => category.profileOnly).flatMap((category) =>
+  category.fields.map(({ id }) => id),
+);
+
+function houseSettings(overrides: Settings): Settings {
+  const settings: Settings = {};
+  for (const field of HOUSE_FIELDS) settings[field] = overrides[field] ?? BUILT_IN[field];
+  return settings;
+}
+
+function profileSettings(overrides: Settings): Settings {
+  const settings: Settings = {};
+  for (const field of PROFILE_FIELDS) settings[field] = overrides[field] ?? BUILT_IN[field];
+  return { ...settings, ...overrides };
+}
+
 export interface LayoutProfile {
   id: string;
   name: string;
   role: Role;
   settings: Settings;
+  /** Preset profile used as the reset baseline for duplicated profiles. */
+  presetProfileId?: string;
 }
 
 export interface HouseStyle {
@@ -222,25 +243,41 @@ export const PRESETS: [HouseStyle, HouseStyle] = [
     id: "concert",
     name: "Classical",
     description: "9 x 12 scores at 5 mm, Letter parts at 7 mm, plus a large-print part profile.",
-    common: { frequency: "System starts", size: "9 pt", enclosure: "None" },
+    common: houseSettings({ frequency: "System starts", size: "9 pt", enclosure: "None" }),
     profiles: [
       {
         id: "score",
         name: "Score",
         role: "score",
-        settings: { paper: "9 x 12 in", staff: "5 mm", marginTop: "12 mm", marginBottom: "12 mm" },
+        settings: profileSettings({
+          paper: "9 x 12 in",
+          staff: "5 mm",
+          marginTop: "12 mm",
+          marginBottom: "12 mm",
+        }),
       },
       {
         id: "part",
         name: "Part",
         role: "part",
-        settings: { paper: "Letter", staff: "7 mm", marginInner: "15 mm", turns: "Comfortable turns" },
+        settings: profileSettings({
+          paper: "Letter",
+          staff: "7 mm",
+          marginInner: "15 mm",
+          turns: "Comfortable turns",
+        }),
       },
       {
         id: "large-part",
         name: "Large-print part",
         role: "part",
-        settings: { paper: "Tabloid", staff: "8 mm", marginInner: "20 mm", size: "12 pt", turns: "Comfortable turns" },
+        settings: profileSettings({
+          paper: "Tabloid",
+          staff: "8 mm",
+          marginInner: "20 mm",
+          size: "12 pt",
+          turns: "Comfortable turns",
+        }),
       },
     ],
   },
@@ -248,19 +285,24 @@ export const PRESETS: [HouseStyle, HouseStyle] = [
     id: "film",
     name: "Film",
     description: "Tabloid landscape scores, every-bar boxed numbers, 9 x 12 parts.",
-    common: { frequency: "Every bar", placement: "Above system", size: "12 pt", enclosure: "Box" },
+    common: houseSettings({ frequency: "Every bar", placement: "Above system", size: "12 pt", enclosure: "Box" }),
     profiles: [
       {
         id: "score",
         name: "Conductor score",
         role: "score",
-        settings: { paper: "Tabloid", orientation: "Landscape", staff: "5 mm", marginTop: "10 mm" },
+        settings: profileSettings({
+          paper: "Tabloid",
+          orientation: "Landscape",
+          staff: "5 mm",
+          marginTop: "10 mm",
+        }),
       },
       {
         id: "part",
         name: "Part",
         role: "part",
-        settings: { paper: "9 x 12 in", staff: "6.5 mm", turns: "Comfortable turns" },
+        settings: profileSettings({ paper: "9 x 12 in", staff: "6.5 mm", turns: "Comfortable turns" }),
       },
     ],
   },
@@ -361,7 +403,30 @@ export function layer(project: Project, scope: Scope): Settings {
   return findLayout(project, scope.id).overrides;
 }
 
-/** Inheritance: layout override, then its layout profile, then the shared house-style layer, then built-ins. */
+function presetHouseValue(project: Project, field: Field): string {
+  const preset = PRESETS.find((style) => style.id === project.origin.id);
+  return preset?.common[field] ?? BUILT_IN[field];
+}
+
+/** The preset profile's own value; undefined for house-controlled fields the preset profile inherits. */
+function presetProfileValue(project: Project, profile: LayoutProfile, field: Field): string | undefined {
+  const preset = PRESETS.find((style) => style.id === project.origin.id);
+  const baselineId = profile.presetProfileId ?? profile.id;
+  const baseline =
+    preset?.profiles.find((entry) => entry.id === baselineId) ??
+    preset?.profiles.find((entry) => entry.role === profile.role);
+  return baseline?.settings[field] ?? (isProfileOnly(field) ? BUILT_IN[field] : undefined);
+}
+
+/** Whether this layer differs from what resetting it would restore. */
+export function isModifiedAtScope(project: Project, scope: Scope, field: Field): boolean {
+  const value = layer(project, scope)[field];
+  if (scope.kind === "common") return value !== presetHouseValue(project, field);
+  if (scope.kind === "profile") return value !== presetProfileValue(project, findProfile(project, scope.id), field);
+  return value !== undefined;
+}
+
+/** Resolution: layout override, then profile, then the house layer. Page geometry is profile-owned. */
 export function resolveField(project: Project, scope: Scope, field: Field): { value: string; source: string } {
   const chain: { settings: Settings; source: string }[] = [];
   let profile: LayoutProfile | undefined;
@@ -375,9 +440,8 @@ export function resolveField(project: Project, scope: Scope, field: Field): { va
   if (profile) chain.push({ settings: profile.settings, source: `${profile.name} profile` });
   chain.push({ settings: project.style.common, source: "House style shared" });
   const match = chain.find(({ settings }) => settings[field] !== undefined);
-  return match
-    ? { value: match.settings[field]!, source: match.source }
-    : { value: BUILT_IN[field], source: "Built-in" };
+  if (!match) throw new Error(`No value defined for ${field} in ${scopeLabel(project, scope)}`);
+  return { value: match.settings[field]!, source: match.source };
 }
 
 export function resolveLayout(project: Project, layout: MockLayout, field: Field): string {
@@ -403,10 +467,6 @@ function isProfileOnly(field: Field): boolean {
   return CATEGORIES.some((category) => category.profileOnly && category.fields.some(({ id }) => id === field));
 }
 
-export function builtInValue(field: Field): string {
-  return BUILT_IN[field];
-}
-
 /** The layers that can set `field` for `scope`, broadest first. Page geometry starts at the profile. */
 export function fieldChain(project: Project, scope: Scope, field: Field): ChainStep[] {
   const steps: ChainStep[] = [];
@@ -426,11 +486,19 @@ export function fieldChain(project: Project, scope: Scope, field: Field): ChainS
   return steps;
 }
 
-/** The value and source `scope` would fall back to if its own setting were reset. */
+/** The value and source `scope` uses when its own setting is reset. */
 export function inheritedValue(project: Project, scope: Scope, field: Field): { value: string; source: string } {
+  if (scope.kind === "common") {
+    return { value: presetHouseValue(project, field), source: `${project.origin.name} preset` };
+  }
+  if (scope.kind === "profile") {
+    const preset = presetProfileValue(project, findProfile(project, scope.id), field);
+    if (preset !== undefined) return { value: preset, source: `${project.origin.name} preset` };
+  }
   const upstream = fieldChain(project, scope, field).slice(0, -1);
   const match = [...upstream].reverse().find((step) => step.value !== undefined);
-  return match ? { value: match.value!, source: match.name } : { value: BUILT_IN[field], source: "Default" };
+  if (!match) throw new Error(`No inherited value defined for ${field} in ${scopeLabel(project, scope)}`);
+  return { value: match.value!, source: match.name };
 }
 
 export interface DownstreamOverride {
@@ -457,10 +525,9 @@ export function downstreamOverrides(project: Project, scope: Scope, field: Field
 }
 
 export function resetDownstream(project: Project, scope: Scope, field: Field): Project {
-  return downstreamOverrides(project, scope, field).reduce(
-    (current, entry) => changeField(current, entry.scope, field),
-    project,
-  );
+  const next = structuredClone(project);
+  for (const entry of downstreamOverrides(project, scope, field)) delete layer(next, entry.scope)[field];
+  return next;
 }
 
 /** The next broader layer a value can be moved to, if any. */
@@ -475,14 +542,23 @@ export function promoteField(project: Project, scope: Scope, field: Field): Proj
   const parent = parentScope(project, scope, field);
   const value = layer(project, scope)[field];
   if (!parent || value === undefined) return project;
-  return changeField(changeField(project, parent, field, value), scope, field);
+  const next = changeField(project, parent, field, value);
+  delete layer(next, scope)[field];
+  return next;
 }
 
 export function changeField(project: Project, scope: Scope, field: Field, value?: string): Project {
   const next = structuredClone(project);
   const settings = layer(next, scope);
-  if (value === undefined) delete settings[field];
-  else settings[field] = value;
+  const baseline =
+    scope.kind === "common"
+      ? presetHouseValue(project, field)
+      : scope.kind === "profile"
+        ? presetProfileValue(project, findProfile(project, scope.id), field)
+        : undefined;
+  const target = value ?? baseline;
+  if (target === undefined) delete settings[field];
+  else settings[field] = target;
   return next;
 }
 
@@ -513,7 +589,12 @@ export function duplicateProfile(project: Project, sourceId: string, name: strin
       .replace(/[^a-z0-9]+/g, "-") || "profile";
   let id = base;
   for (let index = 2; next.style.profiles.some((entry) => entry.id === id); index += 1) id = `${base}-${index}`;
-  next.style.profiles.push({ ...structuredClone(source), id, name: name.trim() });
+  next.style.profiles.push({
+    ...structuredClone(source),
+    id,
+    name: name.trim(),
+    presetProfileId: source.presetProfileId ?? source.id,
+  });
   return { project: next, id };
 }
 

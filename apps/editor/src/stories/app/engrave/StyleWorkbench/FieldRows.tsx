@@ -1,12 +1,12 @@
 import { ArrowUpToLine, RotateCcw } from "lucide-react";
-import { Button, IconButton, Select, Tooltip } from "@viritura/ui";
+import { Button, IconButton, Select } from "@viritura/ui";
 import {
-  builtInValue,
   changeField,
   downstreamOverrides,
   fieldChain,
   findProfile,
   inheritedValue,
+  isModifiedAtScope,
   layer,
   parentScope,
   promoteField,
@@ -46,13 +46,6 @@ function SourceTrail({
   const current = steps.at(-1);
   return (
     <ol className={styles.trail} aria-label={`${field.label} sources`}>
-      <li>
-        <Tooltip content={`Default: ${builtInValue(field.id)}`}>
-          <span className={winner ? styles.stepShadowed : styles.stepWinner} tabIndex={0}>
-            Default
-          </span>
-        </Tooltip>
-      </li>
       {steps.map((step) => {
         const state =
           step === winner ? styles.stepWinner : step.value !== undefined ? styles.stepShadowed : styles.stepUnset;
@@ -78,13 +71,13 @@ function SourceTrail({
 }
 
 export function FieldRows({ project, scope, fields, onCommit, onJump }: FieldEditorProps) {
-  const settings = layer(project, scope);
   const target = scopeLabel(project, scope);
   return fields.map((field) => {
     const resolved = resolveField(project, scope, field.id);
-    const explicit = settings[field.id] !== undefined;
+    const explicit = isModifiedAtScope(project, scope, field.id);
     const inherited = inheritedValue(project, scope, field.id);
-    const parent = explicit ? parentScope(project, scope, field.id) : undefined;
+    const parent =
+      explicit && layer(project, scope)[field.id] !== undefined ? parentScope(project, scope, field.id) : undefined;
     const below = downstreamOverrides(project, scope, field.id);
     const name = field.label.toLowerCase();
     return (
