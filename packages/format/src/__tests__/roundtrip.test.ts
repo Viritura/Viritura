@@ -370,6 +370,46 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     expect(serializeMnx(parseMnx(source)).layouts).toEqual(source.layouts);
   });
 
+  it.each([true, false])("round-trips section group names with showGroupName=%s", (showGroupName) => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [] },
+      parts: [
+        { id: "fl", name: "Flute", measures: [] },
+        { id: "ob", name: "Oboe", measures: [] },
+      ],
+      layouts: [
+        {
+          id: "score",
+          content: [
+            {
+              type: "group",
+              label: "Woodwinds",
+              _x: { viritura: { showGroupName } },
+              content: [
+                { type: "staff", sources: [{ part: "fl" }] },
+                { type: "staff", sources: [{ part: "ob" }] },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const score = parseMnx(source);
+    expect(score.layouts![0]!.content[0]).toMatchObject({ label: "Woodwinds", showGroupName });
+    expect(serializeMnx(score).layouts).toEqual(source.layouts);
+    const invalid = {
+      ...source,
+      layouts: [
+        {
+          id: "score",
+          content: [{ ...source.layouts[0]!.content[0], _x: { viritura: { showGroupName: "true" } } }],
+        },
+      ],
+    };
+    expect(() => parseMnx(invalid)).toThrow();
+  });
+
   it("preserves source-part chord-symbol visibility without layout switches", () => {
     const source = {
       mnx: { version: 1 },

@@ -701,8 +701,18 @@ automatic casting and pagination.
 
 Controls instrument names independently on the first and subsequent systems.
 Both `firstSystem` and `subsequentSystems` accept `full`, `short`, or `hidden`.
+Configure these for each score or part in **Engrave > Layouts > Instrument
+Labels**. Newly created individual parts hide system labels, including on grand
+staves; their instrument names appear in the first-page part header instead.
+Full scores retain instrument names and abbreviations. Existing authored MNX
+labels remain in the file when a display policy is changed. For a named
+single-instrument group, full and short policies use the instrument's name and
+abbreviation without repeating the preserved group label.
+
 The extension is omitted when standard MNX layout references can represent the
-same policy directly: full-then-short, short-only, or hidden.
+same policy directly: full-then-short, full-only, short-only, or hidden. An
+override remains necessary when an instrument group has a label that cannot be
+controlled by staff references alone.
 
 ```json
 {
@@ -925,6 +935,40 @@ The `layout-staff-extensions` schema currently has no properties. Neither
 `chordSymbolVisibility` nor `globalChordSymbolVisibility` is accepted on a
 layout staff. Chord events also have no `displayStaff` property.
 
+## Layout Group Extensions
+
+### `showGroupName`
+
+Stored on a layout group's `_x.viritura` dictionary. Section groups containing
+multiple source instruments keep their native `label` or `labelRef` for naming,
+but their names are hidden on the score by default, including existing files.
+Set `showGroupName: true` to display the name vertically, reading bottom to top,
+centered beside the group's staves. Hidden names reserve no horizontal space.
+
+In the Layouts panel, right-click a group and choose **Rename** to name it, then
+**Group name > Hidden** or **Group name > Show vertically** to control engraving.
+Hiding a name does not remove its bracket, change its Layouts-panel name, or
+alter mixer grouping. This setting belongs to the layout group, so score and
+part layouts can choose independently.
+
+Groups containing only one source instrument, such as a piano grand staff, keep
+their horizontal instrument label and follow the instrument-name display policy.
+Their section-name visibility menu is disabled. Instrument-name controls do not
+delete group names or change section-name visibility.
+
+```json
+{
+  "type": "group",
+  "symbol": "bracket",
+  "label": "Woodwinds",
+  "_x": { "viritura": { "showGroupName": true } },
+  "content": [
+    { "type": "staff", "labelRef": {}, "sources": [{ "part": "flute" }] },
+    { "type": "staff", "labelRef": {}, "sources": [{ "part": "oboe" }] }
+  ]
+}
+```
+
 ---
 
 ## Score Root Extensions
@@ -1057,7 +1101,9 @@ The optional score-definition `pageSetupRole` (`score` or `part`) disambiguates
 solo-player extracts and section scores. New editor-created layouts record their
 role. Older documents retain layout-membership inference: a layout referencing
 fewer parts than the document total uses part defaults; otherwise score defaults.
-Missing project profiles retain the built-in A4 defaults.
+The same role identifies the first-page instrument header for a part, including
+an extract from a single-instrument document; score roles do not receive that
+header. Missing project profiles retain the built-in A4 defaults.
 
 ### `metadata`
 

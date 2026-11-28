@@ -26,6 +26,7 @@ const DEFINITIONS: &[&str] = &[
     "note-extensions",
     "slur-extensions",
     "system-layout-extensions",
+    "layout-group-extensions",
     "score-extensions",
     "staff-text-frame-presentation",
     "system-text",
@@ -360,11 +361,42 @@ pub(super) fn extension_errors(root: &Value) -> Vec<RawScoreValidationError> {
         }
     }
 
+    fn visit_layout(
+        content: &[Value],
+        pointer: &str,
+        consumed: &mut HashSet<String>,
+        errors: &mut Vec<RawScoreValidationError>,
+    ) {
+        for (index, node) in content.iter().enumerate() {
+            if node.get("type").and_then(Value::as_str) == Some("group") {
+                let node_pointer = format!("{pointer}/{index}");
+                validate_at(
+                    Some(node),
+                    &node_pointer,
+                    "layout-group-extensions",
+                    consumed,
+                    errors,
+                );
+                visit_layout(
+                    array(node, "content"),
+                    &format!("{node_pointer}/content"),
+                    consumed,
+                    errors,
+                );
+            }
+        }
+    }
     for (index, layout) in array(root, "layouts").iter().enumerate() {
         validate_at(
             Some(layout),
             &format!("/layouts/{index}"),
             "system-layout-extensions",
+            &mut consumed,
+            &mut errors,
+        );
+        visit_layout(
+            array(layout, "content"),
+            &format!("/layouts/{index}/content"),
             &mut consumed,
             &mut errors,
         );

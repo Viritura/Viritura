@@ -170,6 +170,31 @@ export function addOrReuseLayout(layouts: LayoutDefinition[], id: string, conten
   return id;
 }
 
+/**
+ * Build a condensed staff that shows one shared instrument name.
+ *
+ * A per-source `labelRef` labels that player individually, so copying the
+ * full score's per-source references would print "Flute 1" and "Flute 2" on
+ * one staff. When every source carries the same untargeted reference, hoist
+ * it to the staff so the engine prints one name with a player-number column.
+ */
+function combineStaves(lead: LayoutStaff, sources: LayoutSource[]): LayoutStaff {
+  const staff: LayoutStaff = { type: "staff", sources };
+  if (lead.label !== undefined) staff.label = lead.label;
+  if (lead.labelRef !== undefined) staff.labelRef = lead.labelRef;
+  const refs = sources.map((source) => source.labelRef);
+  const first = refs[0];
+  const hoistable =
+    first !== undefined &&
+    sources.every((source) => source.label === undefined) &&
+    refs.every((ref) => ref !== undefined && Object.keys(ref).every((key) => key === "ref") && ref.ref === first.ref);
+  if (hoistable) {
+    staff.labelRef ??= { ...first };
+    for (const source of sources) delete source.labelRef;
+  }
+  return staff;
+}
+
 /** Process a group node: pair same-instrument staves into multi-source staves. */
 function condenseGroupContent(group: LayoutGroup, partMap: Map<string, Part>): LayoutGroup {
   const newContent: LayoutContent[] = [];
@@ -232,16 +257,12 @@ function condenseGroupContent(group: LayoutGroup, partMap: Map<string, Part>): L
       const partner = staves[pairIndex]!;
       paired.add(i);
       paired.add(pairIndex);
-      const combinedSources: LayoutSource[] = [
-        ...current.node.sources.map((s) => ({ ...s })),
-        ...partner.node.sources.map((s) => ({ ...s })),
-      ];
-      newContent.push({
-        type: "staff",
-        sources: combinedSources,
-        label: current.node.label,
-        labelRef: current.node.labelRef,
-      } as LayoutStaff);
+      newContent.push(
+        combineStaves(current.node, [
+          ...current.node.sources.map((s) => ({ ...s })),
+          ...partner.node.sources.map((s) => ({ ...s })),
+        ]),
+      );
     } else {
       // Solo — keep as-is
       newContent.push(current.node);

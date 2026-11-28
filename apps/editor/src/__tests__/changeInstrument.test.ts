@@ -67,7 +67,48 @@ describe("changeInstrumentInScore", () => {
     expect(changed.parts[0]!.measures[0]!.sequences[0]!.content).toHaveLength(1);
     expect(changed.parts[0]!.measures[0]!.sequences[1]).toMatchObject({ staff: 2, content: [] });
     const perPartLayout = changed.layouts?.find((layout) => layout.id === `L-${partId}`);
-    expect(perPartLayout?.content[0]?.type).toBe("group");
+    expect(perPartLayout?.content[0]).toMatchObject({
+      type: "group",
+      content: [{ sources: [{ part: partId, staff: 1 }] }, { sources: [{ part: partId, staff: 2 }] }],
+    });
+    const partGroup = perPartLayout!.content[0]!;
+    if (partGroup.type !== "group") throw new Error("expected a grand staff");
+    expect(partGroup.content.every((staff) => staff.type === "staff" && staff.sources[0]?.labelRef === undefined)).toBe(
+      true,
+    );
+    const fullGroup = changed.layouts!.find((layout) => layout.id === "FullScore")!.content[0]!;
+    if (fullGroup.type !== "group") throw new Error("expected a grand staff");
+    expect(
+      fullGroup.content.every((staff) => staff.type === "staff" && staff.sources[0]?.labelRef?.ref === "auto"),
+    ).toBe(true);
+  });
+
+  it("retains explicitly authored staff and source labels when expanding a part", () => {
+    const score = makeScore("wind.flutes.flute");
+    const partId = score.parts[0]!.id!;
+    const layout = score.layouts!.find((candidate) => candidate.id === `L-${partId}`)!;
+    const staff = layout.content[0]!;
+    if (staff.type !== "staff") throw new Error("expected a staff");
+    staff.label = "Custom";
+    staff.labelRef = { ref: "name", id: "staff-ref" };
+    staff.sources[0]!.labelRef = { ref: "shortName", id: "source-ref" };
+    const changed = changeInstrumentInScore(score, partId, "keyboard.piano")!;
+    const group = changed.layouts!.find((candidate) => candidate.id === layout.id)!.content[0]!;
+    if (group.type !== "group") throw new Error("expected a grand staff");
+    expect(group.content).toEqual([
+      {
+        type: "staff",
+        label: "Custom",
+        labelRef: { ref: "name", id: "staff-ref" },
+        sources: [{ part: partId, staff: 1, labelRef: { ref: "shortName", id: "source-ref" } }],
+      },
+      {
+        type: "staff",
+        label: "Custom",
+        labelRef: { ref: "name" },
+        sources: [{ part: partId, staff: 2, labelRef: { ref: "shortName" } }],
+      },
+    ]);
   });
 
   it("blocks staff-count reduction instead of risking music loss", () => {

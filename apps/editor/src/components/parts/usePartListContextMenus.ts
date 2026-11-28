@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import type { LayoutContent, LayoutGroup, Part, PartDisplayInfo } from "@viritura/core";
 import type { ContextMenuState, MenuItemDef } from "@viritura/ui";
-import { type NodePath } from "./treeOps";
+import { type NodePath, type GroupPropertyUpdate } from "./treeOps";
 import { buildGroupContextMenuItems, buildStaffContextMenuItems } from "./contextMenus";
 import type { PartChordSymbolUpdate } from "./chordSymbolVisibility";
 
@@ -10,7 +10,7 @@ export interface UsePartListContextMenusArgs {
   buildSelectionMenuItems: () => MenuItemDef[];
   setContextMenu: (state: ContextMenuState | null) => void;
   removeGroup: (path: NodePath) => void;
-  updateGroupProp: (path: NodePath, prop: "symbol" | "label", value: string) => void;
+  updateGroupProp: GroupPropertyUpdate;
   sourceParts: readonly Part[];
   onPartUpdate?: (partId: string, updates: PartChordSymbolUpdate) => void;
   setEditingGroup: (key: string | null) => void;

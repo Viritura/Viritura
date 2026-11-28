@@ -8,6 +8,7 @@ import type {
   StaffLabelRef,
 } from "@viritura/core";
 import { generateId } from "@viritura/core";
+import { collectPartIdsInLayout } from "../../score/ScoreMutations";
 
 export type InstrumentNameDisplayValue = InstrumentNameDisplayPolicy | "custom";
 
@@ -23,12 +24,23 @@ function collectStaffs(content: readonly LayoutContent[], result: LayoutStaff[])
 }
 
 function hasLiteralLabel(content: readonly LayoutContent[]): boolean {
+  return content.some((node) => {
+    if (node.type === "group") {
+      const instrumentLabel = collectPartIdsInLayout(node.content).size <= 1;
+      return (
+        (instrumentLabel && (node.label !== undefined || node.labelRef !== undefined)) || hasLiteralLabel(node.content)
+      );
+    }
+    return node.label !== undefined || node.sources.some((source) => source.label !== undefined);
+  });
+}
+
+function hasInstrumentGroupLabel(content: readonly LayoutContent[]): boolean {
   return content.some(
     (node) =>
-      node.label !== undefined ||
-      (node.type === "group"
-        ? node.labelRef !== undefined || hasLiteralLabel(node.content)
-        : node.sources.some((source) => source.label !== undefined)),
+      node.type === "group" &&
+      ((collectPartIdsInLayout(node.content).size <= 1 && (node.label !== undefined || node.labelRef !== undefined)) ||
+        hasInstrumentGroupLabel(node.content)),
   );
 }
 
@@ -83,8 +95,6 @@ export function instrumentNameDisplayFor(
 function applyLabelRef(content: LayoutContent[], labelRef: StaffLabelRef | undefined): void {
   for (const node of content) {
     if (node.type === "group") {
-      delete node.label;
-      delete node.labelRef;
       applyLabelRef(node.content, labelRef);
       continue;
     }
@@ -154,10 +164,11 @@ export function setScoreInstrumentNameDisplay(
     return [layout, { ...updated, id }];
   });
   const usesStandardMnx =
-    (settings.firstSystem === "full" && settings.subsequentSystems === "short") ||
-    (settings.firstSystem === "full" && settings.subsequentSystems === "full") ||
-    (settings.firstSystem === "short" && settings.subsequentSystems === "short") ||
-    (settings.firstSystem === "hidden" && settings.subsequentSystems === "hidden");
+    !layouts.some((layout) => layoutIds.has(layout.id) && hasInstrumentGroupLabel(layout.content)) &&
+    ((settings.firstSystem === "full" && settings.subsequentSystems === "short") ||
+      (settings.firstSystem === "full" && settings.subsequentSystems === "full") ||
+      (settings.firstSystem === "short" && settings.subsequentSystems === "short") ||
+      (settings.firstSystem === "hidden" && settings.subsequentSystems === "hidden"));
   const nextScore = { ...score };
   if (usesStandardMnx) delete nextScore.instrumentNameDisplay;
   else nextScore.instrumentNameDisplay = settings;

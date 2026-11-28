@@ -198,6 +198,7 @@ mod tests {
 
     fn group(symbol: &str, first: usize, last: usize) -> GroupRange {
         GroupRange {
+            show_group_name: false,
             first_staff: first,
             last_staff: last,
             symbol: symbol.into(),

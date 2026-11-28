@@ -36,6 +36,7 @@ function serializeLayoutGroup(g: LayoutGroup): Obj {
   if (g.label !== undefined) obj["label"] = g.label;
   if (g.labelRef) obj["labelRef"] = g.labelRef;
   if (g.symbol) obj["symbol"] = g.symbol;
+  if (g.showGroupName !== undefined) obj["_x"] = { viritura: { showGroupName: g.showGroupName } };
   return obj;
 }
 

@@ -910,44 +910,15 @@ mod tests {
     }
 
     #[test]
-    fn build_lines_no_condensed() {
-        assert_eq!(build_label_lines("Flute", &[]), vec!["Flute"]);
+    fn build_lines_plain_label() {
+        assert_eq!(build_label_lines("Flute"), vec!["Flute"]);
     }
 
     #[test]
-    fn build_lines_no_condensed_transposing() {
+    fn build_lines_transposing_label() {
         assert_eq!(
-            build_label_lines("Clarinet in BΓÖ¡", &[]),
-            vec!["Clarinet", "in BΓÖ¡"]
-        );
-    }
-
-    #[test]
-    fn build_lines_transposing_condensed() {
-        // Transposing: numbers appended to each text line
-        assert_eq!(
-            build_label_lines("Clarinet in BΓÖ¡", &[1, 2]),
-            vec!["Clarinet 1", "in BΓÖ¡ 2"]
-        );
-    }
-
-    #[test]
-    fn build_lines_non_transposing_condensed_returns_name_only() {
-        // Non-transposing: just the name, numbers rendered separately
-        assert_eq!(build_label_lines("Trumpet", &[1, 2]), vec!["Trumpet"]);
-    }
-
-    #[test]
-    fn build_lines_non_transposing_three_numbers() {
-        assert_eq!(build_label_lines("Violin", &[1, 2, 3]), vec!["Violin"]);
-    }
-
-    #[test]
-    fn build_lines_transposing_three_numbers() {
-        // More numbers than text lines: extras become standalone lines
-        assert_eq!(
-            build_label_lines("Horn in F", &[1, 2, 3]),
-            vec!["Horn 1", "in F 2", "3"]
+            build_label_lines("Clarinet in B\u{266d}"),
+            vec!["Clarinet", "in B\u{266d}"]
         );
     }
 

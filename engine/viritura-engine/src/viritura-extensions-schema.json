@@ -1383,6 +1383,18 @@
       "additionalProperties": false
     },
 
+    "layout-group-extensions": {
+      "type": "object",
+      "description": "Viritura engraving properties on a layout group.",
+      "properties": {
+        "showGroupName": {
+          "type": "boolean",
+          "description": "Show a section-group name vertically, reading bottom to top. Omitted or false hides it. Single-instrument group labels retain ordinary instrument-name behavior."
+        }
+      },
+      "additionalProperties": false
+    },
+
     "layout-staff-extensions": {
       "type": "object",
       "description": "Viritura engraving properties on a layout staff.",

@@ -681,6 +681,11 @@ export interface components {
             /** @constant */
             derived?: true;
         };
+        /** @description Viritura engraving properties on a layout group. */
+        "layout-group-extensions": {
+            /** @description Show a section-group name vertically, reading bottom to top. Omitted or false hides it. Single-instrument group labels retain ordinary instrument-name behavior. */
+            showGroupName?: boolean;
+        };
         /** @description Viritura engraving properties on a layout staff. */
         "layout-staff-extensions": Record<string, never>;
         "page-turn-weights": {
@@ -1314,6 +1319,7 @@ export type NoteExtensions = components["schemas"]["note-extensions"];
 export type StagePosition = components["schemas"]["stage-position"];
 export type PartExtensions = components["schemas"]["part-extensions"];
 export type SystemLayoutExtensions = components["schemas"]["system-layout-extensions"];
+export type LayoutGroupExtensions = components["schemas"]["layout-group-extensions"];
 export type LayoutStaffExtensions = components["schemas"]["layout-staff-extensions"];
 export type PageTurnWeights = components["schemas"]["page-turn-weights"];
 export type PageTurnSettings = components["schemas"]["page-turn-settings"];
