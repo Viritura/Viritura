@@ -1,4 +1,4 @@
-export type Role = "score" | "part";
+type Role = "score" | "part";
 export type Category =
   | "page"
   | "spacing"
@@ -453,7 +453,7 @@ export function affectedLayouts(project: Project, scope: Scope): MockLayout[] {
   return [findLayout(project, scope.id)];
 }
 
-export type Level = "house" | "profile" | "layout";
+type Level = "house" | "profile" | "layout";
 
 export interface ChainStep {
   level: Level;
