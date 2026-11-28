@@ -1,7 +1,5 @@
-import { Button, ButtonGroup, FormField, Select } from "@viritura/ui";
+import { Button, FormField, Select } from "@viritura/ui";
 import {
-  CATEGORIES,
-  categoryDefinition,
   changeField,
   findLayout,
   findProfile,
@@ -10,7 +8,7 @@ import {
   protectedLayouts,
   resolveField,
   scopeLabel,
-  type Category,
+  type FieldDefinition,
   type Project,
   type Scope,
 } from "./styleModel";
@@ -19,27 +17,16 @@ import styles from "./StyleWorkbench.module.css";
 export interface FieldEditorProps {
   project: Project;
   scope: Scope;
-  categoryId: Category;
+  fields: FieldDefinition[];
   onCommit: (project: Project, message: string) => void;
 }
 
-export function CategoryPicker({ value, onChange }: { value: Category; onChange: (category: Category) => void }) {
-  return (
-    <ButtonGroup
-      ariaLabel="Settings category"
-      options={CATEGORIES.map((category) => ({ value: category.id, label: category.label }))}
-      value={value}
-      onChange={onChange}
-    />
-  );
-}
-
-export function FieldRows({ project, scope, categoryId, onCommit }: FieldEditorProps) {
+export function FieldRows({ project, scope, fields, onCommit }: FieldEditorProps) {
   const settings = layer(project, scope);
   const target = scopeLabel(project, scope);
   const profileName =
     scope.kind === "layout" ? findProfile(project, findLayout(project, scope.id).profileId).name : undefined;
-  return categoryDefinition(categoryId).fields.map((field) => {
+  return fields.map((field) => {
     const resolved = resolveField(project, scope, field.id);
     const explicit = settings[field.id] !== undefined;
     const kept = protectedLayouts(project, scope, field.id);

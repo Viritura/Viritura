@@ -1,5 +1,19 @@
 export type Role = "score" | "part";
-export type Category = "page" | "numbers" | "text";
+export type Category =
+  | "page"
+  | "spacing"
+  | "staves"
+  | "clefs"
+  | "accidentals"
+  | "beams"
+  | "rests"
+  | "slurs"
+  | "dynamics"
+  | "numbers"
+  | "rehearsal"
+  | "text"
+  | "lyrics"
+  | "chords";
 export type Destination = "house" | "layout" | "selection";
 export type NavigatorMode = "list" | "dropdown";
 export const DESTINATIONS: { id: Destination; label: string }[] = [
@@ -20,13 +34,26 @@ export type Field =
   | "placement"
   | "size"
   | "enclosure"
-  | "family";
+  | "family"
+  | "noteSpacing"
+  | "systemGap"
+  | "bracketStyle"
+  | "courtesyClefs"
+  | "cautionary"
+  | "beamSlant"
+  | "multiRests"
+  | "slurThickness"
+  | "tieStyle"
+  | "hairpinCap"
+  | "rehearsalStyle"
+  | "lyricSize"
+  | "chordStyle";
 export type Settings = Partial<Record<Field, string>>;
 
 /** Where an edit lands: the shared house-style layer, one layout profile, or a single layout. */
 export type Scope = { kind: "common" } | { kind: "profile"; id: string } | { kind: "layout"; id: string };
 
-interface FieldDefinition {
+export interface FieldDefinition {
   id: Field;
   label: string;
   options: { value: string; label: string }[];
@@ -35,7 +62,6 @@ interface FieldDefinition {
 export interface CategoryDefinition {
   id: Category;
   label: string;
-  description: string;
   /** Page geometry belongs to layout profiles, never to the shared layer. */
   profileOnly?: boolean;
   fields: FieldDefinition[];
@@ -51,7 +77,6 @@ export const CATEGORIES: CategoryDefinition[] = [
   {
     id: "page",
     label: "Page and staff",
-    description: "Print size, margins, staff size and casting policy for every layout using this profile.",
     profileOnly: true,
     fields: [
       { id: "paper", label: "Page size", options: choices("9 x 12 in", "Letter", "A4", "B4", "Tabloid", "A3") },
@@ -69,9 +94,54 @@ export const CATEGORIES: CategoryDefinition[] = [
     ],
   },
   {
+    id: "spacing",
+    label: "Spacing",
+    fields: [
+      { id: "noteSpacing", label: "Note spacing", options: choices("Tight", "Standard", "Loose") },
+      { id: "systemGap", label: "Gap between systems", options: choices("8 mm", "10 mm", "12 mm", "15 mm") },
+    ],
+  },
+  {
+    id: "staves",
+    label: "Staves and brackets",
+    fields: [{ id: "bracketStyle", label: "Bracket style", options: choices("Thick with hooks", "Thin", "Square") }],
+  },
+  {
+    id: "clefs",
+    label: "Clefs and keys",
+    fields: [{ id: "courtesyClefs", label: "Courtesy clefs", options: choices("At system ends", "Never") }],
+  },
+  {
+    id: "accidentals",
+    label: "Accidentals",
+    fields: [{ id: "cautionary", label: "Cautionary accidentals", options: choices("Parenthesized", "Plain", "Off") }],
+  },
+  {
+    id: "beams",
+    label: "Beams",
+    fields: [{ id: "beamSlant", label: "Maximum slant", options: choices("Shallow", "Standard", "Steep") }],
+  },
+  {
+    id: "rests",
+    label: "Rests",
+    fields: [{ id: "multiRests", label: "Multi-bar rests", options: choices("H-bar", "Church rests", "Off") }],
+  },
+  {
+    id: "slurs",
+    label: "Slurs and ties",
+    fields: [
+      { id: "slurThickness", label: "Slur thickness", options: choices("Thin", "Standard", "Heavy") },
+      { id: "tieStyle", label: "Tie placement", options: choices("Between noteheads", "Outside noteheads") },
+    ],
+  },
+  {
+    id: "dynamics",
+    label: "Dynamics and hairpins",
+    fields: [{ id: "hairpinCap", label: "Hairpin opening", options: choices("Narrow", "Standard", "Wide") }],
+  },
+  {
     id: "numbers",
     label: "Bar numbers",
-    description: "Shared appearance, with specific bracket placement on each layout.",
     fields: [
       { id: "frequency", label: "Frequency", options: choices("System starts", "Every bar", "Hidden") },
       { id: "placement", label: "Placement", options: choices("Below system", "Above system") },
@@ -82,10 +152,24 @@ export const CATEGORIES: CategoryDefinition[] = [
   {
     id: "text",
     label: "Text styles",
-    description: "A small typography sample for exploring style inheritance.",
     fields: [
       { id: "family", label: "Title font", options: choices("Libertinus Serif", "Arial / sans-serif", "Monospace") },
     ],
+  },
+  {
+    id: "rehearsal",
+    label: "Rehearsal marks",
+    fields: [{ id: "rehearsalStyle", label: "Rehearsal mark style", options: choices("Letters", "Bar numbers") }],
+  },
+  {
+    id: "lyrics",
+    label: "Lyrics",
+    fields: [{ id: "lyricSize", label: "Lyric size", options: choices("9 pt", "10 pt", "11 pt") }],
+  },
+  {
+    id: "chords",
+    label: "Chord symbols",
+    fields: [{ id: "chordStyle", label: "Chord symbol style", options: choices("Standard", "Jazz", "Roman") }],
   },
 ];
 
@@ -103,6 +187,19 @@ const BUILT_IN: Record<Field, string> = {
   size: "9 pt",
   enclosure: "None",
   family: "Libertinus Serif",
+  noteSpacing: "Standard",
+  systemGap: "12 mm",
+  bracketStyle: "Thick with hooks",
+  courtesyClefs: "At system ends",
+  cautionary: "Parenthesized",
+  beamSlant: "Standard",
+  multiRests: "H-bar",
+  slurThickness: "Standard",
+  tieStyle: "Between noteheads",
+  hairpinCap: "Standard",
+  rehearsalStyle: "Letters",
+  lyricSize: "10 pt",
+  chordStyle: "Standard",
 };
 
 export interface LayoutProfile {

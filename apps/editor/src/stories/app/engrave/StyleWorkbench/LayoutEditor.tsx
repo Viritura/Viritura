@@ -1,36 +1,36 @@
 import { Button, Checkbox, FormField, Select } from "@viritura/ui";
 import {
   assignProfile,
-  categoryDefinition,
   clearCategory,
   findProfile,
-  type Category,
+  type CategoryDefinition,
+  type FieldDefinition,
   type MockLayout,
   type Project,
 } from "./styleModel";
-import { CategoryPicker, FieldRows } from "./FieldRows";
+import { FieldRows } from "./FieldRows";
+import { CategoryBrowser, type OpenCategories } from "./CategoryBrowser";
 import styles from "./StyleWorkbench.module.css";
 
 interface LayoutEditorProps {
   project: Project;
   layout: MockLayout;
-  categoryId: Category;
-  onCategory: (category: Category) => void;
+  openCategories: OpenCategories;
+  onOpenCategories: (open: OpenCategories) => void;
   onCommit: (project: Project, message: string) => void;
-  onTransfer: () => void;
+  onTransfer: (category: CategoryDefinition) => void;
   onEditProfile: (id: string) => void;
 }
 
 export function LayoutEditor({
   project,
   layout,
-  categoryId,
-  onCategory,
+  openCategories,
+  onOpenCategories,
   onCommit,
   onTransfer,
   onEditProfile,
 }: LayoutEditorProps) {
-  const category = categoryDefinition(categoryId);
   const profile = findProfile(project, layout.profileId);
   const scope = { kind: "layout", id: layout.id } as const;
   return (
@@ -60,11 +60,43 @@ export function LayoutEditor({
       <Button size="sm" variant="link" onClick={() => onEditProfile(profile.id)}>
         Edit {profile.name} profile
       </Button>
-      <div className={styles.categoryHeading}>
-        <CategoryPicker value={categoryId} onChange={onCategory} />
-      </div>
-      <FieldRows project={project} scope={scope} categoryId={categoryId} onCommit={onCommit} />
-      {categoryId === "numbers" && (
+      <CategoryBrowser
+        project={project}
+        scope={scope}
+        open={openCategories}
+        onOpenChange={onOpenCategories}
+        renderCategory={(category, fields) => (
+          <LayoutCategoryDetail
+            project={project}
+            layout={layout}
+            category={category}
+            fields={fields}
+            onCommit={onCommit}
+            onTransfer={onTransfer}
+          />
+        )}
+      />
+    </div>
+  );
+}
+
+function LayoutCategoryDetail({
+  project,
+  layout,
+  category,
+  fields,
+  onCommit,
+  onTransfer,
+}: Pick<LayoutEditorProps, "project" | "layout" | "onCommit" | "onTransfer"> & {
+  category: CategoryDefinition;
+  fields: FieldDefinition[];
+}) {
+  const profile = findProfile(project, layout.profileId);
+  const scope = { kind: "layout", id: layout.id } as const;
+  return (
+    <>
+      <FieldRows project={project} scope={scope} fields={fields} onCommit={onCommit} />
+      {category.id === "numbers" && (
         <div className={styles.notice}>
           <span className={styles.eyebrow}>Layout-only placement</span>
           {layout.staves > 2 ? (
@@ -94,18 +126,18 @@ export function LayoutEditor({
           disabled={!category.fields.some(({ id }) => layout.overrides[id] !== undefined)}
           onClick={() =>
             onCommit(
-              clearCategory(project, scope, categoryId),
+              clearCategory(project, scope, category.id),
               `${layout.name} ${category.label.toLowerCase()} follows ${profile.name} again; manual breaks kept.`,
             )
           }
         >
           Use profile settings
         </Button>
-        <Button size="sm" onClick={onTransfer}>
+        <Button size="sm" onClick={() => onTransfer(category)}>
           Copy to layouts
         </Button>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -24,7 +24,7 @@ describe("style workbench", () => {
 
     await user.click(within(screen.getByRole("main")).getByRole("combobox", { name: "Editing" }));
     await user.click(screen.getByRole("option", { name: "Shared settings" }));
-    expect(screen.getByText("Page settings are defined in layout profiles.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Page and staff/ })).toBeNull();
     expect(screen.getByRole("img", { name: "Horn in F first page" })).toBeTruthy();
   });
 
@@ -51,5 +51,20 @@ describe("style workbench", () => {
     await user.click(screen.getByRole("button", { name: "Customize orientation" }));
     await user.click(screen.getByRole("button", { name: "Use inherited orientation" }));
     expect(screen.getByRole("button", { name: "Customize orientation" })).toBeTruthy();
+  });
+
+  it("searches across collapsed sections and restores them when cleared", async () => {
+    const user = userEvent.setup();
+    render(<StyleWorkbench />);
+
+    expect(screen.queryByRole("combobox", { name: "Slur thickness" })).toBeNull();
+    await user.type(screen.getByRole("textbox", { name: "Search settings" }), "thickness");
+    expect(screen.getByRole("combobox", { name: "Slur thickness" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Tie placement" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Staff size" })).toBeNull();
+
+    await user.clear(screen.getByRole("textbox", { name: "Search settings" }));
+    expect(screen.queryByRole("combobox", { name: "Slur thickness" })).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Staff size" })).toBeTruthy();
   });
 });
