@@ -9,12 +9,11 @@ const meta = {
     docs: {
       description: {
         component:
-          "Local-state UX prototype using @viritura/ui. The panel edits the viewed score or part; Edit house style in the project bar switches to a project-wide mode while you keep flipping through layouts. Built-in presets provide starting points; project edits and layout overrides remain separate. The preview is mock SVG with estimated page counts; refresh resets the demo.",
+          "Local-state UX prototype using @viritura/ui. The top-nav layout picker includes role, profile, and custom-setting metadata. Edit house style in the project bar switches to a project-wide mode while you keep flipping through layouts. Built-in presets provide starting points; profile values and custom layout settings remain separate. The preview is mock SVG with estimated page counts; refresh resets the demo.",
       },
     },
   },
   argTypes: {
-    initialNavigator: { control: "radio", options: ["list", "dropdown"] },
     initialDestination: { control: "radio", options: ["house", "layout", "selection"] },
   },
 } satisfies Meta<typeof StyleWorkbench>;
@@ -23,7 +22,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const HouseStyleWithLayoutList: Story = {
   name: "House style",
-  args: { initialNavigator: "dropdown", initialDestination: "house" },
+  args: { initialDestination: "house" },
 };
-export const TopNavDropdown: Story = { args: { initialNavigator: "dropdown", initialDestination: "house" } };
-export const LayoutOverrides: Story = { args: { initialNavigator: "dropdown", initialDestination: "layout" } };
+export const LayoutOverrides: Story = { args: { initialDestination: "layout" } };

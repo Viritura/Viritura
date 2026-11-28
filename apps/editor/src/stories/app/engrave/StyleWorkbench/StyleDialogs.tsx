@@ -16,7 +16,6 @@ import {
   adoptStyle,
   CATEGORIES,
   categoryDefinition,
-  clearCategory,
   copyCategory,
   duplicateProfile,
   findProfile,
@@ -26,6 +25,7 @@ import {
   type MockLayout,
   type Project,
 } from "./styleModel";
+import { SectionActions } from "./StyleActions";
 import styles from "./StyleWorkbench.module.css";
 
 type Commit = (project: Project, message: string) => void;
@@ -83,11 +83,11 @@ export function StylePresets({ project, modified, onClose, onCommit }: StylePres
           ))}
         </div>
         <p>
-          <Badge variant="success">{overrideCount} overrides preserved</Badge>
+          <Badge variant="success">{overrideCount} custom settings kept</Badge>
         </p>
         {modified && (
           <p className={styles.warning}>
-            Your house style edits and profiles will be replaced. You can undo this change.
+            Your house style edits and profiles will be replaced. Custom layout settings stay. You can undo this change.
           </p>
         )}
         {changes.length ? (
@@ -107,7 +107,7 @@ export function StylePresets({ project, modified, onClose, onCommit }: StylePres
         <Button onClick={onClose}>Cancel</Button>
         <DialogPrimaryButton
           onClick={() => {
-            onCommit(next, `Applied ${selected.name} to all layouts; layout overrides preserved.`);
+            onCommit(next, `Applied ${selected.name} to all layouts; custom layout settings stayed.`);
             onClose();
           }}
         >
@@ -200,7 +200,7 @@ export function TransferSettings({ project, source, category, onClose, onCommit 
               />
             ))}
         </div>
-        <p className={styles.warning}>Copied settings become overrides and no longer follow the profile.</p>
+        <p className={styles.warning}>Copied settings become custom and stop following the profile.</p>
       </DialogBody>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
@@ -209,7 +209,7 @@ export function TransferSettings({ project, source, category, onClose, onCommit 
           onClick={() => {
             onCommit(
               copyCategory(project, source.id, targets, category),
-              `Copied ${label} to ${targets.length} ${targets.length === 1 ? "layout" : "layouts"} as overrides.`,
+              `Copied ${label} to ${targets.length} ${targets.length === 1 ? "layout" : "layouts"} as custom settings.`,
             );
             onClose();
           }}
@@ -231,11 +231,11 @@ interface OverridesProps {
 export function OverridesReview({ project, onClose, onInspect, onCommit }: OverridesProps) {
   return (
     <Dialog open onClose={onClose} size="wide">
-      <DialogHeader title="Layout overrides" onClose={onClose} />
+      <DialogHeader title="Custom layout settings" onClose={onClose} />
       <DialogBody>
-        <p className={styles.hint}>Resetting overrides preserves manual breaks and bracket decisions.</p>
+        <p className={styles.hint}>Resetting custom settings preserves manual breaks and bracket decisions.</p>
         {project.layouts.every((layout) => Object.keys(layout.overrides).length === 0) && (
-          <p className={styles.hint}>No overrides.</p>
+          <p className={styles.hint}>No custom settings.</p>
         )}
         {project.layouts
           .filter((layout) => Object.keys(layout.overrides).length > 0)
@@ -266,17 +266,12 @@ export function OverridesReview({ project, onClose, onInspect, onCommit }: Overr
                   >
                     Inspect
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      onCommit(
-                        clearCategory(project, { kind: "layout", id: layout.id }, category.id),
-                        `${layout.name} now follows its profile for ${category.label.toLowerCase()}.`,
-                      )
-                    }
-                  >
-                    Use profile settings
-                  </Button>
+                  <SectionActions
+                    project={project}
+                    scope={{ kind: "layout", id: layout.id }}
+                    category={categoryDefinition(category.id)}
+                    onCommit={onCommit}
+                  />
                 </div>
               ))}
             </section>

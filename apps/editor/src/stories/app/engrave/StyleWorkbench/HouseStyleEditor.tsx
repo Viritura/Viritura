@@ -1,17 +1,8 @@
 import { BookOpen, Plus } from "lucide-react";
 import { Button, FormField, Select } from "@viritura/ui";
-import {
-  affectedLayouts,
-  clearCategory,
-  deleteProfile,
-  findProfile,
-  isModifiedAtScope,
-  scopeLabel,
-  type MockLayout,
-  type Project,
-  type Scope,
-} from "./styleModel";
+import { affectedLayouts, deleteProfile, findProfile, type MockLayout, type Project, type Scope } from "./styleModel";
 import { FieldRows } from "./FieldRows";
+import { SectionActions } from "./StyleActions";
 import { CategoryBrowser, type OpenCategories } from "./CategoryBrowser";
 import styles from "./StyleWorkbench.module.css";
 
@@ -123,18 +114,7 @@ export function HouseStyleEditor(props: HouseStyleEditorProps) {
           <>
             <FieldRows project={project} scope={scope} fields={fields} onCommit={onCommit} onJump={onJump} />
             <div className={styles.categoryActions}>
-              <Button
-                size="sm"
-                disabled={!category.fields.some(({ id }) => isModifiedAtScope(project, scope, id))}
-                onClick={() =>
-                  onCommit(
-                    clearCategory(project, scope, category.id),
-                    `${category.label} in ${scopeLabel(project, scope)} reset.`,
-                  )
-                }
-              >
-                Reset section
-              </Button>
+              <SectionActions project={project} scope={scope} category={category} onCommit={onCommit} />
             </div>
           </>
         )}
