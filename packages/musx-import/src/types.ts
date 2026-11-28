@@ -66,14 +66,14 @@ export type DenigmaFretboardPayload =
       barres: DenigmaFretboardBarre[];
     };
 
-export interface DenigmaFretboardCell {
+interface DenigmaFretboardCell {
   string: number;
   fret: number;
   shape: "closed" | "open" | "muted" | "custom" | "none";
   finger?: number;
 }
 
-export interface DenigmaFretboardBarre {
+interface DenigmaFretboardBarre {
   fret: number;
   startString: number;
   endString: number;
