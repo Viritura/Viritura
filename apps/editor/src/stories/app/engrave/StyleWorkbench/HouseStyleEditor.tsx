@@ -5,7 +5,7 @@ import {
   clearCategory,
   deleteProfile,
   findProfile,
-  layer,
+  isModifiedAtScope,
   scopeLabel,
   type MockLayout,
   type Project,
@@ -103,7 +103,6 @@ function ProfileSummary({ project, scope, viewing, onScope, onView, onCommit }: 
 
 export function HouseStyleEditor(props: HouseStyleEditorProps) {
   const { project, scope, openCategories, onOpenCategories, onCommit, onPresets, onJump } = props;
-  const settings = layer(project, scope);
   return (
     <div className={styles.editorBody}>
       <div className={styles.styleIdentity}>
@@ -126,11 +125,11 @@ export function HouseStyleEditor(props: HouseStyleEditorProps) {
             <div className={styles.categoryActions}>
               <Button
                 size="sm"
-                disabled={!category.fields.some(({ id }) => settings[id] !== undefined)}
+                disabled={!category.fields.some(({ id }) => isModifiedAtScope(project, scope, id))}
                 onClick={() =>
                   onCommit(
                     clearCategory(project, scope, category.id),
-                    `${category.label} in ${scopeLabel(project, scope)} now inherits.`,
+                    `${category.label} in ${scopeLabel(project, scope)} reset.`,
                   )
                 }
               >

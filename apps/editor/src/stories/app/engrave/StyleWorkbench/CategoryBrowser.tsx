@@ -3,13 +3,12 @@ import { ListFilter } from "lucide-react";
 import { Collapsible, IconButton, PanelSearchHeader } from "@viritura/ui";
 import {
   CATEGORIES,
-  layer,
+  isModifiedAtScope,
   type Category,
   type CategoryDefinition,
   type FieldDefinition,
   type Project,
   type Scope,
-  type Settings,
 } from "./styleModel";
 import styles from "./StyleWorkbench.module.css";
 
@@ -28,9 +27,9 @@ function matchingFields(
   category: CategoryDefinition,
   terms: string[],
   modifiedOnly: boolean,
-  settings: Settings,
+  isModified: (field: FieldDefinition) => boolean,
 ): FieldDefinition[] {
-  const fields = modifiedOnly ? category.fields.filter(({ id }) => settings[id] !== undefined) : category.fields;
+  const fields = modifiedOnly ? category.fields.filter(isModified) : category.fields;
   if (!terms.length) return fields;
   const matches = (text: string) => terms.every((term) => text.toLowerCase().includes(term));
   if (matches(category.label)) return fields;
@@ -42,9 +41,11 @@ export function CategoryBrowser({ project, scope, open, onOpenChange, renderCate
   const [modifiedOnly, setModifiedOnly] = useState(false);
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
   const searching = terms.length > 0 || modifiedOnly;
-  const settings = layer(project, scope);
   const visible = CATEGORIES.filter((category) => scope.kind !== "common" || !category.profileOnly)
-    .map((category) => ({ category, fields: matchingFields(category, terms, modifiedOnly, settings) }))
+    .map((category) => ({
+      category,
+      fields: matchingFields(category, terms, modifiedOnly, (field) => isModifiedAtScope(project, scope, field.id)),
+    }))
     .filter(({ fields }) => fields.length > 0);
   const anyOpen = visible.some(({ category }) => searching || open[category.id]);
   return (
@@ -73,7 +74,7 @@ export function CategoryBrowser({ project, scope, open, onOpenChange, renderCate
         </IconButton>
       </div>
       {visible.map(({ category, fields }) => {
-        const count = category.fields.filter(({ id }) => settings[id] !== undefined).length;
+        const count = category.fields.filter((field) => isModifiedAtScope(project, scope, field.id)).length;
         return (
           <Collapsible
             key={category.id}

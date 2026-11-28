@@ -4,6 +4,7 @@ import {
   changeField,
   clearCategory,
   copyCategory,
+  CATEGORIES,
   deleteProfile,
   downstreamOverrides,
   duplicateProfile,
@@ -11,6 +12,7 @@ import {
   findLayout,
   inheritedValue,
   initialProject,
+  isModifiedAtScope,
   parentScope,
   PRESETS,
   promoteField,
@@ -82,6 +84,40 @@ describe("style workbench house style", () => {
     expect(value(cleared, "full", "size")).toBe("9 pt");
   });
 
+  it("defines preset baselines at the house or profile level and resets to them", () => {
+    const project = initialProject();
+    const house = { kind: "common" } as const;
+    const scoreProfile = { kind: "profile", id: "score" } as const;
+    for (const category of CATEGORIES) {
+      for (const field of category.fields) {
+        if (category.profileOnly) {
+          expect(project.style.profiles.every((profile) => profile.settings[field.id] !== undefined)).toBe(true);
+          expect(isModifiedAtScope(project, scoreProfile, field.id)).toBe(false);
+        } else {
+          expect(project.style.common[field.id]).toBeDefined();
+          expect(isModifiedAtScope(project, house, field.id)).toBe(false);
+        }
+      }
+    }
+
+    const editedHouse = changeField(project, house, "noteSpacing", "Tight");
+    expect(inheritedValue(editedHouse, house, "noteSpacing")).toEqual({
+      value: "Standard",
+      source: "Classical preset",
+    });
+    expect(isModifiedAtScope(editedHouse, house, "noteSpacing")).toBe(true);
+    expect(changeField(editedHouse, house, "noteSpacing").style.common.noteSpacing).toBe("Standard");
+
+    const editedProfile = changeField(project, scoreProfile, "orientation", "Landscape");
+    expect(inheritedValue(editedProfile, scoreProfile, "orientation")).toEqual({
+      value: "Portrait",
+      source: "Classical preset",
+    });
+    expect(changeField(editedProfile, scoreProfile, "orientation").style.profiles[0].settings.orientation).toBe(
+      "Portrait",
+    );
+  });
+
   it("moves a profile value up to the house layer, but never page geometry", () => {
     const large = { kind: "profile", id: "large-part" } as const;
     const project = promoteField(initialProject(), large, "size");
@@ -118,5 +154,18 @@ describe("style workbench house style", () => {
     const reset = clearCategory(copied, { kind: "layout", id: "cello" }, "numbers");
     expect(findLayout(reset, "cello").overrides).toEqual({ marginInner: "20 mm" });
     expect(findLayout(reset, "cello").manualBreaks).toBe(1);
+  });
+
+  it("treats a preset profile's own house-field value as its reset baseline", () => {
+    const large = { kind: "profile", id: "large-part" } as const;
+    const initial = initialProject();
+    expect(isModifiedAtScope(initial, large, "size")).toBe(false);
+    const edited = changeField(initial, large, "size", "10 pt");
+    expect(inheritedValue(edited, large, "size")).toEqual({ value: "12 pt", source: "Classical preset" });
+    expect(value(changeField(edited, large, "size"), "horn", "size")).toBe("12 pt");
+    const promoted = promoteField(edited, large, "size");
+    expect(value(promoted, "violin", "size")).toBe("10 pt");
+    expect(value(promoted, "horn", "size")).toBe("10 pt");
+    expect(isModifiedAtScope(promoted, large, "size")).toBe(true);
   });
 });

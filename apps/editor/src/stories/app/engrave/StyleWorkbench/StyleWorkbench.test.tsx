@@ -62,6 +62,23 @@ describe("style workbench", () => {
     expect(screen.getByRole("combobox", { name: "Editing" }).textContent).toContain("Shared settings");
   });
 
+  it("shows house values as the baseline and resets edits to the selected preset", async () => {
+    const user = userEvent.setup();
+    render(<StyleWorkbench initialDestination="house" />);
+
+    await user.click(screen.getByRole("combobox", { name: "Editing" }));
+    await user.click(screen.getByRole("option", { name: "Shared settings" }));
+    await user.click(screen.getByRole("button", { name: /^Bar numbers/ }));
+    expect(screen.queryByText("Default")).toBeNull();
+    expect(screen.getByRole("list", { name: "Frequency sources" }).textContent).toBe("House");
+
+    await user.click(screen.getByRole("combobox", { name: "Frequency" }));
+    await user.click(screen.getByRole("option", { name: "Hidden" }));
+    await user.click(screen.getByRole("button", { name: "Reset frequency" }));
+    expect(screen.getByRole("combobox", { name: "Frequency" }).textContent).toContain("System starts");
+    expect(screen.queryByRole("button", { name: "Reset frequency" })).toBeNull();
+  });
+
   it("shows downstream overrides and clears them so house edits propagate", async () => {
     const user = userEvent.setup();
     render(<StyleWorkbench initialDestination="house" />);
