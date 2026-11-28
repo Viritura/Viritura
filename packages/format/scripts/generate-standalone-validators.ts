@@ -31,6 +31,7 @@ const extensionDefinitions = [
   "slur-extensions",
   "system-layout-extensions",
   "layout-staff-extensions",
+  "layout-group-extensions",
   "score-extensions",
   "text-frame",
   "system-text",

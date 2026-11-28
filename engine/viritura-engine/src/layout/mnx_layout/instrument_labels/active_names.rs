@@ -161,6 +161,7 @@ pub(in crate::layout::mnx_layout) fn dependency_salt(
         staff.resolved_short_label.hash(&mut hasher);
     }
     for group in group_variants(groups, score) {
+        group.show_group_name.hash(&mut hasher);
         group.label.hash(&mut hasher);
         group.short_label.hash(&mut hasher);
         group.resolved_full_label.hash(&mut hasher);

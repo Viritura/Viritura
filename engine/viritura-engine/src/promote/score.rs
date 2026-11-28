@@ -103,6 +103,11 @@ pub(crate) fn promote_score_definition(
             .collect(),
         use_written: r.use_written,
         pages: r.pages.into_iter().map(promote_page).collect(),
+        page_setup_role: viritura
+            .and_then(|ext| ext.get("pageSetupRole"))
+            .map(|value| serde_json::from_value(value.clone()))
+            .transpose()
+            .map_err(|error| PromoteError::InvalidPageSetupRole(error.to_string()))?,
         instrument_name_display,
         auto_hide_empty_parts,
         auto_hide_empty_staves,
@@ -143,6 +148,22 @@ mod tests {
             );
             let r: raw::Score = serde_json::from_str(&source).unwrap();
             assert!(promote_score_definition(r).is_err(), "{options}");
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_page_setup_roles() {
+        for role in [
+            serde_json::json!("band"),
+            serde_json::json!(null),
+            serde_json::json!(1),
+        ] {
+            let source = serde_json::json!({"name":"S","_x":{"viritura":{"pageSetupRole":role}}});
+            let raw: raw::Score = serde_json::from_value(source).unwrap();
+            assert!(matches!(
+                promote_score_definition(raw),
+                Err(PromoteError::InvalidPageSetupRole(_))
+            ));
         }
     }
 }

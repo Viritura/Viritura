@@ -99,6 +99,7 @@ pub enum PromoteError {
     InvalidTempoInstruction(String),
     InvalidAutoHideEmptyParts(String),
     InvalidBarNumbers(String),
+    InvalidPageSetupRole(String),
 }
 
 impl std::fmt::Display for PromoteError {
@@ -134,6 +135,7 @@ impl std::fmt::Display for PromoteError {
                 write!(f, "Viritura autoHideEmptyParts: {reason}")
             }
             Self::InvalidBarNumbers(reason) => write!(f, "Viritura barNumbers: {reason}"),
+            Self::InvalidPageSetupRole(reason) => write!(f, "Viritura pageSetupRole: {reason}"),
             Self::InvalidTempoInstruction(reason) => {
                 write!(f, "Viritura tempo instruction: {reason}")
             }

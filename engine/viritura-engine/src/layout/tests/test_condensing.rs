@@ -1261,33 +1261,53 @@ fn test_condensed_non_transposing_numbers_vertically_centered() {
 }
 
 #[test]
-fn test_condensed_transposing_inline_numbers() {
-    // Transposing instruments (e.g. Clarinet in B♭) should have numbers
-    // inline with text, NOT in a separate column.
+fn test_condensed_transposing_number_column() {
+    // Standard engraving practice: a transposing condensed staff shows one
+    // shared name ("Clarinet" / "in B♭") with the player numbers stacked in a
+    // separate column to its right, exactly like non-transposing labels.
     let json = include_str!("../../../../../packages/format/fixtures/mnx/beethoven-5-finale.mnx");
     let score = parse_mnx(json).unwrap();
     let config = default_config();
     let dl = layout_with_mnx_scores(&score, &config, 1);
     let texts = find_text_commands(&dl);
+    let sp = config.sp;
 
-    // "Clarinet 1" should exist as a single text element (number inline)
-    let cl1 = texts.iter().find(|(_, _, t)| t == "Clarinet 1");
     assert!(
-        cl1.is_some(),
-        "Transposing condensed should have 'Clarinet 1' inline. Found: {:?}",
-        texts
+        !texts
             .iter()
-            .filter(|(_, _, t)| t.contains("Clar") || t.contains("cl"))
-            .map(|(_, _, t)| t.as_str())
-            .collect::<Vec<_>>()
+            .any(|(_, _, t)| t == "Clarinet 1" || t.ends_with("B\u{266d} 2")),
+        "player numbers must not be merged into the name lines"
+    );
+    let (name_x, name_y, _) = texts
+        .iter()
+        .find(|(_, _, t)| t == "Clarinet")
+        .expect("shared Clarinet name");
+    let (trans_x, trans_y, _) = texts
+        .iter()
+        .find(|(_, y, t)| t == "in B\u{266d}" && (y - name_y).abs() < 4.0 * sp)
+        .expect("transposition line under the shared name");
+    assert!(
+        (name_x - trans_x).abs() < 0.01,
+        "name lines share one right edge"
     );
 
-    // "in B♭ 2" should also exist inline
-    let cl2 = texts
-        .iter()
-        .find(|(_, _, t)| t.contains("in B") && t.contains("2"));
+    let number = |label: &str| {
+        texts
+            .iter()
+            .find(|(x, y, t)| t == label && *x > *name_x && (y - name_y).abs() < 4.0 * sp)
+            .unwrap_or_else(|| panic!("number {label} beside the Clarinet name"))
+    };
+    let (x1, y1, _) = number("1");
+    let (x2, y2, _) = number("2");
+    assert!((x1 - x2).abs() < 0.01, "numbers form one column");
     assert!(
-        cl2.is_some(),
-        "Transposing condensed should have 'in B♭ 2' inline"
+        x1 - name_x >= 0.5 * sp,
+        "number column is separated from the name by a gutter"
+    );
+    let numbers_center = (y1 + y2) / 2.0;
+    let name_center = (name_y + trans_y) / 2.0;
+    assert!(
+        (numbers_center - name_center).abs() < 0.5 * sp,
+        "number column is centred on the name block"
     );
 }

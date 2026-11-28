@@ -81,8 +81,15 @@ fn part_header_document(authored: bool) -> Value {
 #[test]
 fn instrument_names_part_header_resolves_required_tunings_and_keeps_custom_titles() {
     use crate::layout::page::resolve_part_score_name;
+    use crate::model::layout::PageSetupRole;
 
     let score = parse(&part_header_document(false));
+    let resolve = |name: Option<&str>, parts: &[crate::model::Part], shown: &[usize], role| {
+        let mut definition = score.scores[0].clone();
+        definition.name = name.map(str::to_string);
+        definition.page_setup_role = role;
+        resolve_part_score_name(&definition, parts, shown)
+    };
     for name in [
         None,
         Some("Clarinet"),
@@ -90,21 +97,34 @@ fn instrument_names_part_header_resolves_required_tunings_and_keeps_custom_title
         Some("Clarinet in B\u{266d} 1"),
     ] {
         assert_eq!(
-            resolve_part_score_name(name, &score.parts, &[0]).as_deref(),
+            resolve(name, &score.parts, &[0], None).as_deref(),
             Some("Clarinet in B\u{266d} 1\nClarinet in A 1"),
         );
     }
     assert_eq!(
-        resolve_part_score_name(Some("Reeds player"), &score.parts, &[0]).as_deref(),
+        resolve(Some("Reeds player"), &score.parts, &[0], None).as_deref(),
         Some("Reeds player"),
     );
+    assert_eq!(resolve(Some("Score"), &score.parts, &[0, 1], None), None);
+    assert_eq!(resolve(Some("Score"), &score.parts, &[], None), None);
     assert_eq!(
-        resolve_part_score_name(Some("Score"), &score.parts, &[0, 1]),
+        resolve(
+            Some("Score"),
+            &score.parts,
+            &[0],
+            Some(PageSetupRole::Score)
+        ),
         None
     );
     assert_eq!(
-        resolve_part_score_name(Some("Score"), &score.parts, &[]),
-        None
+        resolve(
+            Some("Combined part"),
+            &score.parts,
+            &[0, 1],
+            Some(PageSetupRole::Part)
+        )
+        .as_deref(),
+        Some("Combined part")
     );
     let mut static_value = document();
     static_value["parts"][0]["name"] = json!("Clarinet 1");
@@ -114,9 +134,83 @@ fn instrument_names_part_header_resolves_required_tunings_and_keeps_custom_title
         .remove("_x");
     let static_score = parse(&static_value);
     assert_eq!(
-        resolve_part_score_name(Some("Clarinet 1"), &static_score.parts, &[0]).as_deref(),
+        resolve(Some("Clarinet 1"), &static_score.parts, &[0], None).as_deref(),
         Some("Clarinet in B\u{266d} 1"),
     );
+}
+
+#[test]
+fn instrument_names_solo_part_uses_header_without_repeating_staff_labels() {
+    for authored in [false, true] {
+        let mut value = document();
+        value["parts"].as_array_mut().unwrap().truncate(1);
+        value["parts"][0]["staves"] = json!(2);
+        value["layouts"][0]["content"] = json!([{
+            "type":"group", "symbol":"brace", "label":"Clarinet",
+            "content":[
+                {"type":"staff","sources":[{"part":"p1","staff":1,"labelRef":{"ref":"auto"}}]},
+                {"type":"staff","sources":[{"part":"p1","staff":2,"labelRef":{"ref":"auto"}}]}
+            ]
+        }]);
+        value["scores"][0]["name"] = json!("Clarinet");
+        value["scores"][0]["_x"] = json!({"viritura":{
+            "pageSetupRole":"part",
+            "instrumentNameDisplay":{"firstSystem":"hidden","subsequentSystems":"hidden"}
+        }});
+        if !authored {
+            value["scores"][0].as_object_mut().unwrap().remove("pages");
+        }
+        let config = LayoutConfig {
+            page_width: Some(800.0),
+            ..LayoutConfig::default()
+        };
+        let display = layout_with_mnx_scores(&parse(&value), &config, 0);
+        let labels: Vec<_> = texts(&display)
+            .into_iter()
+            .filter(|text| text.starts_with("Clarinet") || *text == "Cl.")
+            .collect();
+        assert_eq!(labels, ["Clarinet in B\u{266d}"], "authored={authored}");
+
+        value["scores"][0]["_x"]["viritura"]["pageSetupRole"] = json!("score");
+        let score_display = layout_with_mnx_scores(&parse(&value), &config, 0);
+        assert!(
+            !texts(&score_display)
+                .iter()
+                .any(|text| text.starts_with("Clarinet") || *text == "Cl."),
+            "full-score roles must not gain a part header, authored={authored}"
+        );
+    }
+}
+
+#[test]
+fn instrument_names_group_policy_uses_one_configured_name_per_system() {
+    let mut value = document();
+    value["parts"].as_array_mut().unwrap().truncate(1);
+    value["parts"][0]["name"] = json!("Piano");
+    value["parts"][0]["shortName"] = json!("Pno.");
+    value["parts"][0]["staves"] = json!(2);
+    value["parts"][0].as_object_mut().unwrap().remove("_x");
+    value["parts"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("transposition");
+    value["layouts"][0]["content"] = json!([{
+        "type":"group", "symbol":"brace", "label":"Keyboard",
+        "content":[
+            {"type":"staff","sources":[{"part":"p1","staff":1}],"labelRef":{"ref":"auto"}},
+            {"type":"staff","sources":[{"part":"p1","staff":2}],"labelRef":{"ref":"auto"}}
+        ]
+    }]);
+    value["scores"][0]["_x"] = json!({"viritura":{
+        "pageSetupRole":"score",
+        "instrumentNameDisplay":{"firstSystem":"full","subsequentSystems":"short"}
+    }});
+    let display = layout_with_mnx_scores(&parse(&value), &LayoutConfig::default(), 0);
+    let labels: Vec<_> = texts(&display)
+        .into_iter()
+        .filter(|text| ["Piano", "Pno.", "Keyboard"].contains(text))
+        .collect();
+    assert_eq!(labels, ["Piano", "Pno."]);
 }
 
 #[test]

@@ -3,6 +3,12 @@ import type { LayoutContent, LayoutGroup, LayoutStaff, ScoreDefinition } from "@
 /** A path through the layout tree. Each element indexes into a `content[]`. */
 export type NodePath = number[];
 
+export type GroupPropertyChange = [prop: "symbol" | "label", value: string] | [prop: "showGroupName", value: boolean];
+
+export interface GroupPropertyUpdate {
+  (path: NodePath, ...change: GroupPropertyChange): void;
+}
+
 // ─── Counts ─────────────────────────────────────────────────────
 
 /** Count leaf staff nodes in a layout content tree. */

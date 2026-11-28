@@ -1,4 +1,4 @@
-import type { LayoutContent, LayoutStaff, Part, Score, SequenceContent } from "@viritura/core";
+import type { LayoutContent, Part, Score, SequenceContent } from "@viritura/core";
 import { getCatalogInstrument } from "./InstrumentCatalog";
 import { createCatalogPart, effectiveKitFor, persistedPartNames } from "./catalogPart";
 import { buildStaffNodeForPart, synchronizePartScoreDefinitions } from "./instrumentMutations";
@@ -173,8 +173,29 @@ function replacePartStaffNode(node: LayoutContent, partId: string, replacement: 
   if (node.type === "group") {
     return { ...node, content: node.content.map((child) => replacePartStaffNode(child, partId, replacement)) };
   }
-  const staff = node as LayoutStaff;
-  return staff.sources.length === 1 && staff.sources[0]?.part === partId ? structuredClone(replacement) : node;
+  if (node.sources.length !== 1 || node.sources[0]?.part !== partId) return node;
+  const source = node.sources[0];
+  const copy = structuredClone(replacement);
+  let firstStaff = true;
+  const retainLabels = (target: LayoutContent): void => {
+    if (target.type === "group") {
+      target.content.forEach(retainLabels);
+      return;
+    }
+    if (node.label !== undefined) target.label = node.label;
+    if (node.labelRef !== undefined) {
+      target.labelRef = structuredClone(node.labelRef);
+      if (!firstStaff) delete target.labelRef.id;
+    }
+    if (source.label !== undefined) target.sources[0]!.label = source.label;
+    if (source.labelRef !== undefined) {
+      target.sources[0]!.labelRef = structuredClone(source.labelRef);
+      if (!firstStaff) delete target.sources[0]!.labelRef.id;
+    }
+    firstStaff = false;
+  };
+  retainLabels(copy);
+  return copy;
 }
 
 function pruneUnusedKitSounds(score: Score): void {
@@ -229,7 +250,7 @@ export function changeInstrumentInScore(score: Score, partId: string, instrument
   const next: Score = structuredClone(score);
   next.parts[partIndex] = synchronizeInitialInstrument(oldPart, nextPart);
   if (newStaves > oldStaves) {
-    const replacement = buildStaffNodeForPart(instrument, partId);
+    const replacement = buildStaffNodeForPart(instrument, partId, false);
     next.layouts = next.layouts?.map((layout) => ({
       ...layout,
       content: layout.content.map((node) => replacePartStaffNode(node, partId, replacement)),

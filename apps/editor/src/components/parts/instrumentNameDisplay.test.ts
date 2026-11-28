@@ -92,12 +92,13 @@ describe("instrument name display policy", () => {
     expect(updated.layouts[0]!.content).toEqual([{ type: "staff", sources: [{ part: "vn" }] }]);
   });
 
-  it("treats group labels as custom and removes them when applying a policy", () => {
+  it("preserves group names and their visibility when applying an instrument-name policy", () => {
     const labelledGroup: LayoutContent[] = [
       {
         type: "group",
         symbol: "brace",
         label: "Piano",
+        showGroupName: true,
         content: [{ type: "staff", sources: [{ part: "pno", labelRef: { ref: "auto" } }] }],
       },
     ];
@@ -110,7 +111,46 @@ describe("instrument name display policy", () => {
       firstSystem: "hidden",
       subsequentSystems: "hidden",
     });
-    expect(updated.layouts[0]!.content[0]).not.toHaveProperty("label");
+    expect(updated.layouts[0]!.content[0]).toMatchObject({ label: "Piano", showGroupName: true });
+    expect(updated.scores[0]!.instrumentNameDisplay).toEqual({
+      firstSystem: "hidden",
+      subsequentSystems: "hidden",
+    });
+    expect(instrumentNameDisplayFor(updated.layouts[0]!.content, updated.scores[0]!)).toEqual({
+      firstSystem: "hidden",
+      subsequentSystems: "hidden",
+    });
+
+    const shown = setScoreInstrumentNameDisplay(updated.layouts, updated.scores, 0, {
+      firstSystem: "full",
+      subsequentSystems: "short",
+    });
+    expect(shown.layouts[0]!.content[0]).toMatchObject({ label: "Piano" });
+    expect(shown.scores[0]!.instrumentNameDisplay).toEqual({ firstSystem: "full", subsequentSystems: "short" });
+  });
+
+  it("does not classify section names as custom instrument labels", () => {
+    const content: LayoutContent[] = [
+      {
+        type: "group",
+        label: "Woodwinds",
+        showGroupName: true,
+        content: [
+          { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "fl" }] },
+          { type: "staff", labelRef: { ref: "auto" }, sources: [{ part: "ob" }] },
+        ],
+      },
+    ];
+    expect(instrumentNameDisplayFor(content, {})).toEqual({ firstSystem: "full", subsequentSystems: "short" });
+    const updated = setScoreInstrumentNameDisplay([{ id: "base", content }], [{ layout: "base" }], 0, {
+      firstSystem: "hidden",
+      subsequentSystems: "hidden",
+    });
+    expect(updated.layouts[0]!.content[0]).toMatchObject({ label: "Woodwinds", showGroupName: true });
+    expect(instrumentNameDisplayFor(updated.layouts[0]!.content, updated.scores[0]!)).toEqual({
+      firstSystem: "hidden",
+      subsequentSystems: "hidden",
+    });
   });
 
   it("finds every layout used by authored pages and mid-system changes", () => {

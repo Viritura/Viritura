@@ -1,4 +1,4 @@
-use super::super::full_score::{FlatStaff, GroupRange};
+use super::super::full_score::{FlatLabel, FlatStaff, GroupRange};
 use crate::layout::text_styles::TextStyle;
 use crate::model::{InstrumentNameDisplayPolicy, InstrumentNameDisplaySettings};
 use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
@@ -22,40 +22,21 @@ pub(super) fn split_label_transposition(label: &str) -> (&str, Option<&str>) {
     }
 }
 
-/// Build final staff-label lines, merging condensed player numbers into transposing labels.
-pub(super) fn build_label_lines(label: &str, condensed_numbers: &[u32]) -> Vec<String> {
+/// Build staff-label name lines, putting a transposition on its own line.
+///
+/// Condensed player numbers are never merged into these lines: standard
+/// engraving practice prints one shared instrument name with the player
+/// numbers stacked in a separate column, transposing or not.
+pub(super) fn build_label_lines(label: &str) -> Vec<String> {
     if label.contains('\n') {
-        return label
-            .lines()
-            .flat_map(|line| build_label_lines(line, condensed_numbers))
-            .collect();
+        return label.lines().flat_map(build_label_lines).collect();
     }
     let (line1, line2) = split_label_transposition(label);
-    if condensed_numbers.is_empty() {
-        let mut lines = vec![line1.to_string()];
-        if let Some(line2) = line2 {
-            lines.push(line2.to_string());
-        }
-        return lines;
-    }
-
+    let mut lines = vec![line1.to_string()];
     if let Some(line2) = line2 {
-        let base_lines = [line1.to_string(), line2.to_string()];
-        let mut result = Vec::new();
-        for (index, number) in condensed_numbers.iter().enumerate() {
-            if index < base_lines.len() {
-                result.push(format!("{} {}", base_lines[index], number));
-            } else {
-                result.push(number.to_string());
-            }
-        }
-        for line in base_lines.iter().skip(condensed_numbers.len()) {
-            result.push(line.clone());
-        }
-        result
-    } else {
-        vec![line1.to_string()]
+        lines.push(line2.to_string());
     }
+    lines
 }
 
 /// Pixel extent from the right-hand anchor to the label's leftmost glyph.
@@ -72,13 +53,11 @@ pub(super) fn label_gutter_extent(
     use crate::layout::text_styles::text_width;
 
     let label_font_size = style.size_px(sp);
-    let max_line_width = build_label_lines(label, condensed_numbers)
+    let max_line_width = build_label_lines(label)
         .iter()
         .map(|line| text_width(line, label_font_size, style.family, style.bold))
         .fold(0.0_f64, f64::max);
-    let has_number_column =
-        !condensed_numbers.is_empty() && split_label_transposition(label).1.is_none();
-    let number_offset = if has_number_column {
+    let number_offset = if !condensed_numbers.is_empty() {
         label_font_size * 0.75 + 0.5 * sp
     } else {
         0.0
@@ -126,7 +105,11 @@ pub(super) fn label_column_layout(
 ) -> (f64, Vec<f64>) {
     let staff_width = staves
         .iter()
-        .filter_map(|staff| {
+        .enumerate()
+        .filter_map(|(index, staff)| {
+            if staff_uses_group_label(index, staves, groups, is_first_system, policy) {
+                return None;
+            }
             label_text(staff, is_first_system, policy)
                 .map(|label| label_gutter_extent(label, &staff.condensed_numbers, sp, style))
         })
@@ -136,7 +119,7 @@ pub(super) fn label_column_layout(
     let mut ends: Vec<Option<f64>> = vec![None; groups.len()];
     let mut extent = staff_width;
     for (index, group) in groups.iter().enumerate() {
-        let Some(label) = group_label_text(group, is_first_system, policy) else {
+        let Some(label) = group_label_text(group, staves, is_first_system, policy) else {
             continue;
         };
         let mut offset = if staff_width > 0.0 {
@@ -151,7 +134,12 @@ pub(super) fn label_column_layout(
                 }
             }
         }
-        let end = offset + label_gutter_extent(label, &[], sp, style);
+        let width = if group.source_parts.len() > 1 {
+            build_label_lines(label).len() as f64 * style.size_px(sp) * 1.15
+        } else {
+            label_gutter_extent(label, &[], sp, style)
+        };
+        let end = offset + width;
         offsets[index] = offset;
         ends[index] = Some(end);
         extent = extent.max(end);
@@ -219,11 +207,14 @@ pub(super) fn render_staff_labels(
         if index >= staff_y_offsets.len() {
             continue;
         }
+        if staff_uses_group_label(index, flat_staves, group_ranges, is_first_system, policy) {
+            continue;
+        }
         let containing_brace = group_ranges.iter().find(|group| {
             index >= group.first_staff && index <= group.last_staff && group.symbol == "brace"
         });
         let shared_part_brace = containing_brace.filter(|group| {
-            group_label_text(group, is_first_system, policy).is_none()
+            group_label_text(group, flat_staves, is_first_system, policy).is_none()
                 && group.first_staff < group.last_staff
                 && staves_share_single_part(flat_staves, group)
                 && staves_share_label(flat_staves, group, is_first_system, policy)
@@ -260,9 +251,8 @@ pub(super) fn render_staff_labels(
 
         let recolor_start = dl.commands.len();
         let condensed_numbers = &label_staff.condensed_numbers;
-        let has_number_column =
-            !condensed_numbers.is_empty() && split_label_transposition(text).1.is_none();
-        let lines = build_label_lines(text, condensed_numbers);
+        let has_number_column = !condensed_numbers.is_empty();
+        let lines = build_label_lines(text);
         let number_column_gap = 0.5 * sp;
         let number_column_width = label_font_size * 0.75;
         let name_x = if has_number_column {
@@ -344,11 +334,74 @@ pub(super) fn label_text(
     }
 }
 
-pub(super) fn group_label_text(
+fn policy_group_staff_label<'a>(
     group: &GroupRange,
+    staves: &'a [FlatStaff],
     is_first_system: bool,
     policy: Option<InstrumentNameDisplayPolicy>,
-) -> Option<&str> {
+) -> Option<&'a str> {
+    let [part] = group.source_parts.as_slice() else {
+        return None;
+    };
+    if group.label_components.is_empty()
+        || !matches!(
+            policy,
+            Some(InstrumentNameDisplayPolicy::Full | InstrumentNameDisplayPolicy::Short)
+        )
+    {
+        return None;
+    }
+    let members = staves.get(group.first_staff..=group.last_staff)?;
+    if !staves_share_single_part(staves, group)
+        || !staves_share_label(staves, group, is_first_system, policy)
+        || !members.iter().all(|staff| {
+            matches!(
+                staff.label_components.as_slice(),
+                [FlatLabel::Part { part_index, .. }] if part_index == part
+            )
+        })
+    {
+        return None;
+    }
+    members
+        .first()
+        .and_then(|staff| label_text(staff, is_first_system, policy))
+}
+
+fn staff_uses_group_label(
+    index: usize,
+    staves: &[FlatStaff],
+    groups: &[GroupRange],
+    is_first_system: bool,
+    policy: Option<InstrumentNameDisplayPolicy>,
+) -> bool {
+    groups.iter().any(|group| {
+        index >= group.first_staff
+            && index <= group.last_staff
+            && policy_group_staff_label(group, staves, is_first_system, policy).is_some()
+    })
+}
+
+pub(super) fn group_label_text<'a>(
+    group: &'a GroupRange,
+    staves: &'a [FlatStaff],
+    is_first_system: bool,
+    policy: Option<InstrumentNameDisplayPolicy>,
+) -> Option<&'a str> {
+    if group.source_parts.len() > 1 {
+        return if group.show_group_name {
+            if is_first_system {
+                group.label.as_deref()
+            } else {
+                group.short_label.as_deref().or(group.label.as_deref())
+            }
+        } else {
+            None
+        };
+    }
+    if let Some(label) = policy_group_staff_label(group, staves, is_first_system, policy) {
+        return Some(label);
+    }
     match policy {
         Some(InstrumentNameDisplayPolicy::Full) => group.resolved_full_label.as_deref(),
         Some(InstrumentNameDisplayPolicy::Short) => group

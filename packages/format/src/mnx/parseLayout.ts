@@ -76,6 +76,8 @@ function parseLayoutGroup(raw: RawStaffGroup): LayoutGroup {
   if (raw.label !== undefined) group.label = raw.label;
   if (raw.labelRef) group.labelRef = raw.labelRef;
   if (raw.barlineStyle) group.barlineStyle = raw.barlineStyle;
+  const viritura = raw._x?.["viritura"] as Record<string, unknown> | undefined;
+  if (typeof viritura?.["showGroupName"] === "boolean") group.showGroupName = viritura["showGroupName"];
   return group;
 }
 

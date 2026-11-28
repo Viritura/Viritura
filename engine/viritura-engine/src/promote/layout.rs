@@ -128,6 +128,10 @@ pub(crate) fn promote_staff_group(
         label: r.label.map(|l| l.0),
         label_ref: r.label_ref.map(promote_label_ref),
         barline_style: r.barline_style.map(barline_style_to_string),
+        show_group_name: original_json
+            .pointer("/_x/viritura/showGroupName")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
     }
 }
 

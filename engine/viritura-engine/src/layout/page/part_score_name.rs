@@ -4,19 +4,29 @@ use super::instrument_names::resolve_initial_part_display_names;
 use super::{augment_part_score_name, build_display_name, resolve_required_part_display_names};
 use crate::layout::config::LayoutConfig;
 use crate::layout::text_styles::{text_width, TextRole};
-use crate::model::Part;
+use crate::model::{
+    layout::{PageSetupRole, ScoreDefinition},
+    Part,
+};
 use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
 
 /// Stored automatic score names may predate instrument changes. Recognize the
 /// initial name, but keep explicitly renamed scores verbatim.
 pub(crate) fn resolve_part_score_name(
-    name: Option<&str>,
+    score: &ScoreDefinition,
     parts: &[Part],
     shown: &[usize],
 ) -> Option<String> {
-    if shown.is_empty() || shown.len() >= parts.len() {
+    if shown.is_empty()
+        || match score.page_setup_role {
+            Some(PageSetupRole::Score) => true,
+            Some(PageSetupRole::Part) => false,
+            None => shown.len() >= parts.len(),
+        }
+    {
         return None;
     }
+    let name = score.name.as_deref();
     let required = resolve_required_part_display_names(parts);
     let [index] = shown else {
         return name.map(str::to_string);

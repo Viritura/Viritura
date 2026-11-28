@@ -908,6 +908,7 @@ pub(super) struct GroupRange {
     pub(crate) depth: usize,
     /// Source parts before empty staves are hidden.
     pub(crate) source_parts: Vec<usize>,
+    pub(crate) show_group_name: bool,
 }
 
 /// Compute which staff indices should display system objects (tempo, rehearsal marks).
