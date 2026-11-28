@@ -220,7 +220,7 @@ export interface HouseStyle {
 export const PRESETS: [HouseStyle, HouseStyle] = [
   {
     id: "concert",
-    name: "Concert",
+    name: "Classical",
     description: "9 x 12 scores at 5 mm, Letter parts at 7 mm, plus a large-print part profile.",
     common: { frequency: "System starts", size: "9 pt", enclosure: "None" },
     profiles: [
@@ -281,7 +281,7 @@ export interface MockLayout {
 
 export interface Project {
   style: HouseStyle;
-  /** The library style this project's house style was adopted from. */
+  /** The preset this project's house style was adopted from. */
   origin: { id: string; name: string };
   layouts: MockLayout[];
 }
@@ -475,20 +475,11 @@ export function adoptStyle(project: Project, style: HouseStyle): Project {
   };
 }
 
-export function isModifiedFromOrigin(project: Project, library: HouseStyle[]): boolean {
-  const origin = library.find((style) => style.id === project.origin.id);
+export function isModifiedFromOrigin(project: Project): boolean {
+  const origin = PRESETS.find((style) => style.id === project.origin.id);
   if (!origin) return true;
   const comparable = (style: HouseStyle) => JSON.stringify({ common: style.common, profiles: style.profiles });
   return comparable(origin) !== comparable(project.style);
-}
-
-export function snapshotStyle(project: Project, id: string, name: string): HouseStyle {
-  return {
-    ...structuredClone(project.style),
-    id,
-    name,
-    description: `Saved from Evening Sketches with ${project.style.profiles.length} layout profiles.`,
-  };
 }
 
 export function copyCategory(project: Project, sourceId: string, targets: string[], category: Category): Project {

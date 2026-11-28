@@ -9,7 +9,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Local-state UX prototype using @viritura/ui. The panel edits the viewed score or part; Edit house style in the project bar switches to a project-wide mode while you keep flipping through layouts. Layout overrides are preserved. The preview is mock SVG with estimated page counts; refresh resets the demo.",
+          "Local-state UX prototype using @viritura/ui. The panel edits the viewed score or part; Edit house style in the project bar switches to a project-wide mode while you keep flipping through layouts. Built-in presets provide starting points; project edits and layout overrides remain separate. The preview is mock SVG with estimated page counts; refresh resets the demo.",
       },
     },
   },
