@@ -2554,6 +2554,35 @@ describe("convertMusicXmlToMnx — octave shifts", () => {
     expect(measure.ottavas![0]).toMatchObject({ value, end: { position: { fraction: [0, 1] } } });
   });
 
+  it("reports unpaired octave-shift boundaries instead of failing the import", () => {
+    const note = (octave: number) =>
+      `<note><pitch><step>C</step><octave>${octave}</octave></pitch><duration>1</duration><type>quarter</type></note>`;
+    const stray = wrapScore(
+      `${note(5)}<direction><direction-type><octave-shift type="stop" size="8"/></direction-type></direction>${note(5)}${note(5)}${note(5)}`,
+    );
+    const strayDiagnostics = new DiagnosticCollector();
+    const strayScore = convertMusicXmlToMnx(stray, { diagnostics: strayDiagnostics });
+    expect(strayScore.parts[0]!.measures[0]!.ottavas).toBeUndefined();
+    expect(strayDiagnostics.all()).toContainEqual(expect.objectContaining({ code: "musicxml-ottava" }));
+
+    const unclosed = wrapScore(
+      `${note(5)}<direction><direction-type><octave-shift type="down" size="8"/></direction-type></direction>${note(6)}${note(6)}${note(6)}`,
+    );
+    const unclosedDiagnostics = new DiagnosticCollector();
+    const unclosedScore = convertMusicXmlToMnx(unclosed, { diagnostics: unclosedDiagnostics });
+    expect(unclosedScore.parts[0]!.measures[0]!.ottavas).toEqual([
+      expect.objectContaining({
+        value: 1,
+        position: { fraction: [1, 4] },
+        end: expect.objectContaining({ position: { fraction: [3, 4] } }),
+      }),
+    ]);
+    expect(unclosedScore.parts[0]!.measures[0]!.sequences![0]!.content[1]).toMatchObject({
+      notes: [{ pitch: { octave: 6 } }],
+    });
+    expect(unclosedDiagnostics.all()).toContainEqual(expect.objectContaining({ code: "musicxml-ottava" }));
+  });
+
   it("pairs an octave-shift start + stop within a single measure", () => {
     // "down" octave-shift sounds an octave higher → 8va (value 1).
     const xml = wrapScore(`

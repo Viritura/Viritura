@@ -30,7 +30,13 @@ function before(a: Location, b: Location): boolean {
   );
 }
 
-function directionShifts(element: Element, measure: number, cursor: Fraction, divisions: number): ShiftChange[] {
+function directionShifts(
+  element: Element,
+  measure: number,
+  cursor: Fraction,
+  divisions: number,
+  report: OttavaIssueReporter,
+): ShiftChange[] {
   const result: ShiftChange[] = [];
   const position = cursor.add(durationFraction(Number(childText(element, "offset") ?? "0"), divisions));
   for (const type of findChildren(element, "direction-type")) {
@@ -38,8 +44,10 @@ function directionShifts(element: Element, measure: number, cursor: Fraction, di
     if (!shift || shift.getAttribute("type") === "continue") continue;
     const size = Number(shift.getAttribute("size") ?? "8");
     const shiftType = shift.getAttribute("type");
-    if (!["up", "down", "stop"].includes(shiftType ?? "") || ![8, 15, 22].includes(size))
-      throw new Error("Invalid MusicXML octave-shift.");
+    if (!["up", "down", "stop"].includes(shiftType ?? "") || ![8, 15, 22].includes(size)) {
+      report(measure, "Invalid MusicXML octave-shift was ignored.");
+      continue;
+    }
     const value =
       shift.getAttribute("type") === "stop"
         ? undefined
@@ -56,7 +64,7 @@ function directionShifts(element: Element, measure: number, cursor: Fraction, di
   return result;
 }
 /** Attribute and direction offsets affect score time, not XML voice order. */
-function sourceTimeline(part: Element) {
+function sourceTimeline(part: Element, report: OttavaIssueReporter = () => {}) {
   const changes: PitchChange[] = [];
   const shifts: ShiftChange[] = [];
   const notes: NoteLocation[] = [];
@@ -84,7 +92,7 @@ function sourceTimeline(part: Element) {
           });
         }
       } else if (element.tagName === "direction") {
-        shifts.push(...directionShifts(element, mi, cursor, divisions));
+        shifts.push(...directionShifts(element, mi, cursor, divisions, report));
       } else if (element.tagName === "note") {
         const chord = findChild(element, "chord") !== null;
         if (!chord) chordPosition = cursor;
@@ -125,31 +133,36 @@ export function sourcePitchTimeline(part: Element): Map<Element, TransposeInterv
   );
 }
 
-export function sourceOttavaSpans(part: Element, measureIds: readonly string[]): Map<number, MnxOttava[]> {
-  const { shifts, notes } = sourceTimeline(part);
+export type OttavaIssueReporter = (measure: number, message: string) => void;
+
+/**
+ * Pairs MusicXML octave-shift boundaries into MNX spans. Malformed boundaries
+ * are reported and skipped rather than failing the whole import; a span left
+ * open at the end of the part ends at its last affected event.
+ */
+export function sourceOttavaSpans(
+  part: Element,
+  measureIds: readonly string[],
+  report: OttavaIssueReporter = () => {},
+): Map<number, MnxOttava[]> {
+  const { shifts, notes } = sourceTimeline(part, report);
   const open = new Map<string, ShiftChange>();
   const spans = new Map<number, MnxOttava[]>();
-  for (const shift of shifts) {
-    const key = `${shift.staff}:${shift.number}`;
-    if (shift.value !== undefined) {
-      if (open.has(key)) throw new Error("MusicXML octave-shift starts before its previous span stops.");
-      open.set(key, shift);
-      continue;
-    }
-    const start = open.get(key);
-    if (!start) throw new Error("MusicXML octave-shift stop has no matching start.");
+  const close = (start: ShiftChange, stop: Location | undefined): void => {
     // MusicXML stops at a boundary; MNX ends at the last affected event's onset.
     const last = notes.findLast(
       (note) =>
         note.staff === start.staff &&
         (start.voice === undefined || note.voice === start.voice) &&
         before(start, note) &&
-        before(note, shift) &&
-        !(note.measure === shift.measure && note.position.key() === shift.position.key()),
+        (stop === undefined ||
+          (before(note, stop) && !(note.measure === stop.measure && note.position.key() === stop.position.key()))),
     );
-    if (!last || start.value === undefined) throw new Error("MusicXML octave-shift contains no events.");
-    const measure = measureIds[last.measure];
-    if (!measure) throw new Error("MusicXML octave-shift references a missing measure.");
+    const measure = last && measureIds[last.measure];
+    if (!last || !measure || start.value === undefined) {
+      report(start.measure, "MusicXML octave-shift covers no notes and was dropped.");
+      return;
+    }
     const span: MnxOttava = {
       value: start.value,
       position: { fraction: [start.position.n, start.position.d] },
@@ -160,8 +173,31 @@ export function sourceOttavaSpans(part: Element, measureIds: readonly string[]):
     const list = spans.get(start.measure) ?? [];
     list.push(span);
     spans.set(start.measure, list);
+  };
+  for (const shift of shifts) {
+    const key = `${shift.staff}:${shift.number}`;
+    const start = open.get(key);
+    if (shift.value !== undefined) {
+      if (start) {
+        report(
+          shift.measure,
+          "MusicXML octave-shift starts before its previous span stops; closing the previous span.",
+        );
+        close(start, shift);
+      }
+      open.set(key, shift);
+      continue;
+    }
+    if (!start) {
+      report(shift.measure, "MusicXML octave-shift stop has no matching start and was ignored.");
+      continue;
+    }
+    close(start, shift);
     open.delete(key);
   }
-  if (open.size) throw new Error("MusicXML octave-shift has no matching stop.");
+  for (const start of open.values()) {
+    report(start.measure, "MusicXML octave-shift has no matching stop; ending it at its last note.");
+    close(start, undefined);
+  }
   return spans;
 }

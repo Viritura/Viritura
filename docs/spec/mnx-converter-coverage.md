@@ -88,7 +88,10 @@ Export places the stop after that final event, before any following onset in
 the scoped voices. Legacy endpoints that do not coincide with an event onset
 retain their stop boundary and produce an export warning. Spans are paired by staff and
 MusicXML number in rhythmic order, including offsets and cross-measure spans,
-and retain their optional voice scope.
+and retain their optional voice scope. Malformed boundaries produce a
+`musicxml-ottava` import warning instead of failing the import: a stray stop is
+ignored, a span with no notes is dropped, a restart closes the open span, and a
+span left open at the end of the part ends at its last affected note.
 
 Sources: [MusicXML 4.0 octave-shift](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/octave-shift/),
 [MNX ottava](https://mnx.formats.music/docs/mnx-reference/objects/ottava/),

@@ -267,6 +267,7 @@ export function buildParts(
     const ottavasByMeasure = sourceOttavaSpans(
       partEl,
       globalMeasures.map((measure, mi) => measure.id ?? `m${mi + 1}`),
+      (mi, message) => flags.diagnostics?.warn(`/parts/${partIdx}/measures/${mi}/ottavas`, message, "musicxml-ottava"),
     );
     const ottavaVoices = new Set(
       [...ottavasByMeasure.values()].flatMap((spans) => spans.flatMap((span) => (span.voice ? [span.voice] : []))),

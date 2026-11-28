@@ -168,10 +168,17 @@ fn test_authored_measure_cache_updates_ottava_pitch_geometry_after_endpoint_edit
         };
         let mut cache = LayoutCache::new();
         layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
-        for (end, value) in [("m18", -1), ("m6", 1), ("m12", -2)] {
+        // A voice-scope edit changes which events shift without moving the endpoints.
+        for (end, value, voice) in [
+            ("m18", -1, None),
+            ("m6", 1, None),
+            ("m12", -2, None),
+            ("m12", -2, Some("unmatched")),
+        ] {
             let ottava = &mut score.parts[0].measures[1].ottavas.as_mut().unwrap()[0];
             ottava.end.measure = end.into();
             ottava.value = value;
+            ottava.voice = voice.map(Into::into);
             let expected = layout_with_mnx_scores(&score, &config, 0);
             let actual = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
             assert!(
@@ -180,7 +187,7 @@ fn test_authored_measure_cache_updates_ottava_pitch_geometry_after_endpoint_edit
                     .iter()
                     .map(|number| number.to_bits())
                     .eq(actual.to_binary().iter().map(|number| number.to_bits())),
-                "authored cached geometry must follow ottava endpoint {end} and value {value}"
+                "authored cached geometry must follow ottava endpoint {end}, value {value} and voice {voice:?}"
             );
         }
     }
