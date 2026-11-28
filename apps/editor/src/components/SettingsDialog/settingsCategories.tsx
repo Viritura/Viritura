@@ -77,11 +77,12 @@ const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: "page-defaults",
-    label: "Page Defaults",
+    label: "New project defaults",
     group: "General",
     icon: <FileText size={14} />,
-    description: "Independent page size, margins, and staff size defaults for new scores and parts.",
-    keywords: ["paper", "letter", "a4", "9x12", "portrait", "landscape", "rastral", "layout"],
+    description:
+      "Page size, margins, and staff size that new projects start with. Existing projects keep their house style.",
+    keywords: ["page", "paper", "letter", "a4", "9x12", "portrait", "landscape", "rastral", "layout", "house style"],
     Panel: PageDefaultsPanel,
   },
   {
