@@ -317,7 +317,7 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
 
   it("does not shift encoded pitches while parsing and serializing an ottava", () => {
     const source: ReturnType<typeof serializeMnx> = JSON.parse(
-      fs.readFileSync(path.join(scoresDir, "ottavas-8va.mnx"), "utf8"),
+      fs.readFileSync(mnxFixtures.find((fixture) => fixture.name === "ottavas-8va.mnx")!.path, "utf8"),
     );
     const parsed = parseMnx(source);
     const serialized = serializeMnx(parsed);
