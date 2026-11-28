@@ -26,6 +26,13 @@ x-public-environment: &public-environment
   VIRITURA_CACHE_ROOT: /tmp/viritura-cache
   VIRITURA_VITE_CACHE_DIR: /tmp/viritura-vite
 
+# Each metadata call on a Windows bind mount takes about 1.6 ms, and the scoped
+# watcher polls thousands of paths through Node's default four-thread libuv
+# pool. Module reads then queue behind poll stats, so page loads took seconds
+# per module. A larger pool keeps request I/O moving. See infra/dev/README.md.
+x-node-environment: &node-environment
+  <<: *public-environment
+  UV_THREADPOOL_SIZE: "64"
 x-managed-labels: &managed-labels
   com.viritura.dev.managed: "true"
 
@@ -159,7 +166,7 @@ services:
     profiles: ["app", "editor", "ui", "full"]
     command: ["pnpm", "--filter", "@viritura/editor", "dev", "--configLoader", "runner"]
     environment:
-      <<: *public-environment
+      <<: *node-environment
       VIRITURA_CONTAINER_HOST: editor.${VIRITURA_SLUG}.viritura.localhost
       VITE_VIRITURA_API_BASE_URL: http://api.viritura.localhost
       VITE_VIRITURA_WEBSITE_URL: http://web.${VIRITURA_SLUG}.viritura.localhost
@@ -179,7 +186,7 @@ services:
     # source bind mount can mistake an unrelated new process for the old server.
     command: ["pnpm", "--filter", "@viritura/website", "dev", "--configLoader", "runner", "--ignore-lock"]
     environment:
-      <<: *public-environment
+      <<: *node-environment
       VIRITURA_CONTAINER_HOST: web.${VIRITURA_SLUG}.viritura.localhost
       VITE_VIRITURA_API_BASE_URL: http://api.viritura.localhost
     networks: *proxy-networks
@@ -200,7 +207,7 @@ services:
       - pnpm --filter @viritura/server-ui exec tsc --noEmit &&
         pnpm --filter @viritura/server-ui exec vite build --watch --configLoader runner
     environment:
-      <<: *public-environment
+      <<: *node-environment
 
   api:
     <<: *api-build
@@ -255,7 +262,7 @@ services:
     command:
       ["pnpm", "--filter", "@viritura/ui", "exec", "storybook", "dev", "-p", "6005", "--host", "0.0.0.0", "--no-open"]
     environment:
-      <<: *public-environment
+      <<: *node-environment
       CI: "true"
     networks: *proxy-networks
     labels:
@@ -271,7 +278,7 @@ services:
     profiles: ["storybook", "storybook-mnx", "full"]
     command: ["pnpm", "--filter", "@viritura/editor", "run", "storybook:mnx", "--host", "0.0.0.0", "--no-open"]
     environment:
-      <<: *public-environment
+      <<: *node-environment
       CI: "true"
       VIRITURA_CONTAINER_HOST: mnx.${VIRITURA_SLUG}.viritura.localhost
       VITE_VIRITURA_API_BASE_URL: http://api.viritura.localhost
@@ -289,7 +296,7 @@ services:
     profiles: ["storybook", "storybook-app", "full"]
     command: ["pnpm", "--filter", "@viritura/editor", "run", "storybook", "--host", "0.0.0.0", "--no-open"]
     environment:
-      <<: *public-environment
+      <<: *node-environment
       CI: "true"
       VIRITURA_CONTAINER_HOST: storybook.${VIRITURA_SLUG}.viritura.localhost
       VITE_VIRITURA_API_BASE_URL: http://api.viritura.localhost
