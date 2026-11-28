@@ -4,8 +4,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const scoreEntries = vi.hoisted(() => [
-  { index: 0, name: "Chamber Score", isScore: true },
-  { index: 1, name: "Flute 1", isScore: false },
+  { index: 0, name: "Chamber Score", isScore: true, detail: "Score profile" },
+  { index: 1, name: "Flute 1", isScore: false, detail: "Part profile" },
 ]);
 
 vi.mock("../store/DocumentContext", () => ({
@@ -33,8 +33,8 @@ describe("ScoreSwitcher", () => {
     scoreEntries.splice(
       0,
       scoreEntries.length,
-      { index: 0, name: "Chamber Score", isScore: true },
-      { index: 1, name: "Flute 1", isScore: false },
+      { index: 0, name: "Chamber Score", isScore: true, detail: "Score profile" },
+      { index: 1, name: "Flute 1", isScore: false, detail: "Part profile" },
     );
   });
 

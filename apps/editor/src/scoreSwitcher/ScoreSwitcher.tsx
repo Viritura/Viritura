@@ -121,7 +121,8 @@ export function ScoreSwitcherPicker({
               })
             }
           >
-            {e.name}
+            <span className={styles.rowName}>{e.name}</span>
+            {e.detail && <span className={styles.rowDetail}>{e.detail}</span>}
           </ListRow>
         ))}
       </div>

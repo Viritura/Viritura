@@ -105,3 +105,17 @@
   outline: none;
   box-shadow: var(--focus-ring);
 }
+
+.rowName {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowDetail {
+  display: block;
+  font-size: var(--type-small-size);
+  color: var(--text-muted);
+}

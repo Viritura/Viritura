@@ -10,12 +10,15 @@
 import type { Score } from "@viritura/core";
 import { getScoreDisplayName } from "../publish/batchRender";
 import { collectPartIdsInLayout } from "../score/scoreMembership";
+import { layoutOverrides, layoutProfileScope, scopeName } from "../engraveStyle";
 
 export interface ScoreEntry {
   readonly index: number;
   readonly name: string;
   /** Multi-part definitions are scores; one-part definitions are part extracts. */
   readonly isScore: boolean;
+  /** Layout profile and how many settings this layout customizes, e.g. "Part profile · 2 custom". */
+  readonly detail?: string;
 }
 
 export function buildScoreEntries(score: Score | null): ScoreEntry[] {
@@ -24,6 +27,13 @@ export function buildScoreEntries(score: Score | null): ScoreEntry[] {
   return score.scores.map((sd, index) => {
     const layout = sd.layout ? layouts.find((l) => l.id === sd.layout) : undefined;
     const partCount = layout ? collectPartIdsInLayout(layout.content).size : 0;
-    return { index, name: getScoreDisplayName(score, index), isScore: partCount > 1 };
+    const custom = layoutOverrides(score, index).total;
+    const profile = `${scopeName(score, layoutProfileScope(score, index))} profile`;
+    return {
+      index,
+      name: getScoreDisplayName(score, index),
+      isScore: partCount > 1,
+      detail: custom ? `${profile} · ${custom} custom` : profile,
+    };
   });
 }

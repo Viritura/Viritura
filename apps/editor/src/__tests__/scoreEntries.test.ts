@@ -34,4 +34,10 @@ describe("buildScoreEntries", () => {
   it("groups a partial multi-part layout as a score", () => {
     expect(buildScoreEntries(scoreFixture())[1]).toMatchObject({ name: "Choir Score", isScore: true });
   });
+
+  it("describes each layout's profile and custom settings", () => {
+    const score = scoreFixture();
+    score.scores![1] = { ...score.scores![1]!, pageSetupRole: "score", pageSetup: { spatiumMm: 2 } };
+    expect(buildScoreEntries(score).map((entry) => entry.detail)).toEqual(["Part profile", "Score profile · 1 custom"]);
+  });
 });

@@ -139,8 +139,8 @@ describe("buildJumpBarActions", () => {
   };
   const actions = buildJumpBarActions(baseCallbacks, {
     scoreEntries: [
-      { index: 0, name: "Full Score", isScore: true },
-      { index: 1, name: "Flute 1", isScore: false },
+      { index: 0, name: "Full Score", isScore: true, detail: "Score profile" },
+      { index: 1, name: "Flute 1", isScore: false, detail: "Part profile" },
     ],
     settings: [{ id: "appearance", label: "Appearance", keywords: ["theme", "dark", "light"] }],
   });
@@ -323,7 +323,7 @@ describe("buildJumpBarActions", () => {
       openSettings,
     };
     const derived = buildJumpBarActions(callbacks, {
-      scoreEntries: [{ index: 3, name: "Clarinet", isScore: false }],
+      scoreEntries: [{ index: 3, name: "Clarinet", isScore: false, detail: "Part profile" }],
       settings: [{ id: "import", label: "Import", keywords: [] }],
     });
 
