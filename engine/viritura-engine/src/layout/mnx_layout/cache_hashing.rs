@@ -63,6 +63,7 @@ pub(super) fn ottava_aware_hash(
         ottava.end_measure.hash(&mut hasher);
         ottava.end_beat.to_bits().hash(&mut hasher);
         ottava.value.hash(&mut hasher);
+        ottava.voice.hash(&mut hasher);
     }
     hasher.finish()
 }

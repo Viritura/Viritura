@@ -11,6 +11,7 @@ import {
 } from "@viritura/core";
 import type { PartPlan } from "./types";
 import {
+  add,
   compare,
   durationOf,
   multiply,
@@ -126,6 +127,31 @@ function octaveDirections(writer: DirectionWriter, mi: number): void {
     if (!staff) continue;
     const voice = outputVoice(plan, ottava.voice, ottava.staff ?? 1);
     const end = writer.end(ottava.end, ottava.staff ?? 1);
+    if (![-3, -2, -1, 1, 2, 3].includes(ottava.value)) throw new Error("Invalid octave-shift value.");
+    const scopedEvents = plan.measures[end.mi]!.sequences.filter(
+      (sequence) =>
+        sequence.sourceStaff === (ottava.staff ?? 1) &&
+        (ottava.voice === undefined || sequence.sequence.voice === ottava.voice),
+    ).flatMap((sequence) => sequence.events);
+    const finalEvents = scopedEvents.filter((event) => compare(event.position, end.position) === 0);
+    const nextOnset = scopedEvents
+      .filter((event) => compare(event.position, end.position) > 0)
+      .reduce(
+        (position, event) => (compare(event.position, position) < 0 ? event.position : position),
+        plan.measures[end.mi]!.duration,
+      );
+    if (!finalEvents.length)
+      writer.diagnostics.warn(
+        `/parts/${plan.selection.sourceIndex}/measures/${mi}/ottavas`,
+        "Ottava endpoint does not reference an event; exporting it as a legacy stop boundary.",
+        "musicxml-ottava-endpoint",
+      );
+    // MNX's inclusive final onset becomes MusicXML's boundary after that event.
+    end.position = finalEvents.reduce((position, event) => {
+      const release = add(event.position, event.duration);
+      return compare(release, position) > 0 ? release : position;
+    }, end.position);
+    if (finalEvents.length && compare(end.position, nextOnset) > 0) end.position = nextOnset;
     const position = scaledPosition(plan, mi, ottava.position.fraction, ottava.staff);
     const number = writer.number("octave", mi, position, end);
     const size = Math.abs(ottava.value) * 7 + 1;

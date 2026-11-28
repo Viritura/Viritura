@@ -838,6 +838,7 @@ pub(crate) fn resolve_all_ottavas(
                     end_measure: end_measure_global,
                     end_beat,
                     value: ott.value,
+                    voice: ott.voice.clone(),
                 });
             }
         }

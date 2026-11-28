@@ -76,6 +76,7 @@ pub(crate) struct AccidentalObstacle {
 
 /// An ottava range resolved to absolute measure indices and beat positions.
 /// Used to apply display pitch transposition for notes under ottava markings.
+#[derive(Clone)]
 pub(crate) struct ResolvedOttavaRange {
     pub(crate) start_measure: usize,
     pub(crate) start_beat: f64,
@@ -83,6 +84,7 @@ pub(crate) struct ResolvedOttavaRange {
     pub(crate) end_beat: f64,
     /// Ottava shift in octaves: 1=8va, 2=15ma, -1=8vb, etc.
     pub(crate) value: i32,
+    pub(crate) voice: Option<String>,
 }
 
 #[derive(Clone)]

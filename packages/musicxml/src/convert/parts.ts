@@ -14,7 +14,7 @@ import type {
   PartInfo,
 } from "../types";
 import { IdGenerator } from "./idGenerator";
-import { type ConvertFlags, type OttavaEvent, type TupletAccumulator, processMeasureNotes } from "./measureNotes";
+import { type ConvertFlags, type TupletAccumulator, processMeasureNotes } from "./measureNotes";
 import type { ActiveBeam } from "./beamImport";
 import { type GlissandoState, type SlurState } from "./notes";
 import { type TransposeInterval } from "./pitchDuration";
@@ -23,7 +23,7 @@ import { validateFretboard } from "@viritura/core";
 import type { ImportedHarmonySource } from "./harmonyConsolidation";
 import type { OpenLyricExtender } from "./lyricExtenders";
 import { nativeFormattedText } from "./textRuns";
-import { sourcePitchTimeline } from "./pitchTimeline";
+import { sourceOttavaSpans, sourcePitchTimeline } from "./pitchTimeline";
 
 function collectLyricLineIds(content: readonly MnxSequenceContent[], ids: Set<string>): void {
   for (const item of content) {
@@ -121,10 +121,6 @@ function resolveStaves(declaredText: string | null | undefined, partEl: Element)
   return staves > 1 ? staves : undefined;
 }
 
-// A part-level octave-shift cursor: the open `start` boundary awaiting its
-// `stop`, remembered across measures so a shift can span them.
-type OpenOttava = { mi: number; position: MnxRhythmicPosition; value: number; staff?: number };
-
 interface LyricMetadataCandidates {
   labels: Set<string>;
   languages: Set<string>;
@@ -157,40 +153,9 @@ function collectLyricMetadata(measure: Element, candidates: Map<string, LyricMet
   }
 }
 
-// Fold one measure's octave-shift boundary events into completed `ottava`
-// spans, buffered against their START measure. A shift may begin in one measure
-// and end in a later one, so the open boundary is threaded through (returned)
-// rather than reset per measure. Returns the still-open boundary (or null).
-function pairOttavaEvents(
-  events: OttavaEvent[],
-  mi: number,
-  measureId: string,
-  open: OpenOttava | null,
-  byMeasure: Map<number, MnxOttava[]>,
-): OpenOttava | null {
-  let current = open;
-  for (const ev of events) {
-    if (ev.action === "start" && ev.value !== undefined) {
-      current = { mi, position: ev.position, value: ev.value, staff: ev.staff };
-    } else if (ev.action === "stop" && current) {
-      const ottava: MnxOttava = {
-        value: current.value,
-        position: current.position,
-        end: { measure: measureId, position: ev.position },
-      };
-      if (current.staff !== undefined) ottava.staff = current.staff;
-      const arr = byMeasure.get(current.mi);
-      if (arr) arr.push(ottava);
-      else byMeasure.set(current.mi, [ottava]);
-      current = null;
-    }
-  }
-  return current;
-}
-
 // Write buffered octave-shift spans onto their START measures. `ottavas` is a
 // first-class MNX field (not a vendor extension), so this is unconditional. Any
-// shift still open at the end of the part is dropped (it has no valid end).
+// span has already been validated against the source timeline.
 function writeOttavaSpans(measures: MnxPartMeasure[], byMeasure: Map<number, MnxOttava[]>): void {
   for (let mi = 0; mi < measures.length; mi++) {
     const ottavas = byMeasure.get(mi);
@@ -299,14 +264,20 @@ export function buildParts(
     type Span = { type: string; position: Pos; end: { measure: string; position: Pos }; staff?: number };
     const hairpinsByMeasure = new Map<number, MnxDynamic[]>();
     const pedalsByMeasure = new Map<number, Span[]>();
-    const ottavasByMeasure = new Map<number, MnxOttava[]>();
+    const ottavasByMeasure = sourceOttavaSpans(
+      partEl,
+      globalMeasures.map((measure, mi) => measure.id ?? `m${mi + 1}`),
+      (mi, message) => flags.diagnostics?.warn(`/parts/${partIdx}/measures/${mi}/ottavas`, message, "musicxml-ottava"),
+    );
+    const ottavaVoices = new Set(
+      [...ottavasByMeasure.values()].flatMap((spans) => spans.flatMap((span) => (span.voice ? [span.voice] : []))),
+    );
     const exprByMeasure = new Map<
       number,
       { text: TextContent; position: Pos; placement?: "above" | "below"; staff?: number }[]
     >();
     let openHairpin: { mi: number; position: Pos; type: string; staff?: number; voice?: string } | null = null;
     let openPedal: { mi: number; position: Pos; type: string; staff?: number } | null = null;
-    let openOttava: OpenOttava | null = null;
     const pushSpan = (map: Map<number, Span[]>, mi: number, span: Span): void => {
       const arr = map.get(mi);
       if (arr) arr.push(span);
@@ -395,12 +366,6 @@ export function buildParts(
         }
       }
 
-      // Pair octave-shift boundaries into spans. Unlike hairpins/pedals (vendor
-      // extensions), `ottavas` is a first-class MNX field, so this runs
-      // unconditionally. A shift may span measures, so the completed span is
-      // buffered against its START measure and written after the part walk.
-      openOttava = pairOttavaEvents(result.ottavaEvents, mi, measureId, openOttava, ottavasByMeasure);
-
       // Build sequences from voices
       const sequences: MnxSequence[] = [];
       const unconvertedFullMeasureRests = new Set(result.fullMeasureRests.keys());
@@ -456,7 +421,7 @@ export function buildParts(
         }
 
         // Assign voice name if multiple voices
-        if (result.voices.size > 1) {
+        if (result.voices.size > 1 || ottavaVoices.has(`v${voiceNum}`)) {
           seq.voice = `v${voiceNum}`;
           const staffKey = result.voiceStaves.get(voiceNum) ?? 1;
           const hint = directionHintForRank(voiceRankInStaff.get(voiceNum), seenPerStaff.get(staffKey) ?? 0);

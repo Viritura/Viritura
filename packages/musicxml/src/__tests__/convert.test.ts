@@ -2534,6 +2534,55 @@ type OttavaSpan = {
 };
 
 describe("convertMusicXmlToMnx — octave shifts", () => {
+  it.each([
+    ["down", 8, 1, 5],
+    ["up", 8, -1, 3],
+    ["down", 15, 2, 7],
+    ["up", 15, -2, 2],
+  ] as const)("preserves encoded pitch for %s size %i", (type, size, value, octave) => {
+    const xml = wrapScore(`
+      <direction><direction-type><octave-shift type="${type}" size="${size}"/></direction-type></direction>
+      <note><pitch><step>G</step><octave>${octave}</octave></pitch><duration>1</duration><type>quarter</type></note>
+      <note><chord/><pitch><step>E</step><alter>-1</alter><octave>${octave}</octave></pitch><duration>1</duration><type>quarter</type></note>
+      <direction><direction-type><octave-shift type="stop" size="${size}"/></direction-type></direction>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>3</duration><type>half</type><dot/></note>
+    `);
+    const measure = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!;
+    expect(measure.sequences![0]!.content[0]).toMatchObject({
+      notes: [{ pitch: { step: "G", octave } }, { pitch: { step: "E", alter: -1, octave } }],
+    });
+    expect(measure.ottavas![0]).toMatchObject({ value, end: { position: { fraction: [0, 1] } } });
+  });
+
+  it("reports unpaired octave-shift boundaries instead of failing the import", () => {
+    const note = (octave: number) =>
+      `<note><pitch><step>C</step><octave>${octave}</octave></pitch><duration>1</duration><type>quarter</type></note>`;
+    const stray = wrapScore(
+      `${note(5)}<direction><direction-type><octave-shift type="stop" size="8"/></direction-type></direction>${note(5)}${note(5)}${note(5)}`,
+    );
+    const strayDiagnostics = new DiagnosticCollector();
+    const strayScore = convertMusicXmlToMnx(stray, { diagnostics: strayDiagnostics });
+    expect(strayScore.parts[0]!.measures[0]!.ottavas).toBeUndefined();
+    expect(strayDiagnostics.all()).toContainEqual(expect.objectContaining({ code: "musicxml-ottava" }));
+
+    const unclosed = wrapScore(
+      `${note(5)}<direction><direction-type><octave-shift type="down" size="8"/></direction-type></direction>${note(6)}${note(6)}${note(6)}`,
+    );
+    const unclosedDiagnostics = new DiagnosticCollector();
+    const unclosedScore = convertMusicXmlToMnx(unclosed, { diagnostics: unclosedDiagnostics });
+    expect(unclosedScore.parts[0]!.measures[0]!.ottavas).toEqual([
+      expect.objectContaining({
+        value: 1,
+        position: { fraction: [1, 4] },
+        end: expect.objectContaining({ position: { fraction: [3, 4] } }),
+      }),
+    ]);
+    expect(unclosedScore.parts[0]!.measures[0]!.sequences![0]!.content[1]).toMatchObject({
+      notes: [{ pitch: { octave: 6 } }],
+    });
+    expect(unclosedDiagnostics.all()).toContainEqual(expect.objectContaining({ code: "musicxml-ottava" }));
+  });
+
   it("pairs an octave-shift start + stop within a single measure", () => {
     // "down" octave-shift sounds an octave higher → 8va (value 1).
     const xml = wrapScore(`
@@ -2549,9 +2598,9 @@ describe("convertMusicXmlToMnx — octave shifts", () => {
     expect(ottavas).toHaveLength(1);
     expect(ottavas![0]!.value).toBe(1);
     expect(ottavas![0]!.position.fraction).toEqual([0, 1]);
-    // Stop lands after a half note → end at 1/2 of this same measure.
+    // MNX ends at the onset of the last affected event, not the stop boundary.
     expect(ottavas![0]!.end.measure).toBe(measureId);
-    expect(ottavas![0]!.end.position.fraction).toEqual([1, 2]);
+    expect(ottavas![0]!.end.position.fraction).toEqual([0, 1]);
   });
 
   it("pairs an octave-shift whose stop is in a later measure", () => {
@@ -2584,9 +2633,13 @@ describe("convertMusicXmlToMnx — octave shifts", () => {
     expect(ottavas).toHaveLength(1);
     expect(ottavas![0]!.value).toBe(1);
     expect(ottavas![0]!.position.fraction).toEqual([0, 1]);
-    // …but its end points into measure 2 at the half-note offset.
+    // Its final affected note starts at the beginning of measure 2.
     expect(ottavas![0]!.end.measure).toBe(m2Id);
-    expect(ottavas![0]!.end.position.fraction).toEqual([1, 2]);
+    expect(ottavas![0]!.end.position.fraction).toEqual([0, 1]);
+    expect(score.parts[0]!.measures[1]!.sequences![0]!.content).toMatchObject([
+      { notes: [{ pitch: { step: "D", octave: 5 } }] },
+      { notes: [{ pitch: { step: "E", octave: 5 } }] },
+    ]);
     // The stop measure itself carries no ottava span.
     expect(score.parts[0]!.measures[1]!.ottavas).toBeUndefined();
   });

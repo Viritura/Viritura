@@ -77,25 +77,12 @@ interface PedalEvent {
   staff?: number;
 }
 
-/** An octave-shift boundary (start or stop). Paired into a single `ottava`
- *  span (with an `end`) by the part-level walker, so a shift may begin in one
- *  measure and end in a later one — the per-measure pairing this replaced
- *  silently dropped any `stop` that landed in a different measure. */
-export interface OttavaEvent {
-  action: "start" | "stop";
-  /** Present on `start`: 1, -1, 2, -2, 3, or -3. */
-  value?: number;
-  position: MnxRhythmicPosition;
-  staff?: number;
-}
-
 export interface MeasureResult {
   voices: Map<string, MnxSequenceContent[]>;
   voiceStaves: Map<string, number>;
   fullMeasureRests: Map<MnxEvent, { visualDuration: MnxDuration; hasEventAnchors: boolean }>;
   clefs: MnxPositionedClef[];
   dynamics: MnxDynamic[];
-  ottavaEvents: OttavaEvent[];
   beamGroups: CompletedBeam[];
   rehearsals: { text: TextContent; position: MnxRhythmicPosition; style?: "circled" | "plain" }[];
   expressions: { text: TextContent; position: MnxRhythmicPosition; placement?: "above" | "below"; staff?: number }[];
@@ -315,7 +302,6 @@ export function processMeasureNotes(
   const fullMeasureRests: MeasureResult["fullMeasureRests"] = new Map();
   const clefs: MnxPositionedClef[] = [];
   const dynamics: MnxDynamic[] = [];
-  const ottavaEvents: OttavaEvent[] = [];
   const beamGroups: CompletedBeam[] = [];
   const rehearsals: MeasureResult["rehearsals"] = [];
   const expressions: MeasureResult["expressions"] = [];
@@ -791,37 +777,6 @@ export function processMeasureNotes(
           }
         }
 
-        // Ottava (octave-shift) — emit boundary events; the part-level walker
-        // pairs a `start` with its `stop` even across measures.
-        const octaveShift = findChild(dt, "octave-shift");
-        if (octaveShift) {
-          const shiftType = octaveShift.getAttribute("type");
-          const size = parseInt(octaveShift.getAttribute("size") ?? "8", 10);
-          if (shiftType === "up" || shiftType === "down") {
-            // MusicXML octave-shift: "down" means sounding pitch is below written
-            // pitch → 8va (play higher than written). "up" → 8vb (play lower).
-            let ottavaValue: number;
-            if (size === 8) ottavaValue = shiftType === "down" ? 1 : -1;
-            else if (size === 15) ottavaValue = shiftType === "down" ? 2 : -2;
-            else if (size === 22) ottavaValue = shiftType === "down" ? 3 : -3;
-            else ottavaValue = shiftType === "down" ? 1 : -1;
-
-            ottavaEvents.push({
-              action: "start",
-              value: ottavaValue,
-              position: makePosition(directionPosition),
-              staff: dirStaff,
-            });
-          } else if (shiftType === "stop") {
-            ottavaEvents.push({
-              action: "stop",
-              position: makePosition(directionPosition),
-              staff: dirStaff,
-            });
-          }
-          // "continue" carries no boundary.
-        }
-
         // Rehearsal marks
         const rehearsal = findChild(dt, "rehearsal");
         if (rehearsal) {
@@ -1016,7 +971,6 @@ export function processMeasureNotes(
     fullMeasureRests,
     clefs,
     dynamics: dedupedDynamics,
-    ottavaEvents,
     beamGroups,
     rehearsals,
     expressions: dedupedExpressions,

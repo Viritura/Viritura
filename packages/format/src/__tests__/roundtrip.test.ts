@@ -315,6 +315,25 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     expect(parseMnx(serialized)).toEqual(parsed);
   });
 
+  it("does not shift encoded pitches while parsing and serializing an ottava", () => {
+    const source: ReturnType<typeof serializeMnx> = JSON.parse(
+      fs.readFileSync(mnxFixtures.find((fixture) => fixture.name === "ottavas-8va.mnx")!.path, "utf8"),
+    );
+    const parsed = parseMnx(source);
+    const serialized = serializeMnx(parsed);
+    expect(serialized.parts[0]!.measures[0]!.ottavas).toEqual(source.parts[0]!.measures[0]!.ottavas);
+    const pitches = (score: typeof serialized) =>
+      score.parts[0]!.measures.flatMap((measure) =>
+        (measure.sequences ?? []).flatMap((sequence) =>
+          sequence.content.flatMap((event) =>
+            event.type === undefined ? (event.notes?.map((note) => note.pitch) ?? []) : [],
+          ),
+        ),
+      );
+    expect(pitches(serialized)).toEqual(pitches(source));
+    expect(parseMnx(serialized)).toEqual(parsed);
+  });
+
   it("preserves full, abbreviated, and hidden instrument-label policies", () => {
     const source = {
       mnx: { version: 1 },

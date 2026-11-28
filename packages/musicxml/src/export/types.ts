@@ -66,6 +66,4 @@ export interface PartPlan {
   measures: MeasurePlan[];
   initialInstrument: ActiveInstrumentState;
   instrumentChanges: LocatedInstrumentChange[];
-  measureStarts: Rational[];
-  ottavaSpans: { start: Rational; end: Rational; staff: number; voice?: string; value: number }[];
 }
