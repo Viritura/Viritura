@@ -642,9 +642,3 @@ export function copyCategory(project: Project, sourceId: string, targets: string
   }
   return next;
 }
-
-export function overrideSummary(layout: MockLayout): string[] {
-  return CATEGORIES.filter((category) => category.fields.some(({ id }) => layout.overrides[id] !== undefined)).map(
-    (category) => category.label,
-  );
-}
