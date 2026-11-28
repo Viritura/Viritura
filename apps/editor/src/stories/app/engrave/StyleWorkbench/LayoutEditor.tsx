@@ -7,6 +7,7 @@ import {
   type FieldDefinition,
   type MockLayout,
   type Project,
+  type Scope,
 } from "./styleModel";
 import { FieldRows } from "./FieldRows";
 import { CategoryBrowser, type OpenCategories } from "./CategoryBrowser";
@@ -20,6 +21,7 @@ interface LayoutEditorProps {
   onCommit: (project: Project, message: string) => void;
   onTransfer: (category: CategoryDefinition) => void;
   onEditProfile: (id: string) => void;
+  onJump: (scope: Scope) => void;
 }
 
 export function LayoutEditor({
@@ -30,6 +32,7 @@ export function LayoutEditor({
   onCommit,
   onTransfer,
   onEditProfile,
+  onJump,
 }: LayoutEditorProps) {
   const profile = findProfile(project, layout.profileId);
   const scope = { kind: "layout", id: layout.id } as const;
@@ -73,6 +76,7 @@ export function LayoutEditor({
             fields={fields}
             onCommit={onCommit}
             onTransfer={onTransfer}
+            onJump={onJump}
           />
         )}
       />
@@ -87,7 +91,8 @@ function LayoutCategoryDetail({
   fields,
   onCommit,
   onTransfer,
-}: Pick<LayoutEditorProps, "project" | "layout" | "onCommit" | "onTransfer"> & {
+  onJump,
+}: Pick<LayoutEditorProps, "project" | "layout" | "onCommit" | "onTransfer" | "onJump"> & {
   category: CategoryDefinition;
   fields: FieldDefinition[];
 }) {
@@ -95,7 +100,7 @@ function LayoutCategoryDetail({
   const scope = { kind: "layout", id: layout.id } as const;
   return (
     <>
-      <FieldRows project={project} scope={scope} fields={fields} onCommit={onCommit} />
+      <FieldRows project={project} scope={scope} fields={fields} onCommit={onCommit} onJump={onJump} />
       {category.id === "numbers" && (
         <div className={styles.notice}>
           <span className={styles.eyebrow}>Layout-only placement</span>
@@ -131,7 +136,7 @@ function LayoutCategoryDetail({
             )
           }
         >
-          Use profile settings
+          Reset section
         </Button>
         <Button size="sm" onClick={() => onTransfer(category)}>
           Copy to layouts

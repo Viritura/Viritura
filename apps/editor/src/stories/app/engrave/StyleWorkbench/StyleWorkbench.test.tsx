@@ -44,13 +44,34 @@ describe("style workbench", () => {
     expect(screen.getByRole("combobox", { name: "Staff size" }).textContent).toContain("8 mm");
   });
 
-  it("can pin an inherited value and restore inheritance", async () => {
+  it("resets a layout override and jumps along the source trail", async () => {
+    const user = userEvent.setup();
+    render(<StyleWorkbench />);
+
+    await user.click(screen.getByRole("combobox", { name: "Active layout" }));
+    await user.click(screen.getByRole("option", { name: "Cello" }));
+    await user.click(screen.getByRole("button", { name: /^Bar numbers/ }));
+    expect(screen.getByRole("combobox", { name: "Frequency" }).textContent).toContain("Every bar");
+    await user.click(screen.getByRole("button", { name: "Reset frequency" }));
+    expect(screen.getByRole("combobox", { name: "Frequency" }).textContent).toContain("System starts");
+    expect(screen.queryByRole("button", { name: "Reset frequency" })).toBeNull();
+
+    const trail = screen.getByRole("list", { name: "Frequency sources" });
+    await user.click(within(trail).getByRole("button", { name: "House: System starts" }));
+    expect(screen.getByText("Editing house style")).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Editing" }).textContent).toContain("Shared settings");
+  });
+
+  it("shows downstream overrides and clears them so house edits propagate", async () => {
     const user = userEvent.setup();
     render(<StyleWorkbench initialDestination="house" />);
 
-    await user.click(screen.getByRole("button", { name: "Customize orientation" }));
-    await user.click(screen.getByRole("button", { name: "Use inherited orientation" }));
-    expect(screen.getByRole("button", { name: "Customize orientation" })).toBeTruthy();
+    await user.click(screen.getByRole("combobox", { name: "Editing" }));
+    await user.click(screen.getByRole("option", { name: "Shared settings" }));
+    await user.click(screen.getByRole("button", { name: /^Bar numbers/ }));
+    expect(screen.getByRole("button", { name: "Cello" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Clear frequency overrides" }));
+    expect(screen.queryByRole("button", { name: "Clear frequency overrides" })).toBeNull();
   });
 
   it("opens house style from the project bar instead of a layout tab", async () => {

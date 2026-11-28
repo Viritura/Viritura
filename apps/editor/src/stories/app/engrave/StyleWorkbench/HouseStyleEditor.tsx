@@ -26,6 +26,7 @@ interface HouseStyleEditorProps {
   onNewProfile: () => void;
   onView: (id: string) => void;
   onPresets: () => void;
+  onJump: (scope: Scope) => void;
 }
 
 function ScopeList({ project, scope, onScope, onNewProfile }: HouseStyleEditorProps) {
@@ -101,7 +102,7 @@ function ProfileSummary({ project, scope, viewing, onScope, onView, onCommit }: 
 }
 
 export function HouseStyleEditor(props: HouseStyleEditorProps) {
-  const { project, scope, openCategories, onOpenCategories, onCommit, onPresets } = props;
+  const { project, scope, openCategories, onOpenCategories, onCommit, onPresets, onJump } = props;
   const settings = layer(project, scope);
   return (
     <div className={styles.editorBody}>
@@ -121,7 +122,7 @@ export function HouseStyleEditor(props: HouseStyleEditorProps) {
         onOpenChange={onOpenCategories}
         renderCategory={(category, fields) => (
           <>
-            <FieldRows project={project} scope={scope} fields={fields} onCommit={onCommit} />
+            <FieldRows project={project} scope={scope} fields={fields} onCommit={onCommit} onJump={onJump} />
             <div className={styles.categoryActions}>
               <Button
                 size="sm"
@@ -133,7 +134,7 @@ export function HouseStyleEditor(props: HouseStyleEditorProps) {
                   )
                 }
               >
-                {scope.kind === "common" ? "Use built-in values" : "Inherit shared settings"}
+                Reset section
               </Button>
             </div>
           </>

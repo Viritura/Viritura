@@ -32,7 +32,6 @@
 .projectBar,
 .toolbar,
 .previewHeading,
-.provenance,
 .overrideRow {
   display: flex;
   align-items: center;
@@ -122,14 +121,8 @@
 }
 .fieldActions {
   display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-.keptNote {
-  color: var(--text-muted);
-  font-size: 11px;
-  margin: 6px 0 0 !important;
+  gap: 2px;
+  margin-left: auto;
 }
 .context {
   display: grid;
@@ -276,16 +269,107 @@
 }
 
 .field {
-  padding: var(--space-3) 0;
+  padding: var(--space-3) 0 var(--space-3) 10px;
   border-bottom: 1px solid var(--border);
+  border-left: 2px solid transparent;
 }
-.provenance {
-  margin-top: var(--space-1);
-  gap: var(--space-1);
+.fieldSet {
+  border-left-color: var(--accent);
 }
-.provenance small {
+.fieldHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+  min-height: 20px;
+}
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+}
+.trail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 10px;
+}
+.trail li {
+  display: flex;
+  align-items: center;
+}
+.trail li + li::before {
+  content: "›";
+  color: var(--text-muted);
+  opacity: 0.6;
+  margin-right: 2px;
+}
+.step,
+.stepWinner,
+.stepShadowed,
+.stepUnset {
+  border: 0;
+  background: none;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font: inherit;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.trail .step,
+.downstream .downstreamChip {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 1px 4px !important;
+  font-size: inherit !important;
+  line-height: 1.4 !important;
+  text-decoration: none;
+}
+.trail .step:not(:disabled):hover {
+  text-decoration: underline;
+}
+.trail .stepCurrent {
+  opacity: 1 !important;
+  cursor: default;
+  outline: 1px solid var(--border);
+}
+.trail .stepUnset:not(.stepCurrent) {
+  opacity: 0.55;
+}
+.trail .stepShadowed {
+  text-decoration: line-through;
+}
+.trail .stepWinner {
+  background: rgba(var(--accent-rgb), 0.15) !important;
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+.downstream {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
   font-size: 11px;
   color: var(--text-muted);
+}
+.downstream .downstreamChip {
+  border: 1px solid var(--border) !important;
+  background: var(--surface-raised) !important;
+  color: var(--text) !important;
+  border-radius: 9px;
+  padding: 0 6px !important;
+}
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.filterRow > :first-child {
+  flex: 1;
 }
 .notice {
   padding: var(--space-4);

@@ -390,14 +390,92 @@ export function affectedLayouts(project: Project, scope: Scope): MockLayout[] {
   return [findLayout(project, scope.id)];
 }
 
-/** Layouts in scope that keep their own value for this field because a more specific layer sets it. */
-export function protectedLayouts(project: Project, scope: Scope, field: Field): MockLayout[] {
+export type Level = "house" | "profile" | "layout";
+
+export interface ChainStep {
+  level: Level;
+  name: string;
+  scope: Scope;
+  value?: string;
+}
+
+function isProfileOnly(field: Field): boolean {
+  return CATEGORIES.some((category) => category.profileOnly && category.fields.some(({ id }) => id === field));
+}
+
+export function builtInValue(field: Field): string {
+  return BUILT_IN[field];
+}
+
+/** The layers that can set `field` for `scope`, broadest first. Page geometry starts at the profile. */
+export function fieldChain(project: Project, scope: Scope, field: Field): ChainStep[] {
+  const steps: ChainStep[] = [];
+  if (!isProfileOnly(field)) {
+    steps.push({ level: "house", name: "House", scope: { kind: "common" }, value: project.style.common[field] });
+  }
+  if (scope.kind === "common") return steps;
+  const layout = scope.kind === "layout" ? findLayout(project, scope.id) : undefined;
+  const profile = findProfile(project, layout ? layout.profileId : scope.id);
+  steps.push({
+    level: "profile",
+    name: profile.name,
+    scope: { kind: "profile", id: profile.id },
+    value: profile.settings[field],
+  });
+  if (layout) steps.push({ level: "layout", name: layout.name, scope, value: layout.overrides[field] });
+  return steps;
+}
+
+/** The value and source `scope` would fall back to if its own setting were reset. */
+export function inheritedValue(project: Project, scope: Scope, field: Field): { value: string; source: string } {
+  const upstream = fieldChain(project, scope, field).slice(0, -1);
+  const match = [...upstream].reverse().find((step) => step.value !== undefined);
+  return match ? { value: match.value!, source: match.name } : { value: BUILT_IN[field], source: "Default" };
+}
+
+export interface DownstreamOverride {
+  scope: Scope;
+  name: string;
+  value: string;
+}
+
+/** More specific layers under `scope` that set their own value, so edits here do not reach them. */
+export function downstreamOverrides(project: Project, scope: Scope, field: Field): DownstreamOverride[] {
   if (scope.kind === "layout") return [];
-  return affectedLayouts(project, scope).filter(
-    (layout) =>
-      layout.overrides[field] !== undefined ||
-      (scope.kind === "common" && findProfile(project, layout.profileId).settings[field] !== undefined),
+  const result: DownstreamOverride[] = [];
+  if (scope.kind === "common") {
+    for (const profile of project.style.profiles) {
+      const value = profile.settings[field];
+      if (value !== undefined) result.push({ scope: { kind: "profile", id: profile.id }, name: profile.name, value });
+    }
+  }
+  for (const layout of affectedLayouts(project, scope)) {
+    const value = layout.overrides[field];
+    if (value !== undefined) result.push({ scope: { kind: "layout", id: layout.id }, name: layout.name, value });
+  }
+  return result;
+}
+
+export function resetDownstream(project: Project, scope: Scope, field: Field): Project {
+  return downstreamOverrides(project, scope, field).reduce(
+    (current, entry) => changeField(current, entry.scope, field),
+    project,
   );
+}
+
+/** The next broader layer a value can be moved to, if any. */
+export function parentScope(project: Project, scope: Scope, field: Field): Scope | undefined {
+  if (scope.kind === "layout") return { kind: "profile", id: findLayout(project, scope.id).profileId };
+  if (scope.kind === "profile" && !isProfileOnly(field)) return { kind: "common" };
+  return undefined;
+}
+
+/** Moves a value up one layer so every sibling that inherits picks it up. */
+export function promoteField(project: Project, scope: Scope, field: Field): Project {
+  const parent = parentScope(project, scope, field);
+  const value = layer(project, scope)[field];
+  if (!parent || value === undefined) return project;
+  return changeField(changeField(project, parent, field, value), scope, field);
 }
 
 export function changeField(project: Project, scope: Scope, field: Field, value?: string): Project {
@@ -414,13 +492,7 @@ export function clearCategory(project: Project, scope: Scope, category: Category
 
 /** Moves a layout override into its profile so every layout using the profile picks it up. */
 export function promoteOverride(project: Project, layoutId: string, field: Field): Project {
-  const next = structuredClone(project);
-  const layout = findLayout(next, layoutId);
-  const value = layout.overrides[field];
-  if (value === undefined) return project;
-  findProfile(next, layout.profileId).settings[field] = value;
-  delete layout.overrides[field];
-  return next;
+  return promoteField(project, { kind: "layout", id: layoutId }, field);
 }
 
 export function assignProfile(project: Project, layoutId: string, profileId: string): Project {
