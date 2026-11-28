@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { Collapsible, PanelSearchHeader } from "@viritura/ui";
+import { ListFilter } from "lucide-react";
+import { Collapsible, IconButton, PanelSearchHeader } from "@viritura/ui";
 import {
   CATEGORIES,
   layer,
@@ -8,6 +9,7 @@ import {
   type FieldDefinition,
   type Project,
   type Scope,
+  type Settings,
 } from "./styleModel";
 import styles from "./StyleWorkbench.module.css";
 
@@ -22,36 +24,54 @@ interface CategoryBrowserProps {
   renderCategory: (category: CategoryDefinition, fields: FieldDefinition[]) => ReactNode;
 }
 
-function matchingFields(category: CategoryDefinition, terms: string[]): FieldDefinition[] {
-  if (!terms.length) return category.fields;
+function matchingFields(
+  category: CategoryDefinition,
+  terms: string[],
+  modifiedOnly: boolean,
+  settings: Settings,
+): FieldDefinition[] {
+  const fields = modifiedOnly ? category.fields.filter(({ id }) => settings[id] !== undefined) : category.fields;
+  if (!terms.length) return fields;
   const matches = (text: string) => terms.every((term) => text.toLowerCase().includes(term));
-  if (matches(category.label)) return category.fields;
-  return category.fields.filter(({ label }) => matches(label));
+  if (matches(category.label)) return fields;
+  return fields.filter(({ label }) => matches(label));
 }
 
 export function CategoryBrowser({ project, scope, open, onOpenChange, renderCategory }: CategoryBrowserProps) {
   const [query, setQuery] = useState("");
+  const [modifiedOnly, setModifiedOnly] = useState(false);
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const searching = terms.length > 0;
+  const searching = terms.length > 0 || modifiedOnly;
   const settings = layer(project, scope);
   const visible = CATEGORIES.filter((category) => scope.kind !== "common" || !category.profileOnly)
-    .map((category) => ({ category, fields: matchingFields(category, terms) }))
+    .map((category) => ({ category, fields: matchingFields(category, terms, modifiedOnly, settings) }))
     .filter(({ fields }) => fields.length > 0);
   const anyOpen = visible.some(({ category }) => searching || open[category.id]);
   return (
     <div className={styles.categoryBrowser}>
-      <PanelSearchHeader
-        value={query}
-        onValueChange={setQuery}
-        placeholder="Search settings"
-        searchLabel="Search settings"
-        anyOpen={anyOpen}
-        onToggleAll={() =>
-          onOpenChange({ ...open, ...Object.fromEntries(visible.map(({ category }) => [category.id, !anyOpen])) })
-        }
-        toggleLabel={anyOpen ? "Collapse all sections" : "Expand all sections"}
-        toggleDisabled={searching || !visible.length}
-      />
+      <div className={styles.filterRow}>
+        <PanelSearchHeader
+          value={query}
+          onValueChange={setQuery}
+          placeholder="Search settings"
+          searchLabel="Search settings"
+          anyOpen={anyOpen}
+          onToggleAll={() =>
+            onOpenChange({ ...open, ...Object.fromEntries(visible.map(({ category }) => [category.id, !anyOpen])) })
+          }
+          toggleLabel={anyOpen ? "Collapse all sections" : "Expand all sections"}
+          toggleDisabled={searching || !visible.length}
+        />
+        <IconButton
+          size="md"
+          active={modifiedOnly}
+          tooltip={modifiedOnly ? "Show all settings" : "Show only settings set here"}
+          aria-label="Modified only"
+          onClick={() => setModifiedOnly((current) => !current)}
+        >
+          <ListFilter size={14} />
+        </IconButton>
+      </div>
       {visible.map(({ category, fields }) => {
         const count = category.fields.filter(({ id }) => settings[id] !== undefined).length;
         return (
@@ -72,7 +92,7 @@ export function CategoryBrowser({ project, scope, open, onOpenChange, renderCate
           </Collapsible>
         );
       })}
-      {!visible.length && <p className={styles.hint}>No matching settings.</p>}
+      {!visible.length && <p className={styles.hint}>{modifiedOnly ? "Nothing set here." : "No matching settings."}</p>}
     </div>
   );
 }

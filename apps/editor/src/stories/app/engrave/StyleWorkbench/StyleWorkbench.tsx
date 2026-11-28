@@ -63,6 +63,15 @@ export function StyleWorkbench({ initialNavigator = "dropdown", initialDestinati
     setStyleScope({ kind: "profile", id });
     setDestination("house");
   }
+  function jump(scope: Scope) {
+    if (scope.kind === "layout") {
+      setViewId(scope.id);
+      setDestination("layout");
+      return;
+    }
+    setStyleScope(scope);
+    setDestination("house");
+  }
   return (
     <TooltipPrimitives.Provider>
       <div className={styles.root}>
@@ -140,6 +149,7 @@ export function StyleWorkbench({ initialNavigator = "dropdown", initialDestinati
                 onNewProfile={() => setDialog("profile")}
                 onView={setViewId}
                 onPresets={() => setDialog("presets")}
+                onJump={jump}
               />
             )}
             {destination === "layout" && (
@@ -154,6 +164,7 @@ export function StyleWorkbench({ initialNavigator = "dropdown", initialDestinati
                   setDialog("transfer");
                 }}
                 onEditProfile={editProfile}
+                onJump={jump}
               />
             )}
             {destination === "selection" && (
