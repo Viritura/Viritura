@@ -22,10 +22,11 @@ export interface BuildPublishModeArgs {
   /** Clamped (non-horizon) preview view mode. */
   previewViewMode: PreviewViewMode;
   setViewMode: (m: PreviewViewMode) => void;
+  onEditLayout?: (index: number) => void;
 }
 
 export function buildPublishMode(args: BuildPublishModeArgs): WorkspaceMode {
-  const { publish, canvasRef, currentZoom, previewViewMode, setViewMode } = args;
+  const { publish, canvasRef, currentZoom, previewViewMode, setViewMode, onEditLayout } = args;
 
   const panels: ReactNode[] = [];
   if (!publish.leftCollapsed) {
@@ -45,6 +46,7 @@ export function buildPublishMode(args: BuildPublishModeArgs): WorkspaceMode {
         onSelectAll={publish.onSelectAll}
         onClearSelection={publish.onClearSelection}
         onFocusIndex={publish.onFocusIndex}
+        onEditLayout={onEditLayout}
       />,
     );
   }

@@ -7,7 +7,6 @@ import { SignInDialog } from "../auth";
 import { ModalFlowHost } from "../components/ModalFlowHost";
 import { CreateGitHubRepositoryDialog } from "../components/CreateGitHubRepositoryDialog";
 import { GistShareDialog } from "../gistShareDialog";
-import { PageSetupDialog } from "../components/PageSetupDialog";
 import { CalibrationDialog } from "../components/CalibrationDialog";
 import { HelpDialog } from "../components/HelpDialog";
 import { getTransposeSelectionInfo, TransposeDialog } from "../components/TransposeDialog";
@@ -38,7 +37,7 @@ import { useGitHubAccount } from "../github/useGitHubAccount";
 import { getGitHubGitProxyUrl, type GitHubInstallationStatus } from "../github/api";
 import { connectAndPublishRemote } from "../git/connectAndPublishRemote";
 import type { VirituraAccountState } from "../auth";
-import { defaultPageSetupForScore, type Score, type PageSetup } from "@viritura/core";
+import type { Score } from "@viritura/core";
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { NoteInputState } from "../store/noteInputStore";
@@ -57,23 +56,6 @@ import {
   getMenuSearchPlaceholder,
 } from "../radialMenu";
 import type { LyricStateRef } from "./useLyricHandlers";
-
-/**
- * Effective page setup for the Page Setup dialog: the engine-resolved defaults
- * (which now enable page turns for parts) with any stored per-score override
- * layered on top, so the dialog reflects what actually gets laid out.
- */
-function resolveDialogPageSetup(score: Score | null | undefined, idx: number): PageSetup {
-  const defaults = defaultPageSetupForScore(
-    score?.scores,
-    idx,
-    score?.layouts,
-    score?.parts?.length,
-    score?.pageSetupDefaults,
-  );
-  const stored = score?.scores?.[idx]?.pageSetup;
-  return stored ? { ...defaults, ...stored, margins: { ...defaults.margins, ...stored.margins } } : defaults;
-}
 
 type StartCenterProps = ComponentProps<typeof StartCenter>;
 type LyricInputProps = ComponentProps<typeof LyricInput>;
@@ -245,12 +227,6 @@ export interface AppOverlaysProps {
   githubInstallation: GitHubInstallationStatus | null;
   activeProjectStatus: { name?: string | null } | null;
 
-  // Page Setup
-  pageSetupTargetIndex: number | null;
-  setPageSetupTargetIndex: (i: number | null) => void;
-  handleApplyPageSetup: ComponentProps<typeof PageSetupDialog>["onApply"];
-  handleResetPageSetup: ComponentProps<typeof PageSetupDialog>["onResetToDefault"];
-
   // Transpose
   handleTransposeDialog: ComponentProps<typeof TransposeDialog>["onApply"];
 
@@ -309,9 +285,6 @@ export function AppOverlays(props: AppOverlaysProps) {
     githubInstallUrl,
     githubInstallation,
     activeProjectStatus,
-    pageSetupTargetIndex,
-    handleApplyPageSetup,
-    handleResetPageSetup,
     handleTransposeDialog,
     setCondensingRouting,
     tempoPopover,
@@ -396,35 +369,6 @@ export function AppOverlays(props: AppOverlaysProps) {
       />
 
       <ModalFlowHost />
-
-      <PageSetupDialog
-        open={dialogs.pageSetup}
-        onClose={() => {
-          closeDialog("pageSetup");
-          props.setPageSetupTargetIndex(null);
-        }}
-        onApply={handleApplyPageSetup}
-        onResetToDefault={handleResetPageSetup}
-        resetSetup={(() => {
-          const current = store.getState().score;
-          return defaultPageSetupForScore(
-            current?.scores,
-            pageSetupTargetIndex ?? selectedScoreIndex,
-            current?.layouts,
-            current?.parts.length,
-            current?.pageSetupDefaults,
-          );
-        })()}
-        scopeName={(() => {
-          const idx = pageSetupTargetIndex ?? selectedScoreIndex;
-          const sd = store.getState().score?.scores?.[idx];
-          return sd?.name ?? (idx === 0 ? "Full Score" : `Score ${idx + 1}`);
-        })()}
-        initialSetup={(() => {
-          const idx = pageSetupTargetIndex ?? selectedScoreIndex;
-          return resolveDialogPageSetup(store.getState().score, idx);
-        })()}
-      />
 
       <CalibrationDialog open={dialogs.calibration} onClose={() => closeDialog("calibration")} />
 

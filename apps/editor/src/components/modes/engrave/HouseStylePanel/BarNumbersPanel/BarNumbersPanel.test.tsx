@@ -20,17 +20,25 @@ const SCORE: Score = {
   scores: [{ name: "Score" }, { name: "Part" }, { name: "Alternative" }],
 };
 
-function Harness({ score, onStore }: { score: Score; onStore: (store: DocumentStore) => void }) {
+function Harness({
+  score,
+  scope,
+  onStore,
+}: {
+  score: Score;
+  scope: "document" | "layout";
+  onStore: (store: DocumentStore) => void;
+}) {
   const store = useDocumentStoreApi();
   const loaded = useDocumentStore((state) => state.score !== null);
   useEffect(() => {
     store.getState().loadScore(score);
     onStore(store);
   }, [score, store, onStore]);
-  return loaded ? <BarNumbersPanel /> : null;
+  return loaded ? <BarNumbersPanel scope={scope} /> : null;
 }
 
-function renderPanel(score = SCORE) {
+function renderPanel(score = SCORE, scope: "document" | "layout" = "document") {
   let store: DocumentStore;
   useViewStateStore.setState({ selectedScoreIndex: 1 });
   render(
@@ -38,6 +46,7 @@ function renderPanel(score = SCORE) {
       <DocumentProvider>
         <Harness
           score={score}
+          scope={scope}
           onStore={(value) => {
             store = value;
           }}
@@ -127,16 +136,13 @@ it("falls back to the first instrument ID when its name is unavailable", () => {
 
 it("keeps layout edits partial and resets them without changing the house style or other views", async () => {
   const user = userEvent.setup();
-  const getScore = renderPanel();
-  await user.click(await screen.findByRole("radio", { name: "Every bar" }));
-  await user.click(screen.getByRole("combobox", { name: "Apply to" }));
-  await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
-  await user.click(screen.getByRole("radio", { name: "Circle" }));
+  const getScore = renderPanel({ ...SCORE, barNumbers: { frequency: "everyBar" } }, "layout");
+  await user.click(await screen.findByRole("radio", { name: "Circle" }));
   await user.click(screen.getByRole("button", { name: "Bold" }));
   expect(getScore()?.barNumbers).toEqual({ frequency: "everyBar" });
   expect(getScore()?.scores?.[1]?.barNumbers).toEqual({ enclosure: "circle", style: { bold: true } });
   expect(getScore()?.scores?.[2]?.barNumbers).toBeUndefined();
-  await user.click(screen.getByRole("button", { name: "Reset layout overrides" }));
+  await user.click(screen.getByRole("button", { name: "Use house style bar numbers" }));
   expect(getScore()?.scores?.[1]?.barNumbers).toBeUndefined();
   expect(getScore()?.barNumbers).toEqual({ frequency: "everyBar" });
 });
@@ -167,12 +173,13 @@ it("rejects out-of-range font sizes without saving an invalid setting", async ()
 
 it("discards an uncommitted size draft when the selected layout changes", async () => {
   const user = userEvent.setup();
-  const getScore = renderPanel({
-    ...SCORE,
-    scores: SCORE.scores?.map((view, index) => (index === 1 ? { ...view, barNumbers: { size: 1.5 } } : view)),
-  });
-  await user.click(await screen.findByRole("combobox", { name: "Apply to" }));
-  await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
+  const getScore = renderPanel(
+    {
+      ...SCORE,
+      scores: SCORE.scores?.map((view, index) => (index === 1 ? { ...view, barNumbers: { size: 1.5 } } : view)),
+    },
+    "layout",
+  );
   const size = screen.getByRole("spinbutton", { name: "Size in points" });
   await user.clear(size);
   await user.type(size, "4");
@@ -182,12 +189,9 @@ it("discards an uncommitted size draft when the selected layout changes", async 
   expect(getScore()?.scores?.[2]?.barNumbers).toBeUndefined();
 });
 
-it("offers only house-style edits when the score has no editable layout definition", async () => {
+it("edits the house style when the score has no layout definitions", async () => {
   const user = userEvent.setup();
   const getScore = renderPanel({ ...SCORE, scores: undefined });
-  await user.click(await screen.findByRole("combobox", { name: "Apply to" }));
-  expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(["House style (all layouts)"]);
-  await user.click(screen.getByRole("option", { name: "House style (all layouts)" }));
   await user.click(screen.getByRole("radio", { name: "Every bar" }));
   expect(getScore()?.barNumbers).toEqual({ frequency: "everyBar" });
   expect(getScore()?.scores).toBeUndefined();
@@ -196,9 +200,10 @@ it("offers only house-style edits when the score has no editable layout definiti
 it("stores alignment, staff style and validated spacing as partial layout overrides", async () => {
   const user = userEvent.setup();
   const error = vi.spyOn(toast, "error");
-  const getScore = renderPanel({ ...SCORE, barNumbers: { distance: 3, horizontalAlignment: "center", onStaff: true } });
-  await user.click(await screen.findByRole("combobox", { name: "Apply to" }));
-  await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
+  const getScore = renderPanel(
+    { ...SCORE, barNumbers: { distance: 3, horizontalAlignment: "center", onStaff: true } },
+    "layout",
+  );
   expect(screen.getByRole("spinbutton", { name: "Distance from staff (staff spaces)" })).toHaveProperty("value", "3");
   await user.click(screen.getByRole("radio", { name: "Follow musical content" }));
   await user.click(screen.getByRole("radio", { name: "At barline" }));
@@ -215,39 +220,36 @@ it("stores alignment, staff style and validated spacing as partial layout overri
   expect(getScore()?.barNumbers).toEqual({ distance: 3, horizontalAlignment: "center", onStaff: true });
 });
 
-it("combines system placements with layout-specific outer brackets and hides only the row line", async () => {
+it("adds layout-specific outer brackets to house placements and hides only the row line", async () => {
   const user = userEvent.setup();
-  const getScore = renderPanel({
-    ...SCORE,
-    barNumbers: { placement: "aboveSystem", onStaff: true },
-    layouts: [
-      {
-        id: "L",
-        content: [
-          {
-            type: "group",
-            symbol: "bracket",
-            label: "Strings",
-            content: [
-              {
-                type: "group",
-                symbol: "bracket",
-                label: "Inner",
-                content: [{ type: "staff", sources: [{ part: "p" }] }],
-              },
-            ],
-          },
-        ],
-      },
-    ],
-    scores: SCORE.scores?.map((view) => ({ ...view, layout: "L" })),
-  });
-  await user.click(screen.getByRole("button", { name: "Placement" }));
-  expect(screen.queryByRole("checkbox", { name: "Above Strings bracket" })).toBeNull();
-  await user.click(screen.getByRole("checkbox", { name: "Below the whole system" }));
-  expect(getScore()?.barNumbers?.placements).toEqual(["aboveSystem", "belowSystem"]);
-  await user.click(screen.getByRole("combobox", { name: "Apply to" }));
-  await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
+  const getScore = renderPanel(
+    {
+      ...SCORE,
+      barNumbers: { placements: ["aboveSystem", "belowSystem"], onStaff: true },
+      layouts: [
+        {
+          id: "L",
+          content: [
+            {
+              type: "group",
+              symbol: "bracket",
+              label: "Strings",
+              content: [
+                {
+                  type: "group",
+                  symbol: "bracket",
+                  label: "Inner",
+                  content: [{ type: "staff", sources: [{ part: "p" }] }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      scores: SCORE.scores?.map((view) => ({ ...view, layout: "L" })),
+    },
+    "layout",
+  );
   await user.click(screen.getByRole("button", { name: "Placement" }));
   expect(screen.queryByRole("checkbox", { name: "Above Inner bracket" })).toBeNull();
   await user.click(screen.getByRole("checkbox", { name: "Above Strings bracket" }));
@@ -280,38 +282,39 @@ it("keeps the placement picker keyboard accessible with the shared select trigge
 
 it("keeps overlapping bracket selections independent", async () => {
   const user = userEvent.setup();
-  const getScore = renderPanel({
-    ...SCORE,
-    parts: [
-      { id: "p", name: "Piano", staves: 2, measures: [{ sequences: [] }] },
-      { id: "v", name: "Violin", measures: [{ sequences: [] }] },
-    ],
-    layouts: [
-      {
-        id: "L",
-        content: [
-          {
-            type: "group",
-            symbol: "bracket",
-            label: "Piano",
-            content: [{ type: "staff", sources: [{ part: "p", staff: 1 }] }],
-          },
-          {
-            type: "group",
-            symbol: "bracket",
-            label: "Combined",
-            content: [
-              { type: "staff", sources: [{ part: "p", staff: 2 }] },
-              { type: "staff", sources: [{ part: "v" }] },
-            ],
-          },
-        ],
-      },
-    ],
-    scores: SCORE.scores?.map((view) => ({ ...view, layout: "L" })),
-  });
-  await user.click(await screen.findByRole("combobox", { name: "Apply to" }));
-  await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
+  const getScore = renderPanel(
+    {
+      ...SCORE,
+      parts: [
+        { id: "p", name: "Piano", staves: 2, measures: [{ sequences: [] }] },
+        { id: "v", name: "Violin", measures: [{ sequences: [] }] },
+      ],
+      layouts: [
+        {
+          id: "L",
+          content: [
+            {
+              type: "group",
+              symbol: "bracket",
+              label: "Piano",
+              content: [{ type: "staff", sources: [{ part: "p", staff: 1 }] }],
+            },
+            {
+              type: "group",
+              symbol: "bracket",
+              label: "Combined",
+              content: [
+                { type: "staff", sources: [{ part: "p", staff: 2 }] },
+                { type: "staff", sources: [{ part: "v" }] },
+              ],
+            },
+          ],
+        },
+      ],
+      scores: SCORE.scores?.map((view) => ({ ...view, layout: "L" })),
+    },
+    "layout",
+  );
   await user.click(screen.getByRole("button", { name: "Placement" }));
   const piano = screen.getByRole("checkbox", { name: "Above Piano bracket" });
   const combined = screen.getByRole("checkbox", { name: "Above Combined bracket" });
@@ -326,28 +329,34 @@ it("keeps overlapping bracket selections independent", async () => {
 
 it("keeps rapid placement edits while a layout is pending", async () => {
   const user = userEvent.setup();
-  const getScore = renderPanel({
-    ...SCORE,
-    barNumbers: { placements: [] },
-    parts: [...SCORE.parts, { id: "v", name: "Violin", measures: [{ sequences: [] }] }],
-    layouts: [
-      {
-        id: "L",
-        content: [
-          { type: "group", symbol: "bracket", label: "Piano", content: [{ type: "staff", sources: [{ part: "p" }] }] },
-          {
-            type: "group",
-            symbol: "bracket",
-            label: "Strings",
-            content: [{ type: "staff", sources: [{ part: "v" }] }],
-          },
-        ],
-      },
-    ],
-    scores: SCORE.scores?.map((view) => ({ ...view, layout: "L" })),
-  });
-  await user.click(await screen.findByRole("combobox", { name: "Apply to" }));
-  await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
+  const getScore = renderPanel(
+    {
+      ...SCORE,
+      barNumbers: { placements: [] },
+      parts: [...SCORE.parts, { id: "v", name: "Violin", measures: [{ sequences: [] }] }],
+      layouts: [
+        {
+          id: "L",
+          content: [
+            {
+              type: "group",
+              symbol: "bracket",
+              label: "Piano",
+              content: [{ type: "staff", sources: [{ part: "p" }] }],
+            },
+            {
+              type: "group",
+              symbol: "bracket",
+              label: "Strings",
+              content: [{ type: "staff", sources: [{ part: "v" }] }],
+            },
+          ],
+        },
+      ],
+      scores: SCORE.scores?.map((view) => ({ ...view, layout: "L" })),
+    },
+    "layout",
+  );
   await user.click(screen.getByRole("button", { name: "Placement" }));
   const perf = getGlobalPerfTracker();
   const previous = perf.fastLayoutCallback;
@@ -383,19 +392,20 @@ it("shows vertical-alignment help on hover instead of an inline paragraph", asyn
 
 it("applies Film score to the current layout with an 8 pt boxed style above its string bracket", async () => {
   const user = userEvent.setup();
-  const getScore = renderPanel({
-    ...SCORE,
-    parts: [{ id: "p", name: "Violin", _x: { viritura: { family: "strings" } }, measures: [] }],
-    layouts: [
-      {
-        id: "strings",
-        content: [{ type: "group", symbol: "bracket", content: [{ type: "staff", sources: [{ part: "p" }] }] }],
-      },
-    ],
-    scores: SCORE.scores?.map((view) => ({ ...view, layout: "strings", pageSetup: { spatiumMm: 1.5 } })),
-  });
-  await user.click(await screen.findByRole("combobox", { name: "Apply to" }));
-  await user.click(screen.getByRole("option", { name: "Current layout: Part" }));
+  const getScore = renderPanel(
+    {
+      ...SCORE,
+      parts: [{ id: "p", name: "Violin", _x: { viritura: { family: "strings" } }, measures: [] }],
+      layouts: [
+        {
+          id: "strings",
+          content: [{ type: "group", symbol: "bracket", content: [{ type: "staff", sources: [{ part: "p" }] }] }],
+        },
+      ],
+      scores: SCORE.scores?.map((view) => ({ ...view, layout: "strings", pageSetup: { spatiumMm: 1.5 } })),
+    },
+    "layout",
+  );
   await user.click(screen.getByRole("button", { name: "Film score" }));
   const settings = getScore()?.scores?.[1]?.barNumbers;
   expect(settings).toMatchObject({

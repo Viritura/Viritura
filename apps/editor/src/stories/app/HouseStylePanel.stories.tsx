@@ -1,15 +1,15 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, type CSSProperties } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { parseMnx } from "@viritura/format";
-import { DEFAULT_PAGE_SETUP, DEFAULT_PART_PAGE_SETUP } from "@viritura/core";
+import { DEFAULT_PAGE_SETUP, DEFAULT_PART_PAGE_SETUP, type Score } from "@viritura/core";
 import { FormField, Select } from "@viritura/ui";
 
 import { EngraveLeftPanel } from "../../components/modes/engrave/EngraveLeftPanel";
+import { useStyleEditorStore } from "../../components/modes/engrave/StyleEditor";
 import { buildBlankScore, DEFAULT_NEW_SCORE_SETTINGS } from "../../score/ScoreBuilder";
 import { DocumentProvider, useDocumentActions, useDocumentStore } from "../../store/DocumentContext";
+import { useViewStateStore } from "../../store/viewStateStore";
 import { createPlayer } from "../../score/InstrumentCatalog";
-import { ProjectPageSetup } from "../../pageSetup";
-import { useEngraveContextRefs, usePageSetupEditor } from "../../components/modes/engrave/hooks";
 
 const FRAME_STYLE: CSSProperties = {
   width: 380,
@@ -21,103 +21,81 @@ const FRAME_STYLE: CSSProperties = {
   overflow: "hidden",
   boxShadow: "var(--elevation-1)",
 };
-function HouseStyleHarness() {
+
+/** Score, violin, and cello layouts with project profiles, a named study-score profile, and one custom part. */
+function demoScore(): Score {
+  const score = parseMnx(
+    JSON.parse(
+      buildBlankScore({
+        ...DEFAULT_NEW_SCORE_SETTINGS,
+        title: "House Style Demo",
+        players: [createPlayer("strings.violin"), createPlayer("strings.cello")],
+      }),
+    ),
+  );
+  score.pageSetupDefaults = {
+    score: { ...DEFAULT_PAGE_SETUP, width: 228.6, height: 304.8 },
+    part: { ...DEFAULT_PART_PAGE_SETUP, width: 215.9, height: 279.4 },
+  };
+  score.layoutProfiles = [{ id: "profile-study", name: "Study score", role: "score", pageSetup: { spatiumMm: 1.2 } }];
+  const cello = score.scores?.[2];
+  if (cello) cello.pageSetup = { width: 250, height: 353 };
+  return score;
+}
+
+function Harness({ mode }: { mode: "layout" | "house" }) {
   const { loadScore } = useDocumentActions();
+  const score = useDocumentStore((state) => state.workingScore ?? state.score);
+  const scoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
+  const setScoreIndex = useViewStateStore((state) => state.setSelectedScoreIndex);
   useEffect(() => {
-    const json = buildBlankScore({ ...DEFAULT_NEW_SCORE_SETTINGS, title: "House Style Demo" });
-    loadScore(parseMnx(JSON.parse(json)));
-  }, [loadScore]);
+    loadScore(demoScore());
+    if (mode === "house") useStyleEditorStore.getState().openHouse({ kind: "profile", role: "part" });
+    else useStyleEditorStore.getState().openLayout();
+  }, [loadScore, mode]);
   return (
-    <div style={FRAME_STYLE}>
-      <EngraveLeftPanel
-        score={parseMnx(JSON.parse(buildBlankScore({ ...DEFAULT_NEW_SCORE_SETTINGS, title: "House Style Demo" })))}
-        activeScoreIndex={0}
-        onApplyPageSetup={() => {}}
-        onResetPageSetup={() => {}}
-        onInstrumentNameDisplayChange={() => {}}
-        onAutoHideEmptyPartsChange={() => {}}
-        selectedBreakKind={null}
-        hasLayoutOverrides={false}
-        onRemoveSelectedBreak={() => {}}
-        onResetAll={() => {}}
-      />
-    </div>
-  );
-}
-
-function HouseStyleStory() {
-  return (
-    <DocumentProvider>
-      <HouseStyleHarness />
-    </DocumentProvider>
-  );
-}
-
-const meta: Meta<typeof HouseStyleStory> = {
-  title: "App/Engrave/Panel Tabs",
-  component: HouseStyleStory,
-  parameters: { layout: "centered" },
-};
-
-export default meta;
-type Story = StoryObj<typeof HouseStyleStory>;
-
-export const HouseStyleAndLayouts: Story = {};
-
-function PageDefaultsHarness() {
-  const { loadScore, updateScore } = useDocumentActions();
-  const score = useDocumentStore((state) => state.score);
-  const [scoreIndex, setScoreIndex] = useState(0);
-  const refs = useEngraveContextRefs(score, scoreIndex, updateScore);
-  const { handleApplyPageSetup, handleResetPageSetup } = usePageSetupEditor(refs);
-  useEffect(() => {
-    const initial = parseMnx(
-      JSON.parse(
-        buildBlankScore({
-          ...DEFAULT_NEW_SCORE_SETTINGS,
-          players: [createPlayer("strings.violin"), createPlayer("strings.cello")],
-        }),
-      ),
-    );
-    initial.pageSetupDefaults = {
-      score: { ...DEFAULT_PAGE_SETUP, width: 228.6, height: 304.8 },
-      part: { ...DEFAULT_PART_PAGE_SETUP, width: 215.9, height: 279.4 },
-    };
-    const cello = initial.scores?.[2];
-    if (cello) cello.pageSetup = { ...DEFAULT_PART_PAGE_SETUP, width: 250, height: 353 };
-    loadScore(initial);
-  }, [loadScore]);
-  return (
-    <div style={FRAME_STYLE}>
-      {score && (
-        <ProjectPageSetup
-          score={score}
-          scoreIndex={scoreIndex}
-          onApply={handleApplyPageSetup}
-          onReset={handleResetPageSetup}
-          preamble={
-            <FormField label="Active layout">
-              <Select
-                aria-label="Active layout"
-                value={String(scoreIndex)}
-                options={(score.scores ?? []).map((definition, index) => ({
-                  value: String(index),
-                  label: definition.name ?? `Layout ${index + 1}`,
-                }))}
-                onValueChange={(value) => setScoreIndex(Number(value))}
-              />
-            </FormField>
-          }
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <FormField label="Layout (stands in for the top-nav switcher)">
+        <Select
+          aria-label="Layout"
+          value={String(scoreIndex)}
+          options={(score?.scores ?? []).map((definition, index) => ({
+            value: String(index),
+            label: definition.name ?? `Layout ${index + 1}`,
+          }))}
+          onValueChange={(value) => setScoreIndex(Number(value))}
         />
-      )}
+      </FormField>
+      <div style={FRAME_STYLE}>
+        <EngraveLeftPanel
+          score={score}
+          activeScoreIndex={scoreIndex}
+          onInstrumentNameDisplayChange={() => {}}
+          onAutoHideEmptyPartsChange={() => {}}
+          selectedBreakKind={null}
+          hasLayoutOverrides={false}
+          onRemoveSelectedBreak={() => {}}
+          onResetAll={() => {}}
+        />
+      </div>
     </div>
   );
 }
 
-export const ScoreAndPartPageDefaults: Story = {
-  render: () => (
+const meta: Meta<typeof Harness> = {
+  title: "App/Engrave/Style Panel",
+  component: Harness,
+  parameters: { layout: "centered" },
+  render: (args) => (
     <DocumentProvider>
-      <PageDefaultsHarness />
+      <Harness {...args} />
     </DocumentProvider>
   ),
 };
+
+export default meta;
+type Story = StoryObj<typeof Harness>;
+
+export const LayoutSettings: Story = { args: { mode: "layout" } };
+
+export const HouseStyle: Story = { args: { mode: "house" } };

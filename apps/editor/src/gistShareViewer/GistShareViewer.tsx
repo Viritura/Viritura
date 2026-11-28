@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, ExternalLink, Volume2, X } from "lucide-react";
 import {
-  defaultPageSetupForScore,
+  resolveScorePageSetup,
   formatStaffSizeLabel,
   PAGE_SIZE_PRESETS,
   RASTRAL_SPATIUM_MM,
@@ -180,10 +180,7 @@ const STAFF_SIZE_OPTIONS: readonly ScoreViewerStaffSizeOption[] = RASTRAL_SPATIU
 }));
 
 function defaultStaffSizeForScore(score: Score, scoreIndex: number): number {
-  return (
-    defaultPageSetupForScore(score.scores, scoreIndex, score.layouts, score.parts.length, score.pageSetupDefaults)
-      .spatiumMm * PAGE_SCALE
-  );
+  return resolveScorePageSetup(score, scoreIndex).spatiumMm * PAGE_SCALE;
 }
 
 function collectPartIds(content: readonly LayoutContent[], result: Set<string>): void {

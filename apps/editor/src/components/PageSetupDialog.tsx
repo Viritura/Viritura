@@ -79,7 +79,7 @@ interface UnitInputProps {
  * Shows the current mm value when not focused, allows free-text editing,
  * and converts on blur.
  */
-function UnitInput({
+export function UnitInput({
   id,
   "aria-describedby": ariaDescribedBy,
   "aria-invalid": ariaInvalid,

@@ -1,7 +1,7 @@
 import type { DisplayList, SpatialIndex } from "@viritura/renderer";
 import { computeHorizonPaperGeometry } from "@viritura/renderer";
 import { computePagePlacements, PAGE_STACK_GAP } from "./viewportGeometry";
-import { defaultPageSetupForScore } from "@viritura/core";
+import { resolveScorePageSetup } from "@viritura/core";
 import type { PageSetup, Score } from "@viritura/core";
 
 interface ImperativeHandleArgs {
@@ -64,22 +64,7 @@ export function buildScoreCanvasHandle(args: ImperativeHandleArgs): ScoreCanvasH
     resetViewport,
     scoreDefinitions,
     getDisplayList: () => displayListRef.current,
-    getPageSetup: () => {
-      const scores = docScoreRef.current?.scores;
-      const activeScoreDef = scores?.[selectedScoreIndex];
-      const defaults = defaultPageSetupForScore(
-        scores,
-        selectedScoreIndex,
-        docScoreRef.current?.layouts,
-        docScoreRef.current?.parts?.length,
-        docScoreRef.current?.pageSetupDefaults,
-      );
-      return {
-        ...defaults,
-        ...activeScoreDef?.pageSetup,
-        margins: { ...defaults.margins, ...activeScoreDef?.pageSetup?.margins },
-      };
-    },
+    getPageSetup: () => resolveScorePageSetup(docScoreRef.current ?? null, selectedScoreIndex),
     getSpatialIndex: () => spatialIndexRef.current,
     getCanvasElement: () => canvasRef.current,
     getViewportElement: () => containerRef.current,

@@ -56,6 +56,7 @@ export interface MenuBarConfigDeps {
   handleExportPdf: () => void | Promise<void>;
   handleExportSvg: () => void | Promise<void>;
   onOpenPublish: (() => void) | undefined;
+  onOpenPageSetup: (() => void) | undefined;
 }
 
 export interface MenuBarConfig {
@@ -128,6 +129,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
     handleExportPdf,
     handleExportSvg,
     onOpenPublish,
+    onOpenPageSetup,
   } = deps;
   const chordTrackEnabled = useViewStateStore((state) => state.chordTrackEnabled);
 
@@ -199,7 +201,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
         window.open(DOCS_URL, "_blank", "noopener,noreferrer");
       },
       onToggleSource: () => toggleDialog("source"),
-      onPageSetup: () => openDialog("pageSetup"),
+      onPageSetup: () => onOpenPageSetup?.(),
       onExportPdf: () => {
         void handleExportPdf();
       },
@@ -246,6 +248,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       handleExportPdf,
       handleExportSvg,
       onOpenPublish,
+      onOpenPageSetup,
     ],
   );
 

@@ -1,5 +1,5 @@
 import { formatPageSizeLabel, formatStaffSizeLabel } from "@viritura/core";
-import { Checkbox, Panel, PanelActionButton } from "@viritura/ui";
+import { Button, Checkbox, Panel, PanelActionButton } from "@viritura/ui";
 import styles from "../PublishView.module.css";
 import type { CSSProperties } from "react";
 import type { LayoutEntry } from "./layoutEntries";
@@ -21,6 +21,8 @@ interface LeftLayoutsPanelProps {
   onSelectAll: () => void;
   onClearSelection: () => void;
   onFocusIndex: (i: number) => void;
+  /** Open a layout's page and style settings in Engrave. */
+  onEditLayout?: (i: number) => void;
   /** Injected by WorkspaceShell via cloneElement — forward to inner Panel. */
   shellStyle?: CSSProperties;
 }
@@ -38,6 +40,7 @@ export function LeftLayoutsPanel({
   onSelectAll,
   onClearSelection,
   onFocusIndex,
+  onEditLayout,
   shellStyle,
 }: LeftLayoutsPanelProps) {
   const wholeDocument = !isLayoutFormat(format);
@@ -70,7 +73,7 @@ export function LeftLayoutsPanel({
       scrollBody
       footer={
         <>
-          Edit page setup from <strong>Engrave</strong> mode (right-click a score row).
+          Page size, staff size, and house style are set in <strong>Engrave</strong>.
         </>
       }
     >
@@ -91,6 +94,7 @@ export function LeftLayoutsPanel({
               exporting={exporting || wholeDocument}
               onToggle={() => onToggleIndex(l.index)}
               onFocus={() => onFocusIndex(l.index)}
+              onEdit={onEditLayout && (() => onEditLayout(l.index))}
             />
           ))}
         </div>
@@ -106,9 +110,10 @@ interface LayoutCardProps {
   exporting: boolean;
   onToggle: () => void;
   onFocus: () => void;
+  onEdit: (() => void) | undefined;
 }
 
-function LayoutCard({ layout, checked, focused, exporting, onToggle, onFocus }: LayoutCardProps) {
+function LayoutCard({ layout, checked, focused, exporting, onToggle, onFocus, onEdit }: LayoutCardProps) {
   const ps = layout.pageSetup;
   return (
     <div
@@ -139,9 +144,16 @@ function LayoutCard({ layout, checked, focused, exporting, onToggle, onFocus }: 
           {formatPageSizeLabel(ps.width, ps.height)}
           {" · "}
           {formatStaffSizeLabel(ps.spatiumMm)}
-          {layout.hasOverride && <span className={styles.customBadge}>custom</span>}
+          {layout.customCount > 0 && <span className={styles.customBadge}>{layout.customCount} custom</span>}
         </span>
       </div>
+      {onEdit && (
+        <span onClick={(e) => e.stopPropagation()}>
+          <Button size="xs" variant="ghost" ariaLabel={`Edit ${layout.name} in Engrave`} onClick={onEdit}>
+            Edit
+          </Button>
+        </span>
+      )}
     </div>
   );
 }

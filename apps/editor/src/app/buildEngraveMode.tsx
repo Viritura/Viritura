@@ -77,8 +77,6 @@ export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
         <EngraveLeftPanel
           score={engrave.score}
           activeScoreIndex={engrave.activeScoreIndex}
-          onApplyPageSetup={engrave.pageSetup.handleApplyPageSetup}
-          onResetPageSetup={engrave.pageSetup.handleResetPageSetup}
           onInstrumentNameDisplayChange={engrave.handleInstrumentNameDisplayChange}
           onAutoHideEmptyPartsChange={engrave.handleAutoHideEmptyPartsChange}
           selectedBreakKind={engrave.selectedBreakKind}

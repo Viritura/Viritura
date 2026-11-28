@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DEFAULT_PAGE_SETUP, DEFAULT_PART_PAGE_SETUP, type PageSetupRole } from "@viritura/core";
+import { applyPageSetupOverride, builtInPageSetup, type PageSetupRole } from "@viritura/core";
 import { FormField, Select } from "@viritura/ui";
 import { PageSetupDialog } from "../components/PageSetupDialog";
 import { usePageDefaultsStore } from "./pageDefaultsStore";
@@ -8,14 +8,14 @@ export function PageDefaultsPanel() {
   const [role, setRole] = useState<PageSetupRole>("score");
   const defaults = usePageDefaultsStore((state) => state.defaults);
   const setDefault = usePageDefaultsStore((state) => state.setDefault);
-  const builtIn = role === "score" ? DEFAULT_PAGE_SETUP : DEFAULT_PART_PAGE_SETUP;
+  const builtIn = builtInPageSetup(role);
   return (
     <PageSetupDialog
       key={role}
       embedded
       embeddedPreamble={
         <>
-          <p>Defaults for new projects on this device. Existing projects keep their own settings.</p>
+          <p>Page defaults for new projects on this device. Existing projects keep their own house style.</p>
           <FormField label="Page defaults for">
             <Select
               aria-label="Page defaults for"
@@ -31,7 +31,7 @@ export function PageDefaultsPanel() {
           </FormField>
         </>
       }
-      initialSetup={defaults[role] ?? builtIn}
+      initialSetup={applyPageSetupOverride(builtIn, defaults[role])}
       onApply={(setup) => setDefault(role, setup)}
       resetSetup={builtIn}
       onResetToDefault={() => setDefault(role, undefined)}

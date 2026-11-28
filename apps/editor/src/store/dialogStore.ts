@@ -16,7 +16,6 @@
 import { create } from "zustand";
 
 export type DialogId =
-  | "pageSetup"
   | "calibration"
   | "identity"
   | "signIn"
@@ -39,7 +38,6 @@ export interface DialogStoreState {
 }
 
 const allClosed: Record<DialogId, boolean> = {
-  pageSetup: false,
   calibration: false,
   identity: false,
   signIn: false,

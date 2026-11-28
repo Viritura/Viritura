@@ -39,7 +39,6 @@ import {
   useMarkerSelection,
   useStaffVisibility,
   useSlurEditState,
-  usePageSetupEditor,
   useAutoHideEmptyParts,
 } from "../components/modes/engrave/hooks";
 import {
@@ -103,8 +102,7 @@ export interface EngraveMode {
   handleSetSelectedBreak: (kind: "system" | "page") => void;
   handleRemoveSelectedBreak: () => void;
 
-  // ── Embedded page setup editor ───────────────────────────────
-  pageSetup: ReturnType<typeof usePageSetupEditor>;
+  // ── Layout settings ─────────────────────────────────────────
   handleInstrumentNameDisplayChange: (settings: InstrumentNameDisplaySettings) => void;
   handleAutoHideEmptyPartsChange: (change: AutoHideEmptyStavesChange) => void;
 }
@@ -129,7 +127,6 @@ export function useEngraveMode({
   const { selectedMarkerId, setSelectedMarkerId } = useMarkerSelection(refs, selectedScoreIndex, active);
   const staffVis = useStaffVisibility(refs, score, selectedScoreIndex, canvasRef);
   const slur = useSlurEditState(refs, score);
-  const pageSetup = usePageSetupEditor(refs);
   const handleAutoHideEmptyPartsChange = useAutoHideEmptyParts(refs);
 
   const { clearSelection } = useSelectionActions();
@@ -339,7 +336,6 @@ export function useEngraveMode({
     handleSetSelectedBreak,
     handleRemoveSelectedBreak,
 
-    pageSetup,
     handleInstrumentNameDisplayChange,
     handleAutoHideEmptyPartsChange,
   };

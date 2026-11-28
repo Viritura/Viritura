@@ -1,14 +1,15 @@
 import { useCallback, useState } from "react";
 import { Checkbox, FormField, FormInput, Select } from "@viritura/ui";
-import {
-  resolveScorePageSetup,
-  resolvePageTurnSettings,
-  type PageTurnSettings,
-  type ResolvedPageTurnSettings,
-} from "@viritura/core";
+import { resolvePageTurnSettings, type ResolvedPageTurnSettings } from "@viritura/core";
 
+import {
+  readPageLayer,
+  resolvedPageSetup,
+  scopeName,
+  updatePageTurns,
+  type PageScope,
+} from "../../../../../engraveStyle";
 import { useDocumentStore, useDocumentStoreApi } from "../../../../../store/DocumentContext";
-import { useViewStateStore } from "../../../../../store/viewStateStore";
 import styles from "./PageTurnsPanel.module.css";
 
 const TITLE_PAGE_OPTIONS = [
@@ -81,25 +82,6 @@ function NumberField({ label, value, min, max, step, suffix, onCommit }: NumberF
       </div>
     </FormField>
   );
-}
-
-function storedSettings(settings: ResolvedPageTurnSettings): PageTurnSettings {
-  return {
-    enabled: settings.enabled,
-    comfortableSecs: settings.comfortableSecs,
-    vsSecs: settings.vsSecs,
-    minAcceptableSecs: settings.minAcceptableSecs,
-    targetFillFraction: settings.targetFillFraction,
-    minFillFraction: settings.minFillFraction,
-    verticalJustifyThreshold: settings.verticalJustifyThreshold,
-    allowPartialPages: settings.allowPartialPages,
-    allowIntentionalBlanks: settings.allowIntentionalBlanks,
-    titlePage: settings.titlePage,
-    ...(settings.firstPageRecto === undefined ? {} : { firstPageRecto: settings.firstPageRecto }),
-    emitVsMarks: settings.emitVsMarks,
-    defaultBpm: settings.defaultBpm,
-    weights: { ...settings.weights },
-  };
 }
 
 interface SettingsSectionProps {
@@ -341,47 +323,44 @@ function ObjectiveWeightsSection({ settings, onUpdate }: SettingsSectionProps) {
   );
 }
 
-/** Complete, live editor for the engine's auto page-turn configuration. */
-export function PageTurnsPanel() {
-  const score = useDocumentStore((state) => state.score);
+interface PageTurnsPanelProps {
+  /** The house profile or layout whose page-turn settings are edited. */
+  scope: PageScope;
+}
+
+/** Complete, live editor for the engine's auto page-turn configuration at one style layer. */
+export function PageTurnsPanel({ scope }: PageTurnsPanelProps) {
+  const score = useDocumentStore((state) => state.workingScore ?? state.score);
   const store = useDocumentStoreApi();
-  const scoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
-  const scoreDefinition = score?.scores?.[scoreIndex];
-  const effectiveSetup = resolveScorePageSetup(score, scoreIndex);
-  const settings = resolvePageTurnSettings(effectiveSetup.pageTurns);
 
   const commit = useCallback(
     (update: (current: ResolvedPageTurnSettings) => ResolvedPageTurnSettings) => {
-      const currentScore = store.getState().workingScore;
-      const currentDefinition = currentScore?.scores?.[scoreIndex];
-      if (!currentScore || !currentDefinition) return;
-      const currentSetup = resolveScorePageSetup(currentScore, scoreIndex);
-      const nextSettings = storedSettings(update(resolvePageTurnSettings(currentSetup.pageTurns)));
-      const scores = [...(currentScore.scores ?? [])];
-      scores[scoreIndex] = {
-        ...currentDefinition,
-        pageSetup: {
-          ...currentSetup,
-          pageTurns: nextSettings,
-        },
-      };
-      store.getState().updateScore({ ...currentScore, scores });
+      const state = store.getState();
+      const current = state.workingScore ?? state.score;
+      if (!current) return;
+      const next = updatePageTurns(current, scope, update);
+      if (next !== current) state.updateScore(next);
     },
-    [scoreIndex, store],
+    [scope, store],
   );
 
   if (!score) {
     return <p className={styles.empty}>Open a score to configure page turns.</p>;
   }
-  if (!scoreDefinition) {
+  if (scope.kind === "layout" && !score.scores?.[scope.index]) {
     return <p className={styles.empty}>This document has no editable score layout.</p>;
   }
+  const settings = resolvePageTurnSettings(resolvedPageSetup(score, scope).pageTurns);
+  const custom = Boolean(readPageLayer(score, scope)?.pageTurns);
 
   return (
     <div className={styles.root}>
       <p className={styles.intro}>
-        Tunes automatic part casting for the score or part selected above the canvas. Authored page breaks and full
-        scores are unchanged.
+        {scope.kind === "layout"
+          ? `Tunes automatic page turns for ${scopeName(score, scope)} only.`
+          : `Tunes automatic page turns for every layout using the ${scopeName(score, scope)} profile.`}{" "}
+        {custom ? "Changed values are stored here; the rest follow the parent." : "Values currently follow the parent."}{" "}
+        Authored page breaks are unchanged.
       </p>
 
       <div className={styles.toggleRow}>

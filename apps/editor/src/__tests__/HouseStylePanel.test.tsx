@@ -22,7 +22,7 @@ const SCORE: Score = {
 function WithScore({ children }: { readonly children: ReactNode }) {
   const loadScore = useDocumentStore((state) => state.loadScore);
   const loaded = useDocumentStore((state) => state.score !== null);
-  const pageTurns = useDocumentStore((state) => state.score?.scores?.[0]?.pageSetup?.pageTurns);
+  const pageTurns = useDocumentStore((state) => state.score?.pageSetupDefaults?.part?.pageTurns);
   const chordSymbols = useDocumentStore((state) => state.score?.chordSymbolStyle);
   const instrumentChanges = useDocumentStore((state) => state.score?.instrumentChangeStyle);
   const textStyles = useDocumentStore((state) => state.score?.textStyles);
@@ -51,7 +51,7 @@ function renderPanel() {
     <TooltipPrimitives.Provider delayDuration={0}>
       <DocumentProvider>
         <WithScore>
-          <HouseStylePanel />
+          <HouseStylePanel pageScope={{ kind: "profile", role: "part" }} pageSection={<p>Part page fields</p>} />
         </WithScore>
       </DocumentProvider>
     </TooltipPrimitives.Provider>,
@@ -78,13 +78,13 @@ describe("HouseStylePanel", () => {
     expect(availableCategories().some((category) => category.id === "text-styles")).toBe(false);
   });
 
-  it("opens score-wide time-signature appearance by default", async () => {
+  it("opens the profile page section by default", async () => {
     renderPanel();
 
     expect(await screen.findByLabelText("Search house style")).toBeTruthy();
     expect(screen.queryByText("House Style")).toBeNull();
-    expect(screen.getByLabelText("Time signature appearance scope")).toBeTruthy();
-    expect(screen.queryByText("Time signature appearance")).toBeNull();
+    expect(screen.getByText("Part page fields")).toBeTruthy();
+    expect(screen.queryByLabelText("Time signature appearance scope")).toBeNull();
   });
 
   it("switches to score-persisted text styles", async () => {
@@ -191,17 +191,16 @@ describe("HouseStylePanel", () => {
     expect(screen.getByRole("spinbutton", { name: "Blank page" })).toBeTruthy();
     expect(screen.getByRole("spinbutton", { name: "Time marking" })).toBeTruthy();
 
-    await user.click(screen.getByLabelText("Enable page-turn optimization"));
+    const enable = screen.getByLabelText("Enable page-turn optimization");
+    expect(enable).toHaveProperty("checked", true);
+    await user.click(enable);
+    await user.click(enable);
     const minimumFill = screen.getByRole("spinbutton", { name: "Minimum fill" });
     await user.clear(minimumFill);
     await user.type(minimumFill, "80");
     await user.tab();
 
     const stored = screen.getByTestId("stored-page-turns").textContent ?? "";
-    expect(stored).toContain('"enabled":true');
-    expect(stored).toContain('"minFillFraction":0.8');
-    expect(stored).toContain('"verticalJustifyThreshold":0.65');
-    expect(stored).toContain('"titlePage":"auto"');
-    expect(stored).toContain('"timeMarking":1');
+    expect(JSON.parse(stored)).toEqual({ enabled: true, minFillFraction: 0.8 });
   });
 });

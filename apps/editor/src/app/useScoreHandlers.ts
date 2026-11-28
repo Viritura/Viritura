@@ -21,7 +21,6 @@ interface UseScoreHandlersParams {
   setSelectedScoreIndex: React.Dispatch<React.SetStateAction<number>>;
   setFileHandle: React.Dispatch<React.SetStateAction<FileSystemFileHandle | null>>;
   setExpandedCondensingStaves: React.Dispatch<React.SetStateAction<Set<string>>>;
-  pageSetupTargetIndex: number | null;
   updateScore: (next: Score) => void;
   canSetUpGitHubRepository: boolean;
   canvasRef: RefObject<ScoreCanvasHandle | null>;
@@ -48,7 +47,6 @@ export function useScoreHandlers(params: UseScoreHandlersParams): ScoreHandlers 
     setSelectedScoreIndex,
     setFileHandle,
     setExpandedCondensingStaves,
-    pageSetupTargetIndex,
     updateScore,
     canSetUpGitHubRepository,
     canvasRef,
@@ -68,8 +66,6 @@ export function useScoreHandlers(params: UseScoreHandlersParams): ScoreHandlers 
   const editing = useScoreEditingActions({
     store,
     selection,
-    selectedScoreIndex,
-    pageSetupTargetIndex,
     updateScore,
   });
 

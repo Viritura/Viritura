@@ -7,8 +7,6 @@ import type { WriteLeftTab } from "../components/LeftPanel";
 type InspectorFocus = "tie" | "slur" | "markings" | "directions" | "layout" | null;
 
 export interface AppLocalState {
-  pageSetupTargetIndex: number | null;
-  setPageSetupTargetIndex: React.Dispatch<React.SetStateAction<number | null>>;
   openedFile: OpenFileResult | null;
   setOpenedFile: React.Dispatch<React.SetStateAction<OpenFileResult | null>>;
   fileError: string | null;
@@ -43,7 +41,6 @@ export interface AppLocalState {
  * useState slot.
  */
 export function useAppLocalState(): AppLocalState {
-  const [pageSetupTargetIndex, setPageSetupTargetIndex] = useState<number | null>(null);
   const [openedFile, setOpenedFile] = useState<OpenFileResult | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -65,8 +62,6 @@ export function useAppLocalState(): AppLocalState {
   const [paletteSectionRequest, setPaletteSectionRequest] = useState<{ id: string; requestId: number } | null>(null);
 
   return {
-    pageSetupTargetIndex,
-    setPageSetupTargetIndex,
     openedFile,
     setOpenedFile,
     fileError,

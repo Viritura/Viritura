@@ -7,24 +7,36 @@ import { PageTurnsPanel } from "./PageTurnsPanel";
 import { ChordSymbolsPanel } from "./ChordSymbolsPanel";
 import { InstrumentChangesPanel } from "./InstrumentChangesPanel";
 import { BarNumbersPanel } from "./BarNumbersPanel";
+import type { ProfileScope } from "../../../../engraveStyle";
 import styles from "./HouseStylePanel.module.css";
 
 type HouseStyleCategory =
-  "time-signatures" | "chord-symbols" | "text-styles" | "page-turns" | "instrument-changes" | "bar-numbers";
+  "page" | "time-signatures" | "chord-symbols" | "text-styles" | "page-turns" | "instrument-changes" | "bar-numbers";
+
+interface CategoryContext {
+  pageScope: ProfileScope;
+  pageSection: ReactNode;
+}
 
 interface CategoryDefinition {
   id: HouseStyleCategory;
   title: string;
   keywords: string;
-  render: () => ReactNode;
+  render: (context: CategoryContext) => ReactNode;
 }
 
 const CATEGORIES: readonly CategoryDefinition[] = [
   {
+    id: "page",
+    title: "Page",
+    keywords: "page size paper orientation portrait landscape staff size rastral margins profile score part",
+    render: ({ pageSection }) => pageSection,
+  },
+  {
     id: "bar-numbers",
     title: "Bar Numbers",
     keywords: "bar measure numbers every system layout font size bold italic box circle above below grand staff",
-    render: () => <BarNumbersPanel />,
+    render: () => <BarNumbersPanel scope="document" />,
   },
   {
     id: "instrument-changes",
@@ -50,7 +62,7 @@ const CATEGORIES: readonly CategoryDefinition[] = [
     title: "Page Turns",
     keywords:
       "page turn pagination physical rest seconds comfortable volti subito vs density fill partial blank title recto verso tempo weight sparse time marking",
-    render: () => <PageTurnsPanel />,
+    render: ({ pageScope }) => <PageTurnsPanel scope={pageScope} />,
   },
   {
     id: "text-styles",
@@ -62,7 +74,8 @@ const CATEGORIES: readonly CategoryDefinition[] = [
 ];
 
 const DEFAULT_OPEN: Record<HouseStyleCategory, boolean> = {
-  "time-signatures": true,
+  page: true,
+  "time-signatures": false,
   "chord-symbols": false,
   "page-turns": false,
   "text-styles": false,
@@ -70,8 +83,15 @@ const DEFAULT_OPEN: Record<HouseStyleCategory, boolean> = {
   "bar-numbers": false,
 };
 
+interface HouseStylePanelProps {
+  /** Profile whose page setup and page turns are edited. */
+  pageScope: ProfileScope;
+  /** Page fields for `pageScope`, rendered in the Page section. */
+  pageSection: ReactNode;
+}
+
 /** Searchable score-wide engraving controls with the live canvas beside them. */
-export function HouseStylePanel() {
+export function HouseStylePanel({ pageScope, pageSection }: HouseStylePanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [openMap, setOpenMap] = useState(DEFAULT_OPEN);
   const terms = useMemo(() => searchQuery.toLowerCase().split(/\s+/).filter(Boolean), [searchQuery]);
@@ -115,7 +135,7 @@ export function HouseStylePanel() {
             open={searching || openMap[category.id]}
             onOpenChange={(open) => setOpenMap((current) => ({ ...current, [category.id]: open }))}
           >
-            <div className={styles.categoryBody}>{category.render()}</div>
+            <div className={styles.categoryBody}>{category.render({ pageScope, pageSection })}</div>
           </Collapsible>
         ))}
         {visibleCategories.length === 0 && (

@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import { produce } from "../score/scoreClone";
 import { appendEmptyMeasures, insertEmptyMeasures } from "../score/ScoreMutations";
 import {
   transposeNotes,
@@ -7,7 +6,6 @@ import {
   CHROMATIC_INTERVALS,
   DIATONIC_INTERVALS,
 } from "../commands/transposeCommands";
-import type { PageSetup } from "@viritura/core";
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import { resolveSelectionEvents } from "../store/selectionUtils";
@@ -16,45 +14,10 @@ import type { Score } from "@viritura/core";
 interface UseScoreEditingActionsOptions {
   store: DocumentStore;
   selection: SelectionState;
-  selectedScoreIndex: number;
-  pageSetupTargetIndex: number | null;
   updateScore: (next: Score) => void;
 }
 
-export function useScoreEditingActions({
-  store,
-  selection,
-  selectedScoreIndex,
-  pageSetupTargetIndex,
-  updateScore,
-}: UseScoreEditingActionsOptions) {
-  const handleApplyPageSetup = useCallback(
-    (setup: PageSetup) => {
-      const { workingScore: score } = store.getState();
-      if (!score) return;
-      const updated = produce(score, (draft) => {
-        const scoreIdx = pageSetupTargetIndex ?? selectedScoreIndex;
-        if (draft.scores && draft.scores[scoreIdx]) {
-          draft.scores[scoreIdx].pageSetup = setup;
-        }
-      });
-      updateScore(updated);
-    },
-    [store, selectedScoreIndex, pageSetupTargetIndex, updateScore],
-  );
-
-  const handleResetPageSetup = useCallback(() => {
-    const { workingScore: score } = store.getState();
-    if (!score) return;
-    const updated = produce(score, (draft) => {
-      const scoreIdx = pageSetupTargetIndex ?? selectedScoreIndex;
-      if (draft.scores && draft.scores[scoreIdx]) {
-        delete draft.scores[scoreIdx].pageSetup;
-      }
-    });
-    updateScore(updated);
-  }, [store, selectedScoreIndex, pageSetupTargetIndex, updateScore]);
-
+export function useScoreEditingActions({ store, selection, updateScore }: UseScoreEditingActionsOptions) {
   const handleAddMeasures = useCallback(
     (count = 1, atIndex?: number) => {
       const { score } = store.getState();
@@ -88,8 +51,6 @@ export function useScoreEditingActions({
   );
 
   return {
-    handleApplyPageSetup,
-    handleResetPageSetup,
     handleAddMeasures,
     handleTransposeDialog,
   };

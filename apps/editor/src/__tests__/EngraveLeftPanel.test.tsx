@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_PART_PAGE_SETUP, resolveScorePageSetup, type Score } from "@viritura/core";
+import type { Score } from "@viritura/core";
 import { TooltipPrimitives } from "@viritura/ui";
 import { EngraveLeftPanel } from "../components/modes/engrave/EngraveLeftPanel";
 import { PageSetupDialog } from "../components/PageSetupDialog";
@@ -12,13 +12,15 @@ import { getGlobalPerfTracker } from "@viritura/renderer";
 import { useDocumentStoreApi } from "../store/DocumentContext";
 import type { DocumentStore } from "../store/documentStore";
 import { AutoHideEmptyStavesControl } from "../components/modes/engrave/EngraveLeftPanel/AutoHideEmptyStavesControl";
-import { useAutoHideEmptyParts, useEngraveContextRefs, usePageSetupEditor } from "../components/modes/engrave/hooks";
-import { PageDefaultsPanel, ProjectPageSetup, usePageDefaultsStore } from "../pageSetup";
+import { useAutoHideEmptyParts, useEngraveContextRefs } from "../components/modes/engrave/hooks";
+import { PageDefaultsPanel, usePageDefaultsStore } from "../pageSetup";
+import { useStyleEditorStore } from "../components/modes/engrave/StyleEditor";
 
 afterEach(() => {
   getGlobalPerfTracker().fastLayoutCallback = null;
   cleanup();
   resetSelectionStore();
+  useStyleEditorStore.getState().openLayout();
   usePageDefaultsStore.setState({ defaults: {} });
   window.localStorage.removeItem("viritura.pageSetupDefaults");
 });
@@ -76,25 +78,43 @@ function LiveAutoHideControl({ scoreIndex, onStore }: { scoreIndex: number; onSt
   return score ? <AutoHideEmptyStavesControl score={score} scoreIndex={scoreIndex} onChange={onChange} /> : null;
 }
 
-function LiveProjectPages({ onStore }: { onStore: (store: DocumentStore) => void }) {
+function LivePanel({ onStore }: { onStore: (store: DocumentStore) => void }) {
   const store = useDocumentStoreApi();
-  const score = useDocumentStore((state) => state.score);
-  const updateScore = useDocumentStore((state) => state.updateScore);
-  const refs = useEngraveContextRefs(score, 0, updateScore);
-  const { handleApplyPageSetup, handleResetPageSetup } = usePageSetupEditor(refs);
+  const score = useDocumentStore((state) => state.workingScore ?? state.score);
   useEffect(() => onStore(store), [onStore, store]);
-  return score ? (
-    <ProjectPageSetup
+  return (
+    <EngraveLeftPanel
       score={score}
-      scoreIndex={0}
-      preamble={null}
-      onApply={handleApplyPageSetup}
-      onReset={handleResetPageSetup}
+      activeScoreIndex={0}
+      onInstrumentNameDisplayChange={vi.fn()}
+      onAutoHideEmptyPartsChange={vi.fn()}
+      selectedBreakKind={null}
+      hasLayoutOverrides={false}
+      onRemoveSelectedBreak={vi.fn()}
+      onResetAll={vi.fn()}
     />
-  ) : null;
+  );
 }
 
-function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onInstrumentNameDisplayChange = vi.fn()) {
+function renderLivePanel() {
+  const handle: { store?: DocumentStore } = {};
+  render(
+    <TooltipPrimitives.Provider delayDuration={0}>
+      <DocumentProvider>
+        <WithScore>
+          <LivePanel
+            onStore={(value) => {
+              handle.store = value;
+            }}
+          />
+        </WithScore>
+      </DocumentProvider>
+    </TooltipPrimitives.Provider>,
+  );
+  return handle;
+}
+
+function renderPanel(onInstrumentNameDisplayChange = vi.fn()) {
   const onRemoveSelectedBreak = vi.fn();
   const onResetAll = vi.fn();
   const onAutoHideEmptyPartsChange = vi.fn();
@@ -106,8 +126,6 @@ function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onI
             <EngraveLeftPanel
               score={SCORE}
               activeScoreIndex={0}
-              onApplyPageSetup={onApplyPageSetup}
-              onResetPageSetup={onResetPageSetup}
               onInstrumentNameDisplayChange={onInstrumentNameDisplayChange}
               onAutoHideEmptyPartsChange={onAutoHideEmptyPartsChange}
               selectedBreakKind="page"
@@ -120,8 +138,6 @@ function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onI
         </DocumentProvider>
       </TooltipPrimitives.Provider>,
     ),
-    onApplyPageSetup,
-    onResetPageSetup,
     onInstrumentNameDisplayChange,
     onAutoHideEmptyPartsChange,
     onRemoveSelectedBreak,
@@ -130,77 +146,39 @@ function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onI
 }
 
 describe("EngraveLeftPanel", () => {
-  it("keeps batch defaults when a current-layout edit and reset happen during pending layout", async () => {
+  it("stores a sparse layout override and resets it to the inherited value", async () => {
     const user = userEvent.setup();
-    let store: DocumentStore | undefined;
-    render(
-      <DocumentProvider>
-        <WithScore>
-          <LiveProjectPages
-            onStore={(value) => {
-              store = value;
-            }}
-          />
-        </WithScore>
-      </DocumentProvider>,
-    );
-    const completions: Array<() => void> = [];
-    getGlobalPerfTracker().fastLayoutCallback = () => new Promise<void>((resolve) => completions.push(resolve));
-    await user.click(await screen.findByRole("combobox", { name: "Page setup for" }));
-    await user.click(await screen.findByRole("option", { name: "Project score defaults" }));
-    await user.click(screen.getByRole("combobox", { name: "Preset", exact: true }));
-    await user.click(await screen.findByRole("option", { name: "Letter" }));
-    await user.click(screen.getByRole("button", { name: "Apply to all scores" }));
-    expect(store?.getState().score?.pageSetupDefaults).toBeUndefined();
-    await user.click(screen.getByRole("combobox", { name: "Page setup for" }));
-    await user.click(await screen.findByRole("option", { name: "Full Score" }));
-    await user.click(screen.getByRole("button", { name: "Apply", exact: true }));
-    expect(store?.getState().workingScore?.pageSetupDefaults?.score?.width).toBe(215.9);
-    await user.click(screen.getByRole("button", { name: "Reset to document default" }));
-    expect(store?.getState().workingScore?.scores?.[0]?.pageSetup).toBeUndefined();
-    expect((screen.getByRole("textbox", { name: "Width (mm)" }) as HTMLInputElement).value).toBe("215.9");
-    await act(async () => completions.shift()?.());
-    await act(async () => completions.shift()?.());
-    expect(store?.getState().score?.pageSetupDefaults?.score?.width).toBe(215.9);
+    const handle = renderLivePanel();
+    await user.click(await screen.findByRole("combobox", { name: "Staff size" }));
+    await user.click(await screen.findByRole("option", { name: "Rastral 0 — 8.0mm" }));
+    expect(handle.store?.getState().workingScore?.scores?.[0]?.pageSetup).toEqual({
+      width: 297,
+      height: 420,
+      spatiumMm: 2,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Staff size actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: /^Reset to Rastral/ }));
+    expect(handle.store?.getState().workingScore?.scores?.[0]?.pageSetup).toEqual({ width: 297, height: 420 });
+    expect(handle.store?.getState().workingScore?.scores?.[0]?.textFrames).toEqual(SCORE.scores?.[0]?.textFrames);
   });
 
-  it("edits project defaults, preserves custom layouts, and explicitly replaces and resets overrides", async () => {
+  it("edits the house style profile and links back to layouts that override it", async () => {
     const user = userEvent.setup();
-    let store: DocumentStore | undefined;
-    render(
-      <DocumentProvider>
-        <WithScore>
-          <LiveProjectPages
-            onStore={(value) => {
-              store = value;
-            }}
-          />
-        </WithScore>
-      </DocumentProvider>,
-    );
-    await user.click(await screen.findByRole("combobox", { name: "Page setup for" }));
-    await user.click(await screen.findByRole("option", { name: "Project score defaults" }));
-    await user.click(screen.getByRole("combobox", { name: "Preset", exact: true }));
-    await user.click(await screen.findByRole("option", { name: "Letter" }));
-    await user.click(screen.getByRole("button", { name: "Apply to all scores" }));
-    expect(store?.getState().workingScore?.pageSetupDefaults?.score?.width).toBe(215.9);
-    expect(store?.getState().workingScore?.scores?.[0]?.pageSetup?.width).toBe(297);
-    expect(resolveScorePageSetup(store!.getState().workingScore, 1)).toEqual(DEFAULT_PART_PAGE_SETUP);
+    const handle = renderLivePanel();
+    await user.click(await screen.findByRole("button", { name: "Edit house style" }));
+    expect(screen.getByText("House style")).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "Layout" })).toBeNull();
 
-    await user.click(screen.getByRole("checkbox", { name: "Replace custom layouts" }));
-    await user.click(screen.getByRole("button", { name: "Apply to all scores" }));
-    expect(store?.getState().workingScore?.scores?.[0]?.pageSetup).toBeUndefined();
+    await user.click(screen.getByRole("combobox", { name: "Staff size" }));
+    await user.click(await screen.findByRole("option", { name: "Rastral 0 — 8.0mm" }));
+    expect(handle.store?.getState().workingScore?.pageSetupDefaults?.score).toEqual({ spatiumMm: 2 });
+    expect(handle.store?.getState().workingScore?.scores?.[0]?.pageSetup?.spatiumMm).toBe(1.25);
 
-    await user.click(screen.getByRole("combobox", { name: "Page setup for" }));
-    await user.click(await screen.findByRole("option", { name: "Full Score" }));
-    await user.click(screen.getByRole("combobox", { name: "Preset", exact: true }));
-    await user.click(await screen.findByRole("option", { name: "A3" }));
-    await user.click(screen.getByRole("button", { name: "Apply", exact: true }));
-    expect(store?.getState().workingScore?.scores?.[0]?.pageSetup?.width).toBe(297);
-    await user.click(screen.getByRole("button", { name: "Reset to document default" }));
-    expect(store?.getState().workingScore?.scores?.[0]?.pageSetup).toBeUndefined();
-    expect((screen.getByRole("textbox", { name: "Width (mm)" }) as HTMLInputElement).value).toBe("215.9");
-    expect(store?.getState().workingScore?.scores?.[0]?.textFrames).toEqual(SCORE.scores?.[0]?.textFrames);
+    expect(screen.getAllByRole("button", { name: "Full Score custom setting" })).toHaveLength(2);
+    await user.click(screen.getAllByRole("button", { name: "Full Score custom setting" })[0]!);
+    expect(useStyleEditorStore.getState().mode).toBe("layout");
+    expect(await screen.findByTestId("layout-style-panel")).toBeTruthy();
   });
 
   it("saves score and part user defaults independently and restores the correct part defaults", async () => {
@@ -301,7 +279,7 @@ describe("EngraveLeftPanel", () => {
   it("lets the active score opt individual instruments into empty-staff hiding", async () => {
     const user = userEvent.setup();
     const { onAutoHideEmptyPartsChange } = renderPanel();
-    await user.click(await screen.findByRole("tab", { name: "Layouts" }));
+    await user.click(await screen.findByRole("tab", { name: "Layout" }));
     await user.click(screen.getByRole("checkbox", { name: "Auto-hide empty staves: Oboe" }));
     expect(onAutoHideEmptyPartsChange).toHaveBeenCalledWith({ kind: "parts", partIds: ["p2"] });
     expect((screen.getByRole("checkbox", { name: "Auto-hide empty staves: Flute" }) as HTMLInputElement).checked).toBe(
@@ -333,54 +311,29 @@ describe("EngraveLeftPanel", () => {
 
   it("opens existing frame properties on canvas selection without a Text tab or creation actions", async () => {
     renderPanel();
-    await screen.findByRole("tab", { name: "Properties" });
+    await screen.findByRole("tab", { name: "Selection" });
     expect(screen.queryByRole("tab", { name: "Text" })).toBeNull();
     act(() => {
       useSelectionStore.setState({ selection: { kind: "single", elementId: "text-frame/title" } });
     });
-    expect(screen.getByRole("tab", { name: "Properties" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Selection" }).getAttribute("aria-selected")).toBe("true");
     expect((await screen.findByRole("textbox", { name: "Text", exact: true })).textContent).toBe("Program note");
     expect(screen.queryByRole("button", { name: /Add .*frame/ })).toBeNull();
   });
-  it("switches between House Style and Layouts", async () => {
+  it("offers selection properties as a left-panel tab", async () => {
     const user = userEvent.setup();
     renderPanel();
 
-    expect(await screen.findByLabelText("Search house style")).toBeTruthy();
-    await user.click(screen.getByRole("tab", { name: "Layouts" }));
-
-    expect(screen.getByText("Instrument Labels")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Apply" })).toBeTruthy();
-  });
-
-  it("offers notation properties as a left-panel tab", async () => {
-    const user = userEvent.setup();
-    renderPanel();
-
-    const propertiesTab = await screen.findByRole("tab", { name: "Properties" });
-    await user.click(propertiesTab);
-    expect(propertiesTab.getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("edits page setup for the globally active score in place", async () => {
-    const user = userEvent.setup();
-    const { onApplyPageSetup } = renderPanel();
-
-    await user.click(await screen.findByRole("tab", { name: "Layouts" }));
-    await user.click(screen.getByRole("button", { name: "Apply" }));
-
-    expect(onApplyPageSetup).toHaveBeenCalledWith(
-      expect.objectContaining({ width: 297, height: 420, spatiumMm: 1.25 }),
-    );
-    expect(screen.queryByRole("button", { name: "Flute" })).toBeNull();
-    expect(screen.queryByText("297 mm × 420 mm · 5 mm staff")).toBeNull();
+    const selectionTab = await screen.findByRole("tab", { name: "Selection" });
+    await user.click(selectionTab);
+    expect(selectionTab.getAttribute("aria-selected")).toBe("true");
   });
 
   it("manages forced breaks from the Layouts tab", async () => {
     const user = userEvent.setup();
     const { onRemoveSelectedBreak, onResetAll } = renderPanel();
 
-    await user.click(await screen.findByRole("tab", { name: "Layouts" }));
+    await user.click(await screen.findByRole("tab", { name: "Layout" }));
     expect(screen.getByText("Page break after measure 12.")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Remove" }));
@@ -396,7 +349,7 @@ describe("EngraveLeftPanel", () => {
     const user = userEvent.setup();
     const { onInstrumentNameDisplayChange } = renderPanel();
 
-    await user.click(await screen.findByRole("tab", { name: "Layouts" }));
+    await user.click(await screen.findByRole("tab", { name: "Layout" }));
     await user.click(screen.getByRole("combobox", { name: "First system" }));
     await user.click(await screen.findByRole("option", { name: "Hidden" }));
 

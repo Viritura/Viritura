@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Score, SlurShape, PageSetup } from "@viritura/core";
-import { produce } from "immer";
+import type { Score, SlurShape } from "@viritura/core";
 import type { ScoreCanvasHandle, StaffEyeHit } from "../../ScoreCanvas";
 import {
   clearBreakInScore,
@@ -322,41 +321,5 @@ export function useSlurEditState(refs: EngraveContextRefs, score: Score | null) 
     handleSlurShapeReset,
     handleSlurShapeReplace,
     handleSlurReanchor,
-  };
-}
-
-/** Persist page setup edits for the score selected in the global header switcher. */
-export function usePageSetupEditor(refs: EngraveContextRefs) {
-  const documentStore = useDocumentStoreApi();
-  const handleApplyPageSetup = useCallback(
-    (setup: PageSetup) => {
-      const sc = documentStore.getState().workingScore;
-      if (!sc) return;
-      const index = refs.activeScoreIndexRef.current;
-      const updated = produce(sc, (draft) => {
-        if (draft.scores && draft.scores[index]) {
-          draft.scores[index].pageSetup = setup;
-        }
-      });
-      refs.updateScoreRef.current(updated);
-    },
-    [documentStore, refs],
-  );
-
-  const handleResetPageSetup = useCallback(() => {
-    const sc = documentStore.getState().workingScore;
-    if (!sc) return;
-    const index = refs.activeScoreIndexRef.current;
-    const updated = produce(sc, (draft) => {
-      if (draft.scores && draft.scores[index]) {
-        delete draft.scores[index].pageSetup;
-      }
-    });
-    refs.updateScoreRef.current(updated);
-  }, [documentStore, refs]);
-
-  return {
-    handleApplyPageSetup,
-    handleResetPageSetup,
   };
 }

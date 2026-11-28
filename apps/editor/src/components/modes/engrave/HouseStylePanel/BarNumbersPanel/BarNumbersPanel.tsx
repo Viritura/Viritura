@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Info } from "lucide-react";
-import { Button, ButtonGroup, Checkbox, FormField, FormInput, Select, type ButtonGroupOption } from "@viritura/ui";
+import { Button, ButtonGroup, Checkbox, FormField, FormInput, type ButtonGroupOption } from "@viritura/ui";
 import {
   DEFAULT_BAR_NUMBER_SETTINGS,
   DEFAULT_PAGE_SETUP,
@@ -25,29 +25,6 @@ const FREQUENCY_OPTIONS = [
   { value: "everyBar", label: "Every bar" },
   { value: "hidden", label: "Hidden" },
 ] satisfies ButtonGroupOption<Required<BarNumberSettings>["frequency"]>[];
-
-interface ChoiceProps<T extends string> {
-  label: string;
-  value: T;
-  options: readonly { value: T; label: string }[];
-  onChange: (value: T) => void;
-}
-
-function Choice<T extends string>({ label, value, options, onChange }: ChoiceProps<T>) {
-  return (
-    <FormField label={label}>
-      <Select
-        aria-label={label}
-        value={value}
-        options={options}
-        onValueChange={(next) => {
-          const option = options.find((entry) => entry.value === next);
-          if (option) onChange(option.value);
-        }}
-      />
-    </FormField>
-  );
-}
 
 interface NumberSettingProps {
   label: string;
@@ -94,11 +71,15 @@ function NumberSetting({ label, name, value, min, max, error, onCommit }: Number
   );
 }
 
-export function BarNumbersPanel() {
+interface BarNumbersPanelProps {
+  /** House style settings, or the selected layout's own overrides. */
+  scope: "document" | "layout";
+}
+
+export function BarNumbersPanel({ scope: requestedScope }: BarNumbersPanelProps) {
   const score = useDocumentStore((state) => state.workingScore ?? state.score);
   const store = useDocumentStoreApi();
   const scoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
-  const [requestedScope, setScope] = useState<"document" | "layout">("document");
   const definition = score?.scores?.[scoreIndex];
   const scope = definition ? requestedScope : "document";
   const numberStyle = score ? effectiveBarNumberStyle(score, scoreIndex, scope) : DEFAULT_TEXT_STYLES.barNumber!;
@@ -190,15 +171,13 @@ export function BarNumbersPanel() {
   }
   return (
     <div className={styles.root} data-testid="bar-numbers-panel">
-      <Choice
-        label="Apply to"
-        value={scope}
-        options={[
-          { value: "document", label: "House style (all layouts)" },
-          ...(definition ? [{ value: "layout" as const, label: `Current layout: ${definition.name ?? "score"}` }] : []),
-        ]}
-        onChange={setScope}
-      />
+      {scope === "layout" && (
+        <p className={styles.scopeNote}>
+          {definition?.barNumbers
+            ? `${definition.name ?? "This layout"} has its own bar number settings.`
+            : `${definition?.name ?? "This layout"} follows the house style. Changes here apply only to this layout.`}
+        </p>
+      )}
       <FormField label="Presets">
         <div className={styles.presets}>
           <Button size="sm" variant="default" onClick={() => applyPreset("classical")}>
@@ -285,7 +264,7 @@ export function BarNumbersPanel() {
       />
       <EnclosureChoice settings={choiceSettings} onChange={(value) => update("enclosure", value)} />
       <Button variant="default" size="sm" fullWidth onClick={resetStyleAndSettings}>
-        {scope === "layout" ? "Reset layout overrides" : "Reset bar number house style"}
+        {scope === "layout" ? "Use house style bar numbers" : "Reset bar number house style"}
       </Button>
     </div>
   );

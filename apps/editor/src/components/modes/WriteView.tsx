@@ -41,6 +41,7 @@ import { useClickCanvasConfig } from "../../store/clickCanvasStore";
 import { useClickCanvasViewport } from "./useClickCanvasViewport";
 import type { WriteViewMode as ViewMode, PreviewViewMode } from "@viritura/ui";
 import { useMenuBarWiring } from "../../app/useMenuBarWiring";
+import { useStyleEditorStore } from "./engrave/StyleEditor";
 import { useInteractionHandlers } from "../../app/useInteractionHandlers";
 import { useEditingHandlers } from "../../app/useEditingHandlers";
 import { useScoreHandlers } from "../../app/useScoreHandlers";
@@ -212,10 +213,7 @@ function AppInner({
   // "Add to project" banner — surfaces after a single file is opened
   // standalone, offering to upgrade to a folder-based versioned project.
   // null = hidden; string = the file name to show in the banner copy.
-  /** Score index whose page setup is being edited; null = use selectedScoreIndex (legacy File-menu route). */
   const {
-    pageSetupTargetIndex,
-    setPageSetupTargetIndex,
     openedFile,
     setOpenedFile,
     fileError,
@@ -361,8 +359,6 @@ function AppInner({
   const {
     handleChooseProjectLocation,
     handleCreateScore,
-    handleApplyPageSetup,
-    handleResetPageSetup,
     handleAddMeasures,
     handleTransposeDialog,
     handleExportPdf,
@@ -395,7 +391,6 @@ function AppInner({
     setSelectedScoreIndex,
     setFileHandle,
     setExpandedCondensingStaves,
-    pageSetupTargetIndex,
     updateScore,
     canSetUpGitHubRepository,
     canvasRef,
@@ -625,6 +620,10 @@ function AppInner({
     handleExportPdf,
     handleExportSvg,
     onOpenPublish,
+    onOpenPageSetup: () => {
+      useStyleEditorStore.getState().openLayout();
+      onOpenActivity?.("engrave");
+    },
   });
 
   const [printOverflowPages, setPrintOverflowPages] = useState<number[]>([]);
@@ -720,6 +719,11 @@ function AppInner({
                 currentZoom,
                 previewViewMode,
                 setViewMode,
+                onEditLayout: (index) => {
+                  setSelectedScoreIndex(index);
+                  useStyleEditorStore.getState().openLayout();
+                  onOpenActivity?.("engrave");
+                },
               })
             : buildWriteMode({
                 canvasRef,
@@ -793,10 +797,6 @@ function AppInner({
     githubInstallUrl,
     githubInstallation,
     activeProjectStatus,
-    pageSetupTargetIndex,
-    setPageSetupTargetIndex,
-    handleApplyPageSetup,
-    handleResetPageSetup,
     handleTransposeDialog,
     setCondensingRouting,
     tempoPopover,
