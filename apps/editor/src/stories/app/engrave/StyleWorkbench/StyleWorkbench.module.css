@@ -1,0 +1,357 @@
+.root {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: var(--type-body-lh);
+}
+
+.root h1,
+.root h2,
+.root h3 {
+  margin: 0;
+}
+.root h1 {
+  font-size: 20px;
+}
+.root h2 {
+  font-size: 18px;
+}
+.root h3 {
+  font-size: 16px;
+}
+.root p {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.prototypeBar,
+.projectBar,
+.toolbar,
+.previewHeading,
+.categoryHeading,
+.provenance,
+.overrideRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.prototypeBar {
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.prototypeBar > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.toolbar {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.projectBar {
+  padding: var(--space-5);
+}
+.projectBar p {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: 230px 400px minmax(340px, 1fr);
+  min-height: 780px;
+  border-top: 1px solid var(--border);
+}
+.rail {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+.railSection {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.railSection > button {
+  justify-content: flex-start;
+}
+.eyebrow {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.layoutButton {
+  justify-content: space-between !important;
+  text-align: left;
+}
+.layoutButton small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+.railFooter {
+  margin-top: auto;
+  padding: var(--space-4);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.railFooter strong {
+  color: var(--text);
+}
+.editor {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+.editorBody {
+  padding: var(--space-5);
+}
+.styleIdentity {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+.styleIdentity p {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.categoryHeading {
+  margin-top: var(--space-5);
+}
+.categoryHeading .eyebrow {
+  margin-bottom: 4px;
+}
+.field {
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+}
+.provenance {
+  margin-top: var(--space-2);
+  gap: var(--space-1);
+}
+.provenance > span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-start;
+}
+.provenance small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.notice,
+.impact {
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-size: 12px;
+}
+.notice button + button {
+  margin-left: 8px;
+}
+.impact {
+  background: rgba(var(--accent-rgb), 0.06);
+}
+.impact p {
+  color: var(--text-muted);
+}
+.categoryActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+}
+.preview {
+  min-width: 0;
+  padding: var(--space-5);
+  background: var(--bg);
+}
+.previewHeading {
+  font-size: 12px;
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+.previewHeading p {
+  color: var(--text-muted);
+}
+.paperWell {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-xl);
+}
+.paper {
+  width: min(100%, 500px);
+  position: relative;
+  background: #fffdfa;
+  color: #222;
+  box-shadow: var(--elevation-2);
+  padding-block: 7%;
+}
+.paper h2 {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 500;
+}
+.paperSubtitle {
+  text-align: center;
+  font:
+    12px Georgia,
+    serif;
+}
+.paper svg {
+  display: block;
+  width: 100%;
+  margin-top: 6%;
+}
+.pageNumber {
+  position: absolute;
+  bottom: 3%;
+  left: 50%;
+  font:
+    12px Georgia,
+    serif;
+}
+.previewNote {
+  max-width: 540px;
+  margin-inline: auto !important;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.status {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  background: var(--surface);
+}
+.status > span {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.libraryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+}
+.preset {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  align-items: flex-start;
+  padding: var(--space-4);
+  white-space: normal;
+}
+.preset span {
+  font-size: 12px;
+  font-weight: normal;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.changeList {
+  max-height: 190px;
+  overflow: auto;
+  padding-left: 20px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.saveStyle {
+  margin-top: var(--space-5);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-3);
+  align-items: end;
+}
+.warning {
+  font-size: 12px;
+  line-height: 1.5;
+  padding: var(--space-3);
+  background: rgba(var(--accent-rgb), 0.08);
+  border-left: 3px solid var(--accent);
+}
+.checkList {
+  display: grid;
+  gap: var(--space-4);
+  margin-block: var(--space-5);
+}
+.overrideGroup {
+  border-top: 1px solid var(--border);
+  padding-block: var(--space-4);
+}
+.overrideRow {
+  margin-top: var(--space-3);
+}
+.overrideRow > div {
+  flex: 1;
+}
+.overrideRow p {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: 200px 370px minmax(290px, 1fr);
+  }
+  .preview {
+    padding: var(--space-3);
+  }
+}
+@media (max-width: 880px) {
+  .workspace {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  .preview {
+    grid-column: 1 / -1;
+  }
+  .projectBar,
+  .status {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 550px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .rail {
+    border-right: 0;
+  }
+  .railFooter {
+    display: none;
+  }
+  .editorBody {
+    padding: var(--space-4);
+  }
+  .libraryGrid,
+  .saveStyle {
+    grid-template-columns: 1fr;
+  }
+  .overrideRow {
+    flex-wrap: wrap;
+  }
+}
