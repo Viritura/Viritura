@@ -279,6 +279,22 @@
 .styleIdentity > button {
   margin-left: auto;
 }
+.houseStyleEntry {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-3);
+  border-right: 1px solid var(--border);
+}
+.modeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--accent-subtle, var(--surface-raised));
+  border-bottom: 1px solid var(--border);
+}
 .hint {
   color: var(--text-muted);
   font-size: 12px;
