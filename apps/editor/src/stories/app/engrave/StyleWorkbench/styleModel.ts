@@ -1,4 +1,4 @@
-export type Role = "score" | "part";
+type Role = "score" | "part";
 export type Scope = "common" | Role | "layout";
 export type Category = "page" | "numbers" | "text";
 export type Navigation = "tabs" | "scope-first";
@@ -17,7 +17,7 @@ export type Field =
   "paper" | "staff" | "margin" | "turns" | "frequency" | "placement" | "size" | "enclosure" | "family";
 export type Settings = Partial<Record<Field, string>>;
 
-export interface FieldDefinition {
+interface FieldDefinition {
   id: Field;
   label: string;
   options: { value: string; label: string }[];
@@ -67,7 +67,7 @@ export const CATEGORIES: CategoryDefinition[] = [
   },
 ];
 
-export const BASE: Record<Field, string> = {
+const BASE: Record<Field, string> = {
   paper: "A4",
   staff: "6 mm",
   margin: "15 mm",
