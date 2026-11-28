@@ -1,4 +1,4 @@
-import { Badge, Button, ButtonGroup, FormField, Select } from "@viritura/ui";
+import { Button, ButtonGroup, FormField, Select } from "@viritura/ui";
 import {
   CATEGORIES,
   categoryDefinition,
@@ -34,12 +34,6 @@ export function CategoryPicker({ value, onChange }: { value: Category; onChange:
   );
 }
 
-const EXPLICIT_LABEL: Record<Scope["kind"], string> = {
-  common: "Shared value",
-  profile: "Profile value",
-  layout: "This layout",
-};
-
 export function FieldRows({ project, scope, categoryId, onCommit }: FieldEditorProps) {
   const settings = layer(project, scope);
   const target = scopeLabel(project, scope);
@@ -65,10 +59,7 @@ export function FieldRows({ project, scope, categoryId, onCommit }: FieldEditorP
           />
         </FormField>
         <div className={styles.provenance}>
-          <span>
-            <Badge variant={explicit ? "accent" : "muted"}>{explicit ? EXPLICIT_LABEL[scope.kind] : "Inherited"}</Badge>
-            <small>{explicit ? "Kept when the layer above changes" : `From ${resolved.source}`}</small>
-          </span>
+          <small>{explicit ? "Custom" : `Inherited from ${resolved.source}`}</small>
           <span className={styles.fieldActions}>
             {explicit && scope.kind === "layout" && (
               <Button
@@ -87,6 +78,10 @@ export function FieldRows({ project, scope, categoryId, onCommit }: FieldEditorP
             <Button
               size="sm"
               variant="link"
+              ariaLabel={
+                explicit ? `Use inherited ${field.label.toLowerCase()}` : `Customize ${field.label.toLowerCase()}`
+              }
+              tooltip={explicit ? "Use the inherited value" : "Keep this value if the inherited value changes"}
               onClick={() =>
                 onCommit(
                   changeField(project, scope, field.id, explicit ? undefined : resolved.value),
@@ -96,14 +91,12 @@ export function FieldRows({ project, scope, categoryId, onCommit }: FieldEditorP
                 )
               }
             >
-              {explicit ? "Use inherited value" : "Customize"}
+              {explicit ? "Use inherited" : "Customize"}
             </Button>
           </span>
         </div>
         {kept.length > 0 && (
-          <p className={styles.keptNote}>
-            {kept.map((layout) => layout.name).join(", ")} {kept.length === 1 ? "keeps its" : "keep their"} own value
-          </p>
+          <p className={styles.keptNote}>{kept.map((layout) => layout.name).join(", ")}: overridden</p>
         )}
       </div>
     );

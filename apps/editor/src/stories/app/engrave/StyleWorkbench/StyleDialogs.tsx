@@ -78,12 +78,9 @@ export function StyleLibrary({ project, library, modified, onClose, onCommit, on
     <Dialog open onClose={onClose} size="wide">
       <DialogHeader title="House-style library" onClose={onClose} />
       <DialogBody>
-        <p className={styles.hint}>
-          The project keeps its own copy of the house style. Library edits never change existing projects, and project
-          edits reach the library only when you save.
-        </p>
+        <p className={styles.hint}>Project edits are saved to the library only when you choose to save them.</p>
         <div className={styles.saveStyle}>
-          <FormField label="Save this project's house style, including all layout profiles">
+          <FormField label="Save project style">
             <FormInput
               aria-label="New house-style name"
               placeholder="My concert style"
@@ -106,26 +103,27 @@ export function StyleLibrary({ project, library, modified, onClose, onCommit, on
             >
               <strong>{style.name}</strong>
               <span>{style.description}</span>
-              <span>Profiles: {style.profiles.map((profile) => profile.name).join(", ")}</span>
             </Button>
           ))}
         </div>
         <p>
-          <Badge variant="success">{overrideCount} layout overrides protected</Badge>
+          <Badge variant="success">{overrideCount} overrides preserved</Badge>
         </p>
         {modified && (
-          <p className={styles.warning}>
-            Edits made to this project&rsquo;s house style will be replaced. Save them first to keep a reusable copy.
-          </p>
+          <p className={styles.warning}>Project style edits will be replaced. Save them first to keep a copy.</p>
         )}
-        <h3>Review effective changes</h3>
-        <ul className={styles.changeList}>
-          {changes.length ? (
-            changes.map((change) => <li key={change}>{change}</li>)
-          ) : (
-            <li>No effective layout values change.</li>
-          )}
-        </ul>
+        {changes.length ? (
+          <details>
+            <summary>{changes.length} effective changes</summary>
+            <ul className={styles.changeList}>
+              {changes.map((change) => (
+                <li key={change}>{change}</li>
+              ))}
+            </ul>
+          </details>
+        ) : (
+          <p className={styles.hint}>No effective changes.</p>
+        )}
       </DialogBody>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
@@ -156,9 +154,6 @@ export function NewProfileDialog({ project, sourceId, onClose, onCreate }: NewPr
     <Dialog open onClose={onClose}>
       <DialogHeader title="New layout profile" onClose={onClose} />
       <DialogBody>
-        <p className={styles.hint}>
-          Profiles are reusable print setups inside the house style, for example Study score or Large-print part.
-        </p>
         <FormField label="Start from">
           <Select
             aria-label="Start from"
@@ -227,10 +222,7 @@ export function TransferSettings({ project, source, category, onClose, onCommit 
               />
             ))}
         </div>
-        <p className={styles.warning}>
-          These fields become explicit overrides on the selected layouts and stop following their profile. To change
-          every layout on a profile, edit the profile in House Style instead.
-        </p>
+        <p className={styles.warning}>Copied settings become overrides and no longer follow the profile.</p>
       </DialogBody>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
@@ -263,18 +255,20 @@ export function OverridesReview({ project, onClose, onInspect, onCommit }: Overr
     <Dialog open onClose={onClose} size="wide">
       <DialogHeader title="Layout overrides" onClose={onClose} />
       <DialogBody>
-        <p className={styles.hint}>
-          Only explicit style overrides are listed. Resetting a category never removes manual breaks or bracket
-          decisions.
-        </p>
-        {project.layouts.map((layout) => (
-          <section className={styles.overrideGroup} key={layout.id}>
-            <h3>
-              {layout.name} <Badge variant="muted">{findProfile(project, layout.profileId).name}</Badge>
-            </h3>
-            {Object.keys(layout.overrides).length === 0 && <p className={styles.hint}>Fully follows its profile.</p>}
-            {CATEGORIES.filter((category) => category.fields.some(({ id }) => layout.overrides[id] !== undefined)).map(
-              (category) => (
+        <p className={styles.hint}>Resetting overrides preserves manual breaks and bracket decisions.</p>
+        {project.layouts.every((layout) => Object.keys(layout.overrides).length === 0) && (
+          <p className={styles.hint}>No overrides.</p>
+        )}
+        {project.layouts
+          .filter((layout) => Object.keys(layout.overrides).length > 0)
+          .map((layout) => (
+            <section className={styles.overrideGroup} key={layout.id}>
+              <h3>
+                {layout.name} <Badge variant="muted">{findProfile(project, layout.profileId).name}</Badge>
+              </h3>
+              {CATEGORIES.filter((category) =>
+                category.fields.some(({ id }) => layout.overrides[id] !== undefined),
+              ).map((category) => (
                 <div className={styles.overrideRow} key={category.id}>
                   <div>
                     <strong>{category.label}</strong>
@@ -306,10 +300,9 @@ export function OverridesReview({ project, onClose, onInspect, onCommit }: Overr
                     Use profile settings
                   </Button>
                 </div>
-              ),
-            )}
-          </section>
-        ))}
+              ))}
+            </section>
+          ))}
       </DialogBody>
       <DialogActions>
         <Button onClick={onClose}>Done</Button>

@@ -54,22 +54,15 @@ export function LayoutEditor({
       </FormField>
       {profile.role !== layout.role && (
         <p className={styles.warning}>
-          This {layout.role} uses a {profile.role} profile. That is allowed, for example a part printed as a score.
+          This {layout.role} uses a {profile.role} profile.
         </p>
       )}
-      <p className={styles.hint}>
-        Follows {project.style.name} / {profile.name}.{" "}
-        <Button size="sm" variant="link" onClick={() => onEditProfile(profile.id)}>
-          Edit {profile.name} profile
-        </Button>
-      </p>
+      <Button size="sm" variant="link" onClick={() => onEditProfile(profile.id)}>
+        Edit {profile.name} profile
+      </Button>
       <div className={styles.categoryHeading}>
-        <div>
-          <span className={styles.eyebrow}>{layout.name} overrides</span>
-          <h2>{category.label}</h2>
-        </div>
+        <CategoryPicker value={categoryId} onChange={onCategory} />
       </div>
-      <CategoryPicker value={categoryId} onChange={onCategory} />
       <FieldRows project={project} scope={scope} categoryId={categoryId} onCommit={onCommit} />
       {categoryId === "numbers" && (
         <div className={styles.notice}>
@@ -93,7 +86,6 @@ export function LayoutEditor({
           ) : (
             <p>No bracket groups in this layout.</p>
           )}
-          <p className={styles.hint}>Specific groups belong to this layout, not to the house style.</p>
         </div>
       )}
       <div className={styles.categoryActions}>
@@ -113,10 +105,6 @@ export function LayoutEditor({
           Copy to layouts
         </Button>
       </div>
-      <div className={styles.impact}>
-        <strong>Only {layout.name} is edited</strong>
-        <p>Customize pins a value even when it matches the profile. Use inherited value resumes following it.</p>
-      </div>
     </div>
   );
 }
@@ -124,14 +112,12 @@ export function LayoutEditor({
 export function SelectionPlaceholder({ layout, onLayout }: { layout: MockLayout; onLayout: () => void }) {
   return (
     <div className={styles.editorBody}>
-      <span className={styles.eyebrow}>Local decisions / {layout.name}</span>
       <h2>Manual engraving</h2>
-      <p>
-        No score object is selected in this mockup. Real selection would expose offsets and individual appearance here.
-      </p>
+      <p>No selection in this mockup.</p>
       <div className={styles.notice}>
-        <strong>{layout.manualBreaks} authored breaks retained</strong>
-        <p>House-style edits, profile changes and category resets do not remove these.</p>
+        <strong>
+          {layout.manualBreaks} manual breaks in {layout.name}
+        </strong>
       </div>
       <Button onClick={onLayout}>Back to This Layout</Button>
     </div>

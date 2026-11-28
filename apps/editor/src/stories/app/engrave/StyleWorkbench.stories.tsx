@@ -9,7 +9,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Disposable, local-state UX prototype using @viritura/ui. The project house style is the default for every score and part. It holds shared settings plus layout profiles (Full score, Part, Large-print part) that define page size, orientation, margins, staff size and turn policy. Edit a profile, then flip through layouts in the always-visible list or the All layouts overview to see the result across the project. Layout overrides stay protected. Refresh resets all mock data. The preview is to-scale mock SVG, not real engraving. No document, personal preference, or production store is modified.",
+          "Local-state UX prototype using @viritura/ui. Edit shared house-style settings or layout profiles while previewing scores and parts. Layout overrides are preserved. The preview is mock SVG with estimated page counts; refresh resets the demo.",
       },
     },
   },
