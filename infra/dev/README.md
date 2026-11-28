@@ -326,12 +326,30 @@ At 0.19 MB/s the 124 MB soundfont takes about eleven minutes, so the transport's
 play button stays a spinner indefinitely and the whole editor feels laggy. The
 symptom looks like an application bug and is not one.
 
-The bind mount itself is not the problem — reading that same file straight off
-the mount inside the container runs at 204 MB/s, and Traefik adds nothing
-measurable. It is entirely the poller.
+The bind mount's _throughput_ is not the problem: reading that same file straight
+off the mount inside the container runs at 204 MB/s, and Traefik adds nothing
+measurable. Its _metadata latency_ is. A single `stat` on a Windows bind mount
+costs about 1.6 ms, compared with about 1 µs on a Docker volume. Polling a few
+thousand paths therefore keeps Node's default four-thread libuv pool busy, and
+every module read the dev server makes waits behind poll stats. On App
+Storybook, with 12 concurrent module requests from a warm server:
 
-Both settings live in [`viteWatch.ts`](./viteWatch.ts): poll only what a human
-edits (never `node_modules`, `dist`, `target`, or `public`), and poll at 1 s.
+| libuv threadpool        | median | p90    | max    |
+| ----------------------- | ------ | ------ | ------ |
+| default (4)             | 2.0 s  | 5.3 s  | 10.6 s |
+| `UV_THREADPOOL_SIZE=64` | 0.08 s | 0.95 s | 1.3 s  |
+
+Every Node dev service therefore runs with `UV_THREADPOOL_SIZE=64` (the
+`x-node-environment` anchor in `worktree/docker-compose.yml`). Recreate a
+service started before that change with `pnpm dev:stack up <target>`. To check
+mount latency directly:
+
+```bash
+docker exec <container> node -e "const fs=require('fs');let t=process.hrtime.bigint();for(let i=0;i<500;i++)fs.statSync('/workspace/package.json');console.log(Number(process.hrtime.bigint()-t)/500e3,'ms/stat')"
+```
+
+Both watcher settings live in [`viteWatch.ts`](./viteWatch.ts): poll only what a
+human edits (never `node_modules`, `dist`, `target`, or `public`), and poll at 1 s.
 
 ### Static assets are slow
 
