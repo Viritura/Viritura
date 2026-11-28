@@ -36,9 +36,7 @@ export function ScorePreview({ project, layout, editing, editingLabel, onView }:
         <div>
           <span className={styles.eyebrow}>Editing</span>
           <strong>{editingLabel}</strong>
-          <small>
-            {affected.has(layout.id) ? "Changes appear in this preview" : "This layout is not affected by the edit"}
-          </small>
+          {!affected.has(layout.id) && <small>Not shown in this preview</small>}
         </div>
       </div>
       <div className={styles.previewHeading}>
@@ -96,15 +94,12 @@ export function ScorePreview({ project, layout, editing, editingLabel, onView }:
               <small>
                 {paperLabel(project, entry)} / {pageGeometry(project, entry).pages} pp
               </small>
-              {affected.has(entry.id) && <Badge variant="accent">Affected</Badge>}
+              {affected.has(entry.id) && <Badge variant="accent">In scope</Badge>}
             </Button>
           ))}
         </div>
       )}
-      <p className={styles.previewNote}>
-        Mock notation drawn to scale in millimetres. Page size, orientation, margins, staff size, turn policy, bar
-        numbers and title font respond to edits. Page counts are rough estimates, not engine casting.
-      </p>
+      <p className={styles.previewNote}>Mock preview · page counts are estimates</p>
     </section>
   );
 }

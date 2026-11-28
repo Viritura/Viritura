@@ -39,9 +39,7 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
   const [requestedScope, setStyleScope] = useState<Scope>({ kind: "profile", id: "part" });
   const [categoryId, setCategoryId] = useState<Category>("page");
   const [dialog, setDialog] = useState<DialogKind>(null);
-  const [status, setStatus] = useState(
-    "Editing the Part profile. Change its staff size, then flip through the parts to see every one update.",
-  );
+  const [status, setStatus] = useState("");
   const layout = findLayout(project, viewId);
   const styleScope: Scope =
     requestedScope.kind === "profile" && !project.style.profiles.some((entry) => entry.id === requestedScope.id)
@@ -72,7 +70,7 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
         <header className={styles.prototypeBar}>
           <div>
             <Badge variant="warning">Design sandbox</Badge>
-            <strong>Engrave / House style workbench</strong>
+            <strong>Engrave</strong>
           </div>
           <div className={styles.toolbar}>
             <span>Layout switching</span>
@@ -101,10 +99,6 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
         <header className={styles.projectBar}>
           <div>
             <h1>Evening Sketches</h1>
-            <p>
-              Engrave / {project.layouts.filter((entry) => entry.role === "score").length} score,{" "}
-              {project.layouts.filter((entry) => entry.role === "part").length} parts / house style {project.style.name}
-            </p>
           </div>
           {navigator === "dropdown" && (
             <div className={styles.switcher}>
@@ -117,7 +111,7 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
             </div>
           )}
           <div className={styles.toolbar}>
-            <Button onClick={() => setDialog("overrides")}>{totalOverrides} layout overrides</Button>
+            <Button onClick={() => setDialog("overrides")}>{totalOverrides} overrides</Button>
             <Button ariaLabel="Undo change" tooltip="Undo change" disabled={!history.length} onClick={undo}>
               <Undo2 size={15} />
               Undo
@@ -175,10 +169,9 @@ export function StyleWorkbench({ initialNavigator = "list", initialDestination =
             onView={setViewId}
           />
         </div>
-        <footer className={styles.status} role="status">
+        <div className={styles.srOnly} role="status">
           {status}
-          <span>Local mock data only / refresh to reset</span>
-        </footer>
+        </div>
         {dialog === "library" && (
           <StyleLibrary
             project={project}

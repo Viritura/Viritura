@@ -45,19 +45,17 @@ function LayoutRow({
       active={viewing}
       onClick={() => onView(layout.id)}
       className={styles.layoutButton}
-      ariaLabel={`View ${layout.name}`}
+      ariaLabel={`View ${layout.name}${affected ? ", in editing scope" : ""}${custom.length ? `, overrides: ${custom.join(", ")}` : ""}`}
     >
       <span>
         <span className={styles.layoutName}>
           {layout.name}
-          {affected && <span className={styles.affectedDot} aria-label="Affected by current edit" />}
+          {affected && <span className={styles.affectedDot} />}
         </span>
         <small>
           {findProfile(project, layout.profileId).name} / {pageGeometry(project, layout).pages} pp
         </small>
-        <small className={custom.length ? styles.customText : undefined}>
-          {custom.length ? `Custom: ${custom.join(", ")}` : "Follows house style"}
-        </small>
+        {custom.length > 0 && <small className={styles.customText}>Overrides: {custom.join(", ")}</small>}
       </span>
     </Button>
   );
@@ -70,7 +68,12 @@ export function LayoutNavigator({ project, viewId, editing, onView }: NavigatorP
   return (
     <nav className={styles.rail} aria-label="Layouts">
       <div className={styles.railSection}>
-        <span className={styles.eyebrow}>Layouts</span>
+        <div className={styles.railHeading}>
+          <span className={styles.eyebrow}>Layouts</span>
+          <span className={styles.legend}>
+            <span className={styles.affectedDot} /> In scope
+          </span>
+        </div>
         <SearchInput size="sm" value={query} onValueChange={setQuery} placeholder="Filter layouts" clearOnEscape />
       </div>
       {GROUPS.map(({ role, label }) => {
@@ -96,10 +99,6 @@ export function LayoutNavigator({ project, viewId, editing, onView }: NavigatorP
         );
       })}
       {!matches.length && <p className={styles.railFooter}>No layouts match.</p>}
-      <div className={styles.railFooter}>
-        <span className={styles.affectedDot} /> Affected by the current edit. Selecting a layout changes the preview,
-        not what you are editing.
-      </div>
     </nav>
   );
 }

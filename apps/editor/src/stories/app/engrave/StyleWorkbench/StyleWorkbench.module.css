@@ -58,10 +58,6 @@
 .projectBar {
   padding: var(--space-5);
 }
-.projectBar p {
-  color: var(--text-muted);
-  font-size: 12px;
-}
 .workspace,
 .workspaceCompact {
   display: grid;
@@ -104,11 +100,18 @@
 .scopeList {
   display: grid;
   gap: var(--space-1);
-  margin-block: var(--space-4);
+  margin-top: var(--space-4);
 }
 .scopeList > button:last-child {
   justify-self: start;
-  margin-top: var(--space-2);
+}
+.profileSummary {
+  margin-bottom: var(--space-3);
+}
+.profileActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .fieldActions {
   display: flex;
@@ -125,22 +128,17 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 .context > div {
   display: flex;
-  flex-direction: column;
-  padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: var(--space-2);
   font-size: 12px;
 }
-.context > div:last-child {
-  border-color: var(--accent);
-}
 .context .eyebrow {
-  margin-bottom: 2px;
+  margin: 0;
 }
 .context small {
   color: var(--text-muted);
@@ -205,6 +203,18 @@
 .railSection > button {
   justify-content: flex-start;
 }
+.railHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.railHeading .eyebrow {
+  margin-bottom: 0;
+}
+.legend {
+  color: var(--text-muted);
+  font-size: 11px;
+}
 .eyebrow {
   display: block;
   color: var(--text-muted);
@@ -253,11 +263,14 @@
   display: flex;
   gap: var(--space-3);
   align-items: center;
-  margin-bottom: var(--space-4);
 }
 .styleIdentity p {
   font-size: 11px;
   color: var(--text-muted);
+  margin: 0;
+}
+.styleIdentity > button {
+  margin-left: auto;
 }
 .hint {
   color: var(--text-muted);
@@ -265,31 +278,21 @@
   line-height: 1.5;
 }
 .categoryHeading {
-  margin-top: var(--space-5);
-}
-.categoryHeading .eyebrow {
-  margin-bottom: 4px;
+  margin-top: var(--space-3);
 }
 .field {
-  padding: var(--space-4) 0;
+  padding: var(--space-3) 0;
   border-bottom: 1px solid var(--border);
 }
 .provenance {
-  margin-top: var(--space-2);
+  margin-top: var(--space-1);
   gap: var(--space-1);
-}
-.provenance > span {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  align-items: flex-start;
 }
 .provenance small {
   font-size: 11px;
   color: var(--text-muted);
 }
-.notice,
-.impact {
+.notice {
   padding: var(--space-4);
   margin-top: var(--space-4);
   background: var(--surface-raised);
@@ -299,12 +302,6 @@
 }
 .notice button + button {
   margin-left: 8px;
-}
-.impact {
-  background: rgba(var(--accent-rgb), 0.06);
-}
-.impact p {
-  color: var(--text-muted);
 }
 .categoryActions {
   display: flex;
@@ -346,18 +343,16 @@
   color: var(--text-muted);
   font-size: 11px;
 }
-.status {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: var(--space-3) var(--space-5);
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  background: var(--surface);
-}
-.status > span {
-  color: var(--text-muted);
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+  border: 0;
 }
 .libraryGrid {
   display: grid;
@@ -444,8 +439,7 @@
   .preview {
     grid-column: 1 / -1;
   }
-  .projectBar,
-  .status {
+  .projectBar {
     flex-wrap: wrap;
   }
 }
