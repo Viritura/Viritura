@@ -41,6 +41,12 @@ describe("documentation sections", () => {
     }
   });
 
+  it("publishes the Click sessions guide", () => {
+    const page = findDocPageInSection("guide", "click");
+    expect(page?.title).toBe("Click Sessions");
+    expect(page?.raw).toContain("# Click Sessions");
+  });
+
   it("names developer slugs the way the client router derives them", () => {
     expect(docSectionHome("developers").slug).toBe("developers");
     for (const { params } of docSectionRouteParams("developers")) {

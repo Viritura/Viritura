@@ -15,7 +15,7 @@ window.
 - **Horizon** — one continuous galley that scrolls horizontally. Best for fast
   note entry and reading long passages without page breaks getting in the way.
   As you scroll, the clef and current key signature stay visible at the left
-  of each staff. Available in Setup and Write.
+  of each staff. Available in Setup, Write, and Click.
 
 The same score can look subtly different between view modes because each uses a
 layout strategy tuned to its job; page mode is the source of truth for print.
@@ -38,25 +38,24 @@ toggles the side panels for a distraction‑free view.
 > [!NOTE]
 > **Availability: GitHub Gist**
 >
-> Preview links currently load a `.mnx` document from a GitHub Gist. The author
-> needs a GitHub account to create the Gist; recipients do not need an account.
+> Creating a Gist requires a connected GitHub account with Gist permission.
+> Recipients do not need an account.
 
-To share a score without starting a live editing session:
+To share scores without starting a live editing session, choose **File → Share**.
+Create a secret Gist from the open score or project folder, or make a link from
+an existing Gist. Optionally pin the current revision, then copy the link.
+Recipients open the scores in Click as a read-only setlist. They can save a
+local copy to edit.
 
-1. Create a public or secret GitHub Gist containing exactly one `.mnx` file.
-2. In Viritura, choose **File > Share**.
-3. Paste the main Gist URL.
-4. Leave revision pinning off to follow future Gist edits, or enable it to keep
-   the preview fixed at the current revision.
-5. Create and copy the Viritura preview link.
-
-The preview provides score-view controls, playback, a download of the `.mnx`
-file, and a link to the source Gist. It cannot modify the author's document.
+Existing single-score preview links continue to open the separate read-only
+viewer. New links created with **File → Share** open a Click setlist instead.
 
 A secret Gist is unlisted, not private. Anyone with the link can open or
 forward it, and the Gist exposes its GitHub author and revision history. Use
 live collaboration for an editing session; do not use a Gist preview for
 material that requires identity-based access control.
+For limits, track switching, and click controls, see
+[Click Sessions](/docs/click#open-and-share-a-setlist).
 
 ## Review version history
 

@@ -19,6 +19,7 @@ import lyrics from "../../../../../docs/guide/lyrics.md?raw";
 import notationAndEditing from "../../../../../docs/guide/notation-and-editing.md?raw";
 import engravingAndLayout from "../../../../../docs/guide/engraving-and-layout.md?raw";
 import playbackAndPianoRoll from "../../../../../docs/guide/playback-and-piano-roll.md?raw";
+import click from "../../../../../docs/guide/click.md?raw";
 import scoringToPicture from "../../../../../docs/guide/scoring-to-picture.md?raw";
 import collaboration from "../../../../../docs/guide/collaboration.md?raw";
 import mcp from "../../../../../docs/guide/mcp.md?raw";
@@ -43,6 +44,7 @@ const rawBySlug: Readonly<Record<string, string>> = {
   "notation-and-editing": notationAndEditing,
   "engraving-and-layout": engravingAndLayout,
   "playback-and-piano-roll": playbackAndPianoRoll,
+  click,
   "scoring-to-picture": scoringToPicture,
   collaboration,
   mcp,

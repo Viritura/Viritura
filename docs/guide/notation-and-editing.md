@@ -242,6 +242,7 @@ line ordering.
 | Marking                    | Where to find it                             | Notes                                                                      |
 | -------------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
 | Glissando / portamento     | **Connections** palette                      | Select exactly two notes or chords in one instrument                       |
+| Fermata                    | **Breath & fermata** palette (`Shift+H`)     | Shared hold across the score; a local-only fermata is also available       |
 | Scoop, plop, falloff, doit | **Notehead markings** palette                | Applies per notehead; notation only, with no playback effect               |
 | Caesura                    | **Breath & fermata** palette (`Shift+H`)     | On a barline it spans every displayed staff; on a note or rest it is local |
 | Up-bow / down-bow          | **Articulations** palette (`Shift+A`)        | Applies to every selected note                                             |
@@ -256,7 +257,7 @@ is supported from the repeat-end measure to the repeat-start downbeat.
 
 In Properties, the **Glissando / portamento** section sets the **Type**, a
 straight or wavy **Line style**, the **Playback type** (**Chromatic**,
-**Diatonic**, or **Pitch bend**), and whether the "gliss." or "port." label
+**Diatonic**, **Pitch bend**, or **Harp pedals**), and whether the "gliss." or "port." label
 is shown.
 
 Slides also have **Slide in** and **Slide out** controls in the **Note
@@ -272,6 +273,18 @@ followed when the score plays. In Properties, **Instruction** changes the
 marker type, Segno and Coda offer alternative glyphs, and **Add text** prints
 custom wording before, after, or instead of the standard text without changing
 what the marker does.
+
+### Fermatas
+
+Select a note or rest and choose **Fermata** in the **Breath & fermata**
+palette, or use `Shift+H`. This creates a shared hold across the score. Select
+the fermata and use **Duration multiplier** in Properties to adjust the hold;
+**Click during hold** chooses **Silent** or **Keep clicking** for the Click
+activity. The default multiplier is 2 and the click is silent.
+
+Use **Local fermata** in the palette for a notation-only mark on the selected
+material. Unlike the shared fermata, it does not create a score-wide playback
+hold.
 
 ### Rests, bars, and meters
 
@@ -310,6 +323,29 @@ level** applies the change only to secondary or deeper beams, for example to
 split sixteenths into groups of four beneath a continuous eighth beam. A
 single note at a secondary level can carry a full beam, an automatic one, or a
 forward or backward beamlet.
+
+Consecutive notes on the same staff and voice can be joined across barlines.
+If a system break falls inside the beam, it continues as a separate fragment
+on the next system.
+
+### Harp pedals
+
+Select a note, rest, or bar on a harp and choose **Edit → Set harp pedals**
+or the same command from the right-click menu. Adjust the seven pedals with
+the arrows, then choose **Apply**. The setting is shared by the harp's staves.
+Select an existing setting and reopen the editor to change or remove it.
+
+Choose **Auto** to calculate settings for the whole harp part. One valid
+solution is applied directly; when alternatives are available, compare and
+choose one. **No respelling** is preferred when available. Alternatives can
+respell notes without changing their sounding pitches. Manual settings act as
+anchors. Review the result with a harpist: the calculation checks pitch
+feasibility, not every aspect of physical playability.
+
+Notes that disagree with the current pedals appear red in the editor, but
+retain their authored sounding pitch in playback. Harp glissandos can follow
+the pedal settings; select a line and check **Playback type** in Properties.
+MusicXML import and export do not yet preserve harp pedal settings.
 
 ### Instrument changes
 

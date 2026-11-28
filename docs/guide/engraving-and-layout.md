@@ -19,6 +19,15 @@ vertical position, scale, and numeral design.
 Changes are previewed on the live score. Check several systems and any
 single-line percussion staves before settling on a score-wide treatment.
 
+### Bar numbers
+
+Open **Bar Numbers** in House Style. Under **Apply to**, choose the house style
+for all layouts or the current layout for an exception. Start with **Classical**
+or **Film score**, then choose whether numbers appear at system starts, every
+bar, or not at all. You can also adjust placement, alignment, enclosure, font,
+and reserved space. For an individual bar's numbering, use the measure number
+override in Write.
+
 ### Chord symbols
 
 Choose a chord-symbol preset for conventional notation, jazz symbols, plain
@@ -71,6 +80,20 @@ setup includes:
 Each score and instrumental part can carry its own page setup. A full score can
 therefore use larger paper and a smaller staff while part extracts use a
 page-turn-friendly format.
+
+### Hide empty staves
+
+In **Layouts**, use **Auto-hide empty staves** to select instruments whose
+rest-only systems should be hidden in the current score or part. Music or
+markings on any staff keep the whole instrument visible, and at least one
+instrument remains visible. Shared staves hide only when all their instruments
+are selected and empty.
+
+Choose **Show all staves on the first system** to keep the opening complete.
+Click a hidden staff's rail to keep it visible on that system. Where available,
+**Apply to all score views** or **Apply to all part views** copies the policy
+to the other views of that kind. Automatic hiding applies in page views; manual
+staff hiding takes precedence.
 
 ## Systems and page flow
 

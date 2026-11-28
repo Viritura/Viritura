@@ -30,8 +30,8 @@ Some markings also change the performance:
 - Tempo ramps (rit., accel., and similar) change speed gradually along their
   chosen curve, and swing instructions apply to the chosen subdivision. See
   [Notation & Editing](/docs/notation-and-editing#staff-and-system-text).
-- Glissandos and portamentos play chromatically, diatonically, or as a pitch
-  bend, as set in Properties.
+- Glissandos and portamentos play chromatically, diatonically, as a pitch
+  bend, or using harp pedals, as set in Properties.
 - D.C., D.S., Coda, and Fine markings are followed.
 - _pizz._ and _arco_ switch string instruments between plucked and bowed
   sounds.
@@ -120,3 +120,4 @@ editing is not currently wired from the piano roll. Make changes in **Write**.
 For score navigation and playback following, see
 [Viewing & Review](/docs/viewing-and-review). For percussion sound assignments,
 see [Scores, Parts, & Layouts](/docs/instruments-and-scores#percussion-maps).
+For a click-only practice or recording session, see [Click Sessions](/docs/click).

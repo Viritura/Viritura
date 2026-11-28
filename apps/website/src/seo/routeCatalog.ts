@@ -124,6 +124,13 @@ const publicRoutes: readonly SeoRoute[] = [
     indexable: true,
   },
   {
+    path: "/docs/click",
+    title: "Click Sessions | Viritura Documentation",
+    description: "Practice and record with score-following click tracks, countoffs, and shared setlists in Viritura.",
+    canonicalPath: "/docs/click",
+    indexable: true,
+  },
+  {
     path: "/docs/scoring-to-picture",
     title: "Scoring to Picture | Viritura Documentation",
     description: "Synchronize a Viritura document with video, timecode, markers, and picture-in-picture workflows.",
